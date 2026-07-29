@@ -765,6 +765,35 @@ which is the data-loss bug `fe779f32` fixed.
 
 ---
 
+## 30. A link in a task description loses its address in document exports — open, needs a decision
+
+Found by the adversarial sweep of 0.210.0, after that release routed `Task.description` through the
+export projection. Recorded rather than fixed, because the fix touches four renderers.
+
+`sanitizeNoteHtml` allows `<a href>`, so a description can genuinely store a link. The export
+projection ends in `htmlToText`, which is `DOMPurify.sanitize(html, {ALLOWED_TAGS: [], ALLOWED_ATTR: []})`
+— that keeps the anchor's TEXT and drops its `href`.
+
+So `<p>Spec: <a href="https://intra/spec">the spec</a></p>` exports to `Spec: the spec` in PDF, DOCX,
+XLSX and PPTX, and the address is unrecoverable from the file.
+
+★ Scope is TASKS ONLY as a regression: RAID / change / milestone descriptions already went through
+`descriptionText` before 0.210.0 and already lost their hrefs. But before 0.210.0 the Tasks section
+emitted the raw markup, so for that one field family the export became more readable and strictly
+LESS informative — in a release headlined "formatted descriptions survive the trip out of the app".
+CSV/MD are unaffected (they carry the stored markup verbatim, addresses included).
+
+Two options, and the cheap one is not obviously right:
+- Render a link as `text (url)` in the EXPORT projection only. Keeps every address, but re-opens a
+  byte question in all four renderers and in the golden-adjacent export tests, and makes a
+  link-dense description noisy to read.
+- Accept the loss and say so in the UI or the export itself.
+
+★ Do NOT "fix" this by widening `htmlToText`'s allow-list — it is the shared plain-text projection
+that search, the AI digests and the inline-AI preview also use, and none of them wants markup.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).

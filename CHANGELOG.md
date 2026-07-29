@@ -10,19 +10,28 @@ longer carries its own changelog comment.
 
 ## [0.210.0] - 2026-07-29 "Larbalestier"
 
-Formatted descriptions now survive the trip out of the app: exports keep their
-paragraph breaks, and a task description exports as text rather than raw markup.
-Two of the fixes below are data-integrity ones you may have been hit by without
-noticing.
+Formatted descriptions now survive the trip out of the app: document exports keep
+their paragraph breaks, and a task description exports as text rather than raw
+markup. Two of the fixes below are data-integrity ones you may have been hit by
+without noticing.
 
-- **Exports keep paragraph breaks.** A three-paragraph description used to arrive
-  as one run-on line in every export format. It now lays out as real paragraphs:
+★ Scope: this is about the four DOCUMENT formats — PDF, Word, Excel and
+PowerPoint. The CSV and Markdown exports are the app's own storage format and
+deliberately still carry a description exactly as stored, markup included, so
+that exporting and re-importing a project round-trips without loss.
+
+- **Document exports keep paragraph breaks.** A three-paragraph description used to arrive
+  as one run-on line in every document export format. It now lays out as real paragraphs:
   line breaks in PDF and HTML, Word line breaks in DOCX, separate paragraphs in
   PPTX, and wrapped multi-line cells in XLSX (which already handled it, and is now
   pinned so it stays that way).
 - **Task descriptions export as text, not markup.** The Tasks section of a PDF,
   DOCX, XLSX or PPTX export still emitted the raw `<p>` tags of a formatted task
   description, where every other register already exported readable text.
+  ★ One trade-off comes with it: a link inside a task description now exports as
+  its visible text without the address behind it, the same as descriptions in the
+  other registers have always exported. Previously the raw markup carried the
+  address; now nothing in the export does.
 - **Fixed: an inline AI edit flattened a description's formatting.** Confirming an
   "Ask Claude" edit wrote the plain-text *preview* over the field instead of the
   value the assistant proposed, silently discarding bold, lists and links from

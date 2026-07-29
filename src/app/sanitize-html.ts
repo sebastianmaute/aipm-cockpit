@@ -60,9 +60,18 @@ export function plainToHtml(text: string): string {
  *  ALLOWED_TAGS:[] deletes tags leaving nothing in their place, so the boundary
  *  has to already be in the string), and the default collapse then flattened
  *  every one of them back to a space. Break mode collapses a run CONTAINING a
- *  newline to one "\n" and a purely horizontal run to one " ", mirroring
- *  htmlPlainProjection's break mode exactly — the two run back to back and must
- *  agree on what a boundary costs. */
+ *  newline to one "\n" and a purely horizontal run to one " ", the same shape
+ *  htmlPlainProjection's break mode uses.
+ *
+ *  ★★ The LOAD-BEARING property is only that this must not DESTROY a newline —
+ *  htmlPlainProjection runs immediately after and re-normalises whatever it
+ *  gets, so the two are not required to agree character-for-character, and an
+ *  earlier version of this comment claimed they mirrored each other "exactly",
+ *  an invariant stronger than the code needs and stronger than any test holds.
+ *  The duplication is deliberate: importing rich-text-plain's regexes here would
+ *  point the DOM-free module's consumer at the DOM-dependent one. If you tighten
+ *  this collapse, the projection still fixes up the result — but do not RELAX it
+ *  into anything that can eat a "\n". */
 export function htmlToText(html: string, opts?: { preserveBreaks?: boolean }): string {
   const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
   if (opts?.preserveBreaks !== true) return stripped.replace(/\s+/g, " ").trim();
