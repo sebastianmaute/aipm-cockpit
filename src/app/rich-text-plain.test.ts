@@ -123,6 +123,36 @@ describe("capHtmlText", () => {
     expect(out).toBe("<p>abcd</p>");
     expect(out).not.toContain("<strong");
   });
+
+  // ★★ `slice` counts UTF-16 code units, so a cap landing inside an astral
+  // character kept its lone HIGH SURROGATE — not a character, and UTF-8 encoding
+  // replaces it with U+FFFD permanently. JSON.stringify escapes it as "\ud83d"
+  // and survives, so JSON/IndexedDB did not corrupt while CSV/Markdown did: a
+  // backend-dependent silent corruption. The emoji must be dropped WHOLE.
+  it("drops a character straddling the cap whole, never half of it", () => {
+    const out = capHtmlText("<p>ab\u{1F600}cd</p>", 3);
+    expect(out).toBe("<p>ab</p>");
+    // The property, independent of the exact cut: no unpaired surrogate...
+    expect(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(out)).toBe(
+      false,
+    );
+    // ...and therefore a UTF-8 round-trip is lossless (no U+FFFD substitution).
+    expect(Buffer.from(out, "utf8").toString("utf8")).toBe(out);
+  });
+
+  // ★ The emoji survives INTACT when the cap has room for both its code units —
+  // proves the fix backs off by ONE unit only, rather than always shedding a
+  // trailing character.
+  it("keeps a character that fits entirely inside the cap", () => {
+    expect(capHtmlText("<p>ab\u{1F600}cd</p>", 4)).toBe("<p>ab\u{1F600}</p>");
+  });
+
+  // ★ max <= 0 is unreachable from the app (every caller passes TEXTAREA_MAX),
+  // but charCodeAt(-1) is NaN and NaN fails every comparison — asserted rather
+  // than assumed, since the fix reads text[max - 1].
+  it("survives a zero cap", () => {
+    expect(capHtmlText("<p>abc</p>", 0)).toBe("");
+  });
 });
 
 describe("sanitizeRichText", () => {

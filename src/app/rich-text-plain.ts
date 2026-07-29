@@ -118,7 +118,21 @@ export function capHtmlText(html: string, max: number): string {
   if (!html) return "";
   const text = htmlPlainProjection(html);
   if (text.length <= max) return html;
-  return plainToHtml(text.slice(0, max));
+  // ★★ `slice` counts UTF-16 CODE UNITS, so a cap landing inside an astral
+  // character (emoji, rarer CJK, most symbols above the BMP) kept its LONE HIGH
+  // SURROGATE. That is not a character: encoding it to UTF-8 replaces it with
+  // U+FFFD, permanently. JSON.stringify escapes it as "\ud83d" and survives, so
+  // the JSON and IndexedDB backends did NOT corrupt while CSV and Markdown DID —
+  // a backend-dependent silent corruption, harder to diagnose than a uniform
+  // one. Back the cut off by one so the character is dropped WHOLE.
+  //
+  // ★ max <= 0 is unreachable from the app (every caller passes the constant
+  // TEXTAREA_MAX) but safe anyway, and covered by a test rather than assumed:
+  // charCodeAt(-1) is NaN, every comparison with NaN is false, so cut stays 0
+  // and plainToHtml("") returns "".
+  const last = text.charCodeAt(max - 1);
+  const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
+  return plainToHtml(text.slice(0, cut));
 }
 
 /** The single entry point for the entity sanitizers: guard the type, strip
