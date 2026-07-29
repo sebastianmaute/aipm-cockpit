@@ -32,7 +32,7 @@ import { plainToHtml } from "./sanitize-html";
  *  narrative containing a stray `<` ("5 < 10 items", "<3 open") still escapes:
  *  the `<` is not leading, or what follows it is not a tag name. `\b` also keeps
  *  `<abbr>`/`<embed>`/`<pre>` out — they are not `a`/`em`/`p`. */
-const HTML_START = /^\s*<(p|br|strong|em|ul|ol|li|a)\b/i;
+export const HTML_START = /^\s*<(p|br|strong|em|ul|ol|li|a)\b/i;
 
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped. */
 export function narrativeToHtml(stored: string | undefined): string {
