@@ -200,17 +200,27 @@ function ChangePanelBody({
     return map;
   }, [changes]);
 
+  // ★★ QUERY-INDEPENDENT SEARCH TEXT, built once per data change — NOT per
+  // keystroke. `description` is rich HTML now, and descriptionText runs a full
+  // DOMPurify parse-and-walk, so computing it inside the filter body cost a
+  // sanitizer pass per surviving row on every character typed (it was a raw
+  // string read before slice B). Same rule global-search.ts follows: build the
+  // haystack memoized on the DATA, then filter it by the query. Lower-cased here
+  // so the compare stays a bare `includes`.
+  const searchHaystack = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const c of changes) {
+      map.set(c.id, [c.title, descriptionText(c.description), c.requestedBy ?? ""].join(" ").toLowerCase());
+    }
+    return map;
+  }, [changes]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = changes.filter((c) => {
       if (typeFilter !== "All" && c.type !== typeFilter) return false;
       if (statusFilter !== "All" && c.status !== statusFilter) return false;
-      if (q) {
-        const hay = [c.title, descriptionText(c.description), c.requestedBy ?? ""]
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
+      if (q && !(searchHaystack.get(c.id) ?? "").includes(q)) return false;
       return true;
     });
 
@@ -219,7 +229,7 @@ function ChangePanelBody({
       : filtered
           .slice()
           .sort((a, b) => compareChange(a, b, "raisedDate", "desc") || a.id - b.id);
-  }, [changes, typeFilter, statusFilter, search, sort]);
+  }, [changes, typeFilter, statusFilter, search, sort, searchHaystack]);
 
   const visibleIds = useMemo(() => visible.map((c) => c.id), [visible]);
 

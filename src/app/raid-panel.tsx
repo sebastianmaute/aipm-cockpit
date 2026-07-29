@@ -195,6 +195,35 @@ function RaidPanelBody({
   // edit modal.
   const causesIndex = useMemo(() => buildRaidCausesIndex(raid), [raid]);
 
+  // ★★ QUERY-INDEPENDENT SEARCH TEXT, built once per data change — NOT per
+  // keystroke. `description` and `mitigation` are rich HTML now, and
+  // descriptionText runs a full DOMPurify parse-and-walk, so computing them
+  // inside the filter body cost TWO sanitizer passes per surviving row on every
+  // character typed (they were raw string reads before slice B). Same rule
+  // global-search.ts follows: build the haystack memoized on the DATA, then
+  // filter it by the query. Lower-cased here so the compare stays a bare
+  // `includes`.
+  const searchHaystack = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const r of raid) {
+      map.set(
+        r.id,
+        [
+          r.title,
+          descriptionText(r.description),
+          descriptionText(r.mitigation),
+          // Resolve the linked owner's live name so search matches the current
+          // name, not the stale cached `owner` string.
+          effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById),
+          r.ownerEmail ?? "",
+        ]
+          .join(" ")
+          .toLowerCase(),
+      );
+    }
+    return map;
+  }, [raid, resourcesById]);
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = raid.filter((r) => {
@@ -213,20 +242,7 @@ function RaidPanelBody({
         effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById) !== ownerFilter
       )
         return false;
-      if (q) {
-        const hay = [
-          r.title,
-          descriptionText(r.description),
-          descriptionText(r.mitigation),
-          // Resolve the linked owner's live name so search matches the current
-          // name, not the stale cached `owner` string.
-          effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById),
-          r.ownerEmail ?? "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
+      if (q && !(searchHaystack.get(r.id) ?? "").includes(q)) return false;
       return true;
     });
 
@@ -245,7 +261,7 @@ function RaidPanelBody({
           return a.id - b.id;
         });
     return ordered;
-  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, ownerFilter, search, sort, resourcesById]);
+  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, ownerFilter, search, sort, resourcesById, searchHaystack]);
 
   const visibleIds = useMemo(() => visible.map((r) => r.id), [visible]);
 
