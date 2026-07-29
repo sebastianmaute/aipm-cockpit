@@ -25,7 +25,13 @@ vertically.
 - **Edit modals resize vertically.** The shared edit modals, the budget bucket
   modal, the shift modal and the committee status-report modal now open at a
   sensible height and grow their content when you drag the corner, instead of
-  leaving empty space.
+  leaving empty space. The four narrower editors — absence, milestone, resource
+  and meeting — open sized to their own content rather than to the shared
+  default.
+- **Contrast fix in the Meridian dark theme.** The selected option in a
+  segmented control (Table/Board, density, and similar) drew its label below the
+  AA contrast minimum. Found by the accessibility gate, which now scans Meridian
+  and Umber in place of the removed AIPM and Dashboard themes.
 
 ## [0.207.0] - 2026-07-28 "Goss"
 
