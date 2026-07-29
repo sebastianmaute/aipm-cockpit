@@ -409,6 +409,23 @@ describe("RaidEditModal plain-field cap on Enter-submit", () => {
     expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
   });
 
+  it("trims on Enter, and collapses a whitespace-only owner to undefined", async () => {
+    // ★★ The cap fix ALSO changed the write path in a way no cap test can see:
+    // the saved object went from `...draft` (verbatim) to `.trim()` and
+    // `|| undefined`, so "  ok  " now saves as "ok" and a blank owner saves as
+    // undefined rather than "". That is the same normalisation the onBlur
+    // handlers already applied — which is exactly why it must be pinned HERE:
+    // every cap fixture is already trimmed and non-empty, so deleting either
+    // .trim() or the `|| undefined` leaves all of them green.
+    const { onSave } = renderWithSpies({ title: "  ok  ", owner: "   " });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.owner).toBeUndefined();
+  });
+
   it("announces nothing on Enter when every plain field fits", async () => {
     // The other half of "the count matches reality" for this path: a capping
     // handleSubmit that always tracked an adjustment would pass the two tests

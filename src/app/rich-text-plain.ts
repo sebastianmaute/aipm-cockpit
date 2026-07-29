@@ -108,6 +108,10 @@ function decodeNumericEntities(s: string): string {
     // path plainToHtml (which escapes only & < >) writes it back into the
     // stored value on all six backends. \t \n \r \x0b \x0c are deliberately
     // absent for the same reason they are absent from CONTROL_CHARS.
+    // ★ This range MIRRORS CONTROL_CHARS exactly — it is not "every control
+    // character". DEL (0x7f) is outside both, so `&#127;` decodes, exactly as a
+    // pasted DEL survives the raw strip. Keep the two in lockstep: widening one
+    // without the other makes a reference and a literal behave differently.
     if (cp <= 0x08 || (cp >= 0x0e && cp <= 0x1f)) return whole;
     // ★ Lone surrogates are refused because emitting one reproduces exactly the
     // backend-dependent corruption capHtmlText's own comment documents below: a

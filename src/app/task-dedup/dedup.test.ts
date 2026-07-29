@@ -173,6 +173,26 @@ describe("buildDedupContext", () => {
     const ctx = buildDedupContext([task({ id: 5, taskName: "x", assignee: "", dueDate: "" })]);
     expect(ctx).toContain("#5 [To Do] unassigned due:- — x");
   });
+
+  test("does not FUSE the words either side of a block boundary", () => {
+    // ★★ The BEHAVIOURAL pin for the five-consumer fix. htmlToText strips tags
+    // leaving nothing in their place, so it read "delayMitigation"; only
+    // descriptionText separates the boundary first. A source-scan for
+    // `htmlToText(....description` guards the literal revert but not a
+    // destructured or aliased one — this pins the property instead of the
+    // spelling.
+    //
+    // ★ The sibling fixture above ("line1\nline2") CANNOT distinguish the two:
+    // it is a legacy plain value, so descriptionHtml turns the newline into a
+    // <br> that both projections handle identically. A block boundary is
+    // required to tell fix from bug.
+    const ctx = buildDedupContext([
+      task({ id: 9, taskName: "t", description: "<p>Vendor delay</p><p>Mitigation plan</p>" }),
+    ]);
+    expect(ctx).toContain("Vendor delay Mitigation plan");
+    expect(ctx).not.toContain("delayMitigation");
+    expect(ctx).not.toContain("<p>");
+  });
 });
 
 describe("tool + prompt", () => {

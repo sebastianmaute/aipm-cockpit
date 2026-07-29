@@ -168,6 +168,26 @@ describe("numeric entity references", () => {
     expect(htmlPlainProjection("<p>&#xd83d;&#xde00;</p>")).toBe("&#xd83d;&#xde00;");
   });
 
+  it("treats a whitespace-only reference as visually empty — a DROP, pinned as intended", () => {
+    // ★★ A one-way consequence of decoding, recorded deliberately rather than
+    // left to be rediscovered as a bug report. "<p>&#32;</p>" used to project to
+    // 5 characters and now projects to 0: the decoded space collapses and trims
+    // away, htmlTextLength reads 0, sanitizeRichText returns "", and the entity
+    // sanitizers' `if (description)` gate DROPS the field on the next load.
+    //
+    // That is the module's existing rule — visually empty means empty, the same
+    // rule that makes "<p><br></p>" from an emptied editor stop occupying a
+    // field — and every one of these renders blank. It is pinned because it is a
+    // deletion of stored data triggered by a code change, not a user action.
+    for (const only of ["&#32;", "&#9;", "&#10;", "&#13;", "&#11;&#12;", "&#8232;"]) {
+      expect(htmlTextLength(`<p>${only}</p>`)).toBe(0);
+    }
+    // ★ Not a blanket "references vanish": a reference with real text beside it
+    // keeps both, and a NON-whitespace reference counts as its one character.
+    expect(htmlPlainProjection("<p>a&#32;b</p>")).toBe("a b");
+    expect(htmlTextLength("<p>&#8212;</p>")).toBe(1);
+  });
+
   it("refuses an uppercase-X unsafe reference, not just the lowercase form", () => {
     // The X branch was otherwise covered only by an ACCEPTING case.
     expect(htmlPlainProjection("<p>&#X26;lt;</p>")).toBe("&#X26;lt;");
@@ -329,6 +349,21 @@ describe("DOM-free guard", () => {
     // on a file whose code was never examined.
     expect(code).not.toMatch(/NOTHING HERE MAY CALL/);
     expect(code).toMatch(/export function descriptionHtml/);
+  });
+
+  it("never reaches a DOM-dependent sanitiser from code", () => {
+    // ★★★ This ban is NOT redundant with the import pin below, and removing it
+    // in favour of that pin (as 0.210.0 briefly did) OPENED the likelier hole:
+    // `./sanitize-html` is an ALLOWED specifier — plainToHtml legitimately comes
+    // from it — and that same module exports htmlToText, sanitizeNoteHtml and
+    // sanitizeTemplateHtml, all of which CALL DOMPurify. So a call added here
+    // passes the specifier pin untouched. The two guards answer different
+    // questions: this one is "does the CODE call a DOM sanitiser", the pin is
+    // "can a NEW module be reached at all". Keep both.
+    expect(code).not.toMatch(/dompurify/i);
+    expect(code).not.toMatch(/htmlToText/);
+    expect(code).not.toMatch(/sanitizeNoteHtml/);
+    expect(code).not.toMatch(/sanitizeTemplateHtml/);
   });
 
   it("imports exactly the two modules it is allowed to import", () => {

@@ -452,7 +452,26 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
   `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
   • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
-  upgrade) for every NON-DOM consumer, and `appendDictationToHtml`.
+  upgrade) for every NON-DOM consumer, `descriptionTextWithBreaks` (the EXPORT projection), and
+  `appendDictationToHtml`.
+  ★★ **TWO projections, and exports use the SECOND one.** `descriptionText` COLLAPSES a block
+  boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an export
+  a human reads, where a three-paragraph description arrived as one run-on line.
+  `descriptionTextWithBreaks` keeps the boundary as `"\n"`, and `export-sections.ts`'s `richCell`
+  routes EVERY rich column through it (`TASK_RICH_COLUMNS` · `RAID_` · `MILESTONE_` · `CHANGE_`);
+  each renderer then maps that newline to its own primitive — `<br>` (HTML/PDF, escape FIRST),
+  `<w:br/>` (DOCX, several `<w:t>` in one `<w:r>`), one `<a:p>` per line (PPTX), and XLSX already
+  preserved it via `xml:space="preserve"` + `wrapText`. A new export column joins a `*_RICH_COLUMNS`
+  set; a new RENDERER must map the newline or it silently ships fused text.
+  ★★★ The break mode is OPT-IN at THREE points and all three are required:
+  `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:true})` and
+  `htmlPlainProjection(html, {preserveBreaks:true})`. The middle one is the easy miss —
+  `htmlToText`'s default collapse is `\s+` → `" "`, which flattens the very newline
+  `separateBlockBoundaries` just inserted, silently producing the collapsed form. Every default path
+  is BYTE-IDENTICAL and pinned by hardcoded byte-stability suites, because `htmlPlainProjection`
+  feeds `capHtmlText` → `sanitizeRichText` → all six backends. `separateBlockBoundaries`' `sep` is
+  typed `" " | "\n"`, not `string`: it lands in a `String.replace` REPLACEMENT position where `` $` ``
+  and `$&` are special.
   ★★★ `rich-text-plain.ts` MUST NEVER CALL DOMPurify. It runs inside the entity sanitizers, which
   execute under bare node in `scripts/generate-sample-workspace.ts` and the fixture flow; DOMPurify
   binds `window` at module-eval, so with no DOM `sanitize` is undefined, the call throws, and
@@ -462,7 +481,8 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   ★★ **MIGRATION IS READ-TIME, NOT WRITE-TIME.** Storage is not normalised by the decoders — they
   hand-build entities and never call the entity sanitizer (`buildRaidItemFromObj`,
   `buildMilestoneFromObj`). EVERY reader upgrades instead: `descriptionHtml` at a DOM boundary,
-  `descriptionText` for search / exports / AI digests / the inline-AI preview. A project therefore
+  `descriptionText` for search / AI digests / the inline-AI preview (exports use
+  `descriptionTextWithBreaks` — see above). A project therefore
   holds BOTH shapes at once, and that is fine — but a new consumer that reads one of the six fields
   raw ships escaped markup or fused text. Grep the six names before adding a reader.
   ★★ The projection is REGEX, and both of its obvious spellings are wrong: `<[^>]*>` deletes a tag

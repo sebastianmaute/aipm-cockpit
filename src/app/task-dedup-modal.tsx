@@ -11,6 +11,7 @@ import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { type GroundedMergeGroup } from "./task-dedup/dedup";
+import { descriptionText } from "./rich-text-projection";
 
 interface TaskDedupModalProps {
   lang: Lang;
@@ -81,7 +82,14 @@ export function TaskDedupModal({
                     )}
                     {g.unified.description && (
                       <span className="mt-1 block whitespace-pre-wrap text-xs text-foreground">
-                        {t(lang, "taskDedupUnifiedNotes")}: {g.unified.description}
+                        {/* ★★ PROJECT it. dedup.ts sets unified.description to
+                            sanitizeNoteHtml(...) — HTML — so rendering it raw
+                            showed the user literal "<p>...</p>" markup in the
+                            preview they confirm a DESTRUCTIVE fold from. This is
+                            the sixth member of the Task.description consumer
+                            family; the other five moved onto a projection in
+                            0.210.0 and this one reads the same field. */}
+                        {t(lang, "taskDedupUnifiedNotes")}: {descriptionText(g.unified.description)}
                       </span>
                     )}
                   </span>

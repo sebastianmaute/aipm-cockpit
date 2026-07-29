@@ -512,6 +512,26 @@ describe("ChangeEditModal plain-field cap on Enter-submit", () => {
     expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
   });
 
+  it("trims on Enter, and collapses whitespace-only optionals to undefined", async () => {
+    // ★★ The cap fix also moved this write path from `...draft` (verbatim) to
+    // `.trim()` + `|| undefined`, matching the onBlur handlers. Every cap
+    // fixture is already trimmed and non-empty, so deleting either leaves them
+    // all green — this is the only test that names the normalisation.
+    // ★ `description` is REQUIRED on ChangeItem and correctly stays "" rather
+    // than collapsing, which is why it is asserted separately here.
+    const { onSave } = renderWithSpies({ title: "  ok  ", requestedBy: "   ", decisionBy: "  " });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    // ★ "ok", not "  ok  ": getByDisplayValue normalizes the ELEMENT's value
+    // before matching but not the string you pass, so the padded form misses.
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.requestedBy).toBeUndefined();
+    expect(saved.decisionBy).toBeUndefined();
+    expect(saved.description).toBe("");
+  });
+
   it("announces nothing on Enter when every plain field fits", async () => {
     // The other half of "the count matches reality" for this path: a capping
     // handleSubmit that always tracked an adjustment would pass the three tests

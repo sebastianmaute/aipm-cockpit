@@ -595,14 +595,25 @@ describe("HTML export cells", () => {
   it("escapes BEFORE substituting, so user markup cannot inject a break", () => {
     // ★★ Order is the whole point. Substitute-then-escape turns our own <br>
     // into a visible "&lt;br&gt;"; escape-then-substitute leaves a user's
-    // literal "<br>" escaped, which is what escaping is for. taskName is a
-    // PLAIN column, so its value reaches the cell unprojected — the cleanest
-    // way to put a literal "<br>" in front of the renderer.
+    // literal "<br>" escaped, which is what escaping is for.
+    //
+    // ★★★ THE FIXTURE MUST CARRY BOTH, and an earlier version did not: with a
+    // value that has no newline, BOTH orderings emit "a&lt;br&gt;b" and the
+    // test passes either way — it named the ordering while proving only the
+    // escaping. This description projects to a literal "<br>" (the user's, from
+    // an escaped entity) AND a real block boundary (ours), so only
+    // escape-then-substitute yields the user's escaped and ours live.
     const base = makeBaseWorkspace();
-    const ws: Workspace = { ...base, tasks: [{ ...makeTask(1), taskName: "a<br>b" }] };
+    const ws: Workspace = {
+      ...base,
+      tasks: [{ ...makeTask(1), description: "<p>a&lt;br&gt;b</p><p>c</p>" }],
+    };
     const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
-    expect(html).toContain("a&lt;br&gt;b");
+    expect(html).toContain("a&lt;br&gt;b<br>c");
+    // Substitute-first would produce this instead — the user's markup live and
+    // our own boundary escaped away.
     expect(html).not.toContain("a<br>b");
+    expect(html).not.toContain("b&lt;br&gt;c");
   });
 });
 

@@ -28,11 +28,19 @@ noticing.
   value the assistant proposed, silently discarding bold, lists and links from
   task, RAID, change and milestone descriptions. The preview still shows readable
   text; the value saved keeps its formatting.
+- **Fixed: an inline AI edit could not change a task description at all.** The
+  editor's field list still named the description by its pre-0.196.0 name, so an
+  "Ask Claude" edit that changed a task description produced no proposed change
+  and applied nothing — silently, with no error.
 - **Fixed: five places read a description with its paragraphs fused.** The tasks
-  pane preview, the Gantt search index, the task-row preview, the AI duplicate
+  pane search, the Gantt search index, the task-row preview, the AI duplicate
   finder and the Jira push all joined the text either side of a paragraph break
   with no space — so the tasks pane matched "delayMitigation" where global search
   matched "delay Mitigation", and the fused form was what got pushed to Jira.
+- **Fixed: the AI merge preview showed markup instead of text.** The
+  "Deduplicate & unify tasks" confirmation listed the unified description with its
+  raw formatting tags visible — in the one screen you read before approving a
+  merge that deletes tasks.
 - **Fixed: pressing Enter saved a longer value than the app said it did.** In the
   RAID and change editors, submitting with Enter from a text field skipped the
   length cap that clicking Save applied, so an over-long title or owner was saved
@@ -43,7 +51,11 @@ noticing.
 - **Special characters written as numeric codes now count as one character.** A
   description carrying a numeric character reference (what an Office paste
   produces for an em dash) was charged the length of the code rather than of the
-  character, and a value near the limit could be cut mid-code.
+  character, and a value near the limit could be cut mid-code. Because the count
+  changed, a stored description holding such a code may be written back in a
+  slightly different form the next time the project is saved — the character
+  itself rather than its code — and one that was only over the limit because of
+  the old count now keeps its formatting instead of losing it.
 
 ## [0.209.0] - 2026-07-29 "Lafferty"
 
