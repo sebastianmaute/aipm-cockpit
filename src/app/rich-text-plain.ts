@@ -19,10 +19,27 @@
 import { plainToHtml } from "./sanitize-html";
 import { HTML_START } from "./narrative-html";
 
-/** Control characters that must never reach storage. \n (0x0a) and \r (0x0d)
- *  are DELIBERATELY absent: plainToHtml turns them into <br>. Written as \x
- *  escapes — a literal control byte corrupts the file to binary. */
-const CONTROL_CHARS = /[\x00-\x09\x0b\x0c\x0e-\x1f]/g;
+/** Whitespace control characters — TAB (0x09), vertical tab and form feed —
+ *  collapse to a SINGLE SPACE instead of being deleted.
+ *
+ *  ★★ Deleting a tab FUSED the words either side of it: a pasted
+ *  "Vendor delay\tMitigation plan" stored as "Vendor delayMitigation plan".
+ *  That is the same word-boundary loss BLOCK_TAG below exists to prevent,
+ *  reappearing at the WRITE boundary — and it made the two disagree, because
+ *  htmlPlainProjection projects a tab to a space (WS_RUN), so the editor's
+ *  counter measured a length the stored value no longer had. The modal write
+ *  path applies capHtmlText/descriptionHtml but NOT this strip, so a pasted tab
+ *  rendered and saved fine and only fused on the next load — permanently.
+ *  Mirrors note-log.ts's NEWLINE_TAB.
+ *
+ *  ★ \n (0x0a) and \r (0x0d) stay OUT of the collapse here, UNLIKE note-log
+ *  (whose cell is single-line): plainToHtml turns them into <br>, which is a
+ *  real boundary already. */
+const WS_CONTROL = /[\t\x0b\x0c]+/g;
+/** The remaining control characters carry no text, so they are DELETED. \n and
+ *  \r are DELIBERATELY absent for the reason above. Written as \x escapes — a
+ *  literal control byte corrupts the file to binary. */
+const CONTROL_CHARS = /[\x00-\x08\x0e-\x1f]/g;
 
 /** Block-level and line-break tags, which are WORD BOUNDARIES: they project to a
  *  space, not to nothing. Deleting them outright fused the text either side —
@@ -121,7 +138,8 @@ export function capHtmlText(html: string, max: number): string {
  *  only content sits inside markup ("<p><strong>x</strong></p>") is NOT empty
  *  and must survive. */
 export function sanitizeRichText(raw: unknown, max: number): string {
-  const s = typeof raw === "string" ? raw.replace(CONTROL_CHARS, "") : "";
+  const s =
+    typeof raw === "string" ? raw.replace(WS_CONTROL, " ").replace(CONTROL_CHARS, "") : "";
   const html = capHtmlText(descriptionHtml(s), max);
   return htmlTextLength(html) === 0 ? "" : html;
 }

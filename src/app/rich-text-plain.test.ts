@@ -136,6 +136,25 @@ describe("sanitizeRichText", () => {
     expect(sanitizeRichText("a\x07b\nc", 5000)).toBe("<p>ab<br>c</p>");
   });
 
+  // ★★ A TAB is a word separator, not a stray byte: deleting it fused the words
+  // either side ("Vendor delayMitigation plan"), the same boundary loss the
+  // BLOCK_TAG rule exists to prevent — here at the WRITE boundary, where it is
+  // permanent. It also made the sanitizer disagree with the projection, which
+  // renders a tab as a space, so the editor's counter measured a length the
+  // stored value no longer had.
+  it("keeps a tab as the word boundary it is", () => {
+    const out = sanitizeRichText("Vendor delay\tMitigation plan", 5000);
+    expect(out).toBe("<p>Vendor delay Mitigation plan</p>");
+    // The counter measured the pre-sanitize value; the stored value must agree.
+    expect(htmlTextLength(out)).toBe(htmlTextLength("<p>Vendor delay\tMitigation plan</p>"));
+  });
+
+  // ★ A run collapses to ONE space, matching WS_RUN in the projection — so the
+  // two still agree when a paste carries several whitespace controls in a row.
+  it("collapses a run of whitespace controls to a single space", () => {
+    expect(sanitizeRichText("a\t\t\v\fb", 5000)).toBe("<p>a b</p>");
+  });
+
   // ★★ A value the user cleared in the editor comes back as "<p></p>", which is
   // TRUTHY — so without this every `if (description)` gate in the entity
   // sanitizers would store a phantom empty paragraph. This is the ONE place the
