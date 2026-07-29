@@ -33,7 +33,7 @@ it("goes thinking -> preview and builds a diff", async () => {
   act(() => result.current.openFor(task));
   await act(async () => { await result.current.submit("mark done"); });
   expect(result.current.phase).toBe("preview");
-  expect(result.current.plan?.updates).toEqual([{ field: "status", before: "To Do", after: "Done" }]);
+  expect(result.current.plan?.updates).toEqual([{ field: "status", before: "To Do", after: "Done", raw: "Done" }]);
 });
 
 it("passes an AbortSignal into callInlineEdit and cancel() aborts the in-flight call", async () => {
@@ -217,7 +217,7 @@ describe("useInlineEntityEdit — raid", () => {
     act(() => result.current.openFor(raidItem));
     await act(async () => { await result.current.submit("rename it"); });
     expect(result.current.phase).toBe("preview");
-    expect(result.current.plan?.updates).toEqual([{ field: "title", before: "Old", after: "New" }]);
+    expect(result.current.plan?.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", { id: 7, title: "New" });
     expect(deps.logActivity).toHaveBeenCalledWith("ai.inlineEdit", 7, "Old");

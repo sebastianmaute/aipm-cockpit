@@ -11,7 +11,18 @@ import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor,
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
-export interface FieldDiff { field: string; before: string; after: string }
+/** `after` is PROJECTED for display; `raw` is the verbatim value that was
+ *  accepted, present only on an explicit model-supplied diff.
+ *
+ *  ★★ The two must not be conflated. A rich field's preview is plain text while
+ *  the value the confirm path replays is HTML — projecting the applied value
+ *  would write plain text over the user's formatting. `raw` exists so that
+ *  invariant is observable; without it, it rested on a comment and a mutation
+ *  test proved nothing in the suite caught its removal.
+ *
+ *  ★ A sanitizer-INDUCED enum reset carries no `raw`: its `after` is a default
+ *  enum value that was never projected in the first place. */
+export interface FieldDiff { field: string; before: string; after: string; raw?: string }
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
@@ -120,7 +131,7 @@ export function describeEntityCalls(
           if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
         }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
-        plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after) });
+        plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;
       }
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
