@@ -26,6 +26,9 @@ import {
   sanitizeRole,
   sanitizeDiscipline,
   sanitizeGrade,
+  sanitizeMilestone,
+  sanitizeChangeItem,
+  sanitizeRaidItem,
 } from "./sanitize";
 
 describe("sanitizeTaskName", () => {
@@ -531,5 +534,60 @@ describe("localModifiedAt from an empty cell", () => {
       localModifiedAt: "2026-06-01T10:00:00.000Z",
     });
     expect(result!.localModifiedAt).toBe("2026-06-01T10:00:00.000Z");
+  });
+});
+
+describe("rich-text description fields (slice B)", () => {
+  it("upgrades a legacy plain RAID description and mitigation", () => {
+    const item = sanitizeRaidItem({
+      id: 1,
+      title: "Vendor risk",
+      description: "cost < 5k & rising",
+      mitigation: "escalate\nto sponsor",
+    });
+    expect(item?.description).toBe("<p>cost &lt; 5k &amp; rising</p>");
+    expect(item?.mitigation).toBe("<p>escalate<br>to sponsor</p>");
+  });
+
+  it("passes an already-rich RAID description through untouched", () => {
+    const item = sanitizeRaidItem({ id: 1, title: "t", description: "<p>already <strong>rich</strong></p>" });
+    expect(item?.description).toBe("<p>already <strong>rich</strong></p>");
+  });
+
+  it("upgrades the milestone description", () => {
+    const m = sanitizeMilestone({ id: 1, name: "M1", date: "2026-01-01", description: "a & b" });
+    expect(m?.description).toBe("<p>a &amp; b</p>");
+  });
+
+  it("upgrades all three change fields", () => {
+    const c = sanitizeChangeItem({
+      id: 1,
+      title: "CR-1",
+      description: "scope < agreed",
+      impactDescription: "2 weeks",
+      resolutionNotes: "approved",
+    });
+    expect(c?.description).toBe("<p>scope &lt; agreed</p>");
+    expect(c?.impactDescription).toBe("<p>2 weeks</p>");
+    expect(c?.resolutionNotes).toBe("<p>approved</p>");
+  });
+
+  // ★ headline claim first: the cap must measure TEXT, so a heavily marked-up
+  // value that fits is kept whole.
+  it("caps by text length, not markup length", () => {
+    const body = "x".repeat(4990);
+    const rich = `<ul><li><strong>${body}</strong></li></ul>`;
+    const item = sanitizeRaidItem({ id: 1, title: "t", description: rich });
+    expect(item?.description).toBe(rich);
+  });
+
+  it("truncates an over-cap value to well-formed HTML", () => {
+    const item = sanitizeRaidItem({ id: 1, title: "t", description: "y".repeat(5100) });
+    expect(item?.description).toBe(`<p>${"y".repeat(5000)}</p>`);
+  });
+
+  it("omits an empty description rather than storing a blank", () => {
+    const item = sanitizeRaidItem({ id: 1, title: "t", description: "   " });
+    expect(item?.description).toBeUndefined();
   });
 });
