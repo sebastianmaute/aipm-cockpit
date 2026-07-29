@@ -421,6 +421,19 @@ describe("break-preserving mode", () => {
     expect(htmlPlainProjection("<p>a   \t b</p>", { preserveBreaks: true })).toBe("a b");
   });
 
+  it("pins how a decoded newline reference behaves in each mode", () => {
+    // ★ The decoder runs BEFORE the whitespace pass, so break output is not
+    // purely structure-derived: a &#10; the author typed becomes a real break in
+    // break mode and collapses to a space in the default one. Consistent with
+    // how a literal newline is treated in each mode — pinned because it is the
+    // one place the two features interact.
+    expect(htmlPlainProjection("<p>a&#10;b</p>")).toBe("a b");
+    expect(htmlPlainProjection("<p>a&#10;b</p>", { preserveBreaks: true })).toBe("a\nb");
+    // \t and \r stay horizontal in BOTH modes.
+    expect(htmlPlainProjection("<p>a&#9;b</p>", { preserveBreaks: true })).toBe("a b");
+    expect(htmlPlainProjection("<p>a&#13;b</p>", { preserveBreaks: true })).toBe("a b");
+  });
+
   it("trims leading and trailing breaks", () => {
     expect(htmlPlainProjection("<p>a</p>", { preserveBreaks: true })).toBe("a");
   });
@@ -441,6 +454,14 @@ describe("break-preserving mode", () => {
       ["<p>a<br>b</p>", "a b"],
       ["<ul><li>a</li><li>b</li></ul>", "a b"],
       ["<p>a   \t b</p>", "a b"],
+      // ★★ A LITERAL newline in the html is what pins the DEFAULT branch's
+      // whitespace pass. Without these two rows, swapping WS_RUN for the
+      // break-mode pair passes every other assertion in this file — the arm the
+      // suite exists to guard was unguarded (mutant-verified). Stored HTML
+      // routinely carries newlines between block tags, and descriptionText
+      // pipes htmlToText output — which preserves them — straight in here.
+      ["<p>a\nb</p>", "a b"],
+      ["<p>a\r\n\r\nb</p>", "a b"],
       ["<p>x&nbsp;y</p>", "x y"],
       ["<p>x&#160;y</p>", "x y"],
       ["<p>cost &lt; 5k</p>", "cost < 5k"],

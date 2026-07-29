@@ -129,8 +129,14 @@ function decodeNumericEntities(s: string): string {
  *
  *  ★ The separator defaults to a space, which is the storage-critical path
  *  (htmlPlainProjection -> capHtmlText -> sanitizeRichText -> every backend).
- *  descriptionTextWithBreaks passes "\n"; nothing else may. */
-export function separateBlockBoundaries(html: string, sep = " "): string {
+ *  descriptionTextWithBreaks passes "\n"; nothing else may.
+ *
+ *  ★★ `sep` is TYPED to those two literals, not to `string`, because it lands in
+ *  a String.replace REPLACEMENT position where `$&`, `` $` ``, `$'` and `$$` are
+ *  special: `separateBlockBoundaries("<p>a</p><p>b</p>", "$`")` re-injects raw
+ *  markup into the value this function exists to de-fuse. A docstring is not a
+ *  type on an exported API. */
+export function separateBlockBoundaries(html: string, sep: " " | "\n" = " "): string {
   return html.replace(BLOCK_TAG, sep);
 }
 
