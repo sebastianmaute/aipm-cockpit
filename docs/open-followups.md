@@ -64,6 +64,14 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 11 | `instanceof DOMException` abort check misreports a user cancel | 0.201.0 | S | open — scoped out deliberately |
 | 12 | `list_allocations` dumps the grid; should be a scoped query | R4 (0.201.0) | M | open — design |
 | 13 | Security audit is scope-stale — 39 releases of unaudited surface | audit was v0.164 | M | open — re-scope |
+| 14 | Timelog has two per-device stores keyed differently | 0.207.0 | S | open — low priority |
+| 15 | Two file-picker patterns — extract a `FilePickerButton` | 0.208.0 (Yolen) | S | open — low priority |
+| 16 | Dictation flattens rich formatting | 0.196.0, widened 0.209.0 | M | open — needs a design |
+| 17 | `htmlToText` collapses whitespace — exports run on one line | 0.196.0, widened 0.209.0 | S | open |
+| 18 | Task descriptions still export as raw HTML | 0.209.0 (Lafferty) | S | open — one-line fix |
+| 19 | Inline-AI task descriptor names the dead `notes` field | 0.196.0 | S | open — cosmetic |
+| 20 | `applied[f]` in inline-AI plan is untestable | 0.209.0 (Lafferty) | S | open — needs a seam |
+| 21 | Eye verification owed: change + milestone editors, 4 detail cases | 0.209.0 (Lafferty) | S | open — a11y/visual |
 
 ---
 
@@ -544,6 +552,92 @@ browser, which is why both sites use `sr-only`.
 `BrandingImageInput`, the create-project import panel and `chat-panel.tsx`'s attachment upload. All
 three are image/multi-file flows with their own validation and size caps, so folding them in is a
 bigger question than the two theme pickers; the follow-up is scoped to those two.
+
+---
+
+## 16. Dictation flattens rich formatting — open, needs a design
+
+`appendDictationToHtml` round-trips the field through plain text before appending, because Web
+Speech fires `onFinal` **multiple times per hold** and each segment must join onto the previous one
+rather than replace it (the landmine already recorded in AGENTS.md's dictation bullet). The
+round-trip is what makes that work, and it is also what discards any bold, italics, list or link
+already in the field.
+
+This is **shipped behaviour on `Task.description` since 0.196.0** — slice B (0.209.0) did not
+introduce it, it widened it, because the same helper now serves all six rich register fields.
+
+A fix needs per-utterance segment tracking: keep the appended run as its own tracked node so a later
+segment extends that node instead of the whole field being re-serialized. ★ Do not "fix" it by
+dropping the plain-text round-trip — that reintroduces the multi-`onFinal` overwrite bug, which is
+worse (it loses dictated words, not formatting).
+
+---
+
+## 17. `htmlToText` collapses whitespace, so a multi-paragraph description exports as one line — open
+
+The projection used by the export builders and the AI digests flattens all whitespace, so paragraph
+and list-item boundaries vanish: a three-paragraph description reaches a PDF or DOCX as a single
+run-on line. Pre-existing for `Task.description`; slice B widened it to the six register fields.
+
+The fix is a **break-preserving variant** (`htmlToTextWithBreaks` or an options flag) that maps
+block-level boundaries to newlines, used by the export builders while search keeps the collapsed
+form — search *wants* whitespace collapsed, so this must not become one shared behaviour change.
+
+---
+
+## 18. Task descriptions still export as raw HTML — open, one-line fix
+
+The export section builders project the six register fields to text, but the **TASKS** section still
+emits `Task.description` verbatim, so a PDF or DOCX export of tasks shows `<p>` markup where the app
+shows formatting.
+
+The fix is adding `description` to that section's rich-column set, the same way the six register
+fields were handled. It was **deliberately left out of slice B's approved scope** (which was the six
+register fields), not missed.
+
+---
+
+## 19. The task inline-AI descriptor names a dead field — open, cosmetic but misleading
+
+`inline-ai-edit/entity-descriptor.ts:94` still lists `"notes"`. That field was renamed to
+`description` in 0.196.0. It works today **only because `chat-tools.ts` accepts `notes` as a write
+alias** — remove or tighten that alias and the inline-AI task editor silently stops being able to
+write a description.
+
+Rename the descriptor entry to `description`; keep or retire the alias as a separate decision.
+
+---
+
+## 20. `applied[f]` in `inline-ai-edit/plan.ts` is untestable — open, needs a seam
+
+The preview value is projected to text; the **applied** value must stay RAW, or confirming an
+inline-AI edit would write the projected text back over the user's formatting. That distinction is
+correct today and is load-bearing.
+
+It is also unobservable: `applied` is a function-local scratchpad no test can reach. **Mutation-
+verified** — projecting `applied` alongside the preview fails nothing in the suite. Its correctness
+currently rests on a code comment.
+
+Closing this needs a seam, not a test: return `applied` alongside the plan (or take a projector
+injection) so a test can assert the raw value survives. ★ Do not add a test that merely re-asserts
+the preview is projected — that is what passes with the bug present.
+
+---
+
+## 21. Eye verification owed on two editors and four detail cases — open, slice B (0.209.0)
+
+Verified by screenshot against seeded data: the **RAID editor** and the **task editor's inline note
+log**. Not verified:
+
+- **The CHANGE and MILESTONE editors.** Their rows would not open from a row click in the harness.
+  Both are structurally identical to RAID's swap and are unit-tested, but nobody has looked at them.
+- **Both note surfaces open at once.** The inline log suffixes its control names and the floating
+  window does not, so the two should not collide — but ★ the axe gate reports *missing* accessible
+  names, never *duplicated* ones (same blind spot as §15), so nothing automated covers this.
+- **The `max-h-72` scroll boundary** on the inline log with a genuinely long note log.
+- **The disclosure summary's contrast** across the six scheme combos. The axe matrix scans five of
+  the six built-in combinations, so a scheme it does not scan can carry a contrast failure with the
+  gate green — exactly how 0.208.0 shipped one.
 
 ---
 

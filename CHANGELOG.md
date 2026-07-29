@@ -8,6 +8,51 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.209.0] - 2026-07-29 "Lafferty"
+
+Six register descriptions became rich text, and a task's note log moved inside
+the editor. Nothing you already wrote needs converting.
+
+- **Rich text in six register fields.** The RAID description and mitigation, the
+  change description, impact description and resolution notes, and the milestone
+  description are now edited with the same lean editor the task description and
+  note log use — bold, italics, bullet and numbered lists, and links. The
+  toolbars, keyboard shortcuts and dictation button behave exactly as they do
+  elsewhere.
+- **Existing text is upgraded as it is read, not rewritten in storage.** Every
+  load path turns a legacy plain-text value into formatted text on the way in, so
+  old items render correctly with no migration step, no conversion prompt and no
+  risk to a file or database you have not opened in a while. A field is only
+  stored as rich text once you next save that item.
+- **Markup never leaks where plain text is expected.** Global search and the two
+  panel search boxes match on the readable text, so searching for a word inside a
+  formatted description still finds it. Document exports (PDF, DOCX, XLSX, PPTX
+  and the CSV export), the digests sent to the AI assistant, and the inline-AI
+  confirmation diff all show the text, not the markup behind it.
+- **Fixed: creating a task from a RAID mitigation showed raw markup.** The
+  "Create mitigation task" action escaped an already-formatted mitigation a second
+  time, so the new task's description displayed literal `<p><strong>` tags as
+  visible text instead of formatting.
+- **Fixed: a task description containing `&` could not be found by searching for
+  it.** Task descriptions were indexed with their HTML entities still escaped, so
+  the search index held `&amp;` where the description showed `&`.
+- **Fixed (data loss): a RAID description containing angle-bracketed text could
+  lose that text on load.** On the JSON and IndexedDB load paths a plain-text
+  description was passed through the rich-text sanitizer while still plain; the
+  sanitizer drops an element it does not allow *together with its content*, so
+  text shaped like `<b>` — and everything the reader took to be inside it — was
+  silently discarded on every load. The value is now escaped before it is
+  sanitized.
+- **The task note log opens inside the editor.** The dated note log now appears
+  as a collapsible "Notes log (N)" section in the task editor, instead of only in
+  the separate floating window — which remains, and is still what the row badges
+  open. ★ Notes written there are saved immediately: the log is an append-only
+  journal, so Cancel does **not** discard a note you just added, unlike every
+  other field in that form.
+- **Clearing a rich field now stores nothing.** Emptying one of these
+  descriptions stores it as absent rather than as an empty paragraph, so an
+  emptied field reads as empty everywhere that checks it.
+
 ## [0.208.0] - 2026-07-28 "Yolen"
 
 The open project is now editable without leaving Settings, themes are files you
