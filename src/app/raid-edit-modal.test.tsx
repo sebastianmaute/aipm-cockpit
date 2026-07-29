@@ -238,6 +238,43 @@ describe("RaidEditModal — rich-text description and mitigation (slice B)", () 
     );
   });
 
+  it("counts a legacy plain value the way the cap will measure it", async () => {
+    // ★ The counter measured the RAW draft while capRich measures the UPGRADED
+    // one. Identical for anything reachable today, because every load goes
+    // through sanitizeRichText and the editor only emits "<p>…". They diverge
+    // wherever descriptionHtml is NOT the identity — a legacy plain value, which
+    // HTML_START rejects, so plainToHtml escapes its angle brackets and every
+    // "<b>" becomes three VISIBLE characters instead of a stripped inline tag.
+    //
+    // ★★ Both fixtures have to be NEAR THE CAP. CharCounter renders a hidden
+    // empty span below 80% of max (WARN_RATIO 0.8, TEXTAREA_MAX 5000 → 4000), so
+    // a short value shows nothing either way and the test would be vacuous.
+    //
+    //   raw projection:      the tag stripped as inline markup     → 1 char
+    //   upgraded projection: "&lt;b&gt;" decoded back to "<b>"     → 4202 / 4502
+    //
+    // So the bug renders NO counter at all and the fix renders one. Presence is
+    // the assertion; the number confirms which projection produced it.
+    const { container } = render(
+      modalEl({
+        description: "a " + "<b>".repeat(1400),
+        mitigation: "m " + "<i>".repeat(1500),
+      }),
+      { wrapper },
+    );
+    await screen.findByRole("textbox", { name: DESC_LABEL });
+
+    for (const [id, len] of [
+      ["raid-description-counter", 4202],
+      ["raid-mitigation-counter", 4502],
+    ] as const) {
+      const counter = container.querySelector(`#${id}`);
+      expect(counter).not.toBeNull();
+      expect(counter!.hasAttribute("hidden")).toBe(false);
+      expect(counter).toHaveTextContent(`${len} / ${TEXTAREA_MAX}`);
+    }
+  });
+
   it("keeps the editors mounted across successive edits of the same item", async () => {
     // ★★ RAID's draft is PARENT-OWNED and `onChange({...draft, …})` mints a new
     // draft object on every keystroke. The key must therefore depend only on

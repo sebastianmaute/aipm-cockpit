@@ -422,9 +422,13 @@ export function RaidEditModal({
               />
             </div>
             {/* CharCounter measures `.length`, and the cap measures VISIBLE
-                text — so it is fed the projection, not the markup. */}
+                text — so it is fed the projection, not the markup. Upgrading
+                FIRST is what makes it the same spelling capRich uses: for a
+                legacy plain value descriptionHtml is not the identity, and the
+                raw projection strips a "<b>" as inline markup the upgraded one
+                counts as three visible characters. */}
             <CharCounter
-              value={htmlPlainProjection(draft.description ?? "")}
+              value={htmlPlainProjection(descriptionHtml(draft.description))}
               max={TEXTAREA_MAX}
               id="raid-description-counter"
               lang={lang}
@@ -585,7 +589,7 @@ export function RaidEditModal({
               lang={lang}
             />
             <CharCounter
-              value={htmlPlainProjection(draft.mitigation ?? "")}
+              value={htmlPlainProjection(descriptionHtml(draft.mitigation))}
               max={TEXTAREA_MAX}
               id="raid-mitigation-counter"
               lang={lang}

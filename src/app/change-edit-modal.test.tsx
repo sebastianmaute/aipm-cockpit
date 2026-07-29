@@ -325,6 +325,42 @@ describe("ChangeEditModal — rich-text description fields (slice B)", () => {
     );
   });
 
+  it("counts a legacy plain value the way the cap will measure it", async () => {
+    // ★ The counters measured the RAW draft while capRich measures the UPGRADED
+    // one. Identical for anything reachable today, because every load goes
+    // through sanitizeRichText and the editors only emit "<p>…". They diverge
+    // wherever descriptionHtml is NOT the identity — a legacy plain value, which
+    // HTML_START rejects, so plainToHtml escapes its angle brackets and every
+    // "<b>" becomes three VISIBLE characters instead of a stripped inline tag.
+    //
+    // ★★ All three fixtures have to be NEAR THE CAP. CharCounter renders a
+    // hidden empty span below 80% of max (WARN_RATIO 0.8, TEXTAREA_MAX 5000 →
+    // 4000), so a short value shows nothing either way and the test would be
+    // vacuous: the bug renders NO counter at all and the fix renders one.
+    // Presence is the assertion; the three DIFFERENT numbers confirm which
+    // projection produced each, and catch a counter reading a sibling's value.
+    const { container } = render(
+      modalEl({
+        description: "d " + "<b>".repeat(1400),
+        impactDescription: "i " + "<i>".repeat(1450),
+        resolutionNotes: "r " + "<u>".repeat(1500),
+      }),
+      { wrapper },
+    );
+    await screen.findByRole("textbox", { name: DESC_LABEL });
+
+    for (const [id, len] of [
+      ["change-description-counter", 4202],
+      ["change-impactDescription-counter", 4352],
+      ["change-resolutionNotes-counter", 4502],
+    ] as const) {
+      const counter = container.querySelector(`#${id}`);
+      expect(counter).not.toBeNull();
+      expect(counter!.hasAttribute("hidden")).toBe(false);
+      expect(counter).toHaveTextContent(`${len} / ${TEXTAREA_MAX}`);
+    }
+  });
+
   it("keeps the editors mounted across successive edits of the same change", async () => {
     // ★★ This modal's draft is PARENT-OWNED and `onChange({...draft, …})` mints
     // a new draft object on every keystroke. The key must therefore depend only
