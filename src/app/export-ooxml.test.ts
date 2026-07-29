@@ -605,3 +605,41 @@ describe("HTML export cells", () => {
     expect(html).not.toContain("a<br>b");
   });
 });
+
+// ---------------------------------------------------------------------------
+// PPTX text rendering (§17 part 4c — the export projection's newline)
+// ---------------------------------------------------------------------------
+
+describe("PPTX export text", () => {
+  it("splits a projected newline into separate paragraphs", async () => {
+    const blob = buildPptx([
+      {
+        key: "tasks",
+        title: "Tasks",
+        columns: ["id", "taskName", "description"],
+        rows: [[1, "Task one", "one\ntwo"]],
+      },
+    ]);
+    // slide1 = title, slide2 = Tasks divider, slide3 = the single row slide.
+    const xml = (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
+    // Columns 2..7 render as "<label>: <value>" meta lines, so the label is
+    // glued to the FIRST line only — the second line stands alone.
+    expect(xml).toContain("<a:t>description: one</a:t>");
+    expect(xml).toContain("<a:t>two</a:t>");
+    expect(xml).not.toContain("one\ntwo");
+  });
+
+  it("leaves a break-free paragraph as exactly one <a:p>", async () => {
+    const blob = buildPptx([
+      { key: "tasks", title: "Tasks", columns: ["id", "taskName"], rows: [[1, "Task one"]] },
+    ]);
+    const xml = (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
+    // ★ The <a:t> count alone does NOT pin this: a split that emitted a
+    // trailing EMPTY paragraph leaves the text occurring exactly once while
+    // the slide grows a phantom <a:p>. Count the paragraphs themselves —
+    // 1 from the accent bar's placeholder body + RowMeta + RowTitle, with no
+    // RowFields box because there is no third column.
+    expect((xml.match(/<a:p>/g) ?? []).length).toBe(3);
+    expect((xml.match(/<a:t>Task one<\/a:t>/g) ?? []).length).toBe(1);
+  });
+});

@@ -172,7 +172,7 @@ function pptxTextBox(opts: {
   }>;
 }): string {
   const runs = opts.paragraphs
-    .map((p) => {
+    .flatMap((p) => {
       const rPr =
         `sz="${p.sizeHundredths ?? 1800}"` +
         (p.bold ? ' b="1"' : "") +
@@ -180,12 +180,18 @@ function pptxTextBox(opts: {
       const color = p.colorRgb
         ? `<a:solidFill><a:srgbClr val="${p.colorRgb}"/></a:solidFill>`
         : "";
-      return `<a:p>
+      // ★ One <a:p> per line. The export projection emits "\n" at a block
+      // boundary and a raw newline inside <a:t> is just whitespace to
+      // PowerPoint. A text with no newline yields the single paragraph it
+      // always did, so existing slides stay byte-identical.
+      return p.text.split("\n").map(
+        (line) => `<a:p>
   <a:r>
     <a:rPr lang="en-US" ${rPr} dirty="0">${color}</a:rPr>
-    <a:t>${xmlEscape(p.text)}</a:t>
+    <a:t>${xmlEscape(line)}</a:t>
   </a:r>
-</a:p>`;
+</a:p>`,
+      );
     })
     .join("");
 
