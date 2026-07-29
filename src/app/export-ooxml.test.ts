@@ -607,6 +607,31 @@ describe("HTML export cells", () => {
 });
 
 // ---------------------------------------------------------------------------
+// DOCX cell rendering (§17 part 4b — the export projection's newline)
+// ---------------------------------------------------------------------------
+
+describe("DOCX export cells", () => {
+  it("renders a projected newline as a real Word line break", async () => {
+    const blob = buildDocx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [["one\ntwo"]] },
+    ]);
+    const xml = (await unzipBlob(blob)).get("word/document.xml")!;
+    expect(xml).toContain(
+      '<w:t xml:space="preserve">one</w:t><w:br/><w:t xml:space="preserve">two</w:t>',
+    );
+  });
+
+  it("emits exactly the single run it always did for a break-free cell", async () => {
+    const blob = buildDocx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [["plain"]] },
+    ]);
+    const xml = (await unzipBlob(blob)).get("word/document.xml")!;
+    expect(xml).toContain('<w:r><w:t xml:space="preserve">plain</w:t></w:r>');
+    expect(xml).not.toContain("<w:br/>");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // PPTX text rendering (§17 part 4c — the export projection's newline)
 // ---------------------------------------------------------------------------
 

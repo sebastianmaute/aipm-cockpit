@@ -15,6 +15,17 @@ import {
 // DOCX
 // ============================================================================
 
+/** One cell's text as Word runs, mapping the export projection's newlines to
+ *  <w:br/>. A cell with no newline emits exactly the single <w:t> it always
+ *  did, so existing output is byte-identical. A run may legally hold several
+ *  <w:t> children with <w:br/> between them. */
+function docxCellRuns(value: string | number): string {
+  return String(value ?? "")
+    .split("\n")
+    .map((line) => `<w:t xml:space="preserve">${xmlEscape(line)}</w:t>`)
+    .join("<w:br/>");
+}
+
 /**
  * Render a DOCX `<w:tbl>` from a list of string column labels and plain-
  * string rows. Used for every section — Tasks, RAID, Milestones, etc.
@@ -67,7 +78,7 @@ function buildDocxTable(columns: string[], rows: (string | number)[][]): string 
               <w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>
             </w:tcPr>
             <w:p>
-              <w:r><w:t xml:space="preserve">${xmlEscape(row[i] ?? "")}</w:t></w:r>
+              <w:r>${docxCellRuns(row[i] ?? "")}</w:r>
             </w:p>
           </w:tc>`,
           )
