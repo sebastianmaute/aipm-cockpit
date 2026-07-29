@@ -434,10 +434,56 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (1) SINK re-sanitize `sanitizeNoteHtml(html)` in `NoteBody` (idempotent; mirrors comm-send-preview/
   meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
   cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
-  CSV/MD/Turso already route through `decodeNoteLog`. A NEW whole-object load path MUST call it.
+  CSV/MD/Turso route `noteLog` through `decodeNoteLog` — ★★ that covers `noteLog` ONLY, and reads as
+  if it covered `description` too. It does not: NOTHING sanitizes the six rich DESCRIPTION fields on
+  those three backends (see the rich-text bullet below; `docs/open-followups.md` §28). A NEW
+  whole-object load path MUST call the `sanitize*RichFields` matching its entity, not just this one.
+  ★★ The form must never write `noteLog` back: the log is WRITE-THROUGH and owns itself, so a draft
+  that snapshots it at modal-open and spreads it over the live row on save silently destroys any note
+  added while the editor was open (real data loss, fixed 0.209.0 — `use-task-submit.ts` deliberately
+  omits `noteLog` from its payload).
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
   escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
+- **Rich-text register descriptions (0.209.0 "Lafferty"):** SIX more fields joined `Task.description`
+  as rich HTML — RAID `description` + `mitigation`, Change `description` + `impactDescription` +
+  `resolutionNotes`, Milestone `description`. Same lean `RichTextEditor`, same `sanitizeNoteHtml`
+  allow-list. Two pure modules, split by ONE axis — whether the code may touch a DOM:
+  • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
+  `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
+  • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
+  upgrade) for every NON-DOM consumer, and `appendDictationToHtml`.
+  ★★★ `rich-text-plain.ts` MUST NEVER CALL DOMPurify. It runs inside the entity sanitizers, which
+  execute under bare node in `scripts/generate-sample-workspace.ts` and the fixture flow; DOMPurify
+  binds `window` at module-eval, so with no DOM `sanitize` is undefined, the call throws, and
+  `jsonToWorkspace`'s catch-all swallows it into an EMPTY workspace that then "successfully" writes
+  near-empty sample files. A comment-stripping source scan in its test enforces it — comments may
+  name the library, code may not. IMPORTING `plainToHtml` is fine (only a CALL needs the DOM).
+  ★★ **MIGRATION IS READ-TIME, NOT WRITE-TIME.** Storage is not normalised by the decoders — they
+  hand-build entities and never call the entity sanitizer (`buildRaidItemFromObj`,
+  `buildMilestoneFromObj`). EVERY reader upgrades instead: `descriptionHtml` at a DOM boundary,
+  `descriptionText` for search / exports / AI digests / the inline-AI preview. A project therefore
+  holds BOTH shapes at once, and that is fine — but a new consumer that reads one of the six fields
+  raw ships escaped markup or fused text. Grep the six names before adding a reader.
+  ★★ The projection is REGEX, and both of its obvious spellings are wrong: `<[^>]*>` deletes a tag
+  with nothing in its place (so `<p>a</p><p>b</p>` fused to `"ab"`, and every upgraded multi-line
+  legacy value read as one word), and it is not the HTML tokenizer (a `<` NOT followed by an ASCII
+  letter or `/` is literal text — `<p>cost < 5k</p>` projected to `"cost"`, and a value projecting to
+  empty is DROPPED by `sanitizeRichText`'s empty rule). Block tags are replaced by a SPACE first;
+  `&amp;` decodes LAST so `&amp;lt;` cannot double-decode. All three cost a data-integrity bug.
+  ★★ `HTML_START` (`narrative-html.ts`, SHARED with the dashboard narrative) must see the tag
+  actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a value the counter
+  measured at 11 while every reader rendered nothing.
+  ★ Counters/caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`; `capHtmlText` backs a
+  truncation off one code unit rather than splitting a surrogate pair (a lone surrogate is `U+FFFD`
+  on CSV/MD but survives on JSON/IDB — a backend-dependent corruption). `clipText` in
+  `sanitize-core.ts` still has that bug for ~49 plain-text call sites (open-followups §22).
+  ★ Whole-object load boundaries (JSON + IDB) route the rich fields through `sanitizeNoteFields` /
+  `sanitizeRaidRichFields` / `sanitizeChangeRichFields` / `sanitizeMilestoneRichFields` — escape
+  BEFORE sanitize, or `KEEP_CONTENT:false` deletes tag-shaped plain text along with its content.
+  ★ They are four ONE-ARGUMENT functions on purpose: every call site is `.map(fn)`, which passes the
+  INDEX as the second argument, so a `(entity, fields)` signature would be fed `0, 1, 2…`, normalise
+  nothing, and leave every `.map`-based test green.
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
   component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
   shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
