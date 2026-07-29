@@ -87,6 +87,24 @@ describe("sanitizeRichText", () => {
   it("strips control characters but keeps newlines", () => {
     expect(sanitizeRichText("a\x07b\nc", 5000)).toBe("<p>ab<br>c</p>");
   });
+
+  // ★★ A value the user cleared in the editor comes back as "<p></p>", which is
+  // TRUTHY — so without this every `if (description)` gate in the entity
+  // sanitizers would store a phantom empty paragraph. This is the ONE place the
+  // rule lives, which is what also covers the non-modal writers (AI tools,
+  // inline-AI apply, proposal seed, bulk edit).
+  it("treats a cleared editor value as absent", () => {
+    for (const empty of ["<p></p>", "<p><br></p>", "<p>&nbsp;</p>", "<ul><li></li></ul>", "   "]) {
+      expect(sanitizeRichText(empty, 5000)).toBe("");
+    }
+  });
+
+  // ★ Guards the check against being "simplified" into something that strips
+  // markup and concludes there is nothing there: the visible text is what
+  // counts, and here all of it lives inside a tag.
+  it("keeps a value whose only content is inside markup", () => {
+    expect(sanitizeRichText("<p><strong>x</strong></p>", 5000)).toBe("<p><strong>x</strong></p>");
+  });
 });
 
 // ★★ Guard: this module runs inside the entity sanitizers, which execute under

@@ -590,4 +590,15 @@ describe("rich-text description fields (slice B)", () => {
     const item = sanitizeRaidItem({ id: 1, title: "t", description: "   " });
     expect(item?.description).toBeUndefined();
   });
+
+  // ★★ The behaviour the empty-value rule exists for, pinned where the gate
+  // actually lives. Clearing the editor yields "<p></p>" — truthy — so the
+  // sanitizer's own `if (description)` would happily store a phantom empty
+  // paragraph. sanitizeRichText returning "" is what makes the field ABSENT.
+  it("omits a description the user cleared in the rich editor", () => {
+    for (const cleared of ["<p></p>", "<p><br></p>", "<p>&nbsp;</p>"]) {
+      const item = sanitizeRaidItem({ id: 1, title: "t", description: cleared });
+      expect(item?.description).toBeUndefined();
+    }
+  });
 });

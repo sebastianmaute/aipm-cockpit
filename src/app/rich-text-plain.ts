@@ -69,8 +69,23 @@ export function capHtmlText(html: string, max: number): string {
 }
 
 /** The single entry point for the entity sanitizers: guard the type, strip
- *  control characters, upgrade legacy plain text, cap by text length. */
+ *  control characters, upgrade legacy plain text, cap by text length, and drop
+ *  a visually empty value.
+ *
+ *  ★★ The empty check is HERE and nowhere else. A value the user cleared in the
+ *  editor arrives as "<p></p>" (or "<p><br></p>", or a paragraph of &nbsp;),
+ *  all of which are TRUTHY — so every `if (description)` gate in the entity
+ *  sanitizers would store a phantom empty paragraph instead of dropping the
+ *  field. Returning "" makes all of them drop it automatically, and it covers
+ *  the writers that never touch a modal: the AI entity create/update tools, the
+ *  inline-AI apply, the project-proposal seed, bulk edit. Guarding at the six
+ *  modal save boundaries instead would leave every one of those uncovered.
+ *
+ *  ★ Measure the VISIBLE text (htmlTextLength), not the markup: a value whose
+ *  only content sits inside markup ("<p><strong>x</strong></p>") is NOT empty
+ *  and must survive. */
 export function sanitizeRichText(raw: unknown, max: number): string {
   const s = typeof raw === "string" ? raw.replace(CONTROL_CHARS, "") : "";
-  return capHtmlText(descriptionHtml(s), max);
+  const html = capHtmlText(descriptionHtml(s), max);
+  return htmlTextLength(html) === 0 ? "" : html;
 }
