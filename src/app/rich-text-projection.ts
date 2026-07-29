@@ -31,6 +31,30 @@ export function descriptionText(stored: string | undefined): string {
   return htmlPlainProjection(htmlToText(separateBlockBoundaries(descriptionHtml(stored))));
 }
 
+/** Stored value -> plain text with block boundaries kept as newlines.
+ *
+ *  The EXPORT projection. Search, the AI digests and the inline-AI preview keep
+ *  descriptionText's collapsed form — they want whitespace flattened — while an
+ *  export is read by a human and a three-paragraph description must not arrive
+ *  as one run-on line.
+ *
+ *  ★★ separateBlockBoundaries runs FIRST here for the same reason it does in
+ *  descriptionText: htmlToText deletes tags leaving nothing in their place, so
+ *  the newline has to be in the string before DOMPurify sees it. Only the
+ *  separator differs.
+ *
+ *  ★★★ ALL THREE calls need the break flag, and the middle one is the easy
+ *  miss: htmlToText's DEFAULT collapse is `\s+` -> " ", which flattens the very
+ *  newline separateBlockBoundaries just inserted. Passing the separator without
+ *  it produces the collapsed form silently — the boundary is destroyed between
+ *  the two functions that were told to keep it. */
+export function descriptionTextWithBreaks(stored: string | undefined): string {
+  return htmlPlainProjection(
+    htmlToText(separateBlockBoundaries(descriptionHtml(stored), "\n"), { preserveBreaks: true }),
+    { preserveBreaks: true },
+  );
+}
+
 /** Append a dictated utterance to a rich field.
  *
  *  ★ Round-tripping through text is what lets appendDictation join mid-utterance

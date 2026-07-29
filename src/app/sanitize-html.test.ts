@@ -81,4 +81,40 @@ describe("htmlToText", () => {
   it("returns empty for empty", () => {
     expect(htmlToText("")).toBe("");
   });
+
+  it("leaves the default path byte-identical, newline included", () => {
+    // ★★ The default collapse is what descriptionText and every search/preview
+    // consumer depend on: ALL whitespace, newline included, becomes one space.
+    // Expected values are hardcoded so a shared bug cannot make both sides
+    // agree. `{}` and an explicit false must behave like the options-less call.
+    const cases: Array<[string, string]> = [
+      ["<p><strong>Hi</strong> there</p>", "Hi there"],
+      ["a\nb", "a b"],
+      ["<p>a</p>\n<p>b</p>", "a b"],
+      ["a   \t b", "a b"],
+      ["  padded  ", "padded"],
+      ["", ""],
+    ];
+    for (const [input, expected] of cases) {
+      expect(htmlToText(input)).toBe(expected);
+      expect(htmlToText(input, {})).toBe(expected);
+      expect(htmlToText(input, { preserveBreaks: false })).toBe(expected);
+    }
+  });
+
+  it("keeps a caller-inserted newline when asked, collapsing only horizontally", () => {
+    // ★★ This is the whole reason the flag exists. descriptionTextWithBreaks
+    // separates block boundaries with "\n" BEFORE sanitizing — it has to,
+    // because ALLOWED_TAGS:[] deletes tags with nothing in their place — and the
+    // default collapse then flattened every one of those boundaries back to a
+    // space, silently undoing the caller's separator.
+    expect(htmlToText("a\nb", { preserveBreaks: true })).toBe("a\nb");
+    expect(htmlToText("a \n\n  b", { preserveBreaks: true })).toBe("a\nb");
+    expect(htmlToText("a   \t b", { preserveBreaks: true })).toBe("a b");
+    expect(htmlToText("\na\n", { preserveBreaks: true })).toBe("a");
+    // Still sanitizes: break mode is a whitespace decision, not a safety one.
+    expect(htmlToText("<script>alert(1)</script>\nok", { preserveBreaks: true })).not.toContain(
+      "alert",
+    );
+  });
 });

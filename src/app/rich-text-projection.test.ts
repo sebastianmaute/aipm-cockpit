@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { appendDictationToHtml, descriptionText } from "./rich-text-projection";
+import {
+  appendDictationToHtml,
+  descriptionText,
+  descriptionTextWithBreaks,
+} from "./rich-text-projection";
 
 describe("descriptionText", () => {
   it("projects stored HTML to plain text", () => {
@@ -68,5 +72,35 @@ describe("appendDictationToHtml", () => {
 
   it("upgrades a legacy plain value before appending", () => {
     expect(appendDictationToHtml("plain & old", "more")).toBe("<p>plain &amp; old more</p>");
+  });
+});
+
+describe("descriptionTextWithBreaks", () => {
+  it("keeps paragraph boundaries as newlines", () => {
+    expect(descriptionTextWithBreaks("<p>Vendor delay</p><p>Mitigation plan</p>")).toBe(
+      "Vendor delay\nMitigation plan",
+    );
+  });
+
+  it("upgrades a legacy plain value the same way descriptionText does", () => {
+    // descriptionHtml turns a legacy newline into <br>, which is a real boundary.
+    expect(descriptionTextWithBreaks("line one\nline two")).toBe("line one\nline two");
+  });
+
+  it("still sanitizes — a script tag survives neither projection", () => {
+    const stored = "<p>ok</p><script>alert(1)</script>";
+    expect(descriptionTextWithBreaks(stored)).not.toContain("alert");
+    expect(descriptionTextWithBreaks(stored)).not.toContain("<");
+  });
+
+  it("differs from descriptionText ONLY in the boundary character", () => {
+    const stored = "<p>a</p><p>b</p>";
+    expect(descriptionText(stored)).toBe("a b");
+    expect(descriptionTextWithBreaks(stored)).toBe("a\nb");
+  });
+
+  it("returns empty for an empty value", () => {
+    expect(descriptionTextWithBreaks(undefined)).toBe("");
+    expect(descriptionTextWithBreaks("")).toBe("");
   });
 });

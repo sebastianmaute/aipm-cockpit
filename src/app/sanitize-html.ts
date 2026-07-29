@@ -51,8 +51,23 @@ export function plainToHtml(text: string): string {
   return "<p>" + esc.replace(/\r?\n/g, "<br>") + "</p>";
 }
 
-/** Plain-text projection of sanitized HTML — for search/export/preview cells. */
-export function htmlToText(html: string): string {
+/** Plain-text projection of sanitized HTML — for search/export/preview cells.
+ *
+ *  ★★ `preserveBreaks` is OPT-IN and the default path is byte-identical. It
+ *  exists because the DEFAULT collapse (`\s+` -> " ") destroys a newline that a
+ *  caller put in DELIBERATELY: descriptionTextWithBreaks separates block
+ *  boundaries with "\n" BEFORE sanitizing (it must — DOMPurify with
+ *  ALLOWED_TAGS:[] deletes tags leaving nothing in their place, so the boundary
+ *  has to already be in the string), and the default collapse then flattened
+ *  every one of them back to a space. Break mode collapses a run CONTAINING a
+ *  newline to one "\n" and a purely horizontal run to one " ", mirroring
+ *  htmlPlainProjection's break mode exactly — the two run back to back and must
+ *  agree on what a boundary costs. */
+export function htmlToText(html: string, opts?: { preserveBreaks?: boolean }): string {
   const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
-  return stripped.replace(/\s+/g, " ").trim();
+  if (opts?.preserveBreaks !== true) return stripped.replace(/\s+/g, " ").trim();
+  return stripped
+    .replace(/[^\S\n]*\n\s*/g, "\n")
+    .replace(/[^\S\n]+/g, " ")
+    .trim();
 }
