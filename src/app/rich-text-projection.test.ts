@@ -20,6 +20,27 @@ describe("descriptionText", () => {
     expect(descriptionText("cost < 5k & rising")).toBe("cost < 5k & rising");
   });
 
+  // ★★★ The user-visible half of the HTML_START termination bug. A legacy plain
+  // value that merely STARTS tag-shaped was passed through raw; the tokenizer
+  // discards an incomplete tag at EOF, so descriptionText — the value every
+  // non-DOM consumer reads, i.e. global search, the export sections and the AI
+  // digests — returned "" for the whole thing. sanitizeRichText meanwhile
+  // measured a non-zero length and KEPT the field, so nothing anywhere reported
+  // a problem. Measured before the fix: "<li 3 items" -> "", "<p ok" -> "".
+  it("does not swallow a plain value that starts tag-shaped but never closes", () => {
+    expect(descriptionText("<li 3 items")).toBe("<li 3 items");
+    expect(descriptionText("<p ok")).toBe("<p ok");
+    expect(descriptionText("<em dash - not markup")).toBe("<em dash - not markup");
+  });
+
+  // ★ PINNED RESIDUE, not an aspiration: this one is genuinely tag-shaped AND
+  // terminated, so the opening-tag heuristic cannot tell it from real markup and
+  // the sink eats the "<a href>". Asserted so that a future change to HTML_START
+  // has to confront it deliberately rather than shift it by accident.
+  it("still loses a leading token that is tag-shaped AND closed", () => {
+    expect(descriptionText("<a href> tags are banned")).toBe("tags are banned");
+  });
+
   it("sanitizes, it does not merely strip tags", () => {
     // ★★ The module comment claims "dropping either half is wrong", but with
     // fixtures made only of allow-listed markup, htmlPlainProjection alone

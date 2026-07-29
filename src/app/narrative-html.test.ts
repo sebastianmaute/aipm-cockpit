@@ -46,6 +46,27 @@ describe("narrativeToHtml", () => {
     expect(narrativeToHtml("<blockquote>Quoted</blockquote>")).toContain("Quoted");
   });
 
+  // ★★★ A value that merely STARTS tag-shaped is NOT markup. Matching a bare
+  // opener passed these through raw, and the HTML tokenizer discards an
+  // incomplete tag at EOF — so the whole narrative vanished from the screen,
+  // from search, from exports and from the AI digests, while still reporting a
+  // non-zero length so no empty-state fallback fired. Escaped, the user reads
+  // their own text.
+  it("escapes a plain value that starts tag-shaped but never closes the tag", () => {
+    expect(narrativeToHtml("<li 3 items")).toBe("<p>&lt;li 3 items</p>");
+    expect(narrativeToHtml("<p ok")).toBe("<p>&lt;p ok</p>");
+    expect(narrativeToHtml("<em dash - not markup")).toBe("<p>&lt;em dash - not markup</p>");
+    // The property that matters: the words survive into the output.
+    expect(narrativeToHtml("<li 3 items")).toContain("3 items");
+  });
+
+  // ★ The termination requirement must not cost a true positive — an opener
+  // carrying ATTRIBUTES still closes, and still passes through.
+  it("passes a tag with attributes through untouched", () => {
+    expect(narrativeToHtml('<p class="lead">ok</p>')).toBe('<p class="lead">ok</p>');
+    expect(narrativeToHtml("<br/>then text")).toBe("<br/>then text");
+  });
+
   // The widened test must not start treating prose as markup: a `<` that is not
   // leading, or is not followed by a tag name, is still plain text.
   it("still escapes plain text containing a literal angle bracket", () => {

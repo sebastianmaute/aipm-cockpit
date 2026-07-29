@@ -31,8 +31,28 @@ import { plainToHtml } from "./sanitize-html";
  *  ★ Anchored at the string start and each name is `\b`-terminated, so a plain
  *  narrative containing a stray `<` ("5 < 10 items", "<3 open") still escapes:
  *  the `<` is not leading, or what follows it is not a tag name. `\b` also keeps
- *  `<abbr>`/`<embed>`/`<pre>` out — they are not `a`/`em`/`p`. */
-export const HTML_START = /^\s*<(p|br|strong|em|ul|ol|li|a)\b/i;
+ *  `<abbr>`/`<embed>`/`<pre>` out — they are not `a`/`em`/`p`.
+ *
+ *  ★★★ The tag must actually CLOSE (`[^>]*>`). Matching a bare opener accepted a
+ *  legacy PLAIN value that merely STARTS tag-shaped — "<li 3 items", "<p ok",
+ *  "<em dash - not markup" — and passed it through raw instead of escaping it.
+ *  The HTML tokenizer DISCARDS an incomplete tag at EOF, so the whole value then
+ *  vanished: off the screen, out of search, out of exports, out of the AI
+ *  digests. And it vanished SILENTLY, because the length these values report is
+ *  non-zero — htmlTextLength/`sanitizeRichText` (which share this constant via
+ *  rich-text-plain's descriptionHtml) measured 11 characters for "<li 3 items"
+ *  and so KEPT the field, meaning no empty-state fallback ever fired either.
+ *  Escaped instead, the user reads their own text — the same resolution the tag
+ *  list above reaches for `<h1>`/`<div>`.
+ *
+ *  ★ RESIDUE, deliberately not chased: "<a href> tags are banned" is genuinely
+ *  tag-shaped AND terminated, so it still passes through and the sink eats the
+ *  `<a href>`. A heuristic on the opening tag cannot separate that from real
+ *  markup; more regex would only move the boundary, not close it.
+ *
+ *  ★ `<\/?` admits a leading CLOSING tag, which the tokenizer drops as stray
+ *  while still rendering the text after it. */
+export const HTML_START = /^\s*<\/?(p|br|strong|em|ul|ol|li|a)\b[^>]*>/i;
 
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped. */
 export function narrativeToHtml(stored: string | undefined): string {

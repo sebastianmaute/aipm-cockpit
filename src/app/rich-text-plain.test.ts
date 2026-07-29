@@ -22,6 +22,20 @@ describe("descriptionHtml", () => {
   it("passes through a value that already opens with an allowed tag", () => {
     expect(descriptionHtml("<p>done</p>")).toBe("<p>done</p>");
     expect(descriptionHtml("<strong>lead</strong> rest")).toBe("<strong>lead</strong> rest");
+    // Attributes still close the tag, so a real opener is unaffected.
+    expect(descriptionHtml('<p class="lead">done</p>')).toBe('<p class="lead">done</p>');
+  });
+
+  // ★★★ HTML_START (shared with narrative-html) once matched a bare OPENER, so a
+  // legacy plain value that merely STARTS tag-shaped passed through raw. The
+  // tokenizer discards an incomplete tag at EOF, so the whole value vanished
+  // from the screen, from search, from exports and from the AI digests — while
+  // htmlTextLength still measured 11 for "<li 3 items", so sanitizeRichText KEPT
+  // the field and no empty-state fallback fired. Silent loss of the user's text.
+  it("escapes a plain value that starts tag-shaped but never closes the tag", () => {
+    expect(descriptionHtml("<li 3 items")).toBe("<p>&lt;li 3 items</p>");
+    expect(descriptionHtml("<p ok")).toBe("<p>&lt;p ok</p>");
+    expect(descriptionHtml("<em dash - not markup")).toBe("<p>&lt;em dash - not markup</p>");
   });
 
   it("is idempotent — it runs on every load", () => {
