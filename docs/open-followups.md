@@ -67,18 +67,16 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 14 | Timelog has two per-device stores keyed differently | 0.207.0 | S | open — low priority |
 | 15 | Two file-picker patterns — extract a `FilePickerButton` | 0.208.0 (Yolen) | S | open — low priority |
 | 16 | Dictation flattens rich formatting | 0.196.0, widened 0.209.0 | M | open — needs a design |
-| 17 | `htmlToText` collapses whitespace — exports run on one line | 0.196.0, widened 0.209.0 | S | open |
-| 18 | Task descriptions still export as raw HTML | 0.209.0 (Lafferty) | S | open — one-line fix |
-| 19 | Inline-AI task descriptor names the dead `notes` field | 0.196.0 | S | open — cosmetic |
-| 20 | `applied[f]` in inline-AI plan is untestable | 0.209.0 (Lafferty) | S | open — needs a seam |
 | 21 | Eye verification owed: change + milestone editors, 4 detail cases | 0.209.0 (Lafferty) | S | open — a11y/visual |
 | 22 | `clipText` can split a surrogate pair (~54 call sites) | 0.209.0 (Lafferty) | M | open — needs golden regen |
-| 23 | Five `Task.description` consumers still fuse block boundaries | 0.196.0, found 0.209.0 | S | open — one import each |
-| 24 | Numeric entities aren't decoded — miscount + mid-entity truncation | 0.209.0 (Lafferty) | S | open |
-| 25 | The DOM-free guard doesn't follow imports | 0.209.0 (Lafferty) | S | open |
-| 26 | Enter-submit counts a truncation it doesn't apply (plain fields) | 0.209.0 (Lafferty) | S | open |
-| 27 | Three doc claims that aren't quite true | 0.209.0 (Lafferty) | S | open — doc-only |
+| 24 | Named entities aren't decoded — miscount + mid-entity truncation | 0.209.0 (Lafferty) | S | **open — named tail only** |
 | 28 | CSV/MD/Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 | M | open — needs a new boundary |
+| 29 | `form.noteLog` is dead state in the task form | 0.209.0, promoted 0.210.0 | S | open — own change |
+
+★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
+23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
+file: `rich-text-plain.ts:96` points at §24, AGENTS.md at §22 and §28, and `docs/CODEMAPS/*` at §4,
+§7 B4, §8–§10 and §13. Renumbering silently redirects every one of those.
 
 ---
 
@@ -580,57 +578,6 @@ worse (it loses dictated words, not formatting).
 
 ---
 
-## 17. `htmlToText` collapses whitespace, so a multi-paragraph description exports as one line — open
-
-The projection used by the export builders and the AI digests flattens all whitespace, so paragraph
-and list-item boundaries vanish: a three-paragraph description reaches a PDF or DOCX as a single
-run-on line. Pre-existing for `Task.description`; slice B widened it to the six register fields.
-
-The fix is a **break-preserving variant** (`htmlToTextWithBreaks` or an options flag) that maps
-block-level boundaries to newlines, used by the export builders while search keeps the collapsed
-form — search *wants* whitespace collapsed, so this must not become one shared behaviour change.
-
----
-
-## 18. Task descriptions still export as raw HTML — open, one-line fix
-
-The export section builders project the six register fields to text, but the **TASKS** section still
-emits `Task.description` verbatim, so a PDF or DOCX export of tasks shows `<p>` markup where the app
-shows formatting.
-
-The fix is adding `description` to that section's rich-column set, the same way the six register
-fields were handled. It was **deliberately left out of slice B's approved scope** (which was the six
-register fields), not missed.
-
----
-
-## 19. The task inline-AI descriptor names a dead field — open, cosmetic but misleading
-
-`inline-ai-edit/entity-descriptor.ts:94` still lists `"notes"`. That field was renamed to
-`description` in 0.196.0. It works today **only because `chat-tools.ts` accepts `notes` as a write
-alias** — remove or tighten that alias and the inline-AI task editor silently stops being able to
-write a description.
-
-Rename the descriptor entry to `description`; keep or retire the alias as a separate decision.
-
----
-
-## 20. `applied[f]` in `inline-ai-edit/plan.ts` is untestable — open, needs a seam
-
-The preview value is projected to text; the **applied** value must stay RAW, or confirming an
-inline-AI edit would write the projected text back over the user's formatting. That distinction is
-correct today and is load-bearing.
-
-It is also unobservable: `applied` is a function-local scratchpad no test can reach. **Mutation-
-verified** — projecting `applied` alongside the preview fails nothing in the suite. Its correctness
-currently rests on a code comment.
-
-Closing this needs a seam, not a test: return `applied` alongside the plan (or take a projector
-injection) so a test can assert the raw value survives. ★ Do not add a test that merely re-asserts
-the preview is projected — that is what passes with the bug present.
-
----
-
 ## 21. Eye verification owed on two editors and four detail cases — open, slice B (0.209.0)
 
 Verified by screenshot against seeded data: the **RAID editor** and the **task editor's inline note
@@ -688,171 +635,71 @@ Applied once inside `clipText`, that closes all ~54 sites at once.
 golden regeneration and its own review. Bundling it into a rich-text slice would have put a
 fixture-moving change under a commit message about something else.
 
+★ **That split is now confirmed, not assumed.** §24's numeric decode (0.210.0) changed what
+`sanitizeRichText` produces for every rich field on every load, and `golden-workspace.test` held
+**unchanged** through it — no fixture commit anywhere in that release. So the six rich fields really
+are empty in the sample workspace, and the fixture cost recorded here belongs entirely to the
+**plain-text** fields `clipText` reaches. A `clipText` fix still needs its golden regen; a further
+rich-text fix does not.
+
 ★ `max <= 0` is safe in the `capHtmlText` version (`charCodeAt(-1)` is `NaN`, and `NaN` fails every
 comparison) but that was *asserted with a test*, not assumed — do the same here rather than
 reasoning about it, because `clipText`'s `max` is a per-field argument, not one constant.
 
 ---
 
-## 23. Five `Task.description` consumers still fuse block boundaries — open, one import
+## 24. NAMED entities are neither decoded nor counted — open, the named tail only
 
-`descriptionText` (`rich-text-projection.ts:31`) is the correct projection: it runs
-`separateBlockBoundaries` **first**, because `htmlToText` strips tags with nothing in their place and
-would otherwise turn `<p>a</p><p>b</p>` into `"ab"`. Five `Task.description` consumers still call
-bare `htmlToText` and so fuse every block boundary. All five verified 2026-07-29:
+**Narrowed by 0.210.0 "Larbalestier" (`ec271c25`, `d4d16341`), not closed.** The numeric half is
+done; the named tail below is the whole of what remains, and its illustration is unchanged.
 
-| site | call |
-|---|---|
-| `workspace-context.tsx:235` | `htmlToText(t.description)` — the tasks pane's own search index |
-| `gantt.tsx:251` | `htmlToText(task.description ?? "")` — gantt search |
-| `task-row.tsx:581` | `const preview = htmlToText(task.description)` — the row preview |
-| `task-dedup/dedup.ts:62` | `const noteText = htmlToText(tk.description)` — the AI dedup digest |
-| `jira-api.ts:263` | `textToAdf(htmlToText(task.description ?? ""))` — the Jira **push** |
-
-Two consequences worth naming. The tasks pane's search **disagrees with global search** on a
-two-paragraph description: global search goes through `descriptionText` and matches
-`"delay Mitigation"`, the pane matches only `"delayMitigation"`. And `jira-api.ts:263` is a **write**
-— the fused text is what lands in the Jira issue, where the app is no longer the system of record.
-
-Pre-existing since 0.196.0 (when `Task.notes` became the rich `Task.description`); slice B did not
-introduce it and did not widen it — the six register fields it added all route through
-`descriptionText` correctly. Found while auditing that boundary.
-
-**The fix is one import per site**, swapping `htmlToText(x)` for `descriptionText(x)` — which also
-upgrades a legacy plain value on the way, so a never-edited task projects identically to an edited
-one. ★ Confirm each site is DOM-safe first: `descriptionText` calls DOMPurify, so it must never be
-reached from a codec, an entity sanitizer, or anything that runs under bare node. All five above are
-browser-side, but check rather than assume — that is exactly the constraint `rich-text-plain.ts`
-exists to enforce.
-
-★ A grep for `htmlToText(` finds four further call sites that are **correct and must not be
-changed**: `note-log-panel.tsx:152,168` and `note-log.ts:74` operate on note HTML, not descriptions,
-and `rich-text-projection.ts:31` is the wrapped call itself.
-
-★★ **Not the same item as §17, and fixing this does not fix that.** §17 is that `htmlToText`
-collapses whitespace, so even the CORRECT `descriptionText` path loses paragraph breaks on export.
-This item is that five sites never reach `descriptionText` at all, so they lose the word boundary
-too. Swapping the import here buys them the boundary space and leaves them with §17's flattening,
-exactly like every other consumer.
-
----
-
-## 24. Numeric and non-`&amp;`-family entities are neither decoded nor counted — open, small
-
-`htmlPlainProjection` (`rich-text-plain.ts`) decodes entities by regex, and the set is deliberately
-small: `&nbsp;` (three spellings), `&lt;`, `&gt;`, `&quot;`, `&#39;`/`&apos;`, and `&amp;` **last**
-so `&amp;lt;` cannot double-decode. Everything else stays literal text:
+`htmlPlainProjection` (`rich-text-plain.ts`) decodes entities by regex, and the named set is
+deliberately small: `&nbsp;` (three spellings), `&lt;`, `&gt;`, `&quot;`, `&#39;`/`&apos;`, and
+`&amp;` **last** so `&amp;lt;` cannot double-decode. Everything outside that set stays literal text:
 
 | stored | `htmlTextLength` says | the user sees |
 |---|---|---|
 | `<p>&mdash;</p>` | 7 | one em dash |
 | `<p>a&mdash;b</p>` capped at 4 | — | `a&md` |
 
-Two effects, both on the DOM-free path only. The counter and the cap **over-charge** a value
-carrying undecoded entities, so a description with a few `&mdash;`/`&hellip;` eats budget that is not
-visible text. And truncation can land **mid-entity** — the broken-entity hazard `capHtmlText` is
-otherwise immune to, because a decoded entity is a single character by the time `slice` sees it while
-an undecoded one is still six.
+Two effects, both on the DOM-free path only. The counter and the cap **over-charge** a value carrying
+undecoded entities, so a description with a few `&mdash;`/`&hellip;` eats budget that is not visible
+text. And truncation can land **mid-entity** — the broken-entity hazard `capHtmlText` is otherwise
+immune to, because a decoded entity is a single character by the time `slice` sees it while an
+undecoded one is still seven.
 
 Not reachable from the lean editor (Tiptap emits characters, not references). Reachable by paste from
 Word/Outlook, an imported workspace, or an AI tool writing HTML.
 
 ★ The DOM path is immune: `descriptionText` runs DOMPurify first, which normalises references to
-characters before the projection sees them. So this is a divergence between the two projections, the
-same family as the `HTML_START` case in §21 — the DOM-free half is the approximate one.
+characters before the projection sees them. So this is a divergence between the two projections — the
+same shape as the `HTML_START` approximation AGENTS.md records in its rich-text bullet. The DOM-free
+half is the approximate one, and remains so for named references.
 
-**Fix:** decode numeric references generically **before** the named decodes and after the tag work —
-`.replace(/&#x([0-9a-f]+);/gi, ...).replace(/&#(\d+);/g, ...)` — guarding the result against
-re-introducing a `<` that a later pass could read as a tag opener. Named references beyond the
-current set are a longer tail; the numeric forms are what Office paste actually produces.
+### What shipped, and the three refusals that constrain any named-decode fix
 
----
+`decodeNumericEntities` (`rich-text-plain.ts:98`) decodes `&#8212;` / `&#x2014;` in either case,
+running **after** the tag work and **before** the `&nbsp;`/whitespace passes. It returns any
+reference it declines verbatim and cannot throw — it runs inside the entity sanitizers on every load.
+It refuses three classes, and a named-decode pass has to refuse the same ones for the same reasons:
 
-## 25. The DOM-free guard does not follow imports — open, small
+- **`&` `<` `>`** (`UNSAFE_CODE_POINTS`). `&#38;` is `&`, so decoding it early turns `&#38;lt;` into
+  `&lt;` and the named pass then yields `<` — the exact double-decode "`&amp;` decodes LAST" exists
+  to prevent. `&#60;`/`&#62;` would put a tag delimiter back into a string the TAG pass has finished
+  with. All three stay literal: over-counted, which is the pre-existing behaviour, never corrupting.
+  ★ This is why `&mdash;` cannot simply be table-driven alongside them — ordering is load-bearing.
+- **Control characters** (`cp <= 0x08`, `0x0e–0x1f`). `sanitizeRichText` strips controls from the RAW
+  string and only then projects, so `&#7;` survives that pass, decodes to a BEL inside the projection,
+  and on the OVERFLOW path `plainToHtml` (which escapes only `& < >`) writes it back into the stored
+  value on all six backends. `\t \n \r \x0b \x0c` are absent for the same reason they are absent from
+  `CONTROL_CHARS`.
+- **Lone surrogates** (`0xd800–0xdfff`). Emitting one reproduces the backend-dependent corruption of
+  §22 exactly: `U+FFFD` on CSV/MD, intact on JSON/IDB. (Not because `fromCodePoint` throws on them —
+  it does not; only the range and integer arms are throw-guards.)
 
-`rich-text-plain.test.ts`'s guard strips comments from `rich-text-plain.ts` and scans the remaining
-**code** for `dompurify`, `htmlToText`, `sanitizeNoteHtml`, `sanitizeTemplateHtml`. It is a good
-guard: it survives an aliased import, and a companion assertion proves the comment-strip itself works
-so the bans cannot pass vacuously on an empty string.
-
-It scans **one file's own source** and nothing else. Two ways past it:
-
-- `rich-text-plain.ts` imports `plainToHtml` from `./sanitize-html`, which imports DOMPurify. The
-  import is safe — DOMPurify binds `window` at module-eval, and only a **call** throws under bare
-  node — but if `plainToHtml` ever grew a `DOMPurify.sanitize` call, the exact thing its own comment
-  warns against, the guard stays green while the fixture scripts silently emit a near-empty
-  workspace.
-- A future `import { descriptionText } from "./rich-text-projection"` passes every assertion: neither
-  the module name nor the symbol is on the ban list, and that module **does** call DOMPurify.
-
-**Fix:** pin the import surface instead of the symbol names — assert the file's `from "..."`
-specifiers are exactly `./sanitize-html` and `./narrative-html`. A new import then has to be added to
-the guard deliberately, which is the point of having one.
-
-★ Nothing guards the other direction either: the rule that `rich-text-projection.ts` must never be
-imported by a codec, a sanitizer, or anything reachable from `scripts/` is enforced by no test. A
-source scan over `sanitize*.ts`, `*-codecs*.ts` and `scripts/` would close it. The tree is clean
-today — `export-sections.ts` is the only new importer, and it is reached only from `export.ts`.
-
----
-
-## 26. Enter-submit still counts a truncation it does not apply — open, small
-
-Slice B's `47e139bf` fixed this for the five **rich** fields: they are capped on the object handed to
-`onSave`, so the adjustment the "N fields adjusted" toast counts is the one actually made. The
-**plain-text** fields in the same modals kept the old shape — an `onBlur` handler that caps, plus an
-`adj.track(describeTextCap(...))` in `handleSubmit` that only counts.
-
-That holds for a click on Save, because mousedown blurs the field first. It does **not** hold for
-**Enter inside a text input**, which submits the form without firing blur. On that path the value is
-uncapped, `adj.track` counts a truncation, the toast announces it, and the uncapped value is saved.
-
-Affected: `raid-edit-modal.tsx` (`title`, `owner`) and `change-edit-modal.tsx` (`title`,
-`requestedBy`, `decisionBy`). Bounded — `sanitizeText` caps on the next load, so nothing beyond the
-cap is persisted long-term — which is why this is small rather than a data-loss item.
-
-★ The comment added by `47e139bf` says these fields "keep their own onBlur caps below, so tracking
-them here is count-only and the value is deliberately discarded". That blesses the arrangement as
-safe without naming the Enter gap. Either route them through the same `saved` object as the rich
-fields, or soften the comment.
-
----
-
-## 27. Three documented claims that are not quite true — open, doc-only
-
-None of these change behaviour; each makes a future reader trust something they should not.
-
-**`capHtmlText` promises a warning the milestone editor cannot give.** Its doc comment says
-formatting is "lost only on overflow, which the editor-side counter warns about first".
-`milestone-edit-modal.tsx` has no `CharCounter`, no `describeTextCap` and no `useAdjustmentTracker`;
-its own comment says the cap is applied silently. A >5000-character milestone description loses all
-markup with no warning. The trade-off is knowingly accepted at that call site — the shared comment
-just should not promise a counter that only two of the three modals have.
-
-**`separateBlockBoundaries`' safety rationale is right for the wrong reason.**
-`rich-text-projection.ts` argues it is safe because it "only removes p/div/br/li/... — never a
-script/style tag — so DOMPurify still sees every element it is there to police". What actually makes
-it safe is that its sole consumer is `htmlToText`, which strips **all** tags and returns text.
-Deleting a `<p>` mid-token can re-splice surrounding markup (`<a hre<p>f="...">` becomes
-`<a hre f="...">`), harmless only because no tag survives. Composed in front of `sanitizeNoteHtml` —
-which preserves an allow-list — the reasoning breaks. Restate the invariant as "safe only in front of
-a strip-everything pass".
-
-**The counter and the cap measure two spellings of one budget.** `CharCounter` is fed
-`htmlPlainProjection(draft.field ?? "")` (raw) while `capRich` measures
-`htmlPlainProjection(descriptionHtml(draft.field))` (upgraded). Identical for every value reachable
-today, because every load goes through `sanitizeRichText` and the editor only emits `<p>...`. They
-diverge wherever `descriptionHtml` is not the identity — a legacy plain value containing literal
-`<b>` text counts 4 by the counter and 11 by the cap. Passing `descriptionHtml(...)` to the counter
-too makes the drift structurally impossible.
-
-★ Related, deliberately left alone: `form.noteLog` is now **dead state**. `fe779f32` removed
-`noteLog` from the submit payload (the write-through path owns the log), so the field and
-`openEditModal`'s snapshot of it feed only the disabled fallback button's count for an unsaved
-task — permanently `0`, since nothing can write a note in create mode. Retiring it means changing
-that button to a literal, then removing `noteLog` from `TaskFormState` and the seed together, which
-touches `emptyForm()` and every fixture constructing a `TaskFormDraft`. Worth doing as its own
-change; leaving it invites a future writer to put it back into `payload`.
+**Remaining fix:** a named table beyond the current set, ordered so it cannot subvert the `&amp;`-last
+rule and refusing the same three classes. Lower value than the numeric half was — Office paste
+produces numeric forms — so this is genuinely small and genuinely optional.
 
 ---
 
@@ -896,6 +743,25 @@ or are projected to plain text for search, exports and AI digests. So the realiz
 but only because nobody has yet added a read-only rich display for one of these fields, which is
 exactly the position the defence-in-depth rule exists to prevent. `Task.description` has been in this
 state on these three backends since 0.196.0.
+
+---
+
+## 29. `form.noteLog` is dead state in the task form — open, own change
+
+Promoted out of the old §27 when that entry closed in 0.210.0; this half was never a doc claim and
+was not fixed. Re-verified 2026-07-29.
+
+`fe779f32` removed `noteLog` from the submit payload — the note log is write-through and owns itself,
+so a draft that snapshots it at modal-open and spreads it over the live row on save destroys any note
+added while the editor was open. `use-task-submit.ts:167` records that deliberate absence. But the
+field is **still seeded** into form state (`:341`, `noteLog: task.noteLog ?? []`), where it now feeds
+only the disabled fallback button's count for an unsaved task — permanently `0`, since nothing can
+write a note in create mode.
+
+Retiring it means changing that button to a literal, then removing `noteLog` from `TaskFormState` and
+the seed together, which touches `emptyForm()` and every fixture constructing a `TaskFormDraft`.
+★ Worth doing as its own change; leaving it invites a future writer to put it back into `payload`,
+which is the data-loss bug `fe779f32` fixed.
 
 ---
 
@@ -975,6 +841,46 @@ out of date: `resolveEntitySave` now has **five** call sites — calendar events
 "only Resources was safe" line needs two corrections. Resources is not an exception to the pattern; it
 hand-rolls the same semantics inline plus an extra concurrent-delete guard the helper's callers lack.
 And **tasks were never exposed at all**, deciding on `editingId !== null` rather than id-existence.
+
+### 0.210.0 "Larbalestier" — nine of the twelve rich-text items closed
+
+Slice B (0.209.0) opened §16–§28. This release closed eight of them outright and narrowed a ninth.
+Recorded here rather than deleted, because two of the nine did not end where they started.
+
+| was | what actually closed it |
+|---|---|
+| §17 exports run on one line | `separateBlockBoundaries(html, sep)` and `htmlPlainProjection(html, {preserveBreaks})` took opt-in break modes, default byte-identical; `descriptionTextWithBreaks` composes them; the renderers map the newline (`<br>` in HTML/PDF, `<w:br/>` in DOCX, one `<a:p>` per line in PPTX, XLSX already preserved it and is now pinned) |
+| §18 tasks export raw HTML | `TASK_RICH_COLUMNS` — `Task.description` exports as projected text |
+| §19 descriptor names `notes` | renamed to `description`; `chat-tools` keeps `notes` as a deliberate **write alias**, because a stored insight recommendation replays its `proposedCalls` verbatim |
+| §20 `applied[f]` untestable | `FieldDiff.raw` exposes the verbatim applied value |
+| §23 five consumers fuse boundaries | all five moved to `descriptionText` |
+| §25 guard doesn't follow imports | pins import **specifiers** (any quote style, static or dynamic) and sweeps the reverse direction, with a scanned-file count so it cannot pass vacuously |
+| §26 Enter-submit counts an unapplied truncation | the plain-text caps now apply on the saved object |
+| §27 three doc claims | 1–2 corrected in comments; 3 fixed — `CharCounter` is fed the upgraded value `capRich` measures |
+| §24 numeric entities | **narrowed, not closed** — see §24 above; the named tail is still open |
+
+★★ **§17 needed a third change the plan did not call for.** `htmlToText`'s default `\s+` collapse
+destroyed the very newline the caller had just inserted, so it took `{preserveBreaks}` too. A
+break-preserving projection composed in front of a whitespace-collapsing one is a no-op — worth
+knowing before designing the equivalent for any other pipeline.
+
+★★★ **§20 was not the tidy seam it was filed as — making the invariant observable proved it FALSE.**
+The entry said the raw-vs-projected distinction "is correct today and is load-bearing", unobservable
+but sound. It was not sound: `use-inline-entity-edit.ts` applied `diff.after`, the **projected preview
+text**, so every inline "Ask Claude" edit of a rich field wrote flattened plain text over the user's
+markup — all seven `RICH_FIELDS`, live since the feature shipped. Fixed in the same release
+(`2d683d8e`, `diff.raw ?? diff.after`; the `?? after` arm is load-bearing for sanitizer-induced enum
+resets, which carry no `raw`). ★ This was a live data-loss bug **found by the fix that made it
+visible**, not a known issue anyone had deferred — the register had it filed as a testability chore.
+The general lesson is the one to keep: an invariant defended only by a code comment is a claim, and
+the cheapest way to find out is to expose it.
+
+★ §19's rename forced `RICH_FIELDS` to move in lockstep — its keys are entity-qualified
+`task.<field>`, read off the descriptor's spelling, so renaming one without the other drops the task
+out of the set and silently stops projecting the preview. `plan.test.ts:228` pins that coupling.
+
+★ The old §27 carried a fourth, unrelated observation about `form.noteLog`. It was **not** a doc
+claim and was not fixed — it is now **§29**, so closing §27 did not quietly retire it.
 
 ### R5 calendar overhaul (0.202.0 "Beukes") and its three follow-up batches
 
