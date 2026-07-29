@@ -101,7 +101,19 @@ function decodeNumericEntities(s: string): string {
     const cp = hex ? parseInt(body.slice(1), 16) : parseInt(body, 10);
     if (!Number.isInteger(cp) || cp <= 0 || cp > 0x10ffff) return whole;
     if (UNSAFE_CODE_POINTS.has(cp)) return whole;
-    // Lone surrogates are not characters and fromCodePoint throws on them.
+    // ★★ A control character CONTROL_CHARS would have deleted must not be
+    // reintroduced HERE, downstream of the strip. sanitizeRichText strips
+    // controls from the RAW string and only then projects, so "&#7;" survives
+    // that pass, decodes to a BEL inside the projection, and on the OVERFLOW
+    // path plainToHtml (which escapes only & < >) writes it back into the
+    // stored value on all six backends. \t \n \r \x0b \x0c are deliberately
+    // absent for the same reason they are absent from CONTROL_CHARS.
+    if (cp <= 0x08 || (cp >= 0x0e && cp <= 0x1f)) return whole;
+    // ★ Lone surrogates are refused because emitting one reproduces exactly the
+    // backend-dependent corruption capHtmlText's own comment documents below: a
+    // lone surrogate becomes U+FFFD on CSV/MD but survives on JSON/IDB. (It is
+    // NOT that fromCodePoint throws on them — it does not; only the range and
+    // integer arms above are throw-guards.)
     if (cp >= 0xd800 && cp <= 0xdfff) return whole;
     return String.fromCodePoint(cp);
   });

@@ -132,12 +132,46 @@ describe("numeric entity references", () => {
     expect(htmlPlainProjection("<p>&#x26;lt;</p>")).toBe("&#x26;lt;");
   });
 
-  it("refuses lone surrogates and out-of-range code points instead of throwing", () => {
-    // String.fromCodePoint throws on both; a projection must never throw — it
-    // runs inside the entity sanitizers on every load.
+  it("refuses lone surrogates and out-of-range code points", () => {
+    // ★ Out-of-range is a THROW guard: String.fromCodePoint(1114112) throws and
+    // a projection must never throw — it runs inside the entity sanitizers on
+    // every load. A lone surrogate does NOT throw; it is refused because
+    // emitting one reproduces the backend-dependent corruption capHtmlText
+    // documents (U+FFFD on CSV/MD, survives on JSON/IDB).
     expect(htmlPlainProjection("<p>&#xd800;</p>")).toBe("&#xd800;");
     expect(htmlPlainProjection("<p>&#1114112;</p>")).toBe("&#1114112;");
     expect(htmlPlainProjection("<p>&#0;</p>")).toBe("&#0;");
+  });
+
+  it("refuses every control character CONTROL_CHARS would have stripped", () => {
+    // ★★ sanitizeRichText strips controls from the RAW string and only then
+    // projects, so a reference is downstream of that strip: decoding "&#7;"
+    // puts a BEL into the projected text, and on the OVERFLOW path capHtmlText
+    // re-wraps that text with plainToHtml — which escapes only & < > — writing
+    // the control character into storage on all six backends.
+    expect(htmlPlainProjection("<p>a&#7;b</p>")).toBe("a&#7;b");
+    expect(htmlPlainProjection("<p>a&#x1b;b</p>")).toBe("a&#x1b;b");
+    expect(htmlPlainProjection("<p>a&#31;b</p>")).toBe("a&#31;b");
+    // \t and \n ARE decoded — they are whitespace the collapse handles, and
+    // CONTROL_CHARS deliberately excludes them for the same reason.
+    expect(htmlPlainProjection("<p>a&#9;b</p>")).toBe("a b");
+    expect(htmlPlainProjection("<p>a&#10;b</p>")).toBe("a b");
+  });
+
+  it("decodes an astral code point as the surrogate PAIR it really is", () => {
+    // ★ The highest-value edge: a decoded emoji is two UTF-16 units, so this is
+    // the input that exercises capHtmlText's own surrogate back-off.
+    expect(htmlPlainProjection("<p>&#x1f600;</p>")).toBe("\u{1f600}");
+    expect(htmlTextLength("<p>&#x1f600;</p>")).toBe(2);
+    // Written as a surrogate PAIR of references it is correctly refused, so
+    // such a value still over-counts — the documented named/paired tail.
+    expect(htmlPlainProjection("<p>&#xd83d;&#xde00;</p>")).toBe("&#xd83d;&#xde00;");
+  });
+
+  it("refuses an uppercase-X unsafe reference, not just the lowercase form", () => {
+    // The X branch was otherwise covered only by an ACCEPTING case.
+    expect(htmlPlainProjection("<p>&#X26;lt;</p>")).toBe("&#X26;lt;");
+    expect(htmlPlainProjection("<p>&#X3C;script&#X3E;</p>")).toBe("&#X3C;script&#X3E;");
   });
 
   it("leaves the existing named decodes and their ordering intact", () => {
