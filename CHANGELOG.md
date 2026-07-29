@@ -19,14 +19,15 @@ the editor. Nothing you already wrote needs converting.
   note log use — bold, italics, bullet and numbered lists, and links. The
   toolbars, keyboard shortcuts and dictation button behave exactly as they do
   elsewhere.
-- **Existing text is upgraded as it is read, not rewritten in storage.** A
+- **Existing text is upgraded as it is read, and nothing needs converting.** A
   legacy plain-text value is turned into formatted text at the point it is read —
   by the editor that opens it, and by search, exports and the AI digests — so old
-  items render correctly with no migration step, no conversion prompt and no risk
-  to a file or database you have not opened in a while. Stored values are left
-  alone: a field is written as rich text only once you next save that item, and
-  until then a project may hold a mix of both shapes. Nothing reads them wrongly,
-  because every reader performs the same upgrade.
+  items render correctly with no migration step and no conversion prompt.
+  Depending on the backend and the record type, that upgrade may happen as the
+  project *loads* rather than when you edit; where it does, your next save writes
+  the upgraded form for every affected item, not only the one you touched. Either
+  route is lossless — the upgrade escapes and wraps text that was already there,
+  and a project may hold both shapes at once without any reader misreading them.
 - **Markup never leaks where plain text is expected.** Global search and the two
   panel search boxes match on the readable text, so searching for a word inside a
   formatted description still finds it. Document exports (PDF, DOCX, XLSX, PPTX

@@ -78,6 +78,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 25 | The DOM-free guard doesn't follow imports | 0.209.0 (Lafferty) | S | open |
 | 26 | Enter-submit counts a truncation it doesn't apply (plain fields) | 0.209.0 (Lafferty) | S | open |
 | 27 | Three doc claims that aren't quite true | 0.209.0 (Lafferty) | S | open — doc-only |
+| 28 | CSV/MD/Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 | M | open — needs a new boundary |
 
 ---
 
@@ -665,9 +666,11 @@ IndexedDB**, because `JSON.stringify` escapes it as `\ud83d`. A silent, **backen
 corruption — harder to diagnose than a uniform one, because the same workspace reads correctly or
 incorrectly depending on where it was stored.
 
-`clipText` is the truncator behind `sanitizeText` and `sanitizeMultiline`, used **~54 times** across
-`sanitize-core` / `sanitize-entities` / `sanitize-records` — every capped name, title, note and
-plain-text field in the app. The same shape recurs in `note-log.ts`'s `cleanText`,
+`clipText` is the truncator behind `sanitizeText` and `sanitizeMultiline`, which have **49 call
+sites** — `sanitize-core` (6), `sanitize-entities` (7), `sanitize-records` (36) — every capped name,
+title, note and plain-text field in the app. (`clipText` itself appears only in `sanitize-core.ts`;
+an earlier revision of this entry said "~54 times across" the three files, which sent a reader
+grepping for `clipText` in `sanitize-records.ts` and finding nothing.) The same shape recurs in `note-log.ts`'s `cleanText`,
 `color-schemes.ts` names, `ai-errors.ts` and `diagnostics-redact.ts`.
 
 **The fix is known and already shipped once.** `capHtmlText` had the identical defect and was fixed
@@ -850,6 +853,49 @@ task — permanently `0`, since nothing can write a note in create mode. Retirin
 that button to a literal, then removing `noteLog` from `TaskFormState` and the seed together, which
 touches `emptyForm()` and every fixture constructing a `TaskFormDraft`. Worth doing as its own
 change; leaving it invites a future writer to put it back into `payload`.
+
+---
+
+## 28. CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary
+
+`9e284c68` closed the two **whole-object cast** load paths: `jsonToWorkspace` (file-JSON, SharePoint,
+local-file) and the IndexedDB read now route all six rich fields through the escape-then-sanitize
+pass, alongside `Task.description` and every `noteLog[].html`. The **codec** paths were not closed,
+and cannot be by the same mechanism.
+
+Verified state, per backend:
+
+| entity · field | JSON / IDB | CSV · MD · Turso |
+|---|---|---|
+| `Task.description` | escaped + DOMPurify'd | **neither** |
+| `RaidItem.description` / `.mitigation` | escaped + DOMPurify'd | **neither** |
+| `ChangeItem.description` / `.impactDescription` / `.resolutionNotes` | escaped + DOMPurify'd | upgraded, **never DOMPurify'd** |
+| `Milestone.description` | escaped + DOMPurify'd | **neither** |
+| every `noteLog[].html` | escaped + DOMPurify'd | DOMPurify'd via `decodeNoteLog` |
+
+The change row differs because `buildChangeFromObj` calls `sanitizeChangeItem` → `sanitizeRichText`,
+which escapes and caps but is **DOM-free by contract**. `buildMilestoneFromObj` assigns the raw cell
+(`if (obj.description) m.description = obj.description`), and `buildRaidItemFromObj` builds a raw
+object literal and never calls `sanitizeRaidItem` — only its `noteLog` goes through `decodeNoteLog`.
+Turso inherits the CSV column exactly, because `ENTITY_SPECS.fromObj` reuses `build*FromObj`.
+
+★★ **This is out of scope by construction, not by oversight.** The codecs run under bare node in
+`scripts/generate-sample-workspace.ts` and the fixture flow, where DOMPurify's `sanitize` is
+undefined and a call throws — which `jsonToWorkspace`'s catch-all converts into an EMPTY workspace
+that then "successfully" writes near-empty sample files. That is the entire reason `rich-text-plain.ts`
+exists and is guarded. Closing this column needs a **post-decode hook** in `csvToWorkspace` /
+`markdownToWorkspace` / `TursoBackend.load()` — the same shape as the two paths already fixed, but at
+a boundary that does not exist today — plus its own golden-stability answer.
+
+★ `AGENTS.md` says "CSV/MD/Turso already route through `decodeNoteLog`". True of `noteLog` **only**,
+and easy to misread as covering `description`. It does not.
+
+★ **What covers this today is the sink, not the load path.** None of the six fields has a display
+`dangerouslySetInnerHTML` sink: they reach `RichTextEditor` (which sanitizes with `sanitizeNoteHtml`)
+or are projected to plain text for search, exports and AI digests. So the realized risk is bounded —
+but only because nobody has yet added a read-only rich display for one of these fields, which is
+exactly the position the defence-in-depth rule exists to prevent. `Task.description` has been in this
+state on these three backends since 0.196.0.
 
 ---
 
