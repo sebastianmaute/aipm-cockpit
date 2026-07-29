@@ -10,7 +10,6 @@ import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem } from "./types";
 import { applyStatusChange } from "./task-status";
-import { sanitizeNoteLog } from "./note-log";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { TASK_UNDO_GROUPS } from "./undo/field-groups";
 import type { UndoStackApi } from "./undo/use-undo-stack";
@@ -165,7 +164,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         timeSpentMinutes: form.timeSpentMinutes,
         resourceId: form.resourceId ?? undefined,
         knowledgeLinks: form.knowledgeLinks,
-        noteLog: sanitizeNoteLog(form.noteLog),
+        // ★★ `noteLog` is DELIBERATELY absent. The note log is WRITE-THROUGH —
+        // NoteLogPanel (inline in the editor) and the floating notes window both
+        // commit straight to the workspace row, and never touch this draft. The
+        // draft's copy (snapshotted by `openEditModal`) therefore goes stale the
+        // instant a note is added/edited/deleted, and since `payload` is spread
+        // OVER `row` it would overwrite the live log with that stale copy —
+        // silent data loss. The write-through path is the sole owner.
       };
 
       if (adj.count() > 0) {
