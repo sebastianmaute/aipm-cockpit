@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildExportSections,
+  TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
   MILESTONE_RICH_COLUMNS,
   CHANGE_RICH_COLUMNS,
@@ -514,8 +515,12 @@ describe("rich descriptions export as text (slice B)", () => {
     };
     const sections = buildExportSections(ws, richConfig, "en-US");
     const raid = (sections.find((s) => s.key === "raid")?.rows ?? []).flat().join(" ");
-    expect(raid).toContain("Vendor delay Mitigation plan");
-    expect(raid).toContain("line one line two");
+    // ★ The separator is a NEWLINE, not a space: exports now carry
+    // descriptionTextWithBreaks, so a renderer can lay the boundary out as a
+    // real paragraph break. Fusing (the bug this test was written for) is still
+    // pinned by the two negative assertions below.
+    expect(raid).toContain("Vendor delay\nMitigation plan");
+    expect(raid).toContain("line one\nline two");
     expect(raid).not.toContain("delayMitigation");
     expect(raid).not.toContain("oneline");
   });
@@ -532,5 +537,42 @@ describe("rich descriptions export as text (slice B)", () => {
       const unknownNames = [...rich].filter((c) => !columns.includes(c));
       expect(`${label}: ${unknownNames.join(",")}`).toBe(`${label}: `);
     }
+  });
+});
+
+describe("task descriptions are projected like every other rich field", () => {
+  it("exports Task.description as text, not raw HTML", () => {
+    const base = makeBaseWorkspace();
+    const ws: Workspace = {
+      ...base,
+      tasks: [{ ...makeTask(1), description: "<p>Vendor delay</p><p>Mitigation plan</p>" }],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const tasks = sections.find((s) => s.key === "tasks");
+    const col = tasks!.columns.indexOf("description");
+    expect(col).toBeGreaterThanOrEqual(0);
+    const cell = String(tasks!.rows[0][col]);
+    expect(cell).not.toContain("<p>");
+    expect(cell).toBe("Vendor delay\nMitigation plan");
+  });
+
+  it("pins TASK_RICH_COLUMNS as a subset of the task CSV columns", () => {
+    // A name that is not a real column would silently never match, leaving the
+    // fix absent with nothing else noticing.
+    for (const c of TASK_RICH_COLUMNS) {
+      expect(CSV_COLUMNS as unknown as string[]).toContain(c);
+    }
+  });
+
+  it("keeps register descriptions on the break-preserving projection too", () => {
+    const base = makeBaseWorkspace();
+    const ws: Workspace = {
+      ...base,
+      raid: [{ ...makeRaidItem(1), description: "<p>one</p><p>two</p>" }],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const raid = sections.find((s) => s.key === "raid");
+    const col = raid!.columns.indexOf("description");
+    expect(String(raid!.rows[0][col])).toBe("one\ntwo");
   });
 });
