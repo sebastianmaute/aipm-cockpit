@@ -290,7 +290,18 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       fireEvent.click(await screen.findByRole("button", { name: t("en-US", "timelogRefresh") }));
-      await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)));
+      // ★★ This one assertion gets an explicit timeout above the global
+      // `asyncUtilTimeout: 5000` (vitest.setup.ts). It has failed in CI five
+      // times — 0.205.0, 0.208.0, and twice on the 0.209.0 MR plus once on main
+      // after that merge — always THIS test, always at ~5.1s, always with the
+      // other 765 files green and the full suite passing locally. That profile
+      // is worker starvation under full parallel load, not a race: a real race
+      // fails deterministically rather than a hair over the limit. `testTimeout`
+      // is 20s, so a genuinely broken expectation still fails the test well
+      // inside its own budget — this only buys wall-clock, not silence.
+      await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)), {
+        timeout: 15000,
+      });
     });
 
     it("hides the Refresh button before any bookings are read", async () => {
