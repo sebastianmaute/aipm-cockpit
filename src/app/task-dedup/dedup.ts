@@ -7,7 +7,8 @@
 // anything can be applied. No React, no fetch, no i18n, no side effects.
 import { type Task } from "../types";
 import { sanitizeTaskName } from "../sanitize";
-import { htmlToText, sanitizeNoteHtml } from "../sanitize-html";
+import { sanitizeNoteHtml } from "../sanitize-html";
+import { descriptionText } from "../rich-text-projection";
 
 /** A raw group as parsed from the model tool input (shape-validated only — ids
  *  are NOT yet checked against the live workspace). */
@@ -59,7 +60,7 @@ export function buildDedupContext(
   const lines = shown.map((tk) => {
     const assignee = tk.assignee?.trim() || "unassigned";
     const due = tk.dueDate?.trim() || "-";
-    const noteText = htmlToText(tk.description);
+    const noteText = descriptionText(tk.description);
     const notes = noteText ? ` :: ${firstLine(noteText, DIGEST_NOTES_MAX)}` : "";
     return `#${tk.id} [${tk.status}] ${assignee} due:${due} — ${firstLine(tk.taskName, 200)}${notes}`;
   });

@@ -38,7 +38,7 @@ import { GanttDependencyLayer, GanttHeader, GanttToolbar } from "./gantt-chrome"
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
-import { htmlToText } from "./sanitize-html";
+import { descriptionText } from "./rich-text-projection";
 import { sortMilestones } from "./milestones";
 import {
   addDays,
@@ -248,7 +248,7 @@ export function GanttPanel({
           effectivePersonName(task.assignee, task.resourceId, resourcesById),
           task.assigneeEmail ?? "",
           task.blockers ?? "",
-          htmlToText(task.description ?? ""),
+          descriptionText(task.description ?? ""),
           task.group ?? "",
           (task.labels ?? []).join(" "),
         ]

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   appendDictationToHtml,
   descriptionText,
@@ -102,5 +104,38 @@ describe("descriptionTextWithBreaks", () => {
   it("returns empty for an empty value", () => {
     expect(descriptionTextWithBreaks(undefined)).toBe("");
     expect(descriptionTextWithBreaks("")).toBe("");
+  });
+});
+
+describe("description consumers use the correct projection", () => {
+  const SITES = [
+    "workspace-context.tsx",
+    "gantt.tsx",
+    "task-row.tsx",
+    "task-dedup/dedup.ts",
+    "jira-api.ts",
+  ];
+
+  it("never projects a description with bare htmlToText", () => {
+    // ★★ htmlToText strips tags leaving NOTHING in their place, so
+    // "<p>a</p><p>b</p>" fuses to "ab". These five read Task.description; every
+    // one of them must go through descriptionText, which runs
+    // separateBlockBoundaries first.
+    //
+    // ★ note-log-panel.tsx and note-log.ts also call htmlToText and are CORRECT
+    // — they operate on note HTML, not descriptions. They are deliberately not
+    // in this list.
+    //
+    // ★ The scan catches MULTI-LINE calls too: `[^)]` matches a newline, and it
+    // cannot run past the call's own closing paren, so an unrelated
+    // `htmlToText(noteHtml)` earlier in the file cannot reach a later
+    // `.description` and false-positive. Verified both directions.
+    for (const site of SITES) {
+      const src = readFileSync(join(import.meta.dirname, site), "utf8");
+      expect({ site, hit: /htmlToText\([^)]*\.description/.test(src) }).toEqual({
+        site,
+        hit: false,
+      });
+    }
   });
 });
