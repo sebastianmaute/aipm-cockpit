@@ -38,7 +38,10 @@ import {
   StakeholderChipPicker,
   ModalEditFooter,
 } from "./edit-modal-chrome";
-import { Input, Select, Textarea } from "./form-controls";
+import { Input, Select } from "./form-controls";
+import { RichTextEditor } from "./rich-text-editor";
+import { descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
+import { appendDictationToHtml } from "./rich-text-projection";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
@@ -117,7 +120,7 @@ export function ChangeEditModal({
     dictation: settings.dictation,
     enabled: true,
     label: t(lang, "changeFieldDescription"),
-    onAppendFinal: (txt) => update("description", appendDictation(draftRef.current.description ?? "", txt)),
+    onAppendFinal: (txt) => update("description", appendDictationToHtml(draftRef.current.description, txt)),
   });
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
@@ -163,11 +166,14 @@ export function ChangeEditModal({
     adj.reset();
     // Route capped text fields through tracker so silent truncations are counted.
     adj.track(describeTextCap(draft.title, BUDGET_NAME_MAX));
-    adj.track(describeTextCap(draft.description ?? "", TEXTAREA_MAX));
+    // The three rich fields are capped by VISIBLE text length (sanitizeRichText),
+    // so their truncation counters have to measure the same projection — against
+    // the raw HTML they would count markup and over-report "N fields adjusted".
+    adj.track(describeTextCap(htmlPlainProjection(draft.description ?? ""), TEXTAREA_MAX));
     adj.track(describeTextCap(draft.requestedBy ?? "", BUDGET_NAME_MAX));
     adj.track(describeTextCap(draft.decisionBy ?? "", BUDGET_NAME_MAX));
-    adj.track(describeTextCap(draft.impactDescription ?? "", TEXTAREA_MAX));
-    adj.track(describeTextCap(draft.resolutionNotes ?? "", TEXTAREA_MAX));
+    adj.track(describeTextCap(htmlPlainProjection(draft.impactDescription ?? ""), TEXTAREA_MAX));
+    adj.track(describeTextCap(htmlPlainProjection(draft.resolutionNotes ?? ""), TEXTAREA_MAX));
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave();
   }
@@ -294,19 +300,38 @@ export function ChangeEditModal({
               {t(lang, "changeFieldDescription")}<InfoTooltip text={t(lang, "changeFieldDescriptionHint")} />
               {descriptionMic}
             </span>
-            <Textarea
-              autoGrow
-              rows={2}
-              value={draft.description}
-              onChange={(e) => update("description", e.target.value)}
-              onFocus={descriptionDictationReg.onFocus}
-              onBlur={(e) => {
-                update("description", describeTextCap(e.target.value, TEXTAREA_MAX).value);
-                descriptionDictationReg.onBlur();
-              }}
-              aria-describedby="change-description-counter"
+            {/* focus/blur bubble from the contenteditable, registering THIS
+                field as the active dictation target for the hold-to-talk
+                hotkey — the wrapper is per-field for exactly that reason. */}
+            <div onFocus={descriptionDictationReg.onFocus} onBlur={descriptionDictationReg.onBlur}>
+              {/* ★★ key is LOAD-BEARING. Tiptap binds `content` at MOUNT only
+                  and never re-reads the prop, while the panel re-seeds this
+                  modal's draft in place — so jumping to change 2 while change
+                  1's editor is still mounted would leave change 1's body in the
+                  field. ★ It depends only on draft.id: this draft is
+                  PARENT-OWNED and onChange mints a new object per keystroke, so
+                  a key derived from the draft itself would remount Tiptap on
+                  every character and destroy the caret. */}
+              <RichTextEditor
+                key={`${draft.id}:description`}
+                variant="lean"
+                value={descriptionHtml(draft.description)}
+                /* `description` is REQUIRED on ChangeItem (a plain string), so
+                   an empty body stays "" here rather than collapsing to
+                   undefined the way the two optional fields below do. */
+                onChange={(html) => update("description", html)}
+                label={t(lang, "changeFieldDescription")}
+                lang={lang}
+              />
+            </div>
+            {/* CharCounter measures `.length`, and the cap measures VISIBLE
+                text — so it is fed the projection, not the markup. */}
+            <CharCounter
+              value={htmlPlainProjection(draft.description ?? "")}
+              max={TEXTAREA_MAX}
+              id="change-description-counter"
+              lang={lang}
             />
-            <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="change-description-counter" lang={lang} />
             {descriptionDictationStatus}
           </label>
           )}
@@ -367,17 +392,22 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldImpactDescription")}<InfoTooltip text={t(lang, "changeFieldImpactDescriptionHint")} />
             </span>
-            <Textarea
-              autoGrow
-              rows={2}
-              value={draft.impactDescription ?? ""}
-              onChange={(e) =>
-                update("impactDescription", e.target.value || undefined)
-              }
-              onBlur={(e) => update("impactDescription", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
-              aria-describedby="change-impactDescription-counter"
+            {/* No dictation mic on this field (it never had one), so no
+                registration wrapper — but the key is per-field all the same. */}
+            <RichTextEditor
+              key={`${draft.id}:impactDescription`}
+              variant="lean"
+              value={descriptionHtml(draft.impactDescription)}
+              onChange={(html) => update("impactDescription", html || undefined)}
+              label={t(lang, "changeFieldImpactDescription")}
+              lang={lang}
             />
-            <CharCounter value={draft.impactDescription ?? ""} max={TEXTAREA_MAX} id="change-impactDescription-counter" lang={lang} />
+            <CharCounter
+              value={htmlPlainProjection(draft.impactDescription ?? "")}
+              max={TEXTAREA_MAX}
+              id="change-impactDescription-counter"
+              lang={lang}
+            />
           </label>
           )}
 
@@ -490,17 +520,21 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldResolution")}<InfoTooltip text={t(lang, "changeFieldResolutionHint")} />
             </span>
-            <Textarea
-              autoGrow
-              rows={2}
-              value={draft.resolutionNotes ?? ""}
-              onChange={(e) =>
-                update("resolutionNotes", e.target.value || undefined)
-              }
-              onBlur={(e) => update("resolutionNotes", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
-              aria-describedby="change-resolutionNotes-counter"
+            {/* No dictation mic here either — bare editor, per-field key. */}
+            <RichTextEditor
+              key={`${draft.id}:resolutionNotes`}
+              variant="lean"
+              value={descriptionHtml(draft.resolutionNotes)}
+              onChange={(html) => update("resolutionNotes", html || undefined)}
+              label={t(lang, "changeFieldResolution")}
+              lang={lang}
             />
-            <CharCounter value={draft.resolutionNotes ?? ""} max={TEXTAREA_MAX} id="change-resolutionNotes-counter" lang={lang} />
+            <CharCounter
+              value={htmlPlainProjection(draft.resolutionNotes ?? "")}
+              max={TEXTAREA_MAX}
+              id="change-resolutionNotes-counter"
+              lang={lang}
+            />
           </label>
 
           {/* Document links ------------------------------------------ */}
