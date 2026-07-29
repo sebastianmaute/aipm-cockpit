@@ -6,6 +6,8 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { TEXTAREA_MAX } from "./sanitize";
+import { htmlTextLength } from "./rich-text-plain";
 
 // Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
@@ -47,6 +49,40 @@ function Seed({ tier }: { tier: "full" }) {
   }, [setFieldVisibility, tier]);
   return null;
 }
+
+describe("MilestoneEditModal rich-field write-path cap", () => {
+  // ★★ Same regression as the RAID/change modals: `description` became a
+  // RichTextEditor and nothing capped it on the way out, so an over-cap value
+  // was persisted uncapped and only truncated on the NEXT load, inside
+  // sanitizeRichText. This modal has no adjustment tracker, so the only
+  // observable is the value handed to onSave.
+  function save(description: string | undefined) {
+    const onSave = vi.fn();
+    render(
+      <MilestoneEditModal
+        lang="en-US"
+        milestone={{ id: 1, name: "M1", date: "2026-08-01", description, linkedTaskIds: [] }}
+        isNew={false}
+        tasks={[]}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />,
+      { wrapper },
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+    return onSave.mock.calls[0][0] as { description?: string };
+  }
+
+  it("caps an over-cap description on the value it SAVES", () => {
+    const saved = save(`<p>${"d".repeat(TEXTAREA_MAX + 40)}</p>`);
+    expect(htmlTextLength(saved.description ?? "")).toBe(TEXTAREA_MAX);
+  });
+
+  it("leaves an under-cap description untouched", () => {
+    expect(save("<p>fits fine</p>").description).toBe("<p>fits fine</p>");
+  });
+});
 
 it("renders a new-milestone form without crashing", () => {
   render(

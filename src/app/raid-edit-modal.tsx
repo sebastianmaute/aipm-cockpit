@@ -48,7 +48,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor";
-import { descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
+import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { Button } from "./button";
 import { useDictationMic } from "./dictation-mic";
@@ -70,7 +70,10 @@ export type RaidEditModalProps = {
   onChange: (next: RaidItem) => void;
   onApplyStatus: (s: RaidStatus) => void;
   onApplyMatrix: (probability: RiskScale, impact: RiskScale) => void;
-  onSave: () => void;
+  /** Receives the item to commit. The modal caps its rich fields on the way
+   *  out, so the parent MUST save what it is handed here — its own `draft`
+   *  state is one render behind and still holds the uncapped value. */
+  onSave: (item: RaidItem) => void;
   onCancel: () => void;
   onDelete: () => void;
   onCreateMitigationTask: () => void;
@@ -185,15 +188,37 @@ export function RaidEditModal({
     }
     setError(null);
     adj.reset();
+    // title/owner keep their own onBlur caps below, so tracking them here is
+    // count-only and the value is deliberately discarded.
     adj.track(describeTextCap(draft.title, TASK_NAME_MAX));
-    // The two rich fields are capped by VISIBLE text length (sanitizeRichText),
-    // so the truncation counter has to measure the same projection — against
-    // the raw HTML it would count markup and over-report "N fields adjusted".
-    adj.track(describeTextCap(htmlPlainProjection(draft.description ?? ""), TEXTAREA_MAX));
     adj.track(describeTextCap(draft.owner ?? "", ASSIGNEE_MAX));
-    adj.track(describeTextCap(htmlPlainProjection(draft.mitigation ?? ""), TEXTAREA_MAX));
+    const saved: RaidItem = {
+      ...draft,
+      description: capRich(draft.description) || undefined,
+      mitigation: capRich(draft.mitigation) || undefined,
+    };
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
-    onSave();
+    onSave(saved);
+  }
+
+  /** Cap a rich field ON THE WRITE PATH and count that same truncation.
+   *
+   *  ★★ These two fields lost their cap when they stopped being `<Textarea>`s:
+   *  the old onBlur handler wrote the truncated value back into the draft, and
+   *  only the COUNTING survived the swap. So the toast reported a truncation the
+   *  save never made, and the real one landed invisibly on the next load, when
+   *  sanitizeRichText finally capped it. Capping here — on the object handed to
+   *  onSave — makes the counted adjustment and the applied one one operation.
+   *
+   *  ★ Both halves measure `htmlPlainProjection(upgraded)`, which is exactly what
+   *  capHtmlText and sanitizeRichText measure: the VISIBLE text, so markup never
+   *  eats the user's budget and the counter cannot drift from the cap. Upgrading
+   *  first matches sanitizeRichText's own composition, so a legacy plain value
+   *  is measured the way the loader will measure it rather than one tag short. */
+  function capRich(html: string | undefined): string {
+    const upgraded = descriptionHtml(html);
+    adj.track(describeTextCap(htmlPlainProjection(upgraded), TEXTAREA_MAX));
+    return capHtmlText(upgraded, TEXTAREA_MAX);
   }
 
   function addLinked(taskId: number) {

@@ -381,10 +381,12 @@ function RaidPanelBody({
     };
   }
 
-  function commitDraft() {
+  /** `item` is the modal's capped draft — save THAT, not our own `draft` state,
+   *  which is one render behind and still holds the uncapped rich fields. */
+  function commitDraft(item: RaidItem) {
     if (!draft) return;
-    if (!draft.title.trim()) return;
-    onSave(draft, isNew);
+    if (!item.title.trim()) return;
+    onSave(item, isNew);
     closeModal();
   }
 

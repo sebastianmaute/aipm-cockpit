@@ -8,6 +8,8 @@ import { ChangeEditModal } from "./change-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import { TEXTAREA_MAX } from "./sanitize";
+import { htmlTextLength } from "./rich-text-plain";
+import { ToastProvider } from "./toast-context";
 import type { ChangeItem, Stakeholder } from "./types";
 
 // ProseMirror (the three RichTextEditors) touches layout APIs jsdom lacks; stub
@@ -350,6 +352,65 @@ describe("ChangeEditModal — rich-text description fields (slice B)", () => {
     expect(await screen.findByRole("textbox", { name: DESC_LABEL })).toBe(firstDesc);
     expect(await screen.findByRole("textbox", { name: IMPACT_LABEL })).toBe(firstImpact);
     expect(await screen.findByRole("textbox", { name: RESOLUTION_LABEL })).toBe(firstResolution);
+  });
+});
+
+describe("ChangeEditModal rich-field write-path cap", () => {
+  /** Renders with a toast spy so the "N fields adjusted" count is observable. */
+  function renderWithSpies(over: Partial<ChangeItem>) {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <ChangeEditModal {...base} draft={change(over)} onSave={onSave} />
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+
+  function submit() {
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
+  }
+
+  it("caps an over-cap rich field on the value it SAVES, and counts exactly that", async () => {
+    // ★★ THE REGRESSION THIS PINS: when the three rich fields became
+    // RichTextEditors they lost the `<Textarea onBlur>` handler that wrote the
+    // truncated value back into the draft — only the COUNTING survived. So the
+    // toast announced a truncation the save never made, the uncapped value went
+    // to the workspace, and the real truncation landed invisibly on the NEXT
+    // load, inside sanitizeRichText.
+    const { onSave, showToast } = renderWithSpies({
+      description: `<p>${"d".repeat(TEXTAREA_MAX + 40)}</p>`,
+      resolutionNotes: "<p>short</p>",
+    });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    submit();
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    // The SAVED value is capped — not merely counted. Measured as VISIBLE text,
+    // which is what capHtmlText and sanitizeRichText both measure.
+    expect(htmlTextLength(saved.description)).toBe(TEXTAREA_MAX);
+    // ★ The under-cap sibling is byte-identical, so the count below can only
+    // mean the one field that really was truncated.
+    expect(saved.resolutionNotes).toBe("<p>short</p>");
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("saves an under-cap draft untouched and announces nothing", async () => {
+    // The other half of "the count matches reality": no truncation, no toast.
+    const { onSave, showToast } = renderWithSpies({
+      description: "<p>fits fine</p>",
+      resolutionNotes: "<p>also fine</p>",
+    });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    submit();
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.description).toBe("<p>fits fine</p>");
+    expect(saved.resolutionNotes).toBe("<p>also fine</p>");
+    expect(showToast).not.toHaveBeenCalled();
   });
 });
 
