@@ -510,6 +510,42 @@ scope-mismatch note added in the same slice does not cover this case; it compare
 
 ---
 
+## 15. Two file-picker patterns — extract a `FilePickerButton` primitive — open, low priority
+
+The app opens a file dialog in two structurally different ways, and slice E (0.208.0) put both on the
+**same settings surface**, Settings → Appearance:
+
+| where | shape |
+|---|---|
+| `color-scheme-editor.tsx:212-215` | `<label className={btn}>` text + an `sr-only` `<input type="file">` as its child. The label IS the control; no ref, no imperative click. |
+| `theme-gallery.tsx:76-95` | DS `<Button>` + a sibling `sr-only` input reached through a `useRef` and `inputRef.current?.click()`. |
+
+Neither is a primitive. **Neither should simply be converted into the other**, which is why this is a
+follow-up and not a slice-E fix:
+
+- Converting the gallery to the label shape means copying the editor's `btn` — a **local hand-rolled
+  class string** (`color-scheme-editor.tsx:190`), not a design-system export. That hand-rolls button
+  styling in a second file and mints a `dup:check` clone, and `dup:check` is BLOCKING.
+- Converting the editor to the gallery shape means the editor grows a ref + an imperative click for
+  what a `<label>` already does declaratively.
+
+The real fix is one small primitive — a `FilePickerButton` wrapping `Button` with an `accept` prop
+and the input it owns — and moving both sites onto it. That also settles the a11y question in ONE
+place: the gallery's sibling input was a **second tab stop announcing the same accessible name as its
+Button** until `df507f95` gave it `tabIndex={-1}` + `aria-hidden`, and the axe gate cannot see a
+duplicate accessible name (it reports missing names only), so nothing would have caught it. The
+editor's label shape never had that failure mode, and a shared primitive means neither can regress
+into it.
+
+★ Do NOT "fix" this by making the input `display:none` — a hidden input cannot be clicked in every
+browser, which is why both sites use `sr-only`.
+
+★ Scope check before starting: `grep -rn 'type="file"' src/app --include=*.tsx` — `BrandingImageInput`
+and the create-project import panel also take files, but they are **image**/multi-file flows with
+their own validation, so folding them in is a bigger question than the two theme pickers.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).

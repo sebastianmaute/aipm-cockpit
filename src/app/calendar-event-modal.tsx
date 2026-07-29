@@ -180,6 +180,9 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
       onDragReset={dragReset}
       sizeKey="aipm-cockpit:modal-size:calendar-event"
       widthClassName="w-[560px] min-w-[320px]"
+      /* Just under the shell's 720px default: the recurrence rows are
+         conditional, so the collapsed (non-recurring) form is much shorter. */
+      heightClassName="h-[640px] min-h-[400px] max-h-[95vh]"
       formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
       {isVisible("title") && (

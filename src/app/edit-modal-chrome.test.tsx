@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
@@ -64,5 +66,44 @@ describe("EditModalShell height axis", () => {
     const panel = document.querySelector("[data-modal-panel]") as HTMLElement;
     expect(panel.className).toContain("h-[500px]");
     expect(panel.className).not.toContain("h-[720px]");
+  });
+});
+
+// The shell's 720px default suits the WIDE, long forms (change / raid /
+// stakeholder). The four NARROW consumers are much shorter, and at 720px they
+// open with visible dead space under the form — the very defect the height axis
+// was added to remove. Each therefore pins its own height, and this guard stops
+// one silently reverting to the default.
+const NARROW_CONSUMERS = [
+  "absence-edit-modal",
+  "milestone-edit-modal",
+  "resource-edit-modal",
+  "calendar-event-modal",
+] as const;
+
+describe("narrow EditModalShell consumers pin their own height", () => {
+  const sources = NARROW_CONSUMERS.map((name) => ({
+    name,
+    src: readFileSync(join(process.cwd(), "src/app", `${name}.tsx`), "utf8"),
+  }));
+
+  test("the scan reads all four files and they really use the shell", () => {
+    // Proof the scan works before anything is concluded from it: a typo'd path
+    // or a renamed file would otherwise make every assertion below vacuous.
+    expect(sources).toHaveLength(4);
+    for (const { name, src } of sources) {
+      expect(src.length, `${name} read empty`).toBeGreaterThan(500);
+      expect(src, `${name} no longer renders EditModalShell`).toContain("<EditModalShell");
+    }
+  });
+
+  test.each(NARROW_CONSUMERS)("%s pins a height shorter than the 720px default", (name) => {
+    const { src } = sources.find((s) => s.name === name)!;
+    const declared = /heightClassName="h-\[(\d+)px\][^"]*"/.exec(src);
+    expect(declared, `${name} declares no heightClassName`).not.toBeNull();
+    expect(Number(declared![1])).toBeLessThan(720);
+    // The prop REPLACES all three classes, so an override that forgets its own
+    // cap loses the viewport guard entirely (there is no tailwind-merge).
+    expect(declared![0]).toContain("max-h-[95vh]");
   });
 });
