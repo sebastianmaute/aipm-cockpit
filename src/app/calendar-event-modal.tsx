@@ -180,9 +180,13 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
       onDragReset={dragReset}
       sizeKey="aipm-cockpit:modal-size:calendar-event"
       widthClassName="w-[560px] min-w-[320px]"
-      /* Just under the shell's 720px default: the recurrence rows are
-         conditional, so the collapsed (non-recurring) form is much shorter. */
-      heightClassName="h-[640px] min-h-[400px] max-h-[95vh]"
+      /* Sized for the COLLAPSED form (`freq: "none"` — the default for a new
+         event and for every one-off meeting): title + occurrence + location +
+         the repeat select, ~4 rows. The recurrence sub-fields are conditional,
+         and when they expand the form scrolls, which is what the scroller is
+         for — sizing for the expanded branch instead would put dead space
+         under the common one, the defect this height axis exists to remove. */
+      heightClassName="h-[520px] min-h-[380px] max-h-[95vh]"
       formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
       {isVisible("title") && (

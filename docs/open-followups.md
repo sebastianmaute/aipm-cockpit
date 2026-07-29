@@ -540,9 +540,10 @@ into it.
 ★ Do NOT "fix" this by making the input `display:none` — a hidden input cannot be clicked in every
 browser, which is why both sites use `sr-only`.
 
-★ Scope check before starting: `grep -rn 'type="file"' src/app --include=*.tsx` — `BrandingImageInput`
-and the create-project import panel also take files, but they are **image**/multi-file flows with
-their own validation, so folding them in is a bigger question than the two theme pickers.
+★ Scope check before starting: `grep -rn 'type="file"' src/app --include=*.tsx` — that grep also hits
+`BrandingImageInput`, the create-project import panel and `chat-panel.tsx`'s attachment upload. All
+three are image/multi-file flows with their own validation and size caps, so folding them in is a
+bigger question than the two theme pickers; the follow-up is scoped to those two.
 
 ---
 
