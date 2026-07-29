@@ -203,6 +203,33 @@ describe("rich fields preview as text (slice B)", () => {
     expect(diff?.after).toBe("new plan");
   });
 
+  it("leaves the plain-text stakeholder.notes verbatim, though raid shares the name shape", () => {
+    // ★★ SCOPE LEAK THIS PINS: the set was keyed on the BARE field name and
+    // included "notes" — the task descriptor's stale alias for its rich
+    // `description`. But `notes` is also the STAKEHOLDER descriptor's own field,
+    // and Stakeholder.notes is plain text (sanitizeText, plain textarea),
+    // deliberately outside slice B. So a stakeholder note previewed with its
+    // newlines collapsed by htmlToText's whitespace run.
+    const stk = { id: 3, name: "Dana", category: "Sponsor", influence: "Medium", interest: "Medium", notes: "old" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_stakeholder", input: { id: 3, notes: "line one\nline two" } }],
+      { descriptor: INLINE_DESCRIPTORS.stakeholder, item: stk, ws: wsWith({ stakeholders: [stk] as never }) },
+    );
+    // The newline SURVIVES. Projected, it would collapse to "line one line two".
+    expect(plan.updates).toContainEqual({ field: "notes", before: "old", after: "line one\nline two" });
+  });
+
+  it("still projects task.notes, the task descriptor's alias for the rich description", () => {
+    // The other direction: entity-qualifying the set must not stop projecting
+    // the one field that legitimately carries that name and IS rich.
+    const t2 = { id: 9, taskName: "T", notes: "<p>old <strong>note</strong></p>" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 9, notes: "<p>new note</p>" } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item: t2, ws: wsWith({ tasks: [t2] as never }) },
+    );
+    expect(plan.updates).toContainEqual({ field: "notes", before: "old note", after: "new note" });
+  });
+
   it("leaves a non-rich field's diff verbatim", () => {
     // `title` is plain text. Its stored value happens to contain markup here, so
     // if forPreview were a blanket transform instead of a rich-field FILTER the

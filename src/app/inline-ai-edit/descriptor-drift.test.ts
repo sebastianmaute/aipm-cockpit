@@ -1,19 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
+import { RICH_FIELDS } from "./plan";
 import { sanitizeRaidItem, sanitizeChangeItem, sanitizeMilestone, sanitizeStakeholder } from "../sanitize";
 import { descriptionHtml } from "../rich-text-plain";
 
-// The six RICH-TEXT diff fields (slice B). Their sanitizers UPGRADE a legacy
-// plain value to HTML, so "survives" means the field arrives in its upgraded
-// form — not byte-identical. Every other field still round-trips verbatim.
-// This test is about WRITABILITY (the dispatcher can set the field and the
-// sanitizer does not silently drop it), so the expectation is expressed as the
-// upgrade itself rather than a hard-coded "<p>…</p>".
-const RICH_FIELDS = new Set([
-  "raid.description", "raid.mitigation",
-  "change.description", "change.impactDescription", "change.resolutionNotes",
-  "milestone.description",
-]);
+// The RICH-TEXT diff fields (slice B). Their sanitizers UPGRADE a legacy plain
+// value to HTML, so "survives" means the field arrives in its upgraded form —
+// not byte-identical. Every other field still round-trips verbatim. This test is
+// about WRITABILITY (the dispatcher can set the field and the sanitizer does not
+// silently drop it), so the expectation is expressed as the upgrade itself
+// rather than a hard-coded "<p>…</p>".
+//
+// ★★ Imported from plan.ts rather than re-listed here. A local copy is what let
+// plan.ts's set drift to bare field names and start projecting the plain-text
+// `stakeholder.notes`. Sharing it also makes THIS test the guard on the list:
+// a wrong entry (e.g. "stakeholder.notes") flips the expectation to an upgrade
+// its sanitizer never performs, and the case fails. `task.notes` is in the set
+// but unreached — CASES covers the four sanitizer-backed entities only.
 
 // One valid full item per entity + a valid replacement value per diff field.
 // Each field is set on a valid base, run through the sanitizer, and must survive
