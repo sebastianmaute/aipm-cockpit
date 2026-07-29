@@ -611,3 +611,24 @@ describe("RAID severity dot RAG tokens", () => {
     expect(cls.some((c) => c.includes("bg-ui-purple"))).toBe(false);
   });
 });
+
+describe("RaidPanel search over a rich description", () => {
+  it("matches the words, not the markup", () => {
+    const raid: RaidItem[] = [
+      makeRaidItem({
+        id: 1,
+        title: "Slip risk",
+        severity: "Medium",
+        description: "<p>slipped <strong>badly</strong></p>",
+      }),
+    ];
+    renderPanel(makeProps({ raid }));
+    const box = screen.getByPlaceholderText(/search title, owner/i);
+
+    fireEvent.change(box, { target: { value: "strong" } });
+    expect(screen.queryByText("Slip risk")).toBeNull();
+
+    fireEvent.change(box, { target: { value: "badly" } });
+    expect(screen.getByText("Slip risk")).toBeInTheDocument();
+  });
+});

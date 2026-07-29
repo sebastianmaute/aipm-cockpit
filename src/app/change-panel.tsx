@@ -10,6 +10,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 import { PanelViewsControl } from "./panel-views-control";
 import type { PanelFiltersState } from "./panel-views";
+import { descriptionText } from "./rich-text-projection";
 
 const CHANGE_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
@@ -205,7 +206,7 @@ function ChangePanelBody({
       if (typeFilter !== "All" && c.type !== typeFilter) return false;
       if (statusFilter !== "All" && c.status !== statusFilter) return false;
       if (q) {
-        const hay = [c.title, c.description ?? "", c.requestedBy ?? ""]
+        const hay = [c.title, descriptionText(c.description), c.requestedBy ?? ""]
           .join(" ")
           .toLowerCase();
         if (!hay.includes(q)) return false;

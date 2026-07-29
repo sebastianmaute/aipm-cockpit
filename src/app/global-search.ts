@@ -1,5 +1,5 @@
 import type { AppView } from "./nav-config";
-import { htmlToText } from "./sanitize-html";
+import { descriptionText } from "./rich-text-projection";
 import type {
   BudgetBucket,
   ChangeItem,
@@ -109,7 +109,7 @@ export function buildSearchIndex(ws: SearchableWorkspace): SearchIndex {
       indexRow("task", "open-points", t.id, t.taskName, coerce(t.assignee), [
         coerce(t.assignee),
         coerce(t.assigneeEmail),
-        coerce(htmlToText(t.description)),
+        coerce(descriptionText(t.description)),
         coerce(t.blockers),
         coerce(t.group),
         joinLabels(t.labels),
@@ -118,8 +118,8 @@ export function buildSearchIndex(ws: SearchableWorkspace): SearchIndex {
     ),
     raid: ws.raid.map((item) =>
       indexRow("raid", "raid", item.id, item.title, coerce(item.owner), [
-        coerce(item.description),
-        coerce(item.mitigation),
+        coerce(descriptionText(item.description)),
+        coerce(descriptionText(item.mitigation)),
         coerce(item.owner),
         coerce(item.ownerEmail),
         coerce(item.category),
@@ -127,14 +127,14 @@ export function buildSearchIndex(ws: SearchableWorkspace): SearchIndex {
     ),
     changes: ws.changes.map((c) =>
       indexRow("change", "changes", c.id, c.title, coerce(c.requestedBy), [
-        coerce(c.description),
+        coerce(descriptionText(c.description)),
         coerce(c.requestedBy),
         coerce(c.type),
       ]),
     ),
     milestones: ws.milestones.map((m) =>
-      indexRow("milestone", "milestones", m.id, m.name, coerce(m.description), [
-        coerce(m.description),
+      indexRow("milestone", "milestones", m.id, m.name, coerce(descriptionText(m.description)), [
+        coerce(descriptionText(m.description)),
       ]),
     ),
     stakeholders: ws.stakeholders.map((s) =>

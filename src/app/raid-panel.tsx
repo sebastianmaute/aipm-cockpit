@@ -15,6 +15,7 @@ import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 import type { PanelFiltersState } from "./panel-views";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
+import { descriptionText } from "./rich-text-projection";
 import { type Lang, t } from "./i18n";
 import { severityLabel } from "./raid-labels";
 import {
@@ -215,8 +216,8 @@ function RaidPanelBody({
       if (q) {
         const hay = [
           r.title,
-          r.description ?? "",
-          r.mitigation ?? "",
+          descriptionText(r.description),
+          descriptionText(r.mitigation),
           // Resolve the linked owner's live name so search matches the current
           // name, not the stale cached `owner` string.
           effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById),
