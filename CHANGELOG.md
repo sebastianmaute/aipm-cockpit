@@ -19,11 +19,14 @@ the editor. Nothing you already wrote needs converting.
   note log use — bold, italics, bullet and numbered lists, and links. The
   toolbars, keyboard shortcuts and dictation button behave exactly as they do
   elsewhere.
-- **Existing text is upgraded as it is read, not rewritten in storage.** Every
-  load path turns a legacy plain-text value into formatted text on the way in, so
-  old items render correctly with no migration step, no conversion prompt and no
-  risk to a file or database you have not opened in a while. A field is only
-  stored as rich text once you next save that item.
+- **Existing text is upgraded as it is read, not rewritten in storage.** A
+  legacy plain-text value is turned into formatted text at the point it is read —
+  by the editor that opens it, and by search, exports and the AI digests — so old
+  items render correctly with no migration step, no conversion prompt and no risk
+  to a file or database you have not opened in a while. Stored values are left
+  alone: a field is written as rich text only once you next save that item, and
+  until then a project may hold a mix of both shapes. Nothing reads them wrongly,
+  because every reader performs the same upgrade.
 - **Markup never leaks where plain text is expected.** Global search and the two
   panel search boxes match on the readable text, so searching for a word inside a
   formatted description still finds it. Document exports (PDF, DOCX, XLSX, PPTX
@@ -47,8 +50,13 @@ the editor. Nothing you already wrote needs converting.
   as a collapsible "Notes log (N)" section in the task editor, instead of only in
   the separate floating window — which remains, and is still what the row badges
   open. ★ Notes written there are saved immediately: the log is an append-only
-  journal, so Cancel does **not** discard a note you just added, unlike every
-  other field in that form.
+  journal, so neither Cancel nor Save discards a note you just added, unlike
+  every other field in that form, which is only written when you save.
+- **Fixed (data loss): saving a task discarded a note added while the editor was
+  open.** The editor took a copy of the note log when it opened, and saving wrote
+  that copy back over the live one — so a note added, edited or deleted in the
+  note log while the form was open was reverted the moment you pressed Save. The
+  form no longer writes the note log at all; the log owns itself.
 - **Clearing a rich field now stores nothing.** Emptying one of these
   descriptions stores it as absent rather than as an empty paragraph, so an
   emptied field reads as empty everywhere that checks it.
