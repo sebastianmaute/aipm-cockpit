@@ -6,6 +6,7 @@
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
 import { sanitizeIsoDate } from "../sanitize";
+import { descriptionText } from "../rich-text-projection";
 import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor } from "./entity-descriptor";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
@@ -29,6 +30,18 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_milestone: { entity: "milestone", wsKey: "milestones" },
   delete_stakeholder: { entity: "stakeholder", wsKey: "stakeholders" },
 };
+
+// Fields stored as rich HTML. Only the PREVIEW strings are projected — the
+// values applied to the entity stay verbatim, because `applied[f]` feeds the
+// incremental enum validation below and the confirm step replays the original
+// tool calls. "notes" is the task descriptor's (stale) name for `description`.
+const RICH_FIELDS: ReadonlySet<string> = new Set([
+  "description", "mitigation", "impactDescription", "resolutionNotes", "notes",
+]);
+
+function forPreview(field: string, value: string): string {
+  return RICH_FIELDS.has(field) ? descriptionText(value) : value;
+}
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -85,7 +98,7 @@ export function describeEntityCalls(
           if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
         }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
-        plan.updates.push({ field: f, before, after });
+        plan.updates.push({ field: f, before: forPreview(f, before), after: forPreview(f, after) });
         applied[f] = after;
       }
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
