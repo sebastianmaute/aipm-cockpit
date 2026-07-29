@@ -33,7 +33,8 @@ import { plainToHtml } from "./sanitize-html";
  *  the `<` is not leading, or what follows it is not a tag name. `\b` also keeps
  *  `<abbr>`/`<embed>`/`<pre>` out — they are not `a`/`em`/`p`.
  *
- *  ★★★ The tag must actually CLOSE (`[^>]*>`). Matching a bare opener accepted a
+ *  ★★★ The tag must be an OPENING tag AND must actually CLOSE (`[^>]*>`).
+ *  Matching a bare opener accepted a
  *  legacy PLAIN value that merely STARTS tag-shaped — "<li 3 items", "<p ok",
  *  "<em dash - not markup" — and passed it through raw instead of escaping it.
  *  The HTML tokenizer DISCARDS an incomplete tag at EOF, so the whole value then
@@ -50,9 +51,13 @@ import { plainToHtml } from "./sanitize-html";
  *  `<a href>`. A heuristic on the opening tag cannot separate that from real
  *  markup; more regex would only move the boundary, not close it.
  *
- *  ★ `<\/?` admits a leading CLOSING tag, which the tokenizer drops as stray
- *  while still rendering the text after it. */
-export const HTML_START = /^\s*<\/?(p|br|strong|em|ul|ol|li|a)\b[^>]*>/i;
+ *  ★★ A leading CLOSING tag is NOT markup and must stay out (no `\/?`). A stored
+ *  value cannot legitimately BEGIN with one — the lean editor cannot emit it and
+ *  no well-formed HTML starts that way — so "</p> means close" is by
+ *  construction plain text the user typed. Passing it through makes the sink
+ *  delete those literal characters: the same silent loss this rule exists to
+ *  prevent, in miniature. */
+export const HTML_START = /^\s*<(p|br|strong|em|ul|ol|li|a)\b[^>]*>/i;
 
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped. */
 export function narrativeToHtml(stored: string | undefined): string {

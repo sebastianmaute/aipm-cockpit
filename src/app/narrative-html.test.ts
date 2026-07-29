@@ -60,6 +60,14 @@ describe("narrativeToHtml", () => {
     expect(narrativeToHtml("<li 3 items")).toContain("3 items");
   });
 
+  it("escapes a value that opens with a CLOSING tag", () => {
+    // A stored value cannot legitimately begin with a closing tag: the editor
+    // cannot emit one, so this is plain text the user typed. Passing it through
+    // as HTML makes the sink delete the characters — the loss this guard exists
+    // to prevent, in miniature.
+    expect(narrativeToHtml("</p> means close")).toBe("<p>&lt;/p&gt; means close</p>");
+  });
+
   // ★ The termination requirement must not cost a true positive — an opener
   // carrying ATTRIBUTES still closes, and still passes through.
   it("passes a tag with attributes through untouched", () => {

@@ -38,6 +38,14 @@ describe("descriptionHtml", () => {
     expect(descriptionHtml("<em dash - not markup")).toBe("<p>&lt;em dash - not markup</p>");
   });
 
+  it("escapes a value that opens with a CLOSING tag", () => {
+    // A stored value cannot legitimately begin with a closing tag: the editor
+    // cannot emit one, so this is plain text the user typed. Passing it through
+    // as HTML makes the sink delete the characters — the loss this guard exists
+    // to prevent, in miniature.
+    expect(descriptionHtml("</p> means close")).toBe("<p>&lt;/p&gt; means close</p>");
+  });
+
   it("is idempotent — it runs on every load", () => {
     for (const raw of ["cost < 5k", "<p>done</p>", "", "  "]) {
       expect(descriptionHtml(descriptionHtml(raw))).toBe(descriptionHtml(raw));
