@@ -12,7 +12,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { RichTextEditor } from "./rich-text-editor";
-import { htmlToText, plainToHtml } from "./sanitize-html";
+import { appendDictationToHtml } from "./rich-text-projection";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";
 import { Input, Select, Textarea } from "./form-controls";
@@ -98,11 +98,10 @@ export function TaskFormFields({
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
-  // Description is rich HTML but dictation yields plain text: round-trip through
-  // text so appendDictation can join mid-utterance segments (Web Speech fires
-  // onFinal repeatedly — the functional setter reads the latest state each time),
-  // then re-wrap to valid HTML. Any prior rich formatting is flattened on
-  // dictation — an accepted trade-off for a plain-text input path.
+  // Description is rich HTML but dictation yields plain text — appendDictationToHtml
+  // owns that round-trip (and documents the formatting-flatten trade-off). The
+  // functional setter is what lets it read the latest state on each of the
+  // repeated onFinal calls Web Speech fires per hold.
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
@@ -111,7 +110,7 @@ export function TaskFormFields({
     onAppendFinal: (txt) =>
       setForm((prev) => ({
         ...prev,
-        description: plainToHtml(appendDictation(htmlToText(prev.description ?? ""), txt)),
+        description: appendDictationToHtml(prev.description ?? "", txt),
       })),
   });
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
