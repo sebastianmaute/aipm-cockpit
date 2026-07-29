@@ -24,9 +24,17 @@ import { descriptionHtml, htmlPlainProjection, separateBlockBoundaries } from ".
  *
  *  ★★ separateBlockBoundaries must run FIRST. htmlToText strips tags with
  *  nothing in their place, so by the time htmlPlainProjection sees the value the
- *  boundary is already gone and "<p>a</p><p>b</p>" has become "ab". It only
- *  removes p/div/br/li/... — never a script/style tag — so DOMPurify still sees
- *  every element it is there to police. */
+ *  boundary is already gone and "<p>a</p><p>b</p>" has become "ab".
+ *
+ *  ★★ separateBlockBoundaries is safe ONLY IN FRONT OF A STRIP-EVERYTHING PASS.
+ *  Deleting a <p> mid-token can re-splice the markup around it — "<a hre<p>f=..."
+ *  becomes "<a hre f=..." — which is harmless here only because htmlToText
+ *  strips ALL tags and returns text, so no re-spliced tag survives. Composed in
+ *  front of sanitizeNoteHtml, which preserves an allow-list, the reasoning
+ *  breaks. The old rationale ("never removes a script/style tag, so DOMPurify
+ *  still sees every element") was right about the outcome and wrong about why.
+ *  ★ descriptionTextWithBreaks below is a SECOND caller and satisfies the same
+ *  precondition — it too composes in front of htmlToText. */
 export function descriptionText(stored: string | undefined): string {
   return htmlPlainProjection(htmlToText(separateBlockBoundaries(descriptionHtml(stored))));
 }

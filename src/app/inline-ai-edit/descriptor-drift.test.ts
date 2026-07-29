@@ -15,8 +15,8 @@ import { descriptionHtml } from "../rich-text-plain";
 // plan.ts's set drift to bare field names and start projecting the plain-text
 // `stakeholder.notes`. Sharing it also makes THIS test the guard on the list:
 // a wrong entry (e.g. "stakeholder.notes") flips the expectation to an upgrade
-// its sanitizer never performs, and the case fails. `task.notes` is in the set
-// but unreached — CASES covers the four sanitizer-backed entities only.
+// its sanitizer never performs, and the case fails. `task.description` is in the
+// set but unreached — CASES covers the four sanitizer-backed entities only.
 
 // One valid full item per entity + a valid replacement value per diff field.
 // Each field is set on a valid base, run through the sanitizer, and must survive

@@ -36,19 +36,26 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
 // because `applied[f]` feeds the incremental enum validation below and the
 // confirm step replays the original tool calls.
 //
-// ★★ THE KEY MUST STAY ENTITY-QUALIFIED. `notes` is the TASK descriptor's
-// (stale) name for the rich `description`, but it is ALSO the STAKEHOLDER
-// descriptor's own field — and `Stakeholder.notes` is plain text (sanitizeText,
-// plain textarea), deliberately outside slice B. A bare field-name set matched
-// both, so an inline-AI edit to a stakeholder note previewed with its newlines
-// collapsed by htmlToText: a field the design excluded, projected anyway.
+// ★★ THE KEY MUST STAY ENTITY-QUALIFIED, and it must track the DESCRIPTOR's
+// spelling of the field — `forPreview` looks up `${entity}.${field}` where
+// `field` comes straight from `diffFields`, so the two are one unit. Renaming
+// the task descriptor's `notes` to the live `description` without renaming the
+// key here silently drops the task diff out of the set, and the preview renders
+// raw HTML instead of projected text.
+//
+// The entity qualifier earns its keep independently: `notes` is ALSO the
+// STAKEHOLDER descriptor's own field — and `Stakeholder.notes` is plain text
+// (sanitizeText, plain textarea), deliberately outside slice B. A bare
+// field-name set matched both, so an inline-AI edit to a stakeholder note
+// previewed with its newlines collapsed by htmlToText: a field the design
+// excluded, projected anyway.
 //
 // ★ Shared with descriptor-drift.test.ts, which asserts that exactly these
 // fields come back UPGRADED from their sanitizer and every other diff field
 // round-trips verbatim — so a wrong entry here (say "stakeholder.notes") fails
 // that test rather than silently changing a preview.
 export const RICH_FIELDS: ReadonlySet<string> = new Set([
-  "task.notes",
+  "task.description",
   "raid.description", "raid.mitigation",
   "change.description", "change.impactDescription", "change.resolutionNotes",
   "milestone.description",

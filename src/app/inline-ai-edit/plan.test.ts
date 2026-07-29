@@ -219,15 +219,21 @@ describe("rich fields preview as text (slice B)", () => {
     expect(plan.updates).toContainEqual({ field: "notes", before: "old", after: "line one\nline two" });
   });
 
-  it("still projects task.notes, the task descriptor's alias for the rich description", () => {
+  it("still projects the task's rich description", () => {
     // The other direction: entity-qualifying the set must not stop projecting
-    // the one field that legitimately carries that name and IS rich.
-    const t2 = { id: 9, taskName: "T", notes: "<p>old <strong>note</strong></p>" };
+    // the one TASK field that IS rich.
+    //
+    // ★★ RICH_FIELDS is keyed `${entity}.${field}` off the DESCRIPTOR's spelling,
+    // so it and `diffFields` move together. This case was written against the
+    // pre-0.196.0 `notes`; renaming the descriptor to `description` without
+    // renaming the RICH_FIELDS key drops the task out of the set and the preview
+    // silently renders raw HTML — which is what this assertion catches.
+    const t2 = { id: 9, taskName: "T", description: "<p>old <strong>note</strong></p>" };
     const plan = describeEntityCalls(
-      [{ type: "tool_use", name: "update_task", input: { id: 9, notes: "<p>new note</p>" } }],
+      [{ type: "tool_use", name: "update_task", input: { id: 9, description: "<p>new note</p>" } }],
       { descriptor: INLINE_DESCRIPTORS.task, item: t2, ws: wsWith({ tasks: [t2] as never }) },
     );
-    expect(plan.updates).toContainEqual({ field: "notes", before: "old note", after: "new note" });
+    expect(plan.updates).toContainEqual({ field: "description", before: "old note", after: "new note" });
   });
 
   it("leaves a non-rich field's diff verbatim", () => {
@@ -284,5 +290,16 @@ describe("describeEntityCalls — milestone required field", () => {
       { descriptor: INLINE_DESCRIPTORS.milestone, item: m, ws: ws2 },
     );
     expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+});
+
+describe("task descriptor field name", () => {
+  it("names the live description field, not the field it was renamed from", () => {
+    // ★ Task.notes became Task.description in 0.196.0. The descriptor still said
+    // "notes" and worked ONLY because chat-tools accepts it as a write alias —
+    // tighten that alias and the inline-AI task editor silently stops being able
+    // to write a description.
+    expect(INLINE_DESCRIPTORS.task.diffFields).toContain("description");
+    expect(INLINE_DESCRIPTORS.task.diffFields).not.toContain("notes");
   });
 });

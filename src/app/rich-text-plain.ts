@@ -190,8 +190,14 @@ export function htmlTextLength(html: string): number {
 }
 
 /** Cap by text length. Over cap, the value is projected to text, truncated and
- *  re-wrapped, so the result is always well-formed; formatting is lost only on
- *  overflow, which the editor-side counter warns about first. */
+ *  re-wrapped, so the result is always well-formed; formatting is lost on
+ *  overflow.
+ *
+ *  ★ The RAID and Change editors warn first via their own CharCounter.
+ *  milestone-edit-modal.tsx has no counter, no describeTextCap and no
+ *  useAdjustmentTracker — a >5000-character milestone description loses all
+ *  markup silently. That trade-off is accepted at that call site; this shared
+ *  comment used to promise a warning only two of the three modals give. */
 export function capHtmlText(html: string, max: number): string {
   if (!html) return "";
   const text = htmlPlainProjection(html);
