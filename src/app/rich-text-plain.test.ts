@@ -303,7 +303,16 @@ describe("DOM-free guard", () => {
     // "./rich-text-projection"` — neither the module name nor the symbol was on
     // the list, and that module DOES call DOMPurify. Pinning the import SURFACE
     // means a new import has to be added here deliberately, which is the point.
-    const specifiers = [...code.matchAll(/\bfrom\s+"([^"]+)"/g)].map((m) => m[1]).sort();
+    //
+    // ★★ The pattern must accept EVERY spelling of a specifier, not the one
+    // this file happens to use today. A double-quote-only `from "…"` regex is
+    // defeated by a single-quoted import (no lint rule pins quote style here),
+    // by a bare side-effect `import "…"`, and by `await import("…")` — which is
+    // an established idiom in this codebase. Each of those would leave the
+    // received array unchanged and the guard green with the reach present.
+    const specifiers = [...code.matchAll(/(?:\bfrom|\bimport|\brequire)\s*\(?\s*["'`]([^"'`]+)["'`]/g)]
+      .map((m) => m[1])
+      .sort();
     expect(specifiers).toEqual(["./narrative-html", "./sanitize-html"]);
   });
 
@@ -313,9 +322,19 @@ describe("DOM-free guard", () => {
     // importing it would throw under bare node — where jsonToWorkspace's
     // catch-all converts the throw into an EMPTY workspace that then
     // "successfully" writes near-empty sample files.
-    const appDir = join(import.meta.dirname);
-    const repoRoot = join(appDir, "..", "..");
+    //
+    // ★★ rich-text-plain.ts and narrative-html.ts are IN this set. They are the
+    // two DOM-free modules inside this file's own dependency graph, so a reach
+    // added there is pulled in transitively while the direct-import pin above
+    // stays green — the one-hop blind spot of a name-based filter.
+    //
+    // ★★ `scanned` is asserted for the same reason "strips comments before
+    // scanning" exists: `offenders` is empty when the walk root is wrong, when
+    // the filter matches nothing, and when a rename empties the matched set. A
+    // scanning guard needs proof its scan ran.
+    const repoRoot = join(import.meta.dirname, "..", "..");
     const offenders: string[] = [];
+    let scanned = 0;
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         const full = join(dir, entry.name);
@@ -330,9 +349,19 @@ describe("DOM-free guard", () => {
         const isDomFree =
           /\/scripts\//.test(rel) ||
           /\/sanitize[^/]*\.ts$/.test(rel) ||
-          /-codecs[^/]*\.ts$/.test(rel);
+          /-codecs[^/]*\.ts$/.test(rel) ||
+          /\/(rich-text-plain|narrative-html)\.ts$/.test(rel);
         if (!isDomFree) continue;
-        if (/from\s+"[^"]*rich-text-projection"/.test(readFileSync(full, "utf8"))) {
+        scanned += 1;
+        // ★ Strip comments first, the same shape this describe uses for `code`.
+        // Without it an apostrophe in prose ("rich-text-projection's
+        // descriptionText") plays the part of a quote and the file reports
+        // itself — a false positive on the very module being protected.
+        const src = readFileSync(full, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/\/\/.*$/gm, "");
+        // Any quote style, any extension, static or dynamic — see the pin above.
+        if (/["'`][^"'`]*rich-text-projection[^"'`]*["'`]/.test(src)) {
           offenders.push(rel);
         }
       }
@@ -340,5 +369,6 @@ describe("DOM-free guard", () => {
     walk(join(repoRoot, "src"));
     walk(join(repoRoot, "scripts"));
     expect(offenders).toEqual([]);
+    expect(scanned).toBeGreaterThan(10);
   });
 });
