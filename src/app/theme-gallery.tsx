@@ -15,6 +15,7 @@ import type { ColorScheme } from "./color-schemes";
 import { importSchemeText } from "./scheme-import";
 import type { TursoConfig } from "./turso-config";
 import { Button } from "./button";
+import { Card } from "./card";
 import { FieldError } from "./field-feedback";
 
 interface ThemeGalleryProps {
@@ -73,12 +74,17 @@ export function ThemeGallery({
         >
           {t(lang, "themeGalleryLoadFile")}
         </Button>
+        {/* The Button is the control; this input is only its file dialog. It stays
+            sr-only rather than hidden (a display:none input can't be clicked in
+            every browser), so it needs tabIndex -1 + aria-hidden or it is a SECOND
+            tab stop announcing the same name as the Button above it. */}
         <input
           ref={inputRef}
           type="file"
           accept="application/json,.json"
           className="sr-only"
-          aria-label={t(lang, "themeGalleryLoadFile")}
+          tabIndex={-1}
+          aria-hidden="true"
           onChange={onFile}
         />
       </div>
@@ -88,9 +94,10 @@ export function ThemeGallery({
       ) : (
         <ul className="flex flex-col gap-1">
           {userSchemes.map((s) => (
-            <li
+            <Card
+              as="li"
               key={s.id}
-              className="flex items-center justify-between gap-2 rounded-md border border-line px-3 py-2"
+              className="flex items-center justify-between gap-2 px-3 py-2"
             >
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{s.name}</span>
               {s.id === activeId && (
@@ -116,7 +123,7 @@ export function ThemeGallery({
               >
                 {t(lang, "themeGalleryRemove", s.name)}
               </Button>
-            </li>
+            </Card>
           ))}
         </ul>
       )}

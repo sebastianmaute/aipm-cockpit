@@ -50,6 +50,22 @@ describe("ThemeGallery", () => {
     expect(created?.structural?.["--shadow-card"]).toBe("none");
   });
 
+  test("the file input is not a second tab stop next to the load Button", async () => {
+    // Headline claim FIRST: the sr-only input exists only to open the file dialog.
+    // Left tabbable it is a duplicate tab stop announcing the same name as the
+    // Button, which axe cannot see (it reports missing names, never duplicates).
+    // `.focus()` would prove nothing here — only a real tab walk does.
+    const user = userEvent.setup();
+    renderGallery({ schemes: [], activeId: null });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const load = screen.getByRole("button", { name: "Load theme file…" });
+
+    await user.tab();
+    expect(document.activeElement).toBe(load);
+    await user.tab();
+    expect(document.activeElement).not.toBe(input);
+  });
+
   test("lists user schemes and excludes built-ins", () => {
     renderGallery({
       schemes: [
