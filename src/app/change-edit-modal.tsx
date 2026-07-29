@@ -167,13 +167,24 @@ export function ChangeEditModal({
     }
     setError(null);
     adj.reset();
-    // These three keep their own onBlur caps below, so tracking them here is
-    // count-only and the value is deliberately discarded.
-    adj.track(describeTextCap(draft.title, BUDGET_NAME_MAX));
-    adj.track(describeTextCap(draft.requestedBy ?? "", BUDGET_NAME_MAX));
-    adj.track(describeTextCap(draft.decisionBy ?? "", BUDGET_NAME_MAX));
+    // ★★ Cap ON THE SAVED OBJECT, not count-only. Clicking Save blurs the field
+    // first so the onBlur cap ran, but Enter inside a text input submits WITHOUT
+    // firing blur: the value went out uncapped while this counted a truncation
+    // and the toast announced one. The onBlur handlers stay — they keep the
+    // draft and its counter honest while the user is still typing.
+    const cappedTitle = describeTextCap(draft.title, BUDGET_NAME_MAX);
+    const cappedRequestedBy = describeTextCap(draft.requestedBy ?? "", BUDGET_NAME_MAX);
+    const cappedDecisionBy = describeTextCap(draft.decisionBy ?? "", BUDGET_NAME_MAX);
+    adj.track(cappedTitle);
+    adj.track(cappedRequestedBy);
+    adj.track(cappedDecisionBy);
     const saved: ChangeItem = {
       ...draft,
+      title: cappedTitle.value.trim(),
+      // `requestedBy`/`decisionBy` are optional — an empty one collapses to
+      // undefined, mirroring their own onBlur handlers.
+      requestedBy: cappedRequestedBy.value.trim() || undefined,
+      decisionBy: cappedDecisionBy.value.trim() || undefined,
       // `description` is required on ChangeItem — an empty body stays "" here
       // rather than collapsing to undefined the way the two optional ones do.
       description: capRich(draft.description),

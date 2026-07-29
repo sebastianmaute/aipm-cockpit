@@ -7,7 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
-import { TEXTAREA_MAX } from "./sanitize";
+import { ASSIGNEE_MAX, TASK_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { RaidItem } from "./types";
@@ -317,6 +317,72 @@ describe("RaidEditModal rich-field write-path cap", () => {
     const saved = onSave.mock.calls[0][0] as RaidItem;
     expect(saved.description).toBe("<p>fits fine</p>");
     expect(saved.mitigation).toBe("<p>also fine</p>");
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("RaidEditModal plain-field cap on Enter-submit", () => {
+  /** Renders with a toast spy so the "N fields adjusted" count is observable. */
+  function renderWithSpies(over: Partial<RaidItem>) {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        {modalEl(over, onSave)}
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+
+  /** ★★ Submit from INSIDE the title input. A click on Save blurs the field
+   *  first, so the onBlur cap runs and the bug is invisible on that path —
+   *  Enter is the one that submits without ever firing blur. */
+  async function submitWithEnter() {
+    await userEvent.click(screen.getByPlaceholderText(t("en-US", "raidPlaceholderTitle")));
+    await userEvent.keyboard("{Enter}");
+  }
+
+  it("applies the title cap when the form is submitted with Enter", async () => {
+    // ★★ THE REGRESSION THIS PINS: title/owner were capped only in onBlur, and
+    // handleSubmit merely COUNTED the truncation. Enter-submit does not blur, so
+    // the uncapped value went to onSave while the toast announced a truncation
+    // that had not happened.
+    const { onSave, showToast } = renderWithSpies({ title: "x".repeat(TASK_NAME_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.title.length).toBe(TASK_NAME_MAX);
+    // The count and the save now describe the SAME operation.
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("applies the owner cap when the form is submitted with Enter", async () => {
+    // ★ A non-blank title is deliberate: handleSubmit returns early on a blank
+    // one, so onSave would never fire and the assertion would fail for the
+    // wrong reason.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", owner: "y".repeat(ASSIGNEE_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.owner?.length).toBe(ASSIGNEE_MAX);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("announces nothing on Enter when every plain field fits", async () => {
+    // The other half of "the count matches reality" for this path: a capping
+    // handleSubmit that always tracked an adjustment would pass the two tests
+    // above on their toast assertion alone.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", owner: "Bob" });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.owner).toBe("Bob");
     expect(showToast).not.toHaveBeenCalled();
   });
 });

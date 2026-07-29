@@ -188,12 +188,19 @@ export function RaidEditModal({
     }
     setError(null);
     adj.reset();
-    // title/owner keep their own onBlur caps below, so tracking them here is
-    // count-only and the value is deliberately discarded.
-    adj.track(describeTextCap(draft.title, TASK_NAME_MAX));
-    adj.track(describeTextCap(draft.owner ?? "", ASSIGNEE_MAX));
+    // ★★ Cap ON THE SAVED OBJECT, not count-only. Clicking Save blurs the field
+    // first so the onBlur cap ran, but Enter inside a text input submits WITHOUT
+    // firing blur: the value went out uncapped while this counted a truncation
+    // and the toast announced one. The onBlur handlers stay — they keep the
+    // draft and its counter honest while the user is still typing.
+    const cappedTitle = describeTextCap(draft.title, TASK_NAME_MAX);
+    const cappedOwner = describeTextCap(draft.owner ?? "", ASSIGNEE_MAX);
+    adj.track(cappedTitle);
+    adj.track(cappedOwner);
     const saved: RaidItem = {
       ...draft,
+      title: cappedTitle.value.trim(),
+      owner: cappedOwner.value.trim() || undefined,
       description: capRich(draft.description) || undefined,
       mitigation: capRich(draft.mitigation) || undefined,
     };

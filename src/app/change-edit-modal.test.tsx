@@ -7,7 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangeEditModal } from "./change-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
-import { TEXTAREA_MAX } from "./sanitize";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { ChangeItem, Stakeholder } from "./types";
@@ -410,6 +410,84 @@ describe("ChangeEditModal rich-field write-path cap", () => {
     const saved = onSave.mock.calls[0][0] as ChangeItem;
     expect(saved.description).toBe("<p>fits fine</p>");
     expect(saved.resolutionNotes).toBe("<p>also fine</p>");
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChangeEditModal plain-field cap on Enter-submit", () => {
+  /** Renders with a toast spy so the "N fields adjusted" count is observable. */
+  function renderWithSpies(over: Partial<ChangeItem>) {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <ChangeEditModal {...base} draft={change(over)} onSave={onSave} />
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+
+  /** ★★ Submit from INSIDE the title input. A click on Save blurs the field
+   *  first, so the onBlur cap runs and the bug is invisible on that path —
+   *  Enter is the one that submits without ever firing blur. */
+  async function submitWithEnter(titleValue: string) {
+    await userEvent.click(screen.getByDisplayValue(titleValue));
+    await userEvent.keyboard("{Enter}");
+  }
+
+  it("applies the title cap when the form is submitted with Enter", async () => {
+    // ★★ THE REGRESSION THIS PINS: title/requestedBy/decisionBy were capped only
+    // in onBlur, and handleSubmit merely COUNTED the truncation. Enter-submit
+    // does not blur, so the uncapped value went to onSave while the toast
+    // announced a truncation that had not happened.
+    const long = "x".repeat(BUDGET_NAME_MAX + 20);
+    const { onSave, showToast } = renderWithSpies({ title: long });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter(long);
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.title.length).toBe(BUDGET_NAME_MAX);
+    // The count and the save now describe the SAME operation.
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("applies the requestedBy cap when the form is submitted with Enter", async () => {
+    // ★ A non-blank title is deliberate: handleSubmit returns early on a blank
+    // one, so onSave would never fire and the assertion would fail for the
+    // wrong reason.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", requestedBy: "y".repeat(BUDGET_NAME_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.requestedBy?.length).toBe(BUDGET_NAME_MAX);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("applies the decisionBy cap when the form is submitted with Enter", async () => {
+    const { onSave, showToast } = renderWithSpies({ title: "ok", decisionBy: "z".repeat(BUDGET_NAME_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.decisionBy?.length).toBe(BUDGET_NAME_MAX);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("announces nothing on Enter when every plain field fits", async () => {
+    // The other half of "the count matches reality" for this path: a capping
+    // handleSubmit that always tracked an adjustment would pass the three tests
+    // above on their toast assertion alone.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", requestedBy: "Ann", decisionBy: "Bob" });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.requestedBy).toBe("Ann");
+    expect(saved.decisionBy).toBe("Bob");
     expect(showToast).not.toHaveBeenCalled();
   });
 });
