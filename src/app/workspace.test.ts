@@ -106,6 +106,74 @@ describe("jsonToWorkspace sanitizes noteLog + description on load (stored XSS)",
   });
 });
 
+// The whole-object JSON load boundary must normalise EVERY rich field, not just
+// `description`. RAID `mitigation` and the three change fields reached storage
+// through sanitizers that upgrade but are DOM-free by contract, so DOMPurify only
+// ever ran on `description` — two fields of the same modal with different shapes.
+describe("jsonToWorkspace normalises every rich field, not only description", () => {
+  it("upgrades a legacy plain RAID mitigation and keeps its tag-shaped text", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [{ id: 1, category: "Risk", title: "R", status: "Open", mitigation: "escalate <b>now</b>" }],
+      }),
+    );
+    expect(ws.raid[0].mitigation).toBe("<p>escalate &lt;b&gt;now&lt;/b&gt;</p>");
+  });
+
+  it("neutralizes an already-rich malicious RAID mitigation", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [{ id: 1, category: "Risk", title: "R", status: "Open", mitigation: "<p>ok</p><img src=x onerror=alert(1)>" }],
+      }),
+    );
+    expectInert(ws.raid[0].mitigation ?? "", "ok");
+  });
+
+  it("neutralizes already-rich malicious change impact/resolution fields", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [],
+        changes: [{
+          id: 1,
+          title: "C",
+          status: "Proposed",
+          raisedDate: "2026-01-01",
+          impactDescription: "<p>impact</p><img src=x onerror=alert(1)>",
+          resolutionNotes: "<p>notes</p><script>alert(1)</script>",
+        }],
+      }),
+    );
+    expectInert(ws.changes?.[0].impactDescription ?? "", "impact");
+    expectInert(ws.changes?.[0].resolutionNotes ?? "", "notes");
+  });
+
+  it("neutralizes an already-rich malicious milestone description", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [],
+        milestones: [{ id: 1, name: "M", date: "2026-01-01", description: "<p>gate</p><img src=x onerror=alert(1)>" }],
+      }),
+    );
+    expectInert(ws.milestones?.[0].description ?? "", "gate");
+  });
+
+  it("leaves already-clean register rich fields byte-identical", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [{ id: 1, category: "Risk", title: "R", status: "Open", mitigation: "<p>Escalate <strong>now</strong></p>" }],
+        milestones: [{ id: 1, name: "M", date: "2026-01-01", description: "<p>Gate <em>two</em></p>" }],
+      }),
+    );
+    expect(ws.raid[0].mitigation).toBe("<p>Escalate <strong>now</strong></p>");
+    expect(ws.milestones?.[0].description).toBe("<p>Gate <em>two</em></p>");
+  });
+});
+
 describe("jsonToWorkspace strict mode", () => {
   it("throws WorkspaceParseError on truncated JSON in strict mode", () => {
     expect(() => jsonToWorkspace('{"tasks":[', { strict: true })).toThrow(WorkspaceParseError);

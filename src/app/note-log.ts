@@ -104,33 +104,99 @@ export function sanitizeNoteLog(raw: unknown): NoteLogEntry[] {
   return out;
 }
 
-/** Re-sanitize an entity's sanitized-HTML fields (`description` + `noteLog`) at a
- *  load boundary. Used by the whole-object JSON + IndexedDB load paths, which cast
- *  their tasks/raid verbatim with no per-entity sanitizer (unlike CSV/MD/Turso,
- *  which route noteLog through `decodeNoteLog`). Idempotent on already-clean data
- *  (byte-stable goldens/sample stay green). Returns the entity unchanged when it
- *  carries neither field, so tasks/raid with no rich fields keep identity.
+/** Every rich-HTML field name across the entities the whole-object load paths
+ *  cast verbatim. A field list lives HERE, per entity, rather than at the call
+ *  sites — see the sibling-vs-widen note on `sanitizeRichFields` below. */
+type RichFieldName = "description" | "mitigation" | "impactDescription" | "resolutionNotes";
+
+/** The loosest shape the normalizers accept: every rich field optional, so one
+ *  generic core serves Task / RaidItem / ChangeItem / Milestone without any of
+ *  them having to carry a field the others own. */
+type RichFieldCarrier = Partial<Record<RichFieldName, string>> & { noteLog?: NoteLogEntry[] };
+
+const TASK_RICH_FIELDS = ["description"] as const satisfies readonly RichFieldName[];
+const RAID_RICH_FIELDS = ["description", "mitigation"] as const satisfies readonly RichFieldName[];
+const CHANGE_RICH_FIELDS = [
+  "description",
+  "impactDescription",
+  "resolutionNotes",
+] as const satisfies readonly RichFieldName[];
+const MILESTONE_RICH_FIELDS = ["description"] as const satisfies readonly RichFieldName[];
+
+/** Re-sanitize an entity's sanitized-HTML fields (the named rich fields +
+ *  `noteLog`) at a load boundary. Used by the whole-object JSON + IndexedDB load
+ *  paths, which cast their entities verbatim with no per-entity sanitizer (unlike
+ *  CSV/MD/Turso, which route noteLog through `decodeNoteLog`). Idempotent on
+ *  already-clean data (byte-stable goldens/sample stay green). Returns the entity
+ *  BY REFERENCE when it carries none of the requested fields, so an entity with no
+ *  rich content keeps identity — several byte-stability tests depend on that.
  *
- *  ★★★ A legacy PLAIN description is UPGRADED (escaped + wrapped) by
- *  `descriptionHtml` BEFORE it is sanitized, and the order is load-bearing:
- *  `sanitizeNoteHtml` runs DOMPurify with `KEEP_CONTENT: false`, so it deletes an
- *  element outside the lean allow-list TOGETHER WITH ITS TEXT. Sanitizing plain
- *  text first therefore erases any tag-shaped fragment and its content — a stored
- *  RAID description of "risk: <b>vendor</b> delay" silently lost the word
- *  "vendor" on every JSON/IDB load. Escaping first leaves no tag for DOMPurify to
- *  strip; an already-rich value passes through `descriptionHtml` untouched, so
- *  genuinely dangerous markup is still sanitized exactly as before. */
-export function sanitizeNoteFields<T extends { description?: string; noteLog?: NoteLogEntry[] }>(
+ *  ★★★ A legacy PLAIN value is UPGRADED (escaped + wrapped) by `descriptionHtml`
+ *  BEFORE it is sanitized, and the order is load-bearing: `sanitizeNoteHtml` runs
+ *  DOMPurify with `KEEP_CONTENT: false`, so it deletes an element outside the lean
+ *  allow-list TOGETHER WITH ITS TEXT. Sanitizing plain text first therefore erases
+ *  any tag-shaped fragment and its content — a stored RAID description of
+ *  "risk: <b>vendor</b> delay" silently lost the word "vendor" on every JSON/IDB
+ *  load. Escaping first leaves no tag for DOMPurify to strip; an already-rich value
+ *  passes through `descriptionHtml` untouched, so genuinely dangerous markup is
+ *  still sanitized exactly as before.
+ *
+ *  ★★ DOM-BOUND: `sanitizeNoteHtml` calls DOMPurify, which binds its `window` at
+ *  module-eval. Nothing here may become reachable from a codec, an entity
+ *  sanitizer, or anything under `scripts/` — the two whole-object load paths are
+ *  the only legal callers. */
+function sanitizeRichFields<T extends RichFieldCarrier>(
   entity: T,
+  fields: readonly RichFieldName[],
 ): T {
-  const hasDescription = typeof entity.description === "string";
-  const hasNoteLog = Array.isArray(entity.noteLog);
-  if (!hasDescription && !hasNoteLog) return entity;
-  return {
-    ...entity,
-    ...(hasDescription ? { description: sanitizeNoteHtml(descriptionHtml(entity.description as string)) } : {}),
-    ...(hasNoteLog ? { noteLog: sanitizeNoteLog(entity.noteLog) } : {}),
-  };
+  const patch: Partial<Record<RichFieldName, string>> & { noteLog?: NoteLogEntry[] } = {};
+  let touched = false;
+  for (const field of fields) {
+    const value = entity[field];
+    if (typeof value !== "string") continue;
+    patch[field] = sanitizeNoteHtml(descriptionHtml(value));
+    touched = true;
+  }
+  if (Array.isArray(entity.noteLog)) {
+    patch.noteLog = sanitizeNoteLog(entity.noteLog);
+    touched = true;
+  }
+  if (!touched) return entity;
+  return { ...entity, ...patch };
+}
+
+/* ── Per-entity load-boundary normalizers ────────────────────────────────────
+ *
+ * ★ SIBLINGS, not a widened `sanitizeNoteFields(entity, fields)`. Two reasons:
+ *   1. Every call site is an `Array.prototype.map` — `map(sanitizeNoteFields)`
+ *      passes the INDEX as the second argument, so a field-list parameter would
+ *      be silently fed `0, 1, 2 …` and normalise nothing. A one-argument sibling
+ *      keeps the point-free `.map(fn)` shape that is already in use.
+ *   2. No caller has to know a field list. Adding a rich field to an entity is
+ *      one edit HERE, and every load path picks it up; a widened signature would
+ *      spread the same list across `workspace.ts` and `browser-backend.ts`, which
+ *      is exactly how `mitigation` came to be normalised on neither.
+ * The task path keeps its exact name, arity and behaviour, so it stays
+ * byte-identical. */
+
+/** Tasks: `description` + `noteLog`. */
+export function sanitizeNoteFields<T extends RichFieldCarrier>(entity: T): T {
+  return sanitizeRichFields(entity, TASK_RICH_FIELDS);
+}
+
+/** RAID: `description` + `mitigation` + `noteLog`. */
+export function sanitizeRaidRichFields<T extends RichFieldCarrier>(entity: T): T {
+  return sanitizeRichFields(entity, RAID_RICH_FIELDS);
+}
+
+/** Changes: `description` + `impactDescription` + `resolutionNotes` (no noteLog). */
+export function sanitizeChangeRichFields<T extends RichFieldCarrier>(entity: T): T {
+  return sanitizeRichFields(entity, CHANGE_RICH_FIELDS);
+}
+
+/** Milestones: `description` (no noteLog). */
+export function sanitizeMilestoneRichFields<T extends RichFieldCarrier>(entity: T): T {
+  return sanitizeRichFields(entity, MILESTONE_RICH_FIELDS);
 }
 
 /** Next stable id for a new entry — max-seen id + 1 (1 for an empty log). */

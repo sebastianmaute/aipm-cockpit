@@ -8,7 +8,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
-import type { Milestone, RaidItem, Task } from "./types";
+import type { ChangeItem, Milestone, RaidItem, Task } from "./types";
 
 const ctl = vi.hoisted(() => ({
   failStore: null as string | null,
@@ -112,6 +112,48 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.raid[0]).toMatchObject({ id: 7, title: "Scope creep" });
     expect(loaded.milestones).toHaveLength(1);
     expect(loaded.milestones?.[0]).toMatchObject({ id: 2, name: "Go live" });
+  });
+
+  // The IDB read casts changes and milestones VERBATIM (unlike jsonToWorkspace,
+  // which runs their entity sanitizers first), so this backend's load boundary is
+  // the ONLY normalisation those two ever get — and RAID `mitigation` was
+  // normalised on neither path before this.
+  it("upgrades legacy plain rich fields on load (raid mitigation, change + milestone text)", async () => {
+    const ws = {
+      ...emptyWorkspace(),
+      raid: [{ ...raidItem, mitigation: "escalate <b>now</b>" } as unknown as RaidItem],
+      changes: [{
+        id: 4,
+        title: "C",
+        status: "Proposed",
+        raisedDate: "2026-01-01",
+        impactDescription: "cost <b>up</b>",
+        resolutionNotes: "approved <b>fully</b>",
+      } as unknown as ChangeItem],
+      milestones: [{ ...milestone, description: "gate <b>2</b>" }],
+    };
+    await new BrowserBackend().save(ws);
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.raid[0].mitigation).toBe("<p>escalate &lt;b&gt;now&lt;/b&gt;</p>");
+    expect(loaded.changes?.[0].impactDescription).toBe("<p>cost &lt;b&gt;up&lt;/b&gt;</p>");
+    expect(loaded.changes?.[0].resolutionNotes).toBe("<p>approved &lt;b&gt;fully&lt;/b&gt;</p>");
+    expect(loaded.milestones?.[0].description).toBe("<p>gate &lt;b&gt;2&lt;/b&gt;</p>");
+  });
+
+  it("strips live markup from already-rich stored rich fields on load", async () => {
+    const ws = {
+      ...emptyWorkspace(),
+      raid: [{ ...raidItem, mitigation: "<p>ok</p><script>alert(1)</script>" } as unknown as RaidItem],
+      milestones: [{ ...milestone, description: "<p>gate</p><img src=x onerror=alert(1)>" }],
+    };
+    await new BrowserBackend().save(ws);
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.raid[0].mitigation).toContain("ok");
+    expect(loaded.raid[0].mitigation).not.toContain("<script");
+    expect(loaded.milestones?.[0].description).toContain("gate");
+    expect(loaded.milestones?.[0].description).not.toContain("onerror");
   });
 
   it("save → fresh load round-trips calendar events", async () => {
