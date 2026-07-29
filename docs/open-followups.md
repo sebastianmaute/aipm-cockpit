@@ -74,6 +74,10 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 21 | Eye verification owed: change + milestone editors, 4 detail cases | 0.209.0 (Lafferty) | S | open — a11y/visual |
 | 22 | `clipText` can split a surrogate pair (~54 call sites) | 0.209.0 (Lafferty) | M | open — needs golden regen |
 | 23 | Five `Task.description` consumers still fuse block boundaries | 0.196.0, found 0.209.0 | S | open — one import each |
+| 24 | Numeric entities aren't decoded — miscount + mid-entity truncation | 0.209.0 (Lafferty) | S | open |
+| 25 | The DOM-free guard doesn't follow imports | 0.209.0 (Lafferty) | S | open |
+| 26 | Enter-submit counts a truncation it doesn't apply (plain fields) | 0.209.0 (Lafferty) | S | open |
+| 27 | Three doc claims that aren't quite true | 0.209.0 (Lafferty) | S | open — doc-only |
 
 ---
 
@@ -727,6 +731,125 @@ collapses whitespace, so even the CORRECT `descriptionText` path loses paragraph
 This item is that five sites never reach `descriptionText` at all, so they lose the word boundary
 too. Swapping the import here buys them the boundary space and leaves them with §17's flattening,
 exactly like every other consumer.
+
+---
+
+## 24. Numeric and non-`&amp;`-family entities are neither decoded nor counted — open, small
+
+`htmlPlainProjection` (`rich-text-plain.ts`) decodes entities by regex, and the set is deliberately
+small: `&nbsp;` (three spellings), `&lt;`, `&gt;`, `&quot;`, `&#39;`/`&apos;`, and `&amp;` **last**
+so `&amp;lt;` cannot double-decode. Everything else stays literal text:
+
+| stored | `htmlTextLength` says | the user sees |
+|---|---|---|
+| `<p>&mdash;</p>` | 7 | one em dash |
+| `<p>a&mdash;b</p>` capped at 4 | — | `a&md` |
+
+Two effects, both on the DOM-free path only. The counter and the cap **over-charge** a value
+carrying undecoded entities, so a description with a few `&mdash;`/`&hellip;` eats budget that is not
+visible text. And truncation can land **mid-entity** — the broken-entity hazard `capHtmlText` is
+otherwise immune to, because a decoded entity is a single character by the time `slice` sees it while
+an undecoded one is still six.
+
+Not reachable from the lean editor (Tiptap emits characters, not references). Reachable by paste from
+Word/Outlook, an imported workspace, or an AI tool writing HTML.
+
+★ The DOM path is immune: `descriptionText` runs DOMPurify first, which normalises references to
+characters before the projection sees them. So this is a divergence between the two projections, the
+same family as the `HTML_START` case in §21 — the DOM-free half is the approximate one.
+
+**Fix:** decode numeric references generically **before** the named decodes and after the tag work —
+`.replace(/&#x([0-9a-f]+);/gi, ...).replace(/&#(\d+);/g, ...)` — guarding the result against
+re-introducing a `<` that a later pass could read as a tag opener. Named references beyond the
+current set are a longer tail; the numeric forms are what Office paste actually produces.
+
+---
+
+## 25. The DOM-free guard does not follow imports — open, small
+
+`rich-text-plain.test.ts`'s guard strips comments from `rich-text-plain.ts` and scans the remaining
+**code** for `dompurify`, `htmlToText`, `sanitizeNoteHtml`, `sanitizeTemplateHtml`. It is a good
+guard: it survives an aliased import, and a companion assertion proves the comment-strip itself works
+so the bans cannot pass vacuously on an empty string.
+
+It scans **one file's own source** and nothing else. Two ways past it:
+
+- `rich-text-plain.ts` imports `plainToHtml` from `./sanitize-html`, which imports DOMPurify. The
+  import is safe — DOMPurify binds `window` at module-eval, and only a **call** throws under bare
+  node — but if `plainToHtml` ever grew a `DOMPurify.sanitize` call, the exact thing its own comment
+  warns against, the guard stays green while the fixture scripts silently emit a near-empty
+  workspace.
+- A future `import { descriptionText } from "./rich-text-projection"` passes every assertion: neither
+  the module name nor the symbol is on the ban list, and that module **does** call DOMPurify.
+
+**Fix:** pin the import surface instead of the symbol names — assert the file's `from "..."`
+specifiers are exactly `./sanitize-html` and `./narrative-html`. A new import then has to be added to
+the guard deliberately, which is the point of having one.
+
+★ Nothing guards the other direction either: the rule that `rich-text-projection.ts` must never be
+imported by a codec, a sanitizer, or anything reachable from `scripts/` is enforced by no test. A
+source scan over `sanitize*.ts`, `*-codecs*.ts` and `scripts/` would close it. The tree is clean
+today — `export-sections.ts` is the only new importer, and it is reached only from `export.ts`.
+
+---
+
+## 26. Enter-submit still counts a truncation it does not apply — open, small
+
+Slice B's `47e139bf` fixed this for the five **rich** fields: they are capped on the object handed to
+`onSave`, so the adjustment the "N fields adjusted" toast counts is the one actually made. The
+**plain-text** fields in the same modals kept the old shape — an `onBlur` handler that caps, plus an
+`adj.track(describeTextCap(...))` in `handleSubmit` that only counts.
+
+That holds for a click on Save, because mousedown blurs the field first. It does **not** hold for
+**Enter inside a text input**, which submits the form without firing blur. On that path the value is
+uncapped, `adj.track` counts a truncation, the toast announces it, and the uncapped value is saved.
+
+Affected: `raid-edit-modal.tsx` (`title`, `owner`) and `change-edit-modal.tsx` (`title`,
+`requestedBy`, `decisionBy`). Bounded — `sanitizeText` caps on the next load, so nothing beyond the
+cap is persisted long-term — which is why this is small rather than a data-loss item.
+
+★ The comment added by `47e139bf` says these fields "keep their own onBlur caps below, so tracking
+them here is count-only and the value is deliberately discarded". That blesses the arrangement as
+safe without naming the Enter gap. Either route them through the same `saved` object as the rich
+fields, or soften the comment.
+
+---
+
+## 27. Three documented claims that are not quite true — open, doc-only
+
+None of these change behaviour; each makes a future reader trust something they should not.
+
+**`capHtmlText` promises a warning the milestone editor cannot give.** Its doc comment says
+formatting is "lost only on overflow, which the editor-side counter warns about first".
+`milestone-edit-modal.tsx` has no `CharCounter`, no `describeTextCap` and no `useAdjustmentTracker`;
+its own comment says the cap is applied silently. A >5000-character milestone description loses all
+markup with no warning. The trade-off is knowingly accepted at that call site — the shared comment
+just should not promise a counter that only two of the three modals have.
+
+**`separateBlockBoundaries`' safety rationale is right for the wrong reason.**
+`rich-text-projection.ts` argues it is safe because it "only removes p/div/br/li/... — never a
+script/style tag — so DOMPurify still sees every element it is there to police". What actually makes
+it safe is that its sole consumer is `htmlToText`, which strips **all** tags and returns text.
+Deleting a `<p>` mid-token can re-splice surrounding markup (`<a hre<p>f="...">` becomes
+`<a hre f="...">`), harmless only because no tag survives. Composed in front of `sanitizeNoteHtml` —
+which preserves an allow-list — the reasoning breaks. Restate the invariant as "safe only in front of
+a strip-everything pass".
+
+**The counter and the cap measure two spellings of one budget.** `CharCounter` is fed
+`htmlPlainProjection(draft.field ?? "")` (raw) while `capRich` measures
+`htmlPlainProjection(descriptionHtml(draft.field))` (upgraded). Identical for every value reachable
+today, because every load goes through `sanitizeRichText` and the editor only emits `<p>...`. They
+diverge wherever `descriptionHtml` is not the identity — a legacy plain value containing literal
+`<b>` text counts 4 by the counter and 11 by the cap. Passing `descriptionHtml(...)` to the counter
+too makes the drift structurally impossible.
+
+★ Related, deliberately left alone: `form.noteLog` is now **dead state**. `fe779f32` removed
+`noteLog` from the submit payload (the write-through path owns the log), so the field and
+`openEditModal`'s snapshot of it feed only the disabled fallback button's count for an unsaved
+task — permanently `0`, since nothing can write a note in create mode. Retiring it means changing
+that button to a literal, then removing `noteLog` from `TaskFormState` and the seed together, which
+touches `emptyForm()` and every fixture constructing a `TaskFormDraft`. Worth doing as its own
+change; leaving it invites a future writer to put it back into `payload`.
 
 ---
 
