@@ -4,24 +4,18 @@
 // mitigation, Change description + impactDescription + resolutionNotes,
 // Milestone description).
 //
-// ★★★ NOTHING HERE MAY CALL THE HTML SANITISER LIBRARY. These functions run
-// inside the entity sanitizers, which execute under bare node in
-// scripts/generate-sample-workspace.ts and the fixture flow. That library binds
-// its `window` ONCE at module-eval; with no DOM the bind fails, its sanitize()
-// throws, and jsonToWorkspace's catch-all silently swallows it into an EMPTY
-// workspace — which then "successfully" writes near-empty sample files.
-// Sanitisation is a SINK concern: RichTextView re-sanitises at render.
+// ★★★ NOTHING HERE MAY CALL DOMPURIFY. These functions run inside the entity
+// sanitizers, which execute under bare node in scripts/generate-sample-
+// workspace.ts and the fixture flow. DOMPurify binds its `window` ONCE at
+// module-eval; with no DOM that bind fails, sanitize() throws, and
+// jsonToWorkspace's catch-all silently swallows it into an EMPTY workspace —
+// which then "successfully" writes near-empty sample files. Sanitisation is a
+// SINK concern: RichTextView re-sanitises at render.
 //
 // Importing plainToHtml is safe (narrative-html.ts already does): only a CALL
-// into that library needs a DOM, and plainToHtml deliberately makes none — it
+// to DOMPurify needs a DOM, and plainToHtml deliberately makes none — it
 // escapes &<> and adds only <p>/<br>, both in the note allow-list, which makes
 // a sanitize pass a provable no-op.
-//
-// ★ The guard test (rich-text-plain.test.ts) SCANS THIS SOURCE for the
-// library's name, so the comments above name it obliquely on purpose. A blunt
-// source scan is what makes the guard impossible to defeat by aliasing an
-// import; the cost is that this file cannot spell the word. Don't "fix" the
-// wording back — it fails the guard.
 import { plainToHtml } from "./sanitize-html";
 import { HTML_START } from "./narrative-html";
 
@@ -42,11 +36,10 @@ export function descriptionHtml(stored: string | undefined): string {
   return HTML_START.test(s) ? s : plainToHtml(s);
 }
 
-/** Plain-text projection WITHOUT the sanitiser library — the only projection
- *  legal in a sanitizer. `&amp;` decodes LAST, or "&amp;lt;" would
- *  double-decode to "<". For display/search/export use
- *  rich-text-projection.ts's descriptionText, which goes through the real
- *  sanitizer. */
+/** Plain-text projection WITHOUT DOMPurify — the only projection legal in a
+ *  sanitizer. `&amp;` decodes LAST, or "&amp;lt;" would double-decode to "<".
+ *  For display/search/export use rich-text-projection.ts's descriptionText,
+ *  which goes through the real sanitizer. */
 export function htmlPlainProjection(html: string): string {
   return html
     .replace(TAG, "")

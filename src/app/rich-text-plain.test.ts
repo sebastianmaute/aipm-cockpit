@@ -92,12 +92,28 @@ describe("sanitizeRichText", () => {
 // ★★ Guard: this module runs inside the entity sanitizers, which execute under
 // bare node in the sample/fixture scripts. A DOMPurify CALL there throws, and
 // jsonToWorkspace's catch-all turns that into an EMPTY workspace.
+//
+// ★ Comments are STRIPPED before the scan (the strip-then-ban shape the palette
+// guards use), so the module can name the landmine explicitly in prose while its
+// CODE stays unable to reach the sanitiser under any alias: an aliased default
+// import still carries the "dompurify" module specifier, and an aliased named
+// import still carries the original symbol name.
 describe("DOM-free guard", () => {
-  it("never calls a DOMPurify-backed helper", () => {
-    const src = readFileSync(join(import.meta.dirname, "rich-text-plain.ts"), "utf8");
-    expect(src).not.toMatch(/dompurify/i);
-    expect(src).not.toMatch(/htmlToText/);
-    expect(src).not.toMatch(/sanitizeNoteHtml/);
-    expect(src).not.toMatch(/sanitizeTemplateHtml/);
+  const code = readFileSync(join(import.meta.dirname, "rich-text-plain.ts"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+
+  it("strips comments before scanning", () => {
+    // Proves the strip works — otherwise every assertion below passes vacuously
+    // on a file whose code was never examined.
+    expect(code).not.toMatch(/NOTHING HERE MAY CALL/);
+    expect(code).toMatch(/export function descriptionHtml/);
+  });
+
+  it("never reaches a DOM-dependent sanitiser from code", () => {
+    expect(code).not.toMatch(/dompurify/i);
+    expect(code).not.toMatch(/htmlToText/);
+    expect(code).not.toMatch(/sanitizeNoteHtml/);
+    expect(code).not.toMatch(/sanitizeTemplateHtml/);
   });
 });
