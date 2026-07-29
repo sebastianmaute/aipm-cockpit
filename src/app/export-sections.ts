@@ -30,6 +30,7 @@ import {
   budgetFieldToString,
   statusToCsv,
 } from "./storage";
+import { descriptionText } from "./rich-text-projection";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
@@ -73,10 +74,32 @@ function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
   return { key: "tasks", title: t(lang, "tasks"), columns, rows };
 }
 
+// Columns whose stored value is rich HTML. Exports are read by humans and by
+// Office renderers, so they carry the text projection — the codec itself keeps
+// the HTML, because CSV *storage* round-trips through the same function
+// (golden-workspace.test.ts pins those bytes). CSV *export* and CSV *storage*
+// are different callers of the same field-to-string helper, so the projection
+// belongs HERE and never inside raid/milestone/changeFieldToString.
+//
+// ★ A name that is not a real column would make the set silently never match,
+// leaving the fix absent with nothing else noticing — export-sections.test.ts
+// pins each set as a subset of its *_CSV_COLUMNS list.
+export const RAID_RICH_COLUMNS: ReadonlySet<string> = new Set(["description", "mitigation"]);
+export const MILESTONE_RICH_COLUMNS: ReadonlySet<string> = new Set(["description"]);
+export const CHANGE_RICH_COLUMNS: ReadonlySet<string> = new Set([
+  "description",
+  "impactDescription",
+  "resolutionNotes",
+]);
+
+function richCell(value: string, column: string, rich: ReadonlySet<string>): string {
+  return rich.has(column) ? descriptionText(value) : value;
+}
+
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
   const columns = RAID_CSV_COLUMNS as unknown as string[];
   const rows = raid.map((r) =>
-    RAID_CSV_COLUMNS.map((c) => raidFieldToString(r, c))
+    RAID_CSV_COLUMNS.map((c) => richCell(raidFieldToString(r, c), c, RAID_RICH_COLUMNS))
   );
   return { key: "raid", title: t(lang, "tabRaid"), columns, rows };
 }
@@ -84,7 +107,9 @@ function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {
 function milestonesSection(milestones: readonly Milestone[], lang: Lang): ExportSection {
   const columns = MILESTONES_CSV_COLUMNS as unknown as string[];
   const rows = milestones.map((m) =>
-    MILESTONES_CSV_COLUMNS.map((c) => milestoneFieldToString(m, c))
+    MILESTONES_CSV_COLUMNS.map((c) =>
+      richCell(milestoneFieldToString(m, c), c, MILESTONE_RICH_COLUMNS)
+    )
   );
   return { key: "milestones", title: t(lang, "navMilestones"), columns, rows };
 }
@@ -92,7 +117,9 @@ function milestonesSection(milestones: readonly Milestone[], lang: Lang): Export
 function changesSection(changes: readonly ChangeItem[], lang: Lang): ExportSection {
   const columns = CHANGES_CSV_COLUMNS as unknown as string[];
   const rows = changes.map((c) =>
-    CHANGES_CSV_COLUMNS.map((col) => changeFieldToString(c, col))
+    CHANGES_CSV_COLUMNS.map((col) =>
+      richCell(changeFieldToString(c, col), col, CHANGE_RICH_COLUMNS)
+    )
   );
   return { key: "changes", title: t(lang, "navChanges"), columns, rows };
 }

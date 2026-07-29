@@ -46,6 +46,7 @@ import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, effectivePersonName } from "./resource-foundation";
+import { descriptionText } from "./rich-text-projection";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
@@ -1699,7 +1700,7 @@ function TaskManagerInner() {
           fields: [
             `achieved: ${m.achievedDate ?? "no"}`,
             `linkedTasks: ${m.linkedTaskIds.length}`,
-            `description: ${(m.description ?? "").slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
+            `description: ${descriptionText(m.description).slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
           ].join("\n"),
         };
       }
@@ -1720,7 +1721,7 @@ function TaskManagerInner() {
             `owner: ${owner || "(unassigned)"}`,
             // Worth the extra field despite the free text: it tells the model what
             // has ALREADY been tried, so it stops re-proposing the existing plan.
-            `mitigation: ${(r.mitigation ?? "").slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
+            `mitigation: ${descriptionText(r.mitigation).slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
           ].join("\n"),
         };
       }
