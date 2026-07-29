@@ -1,10 +1,16 @@
 // src/app/export-sections.test.ts
 import { describe, it, expect } from "vitest";
-import { buildExportSections } from "./export-sections";
+import {
+  buildExportSections,
+  RAID_RICH_COLUMNS,
+  MILESTONE_RICH_COLUMNS,
+  CHANGE_RICH_COLUMNS,
+} from "./export-sections";
 import {
   CSV_COLUMNS,
   RAID_CSV_COLUMNS,
   MILESTONES_CSV_COLUMNS,
+  CHANGES_CSV_COLUMNS,
   fieldToString,
   raidFieldToString,
   milestoneFieldToString,
@@ -418,5 +424,113 @@ describe("calendarEvents section", () => {
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const sec = sections.find((s) => s.key === "calendarEvents")!;
     expect(sec.rows[0][1]).toBe("1900-01-01 09:00");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Slice B: the six rich register fields export as TEXT, not stored HTML.
+// The codec (raidFieldToString/…) must keep emitting the HTML — CSV *storage*
+// round-trips through the same function and golden-workspace pins those bytes —
+// so the projection belongs to the section builders alone.
+// ---------------------------------------------------------------------------
+
+describe("rich descriptions export as text (slice B)", () => {
+  function richWorkspace(): Workspace {
+    return {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1)],
+      raid: [
+        {
+          ...makeRaidItem(1),
+          description: "<p>vendor <strong>slipped</strong> badly</p>",
+          mitigation: "<p>escalate to <em>steering</em></p>",
+        },
+      ],
+      milestones: [
+        { ...makeMilestone(1), description: "<p>final <em>cutover</em></p>" },
+      ],
+      changes: [
+        {
+          id: 1, title: "Change 1", type: "Scope", status: "Proposed",
+          impact: "Medium",
+          impactDescription: "<p>two <strong>extra</strong> sprints</p>",
+          scheduleImpactDays: 0,
+          costImpact: 0, requestedBy: "PM", raisedDate: "2025-01-01",
+          decisionBy: "", decisionDate: "",
+          resolutionNotes: "<p>approved with <em>conditions</em></p>",
+          description: "<p>widen the <strong>scope</strong></p>",
+          linkedTaskIds: [], linkedRaidIds: [],
+          stakeholderIds: [], localModifiedAt: undefined,
+        },
+      ],
+    };
+  }
+
+  const richConfig: ExportConfig = {
+    ...defaultExportConfig,
+    milestones: true,
+    changes: true,
+  };
+
+  function flatten(key: "raid" | "milestones" | "changes"): string {
+    const sections = buildExportSections(richWorkspace(), richConfig, "en-US");
+    const section = sections.find((s) => s.key === key);
+    expect(section).toBeDefined();
+    return (section?.rows ?? []).flat().join(" ");
+  }
+
+  it("emits no markup in raid, milestone or change rows", () => {
+    for (const key of ["raid", "milestones", "changes"] as const) {
+      expect(flatten(key)).not.toContain("<");
+    }
+  });
+
+  it("keeps the text content of a rich description", () => {
+    expect(flatten("milestones")).toContain("final cutover");
+    expect(flatten("raid")).toContain("vendor slipped badly");
+    expect(flatten("raid")).toContain("escalate to steering");
+    expect(flatten("changes")).toContain("widen the scope");
+    expect(flatten("changes")).toContain("two extra sprints");
+    expect(flatten("changes")).toContain("approved with conditions");
+  });
+
+  // ★★ Every fixture above is a SINGLE <p> with internal spaces, so a projection
+  // that deletes tags and puts nothing in their place still reads correctly —
+  // none of them can see a block boundary being fused. `<p>…</p><p>…</p>` and
+  // `<p>…<br>…</p>` are the shapes that can, and the second is what
+  // descriptionHtml produces for EVERY legacy multi-line value.
+  it("separates paragraphs and <br> lines instead of fusing the words", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1)],
+      raid: [
+        {
+          ...makeRaidItem(1),
+          description: "<p>Vendor delay</p><p>Mitigation plan</p>",
+          // exactly what descriptionHtml("line one\nline two") emits
+          mitigation: "<p>line one<br>line two</p>",
+        },
+      ],
+    };
+    const sections = buildExportSections(ws, richConfig, "en-US");
+    const raid = (sections.find((s) => s.key === "raid")?.rows ?? []).flat().join(" ");
+    expect(raid).toContain("Vendor delay Mitigation plan");
+    expect(raid).toContain("line one line two");
+    expect(raid).not.toContain("delayMitigation");
+    expect(raid).not.toContain("oneline");
+  });
+
+  // ★ guards the silent-typo failure mode: a rich-column name that is not a real
+  // column means the projection never runs and nothing else notices.
+  it("names only real columns in the rich-column sets", () => {
+    const cases: ReadonlyArray<[string, ReadonlySet<string>, readonly string[]]> = [
+      ["raid", RAID_RICH_COLUMNS, RAID_CSV_COLUMNS as unknown as string[]],
+      ["milestones", MILESTONE_RICH_COLUMNS, MILESTONES_CSV_COLUMNS as unknown as string[]],
+      ["changes", CHANGE_RICH_COLUMNS, CHANGES_CSV_COLUMNS as unknown as string[]],
+    ];
+    for (const [label, rich, columns] of cases) {
+      const unknownNames = [...rich].filter((c) => !columns.includes(c));
+      expect(`${label}: ${unknownNames.join(",")}`).toBe(`${label}: `);
+    }
   });
 });

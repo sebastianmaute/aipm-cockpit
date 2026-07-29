@@ -12,7 +12,12 @@ import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
 import { migrateTask } from "./task-status";
-import { sanitizeNoteFields } from "./note-log";
+import {
+  sanitizeNoteFields,
+  sanitizeRaidRichFields,
+  sanitizeChangeRichFields,
+  sanitizeMilestoneRichFields,
+} from "./note-log";
 import {
   type Absence,
   type BudgetBucket,
@@ -263,11 +268,17 @@ export class BrowserBackend implements StorageBackend {
     // to a valid TaskStatus before assembling the workspace.
     tasks = tasks.map(migrateTask);
     // Untrusted-import boundary: an imported/attacker-crafted IDB workspace can
-    // carry malicious sanitized-HTML fields (noteLog[].html / description) that
-    // the whole-object read would pass through verbatim — scrub them like the
-    // CSV/MD/Turso load paths do (idempotent on already-clean data).
+    // carry malicious sanitized-HTML fields (noteLog[].html + every rich field —
+    // RAID description/mitigation, change description/impactDescription/
+    // resolutionNotes, milestone description) that the whole-object read would
+    // pass through verbatim — scrub them like the CSV/MD/Turso load paths do
+    // (idempotent on already-clean data). Changes and milestones are cast
+    // verbatim HERE (unlike jsonToWorkspace, which runs their entity sanitizers),
+    // so this is their ONLY normalisation on this backend.
     tasks = tasks.map(sanitizeNoteFields);
-    raid = raid.map(sanitizeNoteFields);
+    raid = raid.map(sanitizeRaidRichFields);
+    changes = changes.map(sanitizeChangeRichFields);
+    milestones = milestones.map(sanitizeMilestoneRichFields);
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;

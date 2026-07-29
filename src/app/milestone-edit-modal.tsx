@@ -7,7 +7,11 @@
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
-import { Input, Textarea } from "./form-controls";
+import { Input } from "./form-controls";
+import { RichTextEditor } from "./rich-text-editor";
+import { capHtmlText, descriptionHtml } from "./rich-text-plain";
+import { TEXTAREA_MAX } from "./sanitize";
+import { appendDictationToHtml } from "./rich-text-projection";
 import { useDraggable } from "./use-draggable";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { useModalVisibility } from "./use-modal-visibility";
@@ -54,7 +58,7 @@ export function MilestoneEditModal({
     enabled: true,
     label: t(lang, "milestoneDescription"),
     onAppendFinal: (txt) =>
-      setDraft((p) => (p ? { ...p, description: appendDictation(p.description ?? "", txt) } : p)),
+      setDraft((p) => (p ? { ...p, description: appendDictationToHtml(p.description, txt) } : p)),
   });
   const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg } = useDictationMic({
     lang,
@@ -97,7 +101,12 @@ export function MilestoneEditModal({
       ...draft,
       name,
       date,
-      description: draft.description?.trim() || undefined,
+      // ★★ Same write-path cap as the RAID/change modals: without it an over-cap
+      // description is persisted uncapped and only truncated on the NEXT load,
+      // inside sanitizeRichText. This modal has no adjustment tracker (it never
+      // had one and shows no "N fields adjusted" toast), so the cap is applied
+      // silently — matching what the loader would have done anyway.
+      description: capHtmlText(descriptionHtml(draft.description), TEXTAREA_MAX) || undefined,
     });
   }
 
@@ -170,16 +179,23 @@ export function MilestoneEditModal({
               {t(lang, "milestoneDescription")}
               {descriptionMic}
             </span>
-            <Textarea
-              autoGrow
-              value={draft.description ?? ""}
-              onChange={(e) =>
-                update("description", e.target.value || undefined)
-              }
-              onFocus={descriptionDictationReg.onFocus}
-              onBlur={descriptionDictationReg.onBlur}
-              className="min-h-16"
-            />
+            {/* focus/blur bubble from the contenteditable, registering this
+                field as the active dictation target for the hold-to-talk hotkey. */}
+            <div onFocus={descriptionDictationReg.onFocus} onBlur={descriptionDictationReg.onBlur}>
+              {/* ★★ key={draft.id} is LOAD-BEARING. Tiptap binds `content` at
+                  MOUNT only and never re-reads the prop, while this modal
+                  re-seeds its draft in a render-time reconcile WITHOUT
+                  unmounting — so opening milestone B while A's editor is still
+                  mounted would leave A's body in the field. */}
+              <RichTextEditor
+                key={draft.id}
+                variant="lean"
+                value={descriptionHtml(draft.description)}
+                onChange={(html) => update("description", html || undefined)}
+                label={t(lang, "milestoneDescription")}
+                lang={lang}
+              />
+            </div>
             {descriptionDictationStatus}
           </label>
           )}

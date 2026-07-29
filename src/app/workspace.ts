@@ -16,7 +16,12 @@ import {
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { migrateTask } from "./task-status";
-import { sanitizeNoteFields } from "./note-log";
+import {
+  sanitizeNoteFields,
+  sanitizeRaidRichFields,
+  sanitizeChangeRichFields,
+  sanitizeMilestoneRichFields,
+} from "./note-log";
 import {
   sanitizeAbsence,
   sanitizeBudgetBucket,
@@ -537,7 +542,7 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
       // sanitized-HTML fields (noteLog[].html / description) that CSV/MD/Turso
       // scrub on load but the whole-object JSON cast would pass through verbatim.
       tasks: (p.tasks as Task[]).map(migrateTask).map(sanitizeNoteFields),
-      raid: (p.raid as RaidItem[]).map(sanitizeNoteFields),
+      raid: (p.raid as RaidItem[]).map(sanitizeRaidRichFields),
       absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeAbsence(a)).filter((a): a is Absence => a !== null),
       shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),
       resources: ((p.resources as unknown[]) ?? []).map((r) => sanitizeResource(r)).filter((r): r is Resource => r !== null),
@@ -548,8 +553,11 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
       budgets: ((p.budgets as unknown[]) ?? []).map((b) => sanitizeBudgetBucket(b)).filter((b): b is BudgetBucket => b !== null),
       fxRates: sanitizeFxRates(p.fxRates),
       status: sanitizeProjectStatus(p.status),
-      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null),
-      changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null),
+      // The entity sanitizers UPGRADE a legacy plain rich field (sanitizeRichText
+      // -> descriptionHtml) but are DOM-free by contract, so they never run
+      // DOMPurify. The whole-object load boundary is where that pass belongs.
+      milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
+      changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null).map(sanitizeChangeRichFields),
       stakeholders: ((p.stakeholders as unknown[]) ?? []).map((s) => sanitizeStakeholder(s)).filter((s): s is Stakeholder => s !== null),
     };
     // Additive: sanitize an incoming project when present; otherwise leave the

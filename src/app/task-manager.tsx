@@ -46,6 +46,7 @@ import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, effectivePersonName } from "./resource-foundation";
+import { descriptionText } from "./rich-text-projection";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
@@ -1374,7 +1375,7 @@ function TaskManagerInner() {
   );
 
   // Shared floating note-log window (tasks + RAID), popout-gated at the mount below (see use-notes-window.ts).
-  const { openTaskNotes, openRaidNotes, notesWindowProps } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity });
+  const { openTaskNotes, openRaidNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -1699,7 +1700,7 @@ function TaskManagerInner() {
           fields: [
             `achieved: ${m.achievedDate ?? "no"}`,
             `linkedTasks: ${m.linkedTaskIds.length}`,
-            `description: ${(m.description ?? "").slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
+            `description: ${descriptionText(m.description).slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
           ].join("\n"),
         };
       }
@@ -1720,7 +1721,7 @@ function TaskManagerInner() {
             `owner: ${owner || "(unassigned)"}`,
             // Worth the extra field despite the free text: it tells the model what
             // has ALREADY been tried, so it stops re-proposing the existing plan.
-            `mitigation: ${(r.mitigation ?? "").slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
+            `mitigation: ${descriptionText(r.mitigation).slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
           ].join("\n"),
         };
       }
@@ -2693,6 +2694,7 @@ function TaskManagerInner() {
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
         taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
+        taskNotePanel={editingId !== null ? notePanelPropsFor("task", editingId) : undefined /* existing task only; a new draft has no id to write to */}
         budgetLink={budgetLink}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}

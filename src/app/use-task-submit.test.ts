@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 import { useTaskSubmit } from "./use-task-submit";
 import type { TaskFormDraft } from "./task-form-context";
-import type { Task } from "./types";
+import type { NoteLogEntry, Task } from "./types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -562,5 +562,70 @@ describe("useTaskSubmit — RAID back-link on task create", () => {
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
     expect(setRaid).not.toHaveBeenCalled();
+  });
+});
+
+// The note log is written STRAIGHT THROUGH to the workspace by NoteLogPanel /
+// the floating notes window while the editor is open — it never touches the
+// form draft. `openEditModal` snapshots `task.noteLog` into that draft, so the
+// draft copy is stale the moment a note is added, edited or deleted. Save must
+// therefore never write the draft's copy back over the live row.
+describe("useTaskSubmit — note log is write-through, never round-tripped by Save", () => {
+  const note = (id: number, text: string): NoteLogEntry => ({
+    id,
+    timestamp: "2030-01-01T00:00:00.000Z",
+    html: `<p>${text}</p>`,
+    text,
+  });
+
+  /** Opens the editor on `opened`, then submits against a diverged live row. */
+  function saveAfterWriteThrough(opened: Task, live: Task): Task {
+    const setTasks = vi.fn();
+    const setForm = vi.fn();
+    let args: Parameters<typeof useTaskSubmit>[0] = makeArgs({
+      setTasks,
+      setForm,
+      editingId: 1,
+      tasks: [opened],
+      tasksRef: { current: [opened] },
+    });
+    const { result, rerender } = renderHook(() => useTaskSubmit(args));
+
+    // 1. open the editor: the draft snapshots the note log as it stood.
+    act(() => result.current.openEditModal(opened));
+    const draft = setForm.mock.calls[0][0] as TaskFormDraft;
+    expect(draft.noteLog).toHaveLength(opened.noteLog?.length ?? 0);
+
+    // 2. write-through: the WORKSPACE row changes, the draft does NOT.
+    args = makeArgs({
+      setTasks,
+      setForm,
+      editingId: 1,
+      tasks: [live],
+      tasksRef: { current: [live] },
+      form: { ...draft, assignee: live.assignee },
+    });
+    rerender();
+
+    // 3. save.
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    return updater([live])[0];
+  }
+
+  it("does not clobber a note added while the editor was open", () => {
+    const opened = makeTask({ id: 1, noteLog: [note(1, "first")] });
+    const live = { ...opened, noteLog: [note(1, "first"), note(2, "second")] };
+    const saved = saveAfterWriteThrough(opened, live);
+    expect(saved.noteLog).toHaveLength(2);
+    expect(saved.noteLog?.[1]?.text).toBe("second");
+  });
+
+  it("does not resurrect a note deleted while the editor was open", () => {
+    const opened = makeTask({ id: 1, noteLog: [note(1, "first"), note(2, "second")] });
+    const live = { ...opened, noteLog: [note(1, "first")] };
+    const saved = saveAfterWriteThrough(opened, live);
+    expect(saved.noteLog).toHaveLength(1);
+    expect(saved.noteLog?.[0]?.text).toBe("first");
   });
 });

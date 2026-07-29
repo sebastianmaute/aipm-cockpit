@@ -15,6 +15,7 @@ import type { Absence, Resource, Task } from "./types";
 import { TaskFormFields } from "./task-form-fields";
 import { type TaskFieldErrors } from "./task-validation";
 import type { TaskBudgetLink } from "./use-task-budget-link";
+import type { NoteLogPanelProps } from "./note-log-panel";
 
 export interface TaskFormModalProps {
   lang: Lang;
@@ -52,6 +53,11 @@ export interface TaskFormModalProps {
   /** Opens the shared note-log window for the edited task; absent → the in-form
    *  "Notes" button is disabled (e.g. an unsaved new task with no id). */
   onOpenNotes?: () => void;
+  /** Live note-log panel for the edited task, rendered INLINE in a collapsed
+   *  disclosure. Writes go STRAIGHT THROUGH to the workspace (not the form
+   *  draft), so a note survives Cancel — correct for an append-only journal.
+   *  Absent (an unsaved new task) → the disabled launcher button stays. */
+  taskNotePanel?: NoteLogPanelProps;
   /** Budget-bucket link controls; absent when the budget module is off. */
   budgetLink?: TaskBudgetLink;
 }
@@ -85,6 +91,7 @@ export function TaskFormModal({
   readOnlyJiraProjectName,
   editorExtras,
   onOpenNotes,
+  taskNotePanel,
   budgetLink,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
@@ -153,6 +160,7 @@ export function TaskFormModal({
             onRemoveContact={onRemoveContact}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
             onOpenNotes={onOpenNotes}
+            taskNotePanel={taskNotePanel}
             budgetLink={budgetLink}
           />
           {editorExtras && (

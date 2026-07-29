@@ -84,6 +84,23 @@ describe("ChangePanel", () => {
     const ids = Array.from(rows).map((r) => r.getAttribute("data-deeplink-row"));
     expect(ids).toContain(String(base.changes[0].id));
   });
+  // The haystack projects the rich description through descriptionText, so the
+  // tag names are NOT searchable. Only this row is seeded, so nothing else can
+  // satisfy either query.
+  it("searches the rich description by its words, not its markup", () => {
+    const changes = [ci({ id: 1, title: "Widget rework", description: "<p>scope <strong>creep</strong></p>" })];
+    const { getByLabelText, getByText, queryByText } = render(
+      <ChangePanel {...base} changes={changes} />,
+      { wrapper: Providers },
+    );
+    const box = getByLabelText(t("en-US", "changeFilterSearch"));
+
+    fireEvent.change(box, { target: { value: "strong" } });
+    expect(queryByText("Widget rework")).toBeNull();
+
+    fireEvent.change(box, { target: { value: "creep" } });
+    expect(getByText("Widget rework")).toBeTruthy();
+  });
 });
 
 describe("ChangePanel — raidEnabled", () => {

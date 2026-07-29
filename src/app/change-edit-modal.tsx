@@ -38,7 +38,10 @@ import {
   StakeholderChipPicker,
   ModalEditFooter,
 } from "./edit-modal-chrome";
-import { Input, Select, Textarea } from "./form-controls";
+import { Input, Select } from "./form-controls";
+import { RichTextEditor } from "./rich-text-editor";
+import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
+import { appendDictationToHtml } from "./rich-text-projection";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
@@ -57,7 +60,10 @@ export interface ChangeEditModalProps {
   stakeholders?: readonly Stakeholder[];
   onChange: (next: ChangeItem) => void;
   onApplyStatus: (status: ChangeStatus) => void;
-  onSave: () => void;
+  /** Receives the item to commit. The modal caps its rich fields on the way
+   *  out, so the parent MUST save what it is handed here — its own `draft`
+   *  state is one render behind and still holds the uncapped value. */
+  onSave: (item: ChangeItem) => void;
   onCancel: () => void;
   onDelete: () => void;
 }
@@ -117,7 +123,7 @@ export function ChangeEditModal({
     dictation: settings.dictation,
     enabled: true,
     label: t(lang, "changeFieldDescription"),
-    onAppendFinal: (txt) => update("description", appendDictation(draftRef.current.description ?? "", txt)),
+    onAppendFinal: (txt) => update("description", appendDictationToHtml(draftRef.current.description, txt)),
   });
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
@@ -161,15 +167,41 @@ export function ChangeEditModal({
     }
     setError(null);
     adj.reset();
-    // Route capped text fields through tracker so silent truncations are counted.
+    // These three keep their own onBlur caps below, so tracking them here is
+    // count-only and the value is deliberately discarded.
     adj.track(describeTextCap(draft.title, BUDGET_NAME_MAX));
-    adj.track(describeTextCap(draft.description ?? "", TEXTAREA_MAX));
     adj.track(describeTextCap(draft.requestedBy ?? "", BUDGET_NAME_MAX));
     adj.track(describeTextCap(draft.decisionBy ?? "", BUDGET_NAME_MAX));
-    adj.track(describeTextCap(draft.impactDescription ?? "", TEXTAREA_MAX));
-    adj.track(describeTextCap(draft.resolutionNotes ?? "", TEXTAREA_MAX));
+    const saved: ChangeItem = {
+      ...draft,
+      // `description` is required on ChangeItem — an empty body stays "" here
+      // rather than collapsing to undefined the way the two optional ones do.
+      description: capRich(draft.description),
+      impactDescription: capRich(draft.impactDescription) || undefined,
+      resolutionNotes: capRich(draft.resolutionNotes) || undefined,
+    };
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
-    onSave();
+    onSave(saved);
+  }
+
+  /** Cap a rich field ON THE WRITE PATH and count that same truncation.
+   *
+   *  ★★ These three fields lost their cap when they stopped being `<Textarea>`s:
+   *  the old onBlur handler wrote the truncated value back into the draft, and
+   *  only the COUNTING survived the swap. So the toast reported a truncation the
+   *  save never made, and the real one landed invisibly on the next load, when
+   *  sanitizeRichText finally capped it. Capping here — on the object handed to
+   *  onSave — makes the counted adjustment and the applied one one operation.
+   *
+   *  ★ Both halves measure `htmlPlainProjection(upgraded)`, which is exactly what
+   *  capHtmlText and sanitizeRichText measure: the VISIBLE text, so markup never
+   *  eats the user's budget and the counter cannot drift from the cap. Upgrading
+   *  first matches sanitizeRichText's own composition, so a legacy plain value
+   *  is measured the way the loader will measure it rather than one tag short. */
+  function capRich(html: string | undefined): string {
+    const upgraded = descriptionHtml(html);
+    adj.track(describeTextCap(htmlPlainProjection(upgraded), TEXTAREA_MAX));
+    return capHtmlText(upgraded, TEXTAREA_MAX);
   }
 
   function addLinkedTask(taskId: number) {
@@ -294,19 +326,38 @@ export function ChangeEditModal({
               {t(lang, "changeFieldDescription")}<InfoTooltip text={t(lang, "changeFieldDescriptionHint")} />
               {descriptionMic}
             </span>
-            <Textarea
-              autoGrow
-              rows={2}
-              value={draft.description}
-              onChange={(e) => update("description", e.target.value)}
-              onFocus={descriptionDictationReg.onFocus}
-              onBlur={(e) => {
-                update("description", describeTextCap(e.target.value, TEXTAREA_MAX).value);
-                descriptionDictationReg.onBlur();
-              }}
-              aria-describedby="change-description-counter"
+            {/* focus/blur bubble from the contenteditable, registering THIS
+                field as the active dictation target for the hold-to-talk
+                hotkey — the wrapper is per-field for exactly that reason. */}
+            <div onFocus={descriptionDictationReg.onFocus} onBlur={descriptionDictationReg.onBlur}>
+              {/* ★★ key is LOAD-BEARING. Tiptap binds `content` at MOUNT only
+                  and never re-reads the prop, while the panel re-seeds this
+                  modal's draft in place — so jumping to change 2 while change
+                  1's editor is still mounted would leave change 1's body in the
+                  field. ★ It depends only on draft.id: this draft is
+                  PARENT-OWNED and onChange mints a new object per keystroke, so
+                  a key derived from the draft itself would remount Tiptap on
+                  every character and destroy the caret. */}
+              <RichTextEditor
+                key={`${draft.id}:description`}
+                variant="lean"
+                value={descriptionHtml(draft.description)}
+                /* `description` is REQUIRED on ChangeItem (a plain string), so
+                   an empty body stays "" here rather than collapsing to
+                   undefined the way the two optional fields below do. */
+                onChange={(html) => update("description", html)}
+                label={t(lang, "changeFieldDescription")}
+                lang={lang}
+              />
+            </div>
+            {/* CharCounter measures `.length`, and the cap measures VISIBLE
+                text — so it is fed the projection, not the markup. */}
+            <CharCounter
+              value={htmlPlainProjection(draft.description ?? "")}
+              max={TEXTAREA_MAX}
+              id="change-description-counter"
+              lang={lang}
             />
-            <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="change-description-counter" lang={lang} />
             {descriptionDictationStatus}
           </label>
           )}
@@ -367,17 +418,22 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldImpactDescription")}<InfoTooltip text={t(lang, "changeFieldImpactDescriptionHint")} />
             </span>
-            <Textarea
-              autoGrow
-              rows={2}
-              value={draft.impactDescription ?? ""}
-              onChange={(e) =>
-                update("impactDescription", e.target.value || undefined)
-              }
-              onBlur={(e) => update("impactDescription", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
-              aria-describedby="change-impactDescription-counter"
+            {/* No dictation mic on this field (it never had one), so no
+                registration wrapper — but the key is per-field all the same. */}
+            <RichTextEditor
+              key={`${draft.id}:impactDescription`}
+              variant="lean"
+              value={descriptionHtml(draft.impactDescription)}
+              onChange={(html) => update("impactDescription", html || undefined)}
+              label={t(lang, "changeFieldImpactDescription")}
+              lang={lang}
             />
-            <CharCounter value={draft.impactDescription ?? ""} max={TEXTAREA_MAX} id="change-impactDescription-counter" lang={lang} />
+            <CharCounter
+              value={htmlPlainProjection(draft.impactDescription ?? "")}
+              max={TEXTAREA_MAX}
+              id="change-impactDescription-counter"
+              lang={lang}
+            />
           </label>
           )}
 
@@ -490,17 +546,21 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldResolution")}<InfoTooltip text={t(lang, "changeFieldResolutionHint")} />
             </span>
-            <Textarea
-              autoGrow
-              rows={2}
-              value={draft.resolutionNotes ?? ""}
-              onChange={(e) =>
-                update("resolutionNotes", e.target.value || undefined)
-              }
-              onBlur={(e) => update("resolutionNotes", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
-              aria-describedby="change-resolutionNotes-counter"
+            {/* No dictation mic here either — bare editor, per-field key. */}
+            <RichTextEditor
+              key={`${draft.id}:resolutionNotes`}
+              variant="lean"
+              value={descriptionHtml(draft.resolutionNotes)}
+              onChange={(html) => update("resolutionNotes", html || undefined)}
+              label={t(lang, "changeFieldResolution")}
+              lang={lang}
             />
-            <CharCounter value={draft.resolutionNotes ?? ""} max={TEXTAREA_MAX} id="change-resolutionNotes-counter" lang={lang} />
+            <CharCounter
+              value={htmlPlainProjection(draft.resolutionNotes ?? "")}
+              max={TEXTAREA_MAX}
+              id="change-resolutionNotes-counter"
+              lang={lang}
+            />
           </label>
 
           {/* Document links ------------------------------------------ */}

@@ -46,7 +46,10 @@ import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
-import { Input, Textarea } from "./form-controls";
+import { Input } from "./form-controls";
+import { RichTextEditor } from "./rich-text-editor";
+import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
+import { appendDictationToHtml } from "./rich-text-projection";
 import { Button } from "./button";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -67,7 +70,10 @@ export type RaidEditModalProps = {
   onChange: (next: RaidItem) => void;
   onApplyStatus: (s: RaidStatus) => void;
   onApplyMatrix: (probability: RiskScale, impact: RiskScale) => void;
-  onSave: () => void;
+  /** Receives the item to commit. The modal caps its rich fields on the way
+   *  out, so the parent MUST save what it is handed here — its own `draft`
+   *  state is one render behind and still holds the uncapped value. */
+  onSave: (item: RaidItem) => void;
   onCancel: () => void;
   onDelete: () => void;
   onCreateMitigationTask: () => void;
@@ -118,7 +124,7 @@ export function RaidEditModal({
     enabled: true,
     label: t(lang, "raidDescription"),
     onAppendFinal: (txt) =>
-      onChange({ ...draftRef.current, description: appendDictation(draftRef.current.description ?? "", txt) || undefined }),
+      onChange({ ...draftRef.current, description: appendDictationToHtml(draftRef.current.description, txt) || undefined }),
   });
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
@@ -182,12 +188,37 @@ export function RaidEditModal({
     }
     setError(null);
     adj.reset();
+    // title/owner keep their own onBlur caps below, so tracking them here is
+    // count-only and the value is deliberately discarded.
     adj.track(describeTextCap(draft.title, TASK_NAME_MAX));
-    adj.track(describeTextCap(draft.description ?? "", TEXTAREA_MAX));
     adj.track(describeTextCap(draft.owner ?? "", ASSIGNEE_MAX));
-    adj.track(describeTextCap(draft.mitigation ?? "", TEXTAREA_MAX));
+    const saved: RaidItem = {
+      ...draft,
+      description: capRich(draft.description) || undefined,
+      mitigation: capRich(draft.mitigation) || undefined,
+    };
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
-    onSave();
+    onSave(saved);
+  }
+
+  /** Cap a rich field ON THE WRITE PATH and count that same truncation.
+   *
+   *  ★★ These two fields lost their cap when they stopped being `<Textarea>`s:
+   *  the old onBlur handler wrote the truncated value back into the draft, and
+   *  only the COUNTING survived the swap. So the toast reported a truncation the
+   *  save never made, and the real one landed invisibly on the next load, when
+   *  sanitizeRichText finally capped it. Capping here — on the object handed to
+   *  onSave — makes the counted adjustment and the applied one one operation.
+   *
+   *  ★ Both halves measure `htmlPlainProjection(upgraded)`, which is exactly what
+   *  capHtmlText and sanitizeRichText measure: the VISIBLE text, so markup never
+   *  eats the user's budget and the counter cannot drift from the cap. Upgrading
+   *  first matches sanitizeRichText's own composition, so a legacy plain value
+   *  is measured the way the loader will measure it rather than one tag short. */
+  function capRich(html: string | undefined): string {
+    const upgraded = descriptionHtml(html);
+    adj.track(describeTextCap(htmlPlainProjection(upgraded), TEXTAREA_MAX));
+    return capHtmlText(upgraded, TEXTAREA_MAX);
   }
 
   function addLinked(taskId: number) {
@@ -362,22 +393,35 @@ export function RaidEditModal({
               <InfoTooltip text={t(lang, "raidFieldDescriptionHint")} />
               {descriptionMic}
             </span>
-            <Textarea
-              autoGrow
-              rows={2}
-              value={draft.description ?? ""}
-              onChange={(e) =>
-                onChange({ ...draft, description: e.target.value || undefined })
-              }
-              onFocus={descriptionDictationReg.onFocus}
-              onBlur={(e) => {
-                onChange({ ...draft, description: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined });
-                descriptionDictationReg.onBlur();
-              }}
-              placeholder={t(lang, "raidPlaceholderDescription")}
-              aria-describedby="raid-description-counter"
+            {/* focus/blur bubble from the contenteditable, registering THIS
+                field as the active dictation target for the hold-to-talk
+                hotkey — the wrapper is per-field for exactly that reason. */}
+            <div onFocus={descriptionDictationReg.onFocus} onBlur={descriptionDictationReg.onBlur}>
+              {/* ★★ key is LOAD-BEARING. Tiptap binds `content` at MOUNT only
+                  and never re-reads the prop, while the panel re-seeds this
+                  modal's draft in place — so jumping to item 2 while item 1's
+                  editor is still mounted would leave item 1's body in the
+                  field. ★ It depends only on draft.id: this draft is
+                  PARENT-OWNED and onChange mints a new object per keystroke, so
+                  a key derived from the draft itself would remount Tiptap on
+                  every character and destroy the caret. */}
+              <RichTextEditor
+                key={`${draft.id}:description`}
+                variant="lean"
+                value={descriptionHtml(draft.description)}
+                onChange={(html) => onChange({ ...draft, description: html || undefined })}
+                label={t(lang, "raidDescription")}
+                lang={lang}
+              />
+            </div>
+            {/* CharCounter measures `.length`, and the cap measures VISIBLE
+                text — so it is fed the projection, not the markup. */}
+            <CharCounter
+              value={htmlPlainProjection(draft.description ?? "")}
+              max={TEXTAREA_MAX}
+              id="raid-description-counter"
+              lang={lang}
             />
-            <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="raid-description-counter" lang={lang} />
             {descriptionDictationStatus}
           </label>
           )}
@@ -523,18 +567,22 @@ export function RaidEditModal({
               {t(lang, "raidMitigation")}
               <InfoTooltip text={t(lang, "raidFieldMitigationHint")} />
             </span>
-            <Textarea
-              autoGrow
-              rows={3}
-              value={draft.mitigation ?? ""}
-              onChange={(e) =>
-                onChange({ ...draft, mitigation: e.target.value || undefined })
-              }
-              onBlur={(e) => onChange({ ...draft, mitigation: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
-              placeholder={t(lang, "raidPlaceholderMitigation")}
-              aria-describedby="raid-mitigation-counter"
+            {/* No dictation mic on this field (it never had one), so no
+                registration wrapper — but the key is per-field all the same. */}
+            <RichTextEditor
+              key={`${draft.id}:mitigation`}
+              variant="lean"
+              value={descriptionHtml(draft.mitigation)}
+              onChange={(html) => onChange({ ...draft, mitigation: html || undefined })}
+              label={t(lang, "raidMitigation")}
+              lang={lang}
             />
-            <CharCounter value={draft.mitigation ?? ""} max={TEXTAREA_MAX} id="raid-mitigation-counter" lang={lang} />
+            <CharCounter
+              value={htmlPlainProjection(draft.mitigation ?? "")}
+              max={TEXTAREA_MAX}
+              id="raid-mitigation-counter"
+              lang={lang}
+            />
           </label>
           )}
 

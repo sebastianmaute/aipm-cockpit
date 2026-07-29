@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, WorkspaceParseError } from "./workspace";
 
+/** Render a STORED value the way a sink would and assert nothing live survives.
+ *  Deliberately does NOT re-sanitize: the subject is the LOAD boundary, and the
+ *  sink's own sanitize would strip a live element regardless of what was
+ *  stored, which makes such an assertion vacuous (mutation-verified). */
+function expectInert(stored: string, visibleText: string): void {
+  const host = document.createElement("div");
+  host.innerHTML = stored;
+  expect(host.querySelector("script, img, iframe, object, embed")).toBeNull();
+  expect(
+    [...host.querySelectorAll("*")].some((el) => [...el.attributes].some((a) => a.name.startsWith("on"))),
+  ).toBe(false);
+  expect(host.textContent).toContain(visibleText); // neutralized, never deleted
+}
+
 describe("jsonToWorkspace sanitizes noteLog + description on load (stored XSS)", () => {
   it("neutralizes malicious task/raid noteLog html and task description", () => {
     const malicious = {
@@ -41,14 +55,36 @@ describe("jsonToWorkspace sanitizes noteLog + description on load (stored XSS)",
     expect(taskNoteHtml).not.toContain("<script");
     expect(taskNoteHtml).toContain("note");
 
+    // `description` is UPGRADED before it is sanitized (slice B), so a stored
+    // value that is not already rich HTML gets ESCAPED to visible text instead
+    // of stripped. The literal substring "onerror" therefore SURVIVES while the
+    // ELEMENT does not — and it is the live element, not the substring, that
+    // constitutes the vulnerability, so a `not.toContain("onerror")` check can
+    // no longer tell an attack from inert escaped text. Assert INERTNESS
+    // instead: render the stored value exactly as the app does (sink
+    // re-sanitize, then innerHTML) and require no live node and no handler.
     const desc = ws.tasks[0].description ?? "";
-    expect(desc).not.toContain("onerror");
-    expect(desc).not.toContain("<img");
-    expect(desc).not.toContain("<script");
+    expectInert(desc, "ok");
+    expect(desc).toContain("&lt;img"); // escaped, so the text is preserved verbatim
 
     const raidNoteHtml = ws.raid[0].noteLog?.[0].html ?? "";
     expect(raidNoteHtml).not.toContain("onerror");
     expect(raidNoteHtml).not.toContain("javascript:");
+  });
+
+  // The OTHER branch of the upgrade: a description that ALREADY starts with an
+  // allow-listed tag is passed through by descriptionHtml untouched, so
+  // sanitizeNoteHtml is the ONLY thing standing between the payload and the
+  // sink. Escaping cannot save this case — drop the sanitize and a live <img>
+  // reaches the DOM (mutation-verified).
+  it("strips live markup from an ALREADY-RICH malicious description", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [{ id: 1, taskName: "T", status: "To Do", description: "<p>ok</p><img src=x onerror=alert(1)>" }],
+        raid: [],
+      }),
+    );
+    expectInert(ws.tasks[0].description ?? "", "ok");
   });
 
   it("leaves already-clean noteLog/description byte-identical (idempotent round-trip)", () => {
@@ -67,6 +103,74 @@ describe("jsonToWorkspace sanitizes noteLog + description on load (stored XSS)",
     const ws = jsonToWorkspace(JSON.stringify(clean));
     expect(ws.tasks[0].description).toBe("<p>All <strong>good</strong></p>");
     expect(ws.tasks[0].noteLog?.[0].html).toBe("<p>clean</p>");
+  });
+});
+
+// The whole-object JSON load boundary must normalise EVERY rich field, not just
+// `description`. RAID `mitigation` and the three change fields reached storage
+// through sanitizers that upgrade but are DOM-free by contract, so DOMPurify only
+// ever ran on `description` — two fields of the same modal with different shapes.
+describe("jsonToWorkspace normalises every rich field, not only description", () => {
+  it("upgrades a legacy plain RAID mitigation and keeps its tag-shaped text", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [{ id: 1, category: "Risk", title: "R", status: "Open", mitigation: "escalate <b>now</b>" }],
+      }),
+    );
+    expect(ws.raid[0].mitigation).toBe("<p>escalate &lt;b&gt;now&lt;/b&gt;</p>");
+  });
+
+  it("neutralizes an already-rich malicious RAID mitigation", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [{ id: 1, category: "Risk", title: "R", status: "Open", mitigation: "<p>ok</p><img src=x onerror=alert(1)>" }],
+      }),
+    );
+    expectInert(ws.raid[0].mitigation ?? "", "ok");
+  });
+
+  it("neutralizes already-rich malicious change impact/resolution fields", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [],
+        changes: [{
+          id: 1,
+          title: "C",
+          status: "Proposed",
+          raisedDate: "2026-01-01",
+          impactDescription: "<p>impact</p><img src=x onerror=alert(1)>",
+          resolutionNotes: "<p>notes</p><script>alert(1)</script>",
+        }],
+      }),
+    );
+    expectInert(ws.changes?.[0].impactDescription ?? "", "impact");
+    expectInert(ws.changes?.[0].resolutionNotes ?? "", "notes");
+  });
+
+  it("neutralizes an already-rich malicious milestone description", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [],
+        milestones: [{ id: 1, name: "M", date: "2026-01-01", description: "<p>gate</p><img src=x onerror=alert(1)>" }],
+      }),
+    );
+    expectInert(ws.milestones?.[0].description ?? "", "gate");
+  });
+
+  it("leaves already-clean register rich fields byte-identical", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [],
+        raid: [{ id: 1, category: "Risk", title: "R", status: "Open", mitigation: "<p>Escalate <strong>now</strong></p>" }],
+        milestones: [{ id: 1, name: "M", date: "2026-01-01", description: "<p>Gate <em>two</em></p>" }],
+      }),
+    );
+    expect(ws.raid[0].mitigation).toBe("<p>Escalate <strong>now</strong></p>");
+    expect(ws.milestones?.[0].description).toBe("<p>Gate <em>two</em></p>");
   });
 });
 

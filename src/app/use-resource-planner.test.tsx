@@ -887,6 +887,58 @@ describe("useResourcePlanner", () => {
     });
   });
 
+  // Slice B made `mitigation` and `description` rich HTML. The created task's
+  // description must be UPGRADED (descriptionHtml), not re-escaped (plainToHtml)
+  // — re-escaping renders literal "<p><strong>…" as visible text.
+  describe("create mitigation task carries rich text (slice B)", () => {
+    const mkRaid = (over: Partial<RaidItem>): RaidItem => ({
+      id: 1,
+      category: "A",
+      title: "Fix deployment",
+      description: "",
+      severity: "Medium",
+      status: "Open",
+      owner: "Alice",
+      ownerEmail: "alice@test.com",
+      mitigation: undefined,
+      linkedTaskIds: [],
+      causedByRaidIds: [],
+      stakeholderIds: [],
+      raisedDate: "2026-05-20",
+      targetDate: "2026-06-01",
+      localModifiedAt: "2026-05-20T00:00:00.000Z",
+      ...over,
+    });
+
+    function createFrom(item: RaidItem) {
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setRaid([item]); });
+      act(() => { result.current.planner.handleCreateMitigationTaskFromRaid(item.id); });
+      const tasks = result.current.workspace.tasks;
+      return tasks[tasks.length - 1];
+    }
+
+    it("does not double-escape a rich mitigation", () => {
+      const created = createFrom(
+        mkRaid({ mitigation: "<p>escalate <strong>now</strong></p>" }),
+      );
+      expect(created.description).toBe("<p>escalate <strong>now</strong></p>");
+      expect(created.description).not.toContain("&lt;");
+    });
+
+    it("upgrades a legacy plain mitigation instead of passing it through raw", () => {
+      const created = createFrom(mkRaid({ mitigation: "escalate < now & then" }));
+      expect(created.description).toBe("<p>escalate &lt; now &amp; then</p>");
+    });
+
+    it("falls back to a rich description when there is no mitigation", () => {
+      const created = createFrom(
+        mkRaid({ mitigation: undefined, description: "<p>vendor <em>slipped</em></p>" }),
+      );
+      expect(created.description).toBe("<p>vendor <em>slipped</em></p>");
+    });
+  });
+
   describe("role CRUD", () => {
     it("resolveOrCreateRole creates a role once, then is idempotent", () => {
       const { result } = renderPlanner();

@@ -6,6 +6,7 @@ import { resourceDisplayName } from "./resource-foundation";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import type { NotesWindowProps } from "./notes-window";
+import type { NoteLogPanelProps } from "./note-log-panel";
 
 // Live render-scope values the notes-window orchestration reads each render.
 // Follows the Phase-3 deps-object hook convention: called unconditionally,
@@ -26,6 +27,11 @@ export interface UseNotesWindowResult {
   openTaskNotes: (id: number) => void;
   openRaidNotes: (id: number) => void;
   notesWindowProps: NotesWindowProps;
+  /** Panel props for a SECOND, always-mounted surface (the in-editor note log).
+   *  `notesWindowProps` can't serve it: its entries derive from `notesTarget`,
+   *  which is null unless the floating window is open. Reuses the same
+   *  `noteHandlersFor` so both surfaces share ONE write path. */
+  notePanelPropsFor: (kind: "task" | "raid", id: number) => NoteLogPanelProps;
 }
 
 // Shared floating note-log window orchestration extracted from task-manager.
@@ -151,5 +157,21 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
     openTaskNotes: (id: number) => setNotesTarget({ kind: "task", id }),
     openRaidNotes: (id: number) => setNotesTarget({ kind: "raid", id }),
     notesWindowProps,
+    // ★ `labelSuffix` is REQUIRED here, unlike the floating window (whose dialog
+    //   label already names the entity). With both surfaces open on the same
+    //   task, un-suffixed names would collide into two identical "Edit – #1"
+    //   buttons — axe checks that a name EXISTS, never that it is unique.
+    notePanelPropsFor: (kind, id) => {
+      const handlers = noteHandlersFor(kind, id);
+      const entries =
+        kind === "task"
+          ? tasks.find((tk) => tk.id === id)?.noteLog ?? []
+          : raid.find((r) => r.id === id)?.noteLog ?? [];
+      const label =
+        kind === "task"
+          ? tasks.find((tk) => tk.id === id)?.taskName ?? ""
+          : raid.find((r) => r.id === id)?.title ?? "";
+      return { entries, ...handlers, self: notesSelf, resources, lang, labelSuffix: label };
+    },
   };
 }

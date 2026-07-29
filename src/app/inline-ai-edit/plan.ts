@@ -6,7 +6,8 @@
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
 import { sanitizeIsoDate } from "../sanitize";
-import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor } from "./entity-descriptor";
+import { descriptionText } from "../rich-text-projection";
+import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor, type InlineEntity } from "./entity-descriptor";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -29,6 +30,33 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_milestone: { entity: "milestone", wsKey: "milestones" },
   delete_stakeholder: { entity: "stakeholder", wsKey: "stakeholders" },
 };
+
+// Fields stored as rich HTML, keyed `${entity}.${field}`. Only the PREVIEW
+// strings are projected — the values applied to the entity stay verbatim,
+// because `applied[f]` feeds the incremental enum validation below and the
+// confirm step replays the original tool calls.
+//
+// ★★ THE KEY MUST STAY ENTITY-QUALIFIED. `notes` is the TASK descriptor's
+// (stale) name for the rich `description`, but it is ALSO the STAKEHOLDER
+// descriptor's own field — and `Stakeholder.notes` is plain text (sanitizeText,
+// plain textarea), deliberately outside slice B. A bare field-name set matched
+// both, so an inline-AI edit to a stakeholder note previewed with its newlines
+// collapsed by htmlToText: a field the design excluded, projected anyway.
+//
+// ★ Shared with descriptor-drift.test.ts, which asserts that exactly these
+// fields come back UPGRADED from their sanitizer and every other diff field
+// round-trips verbatim — so a wrong entry here (say "stakeholder.notes") fails
+// that test rather than silently changing a preview.
+export const RICH_FIELDS: ReadonlySet<string> = new Set([
+  "task.notes",
+  "raid.description", "raid.mitigation",
+  "change.description", "change.impactDescription", "change.resolutionNotes",
+  "milestone.description",
+]);
+
+function forPreview(entity: InlineEntity, field: string, value: string): string {
+  return RICH_FIELDS.has(`${entity}.${field}`) ? descriptionText(value) : value;
+}
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -85,7 +113,7 @@ export function describeEntityCalls(
           if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
         }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
-        plan.updates.push({ field: f, before, after });
+        plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after) });
         applied[f] = after;
       }
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)

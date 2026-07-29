@@ -13,7 +13,7 @@ import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidItem, type
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 import { isValidEmail, sanitizeResource } from "./sanitize";
-import { plainToHtml } from "./sanitize-html";
+import { descriptionHtml } from "./rich-text-plain";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
@@ -886,7 +886,10 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         priority: "Medium",
         status: "To Do",
         blockers: "",
-        description: plainToHtml(item.mitigation ?? item.description ?? ""),
+        // Both fields are rich HTML since slice B: UPGRADE (pass HTML through,
+        // wrap legacy plain text) instead of escaping an already-HTML value a
+        // second time, which would render markup as visible text.
+        description: descriptionHtml(item.mitigation ?? item.description ?? ""),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };

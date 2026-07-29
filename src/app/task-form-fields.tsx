@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { ComboInput } from "./combo-input";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
+import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
@@ -12,7 +13,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { RichTextEditor } from "./rich-text-editor";
-import { htmlToText, plainToHtml } from "./sanitize-html";
+import { appendDictationToHtml } from "./rich-text-projection";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";
 import { Input, Select, Textarea } from "./form-controls";
@@ -66,6 +67,11 @@ export interface TaskFormFieldsProps {
   /** Opens the floating note-log window (wired by the host in Task E2). Optional
    *  so this component still compiles/renders standalone before that wiring. */
   onOpenNotes?: () => void;
+  /** Live note-log panel props for the edited task. Present → the log renders
+   *  INLINE here and writes straight through to the workspace; absent (an
+   *  unsaved new task) → the disabled launcher button above is used instead.
+   *  A PROP, not a context read: this component's own tests render it bare. */
+  taskNotePanel?: NoteLogPanelProps;
   /** Budget-bucket link controls, absent when the budget module is off. A PROP,
    *  not a context read: this component's own tests render it bare, where a
    *  `useWorkspace()` call would throw. */
@@ -92,17 +98,17 @@ export function TaskFormFields({
   jiraDefaultIssueType,
   onAddAssigneeToAddressBook,
   onOpenNotes,
+  taskNotePanel,
   budgetLink,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
-  // Description is rich HTML but dictation yields plain text: round-trip through
-  // text so appendDictation can join mid-utterance segments (Web Speech fires
-  // onFinal repeatedly — the functional setter reads the latest state each time),
-  // then re-wrap to valid HTML. Any prior rich formatting is flattened on
-  // dictation — an accepted trade-off for a plain-text input path.
+  // Description is rich HTML but dictation yields plain text — appendDictationToHtml
+  // owns that round-trip (and documents the formatting-flatten trade-off). The
+  // functional setter is what lets it read the latest state on each of the
+  // repeated onFinal calls Web Speech fires per hold.
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
@@ -111,7 +117,7 @@ export function TaskFormFields({
     onAppendFinal: (txt) =>
       setForm((prev) => ({
         ...prev,
-        description: plainToHtml(appendDictation(htmlToText(prev.description ?? ""), txt)),
+        description: appendDictationToHtml(prev.description ?? "", txt),
       })),
   });
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
@@ -586,20 +592,47 @@ export function TaskFormFields({
         </div>
         )}
 
-        {/* The running dated note-log now lives in a dedicated floating window
-            (opened via onOpenNotes, wired by the host in Task E2). The in-form
-            composer was retired; this button surfaces the current count and
-            launches that window. */}
-        <div className="sm:col-span-2">
-          <button
-            type="button"
-            onClick={onOpenNotes}
-            disabled={!onOpenNotes}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
-          >
-            {t(lang, "noteLogTitle")} ({(form.noteLog ?? []).length})
-          </button>
-        </div>
+        {/* Running dated note log. With a panel threaded (an existing task) it
+            renders INLINE and writes straight through to the workspace — a note
+            added here survives Cancel, which is correct for an append-only
+            journal. Without one (an unsaved new task) the disabled button
+            remains, as there is no id to write to. The count reads the LIVE
+            panel entries, NOT `form.noteLog`, so a write-through add moves the
+            number immediately. */}
+        {taskNotePanel ? (
+          <details className="sm:col-span-2 rounded-md border border-line bg-surface p-2">
+            {/* ★ `tabIndex={0}` is a no-op for a browser (a <summary> is already
+                sequentially focusable at this DOM position, so no second tab
+                stop appears) but it is NOT redundant here: `use-focus-trap`'s
+                FOCUSABLE_SELECTOR — which drives this modal's Tab containment —
+                has no `summary` arm, so a bare one is invisible to the trap.
+                @testing-library/user-event's selector omits it too, which is why
+                the keyboard test cannot pass without this. */}
+            <summary
+              tabIndex={0}
+              className="cursor-pointer text-sm font-medium text-ui-dark-blue dark:text-ui-light-grey"
+            >
+              {t(lang, "noteLogTitle")} ({taskNotePanel.entries.length})
+            </summary>
+            {/* ★ NoteLogPanel's root is a FRAGMENT and its entry list relies on
+                `min-h-0 flex-1`, so the consumer must supply the bounded flex
+                column; without it the list grows unbounded inside the modal. */}
+            <div className="mt-2 flex max-h-72 flex-col overflow-auto pr-2">
+              <NoteLogPanel {...taskNotePanel} />
+            </div>
+          </details>
+        ) : (
+          <div className="sm:col-span-2">
+            <button
+              type="button"
+              onClick={onOpenNotes}
+              disabled={!onOpenNotes}
+              className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
+            >
+              {t(lang, "noteLogTitle")} ({(form.noteLog ?? []).length})
+            </button>
+          </div>
+        )}
 
         <Field label={t(lang, "documents")} className="sm:col-span-2">
           <KnowledgeLinksFieldGated

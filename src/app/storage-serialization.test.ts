@@ -197,7 +197,12 @@ test("JSON round-trip preserves milestones", () => {
     milestones: [{ id: 1, name: "Go-live", date: "2026-08-01", description: "launch", linkedTaskIds: [2, 3] }],
   };
   const back = jsonToWorkspace(workspaceToJson(ws));
-  expect(back.milestones).toEqual(ws.milestones);
+  // `description` is a rich-text field (slice B): storage is NOT normalised by
+  // the decoders, so a legacy PLAIN value is upgraded on every read. The
+  // round-trip therefore preserves every field and upgrades this one...
+  expect(back.milestones).toEqual([{ ...ws.milestones[0], description: "<p>launch</p>" }]);
+  // ...and the upgraded form is a fixed point, so re-reading never re-wraps.
+  expect(jsonToWorkspace(workspaceToJson(back)).milestones).toEqual(back.milestones);
 });
 
 describe("Milestone defaults + sanitize", () => {
@@ -216,7 +221,8 @@ describe("Milestone defaults + sanitize", () => {
     expect(sanitizeMilestone({ id: 1, name: "Go-live", date: "" })).toBeNull();     // empty date
     expect(
       sanitizeMilestone({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, "4", -1, "x"], localModifiedAt: "2026-06-02T00:00:00.000Z" }),
-    ).toEqual({ id: 2, name: "Go-live", date: "2026-08-01", description: "d", achievedDate: "2026-07-30", linkedTaskIds: [3, 4], localModifiedAt: "2026-06-02T00:00:00.000Z" });
+      // description is rich text — a plain value is wrapped on the way in.
+    ).toEqual({ id: 2, name: "Go-live", date: "2026-08-01", description: "<p>d</p>", achievedDate: "2026-07-30", linkedTaskIds: [3, 4], localModifiedAt: "2026-06-02T00:00:00.000Z" });
   });
   test("sanitizeMilestone rejects an invalid date", () => {
     expect(sanitizeMilestone({ id: 1, name: "x", date: "not-a-date" })).toBeNull();

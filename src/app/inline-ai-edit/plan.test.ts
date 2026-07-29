@@ -177,6 +177,96 @@ describe("describeEntityCalls — raid", () => {
   });
 });
 
+describe("rich fields preview as text (slice B)", () => {
+  // Slice B stores RAID description+mitigation, Change description+
+  // impactDescription+resolutionNotes and Milestone description as rich HTML.
+  // The confirm dialog must show the user WORDS, not the markup around them.
+  const d = INLINE_DESCRIPTORS.raid;
+  const richItem = {
+    id: 1,
+    category: "R",
+    // NOT a rich field — deliberately carries markup so a blanket projection
+    // would visibly change it (see the "verbatim" test below).
+    title: "<p>Old <strong>title</strong></p>",
+    status: "Open",
+    mitigation: "<p>old <strong>plan</strong></p>",
+  };
+  const richWs = wsWith({ raid: [richItem] as never });
+
+  it("projects a rich mitigation diff to plain text", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 1, mitigation: "<p>new plan</p>" } }],
+      { descriptor: d, item: richItem, ws: richWs },
+    );
+    const diff = plan.updates.find((u) => u.field === "mitigation");
+    expect(diff?.before).toBe("old plan");
+    expect(diff?.after).toBe("new plan");
+  });
+
+  it("leaves the plain-text stakeholder.notes verbatim, though raid shares the name shape", () => {
+    // ★★ SCOPE LEAK THIS PINS: the set was keyed on the BARE field name and
+    // included "notes" — the task descriptor's stale alias for its rich
+    // `description`. But `notes` is also the STAKEHOLDER descriptor's own field,
+    // and Stakeholder.notes is plain text (sanitizeText, plain textarea),
+    // deliberately outside slice B. So a stakeholder note previewed with its
+    // newlines collapsed by htmlToText's whitespace run.
+    const stk = { id: 3, name: "Dana", category: "Sponsor", influence: "Medium", interest: "Medium", notes: "old" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_stakeholder", input: { id: 3, notes: "line one\nline two" } }],
+      { descriptor: INLINE_DESCRIPTORS.stakeholder, item: stk, ws: wsWith({ stakeholders: [stk] as never }) },
+    );
+    // The newline SURVIVES. Projected, it would collapse to "line one line two".
+    expect(plan.updates).toContainEqual({ field: "notes", before: "old", after: "line one\nline two" });
+  });
+
+  it("still projects task.notes, the task descriptor's alias for the rich description", () => {
+    // The other direction: entity-qualifying the set must not stop projecting
+    // the one field that legitimately carries that name and IS rich.
+    const t2 = { id: 9, taskName: "T", notes: "<p>old <strong>note</strong></p>" };
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_task", input: { id: 9, notes: "<p>new note</p>" } }],
+      { descriptor: INLINE_DESCRIPTORS.task, item: t2, ws: wsWith({ tasks: [t2] as never }) },
+    );
+    expect(plan.updates).toContainEqual({ field: "notes", before: "old note", after: "new note" });
+  });
+
+  it("leaves a non-rich field's diff verbatim", () => {
+    // `title` is plain text. Its stored value happens to contain markup here, so
+    // if forPreview were a blanket transform instead of a rich-field FILTER the
+    // tags below would be stripped and this fails.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 1, title: "<p>New <strong>title</strong></p>" } }],
+      { descriptor: d, item: richItem, ws: richWs },
+    );
+    expect(plan.updates).toEqual([
+      { field: "title", before: "<p>Old <strong>title</strong></p>", after: "<p>New <strong>title</strong></p>" },
+    ]);
+  });
+
+  // The applied value must stay RAW — it feeds the incremental enum validation
+  // (`validSetFor(..., {...item, ...applied})`) and the confirm step replays the
+  // ORIGINAL tool calls, so a projection here would write plain text back into a
+  // rich field.
+  //
+  // ★ HONEST LIMIT: this pins that the enum path still works when a rich field
+  // is co-changed in the SAME call, but it CANNOT detect `applied[f]` being
+  // projected — `applied` is a local scratchpad that never reaches the returned
+  // plan, and no enum resolver reads a rich field (RAID status keys off
+  // `category`). Verified by mutation: projecting `applied[f]` fails nothing.
+  it("still validates and applies the RAW value, not the projection", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 1, mitigation: "<p>new plan</p>", category: "I", status: "Resolved" } }],
+      { descriptor: d, item: richItem, ws: richWs },
+    );
+    // "Resolved" is Issue-only: it validates only because the co-changed
+    // category landed in `applied` first, alongside the rich field.
+    expect(plan.rejected).toEqual([]);
+    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I" });
+    expect(plan.updates).toContainEqual({ field: "status", before: "Open", after: "Resolved" });
+    expect(plan.updates).toContainEqual({ field: "mitigation", before: "old plan", after: "new plan" });
+  });
+});
+
 describe("describeEntityCalls — milestone required field", () => {
   const m = { id: 3, name: "Kickoff", date: "2026-01-01" };
   const ws2 = wsWith({ milestones: [m] as never });
