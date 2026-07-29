@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
+import { buildPdfHtml } from "./export";
 import { buildExportSections } from "./export-sections";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
@@ -574,5 +575,33 @@ describe("buildPptx", () => {
 
     const slide1 = files.get("ppt/slides/slide1.xml")!;
     expect(slide1).toContain("AI PM Cockpit");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HTML/PDF renderer — the export projection's newline becomes a <br>
+// ---------------------------------------------------------------------------
+
+describe("HTML export cells", () => {
+  it("renders a projected newline as a <br>", () => {
+    const base = makeBaseWorkspace();
+    const ws: Workspace = {
+      ...base,
+      tasks: [{ ...makeTask(1), description: "<p>one</p><p>two</p>" }],
+    };
+    expect(buildPdfHtml(ws, defaultExportConfig, "en-US")).toContain("one<br>two");
+  });
+
+  it("escapes BEFORE substituting, so user markup cannot inject a break", () => {
+    // ★★ Order is the whole point. Substitute-then-escape turns our own <br>
+    // into a visible "&lt;br&gt;"; escape-then-substitute leaves a user's
+    // literal "<br>" escaped, which is what escaping is for. taskName is a
+    // PLAIN column, so its value reaches the cell unprojected — the cleanest
+    // way to put a literal "<br>" in front of the renderer.
+    const base = makeBaseWorkspace();
+    const ws: Workspace = { ...base, tasks: [{ ...makeTask(1), taskName: "a<br>b" }] };
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    expect(html).toContain("a&lt;br&gt;b");
+    expect(html).not.toContain("a<br>b");
   });
 });

@@ -80,6 +80,16 @@ function htmlEscape(s: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Escape FIRST, then map the export projection's newlines to <br>.
+ *
+ *  ★★ Both orderings are wrong in a different direction. Substituting first
+ *  means htmlEscape then turns the <br> we inserted into a visible "&lt;br&gt;";
+ *  skipping the escape to avoid that would let a literal "<br>" in user content
+ *  through unescaped. Escape, then substitute — nothing else. */
+function htmlCellWithBreaks(cell: unknown): string {
+  return htmlEscape(cell).replace(/\n/g, "<br>");
+}
+
 /** Render one ExportSection as an HTML heading + table block. */
 function renderSectionHtml(section: ExportSection): string {
   const headerCells = section.columns
@@ -88,7 +98,7 @@ function renderSectionHtml(section: ExportSection): string {
   const bodyRows = section.rows
     .map(
       (row) =>
-        `<tr>${row.map((cell) => `<td>${htmlEscape(cell)}</td>`).join("")}</tr>`
+        `<tr>${row.map((cell) => `<td>${htmlCellWithBreaks(cell)}</td>`).join("")}</tr>`
     )
     .join("\n      ");
   return `
