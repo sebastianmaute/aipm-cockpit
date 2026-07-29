@@ -1,6 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { sanitizeRaidItem, sanitizeChangeItem, sanitizeMilestone, sanitizeStakeholder } from "../sanitize";
+import { descriptionHtml } from "../rich-text-plain";
+
+// The six RICH-TEXT diff fields (slice B). Their sanitizers UPGRADE a legacy
+// plain value to HTML, so "survives" means the field arrives in its upgraded
+// form — not byte-identical. Every other field still round-trips verbatim.
+// This test is about WRITABILITY (the dispatcher can set the field and the
+// sanitizer does not silently drop it), so the expectation is expressed as the
+// upgrade itself rather than a hard-coded "<p>…</p>".
+const RICH_FIELDS = new Set([
+  "raid.description", "raid.mitigation",
+  "change.description", "change.impactDescription", "change.resolutionNotes",
+  "milestone.description",
+]);
 
 // One valid full item per entity + a valid replacement value per diff field.
 // Each field is set on a valid base, run through the sanitizer, and must survive
@@ -41,7 +54,9 @@ describe("descriptor diffFields are dispatcher-writable", () => {
         expect(field in values).toBe(true); // test data must cover every diff field
         const out = sanitize({ ...base, [field]: values[field] }) as Record<string, unknown> | null;
         expect(out).not.toBeNull();
-        expect(String(out![field])).toBe(String(values[field]));
+        const raw = String(values[field]);
+        const want = RICH_FIELDS.has(`${entity}.${field}`) ? descriptionHtml(raw) : raw;
+        expect(String(out![field])).toBe(want);
       });
     }
   }

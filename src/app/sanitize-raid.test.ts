@@ -80,7 +80,10 @@ describe("sanitizeRaidItem", () => {
     expect(result!.id).toBe(1);
     expect(result!.category).toBe("R");
     expect(result!.title).toBe("Risk of scope creep");
-    expect(result!.description).toBe("Could impact schedule");
+    // description + mitigation are RICH-TEXT fields (slice B): a legacy plain
+    // value is escaped and wrapped on the way in, so the round-trip normalises
+    // them rather than preserving the bytes verbatim.
+    expect(result!.description).toBe("<p>Could impact schedule</p>");
     expect(result!.owner).toBe("Jane Doe");
     expect(result!.ownerEmail).toBe("jane@example.com");
     expect(result!.ownerResourceId).toBe(42);
@@ -88,7 +91,7 @@ describe("sanitizeRaidItem", () => {
     expect(result!.probability).toBe(3);
     expect(result!.impact).toBe(4);
     expect(result!.status).toBe("Open");
-    expect(result!.mitigation).toBe("Weekly review");
+    expect(result!.mitigation).toBe("<p>Weekly review</p>");
     expect(result!.linkedTaskIds).toEqual([10, 20]);
     expect(result!.raisedDate).toBe("2025-01-15");
     expect(result!.targetDate).toBe("2025-06-30");

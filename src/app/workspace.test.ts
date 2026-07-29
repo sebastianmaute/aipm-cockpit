@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { emptyWorkspace, jsonToWorkspace, workspaceToJson, WorkspaceParseError } from "./workspace";
 
+/** Render a STORED value the way a sink would and assert nothing live survives.
+ *  Deliberately does NOT re-sanitize: the subject is the LOAD boundary, and the
+ *  sink's own sanitize would strip a live element regardless of what was
+ *  stored, which makes such an assertion vacuous (mutation-verified). */
+function expectInert(stored: string, visibleText: string): void {
+  const host = document.createElement("div");
+  host.innerHTML = stored;
+  expect(host.querySelector("script, img, iframe, object, embed")).toBeNull();
+  expect(
+    [...host.querySelectorAll("*")].some((el) => [...el.attributes].some((a) => a.name.startsWith("on"))),
+  ).toBe(false);
+  expect(host.textContent).toContain(visibleText); // neutralized, never deleted
+}
+
 describe("jsonToWorkspace sanitizes noteLog + description on load (stored XSS)", () => {
   it("neutralizes malicious task/raid noteLog html and task description", () => {
     const malicious = {
@@ -41,14 +55,36 @@ describe("jsonToWorkspace sanitizes noteLog + description on load (stored XSS)",
     expect(taskNoteHtml).not.toContain("<script");
     expect(taskNoteHtml).toContain("note");
 
+    // `description` is UPGRADED before it is sanitized (slice B), so a stored
+    // value that is not already rich HTML gets ESCAPED to visible text instead
+    // of stripped. The literal substring "onerror" therefore SURVIVES while the
+    // ELEMENT does not — and it is the live element, not the substring, that
+    // constitutes the vulnerability, so a `not.toContain("onerror")` check can
+    // no longer tell an attack from inert escaped text. Assert INERTNESS
+    // instead: render the stored value exactly as the app does (sink
+    // re-sanitize, then innerHTML) and require no live node and no handler.
     const desc = ws.tasks[0].description ?? "";
-    expect(desc).not.toContain("onerror");
-    expect(desc).not.toContain("<img");
-    expect(desc).not.toContain("<script");
+    expectInert(desc, "ok");
+    expect(desc).toContain("&lt;img"); // escaped, so the text is preserved verbatim
 
     const raidNoteHtml = ws.raid[0].noteLog?.[0].html ?? "";
     expect(raidNoteHtml).not.toContain("onerror");
     expect(raidNoteHtml).not.toContain("javascript:");
+  });
+
+  // The OTHER branch of the upgrade: a description that ALREADY starts with an
+  // allow-listed tag is passed through by descriptionHtml untouched, so
+  // sanitizeNoteHtml is the ONLY thing standing between the payload and the
+  // sink. Escaping cannot save this case — drop the sanitize and a live <img>
+  // reaches the DOM (mutation-verified).
+  it("strips live markup from an ALREADY-RICH malicious description", () => {
+    const ws = jsonToWorkspace(
+      JSON.stringify({
+        tasks: [{ id: 1, taskName: "T", status: "To Do", description: "<p>ok</p><img src=x onerror=alert(1)>" }],
+        raid: [],
+      }),
+    );
+    expectInert(ws.tasks[0].description ?? "", "ok");
   });
 
   it("leaves already-clean noteLog/description byte-identical (idempotent round-trip)", () => {
