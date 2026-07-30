@@ -1030,6 +1030,39 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
+## 39. The timelog partial-failure toast has now failed CI six times, and raising its timeout did not fix it — open, needs a real diagnosis
+
+`timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Six CI
+failures, always this one assertion, always with the other ~767 files green and the full suite passing
+locally: 0.205.0 · 0.208.0 · twice on the 0.209.0 MR · once on main after that merge (which left main
+**red**) · and the 0.210.0 MR pipeline #5305.
+
+★★★ **The recorded diagnosis is now in doubt, and the obvious next step is wrong.** The in-test comment
+reasons from "always at ~5.1s ... a hair over the limit" to "worker starvation under full parallel load,
+not a race", and !335 acted on that by giving this one assertion an explicit `timeout: 15000` above the
+global `asyncUtilTimeout: 5000`. The 6th failure happened **with that mitigation in place** and burned
+**15,093 ms** — the whole budget, again a hair over. The file took 18,488 ms.
+
+Two budgets, 3× apart, both consumed almost exactly: that is the signature of the toast **never
+arriving** in the failing run, not of it arriving slowly. Pure starvation would produce a spread — some
+runs passing at 6s or 11s under a 15s budget. So:
+
+- **Do NOT raise the timeout again.** 5s → 15s moved the failure point and bought nothing. 30s would
+  move it again and cost another 15s of CI wall-clock per failure.
+- The next step is to find out whether `showToast("error", …)` is reachable at all on that path under
+  CI conditions — e.g. an unresolved promise in the mocked `useTimelogSync`, a lost `act()` flush, or a
+  partial-failure branch that only fires when a timer wins a race it usually loses.
+- ★ Honest limit of this inference: one data point at 15s. The toast could genuinely arrive at 15.5s.
+  What *is* established is that the mitigation did not work and the reasoning behind it no longer fits
+  the evidence.
+
+★ Until diagnosed, the operational answer is to **retry the job**, not to edit the test. It is a known
+flake with a known signature, and it has never failed locally.
+★ It was untracked here until 2026-07-30 despite six occurrences and one red main — which is why the
+frequency data lived only in a code comment and a memory file.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
