@@ -22,19 +22,17 @@ interface ThemeGalleryProps {
   lang: Lang;
   /** The full scheme store list; built-ins are filtered out here. */
   schemes: readonly ColorScheme[];
-  activeId: string | null;
   /** Turso config → persist the imported scheme to the cross-device DB too (else
    *  the localStorage sync-cache only). Optional (defaults null) for file mode +
    *  tests. */
   config?: TursoConfig | null;
   /** Called with the scheme id after a successful import (parent applies it). */
   onImported: (newId: string) => void;
-  onApply: (id: string) => void;
   onRemove: (id: string) => void;
 }
 
 export function ThemeGallery({
-  lang, schemes, activeId, config = null, onImported, onApply, onRemove,
+  lang, schemes, config = null, onImported, onRemove,
 }: ThemeGalleryProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +90,7 @@ export function ThemeGallery({
       {userSchemes.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t(lang, "themeGalleryEmpty")}</p>
       ) : (
-        <ul className="flex flex-col gap-1">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {userSchemes.map((s) => (
             <Card
               as="li"
@@ -100,21 +98,9 @@ export function ThemeGallery({
               className="flex items-center justify-between gap-2 px-3 py-2"
             >
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{s.name}</span>
-              {s.id === activeId && (
-                <span className="text-xs text-muted-foreground">{t(lang, "themeGalleryActive")}</span>
-              )}
-              {/* Row controls carry the scheme NAME: N rows with an identical
-                  "Apply" would be a WCAG 2.4.6 fail that the axe gate cannot
-                  see (it reports missing names, never duplicate ones). */}
-              <Button
-                variant="ghost"
-                size="xs"
-                disabled={s.id === activeId}
-                aria-label={t(lang, "themeGalleryApply", s.name)}
-                onClick={() => onApply(s.id)}
-              >
-                {t(lang, "themeGalleryApply", s.name)}
-              </Button>
+              {/* Row control carries the scheme NAME: N rows with an identical
+                  "Remove" would be a WCAG 2.4.6 fail the axe gate cannot see
+                  (it reports missing names, never duplicate ones). */}
               <Button
                 variant="ghost"
                 size="xs"

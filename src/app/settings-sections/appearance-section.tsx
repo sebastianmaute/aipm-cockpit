@@ -105,9 +105,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
           lang={lang}
           config={config}
           schemes={store.schemes}
-          activeId={store.activeId}
           onImported={(id) => { refresh(); selectScheme(id); }}
-          onApply={(id) => selectScheme(id)}
           onRemove={(id) => {
             removeScheme(id);
             void deleteSchemeAsync(config, id);
