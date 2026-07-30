@@ -13,7 +13,7 @@
       "priority": "High",
       "status": "Done",
       "blockers": "",
-      "description": "",
+      "description": "<p>Replace the hand-rolled session cookie with the shared <strong>token service</strong>. The old cookie is issued in three different places and none of them agree on expiry.</p><p>Definition of done:</p><ul><li>One issuing path, covered by tests</li><li>Expiry read from config, not hard-coded</li><li>Old cookie name still accepted for one release</li></ul><p>See the <a href=\"https://example.com/adr/017-token-service\">ADR</a> for the agreed contract.</p>",
       "completedDate": "2026-04-22",
       "inquiriesSent": 0,
       "group": "Auth Migration",
@@ -100,7 +100,7 @@
       "priority": "Medium",
       "status": "Done",
       "blockers": "",
-      "description": "",
+      "description": "<p>Frontend still reads <em>user.roles</em> straight off the legacy payload. Switch it to the claim on the new token — <strong>do not</strong> ship this before the backend task above.</p>",
       "completedDate": "2026-05-05",
       "inquiriesSent": 0,
       "group": "Auth Migration",
@@ -546,7 +546,7 @@
       "id": 1,
       "category": "R",
       "title": "Legacy user data corruption during migration",
-      "description": "50k bcrypt-hashed passwords; corruption could lock users out of all services.",
+      "description": "<p>50k bcrypt-hashed passwords move in this migration. A corrupted batch would lock users out of <strong>every</strong> connected service at once, not just login.</p><p>Worst realistic case is a partial write we do not notice until the next business day.</p>",
       "severity": "High",
       "probability": 3,
       "impact": 5,
@@ -896,13 +896,43 @@
     }
   ],
   "calendarEvents": [
-    { "id": 1, "title": "Project standup", "startDate": "2026-01-05", "startTime": "09:00",
+    {
+      "id": 1,
+      "title": "Project standup",
+      "startDate": "2026-01-05",
+      "startTime": "09:00",
       "durationMinutes": 15,
-      "recurrence": { "freq": "weekly", "interval": 1, "byDay": ["MO", "WE", "FR"] } },
-    { "id": 2, "title": "Steering board", "startDate": "2026-01-13", "startTime": "14:00",
+      "recurrence": {
+        "freq": "weekly",
+        "interval": 1,
+        "byDay": [
+          "MO",
+          "WE",
+          "FR"
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "title": "Steering board",
+      "startDate": "2026-01-13",
+      "startTime": "14:00",
       "durationMinutes": 60,
-      "recurrence": { "freq": "monthly", "interval": 1, "byDay": { "ordinal": 2, "day": "TU" } },
-      "exceptions": [{ "date": "2026-04-14", "kind": "skip" }] }
+      "recurrence": {
+        "freq": "monthly",
+        "interval": 1,
+        "byDay": {
+          "ordinal": 2,
+          "day": "TU"
+        }
+      },
+      "exceptions": [
+        {
+          "date": "2026-04-14",
+          "kind": "skip"
+        }
+      ]
+    }
   ],
   "shifts": [
     {
@@ -1435,7 +1465,8 @@
       "id": 2,
       "name": "Go-Live",
       "date": "2026-09-01",
-      "linkedTaskIds": []
+      "linkedTaskIds": [],
+      "description": "<p>Production cutover. Entry criteria are a green regression cycle and a completed hypercare rehearsal; the four-hour maintenance window is already agreed with comms.</p><p><em>Not</em> a go/no-go gate for MFA — that rides the change request.</p>"
     },
     {
       "id": 3,
@@ -1463,7 +1494,7 @@
         5
       ],
       "impact": "High",
-      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
+      "impactDescription": "<p>Adds roughly <strong>three weeks</strong> of backend and frontend work, and pulls in a second security review cycle.</p><ol><li>Backend: TOTP enrolment + verification endpoints</li><li>Frontend: enrolment flow and recovery-code screen</li><li>Re-scope the load-test scenarios to include the MFA step</li></ol>",
       "scheduleImpactDays": 21,
       "costImpact": 18000,
       "requestedBy": "Morgan Standin",
