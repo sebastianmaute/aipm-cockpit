@@ -76,7 +76,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 31 | `sanitizeRichText` caps visible text, so markup bytes are unbounded | 0.210.0, pre-existing for 3 of 4 | M | open — truncates stored values |
 | 32 | `HTML_START` misclassifies `<a note…>`-shaped plain text, deleting it | pre-existing, reach widened 0.210.0 | S | open — read-time classification |
 | 33 | A multi-paragraph description can overflow its PPTX box | 0.210.0 (Larbalestier) | S | open — cosmetic, needs eye-check |
-| 34 | DOM-free guard filters by NAME LIST where the real set is an import GRAPH (18 of 76 files) | 0.210.0 (Larbalestier) | S | open — guard coverage |
+| 34 | ~~DOM-free guard filtered by NAME LIST (18 of 76 graph files)~~ | 0.210.0 (Larbalestier) | S | **CLOSED 0.210.0 — guard now resolves the import graph** |
 | 35 | `sanitizeAiRichText`'s double pass can double-escape `<a-b>`-shaped markup | 0.210.0 (Larbalestier) | S | open — suspicion, same root as 32 |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
@@ -875,7 +875,7 @@ paragraph count per meta line. Needs an eye-check on a real deck either way.
 
 ---
 
-## 34. The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH — open, small
+## 34. ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ — CLOSED in 0.210.0
 
 `rich-text-plain.test.ts`'s reverse sweep decides "is this file DOM-free?" by matching paths
 (`/scripts/`, `sanitize*.ts`, `*-codecs*.ts`, plus `workspace.ts`/`storage.ts`/`rich-text-plain.ts`/
@@ -884,14 +884,20 @@ generator entry point: **`scripts/generate-sample-workspace.ts` transitively imp
 the filter matches ~18. Unmatched but in the graph: `templates.ts`, `browser-backend.ts`,
 `document-link.ts`, `calendar-event.ts`, `template-apply.ts`, `new-project-workspace.ts` and ~50 more.
 
-★ `templates.ts` is the one that matters today — AGENTS.md now tells a reader NOT to import
-`ai-rich-text` there, and the guard would not catch them doing it anyway.
-★ Both times this filter was widened it was because a reviewer noticed a specific file, which is the
-wrong mechanism. The fix is to compute the graph from the entry point and scan that (~15 lines; the
-auditor ran it), so the guard covers what the generator actually loads rather than what someone
-remembered.
-★ `scanned > 10` proves the walk RAN. It cannot prove the filter is the right set — do not read a green
-guard as coverage.
+**CLOSED the same day it was opened** — the mechanism was the defect, so recording it and moving on would
+have left the next reviewer to notice the next file. `rich-text-plain.test.ts` now RESOLVES the graph from
+`scripts/generate-sample-workspace.ts` (static `from`, bare side-effect `import`, and dynamic `import()`,
+following `.ts`/`.tsx`/`index.ts`) and scans exactly that set. Counts re-derived independently before and
+after: 76 graph files, of which the old name filter matched **18**.
+
+Mutation-proved on two files the old filter silently ignored: a `rich-text-projection` import in
+`templates.ts` (the file AGENTS.md warns a reader away from) and in `browser-backend.ts` — both now
+reported, neither was before. `scanned > 50` replaces `> 10`, so the assertion fails if the resolver stops
+resolving instead of passing on a collapsed set, and the set is asserted to contain `templates.ts` by name.
+
+★ Kept as a numbered entry rather than deleted, because the LESSON is the reusable part: a hand-maintained
+list of "the files that matter" is a guard that reports on what someone remembered. Where the real set is
+derivable, derive it.
 
 ---
 

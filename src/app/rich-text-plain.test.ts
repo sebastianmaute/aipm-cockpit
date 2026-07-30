@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import {
   capHtmlText,
   descriptionHtml,
@@ -402,35 +402,47 @@ describe("DOM-free guard", () => {
     // scanning" exists: `offenders` is empty when the walk root is wrong, when
     // the filter matches nothing, and when a rename empties the matched set. A
     // scanning guard needs proof its scan ran.
+    // ★★★ The DOM-free set is the sample generator's IMPORT GRAPH, resolved here,
+    // NOT a list of path patterns. It used to be the latter, and that was the
+    // defect: the filter matched 18 of the 76 files the generator actually loads,
+    // and both times it was widened (workspace.ts/storage.ts, then
+    // rich-text-plain/narrative-html) it was because a reviewer happened to notice
+    // one specific file. `templates.ts` — the file AGENTS.md now warns a reader not
+    // to add a DOMPurify import to — was among the 58 it missed.
+    //
+    // ★★ Resolving the graph means the guard covers whatever the generator loads
+    // TODAY, including files nobody thought to name. `.tsx` is followed too: a
+    // component in the graph would be just as fatal, and only its absence from the
+    // graph keeps it out.
     const repoRoot = join(import.meta.dirname, "..", "..");
     const offenders: string[] = [];
+    const resolveSpec = (fromFile: string, spec: string): string | null => {
+      if (!spec.startsWith(".")) return null; // a package, not our source
+      const base = resolve(dirname(fromFile), spec);
+      for (const cand of [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts")]) {
+        if (existsSync(cand) && statSync(cand).isFile()) return cand.replace(/\\/g, "/");
+      }
+      return null;
+    };
+    const graph = new Set<string>();
+    const pending = [join(repoRoot, "scripts", "generate-sample-workspace.ts").replace(/\\/g, "/")];
+    while (pending.length > 0) {
+      const file = pending.pop()!;
+      if (graph.has(file)) continue;
+      graph.add(file);
+      const text = readFileSync(file, "utf8");
+      // Static `from "…"`, bare side-effect `import "…"`, and dynamic `import("…")`.
+      for (const m of text.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)) {
+        const next = resolveSpec(file, m[1]);
+        if (next !== null) pending.push(next);
+      }
+    }
     let scanned = 0;
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
-        if (entry.isDirectory()) {
-          if (entry.name === "node_modules" || entry.name === ".next") continue;
-          walk(full);
-          continue;
-        }
-        if (!/\.tsx?$/.test(entry.name)) continue;
-        if (/\.test\.tsx?$/.test(entry.name)) continue;
-        const rel = full.replace(/\\/g, "/");
-        const isDomFree =
-          /\/scripts\//.test(rel) ||
-          /\/sanitize[^/]*\.ts$/.test(rel) ||
-          /-codecs[^/]*\.ts$/.test(rel) ||
-          // ★★ workspace.ts owns the `jsonToWorkspace` catch-all this guard's
-          // whole rationale invokes, and storage.ts is the facade the sample
-          // generator loads through — both are in
-          // scripts/generate-sample-workspace.ts's transitive graph, so a reach
-          // added there breaks the generator under bare node while a filter
-          // scoped to sanitizers/codecs stays green. `scanned > 10` proves the
-          // walk RAN; it does not prove the filter covers the reach.
-          /\/(workspace|storage)\.ts$/.test(rel) ||
-          /\/(rich-text-plain|narrative-html)\.ts$/.test(rel);
-        if (!isDomFree) continue;
-        scanned += 1;
+    for (const full of graph) {
+      if (/\.test\.tsx?$/.test(full)) continue;
+      const rel = full;
+      scanned += 1;
+      {
         // ★ Strip comments first, the same shape this describe uses for `code`.
         // Without it an apostrophe in prose ("rich-text-projection's
         // descriptionText") plays the part of a quote and the file reports
@@ -450,11 +462,15 @@ describe("DOM-free guard", () => {
           offenders.push(rel);
         }
       }
-    };
-    walk(join(repoRoot, "src"));
-    walk(join(repoRoot, "scripts"));
+    }
     expect(offenders).toEqual([]);
-    expect(scanned).toBeGreaterThan(10);
+    // ★★ The graph is 76 files today. A floor well above the old name-filter's 18
+    // proves the RESOLVER worked, not merely that a walk ran: if the entry point
+    // moves or `resolveSpec` stops resolving, this collapses to 1 and fails.
+    expect(scanned).toBeGreaterThan(50);
+    // ★ And the file the old filter missed must actually be in the scanned set —
+    // it is the one AGENTS.md warns a reader away from.
+    expect([...graph].some((f) => f.endsWith("/src/app/templates.ts"))).toBe(true);
   });
 });
 
