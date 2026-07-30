@@ -137,7 +137,13 @@ describe("RaciPanel", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
   });
 
-  it("hides the trigger when there are no milestones to assign against", () => {
+  it("shows the empty state, and so no trigger, when there are no milestones", () => {
+    // NAMED FOR WHAT IT ACTUALLY PROVES. The panel early-returns an empty state
+    // at raci-panel.tsx:144 when milestones is empty, so the toolbar — and with
+    // it the trigger — never mounts. That happens whatever useRaciSuggest's own
+    // `enabled` guard says, so this test canNOT observe that guard: deleting
+    // `milestones.length > 0` from the hook leaves it green (verified by
+    // mutation). The hook's guard is covered directly in use-raci-suggest.test.tsx.
     stubSettings(AI_ON);
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();

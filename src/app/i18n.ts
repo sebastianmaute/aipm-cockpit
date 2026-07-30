@@ -358,9 +358,7 @@ const enUS = {
   themeGalleryImportError: "Could not import that theme.",
   themeGalleryLoadFile: "Load theme file…",
   themeGalleryEmpty: "No themes in your library yet.",
-  themeGalleryApply: "Apply {0}",
   themeGalleryRemove: "Remove {0}",
-  themeGalleryActive: "Active",
   styleCustomLightOnly: "Custom schemes are light-only - theme is disabled while one is active.",
   language: "Language",
   holidayCountries: "Holiday countries",
@@ -2074,7 +2072,12 @@ const enUS = {
   raciSuggestNoProposal: "Claude proposed no assignments.",
   raciSuggestError: "Could not generate RACI suggestions.",
   raciSuggestSkipped: "{0} proposed assignments were refused because they did not match this project.",
+  raciSuggestSkippedAccountable:
+    "{0} proposed assignments were refused because that milestone already has an Accountable.",
   raciSuggestTruncated: "The proposal was capped; some assignments were not returned.",
+  raciSuggestContextTruncated:
+    "This project is large, so Claude was shown only some of its stakeholders and milestones. Anyone left out has no proposal here.",
+  raciSuggestAllSkipped: "Every proposed assignment was refused. Nothing can be applied.",
   activityAiRaciSuggest: "Applied {0} AI-proposed RACI assignments",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
   integrationsTursoUrlTooltip: "Cloud database: use the libsql:// URL (or https://) from `turso db show <db>`. Local/self-hosted server: http:// on localhost only (127.0.0.1/::1), which needs no token.",

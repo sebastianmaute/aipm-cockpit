@@ -362,9 +362,7 @@ export const de: Record<TranslationKey, string> = {
   themeGalleryImportError: "Dieses Design konnte nicht importiert werden.",
   themeGalleryLoadFile: "Designdatei laden…",
   themeGalleryEmpty: "Noch keine Designs in der Bibliothek.",
-  themeGalleryApply: "{0} anwenden",
   themeGalleryRemove: "{0} entfernen",
-  themeGalleryActive: "Aktiv",
   styleCustomLightOnly: "Benutzerdefinierte Schemata sind nur hell - das Thema ist deaktiviert, solange eines aktiv ist.",
   language: "Sprache",
   holidayCountries: "Feiertagsländer",
@@ -2068,7 +2066,12 @@ export const de: Record<TranslationKey, string> = {
   raciSuggestNoProposal: "Claude hat keine Zuordnungen vorgeschlagen.",
   raciSuggestError: "RACI-Vorschläge konnten nicht erstellt werden.",
   raciSuggestSkipped: "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da sie nicht zu diesem Projekt passen.",
+  raciSuggestSkippedAccountable:
+    "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da dieser Meilenstein bereits einen Rechenschaftspflichtigen hat.",
   raciSuggestTruncated: "Der Vorschlag wurde gekürzt; einige Zuordnungen fehlen.",
+  raciSuggestContextTruncated:
+    "Dieses Projekt ist groß, daher wurden Claude nur einige Stakeholder und Meilensteine gezeigt. Für alle übrigen gibt es hier keinen Vorschlag.",
+  raciSuggestAllSkipped: "Alle vorgeschlagenen Zuordnungen wurden abgelehnt. Es kann nichts übernommen werden.",
   activityAiRaciSuggest: "{0} von der KI vorgeschlagene RACI-Zuordnungen übernommen",
   calendarSyncAuto: "Automatisch synchron halten",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",

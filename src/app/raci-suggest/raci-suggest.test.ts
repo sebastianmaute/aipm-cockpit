@@ -5,6 +5,8 @@ import {
   groundRaciCells,
   parseRaciProposal,
   MAX_RACI_CELLS,
+  MAX_CONTEXT_STAKEHOLDERS,
+  MAX_CONTEXT_MILESTONES,
 } from "./raci-suggest";
 import type { Milestone, Stakeholder } from "../types";
 
@@ -59,12 +61,20 @@ describe("groundRaciCells", () => {
   it("drops a hallucinated stakeholder id", () => {
     const g = groundRaciCells([{ stakeholderId: 99, milestoneId: 10, role: "R" }], stakeholders, milestones);
     expect(g.cells).toEqual([]);
-    expect(g.skipped).toHaveLength(1);
+    // Assert the REASON, not just the count: the modal buckets by reason and
+    // shows a different explanation per bucket, so a cell landing in the wrong
+    // one is a user-visible wrong answer that a length-only assertion misses.
+    expect(g.skipped[0].reason).toBe("unknown-stakeholder");
   });
 
-  it("drops a hallucinated milestone id", () => {
+  it("drops a hallucinated milestone id AND reports why", () => {
     const g = groundRaciCells([{ stakeholderId: 1, milestoneId: 99, role: "R" }], stakeholders, milestones);
     expect(g.cells).toEqual([]);
+    // Asserting `cells` alone would pass if the cell were dropped SILENTLY (a
+    // bare `continue` in place of the skipped.push), so the count is unreported
+    // and the user is never told the model named a milestone that isn't there.
+    expect(g.skipped).toHaveLength(1);
+    expect(g.skipped[0].reason).toBe("unknown-milestone");
   });
 
   it("rejects a letter outside RACI_ROLES", () => {
@@ -130,12 +140,32 @@ describe("groundRaciCells", () => {
 });
 
 describe("buildRaciContext", () => {
-  it("includes the fields the model reasons over and caps both lists", () => {
+  it("includes the fields the model reasons over", () => {
     const ctx = buildRaciContext(stakeholders, milestones);
     expect(ctx.text).toContain("Ada");
     expect(ctx.text).toContain("Sponsor");
     expect(ctx.text).toContain("Design freeze");
     expect(ctx.truncated).toBe(false);
+  });
+
+  it("actually caps BOTH lists, not just the flag", () => {
+    // The flag and the slicing are independent: removing either `.slice(...)`
+    // leaves `truncated` correct while the prompt silently carries every row,
+    // which is the token blowup the caps exist to prevent. Assert the CONTENT.
+    const many = Array.from({ length: MAX_CONTEXT_STAKEHOLDERS + 3 }, (_, i) => sh(i + 1, `P${i}`));
+    const manyMs = Array.from({ length: MAX_CONTEXT_MILESTONES + 3 }, (_, i) => ms(i + 1000, `M${i}`));
+    const ctx = buildRaciContext(many, manyMs);
+    expect(ctx.text).toContain(`P${MAX_CONTEXT_STAKEHOLDERS - 1}`);
+    expect(ctx.text).not.toContain(`P${MAX_CONTEXT_STAKEHOLDERS}`);
+    expect(ctx.text).toContain(`M${MAX_CONTEXT_MILESTONES - 1}`);
+    expect(ctx.text).not.toContain(`M${MAX_CONTEXT_MILESTONES}`);
+  });
+
+  it("flags truncation from the MILESTONE arm too", () => {
+    // The stakeholder arm is covered below; without this, hardcoding the
+    // milestone half of the `||` to false passes the whole suite.
+    const manyMs = Array.from({ length: MAX_CONTEXT_MILESTONES + 1 }, (_, i) => ms(i + 1000, `M${i}`));
+    expect(buildRaciContext(stakeholders, manyMs).truncated).toBe(true);
   });
 
   it("flags truncation rather than silently dropping rows", () => {

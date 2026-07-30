@@ -154,8 +154,15 @@ export function buildRaciContext(
     lines.push([x.id, x.name, x.date ?? "", x.description ?? ""].join(" | "));
   }
   lines.push("", "EXISTING ASSIGNMENTS (stakeholderId | milestoneId | role)");
+  // Restricted to the milestones actually listed above. Emitting an assignment
+  // for a milestone outside the capped slice shows the model an id it was never
+  // given, inviting it to reason about — or propose against — a row it cannot
+  // see. Grounding would reject such a cell anyway; this keeps the prompt
+  // self-consistent rather than relying on that backstop.
+  const shownMilestones = new Set(m.map((x) => String(x.id)));
   for (const p of s) {
     for (const [key, role] of Object.entries(p.raci)) {
+      if (!shownMilestones.has(key)) continue;
       lines.push([p.id, key, role].join(" | "));
     }
   }

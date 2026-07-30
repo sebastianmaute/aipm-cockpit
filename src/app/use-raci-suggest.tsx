@@ -47,7 +47,7 @@ import {
 } from "./raci-suggest/raci-suggest";
 import { setRaciRole } from "./stakeholders";
 import { RaciSuggestModal } from "./raci-suggest-modal";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 
 type Phase = "idle" | "thinking" | "preview" | "applying";
 
@@ -78,8 +78,13 @@ export interface RaciSuggest {
   modal: ReactNode;
 }
 
-const TRIGGER_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
+// Layout only — the colour, padding, motion and disabled treatment all come
+// from `Button variant="secondary" size="xs"`. The hand-rolled class this
+// replaced pinned `text-ui-dark-blue` with no `dark:` companion, which lands at
+// roughly 1.1:1 on the dark surfaces (the dark schemes define ui-dark-blue as a
+// near-black navy) — invisible text that no gate can see, since this toolbar is
+// outside the axe view list and the button only renders once AI is configured.
+const TRIGGER_LAYOUT = "inline-flex items-center gap-1.5";
 
 /** Collapse the accepted cells into ONE updated Stakeholder per person.
  *
@@ -113,6 +118,12 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
   const [cells, setCells] = useState<readonly GroundedRaciCell[]>([]);
   const [skipped, setSkipped] = useState<readonly SkippedRaciCell[]>([]);
   const [truncated, setTruncated] = useState(false);
+  // Tracked SEPARATELY from `truncated`. That flag means the response was cut;
+  // this one means the INPUT was — the model never saw some stakeholders or
+  // milestones, so their absence from the proposal says nothing about them.
+  // buildRaciContext computes this and it was previously dropped on the floor,
+  // which made a capped input indistinguishable from "Claude assigned no role".
+  const [contextTruncated, setContextTruncated] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // Monotonic request generation: a slow proposal that resolves after cancel /
   // a new open is discarded (can't land a stale proposal or a stale error toast).
@@ -131,6 +142,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     setCells([]);
     setSkipped([]);
     setTruncated(false);
+    setContextTruncated(false);
     setSelected(new Set());
   }, []);
 
@@ -159,6 +171,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       // as defense in depth for a caller that skips parsing). OR both so
       // neither omission goes unreported.
       setTruncated(parsed.truncated || grounded.truncated);
+      setContextTruncated(context.truncated);
       if (grounded.cells.length === 0 && grounded.skipped.length === 0) {
         // Nothing at all came back — only now is "nothing was proposed" true.
         showToast("info", t(lang, "raciSuggestNoProposal"));
@@ -225,18 +238,26 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
 
   const busy = phase === "thinking" || phase === "applying";
 
+  // The accessible name tracks the SAME ternary as the visible text. Pinning it
+  // to "Suggest RACI" while the label reads "Asking Claude…" is WCAG 2.5.3
+  // (F96) — a speech user saying what they see would not match the control.
+  const thinking = phase === "thinking";
+  const triggerBusy = thinking || phase === "applying";
+  const triggerLabel = t(lang, thinking ? "raciSuggestThinking" : "raciSuggest");
   const button = enabled ? (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="xs"
       onClick={() => void onPropose()}
-      disabled={phase === "thinking" || phase === "applying"}
-      aria-label={t(lang, "raciSuggest")}
-      title={t(lang, "raciSuggest")}
-      className={`${TRIGGER_CLASS} ${INTERACTIVE}`}
+      disabled={triggerBusy}
+      aria-busy={triggerBusy}
+      aria-label={triggerLabel}
+      title={triggerLabel}
+      className={TRIGGER_LAYOUT}
     >
-      <SparklesIcon aria-hidden="true" className={`h-4 w-4 ${phase === "thinking" ? "animate-spin" : ""}`} />
-      {phase === "thinking" ? t(lang, "raciSuggestThinking") : t(lang, "raciSuggest")}
-    </button>
+      <SparklesIcon aria-hidden="true" className={`h-4 w-4 ${thinking ? "animate-spin" : ""}`} />
+      {triggerLabel}
+    </Button>
   ) : null;
 
   const modal = phase === "preview" || phase === "applying" ? (
@@ -246,6 +267,9 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       cells={cells}
       skipped={skipped}
       truncated={truncated}
+      contextTruncated={contextTruncated}
+      stakeholders={stakeholders}
+      milestones={milestones}
       selected={selected}
       onToggle={onToggle}
       onConfirm={onConfirm}

@@ -12,6 +12,7 @@
 // hand-maintained assignments, so every proposed cell is shown with its
 // current and proposed role and can be individually deselected before Apply.
 
+import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
@@ -30,6 +31,18 @@ export interface RaciSuggestModalProps {
   skipped: readonly SkippedRaciCell[];
   /** True when the proposal was too large and some cells were not shown at all. */
   truncated: boolean;
+  /** True when the CONTEXT was capped — i.e. the model never saw some
+   *  stakeholders or milestones. A distinct signal from `truncated`, which is
+   *  about the response: this one means a missing proposal may just be
+   *  something Claude was never shown, not something it declined to assign. */
+  contextTruncated: boolean;
+  /** Live entities. Ambiguity is measured against the WHOLE workspace, not just
+   *  the proposal — a lone proposed "Ada" is still ambiguous when a second
+   *  "Ada" exists and was not proposed, and that is precisely the case where
+   *  the user cannot tell who they are about to assign. Mirrors the scope of
+   *  raci-panel's own `labelFor`. Structural types so tests need no fixtures. */
+  stakeholders: readonly { id: number; name: string }[];
+  milestones: readonly { id: number; name: string }[];
   /** cellKey()s the user has selected to apply. */
   selected: ReadonlySet<string>;
   onToggle: (key: string) => void;
@@ -45,6 +58,9 @@ export function RaciSuggestModal({
   cells,
   skipped,
   truncated,
+  contextTruncated,
+  stakeholders,
+  milestones,
   selected,
   onToggle,
   onConfirm,
@@ -52,8 +68,34 @@ export function RaciSuggestModal({
   busy,
 }: RaciSuggestModalProps) {
   const title = t(lang, "raciSuggestTitle");
+
+  // Case-folded name -> occurrences, over the LIVE lists. Same normalisation as
+  // raci-panel's labelFor, so the two surfaces qualify the same people.
+  const nameCounts = useMemo(() => {
+    const tally = (xs: readonly { name: string }[]) => {
+      const m = new Map<string, number>();
+      for (const x of xs) {
+        const k = x.name.trim().toLowerCase();
+        m.set(k, (m.get(k) ?? 0) + 1);
+      }
+      return m;
+    };
+    return { stakeholder: tally(stakeholders), milestone: tally(milestones) };
+  }, [stakeholders, milestones]);
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
   const canConfirm = !busy && selectedCount > 0;
+
+  // The four SkipReasons do NOT share an explanation, so they cannot share a
+  // count. Three of them mean the cell named something this project does not
+  // have; "duplicate-accountable" means the opposite — the cell matched, and was
+  // refused because the milestone already has an Accountable. Collapsing both
+  // into one total told the user the ownership conflict "did not match this
+  // project", which is the single skip they would actually act on.
+  const skippedAccountable = skipped.reduce(
+    (n, s) => (s.reason === "duplicate-accountable" ? n + 1 : n),
+    0,
+  );
+  const skippedUnmatched = skipped.length - skippedAccountable;
 
   return (
     <Modal open={open} onClose={busy ? () => {} : onCancel} ariaLabel={title}>
@@ -70,9 +112,23 @@ export function RaciSuggestModal({
           {truncated && (
             <p className="mb-4 text-xs text-muted-foreground">{t(lang, "raciSuggestTruncated")}</p>
           )}
+          {contextTruncated && (
+            <p className="mb-4 text-xs text-muted-foreground">
+              {t(lang, "raciSuggestContextTruncated")}
+            </p>
+          )}
 
           {cells.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t(lang, "raciSuggestNoProposal")}</p>
+            // "Claude proposed no assignments" is false exactly when this
+            // branch is reachable: the hook only opens the preview with zero
+            // cells when every proposal was SKIPPED, and the skipped block
+            // below already says so. Keep the sentence for the defensive
+            // zero-and-zero case only.
+            skipped.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "raciSuggestNoProposal")}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t(lang, "raciSuggestAllSkipped")}</p>
+            )
           ) : (
             <ul className="space-y-2">
               {cells.map((c) => {
@@ -84,12 +140,21 @@ export function RaciSuggestModal({
                 // reports missing names, never duplicate ones). Qualify with the
                 // id only when the name actually collides, so the common case
                 // stays readable.
-                const nameIsAmbiguous = cells.some(
-                  (o) => o.stakeholderId !== c.stakeholderId && o.stakeholderName === c.stakeholderName,
-                );
+                const nameIsAmbiguous =
+                  (nameCounts.stakeholder.get(c.stakeholderName.trim().toLowerCase()) ?? 0) > 1;
                 const who = nameIsAmbiguous
                   ? `${c.stakeholderName} (#${c.stakeholderId})`
                   : c.stakeholderName;
+                // Milestone names collide the same way and for the same reason:
+                // cells dedupe on (stakeholderId, milestoneId), and nothing
+                // constrains Milestone.name to be unique. One stakeholder with
+                // two same-named milestones is the mirror image of the case
+                // above, and qualifying only one side leaves it open.
+                const milestoneIsAmbiguous =
+                  (nameCounts.milestone.get(c.milestoneName.trim().toLowerCase()) ?? 0) > 1;
+                const which = milestoneIsAmbiguous
+                  ? `${c.milestoneName} (#${c.milestoneId})`
+                  : c.milestoneName;
                 const on = selected.has(key);
                 const currentLabel = c.currentRole ? t(lang, ROLE_LABEL_KEY[c.currentRole]) : t(lang, "raciSuggestNone");
                 const proposedLabel = t(lang, ROLE_LABEL_KEY[c.role]);
@@ -100,13 +165,13 @@ export function RaciSuggestModal({
                         checked={on}
                         disabled={busy}
                         onChange={() => onToggle(key)}
-                        aria-label={`${t(lang, "raciSuggestInclude")} – ${who} – ${c.milestoneName}`}
+                        aria-label={`${t(lang, "raciSuggestInclude")} – ${who} – ${which}`}
                         className="mt-0.5 shrink-0"
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-medium text-foreground">
-                          {c.stakeholderName}
-                          <span className="text-muted-foreground"> · {c.milestoneName}</span>
+                          {who}
+                          <span className="text-muted-foreground"> · {which}</span>
                         </span>
                         <span className="mt-1 block text-sm text-foreground">
                           <span className="text-muted-foreground">{t(lang, "raciSuggestCurrent")}: </span>
@@ -124,9 +189,12 @@ export function RaciSuggestModal({
           )}
 
           {skipped.length > 0 && (
-            <p className="mt-4 border-t border-line pt-3 text-xs text-muted-foreground">
-              {t(lang, "raciSuggestSkipped", skipped.length)}
-            </p>
+            <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
+              {skippedUnmatched > 0 && <p>{t(lang, "raciSuggestSkipped", skippedUnmatched)}</p>}
+              {skippedAccountable > 0 && (
+                <p>{t(lang, "raciSuggestSkippedAccountable", skippedAccountable)}</p>
+              )}
+            </div>
           )}
         </div>
 

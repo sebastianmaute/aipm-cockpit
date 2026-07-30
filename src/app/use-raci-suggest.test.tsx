@@ -5,6 +5,8 @@ import { foldCellsByStakeholder, useRaciSuggest } from "./use-raci-suggest";
 import { ToastProvider } from "./toast-context";
 import { defaultSettings, type Settings } from "./settings-types";
 import type { Milestone, Stakeholder } from "./types";
+import { t } from "./i18n";
+import { MAX_CONTEXT_MILESTONES } from "./raci-suggest/raci-suggest";
 import * as call from "./raci-suggest-call";
 
 vi.mock("./raci-suggest-call");
@@ -72,10 +74,15 @@ const milestones: Milestone[] = [
 
 interface HarnessProps {
   onCaptureBulk?: (ids: readonly number[]) => void;
-  onSaves?: (item: Stakeholder) => void;
+  // Forwards the FULL argument list, not just the item. A harness that accepts
+  // only `item` cannot observe the undo-suppression flag, so dropping that flag
+  // in the hook would fail no test here.
+  onSaves?: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
+  /** Override the milestone list so a test can exceed the context cap. */
+  milestones?: Milestone[];
 }
 
-function Harness({ onCaptureBulk, onSaves }: HarnessProps) {
+function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp }: HarnessProps) {
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([
     { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
     { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: {} },
@@ -85,9 +92,9 @@ function Harness({ onCaptureBulk, onSaves }: HarnessProps) {
     isPopout: false,
     lang: "en-US",
     stakeholders,
-    milestones,
-    onSave: (item) => {
-      onSaves?.(item);
+    milestones: milestonesProp ?? milestones,
+    onSave: (item, isNew, opts) => {
+      onSaves?.(item, isNew, opts);
       setStakeholders((prev) => prev.map((s) => (s.id === item.id ? item : s)));
     },
     onCaptureBulk,
@@ -113,6 +120,41 @@ function renderHarness(props: HarnessProps = {}) {
 describe("useRaciSuggest (plan-then-apply)", () => {
   beforeEach(() => { vi.clearAllMocks(); });
   afterEach(() => { vi.restoreAllMocks(); });
+
+  it("renders NO trigger when there are no milestones to assign against", () => {
+    // The hook's own guard. raci-panel's equivalent test cannot reach it — that
+    // panel early-returns an empty state before the toolbar mounts, so it stays
+    // green even with this guard deleted. Asserted here, where the hook is the
+    // only thing deciding.
+    renderHarness({ milestones: [] });
+    expect(screen.queryByRole("button", { name: /suggest raci/i })).toBeNull();
+  });
+
+  it("surfaces a CAPPED CONTEXT in the preview", async () => {
+    // buildRaciContext computes `truncated` when the workspace exceeds what the
+    // model is shown, and that flag was previously computed and dropped — the
+    // engine's own docstring promised it was reported. With it dropped, a user
+    // whose 200-milestone project got 60 sent sees a partial proposal and no
+    // hint that the rest were never considered, which reads as "Claude decided
+    // they need no one". The only prior consumer was an engine unit test.
+    const many: Milestone[] = Array.from({ length: MAX_CONTEXT_MILESTONES + 5 }, (_, i) => ({
+      id: 1000 + i,
+      name: `M${i}`,
+      date: "2026-03-01",
+    }) as Milestone);
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [{ stakeholderId: 1, milestoneId: 1000, role: "R" }],
+      truncated: false,
+    });
+    renderHarness({ milestones: many });
+
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() =>
+      expect(screen.getByText(t("en-US", "raciSuggestContextTruncated"))).toBeTruthy(),
+    );
+    // And NOT the response-cap sentence — the response was not capped.
+    expect(screen.queryByText(t("en-US", "raciSuggestTruncated"))).toBeNull();
+  });
 
   it("shows the proposed cells in a preview and mutates NOTHING before confirm", async () => {
     vi.mocked(call.runRaciSuggestion).mockResolvedValue({
@@ -157,6 +199,12 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     expect(onSaves).toHaveBeenCalledTimes(1);
     expect(onCaptureBulk).toHaveBeenCalledTimes(1);
     expect(onCaptureBulk).toHaveBeenCalledWith([1]);
+    // The bulk capture above is the ONLY undo entry this apply may create, so
+    // the save must suppress the per-field one. Dropping this option is
+    // invisible to every other assertion here — the write still lands, and the
+    // user silently gets two stack entries for one action, so undo takes two
+    // presses and the first appears to do nothing.
+    expect(onSaves).toHaveBeenCalledWith(expect.anything(), false, { suppressFieldUndo: true });
   });
 
   it("unticking a cell excludes it from Apply — only the ticked role is written", async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { RaciSuggestModal } from "./raci-suggest-modal";
 import { t } from "./i18n";
-import type { GroundedRaciCell } from "./raci-suggest/raci-suggest";
+import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
 
 const cell = (
   stakeholderId: number,
@@ -18,7 +18,22 @@ const cell = (
   currentRole: null,
 });
 
-function renderModal(cells: readonly GroundedRaciCell[]) {
+/** Live lists default to exactly the entities the cells mention, so a test that
+ *  says nothing about the workspace behaves as if the proposal were all of it.
+ *  Pass `live` explicitly to model entities that exist but were NOT proposed. */
+function renderModal(
+  cells: readonly GroundedRaciCell[],
+  live?: {
+    stakeholders?: readonly { id: number; name: string }[];
+    milestones?: readonly { id: number; name: string }[];
+  },
+) {
+  const derivedStakeholders = [
+    ...new Map(cells.map((c) => [c.stakeholderId, { id: c.stakeholderId, name: c.stakeholderName }])).values(),
+  ];
+  const derivedMilestones = [
+    ...new Map(cells.map((c) => [c.milestoneId, { id: c.milestoneId, name: c.milestoneName }])).values(),
+  ];
   render(
     <RaciSuggestModal
       lang="en-US"
@@ -26,6 +41,9 @@ function renderModal(cells: readonly GroundedRaciCell[]) {
       cells={cells}
       skipped={[]}
       truncated={false}
+      contextTruncated={false}
+      stakeholders={live?.stakeholders ?? derivedStakeholders}
+      milestones={live?.milestones ?? derivedMilestones}
       selected={new Set(cells.map((c) => `${c.stakeholderId}:${c.milestoneId}`))}
       onToggle={vi.fn()}
       onConfirm={vi.fn()}
@@ -34,6 +52,82 @@ function renderModal(cells: readonly GroundedRaciCell[]) {
     />,
   );
 }
+
+describe("RaciSuggestModal skipped-cell reporting", () => {
+  function renderSkipped(skipped: readonly SkippedRaciCell[]) {
+    render(
+      <RaciSuggestModal
+        lang="en-US"
+        open
+        cells={[]}
+        skipped={skipped}
+        truncated={false}
+        contextTruncated={false}
+        stakeholders={[]}
+        milestones={[]}
+        selected={new Set()}
+        onToggle={vi.fn()}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        busy={false}
+      />,
+    );
+  }
+
+  const skip = (reason: SkippedRaciCell["reason"]): SkippedRaciCell => ({
+    stakeholderId: 1,
+    milestoneId: 10,
+    reason,
+  });
+
+  it("explains a refused Accountable as an ownership conflict, NOT as a no-match", () => {
+    // "duplicate-accountable" is the one reason that is the OPPOSITE of a
+    // no-match: the cell named a real stakeholder and a real milestone, and was
+    // refused because that milestone already has an Accountable. Reporting it
+    // under the generic string tells the user the cell "did not match this
+    // project", which is false and hides the only skip they can act on.
+    renderSkipped([skip("duplicate-accountable")]);
+    expect(screen.getByText(t("en-US", "raciSuggestSkippedAccountable", 1))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "raciSuggestSkipped", 1))).not.toBeInTheDocument();
+  });
+
+  it("reports a capped CONTEXT separately from a capped response", () => {
+    // Distinct causes, distinct sentences: `truncated` means the reply was cut,
+    // `contextTruncated` means the model never saw some rows. Conflating them
+    // would tell the user assignments were dropped when in fact people were.
+    render(
+      <RaciSuggestModal
+        lang="en-US"
+        open
+        cells={[]}
+        skipped={[]}
+        truncated={false}
+        contextTruncated
+        stakeholders={[]}
+        milestones={[]}
+        selected={new Set()}
+        onToggle={vi.fn()}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        busy={false}
+      />,
+    );
+    expect(screen.getByText(t("en-US", "raciSuggestContextTruncated"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "raciSuggestTruncated"))).not.toBeInTheDocument();
+  });
+
+  it("counts the two buckets separately when both occur", () => {
+    // A single total cannot be right for both: it would over-count whichever
+    // sentence it is attached to.
+    renderSkipped([
+      skip("unknown-stakeholder"),
+      skip("unknown-milestone"),
+      skip("duplicate-accountable"),
+    ]);
+    expect(screen.getByText(t("en-US", "raciSuggestSkipped", 2))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "raciSuggestSkippedAccountable", 1))).toBeInTheDocument();
+  });
+});
 
 describe("RaciSuggestModal per-row accessible names", () => {
   it("keeps the name unqualified when it is already unambiguous", () => {
@@ -59,6 +153,48 @@ describe("RaciSuggestModal per-row accessible names", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("checkbox", { name: `${include} – Ada (#2) – Design freeze` }),
+    ).toBeInTheDocument();
+    // The VISIBLE text must carry the same qualifier. Disambiguating only the
+    // accessible name leaves two rows that read identically on screen, in a
+    // dialog whose whole purpose is choosing which of them to commit — the
+    // sighted user has strictly less information than the screen-reader user.
+    expect(screen.getByText(/Ada \(#1\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Ada \(#2\)/)).toBeInTheDocument();
+  });
+
+  it("qualifies a LONE proposed row when a same-named stakeholder exists but was not proposed", () => {
+    // The case that motivated measuring ambiguity against the workspace rather
+    // than the proposal. Only one "Ada" is being assigned, so a proposal-scoped
+    // check sees no collision and renders a bare "Ada" — but two Adas exist,
+    // and the user cannot tell which one this write lands on. Nothing else in
+    // this suite covers it: every other case keeps both colliding cells in
+    // `cells`, where the narrower check happens to give the same answer.
+    renderModal([cell(1, "Ada", 10, "Design freeze")], {
+      stakeholders: [
+        { id: 1, name: "Ada" },
+        { id: 2, name: "Ada" },
+      ],
+    });
+    expect(
+      screen.getByRole("checkbox", {
+        name: `${t("en-US", "raciSuggestInclude")} – Ada (#1) – Design freeze`,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Ada \(#1\)/)).toBeInTheDocument();
+  });
+
+  it("distinguishes two DIFFERENT milestones that share a name", () => {
+    // The mirror of the case above. Nothing constrains Milestone.name to be
+    // unique, and cells dedupe on (stakeholderId, milestoneId), so one person
+    // on two same-named milestones yields two rows. Qualifying only the
+    // stakeholder side would leave these identical.
+    renderModal([cell(1, "Ada", 10, "Review"), cell(1, "Ada", 11, "Review")]);
+    const include = t("en-US", "raciSuggestInclude");
+    expect(
+      screen.getByRole("checkbox", { name: `${include} – Ada – Review (#10)` }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: `${include} – Ada – Review (#11)` }),
     ).toBeInTheDocument();
   });
 
