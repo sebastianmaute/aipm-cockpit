@@ -8,6 +8,49 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.211.0] - 2026-07-30 "Samatar"
+
+A toolbar-polish batch: shared controls (Print, push/pull, hide/show toggles) now
+route through the design-system primitives consistently across every pane instead
+of a mix of hand-rolled markup, and the RACI matrix gains an AI-assisted
+suggestion flow.
+
+- **Suggest RACI (new).** A button on the RACI matrix asks Claude to propose
+  Responsible/Accountable/Consulted/Informed assignments from stakeholder titles
+  and milestones. Every proposed cell is re-grounded against the live workspace
+  before it is shown, the review modal lists each cell's current value next to
+  the proposed one, and only the cells you tick are applied — as one undo entry.
+- **Shared controls.** Print is icon-only everywhere it appears (now a bordered
+  `IconButton`, not a text/icon toggle). Every push/pull button gained an icon and
+  a short "Push"/"Pull" label while keeping its full descriptive accessible name,
+  with a fix so the accessible name still follows a busy/loading label change
+  (WCAG 2.5.3). The Outlook sync enable checkbox gained an explanatory tooltip.
+- **Toolbars.** The contacts directory's pull-contacts and hide-external controls
+  gained icons; Workload and Planning's hide-external switched to a toggle
+  button; the Calendar's Add-meeting control moved to the front of its toolbar
+  and became the primary add action; Planning's Plan-with-AI moved to the front
+  of its toolbar; the Knowledge toolbar moved out of the scrolling content area,
+  right-aligned, and now renders even when the library is empty; the Timelog
+  apply-confirm diff grows to fit its content and only scrolls past 25 rows.
+- **Settings.** The theme gallery is now a two-up grid with no per-card Apply
+  button and no "Active" label — applying a theme happens only through the
+  Appearance scheme picker. Settings → General dropped its duplicate project
+  editor (edit the project from the Projects view).
+- **Open Points.** The select and health columns got tighter padding so they
+  actually honour their 36px width. Edit moved into the row's ⋮ menu and the
+  actions column narrowed accordingly. Hide-finished and hide-externals became
+  toggle buttons. The toolbar's button order was restored to the app-wide
+  Print · reset-columns · reset-pane-size convention. The task editor's
+  create-RAID-item and new-linked-task controls now share one row.
+- **Dictation.** `RichTextEditor` gained an imperative append so dictation can add
+  text to an already-mounted editor; the note log's composer and its entry editor
+  both gained a microphone button. The AI Assistant's attach and dictate buttons
+  are now matched in size with centred icons.
+- **Under the hood.** Every button touched by this batch was routed through the
+  shared design-system primitives instead of hand-rolled markup, and the tasks
+  pane stopped duplicating the shared Outlook calendar-sync control — it now
+  renders the same `CalendarSyncControls` every other entity pane uses.
+
 ## [0.210.0] - 2026-07-29 "Larbalestier"
 
 Formatted descriptions now survive the trip out of the app: document exports keep
