@@ -720,8 +720,9 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
   destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),
   fixed in 0.211.0. ★ the reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses
-  `ResetSizeIcon` — Gantt's name-column reset wore the reset-SIZE glyph, making the two adjacent resets
-  indistinguishable.
+  `ResetSizeIcon`; Gantt's name-column reset once wore the reset-SIZE glyph, making the two adjacent resets
+  indistinguishable. That one was fixed in an EARLIER release — 0.211.0 did not touch Gantt at all, and this
+  sentence sitting under a "fixed in 0.211.0" clause made it read as though it had.
 
 ### Dashboard landing cockpit
 
