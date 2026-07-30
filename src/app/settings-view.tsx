@@ -320,11 +320,6 @@ export function SettingsView(props: SettingsViewProps) {
               lang={lang}
               settings={settings}
               onChange={onChange}
-              project={props.project}
-              stakeholderNames={props.projectStakeholderNames}
-              addressBook={props.projectAddressBook}
-              resources={props.resources}
-              onUpdateProject={props.onUpdateProject}
             />
             <hr className="my-6 border-line" />
             <h3 className="mb-3 text-sm font-semibold text-foreground">

@@ -361,8 +361,6 @@ const enUS = {
   themeGalleryApply: "Apply {0}",
   themeGalleryRemove: "Remove {0}",
   themeGalleryActive: "Active",
-  settingsProjectHeading: "Project",
-  settingsProjectNoProject: "No project is open.",
   styleCustomLightOnly: "Custom schemes are light-only - theme is disabled while one is active.",
   language: "Language",
   holidayCountries: "Holiday countries",

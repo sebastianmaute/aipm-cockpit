@@ -365,8 +365,6 @@ export const de: Record<TranslationKey, string> = {
   themeGalleryApply: "{0} anwenden",
   themeGalleryRemove: "{0} entfernen",
   themeGalleryActive: "Aktiv",
-  settingsProjectHeading: "Projekt",
-  settingsProjectNoProject: "Kein Projekt geöffnet.",
   styleCustomLightOnly: "Benutzerdefinierte Schemata sind nur hell - das Thema ist deaktiviert, solange eines aktiv ist.",
   language: "Sprache",
   holidayCountries: "Feiertagsländer",
