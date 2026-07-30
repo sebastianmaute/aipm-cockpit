@@ -1134,7 +1134,7 @@ The entry said the raw-vs-projected distinction "is correct today and is load-be
 but sound. It was not sound: `use-inline-entity-edit.ts` applied `diff.after`, the **projected preview
 text**, so every inline "Ask Claude" edit of a rich field wrote flattened plain text over the user's
 markup — all seven `RICH_FIELDS`, live since the feature shipped. Fixed in the same release
-(`2d683d8e`, `diff.raw ?? diff.after`; the `?? after` arm is load-bearing for sanitizer-induced enum
+(`a502c081`, `diff.raw ?? diff.after`; the `?? after` arm is load-bearing for sanitizer-induced enum
 resets, which carry no `raw`). ★ This was a live data-loss bug **found by the fix that made it
 visible**, not a known issue anyone had deferred — the register had it filed as a testability chore.
 The general lesson is the one to keep: an invariant defended only by a code comment is a claim, and
