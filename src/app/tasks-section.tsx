@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowPathIcon, Cog6ToothIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CheckCircleIcon, Cog6ToothIcon, EyeSlashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
@@ -591,24 +591,20 @@ export function TasksSection({
           </button>
         )}
         {dedup.button}
-        <label className="flex items-center gap-1 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={hideFinished}
-            onChange={(e) => setSettings((s) => ({ ...s, hideFinishedTasks: e.target.checked }))}
-            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-          />
+        <ToggleButton
+          pressed={hideFinished}
+          onToggle={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
+          icon={<CheckCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+        >
           {t(lang, "hideFinishedTasks")}
-        </label>
-        <label className="flex items-center gap-1 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={hideExternal}
-            onChange={(e) => setSettings((s) => ({ ...s, hideExternalTasks: e.target.checked }))}
-            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-          />
+        </ToggleButton>
+        <ToggleButton
+          pressed={hideExternal}
+          onToggle={() => setSettings((s) => ({ ...s, hideExternalTasks: !(s.hideExternalTasks ?? false) }))}
+          icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+        >
           {t(lang, "hideExternalTasks")}
-        </label>
+        </ToggleButton>
         <SegmentedControl
           value={tasksViewMode}
           options={[
