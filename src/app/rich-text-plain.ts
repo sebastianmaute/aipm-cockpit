@@ -62,15 +62,86 @@ const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;
  *  — collapse to one, so a boundary costs exactly the single space it means. */
 const WS_RUN = /\s+/g;
 
+/** Break mode's two-stage collapse. A whitespace run CONTAINING a newline
+ *  becomes one "\n" — so the close-tag and open-tag boundaries of "</p><p>"
+ *  merge into a single break — while a purely horizontal run still becomes one
+ *  space. `[^\S\n]` is "whitespace that is not a newline".
+ *
+ *  ★ Paragraph-vs-<br> is deliberately NOT preserved: this is a plain-text
+ *  projection, not a format. One boundary, one break. */
+const WS_RUN_WITH_NEWLINE = /[^\S\n]*\n\s*/g;
+const WS_RUN_HORIZONTAL = /[^\S\n]+/g;
+
+/** Code points a numeric reference must NOT decode to.
+ *
+ *  ★★ `&#38;` IS `&`. Decoding it before the named pass turns `&#38;lt;` into
+ *  `&lt;`, which the named pass then decodes to `<` — the exact double-decode
+ *  that "&amp; decodes LAST" exists to prevent. `&#60;`/`&#62;` would put a tag
+ *  delimiter back into a string the TAG pass has already finished with. All
+ *  three stay literal text: over-counted, which is the pre-existing behaviour,
+ *  but never corrupting. */
+const UNSAFE_CODE_POINTS = new Set([0x26, 0x3c, 0x3e]);
+/** `&#8212;` / `&#x2014;`, either case. */
+const NUMERIC_ENTITY = /&#(x[0-9a-f]+|\d+);/gi;
+
+/** Decode numeric character references to the characters they denote.
+ *
+ *  Runs AFTER the tag work (so a decoded character can never be read as markup)
+ *  and BEFORE the &nbsp;/whitespace passes (so a decoded space collapses like
+ *  any other). Anything it declines is returned verbatim — this must never
+ *  throw, because it runs inside the entity sanitizers on every load.
+ *
+ *  ★ NAMED references beyond the small set below are deliberately still
+ *  untouched: `&mdash;` continues to count 7. The numeric forms are what an
+ *  Office paste actually produces; the named tail is open-followups.md §24's
+ *  remainder. */
+function decodeNumericEntities(s: string): string {
+  return s.replace(NUMERIC_ENTITY, (whole, body: string) => {
+    const hex = body[0] === "x" || body[0] === "X";
+    const cp = hex ? parseInt(body.slice(1), 16) : parseInt(body, 10);
+    if (!Number.isInteger(cp) || cp <= 0 || cp > 0x10ffff) return whole;
+    if (UNSAFE_CODE_POINTS.has(cp)) return whole;
+    // ★★ A control character CONTROL_CHARS would have deleted must not be
+    // reintroduced HERE, downstream of the strip. sanitizeRichText strips
+    // controls from the RAW string and only then projects, so "&#7;" survives
+    // that pass, decodes to a BEL inside the projection, and on the OVERFLOW
+    // path plainToHtml (which escapes only & < >) writes it back into the
+    // stored value on all six backends. \t \n \r \x0b \x0c are deliberately
+    // absent for the same reason they are absent from CONTROL_CHARS.
+    // ★ This range MIRRORS CONTROL_CHARS exactly — it is not "every control
+    // character". DEL (0x7f) is outside both, so `&#127;` decodes, exactly as a
+    // pasted DEL survives the raw strip. Keep the two in lockstep: widening one
+    // without the other makes a reference and a literal behave differently.
+    if (cp <= 0x08 || (cp >= 0x0e && cp <= 0x1f)) return whole;
+    // ★ Lone surrogates are refused because emitting one reproduces exactly the
+    // backend-dependent corruption capHtmlText's own comment documents below: a
+    // lone surrogate becomes U+FFFD on CSV/MD but survives on JSON/IDB. (It is
+    // NOT that fromCodePoint throws on them — it does not; only the range and
+    // integer arms above are throw-guards.)
+    if (cp >= 0xd800 && cp <= 0xdfff) return whole;
+    return String.fromCodePoint(cp);
+  });
+}
+
 /** Turn every block boundary into a space, leaving all other markup alone.
  *
  *  ★★ Exported for ONE caller: rich-text-projection's descriptionText, whose
  *  DOMPurify pass (htmlToText, ALLOWED_TAGS: []) deletes tags with nothing in
  *  their place and so fuses the boundary BEFORE htmlPlainProjection can see it.
  *  Running this first is what makes the two projections agree. Keep the rule
- *  here, in the one module that owns BLOCK_TAG — a second copy would drift. */
-export function separateBlockBoundaries(html: string): string {
-  return html.replace(BLOCK_TAG, " ");
+ *  here, in the one module that owns BLOCK_TAG — a second copy would drift.
+ *
+ *  ★ The separator defaults to a space, which is the storage-critical path
+ *  (htmlPlainProjection -> capHtmlText -> sanitizeRichText -> every backend).
+ *  descriptionTextWithBreaks passes "\n"; nothing else may.
+ *
+ *  ★★ `sep` is TYPED to those two literals, not to `string`, because it lands in
+ *  a String.replace REPLACEMENT position where `$&`, `` $` ``, `$'` and `$$` are
+ *  special: `separateBlockBoundaries("<p>a</p><p>b</p>", "$`")` re-injects raw
+ *  markup into the value this function exists to de-fuse. A docstring is not a
+ *  type on an exported API. */
+export function separateBlockBoundaries(html: string, sep: " " | "\n" = " "): string {
+  return html.replace(BLOCK_TAG, sep);
 }
 
 /** A stored value -> HTML. Already-HTML passes through; legacy plain text is
@@ -90,13 +161,24 @@ export function descriptionHtml(stored: string | undefined): string {
  *  the boundary survives it. Whitespace collapses AFTER the &nbsp; rewrite (or a
  *  run of them would not collapse) but the entity decodes stay AFTER the tag
  *  work, so a decoded `&lt;` can never be re-read as a tag opener — which is
- *  also what keeps `&amp;` decoding LAST meaningful. */
-export function htmlPlainProjection(html: string): string {
-  return html
-    .replace(BLOCK_TAG, " ")
-    .replace(TAG, "")
-    .replace(NBSP, " ")
-    .replace(WS_RUN, " ")
+ *  also what keeps `&amp;` decoding LAST meaningful.
+ *
+ *  Numeric references decode after the tag work and before the whitespace
+ *  passes, and refuse to emit & < > — see UNSAFE_CODE_POINTS.
+ *
+ *  ★★ `preserveBreaks` is OPT-IN and the default path must stay byte-identical:
+ *  this function feeds capHtmlText -> sanitizeRichText -> storage, so a change
+ *  to the options-less result moves stored bytes on every backend. A hardcoded
+ *  byte-stability suite in the test file is the gate. */
+export function htmlPlainProjection(html: string, opts?: { preserveBreaks?: boolean }): string {
+  const breaks = opts?.preserveBreaks === true;
+  const tagless = decodeNumericEntities(
+    html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, ""),
+  ).replace(NBSP, " ");
+  const spaced = breaks
+    ? tagless.replace(WS_RUN_WITH_NEWLINE, "\n").replace(WS_RUN_HORIZONTAL, " ")
+    : tagless.replace(WS_RUN, " ");
+  return spaced
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
@@ -112,8 +194,14 @@ export function htmlTextLength(html: string): number {
 }
 
 /** Cap by text length. Over cap, the value is projected to text, truncated and
- *  re-wrapped, so the result is always well-formed; formatting is lost only on
- *  overflow, which the editor-side counter warns about first. */
+ *  re-wrapped, so the result is always well-formed; formatting is lost on
+ *  overflow.
+ *
+ *  ★ The RAID and Change editors warn first via their own CharCounter.
+ *  milestone-edit-modal.tsx has no counter, no describeTextCap and no
+ *  useAdjustmentTracker — a >5000-character milestone description loses all
+ *  markup silently. That trade-off is accepted at that call site; this shared
+ *  comment used to promise a warning only two of the three modals give. */
 export function capHtmlText(html: string, max: number): string {
   if (!html) return "";
   const text = htmlPlainProjection(html);

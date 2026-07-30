@@ -283,8 +283,16 @@ function buildPatch(input: Record<string, unknown>): Partial<Task> {
   }
   if (input.blockers !== undefined) patch.blockers = asString(input.blockers) ?? "";
   // Plain text from the model; wrapped to HTML at the dispatcher (single write
-  // boundary — see use-chat-dispatcher updateTask). `input.description` is the
-  // future tool-input key (C2); `input.notes` is the current one.
+  // boundary — see use-chat-dispatcher updateTask).
+  //
+  // `description` is the field, and the only one the tool SCHEMA advertises
+  // (chat-tool-defs taskFields); `notes` is its pre-0.196.0 name, kept as a
+  // WRITE ALIAS deliberately.
+  //
+  // ★★ Do NOT retire it. A persisted insight recommendation stores its
+  // proposedCalls verbatim and replays them through runTool at apply time, so a
+  // proposal generated before the rename can still carry a `notes` key. Dropping
+  // the alias would break replay of an already-stored recommendation.
   if (input.description !== undefined || input.notes !== undefined)
     patch.description = asString(input.description ?? input.notes) ?? "";
   if (input.group !== undefined) patch.group = sanitizeGroup(input.group);

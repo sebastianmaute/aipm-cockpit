@@ -42,6 +42,58 @@ describe("sanitizeTemplates", () => {
   });
 });
 
+describe("a captured task description survives the template round trip", () => {
+  it("keeps the description of a task captured from a live workspace", () => {
+    // ★★★ DATA LOSS, pre-existing since 0.196.0 and found by auditing 0.210.0's
+    // write-boundary fix. `templateFromWorkspace` captures REAL Task objects
+    // (`seed.tasks = ws.tasks`), and a Task has carried `description` since the
+    // 0.196.0 rename — but `sanitizeSeedTask` read `raw.notes`, which no longer
+    // exists on a captured task. So every task description was silently dropped
+    // on import: `sanitizeNotes(undefined)` → "" → `plainToHtml("")` → "".
+    //
+    // ★ It must also stay UPGRADE-AWARE: the captured value is HTML, and running
+    // it through plainToHtml escaped it into visible tags — the same defect the
+    // chat write boundary had.
+    const ws = {
+      ...emptyWorkspace(),
+      tasks: [
+        {
+          id: 1,
+          taskName: "Kickoff",
+          assignee: "Ada",
+          assigneeEmail: "",
+          dueDate: "2026-09-01",
+          lastUpdateDate: "2026-08-01",
+          priority: "Medium",
+          status: "To Do",
+          blockers: "",
+          description: "<p>Agree on <strong>goals</strong></p>",
+          inquiriesSent: 0,
+        },
+      ],
+    } as unknown as Parameters<typeof templateFromWorkspace>[0];
+    const captured = templateFromWorkspace(ws, [], { name: "T", includeContent: true }, "id1");
+    // Round-trip the way an export/import does: through the sanitizer.
+    const reloaded = sanitizeTemplate(JSON.parse(JSON.stringify(captured)));
+    const task = reloaded?.seed?.tasks?.[0];
+    expect(task).toBeDefined();
+    expect(task!.description).toBe("<p>Agree on <strong>goals</strong></p>");
+  });
+
+  it("still upgrades a LEGACY template that carries the pre-0.196.0 `notes` key", () => {
+    // Hand-authored and pre-rename templates use `notes` with plain text; that
+    // must keep working, and must be upgraded rather than escaped.
+    const reloaded = sanitizeTemplate({
+      id: "t1",
+      name: "T1",
+      features: [],
+      fieldVisibility: {},
+      seed: { tasks: [{ id: 1, taskName: "Kickoff", notes: "plain < text" }] },
+    });
+    expect(reloaded?.seed?.tasks?.[0]?.description).toBe("<p>plain &lt; text</p>");
+  });
+});
+
 describe("templateFromWorkspace", () => {
   it("captures features + fieldVisibility, no seed when includeContent is false", () => {
     const ws = { ...emptyWorkspace(), fieldVisibility: { task: { fields: ["taskName"] } } };
@@ -63,5 +115,31 @@ describe("templateFromWorkspace", () => {
     const t = templateFromWorkspace(emptyWorkspace(), [], { name: "  Trimmed  ", description: "  d  ", includeContent: false }, "id3");
     expect(t.name).toBe("Trimmed");
     expect(t.description).toBe("d");
+  });
+});
+
+describe("template description fallback precedence", () => {
+  it("falls back to legacy `notes` when `description` is present but EMPTY", () => {
+    // ★★ `??` would return the empty string and never consult `notes`. A hybrid or
+    // hand-edited template can carry both keys, and the empty one must not win.
+    const reloaded = sanitizeTemplate({
+      id: "t1",
+      name: "T1",
+      features: [],
+      fieldVisibility: {},
+      seed: { tasks: [{ id: 1, taskName: "K", description: "", notes: "legacy body" }] },
+    });
+    expect(reloaded?.seed?.tasks?.[0]?.description).toBe("<p>legacy body</p>");
+  });
+
+  it("prefers `description` when both are present and non-empty", () => {
+    const reloaded = sanitizeTemplate({
+      id: "t1",
+      name: "T1",
+      features: [],
+      fieldVisibility: {},
+      seed: { tasks: [{ id: 1, taskName: "K", description: "<p>current</p>", notes: "stale" }] },
+    });
+    expect(reloaded?.seed?.tasks?.[0]?.description).toBe("<p>current</p>");
   });
 });

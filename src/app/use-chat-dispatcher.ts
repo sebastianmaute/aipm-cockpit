@@ -40,7 +40,6 @@ import {
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizeNonNegInt,
-  sanitizeNotes,
   sanitizePriority,
   sanitizeTaskName,
   sanitizeRaidItem,
@@ -49,7 +48,7 @@ import {
   sanitizeStakeholder,
   sanitizeResource,
 } from "./sanitize";
-import { plainToHtml } from "./sanitize-html";
+import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
 import {
   NEXT_ACTIONS_FIELD_COERCE,
   resolveNextActionsConfig,
@@ -267,8 +266,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           priority: sanitizePriority(input.priority),
           status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
-          // Model supplies plain text → wrap to sanitized HTML for `description`.
-          description: plainToHtml(sanitizeNotes(input.description ?? input.notes)),
+          // ★★★ Upgrade-aware, NOT plainToHtml — see the update boundary.
+          description: sanitizeAiRichText(input.description ?? input.notes),
           inquiriesSent: 0,
           group: sanitizeGroup(input.group),
           labels: sanitizeLabels(input.labels),
@@ -344,10 +343,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           );
         if (patch.blockers !== undefined)
           cleanPatch.blockers = sanitizeBlockers(patch.blockers);
-        // buildPatch carries the model's plain text through as `description`;
-        // wrap it to sanitized HTML here (the single write boundary).
+        // ★★★ Accepts BOTH shapes: `plainToHtml` escapes & < >, so HTML stored as
+        // "<p>&lt;p&gt;…". Landmine: AGENTS.md "Rich-text register descriptions".
         if (patch.description !== undefined)
-          cleanPatch.description = plainToHtml(sanitizeNotes(patch.description));
+          cleanPatch.description = sanitizeAiRichText(patch.description);
         if (patch.inquiriesSent !== undefined)
           cleanPatch.inquiriesSent = sanitizeNonNegInt(patch.inquiriesSent);
         if (patch.group !== undefined)
@@ -548,7 +547,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const id = mintId("raid", raidRef.current);
         const sanitized = sanitizeRaidItem({
-          ...input,
+          ...withAiRichFields(input, AI_RICH_FIELDS.raid),
           id,
           raisedDate: input.raisedDate || todayRef.current,
           linkedTaskIds: input.linkedTaskIds ?? [],
@@ -572,7 +571,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         const merged = sanitizeRaidItem({
           ...existing,
-          ...patch,
+          ...withAiRichFields(patch, AI_RICH_FIELDS.raid),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -595,7 +594,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const id = mintId("change", changesRef.current);
         const sanitized = sanitizeChangeItem({
-          ...input,
+          ...withAiRichFields(input, AI_RICH_FIELDS.change),
           id,
           raisedDate: input.raisedDate || todayRef.current,
           linkedTaskIds: input.linkedTaskIds ?? [],
@@ -617,7 +616,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         const merged = sanitizeChangeItem({
           ...existing,
-          ...patch,
+          ...withAiRichFields(patch, AI_RICH_FIELDS.change),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -640,7 +639,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const id = mintId("milestone", milestonesRef.current);
         const item = sanitizeMilestone({
-          ...input,
+          ...withAiRichFields(input, AI_RICH_FIELDS.milestone),
           id,
           linkedTaskIds: input.linkedTaskIds ?? [],
         });
@@ -656,7 +655,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         const merged = sanitizeMilestone({
           ...existing,
-          ...patch,
+          ...withAiRichFields(patch, AI_RICH_FIELDS.milestone),
           id,
           localModifiedAt: new Date().toISOString(),
         });

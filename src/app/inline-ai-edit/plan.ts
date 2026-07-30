@@ -11,7 +11,18 @@ import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor,
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
-export interface FieldDiff { field: string; before: string; after: string }
+/** `after` is PROJECTED for display; `raw` is the verbatim value that was
+ *  accepted, present only on an explicit model-supplied diff.
+ *
+ *  ★★ The two must not be conflated. A rich field's preview is plain text while
+ *  the value the confirm path replays is HTML — projecting the applied value
+ *  would write plain text over the user's formatting. `raw` exists so that
+ *  invariant is observable; without it, it rested on a comment and a mutation
+ *  test proved nothing in the suite caught its removal.
+ *
+ *  ★ A sanitizer-INDUCED enum reset carries no `raw`: its `after` is a default
+ *  enum value that was never projected in the first place. */
+export interface FieldDiff { field: string; before: string; after: string; raw?: string }
 export interface NewItem { entity: string; title: string; toolName: string; input: Record<string, unknown> }
 export interface Deletion { entity: string; label: string; toolName: string; id: number }
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
@@ -36,19 +47,26 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
 // because `applied[f]` feeds the incremental enum validation below and the
 // confirm step replays the original tool calls.
 //
-// ★★ THE KEY MUST STAY ENTITY-QUALIFIED. `notes` is the TASK descriptor's
-// (stale) name for the rich `description`, but it is ALSO the STAKEHOLDER
-// descriptor's own field — and `Stakeholder.notes` is plain text (sanitizeText,
-// plain textarea), deliberately outside slice B. A bare field-name set matched
-// both, so an inline-AI edit to a stakeholder note previewed with its newlines
-// collapsed by htmlToText: a field the design excluded, projected anyway.
+// ★★ THE KEY MUST STAY ENTITY-QUALIFIED, and it must track the DESCRIPTOR's
+// spelling of the field — `forPreview` looks up `${entity}.${field}` where
+// `field` comes straight from `diffFields`, so the two are one unit. Renaming
+// the task descriptor's `notes` to the live `description` without renaming the
+// key here silently drops the task diff out of the set, and the preview renders
+// raw HTML instead of projected text.
+//
+// The entity qualifier earns its keep independently: `notes` is ALSO the
+// STAKEHOLDER descriptor's own field — and `Stakeholder.notes` is plain text
+// (sanitizeText, plain textarea), deliberately outside slice B. A bare
+// field-name set matched both, so an inline-AI edit to a stakeholder note
+// previewed with its newlines collapsed by htmlToText: a field the design
+// excluded, projected anyway.
 //
 // ★ Shared with descriptor-drift.test.ts, which asserts that exactly these
 // fields come back UPGRADED from their sanitizer and every other diff field
 // round-trips verbatim — so a wrong entry here (say "stakeholder.notes") fails
 // that test rather than silently changing a preview.
 export const RICH_FIELDS: ReadonlySet<string> = new Set([
-  "task.notes",
+  "task.description",
   "raid.description", "raid.mitigation",
   "change.description", "change.impactDescription", "change.resolutionNotes",
   "milestone.description",
@@ -113,7 +131,7 @@ export function describeEntityCalls(
           if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
         }
         if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
-        plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after) });
+        plan.updates.push({ field: f, before: forPreview(d.entity, f, before), after: forPreview(d.entity, f, after), raw: after });
         applied[f] = after;
       }
       // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)

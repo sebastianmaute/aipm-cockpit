@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-27 | App 0.203.0 "Czerneda" | Files scanned: 1508 (src/**/*.{ts,tsx}, incl. 748 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 | App 0.210.0 "Larbalestier" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
 
 # Architecture
 
@@ -40,9 +40,10 @@ plus request-time middleware issuing a per-request CSP nonce.
 - **Facade over backends.** Nothing outside `storage.ts` picks a backend. A new persisted
   `Workspace` field must be wired through **six** write paths (JSON · CSV · Markdown · Turso-single ·
   Turso-tenant · IndexedDB) — see `data.md`.
-- **Proxies are guards, not logic.** Every route reuses `api/_shared/proxy-ssrf.ts` for
-  IP-classification + host allowlisting; only normalize/auth/URL is per-route. Deliberately *not*
-  factored into one parameterized helper — divergent security guards.
+- **Proxies are guards, not logic.** Every route that takes a user-supplied host (11 of the 12)
+  reuses `api/_shared/proxy-ssrf.ts` for IP-classification + host allowlisting; only normalize/auth/URL
+  is per-route. Deliberately *not* factored into one parameterized helper — divergent security guards.
+  ★ `ecb` is the exception and needs no guard: one hard-coded URL, no user input, no secret.
 - **Secrets never reach the server.** Five device-sealed `SecretId`s (AES-256-GCM under a
   non-extractable IndexedDB key). Tokens travel outbound through a proxy but are never logged or
   persisted server-side.
@@ -51,7 +52,7 @@ plus request-time middleware issuing a per-request CSP nonce.
 
 | Subsystem | Entry | Note |
 |---|---|---|
-| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 34 tools; browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
+| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 35 tools; browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
 | Next actions | `next-actions/` | pure ranking engine + providers → Action Center |
 | Insights loop | `insights/` | detect → reconcile → recommend → measure outcome |
 | Undo/redo | `undo/` | ~10-step, in-memory, backend-agnostic |
@@ -68,4 +69,6 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 
 `install → quality → build → e2e`. Quality is blocking: lint (`--max-warnings=0`), `tsc --noEmit`,
 Semgrep SAST, dependency audit, file-size ratchet, jscpd duplication gate, vitest coverage floors.
-E2E includes a 16-view × 5-scheme axe pass (85 checks) plus visual-regression and print specs.
+E2E includes a 16-view × 5-scheme-combo axe pass (85 checks) plus the print spec. ★ Visual-regression
+is **not** in the CI run — `playwright.config.ts` puts it in a separate `visual` project that the
+default `chromium` project `testIgnore`s, because baselines are per-platform (`npm run e2e:visual`).

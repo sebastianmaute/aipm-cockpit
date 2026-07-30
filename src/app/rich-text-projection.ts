@@ -24,11 +24,43 @@ import { descriptionHtml, htmlPlainProjection, separateBlockBoundaries } from ".
  *
  *  ★★ separateBlockBoundaries must run FIRST. htmlToText strips tags with
  *  nothing in their place, so by the time htmlPlainProjection sees the value the
- *  boundary is already gone and "<p>a</p><p>b</p>" has become "ab". It only
- *  removes p/div/br/li/... — never a script/style tag — so DOMPurify still sees
- *  every element it is there to police. */
+ *  boundary is already gone and "<p>a</p><p>b</p>" has become "ab".
+ *
+ *  ★★ separateBlockBoundaries is safe ONLY IN FRONT OF A STRIP-EVERYTHING PASS.
+ *  Deleting a <p> mid-token can re-splice the markup around it — "<a hre<p>f=..."
+ *  becomes "<a hre f=..." — which is harmless here only because htmlToText
+ *  strips ALL tags and returns text, so no re-spliced tag survives. Composed in
+ *  front of sanitizeNoteHtml, which preserves an allow-list, the reasoning
+ *  breaks. The old rationale ("never removes a script/style tag, so DOMPurify
+ *  still sees every element") was right about the outcome and wrong about why.
+ *  ★ descriptionTextWithBreaks below is a SECOND caller and satisfies the same
+ *  precondition — it too composes in front of htmlToText. */
 export function descriptionText(stored: string | undefined): string {
   return htmlPlainProjection(htmlToText(separateBlockBoundaries(descriptionHtml(stored))));
+}
+
+/** Stored value -> plain text with block boundaries kept as newlines.
+ *
+ *  The EXPORT projection. Search, the AI digests and the inline-AI preview keep
+ *  descriptionText's collapsed form — they want whitespace flattened — while an
+ *  export is read by a human and a three-paragraph description must not arrive
+ *  as one run-on line.
+ *
+ *  ★★ separateBlockBoundaries runs FIRST here for the same reason it does in
+ *  descriptionText: htmlToText deletes tags leaving nothing in their place, so
+ *  the newline has to be in the string before DOMPurify sees it. Only the
+ *  separator differs.
+ *
+ *  ★★★ ALL THREE calls need the break flag, and the middle one is the easy
+ *  miss: htmlToText's DEFAULT collapse is `\s+` -> " ", which flattens the very
+ *  newline separateBlockBoundaries just inserted. Passing the separator without
+ *  it produces the collapsed form silently — the boundary is destroyed between
+ *  the two functions that were told to keep it. */
+export function descriptionTextWithBreaks(stored: string | undefined): string {
+  return htmlPlainProjection(
+    htmlToText(separateBlockBoundaries(descriptionHtml(stored), "\n"), { preserveBreaks: true }),
+    { preserveBreaks: true },
+  );
 }
 
 /** Append a dictated utterance to a rich field.

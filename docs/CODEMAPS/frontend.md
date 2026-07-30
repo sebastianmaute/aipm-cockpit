@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-27 | App 0.203.0 "Czerneda" | Files scanned: 611 .tsx + 462 .ts under src/app | Token estimate: ~1000 -->
+<!-- Generated: 2026-07-30 | App 0.210.0 "Larbalestier" | Files scanned: 299 .tsx + 474 .ts under src/app (excl. 768 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
@@ -9,7 +9,7 @@ client-side.
 src/proxy.ts              middleware — per-request CSP nonce
 src/app/layout.tsx        root layout, security headers, globals.css,
                           no-flash boot theme script
-  └── task-manager.tsx    ROOT ORCHESTRATOR (2973 lines)
+  └── task-manager.tsx    ROOT ORCHESTRATOR (2975 lines)
         ├── ModernShell   default — sidebar, off-canvas drawer <1024px, topBarMenus
         ├── legacyTree    classic (AppHeader + tab strip) and popout (no header)
         ├── workspace-section.tsx   view router → tabpanel switch
@@ -67,6 +67,20 @@ interaction atoms `INTERACTIVE` / `FOCUS_RING` / `TRANSITION` / `PRESS`.
 ★ Primitives concatenate `className` with **no** tailwind-merge — a class fighting a variant prop
 loses on source order. Only the three Button types forward `ref`.
 
+## Rich text surfaces
+
+`RichTextEditor variant="lean"` is the one editor for all seven rich HTML fields (the register
+descriptions) **and** for a note-log entry (`commitOnEnter`); it loads via `dynamic(ssr:false)` —
+Tiptap/ProseMirror needs `Range.getClientRects`, which jsdom lacks, so tests stub it. The note log
+itself is one shared non-modal floating window (`notes-window.tsx`) plus a `🗒 N` badge on the Open
+Points and RAID rows.
+
+★★ Rendering stored HTML is `dangerouslySetInnerHTML`, so `NoteBody` re-sanitizes at the **sink**
+(`sanitizeNoteHtml`, idempotent) rather than trusting the load path. ★★ A form must never write
+`noteLog` back — the log is write-through and owns itself, so a draft that snapshots it at
+modal-open and spreads it over the live row destroys any note added while the editor was open.
+See [data.md](data.md) for the projection rules and the DOM-free constraint.
+
 ## Dismissal (Escape / Tab)
 
 `dismissal-stack.ts` holds a module-level stack of open layers in OPEN order. `escapeOwner()` walks
@@ -88,6 +102,7 @@ off-palette colors, gradients or shadows except via `--shadow-*` / `--gradient-k
 
 ## a11y
 
-16 views × 5 schemes = 85 axe checks. **Not scanned:** Projects, Knowledge, Resources→Calendar,
+16 views × 5 scheme combos = 85 axe checks (harbor light+dark, meridian light+dark, umber light — umber
+dark is deliberately unscanned to hold the count at five). **Not scanned:** Projects, Knowledge, Resources→Calendar,
 Kanban board, Help, tour, chat, and anything inside a closed modal. Axe also has no rule for
 `aria-modal`-without-a-trap or a missing `aria-sort` — see `open-followups.md` §8–§10.

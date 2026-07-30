@@ -7,7 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangeEditModal } from "./change-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
-import { TEXTAREA_MAX } from "./sanitize";
+import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { ChangeItem, Stakeholder } from "./types";
@@ -325,6 +325,42 @@ describe("ChangeEditModal — rich-text description fields (slice B)", () => {
     );
   });
 
+  it("counts a legacy plain value the way the cap will measure it", async () => {
+    // ★ The counters measured the RAW draft while capRich measures the UPGRADED
+    // one. Identical for anything reachable today, because every load goes
+    // through sanitizeRichText and the editors only emit "<p>…". They diverge
+    // wherever descriptionHtml is NOT the identity — a legacy plain value, which
+    // HTML_START rejects, so plainToHtml escapes its angle brackets and every
+    // "<b>" becomes three VISIBLE characters instead of a stripped inline tag.
+    //
+    // ★★ All three fixtures have to be NEAR THE CAP. CharCounter renders a
+    // hidden empty span below 80% of max (WARN_RATIO 0.8, TEXTAREA_MAX 5000 →
+    // 4000), so a short value shows nothing either way and the test would be
+    // vacuous: the bug renders NO counter at all and the fix renders one.
+    // Presence is the assertion; the three DIFFERENT numbers confirm which
+    // projection produced each, and catch a counter reading a sibling's value.
+    const { container } = render(
+      modalEl({
+        description: "d " + "<b>".repeat(1400),
+        impactDescription: "i " + "<i>".repeat(1450),
+        resolutionNotes: "r " + "<u>".repeat(1500),
+      }),
+      { wrapper },
+    );
+    await screen.findByRole("textbox", { name: DESC_LABEL });
+
+    for (const [id, len] of [
+      ["change-description-counter", 4202],
+      ["change-impactDescription-counter", 4352],
+      ["change-resolutionNotes-counter", 4502],
+    ] as const) {
+      const counter = container.querySelector(`#${id}`);
+      expect(counter).not.toBeNull();
+      expect(counter!.hasAttribute("hidden")).toBe(false);
+      expect(counter).toHaveTextContent(`${len} / ${TEXTAREA_MAX}`);
+    }
+  });
+
   it("keeps the editors mounted across successive edits of the same change", async () => {
     // ★★ This modal's draft is PARENT-OWNED and `onChange({...draft, …})` mints
     // a new draft object on every keystroke. The key must therefore depend only
@@ -410,6 +446,104 @@ describe("ChangeEditModal rich-field write-path cap", () => {
     const saved = onSave.mock.calls[0][0] as ChangeItem;
     expect(saved.description).toBe("<p>fits fine</p>");
     expect(saved.resolutionNotes).toBe("<p>also fine</p>");
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChangeEditModal plain-field cap on Enter-submit", () => {
+  /** Renders with a toast spy so the "N fields adjusted" count is observable. */
+  function renderWithSpies(over: Partial<ChangeItem>) {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <ChangeEditModal {...base} draft={change(over)} onSave={onSave} />
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+
+  /** ★★ Submit from INSIDE the title input. A click on Save blurs the field
+   *  first, so the onBlur cap runs and the bug is invisible on that path —
+   *  Enter is the one that submits without ever firing blur. */
+  async function submitWithEnter(titleValue: string) {
+    await userEvent.click(screen.getByDisplayValue(titleValue));
+    await userEvent.keyboard("{Enter}");
+  }
+
+  it("applies the title cap when the form is submitted with Enter", async () => {
+    // ★★ THE REGRESSION THIS PINS: title/requestedBy/decisionBy were capped only
+    // in onBlur, and handleSubmit merely COUNTED the truncation. Enter-submit
+    // does not blur, so the uncapped value went to onSave while the toast
+    // announced a truncation that had not happened.
+    const long = "x".repeat(BUDGET_NAME_MAX + 20);
+    const { onSave, showToast } = renderWithSpies({ title: long });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter(long);
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.title.length).toBe(BUDGET_NAME_MAX);
+    // The count and the save now describe the SAME operation.
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("applies the requestedBy cap when the form is submitted with Enter", async () => {
+    // ★ A non-blank title is deliberate: handleSubmit returns early on a blank
+    // one, so onSave would never fire and the assertion would fail for the
+    // wrong reason.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", requestedBy: "y".repeat(BUDGET_NAME_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.requestedBy?.length).toBe(BUDGET_NAME_MAX);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("applies the decisionBy cap when the form is submitted with Enter", async () => {
+    const { onSave, showToast } = renderWithSpies({ title: "ok", decisionBy: "z".repeat(BUDGET_NAME_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.decisionBy?.length).toBe(BUDGET_NAME_MAX);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("trims on Enter, and collapses whitespace-only optionals to undefined", async () => {
+    // ★★ The cap fix also moved this write path from `...draft` (verbatim) to
+    // `.trim()` + `|| undefined`, matching the onBlur handlers. Every cap
+    // fixture is already trimmed and non-empty, so deleting either leaves them
+    // all green — this is the only test that names the normalisation.
+    // ★ `description` is REQUIRED on ChangeItem and correctly stays "" rather
+    // than collapsing, which is why it is asserted separately here.
+    const { onSave } = renderWithSpies({ title: "  ok  ", requestedBy: "   ", decisionBy: "  " });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    // ★ "ok", not "  ok  ": getByDisplayValue normalizes the ELEMENT's value
+    // before matching but not the string you pass, so the padded form misses.
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.requestedBy).toBeUndefined();
+    expect(saved.decisionBy).toBeUndefined();
+    expect(saved.description).toBe("");
+  });
+
+  it("announces nothing on Enter when every plain field fits", async () => {
+    // The other half of "the count matches reality" for this path: a capping
+    // handleSubmit that always tracked an adjustment would pass the three tests
+    // above on their toast assertion alone.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", requestedBy: "Ann", decisionBy: "Bob" });
+    await screen.findByRole("textbox", { name: t("en-US", "changeFieldDescription") });
+    await submitWithEnter("ok");
+
+    const saved = onSave.mock.calls[0][0] as ChangeItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.requestedBy).toBe("Ann");
+    expect(saved.decisionBy).toBe("Bob");
     expect(showToast).not.toHaveBeenCalled();
   });
 });

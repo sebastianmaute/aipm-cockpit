@@ -1,24 +1,65 @@
 # AIPM Design Tokens & Color Rules
 
-The single source of truth for color in aipm-cockpit. Every component uses ONLY the
-semantic tokens and `--ui-*` brand utilities below — never raw `zinc-*` or hex.
-Defined in `src/app/globals.css`.
+The single source of truth for color *roles* in aipm-cockpit. Every component uses ONLY the
+semantic tokens and `--ui-*` brand utilities below — never raw `zinc-*` or a hex.
+
+The token **names** are declared in `src/app/globals.css` (and mapped for Tailwind in its `@theme`
+block). The token **values** come from the active colour scheme, applied at runtime as inline custom
+properties by `use-style`'s `syncScheme` — the sole apply path. What is in `globals.css :root` is the
+no-JS / pre-boot fallback only. So: rely on the role, never on a specific hex.
 
 > The brand tokens were renamed `--AIPM-*` → `--ui-*` in 0.190.23 (Release B). `AIPM` survives as the
 > company/theme *name* and in asset classes (`AIPM-logo`), but no token carries that prefix.
 
-## Brand palette (fixed in light & dark)
+> ★★★ **CORRECTED 2026-07-30 — this section described the pre-scheme world.** It previously listed eight
+> tokens under the heading "Brand palette (**fixed** in light & dark)" with the historical AIPM hexes. Two
+> things were wrong. **(1) Nothing is fixed.** Since the scheme work (0.182–0.184, then Release A in
+> 0.190.22) the active *scheme* overrides every token at runtime via inline `setProperty`; `globals.css
+> :root` is only the no-JS / pre-boot fallback, and it now holds **Harbor-light** values, not AIPM ones. Of
+> those eight documented hexes, exactly **one** — `#636362` for `ui-dark-grey` — is still a live token
+> value. Three (`#004159`, `#AA4899`, `#60C0DD`) are absent from the file entirely, and four (`#84BD00`,
+> `#E5497C`, `#E3E6E6`, `#939598`) survive only inside explanatory comments *about* why the brand value
+> was unusable, not as the value. **(2) Four tokens were missing** — the three `-strong` AA companions and
+> `ui-white`, making the list 8 where the real base set is 12. What is stable is the **role**, not the
+> value; read the table below as roles with an illustrative fallback, and never hard-code a hex.
 
-| Utility | Hex | Role |
+## Base palette — 12 tokens
+
+Hex shown is the `globals.css :root` fallback (Harbor light). The active scheme replaces it.
+
+| Utility | Fallback | Role |
 |---|---|---|
 | `ui-dark-grey` | #636362 | primary text (light) |
-| `ui-dark-blue` | #004159 | fills (buttons), headers, section titles, table-headers |
-| `ui-green` | #84BD00 | **dominant accent** — focus rings, active indicators, links, positive/done |
-| `ui-light-grey` | #E3E6E6 | subtle bg / dividers / alt-rows |
-| `ui-medium-grey` | #939598 | secondary text |
-| `ui-blue` | #60C0DD | info / vacation / callouts / charts |
-| `ui-pink` | #E5497C | errors / delete / alerts / overdue / critical |
-| `ui-purple` | #AA4899 | warnings / medium-severity / holiday / differentiation |
+| `ui-dark-blue` | #153a5c | fills (buttons), headers, section titles, table-headers |
+| `ui-green` | #2bc4b6 | **dominant accent** — focus rings, active indicators, links, positive/done |
+| `ui-white` | #ffffff | on-dark text, card fills |
+| `ui-light-grey` | #c9d3dc | subtle bg / dividers / alt-rows |
+| `ui-medium-grey` | #7d8a97 | secondary text; neutral dots/fills |
+| `ui-blue` | #2f6f9e | info / vacation / callouts / charts |
+| `ui-pink` | #c24a76 | errors / delete / alerts / overdue / critical |
+| `ui-purple` | #5f57a8 | warnings / medium-severity / holiday / differentiation |
+| `ui-green-strong` | #1a7870 | AA companion — green **text** on a light surface |
+| `ui-pink-strong` | #a53f64 | AA companion — pink **text** on a light surface |
+| `ui-purple-strong` | #514a8f | AA companion — purple **text** on a light purple tint |
+
+### The `-strong` AA companions
+
+The bright brand colours fail WCAG AA as small text on light surfaces (brand green is 2.26:1 on white;
+`ui-pink` ~3.76:1; `ui-purple` on `bg-ui-purple/10` ~3.6:1). Each has a darker companion for **text only** —
+the bright token still applies to fills, borders, and text on dark surfaces.
+
+- ★ For a *user* scheme these are **derived** (`deriveAaVariants`), not authored; a scheme may also **pin**
+  one, and a pinned value wins (`resolveSchemeColors` is base-wins).
+- ★★ `--ui-purple-strong` is the one exception to how the others are derived: its reference is the purple
+  tint **composited over** `--surface-muted` (the RAID "caused by" chips' hover state), not a plain surface,
+  because no site puts that token on a plain surface. Deriving it against the card cleared AA there while
+  still failing on hover. `scheme-purple-hover.test.ts` is the only coverage — the axe gate scans the
+  resting state and never opens that modal.
+- ★★ A `-strong` token is tuned to sit *at* AA, so **any alpha on it lands under**: `hover:text-…-strong/80`
+  and a whole-element `hover:opacity-80` have both shipped as real contrast failures. Use a non-colour hover
+  cue instead.
+- ★ Swapping a bright token for its `-strong` companion is **not** automatically a win: in a light scheme
+  with no pinned value the derivation can exit at zero iterations, making the swap a literal no-op.
 
 ## Semantic surface tokens (light / dark)
 

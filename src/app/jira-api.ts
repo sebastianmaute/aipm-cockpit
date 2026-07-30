@@ -13,7 +13,8 @@ import {
   sanitizeLabels,
   sanitizeTaskName,
 } from "./sanitize";
-import { htmlToText, plainToHtml } from "./sanitize-html";
+import { plainToHtml } from "./sanitize-html";
+import { descriptionText } from "./rich-text-projection";
 import type { JiraConfig } from "./settings-types";
 import type { Priority, Task, TaskStatus } from "./types";
 
@@ -260,7 +261,7 @@ export function taskFieldsToJiraFields(task: Task): Record<string, unknown> {
     summary: task.taskName,
     priority: { name: priorityToJira(task.priority) },
     labels: Array.isArray(task.labels) ? task.labels : [],
-    description: textToAdf(htmlToText(task.description ?? "")),
+    description: textToAdf(descriptionText(task.description ?? "")),
   };
   // Jira treats empty-string duedate as a clear; null also works. Use null
   // to keep the API expectation explicit.

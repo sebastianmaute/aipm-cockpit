@@ -167,7 +167,17 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     try {
       if (plan.updates.length > 0) {
         const patch: Record<string, unknown> = { id: activeItem.id };
-        for (const diff of plan.updates) patch[diff.field] = coerce(d, diff.field, diff.after);
+        // ★★★ `raw`, NOT `after`. `after` is forPreview() output, which for any
+        // RICH_FIELDS entry is descriptionText(html) — plain text. Applying it
+        // wrote the projection over the user's markup, silently flattening every
+        // inline "Ask Claude" edit of the seven rich fields. The preview stays
+        // projected (it is for reading); the write takes the verbatim value the
+        // model proposed.
+        //
+        // ★ The `?? diff.after` fallback is load-bearing: a sanitizer-INDUCED
+        // enum reset carries no `raw`, because its `after` is a default enum
+        // value that was never projected in the first place.
+        for (const diff of plan.updates) patch[diff.field] = coerce(d, diff.field, diff.raw ?? diff.after);
         await runTool(deps.dispatcher, d.updateTool, patch);
         applied++;
       }

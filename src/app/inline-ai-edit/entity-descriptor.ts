@@ -91,7 +91,7 @@ function raidStatusDefault(cat: RaidCategory): string {
 export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   task: {
     entity: "task", updateTool: "update_task", deleteTool: "delete_task", createTool: "create_task", wsKey: "tasks",
-    diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "notes", "blockers", "group", "labels"],
+    diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "description", "blockers", "group", "labels"],
     requiredNonEmpty: new Set(["taskName", "dueDate"]),
     dateFields: new Set(["dueDate"]),
     intRangeFields: {},

@@ -11,6 +11,7 @@ before your first edit — the rest is reference, reachable from here.
 
 | | |
 |---|---|
+| [The doc set](#the-doc-set--what-lives-where) | which of the five docs owns what — read before restating a fact in a second file |
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
 | [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, design-system primitives |
@@ -25,6 +26,27 @@ before your first edit — the rest is reference, reachable from here.
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
 live in [`docs/open-followups.md`](docs/open-followups.md), not here.
+
+★★★ **No gate checks anything in this file.** Every claim here was true when written and some have
+outlived their code — six false clusters were found and fixed on 2026-07-30 alone, one of them
+restated four times (a bundled-themes directory that does not exist). Before relying on a specific
+claim (a path, a count, a call site, "X is guarded"), **grep it.** A function named `sanitizeX`
+proves nothing about whether the path you care about calls it. Correct what you disprove, in the
+same commit.
+
+## The doc set — what lives where
+
+| File | Owns |
+|---|---|
+| **AGENTS.md** (this file) | landmines, hard constraints, per-subsystem module maps. The deep reference. |
+| [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; this file for detail. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
+| [`docs/open-followups.md`](docs/open-followups.md) | every known-open defect and deferred decision, numbered. |
+
+★ A fact belongs in ONE of these. When it must appear twice, the second copy links rather than
+restates — four restatements of the same claim is how `public/themes/*.json` survived in this file
+long after the directory it named stopped existing.
 
 ## Commands
 
@@ -124,7 +146,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
   `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **16** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 schemes × 16
+  Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 scheme COMBOS × 16
   + 5 Kanban-board variants = **85** checks. It does NOT include Projects, Knowledge, or the
   Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
   surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).
@@ -151,8 +173,15 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
   tech-debt roadmap are complete — gates flipped to blocking in Phase 4, MR !174.)
   New CI gate → also update this line.
-- **Releasing:** bump `src/app/version.ts` (APP_VERSION + milestone), add `CHANGELOG.md` entry,
-  append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
+- **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
+  `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
+  strings). ★★ FIVE MORE PLACES CARRY THE VERSION AND **NO GATE CHECKS ANY OF THEM**:
+  `package.json` `version`, `package-lock.json` (TWO occurrences — the root `version` and the
+  `packages[""]` one), the README shields badge (version **and** codename), and the
+  `<!-- Generated: … | App <version> "<codename>" … -->` header on all five `docs/CODEMAPS/*.md`.
+  Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
+  at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
+  `CHANGELOG.md` were correct. Bump them in the SAME commit as `version.ts` or the drift restarts.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
@@ -182,9 +211,13 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
 - **New Turso table NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (guard test enforces) — else workspace save's
   per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
-- **Secrets at rest:** the `SecretId` union is now FIVE device-sealed ids — Anthropic `apiKey` +
-  Turso `authToken` + Jira `apiToken` + Timelog `timelogApiToken` + dictation-STT `sttApiKey` (5th;
-  lives under `settings.dictation`, browser→same-origin `/api/stt` SSRF proxy) — all
+- **Secrets at rest:** the `SecretId` union is now FIVE device-sealed ids. ★ The id and the SETTINGS
+  FIELD it seals are NOT the same string, and three of the five differ — the ids are
+  `"anthropicApiKey"` (field `settings.ai.apiKey`), `"tursoAuthToken"` (field `authToken`),
+  `"jiraApiToken"` (field `settings.jira.apiToken`), `"timelogApiToken"` and `"sttApiKey"` (5th;
+  lives under `settings.dictation`, browser→same-origin `/api/stt` SSRF proxy). Use the ID spellings
+  above for the hardcoded allowlists below — earlier text here listed the field names as if they were
+  the ids. All five are
   ENCRYPTED via `secrets.ts` (AES-256-GCM; non-extractable device key in IndexedDB by default,
   optional per-secret PBKDF2 passphrase — Jira is device-only so far, no passphrase UI). ★ Adding a
   SecretId means SIX edits in lockstep: `SecretId` union, `isSealedSecret` id allowlist + `readStore`
@@ -434,10 +467,133 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (1) SINK re-sanitize `sanitizeNoteHtml(html)` in `NoteBody` (idempotent; mirrors comm-send-preview/
   meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
   cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
-  CSV/MD/Turso already route through `decodeNoteLog`. A NEW whole-object load path MUST call it.
+  CSV/MD/Turso route `noteLog` through `decodeNoteLog` — ★★ that covers `noteLog` ONLY, and reads as
+  if it covered `description` too. It does not: NOTHING sanitizes the six rich DESCRIPTION fields on
+  those three backends (see the rich-text bullet below; `docs/open-followups.md` §28). A NEW
+  whole-object load path MUST call the `sanitize*RichFields` matching its entity, not just this one.
+  ★★ The form must never write `noteLog` back: the log is WRITE-THROUGH and owns itself, so a draft
+  that snapshots it at modal-open and spreads it over the live row on save silently destroys any note
+  added while the editor was open (real data loss, fixed 0.209.0 — `use-task-submit.ts` deliberately
+  omits `noteLog` from its payload).
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
   escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
+- **Rich-text register descriptions (0.209.0 "Lafferty"):** SIX more fields joined `Task.description`
+  as rich HTML — RAID `description` + `mitigation`, Change `description` + `impactDescription` +
+  `resolutionNotes`, Milestone `description`. Same lean `RichTextEditor`, same `sanitizeNoteHtml`
+  allow-list. Two pure modules, split by ONE axis — whether the code may touch a DOM:
+  • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
+  `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
+  • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
+  upgrade) for every NON-DOM consumer, `descriptionTextWithBreaks` (the EXPORT projection), and
+  `appendDictationToHtml`.
+  ★★ **TWO projections, and exports use the SECOND one.** `descriptionText` COLLAPSES a block
+  boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an export
+  a human reads, where a three-paragraph description arrived as one run-on line.
+  `descriptionTextWithBreaks` keeps the boundary as `"\n"`, and `export-sections.ts`'s `richCell`
+  routes EVERY rich column through it (`TASK_RICH_COLUMNS` · `RAID_` · `MILESTONE_` · `CHANGE_`);
+  each renderer then maps that newline to its own primitive — `<br>` (HTML/PDF, escape FIRST),
+  `<w:br/>` (DOCX, several `<w:t>` in one `<w:r>`), one `<a:p>` per line (PPTX), and XLSX already
+  preserved it via `xml:space="preserve"` + `wrapText`. A new export column joins a `*_RICH_COLUMNS`
+  set; a new RENDERER must map the newline or it silently ships fused text.
+  ★★★ The break mode is OPT-IN at THREE points and all three are required:
+  `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:true})` and
+  `htmlPlainProjection(html, {preserveBreaks:true})`. The middle one is the easy miss —
+  `htmlToText`'s default collapse is `\s+` → `" "`, which flattens the very newline
+  `separateBlockBoundaries` just inserted, silently producing the collapsed form. Every default path
+  is BYTE-IDENTICAL and pinned by hardcoded byte-stability suites, because `htmlPlainProjection`
+  feeds `capHtmlText` → `sanitizeRichText` → all six backends. `separateBlockBoundaries`' `sep` is
+  typed `" " | "\n"`, not `string`: it lands in a `String.replace` REPLACEMENT position where `` $` ``
+  and `$&` are special.
+  ★★★ `rich-text-plain.ts` MUST NEVER CALL DOMPurify. It runs inside the entity sanitizers, which
+  execute under bare node in `scripts/generate-sample-workspace.ts` and the fixture flow; DOMPurify
+  binds `window` at module-eval, so with no DOM `sanitize` is undefined, the call throws, and
+  `jsonToWorkspace`'s catch-all swallows it into an EMPTY workspace that then "successfully" writes
+  near-empty sample files. A comment-stripping source scan in its test enforces it — comments may
+  name the library, code may not. IMPORTING `plainToHtml` is fine (only a CALL needs the DOM).
+  ★★★ **EVERY WRITE BOUNDARY FOR A RICH FIELD MUST BE UPGRADE-AWARE — `sanitizeRichText`, never
+  `plainToHtml`.** `plainToHtml` ESCAPES `& < >`, so an HTML value passed through it is stored as
+  `<p>&lt;p&gt;&lt;strong&gt;…` — literal tags visible in the field, in every export and in the search
+  index, permanently. RAID/change/milestone were always safe **from that CORRUPTION** — they route through
+  their entity sanitizer → `sanitizeRichText` → `descriptionHtml`, which passes HTML through and upgrades
+  plain text. ★★★ They were NEVER allow-listed, and reading this sentence as "those three need nothing" is
+  plausibly WHY the model-write gap below took three review rounds to find. Two different properties:
+  upgrade-vs-escape (corruption) and allow-list (what a model may store). Never let a claim about one read
+  as a claim about the other.
+  `Task.description` had FOUR plain-text-in boundaries, all fixed in 0.210.0 — `use-chat-dispatcher.ts`
+  create + `update_task`, `ai-project-proposal.ts` (the model's `propose_project`, fed from an uploaded
+  PDF / SharePoint file / Confluence page — the most attacker-influenceable input in the app), and
+  `templates.ts` `sanitizeSeedTask`. ★ `grep -rn "plainToHtml(" src/app` is the sweep; the remaining hits
+  (`action-task-seed.ts`, `jira-api.ts` via `adfToText`, `templates-builtin.ts`) are provably plain by
+  construction. ★★ `sanitizeSeedTask` ALSO read the pre-0.196.0 `raw.notes` only, which was silent DATA
+  LOSS: `templateFromWorkspace` captures real `Task` objects, so every captured description imported as
+  `""`. It now reads `raw.description || raw.notes` — `||` not `??`, because a template carrying
+  `description: ""` beside a legacy `notes` must fall back, and `??` only catches null/undefined. ★ `ai-project-proposal` keeps `raw.notes` on
+  purpose — `PROPOSAL_TOOL`'s task schema advertises that key, so it is what the model is asked for.
+  0.210.0 made the inline-AI route reachable by renaming the descriptor's dead
+  `notes` to `description` (a task-description diff became possible) while the confirm path applies the
+  model's VERBATIM `diff.raw` — which is HTML, because `scopeBlock` hands the model the stored HTML to
+  read. ★ Precisely: the plain CHAT route was already reachable at base (the model reads a stored
+  description through a read tool and echoes HTML back), so 0.210.0 added a second route and made a hit
+  far likelier — it did not create reachability from nothing. THREE of the four boundaries go through
+  **`sanitizeAiRichText`** (`ai-rich-text.ts`); chat and persisted insight-recommendation replay share two.
+  ★★★ The FOURTH — `templates.ts` `sanitizeSeedTask` — deliberately does NOT, and CANNOT: that file is in
+  `scripts/generate-sample-workspace.ts`'s import graph, so a DOMPurify call there throws under bare node
+  and `jsonToWorkspace`'s catch-all writes near-empty sample files. Template import gets the upgrade but no
+  allow-list — the same DOM-free CAUSE as the codec load paths (§28), recorded as its own item in
+  `docs/open-followups.md` **§36(a)**, since §28 is scoped to the codecs and does not cover this boundary.
+  Do not "complete the sweep" by importing the helper there; the guard bans it precisely so you cannot.
+  ★★★ AND SO DO THE OTHER THREE ENTITIES, via `withAiRichFields(input, AI_RICH_FIELDS.<entity>)` at the
+  six raid/change/milestone create+update sites. Their entity sanitizers (`sanitize-records.ts`) are
+  DOM-FREE and therefore CANNOT run an allow-list — verified: `sanitizeRaidItem` stored
+  `<script>alert(1)</script>` verbatim — so the model's value is cleaned BEFORE it reaches them. Fixing
+  only `Task.description` (as 0.210.0 first did) left six model-writable rich fields unguarded while this
+  very bullet claimed "EVERY write boundary". ★★ Apply it to the model's INPUT/PATCH, never to the merged
+  entity: an update spreads the STORED value, and re-sanitizing that rewrites bytes the call never asked
+  to touch. ★★ A field the model did not supply must be SKIPPED, not blanked — otherwise renaming a RAID
+  item erases its stored description and mitigation. ★ A new rich field on an AI-writable entity goes in
+  `AI_RICH_FIELDS` (a test pins each list, so adding one forces the decision).
+  ★★★ That helper is TWO layers and both are load-bearing: `sanitizeRichText` (upgrade-aware, DOM-free,
+  caps + drops-empty) THEN `sanitizeTemplateHtml` (the actual DOMPurify allow-list). Layer 1 alone CANNOT
+  sanitize — it is DOM-free by contract and `descriptionHtml` passes HTML-shaped input through verbatim,
+  so a model's `<script>` reached all six backends. ★★★ It is `sanitizeTemplateHtml`, **NOT**
+  `sanitizeNoteHtml`, and the difference is DATA LOSS: `sanitizeNoteHtml` sets `KEEP_CONTENT:false`, which
+  deletes the TEXT inside a non-allow-listed tag — right for the editor (its schema emits only the lean
+  set) and WRONG for a model, which legitimately emits `<h3>`/`<div>`/`<table>`. A test pins that
+  distinction; swapping the sanitizer fails it. ★ The helper lives in its OWN module because it calls
+  DOMPurify — putting it in `rich-text-plain.ts` would break the DOM-free guarantee that module's guard
+  exists to protect.
+  ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
+  ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
+  it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four
+  sanitizer-backed entities — it says so — leaving the one entity without a `sanitizeRichText` boundary
+  as the uncovered one. Three primed review rounds missed this; a COLD read found it.
+  ★★ **MIGRATION IS READ-TIME, NOT WRITE-TIME.** Storage is not normalised by the decoders — they
+  hand-build entities and never call the entity sanitizer (`buildRaidItemFromObj`,
+  `buildMilestoneFromObj`). EVERY reader upgrades instead: `descriptionHtml` at a DOM boundary,
+  `descriptionText` for search / AI digests / the inline-AI preview (exports use
+  `descriptionTextWithBreaks` — see above). A project therefore
+  holds BOTH shapes at once, and that is fine — but a new consumer that reads one of the six fields
+  raw ships escaped markup or fused text. Grep the six names before adding a reader.
+  ★★ The projection is REGEX, and both of its obvious spellings are wrong: `<[^>]*>` deletes a tag
+  with nothing in its place (so `<p>a</p><p>b</p>` fused to `"ab"`, and every upgraded multi-line
+  legacy value read as one word), and it is not the HTML tokenizer (a `<` NOT followed by an ASCII
+  letter or `/` is literal text — `<p>cost < 5k</p>` projected to `"cost"`, and a value projecting to
+  empty is DROPPED by `sanitizeRichText`'s empty rule). Block tags are replaced by a SPACE first;
+  `&amp;` decodes LAST so `&amp;lt;` cannot double-decode. All three cost a data-integrity bug.
+  ★★ `HTML_START` (`narrative-html.ts`, SHARED with the dashboard narrative) must see the tag
+  actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a value the counter
+  measured at 11 while every reader rendered nothing.
+  ★ Counters/caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`; `capHtmlText` backs a
+  truncation off one code unit rather than splitting a surrogate pair (a lone surrogate is `U+FFFD`
+  on CSV/MD but survives on JSON/IDB — a backend-dependent corruption). `clipText` in
+  `sanitize-core.ts` still has that bug for ~49 plain-text call sites (open-followups §22).
+  ★ Whole-object load boundaries (JSON + IDB) route the rich fields through `sanitizeNoteFields` /
+  `sanitizeRaidRichFields` / `sanitizeChangeRichFields` / `sanitizeMilestoneRichFields` — escape
+  BEFORE sanitize, or `KEEP_CONTENT:false` deletes tag-shaped plain text along with its content.
+  ★ They are four ONE-ARGUMENT functions on purpose: every call site is `.map(fn)`, which passes the
+  INDEX as the second argument, so a `(entity, fields)` signature would be fed `0, 1, 2…`, normalise
+  nothing, and leave every `.map`-based test green.
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
   component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
   shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
@@ -1212,8 +1368,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `shadow-[var(--…)]` className form is stripped first) — reference the token obliquely in comments.
   `bg`/`border`/`divide-ui-light-grey` + `text-ui-dark-grey` are BANNED chrome greys (`text-ui-light-grey`
   is fine) — use `bg-ui-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
-  EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light, Harbor(custom)-light, Harbor(custom)-dark
-  (5 × A11Y_VIEWS), seeding
+  FIVE combos over the THREE built-in schemes: harbor-light, harbor-dark, meridian-light, meridian-dark,
+  umber-light (5 × A11Y_VIEWS) — ★ umber-DARK is deliberately omitted to hold the count at five, so scheme
+  DATA is 5-of-6 covered, not fully. Seeding
   `aipm-cockpit-style`/`aipm-cockpit-theme` via `addInitScript` — ★ Phase 2: it must ALSO seed `aipm-cockpit:color-schemes` `activeId`
   to the scheme under test, else `syncScheme` overwrites the boot paint on mount (scheme landmine 4). Appearance
   Style switch disables the theme control while Mockup (a light-only scheme) is active.
@@ -1241,29 +1398,36 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   • **★★ RELEASE B (token rename, 0.190.23):** the palette token NAMES were renamed `AIPM-*`→`ui-*`
   everywhere — Tailwind classes (`bg-AIPM-green`→`bg-ui-green`), CSS var names (`--AIPM-green`→`--ui-green`),
   the `@theme` map (`--color-AIPM-*`→`--color-ui-*`), scheme registries (`CORE_TOKENS`/`VALID_TOKENS`/
-  `DERIVED_TOKENS`), the shipped `public/themes/*.json` color KEYS, and the palette guards. The 12 base
+  `DERIVED_TOKENS`), any exported theme FILE's color KEYS, and the palette guards. The 12 base
   tokens are `ui-{dark-blue,green,green-strong,pink,pink-strong,purple,purple-strong,blue,white,dark-grey,
   light-grey,medium-grey}`. The var NAMES + `@theme` MECHANISM are otherwise unchanged (only the prefix);
   Phase-2 text below that says `--AIPM-*` now means `--ui-*`. PRESERVED (NOT renamed): `AIPM` (company /
-  theme display name), `Acme`/`AIPM-consult` (host/email), `public/themes/AIPM.json` + gallery id
-  `"AIPM"` (the AIPM THEME identity), `AIPM-logo`/`AIPM-icon` (asset classes). NO key migration — a stored/
+  theme display name), `Acme`/`AIPM-consult` (host/email), `AIPM-logo`/`AIPM-icon` (asset classes),
+  and the legacy `CiStyle` union members `"AIPM"`/`"mockup"` (`style-ci.ts` — vestigial: `data-style` is
+  the constant `"custom"` now, and NO live scheme carries either id). NO key migration — a stored/
   exported scheme with legacy `--AIPM-*` color keys drops to the Harbor fallback (no active users).
   • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** AIPM + Mockup
-  LEFT the code built-ins and now ship as self-contained importable theme files `public/themes/AIPM.json` +
-  `mockup.json` (full portable format — light/dark/`structural`/branding/pinned AA tokens). `BUILTIN_SCHEMES` =
-  **[harbor, meridian, umber]** only. An in-app **Theme gallery** (`theme-gallery.tsx`, mounted in
-  `AppearanceSection` beside the scheme editor) fetches `/themes/*.json` → widened `importScheme` → `addScheme`
-  + `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber;
-  AIPM/Dashboard are opt-in imports. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
+  LEFT the code built-ins entirely. `BUILTIN_SCHEMES` = **[harbor, meridian, umber]** only, and a theme is
+  now a FILE THE USER LOADS in the full portable format (light/dark/`structural`/branding/pinned AA tokens).
+  ★★★ CORRECTED 2026-07-30 — earlier revisions of this bullet claimed AIPM and Mockup "ship as
+  `public/themes/AIPM.json` + `mockup.json`" and that the gallery "fetches `/themes/*.json`". **There is no
+  `public/themes/` directory, there are no shipped theme files, and nothing in the repo references that
+  path** (verified: `find . -name AIPM.json` → nothing; `public/` holds only logos, the manifest and `sw.js`).
+  The in-app **Theme gallery** (`theme-gallery.tsx`, mounted in `AppearanceSection` beside the scheme editor)
+  is a FILE-UPLOAD importer (`accept="application/json,.json"`) → widened `importScheme` → `addScheme` +
+  `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber;
+  `e2e/a11y.spec.ts`'s own comment states it plainly: "AIPM and Dashboard no longer exist in the app in any
+  form — a theme is a file the user loads." Do not re-add a claim that any theme is bundled. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
   Harbor-falls-back via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
   **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
   structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
   (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
-  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` now READS
-  `public/themes/*.json` and seeds AIPM/Mockup as **USER schemes** (not the empty-`schemes[]`+built-in-activeId
-  shortcut — they're no longer built-ins) to keep the 5-combo matrix. — The Phase-2 text below still describes
+  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs its 5-combo
+  matrix on the THREE BUILT-INS — harbor light+dark, meridian light+dark, umber light — resolving each map
+  node-side at seed time. ★ Umber-DARK is deliberately unscanned to hold the count at five, so 5 of the 6
+  built-in combos are covered, not all of them (`SCHEME_SEED` carries `UMBER_DARK` and the matrix omits it). — The Phase-2 text below still describes
   the MECHANISM (data-style/scheme apply/structural), just not the built-in ROSTER.
   • **Scheme-driven color schemes (Phase 2 — AIPM + Mockup ARE built-in schemes):** the AIPM/mockup/custom
   `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;
@@ -1292,7 +1456,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   4.35:1 (Umber light) once hover deepened the tint. This is the documented translucent-tint-on-hover trap,
   and the axe gate CANNOT see it (it scans the resting state, and those chips live in an edit modal it never
   opens) — `scheme-purple-hover.test.ts` is the only coverage, and it checks the built-ins AND the shipped
-  `public/themes/*.json`. ★★ The GUARD must composite over the same `--surface-muted` the DERIVATION
+  the `globals.css :root` Harbor-light fallback. ★★ The GUARD must composite over the same `--surface-muted` the DERIVATION
   does: composited over the lighter `--surface` it is looser than the code it guards, and a revert
   slips through in 4 of the 6 built-in combos. ★★ SIDE EFFECT, accepted deliberately: because the
   reference is the harder surface, this also LIGHTENED the value DERIVED FOR the three built-in DARK
@@ -1414,7 +1578,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
 - **Settings sections:** each window shows a uniform pane `<h2>` (its rail label); `mode`/`templates`/
   `commTemplates` are excluded (they self-head + carry an intro line). Appearance is its OWN rail section
   (un-folded from General; General now folds only Storage).
-- **Feature-module guidance (Settings → Functions):** `mode-section.tsx` renders each `FEATURE_MODULES`
+- **Feature-module guidance (Settings → Mode — the section is titled "Mode"; only its intro copy calls the toggles "functions"):** `mode-section.tsx` renders each `FEATURE_MODULES`
   toggle with an optional `descKey` description under the label (use case + when to enable). ★ Adding a
   module ⇒ give it a `descKey` + EN/DE i18n string (all 12 now have one). ★★ a11y: the description is a
   SEPARATE `<span id>` linked via `aria-describedby` — do NOT nest it inside the `<label>` (that folds it

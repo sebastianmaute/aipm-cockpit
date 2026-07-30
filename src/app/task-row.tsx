@@ -4,7 +4,7 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 import { PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
-import { htmlToText } from "./sanitize-html";
+import { descriptionText } from "./rich-text-projection";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { isReadOnlyIssue } from "./jira-projects";
@@ -578,7 +578,7 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("description") && (() => {
         // Non-expandable plain-text preview of the (rich HTML) description.
-        const preview = htmlToText(task.description);
+        const preview = descriptionText(task.description);
         return (
           <Td className="max-w-xs truncate text-muted-foreground" title={preview}>
             {preview || "—"}

@@ -8,6 +8,102 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.210.0] - 2026-07-29 "Larbalestier"
+
+Formatted descriptions now survive the trip out of the app: document exports keep
+their paragraph breaks, and a task description exports as text rather than raw
+markup. Two of the fixes below are data-integrity ones you may have been hit by
+without noticing.
+
+★ Scope: this is about the four DOCUMENT formats — PDF, Word, Excel and
+PowerPoint. The CSV and Markdown exports are the app's own storage format and
+deliberately still carry a description exactly as stored, markup included, so
+that exporting and re-importing a project round-trips without loss.
+
+- **Document exports keep paragraph breaks.** A three-paragraph description used to arrive
+  as one run-on line in every document export format. It now lays out as real paragraphs:
+  line breaks in PDF and HTML, Word line breaks in DOCX, separate paragraphs in
+  PPTX, and wrapped multi-line cells in XLSX (which already handled it, and is now
+  pinned so it stays that way).
+- **Task descriptions export as text, not markup.** The Tasks section of a PDF,
+  DOCX, XLSX or PPTX export still emitted the raw `<p>` tags of a formatted task
+  description, where every other register already exported readable text.
+  ★ One trade-off comes with it: a link inside a task description now exports as
+  its visible text without the address behind it, the same as descriptions in the
+  other registers have always exported. Previously the raw markup carried the
+  address; now nothing in the export does.
+- **Fixed: an inline AI edit flattened a description's formatting.** Confirming an
+  "Ask Claude" edit wrote the plain-text *preview* over the field instead of the
+  value the assistant proposed, silently discarding bold, lists and links from
+  task, RAID, change and milestone descriptions. The preview still shows readable
+  text; the value saved keeps its formatting. Fixing that exposed a second half
+  in the same path — a task description in particular was then stored with its
+  formatting tags escaped into visible text — so the write behind it now accepts
+  formatted and plain text alike, the way the other three registers already did.
+- **Fixed: an inline AI edit could not change a task description at all.** The
+  editor's field list still named the description by its pre-0.196.0 name, so an
+  "Ask Claude" edit that changed a task description produced no proposed change
+  and applied nothing, usually reporting only a bare "No changes to apply."
+  however clearly you asked.
+- **Fixed: five places read a description with its paragraphs fused.** The tasks
+  pane search, the Gantt search index, the task-row preview, the AI duplicate
+  finder and the Jira push all joined the text either side of a paragraph break
+  with no space — so the tasks pane matched "delayMitigation" where global search
+  matched "delay Mitigation", and the fused form was what got pushed to Jira.
+- **Fixed: saving a template from a project lost every task description.** A
+  template captured with "include content" dropped every task description to empty
+  — silently, since 0.196.0. Templates saved from now on keep them.
+  ★ A description already lost from a template you saved earlier cannot be
+  recovered: templates live in your settings, which are re-read and re-written on
+  every app start, so the emptied value replaced the original at rest long ago.
+- **Fixed: the AI assistant could store formatting it was never allowed to.** A
+  description written by the assistant — in a task, RAID item, change or milestone
+  — went to storage without the safety filter the editor's own saves go through.
+- **Fixed: the AI merge preview showed markup instead of text.** The
+  "Deduplicate & unify tasks" confirmation listed the unified description with its
+  raw formatting tags visible — in the one screen you read before approving a
+  merge that deletes tasks.
+- **Fixed: pressing Enter saved a longer value than the app said it did.** In the
+  RAID and change editors, submitting with Enter from a text field skipped the
+  length cap that clicking Save applied, so an over-long title, owner or requester
+  was written to your project in full while the notification announced it had been
+  shortened. What happened next differed by register: a change request was
+  shortened the next time the project was opened, but **a RAID item was not
+  shortened by anything, ever** — it stayed over-length in the file. The editor is
+  now the cap for both.
+- **Fixed: character counts could disagree with the limit they enforce.** For a
+  description still stored as plain text, the counter measured a different value
+  than the cap did, so the remaining budget it showed could be wrong.
+- **Special characters written as numeric codes now count as one character.** A
+  description carrying a numeric character reference (what an Office paste
+  produces for an em dash) was charged the length of the code rather than of the
+  character, and a value near the limit could be cut mid-code. Because the count
+  changed, a stored description holding such a code may be written back in a
+  slightly different form the next time the project is saved — the character
+  itself rather than its code — and one that was only over the limit because of
+  the old count now keeps its formatting instead of losing it.
+- **Fixed: printing a task table dropped truncated description text.** A description-preview
+  cell is width-capped and truncated on screen with an ellipsis, which is right on screen and wrong
+  on paper — the print stylesheet neutralises every other clipping box, but could not reach this one,
+  so the printed table showed "Replace the hand-rolled session…" and silently lost the rest. Such
+  cells now wrap when printed, so the full text appears. Column widths are unchanged.
+- **New Help topic: "Formatted descriptions & notes."** Which seven fields take
+  formatting, how the note log differs from a description, how notes are attributed,
+  and exactly which export formats keep paragraphs and which keep the markup.
+  In the Help view and the Help panel, English and German.
+- **The demo and sample project now show formatted descriptions.** A few records in
+  the sample workspace carry real paragraphs, lists and a link, alongside others
+  deliberately left as plain text — so "Explore a demo project" shows both shapes,
+  which is what a real project looks like after upgrading.
+
+★ Housekeeping in this release, with no effect on your data: the version number in
+`package.json` had been stuck six releases back (and its lockfile eleven), the README
+badge and the architecture notes three, and several documented facts had outlived the
+code they described — including a claim that two colour themes ship as files in the
+app, when a theme has been something you load yourself for some time. Those are now
+corrected, and the release checklist names every file that carries the version so the
+drift does not restart.
+
 ## [0.209.0] - 2026-07-29 "Lafferty"
 
 Six register descriptions became rich text, and a task's note log moved inside

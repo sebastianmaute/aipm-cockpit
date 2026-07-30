@@ -14,7 +14,7 @@ import type { FeatureModuleId } from "./feature-modules";
 import type { FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan, effectiveAssignee } from "./resource-foundation";
 import { statusSortIndex } from "./task-status";
-import { htmlToText } from "./sanitize-html";
+import { descriptionText } from "./rich-text-projection";
 import { resolveEffectiveFilters, type TaskFilterValues } from "./task-filters";
 import { isExternalTask } from "./task-external";
 import { useSettings } from "./use-settings";
@@ -232,7 +232,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           t.taskName,
           effectiveAssignee(t, resourcesById),
           t.blockers,
-          htmlToText(t.description),
+          descriptionText(t.description),
           t.group ?? "",
           (t.labels ?? []).join(" "),
         ]

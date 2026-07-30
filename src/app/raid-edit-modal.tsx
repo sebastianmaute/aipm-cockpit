@@ -188,12 +188,29 @@ export function RaidEditModal({
     }
     setError(null);
     adj.reset();
-    // title/owner keep their own onBlur caps below, so tracking them here is
-    // count-only and the value is deliberately discarded.
-    adj.track(describeTextCap(draft.title, TASK_NAME_MAX));
-    adj.track(describeTextCap(draft.owner ?? "", ASSIGNEE_MAX));
+    // ★★ Cap ON THE SAVED OBJECT, not count-only. Clicking Save blurs the field
+    // first so the onBlur cap ran, but Enter inside a text input submits WITHOUT
+    // firing blur: the value went out uncapped while this counted a truncation
+    // and the toast announced one. The onBlur handlers stay — they keep the
+    // draft and its counter honest while the user is still typing.
+    // ★★★ This is the ONLY cap on `title`/`owner` for a human editor, not a
+    // duplicate of a storage-side one. `sanitizeRaidItem` LOOKS like the storage
+    // boundary and is not on one: `use-resource-planner.ts` stores the item
+    // directly, `workspace.ts`'s JSON load is a bare cast plus
+    // `sanitizeRaidRichFields` (rich fields only), and `buildRaidItemFromObj`
+    // hand-builds `title` with `obj.title?.trim() ?? ""` — no cap on ANY path.
+    // Change is the opposite (its decoder and JSON load both route through
+    // `sanitizeChangeItem`), so do not reason about the two registers together.
+    // open-followups.md §37. ★ Side effect worth keeping: the auto-issue derivation
+    // below copies `title` verbatim, so it now inherits the capped value.
+    const cappedTitle = describeTextCap(draft.title, TASK_NAME_MAX);
+    const cappedOwner = describeTextCap(draft.owner ?? "", ASSIGNEE_MAX);
+    adj.track(cappedTitle);
+    adj.track(cappedOwner);
     const saved: RaidItem = {
       ...draft,
+      title: cappedTitle.value.trim(),
+      owner: cappedOwner.value.trim() || undefined,
       description: capRich(draft.description) || undefined,
       mitigation: capRich(draft.mitigation) || undefined,
     };
@@ -415,9 +432,13 @@ export function RaidEditModal({
               />
             </div>
             {/* CharCounter measures `.length`, and the cap measures VISIBLE
-                text — so it is fed the projection, not the markup. */}
+                text — so it is fed the projection, not the markup. Upgrading
+                FIRST is what makes it the same spelling capRich uses: for a
+                legacy plain value descriptionHtml is not the identity, and the
+                raw projection strips a "<b>" as inline markup the upgraded one
+                counts as three visible characters. */}
             <CharCounter
-              value={htmlPlainProjection(draft.description ?? "")}
+              value={htmlPlainProjection(descriptionHtml(draft.description))}
               max={TEXTAREA_MAX}
               id="raid-description-counter"
               lang={lang}
@@ -578,7 +599,7 @@ export function RaidEditModal({
               lang={lang}
             />
             <CharCounter
-              value={htmlPlainProjection(draft.mitigation ?? "")}
+              value={htmlPlainProjection(descriptionHtml(draft.mitigation))}
               max={TEXTAREA_MAX}
               id="raid-mitigation-counter"
               lang={lang}

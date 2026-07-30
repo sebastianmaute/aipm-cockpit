@@ -5,7 +5,9 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 ## Overview
 
 - Covers portfolio and project delivery: open points (tasks), action center, dashboards, trends, RAID, change control, milestones and Gantt, stakeholders and RACI, steering committee, reports, budget, resources and capacity, calendar, knowledge links, time bookings, version history, the portfolio-health rollup, and settings.
-- Recent additions: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, and the Turso-only portfolio-health rollup. Newest: rate-card day rates, a planning capacity column with a hide-external toggle, dashboard tile tooltips, a RACI people-column filter, richer version-history compare, and advisory AI usage-limit notices.
+- Recent additions: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, and the Turso-only portfolio-health rollup. Newest: formatted (rich-text) descriptions across the registers plus a dated note log on tasks and RAID items, rate-card day rates, a planning capacity column with a hide-external toggle, dashboard tile tooltips, a RACI people-column filter, richer version-history compare, and advisory AI usage-limit notices.
+- Formatted text: seven fields accept bold, italic, bulleted/numbered lists and links — a task's description, a RAID item's description and mitigation, a change's description, impact description and resolution notes, and a milestone's description. Character limits count visible text, not markup. Older plain-text values stay valid and are upgraded when read, so a project can hold both shapes at once.
+- Note log: tasks and RAID items carry dated notes in a separate floating window (a `🗒 N` badge on the row). Notes are NOT the same field as the description. You have no tool that can read or write a note — if the user asks about notes, say so and point them at the window rather than guessing from the description.
 - Tip for the user: most views have an "Ask Claude" button (and an "Explain this" prompt) that opens this assistant with a view-aware question.
 
 ## Open Points
@@ -20,7 +22,8 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Clearing an assignee with the ✕ in the picker clears the whole field (name, email and the directory link together), not just the link.
 - Inline "Ask Claude" edit: an in-place popover on a task row/card (or its row menu) takes a short instruction (e.g. "push this out a week and add a risk for the vendor delay"); it previews the proposed field changes and any related items it would create before anything is applied, and only writes them once the user confirms. Not available on Jira-synced tasks or in a pop-out window.
 - Deduplicate & unify tasks: a toolbar action (shown when the AI assistant is enabled, outside pop-outs, with at least two tasks) asks the AI to propose which tasks look like duplicates and how to merge each group into one. You review every proposed group and can deselect any before confirming — nothing changes until you confirm, and a confirmed merge is a single undo step that folds the duplicates into the kept task and applies its unified fields.
-- AI: create/update tasks including setting status; cannot toggle the Board view or change a Jira-synced task's status (explain + point to Jira). Via the inline edit popover specifically, it can change task fields and create a linked RAID item, change item, milestone, or stakeholder as part of one instruction — always preview-then-confirm, never applied without the user's confirmation. Via the "Deduplicate & unify tasks" action it can propose task merges for your review, but merges are only applied after you confirm.
+- A task's Description takes formatting (bold, italic, lists, links); the character counter measures visible text, so markup does not eat into the limit. Separately, each task has a dated note log in its own window, reached from the `🗒 N` badge on the row or the "Notes (N)" button in the editor.
+- AI: create/update tasks including setting status; cannot toggle the Board view or change a Jira-synced task's status (explain + point to Jira). It CAN write a task's Description, and may write it as plain text or as simple HTML (bold/italic/lists/links) — anything outside that set is stripped on save. It CANNOT read or write the note log: there is no tool for notes, so never answer a question about a task's notes from its description. Via the inline edit popover specifically, it can change task fields and create a linked RAID item, change item, milestone, or stakeholder as part of one instruction — always preview-then-confirm, never applied without the user's confirmation. Via the "Deduplicate & unify tasks" action it can propose task merges for your review, but merges are only applied after you confirm.
 
 ## Action Center
 
@@ -78,7 +81,8 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Risks, Assumptions, Issues, Dependencies — severity, owner, status, and stakeholder links.
 - Items can link to tasks and feed Action Center signals (e.g. at-risk, no owner).
-- AI: full create/update/delete of RAID items, including owner and severity.
+- Description and Mitigation both take formatting (bold, italic, lists, links); limits count visible text, not markup. RAID items also carry a dated note log in its own window, separate from those fields.
+- AI: full create/update/delete of RAID items, including owner and severity. It can write Description and Mitigation as plain text or simple HTML (anything outside bold/italic/lists/links is stripped on save), and a field it does not mention is left untouched rather than blanked. It CANNOT read or write the note log — there is no tool for notes.
 
 ## Changes
 
@@ -86,7 +90,8 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Change-control register: requested changes with status, impact, and approvals.
 - Items can carry stakeholder links for comms reminders.
-- AI: full create/update/delete of change-control items.
+- Description, Impact description and Resolution notes all take formatting (bold, italic, lists, links); limits count visible text, not markup.
+- AI: full create/update/delete of change-control items, including the three formatted fields (plain text or simple HTML; a field it does not mention is left untouched rather than blanked).
 
 ## Milestones & Gantt
 
@@ -94,6 +99,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Project timeline: milestones with dates plus the Gantt view; "Add milestone" available from the Gantt.
 - Hovering a milestone marker on the Gantt shows a label with its formatted date.
+- A milestone's Description takes formatting (bold, italic, lists, links); the limit counts visible text, not markup.
 - Milestones can be pushed to Outlook as calendar events.
 - AI: create/update/delete milestones; cannot push a milestone to Outlook (user action via the calendar/milestone control).
 

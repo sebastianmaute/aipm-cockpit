@@ -36,7 +36,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run lint` | Run ESLint (`eslint-config-next` preset) |
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |
-| `npm run test:coverage` | Vitest + v8 coverage report (thresholds: lines 90 / statements 87 / functions 89 / branches 78) |
+| `npm run test:coverage` | Vitest + v8 coverage report (BLOCKING floors: lines 92 / statements 89 / functions 91 / branches 80, plus per-engine globs in vitest.config.ts) |
 | `npm run e2e` | Playwright functional E2E (smoke + app nav + a11y), headless — the CI suite |
 | `npm run e2e:ui` | Playwright interactive UI mode |
 | `npm run e2e:smoke` | Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server |
@@ -56,7 +56,11 @@ implicitly. To type-check without building: `npx tsc --noEmit`.
 
 ```
 src/app/
-├── api/jira/             — thin CORS proxy routes (route.ts per endpoint)
+├── api/                  — 12 same-origin proxy routes: jira/* (8), timelog,
+│                            confluence/page, stt, ecb. The first 11 take a
+│                            user-supplied host and are SSRF-guarded via
+│                            api/_shared/proxy-ssrf.ts — reuse it, don't hand-roll.
+│                            ecb is the exception: one hard-coded URL, no user input
 ├── task-manager.tsx      — orchestrator; owns most client state
 ├── task-form-modal.tsx   — task create/edit form modal (extracted slice 4)
 ├── bulk-edit-modal.tsx   — bulk-edit dialog (extracted slice 4)
@@ -102,7 +106,7 @@ APIs (routing, headers, server actions, etc.), check
 
 ### Lazy loading
 Heavy dependencies are dynamically `import()`'d to keep the cold heap small.
-Established pattern (used 3× — see `aipm-cockpit-memory-optimization` memory):
+Established pattern, applied to every heavy dep in the table below:
 
 | Module | Triggered by |
 |---|---|
@@ -116,8 +120,9 @@ than top-level importing.
 
 ### CSS
 Tailwind v4 with `@tailwindcss/postcss`. Do **not** introduce
-`mini-css-extract-plugin` or `style-loader` — Next handles CSS internally and
-the `aipm-cockpit-css-hmr-investigation` memory documents a previous false trail.
+`mini-css-extract-plugin` or `style-loader` — Next handles CSS internally, and
+reaching for either of those in response to a CSS-HMR problem has already been
+tried here and was a dead end.
 
 Colours, shadows, and gradients are restricted to the sanctioned AIPM brand
 tokens in `globals.css` — no off-palette colours, and no raw `shadow`/gradient
@@ -129,20 +134,68 @@ enforce this and scan the **whole source, including comments**, so a stray raw
 `divide-ui-light-grey` is banned; use `ui-medium-grey` instead.
 
 ### State
-The orchestrator component (`task-manager.tsx`, ~3.5k LoC after slice-4 modal
-extraction) owns most state. Modal bodies live in `task-form-modal.tsx` and
-`bulk-edit-modal.tsx`. No external store (zustand / jotai / redux) is in the
-dep tree by design. New state should slot into existing reducers / `useState`
-hooks unless there's a strong reason to add a layer.
+The orchestrator component (`task-manager.tsx`, ~3.0k LoC) owns most state.
+Modal bodies live in `task-form-modal.tsx` and `bulk-edit-modal.tsx`. No
+external store (zustand / jotai / redux) is in the dep tree by design. New
+state should slot into existing context providers / `useState` hooks unless
+there's a strong reason to add a layer. Cross-cutting orchestration pulled out
+of `task-manager` goes into a **deps-object hook** — see
+[CODEMAPS/frontend.md](CODEMAPS/frontend.md).
 
 ### Storage
-Tasks and RAID live in `IndexedDB` with record-level writes (see
-`storage.ts`). Settings + UI prefs live in `localStorage`. Legacy
-`localStorage` task data migrates on first load — keep that migration path
-intact if you touch `storage.ts`. The Workspace logical `SCHEMA_VERSION` (9)
-is distinct from the IndexedDB store version `IDB_VERSION` (6); the dual-use
+One logical document — `Workspace` — is saved **whole** through a facade
+(`storage.ts`) to whichever backend is configured: JSON file, CSV, Markdown,
+Turso (single-tenant or multi-tenant), or IndexedDB. There are no record-level
+writes; `browser-backend.ts` is the IndexedDB adapter behind the same facade.
+Settings + UI prefs live in `localStorage` under the `aipm-cockpit:*`
+namespace.
+
+The Workspace logical `SCHEMA_VERSION` (11, `workspace.ts`) is distinct from
+the IndexedDB store version `IDB_VERSION` (6, `idb.ts`) and from the Turso DDL
+`SCHEMA_VERSION` string ("12", `turso-schema.ts` / `turso-tenant-schema.ts`) —
+three independent numbers, do not assume one tracks another. The dual-use
 CSV/Markdown serializers must stay byte-identical on the storage round-trip
 (the no-config path), so guard any export-only changes behind `ExportConfig`.
+
+★ There is no longer a legacy-`localStorage` migration to preserve: the
+one-time `lop-app` → `aipm-cockpit` rename migration was completed and
+**removed** in 0.190.41. Earlier revisions of this file told you to keep that
+path intact; there is no such path.
+
+### Rich text
+Seven fields hold rich HTML rather than plain text: `Task.description`, RAID
+`description` + `mitigation`, Change `description` + `impactDescription` +
+`resolutionNotes`, and `Milestone.description`. Plus the note log
+(`Task.noteLog` / `RaidItem.noteLog`), which is separate and owns itself.
+
+Four rules, each of which has already cost a bug:
+
+1. **`rich-text-plain.ts` must never *call* DOMPurify.** It runs inside the
+   entity sanitizers, which execute under bare Node in
+   `scripts/generate-sample-workspace.ts`; DOMPurify binds `window` at module
+   eval, so with no DOM the call throws and `jsonToWorkspace`'s catch-all turns
+   it into an **empty** workspace that then "successfully" writes near-empty
+   sample files. Importing from it is fine — a source-scanning test in
+   `rich-text-plain.test.ts` enforces the no-call rule. Anything that genuinely
+   needs a DOM lives in `rich-text-projection.ts` or `ai-rich-text.ts`.
+2. **Migration is read-time, not write-time.** Decoders hand-build entities and
+   do not normalise, so storage holds both plain-text and HTML shapes at once.
+   Every *reader* upgrades: `descriptionHtml` at a DOM boundary,
+   `descriptionText` for search / AI / previews. Grep the seven field names
+   before adding a reader.
+3. **Exports use the other projection.** `descriptionText` collapses a
+   paragraph boundary to a space (right for search, wrong for a human-readable
+   export); `descriptionTextWithBreaks` keeps it as `"\n"`. A new export column
+   joins the matching `*_RICH_COLUMNS` set in `export-sections.ts`, and a new
+   renderer must map that newline to its own primitive (`<br>`, `<w:br/>`, one
+   `<a:p>` per line) or it silently ships fused text. ★ CSV and Markdown are the
+   app's storage format and deliberately export the stored HTML verbatim.
+4. **Every write boundary must be upgrade-aware, and a model's write must also
+   be allow-listed.** Use `sanitizeRichText` (never `plainToHtml`, which escapes
+   `& < >` and would store literal tags). For anything the AI supplies, route it
+   through `sanitizeAiRichText` / `withAiRichFields` — the DOM-free sanitizers
+   cannot run an allow-list, so a model's `<script>` would otherwise reach all
+   six backends.
 
 ### Multi-project / portfolio
 Each project is a full, independent `Workspace` plus a `ProjectMeta` header on
@@ -174,13 +227,25 @@ On a noteworthy change, update `src/app/version.ts`:
 - The leading comment summarising the milestone
 - `APP_HIGHLIGHT_KEYS` if a new highlight should appear in the Version popover
 
-The Version popover, README banner, and CODEMAPS regen-date are the three
-places that drift from each other most often — keep them aligned. This is not
-hypothetical: on 2026-07-27 all three had drifted at once (README badge stuck 9
-releases back at v0.194.0, CODEMAPS ~50 releases back at the 0.145 era) while
-`version.ts`, `package.json` and `CHANGELOG.md` were all correctly in sync. The
-three that drift are the ones **no gate checks** — nothing in CI compares them.
-Check them by eye at release time.
+Then bump the version everywhere else it is written down. **Nothing in CI
+compares any of these to `APP_VERSION`**, so every one of them drifts silently:
+
+| place | what to change |
+|---|---|
+| `package.json` | `version` |
+| `package-lock.json` | `version` **twice** — the root one and the `packages[""]` one |
+| `README.md` | the shields badge — version **and** codename |
+| `docs/CODEMAPS/*.md` (5 files) | the `<!-- Generated: … \| App <version> "<codename>" … -->` header, including the regen date and any file counts that moved |
+
+This is not hypothetical, and the previous version of this paragraph was itself
+wrong about it. On 2026-07-27 the badge and the codemap headers had drifted (badge
+9 releases back at v0.194.0, codemaps ~50 back at the 0.145 era) and this file
+recorded that `version.ts`, `package.json` and `CHANGELOG.md` "were all correctly
+in sync" — presenting those three as the reliable ones. By 2026-07-30
+`package.json` had been stuck at 0.203.0 for six releases and `package-lock.json`
+at 0.199.0 for eleven. Only `version.ts` and `CHANGELOG.md` have actually held.
+Do not treat any unchecked file as self-maintaining because it happened to be
+correct once.
 
 Two more that no gate checks: `docs/DESIGN-TOKENS.md` (it survived the
 `--AIPM-*` → `--ui-*` rename with a stale prefix in its opening line) and the
@@ -217,11 +282,13 @@ Four layers, all gating in CI:
 ```bash
 npm run test           # watch
 npm run test:run       # single run
-npm run test:coverage  # with v8 coverage; fails below 70%
+npm run test:coverage  # with v8 coverage; fails below the floors below
 ```
 
-The coverage gate is **70%** (lines / functions / branches / statements) and is
-scoped to the business-logic / data layer — React components (`*.tsx`), route
+The global coverage floors are **lines 92 · functions 91 · statements 89 ·
+branches 80**, plus tighter per-engine globs in `vitest.config.ts` (e.g.
+`next-actions/**` at lines 97 / branches 90, `sanitize*.ts` at 95 / 94). They
+are scoped to the business-logic / data layer — React components (`*.tsx`), route
 glue, the DE dictionary, and external-format serializers are excluded and
 covered by component / E2E tests instead (see the `exclude` list in
 `vitest.config.ts`). Storage tests run against an in-memory IndexedDB

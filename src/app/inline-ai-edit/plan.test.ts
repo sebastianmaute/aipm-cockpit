@@ -16,8 +16,8 @@ describe("describeToolCalls", () => {
   it("diffs an update_task on the target task", () => {
     const plan = describeToolCalls([block("update_task", { id: 42, dueDate: "2026-08-15", status: "In Progress" })], { task, ws });
     expect(plan.updates).toEqual([
-      { field: "dueDate", before: "2026-08-12", after: "2026-08-15" },
-      { field: "status", before: "To Do", after: "In Progress" },
+      { field: "dueDate", before: "2026-08-12", after: "2026-08-15", raw: "2026-08-15" },
+      { field: "status", before: "To Do", after: "In Progress", raw: "In Progress" },
     ]);
     expect(plan.creates).toEqual([]);
     expect(plan.rejected).toEqual([]);
@@ -91,7 +91,7 @@ describe("describeEntityCalls — raid", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 7, title: "New" } }],
       { descriptor: d, item: raidItem, ws: ws2 },
     );
-    expect(plan.updates).toEqual([{ field: "title", before: "Old", after: "New" }]);
+    expect(plan.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
   });
 
   it("rejects a status invalid for the item's category", () => {
@@ -133,7 +133,9 @@ describe("describeEntityCalls — raid", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 8, category: "I" } }],
       { descriptor: d, item, ws: ws3 },
     );
-    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I" });
+    // ★ The category diff is model-supplied, so it carries `raw`; the induced
+    // status reset is the sanitizer's own default and carries none.
+    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I", raw: "I" });
     expect(plan.updates).toContainEqual({ field: "status", before: "Mitigated", after: "Open" });
     expect(plan.rejected).toHaveLength(0);
   });
@@ -144,7 +146,7 @@ describe("describeEntityCalls — raid", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 7, category: "I" } }],
       { descriptor: d, item: raidItem, ws: ws2 },
     );
-    expect(plan.updates).toEqual([{ field: "category", before: "R", after: "I" }]);
+    expect(plan.updates).toEqual([{ field: "category", before: "R", after: "I", raw: "I" }]);
   });
 
   it("rejects an out-of-range date year (guard matches sanitizeIsoDate)", () => {
@@ -216,18 +218,24 @@ describe("rich fields preview as text (slice B)", () => {
       { descriptor: INLINE_DESCRIPTORS.stakeholder, item: stk, ws: wsWith({ stakeholders: [stk] as never }) },
     );
     // The newline SURVIVES. Projected, it would collapse to "line one line two".
-    expect(plan.updates).toContainEqual({ field: "notes", before: "old", after: "line one\nline two" });
+    expect(plan.updates).toContainEqual({ field: "notes", before: "old", after: "line one\nline two", raw: "line one\nline two" });
   });
 
-  it("still projects task.notes, the task descriptor's alias for the rich description", () => {
+  it("still projects the task's rich description", () => {
     // The other direction: entity-qualifying the set must not stop projecting
-    // the one field that legitimately carries that name and IS rich.
-    const t2 = { id: 9, taskName: "T", notes: "<p>old <strong>note</strong></p>" };
+    // the one TASK field that IS rich.
+    //
+    // ★★ RICH_FIELDS is keyed `${entity}.${field}` off the DESCRIPTOR's spelling,
+    // so it and `diffFields` move together. This case was written against the
+    // pre-0.196.0 `notes`; renaming the descriptor to `description` without
+    // renaming the RICH_FIELDS key drops the task out of the set and the preview
+    // silently renders raw HTML — which is what this assertion catches.
+    const t2 = { id: 9, taskName: "T", description: "<p>old <strong>note</strong></p>" };
     const plan = describeEntityCalls(
-      [{ type: "tool_use", name: "update_task", input: { id: 9, notes: "<p>new note</p>" } }],
+      [{ type: "tool_use", name: "update_task", input: { id: 9, description: "<p>new note</p>" } }],
       { descriptor: INLINE_DESCRIPTORS.task, item: t2, ws: wsWith({ tasks: [t2] as never }) },
     );
-    expect(plan.updates).toContainEqual({ field: "notes", before: "old note", after: "new note" });
+    expect(plan.updates).toContainEqual({ field: "description", before: "old note", after: "new note", raw: "<p>new note</p>" });
   });
 
   it("leaves a non-rich field's diff verbatim", () => {
@@ -239,7 +247,7 @@ describe("rich fields preview as text (slice B)", () => {
       { descriptor: d, item: richItem, ws: richWs },
     );
     expect(plan.updates).toEqual([
-      { field: "title", before: "<p>Old <strong>title</strong></p>", after: "<p>New <strong>title</strong></p>" },
+      { field: "title", before: "<p>Old <strong>title</strong></p>", after: "<p>New <strong>title</strong></p>", raw: "<p>New <strong>title</strong></p>" },
     ]);
   });
 
@@ -261,9 +269,9 @@ describe("rich fields preview as text (slice B)", () => {
     // "Resolved" is Issue-only: it validates only because the co-changed
     // category landed in `applied` first, alongside the rich field.
     expect(plan.rejected).toEqual([]);
-    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I" });
-    expect(plan.updates).toContainEqual({ field: "status", before: "Open", after: "Resolved" });
-    expect(plan.updates).toContainEqual({ field: "mitigation", before: "old plan", after: "new plan" });
+    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I", raw: "I" });
+    expect(plan.updates).toContainEqual({ field: "status", before: "Open", after: "Resolved", raw: "Resolved" });
+    expect(plan.updates).toContainEqual({ field: "mitigation", before: "old plan", after: "new plan", raw: "<p>new plan</p>" });
   });
 });
 
@@ -284,5 +292,38 @@ describe("describeEntityCalls — milestone required field", () => {
       { descriptor: INLINE_DESCRIPTORS.milestone, item: m, ws: ws2 },
     );
     expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+});
+
+describe("the applied value stays raw while the preview is projected", () => {
+  it("carries the verbatim stored value alongside the projected preview", () => {
+    // ★★ The preview is projected to text for display; the value the confirm
+    // path applies must stay RAW, or an inline-AI edit writes projected text
+    // over the user's formatting. That distinction was a function-local
+    // scratchpad no test could reach — projecting it failed nothing.
+    //
+    // ★ This test asserts the RAW value. A test that re-asserts the preview is
+    // projected is exactly what passes with the bug present.
+    const richTask = { ...task, description: "<p>old</p>" } as typeof task;
+    const richWs = { ...ws, tasks: [richTask] } as typeof ws;
+    const plan = describeToolCalls(
+      [block("update_task", { id: 42, description: "<p>new</p>" })],
+      { task: richTask, ws: richWs },
+    );
+    const diff = plan.updates.find((u) => u.field === "description");
+    expect(diff).toBeDefined();
+    expect(diff!.after).toBe("new");
+    expect(diff!.raw).toBe("<p>new</p>");
+  });
+});
+
+describe("task descriptor field name", () => {
+  it("names the live description field, not the field it was renamed from", () => {
+    // ★ Task.notes became Task.description in 0.196.0. The descriptor still said
+    // "notes" and worked ONLY because chat-tools accepts it as a write alias —
+    // tighten that alias and the inline-AI task editor silently stops being able
+    // to write a description.
+    expect(INLINE_DESCRIPTORS.task.diffFields).toContain("description");
+    expect(INLINE_DESCRIPTORS.task.diffFields).not.toContain("notes");
   });
 });

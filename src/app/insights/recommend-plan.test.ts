@@ -51,8 +51,8 @@ describe("describeRecommendationPlan", () => {
     );
     expect(plan.updates).toEqual(
       expect.arrayContaining([
-        { field: "taskName", before: "T", after: "Renamed" },
-        { field: "title", before: "Risk A", after: "Risk A renamed" },
+        { field: "taskName", before: "T", after: "Renamed", raw: "Renamed" },
+        { field: "title", before: "Risk A", after: "Risk A renamed", raw: "Risk A renamed" },
       ]),
     );
     expect(plan.rejected).toHaveLength(0);

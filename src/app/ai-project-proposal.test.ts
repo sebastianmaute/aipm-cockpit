@@ -94,6 +94,29 @@ describe("proposalToSeed", () => {
     expect(seed?.milestones?.[0]?.name).toBe("Good");
   });
 
+  it("stores a model-supplied HTML note as HTML, not escaped into visible tags", () => {
+    // ★★★ This is the most attacker-influenceable input in the app: the model's
+    // propose_project output, fed from a user-uploaded PDF / SharePoint file /
+    // Confluence page. The boundary used plainToHtml, which escapes & < >, so any
+    // HTML the model emitted was stored as literal tags — visible in the editor,
+    // every export and the search index, on a project the user has just created.
+    const seed = proposalToSeed(
+      { meta: { name: "x" }, features: [], seed: { tasks: [{ taskName: "Kickoff", notes: "<p>Agree <strong>goals</strong></p>" }] } },
+      TODAY,
+    );
+    expect(seed?.tasks?.[0]?.description).toBe("<p>Agree <strong>goals</strong></p>");
+    expect(seed?.tasks?.[0]?.description).not.toContain("&lt;");
+  });
+
+  it("still upgrades a PLAIN model note, escaping its angle brackets", () => {
+    // The common case, and the half the fix must not break: prose stays prose.
+    const seed = proposalToSeed(
+      { meta: { name: "x" }, features: [], seed: { tasks: [{ taskName: "K", notes: "cost < 5k\nline two" }] } },
+      TODAY,
+    );
+    expect(seed?.tasks?.[0]?.description).toBe("<p>cost &lt; 5k<br>line two</p>");
+  });
+
   it("builds seed tasks with today's lastUpdateDate", () => {
     const seed = proposalToSeed({ meta: { name: "x" }, features: [], seed: { tasks: [{ taskName: "Kickoff" }] } }, TODAY);
     expect(seed?.tasks?.[0]?.taskName).toBe("Kickoff");

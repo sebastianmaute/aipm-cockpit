@@ -16,11 +16,10 @@ import {
   sanitizeAssignee,
   sanitizeIsoDate,
   sanitizePriority,
-  sanitizeNotes,
   sanitizeGroup,
   sanitizeResource,
 } from "./sanitize";
-import { plainToHtml } from "./sanitize-html";
+import { sanitizeAiRichText } from "./ai-rich-text";
 
 export const SEED_CAP_PER_ENTITY = 8;
 
@@ -243,7 +242,13 @@ function buildSeedTask(raw: unknown, id: number, today: string): Task | null {
     priority: sanitizePriority(raw.priority),
     status: "To Do",
     blockers: "",
-    description: plainToHtml(sanitizeNotes(raw.notes)),
+    // ★★★ Upgrade-aware, NOT plainToHtml. This is the most attacker-influenceable
+    // input in the app — the model's propose_project output, fed from a
+    // user-uploaded PDF / SharePoint file / Confluence page — and plainToHtml
+    // escapes & < >, so any HTML the model emits stored as visible tags.
+    // ★ `notes` is correct HERE: PROPOSAL_TOOL's task schema advertises `notes`,
+    // so that is the key the model is asked for. See AGENTS.md, rich-text bullet.
+    description: sanitizeAiRichText(raw.notes),
     inquiriesSent: 0,
     group: sanitizeGroup(raw.group),
     labels: [],

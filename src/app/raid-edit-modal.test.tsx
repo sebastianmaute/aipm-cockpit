@@ -7,7 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
-import { TEXTAREA_MAX } from "./sanitize";
+import { ASSIGNEE_MAX, TASK_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { RaidItem } from "./types";
@@ -238,6 +238,43 @@ describe("RaidEditModal — rich-text description and mitigation (slice B)", () 
     );
   });
 
+  it("counts a legacy plain value the way the cap will measure it", async () => {
+    // ★ The counter measured the RAW draft while capRich measures the UPGRADED
+    // one. Identical for anything reachable today, because every load goes
+    // through sanitizeRichText and the editor only emits "<p>…". They diverge
+    // wherever descriptionHtml is NOT the identity — a legacy plain value, which
+    // HTML_START rejects, so plainToHtml escapes its angle brackets and every
+    // "<b>" becomes three VISIBLE characters instead of a stripped inline tag.
+    //
+    // ★★ Both fixtures have to be NEAR THE CAP. CharCounter renders a hidden
+    // empty span below 80% of max (WARN_RATIO 0.8, TEXTAREA_MAX 5000 → 4000), so
+    // a short value shows nothing either way and the test would be vacuous.
+    //
+    //   raw projection:      the tag stripped as inline markup     → 1 char
+    //   upgraded projection: "&lt;b&gt;" decoded back to "<b>"     → 4202 / 4502
+    //
+    // So the bug renders NO counter at all and the fix renders one. Presence is
+    // the assertion; the number confirms which projection produced it.
+    const { container } = render(
+      modalEl({
+        description: "a " + "<b>".repeat(1400),
+        mitigation: "m " + "<i>".repeat(1500),
+      }),
+      { wrapper },
+    );
+    await screen.findByRole("textbox", { name: DESC_LABEL });
+
+    for (const [id, len] of [
+      ["raid-description-counter", 4202],
+      ["raid-mitigation-counter", 4502],
+    ] as const) {
+      const counter = container.querySelector(`#${id}`);
+      expect(counter).not.toBeNull();
+      expect(counter!.hasAttribute("hidden")).toBe(false);
+      expect(counter).toHaveTextContent(`${len} / ${TEXTAREA_MAX}`);
+    }
+  });
+
   it("keeps the editors mounted across successive edits of the same item", async () => {
     // ★★ RAID's draft is PARENT-OWNED and `onChange({...draft, …})` mints a new
     // draft object on every keystroke. The key must therefore depend only on
@@ -317,6 +354,89 @@ describe("RaidEditModal rich-field write-path cap", () => {
     const saved = onSave.mock.calls[0][0] as RaidItem;
     expect(saved.description).toBe("<p>fits fine</p>");
     expect(saved.mitigation).toBe("<p>also fine</p>");
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
+describe("RaidEditModal plain-field cap on Enter-submit", () => {
+  /** Renders with a toast spy so the "N fields adjusted" count is observable. */
+  function renderWithSpies(over: Partial<RaidItem>) {
+    const onSave = vi.fn();
+    const showToast = vi.fn();
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        {modalEl(over, onSave)}
+      </ToastProvider>,
+      { wrapper },
+    );
+    return { onSave, showToast };
+  }
+
+  /** ★★ Submit from INSIDE the title input. A click on Save blurs the field
+   *  first, so the onBlur cap runs and the bug is invisible on that path —
+   *  Enter is the one that submits without ever firing blur. */
+  async function submitWithEnter() {
+    await userEvent.click(screen.getByPlaceholderText(t("en-US", "raidPlaceholderTitle")));
+    await userEvent.keyboard("{Enter}");
+  }
+
+  it("applies the title cap when the form is submitted with Enter", async () => {
+    // ★★ THE REGRESSION THIS PINS: title/owner were capped only in onBlur, and
+    // handleSubmit merely COUNTED the truncation. Enter-submit does not blur, so
+    // the uncapped value went to onSave while the toast announced a truncation
+    // that had not happened.
+    const { onSave, showToast } = renderWithSpies({ title: "x".repeat(TASK_NAME_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.title.length).toBe(TASK_NAME_MAX);
+    // The count and the save now describe the SAME operation.
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("applies the owner cap when the form is submitted with Enter", async () => {
+    // ★ A non-blank title is deliberate: handleSubmit returns early on a blank
+    // one, so onSave would never fire and the assertion would fail for the
+    // wrong reason.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", owner: "y".repeat(ASSIGNEE_MAX + 20) });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.owner?.length).toBe(ASSIGNEE_MAX);
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "fieldsAdjusted", 1));
+  });
+
+  it("trims on Enter, and collapses a whitespace-only owner to undefined", async () => {
+    // ★★ The cap fix ALSO changed the write path in a way no cap test can see:
+    // the saved object went from `...draft` (verbatim) to `.trim()` and
+    // `|| undefined`, so "  ok  " now saves as "ok" and a blank owner saves as
+    // undefined rather than "". That is the same normalisation the onBlur
+    // handlers already applied — which is exactly why it must be pinned HERE:
+    // every cap fixture is already trimmed and non-empty, so deleting either
+    // .trim() or the `|| undefined` leaves all of them green.
+    const { onSave } = renderWithSpies({ title: "  ok  ", owner: "   " });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.owner).toBeUndefined();
+  });
+
+  it("announces nothing on Enter when every plain field fits", async () => {
+    // The other half of "the count matches reality" for this path: a capping
+    // handleSubmit that always tracked an adjustment would pass the two tests
+    // above on their toast assertion alone.
+    const { onSave, showToast } = renderWithSpies({ title: "ok", owner: "Bob" });
+    await screen.findByRole("textbox", { name: t("en-US", "raidDescription") });
+    await submitWithEnter();
+
+    const saved = onSave.mock.calls[0][0] as RaidItem;
+    expect(saved.title).toBe("ok");
+    expect(saved.owner).toBe("Bob");
     expect(showToast).not.toHaveBeenCalled();
   });
 });

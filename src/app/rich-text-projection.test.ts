@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { appendDictationToHtml, descriptionText } from "./rich-text-projection";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  appendDictationToHtml,
+  descriptionText,
+  descriptionTextWithBreaks,
+} from "./rich-text-projection";
 
 describe("descriptionText", () => {
   it("projects stored HTML to plain text", () => {
@@ -68,5 +74,115 @@ describe("appendDictationToHtml", () => {
 
   it("upgrades a legacy plain value before appending", () => {
     expect(appendDictationToHtml("plain & old", "more")).toBe("<p>plain &amp; old more</p>");
+  });
+});
+
+describe("descriptionTextWithBreaks", () => {
+  it("keeps paragraph boundaries as newlines", () => {
+    expect(descriptionTextWithBreaks("<p>Vendor delay</p><p>Mitigation plan</p>")).toBe(
+      "Vendor delay\nMitigation plan",
+    );
+  });
+
+  it("upgrades a legacy plain value the same way descriptionText does", () => {
+    // descriptionHtml turns a legacy newline into <br>, which is a real boundary.
+    expect(descriptionTextWithBreaks("line one\nline two")).toBe("line one\nline two");
+  });
+
+  it("still sanitizes — a script tag survives neither projection", () => {
+    const stored = "<p>ok</p><script>alert(1)</script>";
+    expect(descriptionTextWithBreaks(stored)).not.toContain("alert");
+    expect(descriptionTextWithBreaks(stored)).not.toContain("<");
+  });
+
+  it("differs from descriptionText ONLY in the boundary character", () => {
+    const stored = "<p>a</p><p>b</p>";
+    expect(descriptionText(stored)).toBe("a b");
+    expect(descriptionTextWithBreaks(stored)).toBe("a\nb");
+  });
+
+  it("returns empty for an empty value", () => {
+    expect(descriptionTextWithBreaks(undefined)).toBe("");
+    expect(descriptionTextWithBreaks("")).toBe("");
+  });
+});
+
+describe("description consumers use the correct projection", () => {
+  const SITES = [
+    "workspace-context.tsx",
+    "gantt.tsx",
+    "task-row.tsx",
+    "task-dedup/dedup.ts",
+    "jira-api.ts",
+    // ★ The SIXTH consumer, added later in the same release: the dedup modal
+    // rendered `unified.description` (sanitizeNoteHtml output) raw as text. A
+    // hardcoded snapshot list goes stale the moment the branch that owns it finds
+    // another consumer — if you convert a seventh, add it here in that commit.
+    "task-dedup-modal.tsx",
+  ];
+
+  it("never projects a description with bare htmlToText", () => {
+    // ★★ htmlToText strips tags leaving NOTHING in their place, so
+    // "<p>a</p><p>b</p>" fuses to "ab". These five read Task.description; every
+    // one of them must go through descriptionText, which runs
+    // separateBlockBoundaries first.
+    //
+    // ★ note-log-panel.tsx and note-log.ts also call htmlToText and are CORRECT
+    // — they operate on note HTML, not descriptions. They are deliberately not
+    // in this list.
+    //
+    // ★ The scan catches MULTI-LINE calls too: `[^)]` matches a newline, and it
+    // cannot run past the call's own closing paren, so an unrelated
+    // `htmlToText(noteHtml)` earlier in the file cannot reach a later
+    // `.description` and false-positive. Verified both directions.
+    for (const site of SITES) {
+      const src = readFileSync(join(import.meta.dirname, site), "utf8");
+      expect({ site, hit: /htmlToText\([^)]*\.description/.test(src) }).toEqual({
+        site,
+        hit: false,
+      });
+    }
+  });
+
+  it("lets ONLY the note-HTML modules call htmlToText at all", () => {
+    // ★★★ INVERTED, and that is the point. The snapshot above answers "are these
+    // six clean?", which is the hand-list shape this same release replaced in
+    // rich-text-plain.test.ts ("a guard naming one module by hand goes stale the
+    // moment a second one appears") — and the sixth consumer being found
+    // mid-release is the evidence. It is also defeated by a legal spelling:
+    // `const d = task.description; htmlToText(d)` has no `.description` inside the
+    // call, and a SEVENTH consumer anywhere in src/app is not scanned at all.
+    //
+    // This asks the answerable question instead: WHO may call htmlToText? Only the
+    // note-log modules (a different field family with its own model) and the
+    // projection module that wraps it. Any other caller — however it spells its
+    // argument — shows up here and has to justify itself or use descriptionText.
+    const ALLOWED = new Set([
+      "note-log-panel.tsx", // composer/edit body — note HTML, not a description
+      "note-log.ts", //        the note model's own text projection
+      "rich-text-projection.ts", // the wrapper every description consumer uses
+      "sanitize-html.ts", //   where htmlToText is defined
+    ]);
+    const appDir = import.meta.dirname;
+    const callers: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
+        // Comments may DISCUSS htmlToText freely — only code counts.
+        const code = readFileSync(full, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/\/\/.*$/gm, "");
+        if (/\bhtmlToText\s*\(/.test(code) && !ALLOWED.has(entry.name)) {
+          callers.push(full.replace(/\\/g, "/").split("/src/app/")[1] ?? entry.name);
+        }
+      }
+    };
+    walk(appDir);
+    expect(callers.sort()).toEqual([]);
   });
 });

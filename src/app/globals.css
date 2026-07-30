@@ -195,6 +195,23 @@ table:has(> .aipm-cockpit-thead) {
     max-height: none !important;
   }
 
+  /* ★★ `truncate` is the one clipper the substring selectors above CANNOT
+     reach: its class name contains neither "overflow-" nor "max-h-", yet it
+     expands to `overflow:hidden; text-overflow:ellipsis; white-space:nowrap`.
+     On paper that silently DROPS text — a task row's description-preview cell
+     (`max-w-xs truncate`) printed as "Replace the hand-rolled session…" with
+     the remainder simply gone. Let it wrap instead: the row grows and the
+     content survives pagination. Width caps are deliberately left alone, so
+     columns keep their proportions and the text wraps within them.
+     ★ This was invisible until 0.210.0 gave the sample tasks real
+     descriptions — with every description empty, the cell never clipped and
+     `e2e/print.spec.ts` passed vacuously on this point. */
+  .print-root .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
   /* Strip the rounded container chrome (card/scroller wrappers = `rounded` +
      `border-line`). Targets only structural boxes — table row separators
      (`divide-line`, no radius) and RAG dots (`rounded-full`, no `border-line`)

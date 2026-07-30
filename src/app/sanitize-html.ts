@@ -1,7 +1,21 @@
 // src/app/sanitize-html.ts — DOMPurify allow-list for communication-template HTML.
-// The allow-list mirrors the Tiptap editor's schema (the only producer of this
+// The TAG allow-list mirrors the Tiptap editor's schema (the only producer of this
 // HTML), so sanitizing the editor output is a defense-in-depth storage boundary.
 // Merge-field tokens ({{field}}) are plain text and pass through untouched.
+//
+// ★★ The ATTRIBUTE lists below do NOT mirror the editor, and reading them as if
+// they did is the trap: `target` and `rel` are listed but can never survive.
+// A custom ALLOWED_URI_REGEXP is tested against EVERY attribute value, not only
+// URI-bearing ones, and `_blank` / `noopener noreferrer` do not match an
+// end-anchored scheme pattern — so both are dropped, and `ADD_ATTR` does not
+// bring them back (verified on dompurify 3.4.12). The editor sets them
+// (rich-text-editor.tsx `setLink`), so every STORED link opens in the same tab.
+// Not a vulnerability — with no `target="_blank"` there is no reverse-tabnabbing
+// surface for the missing `rel="noopener"` to expose, so stripping both is safer
+// than stripping one. Tracked as `docs/open-followups.md` §38; fixing it rewrites
+// stored `<a>` markup and moves the golden fixtures, so it is its own slice.
+// Do not "tidy" `target`/`rel` out of the lists: they document the intent, and
+// removing them would erase the only pointer to why links behave this way.
 import DOMPurify from "dompurify";
 
 const ALLOWED_TAGS = ["p", "br", "strong", "em", "u", "h1", "h2", "ul", "ol", "li", "a"];
@@ -51,8 +65,38 @@ export function plainToHtml(text: string): string {
   return "<p>" + esc.replace(/\r?\n/g, "<br>") + "</p>";
 }
 
-/** Plain-text projection of sanitized HTML — for search/export/preview cells. */
-export function htmlToText(html: string): string {
+/** Plain-text projection of sanitized HTML — for search/export/preview cells.
+ *
+ *  ★★ `preserveBreaks` is OPT-IN and the default path is byte-identical. It
+ *  exists because the DEFAULT collapse (`\s+` -> " ") destroys a newline that a
+ *  caller put in DELIBERATELY: descriptionTextWithBreaks separates block
+ *  boundaries with "\n" BEFORE sanitizing (it must — DOMPurify with
+ *  ALLOWED_TAGS:[] deletes tags leaving nothing in their place, so the boundary
+ *  has to already be in the string), and the default collapse then flattened
+ *  every one of them back to a space. Break mode collapses a run CONTAINING a
+ *  newline to one "\n" and a purely horizontal run to one " ", the same shape
+ *  htmlPlainProjection's break mode uses.
+ *
+ *  ★★ The LOAD-BEARING property is only that this must not DESTROY a newline —
+ *  htmlPlainProjection runs immediately after and re-normalises whatever it
+ *  gets, so the two are not required to agree character-for-character, and an
+ *  earlier version of this comment claimed they mirrored each other "exactly",
+ *  an invariant stronger than the code needs and stronger than any test holds.
+ *  The duplication is deliberate: importing rich-text-plain's regexes here would
+ *  point the DOM-free module's consumer at the DOM-dependent one. If you tighten
+ *  this collapse, the projection still fixes up the result — but do not RELAX it
+ *  into anything that can eat a "\n".
+ *
+ *  ★ As written the two collapses ARE character-identical (same two regexes, same
+ *  order) — the looseness above is a PERMISSION, not an observed difference, so
+ *  do not go hunting for a divergence here. Where the two genuinely differ is the
+ *  projection's extra entity/NBSP decode running BEFORE its collapse: "x\n&nbsp;\ny"
+ *  leaves this function untouched and normalises to "x\ny" there. */
+export function htmlToText(html: string, opts?: { preserveBreaks?: boolean }): string {
   const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
-  return stripped.replace(/\s+/g, " ").trim();
+  if (opts?.preserveBreaks !== true) return stripped.replace(/\s+/g, " ").trim();
+  return stripped
+    .replace(/[^\S\n]*\n\s*/g, "\n")
+    .replace(/[^\S\n]+/g, " ")
+    .trim();
 }

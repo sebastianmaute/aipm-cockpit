@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
+import { buildPdfHtml } from "./export";
 import { buildExportSections } from "./export-sections";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
@@ -574,5 +575,146 @@ describe("buildPptx", () => {
 
     const slide1 = files.get("ppt/slides/slide1.xml")!;
     expect(slide1).toContain("AI PM Cockpit");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HTML/PDF renderer — the export projection's newline becomes a <br>
+// ---------------------------------------------------------------------------
+
+describe("HTML export cells", () => {
+  it("renders a projected newline as a <br>", () => {
+    const base = makeBaseWorkspace();
+    const ws: Workspace = {
+      ...base,
+      tasks: [{ ...makeTask(1), description: "<p>one</p><p>two</p>" }],
+    };
+    expect(buildPdfHtml(ws, defaultExportConfig, "en-US")).toContain("one<br>two");
+  });
+
+  it("escapes BEFORE substituting, so user markup cannot inject a break", () => {
+    // ★★ Order is the whole point. Substitute-then-escape turns our own <br>
+    // into a visible "&lt;br&gt;"; escape-then-substitute leaves a user's
+    // literal "<br>" escaped, which is what escaping is for.
+    //
+    // ★★★ THE FIXTURE MUST CARRY BOTH, and an earlier version did not: with a
+    // value that has no newline, BOTH orderings emit "a&lt;br&gt;b" and the
+    // test passes either way — it named the ordering while proving only the
+    // escaping. This description projects to a literal "<br>" (the user's, from
+    // an escaped entity) AND a real block boundary (ours), so only
+    // escape-then-substitute yields the user's escaped and ours live.
+    const base = makeBaseWorkspace();
+    const ws: Workspace = {
+      ...base,
+      tasks: [{ ...makeTask(1), description: "<p>a&lt;br&gt;b</p><p>c</p>" }],
+    };
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    expect(html).toContain("a&lt;br&gt;b<br>c");
+    // Substitute-first would produce this instead — the user's markup live and
+    // our own boundary escaped away.
+    expect(html).not.toContain("a<br>b");
+    expect(html).not.toContain("b&lt;br&gt;c");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DOCX cell rendering (§17 part 4b — the export projection's newline)
+// ---------------------------------------------------------------------------
+
+describe("DOCX export cells", () => {
+  it("renders a projected newline as a real Word line break", async () => {
+    const blob = buildDocx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [["one\ntwo"]] },
+    ]);
+    const xml = (await unzipBlob(blob)).get("word/document.xml")!;
+    expect(xml).toContain(
+      '<w:t xml:space="preserve">one</w:t><w:br/><w:t xml:space="preserve">two</w:t>',
+    );
+  });
+
+  it("emits exactly the single run it always did for a break-free cell", async () => {
+    const blob = buildDocx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [["plain"]] },
+    ]);
+    const xml = (await unzipBlob(blob)).get("word/document.xml")!;
+    expect(xml).toContain('<w:r><w:t xml:space="preserve">plain</w:t></w:r>');
+    expect(xml).not.toContain("<w:br/>");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PPTX text rendering (§17 part 4c — the export projection's newline)
+// ---------------------------------------------------------------------------
+
+describe("PPTX export text", () => {
+  it("splits a projected newline into separate paragraphs", async () => {
+    const blob = buildPptx([
+      {
+        key: "tasks",
+        title: "Tasks",
+        columns: ["id", "taskName", "description"],
+        rows: [[1, "Task one", "one\ntwo"]],
+      },
+    ]);
+    // slide1 = title, slide2 = Tasks divider, slide3 = the single row slide.
+    const xml = (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
+    // Columns 2..7 render as "<label>: <value>" meta lines, so the label is
+    // glued to the FIRST line only — the second line stands alone.
+    expect(xml).toContain("<a:t>description: one</a:t>");
+    expect(xml).toContain("<a:t>two</a:t>");
+    expect(xml).not.toContain("one\ntwo");
+    // ★★★ THE MUTATION THIS FILE MISSED: revert the `flatMap` to `map` and the
+    // outer `.join("")` stringifies an array-of-arrays, inserting a literal COMMA
+    // between the paragraphs — "</a:p>,<a:p>". That is a text node between two
+    // <a:p> elements inside <p:txBody>, which PowerPoint rejects as a corrupt
+    // file, and EVERY assertion above still passes (both <a:t> values are present
+    // and there is no raw newline). Asserting the two paragraphs as one CONTIGUOUS
+    // string is what catches it — the shape the DOCX test already uses.
+    expect(xml).not.toContain("</a:p>,");
+    expect(xml).toMatch(/<a:t>description: one<\/a:t>[\s\S]*?<\/a:p>\s*<a:p>[\s\S]*?<a:t>two<\/a:t>/);
+  });
+
+  it("leaves a break-free paragraph as exactly one <a:p>", async () => {
+    const blob = buildPptx([
+      { key: "tasks", title: "Tasks", columns: ["id", "taskName"], rows: [[1, "Task one"]] },
+    ]);
+    const xml = (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
+    // ★ The <a:t> count alone does NOT pin this: a split that emitted a
+    // trailing EMPTY paragraph leaves the text occurring exactly once while
+    // the slide grows a phantom <a:p>. Count the paragraphs themselves —
+    // 1 from the accent bar's placeholder body + RowMeta + RowTitle, with no
+    // RowFields box because there is no third column.
+    expect((xml.match(/<a:p>/g) ?? []).length).toBe(3);
+    expect((xml.match(/<a:t>Task one<\/a:t>/g) ?? []).length).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// XLSX text rendering (§17 part 4d — the export projection's newline)
+// ---------------------------------------------------------------------------
+
+describe("XLSX carries a projected paragraph break", () => {
+  it("keeps the newline in the shared string and wraps the body cells", async () => {
+    // No code change backs this — the builder already gets it right. The pin
+    // exists because three things have to STAY true: xml:space="preserve" on
+    // <t>, xmlEscape leaving \n alone, and wrapText on the BODY cell styles.
+    const blob = buildXlsx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [["one\ntwo"]] },
+    ]);
+    const parts = await unzipBlob(blob);
+    expect(parts.get("xl/sharedStrings.xml")!).toContain(
+      '<t xml:space="preserve">one\ntwo</t>',
+    );
+    // ★ A bare `toContain('wrapText="1"')` would also be satisfied by the
+    // HEADER style (cellXfs index 1), which must NOT wrap. Pin the two BODY
+    // <xf> elements (indices 2 = grey, 3 = white) whole, so removing wrapText
+    // from either — or moving it onto the header — fails here.
+    const styles = parts.get("xl/styles.xml")!;
+    expect(styles).toContain(
+      '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
+    );
+    expect(styles).toContain(
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
+    );
   });
 });

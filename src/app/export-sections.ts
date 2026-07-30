@@ -30,7 +30,7 @@ import {
   budgetFieldToString,
   statusToCsv,
 } from "./storage";
-import { descriptionText } from "./rich-text-projection";
+import { descriptionTextWithBreaks } from "./rich-text-projection";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
@@ -69,7 +69,7 @@ export type ExportSection = {
 function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
   const columns = CSV_COLUMNS as unknown as string[];
   const rows = tasks.map((t) =>
-    CSV_COLUMNS.map((c) => fieldToString(t, c))
+    CSV_COLUMNS.map((c) => richCell(fieldToString(t, c), c, TASK_RICH_COLUMNS))
   );
   return { key: "tasks", title: t(lang, "tasks"), columns, rows };
 }
@@ -84,6 +84,7 @@ function tasksSection(tasks: readonly Task[], lang: Lang): ExportSection {
 // ★ A name that is not a real column would make the set silently never match,
 // leaving the fix absent with nothing else noticing — export-sections.test.ts
 // pins each set as a subset of its *_CSV_COLUMNS list.
+export const TASK_RICH_COLUMNS: ReadonlySet<string> = new Set(["description"]);
 export const RAID_RICH_COLUMNS: ReadonlySet<string> = new Set(["description", "mitigation"]);
 export const MILESTONE_RICH_COLUMNS: ReadonlySet<string> = new Set(["description"]);
 export const CHANGE_RICH_COLUMNS: ReadonlySet<string> = new Set([
@@ -93,7 +94,7 @@ export const CHANGE_RICH_COLUMNS: ReadonlySet<string> = new Set([
 ]);
 
 function richCell(value: string, column: string, rich: ReadonlySet<string>): string {
-  return rich.has(column) ? descriptionText(value) : value;
+  return rich.has(column) ? descriptionTextWithBreaks(value) : value;
 }
 
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {

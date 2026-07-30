@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import {
   capHtmlText,
   descriptionHtml,
   htmlPlainProjection,
   htmlTextLength,
   sanitizeRichText,
+  separateBlockBoundaries,
 } from "./rich-text-plain";
 
 describe("descriptionHtml", () => {
@@ -110,6 +111,92 @@ describe("htmlPlainProjection", () => {
     );
     expect(htmlPlainProjection("<p>cost < 5k and rising</p>")).toBe("cost < 5k and rising");
     expect(htmlPlainProjection("<p>a < b</p>")).toBe("a < b");
+  });
+});
+
+describe("numeric entity references", () => {
+  it("decodes decimal and hex forms so the counter measures visible text", () => {
+    expect(htmlPlainProjection("<p>a&#8212;b</p>")).toBe("a—b");
+    expect(htmlPlainProjection("<p>a&#x2014;b</p>")).toBe("a—b");
+    expect(htmlPlainProjection("<p>a&#X2014;b</p>")).toBe("a—b");
+    expect(htmlTextLength("<p>&#8212;</p>")).toBe(1);
+  });
+
+  it("REFUSES to emit & < >, which would re-open the double-decode hole", () => {
+    // ★★ &#38; IS "&". Decoding it before the named pass turns "&#38;lt;" into
+    // "&lt;", which the named pass then decodes to "<" — exactly the
+    // double-decode that "&amp; decodes LAST" exists to prevent. &#60;/&#62;
+    // would re-introduce a tag delimiter AFTER the tag work has already run.
+    expect(htmlPlainProjection("<p>&#38;lt;</p>")).toBe("&#38;lt;");
+    expect(htmlPlainProjection("<p>&#60;script&#62;</p>")).toBe("&#60;script&#62;");
+    expect(htmlPlainProjection("<p>&#x26;lt;</p>")).toBe("&#x26;lt;");
+  });
+
+  it("refuses lone surrogates and out-of-range code points", () => {
+    // ★ Out-of-range is a THROW guard: String.fromCodePoint(1114112) throws and
+    // a projection must never throw — it runs inside the entity sanitizers on
+    // every load. A lone surrogate does NOT throw; it is refused because
+    // emitting one reproduces the backend-dependent corruption capHtmlText
+    // documents (U+FFFD on CSV/MD, survives on JSON/IDB).
+    expect(htmlPlainProjection("<p>&#xd800;</p>")).toBe("&#xd800;");
+    expect(htmlPlainProjection("<p>&#1114112;</p>")).toBe("&#1114112;");
+    expect(htmlPlainProjection("<p>&#0;</p>")).toBe("&#0;");
+  });
+
+  it("refuses every control character CONTROL_CHARS would have stripped", () => {
+    // ★★ sanitizeRichText strips controls from the RAW string and only then
+    // projects, so a reference is downstream of that strip: decoding "&#7;"
+    // puts a BEL into the projected text, and on the OVERFLOW path capHtmlText
+    // re-wraps that text with plainToHtml — which escapes only & < > — writing
+    // the control character into storage on all six backends.
+    expect(htmlPlainProjection("<p>a&#7;b</p>")).toBe("a&#7;b");
+    expect(htmlPlainProjection("<p>a&#x1b;b</p>")).toBe("a&#x1b;b");
+    expect(htmlPlainProjection("<p>a&#31;b</p>")).toBe("a&#31;b");
+    // \t and \n ARE decoded — they are whitespace the collapse handles, and
+    // CONTROL_CHARS deliberately excludes them for the same reason.
+    expect(htmlPlainProjection("<p>a&#9;b</p>")).toBe("a b");
+    expect(htmlPlainProjection("<p>a&#10;b</p>")).toBe("a b");
+  });
+
+  it("decodes an astral code point as the surrogate PAIR it really is", () => {
+    // ★ The highest-value edge: a decoded emoji is two UTF-16 units, so this is
+    // the input that exercises capHtmlText's own surrogate back-off.
+    expect(htmlPlainProjection("<p>&#x1f600;</p>")).toBe("\u{1f600}");
+    expect(htmlTextLength("<p>&#x1f600;</p>")).toBe(2);
+    // Written as a surrogate PAIR of references it is correctly refused, so
+    // such a value still over-counts — the documented named/paired tail.
+    expect(htmlPlainProjection("<p>&#xd83d;&#xde00;</p>")).toBe("&#xd83d;&#xde00;");
+  });
+
+  it("treats a whitespace-only reference as visually empty — a DROP, pinned as intended", () => {
+    // ★★ A one-way consequence of decoding, recorded deliberately rather than
+    // left to be rediscovered as a bug report. "<p>&#32;</p>" used to project to
+    // 5 characters and now projects to 0: the decoded space collapses and trims
+    // away, htmlTextLength reads 0, sanitizeRichText returns "", and the entity
+    // sanitizers' `if (description)` gate DROPS the field on the next load.
+    //
+    // That is the module's existing rule — visually empty means empty, the same
+    // rule that makes "<p><br></p>" from an emptied editor stop occupying a
+    // field — and every one of these renders blank. It is pinned because it is a
+    // deletion of stored data triggered by a code change, not a user action.
+    for (const only of ["&#32;", "&#9;", "&#10;", "&#13;", "&#11;&#12;", "&#8232;"]) {
+      expect(htmlTextLength(`<p>${only}</p>`)).toBe(0);
+    }
+    // ★ Not a blanket "references vanish": a reference with real text beside it
+    // keeps both, and a NON-whitespace reference counts as its one character.
+    expect(htmlPlainProjection("<p>a&#32;b</p>")).toBe("a b");
+    expect(htmlTextLength("<p>&#8212;</p>")).toBe(1);
+  });
+
+  it("refuses an uppercase-X unsafe reference, not just the lowercase form", () => {
+    // The X branch was otherwise covered only by an ACCEPTING case.
+    expect(htmlPlainProjection("<p>&#X26;lt;</p>")).toBe("&#X26;lt;");
+    expect(htmlPlainProjection("<p>&#X3C;script&#X3E;</p>")).toBe("&#X3C;script&#X3E;");
+  });
+
+  it("leaves the existing named decodes and their ordering intact", () => {
+    expect(htmlPlainProjection("<p>&amp;lt;</p>")).toBe("&lt;");
+    expect(htmlPlainProjection("<p>&#39;a&apos;</p>")).toBe("'a'");
   });
 });
 
@@ -265,9 +352,222 @@ describe("DOM-free guard", () => {
   });
 
   it("never reaches a DOM-dependent sanitiser from code", () => {
+    // ★★★ This ban is NOT redundant with the import pin below, and removing it
+    // in favour of that pin (as 0.210.0 briefly did) OPENED the likelier hole:
+    // `./sanitize-html` is an ALLOWED specifier — plainToHtml legitimately comes
+    // from it — and that same module exports htmlToText, sanitizeNoteHtml and
+    // sanitizeTemplateHtml, all of which CALL DOMPurify. So a call added here
+    // passes the specifier pin untouched. The two guards answer different
+    // questions: this one is "does the CODE call a DOM sanitiser", the pin is
+    // "can a NEW module be reached at all". Keep both.
     expect(code).not.toMatch(/dompurify/i);
     expect(code).not.toMatch(/htmlToText/);
     expect(code).not.toMatch(/sanitizeNoteHtml/);
     expect(code).not.toMatch(/sanitizeTemplateHtml/);
+  });
+
+  it("imports exactly the two modules it is allowed to import", () => {
+    // ★ The old guard banned four SYMBOL names. That let two things past:
+    // plainToHtml growing a DOMPurify.sanitize call (its own comment warns
+    // against exactly that), and a future `import { descriptionText } from
+    // "./rich-text-projection"` — neither the module name nor the symbol was on
+    // the list, and that module DOES call DOMPurify. Pinning the import SURFACE
+    // means a new import has to be added here deliberately, which is the point.
+    //
+    // ★★ The pattern must accept EVERY spelling of a specifier, not the one
+    // this file happens to use today. A double-quote-only `from "…"` regex is
+    // defeated by a single-quoted import (no lint rule pins quote style here),
+    // by a bare side-effect `import "…"`, and by `await import("…")` — which is
+    // an established idiom in this codebase. Each of those would leave the
+    // received array unchanged and the guard green with the reach present.
+    const specifiers = [...code.matchAll(/(?:\bfrom|\bimport|\brequire)\s*\(?\s*["'`]([^"'`]+)["'`]/g)]
+      .map((m) => m[1])
+      .sort();
+    expect(specifiers).toEqual(["./narrative-html", "./sanitize-html"]);
+  });
+
+  it("keeps rich-text-projection out of every DOM-free reach", () => {
+    // ★ Nothing guarded this direction at all. rich-text-projection calls
+    // DOMPurify, so a codec, an entity sanitizer or anything under scripts/
+    // importing it would throw under bare node — where jsonToWorkspace's
+    // catch-all converts the throw into an EMPTY workspace that then
+    // "successfully" writes near-empty sample files.
+    //
+    // ★★ rich-text-plain.ts and narrative-html.ts are IN this set. They are the
+    // two DOM-free modules inside this file's own dependency graph, so a reach
+    // added there is pulled in transitively while the direct-import pin above
+    // stays green — the one-hop blind spot of a name-based filter.
+    //
+    // ★★ `scanned` is asserted for the same reason "strips comments before
+    // scanning" exists: `offenders` is empty when the walk root is wrong, when
+    // the filter matches nothing, and when a rename empties the matched set. A
+    // scanning guard needs proof its scan ran.
+    // ★★★ The DOM-free set is the sample generator's IMPORT GRAPH, resolved here,
+    // NOT a list of path patterns. It used to be the latter, and that was the
+    // defect: the filter matched 18 of the 76 files the generator actually loads,
+    // and both times it was widened (workspace.ts/storage.ts, then
+    // rich-text-plain/narrative-html) it was because a reviewer happened to notice
+    // one specific file. `templates.ts` — the file AGENTS.md now warns a reader not
+    // to add a DOMPurify import to — was among the 58 it missed.
+    //
+    // ★★ Resolving the graph means the guard covers whatever the generator loads
+    // TODAY, including files nobody thought to name. `.tsx` is followed too: a
+    // component in the graph would be just as fatal, and only its absence from the
+    // graph keeps it out.
+    const repoRoot = join(import.meta.dirname, "..", "..");
+    const offenders: string[] = [];
+    const resolveSpec = (fromFile: string, spec: string): string | null => {
+      if (!spec.startsWith(".")) return null; // a package, not our source
+      const base = resolve(dirname(fromFile), spec);
+      for (const cand of [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts")]) {
+        if (existsSync(cand) && statSync(cand).isFile()) return cand.replace(/\\/g, "/");
+      }
+      return null;
+    };
+    const graph = new Set<string>();
+    const pending = [join(repoRoot, "scripts", "generate-sample-workspace.ts").replace(/\\/g, "/")];
+    while (pending.length > 0) {
+      const file = pending.pop()!;
+      if (graph.has(file)) continue;
+      graph.add(file);
+      const text = readFileSync(file, "utf8");
+      // Static `from "…"`, bare side-effect `import "…"`, and dynamic `import("…")`.
+      for (const m of text.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)) {
+        const next = resolveSpec(file, m[1]);
+        if (next !== null) pending.push(next);
+      }
+    }
+    // ★★ The graph is the SET THAT MATTERS, but scanning only it would drop a
+    // DOM-free-by-contract file that has not entered the graph yet — the resolver
+    // lost `sanitize-report.ts` that way. Union the graph with the name patterns so
+    // coverage only ever grows: the graph catches what is reachable TODAY, the
+    // patterns catch a sanitizer/codec that is reachable TOMORROW.
+    for (const extra of [join(repoRoot, "src", "app"), join(repoRoot, "scripts")]) {
+      const stack = [extra];
+      while (stack.length > 0) {
+        const dir = stack.pop()!;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const full = join(dir, entry.name).replace(/\\/g, "/");
+          if (entry.isDirectory()) {
+            if (entry.name !== "node_modules" && entry.name !== ".next") stack.push(full);
+            continue;
+          }
+          if (!/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
+          if (/\/sanitize[^/]*\.ts$/.test(full) || /-codecs[^/]*\.ts$/.test(full) || /\/scripts\//.test(full)) {
+            graph.add(full);
+          }
+        }
+      }
+    }
+    let scanned = 0;
+    for (const full of graph) {
+      if (/\.test\.tsx?$/.test(full)) continue;
+      const rel = full;
+      scanned += 1;
+      {
+        // ★ Strip comments first, the same shape this describe uses for `code`.
+        // Without it an apostrophe in prose ("rich-text-projection's
+        // descriptionText") plays the part of a quote and the file reports
+        // itself — a false positive on the very module being protected.
+        const src = readFileSync(full, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/\/\/.*$/gm, "");
+        // ★★ BOTH DOMPurify-calling modules, not just rich-text-projection.
+        // `ai-rich-text.ts` (added in 0.210.0) calls DOMPurify too, so importing
+        // it from a sanitizer/codec/script reproduces the exact bare-node throw →
+        // jsonToWorkspace catch-all → EMPTY workspace → near-empty sample files
+        // failure this guard exists to prevent. A guard naming one module by hand
+        // goes stale the moment a second one appears; if you add a third, add it
+        // here in the same commit.
+        // ★ Any quote style, any extension, static or dynamic — see the pin above.
+        if (/["'`][^"'`]*(rich-text-projection|ai-rich-text)[^"'`]*["'`]/.test(src)) {
+          offenders.push(rel);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+    // ★★ The graph is 76 files today. A floor well above the old name-filter's 18
+    // proves the RESOLVER worked, not merely that a walk ran: if the entry point
+    // moves or `resolveSpec` stops resolving, this collapses to 1 and fails.
+    expect(scanned).toBeGreaterThan(50);
+    // ★ And the file the old filter missed must actually be in the scanned set —
+    // it is the one AGENTS.md warns a reader away from.
+    expect([...graph].some((f) => f.endsWith("/src/app/templates.ts"))).toBe(true);
+  });
+});
+
+describe("break-preserving mode", () => {
+  it("maps a block boundary to ONE newline, not two", () => {
+    // An open+close pair ("</p><p>") is two boundaries; the whitespace collapse
+    // absorbs them into a single break, which is what a reader expects.
+    expect(htmlPlainProjection("<p>a</p><p>b</p>", { preserveBreaks: true })).toBe("a\nb");
+    expect(htmlPlainProjection("<p>a<br>b</p>", { preserveBreaks: true })).toBe("a\nb");
+    expect(htmlPlainProjection("<ul><li>a</li><li>b</li></ul>", { preserveBreaks: true })).toBe("a\nb");
+  });
+
+  it("still collapses horizontal runs to one space", () => {
+    expect(htmlPlainProjection("<p>a   \t b</p>", { preserveBreaks: true })).toBe("a b");
+  });
+
+  it("pins how a decoded newline reference behaves in each mode", () => {
+    // ★ The decoder runs BEFORE the whitespace pass, so break output is not
+    // purely structure-derived: a &#10; the author typed becomes a real break in
+    // break mode and collapses to a space in the default one. Consistent with
+    // how a literal newline is treated in each mode — pinned because it is the
+    // one place the two features interact.
+    expect(htmlPlainProjection("<p>a&#10;b</p>")).toBe("a b");
+    expect(htmlPlainProjection("<p>a&#10;b</p>", { preserveBreaks: true })).toBe("a\nb");
+    // \t and \r stay horizontal in BOTH modes.
+    expect(htmlPlainProjection("<p>a&#9;b</p>", { preserveBreaks: true })).toBe("a b");
+    expect(htmlPlainProjection("<p>a&#13;b</p>", { preserveBreaks: true })).toBe("a b");
+  });
+
+  it("trims leading and trailing breaks", () => {
+    expect(htmlPlainProjection("<p>a</p>", { preserveBreaks: true })).toBe("a");
+  });
+
+  it("separateBlockBoundaries takes the separator", () => {
+    expect(separateBlockBoundaries("<p>a</p><p>b</p>", "\n")).toBe("\na\n\nb\n");
+    expect(separateBlockBoundaries("<p>a</p>")).toBe(" a ");
+  });
+
+  it("adding preserveBreaks left the default path byte-identical", () => {
+    // ★ The NAME matters here: the default path is not byte-identical to base —
+    // 0.210.0's numeric-entity decode deliberately moved it ("<p>a&#8212;b</p>" was
+    // "a&#8212;b", now "a—b"), and that row is in this very table. What this suite
+    // pins is that adding the `preserveBreaks` PARAMETER moved nothing, which is
+    // the storage-critical invariant.
+    // ★★ This is the acceptance gate for the whole export-fidelity change.
+    // rich-text-plain feeds capHtmlText -> sanitizeRichText -> every backend, so
+    // adding a parameter must not move a single character on the options-less
+    // call. Expected values are HARDCODED, not derived, so a shared bug in the
+    // implementation cannot make both sides agree.
+    const cases: Array<[string, string]> = [
+      ["<p>a</p><p>b</p>", "a b"],
+      ["<p>a<br>b</p>", "a b"],
+      ["<ul><li>a</li><li>b</li></ul>", "a b"],
+      ["<p>a   \t b</p>", "a b"],
+      // ★★ A LITERAL newline in the html is what pins the DEFAULT branch's
+      // whitespace pass. Without these two rows, swapping WS_RUN for the
+      // break-mode pair passes every other assertion in this file — the arm the
+      // suite exists to guard was unguarded (mutant-verified). Stored HTML
+      // routinely carries newlines between block tags, and descriptionText
+      // pipes htmlToText output — which preserves them — straight in here.
+      ["<p>a\nb</p>", "a b"],
+      ["<p>a\r\n\r\nb</p>", "a b"],
+      ["<p>x&nbsp;y</p>", "x y"],
+      ["<p>x&#160;y</p>", "x y"],
+      ["<p>cost &lt; 5k</p>", "cost < 5k"],
+      ["<p>&amp;lt;</p>", "&lt;"],
+      ["<p>a&#8212;b</p>", "a—b"],
+      ["<p>&#38;lt;</p>", "&#38;lt;"],
+      ["<p><strong>bold</strong></p>", "bold"],
+      ["", ""],
+    ];
+    for (const [input, expected] of cases) {
+      expect(htmlPlainProjection(input)).toBe(expected);
+      expect(htmlPlainProjection(input, {})).toBe(expected);
+      expect(htmlPlainProjection(input, { preserveBreaks: false })).toBe(expected);
+    }
   });
 });

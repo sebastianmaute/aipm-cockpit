@@ -66,6 +66,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "feature-tabs", group: "features", titleKey: "helpSecTabsTitle", bodyKey: "helpSecTabsBody" },
   { id: "feature-tasks", group: "features", titleKey: "helpSecTasksTitle", bodyKey: "helpSecTasksBody" },
   { id: "feature-task-status", group: "features", titleKey: "helpSecTaskStatusTitle", bodyKey: "helpSecTaskStatusBody" },
+  { id: "feature-rich-text", group: "features", titleKey: "helpSecRichTextTitle", bodyKey: "helpSecRichTextBody", relatedViews: ["open-points", "raid", "changes", "milestones"] },
   { id: "feature-gantt", group: "features", titleKey: "helpSecGanttTitle", bodyKey: "helpSecGanttBody" },
   { id: "feature-raid", group: "features", titleKey: "helpSecRaidTitle", bodyKey: "helpSecRaidBody" },
   { id: "feature-resources", group: "features", titleKey: "helpSecResourcesTitle", bodyKey: "helpSecResourcesBody" },

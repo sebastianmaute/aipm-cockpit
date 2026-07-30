@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
+import { useWorkspace } from "./workspace-context";
 import { type Settings } from "./settings-types";
 import { type StorageConfig } from "./storage";
 import { useTaskForm } from "./task-form-context";
@@ -122,6 +123,32 @@ function seedTasks(): Task[] {
       labels: ["docs"],
     },
   ];
+}
+
+/** Dispatcher + live workspace, for the RAID/change/milestone write boundaries.
+ *  Their create/update return a SUMMARY (no rich fields), so the only way to
+ *  assert what was actually WRITTEN is to read the stored entity. */
+function renderRaidProbe() {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <TestProviders>{children}</TestProviders>
+  );
+  return renderHook(
+    () => ({
+      d: useChatDispatcher({
+        settings: makeSettings(),
+        today: "2026-05-19",
+        setSelectedIds: vi.fn(),
+        setSettings: vi.fn(),
+        isReadOnly: false,
+        currentView: "raid",
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot,
+      }),
+      ws: useWorkspace(),
+    }),
+    { wrapper },
+  );
 }
 
 function renderDispatcher(
@@ -272,6 +299,99 @@ describe("useChatDispatcher", () => {
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
     );
     expect(result.current.getTask(1)?.priority).toBe("Urgent");
+  });
+
+  it("updateTask stores HTML in description as HTML, not double-escaped", () => {
+    // ★★★ THE SEAM. Task.description is rich HTML, but this is the one rich
+    // field whose write boundary was plain-text-in: `plainToHtml(sanitizeNotes(x))`
+    // ESCAPES & < >, so an HTML value arriving here was stored as
+    // "<p>&lt;p&gt;…&lt;/p&gt;</p>" — literal tags visible in the field, in every
+    // export, and in the search index thereafter.
+    //
+    // ★★ 0.210.0 is what made this REACHABLE: renaming the inline-AI descriptor's
+    // dead "notes" to "description" produced a task-description diff for the
+    // first time, and the confirm path applies the model's VERBATIM value, which
+    // it echoes back as HTML because it was handed the stored HTML to read. The
+    // path used to be inert ("No changes to apply.").
+    //
+    // ★ The existing inline-AI tests stop one hop short of this: they spy on
+    // runTool and assert what reaches the tool, never what the tool WRITES.
+    const { result } = renderDispatcher();
+    const html = "<p><strong>Vendor</strong> delay</p><p>New plan</p>";
+    const updated = result.current.updateTask(1, { description: html });
+    expect(updated?.description).toBe(html);
+    expect(updated?.description).not.toContain("&lt;");
+  });
+
+  it("updateTask still upgrades a PLAIN-text description to HTML", () => {
+    // The other half: the chat model usually sends prose, and that must still be
+    // wrapped and escaped. Fixing the HTML case must not stop this working.
+    const { result } = renderDispatcher();
+    const updated = result.current.updateTask(1, { description: "a < b\nsecond line" });
+    expect(updated?.description).toBe("<p>a &lt; b<br>second line</p>");
+  });
+
+  it("createTask stores an HTML description as HTML too", () => {
+    // Same boundary, create side — the shape the cold review flagged as the
+    // pre-existing twin of the update defect.
+    const { result } = renderDispatcher();
+    const html = "<p>one</p><p>two</p>";
+    const created = result.current.createTask({
+      taskName: "Rich",
+      assignee: "Ada",
+      dueDate: "2026-09-01",
+      description: html,
+    });
+    expect(created?.description).toBe(html);
+    expect(created?.description).not.toContain("&lt;");
+  });
+
+  it("strips a script from a RAID description the model supplies", () => {
+    // ★★★ The fix for Task.description was scoped to ONE entity while the rule it
+    // documented said "every rich write boundary". RAID/change/milestone hand a
+    // whole object to their entity sanitizer, and those are DOM-FREE
+    // (sanitize-records → sanitizeRichText), so they cannot run an allow-list —
+    // verified directly: sanitizeRaidItem stored "<script>alert(1)</script>"
+    // verbatim. The model's value has to be cleaned before it gets there.
+    // ★ createRaid returns a SUMMARY (no description), so the assertion has to
+    // read the STORED item — which is also the only thing that proves the write.
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.d.createRaid({
+        category: "R",
+        title: "Vendor risk",
+        status: "Open",
+        description: "<p>real risk</p><script>alert(1)</script>",
+        mitigation: "<p>plan</p><img src=x onerror=alert(2)>",
+      });
+    });
+    const stored = result.current.ws.raid[0];
+    expect(stored.description).not.toContain("script");
+    expect(stored.description).toContain("real risk");
+    expect(stored.mitigation).not.toContain("onerror");
+    expect(stored.mitigation).toContain("plan");
+  });
+
+  it("keeps a RAID update from erasing the stored description it did not touch", () => {
+    // ★★ The other half of the helper's contract, at the real seam: a patch that
+    // names only the title must leave description/mitigation exactly as stored.
+    // Blanking an unsupplied rich field here would silently wipe both.
+    const { result } = renderRaidProbe();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createRaid({
+        category: "R",
+        title: "Keep me",
+        status: "Open",
+        description: "<p>original <strong>detail</strong></p>",
+      })!.id;
+    });
+    act(() => {
+      result.current.d.updateRaid(id, { title: "Renamed" });
+    });
+    const stored = result.current.ws.raid[0];
+    expect(stored.title).toBe("Renamed");
+    expect(stored.description).toBe("<p>original <strong>detail</strong></p>");
   });
 
   it("createTask defaults status to 'To Do' when omitted", () => {
