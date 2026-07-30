@@ -117,3 +117,29 @@ describe("templateFromWorkspace", () => {
     expect(t.description).toBe("d");
   });
 });
+
+describe("template description fallback precedence", () => {
+  it("falls back to legacy `notes` when `description` is present but EMPTY", () => {
+    // ★★ `??` would return the empty string and never consult `notes`. A hybrid or
+    // hand-edited template can carry both keys, and the empty one must not win.
+    const reloaded = sanitizeTemplate({
+      id: "t1",
+      name: "T1",
+      features: [],
+      fieldVisibility: {},
+      seed: { tasks: [{ id: 1, taskName: "K", description: "", notes: "legacy body" }] },
+    });
+    expect(reloaded?.seed?.tasks?.[0]?.description).toBe("<p>legacy body</p>");
+  });
+
+  it("prefers `description` when both are present and non-empty", () => {
+    const reloaded = sanitizeTemplate({
+      id: "t1",
+      name: "T1",
+      features: [],
+      fieldVisibility: {},
+      seed: { tasks: [{ id: 1, taskName: "K", description: "<p>current</p>", notes: "stale" }] },
+    });
+    expect(reloaded?.seed?.tasks?.[0]?.description).toBe("<p>current</p>");
+  });
+});

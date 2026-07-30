@@ -663,6 +663,15 @@ describe("PPTX export text", () => {
     expect(xml).toContain("<a:t>description: one</a:t>");
     expect(xml).toContain("<a:t>two</a:t>");
     expect(xml).not.toContain("one\ntwo");
+    // ★★★ THE MUTATION THIS FILE MISSED: revert the `flatMap` to `map` and the
+    // outer `.join("")` stringifies an array-of-arrays, inserting a literal COMMA
+    // between the paragraphs — "</a:p>,<a:p>". That is a text node between two
+    // <a:p> elements inside <p:txBody>, which PowerPoint rejects as a corrupt
+    // file, and EVERY assertion above still passes (both <a:t> values are present
+    // and there is no raw newline). Asserting the two paragraphs as one CONTIGUOUS
+    // string is what catches it — the shape the DOCX test already uses.
+    expect(xml).not.toContain("</a:p>,");
+    expect(xml).toMatch(/<a:t>description: one<\/a:t>[\s\S]*?<\/a:p>\s*<a:p>[\s\S]*?<a:t>two<\/a:t>/);
   });
 
   it("leaves a break-free paragraph as exactly one <a:p>", async () => {

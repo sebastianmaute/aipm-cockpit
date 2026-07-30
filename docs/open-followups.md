@@ -76,6 +76,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 31 | `sanitizeRichText` caps visible text, so markup bytes are unbounded | 0.210.0, pre-existing for 3 of 4 | M | open — truncates stored values |
 | 32 | `HTML_START` misclassifies `<a note…>`-shaped plain text, deleting it | pre-existing, reach widened 0.210.0 | S | open — read-time classification |
 | 33 | A multi-paragraph description can overflow its PPTX box | 0.210.0 (Larbalestier) | S | open — cosmetic, needs eye-check |
+| 34 | DOM-free guard filters by NAME LIST where the real set is an import GRAPH (18 of 76 files) | 0.210.0 (Larbalestier) | S | open — guard coverage |
+| 35 | `sanitizeAiRichText`'s double pass can double-escape `<a-b>`-shaped markup | 0.210.0 (Larbalestier) | S | open — suspicion, same root as 32 |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -870,6 +872,45 @@ and the adjacent "cap at 6 extra fields so the text fits the slide" comment is n
 ★ Byte-stability of the break-free case IS pinned; layout is not, and nothing in the release's
 verification opened a generated deck. Cheapest fix: add `<a:normAutofit/>` to that `bodyPr`, or bound the
 paragraph count per meta line. Needs an eye-check on a real deck either way.
+
+---
+
+## 34. The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH — open, small
+
+`rich-text-plain.test.ts`'s reverse sweep decides "is this file DOM-free?" by matching paths
+(`/scripts/`, `sanitize*.ts`, `*-codecs*.ts`, plus `workspace.ts`/`storage.ts`/`rich-text-plain.ts`/
+`narrative-html.ts` added by hand as each was noticed). A round-5 audit resolved the real set from the
+generator entry point: **`scripts/generate-sample-workspace.ts` transitively imports 76 files**, of which
+the filter matches ~18. Unmatched but in the graph: `templates.ts`, `browser-backend.ts`,
+`document-link.ts`, `calendar-event.ts`, `template-apply.ts`, `new-project-workspace.ts` and ~50 more.
+
+★ `templates.ts` is the one that matters today — AGENTS.md now tells a reader NOT to import
+`ai-rich-text` there, and the guard would not catch them doing it anyway.
+★ Both times this filter was widened it was because a reviewer noticed a specific file, which is the
+wrong mechanism. The fix is to compute the graph from the entry point and scan that (~15 lines; the
+auditor ran it), so the guard covers what the generator actually loads rather than what someone
+remembered.
+★ `scanned > 10` proves the walk RAN. It cannot prove the filter is the right set — do not read a green
+guard as coverage.
+
+---
+
+## 35. `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion
+
+Recorded from a round-5 audit; **real-world reachability is a suspicion, not established.**
+
+`sanitizeAiRichText` is `sanitizeRichText` → `sanitizeTemplateHtml` → `sanitizeRichText`. It is
+idempotent (`f(f(x)) === f(x)` on 13 probes) and the double cap is safe (DOMPurify never increases visible
+length). One divergence from a single logical pass:
+
+`<a-b>cost &lt; 5k</a-b>` → `HTML_START`'s `a\b` matches (the hyphen is a word boundary), so pass 1 passes
+it through → DOMPurify unwraps the unknown element to bare text → pass 3 no longer sees an HTML start, so
+`plainToHtml` escapes AGAIN → `<p>cost &amp;lt; 5k</p>`, rendering the literal `cost &lt; 5k`.
+
+★ Needs a hyphenated/namespaced element whose name STARTS with one of p/br/strong/em/ul/ol/li/a, in
+leading position, plus an entity in the body. A model would have to emit that unprompted.
+★ Same root cause as §32 (`HTML_START` classification), so fixing that likely closes this too — worth
+handling together rather than special-casing the third pass.
 
 ---
 

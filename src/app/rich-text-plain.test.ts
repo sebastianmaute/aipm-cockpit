@@ -438,8 +438,15 @@ describe("DOM-free guard", () => {
         const src = readFileSync(full, "utf8")
           .replace(/\/\*[\s\S]*?\*\//g, "")
           .replace(/\/\/.*$/gm, "");
-        // Any quote style, any extension, static or dynamic — see the pin above.
-        if (/["'`][^"'`]*rich-text-projection[^"'`]*["'`]/.test(src)) {
+        // ★★ BOTH DOMPurify-calling modules, not just rich-text-projection.
+        // `ai-rich-text.ts` (added in 0.210.0) calls DOMPurify too, so importing
+        // it from a sanitizer/codec/script reproduces the exact bare-node throw →
+        // jsonToWorkspace catch-all → EMPTY workspace → near-empty sample files
+        // failure this guard exists to prevent. A guard naming one module by hand
+        // goes stale the moment a second one appears; if you add a third, add it
+        // here in the same commit.
+        // ★ Any quote style, any extension, static or dynamic — see the pin above.
+        if (/["'`][^"'`]*(rich-text-projection|ai-rich-text)[^"'`]*["'`]/.test(src)) {
           offenders.push(rel);
         }
       }
@@ -486,7 +493,12 @@ describe("break-preserving mode", () => {
     expect(separateBlockBoundaries("<p>a</p>")).toBe(" a ");
   });
 
-  it("leaves the default path byte-identical", () => {
+  it("adding preserveBreaks left the default path byte-identical", () => {
+    // ★ The NAME matters here: the default path is not byte-identical to base —
+    // 0.210.0's numeric-entity decode deliberately moved it ("<p>a&#8212;b</p>" was
+    // "a&#8212;b", now "a—b"), and that row is in this very table. What this suite
+    // pins is that adding the `preserveBreaks` PARAMETER moved nothing, which is
+    // the storage-critical invariant.
     // ★★ This is the acceptance gate for the whole export-fidelity change.
     // rich-text-plain feeds capHtmlText -> sanitizeRichText -> every backend, so
     // adding a parameter must not move a single character on the options-less

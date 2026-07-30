@@ -131,7 +131,18 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     // since the rename, so every captured task description imported as "".
     // ★ sanitizeRichText, not plainToHtml — the captured value is HTML and
     // plainToHtml would escape it into visible tags (AGENTS.md, rich-text bullet).
-    description: sanitizeRichText(raw.description ?? raw.notes, TEXTAREA_MAX),
+    // ★★★ And NOT `sanitizeAiRichText`, however much this looks like the same
+    // boundary: THIS FILE IS IN `scripts/generate-sample-workspace.ts`'s import
+    // graph, so a DOMPurify call here throws under bare node and jsonToWorkspace's
+    // catch-all turns that into an EMPTY workspace which then "successfully"
+    // writes near-empty sample files. Template import therefore gets the upgrade
+    // but NO allow-list — the same DOM-free posture as the codec load paths in
+    // open-followups.md §28, and recorded there. The guard in
+    // rich-text-plain.test.ts bans the import so this cannot be "fixed" by
+    // accident.
+    // ★★ `||`, not `??`: a template carrying `description: ""` alongside a legacy
+    // `notes` must fall back to the notes, and `??` only catches null/undefined.
+    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

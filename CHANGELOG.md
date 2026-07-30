@@ -50,6 +50,15 @@ that exporting and re-importing a project round-trips without loss.
   finder and the Jira push all joined the text either side of a paragraph break
   with no space — so the tasks pane matched "delayMitigation" where global search
   matched "delay Mitigation", and the fused form was what got pushed to Jira.
+- **Fixed: saving a template from a project lost every task description.** A
+  template captured with "include content" stored its tasks correctly, but
+  importing it back dropped every task description to empty — silently, since
+  0.196.0. Templates you already saved are unaffected going forward: the
+  descriptions were never written into the template file wrong, they were discarded
+  on the way back in, so re-importing an existing template now restores them.
+- **Fixed: the AI assistant could store formatting it was never allowed to.** A
+  description written by the assistant — in a task, RAID item, change or milestone
+  — went to storage without the safety filter the editor's own saves go through.
 - **Fixed: the AI merge preview showed markup instead of text.** The
   "Deduplicate & unify tasks" confirmation listed the unified description with its
   raw formatting tags visible — in the one screen you read before approving a

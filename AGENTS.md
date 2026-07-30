@@ -481,8 +481,12 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   ★★★ **EVERY WRITE BOUNDARY FOR A RICH FIELD MUST BE UPGRADE-AWARE — `sanitizeRichText`, never
   `plainToHtml`.** `plainToHtml` ESCAPES `& < >`, so an HTML value passed through it is stored as
   `<p>&lt;p&gt;&lt;strong&gt;…` — literal tags visible in the field, in every export and in the search
-  index, permanently. RAID/change/milestone were always safe because they route through their entity
-  sanitizer → `sanitizeRichText` → `descriptionHtml`, which passes HTML through and upgrades plain text.
+  index, permanently. RAID/change/milestone were always safe **from that CORRUPTION** — they route through
+  their entity sanitizer → `sanitizeRichText` → `descriptionHtml`, which passes HTML through and upgrades
+  plain text. ★★★ They were NEVER allow-listed, and reading this sentence as "those three need nothing" is
+  plausibly WHY the model-write gap below took three review rounds to find. Two different properties:
+  upgrade-vs-escape (corruption) and allow-list (what a model may store). Never let a claim about one read
+  as a claim about the other.
   `Task.description` had FOUR plain-text-in boundaries, all fixed in 0.210.0 — `use-chat-dispatcher.ts`
   create + `update_task`, `ai-project-proposal.ts` (the model's `propose_project`, fed from an uploaded
   PDF / SharePoint file / Confluence page — the most attacker-influenceable input in the app), and
@@ -497,8 +501,13 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   model's VERBATIM `diff.raw` — which is HTML, because `scopeBlock` hands the model the stored HTML to
   read. ★ Precisely: the plain CHAT route was already reachable at base (the model reads a stored
   description through a read tool and echoes HTML back), so 0.210.0 added a second route and made a hit
-  far likelier — it did not create reachability from nothing. All four boundaries now go through
+  far likelier — it did not create reachability from nothing. THREE of the four boundaries go through
   **`sanitizeAiRichText`** (`ai-rich-text.ts`); chat and persisted insight-recommendation replay share two.
+  ★★★ The FOURTH — `templates.ts` `sanitizeSeedTask` — deliberately does NOT, and CANNOT: that file is in
+  `scripts/generate-sample-workspace.ts`'s import graph, so a DOMPurify call there throws under bare node
+  and `jsonToWorkspace`'s catch-all writes near-empty sample files. Template import gets the upgrade but no
+  allow-list — the same DOM-free posture as the codec load paths, recorded in `docs/open-followups.md` §28.
+  Do not "complete the sweep" by importing the helper there; the guard bans it precisely so you cannot.
   ★★★ AND SO DO THE OTHER THREE ENTITIES, via `withAiRichFields(input, AI_RICH_FIELDS.<entity>)` at the
   six raid/change/milestone create+update sites. Their entity sanitizers (`sanitize-records.ts`) are
   DOM-FREE and therefore CANNOT run an allow-list — verified: `sanitizeRaidItem` stored

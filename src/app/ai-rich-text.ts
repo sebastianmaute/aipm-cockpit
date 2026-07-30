@@ -38,8 +38,14 @@ import { TEXTAREA_MAX } from "./sanitize";
  *  ALLOWED_URI_REGEXP drops a `javascript:` href.
  *
  *  ★ Consequence worth knowing: this admits `u`/`h1`/`h2` (the template list is a
- *  superset of the note list). The lean editor drops them when the field is next
- *  opened, so they degrade rather than corrupt. */
+ *  superset of the note list). MID-DOCUMENT they degrade — the lean editor drops
+ *  them when the field is next opened.
+ *  ★★ But a value that STARTS with one never gets here as markup at all:
+ *  `HTML_START` recognises only p/br/strong/em/ul/ol/li/a, so `<h1>T</h1><p>b</p>`
+ *  fails the HTML test in layer 1 and `plainToHtml` escapes the WHOLE value into
+ *  permanent visible tags. Same for a leading `<div>`, `<h3>` or `<!--comment-->`.
+ *  That is the `HTML_START` classification family (open-followups.md §32), not
+ *  something this boundary can fix — do not read "they degrade" as unconditional. */
 export function sanitizeAiRichText(raw: unknown): string {
   const upgraded = sanitizeRichText(raw, TEXTAREA_MAX);
   if (!upgraded) return "";
