@@ -2077,7 +2077,11 @@ const enUS = {
   raciSuggestTruncated: "The proposal was capped; some assignments were not returned.",
   raciSuggestContextTruncated:
     "This project is large, so Claude was shown only some of its stakeholders and milestones. Anyone left out has no proposal here.",
-  raciSuggestAllSkipped: "Every proposed assignment was refused. Nothing can be applied.",
+  raciSuggestAllSkipped: "None of the proposed assignments can be applied.",
+  raciSuggestAllExisting:
+    "Every assignment Claude proposed is already in place. Nothing needs to change.",
+  raciSuggestSkippedInvalidRole:
+    "{0} proposed assignments were refused because the role letter was not one of R, A, C or I.",
   activityAiRaciSuggest: "Applied {0} AI-proposed RACI assignments",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
   integrationsTursoUrlTooltip: "Cloud database: use the libsql:// URL (or https://) from `turso db show <db>`. Local/self-hosted server: http:// on localhost only (127.0.0.1/::1), which needs no token.",

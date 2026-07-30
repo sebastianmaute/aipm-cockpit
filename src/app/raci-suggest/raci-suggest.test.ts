@@ -132,10 +132,33 @@ describe("groundRaciCells", () => {
     expect(g.cells[0].role).toBe("R");
   });
 
-  it("drops a no-op cell whose proposed role already matches", () => {
+  it("drops a no-op cell whose proposed role already matches, and COUNTS it", () => {
     const withR = [sh(1, "Ada", { raci: { "10": "R" } }), sh(2, "Bo")];
     const g = groundRaciCells([{ stakeholderId: 1, milestoneId: 10, role: "R" }], withR, milestones);
     expect(g.cells).toEqual([]);
+    // The count is what lets the caller distinguish "the model proposed
+    // nothing" from "the model proposed what you already have". Without it the
+    // hook told the user the former, which is false and is the ORDINARY result
+    // of re-running against a populated matrix.
+    expect(g.noOp).toBe(1);
+    expect(g.skipped).toEqual([]);
+  });
+
+  it("reports noOp as 0 when every cell is a real change", () => {
+    const g = groundRaciCells([{ stakeholderId: 1, milestoneId: 10, role: "R" }], stakeholders, milestones);
+    expect(g.noOp).toBe(0);
+  });
+
+  it("omits EXISTING ASSIGNMENTS for milestones outside the shown slice", () => {
+    // The prompt must not disclose an id the MILESTONES block never listed —
+    // otherwise the model is invited to reason about a row it cannot see.
+    const manyMs = Array.from({ length: MAX_CONTEXT_MILESTONES + 2 }, (_, i) => ms(2000 + i, `X${i}`));
+    const hidden = String(2000 + MAX_CONTEXT_MILESTONES); // first id past the cap
+    const shown = "2000";
+    const withBoth = [sh(1, "Ada", { raci: { [hidden]: "A", [shown]: "C" } })];
+    const ctx = buildRaciContext(withBoth, manyMs);
+    expect(ctx.text).toContain(`1 | ${shown} | C`);
+    expect(ctx.text).not.toContain(`1 | ${hidden} | A`);
   });
 });
 

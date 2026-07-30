@@ -80,11 +80,13 @@ interface HarnessProps {
   onSaves?: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   /** Override the milestone list so a test can exceed the context cap. */
   milestones?: Milestone[];
+  /** Seed stakeholder 1's stored RACI so a proposal can be a pure no-op. */
+  stakeholderRaci?: Record<string, string>;
 }
 
-function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp }: HarnessProps) {
+function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci }: HarnessProps) {
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([
-    { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: {} },
+    { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: (stakeholderRaci ?? {}) as Stakeholder["raci"] },
     { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: {} },
   ]);
   const suggest = useRaciSuggest({
@@ -120,6 +122,56 @@ function renderHarness(props: HarnessProps = {}) {
 describe("useRaciSuggest (plan-then-apply)", () => {
   beforeEach(() => { vi.clearAllMocks(); });
   afterEach(() => { vi.restoreAllMocks(); });
+
+  it("says the assignments already exist rather than 'Claude proposed no assignments'", async () => {
+    // Every proposed cell matches what is stored, so grounding drops them all
+    // as no-ops: zero cells AND zero skips. The model DID propose — claiming
+    // otherwise is false, and this is the ordinary outcome of re-running
+    // against a populated matrix, so it is the most-seen message of the two.
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [{ stakeholderId: 1, milestoneId: 10, role: "R" }],
+      truncated: false,
+    });
+    renderHarness({ stakeholderRaci: { "10": "R" } });
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "raciSuggestAllExisting")),
+    );
+    expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "raciSuggestNoProposal"));
+  });
+
+  it("reports a capped context even when the result is EMPTY", async () => {
+    // The modal is the only renderer of that notice and this path never opens
+    // it, so the signal was computed and dropped exactly where "why is this
+    // empty?" most needs answering.
+    const many: Milestone[] = Array.from({ length: MAX_CONTEXT_MILESTONES + 5 }, (_, i) => ({
+      id: 1000 + i, name: `M${i}`, date: "2026-03-01",
+    }) as Milestone);
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({ cells: [], truncated: false });
+    renderHarness({ milestones: many });
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "raciSuggestContextTruncated")),
+    );
+  });
+
+  it("names the trigger by its BUSY label while a proposal is in flight", async () => {
+    // WCAG 2.5.3: the visible text flips to "Asking Claude…", so the accessible
+    // name must follow it. Every other test here matches /suggest raci/i, which
+    // never observes the busy state at all.
+    let release: (v: { cells: never[]; truncated: boolean }) => void = () => {};
+    vi.mocked(call.runRaciSuggestion).mockReturnValue(
+      new Promise((res) => { release = res; }) as ReturnType<typeof call.runRaciSuggestion>,
+    );
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: t("en-US", "raciSuggestThinking") }),
+      ).toBeTruthy(),
+    );
+    release({ cells: [], truncated: false });
+  });
 
   it("renders NO trigger when there are no milestones to assign against", () => {
     // The hook's own guard. raci-panel's equivalent test cannot reach it — that

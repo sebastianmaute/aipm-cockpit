@@ -173,8 +173,20 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
       setTruncated(parsed.truncated || grounded.truncated);
       setContextTruncated(context.truncated);
       if (grounded.cells.length === 0 && grounded.skipped.length === 0) {
-        // Nothing at all came back — only now is "nothing was proposed" true.
-        showToast("info", t(lang, "raciSuggestNoProposal"));
+        // Three different outcomes reach this branch and they are not the same
+        // sentence. "Claude proposed no assignments" is only true when nothing
+        // came back at all; when every cell was dropped as a no-op the model
+        // DID propose — you already have what it suggested, which is the
+        // ordinary result of re-running against a populated matrix.
+        showToast(
+          "info",
+          t(lang, grounded.noOp > 0 ? "raciSuggestAllExisting" : "raciSuggestNoProposal"),
+        );
+        // The modal is the only renderer of the context-cap notice, and this
+        // path never opens it — so on a capped project that proposed nothing,
+        // the one case where "why is this empty?" most needs answering, the
+        // signal would be computed and then silently dropped. Again.
+        if (context.truncated) showToast("info", t(lang, "raciSuggestContextTruncated"));
         setPhase("idle");
         return;
       }

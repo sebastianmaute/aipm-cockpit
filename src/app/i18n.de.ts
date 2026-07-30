@@ -2071,7 +2071,11 @@ export const de: Record<TranslationKey, string> = {
   raciSuggestTruncated: "Der Vorschlag wurde gekürzt; einige Zuordnungen fehlen.",
   raciSuggestContextTruncated:
     "Dieses Projekt ist groß, daher wurden Claude nur einige Stakeholder und Meilensteine gezeigt. Für alle übrigen gibt es hier keinen Vorschlag.",
-  raciSuggestAllSkipped: "Alle vorgeschlagenen Zuordnungen wurden abgelehnt. Es kann nichts übernommen werden.",
+  raciSuggestAllSkipped: "Keine der vorgeschlagenen Zuordnungen kann übernommen werden.",
+  raciSuggestAllExisting:
+    "Alle von Claude vorgeschlagenen Zuordnungen sind bereits vorhanden. Es muss nichts geändert werden.",
+  raciSuggestSkippedInvalidRole:
+    "{0} vorgeschlagene Zuordnungen wurden abgelehnt, da der Rollenbuchstabe nicht R, A, C oder I war.",
   activityAiRaciSuggest: "{0} von der KI vorgeschlagene RACI-Zuordnungen übernommen",
   calendarSyncAuto: "Automatisch synchron halten",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",

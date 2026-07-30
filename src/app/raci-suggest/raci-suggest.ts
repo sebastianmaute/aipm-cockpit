@@ -69,7 +69,7 @@ export function groundRaciCells(
   proposed: readonly ProposedCell[],
   stakeholders: readonly Stakeholder[],
   milestones: readonly Milestone[],
-): { cells: GroundedRaciCell[]; skipped: SkippedRaciCell[]; truncated: boolean } {
+): { cells: GroundedRaciCell[]; skipped: SkippedRaciCell[]; truncated: boolean; noOp: number } {
   const byStakeholder = new Map(stakeholders.map((s) => [s.id, s]));
   const byMilestone = new Map(milestones.map((m) => [m.id, m]));
 
@@ -87,6 +87,12 @@ export function groundRaciCells(
   const cells: GroundedRaciCell[] = [];
   const skipped: SkippedRaciCell[] = [];
   const seen = new Set<string>();
+  // Cells dropped because the role proposed is the role already stored. They
+  // are neither shown nor refused, so without a count the caller cannot tell
+  // "the model proposed nothing" from "the model proposed things you already
+  // have" — and told the user the former, which is false and far more
+  // reachable: re-running against an already-populated matrix is the norm.
+  let noOp = 0;
 
   for (const c of proposed) {
     if (cells.length >= MAX_RACI_CELLS) break;
@@ -122,7 +128,10 @@ export function groundRaciCells(
     // user to confirm each cell, and a row reading "current A -> proposed A" is
     // a decision with no consequence. Legality (above) and worth-showing (here)
     // are separate questions — an Accountable re-assertion is legal AND a no-op.
-    if (currentRole === c.role) continue;
+    if (currentRole === c.role) {
+      noOp += 1;
+      continue;
+    }
 
     cells.push({
       ...c,
@@ -132,7 +141,7 @@ export function groundRaciCells(
     });
   }
 
-  return { cells, skipped, truncated: proposed.length > MAX_RACI_CELLS };
+  return { cells, skipped, truncated: proposed.length > MAX_RACI_CELLS, noOp };
 }
 
 /** Compact English digest for the model. Capped, and reports the cap — a silent

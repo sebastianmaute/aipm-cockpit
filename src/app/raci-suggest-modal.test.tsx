@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { RaciSuggestModal } from "./raci-suggest-modal";
 import { t } from "./i18n";
 import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
@@ -114,6 +114,50 @@ describe("RaciSuggestModal skipped-cell reporting", () => {
     );
     expect(screen.getByText(t("en-US", "raciSuggestContextTruncated"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "raciSuggestTruncated"))).not.toBeInTheDocument();
+  });
+
+  it("gives invalid-role its OWN sentence, not the no-match one", () => {
+    // invalid-role is not a no-match: both the stakeholder and the milestone
+    // resolved, and only the role letter was rejected. Telling that user the
+    // cell "did not match this project" is the same wrong answer the bucketing
+    // exists to remove. Without this test, mapping invalid-role back into the
+    // catch-all is a one-character revert that leaves the suite green.
+    renderSkipped([skip("invalid-role")]);
+    expect(screen.getByText(t("en-US", "raciSuggestSkippedInvalidRole", 1))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "raciSuggestSkipped", 1))).not.toBeInTheDocument();
+  });
+
+  it("lists the buckets in a FIXED order regardless of the order skips arrive", () => {
+    // The counts live in a Map, which iterates in insertion order — i.e. the
+    // order the model happened to return its skips. Two runs of the same
+    // feature on the same project would otherwise list the same explanations
+    // in different orders.
+    const read = () =>
+      Array.from(document.querySelectorAll("p"))
+        .map((p) => p.textContent ?? "")
+        .filter((s) =>
+          [
+            t("en-US", "raciSuggestSkipped", 1),
+            t("en-US", "raciSuggestSkippedInvalidRole", 1),
+            t("en-US", "raciSuggestSkippedAccountable", 1),
+          ].includes(s),
+        );
+
+    renderSkipped([skip("invalid-role"), skip("unknown-stakeholder"), skip("duplicate-accountable")]);
+    const first = read();
+    cleanup();
+    renderSkipped([skip("duplicate-accountable"), skip("unknown-stakeholder"), skip("invalid-role")]);
+    expect(read()).toEqual(first);
+    expect(first).toHaveLength(3);
+  });
+
+  it("says nothing can be applied when there are no cells to apply", () => {
+    // The zero-cell branch. "Claude proposed no assignments" is false here —
+    // it proposed them and they were refused — and this branch had no test at
+    // all, so that wording could return silently.
+    renderSkipped([skip("unknown-stakeholder")]);
+    expect(screen.getByText(t("en-US", "raciSuggestAllSkipped"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "raciSuggestNoProposal"))).not.toBeInTheDocument();
   });
 
   it("counts the two buckets separately when both occur", () => {

@@ -24,6 +24,41 @@ import {
   type SkippedRaciCell,
 } from "./raci-suggest/raci-suggest";
 
+type SkipMessageKey =
+  | "raciSuggestSkipped"
+  | "raciSuggestSkippedInvalidRole"
+  | "raciSuggestSkippedAccountable";
+
+// The four SkipReasons do not share an explanation, so they cannot share a
+// count. TWO of them mean the cell named something this project does not have.
+// "duplicate-accountable" means the opposite — everything resolved, and it was
+// refused because the milestone already has an Accountable, which is the one
+// skip a PM can act on. "invalid-role" is a third thing again: the stakeholder
+// and milestone both resolved and only the role letter was rejected, so "did
+// not match this project" is wrong for it too.
+//
+// EXHAUSTIVE Record on purpose: adding a SkipReason is then a compile error
+// here, forcing a decision about how it reads instead of letting it default
+// into whichever bucket happens to be the catch-all — which is exactly how
+// invalid-role came to describe itself incorrectly. Module-level and typed,
+// matching alloc-plan-modal's table, so the render site needs no cast.
+const SKIP_REASON_KEY: Record<SkippedRaciCell["reason"], SkipMessageKey> = {
+  "unknown-stakeholder": "raciSuggestSkipped",
+  "unknown-milestone": "raciSuggestSkipped",
+  "invalid-role": "raciSuggestSkippedInvalidRole",
+  "duplicate-accountable": "raciSuggestSkippedAccountable",
+};
+
+// Render order is FIXED here, not taken from the Map. A Map iterates in
+// insertion order, which is the order the model happened to return its skips —
+// so two runs of the same feature on the same project listed the same
+// explanations in different orders. Deterministic output is worth one array.
+const SKIP_KEY_ORDER: readonly SkipMessageKey[] = [
+  "raciSuggestSkipped",
+  "raciSuggestSkippedInvalidRole",
+  "raciSuggestSkippedAccountable",
+];
+
 export interface RaciSuggestModalProps {
   lang: Lang;
   open: boolean;
@@ -85,17 +120,11 @@ export function RaciSuggestModal({
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
   const canConfirm = !busy && selectedCount > 0;
 
-  // The four SkipReasons do NOT share an explanation, so they cannot share a
-  // count. Three of them mean the cell named something this project does not
-  // have; "duplicate-accountable" means the opposite — the cell matched, and was
-  // refused because the milestone already has an Accountable. Collapsing both
-  // into one total told the user the ownership conflict "did not match this
-  // project", which is the single skip they would actually act on.
-  const skippedAccountable = skipped.reduce(
-    (n, s) => (s.reason === "duplicate-accountable" ? n + 1 : n),
-    0,
-  );
-  const skippedUnmatched = skipped.length - skippedAccountable;
+  const skippedByKey = new Map<SkipMessageKey, number>();
+  for (const s of skipped) {
+    const key = SKIP_REASON_KEY[s.reason];
+    skippedByKey.set(key, (skippedByKey.get(key) ?? 0) + 1);
+  }
 
   return (
     <Modal open={open} onClose={busy ? () => {} : onCancel} ariaLabel={title}>
@@ -190,10 +219,9 @@ export function RaciSuggestModal({
 
           {skipped.length > 0 && (
             <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
-              {skippedUnmatched > 0 && <p>{t(lang, "raciSuggestSkipped", skippedUnmatched)}</p>}
-              {skippedAccountable > 0 && (
-                <p>{t(lang, "raciSuggestSkippedAccountable", skippedAccountable)}</p>
-              )}
+              {SKIP_KEY_ORDER.filter((key) => (skippedByKey.get(key) ?? 0) > 0).map((key) => (
+                <p key={key}>{t(lang, key, skippedByKey.get(key) ?? 0)}</p>
+              ))}
             </div>
           )}
         </div>
