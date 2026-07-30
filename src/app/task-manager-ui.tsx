@@ -146,13 +146,9 @@ export function ResetColWidthsButton({
 export function PrintButton({
   onClick,
   lang,
-  iconOnly = false,
 }: {
   onClick?: () => void;
   lang: Lang;
-  /** Render the printer icon only (no "Print" label). aria-label/title keep it
-   *  accessible. Used where space is tight (e.g. the Dashboard). */
-  iconOnly?: boolean;
 }) {
   return (
     <button
@@ -163,7 +159,6 @@ export function PrintButton({
       className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
     >
       <PrinterIcon />
-      {!iconOnly && t(lang, "print")}
     </button>
   );
 }

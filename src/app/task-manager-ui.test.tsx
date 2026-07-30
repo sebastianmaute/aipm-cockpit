@@ -2,11 +2,18 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PrintButton, ResetSizeButton, ColumnResizeHandle } from "./task-manager-ui";
+import { t } from "./i18n";
 
 describe("PrintButton", () => {
   it("renders the Print label", () => {
     render(<PrintButton lang="en-US" />);
     expect(screen.getByRole("button", { name: /print/i })).toBeInTheDocument();
+  });
+
+  it("renders the icon only — no visible Print label — but keeps its accessible name", () => {
+    render(<PrintButton lang="en-US" />);
+    const btn = screen.getByRole("button", { name: t("en-US", "printHint") });
+    expect(btn.textContent).toBe("");
   });
 
   it("calls a passed onClick when clicked", async () => {

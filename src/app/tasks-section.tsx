@@ -795,7 +795,7 @@ export function TasksSection({
             )}
           </>
         )}
-        <PrintButton lang={lang} iconOnly />
+        <PrintButton lang={lang} />
         <ResetSizeButton onClick={resetTableSize} lang={lang} />
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
         <button
