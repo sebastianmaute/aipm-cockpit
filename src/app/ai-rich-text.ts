@@ -6,9 +6,9 @@
 // it CALLS DOMPurify, and rich-text-plain.ts must never do that — it runs inside
 // the entity sanitizers under bare node, where a DOMPurify call throws and
 // jsonToWorkspace's catch-all converts the throw into an EMPTY workspace that then
-// "successfully" writes near-empty sample files. Every caller of this function is
-// browser-side (a React hook or a browser-only proposal path), so the DOM is
-// there; keeping it out of the DOM-free module is what preserves that guarantee.
+// "successfully" writes near-empty sample files. Every caller here is browser-side
+// (a React hook or a browser-only proposal path), so the DOM is there; keeping it
+// out of the DOM-free module is what preserves that guarantee.
 import { sanitizeRichText } from "./rich-text-plain";
 import { sanitizeTemplateHtml } from "./sanitize-html";
 import { TEXTAREA_MAX } from "./sanitize";
@@ -48,4 +48,41 @@ export function sanitizeAiRichText(raw: unknown): string {
   // element (e.g. "<p><script>x</script></p>"), so re-apply the empty rule —
   // otherwise a phantom "<p></p>" reaches the `if (description)` gates.
   return sanitizeRichText(clean, TEXTAREA_MAX);
+}
+
+/** The rich fields each AI-writable entity owns.
+ *
+ *  ★★★ `Task.description` is NOT here: its boundary calls `sanitizeAiRichText`
+ *  directly, because the dispatcher builds that patch field-by-field. The other
+ *  three hand a WHOLE OBJECT to their entity sanitizer, and those sanitizers are
+ *  DOM-FREE (`sanitize-records.ts` → `sanitizeRichText`) so they CANNOT run an
+ *  allow-list — which is exactly why the model's value must be cleaned before it
+ *  gets there. Verified directly: `sanitizeRaidItem({… description:
+ *  "<p>ok</p><script>alert(1)</script>"})` stored that script verbatim. */
+export const AI_RICH_FIELDS = {
+  raid: ["description", "mitigation"],
+  change: ["description", "impactDescription", "resolutionNotes"],
+  milestone: ["description"],
+} as const;
+
+/** Clean the named rich fields on a MODEL-supplied object, leaving the rest alone.
+ *
+ *  ★★ Apply this to the model's INPUT/PATCH, never to the merged entity: an update
+ *  spreads the already-stored value, and re-running the allow-list over storage
+ *  would rewrite bytes this call never asked to touch (and would unwrap a tag some
+ *  older path legitimately stored).
+ *
+ *  ★★ A field the model did not supply is SKIPPED, not blanked — `undefined` has
+ *  to stay `undefined` so an update patch keeps meaning "leave this alone".
+ *  Without that guard, renaming a RAID item would erase its stored description and
+ *  mitigation; both halves are mutation-proved in the tests. */
+export function withAiRichFields<T extends object>(raw: T, fields: readonly string[]): T {
+  let out: Record<string, unknown> | null = null;
+  for (const field of fields) {
+    const value = (raw as Record<string, unknown>)[field];
+    if (value === undefined) continue;
+    out ??= { ...(raw as Record<string, unknown>) };
+    out[field] = sanitizeAiRichText(value);
+  }
+  return (out ?? raw) as T;
 }

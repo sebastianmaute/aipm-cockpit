@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeAiRichText } from "./ai-rich-text";
+import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
 
 // The write boundary for a rich field whose value came from a MODEL. Two layers:
 // upgrade-aware (accept plain OR HTML) and allow-listed (an actual DOMPurify pass,
@@ -63,5 +63,59 @@ describe("sanitizeAiRichText — allow-list layer", () => {
     // allow-list has run; it must return "" rather than a phantom "<p></p>",
     // which every `if (description)` gate would store.
     expect(sanitizeAiRichText("<p><script>x</script></p>")).toBe("");
+  });
+});
+
+describe("withAiRichFields", () => {
+  it("cleans the named rich fields and leaves everything else untouched", () => {
+    const out = withAiRichFields(
+      { id: 7, title: "T <keep>", description: "<p>ok</p><script>alert(1)</script>", owner: "Ada" },
+      AI_RICH_FIELDS.raid,
+    );
+    expect(out.description).not.toContain("script");
+    expect(out.description).toContain("ok");
+    // A non-rich field is NOT sanitized here — its own field sanitizer owns it,
+    // and quietly rewriting it would be scope creep at a security boundary.
+    expect(out.title).toBe("T <keep>");
+    expect(out.owner).toBe("Ada");
+    expect(out.id).toBe(7);
+  });
+
+  it("SKIPS a field the model did not supply, rather than blanking it", () => {
+    // ★★ Load-bearing for updates: an absent key means "leave this alone". If the
+    // helper wrote "" for it, every update patch would ERASE the stored
+    // description and mitigation of the item it was only meant to retitle.
+    const patch = { title: "New title" };
+    const out = withAiRichFields(patch, AI_RICH_FIELDS.raid);
+    expect("description" in out).toBe(false);
+    expect("mitigation" in out).toBe(false);
+    // Nothing to clean ⇒ the SAME object comes back, so the caller's spread is
+    // byte-for-byte what it was before.
+    expect(out).toBe(patch);
+  });
+
+  it("covers every rich field of each AI-writable entity", () => {
+    // A field missing from these lists is a field a model can write unsanitized —
+    // the exact gap that shipped for Task.description. Pinned as a set so adding
+    // a rich field to an entity forces a decision here.
+    expect([...AI_RICH_FIELDS.raid]).toEqual(["description", "mitigation"]);
+    expect([...AI_RICH_FIELDS.change]).toEqual([
+      "description",
+      "impactDescription",
+      "resolutionNotes",
+    ]);
+    expect([...AI_RICH_FIELDS.milestone]).toEqual(["description"]);
+  });
+
+  it("cleans EVERY listed field, not just the first", () => {
+    const out = withAiRichFields(
+      {
+        description: "<p>a</p><script>x</script>",
+        impactDescription: "<p>b</p><script>y</script>",
+        resolutionNotes: "<p>c</p><script>z</script>",
+      },
+      AI_RICH_FIELDS.change,
+    );
+    for (const v of Object.values(out)) expect(v).not.toContain("script");
   });
 });

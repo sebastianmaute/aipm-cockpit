@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { TestProviders } from "./test-providers";
+import { useWorkspace } from "./workspace-context";
 import { type Settings } from "./settings-types";
 import { type StorageConfig } from "./storage";
 import { useTaskForm } from "./task-form-context";
@@ -122,6 +123,32 @@ function seedTasks(): Task[] {
       labels: ["docs"],
     },
   ];
+}
+
+/** Dispatcher + live workspace, for the RAID/change/milestone write boundaries.
+ *  Their create/update return a SUMMARY (no rich fields), so the only way to
+ *  assert what was actually WRITTEN is to read the stored entity. */
+function renderRaidProbe() {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <TestProviders>{children}</TestProviders>
+  );
+  return renderHook(
+    () => ({
+      d: useChatDispatcher({
+        settings: makeSettings(),
+        today: "2026-05-19",
+        setSelectedIds: vi.fn(),
+        setSettings: vi.fn(),
+        isReadOnly: false,
+        currentView: "raid",
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot,
+      }),
+      ws: useWorkspace(),
+    }),
+    { wrapper },
+  );
 }
 
 function renderDispatcher(
@@ -317,6 +344,54 @@ describe("useChatDispatcher", () => {
     });
     expect(created?.description).toBe(html);
     expect(created?.description).not.toContain("&lt;");
+  });
+
+  it("strips a script from a RAID description the model supplies", () => {
+    // ★★★ The fix for Task.description was scoped to ONE entity while the rule it
+    // documented said "every rich write boundary". RAID/change/milestone hand a
+    // whole object to their entity sanitizer, and those are DOM-FREE
+    // (sanitize-records → sanitizeRichText), so they cannot run an allow-list —
+    // verified directly: sanitizeRaidItem stored "<script>alert(1)</script>"
+    // verbatim. The model's value has to be cleaned before it gets there.
+    // ★ createRaid returns a SUMMARY (no description), so the assertion has to
+    // read the STORED item — which is also the only thing that proves the write.
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.d.createRaid({
+        category: "R",
+        title: "Vendor risk",
+        status: "Open",
+        description: "<p>real risk</p><script>alert(1)</script>",
+        mitigation: "<p>plan</p><img src=x onerror=alert(2)>",
+      });
+    });
+    const stored = result.current.ws.raid[0];
+    expect(stored.description).not.toContain("script");
+    expect(stored.description).toContain("real risk");
+    expect(stored.mitigation).not.toContain("onerror");
+    expect(stored.mitigation).toContain("plan");
+  });
+
+  it("keeps a RAID update from erasing the stored description it did not touch", () => {
+    // ★★ The other half of the helper's contract, at the real seam: a patch that
+    // names only the title must leave description/mitigation exactly as stored.
+    // Blanking an unsupplied rich field here would silently wipe both.
+    const { result } = renderRaidProbe();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createRaid({
+        category: "R",
+        title: "Keep me",
+        status: "Open",
+        description: "<p>original <strong>detail</strong></p>",
+      })!.id;
+    });
+    act(() => {
+      result.current.d.updateRaid(id, { title: "Renamed" });
+    });
+    const stored = result.current.ws.raid[0];
+    expect(stored.title).toBe("Renamed");
+    expect(stored.description).toBe("<p>original <strong>detail</strong></p>");
   });
 
   it("createTask defaults status to 'To Do' when omitted", () => {

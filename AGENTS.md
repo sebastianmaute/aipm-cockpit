@@ -499,6 +499,16 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   description through a read tool and echoes HTML back), so 0.210.0 added a second route and made a hit
   far likelier — it did not create reachability from nothing. All four boundaries now go through
   **`sanitizeAiRichText`** (`ai-rich-text.ts`); chat and persisted insight-recommendation replay share two.
+  ★★★ AND SO DO THE OTHER THREE ENTITIES, via `withAiRichFields(input, AI_RICH_FIELDS.<entity>)` at the
+  six raid/change/milestone create+update sites. Their entity sanitizers (`sanitize-records.ts`) are
+  DOM-FREE and therefore CANNOT run an allow-list — verified: `sanitizeRaidItem` stored
+  `<script>alert(1)</script>` verbatim — so the model's value is cleaned BEFORE it reaches them. Fixing
+  only `Task.description` (as 0.210.0 first did) left six model-writable rich fields unguarded while this
+  very bullet claimed "EVERY write boundary". ★★ Apply it to the model's INPUT/PATCH, never to the merged
+  entity: an update spreads the STORED value, and re-sanitizing that rewrites bytes the call never asked
+  to touch. ★★ A field the model did not supply must be SKIPPED, not blanked — otherwise renaming a RAID
+  item erases its stored description and mitigation. ★ A new rich field on an AI-writable entity goes in
+  `AI_RICH_FIELDS` (a test pins each list, so adding one forces the decision).
   ★★★ That helper is TWO layers and both are load-bearing: `sanitizeRichText` (upgrade-aware, DOM-free,
   caps + drops-empty) THEN `sanitizeTemplateHtml` (the actual DOMPurify allow-list). Layer 1 alone CANNOT
   sanitize — it is DOM-free by contract and `descriptionHtml` passes HTML-shaped input through verbatim,

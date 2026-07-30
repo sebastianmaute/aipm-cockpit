@@ -48,7 +48,7 @@ import {
   sanitizeStakeholder,
   sanitizeResource,
 } from "./sanitize";
-import { sanitizeAiRichText } from "./ai-rich-text";
+import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
 import {
   NEXT_ACTIONS_FIELD_COERCE,
   resolveNextActionsConfig,
@@ -547,7 +547,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const id = mintId("raid", raidRef.current);
         const sanitized = sanitizeRaidItem({
-          ...input,
+          ...withAiRichFields(input, AI_RICH_FIELDS.raid),
           id,
           raisedDate: input.raisedDate || todayRef.current,
           linkedTaskIds: input.linkedTaskIds ?? [],
@@ -571,7 +571,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         const merged = sanitizeRaidItem({
           ...existing,
-          ...patch,
+          ...withAiRichFields(patch, AI_RICH_FIELDS.raid),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -594,7 +594,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const id = mintId("change", changesRef.current);
         const sanitized = sanitizeChangeItem({
-          ...input,
+          ...withAiRichFields(input, AI_RICH_FIELDS.change),
           id,
           raisedDate: input.raisedDate || todayRef.current,
           linkedTaskIds: input.linkedTaskIds ?? [],
@@ -616,7 +616,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         const merged = sanitizeChangeItem({
           ...existing,
-          ...patch,
+          ...withAiRichFields(patch, AI_RICH_FIELDS.change),
           id,
           localModifiedAt: new Date().toISOString(),
         });
@@ -639,7 +639,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (args.isReadOnly) throw readOnlyError();
         const id = mintId("milestone", milestonesRef.current);
         const item = sanitizeMilestone({
-          ...input,
+          ...withAiRichFields(input, AI_RICH_FIELDS.milestone),
           id,
           linkedTaskIds: input.linkedTaskIds ?? [],
         });
@@ -655,7 +655,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!existing) return null;
         const merged = sanitizeMilestone({
           ...existing,
-          ...patch,
+          ...withAiRichFields(patch, AI_RICH_FIELDS.milestone),
           id,
           localModifiedAt: new Date().toISOString(),
         });
