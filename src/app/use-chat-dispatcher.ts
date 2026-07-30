@@ -40,7 +40,6 @@ import {
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizeNonNegInt,
-  sanitizeNotes,
   sanitizePriority,
   sanitizeTaskName,
   sanitizeRaidItem,
@@ -48,8 +47,9 @@ import {
   sanitizeMilestone,
   sanitizeStakeholder,
   sanitizeResource,
+  TEXTAREA_MAX,
 } from "./sanitize";
-import { plainToHtml } from "./sanitize-html";
+import { sanitizeRichText } from "./rich-text-plain";
 import {
   NEXT_ACTIONS_FIELD_COERCE,
   resolveNextActionsConfig,
@@ -267,8 +267,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           priority: sanitizePriority(input.priority),
           status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
-          // Model supplies plain text → wrap to sanitized HTML for `description`.
-          description: plainToHtml(sanitizeNotes(input.description ?? input.notes)),
+          // ★★★ The model may supply EITHER plain text or HTML, so this must be
+          // the upgrade-aware validator — the same one the other three rich
+          // entities use. `plainToHtml(sanitizeNotes(x))` ESCAPES & < >, which
+          // silently stored "<p>&lt;p&gt;…" for an HTML value. See the note on
+          // the update boundary below.
+          description: sanitizeRichText(input.description ?? input.notes, TEXTAREA_MAX),
           inquiriesSent: 0,
           group: sanitizeGroup(input.group),
           labels: sanitizeLabels(input.labels),
@@ -344,10 +348,23 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           );
         if (patch.blockers !== undefined)
           cleanPatch.blockers = sanitizeBlockers(patch.blockers);
-        // buildPatch carries the model's plain text through as `description`;
-        // wrap it to sanitized HTML here (the single write boundary).
+        // ★★★ The SINGLE write boundary for Task.description, and it must accept
+        // BOTH shapes. It used to be `plainToHtml(sanitizeNotes(x))`, which
+        // escapes & < >: an HTML value was stored as
+        // "<p>&lt;p&gt;&lt;strong&gt;…" — literal tags in the field, in every
+        // export and in the search index. Task was the ONE rich field with a
+        // plain-text-in boundary; RAID/change/milestone all route through
+        // sanitizeRichText, where descriptionHtml passes HTML through and
+        // upgrades plain text. Now so does this.
+        //
+        // ★★ 0.210.0 made the corrupting path reachable: renaming the inline-AI
+        // descriptor's dead "notes" to "description" produced a task-description
+        // diff for the first time, and the confirm path applies the model's
+        // VERBATIM value (`diff.raw`) — which is HTML, because the model is handed
+        // the stored HTML to read. Chat and persisted insight-recommendation
+        // replay share this boundary and are fixed by the same change.
         if (patch.description !== undefined)
-          cleanPatch.description = plainToHtml(sanitizeNotes(patch.description));
+          cleanPatch.description = sanitizeRichText(patch.description, TEXTAREA_MAX);
         if (patch.inquiriesSent !== undefined)
           cleanPatch.inquiriesSent = sanitizeNonNegInt(patch.inquiriesSent);
         if (patch.group !== undefined)

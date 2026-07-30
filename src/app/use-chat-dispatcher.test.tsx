@@ -274,6 +274,51 @@ describe("useChatDispatcher", () => {
     expect(result.current.getTask(1)?.priority).toBe("Urgent");
   });
 
+  it("updateTask stores HTML in description as HTML, not double-escaped", () => {
+    // ★★★ THE SEAM. Task.description is rich HTML, but this is the one rich
+    // field whose write boundary was plain-text-in: `plainToHtml(sanitizeNotes(x))`
+    // ESCAPES & < >, so an HTML value arriving here was stored as
+    // "<p>&lt;p&gt;…&lt;/p&gt;</p>" — literal tags visible in the field, in every
+    // export, and in the search index thereafter.
+    //
+    // ★★ 0.210.0 is what made this REACHABLE: renaming the inline-AI descriptor's
+    // dead "notes" to "description" produced a task-description diff for the
+    // first time, and the confirm path applies the model's VERBATIM value, which
+    // it echoes back as HTML because it was handed the stored HTML to read. The
+    // path used to be inert ("No changes to apply.").
+    //
+    // ★ The existing inline-AI tests stop one hop short of this: they spy on
+    // runTool and assert what reaches the tool, never what the tool WRITES.
+    const { result } = renderDispatcher();
+    const html = "<p><strong>Vendor</strong> delay</p><p>New plan</p>";
+    const updated = result.current.updateTask(1, { description: html });
+    expect(updated?.description).toBe(html);
+    expect(updated?.description).not.toContain("&lt;");
+  });
+
+  it("updateTask still upgrades a PLAIN-text description to HTML", () => {
+    // The other half: the chat model usually sends prose, and that must still be
+    // wrapped and escaped. Fixing the HTML case must not stop this working.
+    const { result } = renderDispatcher();
+    const updated = result.current.updateTask(1, { description: "a < b\nsecond line" });
+    expect(updated?.description).toBe("<p>a &lt; b<br>second line</p>");
+  });
+
+  it("createTask stores an HTML description as HTML too", () => {
+    // Same boundary, create side — the shape the cold review flagged as the
+    // pre-existing twin of the update defect.
+    const { result } = renderDispatcher();
+    const html = "<p>one</p><p>two</p>";
+    const created = result.current.createTask({
+      taskName: "Rich",
+      assignee: "Ada",
+      dueDate: "2026-09-01",
+      description: html,
+    });
+    expect(created?.description).toBe(html);
+    expect(created?.description).not.toContain("&lt;");
+  });
+
   it("createTask defaults status to 'To Do' when omitted", () => {
     const { result } = renderDispatcher();
     const created = result.current.createTask({

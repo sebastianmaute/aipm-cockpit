@@ -36,7 +36,10 @@ that exporting and re-importing a project round-trips without loss.
   "Ask Claude" edit wrote the plain-text *preview* over the field instead of the
   value the assistant proposed, silently discarding bold, lists and links from
   task, RAID, change and milestone descriptions. The preview still shows readable
-  text; the value saved keeps its formatting.
+  text; the value saved keeps its formatting. Fixing that exposed a second half
+  in the same path — a task description in particular was then stored with its
+  formatting tags escaped into visible text — so the write behind it now accepts
+  formatted and plain text alike, the way the other three registers already did.
 - **Fixed: an inline AI edit could not change a task description at all.** The
   editor's field list still named the description by its pre-0.196.0 name, so an
   "Ask Claude" edit that changed a task description produced no proposed change
