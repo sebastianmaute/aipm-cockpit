@@ -51,7 +51,9 @@ import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manag
 import { EmptyState } from "./empty-state";
 import { useResizable } from "./use-resizable";
 import { useSortableFilter, type SortDir } from "./report-table";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { EyeSlashIcon } from "@heroicons/react/24/outline";
+import { ToggleButton } from "./toggle-button";
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { ViewCallout } from "./view-callout";
 import {
@@ -492,16 +494,13 @@ function ResourcesPanelInner({
   // Shared by the planning control row and the workload header — the same
   // filter drives both views' resource list.
   const hideExternalToggle = (
-    <label className="flex items-center gap-1.5 text-xs text-foreground">
-      <input
-        type="checkbox"
-        checked={hideExternal}
-        aria-label={t(lang, "planningHideExternal")}
-        onChange={(e) => setHideExternal(e.target.checked)}
-        className={`align-middle ${FOCUS_RING}`}
-      />
-      <span>{t(lang, "planningHideExternal")}</span>
-    </label>
+    <ToggleButton
+      pressed={hideExternal}
+      onToggle={() => setHideExternal((v) => !v)}
+      icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+    >
+      {t(lang, "planningHideExternal")}
+    </ToggleButton>
   );
 
   // The header count sits inches from the Hide-external toggle, so it has to

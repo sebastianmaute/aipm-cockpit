@@ -346,7 +346,7 @@ describe("ResourcesPanel", () => {
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     expect(screen.getByText(/Bob Ext/)).toBeInTheDocument();
     // Toggle "Hide external": the external resource disappears, the internal stays.
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
   });
@@ -373,7 +373,7 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} tasks={tasks} />);
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     expect(screen.getByText(/Bob Ext/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     // Absent from the WHOLE pane — not merely moved into the Unlinked section.
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
@@ -389,7 +389,7 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} />);
     const heading = () => screen.getByRole("heading", { name: /workload/i });
     expect(heading().textContent).toContain(t("en-US", "tasksCount", 2));
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     expect(heading().textContent).toContain(t("en-US", "tasksCount", 1));
   });
 
@@ -408,7 +408,7 @@ describe("ResourcesPanel", () => {
       { id: 1, title: "Late work", assignee: "Alex Example", resourceId: 1, dueDate: "2026-01-01", status: "To Do" as const },
     ] as unknown as Task[];
     render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} tasks={tasks} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     // Bob is gone from the ROWS…
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
     // …but is still offered as a reassign target. The picker lives in a popover
@@ -433,9 +433,26 @@ describe("ResourcesPanel", () => {
           workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
           onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
       );
-      expect(screen.getAllByRole("checkbox", { name: t("en-US", "planningHideExternal") })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: t("en-US", "planningHideExternal") })).toHaveLength(1);
     },
   );
+
+  test("renders hide-external as a toggle button with an icon in both Planning and Workload", () => {
+    const { unmount } = render(<ResourcesPanel {...baseProps} view="workload" />);
+    const wl = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
+    expect(wl.getAttribute("aria-pressed")).toBe("false");
+    expect(wl.querySelector("svg")).toBeTruthy();
+    unmount();
+
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(
+      <ResourcesPanel {...baseProps} view="planning" plan={plan}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+    const pl = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
+    expect(pl.getAttribute("aria-pressed")).toBe("false");
+  });
 
   // The Outlook sync block sat BETWEEN reset-columns and reset-size, splitting
   // a trailing group that reads as one everywhere else in the app.
