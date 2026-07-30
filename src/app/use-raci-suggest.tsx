@@ -1,0 +1,258 @@
+"use client";
+
+// RACI-pane glue for "Suggest RACI" (AI-assisted RACI assignment). Owns the
+// propose -> ground -> preview -> confirm state machine plus the trigger
+// button and the review modal element, mirroring use-tasks-dedup.tsx's shape
+// (no free-text instruction — raci-suggest.ts's engine takes only the live
+// stakeholders/milestones, unlike alloc-plan's instruction-driven flow) with
+// the request-generation nonce, abort handling and error classification of
+// use-alloc-plan.tsx. Plan-then-apply: the single forced Anthropic call
+// PROPOSES RACI cells but NOTHING mutates the workspace until the user
+// confirms per-cell in the modal. Pure logic (context/grounding) lives in
+// ./raci-suggest/raci-suggest and is unit-tested there; this file is render
+// glue, excluded from the coverage gate (src/app/**/*.tsx).
+//
+// SECURITY: the api key is read from the in-memory hydrated settings and
+// passed straight to the call; it is never logged. Model output is UNTRUSTED
+// and is re-grounded against the LIVE stakeholders/milestones
+// (groundRaciCells) before it can touch anything — a hallucinated id, an
+// invalid role, or a second Accountable for a milestone can never reach a
+// write.
+//
+// ★★ APPLY IS THE HIGH-RISK PART. `onSave` (the stakeholders pane's save
+// handler) takes a SINGLE stakeholder and writes the caller's object
+// verbatim; `setRaciRole` returns a pure copy of a SNAPSHOT. Calling onSave
+// once per accepted CELL would make two cells on the same stakeholder (but
+// different milestones) each fold into the same stale snapshot, and the
+// second call would silently drop the first's raci entry — real data loss.
+// `foldCellsByStakeholder` collapses every accepted cell into ONE updated
+// Stakeholder per person before any save happens, so onSave is called
+// exactly once per touched stakeholder.
+
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { SparklesIcon } from "@heroicons/react/24/outline";
+import { type Lang, t } from "./i18n";
+import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
+import { type Milestone, type Stakeholder } from "./types";
+import { type ActivityKind } from "./activity-log";
+import { useToastContext } from "./toast-context";
+import { AiHttpError, classifyAiError } from "./ai-errors";
+import { runRaciSuggestion } from "./raci-suggest-call";
+import {
+  buildRaciContext,
+  cellKey,
+  groundRaciCells,
+  type GroundedRaciCell,
+  type SkippedRaciCell,
+} from "./raci-suggest/raci-suggest";
+import { setRaciRole } from "./stakeholders";
+import { RaciSuggestModal } from "./raci-suggest-modal";
+import { INTERACTIVE } from "./interaction-styles";
+
+type Phase = "idle" | "thinking" | "preview" | "applying";
+
+export interface RaciSuggestDeps {
+  settings: Settings;
+  isPopout: boolean;
+  lang: Lang;
+  stakeholders: readonly Stakeholder[];
+  milestones: readonly Milestone[];
+  /** The stakeholders pane's save handler — mirrors every other entity save
+   *  contract: `(item, isNew?, opts?)`, where `opts.suppressFieldUndo` skips
+   *  the per-field undo capture (this hook records ONE bulk undo entry
+   *  instead, via `onCaptureBulk`). */
+  onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
+  /** Snapshot the touched stakeholders' pre-edit images for undo, called
+   *  BEFORE the save loop mutates them — mirrors `onCaptureStakeholderBulk`
+   *  (the same capture the manual bulk-edit panel uses), so this feature
+   *  gets one correctly-ordered undo entry for free instead of re-deriving
+   *  the low-level `capture()` before/after-image contract itself. */
+  onCaptureBulk?: (ids: readonly number[]) => void;
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+}
+
+export interface RaciSuggest {
+  /** The toolbar trigger element (null when the feature is unavailable). */
+  button: ReactNode;
+  /** The preview/confirm modal element (null while the feature is idle or thinking). */
+  modal: ReactNode;
+}
+
+const TRIGGER_CLASS =
+  "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
+
+/** Collapse the accepted cells into ONE updated Stakeholder per person.
+ *
+ *  ★★ Load-bearing. `onSave` takes a single stakeholder and writes the
+ *  caller's object verbatim, while `setRaciRole` returns a pure copy of a
+ *  SNAPSHOT. So calling onSave once per CELL would make two cells on the
+ *  same stakeholder each fold into the same stale snapshot, and the second
+ *  would drop the first's raci key. Fold first, save once per stakeholder.
+ *
+ *  A stakeholder present in `cells` but absent from `stakeholders` (deleted
+ *  between propose and confirm) is silently skipped, not resurrected. */
+export function foldCellsByStakeholder(
+  cells: readonly GroundedRaciCell[],
+  stakeholders: readonly Stakeholder[],
+): Stakeholder[] {
+  const byId = new Map(stakeholders.map((s) => [s.id, s]));
+  const folded = new Map<number, Stakeholder>();
+  for (const c of cells) {
+    const base = folded.get(c.stakeholderId) ?? byId.get(c.stakeholderId);
+    if (!base) continue; // deleted between propose and confirm
+    folded.set(c.stakeholderId, setRaciRole(base, c.milestoneId, c.role));
+  }
+  return [...folded.values()];
+}
+
+export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
+  const { settings, isPopout, lang, stakeholders, milestones, onSave, onCaptureBulk, logActivity } = deps;
+  const showToast = useToastContext();
+
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [cells, setCells] = useState<readonly GroundedRaciCell[]>([]);
+  const [skipped, setSkipped] = useState<readonly SkippedRaciCell[]>([]);
+  const [truncated, setTruncated] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // Monotonic request generation: a slow proposal that resolves after cancel /
+  // a new open is discarded (can't land a stale proposal or a stale error toast).
+  const reqIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const apiKey = aiKeyIfEnabled(settings.ai);
+  const enabled =
+    isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() &&
+    stakeholders.length > 0 && milestones.length > 0;
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    reqIdRef.current++;
+    setPhase("idle");
+    setCells([]);
+    setSkipped([]);
+    setTruncated(false);
+    setSelected(new Set());
+  }, []);
+
+  // Abort any in-flight proposal if the pane unmounts — a response must
+  // never land against a dead component. Cleanup-only: sets no state, so it
+  // doesn't run into the set-state-in-effect ban.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const onPropose = useCallback(async () => {
+    if (!enabled || phase === "thinking" || phase === "applying") return;
+    const reqId = ++reqIdRef.current;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setPhase("thinking");
+    try {
+      const context = buildRaciContext(stakeholders, milestones);
+      const parsed = await runRaciSuggestion(context, { apiKey, model: settings.ai.model }, controller.signal);
+      if (reqId !== reqIdRef.current) return; // superseded — discard
+      // Re-ground UNTRUSTED model ids/roles against the LIVE stakeholders/
+      // milestones before anything can be shown or applied.
+      const grounded = groundRaciCells(parsed.cells, stakeholders, milestones);
+      setSkipped(grounded.skipped);
+      // parsed.truncated is where an over-large proposal ACTUALLY gets cut
+      // (parseRaciProposal caps at the same MAX_RACI_CELLS grounding does, so
+      // grounded.truncated alone can never fire on this real path — it stays
+      // as defense in depth for a caller that skips parsing). OR both so
+      // neither omission goes unreported.
+      setTruncated(parsed.truncated || grounded.truncated);
+      if (grounded.cells.length === 0 && grounded.skipped.length === 0) {
+        // Nothing at all came back — only now is "nothing was proposed" true.
+        showToast("info", t(lang, "raciSuggestNoProposal"));
+        setPhase("idle");
+        return;
+      }
+      // Preselect every grounded cell; skipped-only results still surface via
+      // the preview stage (the only stage the modal renders them in).
+      setCells(grounded.cells);
+      setSelected(new Set(grounded.cells.map(cellKey)));
+      setPhase("preview");
+    } catch (e) {
+      if (reqId !== reqIdRef.current) return; // stale failure — ignore
+      // AbortError is raised when the controller fires (cancel/reopen) —
+      // treat as a user-initiated stop, not a real error. Read .name
+      // directly (never `instanceof DOMException`) — mirrors chat-panel.tsx.
+      const errName = e instanceof Error ? e.name : (e as { name?: string }).name;
+      if (errName === "AbortError") {
+        setPhase("idle");
+        return;
+      }
+      if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
+        showToast("error", t(lang, "aiUsageLimitReached"));
+      } else if (e instanceof AiHttpError && e.safeMessage) {
+        // The response body's error.message carries no secret — safe to surface.
+        showToast("error", e.safeMessage);
+      } else {
+        showToast("error", t(lang, "raciSuggestError"));
+      }
+      setPhase("idle");
+    }
+  }, [enabled, phase, stakeholders, milestones, apiKey, settings.ai.model, lang, showToast]);
+
+  const onToggle = useCallback((key: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const onConfirm = useCallback(() => {
+    if (phase !== "preview") return;
+    const chosen = cells.filter((c) => selected.has(cellKey(c)));
+    if (chosen.length === 0) return;
+    const updated = foldCellsByStakeholder(chosen, stakeholders);
+    if (updated.length === 0) {
+      // Every chosen cell's stakeholder vanished since propose — nothing left to apply.
+      reset();
+      return;
+    }
+    setPhase("applying");
+    // Snapshot BEFORE the save loop mutates — mirrors captureBulkUndo's own
+    // "call BEFORE the loop" contract.
+    onCaptureBulk?.(updated.map((s) => s.id));
+    for (const s of updated) onSave(s, false, { suppressFieldUndo: true });
+    // Report the number of CELL assignments applied (chosen.length), not the
+    // number of stakeholders touched (updated.length) — the activity string
+    // reads "N RACI assignments".
+    logActivity?.("ai.raciSuggest", chosen.length);
+    reset();
+  }, [phase, cells, selected, stakeholders, onSave, onCaptureBulk, logActivity, reset]);
+
+  const busy = phase === "thinking" || phase === "applying";
+
+  const button = enabled ? (
+    <button
+      type="button"
+      onClick={() => void onPropose()}
+      disabled={phase === "thinking" || phase === "applying"}
+      aria-label={t(lang, "raciSuggest")}
+      title={t(lang, "raciSuggest")}
+      className={`${TRIGGER_CLASS} ${INTERACTIVE}`}
+    >
+      <SparklesIcon aria-hidden="true" className={`h-4 w-4 ${phase === "thinking" ? "animate-spin" : ""}`} />
+      {phase === "thinking" ? t(lang, "raciSuggestThinking") : t(lang, "raciSuggest")}
+    </button>
+  ) : null;
+
+  const modal = phase === "preview" || phase === "applying" ? (
+    <RaciSuggestModal
+      lang={lang}
+      open
+      cells={cells}
+      skipped={skipped}
+      truncated={truncated}
+      selected={selected}
+      onToggle={onToggle}
+      onConfirm={onConfirm}
+      onCancel={reset}
+      busy={busy}
+    />
+  ) : null;
+
+  return { button, modal };
+}

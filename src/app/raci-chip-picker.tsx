@@ -21,7 +21,7 @@ const CHIP: Record<RaciRole, { on: string; off: string }> = {
   I: { on: "bg-ui-dark-grey text-white border-ui-dark-grey", off: "border-ui-dark-grey text-foreground" },
 };
 
-const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
+export const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
   R: "raciRoleResponsible",
   A: "raciRoleAccountable",
   C: "raciRoleConsulted",
