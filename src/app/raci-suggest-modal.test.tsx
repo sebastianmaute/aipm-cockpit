@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { RaciSuggestModal, SKIP_KEY_ORDER, SKIP_REASON_KEY } from "./raci-suggest-modal";
+import {
+  RaciSuggestModal,
+  SKIP_KEY_ORDER,
+  SKIP_KEY_RANK,
+  SKIP_REASON_KEY,
+} from "./raci-suggest-modal";
 import { t } from "./i18n";
 import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
 
@@ -81,6 +86,35 @@ describe("skip-reason bucket wiring", () => {
     // A duplicate paired with an omission still satisfies a length check, which
     // is why membership is asserted above rather than a count.
     expect(new Set(SKIP_KEY_ORDER).size).toBe(SKIP_KEY_ORDER.length);
+  });
+
+  it("gives each bucket a DISTINCT rank", () => {
+    // Array.prototype.sort is stable, so two buckets sharing a rank fall back
+    // to Object.keys order — i.e. declaration order — quietly reinstating the
+    // very dependency the sort exists to remove. Output stays deterministic
+    // across runs, so this never reproduces the model-order bug; what it costs
+    // is that the numbers stop being the source of truth they are written as.
+    const ranks = Object.values(SKIP_KEY_RANK);
+    expect(new Set(ranks).size).toBe(ranks.length);
+  });
+
+  it("produces the intended SEQUENCE, not merely a stable one", () => {
+    // The order test proves two arrival orders agree; it does not pin which
+    // sequence they agree on, so reversing the ranks passes it. The sequence is
+    // deliberate — the general "did not match this project" first, then the two
+    // specific refusals — so it is pinned here.
+    //
+    // ★ Deleting the `.sort` outright is NOT caught, and cannot be: Object.keys
+    // returns declaration order, which today equals rank order, so both spell
+    // the same sequence. That is not a hole in this test but the sort's whole
+    // point — it exists so the rendered order stops depending on where the
+    // three lines happen to sit. Its absence is harmless until someone
+    // alphabetises or inserts a key, and THAT edit this test does catch.
+    expect([...SKIP_KEY_ORDER]).toEqual([
+      "raciSuggestSkipped",
+      "raciSuggestSkippedInvalidRole",
+      "raciSuggestSkippedAccountable",
+    ]);
   });
 });
 
