@@ -478,6 +478,22 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `jsonToWorkspace`'s catch-all swallows it into an EMPTY workspace that then "successfully" writes
   near-empty sample files. A comment-stripping source scan in its test enforces it — comments may
   name the library, code may not. IMPORTING `plainToHtml` is fine (only a CALL needs the DOM).
+  ★★★ **EVERY WRITE BOUNDARY FOR A RICH FIELD MUST BE UPGRADE-AWARE — `sanitizeRichText`, never
+  `plainToHtml`.** `plainToHtml` ESCAPES `& < >`, so an HTML value passed through it is stored as
+  `<p>&lt;p&gt;&lt;strong&gt;…` — literal tags visible in the field, in every export and in the search
+  index, permanently. RAID/change/milestone were always safe because they route through their entity
+  sanitizer → `sanitizeRichText` → `descriptionHtml`, which passes HTML through and upgrades plain text.
+  `Task.description` was the ONE rich field with a plain-text-in boundary (`use-chat-dispatcher.ts`
+  create + `update_task`), and 0.210.0 made that reachable by renaming the inline-AI descriptor's dead
+  `notes` to `description` (a task-description diff became possible) while the confirm path applies the
+  model's VERBATIM `diff.raw` — which is HTML, because `scopeBlock` hands the model the stored HTML to
+  read. An inert path became a corrupting one. Both boundaries now use
+  `sanitizeRichText(x, TEXTAREA_MAX)`; chat and persisted insight-recommendation replay share them.
+  ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
+  ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
+  it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four
+  sanitizer-backed entities — it says so — leaving the one entity without a `sanitizeRichText` boundary
+  as the uncovered one. Three primed review rounds missed this; a COLD read found it.
   ★★ **MIGRATION IS READ-TIME, NOT WRITE-TIME.** Storage is not normalised by the decoders — they
   hand-build entities and never call the entity sanitizer (`buildRaidItemFromObj`,
   `buildMilestoneFromObj`). EVERY reader upgrades instead: `descriptionHtml` at a DOM boundary,

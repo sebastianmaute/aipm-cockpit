@@ -267,11 +267,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           priority: sanitizePriority(input.priority),
           status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
-          // ★★★ The model may supply EITHER plain text or HTML, so this must be
-          // the upgrade-aware validator — the same one the other three rich
-          // entities use. `plainToHtml(sanitizeNotes(x))` ESCAPES & < >, which
-          // silently stored "<p>&lt;p&gt;…" for an HTML value. See the note on
-          // the update boundary below.
+          // ★★★ Upgrade-aware, NOT plainToHtml — see the update boundary.
           description: sanitizeRichText(input.description ?? input.notes, TEXTAREA_MAX),
           inquiriesSent: 0,
           group: sanitizeGroup(input.group),
@@ -348,21 +344,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           );
         if (patch.blockers !== undefined)
           cleanPatch.blockers = sanitizeBlockers(patch.blockers);
-        // ★★★ The SINGLE write boundary for Task.description, and it must accept
-        // BOTH shapes. It used to be `plainToHtml(sanitizeNotes(x))`, which
-        // escapes & < >: an HTML value was stored as
-        // "<p>&lt;p&gt;&lt;strong&gt;…" — literal tags in the field, in every
-        // export and in the search index. Task was the ONE rich field with a
-        // plain-text-in boundary; RAID/change/milestone all route through
-        // sanitizeRichText, where descriptionHtml passes HTML through and
-        // upgrades plain text. Now so does this.
-        //
-        // ★★ 0.210.0 made the corrupting path reachable: renaming the inline-AI
-        // descriptor's dead "notes" to "description" produced a task-description
-        // diff for the first time, and the confirm path applies the model's
-        // VERBATIM value (`diff.raw`) — which is HTML, because the model is handed
-        // the stored HTML to read. Chat and persisted insight-recommendation
-        // replay share this boundary and are fixed by the same change.
+        // ★★★ Accepts BOTH shapes: `plainToHtml` escapes & < >, so HTML stored as
+        // "<p>&lt;p&gt;…". Landmine: AGENTS.md "Rich-text register descriptions".
         if (patch.description !== undefined)
           cleanPatch.description = sanitizeRichText(patch.description, TEXTAREA_MAX);
         if (patch.inquiriesSent !== undefined)
