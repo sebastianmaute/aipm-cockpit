@@ -46,6 +46,18 @@ suggestion flow.
   text to an already-mounted editor; the note log's composer and its entry editor
   both gained a microphone button. The AI Assistant's attach and dictate buttons
   are now matched in size with centred icons.
+- **Accessibility fixes found in review.** The Suggest RACI and Plan-with-AI
+  buttons were hand-rolled with a dark-blue text colour that had no dark-mode
+  companion, leaving them at roughly 1.1:1 against the dark surfaces — barely
+  visible, and on toolbars no automated check reaches. Both now use the shared
+  button primitive. Plan-with-AI's accessible name was "Plan resource
+  allocations with AI" while it reads "Plan with AI", which does not satisfy
+  WCAG 2.5.3; the visible label is now the name and the longer sentence is the
+  description. The note log's two new microphones did not carry the per-surface
+  label suffix, so with both note panels open they announced identically.
+  Suggest RACI's review dialog now distinguishes two people (or two milestones)
+  that share a name using the whole project, not just the proposed rows, and it
+  says so when the project was too large for Claude to see all of it.
 - **Under the hood.** Every button touched by this batch was routed through the
   shared design-system primitives instead of hand-rolled markup, and the tasks
   pane stopped duplicating the shared Outlook calendar-sync control — it now

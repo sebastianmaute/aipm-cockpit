@@ -2107,6 +2107,28 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   save happens, so `onSave` runs exactly once per touched stakeholder. ★ TEST TRAP: a fixture with one cell per
   stakeholder passes whether or not the fold happens — seed TWO accepted cells on ONE stakeholder to make the
   defect (and the fix) observable.
+  ★★ **AMBIGUITY IS MEASURED AGAINST THE WORKSPACE, NOT THE PROPOSAL.** `raci-suggest-modal.tsx` qualifies a
+  colliding name as `Name (#id)` using counts over the LIVE `stakeholders`/`milestones` lists (the same
+  case-folded tally as `raci-panel.tsx`'s `labelFor`), for BOTH the accessible name and the VISIBLE text.
+  Scoping the check to the proposed cells looks equivalent and is not: one proposed "Ada" while a second
+  "Ada" exists in the project renders bare, and the user cannot tell which person this write lands on. Neither
+  can `Milestone.name` be assumed unique — the milestone half needs the same treatment. ★ TEST TRAP: every
+  fixture that keeps BOTH colliding rows in `cells` gives the same answer under either scope, so it proves
+  nothing — seed the collision with only ONE side proposed. ★★ Qualifying only the `aria-label` and leaving
+  the visible text bare is its own bug: it leaves the sighted user with strictly LESS information than the
+  screen-reader user, in a dialog whose entire job is choosing which rows to commit.
+  ★★ **THE CONTEXT CAP MUST REACH THE USER.** `buildRaciContext` caps at `MAX_CONTEXT_STAKEHOLDERS`/
+  `MAX_CONTEXT_MILESTONES` and returns `truncated`; the hook surfaces it as `contextTruncated`, which the
+  modal renders as its OWN sentence. Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
+  causes, and a capped INPUT means a missing proposal may simply be someone the model was never shown —
+  otherwise silence reads as "Claude decided they need no role". This flag was computed and dropped on the
+  floor at first, with only its engine unit test consuming it — so the engine test passed while the product
+  had no such behaviour. A flag whose sole consumer is its own test is not a feature.
+  ★ The modal's zero-cell branch must NOT say "Claude proposed no assignments": the hook only opens the
+  preview with zero cells when everything was SKIPPED, so that sentence is false exactly when it renders.
+  ★ `groundRaciCells` refuses an Accountable HANDOVER within one proposal (demote A, promote someone else on
+  the same milestone) — `accountableHolder` still holds the old id when the second cell is examined.
+  Conservative and safe, but it silently discards a natural proposal.
 - **Inline "Ask Claude" edit (SP1):** a per-item edit popover (✨ hover icon on the task table row + Kanban
   card, or the row menu) takes a natural-language instruction and INVERTS the chat loop: ONE bounded
   `callClaude` call proposes tool calls but nothing executes yet. Pure `inline-ai-edit/plan.ts`
