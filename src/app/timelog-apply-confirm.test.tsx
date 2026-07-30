@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import { TimelogApplyConfirm } from "./timelog-apply-confirm";
+import { TimelogApplyConfirm, MAX_VISIBLE_ROWS } from "./timelog-apply-confirm";
 import { t } from "./i18n";
 import type { ApplyDiffLabel } from "./timelog-apply";
 
@@ -40,28 +40,40 @@ describe("TimelogApplyConfirm", () => {
   // observing behaviour — accepted deliberately because jsdom has no layout
   // engine: every height, scrollHeight and getBoundingClientRect here is 0, so
   // "does the list actually grow" is unobservable in this environment. The real
-  // check is by eye. What this test does buy is a tripwire against silently
-  // reverting the cap, and it pins that the bound still EXISTS (a financial
-  // write sits behind this card — Apply and Cancel must never be pushed out of
-  // reach), so deleting max-h entirely fails it too.
-  it("lets the diff list grow with its content instead of capping at 10rem", () => {
-    const rows: ApplyDiffLabel[] = Array.from({ length: 12 }, (_, i) => ({
+  // check is by eye. What these tests buy is a tripwire against silently
+  // reverting to an always-scrolling list, and they pin the exact boundary
+  // (MAX_VISIBLE_ROWS) — an off-by-one here means a 25-row list still scrolls,
+  // which is the exact complaint this cap exists to fix.
+  function rowsOf(n: number): ApplyDiffLabel[] {
+    return Array.from({ length: n }, (_, i) => ({
       bucketId: 1,
       allocIndex: 0,
-      period: `2026-0${(i % 9) + 1}`,
+      period: `2026-W${String(i + 1).padStart(2, "0")}`,
       bucketName: "Build",
       lineName: "Dev",
       current: 0,
-      next: i + 1,
+      next: 8,
     }));
-    const { container } = render(
-      <TimelogApplyConfirm lang="en-US" rows={rows} onApply={vi.fn()} onCancel={vi.fn()} />,
+  }
+
+  function renderRows(n: number) {
+    render(
+      <TimelogApplyConfirm lang="en-US" rows={rowsOf(n)} onApply={vi.fn()} onCancel={vi.fn()} />,
     );
-    const list = container.querySelector("ul");
-    expect(list).toBeTruthy();
-    expect(list?.className).not.toContain("max-h-40");
-    // Still BOUNDED on purpose: this card gates a financial write into
-    // actualHours, so Apply and Cancel must never be pushed out of reach.
-    expect(list?.className).toContain("max-h-[50vh]");
+    return screen.getByRole("list");
+  }
+
+  describe("diff list cap", () => {
+    it("does not cap a short list", () => {
+      expect(renderRows(3).className).not.toMatch(/max-h-/);
+    });
+
+    it("caps once the list is longer than MAX_VISIBLE_ROWS", () => {
+      expect(renderRows(MAX_VISIBLE_ROWS + 1).className).toMatch(/max-h-/);
+    });
+
+    it("does not cap at exactly MAX_VISIBLE_ROWS", () => {
+      expect(renderRows(MAX_VISIBLE_ROWS).className).not.toMatch(/max-h-/);
+    });
   });
 });
