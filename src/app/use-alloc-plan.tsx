@@ -34,7 +34,7 @@ import {
   type SkippedCell,
 } from "./alloc-plan/alloc-plan";
 import { AllocPlanModal } from "./alloc-plan-modal";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 
 type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
@@ -62,8 +62,13 @@ export interface AllocPlan {
   modal: ReactNode;
 }
 
-const TRIGGER_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
+// Layout only — colour/padding/motion come from the Button primitive. The
+// hand-rolled class this replaced pinned `text-ui-dark-blue` with no `dark:`
+// companion, which measures ~1.1:1 against the dark surfaces (those schemes
+// define ui-dark-blue as a near-black navy) — effectively invisible text. This
+// toolbar sits outside the axe view list AND the button only renders once AI is
+// configured, which the e2e seed never is, so no gate could ever have caught it.
+const TRIGGER_LAYOUT = "inline-flex items-center gap-1.5";
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const { settings, isPopout, lang, resources, setResources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, capture, logActivity } = deps;
@@ -267,17 +272,23 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const canCancel = phase !== "applying";
 
   const button = enabled ? (
-    <button
-      type="button"
+    // The accessible name is the VISIBLE label; the longer sentence moves to
+    // `title` (the accessible description). Naming it "Plan resource
+    // allocations with AI" while the button reads "Plan with AI" fails WCAG
+    // 2.5.3 — the visible string is not contained in the name, so a speech user
+    // saying what they see gets no match.
+    <Button
+      variant="secondary"
+      size="xs"
       onClick={onOpen}
       disabled={phase !== "idle"}
-      aria-label={t(lang, "allocPlanTitle")}
+      aria-label={t(lang, "allocPlan")}
       title={t(lang, "allocPlanTitle")}
-      className={`${TRIGGER_CLASS} ${INTERACTIVE}`}
+      className={TRIGGER_LAYOUT}
     >
       <SparklesIcon aria-hidden="true" className="h-4 w-4" />
       {t(lang, "allocPlan")}
-    </button>
+    </Button>
   ) : null;
 
   const modal = phase !== "idle" ? (

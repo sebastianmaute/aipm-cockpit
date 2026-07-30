@@ -777,9 +777,10 @@ test("puts Plan with AI ahead of the plan-window date fields", () => {
   const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
   render(<ResourcesPanel {...baseProps} view="planning" plan={plan} workdayHours={8}
     onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
-  // The trigger's accessible name comes from its aria-label (allocPlanTitle),
-  // not its visible text (allocPlan) — verified against use-alloc-plan.tsx.
-  const ai = screen.getByRole("button", { name: t("en-US", "allocPlanTitle") });
+  // The accessible name is the VISIBLE label (allocPlan). It used to be the
+  // longer allocPlanTitle, which does not contain the visible string and so
+  // failed WCAG 2.5.3; that sentence is now the `title` (the description).
+  const ai = screen.getByRole("button", { name: t("en-US", "allocPlan") });
   const start = screen.getByLabelText(t("en-US", "resourcesPlanStart"));
   expect(ai.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

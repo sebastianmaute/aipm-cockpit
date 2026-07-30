@@ -109,7 +109,7 @@ function renderHarness(props: HarnessProps = {}) {
 }
 
 function openAndType(instruction = "spread 40 hours across the team") {
-  fireEvent.click(screen.getByRole("button", { name: /plan resource allocations with ai/i }));
+  fireEvent.click(screen.getByRole("button", { name: /plan with ai/i }));
   fireEvent.change(screen.getByPlaceholderText(/distribute 200 hours/i), { target: { value: instruction } });
 }
 
@@ -123,12 +123,12 @@ describe("useAllocPlan (plan-then-apply)", () => {
 
   it("renders no button in a popout", () => {
     renderHarness({ isPopout: true });
-    expect(screen.queryByRole("button", { name: /plan resource allocations with ai/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
   });
 
   it("renders no button when AI is disabled", () => {
     renderHarness({ settings: defaultSettings });
-    expect(screen.queryByRole("button", { name: /plan resource allocations with ai/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /plan with ai/i })).toBeNull();
   });
 
   it("a proposal that resolves AFTER cancel does not apply anything and leaves the hook idle", async () => {
@@ -148,7 +148,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(screen.queryByRole("button", { name: /planning|propose|apply selected/i })).toBeNull();
     // The trigger is available again — the hook is back to idle.
     expect(
-      screen.getByRole("button", { name: /plan resource allocations with ai/i }),
+      screen.getByRole("button", { name: /plan with ai/i }),
     ).not.toBeDisabled();
 
     // The stale call now resolves — it must be discarded (superseded request id).
