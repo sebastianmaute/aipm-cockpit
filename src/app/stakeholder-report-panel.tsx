@@ -112,10 +112,12 @@ export function StakeholderReportPanel({
           <div className="grid grid-cols-2 gap-2">
             {QUADRANTS.map((q) => (
               <div key={q.id} className="rounded-lg border border-line p-3">
-                {/* text-ui-dark-blue is a near-black navy in the dark schemes;
-                    on --surface it is ~1.1-1.3:1, so these quadrant labels
-                    were invisible there. Same swap as digest-card. */}
-                <p className="text-xs font-semibold text-foreground">
+                {/* Bare text-ui-dark-blue is ~1.1-1.3:1 on the dark --surface,
+                    so these labels were invisible there. The dark companion
+                    matches the <h3> three lines above in this same file — a
+                    neutral here would have left a section heading brand-blue
+                    while its own labels went grey. */}
+                <p className="text-xs font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                   {t(lang, q.labelKey)}
                 </p>
                 <div className="mt-1 flex flex-wrap gap-1">

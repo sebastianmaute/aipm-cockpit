@@ -42,22 +42,33 @@ type SkipMessageKey =
 // into whichever bucket happens to be the catch-all — which is exactly how
 // invalid-role came to describe itself incorrectly. Module-level and typed,
 // matching alloc-plan-modal's table, so the render site needs no cast.
-const SKIP_REASON_KEY: Record<SkippedRaciCell["reason"], SkipMessageKey> = {
+export const SKIP_REASON_KEY: Record<SkippedRaciCell["reason"], SkipMessageKey> = {
   "unknown-stakeholder": "raciSuggestSkipped",
   "unknown-milestone": "raciSuggestSkipped",
   "invalid-role": "raciSuggestSkippedInvalidRole",
   "duplicate-accountable": "raciSuggestSkippedAccountable",
 };
 
-// Render order is FIXED here, not taken from the Map. A Map iterates in
-// insertion order, which is the order the model happened to return its skips —
-// so two runs of the same feature on the same project listed the same
-// explanations in different orders. Deterministic output is worth one array.
-const SKIP_KEY_ORDER: readonly SkipMessageKey[] = [
-  "raciSuggestSkipped",
-  "raciSuggestSkippedInvalidRole",
-  "raciSuggestSkippedAccountable",
-];
+// Render order is FIXED, not taken from the Map. A Map iterates in insertion
+// order — the order the model happened to return its skips — so two runs on
+// the same project listed the same explanations in different orders.
+//
+// ★★ Derived from an exhaustive Record, NOT written as a literal array. A
+// `readonly SkipMessageKey[]` says "an array of these", never "all of these":
+// a key could be added to SKIP_REASON_KEY, classified correctly, and omitted
+// here with tsc silent — and then its skips render nothing while the wrapper
+// still draws its border, i.e. an empty bordered box that tells the user
+// nothing about why cells were refused. A tuple type does not help either; it
+// pins length but not membership, so a duplicate plus an omission typechecks.
+// Adding a SkipMessageKey is now a compile error until it is ranked here.
+export const SKIP_KEY_RANK: Record<SkipMessageKey, number> = {
+  raciSuggestSkipped: 0,
+  raciSuggestSkippedInvalidRole: 1,
+  raciSuggestSkippedAccountable: 2,
+};
+export const SKIP_KEY_ORDER: readonly SkipMessageKey[] = (
+  Object.keys(SKIP_KEY_RANK) as SkipMessageKey[]
+).sort((a, b) => SKIP_KEY_RANK[a] - SKIP_KEY_RANK[b]);
 
 export interface RaciSuggestModalProps {
   lang: Lang;
@@ -125,6 +136,13 @@ export function RaciSuggestModal({
     const key = SKIP_REASON_KEY[s.reason];
     skippedByKey.set(key, (skippedByKey.get(key) ?? 0) + 1);
   }
+  // Gate the bordered wrapper on what will actually RENDER, not on
+  // `skipped.length`. Gating the box on one count and its contents on another
+  // is what turns a missing bucket into an empty bordered box — visible, and
+  // uninformative, which is worse than absent.
+  const skippedRows = SKIP_KEY_ORDER.map(
+    (key) => [key, skippedByKey.get(key) ?? 0] as const,
+  ).filter(([, n]) => n > 0);
 
   return (
     <Modal open={open} onClose={busy ? () => {} : onCancel} ariaLabel={title}>
@@ -217,10 +235,10 @@ export function RaciSuggestModal({
             </ul>
           )}
 
-          {skipped.length > 0 && (
+          {skippedRows.length > 0 && (
             <div className="mt-4 space-y-1 border-t border-line pt-3 text-xs text-muted-foreground">
-              {SKIP_KEY_ORDER.filter((key) => (skippedByKey.get(key) ?? 0) > 0).map((key) => (
-                <p key={key}>{t(lang, key, skippedByKey.get(key) ?? 0)}</p>
+              {skippedRows.map(([key, n]) => (
+                <p key={key}>{t(lang, key, n)}</p>
               ))}
             </div>
           )}

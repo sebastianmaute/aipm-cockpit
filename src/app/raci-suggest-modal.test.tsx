@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { RaciSuggestModal } from "./raci-suggest-modal";
+import { RaciSuggestModal, SKIP_KEY_ORDER, SKIP_REASON_KEY } from "./raci-suggest-modal";
 import { t } from "./i18n";
 import type { GroundedRaciCell, SkippedRaciCell } from "./raci-suggest/raci-suggest";
 
@@ -52,6 +52,37 @@ function renderModal(
     />,
   );
 }
+
+// ★★ BE CLEAR ABOUT WHAT THESE TWO DO AND DO NOT DO. Against the CURRENT
+// implementation neither can fail, and calling them a safety net would be the
+// same self-deception this file has already been caught in twice. The real
+// guarantee is at COMPILE time: SKIP_KEY_ORDER is derived from the keys of the
+// exhaustive SKIP_KEY_RANK, so omitting a bucket is TS2741 and a duplicate is
+// impossible from Object.keys.
+//
+// They are kept because they pin the INVARIANT rather than the mechanism. The
+// order was a hand-written literal until moments before these were added, and
+// "simplify the derivation back to an array" is an obvious future edit — one
+// that silently restores the hole, since `readonly SkipMessageKey[]` means "an
+// array of these", never "all of these". After such an edit these DO fail.
+// That is their whole purpose; they earn their place prospectively, not today.
+describe("skip-reason bucket wiring", () => {
+  it("orders EVERY bucket a reason can map to", () => {
+    // A reason classified into a bucket that is never rendered does not merely
+    // vanish: the wrapper would draw its border around nothing, which tells the
+    // user less than showing nothing at all would.
+    const ranked = new Set(SKIP_KEY_ORDER);
+    for (const key of Object.values(SKIP_REASON_KEY)) {
+      expect(ranked.has(key)).toBe(true);
+    }
+  });
+
+  it("ranks each bucket exactly once", () => {
+    // A duplicate paired with an omission still satisfies a length check, which
+    // is why membership is asserted above rather than a count.
+    expect(new Set(SKIP_KEY_ORDER).size).toBe(SKIP_KEY_ORDER.length);
+  });
+});
 
 describe("RaciSuggestModal skipped-cell reporting", () => {
   function renderSkipped(skipped: readonly SkippedRaciCell[]) {
