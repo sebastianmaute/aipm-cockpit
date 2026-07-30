@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { t } from "./i18n";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
+import { expectButtonOrder } from "../test/toolbar-order";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
 vi.mock("./filters-context", () => ({ useFilters: vi.fn() }));
@@ -888,6 +889,23 @@ describe("TasksSection", () => {
     } finally {
       saveProjectAppearance(pid, {}); // store persists across tests — clean up even on failure
     }
+  });
+
+  // AGENTS.md toolbar convention: every pane's toolbar ends with the contiguous
+  // trailing group Print · reset-columns · reset-size; destructive actions go
+  // BEFORE it, never between two of its members. Open Points had drifted to
+  // Print · reset-size · reset-columns · Clear-all — Clear-all trailing the
+  // resets, and the two resets swapped. expectButtonOrder throws on a missing
+  // or duplicated control, so a deleted button can't degrade this into a
+  // vacuous comparison (see src/test/toolbar-order.ts).
+  it("orders the trailing toolbar group: clear-all, print, reset-columns, reset-size", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    // Clear-all only has to LEAD; the trailing group must be adjacent AND in
+    // the exact column/size order the convention specifies.
+    expectButtonOrder(["clearAll", "printHint"]);
+    expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
   });
 
   it("gives the tasks search box a descriptive tooltip", () => {

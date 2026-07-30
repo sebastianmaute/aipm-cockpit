@@ -48,6 +48,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
+import { IconButton } from "./icon-button";
 import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
@@ -766,19 +767,19 @@ export function TasksSection({
           onPullCalendar={() => void taskPull.pull()}
           calendarPullBusy={taskPull.busy}
         />
-        <PrintButton lang={lang} />
-        <ResetSizeButton onClick={resetTableSize} lang={lang} />
-        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-        <button
-          type="button"
+        <IconButton
+          variant="bordered"
+          size="md"
           onClick={() => setClearConfirmOpen(true)}
           disabled={tasks.length === 0}
-          aria-label={t(lang, "clearAll")}
+          label={t(lang, "clearAll")}
           title={t(lang, "clearAll")}
-          className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           <EraserIcon />
-        </button>
+        </IconButton>
+        <PrintButton lang={lang} />
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <ResetSizeButton onClick={resetTableSize} lang={lang} />
       </div>
 
       {clearConfirmOpen && (
