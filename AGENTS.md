@@ -63,6 +63,9 @@ npm run lint                # eslint  (CI --max-warnings=0: an unused import/var
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
+                            # ★ `npm run lint` itself is bare `eslint` with NO `--max-warnings` flag, so it
+                            # EXITS 0 even when warnings are present — it does not reproduce the CI gate.
+                            # Check the actual gate locally with `npx eslint --max-warnings=0 src/app`.
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
@@ -401,7 +404,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (`Status – <task>`).
 - **Open Points + Milestones toolbars = ONE flat wrapping row** (`flex flex-wrap items-center gap-2`, no
   `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
-  (mirrors the changes-panel toolbar). Tasks `PrintButton` is `iconOnly`. ★ Tasks "Clear all" opens a
+  (mirrors the changes-panel toolbar). ★ Tasks "Clear all" opens a
   `TypeToConfirmDialog` (type `"yes, clear all tasks"`) — the shared `handleClearAll` (`use-bulk-operations.ts`)
   no longer self-confirms via `window.confirm`; the button path is dialog-gated. ★★ the VOICE `clearAll`
   command ALSO routes to the `TypeToConfirmDialog` now (no more one-click `window.confirm`): hook
@@ -459,6 +462,13 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (`addNote`/`editNote`/`deleteNote` immutable; `sanitizeNoteLog`; `encodeNoteLog`/`decodeNoteLog`
   JSON-in-cell for CSV/MD/Turso — mirrors `document-link.ts`). Composer = shared `RichTextEditor variant="lean"`
   (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
+  ★★ **`RichTextEditorHandle.appendText`** (`rich-text-editor.tsx`): Tiptap binds its `content` ONCE at mount,
+  so a changed `value` prop cannot reach an already-mounted editor — dictation therefore appends imperatively
+  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`. The handle's `appendText` calls
+  `editor.chain().focus().insertContent({type:"text",text}).run()` — `insertContent` MUST take a TEXT NODE
+  object, never a bare string: a bare string is parsed as HTML, so dictated text containing `<`/`&` would be
+  interpreted as markup instead of inserted literally. Both the note log's composer and its entry editor wire
+  `useDictationMic`'s `onAppendFinal` straight to `editorRef.current?.appendText(txt)`.
   ★★ `Task.notes` was RENAMED to `Task.description` (rich HTML) — NO back-compat decoder / NO runtime
   migration; Turso `COLUMN_RENAMES` `{from:"notes",to:"description"}` self-heals; historical notes folded into
   `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.
@@ -702,12 +712,16 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `ensureUnlinked`, so the naive "external disappears" assertion passes for the wrong reason — give them a
   task and assert absence from the WHOLE pane. (Planning/rollup DO correctly consume a pre-filtered
   `visibleResources` — they just `map` it.)
-- **★ Toolbar button ORDER convention:** every pane's toolbar ends with the contiguous trailing group
+- **★ Toolbar button ORDER convention (this is the RULE, not a claim every pane already follows it — read the
+  pane's own toolbar before assuming compliance):** every pane's toolbar ends with the contiguous trailing group
   **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
-  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members. Both had
-  drifted (Outlook sat between the two resets in Resources; Clear sat after them in Activity). ★ the
-  reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses `ResetSizeIcon` — Gantt's
-  name-column reset wore the reset-SIZE glyph, making the two adjacent resets indistinguishable.
+  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members. Drift has
+  been caught and fixed more than once: Outlook once sat between the two resets in Resources; Clear once sat
+  after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
+  destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),
+  fixed in 0.211.0. ★ the reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses
+  `ResetSizeIcon` — Gantt's name-column reset wore the reset-SIZE glyph, making the two adjacent resets
+  indistinguishable.
 
 ### Dashboard landing cockpit
 
@@ -1037,7 +1051,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   verbatim across the RAID / Change / Absence toolbars — only the entity aria-label differed) is one shared
   `CalendarSyncControls` (`calendar-sync-controls.tsx`), keyed by an i18n `entityLabelKey`. Renders null
   unless `m365Configured && !isPopout && onToggleCalendar`. Milestone push/pull stays SEPARATE (manual-only,
-  no enable toggle).
+  no enable toggle). ★ Tasks (Open Points) hand-rolled its OWN copy of this whole block (checkbox + push +
+  pull) rather than consuming the shared component, and its checkbox used the bare `calendarSyncEnable` name
+  with no entity qualifier — until the 0.211.0 toolbar-polish batch, which moved it onto `CalendarSyncControls`
+  (`entityLabelKey="calendarSyncEntityTask"`) like every other calendar-capable pane. The enable checkbox now
+  carries the same per-entity accessible name the other panes do ("… – Tasks (due dates)"), which is what
+  makes N panes' identically-labelled checkboxes distinguishable under WCAG 2.4.6.
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
   lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
   `useResizable("aipm-cockpit:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
@@ -2068,6 +2087,26 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `buildAllocContext` caps periods (`ALLOC_CONTEXT_MAX_PERIODS`; 120 resources × 104 weekly periods was ~52k
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
   distinguishable from a genuinely idle one.
+- **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0):** plan-then-apply, mirroring `alloc-plan/` — no
+  free-text instruction, just the live stakeholders + milestones. Pure engine `raci-suggest/raci-suggest.ts`
+  (`buildRaciContext` digest · `RACI_SUGGEST_TOOL` schema · `parseRaciProposal` · `groundRaciCells` —
+  re-grounds every UNTRUSTED model-proposed `{stakeholderId, milestoneId, role}` cell against the LIVE
+  stakeholders/milestones, capped at `MAX_RACI_CELLS=200` with a `truncated` flag); one forced call in
+  `raci-suggest-call.ts` (`runRaciSuggestion`, through the shared never-log `runForcedToolCall`); glue hook
+  `use-raci-suggest.tsx`; review modal `raci-suggest-modal.tsx` shows every grounded cell's current value next
+  to the proposed one, ticked by default, and applies only the ticked subset as ONE undo entry
+  (`logActivity("ai.raciSuggest", …)`).
+  ★★ **THE FOLD-PER-STAKEHOLDER LANDMINE — distinct from the bulk-edit FUNCTIONAL-SETTER landmine above,
+  and NOT covered by it.** `useStakeholders.handleSaveStakeholder` already IS a functional setter
+  (`setStakeholders(prev => …)`), so this is not that bug. The defect sits one layer up: `onSave` (the
+  stakeholders pane's save handler) takes a SINGLE stakeholder and writes the CALLER's object verbatim, while
+  `setRaciRole` (`stakeholders.ts`) returns a pure copy of a SNAPSHOT. Calling `onSave` once per accepted CELL
+  means two accepted cells on the SAME stakeholder (different milestones) each fold into the same stale
+  snapshot — the second `onSave` call silently drops the first cell's RACI entry. `foldCellsByStakeholder`
+  (`use-raci-suggest.tsx`) collapses every accepted cell into ONE updated `Stakeholder` per person BEFORE any
+  save happens, so `onSave` runs exactly once per touched stakeholder. ★ TEST TRAP: a fixture with one cell per
+  stakeholder passes whether or not the fold happens — seed TWO accepted cells on ONE stakeholder to make the
+  defect (and the fix) observable.
 - **Inline "Ask Claude" edit (SP1):** a per-item edit popover (✨ hover icon on the task table row + Kanban
   card, or the row menu) takes a natural-language instruction and INVERTS the chat loop: ONE bounded
   `callClaude` call proposes tool calls but nothing executes yet. Pure `inline-ai-edit/plan.ts`
