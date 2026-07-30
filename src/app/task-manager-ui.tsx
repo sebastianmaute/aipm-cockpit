@@ -8,7 +8,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type React from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING } from "./interaction-styles";
 import { IconButton } from "./icon-button";
 import { DragHandle } from "./drag-handle";
 
@@ -151,15 +151,16 @@ export function PrintButton({
   lang: Lang;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      variant="bordered"
+      size="md"
       onClick={onClick ?? (() => window.print())}
-      aria-label={t(lang, "printHint")}
+      label={t(lang, "printHint")}
       title={t(lang, "printHint")}
-      className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
+      className="print:hidden"
     >
       <PrinterIcon />
-    </button>
+    </IconButton>
   );
 }
 

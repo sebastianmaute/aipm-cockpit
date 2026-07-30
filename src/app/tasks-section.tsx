@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowDownTrayIcon, ArrowPathIcon, ArrowUpTrayIcon, Cog6ToothIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, Cog6ToothIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
@@ -10,6 +10,7 @@ import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
 import { UNASSIGNED_LANE, laneResourceIds, type KanbanLane } from "./task-kanban";
 import { resourceDisplayName } from "./resource-foundation";
+import { CalendarSyncControls } from "./calendar-sync-controls";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
@@ -744,60 +745,31 @@ export function TasksSection({
           )}
         </div>
         <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
-        {m365Configured && !isPopout && (
-          <>
-            <label className="flex items-center gap-1 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={calendarTaskEnabled}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    outlookCalendar: {
-                      ...s.outlookCalendar,
-                      // Disabling here also forces auto off (mirrors the Settings toggle)
-                      // so re-enabling from this checkbox can't silently reactivate auto-sync.
-                      task: {
-                        enabled: e.target.checked,
-                        auto: e.target.checked ? (s.outlookCalendar?.task?.auto ?? false) : false,
-                      },
-                    },
-                  }))
-                }
-                aria-label={t(lang, "calendarSyncEnable")}
-                title={t(lang, "calendarSyncEnableHint")}
-                className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-              />
-              {t(lang, "calendarSyncEnable")}
-            </label>
-            {calendarTaskEnabled && (
-              <button
-                type="button"
-                onClick={() => void pushTasksToOutlook()}
-                disabled={calPushBusy}
-                aria-label={t(lang, calPushBusy ? "calendarPushing" : "calendarPush")}
-                title={t(lang, calPushBusy ? "calendarPushing" : "calendarPush")}
-                className={`inline-flex items-center gap-1 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                <ArrowUpTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
-                {calPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPushShort")}
-              </button>
-            )}
-            {calendarTaskEnabled && (
-              <button
-                type="button"
-                onClick={() => void taskPull.pull()}
-                disabled={taskPull.busy}
-                aria-label={t(lang, taskPull.busy ? "calendarPulling" : "calendarPull")}
-                title={t(lang, taskPull.busy ? "calendarPulling" : "calendarPull")}
-                className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
-                {taskPull.busy ? t(lang, "calendarPulling") : t(lang, "calendarPullShort")}
-              </button>
-            )}
-          </>
-        )}
+        <CalendarSyncControls
+          lang={lang}
+          entityLabelKey="calendarSyncEntityTask"
+          m365Configured={m365Configured}
+          isPopout={isPopout}
+          calendarEnabled={calendarTaskEnabled}
+          onToggleCalendar={(enabled) =>
+            setSettings((s) => ({
+              ...s,
+              outlookCalendar: {
+                ...s.outlookCalendar,
+                // Disabling here also forces auto off (mirrors the Settings toggle)
+                // so re-enabling from this checkbox can't silently reactivate auto-sync.
+                task: {
+                  enabled,
+                  auto: enabled ? (s.outlookCalendar?.task?.auto ?? false) : false,
+                },
+              },
+            }))
+          }
+          onPushCalendar={() => void pushTasksToOutlook()}
+          calendarPushBusy={calPushBusy}
+          onPullCalendar={() => void taskPull.pull()}
+          calendarPullBusy={taskPull.busy}
+        />
         <PrintButton lang={lang} />
         <ResetSizeButton onClick={resetTableSize} lang={lang} />
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />

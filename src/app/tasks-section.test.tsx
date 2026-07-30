@@ -877,6 +877,12 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
+  // The tasks pane now renders the shared CalendarSyncControls, whose checkbox is
+  // named per entity so that N panes' enable boxes are distinguishable (WCAG 2.4.6).
+  // Querying the bare "Add to Outlook calendar" would match nothing and quietly
+  // make every absence assertion below pass for the wrong reason.
+  const calEnableLabel = `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityTask")}`;
+
   it("hides the calendar controls entirely when M365 is not configured", () => {
     stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
@@ -886,7 +892,7 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
+      screen.queryByRole("checkbox", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
   });
 
@@ -895,7 +901,7 @@ describe("TasksSection", () => {
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} m365Configured />);
-    const box = screen.getByRole("checkbox", { name: t("en-US", "calendarSyncEnable") });
+    const box = screen.getByRole("checkbox", { name: calEnableLabel });
     expect(box.getAttribute("title")).toBe(t("en-US", "calendarSyncEnableHint"));
   });
 
@@ -937,7 +943,7 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
+      screen.queryByRole("checkbox", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
   });
 

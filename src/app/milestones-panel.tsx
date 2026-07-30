@@ -39,6 +39,7 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { DataTable } from "./data-table";
+import { Button } from "./button";
 import { INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
@@ -318,30 +319,32 @@ function MilestonesPanelBody({
           + {t(lang, "milestoneNew")}
         </AddButton>
         {onPushToOutlook ? (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={onPushToOutlook}
             disabled={calendarPushBusy}
             aria-label={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
             title={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
-            className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
+            className="inline-flex items-center gap-1"
           >
             <ArrowUpTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
             {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPushShort")}
-          </button>
+          </Button>
         ) : null}
         {onPullFromOutlook ? (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={onPullFromOutlook}
             disabled={calendarPullBusy}
             aria-label={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
             title={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
-            className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
+            className="inline-flex items-center gap-1"
           >
             <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
             {calendarPullBusy ? t(lang, "calendarPulling") : t(lang, "calendarPullShort")}
-          </button>
+          </Button>
         ) : null}
         <PaneSearchInput
           value={pf.search}
