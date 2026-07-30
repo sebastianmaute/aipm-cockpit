@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { PrintButton, ResetSizeButton, ColumnResizeHandle } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton, ColumnResizeHandle, Th } from "./task-manager-ui";
 import { t } from "./i18n";
 
 describe("PrintButton", () => {
@@ -92,5 +92,24 @@ describe("ColumnResizeHandle", () => {
     fireEvent.mouseDown(handle);
     expect(onMouseDown).toHaveBeenCalledTimes(1);
     expect(onMouseDown.mock.calls[0][0]).toBe("title");
+  });
+});
+
+describe("Th", () => {
+  it("defaults to normal px-4 padding", () => {
+    const { container } = render(
+      <table><thead><tr><Th>x</Th></tr></thead></table>,
+    );
+    const th = container.querySelector("th")!;
+    expect(th.className).toContain("px-4");
+  });
+
+  it("supports a tight padding variant for icon-width columns", () => {
+    const { container } = render(
+      <table><thead><tr><Th padding="tight">x</Th></tr></thead></table>,
+    );
+    const th = container.querySelector("th")!;
+    expect(th.className).toContain("px-1");
+    expect(th.className).not.toContain("px-4");
   });
 });

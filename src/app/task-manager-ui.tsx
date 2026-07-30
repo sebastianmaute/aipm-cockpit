@@ -109,12 +109,17 @@ export function ColumnResizeHandle({
 export function Th({
   children,
   onResize,
+  padding = "normal",
 }: {
   children: React.ReactNode;
   onResize?: (e: React.MouseEvent) => void;
+  /** "tight" trims the horizontal padding for icon-width columns (the select
+   *  checkbox, the health dot) — at px-4 the padding alone is wider than the
+   *  content and the column cannot honour its 36px width. */
+  padding?: "normal" | "tight";
 }) {
   return (
-    <th className="relative px-4 py-2 font-medium">
+    <th className={`relative ${padding === "tight" ? "px-1" : "px-4"} py-2 font-medium`}>
       {children}
       {onResize && (
         <ColumnResizeHandle col="" onMouseDown={(_col, e) => onResize(e)} />

@@ -144,6 +144,7 @@ function Td({
   className,
   title,
   stopClick,
+  padding = "normal",
 }: {
   children: ReactNode;
   className?: string;
@@ -151,11 +152,13 @@ function Td({
   /** Keep a click inside this cell from bubbling to the row's row-click
    *  handler (e.g. the inline status dropdown). */
   stopClick?: boolean;
+  /** Mirrors Th's tight variant — must match the header or columns misalign. */
+  padding?: "normal" | "tight";
 }) {
   const onClick = stopClick
     ? (e: MouseEvent<HTMLTableCellElement>) => e.stopPropagation()
     : undefined;
-  return <td title={title} onClick={onClick} className={`px-4 py-3 ${className ?? ""}`}>{children}</td>;
+  return <td title={title} onClick={onClick} className={`${padding === "tight" ? "px-1" : "px-4"} py-3 ${className ?? ""}`}>{children}</td>;
 }
 
 interface TaskRowProps {
@@ -385,7 +388,7 @@ function TaskRowImpl({
           </button>
         )}
       </Td>
-      <Td>
+      <Td padding="tight">
         <input
           type="checkbox"
           checked={isSelected}
@@ -395,7 +398,7 @@ function TaskRowImpl({
         />
       </Td>
       {!hiddenCols.has("status") && (
-        <Td>
+        <Td padding="tight">
           {isComplete && !task.healthOverride ? (
             <span role="img" title={label} aria-label={label} className="text-ui-green-strong">✓</span>
           ) : (

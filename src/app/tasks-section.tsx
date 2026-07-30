@@ -950,7 +950,7 @@ export function TasksSection({
               <tr>
                 {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
                 <th className="w-7" aria-hidden="true" />
-                <Th onResize={(e) => startColResize("sel", e)}>
+                <Th padding="tight" onResize={(e) => startColResize("sel", e)}>
                   <input
                     type="checkbox"
                     checked={allVisibleSelected}
@@ -959,7 +959,7 @@ export function TasksSection({
                     className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                 </Th>
-                {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
+                {!hiddenCols.has("status") && <Th padding="tight" onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
                 {!hiddenCols.has("id") && <SortResizeTh label={t(lang, "id")} sortCol="id" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "id"))} />}
                 <SortResizeTh label={t(lang, "task")} sortCol="taskName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "task"))} />
                 {!hiddenCols.has("assignee") && <SortResizeTh label={t(lang, "assignee")} sortCol="assignee" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "assignee"))} />}
