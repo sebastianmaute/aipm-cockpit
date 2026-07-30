@@ -37,19 +37,27 @@ function renderModal(groups: readonly GroundedMergeGroup[]) {
 
 describe("TaskDedupModal — unified description", () => {
   it("shows the readable text, never the markup behind it", () => {
-    // ★★ The headline assertion is the ABSENCE of markup plus the PRESENCE of
-    // both words separated. Asserting only "contains Vendor delay" would pass
-    // with the bug, because the raw markup contains that substring too.
+    // ★★ THE PIN IS THE ANCHORED getByText, not the toContain below it. Revert
+    // the modal to `{g.unified.description}` and the row reads
+    // "Unified notes: <p>Vendor delay</p>…", which this regex cannot match — so
+    // getByText THROWS "Unable to find an element" and that is the failure you
+    // will read. Asserting only "contains Vendor delay" would pass with the bug,
+    // because the raw markup contains that substring too; requiring the two
+    // words with a single space between them, anchored at the end, is what
+    // cannot be satisfied by markup.
+    //
+    // ★ `$` also stops a wrapping ancestor with trailing content from matching,
+    // and the label comes from `t()` so a legitimate i18n change does not break
+    // the test.
     renderModal([
       group({ unified: { description: "<p>Vendor delay</p><p>Mitigation plan</p>" } }),
     ]);
     const label = t("en-US", "taskDedupUnifiedNotes");
     const line = screen.getByText(new RegExp(`${label}:\\s*Vendor delay Mitigation plan$`));
+    // Belt-and-braces, and deliberately NOT called the headline: textContent
+    // DECODES entities, so an `&lt;` assertion here would be unfailable — the
+    // raw-render mutation surfaces a literal "<p>", never "&lt;".
     expect(line.textContent).not.toContain("<p>");
-    expect(line.textContent).not.toContain("&lt;");
-    // ★ And it must not FUSE the two paragraphs either — the same block-boundary
-    // rule the other five description consumers follow.
-    expect(line.textContent).not.toContain("delayMitigation");
   });
 
   it("renders nothing for the row when there is no unified description", () => {
@@ -58,8 +66,12 @@ describe("TaskDedupModal — unified description", () => {
   });
 
   it("keeps a plain-text unified description intact", () => {
-    // descriptionHtml upgrades a legacy plain value, and the projection brings
-    // it back — the round trip must not mangle an unformatted note.
+    // ★ HONEST SCOPE: this one does NOT catch the raw-render bug — a plain value
+    // renders identically either way. It pins the legacy-plain round trip
+    // (descriptionHtml upgrade → projection back) at this surface, which
+    // rich-text-projection.test.ts already covers at unit level. Kept as a
+    // regression net for the upgrade path, not as evidence the projection is
+    // wired.
     renderModal([group({ unified: { description: "just a note" } })]);
     expect(
       screen.getByText(new RegExp(`${t("en-US", "taskDedupUnifiedNotes")}:\\s*just a note$`)),

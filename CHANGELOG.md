@@ -40,8 +40,8 @@ that exporting and re-importing a project round-trips without loss.
 - **Fixed: an inline AI edit could not change a task description at all.** The
   editor's field list still named the description by its pre-0.196.0 name, so an
   "Ask Claude" edit that changed a task description produced no proposed change
-  and applied nothing — reporting "No changes to apply." however clearly you
-  asked.
+  and applied nothing, usually reporting only a bare "No changes to apply."
+  however clearly you asked.
 - **Fixed: five places read a description with its paragraphs fused.** The tasks
   pane search, the Gantt search index, the task-row preview, the AI duplicate
   finder and the Jira push all joined the text either side of a paragraph break

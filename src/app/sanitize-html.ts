@@ -71,7 +71,13 @@ export function plainToHtml(text: string): string {
  *  The duplication is deliberate: importing rich-text-plain's regexes here would
  *  point the DOM-free module's consumer at the DOM-dependent one. If you tighten
  *  this collapse, the projection still fixes up the result — but do not RELAX it
- *  into anything that can eat a "\n". */
+ *  into anything that can eat a "\n".
+ *
+ *  ★ As written the two collapses ARE character-identical (same two regexes, same
+ *  order) — the looseness above is a PERMISSION, not an observed difference, so
+ *  do not go hunting for a divergence here. Where the two genuinely differ is the
+ *  projection's extra entity/NBSP decode running BEFORE its collapse: "x\n&nbsp;\ny"
+ *  leaves this function untouched and normalises to "x\ny" there. */
 export function htmlToText(html: string, opts?: { preserveBreaks?: boolean }): string {
   const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
   if (opts?.preserveBreaks !== true) return stripped.replace(/\s+/g, " ").trim();
