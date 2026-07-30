@@ -47,9 +47,8 @@ import {
   sanitizeMilestone,
   sanitizeStakeholder,
   sanitizeResource,
-  TEXTAREA_MAX,
 } from "./sanitize";
-import { sanitizeRichText } from "./rich-text-plain";
+import { sanitizeAiRichText } from "./ai-rich-text";
 import {
   NEXT_ACTIONS_FIELD_COERCE,
   resolveNextActionsConfig,
@@ -268,7 +267,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
           // ★★★ Upgrade-aware, NOT plainToHtml — see the update boundary.
-          description: sanitizeRichText(input.description ?? input.notes, TEXTAREA_MAX),
+          description: sanitizeAiRichText(input.description ?? input.notes),
           inquiriesSent: 0,
           group: sanitizeGroup(input.group),
           labels: sanitizeLabels(input.labels),
@@ -347,7 +346,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // ★★★ Accepts BOTH shapes: `plainToHtml` escapes & < >, so HTML stored as
         // "<p>&lt;p&gt;…". Landmine: AGENTS.md "Rich-text register descriptions".
         if (patch.description !== undefined)
-          cleanPatch.description = sanitizeRichText(patch.description, TEXTAREA_MAX);
+          cleanPatch.description = sanitizeAiRichText(patch.description);
         if (patch.inquiriesSent !== undefined)
           cleanPatch.inquiriesSent = sanitizeNonNegInt(patch.inquiriesSent);
         if (patch.group !== undefined)

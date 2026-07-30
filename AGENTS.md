@@ -497,8 +497,18 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   model's VERBATIM `diff.raw` — which is HTML, because `scopeBlock` hands the model the stored HTML to
   read. ★ Precisely: the plain CHAT route was already reachable at base (the model reads a stored
   description through a read tool and echoes HTML back), so 0.210.0 added a second route and made a hit
-  far likelier — it did not create reachability from nothing. All four boundaries now use
-  `sanitizeRichText(x, TEXTAREA_MAX)`; chat and persisted insight-recommendation replay share two of them.
+  far likelier — it did not create reachability from nothing. All four boundaries now go through
+  **`sanitizeAiRichText`** (`ai-rich-text.ts`); chat and persisted insight-recommendation replay share two.
+  ★★★ That helper is TWO layers and both are load-bearing: `sanitizeRichText` (upgrade-aware, DOM-free,
+  caps + drops-empty) THEN `sanitizeTemplateHtml` (the actual DOMPurify allow-list). Layer 1 alone CANNOT
+  sanitize — it is DOM-free by contract and `descriptionHtml` passes HTML-shaped input through verbatim,
+  so a model's `<script>` reached all six backends. ★★★ It is `sanitizeTemplateHtml`, **NOT**
+  `sanitizeNoteHtml`, and the difference is DATA LOSS: `sanitizeNoteHtml` sets `KEEP_CONTENT:false`, which
+  deletes the TEXT inside a non-allow-listed tag — right for the editor (its schema emits only the lean
+  set) and WRONG for a model, which legitimately emits `<h3>`/`<div>`/`<table>`. A test pins that
+  distinction; swapping the sanitizer fails it. ★ The helper lives in its OWN module because it calls
+  DOMPurify — putting it in `rich-text-plain.ts` would break the DOM-free guarantee that module's guard
+  exists to protect.
   ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
   ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
   it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four

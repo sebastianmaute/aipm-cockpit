@@ -18,9 +18,8 @@ import {
   sanitizePriority,
   sanitizeGroup,
   sanitizeResource,
-  TEXTAREA_MAX,
 } from "./sanitize";
-import { sanitizeRichText } from "./rich-text-plain";
+import { sanitizeAiRichText } from "./ai-rich-text";
 
 export const SEED_CAP_PER_ENTITY = 8;
 
@@ -249,7 +248,7 @@ function buildSeedTask(raw: unknown, id: number, today: string): Task | null {
     // escapes & < >, so any HTML the model emits stored as visible tags.
     // ★ `notes` is correct HERE: PROPOSAL_TOOL's task schema advertises `notes`,
     // so that is the key the model is asked for. See AGENTS.md, rich-text bullet.
-    description: sanitizeRichText(raw.notes, TEXTAREA_MAX),
+    description: sanitizeAiRichText(raw.notes),
     inquiriesSent: 0,
     group: sanitizeGroup(raw.group),
     labels: [],

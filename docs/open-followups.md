@@ -74,6 +74,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 29 | `form.noteLog` is dead state in the task form | 0.209.0, promoted 0.210.0 | S | open — own change |
 | 30 | A link in a task description loses its address in document exports | 0.210.0 (Larbalestier) | M | open — needs a decision |
 | 31 | `sanitizeRichText` caps visible text, so markup bytes are unbounded | 0.210.0, pre-existing for 3 of 4 | M | open — truncates stored values |
+| 32 | `HTML_START` misclassifies `<a note…>`-shaped plain text, deleting it | pre-existing, reach widened 0.210.0 | S | open — read-time classification |
+| 33 | A multi-paragraph description can overflow its PPTX box | 0.210.0 (Larbalestier) | S | open — cosmetic, needs eye-check |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -824,6 +826,50 @@ schema. It is bloat/abuse.
 ★ The fix is one raw-byte ceiling inside `sanitizeRichText`, which would cover all four rich entities at
 once — but it can TRUNCATE ALREADY-STORED values on their next load, so it needs the same care as §22
 (and probably a golden regen). That is why it is recorded rather than done in 0.210.0.
+
+---
+
+## 32. `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small
+
+Pre-existing (`narrative-html.ts:60`), found by a cold review of 0.210.0. Not introduced by it, but
+0.210.0 extended the reach to the AI write boundaries, so a model-supplied value now hits it too.
+
+`HTML_START` is `/^\s*<(p|br|strong|em|ul|ol|li|a)\b[^>]*>/i`. `\b` matches on a following SPACE, so a
+plain sentence that merely OPENS with one of those eight words in angle brackets is classified as HTML
+and passed through verbatim — and then the `TAG` pass deletes the pseudo-tag along with its words:
+
+| stored | renders / exports as |
+|---|---|
+| `<a note about pricing> is attached` | `is attached` |
+| `<em dash> means something` | `means something` |
+| `<li 2 items> to review` | `to review` |
+| `<p 3 open> and counting` | `and counting` |
+
+Under the old plain-text-only AI boundary this survived as `&lt;a note…&gt;`. The parenthetical is now
+gone with no reader able to recover it.
+
+★ `rich-text-plain.test.ts` pins the NEVER-CLOSES cases (`"<li 3 items"`), which correctly do NOT match.
+The closes-with-a-space case is what is untested.
+★★ The fix is NOT just tightening the regex: `HTML_START` is shared with the dashboard narrative and it
+decides the classification for every rich field on every READ, so a change moves what existing stored
+values mean. Requiring `[\s>/]` after the tag name plus a well-formedness check is the shape; it needs
+its own slice and probably a golden check.
+
+---
+
+## 33. A multi-paragraph description can overflow its PPTX box — open, cosmetic
+
+0.210.0 made a block boundary cost a whole `<a:p>` in PPTX instead of collapsing to whitespace.
+`pptxTextBox`'s `cyEmu` is FIXED (`2800000` on the row-fields box, sized for ~6 wrapped lines) and
+`export-pptx.ts:213` sets `<a:bodyPr wrap="square" …>` with **no** `normAutofit`/`spAutoFit` — verified,
+so PowerPoint will not shrink text to fit. A task with a four-paragraph description turns one meta line
+into four and pushes later fields past the bottom of the box.
+
+★ Not a regression in kind (a long run-on line wrapped and overflowed too) but it is newly easy to hit,
+and the adjacent "cap at 6 extra fields so the text fits the slide" comment is now false.
+★ Byte-stability of the break-free case IS pinned; layout is not, and nothing in the release's
+verification opened a generated deck. Cheapest fix: add `<a:normAutofit/>` to that `bodyPr`, or bound the
+paragraph count per meta line. Needs an eye-check on a real deck either way.
 
 ---
 

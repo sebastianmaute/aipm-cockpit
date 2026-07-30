@@ -420,6 +420,14 @@ describe("DOM-free guard", () => {
           /\/scripts\//.test(rel) ||
           /\/sanitize[^/]*\.ts$/.test(rel) ||
           /-codecs[^/]*\.ts$/.test(rel) ||
+          // ★★ workspace.ts owns the `jsonToWorkspace` catch-all this guard's
+          // whole rationale invokes, and storage.ts is the facade the sample
+          // generator loads through — both are in
+          // scripts/generate-sample-workspace.ts's transitive graph, so a reach
+          // added there breaks the generator under bare node while a filter
+          // scoped to sanitizers/codecs stays green. `scanned > 10` proves the
+          // walk RAN; it does not prove the filter covers the reach.
+          /\/(workspace|storage)\.ts$/.test(rel) ||
           /\/(rich-text-plain|narrative-html)\.ts$/.test(rel);
         if (!isDomFree) continue;
         scanned += 1;
