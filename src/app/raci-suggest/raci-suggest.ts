@@ -103,21 +103,26 @@ export function groundRaciCells(
     const currentRole = s.raci[String(c.milestoneId)] ?? null;
 
     if (c.role === "A") {
-      // Accountable is exactly-one-per-milestone. A proposal may re-assert the
-      // CURRENT holder — that is a deliberate confirmation, not a mistake, so
-      // (unlike R/C/I below) it is NOT filtered out as a no-op — but it must
-      // never mint a second holder for someone else.
+      // Accountable is exactly-one-per-milestone. Re-asserting the CURRENT
+      // holder is legal (it is not a duplicate); minting a second holder for
+      // someone else is not.
       const holder = accountableHolder.get(c.milestoneId);
       if (holder !== undefined && holder !== c.stakeholderId) {
         skipped.push({ ...c, reason: "duplicate-accountable" });
         continue;
       }
-      // Claim it so a second proposed A for the same milestone is refused too.
+      // Claim it BEFORE the no-op check below, so that a later proposed A for a
+      // DIFFERENT stakeholder on this milestone is still refused even when this
+      // cell is about to be dropped as a no-op.
       accountableHolder.set(c.milestoneId, c.stakeholderId);
-    } else if (currentRole === c.role) {
-      // Nothing to change for R/C/I — not an error, just not worth showing.
-      continue;
     }
+
+    // A cell that proposes the role already stored changes nothing. Dropping it
+    // is uniform across all four roles on purpose: the review modal asks the
+    // user to confirm each cell, and a row reading "current A -> proposed A" is
+    // a decision with no consequence. Legality (above) and worth-showing (here)
+    // are separate questions — an Accountable re-assertion is legal AND a no-op.
+    if (currentRole === c.role) continue;
 
     cells.push({
       ...c,

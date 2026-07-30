@@ -93,11 +93,15 @@ describe("groundRaciCells", () => {
     expect(g.skipped[0].reason).toBe("duplicate-accountable");
   });
 
-  it("allows re-proposing Accountable for the stakeholder who already holds it", () => {
+  it("does not treat the current Accountable re-asserting itself as a duplicate", () => {
+    // It is dropped, but as a NO-OP, not rejected as a duplicate — the two
+    // outcomes look alike from `cells` alone, so assert on `skipped`.
     const withA = [sh(1, "Ada", { raci: { "10": "A" } }), sh(2, "Bo")];
     const g = groundRaciCells([{ stakeholderId: 1, milestoneId: 10, role: "A" }], withA, milestones);
-    expect(g.cells).toHaveLength(1);
+    expect(g.skipped).toEqual([]);
+    expect(g.cells).toEqual([]);
   });
+
 
   it("refuses two proposed Accountables for the same milestone within one proposal", () => {
     const g = groundRaciCells(
