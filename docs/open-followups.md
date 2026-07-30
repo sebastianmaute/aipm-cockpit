@@ -80,6 +80,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 35 | `sanitizeAiRichText`'s double pass can double-escape `<a-b>`-shaped markup | 0.210.0 (Larbalestier) | S | open — suspicion, same root as 32 |
 | 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
 | 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
+| 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -985,6 +986,47 @@ field.
 ★★ Process note worth keeping: BOTH of us reasoned from a sanitizer's EXISTENCE rather than its call sites.
 "A function named `sanitizeX` exists" says nothing about whether anything calls it on the path you care
 about. Trace the path.
+
+---
+
+## 38. `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing
+
+Found on 2026-07-30 while adding rich descriptions to the sample master: the link I wrote as
+`<a href="…" target="_blank" rel="noopener noreferrer">` came back out of the golden fixtures as a bare
+`<a href="…">`. Both `target` and `rel` are listed in `ALLOWED_ATTR` / `NOTE_ALLOWED_ATTR`
+(`sanitize-html.ts:8`, `:25`), and `ADD_ATTR: ["target"]` does **not** change the outcome.
+
+**Mechanism, isolated on dompurify 3.4.12** — it is the `ALLOWED_URI_REGEXP`, not the attribute lists:
+
+| config | result |
+|---|---|
+| DOMPurify defaults | `<a href rel>` — `target` dropped (not in the default attr list) |
+| `ALLOWED_ATTR: [href, target, rel]` | `<a href target rel>` — **both survive** |
+| `ALLOWED_URI_REGEXP: /^(?:https?\|mailto):[^<>"]*$/i` alone | `<a href>` — **both dropped** |
+
+A custom `ALLOWED_URI_REGEXP` is tested against **every** attribute value, not just URI-bearing ones.
+`_blank` and `noopener noreferrer` do not match an end-anchored scheme pattern, so they fail and are removed.
+DOMPurify's *default* regexp tolerates them because it has an alternation for values that are not schemes at
+all; ours, deliberately end-anchored to keep the `href` boundary airtight on its own, does not.
+
+Consequences:
+- The Tiptap editor explicitly sets `target: "_blank", rel: "noopener noreferrer"`
+  (`rich-text-editor.tsx:157`), and the storage boundary discards both. **Every stored link opens in the
+  same tab**, in note bodies, all seven rich description fields, and communication templates.
+- Blast radius is exactly `target` + `rel`, because those are the only non-URI attributes in the allow-lists.
+- ★ This is **not** a security hole, and the direction matters: with `target="_blank"` gone there is no
+  reverse-tabnabbing surface for a missing `rel="noopener"` to expose. Stripping both is strictly safer than
+  stripping only `rel`. It is an intent mismatch, not a vulnerability — do not file it as one.
+- The comment at `sanitize-html.ts:2` says the allow-list "mirrors the Tiptap editor's schema (the only
+  producer of this HTML)". For tags that holds; for attributes it does not, and listing `target`/`rel` there
+  reads as though they persist. Corrected in place on 2026-07-30 — the list is unchanged, only the comment.
+
+★ The fix is not "drop the end-anchored regexp": that regexp is the `href` scheme boundary and is
+load-bearing. Scope the strict test to URI attributes (or re-add `target`/`rel` via a hook that runs after
+the URI check) — a behaviour change that rewrites stored `<a>` markup and moves the golden fixtures, so it
+needs its own slice and a golden run, not a drive-by.
+★ The sample master deliberately writes its one link **without** `target`/`rel`, so the curated data
+reflects what is actually storable rather than implying an attribute that cannot survive a save.
 
 ---
 

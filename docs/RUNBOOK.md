@@ -353,6 +353,44 @@ timezone switcher in the top bar (Default / UTC / additional zones) only affects
 how timestamps render for the session and resets on reload; it does not change
 the underlying data or the due-date logic.
 
+### "A description shows literal `<p>` tags, or an export lost its paragraphs"
+Both are reader-side, not stored corruption — the underlying value is almost
+certainly fine, so **do not "repair" the data**. Descriptions are rich HTML on
+seven fields (task, RAID description + mitigation, change description + impact +
+resolution notes, milestone). Storage deliberately holds **both** plain-text and
+HTML shapes at once; every reader upgrades on read.
+
+- *Literal tags visible.* Either a writer escaped HTML (`plainToHtml` on a value
+  that was already HTML — it escapes `& < >`, so tags become text and stay that
+  way permanently), or a reader read the field raw instead of via
+  `descriptionHtml` / `descriptionText`. Sweep with
+  `grep -rn "plainToHtml(" src/app`; every remaining hit must be provably
+  plain-text input. Fix the writer, then correct the affected records by hand —
+  escaped text cannot be un-escaped safely in bulk, because a description may
+  legitimately contain `&lt;`.
+- *Paragraphs fused into one line.* A document renderer is not mapping the
+  newline. The export path is `descriptionTextWithBreaks`, which emits `"\n"`;
+  each renderer must translate it (`<br>` for HTML/PDF — escape first, `<w:br/>`
+  for DOCX, one `<a:p>` per line for PPTX; XLSX relies on `xml:space="preserve"`
+  + `wrapText`). A new export column must also join the matching
+  `*_RICH_COLUMNS` set.
+- *Not a bug:* CSV and Markdown exports contain the markup. They are the app's
+  own storage format and round-trip a project losslessly on purpose.
+
+### "Regenerating sample data produced near-empty files"
+Symptoms: `npx vite-node scripts/generate-sample-workspace.ts` exits **0** and
+reports success, but `sample-workspace-big/huge.json` come out with almost no
+records. Cause: something in the decode path called DOMPurify without a DOM.
+DOMPurify binds `window` at module-eval time; under bare Node the call throws,
+and `jsonToWorkspace`'s catch-all swallows it into an *empty* workspace that then
+"successfully" scales and writes. Fix: the jsdom globals must be installed
+**before** the first `await import("../src/app/storage")` — ordinary `import`
+statements hoist above that, which is why the script uses dynamic imports. If the
+script itself is unchanged, the regression is a new DOMPurify *call* reached from
+`rich-text-plain.ts` or an entity sanitizer, both of which must stay DOM-free;
+`rich-text-plain.test.ts` guards this. ★ Never commit the output of a run you did
+not verify record counts for — the failure mode is silent.
+
 ### "CSP blocks a new feature"
 Symptoms: a specific resource fails in DevTools Console with `Refused to
 connect to ...` or `Refused to load the script ...`. Fix: edit

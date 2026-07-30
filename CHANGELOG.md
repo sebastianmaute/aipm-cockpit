@@ -82,6 +82,22 @@ that exporting and re-importing a project round-trips without loss.
   slightly different form the next time the project is saved — the character
   itself rather than its code — and one that was only over the limit because of
   the old count now keeps its formatting instead of losing it.
+- **New Help topic: "Formatted descriptions & notes."** Which seven fields take
+  formatting, how the note log differs from a description, how notes are attributed,
+  and exactly which export formats keep paragraphs and which keep the markup.
+  In the Help view and the Help panel, English and German.
+- **The demo and sample project now show formatted descriptions.** A few records in
+  the sample workspace carry real paragraphs, lists and a link, alongside others
+  deliberately left as plain text — so "Explore a demo project" shows both shapes,
+  which is what a real project looks like after upgrading.
+
+★ Housekeeping in this release, with no effect on your data: the version number in
+`package.json` had been stuck six releases back (and its lockfile eleven), the README
+badge and the architecture notes three, and several documented facts had outlived the
+code they described — including a claim that two colour themes ship as files in the
+app, when a theme has been something you load yourself for some time. Those are now
+corrected, and the release checklist names every file that carries the version so the
+drift does not restart.
 
 ## [0.209.0] - 2026-07-29 "Lafferty"
 

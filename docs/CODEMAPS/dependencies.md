@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-27 | App 0.203.0 "Czerneda" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 | App 0.210.0 "Larbalestier" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 
@@ -15,7 +15,7 @@ in-tree zip writer, and every AI call is a raw `fetch`.
 | `@azure/msal-browser` | ^5.16.0 | M365 sign-in; owns its own token cache (app stores no M365 secret) |
 | `@heroicons/react` | ^2.2.0 | icon set |
 | `@tiptap/react` + `@tiptap/starter-kit` | ^3.27.1 | rich-text editor (lazy `ssr:false` — needs `Range.getClientRects` stubs in jsdom) |
-| `dompurify` | ^3.4.10 | HTML sanitize for the note log. ★ must not run at module-eval (no DOM under SSR → 500) |
+| `dompurify` | ^3.4.10 | HTML sanitize for the note log, the seven rich description fields, and anything the AI writes into them. ★★ must not run at module-eval (no DOM under SSR → 500) **and must never be reached from `rich-text-plain.ts` or an entity sanitizer** — those run under bare Node in the sample generator, where the call throws and `jsonToWorkspace` swallows it into an empty workspace (see [data.md](data.md)) |
 | `date-holidays` | ^3.28.0 | public-holiday calendar |
 
 ## Dev / test

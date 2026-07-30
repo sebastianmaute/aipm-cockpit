@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.210.0";
-export const APP_BUILD_DATE = "2026-07-29"; // 0.210.0: rich-text export fidelity, projection correctness (Larbalestier)
+export const APP_BUILD_DATE = "2026-07-30"; // 0.210.0: rich-text export fidelity, projection correctness (Larbalestier)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.210.x line is "Larbalestier" (Justine Larbalestier, speculative-fiction author). */
 export const APP_MILESTONE = "Larbalestier";

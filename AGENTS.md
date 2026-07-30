@@ -11,6 +11,7 @@ before your first edit — the rest is reference, reachable from here.
 
 | | |
 |---|---|
+| [The doc set](#the-doc-set--what-lives-where) | which of the five docs owns what — read before restating a fact in a second file |
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
 | [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, design-system primitives |
@@ -25,6 +26,27 @@ before your first edit — the rest is reference, reachable from here.
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
 live in [`docs/open-followups.md`](docs/open-followups.md), not here.
+
+★★★ **No gate checks anything in this file.** Every claim here was true when written and some have
+outlived their code — six false clusters were found and fixed on 2026-07-30 alone, one of them
+restated four times (a bundled-themes directory that does not exist). Before relying on a specific
+claim (a path, a count, a call site, "X is guarded"), **grep it.** A function named `sanitizeX`
+proves nothing about whether the path you care about calls it. Correct what you disprove, in the
+same commit.
+
+## The doc set — what lives where
+
+| File | Owns |
+|---|---|
+| **AGENTS.md** (this file) | landmines, hard constraints, per-subsystem module maps. The deep reference. |
+| [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; this file for detail. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
+| [`docs/open-followups.md`](docs/open-followups.md) | every known-open defect and deferred decision, numbered. |
+
+★ A fact belongs in ONE of these. When it must appear twice, the second copy links rather than
+restates — four restatements of the same claim is how `public/themes/*.json` survived in this file
+long after the directory it named stopped existing.
 
 ## Commands
 
@@ -124,7 +146,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
   `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **16** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 schemes × 16
+  Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 scheme COMBOS × 16
   + 5 Kanban-board variants = **85** checks. It does NOT include Projects, Knowledge, or the
   Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
   surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).
@@ -151,8 +173,15 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
   tech-debt roadmap are complete — gates flipped to blocking in Phase 4, MR !174.)
   New CI gate → also update this line.
-- **Releasing:** bump `src/app/version.ts` (APP_VERSION + milestone), add `CHANGELOG.md` entry,
-  append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
+- **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
+  `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
+  strings). ★★ FIVE MORE PLACES CARRY THE VERSION AND **NO GATE CHECKS ANY OF THEM**:
+  `package.json` `version`, `package-lock.json` (TWO occurrences — the root `version` and the
+  `packages[""]` one), the README shields badge (version **and** codename), and the
+  `<!-- Generated: … | App <version> "<codename>" … -->` header on all five `docs/CODEMAPS/*.md`.
+  Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
+  at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
+  `CHANGELOG.md` were correct. Bump them in the SAME commit as `version.ts` or the drift restarts.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
@@ -182,9 +211,13 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
 - **New Turso table NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (guard test enforces) — else workspace save's
   per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
-- **Secrets at rest:** the `SecretId` union is now FIVE device-sealed ids — Anthropic `apiKey` +
-  Turso `authToken` + Jira `apiToken` + Timelog `timelogApiToken` + dictation-STT `sttApiKey` (5th;
-  lives under `settings.dictation`, browser→same-origin `/api/stt` SSRF proxy) — all
+- **Secrets at rest:** the `SecretId` union is now FIVE device-sealed ids. ★ The id and the SETTINGS
+  FIELD it seals are NOT the same string, and three of the five differ — the ids are
+  `"anthropicApiKey"` (field `settings.ai.apiKey`), `"tursoAuthToken"` (field `authToken`),
+  `"jiraApiToken"` (field `settings.jira.apiToken`), `"timelogApiToken"` and `"sttApiKey"` (5th;
+  lives under `settings.dictation`, browser→same-origin `/api/stt` SSRF proxy). Use the ID spellings
+  above for the hardcoded allowlists below — earlier text here listed the field names as if they were
+  the ids. All five are
   ENCRYPTED via `secrets.ts` (AES-256-GCM; non-extractable device key in IndexedDB by default,
   optional per-secret PBKDF2 passphrase — Jira is device-only so far, no passphrase UI). ★ Adding a
   SecretId means SIX edits in lockstep: `SecretId` union, `isSealedSecret` id allowlist + `readStore`
@@ -1335,8 +1368,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `shadow-[var(--…)]` className form is stripped first) — reference the token obliquely in comments.
   `bg`/`border`/`divide-ui-light-grey` + `text-ui-dark-grey` are BANNED chrome greys (`text-ui-light-grey`
   is fine) — use `bg-ui-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
-  EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light, Harbor(custom)-light, Harbor(custom)-dark
-  (5 × A11Y_VIEWS), seeding
+  FIVE combos over the THREE built-in schemes: harbor-light, harbor-dark, meridian-light, meridian-dark,
+  umber-light (5 × A11Y_VIEWS) — ★ umber-DARK is deliberately omitted to hold the count at five, so scheme
+  DATA is 5-of-6 covered, not fully. Seeding
   `aipm-cockpit-style`/`aipm-cockpit-theme` via `addInitScript` — ★ Phase 2: it must ALSO seed `aipm-cockpit:color-schemes` `activeId`
   to the scheme under test, else `syncScheme` overwrites the boot paint on mount (scheme landmine 4). Appearance
   Style switch disables the theme control while Mockup (a light-only scheme) is active.
@@ -1364,29 +1398,36 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   • **★★ RELEASE B (token rename, 0.190.23):** the palette token NAMES were renamed `AIPM-*`→`ui-*`
   everywhere — Tailwind classes (`bg-AIPM-green`→`bg-ui-green`), CSS var names (`--AIPM-green`→`--ui-green`),
   the `@theme` map (`--color-AIPM-*`→`--color-ui-*`), scheme registries (`CORE_TOKENS`/`VALID_TOKENS`/
-  `DERIVED_TOKENS`), the shipped `public/themes/*.json` color KEYS, and the palette guards. The 12 base
+  `DERIVED_TOKENS`), any exported theme FILE's color KEYS, and the palette guards. The 12 base
   tokens are `ui-{dark-blue,green,green-strong,pink,pink-strong,purple,purple-strong,blue,white,dark-grey,
   light-grey,medium-grey}`. The var NAMES + `@theme` MECHANISM are otherwise unchanged (only the prefix);
   Phase-2 text below that says `--AIPM-*` now means `--ui-*`. PRESERVED (NOT renamed): `AIPM` (company /
-  theme display name), `Acme`/`AIPM-consult` (host/email), `public/themes/AIPM.json` + gallery id
-  `"AIPM"` (the AIPM THEME identity), `AIPM-logo`/`AIPM-icon` (asset classes). NO key migration — a stored/
+  theme display name), `Acme`/`AIPM-consult` (host/email), `AIPM-logo`/`AIPM-icon` (asset classes),
+  and the legacy `CiStyle` union members `"AIPM"`/`"mockup"` (`style-ci.ts` — vestigial: `data-style` is
+  the constant `"custom"` now, and NO live scheme carries either id). NO key migration — a stored/
   exported scheme with legacy `--AIPM-*` color keys drops to the Harbor fallback (no active users).
   • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** AIPM + Mockup
-  LEFT the code built-ins and now ship as self-contained importable theme files `public/themes/AIPM.json` +
-  `mockup.json` (full portable format — light/dark/`structural`/branding/pinned AA tokens). `BUILTIN_SCHEMES` =
-  **[harbor, meridian, umber]** only. An in-app **Theme gallery** (`theme-gallery.tsx`, mounted in
-  `AppearanceSection` beside the scheme editor) fetches `/themes/*.json` → widened `importScheme` → `addScheme`
-  + `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber;
-  AIPM/Dashboard are opt-in imports. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
+  LEFT the code built-ins entirely. `BUILTIN_SCHEMES` = **[harbor, meridian, umber]** only, and a theme is
+  now a FILE THE USER LOADS in the full portable format (light/dark/`structural`/branding/pinned AA tokens).
+  ★★★ CORRECTED 2026-07-30 — earlier revisions of this bullet claimed AIPM and Mockup "ship as
+  `public/themes/AIPM.json` + `mockup.json`" and that the gallery "fetches `/themes/*.json`". **There is no
+  `public/themes/` directory, there are no shipped theme files, and nothing in the repo references that
+  path** (verified: `find . -name AIPM.json` → nothing; `public/` holds only logos, the manifest and `sw.js`).
+  The in-app **Theme gallery** (`theme-gallery.tsx`, mounted in `AppearanceSection` beside the scheme editor)
+  is a FILE-UPLOAD importer (`accept="application/json,.json"`) → widened `importScheme` → `addScheme` +
+  `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber;
+  `e2e/a11y.spec.ts`'s own comment states it plainly: "AIPM and Dashboard no longer exist in the app in any
+  form — a theme is a file the user loads." Do not re-add a claim that any theme is bundled. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
   Harbor-falls-back via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
   **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
   structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
   (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
-  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` now READS
-  `public/themes/*.json` and seeds AIPM/Mockup as **USER schemes** (not the empty-`schemes[]`+built-in-activeId
-  shortcut — they're no longer built-ins) to keep the 5-combo matrix. — The Phase-2 text below still describes
+  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs its 5-combo
+  matrix on the THREE BUILT-INS — harbor light+dark, meridian light+dark, umber light — resolving each map
+  node-side at seed time. ★ Umber-DARK is deliberately unscanned to hold the count at five, so 5 of the 6
+  built-in combos are covered, not all of them (`SCHEME_SEED` carries `UMBER_DARK` and the matrix omits it). — The Phase-2 text below still describes
   the MECHANISM (data-style/scheme apply/structural), just not the built-in ROSTER.
   • **Scheme-driven color schemes (Phase 2 — AIPM + Mockup ARE built-in schemes):** the AIPM/mockup/custom
   `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;
@@ -1415,7 +1456,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   4.35:1 (Umber light) once hover deepened the tint. This is the documented translucent-tint-on-hover trap,
   and the axe gate CANNOT see it (it scans the resting state, and those chips live in an edit modal it never
   opens) — `scheme-purple-hover.test.ts` is the only coverage, and it checks the built-ins AND the shipped
-  `public/themes/*.json`. ★★ The GUARD must composite over the same `--surface-muted` the DERIVATION
+  the `globals.css :root` Harbor-light fallback. ★★ The GUARD must composite over the same `--surface-muted` the DERIVATION
   does: composited over the lighter `--surface` it is looser than the code it guards, and a revert
   slips through in 4 of the 6 built-in combos. ★★ SIDE EFFECT, accepted deliberately: because the
   reference is the harder surface, this also LIGHTENED the value DERIVED FOR the three built-in DARK
@@ -1537,7 +1578,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
 - **Settings sections:** each window shows a uniform pane `<h2>` (its rail label); `mode`/`templates`/
   `commTemplates` are excluded (they self-head + carry an intro line). Appearance is its OWN rail section
   (un-folded from General; General now folds only Storage).
-- **Feature-module guidance (Settings → Functions):** `mode-section.tsx` renders each `FEATURE_MODULES`
+- **Feature-module guidance (Settings → Mode — the section is titled "Mode"; only its intro copy calls the toggles "functions"):** `mode-section.tsx` renders each `FEATURE_MODULES`
   toggle with an optional `descKey` description under the label (use case + when to enable). ★ Adding a
   module ⇒ give it a `descKey` + EN/DE i18n string (all 12 now have one). ★★ a11y: the description is a
   SEPARATE `<span id>` linked via `aria-describedby` — do NOT nest it inside the `<label>` (that folds it
