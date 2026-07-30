@@ -2493,10 +2493,6 @@ function TaskManagerInner() {
       onSectionConsumed={clearSettingsSectionRequest}
       isPopout={isPopout}
       resources={resources}
-      project={project}
-      projectStakeholderNames={stakeholders.map((s) => s.name)}
-      projectAddressBook={contactsList}
-      onUpdateProject={isPopout ? undefined : handleUpdateCurrentProjectByMode}
     />
   );
 
