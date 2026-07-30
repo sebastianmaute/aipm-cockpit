@@ -69,7 +69,11 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
     lang,
     dictation,
     enabled: true,
-    label: t(lang, "edit"),
+    // Carries the same `suffix` the Edit/Delete buttons above do: two
+    // NoteLogPanels can be mounted at once (the floating notes window and the
+    // one inside the task editor), and without it both mics announce
+    // identically — WCAG 2.4.6.
+    label: `${t(lang, "edit")}${suffix}`,
     onAppendFinal: (txt) => editEditorRef.current?.appendText(txt),
   });
 
@@ -178,7 +182,12 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
     lang,
     dictation: settings.dictation,
     enabled: true,
-    label: t(lang, "noteLogPlaceholder"),
+    // Qualified for the same reason the Add button below is: with both the
+    // floating notes window and the task editor's panel open, two composer mics
+    // are in the DOM at once and would otherwise share one name (WCAG 2.4.6).
+    label: labelSuffix
+      ? `${t(lang, "noteLogPlaceholder")} – ${labelSuffix}`
+      : t(lang, "noteLogPlaceholder"),
     onAppendFinal: (txt) => composerEditorRef.current?.appendText(txt),
   });
 
