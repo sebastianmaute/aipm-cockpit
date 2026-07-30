@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowPathIcon, Cog6ToothIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, ArrowPathIcon, ArrowUpTrayIcon, Cog6ToothIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
@@ -765,6 +765,7 @@ export function TasksSection({
                   }))
                 }
                 aria-label={t(lang, "calendarSyncEnable")}
+                title={t(lang, "calendarSyncEnableHint")}
                 className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
               />
               {t(lang, "calendarSyncEnable")}
@@ -774,11 +775,12 @@ export function TasksSection({
                 type="button"
                 onClick={() => void pushTasksToOutlook()}
                 disabled={calPushBusy}
-                aria-label={t(lang, "calendarPush")}
-                title={t(lang, "calendarPush")}
-                className={`rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                aria-label={t(lang, calPushBusy ? "calendarPushing" : "calendarPush")}
+                title={t(lang, calPushBusy ? "calendarPushing" : "calendarPush")}
+                className={`inline-flex items-center gap-1 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
-                {calPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
+                <ArrowUpTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                {calPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPushShort")}
               </button>
             )}
             {calendarTaskEnabled && (
@@ -786,11 +788,12 @@ export function TasksSection({
                 type="button"
                 onClick={() => void taskPull.pull()}
                 disabled={taskPull.busy}
-                aria-label={t(lang, "calendarPull")}
-                title={t(lang, "calendarPull")}
-                className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                aria-label={t(lang, taskPull.busy ? "calendarPulling" : "calendarPull")}
+                title={t(lang, taskPull.busy ? "calendarPulling" : "calendarPull")}
+                className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
-                {taskPull.busy ? t(lang, "calendarPulling") : t(lang, "calendarPull")}
+                <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                {taskPull.busy ? t(lang, "calendarPulling") : t(lang, "calendarPullShort")}
               </button>
             )}
           </>

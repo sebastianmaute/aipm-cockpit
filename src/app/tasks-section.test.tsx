@@ -890,6 +890,15 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("gives the Outlook enable checkbox an explanatory tooltip", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    const box = screen.getByRole("checkbox", { name: t("en-US", "calendarSyncEnable") });
+    expect(box.getAttribute("title")).toBe(t("en-US", "calendarSyncEnableHint"));
+  });
+
   it("shows the Pull-from-Outlook button when M365 is configured and task calendar sync is enabled", () => {
     stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };

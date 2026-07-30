@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownTrayIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import {
   SortResizeTh,
   useSortableFilter,
@@ -321,9 +322,12 @@ function MilestonesPanelBody({
             type="button"
             onClick={onPushToOutlook}
             disabled={calendarPushBusy}
-            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
+            aria-label={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+            title={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+            className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
           >
-            {t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+            <ArrowUpTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPushShort")}
           </button>
         ) : null}
         {onPullFromOutlook ? (
@@ -331,9 +335,12 @@ function MilestonesPanelBody({
             type="button"
             onClick={onPullFromOutlook}
             disabled={calendarPullBusy}
-            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
+            aria-label={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
+            title={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
+            className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
           >
-            {t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
+            <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            {calendarPullBusy ? t(lang, "calendarPulling") : t(lang, "calendarPullShort")}
           </button>
         ) : null}
         <PaneSearchInput
