@@ -647,18 +647,11 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
   const showPushToJira =
     jiraEnabled && !!jiraProjectKey && !task.jiraKey && !task.completedDate;
 
-  // Edit stays inline; the secondary verbs (Send inquiry / Push to Jira / Delete)
-  // fold into a ⋮ overflow menu. The trigger's aria-label is row-unique
-  // (WCAG 2.4.6) so N rows don't share an identical "More actions" name.
+  // All row verbs (Edit / Send inquiry / Push to Jira / Delete) live in the
+  // ⋮ overflow menu. The trigger's aria-label is row-unique (WCAG 2.4.6) so
+  // N rows don't share an identical "More actions" name.
   return (
-    <div className="flex items-center gap-2 whitespace-nowrap">
-      <button
-        type="button"
-        onClick={(e) => { stop(e); onEdit(task); }}
-        className={`text-xs font-medium text-foreground underline-offset-2 hover:underline ${INTERACTIVE}`}
-      >
-        {t(lang, "edit")}
-      </button>
+    <div className="flex items-center whitespace-nowrap">
       <span className="relative">
         <button
           ref={menuBtnRef}
@@ -680,6 +673,14 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           ariaLabel={t(lang, "actionMoreActions")}
           className="flex w-max flex-col py-1"
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={(e) => { stop(e); setMenuOpen(false); onEdit(task); }}
+            className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted"
+          >
+            {t(lang, "edit")}
+          </button>
           {showSendInquiry && (
             <button
               type="button"

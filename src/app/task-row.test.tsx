@@ -725,23 +725,20 @@ describe("TaskActions", () => {
       </table>,
     );
 
-  test("Edit is inline and fires onEdit; the secondaries stay hidden until ⋮ opens", () => {
+  test("the row verbs stay hidden until ⋮ opens", () => {
     const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
     const task = makeTask({ id: 99 });
     const { getByText, getByRole, queryByText } = renderActions(ctx, task);
 
-    // Edit renders inline.
-    fireEvent.click(getByText("Edit"));
-    expect(ctx.onEdit).toHaveBeenCalledTimes(1);
-    expect(ctx.onEdit).toHaveBeenCalledWith(task);
-
-    // The moved verbs are not rendered while the overflow is closed.
+    // Nothing renders while the overflow is closed.
+    expect(queryByText("Edit")).toBeNull();
     expect(queryByText("Send inquiry")).toBeNull();
     expect(queryByText("Push to Jira")).toBeNull();
     expect(queryByText("Delete")).toBeNull();
 
-    // Opening the ⋮ menu (row-unique accessible name) reveals the three moved actions.
+    // Opening the ⋮ menu (row-unique accessible name) reveals all four actions.
     fireEvent.click(getByRole("button", { name: "More actions – Sample task" }));
+    expect(getByText("Edit")).toBeInTheDocument();
     expect(getByText("Send inquiry")).toBeInTheDocument();
     expect(getByText("Push to Jira")).toBeInTheDocument();
     expect(getByText("Delete")).toBeInTheDocument();
@@ -756,6 +753,19 @@ describe("TaskActions", () => {
     fireEvent.click(getByText("Delete"));
     expect(ctx.onDelete).toHaveBeenCalledTimes(1);
     expect(ctx.onDelete).toHaveBeenCalledWith(99);
+  });
+
+  test("offers Edit inside the overflow menu and no longer renders it inline", () => {
+    const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
+    const task = makeTask({ id: 99 });
+    const { getByRole, queryByRole } = renderActions(ctx, task);
+
+    expect(queryByRole("button", { name: "Edit" })).toBeNull();
+
+    fireEvent.click(getByRole("button", { name: "More actions – Sample task" }));
+    fireEvent.click(getByRole("menuitem", { name: "Edit" }));
+    expect(ctx.onEdit).toHaveBeenCalledTimes(1);
+    expect(ctx.onEdit).toHaveBeenCalledWith(task);
   });
 
 });
