@@ -16,10 +16,13 @@ const base = {
 describe("CalendarSyncControls", () => {
   it("shows the short label but keeps the descriptive accessible name", () => {
     render(<CalendarSyncControls {...base} />);
+    // Asserted with toBe, not toContain: the short label is a SUBSTRING of the
+    // long one ("Push" of "Push to Outlook"), so a containment check passes
+    // whether or not the label was ever shortened.
     const push = screen.getByRole("button", { name: t("en-US", "calendarPush") });
-    expect(push.textContent).toContain(t("en-US", "calendarPushShort"));
+    expect(push.textContent).toBe(t("en-US", "calendarPushShort"));
     const pull = screen.getByRole("button", { name: t("en-US", "calendarPull") });
-    expect(pull.textContent).toContain(t("en-US", "calendarPullShort"));
+    expect(pull.textContent).toBe(t("en-US", "calendarPullShort"));
   });
 
   it("gives the enable checkbox an explanatory tooltip", () => {
