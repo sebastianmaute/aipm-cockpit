@@ -661,6 +661,8 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               milestones={milestones}
               onSave={handleSaveStakeholder}
+              onCaptureBulk={onCaptureStakeholderBulk}
+              logActivity={logActivity}
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

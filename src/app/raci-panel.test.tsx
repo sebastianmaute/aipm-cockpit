@@ -1,8 +1,39 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RaciPanel } from "./raci-panel";
+import { t } from "./i18n";
 import type { Stakeholder, Milestone } from "./types";
+
+// "Suggest RACI" (use-raci-suggest) reads settings.ai via useSettings(); mocked
+// (mirrors resources-panel.test.tsx) so a single test can flip AI on without
+// waiting on the real localStorage/secrets hydration path. Every OTHER test in
+// this file gets the same default (AI off) the real hook would resolve to for
+// an unseeded localStorage, so this is a no-op for them.
+vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
+
+import { useSettings } from "./use-settings";
+import { defaultSettings, type Settings } from "./settings-types";
+const mockUseSettings = useSettings as ReturnType<typeof vi.fn>;
+
+function stubSettings(settings: Settings) {
+  mockUseSettings.mockReturnValue({
+    settings,
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US" as const,
+  });
+}
+
+const AI_ON: Settings = {
+  ...defaultSettings,
+  ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" },
+};
+
+beforeEach(() => {
+  stubSettings(defaultSettings);
+});
 
 const stakeholders: Stakeholder[] = [
   { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: { "10": "A" } },
@@ -92,5 +123,28 @@ describe("RaciPanel", () => {
     fireEvent.change(input, { target: { value: "Sam (#3)" } });
     expect(screen.getAllByRole("columnheader", { name: "Sam" })).toHaveLength(1);
     expect(screen.queryByRole("columnheader", { name: "Lee" })).not.toBeInTheDocument();
+  });
+
+  it("offers the Suggest RACI trigger when AI is configured", () => {
+    stubSettings(AI_ON);
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    expect(screen.getByRole("button", { name: t("en-US", "raciSuggest") })).toBeTruthy();
+  });
+
+  it("hides the trigger in a popout", () => {
+    stubSettings(AI_ON);
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} isPopout />);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
+  });
+
+  it("hides the trigger when there are no milestones to assign against", () => {
+    stubSettings(AI_ON);
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={[]} onSave={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
+  });
+
+  it("hides the trigger when AI is not configured", () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
   });
 });
