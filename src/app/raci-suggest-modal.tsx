@@ -77,6 +77,19 @@ export function RaciSuggestModal({
             <ul className="space-y-2">
               {cells.map((c) => {
                 const key = cellKey(c);
+                // Two stakeholders can genuinely share a name, and cells are
+                // deduped by (stakeholderId, milestoneId) — not by name — so
+                // name+milestone is NOT guaranteed unique. Identical names on N
+                // rows is a WCAG 2.4.6 failure the axe gate cannot see (it
+                // reports missing names, never duplicate ones). Qualify with the
+                // id only when the name actually collides, so the common case
+                // stays readable.
+                const nameIsAmbiguous = cells.some(
+                  (o) => o.stakeholderId !== c.stakeholderId && o.stakeholderName === c.stakeholderName,
+                );
+                const who = nameIsAmbiguous
+                  ? `${c.stakeholderName} (#${c.stakeholderId})`
+                  : c.stakeholderName;
                 const on = selected.has(key);
                 const currentLabel = c.currentRole ? t(lang, ROLE_LABEL_KEY[c.currentRole]) : t(lang, "raciSuggestNone");
                 const proposedLabel = t(lang, ROLE_LABEL_KEY[c.role]);
@@ -87,7 +100,7 @@ export function RaciSuggestModal({
                         checked={on}
                         disabled={busy}
                         onChange={() => onToggle(key)}
-                        aria-label={`${t(lang, "raciSuggestInclude")} – ${c.stakeholderName} – ${c.milestoneName}`}
+                        aria-label={`${t(lang, "raciSuggestInclude")} – ${who} – ${c.milestoneName}`}
                         className="mt-0.5 shrink-0"
                       />
                       <span className="min-w-0 flex-1">
