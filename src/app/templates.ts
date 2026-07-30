@@ -17,13 +17,13 @@ import {
   sanitizeIsoDate,
   sanitizeLabels,
   sanitizeMilestone,
-  sanitizeNotes,
   sanitizeOptionalMinutes,
   sanitizePriority,
   sanitizeStakeholder,
   sanitizeTaskName,
+  TEXTAREA_MAX,
 } from "./sanitize";
-import { plainToHtml } from "./sanitize-html";
+import { sanitizeRichText } from "./rich-text-plain";
 import {
   DEPENDENCY_TYPES,
   RAID_CATEGORIES,
@@ -125,7 +125,13 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     priority: sanitizePriority(raw.priority),
     status: raw.status as Task["status"],
     blockers: sanitizeBlockers(raw.blockers),
-    description: plainToHtml(sanitizeNotes(raw.notes)),
+    // ★★★ `description` FIRST, `notes` only as the pre-0.196.0 fallback. Reading
+    // `raw.notes` alone was silent DATA LOSS: templateFromWorkspace captures real
+    // Task objects (`seed.tasks = ws.tasks`) and a Task has carried `description`
+    // since the rename, so every captured task description imported as "".
+    // ★ sanitizeRichText, not plainToHtml — the captured value is HTML and
+    // plainToHtml would escape it into visible tags (AGENTS.md, rich-text bullet).
+    description: sanitizeRichText(raw.description ?? raw.notes, TEXTAREA_MAX),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

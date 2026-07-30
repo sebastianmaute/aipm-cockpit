@@ -73,6 +73,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 28 | CSV/MD/Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 | M | open — needs a new boundary |
 | 29 | `form.noteLog` is dead state in the task form | 0.209.0, promoted 0.210.0 | S | open — own change |
 | 30 | A link in a task description loses its address in document exports | 0.210.0 (Larbalestier) | M | open — needs a decision |
+| 31 | `sanitizeRichText` caps visible text, so markup bytes are unbounded | 0.210.0, pre-existing for 3 of 4 | M | open — truncates stored values |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -792,6 +793,37 @@ Two options, and the cheap one is not obviously right:
 
 ★ Do NOT "fix" this by widening `htmlToText`'s allow-list — it is the shared plain-text projection
 that search, the AI digests and the inline-AI preview also use, and none of them wants markup.
+
+---
+
+## 31. `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — open, affects all four rich entities
+
+Found auditing 0.210.0's write-boundary fix. Not introduced by it in general — RAID/change/milestone
+already had this property via `sanitize-records.ts` — but that fix DID remove the one byte bound that
+`Task.description` still had, so the field joined the others' posture.
+
+`capHtmlText(html, max)` measures `htmlTextLength` (VISIBLE text) and returns the html untouched when it
+fits. `descriptionHtml` is `HTML_START.test(s) ? s : plainToHtml(s)` — a verbatim pass-through for
+anything already HTML, with no allow-list at this layer (correct: the module is DOM-FREE and cannot run
+DOMPurify). So markup carries no limit. Measured:
+
+| input | visible text | stored |
+|---|---|---|
+| `<p>` + `<em></em>`×200000 + `a</p>` | 1 char | **1,800,008 B** |
+| `<p data-x="` + `A`×500000 + `">a</p>` | 1 char | **500,018 B** |
+
+Before the 0.210.0 fix the task boundary was `plainToHtml(sanitizeNotes(x))`, which clipped RAW length at
+`TEXTAREA_MAX` — so the same input stored 11,676 B. That value lands in a Turso row, a CSV cell and a
+Markdown table cell on all six backends.
+
+★ Practical ceiling is the model's `max_tokens` for the chat and proposal paths. For persisted
+insight-recommendation replay it is whatever `sanitizeToolCall` allows on `proposedCalls[].input` — NOT
+verified, so do not assume it is small.
+★ Not a corruption or XSS issue: every read of these fields projects through DOMPurify or the editor
+schema. It is bloat/abuse.
+★ The fix is one raw-byte ceiling inside `sanitizeRichText`, which would cover all four rich entities at
+once — but it can TRUNCATE ALREADY-STORED values on their next load, so it needs the same care as §22
+(and probably a golden regen). That is why it is recorded rather than done in 0.210.0.
 
 ---
 

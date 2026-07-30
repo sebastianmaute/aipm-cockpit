@@ -483,12 +483,22 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `<p>&lt;p&gt;&lt;strong&gt;…` — literal tags visible in the field, in every export and in the search
   index, permanently. RAID/change/milestone were always safe because they route through their entity
   sanitizer → `sanitizeRichText` → `descriptionHtml`, which passes HTML through and upgrades plain text.
-  `Task.description` was the ONE rich field with a plain-text-in boundary (`use-chat-dispatcher.ts`
-  create + `update_task`), and 0.210.0 made that reachable by renaming the inline-AI descriptor's dead
+  `Task.description` had FOUR plain-text-in boundaries, all fixed in 0.210.0 — `use-chat-dispatcher.ts`
+  create + `update_task`, `ai-project-proposal.ts` (the model's `propose_project`, fed from an uploaded
+  PDF / SharePoint file / Confluence page — the most attacker-influenceable input in the app), and
+  `templates.ts` `sanitizeSeedTask`. ★ `grep -rn "plainToHtml(" src/app` is the sweep; the remaining hits
+  (`action-task-seed.ts`, `jira-api.ts` via `adfToText`, `templates-builtin.ts`) are provably plain by
+  construction. ★★ `sanitizeSeedTask` ALSO read the pre-0.196.0 `raw.notes` only, which was silent DATA
+  LOSS: `templateFromWorkspace` captures real `Task` objects, so every captured description imported as
+  `""`. It now reads `raw.description ?? raw.notes`. ★ `ai-project-proposal` keeps `raw.notes` on
+  purpose — `PROPOSAL_TOOL`'s task schema advertises that key, so it is what the model is asked for.
+  0.210.0 made the inline-AI route reachable by renaming the descriptor's dead
   `notes` to `description` (a task-description diff became possible) while the confirm path applies the
   model's VERBATIM `diff.raw` — which is HTML, because `scopeBlock` hands the model the stored HTML to
-  read. An inert path became a corrupting one. Both boundaries now use
-  `sanitizeRichText(x, TEXTAREA_MAX)`; chat and persisted insight-recommendation replay share them.
+  read. ★ Precisely: the plain CHAT route was already reachable at base (the model reads a stored
+  description through a read tool and echoes HTML back), so 0.210.0 added a second route and made a hit
+  far likelier — it did not create reachability from nothing. All four boundaries now use
+  `sanitizeRichText(x, TEXTAREA_MAX)`; chat and persisted insight-recommendation replay share two of them.
   ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
   ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
   it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four
