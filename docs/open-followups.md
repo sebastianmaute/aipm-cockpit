@@ -79,6 +79,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 34 | ~~DOM-free guard filtered by NAME LIST (18 of 76 graph files)~~ | 0.210.0 (Larbalestier) | S | **CLOSED 0.210.0 — guard now resolves the import graph** |
 | 35 | `sanitizeAiRichText`'s double pass can double-escape `<a-b>`-shaped markup | 0.210.0 (Larbalestier) | S | open — suspicion, same root as 32 |
 | 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
+| 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -951,6 +952,39 @@ same exported row as the descriptions that were just cleaned up, which makes the
 register already exported readable text" read further than it should.
 ★ Fix is a decision, not a bug fix: drop `noteLog` from the document-format sections, or project it to
 readable text (author · date · text per entry).
+
+---
+
+## 37. `RaidItem` has NO storage-side length cap on any path — open, pre-existing
+
+Produced by a round-6 review exchange in 0.210.0: a reviewer asserted the modal cap merely duplicated a
+sanitizer one, I showed the sanitizer is not on the save path, and tracing it properly turned up something
+neither of us had. **`sanitizeRaidItem` looks like the storage boundary for RAID and is on no save or load
+path at all.** Its only non-AI caller is `task-manager.tsx` `applyRaidFromTask`; the other two are the chat
+tools.
+
+| entity | save path | JSON / IDB load | CSV / MD / Turso load | net |
+|---|---|---|---|---|
+| Change | none | `workspace.ts:560` → `sanitizeChangeItem` ✓ | `csv-codecs-core.ts:429` `buildChangeFromObj` → `sanitizeChangeItem` ✓ | capped on next load |
+| RAID | none | `workspace.ts:545` bare cast + `sanitizeRaidRichFields` (**rich fields only**) | `csv-codecs-core.ts:324` `buildRaidItemFromObj` hand-builds `obj.title?.trim() ?? ""` | **capped nowhere, ever** |
+
+Consequences:
+- `RaidItem.title` and `owner` are effectively UNBOUNDED stored fields. An over-long value written by any
+  writer other than the edit modal stays over-length on all six backends indefinitely.
+- 0.210.0's Enter-submit fix is therefore *adding* the only cap on the human editor path, not aligning the
+  modal with storage — the modal comment says so, and the release note describes the two registers
+  separately because one sentence cannot cover both.
+- The asymmetry with `buildChangeFromObj` (which DOES route through its sanitizer) reads as unintentional
+  rather than designed: RAID is the one register whose decoder hand-builds *and* whose JSON load runs only
+  the rich pass.
+
+★ The fix is not simply "call `sanitizeRaidItem` on load": that function enforces per-category status
+defaulting and would silently rewrite stored statuses, so it needs the same care as any read-time
+normalisation change (and probably a golden run). Related to §31 (unbounded markup) — same class, different
+field.
+★★ Process note worth keeping: BOTH of us reasoned from a sanitizer's EXISTENCE rather than its call sites.
+"A function named `sanitizeX` exists" says nothing about whether anything calls it on the path you care
+about. Trace the path.
 
 ---
 

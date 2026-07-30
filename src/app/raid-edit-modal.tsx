@@ -193,6 +193,16 @@ export function RaidEditModal({
     // firing blur: the value went out uncapped while this counted a truncation
     // and the toast announced one. The onBlur handlers stay — they keep the
     // draft and its counter honest while the user is still typing.
+    // ★★★ This is the ONLY cap on `title`/`owner` for a human editor, not a
+    // duplicate of a storage-side one. `sanitizeRaidItem` LOOKS like the storage
+    // boundary and is not on one: `use-resource-planner.ts` stores the item
+    // directly, `workspace.ts`'s JSON load is a bare cast plus
+    // `sanitizeRaidRichFields` (rich fields only), and `buildRaidItemFromObj`
+    // hand-builds `title` with `obj.title?.trim() ?? ""` — no cap on ANY path.
+    // Change is the opposite (its decoder and JSON load both route through
+    // `sanitizeChangeItem`), so do not reason about the two registers together.
+    // open-followups.md §37. ★ Side effect worth keeping: the auto-issue derivation
+    // below copies `title` verbatim, so it now inherits the capped value.
     const cappedTitle = describeTextCap(draft.title, TASK_NAME_MAX);
     const cappedOwner = describeTextCap(draft.owner ?? "", ASSIGNEE_MAX);
     adj.track(cappedTitle);

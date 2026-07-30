@@ -65,10 +65,12 @@ that exporting and re-importing a project round-trips without loss.
   merge that deletes tasks.
 - **Fixed: pressing Enter saved a longer value than the app said it did.** In the
   RAID and change editors, submitting with Enter from a text field skipped the
-  length cap that clicking Save applied, so an over-long title or owner was written
-  to your project in full while the notification announced it had been shortened —
-  and then quietly shortened anyway the next time the project was opened, since the
-  limit is enforced on load. The editor and the saved file now agree immediately.
+  length cap that clicking Save applied, so an over-long title, owner or requester
+  was written to your project in full while the notification announced it had been
+  shortened. What happened next differed by register: a change request was
+  shortened the next time the project was opened, but **a RAID item was not
+  shortened by anything, ever** — it stayed over-length in the file. The editor is
+  now the cap for both.
 - **Fixed: character counts could disagree with the limit they enforce.** For a
   description still stored as plain text, the counter measured a different value
   than the cap did, so the remaining budget it showed could be wrong.
