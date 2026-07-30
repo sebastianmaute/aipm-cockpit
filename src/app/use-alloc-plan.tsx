@@ -282,6 +282,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       size="xs"
       onClick={onOpen}
       disabled={phase !== "idle"}
+      aria-busy={phase !== "idle"}
       aria-label={t(lang, "allocPlan")}
       title={t(lang, "allocPlanTitle")}
       className={TRIGGER_LAYOUT}

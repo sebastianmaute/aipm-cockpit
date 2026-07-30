@@ -112,7 +112,10 @@ export function StakeholderReportPanel({
           <div className="grid grid-cols-2 gap-2">
             {QUADRANTS.map((q) => (
               <div key={q.id} className="rounded-lg border border-line p-3">
-                <p className="text-xs font-semibold text-ui-dark-blue">
+                {/* text-ui-dark-blue is a near-black navy in the dark schemes;
+                    on --surface it is ~1.1-1.3:1, so these quadrant labels
+                    were invisible there. Same swap as digest-card. */}
+                <p className="text-xs font-semibold text-foreground">
                   {t(lang, q.labelKey)}
                 </p>
                 <div className="mt-1 flex flex-wrap gap-1">
