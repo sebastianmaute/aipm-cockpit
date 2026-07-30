@@ -52,6 +52,7 @@ export function PlanningToolbar({
   return (
     <>
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs print:hidden">
+        {aiPlanButton}
         <label className="flex items-center gap-1">
           <span className="flex items-center gap-1">{t(lang, "resourcesPlanStart")}<InfoTooltip text={t(lang, "resourcesPlanStartHint")} /></span>
           <Input type="date" aria-label={t(lang, "resourcesPlanStart")} value={planStartDate}
@@ -83,7 +84,6 @@ export function PlanningToolbar({
           onChange={onSetAllUtilizationMode}
         />
         {hideExternalToggle}
-        {aiPlanButton}
         <div className="ml-auto">{headerActions}</div>
       </div>
       <div className="print:hidden">
