@@ -653,6 +653,20 @@ test("calendar toolbar '+ Add meeting' button calls onAddCalendarEvent, and is a
   expect(screen.queryByRole("button", { name: t("en-US", "calendarEventAddMeeting") })).toBeNull();
 });
 
+test("renders Add meeting as the primary add button ahead of the calendar controls", () => {
+  render(
+    <ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" onAddCalendarEvent={() => {}} />,
+  );
+  const add = screen.getByRole("button", { name: t("en-US", "calendarEventAddMeeting") });
+  // SegmentedControl is a radiogroup, not a group (see segmented-control.tsx) —
+  // target it the way calendar-event-modal.test.tsx does.
+  const mode = screen.getByRole("radiogroup", { name: t("en-US", "resourcesViewCalendar") });
+  // compareDocumentPosition is what actually proves "left of" in DOM order; a
+  // className-only check would pass even if Add meeting rendered after the mode control.
+  expect(add.compareDocumentPosition(mode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(add.className).toContain("bg-ui-dark-blue");
+});
+
 test("calendar band chip click calls onEditCalendarEvent (passed through as ResourceCalendar's onEditEvent); band is absent in popout", () => {
   // onEditEvent ALSO gates the whole band's rendering (resource-calendar.tsx),
   // so a popout must not render the band at all, not just disable the click.

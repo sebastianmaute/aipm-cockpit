@@ -95,6 +95,8 @@ export function PlanningToolbar({
 
 interface CalendarToolbarProps {
   lang: Lang;
+  /** Rendered first in the control row (the Add meeting CTA). */
+  leading?: ReactNode;
   calendarMode: CalendarMode;
   onCalendarMode: (mode: CalendarMode) => void;
   winStartDate: string;
@@ -114,6 +116,7 @@ interface CalendarToolbarProps {
 
 export function CalendarToolbar({
   lang,
+  leading,
   calendarMode,
   onCalendarMode,
   winStartDate,
@@ -132,6 +135,7 @@ export function CalendarToolbar({
 }: CalendarToolbarProps) {
   return (
     <div className="mb-2 flex flex-wrap items-center gap-2 text-xs print:hidden">
+      {leading}
       <SegmentedControl<CalendarMode>
         value={calendarMode}
         ariaLabel={t(lang, "resourcesViewCalendar")}

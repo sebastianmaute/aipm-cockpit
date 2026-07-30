@@ -56,6 +56,7 @@ import { EyeSlashIcon } from "@heroicons/react/24/outline";
 import { ToggleButton } from "./toggle-button";
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { ViewCallout } from "./view-callout";
+import { AddButton } from "./pane-toolbar";
 import {
   PLANNING_COL_WIDTHS,
   ROLLUP_COL_WIDTHS,
@@ -471,15 +472,6 @@ function ResourcesPanelInner({
         onPullCalendar={onPullCalendar}
         calendarPullBusy={calendarPullBusy}
       />
-      {view === "calendar" && !isPopout && onAddCalendarEvent && (
-        <button
-          type="button"
-          onClick={onAddCalendarEvent}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
-        >
-          {t(lang, "calendarEventAddMeeting")}
-        </button>
-      )}
       <PrintButton lang={lang} />
       {(view === "planning" || view === "workload") && (
         <ResetColWidthsButton
@@ -490,6 +482,16 @@ function ResourcesPanelInner({
       <ResetSizeButton onClick={resetResSize} lang={lang} />
     </div>
   );
+
+  // Calendar-only: the primary "Add meeting" CTA. Rendered by CalendarToolbar's
+  // `leading` slot (ahead of the mode/nav controls), not inside headerActions —
+  // it is the pane's primary add action, not a trailing/integration control.
+  const addMeetingButton =
+    view === "calendar" && !isPopout && onAddCalendarEvent ? (
+      <AddButton onClick={onAddCalendarEvent}>
+        {t(lang, "calendarEventAddMeeting")}
+      </AddButton>
+    ) : null;
 
   // Shared by the planning control row and the workload header — the same
   // filter drives both views' resource list.
@@ -621,6 +623,7 @@ function ResourcesPanelInner({
         <>
           <CalendarToolbar
             lang={lang}
+            leading={addMeetingButton}
             calendarMode={calendarMode}
             onCalendarMode={handleCalendarMode}
             winStartDate={calendarWin.startDate}
