@@ -1,5 +1,8 @@
 import { type Lang, t } from "./i18n";
+import { Button } from "./button";
 import { INTERACTIVE } from "./interaction-styles";
+import { TaskEditorRaidMini } from "./task-editor-raid-mini";
+import type { RaidSpec } from "./use-task-editor-buffer";
 import type { Task } from "./types";
 
 interface TaskEditorActionsProps {
@@ -49,6 +52,39 @@ export function TaskEditorActions({
         </button>
       )}
     </>
+  );
+}
+
+interface TaskEditorExtrasProps {
+  lang: Lang;
+  /** Forwarded to TaskEditorRaidMini's `onAdd`. */
+  onAddRaid: (spec: RaidSpec) => void;
+  /** Forwarded to TaskEditorRaidMini's `pending` (create-mode staged specs). */
+  pendingRaid: readonly RaidSpec[];
+  onNewLinkedTask: () => void;
+}
+
+/**
+ * The task editor's extra actions: the create-RAID mini-form and the
+ * new-linked-task button, on ONE row. `flex-wrap` is what handles the RAID
+ * mini expanding in place into a wide category+title form — the linked-task
+ * button then drops to the next line on its own. Do NOT reach into the
+ * mini's `open` state to size this row — the parent has no business knowing.
+ * Rendered below the fields in the modal editor; caller gates on `!isPopout`.
+ */
+export function TaskEditorExtras({
+  lang,
+  onAddRaid,
+  pendingRaid,
+  onNewLinkedTask,
+}: TaskEditorExtrasProps) {
+  return (
+    <div className="flex flex-wrap items-start gap-2">
+      <TaskEditorRaidMini lang={lang} onAdd={onAddRaid} pending={pendingRaid} />
+      <Button variant="secondary" size="sm" onClick={onNewLinkedTask}>
+        {`+ ${t(lang, "taskEditorNewLinkedTask")}`}
+      </Button>
+    </div>
   );
 }
 
