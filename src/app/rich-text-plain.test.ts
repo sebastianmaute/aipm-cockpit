@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   capHtmlText,
@@ -435,6 +435,28 @@ describe("DOM-free guard", () => {
       for (const m of text.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)) {
         const next = resolveSpec(file, m[1]);
         if (next !== null) pending.push(next);
+      }
+    }
+    // ★★ The graph is the SET THAT MATTERS, but scanning only it would drop a
+    // DOM-free-by-contract file that has not entered the graph yet — the resolver
+    // lost `sanitize-report.ts` that way. Union the graph with the name patterns so
+    // coverage only ever grows: the graph catches what is reachable TODAY, the
+    // patterns catch a sanitizer/codec that is reachable TOMORROW.
+    for (const extra of [join(repoRoot, "src", "app"), join(repoRoot, "scripts")]) {
+      const stack = [extra];
+      while (stack.length > 0) {
+        const dir = stack.pop()!;
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          const full = join(dir, entry.name).replace(/\\/g, "/");
+          if (entry.isDirectory()) {
+            if (entry.name !== "node_modules" && entry.name !== ".next") stack.push(full);
+            continue;
+          }
+          if (!/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
+          if (/\/sanitize[^/]*\.ts$/.test(full) || /-codecs[^/]*\.ts$/.test(full) || /\/scripts\//.test(full)) {
+            graph.add(full);
+          }
+        }
       }
     }
     let scanned = 0;

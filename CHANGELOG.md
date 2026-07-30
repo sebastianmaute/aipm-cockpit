@@ -51,11 +51,11 @@ that exporting and re-importing a project round-trips without loss.
   with no space — so the tasks pane matched "delayMitigation" where global search
   matched "delay Mitigation", and the fused form was what got pushed to Jira.
 - **Fixed: saving a template from a project lost every task description.** A
-  template captured with "include content" stored its tasks correctly, but
-  importing it back dropped every task description to empty — silently, since
-  0.196.0. Templates you already saved are unaffected going forward: the
-  descriptions were never written into the template file wrong, they were discarded
-  on the way back in, so re-importing an existing template now restores them.
+  template captured with "include content" dropped every task description to empty
+  — silently, since 0.196.0. Templates saved from now on keep them.
+  ★ A description already lost from a template you saved earlier cannot be
+  recovered: templates live in your settings, which are re-read and re-written on
+  every app start, so the emptied value replaced the original at rest long ago.
 - **Fixed: the AI assistant could store formatting it was never allowed to.** A
   description written by the assistant — in a task, RAID item, change or milestone
   — went to storage without the safety filter the editor's own saves go through.
@@ -65,8 +65,10 @@ that exporting and re-importing a project round-trips without loss.
   merge that deletes tasks.
 - **Fixed: pressing Enter saved a longer value than the app said it did.** In the
   RAID and change editors, submitting with Enter from a text field skipped the
-  length cap that clicking Save applied, so an over-long title or owner was saved
-  in full while the notification announced it had been shortened.
+  length cap that clicking Save applied, so an over-long title or owner was written
+  to your project in full while the notification announced it had been shortened —
+  and then quietly shortened anyway the next time the project was opened, since the
+  limit is enforced on load. The editor and the saved file now agree immediately.
 - **Fixed: character counts could disagree with the limit they enforce.** For a
   description still stored as plain text, the counter measured a different value
   than the cap did, so the remaining budget it showed could be wrong.

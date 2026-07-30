@@ -137,7 +137,8 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     // catch-all turns that into an EMPTY workspace which then "successfully"
     // writes near-empty sample files. Template import therefore gets the upgrade
     // but NO allow-list — the same DOM-free posture as the codec load paths in
-    // open-followups.md §28, and recorded there. The guard in
+    // open-followups.md §28 — but recorded as its own item in §36(a), because §28
+    // covers the CODEC load paths and not this boundary. The guard in
     // rich-text-plain.test.ts bans the import so this cannot be "fixed" by
     // accident.
     // ★★ `||`, not `??`: a template carrying `description: ""` alongside a legacy

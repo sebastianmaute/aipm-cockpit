@@ -78,6 +78,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 33 | A multi-paragraph description can overflow its PPTX box | 0.210.0 (Larbalestier) | S | open — cosmetic, needs eye-check |
 | 34 | ~~DOM-free guard filtered by NAME LIST (18 of 76 graph files)~~ | 0.210.0 (Larbalestier) | S | **CLOSED 0.210.0 — guard now resolves the import graph** |
 | 35 | `sanitizeAiRichText`'s double pass can double-escape `<a-b>`-shaped markup | 0.210.0 (Larbalestier) | S | open — suspicion, same root as 32 |
+| 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -882,7 +883,10 @@ paragraph count per meta line. Needs an eye-check on a real deck either way.
 `narrative-html.ts` added by hand as each was noticed). A round-5 audit resolved the real set from the
 generator entry point: **`scripts/generate-sample-workspace.ts` transitively imports 76 files**, of which
 the filter matches ~18. Unmatched but in the graph: `templates.ts`, `browser-backend.ts`,
-`document-link.ts`, `calendar-event.ts`, `template-apply.ts`, `new-project-workspace.ts` and ~50 more.
+`document-link.ts`, `calendar-event.ts` and 54 more (58 unmatched in total). ★ Two files an earlier draft
+of this entry named — `template-apply.ts` and `new-project-workspace.ts` — are NOT in the graph: they are
+imported only from `.tsx` surfaces the generator never loads. Corrected here rather than left as a plausible
+-sounding list, since the whole point of the entry is that guessing which files matter is the failure mode.
 
 **CLOSED the same day it was opened** — the mechanism was the defect, so recording it and moving on would
 have left the next reviewer to notice the next file. `rich-text-plain.test.ts` now RESOLVES the graph from
@@ -917,6 +921,36 @@ it through → DOMPurify unwraps the unknown element to bare text → pass 3 no 
 leading position, plus an entity in the body. A model would have to emit that unprompted.
 ★ Same root cause as §32 (`HTML_START` classification), so fixing that likely closes this too — worth
 handling together rather than special-casing the third pass.
+
+---
+
+## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small
+
+Both surfaced in round-6 reviews of 0.210.0. Filed together because the shared defect was documentary: two
+places pointed at §28 for a posture §28 does not cover (§28 is scoped to the **codec** load paths — it names
+`buildMilestoneFromObj` and "the codecs run under bare node").
+
+**(a) Template import upgrades but never allow-lists.** `templates.ts` `sanitizeSeedTask` runs
+`sanitizeRichText`, so a template's task description passes through as HTML with no DOMPurify pass. Before
+0.210.0 it went through `plainToHtml`, which escaped `& < >` — so this boundary got *less* strict in a
+release about write boundaries.
+★ Risk is genuinely low and that is why it is recorded rather than fixed: there is **no template import
+channel** (no `importTemplate`/`exportTemplate`, no template-JSON path — verified). A template is captured
+from your own workspace into your own `settings.templates`, so the trust level is "your own settings", not
+"a file someone sent you". Every read of the field also re-sanitizes at its sink.
+★★ It CANNOT be fixed in `templates.ts` — that file is in the sample generator's import graph, so a
+DOMPurify call there breaks the generator under bare node (and the guard now bans the import). The fix, if
+ever wanted, is an allow-list pass at the browser-side caller of `sanitizeTemplate`.
+
+**(b) `noteLog` exports as a raw JSON blob into the document formats.** `noteLog` is a `CSV_COLUMNS` entry
+(`csv-codecs-core.ts` returns `encodeNoteLog(...)`), and `export-sections.ts` maps every CSV column through
+`richCell` — where `noteLog` is correctly NOT a rich column. So a task or RAID row with notes exports a cell
+reading `[{"id":1,…,"html":"<p>…</p>","text":"…"}]` into the PDF/DOCX/XLSX/PPTX tables.
+★ Pre-existing since 0.196.0 and outside the rich-column mechanism this release fixed — but it sits in the
+same exported row as the descriptions that were just cleaned up, which makes the release note's "every other
+register already exported readable text" read further than it should.
+★ Fix is a decision, not a bug fix: drop `noteLog` from the document-format sections, or project it to
+readable text (author · date · text per entry).
 
 ---
 

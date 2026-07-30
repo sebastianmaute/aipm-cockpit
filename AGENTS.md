@@ -494,7 +494,8 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (`action-task-seed.ts`, `jira-api.ts` via `adfToText`, `templates-builtin.ts`) are provably plain by
   construction. ★★ `sanitizeSeedTask` ALSO read the pre-0.196.0 `raw.notes` only, which was silent DATA
   LOSS: `templateFromWorkspace` captures real `Task` objects, so every captured description imported as
-  `""`. It now reads `raw.description ?? raw.notes`. ★ `ai-project-proposal` keeps `raw.notes` on
+  `""`. It now reads `raw.description || raw.notes` — `||` not `??`, because a template carrying
+  `description: ""` beside a legacy `notes` must fall back, and `??` only catches null/undefined. ★ `ai-project-proposal` keeps `raw.notes` on
   purpose — `PROPOSAL_TOOL`'s task schema advertises that key, so it is what the model is asked for.
   0.210.0 made the inline-AI route reachable by renaming the descriptor's dead
   `notes` to `description` (a task-description diff became possible) while the confirm path applies the
@@ -506,7 +507,8 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   ★★★ The FOURTH — `templates.ts` `sanitizeSeedTask` — deliberately does NOT, and CANNOT: that file is in
   `scripts/generate-sample-workspace.ts`'s import graph, so a DOMPurify call there throws under bare node
   and `jsonToWorkspace`'s catch-all writes near-empty sample files. Template import gets the upgrade but no
-  allow-list — the same DOM-free posture as the codec load paths, recorded in `docs/open-followups.md` §28.
+  allow-list — the same DOM-free CAUSE as the codec load paths (§28), recorded as its own item in
+  `docs/open-followups.md` **§36(a)**, since §28 is scoped to the codecs and does not cover this boundary.
   Do not "complete the sweep" by importing the helper there; the guard bans it precisely so you cannot.
   ★★★ AND SO DO THE OTHER THREE ENTITIES, via `withAiRichFields(input, AI_RICH_FIELDS.<entity>)` at the
   six raid/change/milestone create+update sites. Their entity sanitizers (`sanitize-records.ts`) are

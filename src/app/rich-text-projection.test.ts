@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   appendDictationToHtml,
@@ -142,5 +142,47 @@ describe("description consumers use the correct projection", () => {
         hit: false,
       });
     }
+  });
+
+  it("lets ONLY the note-HTML modules call htmlToText at all", () => {
+    // ★★★ INVERTED, and that is the point. The snapshot above answers "are these
+    // six clean?", which is the hand-list shape this same release replaced in
+    // rich-text-plain.test.ts ("a guard naming one module by hand goes stale the
+    // moment a second one appears") — and the sixth consumer being found
+    // mid-release is the evidence. It is also defeated by a legal spelling:
+    // `const d = task.description; htmlToText(d)` has no `.description` inside the
+    // call, and a SEVENTH consumer anywhere in src/app is not scanned at all.
+    //
+    // This asks the answerable question instead: WHO may call htmlToText? Only the
+    // note-log modules (a different field family with its own model) and the
+    // projection module that wraps it. Any other caller — however it spells its
+    // argument — shows up here and has to justify itself or use descriptionText.
+    const ALLOWED = new Set([
+      "note-log-panel.tsx", // composer/edit body — note HTML, not a description
+      "note-log.ts", //        the note model's own text projection
+      "rich-text-projection.ts", // the wrapper every description consumer uses
+      "sanitize-html.ts", //   where htmlToText is defined
+    ]);
+    const appDir = import.meta.dirname;
+    const callers: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
+        // Comments may DISCUSS htmlToText freely — only code counts.
+        const code = readFileSync(full, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/\/\/.*$/gm, "");
+        if (/\bhtmlToText\s*\(/.test(code) && !ALLOWED.has(entry.name)) {
+          callers.push(full.replace(/\\/g, "/").split("/src/app/")[1] ?? entry.name);
+        }
+      }
+    };
+    walk(appDir);
+    expect(callers.sort()).toEqual([]);
   });
 });

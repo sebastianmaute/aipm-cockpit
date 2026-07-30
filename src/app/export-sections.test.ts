@@ -538,6 +538,43 @@ describe("rich descriptions export as text (slice B)", () => {
       expect(`${label}: ${unknownNames.join(",")}`).toBe(`${label}: `);
     }
   });
+
+  // ★ COMPLETENESS, the other direction: the subset check above catches a FAKE
+  // name, this catches a MISSING real one.
+  //
+  // ★★ HONEST SCOPE — a reviewer reported that deleting "mitigation" from
+  // RAID_RICH_COLUMNS "left every test passing"; that is NOT true, and it was
+  // checked rather than taken on faith. Both that deletion and dropping
+  // "impactDescription" are already caught behaviourally by "emits no markup in
+  // raid, milestone or change rows" and "keeps the text content of a rich
+  // description". So this test closes no hole. It earns its place for two smaller
+  // reasons: it fails by NAMING the field set (the behavioural failures say only
+  // that markup appeared somewhere), and it pins the count of SEVEN that AGENTS.md
+  // and the release notes both cite, so an eighth rich field forces a decision here
+  // rather than silently making those documents wrong.
+  it("covers EVERY rich field, not merely real ones", () => {
+    const expected: ReadonlyArray<[string, ReadonlySet<string>, readonly string[]]> = [
+      ["task", TASK_RICH_COLUMNS, ["description"]],
+      ["raid", RAID_RICH_COLUMNS, ["description", "mitigation"]],
+      ["milestone", MILESTONE_RICH_COLUMNS, ["description"]],
+      [
+        "change",
+        CHANGE_RICH_COLUMNS,
+        ["description", "impactDescription", "resolutionNotes"],
+      ],
+    ];
+    for (const [label, rich, fields] of expected) {
+      expect(`${label}: ${[...rich].sort().join(",")}`).toBe(`${label}: ${[...fields].sort().join(",")}`);
+    }
+    // And the union really is seven — the count AGENTS.md and the release notes cite.
+    const union = new Set([
+      ...TASK_RICH_COLUMNS,
+      ...[...RAID_RICH_COLUMNS].map((f) => `raid.${f}`),
+      ...[...MILESTONE_RICH_COLUMNS].map((f) => `milestone.${f}`),
+      ...[...CHANGE_RICH_COLUMNS].map((f) => `change.${f}`),
+    ]);
+    expect(union.size).toBe(7);
+  });
 });
 
 describe("task descriptions are projected like every other rich field", () => {
