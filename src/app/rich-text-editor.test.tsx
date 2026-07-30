@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { useRef } from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RichTextEditor, type RichTextEditorLabels } from "./rich-text-editor";
+import { RichTextEditor, type RichTextEditorHandle, type RichTextEditorLabels } from "./rich-text-editor";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so the editor mounts.
 beforeAll(() => {
@@ -187,6 +188,53 @@ describe("RichTextEditor lean variant", () => {
     const html = onChange.mock.calls[onChange.mock.calls.length - 1][0] as string;
     expect(html).toContain("<ul>");
     expect(html).toContain("Hi");
+  });
+});
+
+describe("RichTextEditor imperative handle", () => {
+  it("appends dictated text through the imperative handle without remounting", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor
+            variant="lean"
+            value="<p>Hello</p>"
+            onChange={onChange}
+            label="Note"
+            lang="en-US"
+            editorRef={ref}
+          />
+          <button type="button" onClick={() => ref.current?.appendText(" world")}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    await screen.findByRole("textbox", { name: "Note" });
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls.at(-1)![0]).toContain("world");
+  });
+
+  it("inserts dictated text as text, never as markup", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor variant="lean" value="<p></p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
+          <button type="button" onClick={() => ref.current?.appendText("<b>x</b>")}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    await screen.findByRole("textbox", { name: "Note" });
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const html = onChange.mock.calls.at(-1)![0] as string;
+    expect(html).toContain("&lt;b&gt;");
+    expect(html).not.toContain("<b>x</b>");
   });
 });
 

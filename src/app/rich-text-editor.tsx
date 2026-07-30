@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef } from "react";
+import type { Ref } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { Editor } from "@tiptap/react";
@@ -9,6 +10,12 @@ import { Button } from "./button";
 import { t, type Lang } from "./i18n";
 
 export type RichTextEditorVariant = "full" | "lean";
+
+export interface RichTextEditorHandle {
+  /** Insert plain text at the caret. Used by the dictation mic — the editor
+   *  binds `content` once at mount, so a new `value` cannot reach it. */
+  appendText(text: string): void;
+}
 
 export interface RichTextEditorLabels {
   bold: string;
@@ -39,6 +46,8 @@ export interface RichTextEditorProps {
   mergeFields?: readonly string[];
   fieldLabel?: (field: string) => string;
   labels?: RichTextEditorLabels;
+  /** Imperative handle for appending dictated text (React 19 ref-as-prop). */
+  editorRef?: Ref<RichTextEditorHandle>;
 }
 
 // ★★ The LEAN variant sanitizes with `sanitizeNoteHtml`, whose allow-list has no
@@ -147,6 +156,19 @@ export function RichTextEditor(props: RichTextEditorProps) {
     },
     onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitize(editor.getHTML())),
   });
+
+  // insertContent with a TEXT NODE, not a string: a bare string is parsed as
+  // HTML, so dictated text containing "<" or "&" would become markup.
+  useImperativeHandle(
+    props.editorRef,
+    () => ({
+      appendText(text: string) {
+        if (!text) return;
+        editor?.chain().focus().insertContent({ type: "text", text }).run();
+      },
+    }),
+    [editor],
+  );
 
   function addLink() {
     const prompt = isLean ? t(lang, "commTplLinkPrompt") : (labels?.linkPrompt ?? "");
