@@ -82,6 +82,11 @@ that exporting and re-importing a project round-trips without loss.
   slightly different form the next time the project is saved — the character
   itself rather than its code — and one that was only over the limit because of
   the old count now keeps its formatting instead of losing it.
+- **Fixed: printing a task table dropped truncated description text.** A description-preview
+  cell is width-capped and truncated on screen with an ellipsis, which is right on screen and wrong
+  on paper — the print stylesheet neutralises every other clipping box, but could not reach this one,
+  so the printed table showed "Replace the hand-rolled session…" and silently lost the rest. Such
+  cells now wrap when printed, so the full text appears. Column widths are unchanged.
 - **New Help topic: "Formatted descriptions & notes."** Which seven fields take
   formatting, how the note log differs from a description, how notes are attributed,
   and exactly which export formats keep paragraphs and which keep the markup.
