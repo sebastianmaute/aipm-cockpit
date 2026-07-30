@@ -200,6 +200,8 @@ function ChatPanelInner({
     dictation,
     enabled: true,
     label: t(lang, "chatPlaceholder"),
+    padding: "px-4 py-2",
+    className: "inline-flex items-center justify-center",
     onAppendFinal: (txt) => setInput((prev) => appendDictation(prev, txt)),
   });
 
@@ -820,6 +822,7 @@ function ChatPanelInner({
         <div className="flex flex-col gap-2">
           <Button
             variant="secondary"
+            className="inline-flex items-center justify-center"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy || apiKeyMissing || guidesPending}
             aria-label={t(lang, "chatAttach")}
