@@ -199,6 +199,90 @@ export function KnowledgePanel() {
     (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
   );
 
+  // Lifted verbatim out of the toolbar body below so it stays readable — no
+  // behaviour change.
+  const filterChips = (
+    <div className="flex flex-wrap gap-1.5">
+      {(["all", ...chipKinds] as (DocSourceKind | "all")[]).map((k) => {
+        const active = effFilter === k;
+        const label = k === "all" ? t(lang, "documentsFilterAll") : t(lang, SOURCE_LABEL[k]);
+        return (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={active}
+            onClick={() => setSourceFilter(k)}
+            className={`rounded-full border px-2.5 py-0.5 text-xs ${
+              active
+                ? "border-ui-dark-blue bg-ui-dark-blue text-white"
+                : "border-line bg-surface-muted text-foreground"
+            } ${INTERACTIVE}`}
+          >
+            {label} <span className="opacity-60">{counts[k]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const sortControl = (
+    <label className="shrink-0 text-xs text-muted-foreground">
+      {t(lang, "documentsSortBy")}
+      <Select
+        value={sort}
+        aria-label={t(lang, "documentsSortBy")}
+        onChange={(e) => setSort(e.target.value as DocSort)}
+        size="xs"
+        className="ml-1"
+      >
+        {SORT_OPTIONS.map((s) => (
+          <option key={s} value={s}>
+            {t(lang, SORT_LABEL[s])}
+          </option>
+        ))}
+      </Select>
+    </label>
+  );
+
+  // Hoisted OUT of the scroller (previously rendered inside it, so it scrolled
+  // away) and rendered UNCONDITIONALLY (previously only in the non-empty
+  // branch, so an empty library had no Print/Reset-size at all). The trailing
+  // Print · reset-size group is pushed right via ml-auto per the toolbar
+  // convention (AGENTS.md): every pane's toolbar ends with that contiguous pair.
+  const toolbar = (
+    <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
+      <AddButton
+        onClick={() => setAddOpen((o) => !o)}
+        aria-expanded={addOpen}
+        className="shrink-0"
+      >
+        + {t(lang, "documentsTabAdd")}
+      </AddButton>
+      {filterChips}
+      <ClearableSearchInput
+        value={query}
+        onClear={() => setQuery("")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "documentsSearchDocs")}`}
+        className="min-w-[8rem] flex-1"
+      >
+        <Input
+          type="search"
+          value={query}
+          aria-label={t(lang, "documentsSearchDocs")}
+          placeholder={t(lang, "documentsSearchDocs")}
+          onChange={(e) => setQuery(e.target.value)}
+          size="xs"
+          className={`w-full [&::-webkit-search-cancel-button]:appearance-none${query ? " pr-8" : ""}`}
+        />
+      </ClearableSearchInput>
+      {sortControl}
+      <div className="ml-auto flex items-center gap-2">
+        <PrintButton lang={lang} />
+        <ResetSizeButton onClick={reset} lang={lang} />
+      </div>
+    </div>
+  );
+
   return (
     <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {requestHelpConcept && (
@@ -329,6 +413,7 @@ export function KnowledgePanel() {
         </div>
       )}
 
+      {toolbar}
       {docs.length === 0 && kItems.length === 0 ? (
         <AddFirstItemButton
           onAdd={() => setAddOpen(true)}
@@ -338,71 +423,6 @@ export function KnowledgePanel() {
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-auto pr-2">
-          <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
-            <AddButton
-              onClick={() => setAddOpen((o) => !o)}
-              aria-expanded={addOpen}
-              className="shrink-0"
-            >
-              + {t(lang, "documentsTabAdd")}
-            </AddButton>
-            <div className="flex flex-wrap gap-1.5">
-              {(["all", ...chipKinds] as (DocSourceKind | "all")[]).map((k) => {
-                const active = effFilter === k;
-                const label = k === "all" ? t(lang, "documentsFilterAll") : t(lang, SOURCE_LABEL[k]);
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setSourceFilter(k)}
-                    className={`rounded-full border px-2.5 py-0.5 text-xs ${
-                      active
-                        ? "border-ui-dark-blue bg-ui-dark-blue text-white"
-                        : "border-line bg-surface-muted text-foreground"
-                    } ${INTERACTIVE}`}
-                  >
-                    {label} <span className="opacity-60">{counts[k]}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <ClearableSearchInput
-              value={query}
-              onClear={() => setQuery("")}
-              clearLabel={`${t(lang, "clear")} – ${t(lang, "documentsSearchDocs")}`}
-              className="min-w-[8rem] flex-1"
-            >
-              <Input
-                type="search"
-                value={query}
-                aria-label={t(lang, "documentsSearchDocs")}
-                placeholder={t(lang, "documentsSearchDocs")}
-                onChange={(e) => setQuery(e.target.value)}
-                size="xs"
-                className={`w-full [&::-webkit-search-cancel-button]:appearance-none${query ? " pr-8" : ""}`}
-              />
-            </ClearableSearchInput>
-            <label className="shrink-0 text-xs text-muted-foreground">
-              {t(lang, "documentsSortBy")}
-              <Select
-                value={sort}
-                aria-label={t(lang, "documentsSortBy")}
-                onChange={(e) => setSort(e.target.value as DocSort)}
-                size="xs"
-                className="ml-1"
-              >
-                {SORT_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {t(lang, SORT_LABEL[s])}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <PrintButton lang={lang} />
-            <ResetSizeButton onClick={reset} lang={lang} />
-          </div>
-
           {kItems.length > 0 && (
             <section className="mb-4">
               <h3 className="mb-2 text-sm font-medium text-foreground">{t(lang, "knowledgeLibraryHeading")}</h3>

@@ -258,4 +258,18 @@ describe("KnowledgePanel", () => {
     const target = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }) as HTMLSelectElement;
     expect(target.value).toBe("__standalone__");
   });
+
+  describe("toolbar", () => {
+    it("shows the toolbar even when there is nothing in the library yet", () => {
+      renderWithTasks([]);
+      expect(screen.getByRole("button", { name: t("en-US", "printHint") })).toBeTruthy();
+      expect(screen.getByRole("button", { name: t("en-US", "tableResetSizeHint") })).toBeTruthy();
+    });
+
+    it("keeps the toolbar outside the scrolling region", () => {
+      renderWithTasks([]);
+      const print = screen.getByRole("button", { name: t("en-US", "printHint") });
+      expect(print.closest(".overflow-auto")).toBeNull();
+    });
+  });
 });
