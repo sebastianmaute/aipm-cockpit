@@ -1375,6 +1375,51 @@ be widened — the four shipped entities must not inherit occurrence semantics t
 
 ---
 
+## 45. Nine high `brace-expansion` advisories in the eslint dev chain — deferred, and the obvious fix DOES NOT WORK
+
+`npm audit` reports **9 high** (GHSA-mh99-v99m-4gvg — DoS via unbounded expansion → OOM). `npm audit
+fix --force` offers exactly one remedy: **eslint@10.8.0, a breaking major**.
+
+★★★ **The npm-`overrides` workaround was tried and it does not work. Both forms were EXECUTED, not
+reasoned about — do not repeat them.**
+
+| Attempt | Result |
+|---|---|
+| `"overrides": { "brace-expansion": "^5.0.9" }` | **eslint dies**: `TypeError: expand is not a function` at `minimatch.js:271`, exit 2. v5 changed its export shape and `minimatch@3` calls the v1 convention |
+| `"overrides": { "minimatch@^10": { "brace-expansion": "^5.0.9" } }` | eslint fine, `5.0.7 → 5.0.9` applied — and the audit is **still 9 high**. Zero benefit |
+
+**Why neither can work.** The tree holds two majors: `brace-expansion@1.1.16` under **six**
+`minimatch@3.1.5`, and `brace-expansion@5.0.7` under one `minimatch@10.2.5`. All nine advisories
+chain through the **1.x** side. The advisory range is `<=5.0.7` **across all majors**, so no 1.x
+release escapes it — not 1.1.17, not 1.1.18 — and the only clean versions (5.0.8+) are exactly the
+ones `minimatch@3` cannot load. So the sole fix is removing `minimatch@3` from the tree, and it is
+held there by `eslint-plugin-import` / `eslint-plugin-jsx-a11y` / `eslint-plugin-react` /
+`@eslint/eslintrc` via `eslint-config-next`. npm's advice was right; the clever alternative is not.
+
+**Why it is deferred rather than fixed.**
+- ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
+  --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
+  2026-07-31. Nothing is red.
+- It is a **build-time DoS in a linter**. No runtime or shipped-code exposure; eslint and its plugins
+  are dev-only.
+- ★★ eslint 10 is a major landing against a **`--max-warnings=0`** gate, so any rule added, renamed or
+  changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
+  edits, which a major would likely require. That is a slice with its own verification, not an install.
+
+★ Plugin peers would NOT block it — `eslint-config-next@16.2.6` is `>=9.0.0`, and typescript-eslint
+and `eslint-plugin-react-hooks` both list `^10.0.0`. The risk is entirely in rule drift, not install
+resolution.
+
+★★ **The WEEKLY `dependency-audit-full` job DOES include dev deps and all severities, so it will keep
+reporting these nine.** That is expected, not a regression — this entry exists so the finding is not
+re-litigated from scratch each week, and so nobody re-attempts the overrides above.
+
+**To close:** upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
+`npx eslint --max-warnings=0 src/app` against the full rule set, and expect to fix drift rather than
+merely bump a version. Current: eslint `^9` (9.39.4).
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
