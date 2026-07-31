@@ -16,6 +16,11 @@ import { t, type Lang } from "./i18n";
 import { Button } from "./button";
 import type { ApplyDiffLabel } from "./timelog-apply";
 
+/** Rows shown before the diff list starts scrolling. The list is `text-xs`
+ *  (1rem line height), so 25 rows is about 25rem — tighter than the old 50vh
+ *  on most screens, which preserves the reason the cap exists at all. */
+export const MAX_VISIBLE_ROWS = 25;
+
 export function TimelogApplyConfirm({
   lang,
   rows,
@@ -35,10 +40,15 @@ export function TimelogApplyConfirm({
         <p className="text-sm text-foreground">
           {t(lang, "timelogApplyConfirm", String(rows.length))}
         </p>
-        {/* Bounded on purpose: this card gates a FINANCIAL write into
+        {/* Grows to fit a short diff; only scrolls past MAX_VISIBLE_ROWS.
+            Bounded on purpose: this card gates a FINANCIAL write into
             actualHours, so Apply and Cancel must never be pushed out of reach
             by a long diff. */}
-        <ul className="mt-1 max-h-[50vh] overflow-auto pr-2 text-xs text-muted-foreground">
+        <ul
+          className={`mt-1 pr-2 text-xs text-muted-foreground${
+            rows.length > MAX_VISIBLE_ROWS ? " max-h-[25rem] overflow-auto" : ""
+          }`}
+        >
           {rows.map((r) => (
             <li key={`${r.bucketId}:${r.allocIndex}:${r.period}`} className="tabular-nums">
               {[r.bucketName, r.lineName, r.period].filter(Boolean).join(" · ")}

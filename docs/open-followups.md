@@ -1063,6 +1063,318 @@ frequency data lived only in a code comment and a memory file.
 
 ---
 
+## 40. `text-ui-dark-blue` without a mode-appropriate companion — **40 sites**, open, needs its own slice
+
+`--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
+measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
+effectively invisible. On `--surface-muted` it is **1.01 / 1.04 / 1.17**.
+
+★★★ **The first version of this entry listed three sites and implied that was the remainder. A sweep
+found 26 in this token class plus 13 more in the widened class — and a later audit added a 27th
+the sweep had missed, giving 40.** The entry is corrected rather
+than deleted because the wrong number is the more instructive artifact: it came from fixing what
+review happened to surface, then documenting that as the scope.
+
+### A. Base text, no companion — 7
+
+`jira-conflicts-modal.tsx:183` (Jira-key badge, on `bg-surface-muted`) · `jira-settings.tsx:617`
+(selected arm, assignee picker) · `settings-sections/integrations-section.tsx:441` (link, carries
+`underline` as a non-colour affordance) · **`tasks-section.tsx:588`** (Jira-sync button) ·
+**`use-tasks-dedup.tsx:69`** (dedup toolbar button class const) · **`chat-prompt-chips.tsx:37`** ·
+**`rich-text-view.tsx:13`**.
+
+★★★ **`rich-text-view.tsx:13` is plausibly the most user-visible site in the whole set, and TWO
+independent sweeps missed it.** `PROSE_CLASS` is
+`"… [&_a]:text-ui-dark-blue [&_a]:underline …"` with no dark variant, and this is the app's shared
+read-only rich-text sink — the note log, the dashboard narrative, and every stored HTML body render
+through it. So **every link in every rendered rich-text field** is near-black navy on `--surface` in
+dark mode. It belongs in this section by the entry's own criteria (it is the same underlined-link
+shape as `integrations-section.tsx:441`, which is listed).
+★★ **Why both sweeps missed it, which is the transferable part:** it is an ARBITRARY-VARIANT
+utility, `[&_a]:text-*`, not a bare `text-*`. A scan keyed on `text-ui-dark-blue` finds the string
+but a companion test keyed on `dark:text-` never matches, because the correct companion here is
+`dark:[&_a]:text-*` (or `[&_a]:dark:text-*`). The "Not swept" list at the bottom names `border-`,
+`fill-`, `stroke-` and friends — it did NOT name arbitrary variants, so this was a silent gap rather
+than a declared exclusion. **Any future sweep must enumerate the variant forms it handles.**
+
+★★ **`chat-prompt-chips.tsx:37` defeats every sweep keyed on "does a companion exist".** Its
+companion is `dark:text-ui-dark-blue` — it re-asserts the same broken colour. Verified: that string
+occurs exactly **once** in the repo. A companion must be checked for its VALUE, not its presence.
+
+### B. `hover:text-ui-dark-blue` with no `dark:hover:text-*` — 18
+
+★★★ **A `dark:text-*` companion does NOT survive `hover:`, and this is the part that looks fixed and
+is not.** `globals.css:3` defines `@custom-variant dark (&:where(.dark, .dark *))`, and `:where()`
+contributes **zero** specificity — so `dark:text-x` resolves to (0,1,0) while `hover:text-y:hover` is
+(0,2,0). The hover rule wins regardless of source order. Only `dark:hover:text-*` fixes a hover arm.
+★ Reasoning from source order gives the WRONG answer here: Tailwind emits the `dark:` rule later,
+which looks like it should win.
+★★ **The defect and its remedy are decided by different rules.** The defect is specificity-decided and
+therefore order-immune. The FIX is not: `dark:hover:text-*` compiles to
+`:where(.dark,.dark *):hover` = (0,2,0), which TIES `hover:text-*` and wins only on emission order.
+That order is stable in Tailwind today, but it means the remedy — unlike the bug — would be sensitive
+to any change in variant emission order.
+
+`combo-input:117` · `gantt-chrome:267` · `gantt-rows:154` · `inline-ai-edit-button:30` ·
+`insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:224,234` ·
+`raid-edit-modal:355` · `raid-panel-rows:373` · `resource-directory:424` · `task-kanban-card:133` ·
+`task-manager-ui:34` · `task-row:385` · `tasks-section:1007` · `workspace-section-chrome:177,178`
+
+★ **`inline-ai-edit-button:30`, `task-kanban-card:133` and `task-row:385` each carry a base
+`dark:text-ui-light-grey` on the same element** — they read as handled and are not.
+★ `task-manager-ui:33/34` and `workspace-section-chrome:177/178` are the two-arm ternary shape: in the
+first, the active arm is companioned and the inactive arm is not; in the second, both arms are broken.
+
+### C. Icons, lower priority — 2
+
+`tour-catalog.tsx:36` (`aria-hidden` icon holder; the card title carries the meaning) ·
+`calendar-chip.tsx:67` (`data-moved-marker`; the chip already signals "moved" via a dashed border).
+
+### D. Widened class — `text-ui-purple`, 13 sites
+
+Different severity: it stays legible, just under threshold — **3.52 / 3.65 / 3.33** on `--surface`
+dark, **3.18 / 3.29 / 3.02** on `bg-ui-purple/10`. All fail the 4.5:1 body threshold in all three dark
+schemes; all clear the 3:1 large-text bar, and several are `text-xs`, so the small-text threshold
+binds. `comm-template-diff-view:29` · `influence-interest-matrix:97` (★ TWO defects on one element — the
+base purple here, AND a `hover:text-ui-green` at 1.97–2.48:1 in the light schemes, see the cleared
+section; `--ui-purple-strong` fixes only the first) ·
+`outlook-calendar-import-modal:118` · `outlook-import-modal:72` · `raid-edit-modal:361` ·
+`raid-panel-toolbar:150` · `ai-section:548` · `templates-section:158` · `storage-config:178,187,193` ·
+`task-form-fields:363` · `resources-panel-rows:175` (which additionally sets `dark:text-ui-purple`, a
+second no-op companion — ★ the COMPANION is harmless because the value is unchanged, but the SITE
+fails identically to the other twelve; listing it only as a companion note made it read as cleared).
+★ The fix is `--ui-purple-strong`, which exists and is AA-derived.
+
+### Why this is a slice and not a patch
+
+★★ **The correct pattern is already established here — 12 files use `dark:hover:text-`.** So this is
+not a new technique to introduce but a convention applied inconsistently, which is what makes a
+mechanical sweep safe and a piecemeal fix wasteful.
+★★ **No gate can catch ANY of it, and that is structural, not an oversight.** axe scans the RESTING
+state only, so all 18 hover sites are uncatchable by construction; there is no hover pass in
+`e2e/a11y.spec.ts`. **At least five** of the seven base sites self-hide behind a feature flag
+(`jira.enabled`, `isAiEnabled`) or live in an unscanned view or a closed modal — the two whose
+reachability was never established are `chat-prompt-chips.tsx:37` (see below) and
+`rich-text-view.tsx:13`, which renders wherever stored rich text does, including the Dashboard
+narrative on a scanned view. Nobody checked whether the seed supplies narrative text. The gate would not
+have caught the three originally-filed sites either. **Only a static lint closes this class** — "a
+one-mode colour token used as text requires a companion at the same variant level, whose value
+differs". ★ A Playwright hover pass is conceivable but would have to hover every control across 16
+views × 5 scheme combos; the repo's own precedents for this kind of check (`shell-palette-guard`,
+`scheme-purple-hover.test.ts`) are source/computed sweeps, not runtime scans.
+
+★ **"At least five" is deliberate.** Whether `chat-prompt-chips.tsx:37` renders at axe scan time was
+NOT established — the AI Assistant view is scanned, but the chips are probably unrendered without a
+configured key. Weak counter-evidence that they do not render: if they did, harbor-dark and
+meridian-dark ought to be failing the gate today, and they are not. That is inference, not a check.
+Do not convert it to "five of six" without opening the view.
+
+### Cleared — SPOT-CHECKED, not audited
+
+★★★ **Read this heading literally.** An independent audit checked exactly ONE of the buckets below
+(`hover:text-ui-green`) and found it wrong on both its mechanism and its numbers — one of its 20
+sites was not a table header at all and is actively broken in light mode. **Do not assume the
+remaining buckets hold.** They record what the sweep CONCLUDED, not what it verified site-by-site,
+and a "cleared" note is the most dangerous thing to get wrong here because it is precisely what stops
+anyone looking again. Re-verify a bucket before relying on it to skip work.
+
+21 checkbox/radio `accent` colours (Tailwind Forms uses `text-*` as the checked fill) · navy on
+`bg-ui-green` (6.84/5.78/6.73 dark, 5.40/5.04/5.00 light — both modes pass, the bg moves with the
+scheme) · 11 base `text-ui-light-grey` in the sidebar (root is `bg-ui-dark-blue`, mode-invariant) ·
+`text-ui-white` (8, all on navy) · `hover:text-ui-green` (**19 of 20** — `<th>` sort buttons routed through
+`DataTable`, which applies `TABLE_HEAD_CLASS` to its `<thead>` by construction, so they sit on
+`--table-head-bg`: **4.93–7.48** across all six combos; AGENTS.md's "green is sub-AA on a header"
+warning refers to the RETIRED Mockup light header, not these. ★★ **The 20th is NOT cleared** — see
+below) · `hover:text-ui-pink` (10, 4.63–6.78 both modes) ·
+`text-ui-blue` (8 — these ARE the companions) · `-strong` variants (AA by construction:
+`deriveAaVariants` nudges against `--surface-muted`, the harder surface — **except
+`--ui-purple-strong`, which is derived against the purple TINT composited over that surface**, not
+the surface itself; see the AGENTS.md scheme landmine, where deriving it against the bare surface IS
+the documented bug).
+
+★★ **The green floor is 4.93:1 (meridian-dark), i.e. 0.43 above AA — not the ~0.9 a collapsed
+"5.40–7.48" range implies.** Stated as a range across both modes the minimum disappears, and this is
+a "cleared" note, so the next reader inherits the margin as fact. Any future edit to
+`--table-head-bg` or `--ui-green` has far less headroom here than it looks.
+
+★★★ **`influence-interest-matrix.tsx:97` was swept up in that "all 20 are table headers" claim and is
+NOT one.** It is a `role="button"` comms marker nested in a `bg-surface` chip; the file contains no
+`DataTable` and no `TABLE_HEAD_CLASS`. `--ui-green` on `--surface` measures **2.17 (harbor-light) /
+1.97 (meridian-light) / 2.48 (umber-light)** — its hover state is close to invisible in every LIGHT
+scheme, the mirror of the dark-mode defect this whole entry is about. Dark is fine (6.74–8.80).
+★★ This is the failure mode named at the top of this section as the worst kind: a site recorded as
+**cleared** while actively broken, which stops a future sweep from ever looking again. It also
+contradicted the register internally — the same line is listed in section D for its base
+`text-ui-purple`, so it sat in both the affected and the cleared bucket at once. ★ Fixing D's
+prescription (`--ui-purple-strong`) does NOT address the green hover; they are two defects on one
+element.
+
+★ Ratios throughout are computed from `builtin-schemes.ts` and composited arithmetically for alpha
+tints — **nothing here was measured in a browser**. Where an element carries no `bg-*` of its own,
+`--surface` was assumed, which is the optimistic case; a card puts it on `--surface-muted`, ~0.1 lower.
+★ Not swept: `border-`, `fill-`, `stroke-`, `divide-`, `placeholder-`, `caret-`, `decoration-` — and,
+until the audit caught one, ARBITRARY VARIANTS such as `[&_a]:text-*`, whose companion must itself be
+variant-qualified. Enumerate the variant forms any future sweep handles.
+`border-ui-dark-blue` in dark mode is the same token on the same surfaces — likely near-invisible,
+1.4.11 rather than 1.4.3 — and deserves its own pass.
+
+★ **The fix is not "swap to `text-foreground`".** That was tried in 0.211.0 and reverted: the repo's
+idiom for this heading colour is **`text-ui-dark-blue dark:text-ui-light-grey`** (`--ui-light-grey`
+measures 8.41 / 8.80 / 10.32:1 on the three dark surfaces), which fixes dark mode just as completely
+and leaves light mode **byte-identical**. A neutral changes light mode where nothing was wrong and
+desynchronises the file from its siblings — in `stakeholder-report-panel.tsx` it left the section
+`<h3>` brand-blue while its own quadrant labels three lines below went grey. **Six** pre-existing uses
+of the idiom live in that one file (lines 86, 100, 109, 120, 140, 185).
+
+★★ **This defect propagates by copying, which is why a sweep beats a fix.** `combobox-shared.tsx`,
+`global-search-box.tsx` and `entity-link-picker.tsx` carry three near-identical highlight
+treatments; all three hit this bug, and the latter two were repaired **locally** while the shared
+file every other consumer inherits from kept it, untested, until 0.211.0.
+★ **The direction of copying is asserted in-file, not established, and the sources disagree.**
+`combobox-shared.tsx:125-127` names itself the origin — which is the file claiming its own primacy,
+not corroboration. `global-search-box.tsx:288` says the opposite: *"Same fix as entity-link-picker
+(which copied this pattern from here)"*, naming itself as origin. `entity-link-picker.tsx:316-332`
+names no source at all. Neither of the other two even imports `ComboboxOptions` from
+`combobox-shared`, so nothing inherits the markup — these are three hand-copies, and an earlier
+version of this entry stated the provenance as fact in the wrong direction. Mtimes are merely
+*consistent* with combobox-shared being first (2026-05-29 < 06-22 < 07-26); treat that as weak.
+
+★★★ **Writing this entry immediately found a fifth instance, TWO LINES BELOW the fix that prompted
+it** (`combobox-shared.tsx`, the "+ Add new" row) — fixed and tested in the same commit, so it is
+listed here as evidence rather than as open work. Its shape is the reason it survived: the
+**unhighlighted** branch carried `dark:text-ui-light-grey` and the **highlighted** branch set
+`dark:bg-ui-green/30` with no dark text, so the pair reads as handled at a glance while the state
+that matters is the broken one. Highlighting that row in dark mode made it HARDER to read than
+leaving it alone — the same inversion as the option rows above it. ★ When auditing a two-branch
+ternary, check **both** arms for the dark companion; one arm having it is not evidence about the
+other, and is actively misleading.
+
+★ No gate can find these. Contrast figures above are computed from `builtin-schemes.ts`, not measured
+in a browser — nobody has rendered them.
+
+---
+
+## 41. Eye verification owed on 0.211.0, on surfaces no gate reaches — open
+
+Three checks nobody in the session could make. Distinct from §21, which is slice B (0.209.0).
+
+- **Task editor**: create-RAID and new-linked-task sit on one row collapsed, and the linked-task
+  button wraps below when the RAID mini expands.
+- **AI Assistant**: attach and dictate are the same size with centred glyphs.
+- **`stakeholder-report-panel` quadrant labels in dark mode** — after the 0.211.0 swap they and the
+  chips beneath them are both light greys, separated only by `font-semibold text-xs`. Whether that
+  reads as distinct is an eye question; the token maths says nothing about it.
+
+★★ **The RACI matrix toolbar and the "Suggest RACI" modal are outside `A11Y_VIEWS` entirely** (`raci`
+is a CHILD view of `stakeholders` and appears nowhere in the spec), so the 0.211.0 AI feature has had
+**no automated a11y check of any kind** — its unit tests are the only coverage.
+
+★★★ **The four calendar toolbars are a DIFFERENT failure and an earlier version of this entry filed
+them under the wrong one.** All four host views — Open Points, Resources, RAID, Changes — ARE in
+`A11Y_VIEWS`. They are never scanned because `CalendarSyncControls` returns `null` unless
+`m365Configured && !isPopout && onToggleCalendar`, and the e2e seed configures no M365 at all (zero
+`m365`/`msal`/`clientId` hits in `e2e/seed.ts` and `e2e/a11y.spec.ts`). ★ The distinction is not
+pedantry: acting on the old wording, someone would add four views to `A11Y_VIEWS` and still scan
+nothing. `digest-card` is the same shape — Dashboard *is* scanned, but `if (!digest) return null`
+means it renders nothing at scan time. **A view being in the list does not mean a component inside it
+is ever seen, and "not scanned" has at least two distinct causes that need different fixes.**
+
+---
+
+## 42. `CalendarSyncControls` push/pull buttons carry unqualified accessible names — open, pre-existing
+
+The enable **checkbox** is qualified per entity (`"… – Tasks (due dates)"`); the Push and Pull
+**buttons** beside it are the bare `calendarPush` / `calendarPull` ("Push to Outlook" / "Pull from
+Outlook"). In the CLASSIC layout `TasksSection` and `WorkspaceSection` mount simultaneously
+(`task-manager.tsx`), so with sync enabled on two entities a user can see two identically-named
+"Push to Outlook" buttons — WCAG 2.4.6.
+
+★ **Verified pre-existing**, not a 0.211.0 regression: the label is UNQUALIFIED on `origin/main` too.
+(Not byte-identical — main has `t(lang,"calendarPush")` where the tree now has a busy-state ternary —
+but the unqualified property, which is what this entry is about, is unchanged.)
+That release *reduced* exposure by moving the Open Points pane's hand-rolled duplicate onto the shared
+component and qualifying its checkbox — which is what made the asymmetry visible.
+
+★★ **DO NOT FIX THIS IN ISOLATION — it is already Task 11 of the unexecuted S6 plan (§44).** S6 has a
+sharper reason for the same change than this entry does: the Calendar sub-tab is about to render a
+SECOND `CalendarSyncControls` (absences *and* meeting series), at which point the two Push buttons
+collide within a single view rather than only across the classic dual-mount. Fixing it here first is
+harmless but will be re-done there; fixing it there closes both. This entry was filed on 2026-07-30
+without knowing the plan existed, because that plan is gitignored — the same invisibility §44 records.
+★ Fix is the same shape the checkbox already uses:
+``aria-label={`${t(lang,"calendarPush")} – ${t(lang, entityLabelKey)}`}``, applied to both buttons.
+★ Do not expect the axe gate to confirm it either way: axe reports *missing* accessible names, never
+*duplicated* ones (the §15/§21 blind spot), and the live seed renders one pane at a time regardless.
+
+---
+
+## 43. Two "Suggest RACI" reporting gaps — open, both incomplete rather than wrong
+
+**(a) An Accountable HANDOVER inside one proposal is silently refused.** If the model demotes the
+current A to R and promotes someone else on the same milestone, `groundRaciCells`
+(`raci-suggest/raci-suggest.ts`) still holds the old id in `accountableHolder` when the second cell is
+examined, so the promotion is skipped as `duplicate-accountable`. Conservative and safe — it can never
+mint a second Accountable — but it discards a natural proposal and reports it as a conflict, which is
+the wrong explanation for what happened. Fixing it means processing a milestone's cells as a set
+rather than a stream, so the demotion is known before the promotion is judged.
+
+**(b) The no-op count never reaches the modal.** `groundRaciCells` returns `noOp` and the *hook* uses
+it (that is what makes the empty-result toast say "already in place" rather than the false "Claude
+proposed no assignments"). The modal does not receive it, so in the MIXED case — some cells dropped as
+no-ops, some skipped — the user is told "None of the proposed assignments can be applied", shown the
+refusals, and told nothing about the rest. ★ That sentence is **true** in that case, which is why this
+is a completeness gap and not the recurring falsehood class; the earlier wording ("Every proposed
+assignment was refused") *was* false there and was fixed. Closing it is one prop plus a string.
+
+---
+
+## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
+
+★★★ **Recorded here because it was invisible to every tracked document.** The 8-slice roadmap and
+S6's own spec and plan all live under `docs/superpowers/`, which is **gitignored** — so on any other
+machine the remaining work simply does not exist. Six slices shipped (C 0.204.0 · D 0.205.0 ·
+F 0.206.0 · A 0.207.0 · E 0.208.0 · B 0.209.0); these two did not. Per this file's own rule, no link
+into that tree — enough detail is reproduced below to resume without it.
+
+**S6 — Outlook PUSH for calendar events.** Spec and a 17-task / 109-step plan exist and **not one
+step has been executed**. Written against 0.208.0 targeting 0.209.0, then displaced when that release
+shipped slice B instead. The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
+`GraphEvent` · `eventToGraphEvent` · `exceptionPlan` · freeze/`afterPush` on the shared reconcile ·
+`replayExceptions` · `"event"` as a calendar entity type · i18n EN+DE · settings row for meeting
+series · entity-qualify the Push/Pull names (**= §42 — see there**) · wire the push in
+`use-calendar-integrations` · thread the bag to the Resources pane · the attendee field · mount the
+field + confirm + invitation-aware delete · **security review of the invitation path** · release chain.
+
+**The data model is already shipped** (S3, 0.202.0): `CalendarEvent` carries `startTime`,
+`durationMinutes`, `attendeeResourceIds`, `sendInvitations` and `outlookEventId` across all six write
+paths. **No migration is owed.** Three blockers remain, all re-verified 2026-07-31:
+`graph-recurrence.ts` / `use-event-calendar-push.ts` / `calendar-event-pull.ts` /
+`use-event-calendar-pull.ts` are all **missing**; `CalendarEntityType` (`settings-types.ts:493`) is
+still `"task" | "raid" | "change" | "absence"` with no `"event"`; and `GraphEvent`
+(`outlook-calendar-write.ts:17-19`) pins `isAllDay: true` and `timeZone: "UTC"` as **literal types**,
+so a timed event is currently inexpressible.
+
+★★ **Invitations are in scope and are the ONLY surface in this app that emails third parties.**
+`sendInvitations` defaults false; enabling it must show a confirm naming the resolved recipient count
+and addresses, and list attendees with no email as **unreachable** rather than silently skipping
+them — only then does the field persist as `true`. An outbound-email path is a different risk class
+from anything else here; the plan schedules its own security review and that should be honoured.
+
+★★ **CODENAME HAZARD, already triggered once.** S6's spec reserved **Bodard** (primary) and
+**Samatar** (spare), both verified absent when written. **0.211.0 then consumed "Samatar"** — the
+spare was taken by an unrelated release while S6 sat idle. Bodard is still free (0 uses in
+`CHANGELOG.md` as of 2026-07-31). ★ A codename reserved in a gitignored plan is not reserved in any
+sense the next release can see; re-check immediately before use, which is exactly what that plan's
+own final task says to do.
+
+**S7 — occurrence-level PULL + exception reconciliation.** Neither spec nor plan; the only entirely
+un-designed slice. Two constraints survive from the archived R5 design and should not be re-derived:
+it needs its own baseline key (`${projectId}:event:${seriesMasterId}:${originalDate}`) in a
+**sibling** pure module, and `planCalendarPull`'s date-only `PullEntity`/`PulledEvent` must **NOT**
+be widened — the four shipped entities must not inherit occurrence semantics they do not have.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).

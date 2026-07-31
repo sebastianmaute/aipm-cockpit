@@ -79,14 +79,6 @@ interface SettingsViewProps {
   projectId?: string;
   /** Resource directory for the Appearance "I am this resource" picker. */
   resources?: readonly import("./types").Resource[];
-  /** The open project, for the General → Project block. Absent in popouts. */
-  project?: import("./types").ProjectMeta;
-  /** Suggestions for the project form's key-stakeholder inputs. */
-  projectStakeholderNames?: readonly string[];
-  /** Address book for the project form's contact picker. */
-  projectAddressBook?: readonly import("./contacts").Contact[];
-  /** Save edited project metadata. Absent → the General block is read-only. */
-  onUpdateProject?: (meta: import("./types").ProjectMeta) => void;
 }
 
 type SectionId =
@@ -320,11 +312,6 @@ export function SettingsView(props: SettingsViewProps) {
               lang={lang}
               settings={settings}
               onChange={onChange}
-              project={props.project}
-              stakeholderNames={props.projectStakeholderNames}
-              addressBook={props.projectAddressBook}
-              resources={props.resources}
-              onUpdateProject={props.onUpdateProject}
             />
             <hr className="my-6 border-line" />
             <h3 className="mb-3 text-sm font-semibold text-foreground">

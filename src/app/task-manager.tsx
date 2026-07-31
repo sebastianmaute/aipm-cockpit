@@ -33,7 +33,6 @@ import { useTaskSubmit } from "./use-task-submit";
 import { useTaskEditorBuffer, type RaidSpec, type LinkSpec } from "./use-task-editor-buffer";
 import { useTaskBudgetLink } from "./use-task-budget-link";
 import { useBudgetBuckets } from "./use-budget-buckets";
-import { TaskEditorRaidMini } from "./task-editor-raid-mini";
 import { TaskLinkedTaskModal, type LinkedTaskDraft } from "./task-linked-task-modal";
 import { applyTaskLink } from "./task-link";
 import { useGanttHandlers } from "./use-gantt-handlers";
@@ -41,7 +40,6 @@ import { AppModals } from "./app-modals";
 import { type Resource, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
 import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
-import { INTERACTIVE } from "./interaction-styles";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
@@ -114,7 +112,7 @@ import { runTool } from "./chat-tools";
 import { getTursoConfig } from "./turso-config";
 import { aiKeyIfEnabled, isAiEnabled, DEFAULT_INSIGHT_REC_INTERVAL_MIN, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
-import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
+import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
 import { SettingsView } from "./settings-view";
@@ -2446,19 +2444,15 @@ function TaskManagerInner() {
       <TaskDeleteButton lang={lang} taskId={editingTask.id} onDelete={onDelete} />
     ) : null;
 
-  // Shared editor extras (create-RAID mini-form + new-linked-task button),
-  // mounted below the fields in the modal editor. Never in popouts.
+  // Shared editor extras (create-RAID mini-form + new-linked-task button, on
+  // one row), mounted below the fields in the modal editor. Never in popouts.
   const editorExtrasEl = !isPopout ? (
-    <>
-      <TaskEditorRaidMini lang={lang} onAdd={handleAddRaidFromEditor} pending={editorBuffer.pendingRaid} />
-      <button
-        type="button"
-        onClick={() => setLinkedTaskOpen(true)}
-        className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-ui-light-grey dark:hover:bg-surface-muted ${INTERACTIVE}`}
-      >
-        {`+ ${t(lang, "taskEditorNewLinkedTask")}`}
-      </button>
-    </>
+    <TaskEditorExtras
+      lang={lang}
+      onAddRaid={handleAddRaidFromEditor}
+      pendingRaid={editorBuffer.pendingRaid}
+      onNewLinkedTask={() => setLinkedTaskOpen(true)}
+    />
   ) : null;
 
   const settingsViewEl = (
@@ -2493,10 +2487,6 @@ function TaskManagerInner() {
       onSectionConsumed={clearSettingsSectionRequest}
       isPopout={isPopout}
       resources={resources}
-      project={project}
-      projectStakeholderNames={stakeholders.map((s) => s.name)}
-      projectAddressBook={contactsList}
-      onUpdateProject={isPopout ? undefined : handleUpdateCurrentProjectByMode}
     />
   );
 

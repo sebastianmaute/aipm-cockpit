@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowPathIcon, Cog6ToothIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CheckCircleIcon, Cog6ToothIcon, EyeSlashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
@@ -10,6 +10,7 @@ import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
 import { UNASSIGNED_LANE, laneResourceIds, type KanbanLane } from "./task-kanban";
 import { resourceDisplayName } from "./resource-foundation";
+import { CalendarSyncControls } from "./calendar-sync-controls";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
@@ -47,6 +48,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
+import { IconButton } from "./icon-button";
 import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
@@ -590,24 +592,20 @@ export function TasksSection({
           </button>
         )}
         {dedup.button}
-        <label className="flex items-center gap-1 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={hideFinished}
-            onChange={(e) => setSettings((s) => ({ ...s, hideFinishedTasks: e.target.checked }))}
-            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-          />
+        <ToggleButton
+          pressed={hideFinished}
+          onToggle={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
+          icon={<CheckCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+        >
           {t(lang, "hideFinishedTasks")}
-        </label>
-        <label className="flex items-center gap-1 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={hideExternal}
-            onChange={(e) => setSettings((s) => ({ ...s, hideExternalTasks: e.target.checked }))}
-            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-          />
+        </ToggleButton>
+        <ToggleButton
+          pressed={hideExternal}
+          onToggle={() => setSettings((s) => ({ ...s, hideExternalTasks: !(s.hideExternalTasks ?? false) }))}
+          icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+        >
           {t(lang, "hideExternalTasks")}
-        </label>
+        </ToggleButton>
         <SegmentedControl
           value={tasksViewMode}
           options={[
@@ -744,70 +742,44 @@ export function TasksSection({
           )}
         </div>
         <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
-        {m365Configured && !isPopout && (
-          <>
-            <label className="flex items-center gap-1 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={calendarTaskEnabled}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    outlookCalendar: {
-                      ...s.outlookCalendar,
-                      // Disabling here also forces auto off (mirrors the Settings toggle)
-                      // so re-enabling from this checkbox can't silently reactivate auto-sync.
-                      task: {
-                        enabled: e.target.checked,
-                        auto: e.target.checked ? (s.outlookCalendar?.task?.auto ?? false) : false,
-                      },
-                    },
-                  }))
-                }
-                aria-label={t(lang, "calendarSyncEnable")}
-                className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-              />
-              {t(lang, "calendarSyncEnable")}
-            </label>
-            {calendarTaskEnabled && (
-              <button
-                type="button"
-                onClick={() => void pushTasksToOutlook()}
-                disabled={calPushBusy}
-                aria-label={t(lang, "calendarPush")}
-                title={t(lang, "calendarPush")}
-                className={`rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {calPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
-              </button>
-            )}
-            {calendarTaskEnabled && (
-              <button
-                type="button"
-                onClick={() => void taskPull.pull()}
-                disabled={taskPull.busy}
-                aria-label={t(lang, "calendarPull")}
-                title={t(lang, "calendarPull")}
-                className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {taskPull.busy ? t(lang, "calendarPulling") : t(lang, "calendarPull")}
-              </button>
-            )}
-          </>
-        )}
-        <PrintButton lang={lang} iconOnly />
-        <ResetSizeButton onClick={resetTableSize} lang={lang} />
-        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-        <button
-          type="button"
+        <CalendarSyncControls
+          lang={lang}
+          entityLabelKey="calendarSyncEntityTask"
+          m365Configured={m365Configured}
+          isPopout={isPopout}
+          calendarEnabled={calendarTaskEnabled}
+          onToggleCalendar={(enabled) =>
+            setSettings((s) => ({
+              ...s,
+              outlookCalendar: {
+                ...s.outlookCalendar,
+                // Disabling here also forces auto off (mirrors the Settings toggle)
+                // so re-enabling from this checkbox can't silently reactivate auto-sync.
+                task: {
+                  enabled,
+                  auto: enabled ? (s.outlookCalendar?.task?.auto ?? false) : false,
+                },
+              },
+            }))
+          }
+          onPushCalendar={() => void pushTasksToOutlook()}
+          calendarPushBusy={calPushBusy}
+          onPullCalendar={() => void taskPull.pull()}
+          calendarPullBusy={taskPull.busy}
+        />
+        <IconButton
+          variant="bordered"
+          size="md"
           onClick={() => setClearConfirmOpen(true)}
           disabled={tasks.length === 0}
-          aria-label={t(lang, "clearAll")}
+          label={t(lang, "clearAll")}
           title={t(lang, "clearAll")}
-          className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           <EraserIcon />
-        </button>
+        </IconButton>
+        <PrintButton lang={lang} />
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <ResetSizeButton onClick={resetTableSize} lang={lang} />
       </div>
 
       {clearConfirmOpen && (
@@ -975,7 +947,7 @@ export function TasksSection({
               <tr>
                 {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
                 <th className="w-7" aria-hidden="true" />
-                <Th onResize={(e) => startColResize("sel", e)}>
+                <Th padding="tight" onResize={(e) => startColResize("sel", e)}>
                   <input
                     type="checkbox"
                     checked={allVisibleSelected}
@@ -984,7 +956,7 @@ export function TasksSection({
                     className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                 </Th>
-                {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
+                {!hiddenCols.has("status") && <Th padding="tight" onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
                 {!hiddenCols.has("id") && <SortResizeTh label={t(lang, "id")} sortCol="id" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "id"))} />}
                 <SortResizeTh label={t(lang, "task")} sortCol="taskName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "task"))} />
                 {!hiddenCols.has("assignee") && <SortResizeTh label={t(lang, "assignee")} sortCol="assignee" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "assignee"))} />}

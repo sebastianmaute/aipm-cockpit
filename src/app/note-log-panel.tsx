@@ -15,10 +15,10 @@
 // leaving layout to the consumer keeps the window byte-identical and lets a
 // second mount site supply its own container.
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
-import { RichTextEditor } from "./rich-text-editor";
+import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor";
 import { canEditNote } from "./note-log";
 import { htmlToText } from "./sanitize-html";
 // A note body renders stored HTML through the shared sanitized sink, which
@@ -27,6 +27,9 @@ import { RichTextView } from "./rich-text-view";
 import { formatDisplayTimestamp } from "./tz-display";
 import { browserTimeZone } from "./timezone";
 import { resourceDisplayName } from "./resource-foundation";
+import { useDictationMic } from "./dictation-mic";
+import { useSettings } from "./use-settings";
+import type { Settings } from "./settings-types";
 import type { NoteLogEntry, Resource } from "./types";
 
 /** Resolve an entry's display author: an explicit `authorName`, else the live
@@ -44,6 +47,7 @@ interface NoteEntryRowProps {
   resources: readonly Resource[];
   tz: string;
   lang: Lang;
+  dictation: Settings["dictation"];
   /** Appended to this row's control names when two surfaces are mounted at
    *  once; absent leaves the names byte-identical to the single-mount case. */
   labelSuffix?: string;
@@ -55,9 +59,23 @@ interface NoteEntryRowProps {
 }
 
 export function NoteEntryRow(props: NoteEntryRowProps) {
-  const { entry, editing, self, resources, tz, lang, labelSuffix } = props;
+  const { entry, editing, self, resources, tz, lang, labelSuffix, dictation } = props;
   const canEdit = canEditNote(entry, self);
   const suffix = labelSuffix ? ` – ${labelSuffix}` : "";
+  const editEditorRef = useRef<RichTextEditorHandle>(null);
+  // The editor owns its own content; append through the handle rather than
+  // re-feeding `value`, which Tiptap binds only at mount (see rich-text-editor.tsx).
+  const { mic: editMic, registration: editDictationReg } = useDictationMic({
+    lang,
+    dictation,
+    enabled: true,
+    // Carries the same `suffix` the Edit/Delete buttons above do: two
+    // NoteLogPanels can be mounted at once (the floating notes window and the
+    // one inside the task editor), and without it both mics announce
+    // identically — WCAG 2.4.6.
+    label: `${t(lang, "edit")}${suffix}`,
+    onAppendFinal: (txt) => editEditorRef.current?.appendText(txt),
+  });
 
   return (
     <li className="flex flex-col gap-1 rounded-md border border-line bg-surface p-3">
@@ -75,16 +93,23 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
 
       {editing ? (
         <div className="flex flex-col gap-2">
-          <RichTextEditor
-            variant="lean"
-            value={entry.html}
-            onChange={props.onChangeEditHtml}
-            onCommit={() => props.onCommitEdit(entry.id)}
-            commitOnEnter
-            label={t(lang, "edit")}
-            lang={lang}
-          />
+          {/* focus/blur bubble from the contenteditable, registering THIS
+              field as the active dictation target for the hold-to-talk
+              hotkey (mirrors raid-edit-modal.tsx). */}
+          <div onFocus={editDictationReg.onFocus} onBlur={editDictationReg.onBlur}>
+            <RichTextEditor
+              variant="lean"
+              value={entry.html}
+              onChange={props.onChangeEditHtml}
+              onCommit={() => props.onCommitEdit(entry.id)}
+              commitOnEnter
+              label={t(lang, "edit")}
+              lang={lang}
+              editorRef={editEditorRef}
+            />
+          </div>
           <div className="flex justify-end gap-2">
+            {editMic}
             <button
               type="button"
               onClick={props.onCancelEdit}
@@ -147,6 +172,24 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   const [editHtml, setEditHtml] = useState("");
 
   const tz = browserTimeZone();
+  const { settings } = useSettings();
+  const composerEditorRef = useRef<RichTextEditorHandle>(null);
+  // Appended through the imperative handle rather than re-feeding `value` —
+  // Tiptap binds `content` only at mount, and Web Speech fires `onFinal`
+  // repeatedly per hold, so a value-based push would need to remount the
+  // composer mid-sentence and lose the caret each time (see rich-text-editor.tsx).
+  const { mic: composerMic, registration: composerDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    // Qualified for the same reason the Add button below is: with both the
+    // floating notes window and the task editor's panel open, two composer mics
+    // are in the DOM at once and would otherwise share one name (WCAG 2.4.6).
+    label: labelSuffix
+      ? `${t(lang, "noteLogPlaceholder")} – ${labelSuffix}`
+      : t(lang, "noteLogPlaceholder"),
+    onAppendFinal: (txt) => composerEditorRef.current?.appendText(txt),
+  });
 
   const handleAdd = useCallback(() => {
     const text = htmlToText(composerHtml);
@@ -178,17 +221,24 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   return (
     <>
       <div className="shrink-0 border-b border-line p-3">
-        <RichTextEditor
-          key={composerNonce}
-          variant="lean"
-          value=""
-          onChange={setComposerHtml}
-          onCommit={handleAdd}
-          commitOnEnter
-          label={t(lang, "noteLogPlaceholder")}
-          lang={lang}
-        />
-        <div className="mt-2 flex justify-end">
+        {/* focus/blur bubble from the contenteditable, registering THIS field
+            as the active dictation target for the hold-to-talk hotkey
+            (mirrors raid-edit-modal.tsx). */}
+        <div onFocus={composerDictationReg.onFocus} onBlur={composerDictationReg.onBlur}>
+          <RichTextEditor
+            key={composerNonce}
+            variant="lean"
+            value=""
+            onChange={setComposerHtml}
+            onCommit={handleAdd}
+            commitOnEnter
+            label={t(lang, "noteLogPlaceholder")}
+            lang={lang}
+            editorRef={composerEditorRef}
+          />
+        </div>
+        <div className="mt-2 flex justify-end gap-2">
+          {composerMic}
           <button
             type="button"
             onClick={handleAdd}
@@ -210,6 +260,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             resources={resources}
             tz={tz}
             lang={lang}
+            dictation={settings.dictation}
             labelSuffix={labelSuffix}
             onStartEdit={startEdit}
             onChangeEditHtml={setEditHtml}

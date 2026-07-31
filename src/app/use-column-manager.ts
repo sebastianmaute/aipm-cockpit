@@ -39,7 +39,7 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   depRelations: 120,
   estimate: 80,
   spent: 80,
-  actions: 60,
+  actions: 36,
 };
 
 /** Open Points table column state. The width/drag/reset concern delegates to the

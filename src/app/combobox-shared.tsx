@@ -122,10 +122,19 @@ export function ComboboxOptions({
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onSelect(s)}
-            className={`block w-full cursor-pointer px-3 py-1.5 text-left ${
+            // Same fix already applied in global-search-box and
+            // entity-link-picker, which both copied this highlight FROM here
+            // and then repaired it locally while the shared file kept the bug:
+            // `text-ui-dark-blue` on a dark `--surface-muted` is ~1.0-1.2:1, so
+            // the highlighted option was marked by its own text vanishing —
+            // worst possible failure, since the highlight is the only thing
+            // identifying the active row. Weight + an inset `--foreground` ring
+            // instead; the ring must not be a brand accent, which is tuned for
+            // one mode (green is 1.7-2.1:1 on these fills, under 1.4.11's 3:1).
+            className={`block w-full cursor-pointer px-3 py-1.5 text-left text-foreground ${
               idx === highlight
-                ? "bg-surface-muted text-ui-dark-blue"
-                : "text-foreground hover:bg-surface-muted"
+                ? "bg-surface-muted font-medium ring-1 ring-inset ring-foreground"
+                : "hover:bg-surface-muted"
             }`}
           >
             {s}
@@ -144,7 +153,14 @@ export function ComboboxOptions({
             onClick={onAddNew}
             className={`block w-full cursor-pointer px-3 py-1.5 text-left italic ${
               highlight === filtered.length
-                ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/30"
+                // ★ The highlighted branch needs the dark TEXT companion too,
+                // not just the dark background. Without it this row inherited
+                // a near-black navy on a green-tinted dark surface — so
+                // highlighting the add-new row made it HARDER to read than
+                // leaving it alone, the same inversion fixed on the option
+                // rows above. The unhighlighted branch already had it, which
+                // is what made the omission easy to miss.
+                ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/30 dark:text-ui-light-grey"
                 : "text-ui-dark-blue hover:bg-ui-green/10 dark:text-ui-light-grey"
             }`}
           >

@@ -258,7 +258,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
             />
           </div>
           <div className="flex shrink-0 flex-col gap-2 print:hidden">
-            <PrintButton lang={lang} iconOnly />
+            <PrintButton lang={lang} />
             <ResetSizeButton onClick={resetSize} lang={lang} />
           </div>
         </div>

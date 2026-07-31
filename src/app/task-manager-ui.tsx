@@ -8,7 +8,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type React from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING } from "./interaction-styles";
 import { IconButton } from "./icon-button";
 import { DragHandle } from "./drag-handle";
 
@@ -109,12 +109,17 @@ export function ColumnResizeHandle({
 export function Th({
   children,
   onResize,
+  padding = "normal",
 }: {
   children: React.ReactNode;
   onResize?: (e: React.MouseEvent) => void;
+  /** "tight" trims the horizontal padding for icon-width columns (the select
+   *  checkbox, the health dot) — at px-4 the padding alone is wider than the
+   *  content and the column cannot honour its 36px width. */
+  padding?: "normal" | "tight";
 }) {
   return (
-    <th className="relative px-4 py-2 font-medium">
+    <th className={`relative ${padding === "tight" ? "px-1" : "px-4"} py-2 font-medium`}>
       {children}
       {onResize && (
         <ColumnResizeHandle col="" onMouseDown={(_col, e) => onResize(e)} />
@@ -146,25 +151,21 @@ export function ResetColWidthsButton({
 export function PrintButton({
   onClick,
   lang,
-  iconOnly = false,
 }: {
   onClick?: () => void;
   lang: Lang;
-  /** Render the printer icon only (no "Print" label). aria-label/title keep it
-   *  accessible. Used where space is tight (e.g. the Dashboard). */
-  iconOnly?: boolean;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      variant="bordered"
+      size="md"
       onClick={onClick ?? (() => window.print())}
-      aria-label={t(lang, "printHint")}
+      label={t(lang, "printHint")}
       title={t(lang, "printHint")}
-      className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
+      className="print:hidden"
     >
       <PrinterIcon />
-      {!iconOnly && t(lang, "print")}
-    </button>
+    </IconButton>
   );
 }
 

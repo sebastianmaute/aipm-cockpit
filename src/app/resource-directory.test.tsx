@@ -201,6 +201,14 @@ describe("ResourceDirectory", () => {
     expect(onImport).toHaveBeenCalled();
   });
 
+  it("renders an icon inside the Pull contacts and Hide external controls", () => {
+    render(<ResourceDirectory {...common} resources={rs} onImportOutlook={vi.fn()} />);
+    const pull = screen.getByRole("button", { name: t("en-US", "outlookImportButton") });
+    expect(pull.querySelector("svg")).toBeTruthy();
+    const hide = screen.getByRole("button", { name: t("en-US", "resourceHideExternal") });
+    expect(hide.querySelector("svg")).toBeTruthy();
+  });
+
   it("hides external resources when 'Hide external' is toggled, and persists the choice", () => {
     localStorage.removeItem("aipm-cockpit:directory-hide-external");
     const mixed: Resource[] = [

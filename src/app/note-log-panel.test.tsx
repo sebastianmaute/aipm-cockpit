@@ -5,6 +5,22 @@ import { NoteLogPanel } from "./note-log-panel";
 import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
 
+// Force the dictation mic to be "supported" so useDictationMic renders the
+// button (mirrors task-form-fields.dictation.test.tsx — jsdom has no
+// SpeechRecognition ctor, so getCtor() is null and the button is normally
+// suppressed).
+vi.mock("./use-push-to-talk", () => ({
+  usePushToTalk: () => ({
+    listening: false,
+    transcribing: false,
+    supported: true,
+    buttonHandlers: {},
+    toggle: () => {},
+    press: vi.fn(),
+    release: vi.fn(),
+  }),
+}));
+
 // ProseMirror (the composer + inline edit RichTextEditor) touches layout APIs
 // jsdom lacks; stub them so the editor mounts. Mirrors notes-window.test.tsx.
 beforeAll(() => {
@@ -141,5 +157,51 @@ describe("NoteLogPanel", () => {
     expect(screen.getByRole("button", { name: `${t(EN, "delete")} – #1 – Task ABC` })).toBeTruthy();
     // The un-suffixed names must no longer resolve, or two mounts would collide.
     expect(screen.queryByRole("button", { name: `${t(EN, "edit")} – #1` })).toBeNull();
+  });
+
+  it("offers a dictation mic beside the note composer", () => {
+    setup({ entries: [] });
+    expect(
+      screen.getByRole("button", { name: new RegExp(t("en-US", "dictationHold")) }),
+    ).toBeTruthy();
+  });
+
+  it("offers a dictation mic beside the entry editor when editing a note", async () => {
+    setup();
+    // Entry #1 is authored by `self` (resource 1), so it has an Edit control.
+    fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1` }));
+    await screen.findByRole("textbox", { name: t(EN, "edit") });
+    // Two mics now render: the composer's and the in-place edit row's. Both
+    // must be reachable — a duplicate accessible name would collapse to one.
+    const mics = screen.getAllByRole("button", { name: new RegExp(t(EN, "dictationHold")) });
+    expect(mics.length).toBe(2);
+    const editRowMic = screen.getByRole("button", {
+      name: new RegExp(`${t(EN, "dictationHold")} – ${t(EN, "edit")}$`),
+    });
+    expect(editRowMic).toBeTruthy();
+  });
+
+  it("appends labelSuffix to BOTH microphone names", async () => {
+    // The reason labelSuffix exists: the floating notes window and the task
+    // editor's panel can be mounted at once, so without it the two composer
+    // mics announce identically and so do the two edit mics (WCAG 2.4.6).
+    // The mics were the only controls in this file that ignored the suffix,
+    // and the existing mic tests pass no suffix at all — so both of them match
+    // identically with the suffix applied or dropped, and neither can observe
+    // this. Asserting on the suffixed names is the only thing that can.
+    setup({ labelSuffix: "Task ABC" });
+    expect(
+      screen.getByRole("button", {
+        name: `${t(EN, "dictationHold")} – ${t(EN, "noteLogPlaceholder")} – Task ABC`,
+      }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1 – Task ABC` }));
+    await screen.findByRole("textbox", { name: t(EN, "edit") });
+    expect(
+      screen.getByRole("button", {
+        name: `${t(EN, "dictationHold")} – ${t(EN, "edit")} – Task ABC`,
+      }),
+    ).toBeTruthy();
   });
 });

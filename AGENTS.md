@@ -63,6 +63,9 @@ npm run lint                # eslint  (CI --max-warnings=0: an unused import/var
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
+                            # ★ `npm run lint` itself is bare `eslint` with NO `--max-warnings` flag, so it
+                            # EXITS 0 even when warnings are present — it does not reproduce the CI gate.
+                            # Check the actual gate locally with `npx eslint --max-warnings=0 src/app`.
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
@@ -84,6 +87,9 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
+                            # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.8 — it fails to load a
+                            # reporter module and errors at startup, which reads like a broken test run.
+                            # Use `--reporter=dot`.
 npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
                             # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
                             # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
@@ -99,6 +105,21 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
                             # scriptsDescriptions entry or docs:scripts:check fails.
 ```
+
+★★★ **NEVER READ A GATE'S EXIT CODE THROUGH A PIPE — you get the PIPE's status, not the command's.**
+`npm run test:run | tail -8` exits **0 while tests are failing**, because that is `tail`'s status; the
+pipe also DISCARDS the failure diagnostic, so the obvious re-run tells you nothing either. Same shape
+with grep: `npx eslint --max-warnings=0 src/app | grep -v notice` reports **1** when eslint passed and
+grep simply matched nothing — a pass that reads as a failure, and a failure that reads as a pass, from
+the same mistake. Both directions were hit in one session, the first causing a failing suite to be
+reported as green **after** the trap had already been flagged twice.
+★ Do this instead — redirect, check unpiped, then read the file:
+```bash
+npm run test:run > /tmp/suite.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/suite.log
+npx eslint --max-warnings=0 src/app; echo "EXIT=$?"        # no pipe at all
+```
+★★ This matters more here than in most repos: the gates ARE the safety net, and a defeated gate is
+worse than no gate — it reports success. A "green" claim is only worth what the exit code behind it is.
 
 ## Hard constraints (CI-enforced — these gate merges)
 
@@ -401,7 +422,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (`Status – <task>`).
 - **Open Points + Milestones toolbars = ONE flat wrapping row** (`flex flex-wrap items-center gap-2`, no
   `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
-  (mirrors the changes-panel toolbar). Tasks `PrintButton` is `iconOnly`. ★ Tasks "Clear all" opens a
+  (mirrors the changes-panel toolbar). ★ Tasks "Clear all" opens a
   `TypeToConfirmDialog` (type `"yes, clear all tasks"`) — the shared `handleClearAll` (`use-bulk-operations.ts`)
   no longer self-confirms via `window.confirm`; the button path is dialog-gated. ★★ the VOICE `clearAll`
   command ALSO routes to the `TypeToConfirmDialog` now (no more one-click `window.confirm`): hook
@@ -459,6 +480,13 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (`addNote`/`editNote`/`deleteNote` immutable; `sanitizeNoteLog`; `encodeNoteLog`/`decodeNoteLog`
   JSON-in-cell for CSV/MD/Turso — mirrors `document-link.ts`). Composer = shared `RichTextEditor variant="lean"`
   (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
+  ★★ **`RichTextEditorHandle.appendText`** (`rich-text-editor.tsx`): Tiptap binds its `content` ONCE at mount,
+  so a changed `value` prop cannot reach an already-mounted editor — dictation therefore appends imperatively
+  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`. The handle's `appendText` calls
+  `editor.chain().focus().insertContent({type:"text",text}).run()` — `insertContent` MUST take a TEXT NODE
+  object, never a bare string: a bare string is parsed as HTML, so dictated text containing `<`/`&` would be
+  interpreted as markup instead of inserted literally. Both the note log's composer and its entry editor wire
+  `useDictationMic`'s `onAppendFinal` straight to `editorRef.current?.appendText(txt)`.
   ★★ `Task.notes` was RENAMED to `Task.description` (rich HTML) — NO back-compat decoder / NO runtime
   migration; Turso `COLUMN_RENAMES` `{from:"notes",to:"description"}` self-heals; historical notes folded into
   `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.
@@ -702,12 +730,17 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `ensureUnlinked`, so the naive "external disappears" assertion passes for the wrong reason — give them a
   task and assert absence from the WHOLE pane. (Planning/rollup DO correctly consume a pre-filtered
   `visibleResources` — they just `map` it.)
-- **★ Toolbar button ORDER convention:** every pane's toolbar ends with the contiguous trailing group
+- **★ Toolbar button ORDER convention (this is the RULE, not a claim every pane already follows it — read the
+  pane's own toolbar before assuming compliance):** every pane's toolbar ends with the contiguous trailing group
   **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
-  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members. Both had
-  drifted (Outlook sat between the two resets in Resources; Clear sat after them in Activity). ★ the
-  reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses `ResetSizeIcon` — Gantt's
-  name-column reset wore the reset-SIZE glyph, making the two adjacent resets indistinguishable.
+  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members. Drift has
+  been caught and fixed more than once: Outlook once sat between the two resets in Resources; Clear once sat
+  after them in Activity; Open Points had the worst case — Print/reset-size/reset-columns sat BEFORE the
+  destructive Clear-all AND the two resets were in the wrong relative order (reset-size before reset-columns),
+  fixed in 0.211.0. ★ the reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses
+  `ResetSizeIcon`; Gantt's name-column reset once wore the reset-SIZE glyph, making the two adjacent resets
+  indistinguishable. That one was fixed in an EARLIER release — 0.211.0 did not touch Gantt at all, and this
+  sentence sitting under a "fixed in 0.211.0" clause made it read as though it had.
 
 ### Dashboard landing cockpit
 
@@ -1037,7 +1070,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   verbatim across the RAID / Change / Absence toolbars — only the entity aria-label differed) is one shared
   `CalendarSyncControls` (`calendar-sync-controls.tsx`), keyed by an i18n `entityLabelKey`. Renders null
   unless `m365Configured && !isPopout && onToggleCalendar`. Milestone push/pull stays SEPARATE (manual-only,
-  no enable toggle).
+  no enable toggle). ★ Tasks (Open Points) hand-rolled its OWN copy of this whole block (checkbox + push +
+  pull) rather than consuming the shared component, and its checkbox used the bare `calendarSyncEnable` name
+  with no entity qualifier — until the 0.211.0 toolbar-polish batch, which moved it onto `CalendarSyncControls`
+  (`entityLabelKey="calendarSyncEntityTask"`) like every other calendar-capable pane. The enable checkbox now
+  carries the same per-entity accessible name the other panes do ("… – Tasks (due dates)"), which is what
+  makes N panes' identically-labelled checkboxes distinguishable under WCAG 2.4.6.
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
   lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
   `useResizable("aipm-cockpit:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
@@ -1377,6 +1415,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
   dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-ui-green`/`-pink-strong`, or it
   won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
+  ★★★ **A `dark:text-*` COMPANION DOES NOT SURVIVE `hover:` — a hover arm needs `dark:hover:text-*`.**
+  `globals.css:3` is `@custom-variant dark (&:where(.dark, .dark *))`, and `:where()` contributes ZERO
+  specificity, so `dark:text-x` is (0,1,0) while `hover:text-y:hover` is (0,2,0) — the hover rule wins
+  whatever the source order. ★ Reasoning from source order gives the WRONG answer: Tailwind emits the
+  `dark:` rule LATER, which looks like it should win. This is why an element can carry
+  `text-ui-dark-blue hover:text-ui-dark-blue dark:text-ui-light-grey` and still go invisible in dark
+  mode the moment the pointer touches it. ★★ The DEFECT is specificity-decided and therefore
+  order-immune; the FIX is NOT — `dark:hover:text-*` compiles to `:where(.dark,.dark *):hover` =
+  (0,2,0), which TIES `hover:text-*` and wins on emission order alone. Stable in Tailwind today, but
+  the remedy is order-sensitive in a way the bug is not. 12 files already use `dark:hover:text-` correctly; 18 do not
+  (`docs/open-followups.md` §40). ★★ A companion must also be checked for its VALUE, not merely its
+  presence — `chat-prompt-chips.tsx:37` "has" a companion that re-asserts the identical broken colour.
+  ★★ NO GATE CATCHES ANY OF THIS: axe scans the RESTING state only, so a hover-state contrast failure
+  is structurally invisible to it, and there is no hover pass in `e2e/a11y.spec.ts`.
   ★★ Data-table header sort buttons (`report-table` SortHeaderButton, used by every `SortResizeTh` — now
   the Open Points table too, `SortableTh` was RETIRED into it) use `text-[var(--table-head-accent)]` for
   active/hover — raw `text-ui-green` is sub-AA (2.03:1) on the
@@ -2068,6 +2120,48 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `buildAllocContext` caps periods (`ALLOC_CONTEXT_MAX_PERIODS`; 120 resources × 104 weekly periods was ~52k
   input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
   distinguishable from a genuinely idle one.
+- **AI "Suggest RACI" (RACI matrix toolbar, 0.211.0):** plan-then-apply, mirroring `alloc-plan/` — no
+  free-text instruction, just the live stakeholders + milestones. Pure engine `raci-suggest/raci-suggest.ts`
+  (`buildRaciContext` digest · `RACI_SUGGEST_TOOL` schema · `parseRaciProposal` · `groundRaciCells` —
+  re-grounds every UNTRUSTED model-proposed `{stakeholderId, milestoneId, role}` cell against the LIVE
+  stakeholders/milestones, capped at `MAX_RACI_CELLS=200` with a `truncated` flag); one forced call in
+  `raci-suggest-call.ts` (`runRaciSuggestion`, through the shared never-log `runForcedToolCall`); glue hook
+  `use-raci-suggest.tsx`; review modal `raci-suggest-modal.tsx` shows every grounded cell's current value next
+  to the proposed one, ticked by default, and applies only the ticked subset as ONE undo entry
+  (`logActivity("ai.raciSuggest", …)`).
+  ★★ **THE FOLD-PER-STAKEHOLDER LANDMINE — distinct from the bulk-edit FUNCTIONAL-SETTER landmine above,
+  and NOT covered by it.** `useStakeholders.handleSaveStakeholder` already IS a functional setter
+  (`setStakeholders(prev => …)`), so this is not that bug. The defect sits one layer up: `onSave` (the
+  stakeholders pane's save handler) takes a SINGLE stakeholder and writes the CALLER's object verbatim, while
+  `setRaciRole` (`stakeholders.ts`) returns a pure copy of a SNAPSHOT. Calling `onSave` once per accepted CELL
+  means two accepted cells on the SAME stakeholder (different milestones) each fold into the same stale
+  snapshot — the second `onSave` call silently drops the first cell's RACI entry. `foldCellsByStakeholder`
+  (`use-raci-suggest.tsx`) collapses every accepted cell into ONE updated `Stakeholder` per person BEFORE any
+  save happens, so `onSave` runs exactly once per touched stakeholder. ★ TEST TRAP: a fixture with one cell per
+  stakeholder passes whether or not the fold happens — seed TWO accepted cells on ONE stakeholder to make the
+  defect (and the fix) observable.
+  ★★ **AMBIGUITY IS MEASURED AGAINST THE WORKSPACE, NOT THE PROPOSAL.** `raci-suggest-modal.tsx` qualifies a
+  colliding name as `Name (#id)` using counts over the LIVE `stakeholders`/`milestones` lists (the same
+  case-folded tally as `raci-panel.tsx`'s `labelFor`), for BOTH the accessible name and the VISIBLE text.
+  Scoping the check to the proposed cells looks equivalent and is not: one proposed "Ada" while a second
+  "Ada" exists in the project renders bare, and the user cannot tell which person this write lands on. Neither
+  can `Milestone.name` be assumed unique — the milestone half needs the same treatment. ★ TEST TRAP: every
+  fixture that keeps BOTH colliding rows in `cells` gives the same answer under either scope, so it proves
+  nothing — seed the collision with only ONE side proposed. ★★ Qualifying only the `aria-label` and leaving
+  the visible text bare is its own bug: it leaves the sighted user with strictly LESS information than the
+  screen-reader user, in a dialog whose entire job is choosing which rows to commit.
+  ★★ **THE CONTEXT CAP MUST REACH THE USER.** `buildRaciContext` caps at `MAX_CONTEXT_STAKEHOLDERS`/
+  `MAX_CONTEXT_MILESTONES` and returns `truncated`; the hook surfaces it as `contextTruncated`, which the
+  modal renders as its OWN sentence. Keep it distinct from `truncated` (the RESPONSE cap): they have opposite
+  causes, and a capped INPUT means a missing proposal may simply be someone the model was never shown —
+  otherwise silence reads as "Claude decided they need no role". This flag was computed and dropped on the
+  floor at first, with only its engine unit test consuming it — so the engine test passed while the product
+  had no such behaviour. A flag whose sole consumer is its own test is not a feature.
+  ★ The modal's zero-cell branch must NOT say "Claude proposed no assignments": the hook only opens the
+  preview with zero cells when everything was SKIPPED, so that sentence is false exactly when it renders.
+  ★ `groundRaciCells` refuses an Accountable HANDOVER within one proposal (demote A, promote someone else on
+  the same milestone) — `accountableHolder` still holds the old id when the second cell is examined.
+  Conservative and safe, but it silently discards a natural proposal.
 - **Inline "Ask Claude" edit (SP1):** a per-item edit popover (✨ hover icon on the task table row + Kanban
   card, or the row menu) takes a natural-language instruction and INVERTS the chat loop: ONE bounded
   `callClaude` call proposes tool calls but nothing executes yet. Pure `inline-ai-edit/plan.ts`

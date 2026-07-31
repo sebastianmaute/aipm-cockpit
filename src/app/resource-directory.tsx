@@ -5,6 +5,7 @@
 // selects. Clicking the name cell opens the edit modal.
 
 import { memo, useMemo, useState } from "react";
+import { ArrowDownTrayIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
 import { resourceDisplayName, roleLabel } from "./resource-foundation";
@@ -24,6 +25,7 @@ import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
+import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 
@@ -266,15 +268,22 @@ function ResourceDirectoryInner({
           />
         </ClearableSearchInput>
         {onImportOutlook && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={onImportOutlook}
-            className={`shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+            className="inline-flex shrink-0 items-center gap-1.5"
           >
+            <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
             {t(lang, "outlookImportButton")}
-          </button>
+          </Button>
         )}
-        <ToggleButton pressed={hideExternal} onToggle={toggleHideExternal} className="shrink-0">
+        <ToggleButton
+          pressed={hideExternal}
+          onToggle={toggleHideExternal}
+          icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+          className="shrink-0"
+        >
           {t(lang, "resourceHideExternal")}
         </ToggleButton>
         <PrintButton lang={lang} />

@@ -14,6 +14,22 @@ import type { FeatureModuleId } from "./feature-modules";
 import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
 
+// Force the dictation mic to be "supported" so useDictationMic renders the
+// button (mirrors note-log-panel.test.tsx / task-form-fields.dictation.test.tsx
+// — jsdom has no SpeechRecognition ctor, so getCtor() is null and the button
+// is normally suppressed).
+vi.mock("./use-push-to-talk", () => ({
+  usePushToTalk: () => ({
+    listening: false,
+    transcribing: false,
+    supported: true,
+    buttonHandlers: {},
+    toggle: () => {},
+    press: vi.fn(),
+    release: vi.fn(),
+  }),
+}));
+
 // The AI master switch (settings.ai.enabled) defaults OFF; these tests exercise
 // an active assistant, so the shared fixture turns it on. Tests that want the
 // no-key path still pass apiKey: "" on top of this.
@@ -834,6 +850,33 @@ describe("document attachments", () => {
     expect(doc?.source?.data).toContain("budget overrun");
     // Chip is cleared once the message is sent.
     await waitFor(() => expect(screen.queryByText("notes.txt")).toBeNull());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Attach / dictate button sizing (UX toolbar polish batch, Task 20)
+// ---------------------------------------------------------------------------
+describe("attach and dictate button sizing", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function renderPanel() {
+    return render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+  }
+
+  it("gives the attach and dictate buttons the same centred-icon shell", () => {
+    renderPanel();
+    const attach = screen.getByRole("button", { name: t("en-US", "chatAttach") });
+    expect(attach.className).toContain("justify-center");
+    const mic = screen.getByRole("button", { name: new RegExp(t("en-US", "dictationHold")) });
+    expect(mic.className).toContain("justify-center");
+    expect(mic.className).toContain("px-4");
   });
 });
 

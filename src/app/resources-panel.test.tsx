@@ -1,11 +1,41 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, test, expect, vi } from "vitest";
+import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
 import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, Task } from "./types";
+
+// "Plan with AI" (use-alloc-plan) reads settings.ai via useSettings(); mocked
+// (mirrors gantt-view.test.tsx / knowledge-panel.test.tsx) so a single test can
+// flip AI on without waiting on the real localStorage/secrets hydration path.
+// Every OTHER test in this file gets the same default (AI off) the real hook
+// would resolve to for an unseeded localStorage, so this is a no-op for them.
+vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
+
+import { useSettings } from "./use-settings";
+import { defaultSettings, type Settings } from "./settings-types";
+const mockUseSettings = useSettings as ReturnType<typeof vi.fn>;
+
+function stubSettings(settings: Settings) {
+  mockUseSettings.mockReturnValue({
+    settings,
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US" as const,
+  });
+}
+
+const AI_ON: Settings = {
+  ...defaultSettings,
+  ai: { ...defaultSettings.ai, enabled: true, apiKey: "sk-ant-test", model: "claude-x" },
+};
+
+beforeEach(() => {
+  stubSettings(defaultSettings);
+});
 
 const resources: Resource[] = [
   { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },
@@ -346,7 +376,7 @@ describe("ResourcesPanel", () => {
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     expect(screen.getByText(/Bob Ext/)).toBeInTheDocument();
     // Toggle "Hide external": the external resource disappears, the internal stays.
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
   });
@@ -373,7 +403,7 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} tasks={tasks} />);
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     expect(screen.getByText(/Bob Ext/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     // Absent from the WHOLE pane — not merely moved into the Unlinked section.
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
@@ -389,7 +419,7 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} />);
     const heading = () => screen.getByRole("heading", { name: /workload/i });
     expect(heading().textContent).toContain(t("en-US", "tasksCount", 2));
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     expect(heading().textContent).toContain(t("en-US", "tasksCount", 1));
   });
 
@@ -408,7 +438,7 @@ describe("ResourcesPanel", () => {
       { id: 1, title: "Late work", assignee: "Alex Example", resourceId: 1, dueDate: "2026-01-01", status: "To Do" as const },
     ] as unknown as Task[];
     render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} tasks={tasks} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "planningHideExternal") }));
     // Bob is gone from the ROWS…
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
     // …but is still offered as a reassign target. The picker lives in a popover
@@ -433,9 +463,26 @@ describe("ResourcesPanel", () => {
           workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
           onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
       );
-      expect(screen.getAllByRole("checkbox", { name: t("en-US", "planningHideExternal") })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: t("en-US", "planningHideExternal") })).toHaveLength(1);
     },
   );
+
+  test("renders hide-external as a toggle button with an icon in both Planning and Workload", () => {
+    const { unmount } = render(<ResourcesPanel {...baseProps} view="workload" />);
+    const wl = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
+    expect(wl.getAttribute("aria-pressed")).toBe("false");
+    expect(wl.querySelector("svg")).toBeTruthy();
+    unmount();
+
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(
+      <ResourcesPanel {...baseProps} view="planning" plan={plan}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+    const pl = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
+    expect(pl.getAttribute("aria-pressed")).toBe("false");
+  });
 
   // The Outlook sync block sat BETWEEN reset-columns and reset-size, splitting
   // a trailing group that reads as one everywhere else in the app.
@@ -636,6 +683,20 @@ test("calendar toolbar '+ Add meeting' button calls onAddCalendarEvent, and is a
   expect(screen.queryByRole("button", { name: t("en-US", "calendarEventAddMeeting") })).toBeNull();
 });
 
+test("renders Add meeting as the primary add button ahead of the calendar controls", () => {
+  render(
+    <ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" onAddCalendarEvent={() => {}} />,
+  );
+  const add = screen.getByRole("button", { name: t("en-US", "calendarEventAddMeeting") });
+  // SegmentedControl is a radiogroup, not a group (see segmented-control.tsx) —
+  // target it the way calendar-event-modal.test.tsx does.
+  const mode = screen.getByRole("radiogroup", { name: t("en-US", "resourcesViewCalendar") });
+  // compareDocumentPosition is what actually proves "left of" in DOM order; a
+  // className-only check would pass even if Add meeting rendered after the mode control.
+  expect(add.compareDocumentPosition(mode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(add.className).toContain("bg-ui-dark-blue");
+});
+
 test("calendar band chip click calls onEditCalendarEvent (passed through as ResourceCalendar's onEditEvent); band is absent in popout", () => {
   // onEditEvent ALSO gates the whole band's rendering (resource-calendar.tsx),
   // so a popout must not render the band at all, not just disable the click.
@@ -706,4 +767,20 @@ test("planning view: per-cell utilization input still has native title (intentio
     onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
   const utilInput = screen.getByLabelText("Utilization for Sample in 2026-02");
   expect(utilInput.getAttribute("title")).toBe(t("en-US", "resourcesUtilizationHint"));
+});
+
+test("puts Plan with AI ahead of the plan-window date fields", () => {
+  // use-alloc-plan's trigger is enabled on isAiEnabled(settings.ai) + a
+  // non-empty resource list (baseProps carries 2) — stub settings.ai on so the
+  // button actually renders.
+  stubSettings(AI_ON);
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  render(<ResourcesPanel {...baseProps} view="planning" plan={plan} workdayHours={8}
+    onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+  // The accessible name is the VISIBLE label (allocPlan). It used to be the
+  // longer allocPlanTitle, which does not contain the visible string and so
+  // failed WCAG 2.5.3; that sentence is now the `title` (the description).
+  const ai = screen.getByRole("button", { name: t("en-US", "allocPlan") });
+  const start = screen.getByLabelText(t("en-US", "resourcesPlanStart"));
+  expect(ai.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

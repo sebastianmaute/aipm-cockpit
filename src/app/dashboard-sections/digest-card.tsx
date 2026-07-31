@@ -22,7 +22,18 @@ export function DigestCard({ lang, digest, dc, m365Configured, busy, onGenerate,
   return (
     <div className={`rounded-xl border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-ui-dark-blue">{t(lang, "digestTitle")}</h3>
+        {/* Bare text-ui-dark-blue is a near-black navy in the dark schemes, so
+            this title measured 1.10-1.31:1 on --surface — an invisible card
+            heading, and one the axe gate can never reach: the card self-hides
+            until the digest is enabled AND generated, so it renders nothing at
+            scan time even though Dashboard is scanned. The dark companion is
+            the repo's idiom for this heading colour (see dashboard-top-actions,
+            insights-card, note-log-panel, stakeholder-report-panel) and keeps
+            light mode byte-identical; --ui-light-grey measures 8.4-10.3:1 on
+            the three dark surfaces. */}
+        <h3 className="font-medium text-ui-dark-blue dark:text-ui-light-grey">
+          {t(lang, "digestTitle")}
+        </h3>
         <RagDot level={digest.rag} size="lg" label={t(lang, ragLabelKey)} />
       </div>
       {digest.narrative ? <p className="mt-2 text-sm text-muted-foreground">{digest.narrative}</p> : null}

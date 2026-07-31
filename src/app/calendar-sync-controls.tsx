@@ -10,9 +10,10 @@
 //
 // Milestone push/pull is deliberately NOT routed through this (milestone is
 // manual-only, with no enable toggle — a different shape).
-import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import { Button } from "./button";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface CalendarSyncControlsProps {
   lang: Lang;
@@ -49,36 +50,40 @@ export function CalendarSyncControls({
           checked={!!calendarEnabled}
           onChange={(e) => onToggleCalendar(e.target.checked)}
           aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, entityLabelKey)}`}
+          title={t(lang, "calendarSyncEnableHint")}
           className={`h-3.5 w-3.5 rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
         />
         {t(lang, "calendarSyncEnable")}
       </label>
       {calendarEnabled && onPushCalendar && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={onPushCalendar}
           disabled={calendarPushBusy}
           aria-busy={calendarPushBusy}
-          aria-label={t(lang, "calendarPush")}
-          title={t(lang, "calendarPush")}
-          className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+          aria-label={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+          title={t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+          className="inline-flex items-center gap-1"
         >
           <ArrowUpTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
-          {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
-        </button>
+          {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPushShort")}
+        </Button>
       )}
       {calendarEnabled && onPullCalendar && (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           onClick={onPullCalendar}
           disabled={calendarPullBusy}
           aria-busy={calendarPullBusy}
-          aria-label={t(lang, "calendarPull")}
-          title={t(lang, "calendarPull")}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+          aria-label={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
+          title={t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
+          className="inline-flex items-center gap-1"
         >
-          {calendarPullBusy ? t(lang, "calendarPulling") : t(lang, "calendarPull")}
-        </button>
+          <ArrowDownTrayIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          {calendarPullBusy ? t(lang, "calendarPulling") : t(lang, "calendarPullShort")}
+        </Button>
       )}
     </>
   );

@@ -15,8 +15,11 @@ import {
   setRaciRole,
 } from "./stakeholders";
 import { type RaciRole, type Stakeholder, type Milestone } from "./types";
+import { type ActivityKind } from "./activity-log";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { useResizable } from "./use-resizable";
+import { useSettings } from "./use-settings";
+import { useRaciSuggest } from "./use-raci-suggest";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { ViewCallout } from "./view-callout";
 
@@ -28,7 +31,13 @@ export interface RaciPanelProps {
   lang: Lang;
   stakeholders: readonly Stakeholder[];
   milestones: readonly Milestone[];
-  onSave: (item: Stakeholder) => void;
+  onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
+  /** Snapshot the touched stakeholders' pre-edit images for undo, called
+   *  before "Suggest RACI" applies its selected cells — mirrors
+   *  `onCaptureStakeholderBulk` (the same capture the manual bulk-edit panel
+   *  uses). Omitted -> AI apply proceeds without an undo entry. */
+  onCaptureBulk?: (ids: readonly number[]) => void;
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -38,7 +47,25 @@ export interface RaciPanelProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, isPopout, onLearnMore }: RaciPanelProps) {
+export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBulk, logActivity, showHints, isPopout, onLearnMore }: RaciPanelProps) {
+  const { settings } = useSettings();
+
+  // AI-assisted "Suggest RACI" (Stakeholders → RACI toolbar only). Called
+  // UNCONDITIONALLY — before the two empty-state early returns below — so the
+  // hook always runs regardless of whether this render ends up showing the
+  // matrix or a placeholder (react-hooks rules of hooks; mirrors
+  // resources-panel.tsx's `useAllocPlan` call for the same reason).
+  const suggest = useRaciSuggest({
+    settings,
+    isPopout: isPopout ?? false,
+    lang,
+    stakeholders,
+    milestones,
+    onSave,
+    onCaptureBulk,
+    logActivity,
+  });
+
   const rows = useMemo(
     () => buildRaciMatrix(stakeholders, milestones),
     [stakeholders, milestones],
@@ -211,10 +238,12 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {suggest.button}
           <PrintButton lang={lang} />
           <ResetSizeButton onClick={resetPaneSize} lang={lang} />
         </div>
       </div>
+      {suggest.modal}
 
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
         <DataTable className="min-w-full text-left text-sm" head={<>

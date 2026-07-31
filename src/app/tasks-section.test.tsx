@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { t } from "./i18n";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
+import { expectButtonOrder } from "../test/toolbar-order";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
 vi.mock("./filters-context", () => ({ useFilters: vi.fn() }));
@@ -700,40 +701,7 @@ describe("TasksSection", () => {
     expect(screen.getByText("T1")).toBeInTheDocument();
   });
 
-  it("toggling 'Hide finished' persists via setSettings", () => {
-    const setSettings = vi.fn();
-    mockUseSettings.mockReturnValue({
-      settings: {
-        holidayCountries: [],
-        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
-        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
-        ai: { consentAccepted: false },
-        lang: "en-US",
-        popout: { reuseWindow: false },
-        hideFinishedTasks: false,
-      },
-      setSettings,
-      hydrated: true,
-      i18nReady: true,
-      lang: "en-US",
-    });
-    const task = { id: 1, taskName: "T1", status: "To Do" };
-    stubWorkspace([task], [task]);
-    render(<TasksSection {...makeProps()} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "hideFinishedTasks") }));
-    expect(setSettings).toHaveBeenCalledTimes(1);
-    // Capture the functional updater and apply it to a known baseline. The
-    // handler forwards e.target.checked (which RTL reports as the controlled
-    // prop value, false) into a spread update — so the updater writes false and
-    // preserves siblings. This is non-tautological: a handler that hardcoded
-    // `true`, dropped the spread, or no-op'd would fail these assertions.
-    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
-    const next = updater({ hideFinishedTasks: true, language: "en-US" } as Settings);
-    expect(next.hideFinishedTasks).toBe(false);
-    expect(next.language).toBe("en-US");
-  });
-
-  it("toggling 'Hide externals' persists via setSettings", () => {
+  it("renders the two row filters as toggle buttons that write their settings flags", () => {
     const setSettings = vi.fn();
     mockUseSettings.mockReturnValue({
       settings: {
@@ -754,15 +722,113 @@ describe("TasksSection", () => {
     const task = { id: 1, taskName: "T1", status: "To Do" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "hideExternalTasks") }));
+
+    const finished = screen.getByRole("button", { name: t("en-US", "hideFinishedTasks") });
+    expect(finished.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(finished);
     expect(setSettings).toHaveBeenCalledTimes(1);
-    // Same non-tautological shape as the "Hide finished" test above: the
-    // handler must forward e.target.checked (RTL reports false) through a
-    // spread updater, not hardcode true or drop sibling fields.
+
+    const external = screen.getByRole("button", { name: t("en-US", "hideExternalTasks") });
+    expect(external.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("toggling 'Hide finished' persists via setSettings, reading the flag out of the updater's own state", () => {
+    const setSettings = vi.fn();
+    mockUseSettings.mockReturnValue({
+      settings: {
+        holidayCountries: [],
+        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        ai: { consentAccepted: false },
+        lang: "en-US",
+        popout: { reuseWindow: false },
+        hideFinishedTasks: false,
+      },
+      setSettings,
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "hideFinishedTasks") }));
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    // Capture the functional updater and apply it to a known baseline. The
+    // handler must flip the flag it reads OFF `s`, not off the render-scope
+    // `hideFinished` const — this is non-tautological: a handler that hardcoded
+    // `true`, dropped the spread, or no-op'd would fail these assertions.
     const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
-    const next = updater({ hideExternalTasks: true, language: "en-US" } as Settings);
-    expect(next.hideExternalTasks).toBe(false);
+    const next = updater({ hideFinishedTasks: false, language: "en-US" } as Settings);
+    expect(next.hideFinishedTasks).toBe(true);
     expect(next.language).toBe("en-US");
+  });
+
+  it("toggling 'Hide externals' persists via setSettings, reading the flag out of the updater's own state", () => {
+    const setSettings = vi.fn();
+    mockUseSettings.mockReturnValue({
+      settings: {
+        holidayCountries: [],
+        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        ai: { consentAccepted: false },
+        lang: "en-US",
+        popout: { reuseWindow: false },
+        hideFinishedTasks: false,
+        hideExternalTasks: false,
+      },
+      setSettings,
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "hideExternalTasks") }));
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    // Same non-tautological shape as the "Hide finished" test above.
+    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
+    const next = updater({ hideExternalTasks: false, language: "en-US" } as Settings);
+    expect(next.hideExternalTasks).toBe(true);
+    expect(next.language).toBe("en-US");
+  });
+
+  // ★★ Landmine class (AGENTS.md): a toggle handler that reads the render-scope
+  // `hideFinished` const instead of the updater's own `s` computes the SAME
+  // target value on every click within one tick — two clicks in one tick would
+  // both resolve to "on" instead of cancelling out. Simulate React applying two
+  // queued functional updaters back-to-back (feeding the first's result into
+  // the second, as React itself would) and assert they DO cancel out.
+  it("threads two clicks in one tick through the functional updater so they cancel out", () => {
+    const setSettings = vi.fn();
+    mockUseSettings.mockReturnValue({
+      settings: {
+        holidayCountries: [],
+        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        ai: { consentAccepted: false },
+        lang: "en-US",
+        popout: { reuseWindow: false },
+        hideFinishedTasks: false,
+      },
+      setSettings,
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    const finished = screen.getByRole("button", { name: t("en-US", "hideFinishedTasks") });
+    fireEvent.click(finished);
+    fireEvent.click(finished);
+    expect(setSettings).toHaveBeenCalledTimes(2);
+    const base = { hideFinishedTasks: false, language: "en-US" } as Settings;
+    const afterFirst = (setSettings.mock.calls[0][0] as (s: Settings) => Settings)(base);
+    expect(afterFirst.hideFinishedTasks).toBe(true);
+    const afterSecond = (setSettings.mock.calls[1][0] as (s: Settings) => Settings)(afterFirst);
+    expect(afterSecond.hideFinishedTasks).toBe(false);
   });
 
   it("view-mode toggle writes device settings when the project has no override", () => {
@@ -825,6 +891,23 @@ describe("TasksSection", () => {
     }
   });
 
+  // AGENTS.md toolbar convention: every pane's toolbar ends with the contiguous
+  // trailing group Print · reset-columns · reset-size; destructive actions go
+  // BEFORE it, never between two of its members. Open Points had drifted to
+  // Print · reset-size · reset-columns · Clear-all — Clear-all trailing the
+  // resets, and the two resets swapped. expectButtonOrder throws on a missing
+  // or duplicated control, so a deleted button can't degrade this into a
+  // vacuous comparison (see src/test/toolbar-order.ts).
+  it("orders the trailing toolbar group: clear-all, print, reset-columns, reset-size", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    // Clear-all only has to LEAD; the trailing group must be adjacent AND in
+    // the exact column/size order the convention specifies.
+    expectButtonOrder(["clearAll", "printHint"]);
+    expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+  });
+
   it("gives the tasks search box a descriptive tooltip", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);
@@ -877,6 +960,12 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
+  // The tasks pane now renders the shared CalendarSyncControls, whose checkbox is
+  // named per entity so that N panes' enable boxes are distinguishable (WCAG 2.4.6).
+  // Querying the bare "Add to Outlook calendar" would match nothing and quietly
+  // make every absence assertion below pass for the wrong reason.
+  const calEnableLabel = `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityTask")}`;
+
   it("hides the calendar controls entirely when M365 is not configured", () => {
     stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
@@ -886,8 +975,17 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
+      screen.queryByRole("checkbox", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
+  });
+
+  it("gives the Outlook enable checkbox an explanatory tooltip", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    const box = screen.getByRole("checkbox", { name: calEnableLabel });
+    expect(box.getAttribute("title")).toBe(t("en-US", "calendarSyncEnableHint"));
   });
 
   it("shows the Pull-from-Outlook button when M365 is configured and task calendar sync is enabled", () => {
@@ -928,7 +1026,7 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
+      screen.queryByRole("checkbox", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
   });
 

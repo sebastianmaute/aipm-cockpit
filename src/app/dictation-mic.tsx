@@ -16,9 +16,26 @@ interface UseDictationMicArgs {
   enabled?: boolean;
   label: string;
   onAppendFinal: (text: string) => void;
+  /** Replaces the mic button's default padding (`px-2 py-1`) so a caller can
+   *  match a sibling control's geometry. REPLACES rather than appends: two
+   *  padding utilities in one class list are resolved by Tailwind's
+   *  stylesheet order, not by their order in the attribute, so appending is
+   *  not a reliable override. */
+  padding?: string;
+  /** Non-padding layout extras (e.g. flex/centring) appended to the button's
+   *  class list. */
+  className?: string;
 }
 
-export function useDictationMic({ lang, dictation, enabled = true, label, onAppendFinal }: UseDictationMicArgs) {
+export function useDictationMic({
+  lang,
+  dictation,
+  enabled = true,
+  label,
+  onAppendFinal,
+  padding,
+  className,
+}: UseDictationMicArgs) {
   const showToast = useToastContext();
   const [interim, setInterim] = useState("");
   const ptt = usePushToTalk({
@@ -56,7 +73,7 @@ export function useDictationMic({ lang, dictation, enabled = true, label, onAppe
       aria-pressed={ptt.listening}
       aria-label={`${t(lang, "dictationHold")} – ${label}`}
       title={`${t(lang, "dictationHold")} – ${label}`}
-      className={`rounded-md border border-line px-2 py-1 ${INTERACTIVE} ${ptt.listening ? "text-ui-green-strong" : "text-muted-foreground"}`}
+      className={`rounded-md border border-line ${padding ?? "px-2 py-1"} ${INTERACTIVE} ${ptt.listening ? "text-ui-green-strong" : "text-muted-foreground"}${className ? ` ${className}` : ""}`}
       {...ptt.buttonHandlers}
     >
       <MicrophoneIcon aria-hidden="true" className="h-4 w-4" />

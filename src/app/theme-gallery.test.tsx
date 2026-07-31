@@ -23,9 +23,7 @@ function renderGallery(over: Partial<ComponentProps<typeof ThemeGallery>> = {}) 
   const props = {
     lang: "en-US" as const,
     schemes: loadSchemes().schemes,
-    activeId: loadSchemes().activeId,
     onImported: vi.fn(),
-    onApply: vi.fn(),
     onRemove: vi.fn(),
     ...over,
   };
@@ -56,7 +54,7 @@ describe("ThemeGallery", () => {
     // Button, which axe cannot see (it reports missing names, never duplicates).
     // `.focus()` would prove nothing here — only a real tab walk does.
     const user = userEvent.setup();
-    renderGallery({ schemes: [], activeId: null });
+    renderGallery({ schemes: [] });
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const load = screen.getByRole("button", { name: "Load theme file…" });
 
@@ -72,10 +70,27 @@ describe("ThemeGallery", () => {
         { id: "harbor", name: "Harbor", builtIn: true, supportsDark: true, light: {}, branding: {} },
         { id: "u-1", name: "Mine", supportsDark: false, light: {}, branding: {} },
       ],
-      activeId: "harbor",
     });
     expect(screen.getByText("Mine")).toBeInTheDocument();
     expect(screen.queryByText("Harbor")).not.toBeInTheDocument();
+  });
+
+  test("lists themes two-up with no Apply button and no Active label", () => {
+    render(
+      <ThemeGallery
+        lang="en-US"
+        schemes={[
+          { id: "u-1", name: "Ocean", light: {}, supportsDark: false } as never,
+          { id: "u-2", name: "Dust", light: {}, supportsDark: false } as never,
+        ]}
+        onImported={() => {}}
+        onRemove={() => {}}
+      />,
+    );
+    expect(screen.getByRole("list").className).toMatch(/sm:grid-cols-2/);
+    expect(screen.queryByRole("button", { name: /apply/i })).toBeNull();
+    expect(screen.queryByText("Active")).toBeNull();
+    expect(screen.getByRole("button", { name: /Ocean/ })).toBeTruthy();
   });
 
   test("row controls carry the scheme NAME so two rows never share an accessible name", () => {
@@ -84,38 +99,23 @@ describe("ThemeGallery", () => {
         { id: "u-1", name: "Alpha", supportsDark: false, light: {}, branding: {} },
         { id: "u-2", name: "Beta", supportsDark: false, light: {}, branding: {} },
       ],
-      activeId: null,
     });
     // Headline claim FIRST: axe cannot see duplicate names, only missing ones.
-    expect(screen.getByRole("button", { name: "Apply Alpha" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply Beta" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove Alpha" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove Beta" })).toBeInTheDocument();
   });
 
-  test("Apply and Remove call their handlers with the row's id", async () => {
+  test("Remove calls its handler with the row's id", async () => {
     const user = userEvent.setup();
     const props = renderGallery({
       schemes: [{ id: "u-1", name: "Alpha", supportsDark: false, light: {}, branding: {} }],
-      activeId: null,
     });
-    await user.click(screen.getByRole("button", { name: "Apply Alpha" }));
-    expect(props.onApply).toHaveBeenCalledWith("u-1");
     await user.click(screen.getByRole("button", { name: "Remove Alpha" }));
     expect(props.onRemove).toHaveBeenCalledWith("u-1");
   });
 
-  test("the active scheme is marked and cannot be applied again", () => {
-    renderGallery({
-      schemes: [{ id: "u-1", name: "Alpha", supportsDark: false, light: {}, branding: {} }],
-      activeId: "u-1",
-    });
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Apply Alpha" })).toBeDisabled();
-  });
-
   test("an empty library shows the empty message, not a bare list", () => {
-    renderGallery({ schemes: [], activeId: null });
+    renderGallery({ schemes: [] });
     expect(screen.getByText("No themes in your library yet.")).toBeInTheDocument();
   });
 
