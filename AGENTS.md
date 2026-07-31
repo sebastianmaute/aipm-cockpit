@@ -87,6 +87,9 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
+                            # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.8 — it fails to load a
+                            # reporter module and errors at startup, which reads like a broken test run.
+                            # Use `--reporter=dot`.
 npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
                             # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
                             # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
@@ -102,6 +105,21 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
                             # scriptsDescriptions entry or docs:scripts:check fails.
 ```
+
+★★★ **NEVER READ A GATE'S EXIT CODE THROUGH A PIPE — you get the PIPE's status, not the command's.**
+`npm run test:run | tail -8` exits **0 while tests are failing**, because that is `tail`'s status; the
+pipe also DISCARDS the failure diagnostic, so the obvious re-run tells you nothing either. Same shape
+with grep: `npx eslint --max-warnings=0 src/app | grep -v notice` reports **1** when eslint passed and
+grep simply matched nothing — a pass that reads as a failure, and a failure that reads as a pass, from
+the same mistake. Both directions were hit in one session, the first causing a failing suite to be
+reported as green **after** the trap had already been flagged twice.
+★ Do this instead — redirect, check unpiped, then read the file:
+```bash
+npm run test:run > /tmp/suite.log 2>&1; echo "EXIT=$?"; grep -E "Test Files|Tests " /tmp/suite.log
+npx eslint --max-warnings=0 src/app; echo "EXIT=$?"        # no pipe at all
+```
+★★ This matters more here than in most repos: the gates ARE the safety net, and a defeated gate is
+worse than no gate — it reports success. A "green" claim is only worth what the exit code behind it is.
 
 ## Hard constraints (CI-enforced — these gate merges)
 
