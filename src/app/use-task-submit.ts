@@ -164,13 +164,14 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         timeSpentMinutes: form.timeSpentMinutes,
         resourceId: form.resourceId ?? undefined,
         knowledgeLinks: form.knowledgeLinks,
-        // ★★ `noteLog` is DELIBERATELY absent. The note log is WRITE-THROUGH —
-        // NoteLogPanel (inline in the editor) and the floating notes window both
-        // commit straight to the workspace row, and never touch this draft. The
-        // draft's copy (snapshotted by `openEditModal`) therefore goes stale the
-        // instant a note is added/edited/deleted, and since `payload` is spread
-        // OVER `row` it would overwrite the live log with that stale copy —
-        // silent data loss. The write-through path is the sole owner.
+        // ★★ `noteLog` is DELIBERATELY absent — from this payload AND from the
+        // form draft itself (`emptyForm` carries no such field). The note log is
+        // WRITE-THROUGH — NoteLogPanel (inline in the editor) and the floating
+        // notes window both commit straight to the workspace row, and never
+        // touch this draft. A draft copy would go stale the instant a note is
+        // added/edited/deleted, and since `payload` is spread OVER `row` it
+        // would overwrite the live log with that stale copy — silent data
+        // loss. The write-through path is the sole owner.
       };
 
       if (adj.count() > 0) {
@@ -338,7 +339,6 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",
         knowledgeLinks: task.knowledgeLinks ?? [],
-        noteLog: task.noteLog ?? [],
       });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });

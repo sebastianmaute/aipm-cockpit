@@ -597,8 +597,9 @@ export function TaskFormFields({
             added here survives Cancel, which is correct for an append-only
             journal. Without one (an unsaved new task) the disabled button
             remains, as there is no id to write to. The count reads the LIVE
-            panel entries, NOT `form.noteLog`, so a write-through add moves the
-            number immediately. */}
+            panel entries — the form draft carries no note log at all
+            (open-followups §29), so a write-through add moves the number
+            immediately. */}
         {taskNotePanel ? (
           <details className="sm:col-span-2 rounded-md border border-line bg-surface p-2">
             {/* ★ `tabIndex={0}` is a no-op for a browser (a <summary> is already
@@ -629,7 +630,10 @@ export function TaskFormFields({
               disabled={!onOpenNotes}
               className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
             >
-              {t(lang, "noteLogTitle")} ({(form.noteLog ?? []).length})
+              {/* Always 0: this branch renders only for an UNSAVED task, which
+                  has no id for the write-through path to append to. The draft
+                  deliberately carries no note log at all (open-followups §29). */}
+              {t(lang, "noteLogTitle")} (0)
             </button>
           </div>
         )}

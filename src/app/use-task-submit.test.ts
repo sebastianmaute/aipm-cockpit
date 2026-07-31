@@ -54,7 +54,6 @@ function validForm(): TaskFormDraft {
     healthOverride: "",
     knowledgeLinks: [],
     resourceId: undefined,
-    noteLog: [],
   };
 }
 
@@ -567,9 +566,8 @@ describe("useTaskSubmit — RAID back-link on task create", () => {
 
 // The note log is written STRAIGHT THROUGH to the workspace by NoteLogPanel /
 // the floating notes window while the editor is open — it never touches the
-// form draft. `openEditModal` snapshots `task.noteLog` into that draft, so the
-// draft copy is stale the moment a note is added, edited or deleted. Save must
-// therefore never write the draft's copy back over the live row.
+// form draft, which carries no note log at all. Save must therefore never
+// write anything note-log-shaped back over the live row.
 describe("useTaskSubmit — note log is write-through, never round-tripped by Save", () => {
   const note = (id: number, text: string): NoteLogEntry => ({
     id,
@@ -591,10 +589,9 @@ describe("useTaskSubmit — note log is write-through, never round-tripped by Sa
     });
     const { result, rerender } = renderHook(() => useTaskSubmit(args));
 
-    // 1. open the editor: the draft snapshots the note log as it stood.
+    // 1. open the editor. The draft carries no note log at all.
     act(() => result.current.openEditModal(opened));
     const draft = setForm.mock.calls[0][0] as TaskFormDraft;
-    expect(draft.noteLog).toHaveLength(opened.noteLog?.length ?? 0);
 
     // 2. write-through: the WORKSPACE row changes, the draft does NOT.
     args = makeArgs({
