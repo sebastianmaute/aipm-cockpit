@@ -21,7 +21,6 @@ vi.mock("./timelog-api", () => ({
 import * as api from "./timelog-api";
 import { useTimelogSync } from "./use-timelog-sync";
 import type { TimelogLinks } from "./timelog-types";
-import { saveActualsCache } from "./timelog-actuals-store";
 
 const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 // Persisted links are always MANUAL pins in production (auto-matches are never
@@ -340,24 +339,4 @@ it("week granularity: aggregates under weekly key (2026-W24), not monthly key (2
   const byPeriod = result.current.aggregates?.byBucket[7];
   expect(byPeriod?.["2026-W24"]?.hours).toBe(4);
   expect(byPeriod?.["2026-06"]).toBeUndefined();
-});
-
-it("seeds from a cache written under the legacy project-code key", () => {
-  // A user who fetched before the key moved has their entry under the old
-  // project CODE. The hook reads the canonical key first, so without the
-  // fallback their KPIs and "Last synced" line come back empty.
-  saveActualsCache("OLD-CODE", { fetchedAt: "2026-01-01T00:00:00Z" });
-  const { result } = renderHook(() =>
-    useTimelogSync(args({ projectId: "canonical-id", legacyProjectId: "OLD-CODE" })),
-  );
-  expect(result.current.fetchedAt).toBe("2026-01-01T00:00:00Z");
-});
-
-it("prefers the canonical entry over the legacy one", () => {
-  saveActualsCache("OLD-CODE", { fetchedAt: "2026-01-01T00:00:00Z" });
-  saveActualsCache("canonical-id", { fetchedAt: "2026-06-06T00:00:00Z" });
-  const { result } = renderHook(() =>
-    useTimelogSync(args({ projectId: "canonical-id", legacyProjectId: "OLD-CODE" })),
-  );
-  expect(result.current.fetchedAt).toBe("2026-06-06T00:00:00Z");
 });

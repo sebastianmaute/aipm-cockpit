@@ -86,10 +86,9 @@ export function TimelogPanel({
     () => timelogLinks ?? { userLinks: [], projectLinks: [] },
     [timelogLinks],
   );
-  // `ws.project?.code`. NOT a store key — it is the in-place project-switch
-  // SIGNAL consumed by useTimelogPickerScope, plus the legacy actuals-cache key
-  // kept only as a read fallback. The code is user-editable, which is why it
-  // stopped keying the cache (open-followups §14).
+  // `ws.project?.code`. NOT a store key — the actuals cache is keyed on the
+  // canonical `projectKey` alone (open-followups §14). This is only the
+  // in-place project-switch SIGNAL consumed by useTimelogPickerScope.
   const projectCode = ws.project?.code ?? "default";
   const creds = useMemo(
     () => ({ host: cfg.host, tenant: cfg.tenant, token: cfg.apiToken }),
@@ -104,7 +103,6 @@ export function TimelogPanel({
     scopeMode: cfg.scopeMode,
     granularity: planGranularity,
     projectId: projectKey,
-    legacyProjectId: projectCode,
     isPopout,
     onTokenInvalid: () => {
       const at = new Date().toISOString();

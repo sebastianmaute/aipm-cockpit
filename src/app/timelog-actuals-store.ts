@@ -44,29 +44,14 @@ function readMap(): CacheMap {
   return out;
 }
 
-/** Reads the entry for `projectId`, falling back ONCE to `legacyProjectId`.
- *
- *  ★ Read-only on purpose. The call sites are lazy `useState` initializers, so
- *  writing here would be a side effect during render (double-invoked under
- *  StrictMode). The entry migrates to the canonical key on the next
- *  `saveActualsCache`, which already writes whatever key it is given. The
- *  orphaned legacy entry is bounded by MAX_PROJECTS. See open-followups §14. */
-export function loadActualsCache(projectId: string, legacyProjectId?: string): ActualsCacheEntry | undefined {
-  const map = readMap();
-  const hit = map[projectId];
-  if (hit) return hit;
-  if (legacyProjectId && legacyProjectId !== projectId) return map[legacyProjectId];
-  return undefined;
+export function loadActualsCache(projectId: string): ActualsCacheEntry | undefined {
+  return readMap()[projectId];
 }
 
-/** ★★ Deletes BOTH keys. Clearing only the canonical one would let the
- *  legacy fallback above resurrect the cleared cache on the next mount. */
-export function clearActualsCache(projectId: string, legacyProjectId?: string): void {
+export function clearActualsCache(projectId: string): void {
   const map = readMap();
-  const ids = legacyProjectId && legacyProjectId !== projectId ? [projectId, legacyProjectId] : [projectId];
-  const present = ids.filter((id) => id in map);
-  if (present.length === 0) return;
-  for (const id of present) delete map[id];
+  if (!(projectId in map)) return;
+  delete map[projectId];
   writeDeviceJson(TIMELOG_ACTUALS_KEY, map);
 }
 

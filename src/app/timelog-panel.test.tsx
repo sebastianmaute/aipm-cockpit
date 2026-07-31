@@ -376,9 +376,8 @@ describe("TimelogPanel", () => {
     // render here can never reflect a real `loadActualsCache` hit — the mock
     // ignores its arguments entirely. What CAN be pinned at this layer is the
     // ARGUMENT the panel hands the hook, which is exactly the choice §14 moved:
-    // the canonical `projectKey` prop must reach `projectId`, and the legacy
-    // `ws.project?.code` must be relegated to the read-only `legacyProjectId`
-    // fallback — never the primary cache key.
+    // the canonical `projectKey` prop must reach `projectId`, never the
+    // user-editable `ws.project?.code`.
     it("hands the canonical projectKey to useTimelogSync as projectId, not the legacy project code", async () => {
       enableTimelog();
       const { useTimelogSync } = await import("./use-timelog-sync");
@@ -395,9 +394,8 @@ describe("TimelogPanel", () => {
       );
       await waitFor(() => {
         const calls = vi.mocked(useTimelogSync).mock.calls;
-        const last = calls[calls.length - 1][0] as { projectId: string; legacyProjectId?: string };
+        const last = calls[calls.length - 1][0] as { projectId: string };
         expect(last.projectId).toBe("canonical-key");
-        expect(last.legacyProjectId).toBe("proj-a");
       });
     });
   });
