@@ -1,10 +1,10 @@
 "use client";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { FieldError } from "./field-feedback";
 import { FilePickerButton } from "./file-picker-button";
+import { Button } from "./button";
 
 export interface BrandingImageInputProps {
-  label: string; // accessible name for the file input
+  label: string; // visible Button text AND its accessible name
   removeLabel?: string; // accessible name for the remove button (default "Remove")
   value: string | undefined; // current data: URL (or empty)
   onChange: (dataUrl: string) => void;
@@ -53,13 +53,9 @@ export function BrandingImageInput(props: BrandingImageInputProps) {
           onFile={onFile}
         />
         {props.value ? (
-          <button
-            type="button"
-            className={`rounded-md border border-line px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
-            onClick={props.onRemove}
-          >
+          <Button variant="secondary" size="sm" onClick={props.onRemove}>
             {props.removeLabel ?? "Remove"}
-          </button>
+          </Button>
         ) : null}
       </div>
       {props.error ? (

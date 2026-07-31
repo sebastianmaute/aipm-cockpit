@@ -210,6 +210,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
         <FilePickerButton
           label={t(lang, "schemeImport")}
           accept="application/json,.json"
+          size="xs"
           onFile={onImportFile}
         />
       </div>

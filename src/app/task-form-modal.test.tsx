@@ -311,7 +311,8 @@ describe("inline note log (slice B)", () => {
   it("keeps the disabled Notes button for an unsaved task", () => {
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     // No panel threaded (a new draft has no id to write to) → the launcher button.
-    const button = screen.getByRole("button", { name: `${t(EN, "noteLogTitle")} (0)` });
+    // No count is shown at all for this fallback (see task-form-fields.tsx).
+    const button = screen.getByRole("button", { name: t(EN, "noteLogTitle") });
     expect(button).toBeDisabled();
     expect(button.closest("details")).toBeNull();
   });

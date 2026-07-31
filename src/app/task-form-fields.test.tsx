@@ -191,9 +191,10 @@ describe("TaskFormFields description + notes button", () => {
     const user = userEvent.setup();
     render(<Harness onOpenNotes={onOpenNotes} />, { wrapper: TestProviders });
 
-    // Label is `${noteLogTitle} (${count})` — an empty draft reads "Notes log (0)".
+    // The unsaved-task fallback renders no count at all (a hardcoded 0 would only
+    // be true by wiring, not by construction) — label is bare "Notes log".
     const btn = screen.getByRole("button", {
-      name: `${t("en-US", "noteLogTitle")} (0)`,
+      name: t("en-US", "noteLogTitle"),
     });
     await user.click(btn);
     expect(onOpenNotes).toHaveBeenCalledTimes(1);

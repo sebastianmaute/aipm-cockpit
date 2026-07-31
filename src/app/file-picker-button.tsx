@@ -60,6 +60,7 @@ export function FilePickerButton({
         ref={inputRef}
         type="file"
         accept={accept}
+        disabled={disabled}
         className="sr-only"
         tabIndex={-1}
         aria-hidden="true"

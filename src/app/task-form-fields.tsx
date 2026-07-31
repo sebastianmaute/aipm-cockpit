@@ -630,10 +630,12 @@ export function TaskFormFields({
               disabled={!onOpenNotes}
               className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
             >
-              {/* Always 0: this branch renders only for an UNSAVED task, which
-                  has no id for the write-through path to append to. The draft
-                  deliberately carries no note log at all (open-followups §29). */}
-              {t(lang, "noteLogTitle")} (0)
+              {/* No count: this branch renders only for an UNSAVED task, which has
+                  no id for the write-through path to append to. A hardcoded 0 would
+                  be true only by WIRING (task-manager gates taskNotePanel on
+                  `editingId !== null`), not by construction — so show no number at
+                  all rather than one a future caller could falsify. */}
+              {t(lang, "noteLogTitle")}
             </button>
           </div>
         )}
