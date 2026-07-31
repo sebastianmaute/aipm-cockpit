@@ -1063,23 +1063,39 @@ frequency data lived only in a code comment and a memory file.
 
 ---
 
-## 40. `text-ui-dark-blue` without a mode-appropriate companion — **39 sites**, open, needs its own slice
+## 40. `text-ui-dark-blue` without a mode-appropriate companion — **40 sites**, open, needs its own slice
 
 `--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
 measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
 effectively invisible. On `--surface-muted` it is **1.01 / 1.04 / 1.17**.
 
 ★★★ **The first version of this entry listed three sites and implied that was the remainder. A sweep
-found 26 in this token class plus 13 more in the widened class — 39.** The entry is corrected rather
+found 26 in this token class plus 13 more in the widened class — and a later audit added a 27th
+the sweep had missed, giving 40.** The entry is corrected rather
 than deleted because the wrong number is the more instructive artifact: it came from fixing what
 review happened to surface, then documenting that as the scope.
 
-### A. Base text, no companion — 6
+### A. Base text, no companion — 7
 
 `jira-conflicts-modal.tsx:183` (Jira-key badge, on `bg-surface-muted`) · `jira-settings.tsx:617`
 (selected arm, assignee picker) · `settings-sections/integrations-section.tsx:441` (link, carries
 `underline` as a non-colour affordance) · **`tasks-section.tsx:588`** (Jira-sync button) ·
-**`use-tasks-dedup.tsx:69`** (dedup toolbar button class const) · **`chat-prompt-chips.tsx:37`**.
+**`use-tasks-dedup.tsx:69`** (dedup toolbar button class const) · **`chat-prompt-chips.tsx:37`** ·
+**`rich-text-view.tsx:13`**.
+
+★★★ **`rich-text-view.tsx:13` is plausibly the most user-visible site in the whole set, and TWO
+independent sweeps missed it.** `PROSE_CLASS` is
+`"… [&_a]:text-ui-dark-blue [&_a]:underline …"` with no dark variant, and this is the app's shared
+read-only rich-text sink — the note log, the dashboard narrative, and every stored HTML body render
+through it. So **every link in every rendered rich-text field** is near-black navy on `--surface` in
+dark mode. It belongs in this section by the entry's own criteria (it is the same underlined-link
+shape as `integrations-section.tsx:441`, which is listed).
+★★ **Why both sweeps missed it, which is the transferable part:** it is an ARBITRARY-VARIANT
+utility, `[&_a]:text-*`, not a bare `text-*`. A scan keyed on `text-ui-dark-blue` finds the string
+but a companion test keyed on `dark:text-` never matches, because the correct companion here is
+`dark:[&_a]:text-*` (or `[&_a]:dark:text-*`). The "Not swept" list at the bottom names `border-`,
+`fill-`, `stroke-` and friends — it did NOT name arbitrary variants, so this was a silent gap rather
+than a declared exclusion. **Any future sweep must enumerate the variant forms it handles.**
 
 ★★ **`chat-prompt-chips.tsx:37` defeats every sweep keyed on "does a companion exist".** Its
 companion is `dark:text-ui-dark-blue` — it re-asserts the same broken colour. Verified: that string
@@ -1134,8 +1150,11 @@ not a new technique to introduce but a convention applied inconsistently, which 
 mechanical sweep safe and a piecemeal fix wasteful.
 ★★ **No gate can catch ANY of it, and that is structural, not an oversight.** axe scans the RESTING
 state only, so all 18 hover sites are uncatchable by construction; there is no hover pass in
-`e2e/a11y.spec.ts`. **At least five** of the six base sites self-hide behind a feature flag
-(`jira.enabled`, `isAiEnabled`) or live in an unscanned view or a closed modal. The gate would not
+`e2e/a11y.spec.ts`. **At least five** of the seven base sites self-hide behind a feature flag
+(`jira.enabled`, `isAiEnabled`) or live in an unscanned view or a closed modal — the two whose
+reachability was never established are `chat-prompt-chips.tsx:37` (see below) and
+`rich-text-view.tsx:13`, which renders wherever stored rich text does, including the Dashboard
+narrative on a scanned view. Nobody checked whether the seed supplies narrative text. The gate would not
 have caught the three originally-filed sites either. **Only a static lint closes this class** — "a
 one-mode colour token used as text requires a companion at the same variant level, whose value
 differs". ★ A Playwright hover pass is conceivable but would have to hover every control across 16
@@ -1171,7 +1190,9 @@ a "cleared" note, so the next reader inherits the margin as fact. Any future edi
 ★ Ratios throughout are computed from `builtin-schemes.ts` and composited arithmetically for alpha
 tints — **nothing here was measured in a browser**. Where an element carries no `bg-*` of its own,
 `--surface` was assumed, which is the optimistic case; a card puts it on `--surface-muted`, ~0.1 lower.
-★ Not swept: `border-`, `fill-`, `stroke-`, `divide-`, `placeholder-`, `caret-`, `decoration-`.
+★ Not swept: `border-`, `fill-`, `stroke-`, `divide-`, `placeholder-`, `caret-`, `decoration-` — and,
+until the audit caught one, ARBITRARY VARIANTS such as `[&_a]:text-*`, whose companion must itself be
+variant-qualified. Enumerate the variant forms any future sweep handles.
 `border-ui-dark-blue` in dark mode is the same token on the same surfaces — likely near-invisible,
 1.4.11 rather than 1.4.3 — and deserves its own pass.
 
@@ -1180,16 +1201,21 @@ idiom for this heading colour is **`text-ui-dark-blue dark:text-ui-light-grey`**
 measures 8.41 / 8.80 / 10.32:1 on the three dark surfaces), which fixes dark mode just as completely
 and leaves light mode **byte-identical**. A neutral changes light mode where nothing was wrong and
 desynchronises the file from its siblings — in `stakeholder-report-panel.tsx` it left the section
-`<h3>` brand-blue while its own quadrant labels three lines below went grey. Five pre-existing uses
-of the idiom live in that one file (lines 86, 100, 109, 140, 185).
+`<h3>` brand-blue while its own quadrant labels three lines below went grey. **Six** pre-existing uses
+of the idiom live in that one file (lines 86, 100, 109, 120, 140, 185).
 
-★★ **This defect propagates by copying, which is why a sweep beats a fix.** `combobox-shared.tsx` was
-the origin of a highlight treatment that `global-search-box.tsx` and `entity-link-picker.tsx` both
-copied, both hit the bug in, and both repaired **locally** — one with a comment naming
-`combobox-shared` as the source — while the shared file every other consumer inherits from kept it,
-untested, until 0.211.0. `jira-settings.tsx:617` is a fourth copy of that same pattern. Assume more
-exist: grep `text-ui-dark-blue` and classify each hit as text (affected) versus checkbox `accent`
-(not affected) rather than trusting a count.
+★★ **This defect propagates by copying, which is why a sweep beats a fix.** `combobox-shared.tsx`,
+`global-search-box.tsx` and `entity-link-picker.tsx` carry three near-identical highlight
+treatments; all three hit this bug, and the latter two were repaired **locally** while the shared
+file every other consumer inherits from kept it, untested, until 0.211.0.
+★ **The direction of copying is asserted in-file, not established, and the sources disagree.**
+`combobox-shared.tsx:125-127` names itself the origin — which is the file claiming its own primacy,
+not corroboration. `global-search-box.tsx:288` says the opposite: *"Same fix as entity-link-picker
+(which copied this pattern from here)"*, naming itself as origin. `entity-link-picker.tsx:316-332`
+names no source at all. Neither of the other two even imports `ComboboxOptions` from
+`combobox-shared`, so nothing inherits the markup — these are three hand-copies, and an earlier
+version of this entry stated the provenance as fact in the wrong direction. Mtimes are merely
+*consistent* with combobox-shared being first (2026-05-29 < 06-22 < 07-26); treat that as weak.
 
 ★★★ **Writing this entry immediately found a fifth instance, TWO LINES BELOW the fix that prompted
 it** (`combobox-shared.tsx`, the "+ Add new" row) — fixed and tested in the same commit, so it is
@@ -1217,11 +1243,19 @@ Three checks nobody in the session could make. Distinct from §21, which is slic
   chips beneath them are both light greys, separated only by `font-semibold text-xs`. Whether that
   reads as distinct is an eye question; the token maths says nothing about it.
 
-★★ **The RACI matrix toolbar, the "Suggest RACI" modal and the four calendar toolbars are outside
-`A11Y_VIEWS` entirely**, so the 0.211.0 AI feature has had **no automated a11y check of any kind** —
-its unit tests are the only coverage. `digest-card` is a second shape of the same problem: Dashboard
-*is* scanned, but the card self-hides until the digest is enabled AND generated, so it renders
-nothing at scan time. A view being in the list does not mean a component inside it is ever seen.
+★★ **The RACI matrix toolbar and the "Suggest RACI" modal are outside `A11Y_VIEWS` entirely** (`raci`
+is a CHILD view of `stakeholders` and appears nowhere in the spec), so the 0.211.0 AI feature has had
+**no automated a11y check of any kind** — its unit tests are the only coverage.
+
+★★★ **The four calendar toolbars are a DIFFERENT failure and an earlier version of this entry filed
+them under the wrong one.** All four host views — Open Points, Resources, RAID, Changes — ARE in
+`A11Y_VIEWS`. They are never scanned because `CalendarSyncControls` returns `null` unless
+`m365Configured && !isPopout && onToggleCalendar`, and the e2e seed configures no M365 at all (zero
+`m365`/`msal`/`clientId` hits in `e2e/seed.ts` and `e2e/a11y.spec.ts`). ★ The distinction is not
+pedantry: acting on the old wording, someone would add four views to `A11Y_VIEWS` and still scan
+nothing. `digest-card` is the same shape — Dashboard *is* scanned, but `if (!digest) return null`
+means it renders nothing at scan time. **A view being in the list does not mean a component inside it
+is ever seen, and "not scanned" has at least two distinct causes that need different fixes.**
 
 ---
 
@@ -1233,7 +1267,9 @@ Outlook"). In the CLASSIC layout `TasksSection` and `WorkspaceSection` mount sim
 (`task-manager.tsx`), so with sync enabled on two entities a user can see two identically-named
 "Push to Outlook" buttons — WCAG 2.4.6.
 
-★ **Verified pre-existing**, not a 0.211.0 regression: the `aria-label` is identical on `origin/main`.
+★ **Verified pre-existing**, not a 0.211.0 regression: the label is UNQUALIFIED on `origin/main` too.
+(Not byte-identical — main has `t(lang,"calendarPush")` where the tree now has a busy-state ternary —
+but the unqualified property, which is what this entry is about, is unchanged.)
 That release *reduced* exposure by moving the Open Points pane's hand-rolled duplicate onto the shared
 component and qualifying its checkbox — which is what made the asymmetry visible.
 
