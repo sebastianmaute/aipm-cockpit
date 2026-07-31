@@ -37,6 +37,9 @@ type Args = {
   scopeMode: TimelogScopeMode;
   granularity: PlanGranularity;
   projectId: string;
+  /** The pre-0.211.1 store key (`ws.project?.code`). Read-only fallback so a
+   *  cache written before the key moved is still found. See open-followups §14. */
+  legacyProjectId?: string;
   isPopout: boolean;
   onTokenInvalid: () => void;
   onTokenValid: () => void;
@@ -44,6 +47,7 @@ type Args = {
 
 export function useTimelogSync(args: Args) {
   const projectId = args.projectId;
+  const legacyProjectId = args.legacyProjectId;
   const isPopout = args.isPopout;
   const scopeMode = args.scopeMode;
   const granularity = args.granularity;
@@ -54,13 +58,13 @@ export function useTimelogSync(args: Args) {
   const onTokenInvalid = args.onTokenInvalid;
   const onTokenValid = args.onTokenValid;
 
-  const [aggregates, setAggregates] = useState<ActualsAggregate | undefined>(() => loadActualsCache(projectId)?.aggregates);
-  const [fetchedAt, setFetchedAt] = useState<string | undefined>(() => loadActualsCache(projectId)?.fetchedAt);
+  const [aggregates, setAggregates] = useState<ActualsAggregate | undefined>(() => loadActualsCache(projectId, legacyProjectId)?.aggregates);
+  const [fetchedAt, setFetchedAt] = useState<string | undefined>(() => loadActualsCache(projectId, legacyProjectId)?.fetchedAt);
   // Displayable directory users + distinct projects seen in the latest fetch.
   // Seeded from the per-project cache so the matching tables survive a view
   // remount (the KPIs already restore from `aggregates` — keep them in sync).
-  const [users, setUsers] = useState<TimelogUser[]>(() => loadActualsCache(projectId)?.users ?? []);
-  const [projectRefs, setProjectRefs] = useState<TimelogProjectRef[]>(() => loadActualsCache(projectId)?.projectRefs ?? []);
+  const [users, setUsers] = useState<TimelogUser[]>(() => loadActualsCache(projectId, legacyProjectId)?.users ?? []);
+  const [projectRefs, setProjectRefs] = useState<TimelogProjectRef[]>(() => loadActualsCache(projectId, legacyProjectId)?.projectRefs ?? []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<number | null>(null);
   // Customer directory for the project-scope picker. Lazy + lightweight (no busy
@@ -343,7 +347,7 @@ export function useTimelogSync(args: Args) {
     setUsers([]);
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
-    clearActualsCache(projectId);
+    clearActualsCache(projectId, legacyProjectId);
   }
 
   return { aggregates, fetchedAt, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };

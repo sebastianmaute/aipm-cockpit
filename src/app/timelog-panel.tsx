@@ -54,11 +54,8 @@ export function TimelogPanel({
 }: {
   lang: Lang;
   isPopout?: boolean;
-  /** Canonical per-device store key (`portfolioCurrentId ?? "default"`).
-   *  ★ Deliberately SEPARATE from the `projectId` local below, which is
-   *  `ws.project?.code` and already keys the per-device ACTUALS cache via
-   *  useTimelogSync. Re-pointing that local would silently orphan every existing
-   *  user's cached actuals. */
+  /** Canonical per-device store key (`portfolioCurrentId ?? "default"`). Keys
+   *  BOTH per-device Timelog stores (picker scope and actuals cache). */
   projectKey?: string;
 }) {
   const ws = useWorkspace();
@@ -89,7 +86,11 @@ export function TimelogPanel({
     () => timelogLinks ?? { userLinks: [], projectLinks: [] },
     [timelogLinks],
   );
-  const projectId = ws.project?.code ?? "default";
+  // `ws.project?.code`. NOT a store key — it is the in-place project-switch
+  // SIGNAL consumed by useTimelogPickerScope, plus the legacy actuals-cache key
+  // kept only as a read fallback. The code is user-editable, which is why it
+  // stopped keying the cache (open-followups §14).
+  const projectCode = ws.project?.code ?? "default";
   const creds = useMemo(
     () => ({ host: cfg.host, tenant: cfg.tenant, token: cfg.apiToken }),
     [cfg.host, cfg.tenant, cfg.apiToken],
@@ -102,7 +103,8 @@ export function TimelogPanel({
     budgets,
     scopeMode: cfg.scopeMode,
     granularity: planGranularity,
-    projectId,
+    projectId: projectKey,
+    legacyProjectId: projectCode,
     isPopout,
     onTokenInvalid: () => {
       const at = new Date().toISOString();
@@ -360,7 +362,7 @@ export function TimelogPanel({
     lang,
     isPopout,
     projectKey,
-    projectId,
+    projectId: projectCode,
     projectCustomerName: ws.project?.customer,
     links,
     customers: syncCustomers,
