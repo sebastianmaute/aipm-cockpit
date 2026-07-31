@@ -138,4 +138,15 @@ describe("useTasksDedup (plan-then-apply)", () => {
     expect(onTasks).not.toHaveBeenCalled();
     expect(screen.queryByText(/merge selected/i)).toBeNull();
   });
+
+  // ★ A PLAIN OBJECT, not a DOMException — the cross-boundary shape. With an
+  //   `instanceof DOMException` gate this falls through to the generic arm and
+  //   the user sees an ERROR TOAST for a cancel they asked for.
+  it("shows no error toast when the proposal rejects with a plain AbortError shape", async () => {
+    vi.mocked(call.runDedupProposal).mockRejectedValue({ name: "AbortError" });
+    renderHarness();
+    fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify tasks" }));
+    await waitFor(() => expect(call.runDedupProposal).toHaveBeenCalled());
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());
+  });
 });

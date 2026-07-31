@@ -22,6 +22,7 @@ import { type ActivityKind } from "./activity-log";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
+import { isAbortError } from "./abort-error";
 import { runDedupProposal } from "./task-dedup-call";
 import {
   applyMerges,
@@ -118,7 +119,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       setPhase("preview");
     } catch (e) {
       if (reqId !== reqIdRef.current) return; // stale failure — ignore
-      if (e instanceof DOMException && e.name === "AbortError") return;
+      if (isAbortError(e)) return;
       if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
         showToast("error", t(lang, "aiUsageLimitReached"));
       } else if (e instanceof AiHttpError && e.safeMessage) {

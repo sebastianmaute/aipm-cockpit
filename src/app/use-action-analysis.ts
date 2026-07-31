@@ -7,6 +7,7 @@ import { useCallback, useRef, useState } from "react";
 import { type ActionAnalysis } from "./action-ai";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { AiHttpError, classifyAiError } from "./ai-errors";
+import { isAbortError } from "./abort-error";
 
 interface AiCreds { apiKey: string; model: string }
 
@@ -31,7 +32,7 @@ export function useActionAnalysis(ai: AiCreds) {
         return parsed;
       } catch (e) {
         // User cancelled the in-flight call via the loading modal — not an error.
-        if (e instanceof DOMException && e.name === "AbortError") return null;
+        if (isAbortError(e)) return null;
         // Anthropic's own rate/usage limit → a distinct "limit" token.
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
           setError("limit");

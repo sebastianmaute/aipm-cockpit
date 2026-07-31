@@ -9,6 +9,7 @@ import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectPr
 import { type AttachmentBlock } from "./chat-attachments";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { runForcedToolCall } from "./ai-forced-call";
+import { isAbortError } from "./abort-error";
 
 /** The user-message content the proposal call accepts: a plain string (SP3) or
  *  a multimodal block array (text + PDF/image/text attachments) for SP-D. */
@@ -48,7 +49,7 @@ export function useProjectProposal(ai: AiCreds) {
         if (!parsed) throw new Error("parse");
         return parsed;
       } catch (e) {
-        if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) return null;
+        if (signal?.aborted || isAbortError(e)) return null;
         if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
           setError("limit");
           return null;

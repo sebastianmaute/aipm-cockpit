@@ -22,6 +22,7 @@ import { saveActualsCache, loadActualsCache, clearActualsCache } from "./timelog
 import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
 import type { TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
 import type { PlanGranularity, Resource, BudgetBucket } from "./types";
+import { isAbortError } from "./abort-error";
 
 type Args = {
   creds: TimelogCreds;
@@ -103,7 +104,7 @@ export function useTimelogSync(args: Args) {
       return result;
     } catch (e) {
       // User cancellation: leave prior data + state intact, surface no error.
-      if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) return undefined;
+      if (signal.aborted || isAbortError(e)) return undefined;
       const status = e instanceof TimelogError ? e.status : 0;
       setError(status > 0 ? status : -1); // -1 = unknown/non-HTTP error
       if (status === 401 || status === 403) onTokenInvalid();
