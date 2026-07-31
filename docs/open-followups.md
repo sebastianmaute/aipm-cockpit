@@ -1063,17 +1063,94 @@ frequency data lived only in a code comment and a memory file.
 
 ---
 
-## 40. Three `text-ui-dark-blue` text sites still have no dark companion — open, 0.211.0 swept only part
+## 40. `text-ui-dark-blue` without a mode-appropriate companion — **39 sites**, open, needs its own slice
 
 `--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
 measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
-effectively invisible. 0.211.0 fixed four instances and left three:
+effectively invisible. On `--surface-muted` it is **1.01 / 1.04 / 1.17**.
 
-| open | shape | mitigating |
-|---|---|---|
-| `jira-conflicts-modal.tsx:183` | text | behind Jira config |
-| `jira-settings.tsx:617` | the same highlighted-option pattern as the combobox | behind Jira config |
-| `integrations-section.tsx:441` | link | carries `underline`, a non-colour affordance |
+★★★ **The first version of this entry listed three sites and implied that was the remainder. A sweep
+found 26 in this token class plus 13 more in the widened class — 39.** The entry is corrected rather
+than deleted because the wrong number is the more instructive artifact: it came from fixing what
+review happened to surface, then documenting that as the scope.
+
+### A. Base text, no companion — 6
+
+`jira-conflicts-modal.tsx:183` (Jira-key badge, on `bg-surface-muted`) · `jira-settings.tsx:617`
+(selected arm, assignee picker) · `settings-sections/integrations-section.tsx:441` (link, carries
+`underline` as a non-colour affordance) · **`tasks-section.tsx:588`** (Jira-sync button) ·
+**`use-tasks-dedup.tsx:69`** (dedup toolbar button class const) · **`chat-prompt-chips.tsx:37`**.
+
+★★ **`chat-prompt-chips.tsx:37` defeats every sweep keyed on "does a companion exist".** Its
+companion is `dark:text-ui-dark-blue` — it re-asserts the same broken colour. Verified: that string
+occurs exactly **once** in the repo. A companion must be checked for its VALUE, not its presence.
+
+### B. `hover:text-ui-dark-blue` with no `dark:hover:text-*` — 18
+
+★★★ **A `dark:text-*` companion does NOT survive `hover:`, and this is the part that looks fixed and
+is not.** `globals.css:3` defines `@custom-variant dark (&:where(.dark, .dark *))`, and `:where()`
+contributes **zero** specificity — so `dark:text-x` resolves to (0,1,0) while `hover:text-y:hover` is
+(0,2,0). The hover rule wins regardless of source order. Only `dark:hover:text-*` fixes a hover arm.
+★ Reasoning from source order gives the WRONG answer here: Tailwind emits the `dark:` rule later,
+which looks like it should win.
+
+`combo-input:117` · `gantt-chrome:267` · `gantt-rows:154` · `inline-ai-edit-button:30` ·
+`insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:224,234` ·
+`raid-edit-modal:355` · `raid-panel-rows:373` · `resource-directory:424` · `task-kanban-card:133` ·
+`task-manager-ui:34` · `task-row:385` · `tasks-section:1007` · `workspace-section-chrome:177,178`
+
+★ **`inline-ai-edit-button:30`, `task-kanban-card:133` and `task-row:385` each carry a base
+`dark:text-ui-light-grey` on the same element** — they read as handled and are not.
+★ `task-manager-ui:33/34` and `workspace-section-chrome:177/178` are the two-arm ternary shape: in the
+first, the active arm is companioned and the inactive arm is not; in the second, both arms are broken.
+
+### C. Icons, lower priority — 2
+
+`tour-catalog.tsx:36` (`aria-hidden` icon holder; the card title carries the meaning) ·
+`calendar-chip.tsx:67` (`data-moved-marker`; the chip already signals "moved" via a dashed border).
+
+### D. Widened class — `text-ui-purple`, 13 sites
+
+Different severity: it stays legible, just under threshold — **3.52 / 3.65 / 3.33** on `--surface`
+dark, **3.18 / 3.29 / 3.02** on `bg-ui-purple/10`. All fail the 4.5:1 body threshold in all three dark
+schemes; all clear the 3:1 large-text bar, and several are `text-xs`, so the small-text threshold
+binds. `comm-template-diff-view:29` · `influence-interest-matrix:97` ·
+`outlook-calendar-import-modal:118` · `outlook-import-modal:72` · `raid-edit-modal:361` ·
+`raid-panel-toolbar:150` · `ai-section:548` · `templates-section:158` · `storage-config:178,187,193` ·
+`task-form-fields:363`. ★ The fix is `--ui-purple-strong`, which exists and is AA-derived.
+★ `resources-panel-rows:175` sets `dark:text-ui-purple` — a second no-op companion, harmless only
+because the value is unchanged either way.
+
+### Why this is a slice and not a patch
+
+★★ **The correct pattern is already established here — 12 files use `dark:hover:text-`.** So this is
+not a new technique to introduce but a convention applied inconsistently, which is what makes a
+mechanical sweep safe and a piecemeal fix wasteful.
+★★ **No gate can catch ANY of it, and that is structural, not an oversight.** axe scans the RESTING
+state only, so all 18 hover sites are uncatchable by construction; there is no hover pass in
+`e2e/a11y.spec.ts`. Five of the six base sites self-hide behind a feature flag (`jira.enabled`,
+`isAiEnabled`) or live in an unscanned view or a closed modal. The gate would not have caught the
+three originally-filed sites either. **Only a static lint closes this class** — "a one-mode colour
+token used as text requires a companion at the same variant level, whose value differs".
+
+### Cleared, so the next sweep does not re-walk it
+
+21 checkbox/radio `accent` colours (Tailwind Forms uses `text-*` as the checked fill) · navy on
+`bg-ui-green` (6.84/5.78/6.73 dark, 5.40/5.04/5.00 light — both modes pass, the bg moves with the
+scheme) · 11 base `text-ui-light-grey` in the sidebar (root is `bg-ui-dark-blue`, mode-invariant) ·
+`text-ui-white` (8, all on navy) · `hover:text-ui-green` (20 — all `<th>` sort buttons inside
+`DataTable`, whose `<thead>` carries `TABLE_HEAD_CLASS`, so they sit on `--table-head-bg`: 5.40–7.48
+both modes; AGENTS.md's "green is sub-AA on a header" warning refers to the RETIRED Mockup light
+header, not these) · `hover:text-ui-pink` (10, 4.63–6.78 both modes) · `text-ui-blue` (8 — these ARE
+the companions) · all `-strong` variants (AA by construction: `deriveAaVariants` nudges against
+`--surface-muted`, the harder surface).
+
+★ Ratios throughout are computed from `builtin-schemes.ts` and composited arithmetically for alpha
+tints — **nothing here was measured in a browser**. Where an element carries no `bg-*` of its own,
+`--surface` was assumed, which is the optimistic case; a card puts it on `--surface-muted`, ~0.1 lower.
+★ Not swept: `border-`, `fill-`, `stroke-`, `divide-`, `placeholder-`, `caret-`, `decoration-`.
+`border-ui-dark-blue` in dark mode is the same token on the same surfaces — likely near-invisible,
+1.4.11 rather than 1.4.3 — and deserves its own pass.
 
 ★ **The fix is not "swap to `text-foreground`".** That was tried in 0.211.0 and reverted: the repo's
 idiom for this heading colour is **`text-ui-dark-blue dark:text-ui-light-grey`** (`--ui-light-grey`

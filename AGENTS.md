@@ -1397,6 +1397,17 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
   dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-ui-green`/`-pink-strong`, or it
   won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
+  ★★★ **A `dark:text-*` COMPANION DOES NOT SURVIVE `hover:` — a hover arm needs `dark:hover:text-*`.**
+  `globals.css:3` is `@custom-variant dark (&:where(.dark, .dark *))`, and `:where()` contributes ZERO
+  specificity, so `dark:text-x` is (0,1,0) while `hover:text-y:hover` is (0,2,0) — the hover rule wins
+  whatever the source order. ★ Reasoning from source order gives the WRONG answer: Tailwind emits the
+  `dark:` rule LATER, which looks like it should win. This is why an element can carry
+  `text-ui-dark-blue hover:text-ui-dark-blue dark:text-ui-light-grey` and still go invisible in dark
+  mode the moment the pointer touches it. 12 files already use `dark:hover:text-` correctly; 18 do not
+  (`docs/open-followups.md` §40). ★★ A companion must also be checked for its VALUE, not merely its
+  presence — `chat-prompt-chips.tsx:37` "has" a companion that re-asserts the identical broken colour.
+  ★★ NO GATE CATCHES ANY OF THIS: axe scans the RESTING state only, so a hover-state contrast failure
+  is structurally invisible to it, and there is no hover pass in `e2e/a11y.spec.ts`.
   ★★ Data-table header sort buttons (`report-table` SortHeaderButton, used by every `SortResizeTh` — now
   the Open Points table too, `SortableTh` was RETIRED into it) use `text-[var(--table-head-accent)]` for
   active/hover — raw `text-ui-green` is sub-AA (2.03:1) on the
