@@ -61,8 +61,6 @@ export function loadActualsCache(projectId: string, legacyProjectId?: string): A
 
 /** ★★ Deletes BOTH keys. Clearing only the canonical one would let the
  *  legacy fallback above resurrect the cleared cache on the next mount. */
-/** ★★ Deletes BOTH keys. Clearing only the canonical one would let the
- *  legacy fallback above resurrect the cleared cache on the next mount. */
 export function clearActualsCache(projectId: string, legacyProjectId?: string): void {
   const map = readMap();
   const ids = legacyProjectId && legacyProjectId !== projectId ? [projectId, legacyProjectId] : [projectId];
