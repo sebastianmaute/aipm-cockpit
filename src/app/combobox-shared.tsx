@@ -153,7 +153,14 @@ export function ComboboxOptions({
             onClick={onAddNew}
             className={`block w-full cursor-pointer px-3 py-1.5 text-left italic ${
               highlight === filtered.length
-                ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/30"
+                // ★ The highlighted branch needs the dark TEXT companion too,
+                // not just the dark background. Without it this row inherited
+                // a near-black navy on a green-tinted dark surface — so
+                // highlighting the add-new row made it HARDER to read than
+                // leaving it alone, the same inversion fixed on the option
+                // rows above. The unhighlighted branch already had it, which
+                // is what made the omission easy to miss.
+                ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/30 dark:text-ui-light-grey"
                 : "text-ui-dark-blue hover:bg-ui-green/10 dark:text-ui-light-grey"
             }`}
           >

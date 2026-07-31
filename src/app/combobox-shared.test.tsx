@@ -39,6 +39,27 @@ describe("ComboboxOptions highlighted row", () => {
     expect(active?.className).toContain("ring-foreground");
   });
 
+  it("gives the highlighted add-new row a dark TEXT companion, not just a dark background", () => {
+    // This branch set dark:bg but not dark:text, so it inherited a near-black
+    // navy on a green-tinted dark surface — highlighting the row made it
+    // harder to read than leaving it alone. The UNhighlighted branch already
+    // carried the companion, which is exactly why the omission survived: the
+    // pair reads as handled at a glance.
+    render(
+      <ComboboxOptions
+        listId="lb"
+        filtered={["alpha"]}
+        highlight={1}
+        showAddNew
+        addNewLabel="Add new"
+        onSelect={vi.fn()}
+        onAddNew={vi.fn()}
+      />,
+    );
+    const addNew = screen.getByRole("button", { name: /add new/i });
+    expect(addNew.className).toContain("dark:text-ui-light-grey");
+  });
+
   it("leaves the non-highlighted rows unstyled apart from hover", () => {
     renderOptions(0);
     const inactive = screen.getAllByRole("option")[1].querySelector("button");

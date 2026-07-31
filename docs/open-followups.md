@@ -1063,6 +1063,107 @@ frequency data lived only in a code comment and a memory file.
 
 ---
 
+## 40. Three `text-ui-dark-blue` text sites still have no dark companion — open, 0.211.0 swept only part
+
+`--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
+measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
+effectively invisible. 0.211.0 fixed four instances and left three:
+
+| open | shape | mitigating |
+|---|---|---|
+| `jira-conflicts-modal.tsx:183` | text | behind Jira config |
+| `jira-settings.tsx:617` | the same highlighted-option pattern as the combobox | behind Jira config |
+| `integrations-section.tsx:441` | link | carries `underline`, a non-colour affordance |
+
+★ **The fix is not "swap to `text-foreground`".** That was tried in 0.211.0 and reverted: the repo's
+idiom for this heading colour is **`text-ui-dark-blue dark:text-ui-light-grey`** (`--ui-light-grey`
+measures 8.41 / 8.80 / 10.32:1 on the three dark surfaces), which fixes dark mode just as completely
+and leaves light mode **byte-identical**. A neutral changes light mode where nothing was wrong and
+desynchronises the file from its siblings — in `stakeholder-report-panel.tsx` it left the section
+`<h3>` brand-blue while its own quadrant labels three lines below went grey. Five pre-existing uses
+of the idiom live in that one file (lines 86, 100, 109, 140, 185).
+
+★★ **This defect propagates by copying, which is why a sweep beats a fix.** `combobox-shared.tsx` was
+the origin of a highlight treatment that `global-search-box.tsx` and `entity-link-picker.tsx` both
+copied, both hit the bug in, and both repaired **locally** — one with a comment naming
+`combobox-shared` as the source — while the shared file every other consumer inherits from kept it,
+untested, until 0.211.0. `jira-settings.tsx:617` is a fourth copy of that same pattern. Assume more
+exist: grep `text-ui-dark-blue` and classify each hit as text (affected) versus checkbox `accent`
+(not affected) rather than trusting a count.
+
+★★★ **Writing this entry immediately found a fifth instance, TWO LINES BELOW the fix that prompted
+it** (`combobox-shared.tsx`, the "+ Add new" row) — fixed and tested in the same commit, so it is
+listed here as evidence rather than as open work. Its shape is the reason it survived: the
+**unhighlighted** branch carried `dark:text-ui-light-grey` and the **highlighted** branch set
+`dark:bg-ui-green/30` with no dark text, so the pair reads as handled at a glance while the state
+that matters is the broken one. Highlighting that row in dark mode made it HARDER to read than
+leaving it alone — the same inversion as the option rows above it. ★ When auditing a two-branch
+ternary, check **both** arms for the dark companion; one arm having it is not evidence about the
+other, and is actively misleading.
+
+★ No gate can find these. Contrast figures above are computed from `builtin-schemes.ts`, not measured
+in a browser — nobody has rendered them.
+
+---
+
+## 41. Eye verification owed on 0.211.0, on surfaces no gate reaches — open
+
+Three checks nobody in the session could make. Distinct from §21, which is slice B (0.209.0).
+
+- **Task editor**: create-RAID and new-linked-task sit on one row collapsed, and the linked-task
+  button wraps below when the RAID mini expands.
+- **AI Assistant**: attach and dictate are the same size with centred glyphs.
+- **`stakeholder-report-panel` quadrant labels in dark mode** — after the 0.211.0 swap they and the
+  chips beneath them are both light greys, separated only by `font-semibold text-xs`. Whether that
+  reads as distinct is an eye question; the token maths says nothing about it.
+
+★★ **The RACI matrix toolbar, the "Suggest RACI" modal and the four calendar toolbars are outside
+`A11Y_VIEWS` entirely**, so the 0.211.0 AI feature has had **no automated a11y check of any kind** —
+its unit tests are the only coverage. `digest-card` is a second shape of the same problem: Dashboard
+*is* scanned, but the card self-hides until the digest is enabled AND generated, so it renders
+nothing at scan time. A view being in the list does not mean a component inside it is ever seen.
+
+---
+
+## 42. `CalendarSyncControls` push/pull buttons carry unqualified accessible names — open, pre-existing
+
+The enable **checkbox** is qualified per entity (`"… – Tasks (due dates)"`); the Push and Pull
+**buttons** beside it are the bare `calendarPush` / `calendarPull` ("Push to Outlook" / "Pull from
+Outlook"). In the CLASSIC layout `TasksSection` and `WorkspaceSection` mount simultaneously
+(`task-manager.tsx`), so with sync enabled on two entities a user can see two identically-named
+"Push to Outlook" buttons — WCAG 2.4.6.
+
+★ **Verified pre-existing**, not a 0.211.0 regression: the `aria-label` is identical on `origin/main`.
+That release *reduced* exposure by moving the Open Points pane's hand-rolled duplicate onto the shared
+component and qualifying its checkbox — which is what made the asymmetry visible.
+
+★ Fix is the same shape the checkbox already uses:
+``aria-label={`${t(lang,"calendarPush")} – ${t(lang, entityLabelKey)}`}``, applied to both buttons.
+★ Do not expect the axe gate to confirm it either way: axe reports *missing* accessible names, never
+*duplicated* ones (the §15/§21 blind spot), and the live seed renders one pane at a time regardless.
+
+---
+
+## 43. Two "Suggest RACI" reporting gaps — open, both incomplete rather than wrong
+
+**(a) An Accountable HANDOVER inside one proposal is silently refused.** If the model demotes the
+current A to R and promotes someone else on the same milestone, `groundRaciCells`
+(`raci-suggest/raci-suggest.ts`) still holds the old id in `accountableHolder` when the second cell is
+examined, so the promotion is skipped as `duplicate-accountable`. Conservative and safe — it can never
+mint a second Accountable — but it discards a natural proposal and reports it as a conflict, which is
+the wrong explanation for what happened. Fixing it means processing a milestone's cells as a set
+rather than a stream, so the demotion is known before the promotion is judged.
+
+**(b) The no-op count never reaches the modal.** `groundRaciCells` returns `noOp` and the *hook* uses
+it (that is what makes the empty-result toast say "already in place" rather than the false "Claude
+proposed no assignments"). The modal does not receive it, so in the MIXED case — some cells dropped as
+no-ops, some skipped — the user is told "None of the proposed assignments can be applied", shown the
+refusals, and told nothing about the rest. ★ That sentence is **true** in that case, which is why this
+is a completeness gap and not the recurring falsehood class; the earlier wording ("Every proposed
+assignment was refused") *was* false there and was fixed. Closing it is one prop plus a string.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
