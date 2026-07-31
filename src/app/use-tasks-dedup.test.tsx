@@ -147,6 +147,9 @@ describe("useTasksDedup (plan-then-apply)", () => {
     renderHarness();
     fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify tasks" }));
     await waitFor(() => expect(call.runDedupProposal).toHaveBeenCalled());
-    expect(showToast).not.toHaveBeenCalledWith("error", expect.anything());
+    expect(showToast).not.toHaveBeenCalled();
+    // The hook returns at `isAbortError(e)` — BEFORE the `setPhase("idle")`
+    // further down — so the preview must never open on this path.
+    expect(screen.queryByRole("button", { name: /merge selected/i })).toBeNull();
   });
 });

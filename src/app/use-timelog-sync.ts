@@ -20,9 +20,9 @@ import {
 import { aggregateActuals, type ActualsAggregate } from "./timelog-actuals";
 import { saveActualsCache, loadActualsCache, clearActualsCache } from "./timelog-actuals-store";
 import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
+import { isAbortError } from "./abort-error";
 import type { TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
 import type { PlanGranularity, Resource, BudgetBucket } from "./types";
-import { isAbortError } from "./abort-error";
 
 type Args = {
   creds: TimelogCreds;
