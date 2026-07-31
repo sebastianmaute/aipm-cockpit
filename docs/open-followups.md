@@ -1295,6 +1295,12 @@ but the unqualified property, which is what this entry is about, is unchanged.)
 That release *reduced* exposure by moving the Open Points pane's hand-rolled duplicate onto the shared
 component and qualifying its checkbox — which is what made the asymmetry visible.
 
+★★ **DO NOT FIX THIS IN ISOLATION — it is already Task 11 of the unexecuted S6 plan (§44).** S6 has a
+sharper reason for the same change than this entry does: the Calendar sub-tab is about to render a
+SECOND `CalendarSyncControls` (absences *and* meeting series), at which point the two Push buttons
+collide within a single view rather than only across the classic dual-mount. Fixing it here first is
+harmless but will be re-done there; fixing it there closes both. This entry was filed on 2026-07-30
+without knowing the plan existed, because that plan is gitignored — the same invisibility §44 records.
 ★ Fix is the same shape the checkbox already uses:
 ``aria-label={`${t(lang,"calendarPush")} – ${t(lang, entityLabelKey)}`}``, applied to both buttons.
 ★ Do not expect the axe gate to confirm it either way: axe reports *missing* accessible names, never
@@ -1319,6 +1325,53 @@ no-ops, some skipped — the user is told "None of the proposed assignments can 
 refusals, and told nothing about the rest. ★ That sentence is **true** in that case, which is why this
 is a completeness gap and not the recurring falsehood class; the earlier wording ("Every proposed
 assignment was refused") *was* false there and was fixed. Closing it is one prop plus a string.
+
+---
+
+## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
+
+★★★ **Recorded here because it was invisible to every tracked document.** The 8-slice roadmap and
+S6's own spec and plan all live under `docs/superpowers/`, which is **gitignored** — so on any other
+machine the remaining work simply does not exist. Six slices shipped (C 0.204.0 · D 0.205.0 ·
+F 0.206.0 · A 0.207.0 · E 0.208.0 · B 0.209.0); these two did not. Per this file's own rule, no link
+into that tree — enough detail is reproduced below to resume without it.
+
+**S6 — Outlook PUSH for calendar events.** Spec and a 17-task / 109-step plan exist and **not one
+step has been executed**. Written against 0.208.0 targeting 0.209.0, then displaced when that release
+shipped slice B instead. The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
+`GraphEvent` · `eventToGraphEvent` · `exceptionPlan` · freeze/`afterPush` on the shared reconcile ·
+`replayExceptions` · `"event"` as a calendar entity type · i18n EN+DE · settings row for meeting
+series · entity-qualify the Push/Pull names (**= §42 — see there**) · wire the push in
+`use-calendar-integrations` · thread the bag to the Resources pane · the attendee field · mount the
+field + confirm + invitation-aware delete · **security review of the invitation path** · release chain.
+
+**The data model is already shipped** (S3, 0.202.0): `CalendarEvent` carries `startTime`,
+`durationMinutes`, `attendeeResourceIds`, `sendInvitations` and `outlookEventId` across all six write
+paths. **No migration is owed.** Three blockers remain, all re-verified 2026-07-31:
+`graph-recurrence.ts` / `use-event-calendar-push.ts` / `calendar-event-pull.ts` /
+`use-event-calendar-pull.ts` are all **missing**; `CalendarEntityType` (`settings-types.ts:493`) is
+still `"task" | "raid" | "change" | "absence"` with no `"event"`; and `GraphEvent`
+(`outlook-calendar-write.ts:17-19`) pins `isAllDay: true` and `timeZone: "UTC"` as **literal types**,
+so a timed event is currently inexpressible.
+
+★★ **Invitations are in scope and are the ONLY surface in this app that emails third parties.**
+`sendInvitations` defaults false; enabling it must show a confirm naming the resolved recipient count
+and addresses, and list attendees with no email as **unreachable** rather than silently skipping
+them — only then does the field persist as `true`. An outbound-email path is a different risk class
+from anything else here; the plan schedules its own security review and that should be honoured.
+
+★★ **CODENAME HAZARD, already triggered once.** S6's spec reserved **Bodard** (primary) and
+**Samatar** (spare), both verified absent when written. **0.211.0 then consumed "Samatar"** — the
+spare was taken by an unrelated release while S6 sat idle. Bodard is still free (0 uses in
+`CHANGELOG.md` as of 2026-07-31). ★ A codename reserved in a gitignored plan is not reserved in any
+sense the next release can see; re-check immediately before use, which is exactly what that plan's
+own final task says to do.
+
+**S7 — occurrence-level PULL + exception reconciliation.** Neither spec nor plan; the only entirely
+un-designed slice. Two constraints survive from the archived R5 design and should not be re-derived:
+it needs its own baseline key (`${projectId}:event:${seriesMasterId}:${originalDate}`) in a
+**sibling** pure module, and `planCalendarPull`'s date-only `PullEntity`/`PulledEvent` must **NOT**
+be widened — the four shipped entities must not inherit occurrence semantics they do not have.
 
 ---
 
