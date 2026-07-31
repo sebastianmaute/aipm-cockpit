@@ -1093,6 +1093,11 @@ contributes **zero** specificity — so `dark:text-x` resolves to (0,1,0) while 
 (0,2,0). The hover rule wins regardless of source order. Only `dark:hover:text-*` fixes a hover arm.
 ★ Reasoning from source order gives the WRONG answer here: Tailwind emits the `dark:` rule later,
 which looks like it should win.
+★★ **The defect and its remedy are decided by different rules.** The defect is specificity-decided and
+therefore order-immune. The FIX is not: `dark:hover:text-*` compiles to
+`:where(.dark,.dark *):hover` = (0,2,0), which TIES `hover:text-*` and wins only on emission order.
+That order is stable in Tailwind today, but it means the remedy — unlike the bug — would be sensitive
+to any change in variant emission order.
 
 `combo-input:117` · `gantt-chrome:267` · `gantt-rows:154` · `inline-ai-edit-button:30` ·
 `insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:224,234` ·
@@ -1117,9 +1122,10 @@ schemes; all clear the 3:1 large-text bar, and several are `text-xs`, so the sma
 binds. `comm-template-diff-view:29` · `influence-interest-matrix:97` ·
 `outlook-calendar-import-modal:118` · `outlook-import-modal:72` · `raid-edit-modal:361` ·
 `raid-panel-toolbar:150` · `ai-section:548` · `templates-section:158` · `storage-config:178,187,193` ·
-`task-form-fields:363`. ★ The fix is `--ui-purple-strong`, which exists and is AA-derived.
-★ `resources-panel-rows:175` sets `dark:text-ui-purple` — a second no-op companion, harmless only
-because the value is unchanged either way.
+`task-form-fields:363` · `resources-panel-rows:175` (which additionally sets `dark:text-ui-purple`, a
+second no-op companion — ★ the COMPANION is harmless because the value is unchanged, but the SITE
+fails identically to the other twelve; listing it only as a companion note made it read as cleared).
+★ The fix is `--ui-purple-strong`, which exists and is AA-derived.
 
 ### Why this is a slice and not a patch
 
@@ -1128,10 +1134,19 @@ not a new technique to introduce but a convention applied inconsistently, which 
 mechanical sweep safe and a piecemeal fix wasteful.
 ★★ **No gate can catch ANY of it, and that is structural, not an oversight.** axe scans the RESTING
 state only, so all 18 hover sites are uncatchable by construction; there is no hover pass in
-`e2e/a11y.spec.ts`. Five of the six base sites self-hide behind a feature flag (`jira.enabled`,
-`isAiEnabled`) or live in an unscanned view or a closed modal. The gate would not have caught the
-three originally-filed sites either. **Only a static lint closes this class** — "a one-mode colour
-token used as text requires a companion at the same variant level, whose value differs".
+`e2e/a11y.spec.ts`. **At least five** of the six base sites self-hide behind a feature flag
+(`jira.enabled`, `isAiEnabled`) or live in an unscanned view or a closed modal. The gate would not
+have caught the three originally-filed sites either. **Only a static lint closes this class** — "a
+one-mode colour token used as text requires a companion at the same variant level, whose value
+differs". ★ A Playwright hover pass is conceivable but would have to hover every control across 16
+views × 5 scheme combos; the repo's own precedents for this kind of check (`shell-palette-guard`,
+`scheme-purple-hover.test.ts`) are source/computed sweeps, not runtime scans.
+
+★ **"At least five" is deliberate.** Whether `chat-prompt-chips.tsx:37` renders at axe scan time was
+NOT established — the AI Assistant view is scanned, but the chips are probably unrendered without a
+configured key. Weak counter-evidence that they do not render: if they did, harbor-dark and
+meridian-dark ought to be failing the gate today, and they are not. That is inference, not a check.
+Do not convert it to "five of six" without opening the view.
 
 ### Cleared, so the next sweep does not re-walk it
 
@@ -1139,11 +1154,19 @@ token used as text requires a companion at the same variant level, whose value d
 `bg-ui-green` (6.84/5.78/6.73 dark, 5.40/5.04/5.00 light — both modes pass, the bg moves with the
 scheme) · 11 base `text-ui-light-grey` in the sidebar (root is `bg-ui-dark-blue`, mode-invariant) ·
 `text-ui-white` (8, all on navy) · `hover:text-ui-green` (20 — all `<th>` sort buttons inside
-`DataTable`, whose `<thead>` carries `TABLE_HEAD_CLASS`, so they sit on `--table-head-bg`: 5.40–7.48
-both modes; AGENTS.md's "green is sub-AA on a header" warning refers to the RETIRED Mockup light
-header, not these) · `hover:text-ui-pink` (10, 4.63–6.78 both modes) · `text-ui-blue` (8 — these ARE
-the companions) · all `-strong` variants (AA by construction: `deriveAaVariants` nudges against
-`--surface-muted`, the harder surface).
+`DataTable`, whose `<thead>` carries `TABLE_HEAD_CLASS`, so they sit on `--table-head-bg`:
+**4.93–7.48** across all six combos; AGENTS.md's "green is sub-AA on a header" warning refers to the
+RETIRED Mockup light header, not these) · `hover:text-ui-pink` (10, 4.63–6.78 both modes) ·
+`text-ui-blue` (8 — these ARE the companions) · `-strong` variants (AA by construction:
+`deriveAaVariants` nudges against `--surface-muted`, the harder surface — **except
+`--ui-purple-strong`, which is derived against the purple TINT composited over that surface**, not
+the surface itself; see the AGENTS.md scheme landmine, where deriving it against the bare surface IS
+the documented bug).
+
+★★ **The green floor is 4.93:1 (meridian-dark), i.e. 0.43 above AA — not the ~0.9 a collapsed
+"5.40–7.48" range implies.** Stated as a range across both modes the minimum disappears, and this is
+a "cleared" note, so the next reader inherits the margin as fact. Any future edit to
+`--table-head-bg` or `--ui-green` has far less headroom here than it looks.
 
 ★ Ratios throughout are computed from `builtin-schemes.ts` and composited arithmetically for alpha
 tints — **nothing here was measured in a browser**. Where an element carries no `bg-*` of its own,

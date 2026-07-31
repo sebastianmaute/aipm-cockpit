@@ -1403,7 +1403,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   whatever the source order. ★ Reasoning from source order gives the WRONG answer: Tailwind emits the
   `dark:` rule LATER, which looks like it should win. This is why an element can carry
   `text-ui-dark-blue hover:text-ui-dark-blue dark:text-ui-light-grey` and still go invisible in dark
-  mode the moment the pointer touches it. 12 files already use `dark:hover:text-` correctly; 18 do not
+  mode the moment the pointer touches it. ★★ The DEFECT is specificity-decided and therefore
+  order-immune; the FIX is NOT — `dark:hover:text-*` compiles to `:where(.dark,.dark *):hover` =
+  (0,2,0), which TIES `hover:text-*` and wins on emission order alone. Stable in Tailwind today, but
+  the remedy is order-sensitive in a way the bug is not. 12 files already use `dark:hover:text-` correctly; 18 do not
   (`docs/open-followups.md` §40). ★★ A companion must also be checked for its VALUE, not merely its
   presence — `chat-prompt-chips.tsx:37` "has" a companion that re-asserts the identical broken colour.
   ★★ NO GATE CATCHES ANY OF THIS: axe scans the RESTING state only, so a hover-state contrast failure
