@@ -1135,7 +1135,9 @@ first, the active arm is companioned and the inactive arm is not; in the second,
 Different severity: it stays legible, just under threshold — **3.52 / 3.65 / 3.33** on `--surface`
 dark, **3.18 / 3.29 / 3.02** on `bg-ui-purple/10`. All fail the 4.5:1 body threshold in all three dark
 schemes; all clear the 3:1 large-text bar, and several are `text-xs`, so the small-text threshold
-binds. `comm-template-diff-view:29` · `influence-interest-matrix:97` ·
+binds. `comm-template-diff-view:29` · `influence-interest-matrix:97` (★ TWO defects on one element — the
+base purple here, AND a `hover:text-ui-green` at 1.97–2.48:1 in the light schemes, see the cleared
+section; `--ui-purple-strong` fixes only the first) ·
 `outlook-calendar-import-modal:118` · `outlook-import-modal:72` · `raid-edit-modal:361` ·
 `raid-panel-toolbar:150` · `ai-section:548` · `templates-section:158` · `storage-config:178,187,193` ·
 `task-form-fields:363` · `resources-panel-rows:175` (which additionally sets `dark:text-ui-purple`, a
@@ -1167,15 +1169,23 @@ configured key. Weak counter-evidence that they do not render: if they did, harb
 meridian-dark ought to be failing the gate today, and they are not. That is inference, not a check.
 Do not convert it to "five of six" without opening the view.
 
-### Cleared, so the next sweep does not re-walk it
+### Cleared — SPOT-CHECKED, not audited
+
+★★★ **Read this heading literally.** An independent audit checked exactly ONE of the buckets below
+(`hover:text-ui-green`) and found it wrong on both its mechanism and its numbers — one of its 20
+sites was not a table header at all and is actively broken in light mode. **Do not assume the
+remaining buckets hold.** They record what the sweep CONCLUDED, not what it verified site-by-site,
+and a "cleared" note is the most dangerous thing to get wrong here because it is precisely what stops
+anyone looking again. Re-verify a bucket before relying on it to skip work.
 
 21 checkbox/radio `accent` colours (Tailwind Forms uses `text-*` as the checked fill) · navy on
 `bg-ui-green` (6.84/5.78/6.73 dark, 5.40/5.04/5.00 light — both modes pass, the bg moves with the
 scheme) · 11 base `text-ui-light-grey` in the sidebar (root is `bg-ui-dark-blue`, mode-invariant) ·
-`text-ui-white` (8, all on navy) · `hover:text-ui-green` (20 — all `<th>` sort buttons inside
-`DataTable`, whose `<thead>` carries `TABLE_HEAD_CLASS`, so they sit on `--table-head-bg`:
-**4.93–7.48** across all six combos; AGENTS.md's "green is sub-AA on a header" warning refers to the
-RETIRED Mockup light header, not these) · `hover:text-ui-pink` (10, 4.63–6.78 both modes) ·
+`text-ui-white` (8, all on navy) · `hover:text-ui-green` (**19 of 20** — `<th>` sort buttons routed through
+`DataTable`, which applies `TABLE_HEAD_CLASS` to its `<thead>` by construction, so they sit on
+`--table-head-bg`: **4.93–7.48** across all six combos; AGENTS.md's "green is sub-AA on a header"
+warning refers to the RETIRED Mockup light header, not these. ★★ **The 20th is NOT cleared** — see
+below) · `hover:text-ui-pink` (10, 4.63–6.78 both modes) ·
 `text-ui-blue` (8 — these ARE the companions) · `-strong` variants (AA by construction:
 `deriveAaVariants` nudges against `--surface-muted`, the harder surface — **except
 `--ui-purple-strong`, which is derived against the purple TINT composited over that surface**, not
@@ -1186,6 +1196,18 @@ the documented bug).
 "5.40–7.48" range implies.** Stated as a range across both modes the minimum disappears, and this is
 a "cleared" note, so the next reader inherits the margin as fact. Any future edit to
 `--table-head-bg` or `--ui-green` has far less headroom here than it looks.
+
+★★★ **`influence-interest-matrix.tsx:97` was swept up in that "all 20 are table headers" claim and is
+NOT one.** It is a `role="button"` comms marker nested in a `bg-surface` chip; the file contains no
+`DataTable` and no `TABLE_HEAD_CLASS`. `--ui-green` on `--surface` measures **2.17 (harbor-light) /
+1.97 (meridian-light) / 2.48 (umber-light)** — its hover state is close to invisible in every LIGHT
+scheme, the mirror of the dark-mode defect this whole entry is about. Dark is fine (6.74–8.80).
+★★ This is the failure mode named at the top of this section as the worst kind: a site recorded as
+**cleared** while actively broken, which stops a future sweep from ever looking again. It also
+contradicted the register internally — the same line is listed in section D for its base
+`text-ui-purple`, so it sat in both the affected and the cleared bucket at once. ★ Fixing D's
+prescription (`--ui-purple-strong`) does NOT address the green hover; they are two defects on one
+element.
 
 ★ Ratios throughout are computed from `builtin-schemes.ts` and composited arithmetically for alpha
 tints — **nothing here was measured in a browser**. Where an element carries no `bg-*` of its own,
