@@ -371,6 +371,37 @@ describe("TimelogPanel", () => {
     });
   });
 
+  describe("Actuals cache key wiring (open-followups §14)", () => {
+    // `useTimelogSync` is mocked out (above) for every test in this file, so a
+    // render here can never reflect a real `loadActualsCache` hit — the mock
+    // ignores its arguments entirely. What CAN be pinned at this layer is the
+    // ARGUMENT the panel hands the hook, which is exactly the choice §14 moved:
+    // the canonical `projectKey` prop must reach `projectId`, and the legacy
+    // `ws.project?.code` must be relegated to the read-only `legacyProjectId`
+    // fallback — never the primary cache key.
+    it("hands the canonical projectKey to useTimelogSync as projectId, not the legacy project code", async () => {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace />
+          {/* Sets `ws.project.code` to "proj-a" — deliberately DIFFERENT from
+              the canonical `projectKey` prop below, so the two ids can never
+              agree by accident. */}
+          <SeedProjectCustomer customer="Acme" />
+          <TimelogPanel lang="en-US" projectKey="canonical-key" />
+        </>,
+        { wrapper },
+      );
+      await waitFor(() => {
+        const calls = vi.mocked(useTimelogSync).mock.calls;
+        const last = calls[calls.length - 1][0] as { projectId: string; legacyProjectId?: string };
+        expect(last.projectId).toBe("canonical-key");
+        expect(last.legacyProjectId).toBe("proj-a");
+      });
+    });
+  });
+
   describe("Projects matching table — row-unique labels and manual links", () => {
     // Rows come from sync.projectRefs (mock: ForgeOps id 9) MERGED with
     // already-linked projects absent from the fetch (INITIAL_LINKS: id 99).
