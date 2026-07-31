@@ -1,7 +1,7 @@
 "use client";
-import { type ChangeEvent } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { FieldError } from "./field-feedback";
+import { FilePickerButton } from "./file-picker-button";
 
 export interface BrandingImageInputProps {
   label: string; // accessible name for the file input
@@ -21,10 +21,7 @@ const FILE_RE = /^data:image\/(png|jpeg|webp|gif);base64,/i;
 const MAX_BYTES = 512 * 1024;
 
 export function BrandingImageInput(props: BrandingImageInputProps) {
-  function onFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // let the same file be re-picked after a remove
-    if (!file) return;
+  function onFile(file: File) {
     // Cap on the RAW file bytes (matches the original appearance-section check) —
     // NOT the base64 data-URL length, which inflates ~33% and would reject
     // otherwise-valid ~400 KB logos.
@@ -50,18 +47,11 @@ export function BrandingImageInput(props: BrandingImageInputProps) {
         <img src={props.value} alt="" className="h-10 w-auto max-w-[8rem] object-contain" />
       ) : null}
       <div className="flex items-center gap-2">
-        <label
-          className={`cursor-pointer rounded-md border border-line px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
-        >
-          {props.label}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            className="sr-only"
-            aria-label={props.label}
-            onChange={onFile}
-          />
-        </label>
+        <FilePickerButton
+          label={props.label}
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          onFile={onFile}
+        />
         {props.value ? (
           <button
             type="button"

@@ -13,7 +13,7 @@ describe("BrandingImageInput", () => {
         error={null}
       />,
     );
-    expect(screen.getByLabelText("Logo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Logo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
   });
 

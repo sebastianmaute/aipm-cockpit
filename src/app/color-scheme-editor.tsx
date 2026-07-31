@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
@@ -15,6 +15,7 @@ import { loadSchemesAsync, upsertSchemeAsync, deleteSchemeAsync } from "./color-
 import { importSchemeText } from "./scheme-import";
 import { reconcileBuiltins, HARBOR_LIGHT } from "./builtin-schemes";
 import { BrandingImageInput } from "./branding-image-input";
+import { FilePickerButton } from "./file-picker-button";
 import { Input } from "./form-controls";
 import type { BrandingConfig } from "./settings-types";
 import type { TursoConfig } from "./turso-config";
@@ -143,10 +144,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
     a.click();
     URL.revokeObjectURL(url);
   }
-  function onImportFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  function onImportFile(file: File) {
     const reader = new FileReader();
     reader.onload = () => {
       // The complete import (dark + structural + name-dedup + DB upsert) lives in
@@ -209,10 +207,11 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
         <button type="button" className={btn} onClick={del} disabled={!active || isBuiltin}>{t(lang, "schemeDelete")}</button>
         <button type="button" className={btn} onClick={() => seed(active?.light ?? {})}>{t(lang, "schemeNewFromCurrent")}</button>
         <button type="button" className={btn} onClick={doExport} disabled={!active}>{t(lang, "schemeExport")}</button>
-        <label className={`cursor-pointer ${btn}`}>
-          {t(lang, "schemeImport")}
-          <input type="file" accept="application/json,.json" className="sr-only" onChange={onImportFile} />
-        </label>
+        <FilePickerButton
+          label={t(lang, "schemeImport")}
+          accept="application/json,.json"
+          onFile={onImportFile}
+        />
       </div>
       {importError && <FieldError>{importError}</FieldError>}
 

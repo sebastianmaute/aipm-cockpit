@@ -9,7 +9,7 @@
 // and the apply/remove handlers are props, owned by AppearanceSection (which
 // already holds useColorSchemes).
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import type { ColorScheme } from "./color-schemes";
 import { importSchemeText } from "./scheme-import";
@@ -17,6 +17,7 @@ import type { TursoConfig } from "./turso-config";
 import { Button } from "./button";
 import { Card } from "./card";
 import { FieldError } from "./field-feedback";
+import { FilePickerButton } from "./file-picker-button";
 
 interface ThemeGalleryProps {
   lang: Lang;
@@ -36,13 +37,9 @@ export function ThemeGallery({
 }: ThemeGalleryProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const userSchemes = schemes.filter((s) => !s.builtIn);
 
-  function onFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  function onFile(file: File) {
     setBusy(true);
     setError(null);
     const reader = new FileReader();
@@ -64,26 +61,11 @@ export function ThemeGallery({
       <p className="text-xs text-muted-foreground">{t(lang, "themeGalleryHint")}</p>
 
       <div>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-        >
-          {t(lang, "themeGalleryLoadFile")}
-        </Button>
-        {/* The Button is the control; this input is only its file dialog. It stays
-            sr-only rather than hidden (a display:none input can't be clicked in
-            every browser), so it needs tabIndex -1 + aria-hidden or it is a SECOND
-            tab stop announcing the same name as the Button above it. */}
-        <input
-          ref={inputRef}
-          type="file"
+        <FilePickerButton
+          label={t(lang, "themeGalleryLoadFile")}
           accept="application/json,.json"
-          className="sr-only"
-          tabIndex={-1}
-          aria-hidden="true"
-          onChange={onFile}
+          disabled={busy}
+          onFile={onFile}
         />
       </div>
 
