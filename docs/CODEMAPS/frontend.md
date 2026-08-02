@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.211.0 "Samatar" | Files scanned: 299 .tsx + 474 .ts under src/app (excl. 768 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 | App 0.211.1 "Samatar" | Files scanned: 299 .tsx + 474 .ts under src/app (excl. 768 test files) | Token estimate: ~1050 -->
 
 # Frontend
 

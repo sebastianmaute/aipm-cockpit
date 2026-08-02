@@ -8,6 +8,40 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.211.1] - 2026-07-31 "Samatar"
+
+A small-correctness batch closing four entries from the open-followups register.
+
+### Fixed
+
+- **Cancelling an AI action no longer reports it as an error.** The task-dedup and
+  Action Center analysis flows checked for a cancel with `instanceof DOMException`,
+  which is not reliable across runtimes — so a cancel the user asked for fell
+  through to the generic error arm and surfaced an error toast (dedup) or an error
+  state (analysis). All four abort checks now share one predicate that reads the
+  error's name directly.
+- **The TimeLog actuals cache follows the project, not its editable code.** It was
+  keyed on the project code, so renaming that code orphaned the cached bookings
+  while the project-scope picker (keyed canonically) survived — leaving the picker
+  restoring a selection for bookings that were no longer loaded. Both per-device
+  stores now share the canonical key. ⚠️ A cache fetched before this release is not
+  carried over: open Time bookings once and press Fetch.
+
+### Changed
+
+- **The three file pickers in Settings → Appearance share one control.** The two
+  built as a styled `<label>` had no visible keyboard focus indicator at all — a
+  `<label>` cannot receive focus, so the focus ring on it could never render, and
+  focus instead landed on a visually-clipped input. They are real buttons now.
+- Restored button sizing in the scheme editor and the branding row, where the
+  shared control had silently changed two controls' size relative to their
+  neighbours.
+- **The task form no longer carries a dead note-log field.** The note log writes
+  straight through to the workspace and the draft's copy was never saved; removing
+  it means there is nothing for a future change to accidentally write back over a
+  live log. The disabled notes button on an unsaved task now shows no count rather
+  than a hardcoded zero.
+
 ## [0.211.0] - 2026-07-30 "Samatar"
 
 A toolbar-polish batch: shared controls (Print, push/pull, hide/show toggles) now
