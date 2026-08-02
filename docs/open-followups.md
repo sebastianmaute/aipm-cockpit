@@ -83,7 +83,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
 | 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
 | 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
-| 48 | RAID editor destroys notes added while it is open | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, §29's defect, task-scoped fix only |
+| 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -1518,7 +1518,27 @@ be widened — the four shipped entities must not inherit occurrence semantics t
 
 ---
 
-## 45. `brace-expansion` advisory in the eslint dev chain — deferred; the 5.x overrides do NOT work, but a 1.x pin was never tried
+## 45. ~~`brace-expansion` advisory in the eslint dev chain~~ — CLOSED in 0.211.1
+
+**Resolution:** a MAJOR-SCOPED override pair in `package.json` — the form this entry's false premise
+had ruled out:
+
+```jsonc
+"overrides": { "brace-expansion@1": "^1.1.17", "brace-expansion@5": "^5.0.8" }
+```
+
+`npm audit` → **found 0 vulnerabilities** (was 1 high). Resolved tree: `brace-expansion@1.1.18` under
+`minimatch@3.1.5`, `5.0.9` under `minimatch@10.2.5`. **eslint still runs** — `npx eslint
+--max-warnings=0 src/app` exit 0, `npm run build` exit 0 — which is the check that matters, because
+the earlier unscoped `"brace-expansion": "^5.0.9"` attempt killed eslint with `TypeError: expand is not
+a function`. Scoping by major is what makes it safe: `minimatch@3` keeps a v1 export shape.
+
+★★ **No eslint major was needed.** This entry spent its length arguing the only remedy was eslint 10,
+and it was wrong — see the correction block below for what it claimed versus what `npm audit` reports.
+The lesson is not about npm: a do-not-relitigate record built on a **measurement** rather than a
+property will eventually forbid the fix that works.
+
+
 
 ★★★ **THIS ENTRY'S CENTRAL TECHNICAL CLAIM WAS FALSE AND ITS NUMBERS ARE STALE. Corrected 2026-08-02
 against a live `npm audit`; the original text is kept below the line so the executed negative results
@@ -1666,7 +1686,51 @@ NOT added speculatively in 0.211.1 — or, minimally, swap `hidden` for `sr-only
 
 ---
 
-## 48. RAID editor destroys notes added while it is open — open, pre-existing, DATA LOSS
+## 48. ~~RAID editor destroys notes added while it is open~~ — CLOSED in 0.211.1
+
+**Resolution:** `use-resource-planner.ts` builds `withStamp` with `noteLog` taken from the STORED row
+(`previous?.noteLog`), never from the payload — for an UPDATE only; a create keeps whatever the payload
+carries. Reproduced RED first (`expected [ 'first' ] to deeply equal [ 'first', 'added while open' ]`),
+then fixed.
+
+★★★ **The obvious fix — copying the task approach and OMITTING `noteLog` from the payload — would have
+been WORSE THAN THE BUG.** Tasks merge on save; RAID does a full row **REPLACE**
+(`prev.map(r => r.id === id ? withStamp : r)`), so a payload without the field erases the whole log
+instead of merely losing the newest note. The two registers diverge here; do not reason about them
+together.
+
+★★★ **THE FIX HAS TO LAND ON `withStamp`, NOT ONLY INSIDE `setRaid` — and that is a SECOND defect, not
+a stylistic choice.** `RAID_UNDO_GROUPS` is `[]` and `NEVER_CAPTURE` is only `{id, localModifiedAt}`,
+so `changedFieldGroups` emits **one capture per changed key** and a stale `noteLog` on `withStamp`
+becomes undoable/redoable state even when the saved row is correct. Pinned by its own test in
+`use-resource-planner.undo.test.tsx`.
+
+★★★ **TWO TEST TRAPS, BOTH HIT DURING THIS FIX — the second is the instructive one.**
+1. The save-path fixture must add the note **between** the snapshot and the save. A fixture that does
+   not passes whichever way the handler behaves. (Named in advance by this entry; avoided.)
+2. **`changedFieldGroups` emits one call per changed key, so an assertion on `calls[0]` is vacuous** —
+   `calls[0]` is `title`, and the captured `noteLog` is a LATER call. The undo test was written that
+   way first, passed against deliberately broken code, and was only caught by mutating. It now asserts
+   over `mock.calls.flatMap(...)`. Mutation-verified: reverting the `withStamp` half yields
+   `expected [ 'title', 'noteLog' ] to deeply equal [ 'title' ]`.
+
+★★ **A belt-and-braces second merge inside `setRaid` was written and then REMOVED.** Re-reading
+`r.noteLog` from `prev` is strictly more authoritative than the `raid` closure, but no reachable case
+exists (a save never changes `noteLog`, and the notes window cannot commit mid-tick), no test pinned
+that line alone — both §48 tests pass with it reverted — and `use-resource-planner.ts` sits at the
+file-size ratchet with §2 already tracking a split. An untested line on a file with no headroom, for a
+case nobody can reach, is not defense in depth. If a reachable case ever appears, add it back **with a
+test that fails without it.**
+
+★ Still open, cosmetic: `raid-edit-modal.tsx:460`'s `draft.noteLog?.length ?? 0` reads the same stale
+snapshot, so the Notes button can under-report while the window is open. The log itself is safe.
+
+★ The ratchet baseline for `use-resource-planner.ts` moved 1041 → 1043 for the two-line landmine
+comment. Deliberate and minimal; §2 (split that file) is where the real answer lives.
+
+**The original write-up follows.**
+
+## 48-was. RAID editor destroys notes added while it is open — pre-existing, DATA LOSS
 
 **The task-side defect §29 closed still exists in full on RAID.** Found by a reviewer of the 0.211.1
 batch, while checking whether the new AGENTS.md sentence ("Re-adding the field is a typecheck error

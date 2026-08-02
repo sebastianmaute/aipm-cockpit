@@ -14,6 +14,16 @@ A small-correctness batch closing four entries from the open-followups register.
 
 ### Fixed
 
+- **The RAID editor no longer destroys notes added while it is open.** The editor
+  holds a snapshot of the whole item taken when it opened, while the notes window
+  writes straight through to the project — so opening a RAID item, adding a note
+  and saving silently discarded that note. The saved item now takes its note log
+  from the stored row. Same defect the task editor had, fixed in 0.209.0; the RAID
+  save replaces the row rather than merging it, so it needed the opposite fix.
+- **`brace-expansion` advisory cleared without an eslint major.** `npm audit` now
+  reports 0 vulnerabilities (was 1 high), via major-scoped `overrides` pinning the
+  1.x and 5.x branches independently. Dev-only dependency; the blocking CI audit
+  gate excludes dev deps and was green throughout.
 - **The TimeLog actuals cache follows the project, not its editable code.** It was
   keyed on the project code, so renaming that code orphaned the cached bookings
   while the project-scope picker (keyed canonically) survived — leaving the picker

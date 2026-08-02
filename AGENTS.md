@@ -508,13 +508,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   button shows NO count at all — a hardcoded `0` would be true only by WIRING (task-manager gates
   `taskNotePanel` on `editingId !== null`), not by construction. Re-adding the field is a typecheck
   error before it is a data-loss bug — keep it that way.
-  ★★★ THAT GUARANTEE IS TASK-SCOPED, AND **RAID STILL HAS THE WHOLE DEFECT** — do not read the
-  paragraph above as "the class is closed". `raid-panel.tsx` seeds `useState<RaidItem | null>` with a
-  full-row SNAPSHOT at edit-open, the notes window is owned ABOVE the panel (`task-manager.tsx`
-  `openRaidNotes`) and commits write-through to the workspace `raid` array the snapshot never sees, and
-  `use-resource-planner.ts` saves `{ ...item }` as a full row REPLACE — so open RAID editor → Notes →
-  add a note → Save destroys it. The modal's own `draft.noteLog?.length ?? 0` count reads the same
-  stale snapshot. Traced but not repro-tested; `docs/open-followups.md` §48.
+  ★★★ RAID HAD THE SAME DEFECT AND IT IS FIXED DIFFERENTLY — do not copy the task approach there.
+  `raid-panel.tsx` seeds `useState<RaidItem | null>` with a full-row SNAPSHOT at edit-open, the notes
+  window is owned ABOVE the panel (`task-manager.tsx` `openRaidNotes`) and commits write-through to the
+  workspace `raid` array the snapshot never sees, and the save is a full row REPLACE — so open RAID
+  editor → Notes → add a note → Save destroyed it (fixed 0.211.1, `docs/open-followups.md` §48).
+  ★★ The task fix (OMIT the field from the payload) would be WORSE here: because the RAID save
+  REPLACES the row, a payload without `noteLog` erases the log outright. `use-resource-planner.ts`
+  instead builds `withStamp` with `noteLog` taken from the STORED row (`previous`), never the payload.
+  ★★ It must land on `withStamp` and not only inside `setRaid` — `RAID_UNDO_GROUPS` is `[]`, so
+  `changedFieldGroups` emits ONE capture PER changed key and a stale `noteLog` becomes undoable/
+  redoable state. `NEVER_CAPTURE` is only `{id, localModifiedAt}`, so nothing else suppresses it.
+  ★ The modal's `draft.noteLog?.length ?? 0` count still reads the stale snapshot, so it can
+  under-report while the notes window is open. Cosmetic (the log itself is safe now) — left open.
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
   escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
