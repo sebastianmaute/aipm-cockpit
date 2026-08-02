@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RaciPanel } from "./raci-panel";
 import { t } from "./i18n";
+import { expectButtonOrder } from "../test/toolbar-order";
 import type { Stakeholder, Milestone } from "./types";
 
 // "Suggest RACI" (use-raci-suggest) reads settings.ai via useSettings(); mocked
@@ -158,13 +159,20 @@ describe("RaciPanel", () => {
     stubSettings(AI_ON);
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
 
+    // ★ Button order rides the SHARED helper, not a local compareDocumentPosition
+    //   walk: it fails loudly when a key matches zero or several buttons, where a
+    //   hand-rolled `findIndex` would silently take the first and let the
+    //   assertion pass against the wrong control.
+    // `contiguous` is the part that actually pins the convention — plain ordering
+    // still holds if Suggest drifts back BETWEEN Print and Reset.
+    expectButtonOrder(["raciSuggest", "printHint", "tableResetSizeHint"], { contiguous: false });
+    expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
+
+    // The filter is a combobox, not a button, so the shared helper cannot place
+    // it — this one comparison stays hand-rolled of necessity.
     const suggest = screen.getByRole("button", { name: t("en-US", "raciSuggest") });
     const filter = screen.getByRole("combobox", { name: /filter people/i });
-    const print = screen.getByRole("button", { name: /print/i });
-
-    // Suggest → filter → Print, in DOM order.
     expect(suggest.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(filter.compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   // The button is null when AI is off, so the filter must simply become first —
