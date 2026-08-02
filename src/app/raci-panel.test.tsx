@@ -153,4 +153,25 @@ describe("RaciPanel", () => {
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
   });
+
+  it("renders Suggest RACI ahead of the person filter, with Print/Reset still trailing", () => {
+    stubSettings(AI_ON);
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+
+    const suggest = screen.getByRole("button", { name: t("en-US", "raciSuggest") });
+    const filter = screen.getByRole("combobox", { name: /filter people/i });
+    const print = screen.getByRole("button", { name: /print/i });
+
+    // Suggest → filter → Print, in DOM order.
+    expect(suggest.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(filter.compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // The button is null when AI is off, so the filter must simply become first —
+  // no placeholder, no reserved gap.
+  it("leaves the filter first when the Suggest trigger is absent", () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
+    expect(screen.getByRole("combobox", { name: /filter people/i })).toBeInTheDocument();
+  });
 });
