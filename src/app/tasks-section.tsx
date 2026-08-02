@@ -57,7 +57,7 @@ import {
   Th,
 } from "./task-manager-ui";
 import { SortResizeTh } from "./report-table";
-import { colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
+import { GUTTER_WIDTH_PX, colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
  *  reference-stable (a fresh `[]` each render would bust it). */
@@ -935,10 +935,10 @@ export function TasksSection({
             style={{ tableLayout: "fixed", width: "100%", minWidth: `${tableMinWidth}px` }}
           >
             <colgroup>
-              {/* Leading gutter column matching the per-row hover Ask-Claude cell
-                  and the leading <th> below — under table-layout:fixed a missing
-                  <col> shifts every column's width to its left neighbour. */}
-              <col className="w-7" />
+              {/* Leading gutter matching the hover Ask-Claude cell and the <th> below; a
+                  missing <col> shifts every width to its neighbour. ★ Rides the constant
+                  tableMinWidthPx sums with, never a `w-7` class, so they cannot drift. */}
+              <col style={{ width: GUTTER_WIDTH_PX }} />
               {visibleCols.map((col) => (
                 <col key={col} style={{ width: colWidthStyle(col, colWidths) }} />
               ))}

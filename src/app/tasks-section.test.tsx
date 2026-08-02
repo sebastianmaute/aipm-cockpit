@@ -74,7 +74,7 @@ import { useHolidaySet } from "./use-holiday-set";
 import { TasksSection, type TasksSectionProps } from "./tasks-section";
 import { TASK_STATUSES } from "./types";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
-import { visibleTaskCols } from "./open-points-table-geometry";
+import { GUTTER_WIDTH_PX, visibleTaskCols } from "./open-points-table-geometry";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
 const mockUseFilters = useFilters as ReturnType<typeof vi.fn>;
@@ -1205,6 +1205,16 @@ describe("TasksSection", () => {
       const { container } = renderTable();
       const table = container.querySelector("table") as HTMLTableElement;
       expect(table.style.width).toBe("100%");
+    });
+
+    // ★ The gutter is the one column tableMinWidthPx accounts for but does not
+    //   render from the same expression. It used to be a `w-7` class, which meant
+    //   the constant and the rendered width could drift with nothing to catch it —
+    //   and neither is visible to jsdom or to axe. This binds them.
+    it("renders the leading gutter at exactly the width the minimum accounts for", () => {
+      const { container } = renderTable();
+      const gutter = container.querySelector("colgroup col") as HTMLTableColElement;
+      expect(gutter.style.width).toBe(`${GUTTER_WIDTH_PX}px`);
     });
   });
 });
