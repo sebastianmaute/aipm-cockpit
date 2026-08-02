@@ -753,6 +753,55 @@ describe("useResourcePlanner", () => {
       expect(logActivity).toHaveBeenCalledWith("raid.created", 1, "R", "Budget risk");
     });
 
+    // ★★★ open-followups §48. The RAID editor holds a full-row SNAPSHOT taken at
+    //   edit-open, while the notes window is owned ABOVE the panel and commits
+    //   write-through to the workspace `raid` array. The save then REPLACES the
+    //   row, so a note added while the editor was open was destroyed.
+    //   ★ TEST TRAP (the entry names it): a fixture that never adds a note while
+    //   the draft is stale passes whichever way the handler behaves — the note
+    //   below MUST be appended between the snapshot and the save.
+    //   ★ Note also that merely dropping `noteLog` from the payload would be
+    //   WORSE than the bug: the replace would then erase the log entirely. The
+    //   stored value is carried over on the `withStamp` BUILD — a single site.
+    //   (An earlier draft also merged inside `setRaid`; that was dropped, so do
+    //   not go looking for a second safety net there. See §48.)
+    it("handleSaveRaidItem keeps notes added while the editor was open", () => {
+      const { result } = renderPlanner();
+      const note = (id: number, text: string) => ({
+        id, timestamp: `2026-05-2${id}T00:00:00.000Z`, html: `<p>${text}</p>`, text,
+      });
+      const base: RaidItem = {
+        id: 1, category: "R", title: "Budget risk", description: "May overspend",
+        severity: "High", status: "Open", owner: "Alice", ownerEmail: "alice@test.com",
+        mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+        raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+        noteLog: [note(1, "first")],
+      };
+      act(() => { result.current.planner.handleSaveRaidItem(base); });
+
+      // The editor opens here: `staleDraft` is the snapshot it holds.
+      const staleDraft: RaidItem = { ...base };
+
+      // …and while it is open, a note is added through the write-through window.
+      act(() => {
+        result.current.workspace.setRaid((prev) =>
+          prev.map((r) =>
+            r.id === 1 ? { ...r, noteLog: [...(r.noteLog ?? []), note(2, "added while open")] } : r,
+          ),
+        );
+      });
+
+      // The user now saves the editor, which still holds the pre-note snapshot.
+      act(() => {
+        result.current.planner.handleSaveRaidItem({ ...staleDraft, title: "Budget risk (edited)" });
+      });
+
+      const saved = result.current.workspace.raid.find((r) => r.id === 1);
+      expect(saved?.title).toBe("Budget risk (edited)");
+      expect(saved?.noteLog?.map((n) => n.text)).toEqual(["first", "added while open"]);
+    });
+
     it("handleSaveRaidItem triggers auto-issue on Risk→Realized and calls showToast", () => {
       const logActivity = vi.fn();
       const showToast = vi.fn();

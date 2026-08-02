@@ -372,6 +372,39 @@ describe("useChatDispatcher", () => {
     expect(stored.mitigation).toContain("plan");
   });
 
+  // ★★★ open-followups §49. `sanitizeRaidItem` builds its result from an explicit
+  //   field list and `noteLog` is NOT in it — and it CANNOT be, because the
+  //   sanitizer is DOM-free by contract (it runs under bare node in the sample
+  //   generator) while `sanitizeNoteLog` calls DOMPurify. So the round-trip through
+  //   the sanitizer silently dropped the whole log: "push R#3's target date to June"
+  //   erased every note on it, with no undo capture on AI writes to recover from.
+  //   ★ The fix re-applies the STORED log after sanitizing — same "stored row wins"
+  //   rule the RAID editor fix (§48) established, because `noteLog` is write-through
+  //   and is not in any AI tool schema, so a patch can never legitimately carry one.
+  it("keeps a RAID update from erasing the stored note log", () => {
+    const { result } = renderRaidProbe();
+    let id = 0;
+    act(() => {
+      id = result.current.d.createRaid({ category: "R", title: "Keep my notes", status: "Open" })!.id;
+    });
+    // A note exists on the stored row (the notes window writes through).
+    act(() => {
+      result.current.ws.setRaid((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, noteLog: [{ id: 1, timestamp: "2026-05-21T00:00:00.000Z", html: "<p>keep</p>", text: "keep" }] }
+            : r,
+        ),
+      );
+    });
+    act(() => {
+      result.current.d.updateRaid(id, { targetDate: "2026-06-30" });
+    });
+    const stored = result.current.ws.raid[0];
+    expect(stored.targetDate).toBe("2026-06-30");
+    expect(stored.noteLog?.map((n) => n.text)).toEqual(["keep"]);
+  });
+
   it("keeps a RAID update from erasing the stored description it did not touch", () => {
     // ★★ The other half of the helper's contract, at the real seam: a patch that
     // names only the title must leave description/mitigation exactly as stored.

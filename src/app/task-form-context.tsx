@@ -11,7 +11,7 @@ import {
 } from "react";
 import { type Health } from "./health";
 import type { KnowledgeLink } from "./document-link";
-import { type NoteLogEntry, type Priority, type TaskDependency, type TaskStatus } from "./types";
+import { type Priority, type TaskDependency, type TaskStatus } from "./types";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -42,9 +42,6 @@ export function emptyForm() {
     // Empty string = "Auto" (no override). Mapped to undefined on save.
     healthOverride: "" as "" | Health,
     knowledgeLinks: [] as KnowledgeLink[],
-    // Running note log — appended in-form, persisted on save. Separate from the
-    // freeform `notes` field. Timestamps are stamped in the add handler.
-    noteLog: [] as NoteLogEntry[],
   };
 }
 

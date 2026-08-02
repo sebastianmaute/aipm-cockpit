@@ -8,6 +8,58 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.211.1] - 2026-07-31 "Samatar"
+
+A small-correctness batch closing four entries from the open-followups register.
+
+### Fixed
+
+- **The RAID editor no longer destroys notes added while it is open.** The editor
+  holds a snapshot of the whole item taken when it opened, while the notes window
+  writes straight through to the project — so opening a RAID item, adding a note
+  and saving silently discarded that note. The saved item now takes its note log
+  from the stored row. Same defect the task editor had, fixed in 0.209.0; the RAID
+  save replaces the row rather than merging it, so it needed the opposite fix.
+- **Asking the assistant to change a RAID item no longer erases its notes.** The
+  update ran through a validator that rebuilds the item from a fixed field list,
+  and the note log is not one of those fields — so a request as small as moving a
+  target date deleted every note on that item, with no undo. The stored notes are
+  now preserved across an assistant edit.
+- **`brace-expansion` advisory cleared without an eslint major.** `npm audit` now
+  reports 0 vulnerabilities (was 1 high), via major-scoped `overrides` pinning the
+  1.x and 5.x branches independently. Dev-only dependency; the blocking CI audit
+  gate excludes dev deps and was green throughout.
+- **The TimeLog actuals cache follows the project, not its editable code.** It was
+  keyed on the project code, so renaming that code orphaned the cached bookings
+  while the project-scope picker (keyed canonically) survived — leaving the picker
+  restoring a selection for bookings that were no longer loaded. Both per-device
+  stores now share the canonical key. ⚠️ A cache fetched before this release is not
+  carried over: open Time bookings once and press Fetch.
+
+### Changed
+
+- **The four abort checks share one predicate.** They read the error's name
+  directly instead of gating on `instanceof DOMException`, which is unreliable
+  across the jsdom/Node boundary. This is hardening, not a bug fix: in a browser
+  an aborted `fetch` rejects with a same-realm `DOMException`, so the previous
+  gate did match and no user-facing failure was demonstrated at any of the four
+  sites. (An earlier draft of this entry, and open-followups §11, both claimed a
+  spurious error toast; a cold review disproved it.)
+- **The three file pickers in Settings → Appearance share one control.** The two
+  built as a styled `<label>` had no visible keyboard focus indicator at all — a
+  `<label>` cannot receive focus, so the focus ring on it could never render, and
+  focus instead landed on a visually-clipped input. They are real buttons now.
+- Realigned button sizing where the shared control had changed a control's size
+  relative to its neighbours. The scheme editor's Import button is restored
+  exactly (`size="xs"` reproduces every visual class of the local string); the
+  branding row's picker and its Remove twin both moved up to `size="sm"`
+  together, so that row is internally consistent but slightly larger than before.
+- **The task form no longer carries a dead note-log field.** The note log writes
+  straight through to the workspace and the draft's copy was never saved; removing
+  it means there is nothing for a future change to accidentally write back over a
+  live log. The disabled notes button on an unsaved task now shows no count rather
+  than a hardcoded zero.
+
 ## [0.211.0] - 2026-07-30 "Samatar"
 
 A toolbar-polish batch: shared controls (Print, push/pull, hide/show toggles) now

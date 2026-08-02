@@ -61,17 +61,17 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 8 | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | open — a11y, unguarded |
 | 9 | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | open — a11y, unguarded |
 | 10 | Keyboard move has no preview (band + day grid) | R5 (0.202.2) | M | open — a11y/UX |
-| 11 | `instanceof DOMException` abort check misreports a user cancel | 0.201.0 | S | open — scoped out deliberately |
+| 11 | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED 0.211.1** — shared `isAbortError`, all four sites. ★ premise DISPROVED in review: hardening, not a user-visible fix |
 | 12 | `list_allocations` dumps the grid; should be a scoped query | R4 (0.201.0) | M | open — design |
 | 13 | Security audit is scope-stale — 39 releases of unaudited surface | audit was v0.164 | M | open — re-scope |
-| 14 | Timelog has two per-device stores keyed differently | 0.207.0 | S | open — low priority |
-| 15 | Two file-picker patterns — extract a `FilePickerButton` | 0.208.0 (Yolen) | S | open — low priority |
+| 14 | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED 0.211.1** — re-keyed canonical, no fallback |
+| 15 | ~~Two file-picker patterns — extract a `FilePickerButton`~~ | 0.208.0 (Yolen) | S | **CLOSED 0.211.1** — three sites, spun off §46/§47 |
 | 16 | Dictation flattens rich formatting | 0.196.0, widened 0.209.0 | M | open — needs a design |
 | 21 | Eye verification owed: change + milestone editors, 4 detail cases | 0.209.0 (Lafferty) | S | open — a11y/visual |
 | 22 | `clipText` can split a surrogate pair (~54 call sites) | 0.209.0 (Lafferty) | M | open — needs golden regen |
 | 24 | Named entities aren't decoded — miscount + mid-entity truncation | 0.209.0 (Lafferty) | S | **open — named tail only** |
 | 28 | CSV/MD/Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 | M | open — needs a new boundary |
-| 29 | `form.noteLog` is dead state in the task form | 0.209.0, promoted 0.210.0 | S | open — own change |
+| 29 | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED 0.211.1** — field removed, guard re-proved |
 | 30 | A link in a task description loses its address in document exports | 0.210.0 (Larbalestier) | M | open — needs a decision |
 | 31 | `sanitizeRichText` caps visible text, so markup bytes are unbounded | 0.210.0, pre-existing for 3 of 4 | M | open — truncates stored values |
 | 32 | `HTML_START` misclassifies `<a note…>`-shaped plain text, deleting it | pre-existing, reach widened 0.210.0 | S | open — read-time classification |
@@ -81,6 +81,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
 | 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
+| 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
+| 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
+| 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
+| 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
+| 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -403,7 +408,59 @@ bugs are reachable from the keyboard path, and a no-op result must write nothing
 
 ---
 
-## 11. `instanceof DOMException` abort check misreports a user cancel — open
+## 11. ~~`instanceof DOMException` abort check misreports a user cancel~~ — CLOSED in 0.211.1
+
+**Resolution:** pure `abort-error.ts` `isAbortError(e)` reads `.name` directly and is used at **all four**
+sites. The two that also read `signal.aborted` keep that short-circuit as the left operand.
+
+★★★ **THE PREMISE OF THIS ENTRY WAS FALSE, AND THE FIRST RESOLUTION REPEATED THE ERROR.** The entry
+opens "A plain user cancel surfaces a spurious error toast", and the sweep table below marks two sites
+"exposed? **YES**". Neither holds in a browser. `AbortController.abort()` with no reason makes `fetch`
+reject with a **same-realm `DOMException`**, so `e instanceof DOMException` was **true** and the old
+guard returned early. The path was traced end to end for a re-wrap and there is none —
+`ai-forced-call.ts` lets the fetch rejection propagate verbatim (its only `throw`s are `AiHttpError` on
+`!res.ok` and `Error("parse")`), and neither `task-dedup-call.ts` nor `scheduled-job-analysis.ts`
+catches. Both flows are popout-unreachable, so there is no cross-realm case either — though by two
+different mechanisms, and the earlier "both hooks are `!isPopout`-gated" was imprecise: `useTasksDedup`
+gates INTERNALLY (`use-tasks-dedup.tsx:86`), while `useActionAnalysis` mounts unconditionally and the
+gate sits on the PROP (`task-manager.tsx` `aiAnalysis: isPopout ? undefined : aiAnalysisBundle`), which
+is the only route to `analyze`. The `instanceof`
+only fails across the **jsdom/Node** boundary — which the correct-pattern comment quoted further down
+says in as many words, and which nobody noticed says *tests*, not *users*.
+
+So: **all four** sites catch nothing reachable, not two. What shipped is hardening plus one shape for
+four call sites. That is still worth having — but the CHANGELOG entry was written under **Fixed**
+claiming a user-visible error toast, and `abort-error.ts` carried a comment asserting the same as
+established fact. Both were corrected. Found by a COLD reviewer; the primed reviewer, holding this
+entry, re-derived the same wrong conclusion — the entry itself was the misinformation.
+
+★★ **This closed AGAINST the advice below, which is left in place because the advice was defensible and
+the reasoning for overriding it matters.** The text said "the fix is two sites, and the other two are
+worth leaving alone … rewriting them would be churn." A cold review of the shipped diff confirmed that
+judgement on its own terms: at `use-project-proposal` and `use-timelog-sync` the only `AbortSignal` is
+the caller's own controller, so any AbortError-named rejection **already** had `signal.aborted === true`
+and was caught by the left operand. The widening at those two sites catches nothing reachable today.
+They were folded in anyway, for one reason only: a fifth caller copying the surviving broken shape is a
+likelier future defect than the churn cost of two lines. If you disagree, the way to relitigate is to
+narrow the helper's use — not to reintroduce `instanceof DOMException` anywhere.
+
+★★ **Real consequence of the fold, stated so nobody rediscovers it as a bug:** `use-timelog-sync.ts` now
+swallows any future AbortError-named rejection that did *not* come from its own controller, instead of
+`setError(-1)`. Given `runGuarded`'s own "leave prior data + state intact" contract that is the desired
+direction, but it is a genuine widening of a silent-failure path, not a no-op.
+
+★★ **The line references in the historical write-up below are stale and were NOT corrected** — an
+earlier revision of this line claimed "Corrected in the sweep table" and nothing in that table was ever
+touched, which is the same self-referential falsehood this entry now exists to record. The table is
+left VERBATIM as the historical record; use these instead. Pre-fix `use-tasks-dedup.tsx` was `:121`,
+not the `:111` the table says. **Current lines:** `use-tasks-dedup.tsx:122` · `use-action-analysis.ts:35`
+· `use-project-proposal.ts:52` · `use-timelog-sync.ts:107`. ★ The **pattern** is wider than the four sites this entry
+named: `chat-panel.tsx:478`, `use-alloc-plan.tsx:167` and `use-raci-suggest.tsx:204` each hand-read
+`.name` correctly with their own four-line explanatory comment. None is a defect, so none was touched —
+but three verbatim copies are `dup:check` fuel, and the helper now exists to absorb them if that
+BLOCKING gate ever flags them.
+
+**The original write-up follows.**
 
 **Scoped out of 0.201.0 deliberately.** A plain user cancel surfaces a spurious error toast.
 
@@ -427,8 +484,8 @@ if (errName === "AbortError") { setPhase("input"); return; }
 
 | site | shape | exposed? |
 |---|---|---|
-| `use-tasks-dedup.tsx:111` | bare `instanceof DOMException` | **YES** — falls through to an error toast |
-| `use-action-analysis.ts:34` | bare `instanceof DOMException` | **YES** — falls through to `setError(msg)` |
+| `use-tasks-dedup.tsx:111` | bare `instanceof DOMException` | ~~**YES** — falls through to an error toast~~ **DISPROVED — see the correction above** |
+| `use-action-analysis.ts:34` | bare `instanceof DOMException` | ~~**YES** — falls through to `setError(msg)`~~ **DISPROVED — see the correction above** |
 | `use-project-proposal.ts:51` | `signal?.aborted \|\| (instanceof …)` | no — the `signal.aborted` read catches it first |
 | `use-timelog-sync.ts:106` | `signal.aborted \|\| (instanceof …)` | no — same |
 
@@ -510,16 +567,59 @@ not a code change. Do not open a ticket for it now, and do not lose it if hostin
 
 ---
 
-## 14. Timelog has two per-device stores keyed differently — open, low priority
+## 14. ~~Timelog has two per-device stores keyed differently~~ — CLOSED in 0.211.1
 
-`timelog-panel.tsx` computes `projectId = ws.project?.code ?? "default"`, which keys the per-device
-**actuals cache** via `useTimelogSync`. Slice C (0.204.0) added a second per-device store, the picker
-scope, keyed on the canonical `portfolioCurrentId ?? "default"` instead — matching `landing-state`
-and project-appearance.
+**Was:** `timelog-panel.tsx` computed `projectId = ws.project?.code ?? "default"`, which keyed the
+per-device **actuals cache** via `useTimelogSync`. Slice C (0.204.0) added a second per-device store,
+the picker scope, keyed on the canonical `portfolioCurrentId ?? "default"` instead — matching
+`landing-state` and project-appearance. Because the project *code* is user-editable, a rename orphaned
+the actuals cache while the picker scope survived, so the picker restored a selection for bookings that
+were no longer loaded.
 
-They were deliberately NOT unified. Re-pointing `projectId` at the canonical key would silently
-orphan every existing user's cached actuals: they would open Time bookings and find their fetched
-data gone. Fixing it properly needs a read-both-keys migration, which is its own change.
+**Resolution:** the actuals cache is keyed on the canonical id. `timelog-panel.tsx`'s local is now named
+`projectCode` and no longer keys anything — **it is only the picker's in-place project-switch signal**
+(`use-timelog-picker-scope.ts:49-50`, `:213`), which must keep receiving `ws.project?.code` or the
+picker stops re-seeding on a switch. Guarded by a test in `timelog-panel.test.tsx` that fails with
+`expected 'proj-a' to be 'canonical-key'` if the wiring is reverted.
+
+★★ **A pre-existing cache is ORPHANED, deliberately.** Existing users open Time bookings once, see an
+empty pane, and press Fetch.
+
+★ There is a SECOND, smaller cost that the sentence above originally claimed was "the entire" one:
+the orphaned entry is never reclaimed. `clearActualsCache` deletes only the key it is handed
+(`timelog-actuals-store.ts:54`), so a pre-0.211.1 code-keyed entry — carrying a full
+`aggregates` + `users` + `projectRefs` payload — survives until the `MAX_PROJECTS = 50`
+sort-by-`fetchedAt` eviction (`:62-65`) reaches it, or until `clearAppConfig` sweeps the
+`aipm-cockpit:*` namespace. Slot pressure in a bounded store, not a leak, and not worth code to
+reclaim — but it is a cost, so it is written down rather than left for the next reader to rediscover.
+Both accepted because this cache holds refetchable TimeLog data, not user input.
+
+★★★ **TWO better-looking designs were built or specified and BOTH rejected — do not re-propose either.**
+- **Read-both (built, then reverted).** `loadActualsCache(id, legacyId?)` fell back to the old key and
+  `clearActualsCache` deleted both. It shipped briefly and a cold review killed it: the map is a single
+  flat `Record<string, …>`, so the fallback put **two namespaces in one keyspace** — canonical ids AND
+  user-editable project codes. Reachable case: project A has code `default` while its canonical id is
+  `proj-7`; A's "Clear all" then calls `clearActualsCache("proj-7", "default")` and **deletes the real
+  default project's cache** as collateral.
+- **Migrate-once (specified, never built).** Moving the entry instead of reading through is *worse*: in
+  the same case it would relocate the default project's entry to `proj-7`, so the other project loses
+  its cache permanently rather than being transiently misread. It also cannot run early enough — the
+  hook seeds four lazy `useState` initializers at mount, before any effect fires, so an effect-based
+  migration lands after the pane has already seeded empty.
+
+★ The collision is **unfixable by any migration**: a project code and another project's canonical id are
+the same kind of string with nothing to distinguish them. Dropping the fallback is the only design that
+removes the hazard rather than relocating it.
+
+★ Structural note for whoever tests this area next: `timelog-panel.test.tsx` mocks `useTimelogSync`
+**wholesale** at file level, so no test there can observe a real cache lookup through a render. Pinning
+"what does the panel hand the hook" has to be done by asserting on the mock's call arguments — which is
+what the §14 guard does, following the one pre-existing precedent in that file.
+
+**The original write-up follows — present tense throughout, and NO LONGER TRUE at HEAD.** Kept for the
+reasoning, not the facts: `timelog-panel.tsx` now passes the canonical `projectId: projectKey`, so
+neither paragraph below describes today's code. (This marker was missing, so a top-to-bottom reader
+could have re-opened a closed bug — §11 and §15 both carry it.)
 
 ★ The project *code* is user-editable, so the actuals cache already orphans on a code rename today.
 That is the pre-existing bug this note records, not one slice C introduced.
@@ -532,7 +632,31 @@ scope-mismatch note added in the same slice does not cover this case; it compare
 
 ---
 
-## 15. Two file-picker patterns — extract a `FilePickerButton` primitive — open, low priority
+## 15. ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ — CLOSED in 0.211.1
+
+**Resolution:** `file-picker-button.tsx` — a DS `Button` plus the `sr-only` input it owns
+(`tabIndex={-1}`, `aria-hidden`, value reset **before** the callback so the same file re-picks). It owns
+**no validation**: `onFile` hands back the raw `File` and `branding-image-input.tsx` keeps its `FILE_RE`
+raster-mime allowlist and `MAX_BYTES` raw-byte cap.
+
+★ **THREE** call sites moved, not the two this entry scoped: `theme-gallery.tsx`,
+`color-scheme-editor.tsx` and `branding-image-input.tsx`. The entry's own scoping sentence ("the
+follow-up is scoped to those two") was right about what to change and wrong about what was there to
+find — the third site was a third copy of the label shape, and looking at it turned up **§46**, while
+the excluded `chat-panel.tsx` turned out to carry **§47**.
+
+★ Accepted cosmetic consequence: in `color-scheme-editor.tsx` the Import control is now a DS `Button`
+while its neighbours in that flex row keep the file-local hand-rolled `btn` string. Correctness over
+local consistency — matching them would mean copying `btn` into a second file and minting a `dup:check`
+clone against a BLOCKING gate, which is the very thing this entry says not to do.
+
+★ `theme-gallery.test.tsx`'s tab-order walk was **not touched** and still passes — it is the regression
+guard for the duplicate-accessible-name defect (`df507f95`) that the primitive now prevents structurally.
+One test query did legitimately move: `branding-image-input.test.tsx` went from
+`getByLabelText("Logo")` to `getByRole("button", { name: "Logo" })`, because the accessible name moved
+from the wrapping `<label>` to the Button. No label or `aria-label` was re-added to keep the old query.
+
+**The original write-up follows.**
 
 The app opens a file dialog in two structurally different ways, and slice E (0.208.0) put both on the
 **same settings surface**, Settings → Appearance:
@@ -755,7 +879,28 @@ state on these three backends since 0.196.0.
 
 ---
 
-## 29. `form.noteLog` is dead state in the task form — open, own change
+## 29. ~~`form.noteLog` is dead state in the task form~~ — CLOSED in 0.211.1
+
+**Resolution:** the field is gone from `emptyForm` (`task-form-context.tsx`), from the `openEditModal`
+seed (`use-task-submit.ts`) and from the disabled fallback button, **which now shows no count at all**.
+Because
+`TaskFormDraft = ReturnType<typeof emptyForm>`, deleting it from `emptyForm` deleted it from the type
+and `tsc --noEmit` located every stale literal — it found exactly the two test sites predicted and no
+others.
+
+★★ **The data-loss guard was re-proved, not assumed.** Re-adding `noteLog` to the payload (and back to
+`emptyForm` so it typechecks) made both write-through tests in `use-task-submit.test.ts` fail with
+`saved.noteLog` coming back `undefined` — i.e. the stale draft copy spread over the live row and wiped
+it. That is the exact shape `fe779f32` fixed. Those two `it`s survive untouched; only the assertion
+pinning the *seeding* was removed.
+
+★ Several negative assertions were deleted as **vacuous rather than passing**: with no competing draft
+copy, `queryByText("… (1)")` and `queryByText("Stale draft note")` can no longer discriminate anything.
+The 1-vs-2 discriminator that made those tests meaningful is structurally impossible now, because the
+bug it guarded against is. Leaving an assertion that *looks* like a guard and proves nothing would have
+been worse than deleting it.
+
+**The original write-up follows.**
 
 Promoted out of the old §27 when that entry closed in 0.210.0; this half was never a doc claim and
 was not fixed. Re-verified 2026-07-29.
@@ -1375,6 +1520,337 @@ be widened — the four shipped entities must not inherit occurrence semantics t
 
 ---
 
+## 45. ~~`brace-expansion` advisory in the eslint dev chain~~ — CLOSED in 0.211.1
+
+**Resolution:** a MAJOR-SCOPED override pair in `package.json` — the form this entry's false premise
+had ruled out:
+
+```jsonc
+"overrides": { "brace-expansion@1": "^1.1.17", "brace-expansion@5": "^5.0.8" }
+```
+
+`npm audit` → **found 0 vulnerabilities** (was 1 high). Resolved tree: `brace-expansion@1.1.18` under
+`minimatch@3.1.5`, `5.0.9` under `minimatch@10.2.5`. **eslint still runs** — `npx eslint
+--max-warnings=0 src/app` exit 0, `npm run build` exit 0 — which is the check that matters, because
+the earlier unscoped `"brace-expansion": "^5.0.9"` attempt killed eslint with `TypeError: expand is not
+a function`. Scoping by major is what makes it safe: `minimatch@3` keeps a v1 export shape.
+
+★★ **No eslint major was needed.** This entry spent its length arguing the only remedy was eslint 10,
+and it was wrong — see the correction block below for what it claimed versus what `npm audit` reports.
+The lesson is not about npm: a do-not-relitigate record built on a **measurement** rather than a
+property will eventually forbid the fix that works.
+
+
+
+★★★ **THIS ENTRY'S CENTRAL TECHNICAL CLAIM WAS FALSE AND ITS NUMBERS ARE STALE. Corrected 2026-08-02
+against a live `npm audit`; the original text is kept below the line so the executed negative results
+survive.** It asserted that "no 1.x release escapes" the advisory and concluded the sole remedy was an
+eslint major — then told the reader not to re-litigate. That combination is the dangerous one: a
+confidently-worded do-not-relitigate record steering the next maintainer past a fix that exists.
+
+What `npm audit` actually reports today:
+
+```
+brace-expansion  <1.1.17 || >=4.0.0 <5.0.8
+Severity: high
+fix available via `npm audit fix`
+1 high severity vulnerability
+```
+
+| the entry claimed | live, verified 2026-08-02 |
+|---|---|
+| "`npm audit` reports **9 high**" | **1 high**, total 1 |
+| "range is `<=5.0.7` **across all majors**" | **TWO** sources: `<1.1.17` (1.x) and `>=4.0.0 <5.0.8` (5.x) |
+| "no 1.x release escapes it — not 1.1.17, not 1.1.18" | **both are published and both clear it** (`npm view brace-expansion versions`) |
+| "`npm audit fix --force` offers exactly one remedy: eslint@10.8.0, a breaking major" | npm offers plain **`npm audit fix`** — no `--force`, no major |
+
+Installed today: `brace-expansion@1.1.16` (via `eslint@9.39.4` → `minimatch@3.1.5`) and `5.0.7` (via
+`typescript-eslint` → `minimatch@10.2.5`). **Both are exactly one patch below a clean release**
+(1.1.17 / 5.0.8).
+
+★★ **The untried remedy is a MAJOR-SCOPED pin on the 1.x side.** Both executed attempts below targeted
+the **5.x** side, which is why both failed — one broke `minimatch@3`, the other upgraded the branch
+that was not the problem. The obvious third form was never attempted, because this entry's false
+premise ruled it out:
+
+```jsonc
+"overrides": { "brace-expansion@1": "^1.1.17", "brace-expansion@5": "^5.0.8" }
+```
+
+★ **Re-run `npm audit` before acting on this entry.** The advisory ranges have already moved once
+between it being written (2026-07-31) and being corrected (2026-08-02) — a 1.x backport landed. Treat
+every number here as a measurement with a date, not a property.
+
+★ Deliberately NOT fixed in 0.211.1: that batch is scoped to four register entries, and a dependency
+change means lockfile churn plus a full re-verification (the `--max-warnings=0` gate makes any eslint
+tree movement a real risk). The blocking CI gate is unaffected either way — see below.
+
+**The original write-up follows, with its two EXECUTED negative results intact — those still stand,
+they simply do not exhaust the option space.**
+
+`npm audit` reports **9 high** (GHSA-mh99-v99m-4gvg — DoS via unbounded expansion → OOM). `npm audit
+fix --force` offers exactly one remedy: **eslint@10.8.0, a breaking major**.
+
+★★★ **The npm-`overrides` workaround was tried and it does not work. Both forms were EXECUTED, not
+reasoned about — do not repeat them.**
+
+| Attempt | Result |
+|---|---|
+| `"overrides": { "brace-expansion": "^5.0.9" }` | **eslint dies**: `TypeError: expand is not a function` at `minimatch.js:271`, exit 2. v5 changed its export shape and `minimatch@3` calls the v1 convention |
+| `"overrides": { "minimatch@^10": { "brace-expansion": "^5.0.9" } }` | eslint fine, `5.0.7 → 5.0.9` applied — and the audit is **still 9 high**. Zero benefit |
+
+**Why neither can work.** The tree holds two majors: `brace-expansion@1.1.16` under **six**
+`minimatch@3.1.5`, and `brace-expansion@5.0.7` under one `minimatch@10.2.5`. All nine advisories
+chain through the **1.x** side. ~~The advisory range is `<=5.0.7` **across all majors**, so no 1.x
+release escapes it — not 1.1.17, not 1.1.18 — and the only clean versions (5.0.8+) are exactly the
+ones `minimatch@3` cannot load. So the sole fix is removing `minimatch@3` from the tree~~ ← **FALSE,
+see the correction above: there are two advisory sources, and `brace-expansion@1.1.17`+ clears the 1.x
+one.** `minimatch@3` is
+held there by `eslint-plugin-import` / `eslint-plugin-jsx-a11y` / `eslint-plugin-react` via
+`eslint-config-next`, and by `@eslint/eslintrc` + `@eslint/config-array` via **`eslint` itself** (not
+`eslint-config-next` — the original text attributed all four to the config package). ~~npm's advice was
+right; the clever alternative is not.~~ ← npm's advice has since changed to a non-breaking
+`npm audit fix`.
+
+**Why it is deferred rather than fixed.**
+- ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
+  --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
+  2026-07-31. Nothing is red.
+- It is a **build-time DoS in a linter**. No runtime or shipped-code exposure; eslint and its plugins
+  are dev-only.
+- ★★ eslint 10 is a major landing against a **`--max-warnings=0`** gate, so any rule added, renamed or
+  changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
+  edits, which a major would likely require. That is a slice with its own verification, not an install.
+
+★ Plugin peers would NOT block it — `eslint-config-next@16.2.6` is `>=9.0.0`, and typescript-eslint
+and `eslint-plugin-react-hooks` both list `^10.0.0`. The risk is entirely in rule drift, not install
+resolution.
+
+★★ **The WEEKLY `dependency-audit-full` job DOES include dev deps and all severities, so it will keep
+reporting this.** That is expected, not a regression — this entry exists so the finding is not
+re-litigated from scratch each week, and so nobody re-attempts the two overrides above. ★ It is
+**one** high now, not nine; if the weekly job reports a different count than this entry, the entry is
+the stale one — re-measure, don't reconcile.
+
+**To close:** upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
+`npx eslint --max-warnings=0 src/app` against the full rule set, and expect to fix drift rather than
+merely bump a version. Current: eslint `^9` (9.39.4).
+
+---
+
+## 46. A `<label>`-wrapped file input can never show a focus ring — pattern open
+
+Found while grounding §15, and not in that entry. `color-scheme-editor.tsx` and
+`branding-image-input.tsx` both put a `focus:ring-2` on a `<label>` that wrapped an `sr-only`
+`<input type="file">` — via `INTERACTIVE` in the first and `FOCUS_RING` in the second (an earlier
+revision here named `INTERACTIVE` for both; the atom differs, the defect does not).
+
+★★ **The focus indicator did not merely go unstyled — it VANISHED, and it took two separate facts to
+do it.** (1) A `<label>` is not a form control and carried no `tabindex`, so `focus:ring-2` compiles to
+`&:focus` and can never match it. (2) The element that actually took focus was the `sr-only` input
+inside — genuinely tabbable, because nothing gave it `tabIndex={-1}` — and `sr-only` clips it to a 1×1px
+`inset(50%)` box, which clips the UA's own default focus ring along with it. So a keyboard user tabbing
+across Settings → Appearance hit a tab stop where the focus indicator disappeared entirely. WCAG 2.4.7,
+at Import and at Logo/Favicon.
+
+★ Verified rather than assumed: `globals.css` contains **zero** occurrences of `focus`, `outline` or
+`label`, so no global rule could have rescued it, and `FOCUS_RING` is exactly
+`focus:outline-none focus:ring-2 focus:ring-ui-green`.
+
+★★ Nothing catches it. axe has **no focus-visibility rule**, and the accessible NAME was fine — a
+wrapping `<label>` supplies it — so the one property axe does check passed. Same blind-spot family as
+§15's duplicate-name finding and §21's.
+
+**Closed for the three sites 0.211.1 touched**, which now use `FilePickerButton` (a real `<button>`).
+The entry stays open as a PATTERN: `focus:` on a non-focusable wrapper is a mistake anyone can repeat,
+and `focus-within:` is the fix if a label shape is ever genuinely wanted.
+
+★ A grep for the ring class proves nothing on its own — presence of `focus:ring-*` says nothing about
+whether the element carrying it can receive focus. Check the element type, not the class.
+
+---
+
+## 47. `chat-panel` clicks a `display:none` file input — open, pre-existing
+
+`chat-panel.tsx` gives its attachment input `className="hidden"` (Tailwind `display:none`) and opens it
+via `fileInputRef.current?.click()`. That is exactly what §15 warns against — both theme pickers used
+`sr-only` *precisely because* a `display:none` input cannot be clicked in every browser. So the entry
+that documented the rule sat beside a live violation of it.
+
+★ Scoped out of 0.211.1 deliberately: the attachment flow is multi-file with its own classification and
+size caps (`chat-attachments.ts`), so it is a bigger read than swapping one class.
+`step0-import-panel.tsx` is the same class of flow and was excluded for the same reason, though it uses
+a plain visible input and is **not** affected by this particular bug.
+
+**Fix when taken:** move it onto `FilePickerButton` — which would need a `multiple` prop, deliberately
+NOT added speculatively in 0.211.1 — or, minimally, swap `hidden` for `sr-only` plus `tabIndex={-1}` and
+`aria-hidden`.
+
+---
+
+## 48. ~~RAID editor destroys notes added while it is open~~ — CLOSED in 0.211.1
+
+**Resolution:** `use-resource-planner.ts` builds `withStamp` with `noteLog` taken from the STORED row
+(`previous?.noteLog`), never from the payload — for an UPDATE only; a create keeps whatever the payload
+carries. Reproduced RED first (`expected [ 'first' ] to deeply equal [ 'first', 'added while open' ]`),
+then fixed.
+
+★★★ **The obvious fix — copying the task approach and OMITTING `noteLog` from the payload — would have
+been WORSE THAN THE BUG.** Tasks merge on save; RAID does a full row **REPLACE**
+(`prev.map(r => r.id === id ? withStamp : r)`), so a payload without the field erases the whole log
+instead of merely losing the newest note. The two registers diverge here; do not reason about them
+together.
+
+★★★ **THE FIX HAS TO LAND ON `withStamp`, NOT ONLY INSIDE `setRaid` — and that is a SECOND defect, not
+a stylistic choice.** `RAID_UNDO_GROUPS` is `[]` and `NEVER_CAPTURE` is only `{id, localModifiedAt}`,
+so `changedFieldGroups` emits **one capture per changed key** and a stale `noteLog` on `withStamp`
+becomes undoable/redoable state even when the saved row is correct. Pinned by its own test in
+`use-resource-planner.undo.test.tsx`.
+
+★★★ **TWO TEST TRAPS, BOTH HIT DURING THIS FIX — the second is the instructive one.**
+1. The save-path fixture must add the note **between** the snapshot and the save. A fixture that does
+   not passes whichever way the handler behaves. (Named in advance by this entry; avoided.)
+2. **`changedFieldGroups` emits one call per changed key, so an assertion on `calls[0]` is vacuous** —
+   `calls[0]` is `title`, and the captured `noteLog` is a LATER call. The undo test was written that
+   way first, passed against deliberately broken code, and was only caught by mutating. It now asserts
+   over `mock.calls.flatMap(...)`. Mutation-verified: reverting the `withStamp` half yields
+   `expected [ 'title', 'noteLog' ] to deeply equal [ 'title' ]`.
+
+★★ **A belt-and-braces second merge inside `setRaid` was written and then REMOVED.** Re-reading
+`r.noteLog` from `prev` is strictly more authoritative than the `raid` closure, but no reachable case
+exists (a save never changes `noteLog`, and the notes window cannot commit mid-tick), no test pinned
+that line alone — both §48 tests pass with it reverted — and `use-resource-planner.ts` sits at the
+file-size ratchet with §2 already tracking a split. An untested line on a file with no headroom, for a
+case nobody can reach, is not defense in depth. If a reachable case ever appears, add it back **with a
+test that fails without it.**
+
+★ Still open, cosmetic: `raid-edit-modal.tsx:460`'s `draft.noteLog?.length ?? 0` reads the same stale
+snapshot, so the Notes button can under-report while the window is open. The log itself is safe.
+
+★ The ratchet baseline for `use-resource-planner.ts` moved 1041 → 1043 for the two-line landmine
+comment. Deliberate and minimal; §2 (split that file) is where the real answer lives.
+
+**The original write-up follows.**
+
+## 48-was. RAID editor destroys notes added while it is open — pre-existing, DATA LOSS
+
+**The task-side defect §29 closed still exists in full on RAID.** Found by a reviewer of the 0.211.1
+batch, while checking whether the new AGENTS.md sentence ("Re-adding the field is a typecheck error
+before it is a data-loss bug — keep it that way") was true app-wide. It is not; it is task-scoped.
+
+The chain, traced independently at three hops:
+
+| hop | file | what it does |
+|---|---|---|
+| 1 | `raid-panel.tsx:166`, seeded `:325`/`:346` | `useState<RaidItem \| null>` holds a **snapshot** of the whole row at edit-open, `noteLog` included |
+| 2 | `task-manager.tsx:2128` `openRaidNotes` | the notes window is owned ABOVE the panel and commits **write-through** to the workspace `raid` array — the snapshot never moves |
+| 3 | `use-resource-planner.ts:185` | `const withStamp: RaidItem = { ...item, … }` then `prev.map(r => r.id === id ? withStamp : r)` — a full row **REPLACE** carrying the open-time `noteLog` |
+
+So: open the RAID editor → Notes → add a note → Save ⇒ **the note is gone.** Identical shape to the
+task defect fixed in 0.209.0.
+
+★ The same snapshot also feeds the modal's note count (`raid-edit-modal.tsx:460`,
+`draft.noteLog?.length ?? 0`), so the button under-reports while the window is open. That is the
+falsifiable-count problem 0.211.1 removed from the task form, still live here.
+
+★★ **Not fixed in 0.211.1 on purpose.** That batch was scoped to four named register entries; this is
+a fifth, found during its review. Fixing it means deciding *how* — omit `noteLog` from the RAID save
+payload (mirrors `use-task-submit.ts`), or stop snapshotting the whole row. The second is the better
+shape and the larger change, because `draft` is also what the risk matrix and status handlers mutate.
+
+★ **Traced, NOT repro-tested.** No failing test was written. Write one first — and note the §29 test
+trap it inherits: a fixture that never adds a note while the editor is open passes either way.
+
+★ Sweep the same shape at the other snapshot-then-replace editors before assuming RAID is the only
+one; the pattern is a full-row `useState` draft plus a write-through side channel, not anything
+specific to notes.
+
+---
+
+## 49. ~~Every AI edit to a RAID item erased its whole note log~~ — CLOSED in 0.211.1
+
+**Was:** `use-chat-dispatcher.ts` `updateRaid` round-tripped the merged item through `sanitizeRaidItem`
+and wrote the result back. That sanitizer builds its result from an EXPLICIT field list and `noteLog`
+is not in it, so a patch as small as *"push R#3's target date to June"* **deleted every note on the
+item**. AI tool writes capture no undo, so it was unrecoverable. Also reachable from Insights → Apply
+recommendation (`update_raid_item` is in `ALLOWED_REC_TOOLS`). Found by an adversarial reviewer
+attacking §48's fix; `noteLog` appeared **zero** times in `use-chat-dispatcher.test.tsx`.
+
+**Resolution:** `updateRaid` re-applies the STORED `noteLog` after sanitizing. Same "stored row wins"
+rule as §48, and safe because `noteLog` is write-through and appears in no AI tool schema, so a patch
+can never legitimately carry one. Reproduced RED first (`expected undefined to deeply equal
+[ 'keep' ]`).
+
+★★★ **THE OBVIOUS FIX IS FORBIDDEN, AND THE REVIEWER'S PRIMARY SUGGESTION WAS IT.** "Carry `noteLog`
+through `sanitizeRaidItem` via `sanitizeNoteLog`" would close it for every present and future caller —
+and it CANNOT BE DONE. `sanitizeNoteLog` calls `sanitizeNoteHtml`, which calls DOMPurify, which binds
+`window` at module-eval; the entity sanitizers run under **bare node** in
+`scripts/generate-sample-workspace.ts`, where the call throws and `jsonToWorkspace`'s catch-all
+swallows it into an EMPTY workspace that then "successfully" writes near-empty sample files. This is
+the same DOM-free constraint that already forces `templates.ts` `sanitizeSeedTask` to skip the
+allow-list (§36(a)). **Do not "complete the sweep" by importing it there.**
+
+★ Consequence to accept: the guarantee is per-CALLER, not central. The other **three**
+`sanitizeRaidItem` callers are all CREATES on freshly built objects, so nothing is lost today —
+`task-manager.tsx:1308`, `use-chat-dispatcher.ts` `createRaid`, and `ai-project-proposal.ts:287`. But a
+FUTURE caller that sanitizes an existing RAID row will re-open this, and no gate will catch it. A new
+call site must ask whether it holds a stored row.
+
+★★ **`grep 'sanitizeRaidItem('` DOES NOT FIND ALL OF THEM — and the one it misses is the one you most
+need.** `ai-project-proposal.ts:287` passes the function **by reference** (`buildList(s.raid,
+sanitizeRaidItem)`), so there is no `(` after the name to match. The first version of this entry said
+"the other two callers" for exactly that reason, and both reviewers caught it. Sweep on the BARE name.
+The same trap applies to any sanitizer used as a `.map`/`buildList` callback.
+
+★ KNOWN latent divergence, deliberately not fixed: `updateRaid` stores
+`{ ...merged, noteLog: existing.noteLog }` but returns `toRaidSummary(merged)`. A no-op today
+(`toRaidSummary` reads none of the re-applied fields), but it is the only sibling update path where
+what the model is TOLD is not derived from what was PERSISTED, so a future field joining both lists
+would hand the model a stale value. Hoisting one `saved` const fixes it and costs one line —
+`use-chat-dispatcher.ts` is at **799** of a hard **800** ceiling with no baseline entry, and spending
+the last line to pre-empt a hypothetical is the same trade this batch already refused for §48's
+belt-and-braces merge. Take the line when the file is split, not before.
+
+★ The same shape has NOT been checked on the other sanitizers. `sanitizeRaidItem` is the one with a
+write-through field; whether any other entity sanitizer drops a field its callers hold is open.
+
+---
+
+## 50. Undo of a BULK edit reverts write-through fields — open, pre-existing, DATA LOSS
+
+`undo-stack.ts:89` restores an edit-image with `out[findIndex(...)] = item` — a **whole-row replace**
+using the before-image captured at bulk-apply time. `use-resource-planner.ts` `captureRaidBulkUndo`
+snapshots whole rows (`edited = raid.filter(...)`).
+
+Sequence: select 3 RAID rows → bulk-set severity → open the notes window on one → add a note → Ctrl+Z.
+**The note is gone.**
+
+★★ **REDO DOES BRING IT BACK — an earlier revision of this entry said it did not, and that was wrong.**
+The forward image is NOT a snapshot taken at capture time; it is built from the LIVE array at UNDO time
+(`use-undo-stack.ts:199` `buildForwardImages(before, prev, remap)`, and `undo-stack.ts:185` resolves each
+edit image via `afterArray.find(...)`). So the note is in the redo image and comes back. The loss is
+recoverable — but only by an immediate redo, which also re-applies the bulk edit the user was trying to
+undo. ★ This matters because of the test instructions below: asserting that redo also loses the note
+would FAIL against correct code and send you debugging a path that is not broken.
+
+★★ This is §48's defect class — a stale whole-row snapshot clobbering write-through content —
+relocated into the undo engine. The per-FIELD undo path is immune (`captureFieldEdit` merges
+`{...r, ...patch}` over the live row); only whole-row `capture()` is affected.
+
+★★ **Deliberately NOT fixed in 0.211.1, and the reason is scope, not doubt.** It is the SHARED undo
+engine: `applyUndoRestoreWithRemap` serves every entity, and `Task` carries `noteLog` too, so the same
+sequence very likely loses task notes — **unverified, check before assuming**. Fixing it means deciding
+whether write-through fields are preserved engine-wide (needs a per-entity list of which fields those
+are) or whether RAID/task bulk edits capture field-wise instead. Either is a design slice, and patching
+shared undo machinery in the fourth review round of an unrelated batch is how a regression ships.
+
+**Fix when taken:** either preserve the live row's write-through fields in the edit branch
+(`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
+capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
+a fixture that adds it before passes either way (the §48 trap, restated).
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
@@ -1428,6 +1904,51 @@ believing a severity label.
 Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
 it is, and because several entries are **negative results** — work already done that returned nothing,
 which is exactly the kind of thing that gets re-run.
+
+### 0.211.1 — the small-correctness batch (§11 · §14 · §15 · §29)
+
+| was | what closed it |
+|---|---|
+| §11 abort check misreports a cancel | pure `abort-error.ts` `isAbortError` (reads `.name`, never `instanceof`), applied at all four sites; the two that also read `signal.aborted` keep that short-circuit |
+| §14 two per-device keys | actuals cache re-keyed to the canonical id, **no fallback** — a pre-existing cache is orphaned and refetched once |
+| §15 two file-picker shapes | `FilePickerButton`; theme-gallery, color-scheme-editor **and** branding-image-input migrated |
+| §29 dead `form.noteLog` | field removed from `emptyForm`, so the derived `TaskFormDraft` dropped it and `tsc` found every stale literal |
+
+★★★ **THE BATCH'S OWN LESSON: three of the four entries were WRONG about their own fix, and only
+review caught it.** §11 recommended leaving two sites alone (defensible, overridden — see there) —
+and, it later turned out, was wrong about the defect *existing at all* (see §11's own correction).
+§14 specified a read-both migration that shipped and had to be **reverted**, then a migrate-once
+variant that was specified and rejected before it was built. §15 scoped itself to two call sites when
+there were three, and looking at the third and the excluded fourth produced §46 and §47. An entry in
+this register records what was known when it was written, and that is not the same as what is true when
+you come to act on it — **re-derive the fix, do not just execute the entry.**
+
+★★ **Vacuity kept being the real risk, not correctness.** Most tasks ended with a deliberate mutation
+to prove the tests discriminate, and that step earned its keep repeatedly: 6 of 7 new store tests
+passed *before* the fix (extra arguments are runtime no-ops in JS, so a two-arg call against a one-arg
+function ignores the second silently); a control test asserting a genuine error still errored passed
+both before and after; and the §14 panel wiring turned out to be pinned by **nothing** until a test was
+added for it specifically. A green suite said almost nothing on its own.
+
+★★★ **AND THE MUTATION STEP WAS ITSELF SKIPPED ONCE — this paragraph originally claimed "every task",
+which review disproved.** `file-picker-button.test.tsx`'s "fires again when the same file is picked
+twice" shipped VACUOUS: it minted a **fresh `File` per upload**, and user-event skips the change event
+only on OBJECT IDENTITY (`upload.js`, `files.every((f, i) => f === input.files.item(i))`), so the event
+fired regardless and deleting `e.target.value = ""` left it green. The one property of the new
+primitive with no other coverage had a test named for it that could not fail. Fixed by hoisting a
+single `File` instance and re-mutating: reset removed ⇒ that test alone fails; `aria-hidden` removed ⇒
+the new AT test alone fails. ★ **Both reviewers found this independently**, one primed and one cold —
+the strongest possible signal, and worth more than either verdict alone.
+
+★ Not fixed, recorded instead: the `-strong`-token and `dup:check` observations stand, and the three
+hand-written correct abort reads (`chat-panel`, `use-alloc-plan`, `use-raci-suggest`) were left alone.
+
+★★ **Review round 2 (post-release, pre-merge) also corrected the DOCS in three places** — each a claim
+contradicted by the code it described, in the batch's own final docs commit: AGENTS.md said the
+note-count was "a literal `0`" when the code shows none; it called `FilePickerButton` the "ONLY
+sanctioned way to open a file dialog", which reads as flagging `step0-import-panel.tsx`'s perfectly
+correct VISIBLE input; and the note-log guarantee was written as if app-wide when RAID still has the
+whole defect (§48). The register is not exempt from the rule it exists to enforce.
 
 ### 49-finding audit campaign (2026-07-06 → 07-10) — **37/49 merged**
 

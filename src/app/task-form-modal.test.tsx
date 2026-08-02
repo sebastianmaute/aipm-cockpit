@@ -240,17 +240,12 @@ describe("TaskFormModal — Documents field", () => {
 // Inline note log (slice B)
 // ---------------------------------------------------------------------------
 
-// TWO entries. The stubbed `form.noteLog` below deliberately holds ONE, so the
-// summary count can only read "2" if it reads the LIVE workspace panel props —
-// same-length fixtures would pass whichever source the code happened to use.
+// TWO entries, so the summary count is distinguishable from the unsaved-task
+// fallback's 0. There is no competing draft copy any more — the form carries
+// no note log (open-followups §29) — so the count can only come from these.
 const PANEL_ENTRIES: NoteLogEntry[] = [
   { id: 1, timestamp: "2026-01-01T10:00:00Z", html: "<p>Kickoff held</p>", text: "Kickoff held", authorResourceId: 1, authorName: "Alice Anders" },
   { id: 2, timestamp: "2026-01-02T10:00:00Z", html: "<p>Charter signed</p>", text: "Charter signed", authorResourceId: 1, authorName: "Alice Anders" },
-];
-
-// One STALE draft entry, distinguishable from the panel's two by length AND body.
-const DRAFT_NOTE_LOG: NoteLogEntry[] = [
-  { id: 9, timestamp: "2025-12-01T10:00:00Z", html: "<p>Stale draft note</p>", text: "Stale draft note", authorResourceId: 1 },
 ];
 
 function notePanelProps(over: Partial<NoteLogPanelProps> = {}) {
@@ -285,7 +280,7 @@ function openNotesDisclosure(): HTMLDetailsElement {
 
 describe("inline note log (slice B)", () => {
   beforeEach(() => {
-    stubTaskForm({ noteLog: DRAFT_NOTE_LOG });
+    stubTaskForm();
   });
 
   it("renders the log inline and writes through on add", async () => {
@@ -294,10 +289,9 @@ describe("inline note log (slice B)", () => {
     render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
 
     openNotesDisclosure();
-    // Read path: the LIVE workspace entries render, not the draft's.
+    // Read path: the LIVE workspace entries render.
     expect(screen.getByText("Kickoff held")).toBeInTheDocument();
     expect(screen.getByText("Charter signed")).toBeInTheDocument();
-    expect(screen.queryByText("Stale draft note")).toBeNull();
 
     const surface = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
     await user.click(surface);
@@ -317,7 +311,8 @@ describe("inline note log (slice B)", () => {
   it("keeps the disabled Notes button for an unsaved task", () => {
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     // No panel threaded (a new draft has no id to write to) → the launcher button.
-    const button = screen.getByRole("button", { name: `${t(EN, "noteLogTitle")} (1)` });
+    // No count is shown at all for this fallback (see task-form-fields.tsx).
+    const button = screen.getByRole("button", { name: t(EN, "noteLogTitle") });
     expect(button).toBeDisabled();
     expect(button.closest("details")).toBeNull();
   });
@@ -325,9 +320,9 @@ describe("inline note log (slice B)", () => {
   it("shows the live entry count in the summary", () => {
     const { taskNotePanel } = notePanelProps();
     render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
-    // Panel holds 2, the draft holds 1 — so "(2)" proves the live source.
+    // The panel holds 2 and the unsaved-task fallback renders NO count at all,
+    // so "(2)" can only have come from the live panel props.
     expect(screen.getByText(`${t(EN, "noteLogTitle")} (2)`)).toBeInTheDocument();
-    expect(screen.queryByText(`${t(EN, "noteLogTitle")} (1)`)).toBeNull();
   });
 
   it("reaches the notes disclosure by keyboard", async () => {

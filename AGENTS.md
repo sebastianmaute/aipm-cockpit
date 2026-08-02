@@ -502,7 +502,38 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ The form must never write `noteLog` back: the log is WRITE-THROUGH and owns itself, so a draft
   that snapshots it at modal-open and spreads it over the live row on save silently destroys any note
   added while the editor was open (real data loss, fixed 0.209.0 — `use-task-submit.ts` deliberately
-  omits `noteLog` from its payload).
+  omits `noteLog` from its payload). ★ 0.211.1 went further and removed the field from the DRAFT too:
+  `emptyForm` carries no `noteLog`, so `TaskFormDraft` (a `ReturnType<typeof emptyForm>`) has no such
+  key and there is nothing for a future writer to put back into `payload`. The unsaved-task fallback
+  button shows NO count at all — a hardcoded `0` would be true only by WIRING (task-manager gates
+  `taskNotePanel` on `editingId !== null`), not by construction. Re-adding the field is a typecheck
+  error before it is a data-loss bug — keep it that way.
+  ★★★ RAID HAD THE SAME DEFECT AND IT IS FIXED DIFFERENTLY — do not copy the task approach there.
+  `raid-panel.tsx` seeds `useState<RaidItem | null>` with a full-row SNAPSHOT at edit-open, the notes
+  window is owned ABOVE the panel (`task-manager.tsx` `openRaidNotes`) and commits write-through to the
+  workspace `raid` array the snapshot never sees, and the save is a full row REPLACE — so open RAID
+  editor → Notes → add a note → Save destroyed it (fixed 0.211.1, `docs/open-followups.md` §48).
+  ★★ The task fix (OMIT the field from the payload) would be WORSE here: because the RAID save
+  REPLACES the row, a payload without `noteLog` erases the log outright. `use-resource-planner.ts`
+  instead builds `withStamp` with `noteLog` taken from the STORED row (`previous`), never the payload.
+  ★★ It must land on `withStamp` and not only inside `setRaid` — `RAID_UNDO_GROUPS` is `[]`, so
+  `changedFieldGroups` emits ONE capture PER changed key and a stale `noteLog` becomes undoable/
+  redoable state. `NEVER_CAPTURE` is only `{id, localModifiedAt}`, so nothing else suppresses it.
+  ★ The modal's `draft.noteLog?.length ?? 0` count still reads the stale snapshot, so it can
+  under-report while the notes window is open. Cosmetic (the log itself is safe now) — left open.
+  ★★★ **`sanitizeRaidItem` DROPS `noteLog` and CANNOT be taught to keep it.** It builds from an
+  explicit field list, and `sanitizeNoteLog` → `sanitizeNoteHtml` → DOMPurify is DOM-BOUND while the
+  entity sanitizers must stay DOM-free (they run under bare node in the sample generator — same
+  constraint as §36(a)). So ANY caller that sanitizes an EXISTING RAID row silently erases its log.
+  `use-chat-dispatcher.ts` `updateRaid` did exactly that until 0.211.1 and every AI edit to a RAID item
+  wiped its notes unrecoverably (no undo on AI writes) — it now re-applies the stored log after
+  sanitizing (`docs/open-followups.md` §49). The other THREE callers are CREATES and safe. ★ A NEW
+  `sanitizeRaidItem` call site must ask whether it holds a stored row; nothing gates this. ★★ Sweep on
+  the BARE name — `ai-project-proposal.ts:287` passes the sanitizer by REFERENCE into `buildList`, so
+  `grep 'sanitizeRaidItem('` misses it (that trap produced a wrong count here first time round, and it
+  applies to any sanitizer used as a `.map`/`buildList` callback).
+  ★★ STILL OPEN (§50): whole-row `capture()` undo restores a stale row, so undoing a BULK edit reverts
+  the note log. Shared engine (`undo-stack.ts:89`), so tasks are likely affected too — unverified.
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
   escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
@@ -1706,7 +1737,23 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `SortHeaderButton`/`ColumnResizeHandle`. Display: `RagDot`/`RagBadge`, `Badge`, `CountBadge`,
   `ProgressTrack`, `FieldError`/`ModalFieldError`/`FieldHint`, `InfoTooltip`, interaction atoms
   `INTERACTIVE`/`FOCUS_RING`/`TRANSITION`/`PRESS` (`interaction-styles.ts`). Link pickers:
-  `EntityLinkPicker` (`entity-link-picker.tsx`).
+  `EntityLinkPicker` (`entity-link-picker.tsx`). File dialogs: `FilePickerButton`
+  (`file-picker-button.tsx`).
+  ★★ **A VISUALLY-HIDDEN file input belongs to `FilePickerButton` and nothing else** (0.211.1) — a DS
+  `Button` plus the `sr-only` input it owns. ★ Scope precisely: this does NOT ban every
+  `<input type="file">`. A VISIBLE one is fine and `step0-import-panel.tsx` correctly keeps one (it is
+  focusable, keyboard-operable and labelled — none of the three defects below can occur). The banned
+  shape is specifically a HIDDEN input driven by a `<label>`. Three properties are load-bearing and each
+  closes a real defect:
+  the input is `sr-only` and NEVER `display:none` (a `display:none` input can't be clicked in every
+  browser); it carries `tabIndex={-1}` + `aria-hidden` or it is a SECOND tab stop announcing the same
+  accessible name as the Button (axe reports MISSING names, never DUPLICATED ones, so nothing automated
+  catches that); and it is a real `<button>`, because a `<label>` is NOT focusable and a `focus:ring` on
+  one can never render (WCAG 2.4.7 — axe has no focus-visibility rule either). It owns NO validation:
+  `onFile` hands back the raw `File` and the caller keeps its own mime/size checks (see
+  `branding-image-input.tsx`). ★ Do NOT hand-roll a `<label>`-wrapping-`sr-only-input` picker; that shape
+  is what this replaced (`docs/open-followups.md` §15, §46). `chat-panel.tsx` still hand-rolls one with
+  `display:none` — that is §47, not a precedent.
   ★★ **THREE link/chip pickers, one per problem — pick by shape, don't merge them:**
   `EntityLinkPicker` = chips + search dropdown over an UNBOUNDED set, entity-agnostic (caller maps its
   entity to a flat `LinkPickerEntry {id, code, label}` and OWNS both the query state and the option
@@ -2372,7 +2419,7 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **TAF envelope:** Timelog Web API v1 wraps responses as `{Entities:[{Properties}]}` (lists) or `{Properties}` (single) — `unwrapTaf` in `timelog-api.ts` normalises both. Time reads are self-scoped (token owner); org-wide needs the `approval/timesheets/...with-rejected-time-tracking-items?employeeUserId` endpoint, gated by `RegistrationAllTasks` privilege probe (`scopeMode` auto/self/org).
 - **Secret:** `timelogApiToken` is the 4th `SecretId` (device-sealed only; the 6-edit lockstep applies — `SecretId` union, `isSealedSecret` allowlist, `readStore` allowlist loop, `migratePlaintextSecrets`, `writeSettings` blank, `hydrateSecretsInto`, + `saveSecretValue` seal-on-edit in `timelog-settings.tsx`). `settings.timelog` is TOP-LEVEL (mirrors `settings.jira`, NOT under `integrations`).
 - **`Workspace.timelogLinks`** persists as a JSON meta-blob (same pattern as `steeringCommittee`): 6 write paths (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB). NOT a `TABLE_NAMES` entry, NOT a column; excluded from exports; absent workspace stays byte-stable.
-- **Actuals cache:** fetched actuals are per-device (`aipm-cockpit:timelog-actuals`, mirrors `landing-state`; out of exports/Turso; cleared by `clearAppConfig`) — NOT workspace data. Pure `timelog-actuals.ts` aggregation routes unmapped user/project/null-bucket hours to an `unattributed` total (never dropped).
+- **Actuals cache:** fetched actuals are per-device (`aipm-cockpit:timelog-actuals`, mirrors `landing-state`; out of exports/Turso; cleared by `clearAppConfig`) — NOT workspace data. ★★ Keyed on the CANONICAL `portfolioCurrentId ?? "default"` (0.211.1), the same key the picker scope / `landing-state` / project-appearance use — NOT on `ws.project?.code`, which is user-editable and orphaned the cache on a rename. `timelog-panel.tsx`'s `projectCode` local keys NOTHING; it is only `useTimelogPickerScope`'s in-place project-switch signal and must keep receiving the code. ★ The store is one flat `Record<string, …>`, so never mix a second namespace into it (a code-keyed fallback let one project's "Clear all" delete another's entry — `docs/open-followups.md` §14). Pure `timelog-actuals.ts` aggregation routes unmapped user/project/null-bucket hours to an `unattributed` total (never dropped).
 - **Timelog panel module map:** `timelog-panel.tsx` is the orchestrator; the PURE presentational pieces are `timelog-people-table.tsx` (`TimelogPeopleTable` — the people-matching DataTable) and `timelog-apply-confirm.tsx` (`TimelogApplyConfirm` — the itemized apply confirm bar). Both take data + handlers as props and own no state (gantt convention).
 - **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period hours into the `actualHours` of the allocation line the booking's PERSON belongs to, via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ ATTRIBUTION (fixed — it previously folded the whole bucket total into `allocations[0]`, so `computeBucketReport`'s `cost += aActual * internal` costed EVERY person at the first role's rate): `ActualsByBucket` cells carry an OPTIONAL `byResource` breakdown (`BucketPeriodCell`), and `allocationIndexFor` routes each person by `allocation.resourceIds` first, else their directory `Resource.roleId` → `allocation.roleId` (blended: role's `disciplineId` → `disciplineAllocation.disciplineId`). ★★ The panel passes **`matchableResources`** (internal only), NOT `ws.resources`, and `allocationIndexFor` returns `null` for anyone ABSENT from that list — checked BEFORE the `resourceIds` match, which otherwise never consults the directory. `isExternal` means capacity-only/excluded from all cost figures, but `autoMatchUsers` passes MANUAL links through unconditionally, so a hand-linked external does reach `byResource`; without both halves of this guard their hours land on a role line and `budget-report` costs them at its internal rate (review-caught). A dangling `resourceIds` ref to a deleted resource is withheld for the same reason. ★★ Apply OWNS every target line of a period that routed at least one NON-ZERO booking (`hc.hours !== 0` gates `routedPeriods.add`) — a person whose hours net to zero (a +4/-4 credit correction) says nothing about the period, so on its own it must not claim every line and zero a HAND-ENTERED figure; their own line is still written to 0 when some other booking arms the period — a line with no bookings in such a period is written to **0**, never skipped, or a stale total (e.g. one left by the old `allocations[0]` behaviour) survives beside the new per-role numbers and DOUBLE-COUNTS the bucket. ★★ A period whose hours were ENTIRELY unattributable is EXCLUDED from `Routed.periods` and nothing is written for it — ownership exists to clear a stale total the same period is about to replace, so with nothing to replace there is nothing to clear. Do NOT revert this to `Object.keys(periods)`: `use-timelog-sync` seeds `aggregates` from the persisted cache, so an upgraded user whose cached cells predate `byResource` would zero EVERY line in one click (review-caught data loss). ★ KNOWN consequence of that exclusion: within ONE bucket a routed period is rewritten per-role while an unroutable period keeps whatever a previous apply left — mixed provenance in a single bucket total. Accepted (the alternative is the data loss above); the unmatched notice is what tells the user some periods were skipped. ★★ Hours matching NO line (unlinked person, `roleId: null`, external/unknown resource, role absent from the bucket, or a pre-breakdown cached cell with no `byResource` — the empty-breakdown guard is `cell.hours !== 0`, NOT `> 0`, since TimeLog emits negative credit corrections) are WITHHELD and surfaced via the `timelogApplyUnmatched` notice (fed by `buildApplyPlan().unmatchedBuckets` — `bucketsWithUnmatchedHours`/`planApply` are now test-only wrappers, NOT the runtime path) — never written to an arbitrary line, which is the original defect at another role's rate. ★★ The notice also carries `unmatchedHours` (NET withheld hours), because a bare bucket count told the user something was wrong but not how far off the budget would read. Gate the notice on `unmatchedBuckets`, NEVER on `unmatchedHours` — a +40/-40 credit-correction pair nets to ZERO while hours are still being withheld. ★★ `actualHours` is a USER-EDITABLE input (`budget-panel.tsx` `onActual`), so period-ownership can zero a HAND-ENTERED figure on a line TimeLog never routed to (PM types 40h for a designer who books no time; someone else books that week; the 40 → 0). The confirm dialog therefore ITEMIZES every row via `describeApplyRows` (bucket · role/discipline line · period · current → next) instead of showing a bare count — do NOT revert it to a count, that is a silent overwrite of user-entered financial data. `describeApplyRows` reuses `roleLabel` (a `Role` has NO name of its own — it is discipline × grade). `byResource` is optional because the per-device actuals cache persists aggregates and its guard only shallow-checks `aggregates`; a re-fetch repopulates it. ★ `planApply` rows are per bucket·**allocIndex**·period and OMIT unchanged lines, so the confirm modal's count means "changes that will be written". ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; ★ `granularity` is a REQUIRED arg (no default — a silent "month" fallback was removed; a monthly key on a weekly plan silently drops hours from win/loss). ★ `aggregateActuals` builds project refs from items but SKIPS `projectId <= 0` (absence/non-project time → would render a blank Projects row). ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
 - **`timelog` view IS in axe `A11Y_VIEWS`** ("Time bookings"); project-row discovery comes from `useTimelogSync().projectRefs` (distinct projects in fetched items) merged with already-linked projects.
