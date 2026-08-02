@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.211.1";
-export const APP_BUILD_DATE = "2026-07-31"; // 0.211.1: small-correctness batch — abort check, timelog cache key, FilePickerButton (Samatar)
+export const APP_VERSION = "0.212.0";
+export const APP_BUILD_DATE = "2026-08-02"; // 0.212.0: toolbar order + Open Points column geometry (Nayler)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.211.x line is "Samatar" (Sofia Samatar, speculative-fiction author). */
-export const APP_MILESTONE = "Samatar";
+ *  0.212.x line is "Nayler" (Ray Nayler, speculative-fiction author). */
+export const APP_MILESTONE = "Nayler";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -256,4 +256,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0209",
   "versionHighlight0210",
   "versionHighlight0211",
+  "versionHighlight0212",
 ] as const;

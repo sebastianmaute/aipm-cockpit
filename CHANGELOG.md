@@ -8,6 +8,42 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.212.0] - 2026-08-02 "Nayler"
+
+Toolbar ordering in two panes, and a table-geometry fix that reclaims the wasted
+space at both edges of Open Points.
+
+### Fixed
+
+- **Open Points no longer pads its narrow columns.** The table is laid out with
+  `table-layout: fixed`, and when the table is wider than the sum of its declared
+  columns the browser hands the surplus out *equally to every column* rather than
+  in proportion to their widths. A 36px checkbox column therefore gained as much
+  as a 200px content column — invisible on the wide ones, roughly a third wider on
+  the narrow ones. That is the padding around the gutter, checkbox, health-dot and
+  relations columns. The Task column is now the single flexible one and absorbs the
+  whole surplus, so the utility columns render at the width they were given and
+  task titles get the rest.
+- **Dragging the Task column still works, and still wins.** Once dragged it holds
+  the chosen width instead of flexing; "reset columns" restores the flexible
+  layout.
+- **Planning's "Hide externals" sits beside the Outlook calendar controls.** It had
+  been separated from them by the spacer that pushes that group to the right, while
+  the Workload view already rendered the two together.
+- **The RACI matrix leads its toolbar with "Suggest RACI"**, rather than tucking the
+  pane's primary action in among Print and Reset.
+
+### Changed
+
+- Column widths are retuned to what each column actually holds: the health dot
+  36→28px, relations 120→96px and the row-actions menu 36→32px. The checkbox column
+  is unchanged at 36px.
+- Saved column widths now record only the columns you actually dragged. Previously
+  the whole width map was written the first time a table was displayed, which meant
+  later changes to a default width could never reach anyone who had ever opened that
+  table. Open Points discards its stored widths once as part of this change so the
+  retuned defaults apply; other tables keep theirs.
+
 ## [0.211.1] - 2026-07-31 "Samatar"
 
 A small-correctness batch closing four entries from the open-followups register.
