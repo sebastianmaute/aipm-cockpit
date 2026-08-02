@@ -73,6 +73,8 @@ import type { ToolDispatcher } from "./chat-tools";
 import { useHolidaySet } from "./use-holiday-set";
 import { TasksSection, type TasksSectionProps } from "./tasks-section";
 import { TASK_STATUSES } from "./types";
+import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
+import { visibleTaskCols } from "./open-points-table-geometry";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
 const mockUseFilters = useFilters as ReturnType<typeof vi.fn>;
@@ -1141,5 +1143,68 @@ describe("TasksSection", () => {
     });
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
+  // Geometry, not pixels: jsdom has no layout engine, so assert what we EMIT.
+  describe("table geometry", () => {
+    function renderTable(over: Partial<TasksSectionProps> = {}) {
+      const task = { id: 1, taskName: "T1" };
+      stubWorkspace([task], [task]);
+      return render(<TasksSection {...makeProps()} {...over} />);
+    }
+
+    /** The <col>s in render order, paired with the column id each one carries.
+     *
+     *  ★ Derived, never hardcoded. cols[0] is the leading gutter, so the column
+     *  `visibleTaskCols(hidden)[i]` is cols[i + 1] — an index guessed from a
+     *  remembered column order silently lands on some OTHER narrow column and
+     *  the assertion then passes for the wrong reason. `makeProps()` passes an
+     *  EMPTY hiddenCols (it does not go through useColumnManager, so the
+     *  default-hidden set does not apply here) unless a test overrides it, and
+     *  the length assertion below is what proves the +1 offset actually holds. */
+    function colsById(container: HTMLElement, hidden: ReadonlySet<string> = new Set()) {
+      const cols = Array.from(container.querySelectorAll("colgroup col"));
+      const visible = visibleTaskCols(hidden);
+      expect(cols).toHaveLength(visible.length + 1);
+      return new Map(visible.map((col, i) => [col as string, cols[i + 1]]));
+    }
+
+    it("leaves taskName's <col> width-free so it absorbs the leftover", () => {
+      const { container } = renderTable();
+      const byId = colsById(container);
+
+      expect(byId.get("taskName")!.getAttribute("style") ?? "").not.toMatch(/width/);
+      // EVERY other column carries one — otherwise they would all go auto and
+      // share the leftover again, which is the bug this fixes.
+      for (const [col, el] of byId) {
+        if (col === "taskName") continue;
+        expect(el.getAttribute("style") ?? "", `${col} should declare a width`).toMatch(/width/);
+      }
+    });
+
+    it("emits a width for taskName once the user has sized it", () => {
+      const { container } = renderTable({ colWidths: { taskName: 420 } });
+      expect(colsById(container).get("taskName")!.getAttribute("style") ?? "")
+        .toMatch(/width:\s*420px/);
+    });
+
+    it("sets minWidth from the declared widths and drops it when a column hides", () => {
+      const { container, unmount } = renderTable();
+      const wide = (container.querySelector("table") as HTMLTableElement).style.minWidth;
+      unmount();
+
+      const { container: c2 } = renderTable({ hiddenCols: new Set(["priority"]) });
+      const narrow = (c2.querySelector("table") as HTMLTableElement).style.minWidth;
+
+      expect(parseInt(wide, 10) - parseInt(narrow, 10)).toBe(DEFAULT_COL_WIDTHS.priority);
+    });
+
+    it("no longer relies on width:max-content", () => {
+      // With an auto column present, max-content resolves against the longest
+      // task title, which would mean permanent horizontal scroll.
+      const { container } = renderTable();
+      const table = container.querySelector("table") as HTMLTableElement;
+      expect(table.style.width).toBe("100%");
+    });
   });
 });

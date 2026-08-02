@@ -3,10 +3,11 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_COL_WIDTHS, useColumnManager } from "./use-column-manager";
 
-// Width state is delegated to the shared useColumnResize (tableId "open-points"),
-// which owns the suffixed storage key + the debounced-persist behaviour (covered
-// by use-column-resize.test.ts). These tests cover what useColumnManager adds.
-const COL_WIDTHS_KEY = "aipm-cockpit:col-widths:open-points";
+// Width state is delegated to the shared useColumnResize (tableId
+// "open-points-v2"), which owns the suffixed storage key + the debounced-persist
+// behaviour (covered by use-column-resize.test.ts). These tests cover what
+// useColumnManager adds.
+const COL_WIDTHS_KEY = "aipm-cockpit:col-widths:open-points-v2";
 const HIDDEN_COLS_KEY = "aipm-cockpit:hidden-cols";
 
 describe("useColumnManager", () => {
@@ -33,6 +34,19 @@ describe("useColumnManager", () => {
       const { result } = renderHook(() => useColumnManager());
       await act(async () => {});
       expect(result.current.colWidths.taskName).toBe(300);
+    });
+
+    it("reads widths from the v2 table key, ignoring a stale open-points blob", () => {
+      // The pre-bump blob held all 18 keys, so it masked every default. Bumping
+      // the tableId is what lets the new declared widths actually reach a user
+      // who once dragged one unrelated column.
+      localStorage.setItem(
+        "aipm-cockpit:col-widths:open-points",
+        JSON.stringify({ status: 999, actions: 999 }),
+      );
+      const { result } = renderHook(() => useColumnManager());
+      expect(result.current.colWidths.status).toBe(DEFAULT_COL_WIDTHS.status);
+      expect(result.current.colWidths.actions).toBe(DEFAULT_COL_WIDTHS.actions);
     });
 
     it("loads hiddenCols from localStorage on mount", async () => {

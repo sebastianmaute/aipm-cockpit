@@ -38,7 +38,6 @@ import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { taskToGraphEvent } from "./outlook-calendar-write";
 import { calendarSyncFor } from "./calendar-sync-config";
-import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
@@ -58,7 +57,7 @@ import {
   Th,
 } from "./task-manager-ui";
 import { SortResizeTh } from "./report-table";
-import { ALL_TASK_COLS } from "./tasks-section-columns";
+import { colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
  *  reference-stable (a fresh `[]` each render would bust it). */
@@ -110,7 +109,9 @@ export interface TasksSectionProps {
   // column manager
   hiddenCols: Set<string>;
   setHiddenCols: React.Dispatch<React.SetStateAction<Set<string>>>;
-  colWidths: Record<string, number>;
+  /** ONLY the columns the user explicitly sized — an absent key is at its
+   *  default, which is what lets taskName render width-free. */
+  colWidths: Partial<Record<string, number>>;
   colConfigOpen: boolean;
   setColConfigOpen: React.Dispatch<React.SetStateAction<boolean>>;
   colConfigRef: React.RefObject<HTMLDivElement | null>;
@@ -511,7 +512,9 @@ export function TasksSection({
     }
   }
 
-  const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
+  const visibleCols = useMemo(() => visibleTaskCols(hiddenCols), [hiddenCols]);
+  const tableMinWidth = useMemo(() => tableMinWidthPx(visibleCols, colWidths), [visibleCols, colWidths]);
+  const visibleColumnCount = visibleCols.length;
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [deleteSelectedConfirmOpen, setDeleteSelectedConfirmOpen] = useState(false);
@@ -929,18 +932,16 @@ export function TasksSection({
         <RowContextProvider value={rowContextValue} tasksById={tasksById}>
           <table
             className="divide-y divide-line text-left text-sm"
-            style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
+            style={{ tableLayout: "fixed", width: "100%", minWidth: `${tableMinWidth}px` }}
           >
             <colgroup>
               {/* Leading gutter column matching the per-row hover Ask-Claude cell
                   and the leading <th> below — under table-layout:fixed a missing
                   <col> shifts every column's width to its left neighbour. */}
               <col className="w-7" />
-              {ALL_TASK_COLS
-                .filter((col) => !hiddenCols.has(col))
-                .map((col) => (
-                  <col key={col} style={{ width: colWidths[col] ?? DEFAULT_COL_WIDTHS[col] }} />
-                ))}
+              {visibleCols.map((col) => (
+                <col key={col} style={{ width: colWidthStyle(col, colWidths) }} />
+              ))}
             </colgroup>
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
