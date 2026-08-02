@@ -536,8 +536,10 @@ describe("ResourcesPanel", () => {
   //   that group — which is what this asserts. Do not "simplify" this back into an
   //   order assertion; that is the vacuous version.
   // ★ `CalendarSyncControls` returns null unless m365Configured && !isPopout &&
-  //   onToggleCalendar — without `calendarProps` there is no Outlook checkbox at all
-  //   and the assertion would pass for the wrong reason.
+  //   onToggleCalendar, so `calendarProps` is what gives this test an Outlook
+  //   checkbox to group against at all. Without it `getByRole` throws — the test
+  //   fails loudly rather than passing vacuously, but it would be failing on the
+  //   fixture, not on the grouping it exists to check.
   test("planning: Hide externals sits inside the trailing Outlook group", () => {
     render(
       <ResourcesPanel {...baseProps} {...calendarProps} view="planning" lang="en-US" plan={PLAN}
