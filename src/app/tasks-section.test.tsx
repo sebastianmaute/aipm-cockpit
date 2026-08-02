@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { t } from "./i18n";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 import { expectButtonOrder } from "../test/toolbar-order";
@@ -1205,6 +1205,30 @@ describe("TasksSection", () => {
       const { container } = renderTable();
       const table = container.querySelector("table") as HTMLTableElement;
       expect(table.style.width).toBe("100%");
+    });
+
+    // ★★ The flex column MUST NOT be hideable, and two separate things break if
+    //    it becomes so. (1) Geometry: taskName is the only <col> that emits no
+    //    width, so hiding it leaves NO auto column and the surplus goes back to
+    //    being split evenly across every column — the exact defect this whole
+    //    change removes, reachable again through a supported user action.
+    //    (2) Structure: its <th> renders UNCONDITIONALLY, unlike every hideable
+    //    column's, so `visibleTaskCols` would drop the <col> while the header
+    //    kept its cell — under table-layout:fixed that shifts every width onto
+    //    the neighbouring column. Neither is visible in jsdom or to axe, and
+    //    nothing else pins it: the guard is that taskName is absent from
+    //    CONFIGURABLE_COLS, which is a module-local list one edit away.
+    it("does not offer the flex column in the column-config popover", () => {
+      renderTable({ colConfigOpen: true });
+      const dialog = within(screen.getByRole("dialog", { name: t("en-US", "colConfigTitle") }));
+
+      // ★ Query by ACCESSIBLE NAME rather than scraping label textContent — the
+      //   name is what the checkbox actually exposes, and it is the thing a
+      //   future CONFIGURABLE_COLS entry would surface.
+      expect(dialog.queryByRole("checkbox", { name: t("en-US", "task") })).toBeNull();
+      // …and the popover really did render checkboxes, so the absence above is
+      // a fact about taskName rather than about an empty dialog.
+      expect(dialog.getAllByRole("checkbox").length).toBeGreaterThan(0);
     });
 
     // ★ The gutter is the one column tableMinWidthPx accounts for but does not
