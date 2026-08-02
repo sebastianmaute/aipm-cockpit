@@ -320,8 +320,8 @@ describe("inline note log (slice B)", () => {
   it("shows the live entry count in the summary", () => {
     const { taskNotePanel } = notePanelProps();
     render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
-    // The panel holds 2 and the unsaved-task fallback renders 0, so "(2)" can
-    // only have come from the live panel props.
+    // The panel holds 2 and the unsaved-task fallback renders NO count at all,
+    // so "(2)" can only have come from the live panel props.
     expect(screen.getByText(`${t(EN, "noteLogTitle")} (2)`)).toBeInTheDocument();
   });
 

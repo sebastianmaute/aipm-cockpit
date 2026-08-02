@@ -418,12 +418,16 @@ reject with a **same-realm `DOMException`**, so `e instanceof DOMException` was 
 guard returned early. The path was traced end to end for a re-wrap and there is none —
 `ai-forced-call.ts` lets the fetch rejection propagate verbatim (its only `throw`s are `AiHttpError` on
 `!res.ok` and `Error("parse")`), and neither `task-dedup-call.ts` nor `scheduled-job-analysis.ts`
-catches. Both hooks are `!isPopout`-gated, so there is no cross-realm case either. The `instanceof`
+catches. Both flows are popout-unreachable, so there is no cross-realm case either — though by two
+different mechanisms, and the earlier "both hooks are `!isPopout`-gated" was imprecise: `useTasksDedup`
+gates INTERNALLY (`use-tasks-dedup.tsx:86`), while `useActionAnalysis` mounts unconditionally and the
+gate sits on the PROP (`task-manager.tsx` `aiAnalysis: isPopout ? undefined : aiAnalysisBundle`), which
+is the only route to `analyze`. The `instanceof`
 only fails across the **jsdom/Node** boundary — which the correct-pattern comment quoted further down
 says in as many words, and which nobody noticed says *tests*, not *users*.
 
 So: **all four** sites catch nothing reachable, not two. What shipped is hardening plus one shape for
-five call sites. That is still worth having — but the CHANGELOG entry was written under **Fixed**
+four call sites. That is still worth having — but the CHANGELOG entry was written under **Fixed**
 claiming a user-visible error toast, and `abort-error.ts` carried a comment asserting the same as
 established fact. Both were corrected. Found by a COLD reviewer; the primed reviewer, holding this
 entry, re-derived the same wrong conclusion — the entry itself was the misinformation.
@@ -443,8 +447,12 @@ swallows any future AbortError-named rejection that did *not* come from its own 
 `setError(-1)`. Given `runGuarded`'s own "leave prior data + state intact" contract that is the desired
 direction, but it is a genuine widening of a silent-failure path, not a no-op.
 
-★ The line references below were already stale when this entry closed (`use-tasks-dedup.tsx:111` was
-really `:121`). Corrected in the sweep table. ★ The **pattern** is wider than the four sites this entry
+★★ **The line references in the historical write-up below are stale and were NOT corrected** — an
+earlier revision of this line claimed "Corrected in the sweep table" and nothing in that table was ever
+touched, which is the same self-referential falsehood this entry now exists to record. The table is
+left VERBATIM as the historical record; use these instead. Pre-fix `use-tasks-dedup.tsx` was `:121`,
+not the `:111` the table says. **Current lines:** `use-tasks-dedup.tsx:122` · `use-action-analysis.ts:35`
+· `use-project-proposal.ts:52` · `use-timelog-sync.ts:107`. ★ The **pattern** is wider than the four sites this entry
 named: `chat-panel.tsx:478`, `use-alloc-plan.tsx:167` and `use-raci-suggest.tsx:204` each hand-read
 `.name` correctly with their own four-line explanatory comment. None is a defect, so none was touched —
 but three verbatim copies are `dup:check` fuel, and the helper now exists to absorb them if that
@@ -474,8 +482,8 @@ if (errName === "AbortError") { setPhase("input"); return; }
 
 | site | shape | exposed? |
 |---|---|---|
-| `use-tasks-dedup.tsx:111` | bare `instanceof DOMException` | **YES** — falls through to an error toast |
-| `use-action-analysis.ts:34` | bare `instanceof DOMException` | **YES** — falls through to `setError(msg)` |
+| `use-tasks-dedup.tsx:111` | bare `instanceof DOMException` | ~~**YES** — falls through to an error toast~~ **DISPROVED — see the correction above** |
+| `use-action-analysis.ts:34` | bare `instanceof DOMException` | ~~**YES** — falls through to `setError(msg)`~~ **DISPROVED — see the correction above** |
 | `use-project-proposal.ts:51` | `signal?.aborted \|\| (instanceof …)` | no — the `signal.aborted` read catches it first |
 | `use-timelog-sync.ts:106` | `signal.aborted \|\| (instanceof …)` | no — same |
 
@@ -605,6 +613,11 @@ removes the hazard rather than relocating it.
 **wholesale** at file level, so no test there can observe a real cache lookup through a render. Pinning
 "what does the panel hand the hook" has to be done by asserting on the mock's call arguments — which is
 what the §14 guard does, following the one pre-existing precedent in that file.
+
+**The original write-up follows — present tense throughout, and NO LONGER TRUE at HEAD.** Kept for the
+reasoning, not the facts: `timelog-panel.tsx` now passes the canonical `projectId: projectKey`, so
+neither paragraph below describes today's code. (This marker was missing, so a top-to-bottom reader
+could have re-opened a closed bug — §11 and §15 both carry it.)
 
 ★ The project *code* is user-editable, so the actuals cache already orphans on a code rename today.
 That is the pre-existing bug this note records, not one slice C introduced.
@@ -1505,7 +1518,53 @@ be widened — the four shipped entities must not inherit occurrence semantics t
 
 ---
 
-## 45. Nine high `brace-expansion` advisories in the eslint dev chain — deferred, and the obvious fix DOES NOT WORK
+## 45. `brace-expansion` advisory in the eslint dev chain — deferred; the 5.x overrides do NOT work, but a 1.x pin was never tried
+
+★★★ **THIS ENTRY'S CENTRAL TECHNICAL CLAIM WAS FALSE AND ITS NUMBERS ARE STALE. Corrected 2026-08-02
+against a live `npm audit`; the original text is kept below the line so the executed negative results
+survive.** It asserted that "no 1.x release escapes" the advisory and concluded the sole remedy was an
+eslint major — then told the reader not to re-litigate. That combination is the dangerous one: a
+confidently-worded do-not-relitigate record steering the next maintainer past a fix that exists.
+
+What `npm audit` actually reports today:
+
+```
+brace-expansion  <1.1.17 || >=4.0.0 <5.0.8
+Severity: high
+fix available via `npm audit fix`
+1 high severity vulnerability
+```
+
+| the entry claimed | live, verified 2026-08-02 |
+|---|---|
+| "`npm audit` reports **9 high**" | **1 high**, total 1 |
+| "range is `<=5.0.7` **across all majors**" | **TWO** sources: `<1.1.17` (1.x) and `>=4.0.0 <5.0.8` (5.x) |
+| "no 1.x release escapes it — not 1.1.17, not 1.1.18" | **both are published and both clear it** (`npm view brace-expansion versions`) |
+| "`npm audit fix --force` offers exactly one remedy: eslint@10.8.0, a breaking major" | npm offers plain **`npm audit fix`** — no `--force`, no major |
+
+Installed today: `brace-expansion@1.1.16` (via `eslint@9.39.4` → `minimatch@3.1.5`) and `5.0.7` (via
+`typescript-eslint` → `minimatch@10.2.5`). **Both are exactly one patch below a clean release**
+(1.1.17 / 5.0.8).
+
+★★ **The untried remedy is a MAJOR-SCOPED pin on the 1.x side.** Both executed attempts below targeted
+the **5.x** side, which is why both failed — one broke `minimatch@3`, the other upgraded the branch
+that was not the problem. The obvious third form was never attempted, because this entry's false
+premise ruled it out:
+
+```jsonc
+"overrides": { "brace-expansion@1": "^1.1.17", "brace-expansion@5": "^5.0.8" }
+```
+
+★ **Re-run `npm audit` before acting on this entry.** The advisory ranges have already moved once
+between it being written (2026-07-31) and being corrected (2026-08-02) — a 1.x backport landed. Treat
+every number here as a measurement with a date, not a property.
+
+★ Deliberately NOT fixed in 0.211.1: that batch is scoped to four register entries, and a dependency
+change means lockfile churn plus a full re-verification (the `--max-warnings=0` gate makes any eslint
+tree movement a real risk). The blocking CI gate is unaffected either way — see below.
+
+**The original write-up follows, with its two EXECUTED negative results intact — those still stand,
+they simply do not exhaust the option space.**
 
 `npm audit` reports **9 high** (GHSA-mh99-v99m-4gvg — DoS via unbounded expansion → OOM). `npm audit
 fix --force` offers exactly one remedy: **eslint@10.8.0, a breaking major**.
@@ -1520,11 +1579,16 @@ reasoned about — do not repeat them.**
 
 **Why neither can work.** The tree holds two majors: `brace-expansion@1.1.16` under **six**
 `minimatch@3.1.5`, and `brace-expansion@5.0.7` under one `minimatch@10.2.5`. All nine advisories
-chain through the **1.x** side. The advisory range is `<=5.0.7` **across all majors**, so no 1.x
+chain through the **1.x** side. ~~The advisory range is `<=5.0.7` **across all majors**, so no 1.x
 release escapes it — not 1.1.17, not 1.1.18 — and the only clean versions (5.0.8+) are exactly the
-ones `minimatch@3` cannot load. So the sole fix is removing `minimatch@3` from the tree, and it is
-held there by `eslint-plugin-import` / `eslint-plugin-jsx-a11y` / `eslint-plugin-react` /
-`@eslint/eslintrc` via `eslint-config-next`. npm's advice was right; the clever alternative is not.
+ones `minimatch@3` cannot load. So the sole fix is removing `minimatch@3` from the tree~~ ← **FALSE,
+see the correction above: there are two advisory sources, and `brace-expansion@1.1.17`+ clears the 1.x
+one.** `minimatch@3` is
+held there by `eslint-plugin-import` / `eslint-plugin-jsx-a11y` / `eslint-plugin-react` via
+`eslint-config-next`, and by `@eslint/eslintrc` + `@eslint/config-array` via **`eslint` itself** (not
+`eslint-config-next` — the original text attributed all four to the config package). ~~npm's advice was
+right; the clever alternative is not.~~ ← npm's advice has since changed to a non-breaking
+`npm audit fix`.
 
 **Why it is deferred rather than fixed.**
 - ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
@@ -1541,8 +1605,10 @@ and `eslint-plugin-react-hooks` both list `^10.0.0`. The risk is entirely in rul
 resolution.
 
 ★★ **The WEEKLY `dependency-audit-full` job DOES include dev deps and all severities, so it will keep
-reporting these nine.** That is expected, not a regression — this entry exists so the finding is not
-re-litigated from scratch each week, and so nobody re-attempts the overrides above.
+reporting this.** That is expected, not a regression — this entry exists so the finding is not
+re-litigated from scratch each week, and so nobody re-attempts the two overrides above. ★ It is
+**one** high now, not nine; if the weekly job reports a different count than this entry, the entry is
+the stale one — re-measure, don't reconcile.
 
 **To close:** upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
 `npx eslint --max-warnings=0 src/app` against the full rule set, and expect to fix drift rather than
@@ -1553,8 +1619,9 @@ merely bump a version. Current: eslint `^9` (9.39.4).
 ## 46. A `<label>`-wrapped file input can never show a focus ring — pattern open
 
 Found while grounding §15, and not in that entry. `color-scheme-editor.tsx` and
-`branding-image-input.tsx` both put `INTERACTIVE` (which ends in `focus:ring-2`) on a `<label>` that
-wrapped an `sr-only` `<input type="file">`.
+`branding-image-input.tsx` both put a `focus:ring-2` on a `<label>` that wrapped an `sr-only`
+`<input type="file">` — via `INTERACTIVE` in the first and `FOCUS_RING` in the second (an earlier
+revision here named `INTERACTIVE` for both; the atom differs, the defect does not).
 
 ★★ **The focus indicator did not merely go unstyled — it VANISHED, and it took two separate facts to
 do it.** (1) A `<label>` is not a form control and carried no `tabindex`, so `focus:ring-2` compiles to

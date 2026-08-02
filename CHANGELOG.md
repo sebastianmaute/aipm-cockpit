@@ -36,7 +36,7 @@ A small-correctness batch closing four entries from the open-followups register.
   focus instead landed on a visually-clipped input. They are real buttons now.
 - Realigned button sizing where the shared control had changed a control's size
   relative to its neighbours. The scheme editor's Import button is restored
-  exactly (`size="xs"` matches the local class string byte for byte); the
+  exactly (`size="xs"` reproduces every visual class of the local string); the
   branding row's picker and its Remove twin both moved up to `size="sm"`
   together, so that row is internally consistent but slightly larger than before.
 - **The task form no longer carries a dead note-log field.** The note log writes
