@@ -84,6 +84,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
 | 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
 | 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
+| 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
+| 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -1762,6 +1764,66 @@ trap it inherits: a fixture that never adds a note while the editor is open pass
 ★ Sweep the same shape at the other snapshot-then-replace editors before assuming RAID is the only
 one; the pattern is a full-row `useState` draft plus a write-through side channel, not anything
 specific to notes.
+
+---
+
+## 49. ~~Every AI edit to a RAID item erased its whole note log~~ — CLOSED in 0.211.1
+
+**Was:** `use-chat-dispatcher.ts` `updateRaid` round-tripped the merged item through `sanitizeRaidItem`
+and wrote the result back. That sanitizer builds its result from an EXPLICIT field list and `noteLog`
+is not in it, so a patch as small as *"push R#3's target date to June"* **deleted every note on the
+item**. AI tool writes capture no undo, so it was unrecoverable. Also reachable from Insights → Apply
+recommendation (`update_raid_item` is in `ALLOWED_REC_TOOLS`). Found by an adversarial reviewer
+attacking §48's fix; `noteLog` appeared **zero** times in `use-chat-dispatcher.test.tsx`.
+
+**Resolution:** `updateRaid` re-applies the STORED `noteLog` after sanitizing. Same "stored row wins"
+rule as §48, and safe because `noteLog` is write-through and appears in no AI tool schema, so a patch
+can never legitimately carry one. Reproduced RED first (`expected undefined to deeply equal
+[ 'keep' ]`).
+
+★★★ **THE OBVIOUS FIX IS FORBIDDEN, AND THE REVIEWER'S PRIMARY SUGGESTION WAS IT.** "Carry `noteLog`
+through `sanitizeRaidItem` via `sanitizeNoteLog`" would close it for every present and future caller —
+and it CANNOT BE DONE. `sanitizeNoteLog` calls `sanitizeNoteHtml`, which calls DOMPurify, which binds
+`window` at module-eval; the entity sanitizers run under **bare node** in
+`scripts/generate-sample-workspace.ts`, where the call throws and `jsonToWorkspace`'s catch-all
+swallows it into an EMPTY workspace that then "successfully" writes near-empty sample files. This is
+the same DOM-free constraint that already forces `templates.ts` `sanitizeSeedTask` to skip the
+allow-list (§36(a)). **Do not "complete the sweep" by importing it there.**
+
+★ Consequence to accept: the guarantee is per-CALLER, not central. The other two `sanitizeRaidItem`
+callers (`task-manager.tsx:1308`, `use-chat-dispatcher.ts` `createRaid`) are both CREATES on freshly
+built objects, so nothing is lost today — but a FUTURE caller that sanitizes an existing RAID row will
+re-open this, and no gate will catch it. A new call site must ask whether it holds a stored row.
+
+★ The same shape has NOT been checked on the other sanitizers. `sanitizeRaidItem` is the one with a
+write-through field; whether any other entity sanitizer drops a field its callers hold is open.
+
+---
+
+## 50. Undo of a BULK edit reverts write-through fields — open, pre-existing, DATA LOSS
+
+`undo-stack.ts:89` restores an edit-image with `out[findIndex(...)] = item` — a **whole-row replace**
+using the before-image captured at bulk-apply time. `use-resource-planner.ts` `captureRaidBulkUndo`
+snapshots whole rows (`edited = raid.filter(...)`).
+
+Sequence: select 3 RAID rows → bulk-set severity → open the notes window on one → add a note → Ctrl+Z.
+**The note is gone**, and redo restores the post-bulk snapshot, which also lacks it.
+
+★★ This is §48's defect class — a stale whole-row snapshot clobbering write-through content —
+relocated into the undo engine. The per-FIELD undo path is immune (`captureFieldEdit` merges
+`{...r, ...patch}` over the live row); only whole-row `capture()` is affected.
+
+★★ **Deliberately NOT fixed in 0.211.1, and the reason is scope, not doubt.** It is the SHARED undo
+engine: `applyUndoRestoreWithRemap` serves every entity, and `Task` carries `noteLog` too, so the same
+sequence very likely loses task notes — **unverified, check before assuming**. Fixing it means deciding
+whether write-through fields are preserved engine-wide (needs a per-entity list of which fields those
+are) or whether RAID/task bulk edits capture field-wise instead. Either is a design slice, and patching
+shared undo machinery in the fourth review round of an unrelated batch is how a regression ships.
+
+**Fix when taken:** either preserve the live row's write-through fields in the edit branch
+(`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
+capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
+a fixture that adds it before passes either way (the §48 trap, restated).
 
 ---
 

@@ -54,10 +54,12 @@ describe("useResourcePlanner — per-field edit undo", () => {
   //   `captureFieldChanges` diffs fields individually — a stale `noteLog` on the
   //   save payload is therefore not merely saved, it is RECORDED as a field edit
   //   and becomes undoable/redoable state.
-  //   ★ This test exists because the save-path test in use-resource-planner.test.tsx
-  //   does NOT cover it: the fix has two halves (the `withStamp` build and the
-  //   setter's `prev.map`), either of which alone keeps the note, so that test
-  //   passes with this half reverted. Mutation-verified in both directions.
+  //   ★ The fix is SINGLE-SITE — on the `withStamp` build (`use-resource-planner.ts`).
+  //   An earlier draft had a second merge inside `setRaid`; it was removed, so
+  //   reverting the one site now fails the save-path test too, not only this one.
+  //   ★ This test still earns its place: it pins a DISTINCT property — that no
+  //   spurious `noteLog` undo entry is recorded — which a future setter-only merge
+  //   would silently break while the save-path test stayed green.
   it("handleSaveRaidItem never records a stale noteLog as an undoable field edit", () => {
     const captureFieldEdit = vi.fn();
     const { result } = renderPlanner({ captureFieldEdit });

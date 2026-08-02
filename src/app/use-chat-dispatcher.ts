@@ -576,7 +576,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           localModifiedAt: new Date().toISOString(),
         });
         if (!merged) throw new Error("invalid RAID item update");
-        const next = raidRef.current.map((r) => (r.id === id ? merged : r));
+        // ★★★ Re-apply the STORED log — `sanitizeRaidItem` drops `noteLog` and cannot keep it (DOM-free). §49.
+        const next = raidRef.current.map((r) => (r.id === id ? { ...merged, noteLog: existing.noteLog } : r));
         raidRef.current = next;
         setRaid(next);
         return toRaidSummary(merged);
