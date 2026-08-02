@@ -58,12 +58,11 @@ import {
   Th,
 } from "./task-manager-ui";
 import { SortResizeTh } from "./report-table";
+import { ALL_TASK_COLS } from "./tasks-section-columns";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
  *  reference-stable (a fresh `[]` each render would bust it). */
 const EMPTY_RESOURCES: readonly Resource[] = [];
-
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","createdDate","priority","taskStatus","blockers","description","notesLog","depRelations","estimate","spent","actions"] as const;
 
 /** Fixed English friction phrase to confirm clearing all tasks (mirrors the
  *  factory-reset dialog). Deliberately not localized. */
