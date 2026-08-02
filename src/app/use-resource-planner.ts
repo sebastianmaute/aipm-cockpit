@@ -182,10 +182,12 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => {
       const stamp = new Date().toISOString();
       const { create, id } = resolveEntitySave(raid, item.id, isNew, () => nextRaidId(raid));
-      const withStamp: RaidItem = { ...item, id, localModifiedAt: stamp };
       // Only a genuine UPDATE of an existing Risk can auto-raise an Issue; a create
       // (re-minted id) has no meaningful `previous`.
       const previous = create ? undefined : raid.find((r) => r.id === id);
+      // ★★★ `noteLog` from the STORED row, never the payload — it is write-through
+      // and the editor's snapshot goes stale. Read open-followups §48 before editing.
+      const withStamp: RaidItem = { ...item, id, localModifiedAt: stamp, ...(create ? {} : { noteLog: previous?.noteLog }) };
       // Editing a row a concurrent writer already deleted: the map-replace below
       // would silently no-op. Surface it instead of dropping the edit in silence.
       if (!create && !previous) {

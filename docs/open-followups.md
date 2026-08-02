@@ -83,7 +83,10 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
 | 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
 | 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
-| 48 | RAID editor destroys notes added while it is open | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, §29's defect, task-scoped fix only |
+| 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
+| 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
+| 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
+| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open — 2nd flaky test; ★ mechanism NOT established, do not raise a timeout |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -418,12 +421,16 @@ reject with a **same-realm `DOMException`**, so `e instanceof DOMException` was 
 guard returned early. The path was traced end to end for a re-wrap and there is none —
 `ai-forced-call.ts` lets the fetch rejection propagate verbatim (its only `throw`s are `AiHttpError` on
 `!res.ok` and `Error("parse")`), and neither `task-dedup-call.ts` nor `scheduled-job-analysis.ts`
-catches. Both hooks are `!isPopout`-gated, so there is no cross-realm case either. The `instanceof`
+catches. Both flows are popout-unreachable, so there is no cross-realm case either — though by two
+different mechanisms, and the earlier "both hooks are `!isPopout`-gated" was imprecise: `useTasksDedup`
+gates INTERNALLY (`use-tasks-dedup.tsx:86`), while `useActionAnalysis` mounts unconditionally and the
+gate sits on the PROP (`task-manager.tsx` `aiAnalysis: isPopout ? undefined : aiAnalysisBundle`), which
+is the only route to `analyze`. The `instanceof`
 only fails across the **jsdom/Node** boundary — which the correct-pattern comment quoted further down
 says in as many words, and which nobody noticed says *tests*, not *users*.
 
 So: **all four** sites catch nothing reachable, not two. What shipped is hardening plus one shape for
-five call sites. That is still worth having — but the CHANGELOG entry was written under **Fixed**
+four call sites. That is still worth having — but the CHANGELOG entry was written under **Fixed**
 claiming a user-visible error toast, and `abort-error.ts` carried a comment asserting the same as
 established fact. Both were corrected. Found by a COLD reviewer; the primed reviewer, holding this
 entry, re-derived the same wrong conclusion — the entry itself was the misinformation.
@@ -443,8 +450,12 @@ swallows any future AbortError-named rejection that did *not* come from its own 
 `setError(-1)`. Given `runGuarded`'s own "leave prior data + state intact" contract that is the desired
 direction, but it is a genuine widening of a silent-failure path, not a no-op.
 
-★ The line references below were already stale when this entry closed (`use-tasks-dedup.tsx:111` was
-really `:121`). Corrected in the sweep table. ★ The **pattern** is wider than the four sites this entry
+★★ **The line references in the historical write-up below are stale and were NOT corrected** — an
+earlier revision of this line claimed "Corrected in the sweep table" and nothing in that table was ever
+touched, which is the same self-referential falsehood this entry now exists to record. The table is
+left VERBATIM as the historical record; use these instead. Pre-fix `use-tasks-dedup.tsx` was `:121`,
+not the `:111` the table says. **Current lines:** `use-tasks-dedup.tsx:122` · `use-action-analysis.ts:35`
+· `use-project-proposal.ts:52` · `use-timelog-sync.ts:107`. ★ The **pattern** is wider than the four sites this entry
 named: `chat-panel.tsx:478`, `use-alloc-plan.tsx:167` and `use-raci-suggest.tsx:204` each hand-read
 `.name` correctly with their own four-line explanatory comment. None is a defect, so none was touched —
 but three verbatim copies are `dup:check` fuel, and the helper now exists to absorb them if that
@@ -474,8 +485,8 @@ if (errName === "AbortError") { setPhase("input"); return; }
 
 | site | shape | exposed? |
 |---|---|---|
-| `use-tasks-dedup.tsx:111` | bare `instanceof DOMException` | **YES** — falls through to an error toast |
-| `use-action-analysis.ts:34` | bare `instanceof DOMException` | **YES** — falls through to `setError(msg)` |
+| `use-tasks-dedup.tsx:111` | bare `instanceof DOMException` | ~~**YES** — falls through to an error toast~~ **DISPROVED — see the correction above** |
+| `use-action-analysis.ts:34` | bare `instanceof DOMException` | ~~**YES** — falls through to `setError(msg)`~~ **DISPROVED — see the correction above** |
 | `use-project-proposal.ts:51` | `signal?.aborted \|\| (instanceof …)` | no — the `signal.aborted` read catches it first |
 | `use-timelog-sync.ts:106` | `signal.aborted \|\| (instanceof …)` | no — same |
 
@@ -605,6 +616,11 @@ removes the hazard rather than relocating it.
 **wholesale** at file level, so no test there can observe a real cache lookup through a render. Pinning
 "what does the panel hand the hook" has to be done by asserting on the mock's call arguments — which is
 what the §14 guard does, following the one pre-existing precedent in that file.
+
+**The original write-up follows — present tense throughout, and NO LONGER TRUE at HEAD.** Kept for the
+reasoning, not the facts: `timelog-panel.tsx` now passes the canonical `projectId: projectKey`, so
+neither paragraph below describes today's code. (This marker was missing, so a top-to-bottom reader
+could have re-opened a closed bug — §11 and §15 both carry it.)
 
 ★ The project *code* is user-editable, so the actuals cache already orphans on a code rename today.
 That is the pre-existing bug this note records, not one slice C introduced.
@@ -1160,12 +1176,30 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
-## 39. The timelog partial-failure toast has now failed CI six times, and raising its timeout did not fix it — open, needs a real diagnosis
+## 39. The timelog partial-failure toast has now failed CI eight times, and raising its timeout did not fix it — open, needs a real diagnosis
 
-`timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Six CI
+`timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
 locally: 0.205.0 · 0.208.0 · twice on the 0.209.0 MR · once on main after that merge (which left main
-**red**) · and the 0.210.0 MR pipeline #5305.
+**red**) · the 0.210.0 MR pipeline #5305 · and TWO on 2026-08-02 — the weekly `schedule` pipeline #5403
+(00:25) and the post-merge main pipeline #5418 (19:38) for the 0.211.1 MR !338, which again left main red.
+
+★★★ **THE "ONE DATA POINT" CAVEAT AT THE BOTTOM OF THIS ENTRY IS NOW CLOSED — the toast never arrives.**
+Three failures have now run under the 15 s budget, and they consumed:
+
+| run | duration |
+|---|---|
+| !335 (the 6th failure) | **15,093 ms** |
+| #5403 (weekly schedule, 2026-08-02) | **15,098 ms** |
+| #5418 (main post-merge, 2026-08-02) | **15,117 ms** |
+
+A spread of **24 ms across three runs** at a 15,000 ms ceiling. If the toast were merely arriving slowly
+under load, the durations would scatter — some runs passing at 6 s or 11 s, failures landing at varied
+points past 15 s. Instead all three consume the entire budget to within 0.16%. That is the timeout
+expiring on a toast that is never coming, on those runs. Stop treating this as a performance problem.
+★ What is still NOT established: why it is reachable on most runs and not these. The next step remains
+the one below — determine whether `showToast("error", …)` is reachable on that path at all under CI
+conditions — but it can now be pursued as a logic/race question rather than a timing one.
 
 ★★★ **The recorded diagnosis is now in doubt, and the obvious next step is wrong.** The in-test comment
 reasons from "always at ~5.1s ... a hair over the limit" to "worker starvation under full parallel load,
@@ -1182,9 +1216,11 @@ runs passing at 6s or 11s under a 15s budget. So:
 - The next step is to find out whether `showToast("error", …)` is reachable at all on that path under
   CI conditions — e.g. an unresolved promise in the mocked `useTimelogSync`, a lost `act()` flush, or a
   partial-failure branch that only fires when a timer wins a race it usually loses.
-- ★ Honest limit of this inference: one data point at 15s. The toast could genuinely arrive at 15.5s.
-  What *is* established is that the mitigation did not work and the reasoning behind it no longer fits
-  the evidence.
+- ~~★ Honest limit of this inference: one data point at 15s. The toast could genuinely arrive at 15.5s.~~
+  **SUPERSEDED 2026-08-02 — see the three-run table above.** Two further failures at 15,098 ms and
+  15,117 ms put the spread at 24 ms across three runs, which rules out "arrives at 15.5 s": a value that
+  close to the ceiling three times running is the ceiling, not the arrival. What *is* established is
+  that the mitigation did not work and the reasoning behind it no longer fits the evidence.
 
 ★ Until diagnosed, the operational answer is to **retry the job**, not to edit the test. It is a known
 flake with a known signature, and it has never failed locally.
@@ -1505,7 +1541,73 @@ be widened — the four shipped entities must not inherit occurrence semantics t
 
 ---
 
-## 45. Nine high `brace-expansion` advisories in the eslint dev chain — deferred, and the obvious fix DOES NOT WORK
+## 45. ~~`brace-expansion` advisory in the eslint dev chain~~ — CLOSED in 0.211.1
+
+**Resolution:** a MAJOR-SCOPED override pair in `package.json` — the form this entry's false premise
+had ruled out:
+
+```jsonc
+"overrides": { "brace-expansion@1": "^1.1.17", "brace-expansion@5": "^5.0.8" }
+```
+
+`npm audit` → **found 0 vulnerabilities** (was 1 high). Resolved tree: `brace-expansion@1.1.18` under
+`minimatch@3.1.5`, `5.0.9` under `minimatch@10.2.5`. **eslint still runs** — `npx eslint
+--max-warnings=0 src/app` exit 0, `npm run build` exit 0 — which is the check that matters, because
+the earlier unscoped `"brace-expansion": "^5.0.9"` attempt killed eslint with `TypeError: expand is not
+a function`. Scoping by major is what makes it safe: `minimatch@3` keeps a v1 export shape.
+
+★★ **No eslint major was needed.** This entry spent its length arguing the only remedy was eslint 10,
+and it was wrong — see the correction block below for what it claimed versus what `npm audit` reports.
+The lesson is not about npm: a do-not-relitigate record built on a **measurement** rather than a
+property will eventually forbid the fix that works.
+
+
+
+★★★ **THIS ENTRY'S CENTRAL TECHNICAL CLAIM WAS FALSE AND ITS NUMBERS ARE STALE. Corrected 2026-08-02
+against a live `npm audit`; the original text is kept below the line so the executed negative results
+survive.** It asserted that "no 1.x release escapes" the advisory and concluded the sole remedy was an
+eslint major — then told the reader not to re-litigate. That combination is the dangerous one: a
+confidently-worded do-not-relitigate record steering the next maintainer past a fix that exists.
+
+What `npm audit` actually reports today:
+
+```
+brace-expansion  <1.1.17 || >=4.0.0 <5.0.8
+Severity: high
+fix available via `npm audit fix`
+1 high severity vulnerability
+```
+
+| the entry claimed | live, verified 2026-08-02 |
+|---|---|
+| "`npm audit` reports **9 high**" | **1 high**, total 1 |
+| "range is `<=5.0.7` **across all majors**" | **TWO** sources: `<1.1.17` (1.x) and `>=4.0.0 <5.0.8` (5.x) |
+| "no 1.x release escapes it — not 1.1.17, not 1.1.18" | **both are published and both clear it** (`npm view brace-expansion versions`) |
+| "`npm audit fix --force` offers exactly one remedy: eslint@10.8.0, a breaking major" | npm offers plain **`npm audit fix`** — no `--force`, no major |
+
+Installed today: `brace-expansion@1.1.16` (via `eslint@9.39.4` → `minimatch@3.1.5`) and `5.0.7` (via
+`typescript-eslint` → `minimatch@10.2.5`). **Both are exactly one patch below a clean release**
+(1.1.17 / 5.0.8).
+
+★★ **The untried remedy is a MAJOR-SCOPED pin on the 1.x side.** Both executed attempts below targeted
+the **5.x** side, which is why both failed — one broke `minimatch@3`, the other upgraded the branch
+that was not the problem. The obvious third form was never attempted, because this entry's false
+premise ruled it out:
+
+```jsonc
+"overrides": { "brace-expansion@1": "^1.1.17", "brace-expansion@5": "^5.0.8" }
+```
+
+★ **Re-run `npm audit` before acting on this entry.** The advisory ranges have already moved once
+between it being written (2026-07-31) and being corrected (2026-08-02) — a 1.x backport landed. Treat
+every number here as a measurement with a date, not a property.
+
+★ Deliberately NOT fixed in 0.211.1: that batch is scoped to four register entries, and a dependency
+change means lockfile churn plus a full re-verification (the `--max-warnings=0` gate makes any eslint
+tree movement a real risk). The blocking CI gate is unaffected either way — see below.
+
+**The original write-up follows, with its two EXECUTED negative results intact — those still stand,
+they simply do not exhaust the option space.**
 
 `npm audit` reports **9 high** (GHSA-mh99-v99m-4gvg — DoS via unbounded expansion → OOM). `npm audit
 fix --force` offers exactly one remedy: **eslint@10.8.0, a breaking major**.
@@ -1520,11 +1622,16 @@ reasoned about — do not repeat them.**
 
 **Why neither can work.** The tree holds two majors: `brace-expansion@1.1.16` under **six**
 `minimatch@3.1.5`, and `brace-expansion@5.0.7` under one `minimatch@10.2.5`. All nine advisories
-chain through the **1.x** side. The advisory range is `<=5.0.7` **across all majors**, so no 1.x
+chain through the **1.x** side. ~~The advisory range is `<=5.0.7` **across all majors**, so no 1.x
 release escapes it — not 1.1.17, not 1.1.18 — and the only clean versions (5.0.8+) are exactly the
-ones `minimatch@3` cannot load. So the sole fix is removing `minimatch@3` from the tree, and it is
-held there by `eslint-plugin-import` / `eslint-plugin-jsx-a11y` / `eslint-plugin-react` /
-`@eslint/eslintrc` via `eslint-config-next`. npm's advice was right; the clever alternative is not.
+ones `minimatch@3` cannot load. So the sole fix is removing `minimatch@3` from the tree~~ ← **FALSE,
+see the correction above: there are two advisory sources, and `brace-expansion@1.1.17`+ clears the 1.x
+one.** `minimatch@3` is
+held there by `eslint-plugin-import` / `eslint-plugin-jsx-a11y` / `eslint-plugin-react` via
+`eslint-config-next`, and by `@eslint/eslintrc` + `@eslint/config-array` via **`eslint` itself** (not
+`eslint-config-next` — the original text attributed all four to the config package). ~~npm's advice was
+right; the clever alternative is not.~~ ← npm's advice has since changed to a non-breaking
+`npm audit fix`.
 
 **Why it is deferred rather than fixed.**
 - ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
@@ -1541,8 +1648,10 @@ and `eslint-plugin-react-hooks` both list `^10.0.0`. The risk is entirely in rul
 resolution.
 
 ★★ **The WEEKLY `dependency-audit-full` job DOES include dev deps and all severities, so it will keep
-reporting these nine.** That is expected, not a regression — this entry exists so the finding is not
-re-litigated from scratch each week, and so nobody re-attempts the overrides above.
+reporting this.** That is expected, not a regression — this entry exists so the finding is not
+re-litigated from scratch each week, and so nobody re-attempts the two overrides above. ★ It is
+**one** high now, not nine; if the weekly job reports a different count than this entry, the entry is
+the stale one — re-measure, don't reconcile.
 
 **To close:** upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
 `npx eslint --max-warnings=0 src/app` against the full rule set, and expect to fix drift rather than
@@ -1553,8 +1662,9 @@ merely bump a version. Current: eslint `^9` (9.39.4).
 ## 46. A `<label>`-wrapped file input can never show a focus ring — pattern open
 
 Found while grounding §15, and not in that entry. `color-scheme-editor.tsx` and
-`branding-image-input.tsx` both put `INTERACTIVE` (which ends in `focus:ring-2`) on a `<label>` that
-wrapped an `sr-only` `<input type="file">`.
+`branding-image-input.tsx` both put a `focus:ring-2` on a `<label>` that wrapped an `sr-only`
+`<input type="file">` — via `INTERACTIVE` in the first and `FOCUS_RING` in the second (an earlier
+revision here named `INTERACTIVE` for both; the atom differs, the defect does not).
 
 ★★ **The focus indicator did not merely go unstyled — it VANISHED, and it took two separate facts to
 do it.** (1) A `<label>` is not a form control and carried no `tabindex`, so `focus:ring-2` compiles to
@@ -1599,7 +1709,51 @@ NOT added speculatively in 0.211.1 — or, minimally, swap `hidden` for `sr-only
 
 ---
 
-## 48. RAID editor destroys notes added while it is open — open, pre-existing, DATA LOSS
+## 48. ~~RAID editor destroys notes added while it is open~~ — CLOSED in 0.211.1
+
+**Resolution:** `use-resource-planner.ts` builds `withStamp` with `noteLog` taken from the STORED row
+(`previous?.noteLog`), never from the payload — for an UPDATE only; a create keeps whatever the payload
+carries. Reproduced RED first (`expected [ 'first' ] to deeply equal [ 'first', 'added while open' ]`),
+then fixed.
+
+★★★ **The obvious fix — copying the task approach and OMITTING `noteLog` from the payload — would have
+been WORSE THAN THE BUG.** Tasks merge on save; RAID does a full row **REPLACE**
+(`prev.map(r => r.id === id ? withStamp : r)`), so a payload without the field erases the whole log
+instead of merely losing the newest note. The two registers diverge here; do not reason about them
+together.
+
+★★★ **THE FIX HAS TO LAND ON `withStamp`, NOT ONLY INSIDE `setRaid` — and that is a SECOND defect, not
+a stylistic choice.** `RAID_UNDO_GROUPS` is `[]` and `NEVER_CAPTURE` is only `{id, localModifiedAt}`,
+so `changedFieldGroups` emits **one capture per changed key** and a stale `noteLog` on `withStamp`
+becomes undoable/redoable state even when the saved row is correct. Pinned by its own test in
+`use-resource-planner.undo.test.tsx`.
+
+★★★ **TWO TEST TRAPS, BOTH HIT DURING THIS FIX — the second is the instructive one.**
+1. The save-path fixture must add the note **between** the snapshot and the save. A fixture that does
+   not passes whichever way the handler behaves. (Named in advance by this entry; avoided.)
+2. **`changedFieldGroups` emits one call per changed key, so an assertion on `calls[0]` is vacuous** —
+   `calls[0]` is `title`, and the captured `noteLog` is a LATER call. The undo test was written that
+   way first, passed against deliberately broken code, and was only caught by mutating. It now asserts
+   over `mock.calls.flatMap(...)`. Mutation-verified: reverting the `withStamp` half yields
+   `expected [ 'title', 'noteLog' ] to deeply equal [ 'title' ]`.
+
+★★ **A belt-and-braces second merge inside `setRaid` was written and then REMOVED.** Re-reading
+`r.noteLog` from `prev` is strictly more authoritative than the `raid` closure, but no reachable case
+exists (a save never changes `noteLog`, and the notes window cannot commit mid-tick), no test pinned
+that line alone — both §48 tests pass with it reverted — and `use-resource-planner.ts` sits at the
+file-size ratchet with §2 already tracking a split. An untested line on a file with no headroom, for a
+case nobody can reach, is not defense in depth. If a reachable case ever appears, add it back **with a
+test that fails without it.**
+
+★ Still open, cosmetic: `raid-edit-modal.tsx:460`'s `draft.noteLog?.length ?? 0` reads the same stale
+snapshot, so the Notes button can under-report while the window is open. The log itself is safe.
+
+★ The ratchet baseline for `use-resource-planner.ts` moved 1041 → 1043 for the two-line landmine
+comment. Deliberate and minimal; §2 (split that file) is where the real answer lives.
+
+**The original write-up follows.**
+
+## 48-was. RAID editor destroys notes added while it is open — pre-existing, DATA LOSS
 
 **The task-side defect §29 closed still exists in full on RAID.** Found by a reviewer of the 0.211.1
 batch, while checking whether the new AGENTS.md sentence ("Re-adding the field is a typecheck error
@@ -1634,7 +1788,140 @@ specific to notes.
 
 ---
 
-## 49. `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate
+## 49. ~~Every AI edit to a RAID item erased its whole note log~~ — CLOSED in 0.211.1
+
+**Was:** `use-chat-dispatcher.ts` `updateRaid` round-tripped the merged item through `sanitizeRaidItem`
+and wrote the result back. That sanitizer builds its result from an EXPLICIT field list and `noteLog`
+is not in it, so a patch as small as *"push R#3's target date to June"* **deleted every note on the
+item**. AI tool writes capture no undo, so it was unrecoverable. Also reachable from Insights → Apply
+recommendation (`update_raid_item` is in `ALLOWED_REC_TOOLS`). Found by an adversarial reviewer
+attacking §48's fix; `noteLog` appeared **zero** times in `use-chat-dispatcher.test.tsx`.
+
+**Resolution:** `updateRaid` re-applies the STORED `noteLog` after sanitizing. Same "stored row wins"
+rule as §48, and safe because `noteLog` is write-through and appears in no AI tool schema, so a patch
+can never legitimately carry one. Reproduced RED first (`expected undefined to deeply equal
+[ 'keep' ]`).
+
+★★★ **THE OBVIOUS FIX IS FORBIDDEN, AND THE REVIEWER'S PRIMARY SUGGESTION WAS IT.** "Carry `noteLog`
+through `sanitizeRaidItem` via `sanitizeNoteLog`" would close it for every present and future caller —
+and it CANNOT BE DONE. `sanitizeNoteLog` calls `sanitizeNoteHtml`, which calls DOMPurify, which binds
+`window` at module-eval; the entity sanitizers run under **bare node** in
+`scripts/generate-sample-workspace.ts`, where the call throws and `jsonToWorkspace`'s catch-all
+swallows it into an EMPTY workspace that then "successfully" writes near-empty sample files. This is
+the same DOM-free constraint that already forces `templates.ts` `sanitizeSeedTask` to skip the
+allow-list (§36(a)). **Do not "complete the sweep" by importing it there.**
+
+★ Consequence to accept: the guarantee is per-CALLER, not central. The other **three**
+`sanitizeRaidItem` callers are all CREATES on freshly built objects, so nothing is lost today —
+`task-manager.tsx:1308`, `use-chat-dispatcher.ts` `createRaid`, and `ai-project-proposal.ts:287`. But a
+FUTURE caller that sanitizes an existing RAID row will re-open this, and no gate will catch it. A new
+call site must ask whether it holds a stored row.
+
+★★ **`grep 'sanitizeRaidItem('` DOES NOT FIND ALL OF THEM — and the one it misses is the one you most
+need.** `ai-project-proposal.ts:287` passes the function **by reference** (`buildList(s.raid,
+sanitizeRaidItem)`), so there is no `(` after the name to match. The first version of this entry said
+"the other two callers" for exactly that reason, and both reviewers caught it. Sweep on the BARE name.
+The same trap applies to any sanitizer used as a `.map`/`buildList` callback.
+
+★ KNOWN latent divergence, deliberately not fixed: `updateRaid` stores
+`{ ...merged, noteLog: existing.noteLog }` but returns `toRaidSummary(merged)`. A no-op today
+(`toRaidSummary` reads none of the re-applied fields), but it is the only sibling update path where
+what the model is TOLD is not derived from what was PERSISTED, so a future field joining both lists
+would hand the model a stale value. Hoisting one `saved` const fixes it and costs one line —
+`use-chat-dispatcher.ts` is at **799** of a hard **800** ceiling with no baseline entry, and spending
+the last line to pre-empt a hypothetical is the same trade this batch already refused for §48's
+belt-and-braces merge. Take the line when the file is split, not before.
+
+★ The same shape has NOT been checked on the other sanitizers. `sanitizeRaidItem` is the one with a
+write-through field; whether any other entity sanitizer drops a field its callers hold is open.
+
+---
+
+## 50. Undo of a BULK edit reverts write-through fields — open, pre-existing, DATA LOSS
+
+`undo-stack.ts:89` restores an edit-image with `out[findIndex(...)] = item` — a **whole-row replace**
+using the before-image captured at bulk-apply time. `use-resource-planner.ts` `captureRaidBulkUndo`
+snapshots whole rows (`edited = raid.filter(...)`).
+
+Sequence: select 3 RAID rows → bulk-set severity → open the notes window on one → add a note → Ctrl+Z.
+**The note is gone.**
+
+★★ **REDO DOES BRING IT BACK — an earlier revision of this entry said it did not, and that was wrong.**
+The forward image is NOT a snapshot taken at capture time; it is built from the LIVE array at UNDO time
+(`use-undo-stack.ts:199` `buildForwardImages(before, prev, remap)`, and `undo-stack.ts:185` resolves each
+edit image via `afterArray.find(...)`). So the note is in the redo image and comes back. The loss is
+recoverable — but only by an immediate redo, which also re-applies the bulk edit the user was trying to
+undo. ★ This matters because of the test instructions below: asserting that redo also loses the note
+would FAIL against correct code and send you debugging a path that is not broken.
+
+★★ This is §48's defect class — a stale whole-row snapshot clobbering write-through content —
+relocated into the undo engine. The per-FIELD undo path is immune (`captureFieldEdit` merges
+`{...r, ...patch}` over the live row); only whole-row `capture()` is affected.
+
+★★ **Deliberately NOT fixed in 0.211.1, and the reason is scope, not doubt.** It is the SHARED undo
+engine: `applyUndoRestoreWithRemap` serves every entity, and `Task` carries `noteLog` too, so the same
+sequence very likely loses task notes — **unverified, check before assuming**. Fixing it means deciding
+whether write-through fields are preserved engine-wide (needs a per-entity list of which fields those
+are) or whether RAID/task bulk edits capture field-wise instead. Either is a design slice, and patching
+shared undo machinery in the fourth review round of an unrelated batch is how a regression ships.
+
+**Fix when taken:** either preserve the live row's write-through fields in the edit branch
+(`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
+capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
+a fixture that adds it before passes either way (the §48 trap, restated).
+
+---
+
+## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, mechanism NOT established
+
+`use-tasks-dedup.test.tsx` → "on confirm, removes the duplicate and records ONE undo entry" failed on
+the post-merge main pipeline **#5418** (2026-08-02, MR !338), in the same `unit-tests` job where §39
+failed for the 8th time. It left main red.
+
+**What is established:**
+- The same tree passed on the MR pipeline **#5417** minutes earlier. #5418 is that tree plus a merge
+  commit, so this is environment-sensitive, not a code regression.
+- The failure is `TestingLibraryElementError: Unable to find … role "button" and name /merge selected/i`
+  — the preview modal was not in the DOM.
+- In the failure dump the trigger button carried **`disabled=""`**, i.e. the hook was still in its busy
+  phase: the mocked `runDedupProposal` had not resolved.
+- Duration **38 ms** — this is NOT a timeout. `getByRole` fails immediately.
+
+**What is NOT established — and the two facts do not reconcile from the CI trace alone:**
+the line before the failure is `await waitFor(() => expect(screen.getByText(/dup/i)).toBeTruthy())`.
+For the reported error to be the one that surfaced, that `waitFor` must have SUCCEEDED — yet the modal
+was absent and the trigger still busy. Either something other than the modal satisfied `/dup/i`, or the
+preview opened and closed again between the two lines. **Do not write a fix based on either guess;
+reproduce it first.**
+
+★★ **The matcher is fragile independently of the root cause, and that is worth fixing regardless.**
+`/dup/i` is a substring of the trigger's own accessible name, "**Dedup**licate & unify tasks". The gate
+is therefore not a reliable barrier for the un-waited `getByRole` on the next line: it can be satisfied
+by something that does not imply the modal is open. Assert on a modal-specific node (`findByRole` for
+"merge selected") so the wait and the assumption are the same condition. ★ The trigger renders no text
+child, so it is not proven that it is what matched — this is a fragility argument, not the diagnosis.
+
+★★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case directly above: 5 s → 15 s
+moved the failure point and bought nothing, and three subsequent failures then consumed the 15 s budget
+to within 24 ms. This one is not even timeout-shaped (38 ms).
+
+★ Two load-sensitive failures in one job, on a runner that also took 15.1 s to not-deliver a toast,
+suggests a shared environmental trigger rather than two unrelated test bugs. Worth investigating
+together — but §39's signature (budget fully consumed) and this one's (immediate miss) are different, so
+do not assume one diagnosis covers both.
+
+★★ **CONFIRMED FLAKY BY RETRY, not by argument.** Job 20222 — a plain retry of the failed `unit-tests`
+job on the SAME commit `351eb05f`, no code change — passed in 389 s, and #5418 went green. Both this
+test and §39's passed on the retry. That is the decisive evidence that #5418's failures were
+environmental: the identical tree produced both outcomes.
+
+★ Operational answer meanwhile, as with §39: **retry the job.** It is a known-flaky failure, not a
+signal to edit the test — and editing on a red-CI reflex is how §39 acquired a 15 s timeout that bought
+nothing.
+
+---
+
+## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate
 
 0.212.0 changed the hook to persist `{v:2, widths}` holding ONLY columns the user actually dragged,
 so that a later change to a `*_COL_WIDTHS` default reaches people who had dragged some unrelated

@@ -15,6 +15,7 @@ import { loadSchemesAsync, upsertSchemeAsync, deleteSchemeAsync } from "./color-
 import { importSchemeText } from "./scheme-import";
 import { reconcileBuiltins, HARBOR_LIGHT } from "./builtin-schemes";
 import { BrandingImageInput } from "./branding-image-input";
+import { Button } from "./button";
 import { FilePickerButton } from "./file-picker-button";
 import { Input } from "./form-controls";
 import type { BrandingConfig } from "./settings-types";
@@ -185,8 +186,6 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
     );
   }
 
-  const btn = `rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`;
-
   return (
     <div className="mt-3 rounded-md border border-line bg-surface-muted p-3">
       {isBuiltin && (
@@ -202,11 +201,14 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <button type="button" className={btn} onClick={saveNew}>{t(lang, "schemeNew")}</button>
-        <button type="button" className={btn} onClick={rename} disabled={!active || isBuiltin}>{t(lang, "schemeRename")}</button>
-        <button type="button" className={btn} onClick={del} disabled={!active || isBuiltin}>{t(lang, "schemeDelete")}</button>
-        <button type="button" className={btn} onClick={() => seed(active?.light ?? {})}>{t(lang, "schemeNewFromCurrent")}</button>
-        <button type="button" className={btn} onClick={doExport} disabled={!active}>{t(lang, "schemeExport")}</button>
+        {/* ★ DS `Button` secondary/xs reproduces the local class string these carried
+            AND adds `disabled:opacity-50` + `disabled:cursor-not-allowed`, which it
+            lacked — three of these take `disabled` and rendered as fully enabled. */}
+        <Button variant="secondary" size="xs" onClick={saveNew}>{t(lang, "schemeNew")}</Button>
+        <Button variant="secondary" size="xs" onClick={rename} disabled={!active || isBuiltin}>{t(lang, "schemeRename")}</Button>
+        <Button variant="secondary" size="xs" onClick={del} disabled={!active || isBuiltin}>{t(lang, "schemeDelete")}</Button>
+        <Button variant="secondary" size="xs" onClick={() => seed(active?.light ?? {})}>{t(lang, "schemeNewFromCurrent")}</Button>
+        <Button variant="secondary" size="xs" onClick={doExport} disabled={!active}>{t(lang, "schemeExport")}</Button>
         <FilePickerButton
           label={t(lang, "schemeImport")}
           accept="application/json,.json"
