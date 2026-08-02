@@ -44,6 +44,15 @@ describe("FilePickerButton", () => {
     expect(input.className).not.toContain("hidden");
   });
 
+  // ★ The other half of the duplicate-name defense. `tabIndex={-1}` removes the
+  //   tab stop (pinned above); `aria-hidden` removes the duplicate accessible
+  //   name from the AT tree. user-event's tab walk does NOT filter aria-hidden,
+  //   so the test above cannot cover this one.
+  it("hides the input from assistive tech", () => {
+    const { input } = renderPicker();
+    expect(input).toHaveAttribute("aria-hidden", "true");
+  });
+
   it("calls onFile with the picked file", async () => {
     const user = userEvent.setup();
     const { onFile, input } = renderPicker();
@@ -55,12 +64,18 @@ describe("FilePickerButton", () => {
   // ★ Without the value reset the browser fires no change event for a
   //   re-pick of the SAME file, so "remove, then re-add the same logo"
   //   silently does nothing.
+  //   ★★ ONE File instance, uploaded twice — not two equal ones. user-event's
+  //   upload() skips the change event by OBJECT IDENTITY
+  //   (`files.every((f, i) => f === input.files.item(i))`), so two distinct
+  //   File objects with identical name and content always fire, and a version
+  //   of this test that mints a fresh File per call stays green with the reset
+  //   deleted. It shipped that way in 0.211.1 and guarded nothing.
   it("fires again when the same file is picked twice", async () => {
     const user = userEvent.setup();
     const { onFile, input } = renderPicker();
-    const file = () => new File(["{}"], "a.json", { type: "application/json" });
-    await user.upload(input, file());
-    await user.upload(input, file());
+    const file = new File(["{}"], "a.json", { type: "application/json" });
+    await user.upload(input, file);
+    await user.upload(input, file);
     expect(onFile).toHaveBeenCalledTimes(2);
   });
 

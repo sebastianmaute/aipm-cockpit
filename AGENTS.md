@@ -505,8 +505,16 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   omits `noteLog` from its payload). ★ 0.211.1 went further and removed the field from the DRAFT too:
   `emptyForm` carries no `noteLog`, so `TaskFormDraft` (a `ReturnType<typeof emptyForm>`) has no such
   key and there is nothing for a future writer to put back into `payload`. The unsaved-task fallback
-  button's count is now a literal `0`. Re-adding the field is a typecheck error before it is a data-loss
-  bug — keep it that way.
+  button shows NO count at all — a hardcoded `0` would be true only by WIRING (task-manager gates
+  `taskNotePanel` on `editingId !== null`), not by construction. Re-adding the field is a typecheck
+  error before it is a data-loss bug — keep it that way.
+  ★★★ THAT GUARANTEE IS TASK-SCOPED, AND **RAID STILL HAS THE WHOLE DEFECT** — do not read the
+  paragraph above as "the class is closed". `raid-panel.tsx` seeds `useState<RaidItem | null>` with a
+  full-row SNAPSHOT at edit-open, the notes window is owned ABOVE the panel (`task-manager.tsx`
+  `openRaidNotes`) and commits write-through to the workspace `raid` array the snapshot never sees, and
+  `use-resource-planner.ts` saves `{ ...item }` as a full row REPLACE — so open RAID editor → Notes →
+  add a note → Save destroys it. The modal's own `draft.noteLog?.length ?? 0` count reads the same
+  stale snapshot. Traced but not repro-tested; `docs/open-followups.md` §48.
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
   escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
@@ -1712,8 +1720,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `INTERACTIVE`/`FOCUS_RING`/`TRANSITION`/`PRESS` (`interaction-styles.ts`). Link pickers:
   `EntityLinkPicker` (`entity-link-picker.tsx`). File dialogs: `FilePickerButton`
   (`file-picker-button.tsx`).
-  ★★ **`FilePickerButton` is the ONLY sanctioned way to open a file dialog** (0.211.1) — a DS `Button`
-  plus the `sr-only` input it owns. Three properties are load-bearing and each closes a real defect:
+  ★★ **A VISUALLY-HIDDEN file input belongs to `FilePickerButton` and nothing else** (0.211.1) — a DS
+  `Button` plus the `sr-only` input it owns. ★ Scope precisely: this does NOT ban every
+  `<input type="file">`. A VISIBLE one is fine and `step0-import-panel.tsx` correctly keeps one (it is
+  focusable, keyboard-operable and labelled — none of the three defects below can occur). The banned
+  shape is specifically a HIDDEN input driven by a `<label>`. Three properties are load-bearing and each
+  closes a real defect:
   the input is `sr-only` and NEVER `display:none` (a `display:none` input can't be clicked in every
   browser); it carries `tabIndex={-1}` + `aria-hidden` or it is a SECOND tab stop announcing the same
   accessible name as the Button (axe reports MISSING names, never DUPLICATED ones, so nothing automated

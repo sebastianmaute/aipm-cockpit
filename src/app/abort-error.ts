@@ -3,12 +3,21 @@
 //
 // ★★ Reads `.name` DIRECTLY and never `instanceof DOMException`: a
 // DOMException is not reliably `instanceof Error`/`instanceof DOMException`
-// across the jsdom/Node boundary, so an `instanceof`-gated check silently
-// falls through to the caller's generic error arm and reports a deliberate
-// cancel as a failure. That was the defect in `use-tasks-dedup` and
-// `use-action-analysis` (open-followups §11); this helper exists so a
-// future caller cannot reinvent it.
+// across the jsdom/Node boundary, so an `instanceof`-gated check can fall
+// through to the caller's generic error arm and report a deliberate cancel
+// as a failure.
+//
+// ★★ HONEST SCOPE (corrected in review — the first draft of this comment,
+// and open-followups §11 itself, claimed more): in a BROWSER an aborted
+// `fetch` rejects with a same-realm DOMException, so the `instanceof
+// DOMException` gate this replaced did match, at all four call sites. No
+// reachable user-facing failure was demonstrated. This is hardening plus one
+// shape for five call sites — do not describe it as a shipped bug fix.
+//
+// ★ No `instanceof Error` branch: `name` is an ordinary property on
+// `Error.prototype`, so the optional read below covers an Error identically
+// and no input can tell the two apart. A surviving `instanceof` would also
+// read as load-bearing in the one module whose whole point is not to use one.
 export function isAbortError(e: unknown): boolean {
-  const name = e instanceof Error ? e.name : (e as { name?: unknown } | null | undefined)?.name;
-  return name === "AbortError";
+  return (e as { name?: unknown } | null | undefined)?.name === "AbortError";
 }

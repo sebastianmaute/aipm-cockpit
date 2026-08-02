@@ -61,7 +61,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 8 | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | open — a11y, unguarded |
 | 9 | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | open — a11y, unguarded |
 | 10 | Keyboard move has no preview (band + day grid) | R5 (0.202.2) | M | open — a11y/UX |
-| 11 | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED 0.211.1** — shared `isAbortError`, all four sites |
+| 11 | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED 0.211.1** — shared `isAbortError`, all four sites. ★ premise DISPROVED in review: hardening, not a user-visible fix |
 | 12 | `list_allocations` dumps the grid; should be a scoped query | R4 (0.201.0) | M | open — design |
 | 13 | Security audit is scope-stale — 39 releases of unaudited surface | audit was v0.164 | M | open — re-scope |
 | 14 | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED 0.211.1** — re-keyed canonical, no fallback |
@@ -83,6 +83,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
 | 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
 | 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
+| 48 | RAID editor destroys notes added while it is open | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, §29's defect, task-scoped fix only |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -410,6 +411,23 @@ bugs are reachable from the keyboard path, and a no-op result must write nothing
 **Resolution:** pure `abort-error.ts` `isAbortError(e)` reads `.name` directly and is used at **all four**
 sites. The two that also read `signal.aborted` keep that short-circuit as the left operand.
 
+★★★ **THE PREMISE OF THIS ENTRY WAS FALSE, AND THE FIRST RESOLUTION REPEATED THE ERROR.** The entry
+opens "A plain user cancel surfaces a spurious error toast", and the sweep table below marks two sites
+"exposed? **YES**". Neither holds in a browser. `AbortController.abort()` with no reason makes `fetch`
+reject with a **same-realm `DOMException`**, so `e instanceof DOMException` was **true** and the old
+guard returned early. The path was traced end to end for a re-wrap and there is none —
+`ai-forced-call.ts` lets the fetch rejection propagate verbatim (its only `throw`s are `AiHttpError` on
+`!res.ok` and `Error("parse")`), and neither `task-dedup-call.ts` nor `scheduled-job-analysis.ts`
+catches. Both hooks are `!isPopout`-gated, so there is no cross-realm case either. The `instanceof`
+only fails across the **jsdom/Node** boundary — which the correct-pattern comment quoted further down
+says in as many words, and which nobody noticed says *tests*, not *users*.
+
+So: **all four** sites catch nothing reachable, not two. What shipped is hardening plus one shape for
+five call sites. That is still worth having — but the CHANGELOG entry was written under **Fixed**
+claiming a user-visible error toast, and `abort-error.ts` carried a comment asserting the same as
+established fact. Both were corrected. Found by a COLD reviewer; the primed reviewer, holding this
+entry, re-derived the same wrong conclusion — the entry itself was the misinformation.
+
 ★★ **This closed AGAINST the advice below, which is left in place because the advice was defensible and
 the reasoning for overriding it matters.** The text said "the fix is two sites, and the other two are
 worth leaving alone … rewriting them would be churn." A cold review of the shipped diff confirmed that
@@ -427,7 +445,7 @@ direction, but it is a genuine widening of a silent-failure path, not a no-op.
 
 ★ The line references below were already stale when this entry closed (`use-tasks-dedup.tsx:111` was
 really `:121`). Corrected in the sweep table. ★ The **pattern** is wider than the four sites this entry
-named: `chat-panel.tsx:478`, `use-alloc-plan.tsx:166` and `use-raci-suggest.tsx:203` each hand-read
+named: `chat-panel.tsx:478`, `use-alloc-plan.tsx:167` and `use-raci-suggest.tsx:204` each hand-read
 `.name` correctly with their own four-line explanatory comment. None is a defect, so none was touched —
 but three verbatim copies are `dup:check` fuel, and the helper now exists to absorb them if that
 BLOCKING gate ever flags them.
@@ -555,8 +573,16 @@ picker stops re-seeding on a switch. Guarded by a test in `timelog-panel.test.ts
 `expected 'proj-a' to be 'canonical-key'` if the wiring is reverted.
 
 ★★ **A pre-existing cache is ORPHANED, deliberately.** Existing users open Time bookings once, see an
-empty pane, and press Fetch. That is the entire cost, and it is acceptable because this cache holds
-refetchable TimeLog data, not user input.
+empty pane, and press Fetch.
+
+★ There is a SECOND, smaller cost that the sentence above originally claimed was "the entire" one:
+the orphaned entry is never reclaimed. `clearActualsCache` deletes only the key it is handed
+(`timelog-actuals-store.ts:54`), so a pre-0.211.1 code-keyed entry — carrying a full
+`aggregates` + `users` + `projectRefs` payload — survives until the `MAX_PROJECTS = 50`
+sort-by-`fetchedAt` eviction (`:62-65`) reaches it, or until `clearAppConfig` sweeps the
+`aipm-cockpit:*` namespace. Slot pressure in a bounded store, not a leak, and not worth code to
+reclaim — but it is a cost, so it is written down rather than left for the next reader to rediscover.
+Both accepted because this cache holds refetchable TimeLog data, not user input.
 
 ★★★ **TWO better-looking designs were built or specified and BOTH rejected — do not re-propose either.**
 - **Read-both (built, then reverted).** `loadActualsCache(id, legacyId?)` fell back to the old key and
@@ -1573,6 +1599,41 @@ NOT added speculatively in 0.211.1 — or, minimally, swap `hidden` for `sr-only
 
 ---
 
+## 48. RAID editor destroys notes added while it is open — open, pre-existing, DATA LOSS
+
+**The task-side defect §29 closed still exists in full on RAID.** Found by a reviewer of the 0.211.1
+batch, while checking whether the new AGENTS.md sentence ("Re-adding the field is a typecheck error
+before it is a data-loss bug — keep it that way") was true app-wide. It is not; it is task-scoped.
+
+The chain, traced independently at three hops:
+
+| hop | file | what it does |
+|---|---|---|
+| 1 | `raid-panel.tsx:166`, seeded `:325`/`:346` | `useState<RaidItem \| null>` holds a **snapshot** of the whole row at edit-open, `noteLog` included |
+| 2 | `task-manager.tsx:2128` `openRaidNotes` | the notes window is owned ABOVE the panel and commits **write-through** to the workspace `raid` array — the snapshot never moves |
+| 3 | `use-resource-planner.ts:185` | `const withStamp: RaidItem = { ...item, … }` then `prev.map(r => r.id === id ? withStamp : r)` — a full row **REPLACE** carrying the open-time `noteLog` |
+
+So: open the RAID editor → Notes → add a note → Save ⇒ **the note is gone.** Identical shape to the
+task defect fixed in 0.209.0.
+
+★ The same snapshot also feeds the modal's note count (`raid-edit-modal.tsx:460`,
+`draft.noteLog?.length ?? 0`), so the button under-reports while the window is open. That is the
+falsifiable-count problem 0.211.1 removed from the task form, still live here.
+
+★★ **Not fixed in 0.211.1 on purpose.** That batch was scoped to four named register entries; this is
+a fifth, found during its review. Fixing it means deciding *how* — omit `noteLog` from the RAID save
+payload (mirrors `use-task-submit.ts`), or stop snapshotting the whole row. The second is the better
+shape and the larger change, because `draft` is also what the risk matrix and status handlers mutate.
+
+★ **Traced, NOT repro-tested.** No failing test was written. Write one first — and note the §29 test
+trap it inherits: a fixture that never adds a note while the editor is open passes either way.
+
+★ Sweep the same shape at the other snapshot-then-replace editors before assuming RAID is the only
+one; the pattern is a full-row `useState` draft plus a write-through side channel, not anything
+specific to notes.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
@@ -1637,22 +1698,40 @@ which is exactly the kind of thing that gets re-run.
 | §29 dead `form.noteLog` | field removed from `emptyForm`, so the derived `TaskFormDraft` dropped it and `tsc` found every stale literal |
 
 ★★★ **THE BATCH'S OWN LESSON: three of the four entries were WRONG about their own fix, and only
-review caught it.** §11 recommended leaving two sites alone (defensible, overridden — see there).
+review caught it.** §11 recommended leaving two sites alone (defensible, overridden — see there) —
+and, it later turned out, was wrong about the defect *existing at all* (see §11's own correction).
 §14 specified a read-both migration that shipped and had to be **reverted**, then a migrate-once
 variant that was specified and rejected before it was built. §15 scoped itself to two call sites when
 there were three, and looking at the third and the excluded fourth produced §46 and §47. An entry in
 this register records what was known when it was written, and that is not the same as what is true when
 you come to act on it — **re-derive the fix, do not just execute the entry.**
 
-★★ **Vacuity kept being the real risk, not correctness.** Every task in this batch ended with a
-deliberate mutation to prove its tests discriminate, and that step earned its keep repeatedly: 6 of 7
-new store tests passed *before* the fix (extra arguments are runtime no-ops in JS, so a two-arg call
-against a one-arg function ignores the second silently); a control test asserting a genuine error still
-errored passed both before and after; and the §14 panel wiring turned out to be pinned by **nothing**
-until a test was added for it specifically. A green suite said almost nothing on its own.
+★★ **Vacuity kept being the real risk, not correctness.** Most tasks ended with a deliberate mutation
+to prove the tests discriminate, and that step earned its keep repeatedly: 6 of 7 new store tests
+passed *before* the fix (extra arguments are runtime no-ops in JS, so a two-arg call against a one-arg
+function ignores the second silently); a control test asserting a genuine error still errored passed
+both before and after; and the §14 panel wiring turned out to be pinned by **nothing** until a test was
+added for it specifically. A green suite said almost nothing on its own.
+
+★★★ **AND THE MUTATION STEP WAS ITSELF SKIPPED ONCE — this paragraph originally claimed "every task",
+which review disproved.** `file-picker-button.test.tsx`'s "fires again when the same file is picked
+twice" shipped VACUOUS: it minted a **fresh `File` per upload**, and user-event skips the change event
+only on OBJECT IDENTITY (`upload.js`, `files.every((f, i) => f === input.files.item(i))`), so the event
+fired regardless and deleting `e.target.value = ""` left it green. The one property of the new
+primitive with no other coverage had a test named for it that could not fail. Fixed by hoisting a
+single `File` instance and re-mutating: reset removed ⇒ that test alone fails; `aria-hidden` removed ⇒
+the new AT test alone fails. ★ **Both reviewers found this independently**, one primed and one cold —
+the strongest possible signal, and worth more than either verdict alone.
 
 ★ Not fixed, recorded instead: the `-strong`-token and `dup:check` observations stand, and the three
 hand-written correct abort reads (`chat-panel`, `use-alloc-plan`, `use-raci-suggest`) were left alone.
+
+★★ **Review round 2 (post-release, pre-merge) also corrected the DOCS in three places** — each a claim
+contradicted by the code it described, in the batch's own final docs commit: AGENTS.md said the
+note-count was "a literal `0`" when the code shows none; it called `FilePickerButton` the "ONLY
+sanctioned way to open a file dialog", which reads as flagging `step0-import-panel.tsx`'s perfectly
+correct VISIBLE input; and the note-log guarantee was written as if app-wide when RAID still has the
+whole defect (§48). The register is not exempt from the rule it exists to enforce.
 
 ### 49-finding audit campaign (2026-07-06 → 07-10) — **37/49 merged**
 

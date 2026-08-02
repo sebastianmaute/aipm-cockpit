@@ -14,12 +14,6 @@ A small-correctness batch closing four entries from the open-followups register.
 
 ### Fixed
 
-- **Cancelling an AI action no longer reports it as an error.** The task-dedup and
-  Action Center analysis flows checked for a cancel with `instanceof DOMException`,
-  which is not reliable across runtimes — so a cancel the user asked for fell
-  through to the generic error arm and surfaced an error toast (dedup) or an error
-  state (analysis). All four abort checks now share one predicate that reads the
-  error's name directly.
 - **The TimeLog actuals cache follows the project, not its editable code.** It was
   keyed on the project code, so renaming that code orphaned the cached bookings
   while the project-scope picker (keyed canonically) survived — leaving the picker
@@ -29,13 +23,22 @@ A small-correctness batch closing four entries from the open-followups register.
 
 ### Changed
 
+- **The four abort checks share one predicate.** They read the error's name
+  directly instead of gating on `instanceof DOMException`, which is unreliable
+  across the jsdom/Node boundary. This is hardening, not a bug fix: in a browser
+  an aborted `fetch` rejects with a same-realm `DOMException`, so the previous
+  gate did match and no user-facing failure was demonstrated at any of the four
+  sites. (An earlier draft of this entry, and open-followups §11, both claimed a
+  spurious error toast; a cold review disproved it.)
 - **The three file pickers in Settings → Appearance share one control.** The two
   built as a styled `<label>` had no visible keyboard focus indicator at all — a
   `<label>` cannot receive focus, so the focus ring on it could never render, and
   focus instead landed on a visually-clipped input. They are real buttons now.
-- Restored button sizing in the scheme editor and the branding row, where the
-  shared control had silently changed two controls' size relative to their
-  neighbours.
+- Realigned button sizing where the shared control had changed a control's size
+  relative to its neighbours. The scheme editor's Import button is restored
+  exactly (`size="xs"` matches the local class string byte for byte); the
+  branding row's picker and its Remove twin both moved up to `size="sm"`
+  together, so that row is internally consistent but slightly larger than before.
 - **The task form no longer carries a dead note-log field.** The note log writes
   straight through to the workspace and the draft's copy was never saved; removing
   it means there is nothing for a future change to accidentally write back over a
