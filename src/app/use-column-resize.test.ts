@@ -68,7 +68,7 @@ describe("useColumnResize", () => {
     expect(r2.result.current.colWidths.a).toBe(222);
   });
 
-  it("persists colWidths to the namespaced key after 250 ms debounce", async () => {
+  it("persists sizedWidths to the namespaced key after 250 ms debounce", async () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useColumnResize("t1", DEFAULTS));
     await act(async () => { vi.runAllTimers(); });
@@ -129,7 +129,12 @@ describe("useColumnResize", () => {
     expect(result.current.sizedWidths.a).toBe(333);
   });
 
-  it("reset clears sizedWidths and the stored payload", async () => {
+  // ★ The payload is NOT durably removed: the debounced effect re-runs on the
+  //   state change and writes `{v:2,widths:{}}` back 250ms later. Asserting only
+  //   the null would pin a transient state. Both are checked here, so the test
+  //   describes what actually happens rather than the first 249ms of it.
+  it("reset empties sizedWidths, and the payload returns empty rather than absent", async () => {
+    vi.useFakeTimers();
     localStorage.setItem(KEY("t5"), JSON.stringify({ v: 2, widths: { a: 333 } }));
     const { result } = renderHook(() => useColumnResize("t5", DEFAULTS));
     await act(async () => {});
@@ -138,5 +143,20 @@ describe("useColumnResize", () => {
     expect(result.current.sizedWidths).toEqual({});
     expect(result.current.colWidths).toEqual(DEFAULTS);
     expect(localStorage.getItem(KEY("t5"))).toBeNull();
+
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(JSON.parse(localStorage.getItem(KEY("t5")) as string)).toEqual({ v: 2, widths: {} });
+  });
+
+  // ★ An unrecognised version must NOT fall through to the v1 branch: a future
+  //   `{v:3,widths:{…}}` spread verbatim would put a numeric `v` and an
+  //   object-valued `widths` into a Record<TId, number>, and on into colWidths.
+  it.each([3, "2", null] as const)("treats an unrecognised version (%o) as no user widths", async (v) => {
+    localStorage.setItem(KEY("t6"), JSON.stringify({ v, widths: { a: 333 } }));
+    const { result } = renderHook(() => useColumnResize("t6", DEFAULTS));
+    await act(async () => {});
+
+    expect(result.current.sizedWidths).toEqual({});
+    expect(result.current.colWidths).toEqual(DEFAULTS);
   });
 });

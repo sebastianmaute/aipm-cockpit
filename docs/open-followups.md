@@ -1634,6 +1634,47 @@ specific to notes.
 
 ---
 
+## 49. `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate
+
+0.212.0 changed the hook to persist `{v:2, widths}` holding ONLY columns the user actually dragged,
+so that a later change to a `*_COL_WIDTHS` default reaches people who had dragged some unrelated
+column. A v1 payload (a bare object) cannot distinguish dragged from default, so `readSized` treats
+every key in it as user-set — the conservative direction, preserving widths rather than discarding
+them.
+
+★★ **The premise that makes that conservative choice look cheap is false, and the commit message
+implies otherwise.** The pre-v2 persist effect had **no first-run guard**: it fired ~250ms after
+MOUNT and wrote the whole MERGED map. So a v1 blob is not a record of the user's drags — it is a
+full defaults snapshot taken the first time that table was ever displayed for a quarter second.
+Found by a reviewer of the 0.212.0 batch, not by the implementation.
+
+Consequences, for the ~19 tables that are NOT Open Points:
+
+| | |
+|---|---|
+| stated benefit | "a `DEFAULT_COL_WIDTHS` change now reaches existing users" |
+| actual reach | fresh installs · anyone who clicks reset-columns · a table whose id was bumped |
+| existing users | `sizedWidths` comes back fully populated, so nothing changed for them |
+
+★ Open Points is unaffected **because its table id was bumped** to `open-points-v2` in the same
+release, which discards the v1 blob outright. That bump is what makes the flex-`taskName` column and
+the retuned `status`/`depRelations`/`actions` widths actually land. Do not read "the migration is
+conservative" as "the feature works for everyone" — those two facts are about different tables.
+
+★ The cheap fix, if this is ever worth doing: drop v1 keys whose value already equals
+`defaults[key]`. The only thing lost is a user who dragged a column to *exactly* its default width,
+who then keeps seeing that width anyway and diverges only once the default changes — arguably the
+desired outcome. Not done in 0.212.0 because it is a behaviour change for 19 tables that were not in
+that slice's scope.
+
+★ Related and CLOSED in the same release: an unrecognised version (`{v:3,…}`, `{v:"2",…}`) used to
+fall through to the v1 branch and get spread verbatim, putting a numeric `v` and an object-valued
+`widths` into a `Record<TId, number>` and on into `colWidths`. It is now `if (v2.v !== undefined)
+return {}` — an unknown version reads as "no user widths". Pinned by an `it.each` test; verified
+failing without the guard.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).

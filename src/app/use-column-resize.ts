@@ -11,7 +11,24 @@ const KEY_PREFIX = "aipm-cockpit:col-widths";
  *  dragged — so a later change to a DEFAULT still reaches them. v1 is a bare
  *  object written when the hook persisted the whole merged map; it cannot tell
  *  dragged from default, so every key in it counts as user-set. That direction
- *  is deliberate: it preserves widths rather than silently discarding them. */
+ *  is deliberate: it preserves widths rather than silently discarding them.
+ *
+ *  ★★ BUT DO NOT READ "v1 blob" AS "the user's drags". The pre-v2 persist effect
+ *  had no first-run guard, so it fired ~250ms after MOUNT and wrote the whole
+ *  MERGED map. Any table a user has simply LOOKED AT therefore holds a full
+ *  defaults snapshot, and this function promotes every key of it to user-set.
+ *  Consequence: for an existing user the v2 benefit ("a DEFAULT change now
+ *  reaches them") does NOT apply to a table carrying a v1 blob — only to fresh
+ *  installs, to anyone who clicks reset, and to a table whose id was bumped
+ *  (which is exactly why Open Points moved to `open-points-v2`). Dropping v1
+ *  keys whose value already equals the default would recover it; that is a
+ *  behaviour change for ~19 other tables and is deliberately NOT done here.
+ *
+ *  ★ An unrecognised VERSION reads as "no user widths" rather than falling
+ *  through to the v1 branch — otherwise a future `{v:3,widths:{…}}` would be
+ *  spread verbatim, putting a numeric `v` and an OBJECT-valued `widths` into a
+ *  `Record<TId, number>` and on into `colWidths`. Safe only by accident today
+ *  (no column is named `v` or `widths`). */
 function readSized<TId extends string>(storageKey: string): Partial<Record<TId, number>> {
   try {
     const raw = window.localStorage.getItem(storageKey);
@@ -24,6 +41,7 @@ function readSized<TId extends string>(storageKey: string): Partial<Record<TId, 
       if (w && typeof w === "object" && !Array.isArray(w)) return { ...(w as Partial<Record<TId, number>>) };
       return {};
     }
+    if (v2.v !== undefined) return {};
     return { ...(parsed as Partial<Record<TId, number>>) };
   } catch {
     return {};
