@@ -287,7 +287,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     const dir = sortDir === "asc" ? 1 : -1;
     return filtered.slice().sort((a, b) => {
-      let cmp = 0;
+      let cmp: number;
       if (sortKey === "id") cmp = a.id - b.id;
       else if (sortKey === "estimate")
         cmp = (a.originalEstimateMinutes ?? 0) - (b.originalEstimateMinutes ?? 0);

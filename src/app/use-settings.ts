@@ -341,7 +341,7 @@ export function useSettings(): {
             // any reason — no IndexedDB, no crypto.subtle, locked-down browser,
             // test env — we commit this instead of crashing or losing the
             // secret for the session.
-            let committed = merged;
+            let committed: typeof merged;
             try {
               // migratePlaintextSecrets is hardened to never reject: a failed
               // seal (no IndexedDB / WebCrypto) leaves that secret un-migrated
