@@ -169,9 +169,18 @@ describe("RaciPanel", () => {
 
   // The button is null when AI is off, so the filter must simply become first —
   // no placeholder, no reserved gap.
+  // ★ Asserting only "trigger absent AND filter present" would duplicate the
+  //   existing "hides the trigger when AI is not configured" test and prove
+  //   nothing about the gap: a spacer <div> rendered in the trigger's place
+  //   would satisfy it. Checking that the filter lives in the group's FIRST
+  //   child is what actually rules that out.
   it("leaves the filter first when the Suggest trigger is absent", () => {
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
-    expect(screen.getByRole("combobox", { name: /filter people/i })).toBeInTheDocument();
+
+    const filter = screen.getByRole("combobox", { name: /filter people/i });
+    const group = filter.closest("div.flex-1");
+    expect(group).not.toBeNull();
+    expect(group?.firstElementChild).toContainElement(filter);
   });
 });
