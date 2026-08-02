@@ -109,4 +109,38 @@ describe("useColumnManager", () => {
       });
     });
   });
+
+  // ★★ The pane binds to `sizedWidths`, NOT `colWidths` — an absent key is what
+  //    lets `taskName` render with no declared width and so absorb the table's
+  //    leftover. If this hook stopped re-exporting it, or re-exported the merged
+  //    map under that name, every column would declare a width, the flex column
+  //    would silently never engage, and the leftover would go back to being split
+  //    evenly across all of them. That is invisible in jsdom and to axe.
+  // ★★ KNOWN GAP, deliberately not closed here: these tests pin the HOOK's half
+  //    of the contract. The other half — `task-manager.tsx` passing `sizedWidths`
+  //    as the pane's `colWidths` prop — has NO test. `tasks-section.test.tsx`
+  //    supplies that prop directly, and the characterization suite mounts
+  //    TaskManager on the dashboard, so TasksSection never renders there (probed:
+  //    a mock of it captures nothing). Reverting that one line would kill the flex
+  //    column with every gate still green. Covering it needs a TaskManager mount
+  //    navigated to Open Points — worth doing if that pane grows more wiring.
+  describe("sizedWidths", () => {
+    it("is empty on a fresh install, where colWidths is fully populated", () => {
+      const { result } = renderHook(() => useColumnManager());
+      expect(result.current.sizedWidths).toEqual({});
+      expect(Object.keys(result.current.colWidths).length).toBeGreaterThan(10);
+    });
+
+    it("carries only the dragged column, while colWidths still fills the rest", () => {
+      localStorage.setItem(
+        "aipm-cockpit:col-widths:open-points-v2",
+        JSON.stringify({ v: 2, widths: { taskName: 333 } }),
+      );
+      const { result } = renderHook(() => useColumnManager());
+
+      expect(result.current.sizedWidths).toEqual({ taskName: 333 });
+      expect(result.current.colWidths.taskName).toBe(333);
+      expect(result.current.colWidths.status).toBe(DEFAULT_COL_WIDTHS.status);
+    });
+  });
 });
