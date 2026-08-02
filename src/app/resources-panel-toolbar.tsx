@@ -83,8 +83,10 @@ export function PlanningToolbar({
           ]}
           onChange={onSetAllUtilizationMode}
         />
-        {hideExternalToggle}
-        <div className="ml-auto">{headerActions}</div>
+        <div className="ml-auto flex items-center gap-2">
+          {hideExternalToggle}
+          {headerActions}
+        </div>
       </div>
       <div className="print:hidden">
         <TableFilter lang={lang} value={planFilter} onChange={onPlanFilter} placeholderKey="planningFilterResource" />
