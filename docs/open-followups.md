@@ -1790,10 +1790,26 @@ swallows it into an EMPTY workspace that then "successfully" writes near-empty s
 the same DOM-free constraint that already forces `templates.ts` `sanitizeSeedTask` to skip the
 allow-list (§36(a)). **Do not "complete the sweep" by importing it there.**
 
-★ Consequence to accept: the guarantee is per-CALLER, not central. The other two `sanitizeRaidItem`
-callers (`task-manager.tsx:1308`, `use-chat-dispatcher.ts` `createRaid`) are both CREATES on freshly
-built objects, so nothing is lost today — but a FUTURE caller that sanitizes an existing RAID row will
-re-open this, and no gate will catch it. A new call site must ask whether it holds a stored row.
+★ Consequence to accept: the guarantee is per-CALLER, not central. The other **three**
+`sanitizeRaidItem` callers are all CREATES on freshly built objects, so nothing is lost today —
+`task-manager.tsx:1308`, `use-chat-dispatcher.ts` `createRaid`, and `ai-project-proposal.ts:287`. But a
+FUTURE caller that sanitizes an existing RAID row will re-open this, and no gate will catch it. A new
+call site must ask whether it holds a stored row.
+
+★★ **`grep 'sanitizeRaidItem('` DOES NOT FIND ALL OF THEM — and the one it misses is the one you most
+need.** `ai-project-proposal.ts:287` passes the function **by reference** (`buildList(s.raid,
+sanitizeRaidItem)`), so there is no `(` after the name to match. The first version of this entry said
+"the other two callers" for exactly that reason, and both reviewers caught it. Sweep on the BARE name.
+The same trap applies to any sanitizer used as a `.map`/`buildList` callback.
+
+★ KNOWN latent divergence, deliberately not fixed: `updateRaid` stores
+`{ ...merged, noteLog: existing.noteLog }` but returns `toRaidSummary(merged)`. A no-op today
+(`toRaidSummary` reads none of the re-applied fields), but it is the only sibling update path where
+what the model is TOLD is not derived from what was PERSISTED, so a future field joining both lists
+would hand the model a stale value. Hoisting one `saved` const fixes it and costs one line —
+`use-chat-dispatcher.ts` is at **799** of a hard **800** ceiling with no baseline entry, and spending
+the last line to pre-empt a hypothetical is the same trade this batch already refused for §48's
+belt-and-braces merge. Take the line when the file is split, not before.
 
 ★ The same shape has NOT been checked on the other sanitizers. `sanitizeRaidItem` is the one with a
 write-through field; whether any other entity sanitizer drops a field its callers hold is open.
@@ -1807,7 +1823,15 @@ using the before-image captured at bulk-apply time. `use-resource-planner.ts` `c
 snapshots whole rows (`edited = raid.filter(...)`).
 
 Sequence: select 3 RAID rows → bulk-set severity → open the notes window on one → add a note → Ctrl+Z.
-**The note is gone**, and redo restores the post-bulk snapshot, which also lacks it.
+**The note is gone.**
+
+★★ **REDO DOES BRING IT BACK — an earlier revision of this entry said it did not, and that was wrong.**
+The forward image is NOT a snapshot taken at capture time; it is built from the LIVE array at UNDO time
+(`use-undo-stack.ts:199` `buildForwardImages(before, prev, remap)`, and `undo-stack.ts:185` resolves each
+edit image via `afterArray.find(...)`). So the note is in the redo image and comes back. The loss is
+recoverable — but only by an immediate redo, which also re-applies the bulk edit the user was trying to
+undo. ★ This matters because of the test instructions below: asserting that redo also loses the note
+would FAIL against correct code and send you debugging a path that is not broken.
 
 ★★ This is §48's defect class — a stale whole-row snapshot clobbering write-through content —
 relocated into the undo engine. The per-FIELD undo path is immune (`captureFieldEdit` merges

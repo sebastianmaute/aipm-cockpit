@@ -527,8 +527,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   constraint as §36(a)). So ANY caller that sanitizes an EXISTING RAID row silently erases its log.
   `use-chat-dispatcher.ts` `updateRaid` did exactly that until 0.211.1 and every AI edit to a RAID item
   wiped its notes unrecoverably (no undo on AI writes) — it now re-applies the stored log after
-  sanitizing (`docs/open-followups.md` §49). The other two callers are CREATES and safe. ★ A NEW
-  `sanitizeRaidItem` call site must ask whether it holds a stored row; nothing gates this.
+  sanitizing (`docs/open-followups.md` §49). The other THREE callers are CREATES and safe. ★ A NEW
+  `sanitizeRaidItem` call site must ask whether it holds a stored row; nothing gates this. ★★ Sweep on
+  the BARE name — `ai-project-proposal.ts:287` passes the sanitizer by REFERENCE into `buildList`, so
+  `grep 'sanitizeRaidItem('` misses it (that trap produced a wrong count here first time round, and it
+  applies to any sanitizer used as a `.map`/`buildList` callback).
   ★★ STILL OPEN (§50): whole-row `capture()` undo restores a stale row, so undoing a BULK edit reverts
   the note log. Shared engine (`undo-stack.ts:89`), so tasks are likely affected too — unverified.
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it

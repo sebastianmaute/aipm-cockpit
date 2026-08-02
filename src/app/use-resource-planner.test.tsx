@@ -762,7 +762,9 @@ describe("useResourcePlanner", () => {
     //   below MUST be appended between the snapshot and the save.
     //   ★ Note also that merely dropping `noteLog` from the payload would be
     //   WORSE than the bug: the replace would then erase the log entirely. The
-    //   live value has to be carried over at the setter.
+    //   stored value is carried over on the `withStamp` BUILD — a single site.
+    //   (An earlier draft also merged inside `setRaid`; that was dropped, so do
+    //   not go looking for a second safety net there. See §48.)
     it("handleSaveRaidItem keeps notes added while the editor was open", () => {
       const { result } = renderPlanner();
       const note = (id: number, text: string) => ({
