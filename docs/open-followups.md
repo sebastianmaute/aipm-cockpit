@@ -86,6 +86,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
 | 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
 | 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
+| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open — 2nd flaky test; ★ mechanism NOT established, do not raise a timeout |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -1175,12 +1176,30 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
-## 39. The timelog partial-failure toast has now failed CI six times, and raising its timeout did not fix it — open, needs a real diagnosis
+## 39. The timelog partial-failure toast has now failed CI eight times, and raising its timeout did not fix it — open, needs a real diagnosis
 
-`timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Six CI
+`timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
 locally: 0.205.0 · 0.208.0 · twice on the 0.209.0 MR · once on main after that merge (which left main
-**red**) · and the 0.210.0 MR pipeline #5305.
+**red**) · the 0.210.0 MR pipeline #5305 · and TWO on 2026-08-02 — the weekly `schedule` pipeline #5403
+(00:25) and the post-merge main pipeline #5418 (19:38) for the 0.211.1 MR !338, which again left main red.
+
+★★★ **THE "ONE DATA POINT" CAVEAT AT THE BOTTOM OF THIS ENTRY IS NOW CLOSED — the toast never arrives.**
+Three failures have now run under the 15 s budget, and they consumed:
+
+| run | duration |
+|---|---|
+| !335 (the 6th failure) | **15,093 ms** |
+| #5403 (weekly schedule, 2026-08-02) | **15,098 ms** |
+| #5418 (main post-merge, 2026-08-02) | **15,117 ms** |
+
+A spread of **24 ms across three runs** at a 15,000 ms ceiling. If the toast were merely arriving slowly
+under load, the durations would scatter — some runs passing at 6 s or 11 s, failures landing at varied
+points past 15 s. Instead all three consume the entire budget to within 0.16%. That is the timeout
+expiring on a toast that is never coming, on those runs. Stop treating this as a performance problem.
+★ What is still NOT established: why it is reachable on most runs and not these. The next step remains
+the one below — determine whether `showToast("error", …)` is reachable on that path at all under CI
+conditions — but it can now be pursued as a logic/race question rather than a timing one.
 
 ★★★ **The recorded diagnosis is now in doubt, and the obvious next step is wrong.** The in-test comment
 reasons from "always at ~5.1s ... a hair over the limit" to "worker starvation under full parallel load,
@@ -1197,9 +1216,11 @@ runs passing at 6s or 11s under a 15s budget. So:
 - The next step is to find out whether `showToast("error", …)` is reachable at all on that path under
   CI conditions — e.g. an unresolved promise in the mocked `useTimelogSync`, a lost `act()` flush, or a
   partial-failure branch that only fires when a timer wins a race it usually loses.
-- ★ Honest limit of this inference: one data point at 15s. The toast could genuinely arrive at 15.5s.
-  What *is* established is that the mitigation did not work and the reasoning behind it no longer fits
-  the evidence.
+- ~~★ Honest limit of this inference: one data point at 15s. The toast could genuinely arrive at 15.5s.~~
+  **SUPERSEDED 2026-08-02 — see the three-run table above.** Two further failures at 15,098 ms and
+  15,117 ms put the spread at 24 ms across three runs, which rules out "arrives at 15.5 s": a value that
+  close to the ceiling three times running is the ceiling, not the arrival. What *is* established is
+  that the mitigation did not work and the reasoning behind it no longer fits the evidence.
 
 ★ Until diagnosed, the operational answer is to **retry the job**, not to edit the test. It is a known
 flake with a known signature, and it has never failed locally.
@@ -1848,6 +1869,55 @@ shared undo machinery in the fourth review round of an unrelated batch is how a 
 (`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
 capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
 a fixture that adds it before passes either way (the §48 trap, restated).
+
+---
+
+## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, mechanism NOT established
+
+`use-tasks-dedup.test.tsx` → "on confirm, removes the duplicate and records ONE undo entry" failed on
+the post-merge main pipeline **#5418** (2026-08-02, MR !338), in the same `unit-tests` job where §39
+failed for the 8th time. It left main red.
+
+**What is established:**
+- The same tree passed on the MR pipeline **#5417** minutes earlier. #5418 is that tree plus a merge
+  commit, so this is environment-sensitive, not a code regression.
+- The failure is `TestingLibraryElementError: Unable to find … role "button" and name /merge selected/i`
+  — the preview modal was not in the DOM.
+- In the failure dump the trigger button carried **`disabled=""`**, i.e. the hook was still in its busy
+  phase: the mocked `runDedupProposal` had not resolved.
+- Duration **38 ms** — this is NOT a timeout. `getByRole` fails immediately.
+
+**What is NOT established — and the two facts do not reconcile from the CI trace alone:**
+the line before the failure is `await waitFor(() => expect(screen.getByText(/dup/i)).toBeTruthy())`.
+For the reported error to be the one that surfaced, that `waitFor` must have SUCCEEDED — yet the modal
+was absent and the trigger still busy. Either something other than the modal satisfied `/dup/i`, or the
+preview opened and closed again between the two lines. **Do not write a fix based on either guess;
+reproduce it first.**
+
+★★ **The matcher is fragile independently of the root cause, and that is worth fixing regardless.**
+`/dup/i` is a substring of the trigger's own accessible name, "**Dedup**licate & unify tasks". The gate
+is therefore not a reliable barrier for the un-waited `getByRole` on the next line: it can be satisfied
+by something that does not imply the modal is open. Assert on a modal-specific node (`findByRole` for
+"merge selected") so the wait and the assumption are the same condition. ★ The trigger renders no text
+child, so it is not proven that it is what matched — this is a fragility argument, not the diagnosis.
+
+★★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case directly above: 5 s → 15 s
+moved the failure point and bought nothing, and three subsequent failures then consumed the 15 s budget
+to within 24 ms. This one is not even timeout-shaped (38 ms).
+
+★ Two load-sensitive failures in one job, on a runner that also took 15.1 s to not-deliver a toast,
+suggests a shared environmental trigger rather than two unrelated test bugs. Worth investigating
+together — but §39's signature (budget fully consumed) and this one's (immediate miss) are different, so
+do not assume one diagnosis covers both.
+
+★★ **CONFIRMED FLAKY BY RETRY, not by argument.** Job 20222 — a plain retry of the failed `unit-tests`
+job on the SAME commit `351eb05f`, no code change — passed in 389 s, and #5418 went green. Both this
+test and §39's passed on the retry. That is the decisive evidence that #5418's failures were
+environmental: the identical tree produced both outcomes.
+
+★ Operational answer meanwhile, as with §39: **retry the job.** It is a known-flaky failure, not a
+signal to edit the test — and editing on a red-CI reflex is how §39 acquired a 15 s timeout that bought
+nothing.
 
 ---
 
