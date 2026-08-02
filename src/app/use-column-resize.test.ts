@@ -84,7 +84,59 @@ describe("useColumnResize", () => {
     expect(localStorage.getItem(KEY("t1"))).toBeNull();
 
     act(() => { vi.advanceTimersByTime(250); });
-    const stored = JSON.parse(localStorage.getItem(KEY("t1")) ?? "{}") as Record<string, number>;
-    expect(stored.a).toBe(200);
+    const stored = JSON.parse(localStorage.getItem(KEY("t1")) ?? "{}") as { widths?: Record<string, number> };
+    expect(stored.widths?.a).toBe(200);
+  });
+
+  it("persists a v2 payload holding only dragged keys", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useColumnResize("t2", DEFAULTS));
+
+    const ev = { clientX: 100, preventDefault: () => {} } as unknown as React.MouseEvent;
+    act(() => { result.current.startColResize("a", ev); });
+    act(() => { window.dispatchEvent(new MouseEvent("mousemove", { clientX: 180 })); });
+    act(() => { window.dispatchEvent(new MouseEvent("mouseup")); });
+    act(() => { vi.advanceTimersByTime(300); });
+
+    const raw = JSON.parse(localStorage.getItem(KEY("t2")) as string) as { v?: number; widths?: Record<string, number> };
+    expect(raw.v).toBe(2);
+    // Only "a" was dragged. "b" must NOT be written, or a future change to its
+    // default would be permanently masked for this user.
+    expect(Object.keys(raw.widths ?? {})).toEqual(["a"]);
+    expect(raw.widths?.a).toBe(180);
+  });
+
+  it("exposes sizedWidths as the raw user-set map, with colWidths still merged", async () => {
+    localStorage.setItem(KEY("t3"), JSON.stringify({ v: 2, widths: { a: 333 } }));
+    const { result } = renderHook(() => useColumnResize("t3", DEFAULTS));
+    await act(async () => {});
+
+    expect(result.current.sizedWidths).toEqual({ a: 333 });
+    expect(result.current.sizedWidths.b).toBeUndefined();
+    // Unchanged public contract: colWidths is still every key, defaults filled.
+    expect(result.current.colWidths).toEqual({ a: 333, b: 200 });
+  });
+
+  it("still reads a v1 bare-object payload (other tables keep their widths)", async () => {
+    localStorage.setItem(KEY("t4"), JSON.stringify({ a: 333, x: 999 }));
+    const { result } = renderHook(() => useColumnResize("t4", DEFAULTS));
+    await act(async () => {});
+    expect(result.current.colWidths.a).toBe(333);
+    expect(result.current.colWidths.b).toBe(200);
+    // A v1 blob cannot distinguish dragged from default, so every key it holds
+    // counts as user-set. That is the conservative direction: it preserves the
+    // user's widths rather than silently discarding them.
+    expect(result.current.sizedWidths.a).toBe(333);
+  });
+
+  it("reset clears sizedWidths and the stored payload", async () => {
+    localStorage.setItem(KEY("t5"), JSON.stringify({ v: 2, widths: { a: 333 } }));
+    const { result } = renderHook(() => useColumnResize("t5", DEFAULTS));
+    await act(async () => {});
+    act(() => { result.current.resetColWidths(); });
+
+    expect(result.current.sizedWidths).toEqual({});
+    expect(result.current.colWidths).toEqual(DEFAULTS);
+    expect(localStorage.getItem(KEY("t5"))).toBeNull();
   });
 });
