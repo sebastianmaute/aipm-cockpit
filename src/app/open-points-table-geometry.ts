@@ -32,6 +32,27 @@ export const TASK_NAME_MIN_PX = 200;
 /** The one column that takes the leftover. */
 const FLEX_COL = "taskName";
 
+/** Width for a column id with no `DEFAULT_COL_WIDTHS` entry. Matches the drag
+ *  fallback in `use-column-resize.ts`, which uses the same number for the same
+ *  reason: an unknown column still has to be SOME width. */
+const FALLBACK_COL_WIDTH_PX = 80;
+
+/**
+ * The declared width of a non-flex column.
+ *
+ * ★★ BOTH consumers below must route through this, or they disagree about an
+ *    id that is in `ALL_TASK_COLS` but missing from `DEFAULT_COL_WIDTHS`:
+ *    `colWidthStyle` would emit no width — making it a SECOND auto column and
+ *    destroying the single-flex-column premise this whole module rests on —
+ *    while `tableMinWidthPx` counted it as 0 and under-measured the table. Both
+ *    failure modes are silent, and invisible in jsdom. Unreachable today (all 18
+ *    ids have defaults), reachable the moment someone adds a column id without
+ *    one, which is exactly when nobody would be looking for it.
+ */
+function declaredWidth(col: string): number {
+  return DEFAULT_COL_WIDTHS[col] ?? FALLBACK_COL_WIDTH_PX;
+}
+
 export type TaskColId = (typeof ALL_TASK_COLS)[number];
 
 /** Visible columns, in declaration order. */
@@ -54,7 +75,7 @@ export function colWidthStyle(
   const sized = sizedWidths[col];
   if (sized !== undefined) return sized;
   if (col === FLEX_COL) return undefined;
-  return DEFAULT_COL_WIDTHS[col];
+  return declaredWidth(col);
 }
 
 /**
@@ -69,6 +90,6 @@ export function tableMinWidthPx(
   return visibleCols.reduce((sum, col) => {
     const sized = sizedWidths[col];
     if (col === FLEX_COL) return sum + Math.max(TASK_NAME_MIN_PX, sized ?? 0);
-    return sum + (sized ?? DEFAULT_COL_WIDTHS[col] ?? 0);
+    return sum + (sized ?? declaredWidth(col));
   }, GUTTER_WIDTH_PX);
 }

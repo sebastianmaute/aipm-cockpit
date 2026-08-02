@@ -6,18 +6,22 @@ import {
   tableMinWidthPx,
   visibleTaskCols,
 } from "./open-points-table-geometry";
+import { ALL_TASK_COLS } from "./tasks-section-columns";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 
 describe("visibleTaskCols", () => {
+  // ★ Assert the WHOLE list, not a sampled pair. `indexOf("id") < indexOf("taskName")`
+  //   catches a reversal and nothing else — it would pass a list that dropped or
+  //   reordered any of the other 16. Order is load-bearing here: the colgroup maps
+  //   this array positionally onto the rendered columns.
   it("drops hidden columns and preserves declaration order", () => {
-    const cols = visibleTaskCols(new Set(["assignee", "sel"]));
-    expect(cols).not.toContain("assignee");
-    expect(cols).not.toContain("sel");
-    expect(cols.indexOf("id")).toBeLessThan(cols.indexOf("taskName"));
+    const hidden = new Set(["assignee", "sel"]);
+    expect(visibleTaskCols(hidden)).toEqual(ALL_TASK_COLS.filter((c) => !hidden.has(c)));
   });
 
   it("returns every column when nothing is hidden", () => {
-    expect(visibleTaskCols(new Set())).toHaveLength(18);
+    // toHaveLength(18) would pass for 18 wrong strings.
+    expect(visibleTaskCols(new Set())).toEqual([...ALL_TASK_COLS]);
   });
 });
 
@@ -55,9 +59,13 @@ describe("tableMinWidthPx", () => {
     expect(width).toBe(GUTTER_WIDTH_PX + TASK_NAME_MIN_PX);
   });
 
+  // ★ Route through `visibleTaskCols` rather than two hand-written lists: the
+  //   title claims something about HIDING, and hiding is what the pane actually
+  //   does. Hand-written lists test the arithmetic while describing a scenario
+  //   the test never runs.
   it("drops by exactly a column's width when that column is hidden", () => {
-    const all = tableMinWidthPx(["id", "taskName", "priority"], {});
-    const without = tableMinWidthPx(["id", "taskName"], {});
+    const all = tableMinWidthPx(visibleTaskCols(new Set()), {});
+    const without = tableMinWidthPx(visibleTaskCols(new Set(["priority"])), {});
     expect(all - without).toBe(DEFAULT_COL_WIDTHS.priority);
   });
 
@@ -65,6 +73,25 @@ describe("tableMinWidthPx", () => {
     expect(tableMinWidthPx(["id"], { id: 300 }) - tableMinWidthPx(["id"], {})).toBe(
       300 - DEFAULT_COL_WIDTHS.id,
     );
+  });
+});
+
+// ★★ A column id with no DEFAULT_COL_WIDTHS entry is unreachable today — all 18
+//    ids have one. It becomes reachable the moment somebody adds an id to
+//    ALL_TASK_COLS without a default, and BOTH failure modes are silent: an
+//    undefined width makes it a SECOND auto column (destroying the single-flex
+//    -column premise the whole module rests on), and a 0 contribution
+//    under-measures the table. Neither is visible in jsdom. Pinned so the two
+//    functions cannot drift apart again.
+describe("an unknown column id", () => {
+  it("gets a real width, not undefined, so it never becomes a second flex column", () => {
+    expect(colWidthStyle("notAColumn", {})).toBeGreaterThan(0);
+  });
+
+  it("contributes the same width to the table minimum that it renders at", () => {
+    const rendered = colWidthStyle("notAColumn", {});
+    const contributed = tableMinWidthPx(["notAColumn"], {}) - GUTTER_WIDTH_PX;
+    expect(contributed).toBe(rendered);
   });
 });
 
