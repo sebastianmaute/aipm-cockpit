@@ -753,6 +753,21 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `ResetSizeIcon`; Gantt's name-column reset once wore the reset-SIZE glyph, making the two adjacent resets
   indistinguishable. That one was fixed in an EARLIER release — 0.211.0 did not touch Gantt at all, and this
   sentence sitting under a "fixed in 0.211.0" clause made it read as though it had.
+  ★★ A pane's PRIMARY action leads the control row, ahead of its filters — `PlanningToolbar`'s `aiPlanButton`
+  is the reference, and RACI's "Suggest RACI" joined it in 0.212.0 (it had been sitting in the trailing group
+  beside Print/Reset, reading as a trailing utility). The trailing group is unaffected either way: a leading
+  control only has to come BEFORE it, which is why `expectButtonOrder` takes `contiguous` per call.
+  ★★ ASSERT THIS WITH THE SHARED `src/test/toolbar-order.ts`, never a local `compareDocumentPosition` walk.
+  `buttonIndex` THROWS when a key matches zero or several buttons; a hand-rolled `findIndex` silently takes
+  the first, so an ordering assertion can pass against the wrong control. And plain ordering is NOT enough
+  for the trailing group — only `contiguous: true` catches a control drifting BETWEEN two members, which is
+  the exact drift this bullet lists four instances of. ★ The helper reads BUTTONS only, so a combobox filter
+  still needs one hand-rolled position check.
+  ★ 0.212.0 also moved Planning's "Hide externals" INTO the trailing `ml-auto` group so it sits beside the
+  Outlook block, matching what `renderWorkloadHeader` already did — Planning had been the outlier. ★ That is
+  a GROUPING change, not an ordering one: the toggle was already the element immediately preceding the group,
+  so a DOM-ORDER assertion passes against the unfixed code. Assert `closest("div.ml-auto")` contains the
+  Outlook control instead.
 
 ### Dashboard landing cockpit
 
@@ -1875,6 +1890,34 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable pane's DEFAULT size silently
   no-ops for anyone with a persisted size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale
   size is discarded (pane stays resizable from the new baseline). Bit Milestones/Knowledge going full-width.
+- **★★ `useColumnResize` persists ONLY user-dragged widths (v2, 0.212.0)** — `{v:2,widths}` where `widths`
+  holds just the columns the user actually dragged, returned raw as `sizedWidths` beside the unchanged
+  merged `colWidths` (19 consumers read `colWidths` and are untouched). So a `*_COL_WIDTHS` default change
+  now reaches a user who once dragged one unrelated column. ★★ BUT NOT retroactively, and the reason is a
+  trap: the PRE-v2 persist effect had NO first-run guard, so it fired ~250ms after MOUNT and wrote the whole
+  MERGED map — meaning a v1 blob is a full DEFAULTS SNAPSHOT, not a record of drags, and `readSized`
+  promotes every key of it to user-set. A table carrying a v1 blob therefore still ignores its new defaults.
+  Open Points escapes ONLY because its id was bumped `open-points` → `open-points-v2`; the other ~19 tables
+  did not (`docs/open-followups.md` §49). Bumping the tableId is the same remedy as the `useResizable`
+  storage-key bump above, for the same reason. ★ An unrecognised VERSION reads as "no user widths" rather
+  than falling through to the v1 branch — a `{v:3,widths:{…}}` spread verbatim would put a numeric `v` and
+  an OBJECT-valued `widths` into a `Record<TId, number>`.
+- **★★ Open Points table geometry — ONE auto column, computed minWidth (0.212.0).** The table is
+  `tableLayout: fixed` + `width: 100%` + `minWidth: ${tableMinWidthPx(...)}px`. ★★★ Under `table-layout:
+  fixed` Blink hands surplus width out **EQUALLY to every column**, NOT in proportion to declared width —
+  so a 36px utility column gained the same ~7-13px a 200px content column did (invisible on the wide ones,
+  ~35% inflation on the narrow ones, which is what made the gutter/checkbox/health/relations columns look
+  padded). `taskName` is therefore the SINGLE column that emits no `width` (only while un-sized — once
+  dragged it declares one), so it absorbs all the leftover. ★ Do NOT restore `width: max-content`: with an
+  auto column present it resolves against that column's longest unwrapped content — the longest task title
+  — so the pane would scroll horizontally at all times. ★ Arithmetic lives in pure `open-points-table-geometry.ts`
+  (`visibleTaskCols` · `colWidthStyle` · `tableMinWidthPx` · `GUTTER_WIDTH_PX` · `TASK_NAME_MIN_PX`), NOT in
+  the pane, which sits at its size ratchet; the column list is the leaf `tasks-section-columns.ts`. ★ The
+  pane's `colWidths` PROP now carries the SIZED-ONLY map (an absent key is what lets `taskName` render
+  width-free) — the name was kept to hold `task-manager.tsx` at net-zero lines under its ratchet. ★ The
+  leading gutter `<col>` renders from `GUTTER_WIDTH_PX`, never a `w-7` class, because `tableMinWidthPx`
+  seeds its sum with that same constant and a class would let the two drift with nothing to catch it —
+  jsdom sees neither.
 - **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.aipm-cockpit-thead` marker; the Dark-Blue fill lives on
   `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with `border-spacing:0`.
   Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
