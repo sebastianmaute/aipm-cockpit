@@ -2448,31 +2448,37 @@ is the design (it is a ratchet, not a budget), but the consequence is not obviou
 interacts badly with the flag below.
 
 ★ The useful half, for §2's split: re-recording `use-resource-planner.ts`'s baseline 1043 → **554**
-still buys something real. Under the old 1043 entry the file could have crept from 553 all the way
-back to 1043 with the gate firing **489 lines late**; under 554 it fires at line 801 — the first line
-at which the loop looks at the entry at all.
+still buys something real — but the value is in **removing the 1043**, not in installing a 554. Under
+the old entry the first size the gate rejected was 1044; with any entry ≤ 800, or with none, it is
+801. So the file could have crept back up with the gate firing **243 lines late**.
 
-★★ **The trap.** `node scripts/check-file-sizes.mjs --update` regenerates the baseline as
-`Object.entries(sizes).filter(([, n]) => n > LIMIT)` — so **running `--update` would DELETE the 554
-entry**, silently removing the regrowth protection §2 just installed. The entry is deliberately below
-the limit and is therefore invisible to the tool's own regeneration. Nothing warns; the file simply
-comes back with five entries instead of six.
+★★★ **CORRECTED 2026-08-03, same day it was written — the original text of this bullet was FALSE and
+is the exact decay this file's preamble warns about.** It claimed that `node
+scripts/check-file-sizes.mjs --update` (which regenerates the baseline as
+`Object.entries(sizes).filter(([, n]) => n > LIMIT)`) would DELETE the 554 entry and thereby "silently
+remove the regrowth protection §2 just installed". It deletes the entry, but that removes **nothing**:
+walk the loop at `scripts/check-file-sizes.mjs:38-41` for `n = 801`. With `prev = 554` the
+`n > prev` arm fires; with `prev === undefined` the NEW-file arm fires. **Both reject, at the same
+line.** A sub-limit baseline entry is behaviourally identical to no entry at all, so `--update`
+dropping it is a no-op and there is no trap here. The reasoning in commit `d7c423bd` is unaffected —
+it argues about the harm of the old 1043 value, which was real.
 
 ★ Also note the counting difference, since it will bite anyone hand-editing the baseline: the script
 counts `content.split("\n").length`, which is **one more** than `wc -l` for a file ending in a
 newline. `use-resource-planner.ts` is 553 by `wc -l` and 554 by the script. Use the script's number.
 
-**No fix is proposed.** Roughly, the options are: (a) leave it, and treat a sub-limit baseline entry
-as a hand-maintained pin that `--update` is documented to destroy; (b) have `--update` preserve
-existing sub-limit entries rather than regenerating from scratch; (c) give the baseline an explicit
-per-file `pin` shape that the loop honours regardless of `LIMIT`. (b) is the smallest and keeps the
-file's meaning ("what may not grow") coherent; (c) makes the ratchet into two mechanisms. Deciding
-this is a small slice of its own, and there is no pressure to do it now — only a reason not to run
-`--update` casually.
+**No fix is proposed**, and the real gap is narrower than the first draft of this entry suggested.
+It is not `--update`; it is that **a file which has been brought back under 800 cannot be held
+there.** §2 took `use-resource-planner.ts` from 1043 to 553, and nothing now stops it returning to
+799 one commit at a time. The two options: (a) leave it — the ratchet is a ratchet, not a budget, and
+800 is the only line anyone agreed to; (b) give the baseline an explicit per-file `pin` the loop
+honours regardless of `LIMIT`, so a file that earned its way down can be held near where it landed.
+(b) makes the ratchet two mechanisms and needs a decision about who may raise a pin, which is why it
+is a slice of its own rather than a tweak. There is no pressure to do either now.
 
 ---
 
-## 61. Three residuals from the `use-resource-planner` split — open, all small
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, all small
 
 Left deliberately by §2's move-only extractions. None blocks anything; grouped as one entry because
 they share a cause and would be fixed in one pass.
@@ -2512,7 +2518,7 @@ is forbidden to make. The rationale is already in `use-reference-data.ts`'s head
 has to preserve that property.
 
 **(d) If a further extraction is ever wanted**, the **RAID cluster** is the cleanest next cut: ~130
-lines, `use-resource-planner.ts:133-276` — `handleSaveRaidItem`, `handleDeleteRaidItem`,
+lines, `use-resource-planner.ts:133-265` — `handleSaveRaidItem`, `handleDeleteRaidItem`,
 `handleSendRaidInquiry`, `captureRaidBulkUndo` — self-contained, and conceptually not "resource
 planning" at all. (`handleCreateMitigationTaskFromRaid` at `:407` is RAID-adjacent but reaches into
 tasks, so it is a judgement call rather than an obvious inclusion.) Absence and shift CRUD genuinely
