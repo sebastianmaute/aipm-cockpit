@@ -545,6 +545,44 @@ describe("TaskRow zebra striping", () => {
   });
 });
 
+describe("TaskRow closed glyph", () => {
+  // isClosed covers Done AND Cancelled, but only Done is DELIVERED — the
+  // status cell must render a different glyph SHAPE (not just colour) for
+  // the two, so a cancelled row can never be read as a delivered one.
+  function renderClosedRow(task: Task) {
+    const ctx = makeContext();
+    return render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={undefined}
+            isStriped={false}
+          />
+        ),
+      }),
+    );
+  }
+
+  test("shows a cross, not a check, for a cancelled task", () => {
+    const { container } = renderClosedRow(makeTask({ id: 1, status: "Cancelled" }));
+    expect(container.textContent).toContain("✕");
+    expect(container.textContent).not.toContain("✓");
+  });
+
+  test("still shows the check for a delivered task", () => {
+    const { container } = renderClosedRow(
+      makeTask({ id: 2, status: "Done", completedDate: "2026-05-20" }),
+    );
+    expect(container.textContent).toContain("✓");
+    expect(container.textContent).not.toContain("✕");
+  });
+});
+
 describe("useTaskRowContext", () => {
   test("throws a documented error when used outside RowContext.Provider", () => {
     const original = console.error;

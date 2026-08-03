@@ -406,7 +406,15 @@ function TaskRowImpl({
       {!hiddenCols.has("status") && (
         <Td padding="tight">
           {isClosed && !task.healthOverride ? (
-            <span role="img" title={label} aria-label={label} className="text-ui-green-strong">✓</span>
+            isTaskDelivered(task) ? (
+              <span role="img" title={label} aria-label={label} className="text-ui-green-strong">✓</span>
+            ) : (
+              // Closed but NOT delivered — cancelled. Differs from a delivered
+              // row by GLYPH SHAPE, not colour: the Status column is hideable,
+              // and a colour-only distinction is the WCAG 1.4.1 pattern this
+              // repo already tracks two open follow-ups about.
+              <span role="img" title={label} aria-label={label} className="text-muted-foreground">✕</span>
+            )
           ) : (
             <RagDot level={health.color} size="md" label={label} />
           )}
