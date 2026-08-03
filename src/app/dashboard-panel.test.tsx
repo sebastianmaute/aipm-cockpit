@@ -815,3 +815,50 @@ describe("DashboardPanel completion tile self-consistency", () => {
     expect(screen.queryByText(t("en-US", "dashboardCompletedOf", "5", "10"))).toBeNull();
   });
 });
+
+describe("DashboardPanel completion tile", () => {
+  // Mirrors renderDashboard() above verbatim, except tasks is a parameter —
+  // renderDashboard() itself hardcodes a single task and can't express these fixtures.
+  function renderDashboardWithTasks(tasks: unknown) {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={tasks as never}
+        raid={[]}
+        budgets={minimalBudget as never}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+  }
+
+  it("reads as no-active-scope when every task is cancelled", () => {
+    renderDashboardWithTasks([
+      {
+        id: 1, taskName: "Cancelled 1", assignee: "A", assigneeEmail: "a@x.io",
+        dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+        priority: "Medium", blockers: "", description: "",
+      },
+      {
+        id: 2, taskName: "Cancelled 2", assignee: "A", assigneeEmail: "a@x.io",
+        dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+        priority: "Medium", blockers: "", description: "",
+      },
+    ]);
+    expect(screen.getByText(t("en-US", "dashboardNoActiveScope"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "dashboardAllCancelled", "2"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "dashboardPercentComplete", "0"))).toBeNull();
+  });
+
+  it("leaves an empty project on 0% complete", () => {
+    renderDashboardWithTasks([]);
+    expect(screen.getByText(t("en-US", "dashboardPercentComplete", "0"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
+  });
+});

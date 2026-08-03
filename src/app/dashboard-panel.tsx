@@ -154,6 +154,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // and renders directly beneath the completion tile, so it must divide by the
   // same denominator the tile's percentage does.
   const currentTotal = model.progress.inScope;
+  // Every task cancelled ⇒ inScope === 0 with total > 0 — distinguish "abandoned"
+  // from a brand-new empty project (total === 0), which must stay on 0% complete.
+  const noActiveScope = model.progress.total > 0 && model.progress.inScope === 0;
   const completionSeries = useMemo(
     () =>
       computeCompletionTrend({ snapshots, activity, currentDone, currentTotal, today }),
@@ -333,10 +336,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
             <Section title={t(lang, "dashboardProgress")} boxed>
               <div className="flex flex-wrap gap-2">
                 <Tile
-                  label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
-                  value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.inScope))}
+                  label={noActiveScope
+                    ? t(lang, "dashboardNoActiveScope")
+                    : t(lang, "dashboardPercentComplete", String(model.progress.percent))}
+                  value={noActiveScope
+                    ? t(lang, "dashboardAllCancelled", String(model.progress.total))
+                    : t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.inScope))}
                   onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                  activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
+                  activateLabel={noActiveScope
+                    ? `${t(lang, "dashboardNoActiveScope")} – ${t(lang, "dashboardOpenTasksView")}`
+                    : `${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
                 />
                 <Tile
                   label="R / A / G" hint={t(lang, "dashboardRagHint")}
