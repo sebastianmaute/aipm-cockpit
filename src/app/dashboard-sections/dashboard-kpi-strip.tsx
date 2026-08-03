@@ -20,17 +20,22 @@ interface DashboardKpiStripProps {
 /** Standalone "at a glance" KPI card: completion % · overdue · open RAID.
  *  Extracted from DashboardHero so it can be a first-class masonry item. */
 export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
+  const noActiveScope = model.progress.total > 0 && model.progress.inScope === 0;
   return (
     <Card boxed className={dc.cardPad}>
       <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
         <Tile
-          label={t(lang, "dashboardKpiComplete")}
+          label={noActiveScope ? t(lang, "dashboardNoActiveScope") : t(lang, "dashboardKpiComplete")}
           hint={t(lang, "dashboardKpiCompleteHint")}
-          value={`${model.progress.percent}%`}
-          bar={<KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
-          trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
+          value={noActiveScope
+            ? t(lang, "dashboardAllCancelled", String(model.progress.total))
+            : `${model.progress.percent}%`}
+          bar={noActiveScope ? undefined : <KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
+          trend={noActiveScope ? undefined : <TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
           onActivate={onNavigate ? () => onNavigate("open-points") : undefined}
-          activateLabel={`${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}
+          activateLabel={noActiveScope
+            ? `${t(lang, "dashboardNoActiveScope")} – ${t(lang, "dashboardOpenTasksView")}`
+            : `${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}
         />
         <Tile
           label={t(lang, "dashboardKpiOverdue")}
