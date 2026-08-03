@@ -2143,7 +2143,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardPercentComplete: "{0}% abgeschlossen",
   dashboardCompletedOf: "{0} von {1} abgeschlossen",
   dashboardNoActiveScope: "Kein aktiver Umfang",
-  dashboardAllCancelled: "{0} Aufgaben, alle abgebrochen",
+  dashboardAllCancelled: "Alle abgebrochen ({0})",
   dashboardBudgetBurn: "Budgetverbrauch",
   dashboardNoBudget: "Kein Budget konfiguriert",
   dashboardTopRaid: "Wichtigste offene RAID",

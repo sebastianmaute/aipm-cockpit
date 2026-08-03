@@ -2157,7 +2157,7 @@ const enUS = {
   dashboardPercentComplete: "{0}% complete",
   dashboardCompletedOf: "{0} of {1} complete",
   dashboardNoActiveScope: "No active scope",
-  dashboardAllCancelled: "{0} tasks, all cancelled",
+  dashboardAllCancelled: "All cancelled ({0})",
   dashboardBudgetBurn: "Budget burn",
   dashboardNoBudget: "No budget configured",
   dashboardTopRaid: "Top open RAID",
