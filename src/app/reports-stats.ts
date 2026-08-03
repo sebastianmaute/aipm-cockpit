@@ -75,7 +75,16 @@ export function computeStats(
   const assigneeMap = new Map<string, Stats["byAssignee"][number]>();
   const groupMap = new Map<string, GroupOrLabelRow>();
   const labelMap = new Map<string, GroupOrLabelRow>();
-  function bump(map: Map<string, GroupOrLabelRow>, name: string, task: Task) {
+  // Takes the classification rather than re-deriving it: the caller has already
+  // decided delivered-vs-cancelled-vs-open for this task, and a second copy of
+  // that rule here could drift from the totals with no test able to see it.
+  function bump(
+    map: Map<string, GroupOrLabelRow>,
+    name: string,
+    task: Task,
+    isDelivered: boolean,
+    isCancelled: boolean,
+  ) {
     let row = map.get(name);
     if (!row) {
       row = {
@@ -91,8 +100,8 @@ export function computeStats(
     }
     row.total++;
     row.inquiries += task.inquiriesSent ?? 0;
-    if (isTaskDelivered(task)) row.completed++;
-    else if (isTaskClosed(task)) row.cancelled++;
+    if (isDelivered) row.completed++;
+    else if (isCancelled) row.cancelled++;
     else {
       row.open++;
       if (task.dueDate && task.dueDate < today) row.overdue++;
@@ -140,14 +149,14 @@ export function computeStats(
     }
 
     const groupKey = (task.group ?? "").trim();
-    bump(groupMap, groupKey || "—", task);
+    bump(groupMap, groupKey || "—", task, isDelivered, isCancelled);
     const labels = task.labels ?? [];
     if (labels.length === 0) {
-      bump(labelMap, "—", task);
+      bump(labelMap, "—", task, isDelivered, isCancelled);
     } else {
       for (const l of labels) {
         const k = l.trim();
-        if (k) bump(labelMap, k, task);
+        if (k) bump(labelMap, k, task, isDelivered, isCancelled);
       }
     }
 
