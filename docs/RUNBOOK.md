@@ -41,7 +41,9 @@ npm run build
 ```
 
 `next build` runs the TypeScript check and emits `.next/`. The build artifact
-is portable — any Node 20+ host with `npm start` will serve it.
+is portable — any Node 24+ host with `npm start` will serve it. 24 is the
+version CI builds and tests on; Node 20 reached end-of-life on 2026-04-30 and
+no longer receives security updates, so it is no longer a supported baseline.
 
 ### Stopping the dev server
 
@@ -85,7 +87,7 @@ Any of these works:
 | Host | Notes |
 |---|---|
 | **Vercel** | Zero-config — push the repo. `.vercel` is in `.gitignore`. |
-| **Node 20+ + `npm start`** | Self-host. `next.config.ts` sets the security headers; no reverse-proxy header injection needed. |
+| **Node 24+ + `npm start`** | Self-host. `next.config.ts` sets the security headers; no reverse-proxy header injection needed. |
 | **Static export** | Not supported — `/api/jira/*` route handlers require the Node runtime. |
 
 ### Security headers
