@@ -964,8 +964,8 @@ describe("TasksSection", () => {
 
   // The tasks pane now renders the shared CalendarSyncControls, whose enable toggle is
   // named per entity so that N panes' enable boxes are distinguishable (WCAG 2.4.6).
-  // Querying the bare "Add to Outlook calendar" would match nothing and quietly
-  // make every absence assertion below pass for the wrong reason.
+  // Querying the bare "Add to Outlook" would match nothing and quietly make
+  // every absence assertion below pass for the wrong reason.
   const calEnableLabel = `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityTask")}`;
 
   it("hides the calendar controls entirely when M365 is not configured", () => {

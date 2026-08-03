@@ -174,7 +174,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
   ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click
   (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
-  `opacity-0` is NOT load-bearing: heroicons hard-codes `aria-hidden` on every icon, so the glyph is
+  `opacity-0` is NOT load-bearing: heroicons DEFAULTS `aria-hidden` on every icon (its own attributes
+  come first and `props` spread after, so a caller can override it — a default, not a hard-code), so the glyph is
   out of the a11y tree in both states either way. An earlier revision of this bullet claimed the
   a11y tree was the reason — it is inert, and a test written to pin it could not fail.
   ★★ `disabled` was declared on this primitive from the start but styled NOTHING until 0.212.0 — no
@@ -1149,12 +1150,16 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   verbatim across the RAID / Change / Absence toolbars — only the entity aria-label differed) is one shared
   `CalendarSyncControls` (`calendar-sync-controls.tsx`), keyed by an i18n `entityLabelKey`. Renders null
   unless `m365Configured && !isPopout && onToggleCalendar`. Milestone push/pull stays SEPARATE (manual-only,
-  no enable toggle). ★ Tasks (Open Points) hand-rolled its OWN copy of this whole block (checkbox + push +
-  pull) rather than consuming the shared component, and its checkbox used the bare `calendarSyncEnable` name
+  no enable toggle). ★ Tasks (Open Points) hand-rolled its OWN copy of this whole block (enable control + push
+  + pull) rather than consuming the shared component, and its control used the bare `calendarSyncEnable` name
   with no entity qualifier — until the 0.211.0 toolbar-polish batch, which moved it onto `CalendarSyncControls`
-  (`entityLabelKey="calendarSyncEntityTask"`) like every other calendar-capable pane. The enable checkbox now
+  (`entityLabelKey="calendarSyncEntityTask"`) like every other calendar-capable pane. The enable control now
   carries the same per-entity accessible name the other panes do ("… – Tasks (due dates)"), which is what
-  makes N panes' identically-labelled checkboxes distinguishable under WCAG 2.4.6.
+  makes N panes' identically-labelled controls distinguishable under WCAG 2.4.6.
+  ★★ IT IS A `ToggleButton`, NOT A CHECKBOX, since 0.212.0 — in all four panes AND in the four Settings rows,
+  labelled "Add to Outlook". This bullet said "checkbox" four times after that stopped being true. Query it by
+  `role="button"`. The toolbars carry ONLY the enable control; Settings additionally has the auto-sync
+  control, which is a `ToggleButton` too — so neither surface has a calendar checkbox left to find.
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
   lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
   `useResizable("aipm-cockpit:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
@@ -2447,7 +2452,14 @@ generic `fieldToString` default arm; MD decoder lives in `markdown-codecs-decode
 `CSV_COLUMNS`; JSON/IDB whole-object pass-through, no task sanitizer). Per-device `settings.outlookCalendar?:
 Partial<Record<CalendarEntityType,{enabled,auto}>>` (`calendar-sync-config.ts` `calendarSyncFor`, `sanitizeOutlookCalendar`;
 writeSettings SPREAD, no allowlist edit); toggled in BOTH Settings→Integrations AND the tasks pane — ★ BOTH sites
-force `auto:false` when un-enabling (else re-enabling silently reactivates auto). Manual "Push to Outlook" button
+force `auto:false` when un-enabling (else re-enabling silently reactivates auto).
+★★★ AND `sanitizeOutlookCalendar` MASKS `auto` BY `enabled` AT LOAD — do not weaken that on the assumption the
+read-side `calendarSyncFor` mask covers everything, because it does NOT. The four toolbar enable-toggles
+(`tasks-section.tsx`, plus raid/change/absence in `use-calendar-integrations.ts`) read the RAW stored `auto`
+when switching a row ON, not the masked value, so a stored `{enabled:false, auto:true}` would arm unattended
+two-way sync from a single click. No in-app writer produces that pair; an imported or hand-edited settings blob
+can, which is why the guarantee has to hold at the STORAGE layer. Pinned by `calendar-sync-config.test.ts`; the
+four toolbar guards themselves are still untested (`docs/open-followups.md` §57). Manual "Push to Outlook" button
 (pushable = `!isTaskFinished && !!dueDate`) + debounced `use-calendar-auto-sync.ts` runner (mounted in task-manager,
 4s, fail-once-per-change; ★ auto-PUSH is STAGGERED via `staggerMs` (base `AUTO_SYNC_DEBOUNCE_MS`) — the 4 entity
 sites pass 0/1×/2×/3× `AUTO_SYNC_STAGGER_STEP_MS=750` to avoid a save-time herd (background auto-PULL is already

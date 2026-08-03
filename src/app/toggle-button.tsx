@@ -109,9 +109,12 @@ export function ToggleButton({
           assistive tech, so this closes the gap for SIGHTED users specifically.
           ★ The glyph reaches no accessible name because an `<svg>` with no
           `<title>` contributes no text — full stop. The `aria-hidden` below is
-          BELT-AND-BRACES against a heroicons change, NOT the mechanism (the
-          library already hard-codes it on every icon). Stated because a test
-          asserting otherwise was written here, and could not fail.
+          BELT-AND-BRACES, NOT the mechanism — heroicons already DEFAULTS it on
+          every icon. ★ It is a default, not a hard-code: heroicons spreads
+          `props` AFTER its own attributes, so this explicit value overrides
+          rather than duplicates. Keep it; "redundant" is the wrong reading.
+          Stated because a test asserting otherwise was written here, and could
+          not fail.
           ★★ It is rendered in BOTH states and merely `invisible` when off, so
           the button keeps ONE width. Conditional rendering would make the
           button ~20px narrower when off, and these sit in toolbar rows — a

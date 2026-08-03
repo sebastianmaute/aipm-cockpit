@@ -123,7 +123,12 @@ function CalendarSyncEntityRow({
             on it and it cannot explain itself. That is why the dependency is
             spelled out in a VISIBLE hint wired via `aria-describedby`, and why the
             primitive drops its "click to turn on" state suffix while disabled: an
-            instruction the control cannot honour is worse than none. */}
+            instruction the control cannot honour is worse than none.
+            ★ CONSCIOUS TRADE: `aria-describedby` SUPERSEDES `title` as the accessible
+            description, so while disabled AT hears "Available once Add to Outlook is
+            on" and NOT the what-it-does sentence. Right way round — a user who cannot
+            operate the control needs the precondition first — but it is a swap, not
+            an addition. */}
         <ToggleButton
           pressed={sync.auto}
           onToggle={() => write(sync.enabled, !sync.auto)}

@@ -35,9 +35,9 @@ space at both edges of Open Points.
   should remove the same jump wherever a column was rendering wider than its
   declared width — though only the Open Points case was actually observed.
 - **Both halves of each Outlook calendar row are now toggle buttons.** "Add to
-  Outlook" and "Keep in sync automatically" sit side by side in Settings →
+  Outlook" and "Keep in sync automatically" now sit one under the other in Settings →
   Integrations instead of a button above a checkbox. Auto-sync stays visible but
-  inoperable until the row is switched on, rather than disappearing.
+  inoperable until the row is switched on, and now says why.
 - **The standard toggle buttons no longer signal "on" by colour alone.** A toggle
   pins its label to what switching it on does, so the label cannot say which state
   is currently active and the accent tint was the only visual channel left. These
@@ -45,7 +45,7 @@ space at both edges of Open Points.
   tooltip. The mark keeps its slot when off, so a toggle is the same width in both
   states and switching one does not shift the controls beside it. This covers the
   toggles built on the shared control — the gantt view options, the Open Points
-  view switches, the Outlook ones below and others. Fourteen one-off toggles
+  view switches, the Outlook ones below and others. Fourteen other places
   elsewhere in the app (the rich-text editor's bold/italic buttons, the health
   chips, the template pickers, the mic) still show their on-state by colour only.
 - **Planning's "Hide externals" sits beside the Outlook calendar controls.** It had

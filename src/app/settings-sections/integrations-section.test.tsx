@@ -55,13 +55,18 @@ describe("IntegrationsSection per-entity calendar sync rows", () => {
     };
   }
 
-  // ★★ The stale-auto flag is defended at three layers, and this pins the reader:
-  //    `calendarSyncFor` masks `auto` to false whenever `enabled` is false. The
-  //    writers force auto:false on disable, and `sanitizeOutlookCalendar` masks at
-  //    LOAD so the stored state cannot hold the combination either.
+  // ★★ The stale-auto flag is defended at three layers: `calendarSyncFor` masks
+  //    on READ, the writers force auto:false on disable, and
+  //    `sanitizeOutlookCalendar` masks at LOAD so the stored state cannot hold
+  //    the combination either.
+  //    ★★ THIS TEST PINS THE WRITER, NOT THE READER — an earlier version of this
+  //    comment claimed the reader, which is wrong: the handler is now the literal
+  //    `write(!sync.enabled, false)`, so deleting `enabled &&` from
+  //    `calendarSyncFor` cannot fail it. The reader is pinned in
+  //    `calendar-sync-config.test.ts`, and the load mask alongside it.
   //    ★ No claim is made that a shipped build ever wrote {enabled:false,
-  //    auto:true} — an earlier version of this comment asserted that without
-  //    evidence. The reachable source is an imported or hand-edited blob.
+  //    auto:true} — an earlier version asserted that without evidence. The
+  //    reachable source is an imported or hand-edited blob.
   it("enabling a row does not resurrect a stale auto flag", () => {
     const onChange = vi.fn();
     render(
