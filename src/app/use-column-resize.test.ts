@@ -13,6 +13,11 @@ describe("useColumnResize", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    // `thInTable` attaches its <table> to document.body so getComputedStyle can
+    // resolve the layout mode. Without this they accumulate across the file, and
+    // the moment this helper is reused in a suite that queries document-wide for
+    // a <th> it becomes cross-test pollution.
+    document.body.innerHTML = "";
   });
 
   it("returns defaults when localStorage is empty", () => {
