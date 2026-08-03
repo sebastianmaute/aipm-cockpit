@@ -56,7 +56,7 @@ export function BulkEditModal({
           : t(lang, "bulkEditTitleMany", selectedIds.size)}
       </h3>
 
-      <div className="space-y-4">
+      <div data-bulk-fields className="max-h-[60vh] space-y-4 overflow-y-auto pr-2">
         <BulkEditFieldRow
           id="bulk-priority"
           label={t(lang, "priority")}
@@ -359,17 +359,25 @@ export function BulkEditModal({
           </select>
         </BulkEditFieldRow>
         )}
-      </div>
 
-      <div className="mt-6 flex justify-end gap-2">
-        <Button variant="secondary" size="sm" onClick={onCancel}>
-          {t(lang, "cancel")}
-        </Button>
-        <Button variant="primary" size="sm" onClick={onApply}>
-          {selectedIds.size === 1
-            ? t(lang, "bulkApplyOne")
-            : t(lang, "bulkApplyMany", selectedIds.size)}
-        </Button>
+        {/* Nested INSIDE the scrolling field list (not a sibling) — `sticky`
+            only has an effect relative to a scrolling ancestor, and this div
+            is the only one in the tree above it (the panel itself is
+            overflow-hidden and never scrolls). Its own bg-surface keeps field
+            rows from showing through as they scroll underneath it. */}
+        <div
+          data-bulk-actions
+          className="sticky bottom-0 mt-6 flex justify-end gap-2 border-t border-line bg-surface pt-4"
+        >
+          <Button variant="secondary" size="sm" onClick={onCancel}>
+            {t(lang, "cancel")}
+          </Button>
+          <Button variant="primary" size="sm" onClick={onApply}>
+            {selectedIds.size === 1
+              ? t(lang, "bulkApplyOne")
+              : t(lang, "bulkApplyMany", selectedIds.size)}
+          </Button>
+        </div>
       </div>
     </div>
   );
