@@ -52,10 +52,17 @@ export function GanttView({
   const { tasks, setTasks, absences, resources, milestones } = useWorkspace();
   const { isPopout, requestHelpConcept } = useWorkspaceTab();
   const logActivity = useActivityLogger();
-  // Read directly from settings rather than threading a prop down from
-  // workspace-section — the same call tasks-section.tsx already makes. An empty
-  // `holidayCountries` (the default) short-circuits inside the hook without
-  // loading the holiday library at all.
+  // Deliberately a SECOND derivation rather than a prop threaded from
+  // workspace-section. Safe here only because nothing in the Gantt shares a
+  // derived value that two holiday sets could disagree about — the set drives
+  // decorative shading, not a filter another component must match. Do NOT cite
+  // tasks-section as precedent for copying this: its own comment demotes its
+  // local hook to a unit-test fallback, because task-manager always passes it
+  // one. If the Gantt ever gains a consumer that must agree with another pane,
+  // thread it instead.
+  // The empty-`holidayCountries` default costs nothing, but the guard is in
+  // `holidaysForCountries` (it returns an empty Set before the `date-holidays`
+  // dynamic import), NOT in this hook — the hook calls it unconditionally.
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
 
   const dedup = useTasksDedup({

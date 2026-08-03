@@ -42,9 +42,11 @@ export function GanttNonWorkingLayer({
     cells.push(
       <div
         key={i}
+        // No `title`: the element is pointer-events-none, so it can never be
+        // hovered and a native tooltip could not render. `data-holiday` carries
+        // the date for tests; the day label in the header carries it for users.
         data-holiday={iso}
         aria-hidden="true"
-        title={iso}
         className="pointer-events-none absolute top-0 z-0 bg-ui-medium-grey/15"
         style={{ left: dayLeftPx(i, nameColWidth), width: DAY_WIDTH_PX, height: heightPx }}
       />,
