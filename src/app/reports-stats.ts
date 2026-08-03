@@ -3,6 +3,7 @@
 // surfaces import them" pattern); `reports.tsx` + `reports-tables.tsx` consume.
 import { workdaysUntil } from "./due-dates";
 import { effectivePersonName } from "./resource-foundation";
+import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import { type Priority, type Resource, type Task } from "./types";
 
 export type GroupOrLabelRow = {
@@ -10,6 +11,7 @@ export type GroupOrLabelRow = {
   total: number;
   open: number;
   completed: number;
+  cancelled: number;
   overdue: number;
   inquiries: number;
 };
@@ -18,6 +20,7 @@ export type Stats = {
   total: number;
   open: number;
   completed: number;
+  cancelled: number; // closed without being delivered — neither open nor completed
   overdue: number; // open and past due
   completedOnTime: number; // completedDate <= dueDate
   completedLate: number; // completedDate > dueDate
@@ -35,6 +38,7 @@ export type Stats = {
     total: number;
     open: number;
     completed: number;
+    cancelled: number;
     overdue: number;
     inquiries: number;
     onTime: number;
@@ -54,6 +58,7 @@ export function computeStats(
     total: tasks.length,
     open: 0,
     completed: 0,
+    cancelled: 0,
     overdue: 0,
     completedOnTime: 0,
     completedLate: 0,
@@ -78,6 +83,7 @@ export function computeStats(
         total: 0,
         open: 0,
         completed: 0,
+        cancelled: 0,
         overdue: 0,
         inquiries: 0,
       };
@@ -85,7 +91,8 @@ export function computeStats(
     }
     row.total++;
     row.inquiries += task.inquiriesSent ?? 0;
-    if (task.completedDate) row.completed++;
+    if (isTaskDelivered(task)) row.completed++;
+    else if (isTaskClosed(task)) row.cancelled++;
     else {
       row.open++;
       if (task.dueDate && task.dueDate < today) row.overdue++;
@@ -103,13 +110,19 @@ export function computeStats(
       inquiryTaskCount++;
     }
 
-    const isComplete = !!task.completedDate;
-    if (isComplete) {
+    // Three buckets, not two: a CANCELLED task is closed without having been
+    // delivered, so it counts as neither open nor completed — and, being
+    // closed, it is never overdue.
+    const isDelivered = isTaskDelivered(task);
+    const isCancelled = !isDelivered && isTaskClosed(task);
+    if (isDelivered) {
       stats.completed++;
       if (task.dueDate && task.completedDate) {
         if (task.completedDate <= task.dueDate) stats.completedOnTime++;
         else stats.completedLate++;
       }
+    } else if (isCancelled) {
+      stats.cancelled++;
     } else {
       stats.open++;
       if (task.dueDate) {
@@ -149,6 +162,7 @@ export function computeStats(
         total: 0,
         open: 0,
         completed: 0,
+        cancelled: 0,
         overdue: 0,
         inquiries: 0,
         onTime: 0,
@@ -158,12 +172,14 @@ export function computeStats(
     }
     entry.total++;
     entry.inquiries += inquiries;
-    if (isComplete) {
+    if (isDelivered) {
       entry.completed++;
       if (task.dueDate && task.completedDate) {
         if (task.completedDate <= task.dueDate) entry.onTime++;
         else entry.late++;
       }
+    } else if (isCancelled) {
+      entry.cancelled++;
     } else {
       entry.open++;
       if (task.dueDate && task.dueDate < today) entry.overdue++;
