@@ -2606,6 +2606,53 @@ move-only one. Recorded here so the next reader does not assume a tested handler
 
 ---
 
+## 63. `gantt.tsx` crossed 800 and was baselined rather than split — open, deliberate deferral
+
+0.213.0 grew four already-large files past the ratchet. All four were baselined
+(`docs/baselines/file-sizes.json`) rather than split. **Three of those are routine increments on
+files that were already far over the limit; one is a genuine new violation and is the actual entry
+here.**
+
+| file | was | now | verdict |
+|---|---|---|---|
+| **`gantt.tsx`** | *(not baselined)* | **864** | **NEW file over 800 — the real item** |
+| `tasks-section.tsx` | 1043 | 1067 | increment on existing debt |
+| `task-row.tsx` | 817 | 827 | increment on existing debt |
+| `task-manager.tsx` | 2966 | 2972 | increment on existing debt |
+
+★ **A split was started and deliberately called off.** The judgement was that restructuring the Gantt
+orchestrator at the end of a 16-task feature branch carries more regression risk than the ratchet
+violation it clears, and that the split deserves its own focused work rather than being rushed as a
+gate-clearing chore. That is a scope decision, not a claim the file is fine at 864.
+
+**What grew it**, so the next reader does not re-derive it: 0.213.0 added the status-bucket filter
+wiring, the `visibleMilestones` memo, the holiday/grid overlay mounts, the dependency-layer gate, and
+the empty-state branches (`noStatusSelected` / `emptyMessageKey` / `rendersNothing`) with their two
+render sites.
+
+**The seam that was identified before the split was called off:** the empty-state block — the
+message-selection const plus the branches rendering `ganttNoStatusSelected` / `ganttNoMatches` /
+`ganttEmpty` and the add-first-item box. It is prop-driven and self-contained, and it is the piece
+that most recently grew. The Gantt already has the right shape to extract into
+(`gantt-chrome.tsx` · `gantt-rows.tsx` · `gantt-overlays.tsx` · `gantt-view-menu.tsx` ·
+`gantt-engine.ts`), so this is an extraction along an existing grain, not a new architecture.
+
+★★ **Two traps for whoever does it.** (1) A `.tsx` extraction is coverage-EXCLUDED; a `.ts` one is
+coverage-GATED and needs its own tests or it drags the blocking floor. (2) At least one Gantt test
+scans raw source text to assert markup ORDER — grep the test files for `readFileSync` before moving
+any markup, because such a test must be re-pointed at the file the markup moved TO. That is the one
+legitimate test edit in an otherwise move-only commit; any assertion change means behaviour moved.
+The applicable precedent is §2's `use-resource-planner.ts` split (two verbatim extractions, proved
+move-only mechanically), not a rewrite.
+
+★ **`use-resource-planner.ts` silently left the baseline file** in the same `--update` run: §2's split
+took it to 554, and per **§60** the ratchet ignores everything at or under 800, so its entry was
+inert and `--update` dropped it. That is §60's finding demonstrated rather than argued — worth noting
+because it means the baseline file is not a record of "files we are watching", only of files
+currently over the limit.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
