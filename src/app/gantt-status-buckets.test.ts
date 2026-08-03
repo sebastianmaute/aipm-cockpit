@@ -47,7 +47,7 @@ describe("milestoneStatusBucket", () => {
     expect(milestoneStatusBucket(ms({ date: "2026-09-01" }), "2026-08-03")).toBe("open");
   });
 
-  it("an unparseable date is open, never overdue", () => {
+  it("an empty date is open, never overdue", () => {
     expect(milestoneStatusBucket(ms({ date: "" }), "2026-08-03")).toBe("open");
   });
 });
