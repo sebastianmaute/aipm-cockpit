@@ -150,7 +150,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const snapCount = snapshots.length;
   const activityCount = activity.length;
   const currentDone = model.progress.completed;
-  const currentTotal = model.progress.total;
+  // inScope, NOT total: the sparkline's last point is anchored on these counts
+  // and renders directly beneath the completion tile, so it must divide by the
+  // same denominator the tile's percentage does.
+  const currentTotal = model.progress.inScope;
   const completionSeries = useMemo(
     () =>
       computeCompletionTrend({ snapshots, activity, currentDone, currentTotal, today }),
@@ -331,7 +334,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               <div className="flex flex-wrap gap-2">
                 <Tile
                   label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
-                  value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.total))}
+                  value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.inScope))}
                   onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
                   activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
                 />

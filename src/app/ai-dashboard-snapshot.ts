@@ -39,7 +39,11 @@ export interface DashboardSnapshot {
     scope: SubStatus;
     overridden: { overall: boolean; schedule: boolean; budget: boolean; scope: boolean };
   };
-  progress: { total: number; completed: number; percent: number };
+  /** `total` is every task; `inScope` is the denominator `percent` divides by
+   *  (total minus cancelled). BOTH are emitted: a model asked "how many tasks
+   *  are there" wants `total`, and without `inScope` the triple can look like an
+   *  arithmetic error (5 done of 10 total, 100% complete). */
+  progress: { total: number; inScope: number; completed: number; percent: number };
   evm: {
     pv: number;
     ev: number;
@@ -83,6 +87,7 @@ export function buildDashboardSnapshot(
     },
     progress: {
       total: model.progress.total,
+      inScope: model.progress.inScope,
       completed: model.progress.completed,
       percent: model.progress.percent,
     },

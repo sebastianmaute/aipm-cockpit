@@ -19,7 +19,12 @@ export interface CompletionTrendInput {
   activity: readonly ActivityEntry[];
   /** Live completed-task count (model.progress.completed). */
   currentDone: number;
-  /** Live total-task count (model.progress.total). */
+  /** Live IN-SCOPE task count (model.progress.inScope — total minus cancelled),
+   *  the same denominator the dashboard completion tile divides by. Passing
+   *  `model.progress.total` here makes the latest sparkline point disagree with
+   *  the tile rendered above it. Historical points still reconstruct `total`
+   *  from create/delete events (there is no cancel event kind), so earlier
+   *  points remain the documented approximation. */
   currentTotal: number;
   /** Today as YYYY-MM-DD; used only to drop future-dated (clock-skew) events. */
   today: string;

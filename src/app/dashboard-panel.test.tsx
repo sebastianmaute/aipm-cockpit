@@ -776,3 +776,42 @@ describe("DashboardPanel burn-down chain warning", () => {
     expect(screen.queryByText(/not linked into one chain/)).toBeNull();
   });
 });
+
+describe("DashboardPanel completion tile self-consistency", () => {
+  // 5 Done + 5 Cancelled: the percentage divides by the in-scope count (5), so
+  // the pair rendered beside it must read "5 of 5", not "5 of 10".
+  const mixed = [
+    ...[1, 2, 3, 4, 5].map((id) => ({
+      id, taskName: `Done ${id}`, assignee: "A", assigneeEmail: "a@x.io",
+      dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Done",
+      completedDate: "2026-05-02", priority: "Medium", blockers: "", description: "",
+    })),
+    ...[6, 7, 8, 9, 10].map((id) => ({
+      id, taskName: `Cancelled ${id}`, assignee: "A", assigneeEmail: "a@x.io",
+      dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+      priority: "Medium", blockers: "", description: "",
+    })),
+  ] as never;
+
+  it("renders '5 of 5 complete' beside '100% complete'", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={mixed}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    expect(screen.getByText(t("en-US", "dashboardPercentComplete", "100"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "dashboardCompletedOf", "5", "5"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "dashboardCompletedOf", "5", "10"))).toBeNull();
+  });
+});

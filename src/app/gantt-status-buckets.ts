@@ -22,11 +22,18 @@ export function taskStatusBuckets(
  *  "open" rather than "overdue" — a record with no date is not a schedule slip.
  *
  *  Scoped deliberately to empty: the comparison below is a raw string compare,
- *  so a malformed-but-non-empty date ("01.07.2026") would still read as
- *  "overdue". No guard for that, because `sanitizeMilestone` runs
- *  `sanitizeIsoDate` and DROPS the whole record when it fails — every load path
- *  yields either a valid YYYY-MM-DD or no milestone at all. Add the guard only
- *  if a call site ever bypasses that sanitizer. */
+ *  so a malformed-but-non-empty date ("01.07.2026") reads as "overdue" (it
+ *  sorts below any ISO date). That is not guarded, and an earlier revision of
+ *  this comment justified it with a guarantee that DOES NOT HOLD — it claimed
+ *  `sanitizeMilestone` drops such a record on every load path. Only the JSON
+ *  path calls that sanitizer. CSV, Markdown and both Turso schemas decode via
+ *  `buildMilestoneFromObj`, which accepts any non-empty string as a date — the
+ *  decoders-never-call-the-entity-sanitizer rule AGENTS.md documents.
+ *
+ *  Left unguarded anyway, because the whole app already string-compares these
+ *  dates (`milestoneStatus` does the same), so a guard here would make this one
+ *  bucket disagree with every other surface rather than fix anything. The fix
+ *  belongs at the decode boundary, not here. */
 export function milestoneStatusBucket(
   milestone: Pick<Milestone, "date" | "achievedDate">,
   todayISO: string,

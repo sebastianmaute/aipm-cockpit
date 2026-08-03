@@ -58,7 +58,13 @@ function worstHealth(...signals: SubStatus[]): SubStatus {
 }
 
 export type DashboardProgress = {
+  /** Every task, cancelled included — an inventory count. */
   total: number;
+  /** The denominator `percent` divides by: total minus cancelled work. A caller
+   *  rendering "completed of N" NEXT TO `percent` must use this, not `total`,
+   *  or the two numbers describe different sets (5 Done + 5 Cancelled reads
+   *  "100% complete" above "5 of 10 complete"). */
+  inScope: number;
   completed: number;
   percent: number;
   counts: Record<Health, number>;
@@ -81,9 +87,10 @@ export function computeDashboardProgress(
   const denominator = Math.max(0, total - cancelled);
   const completed = tasks.filter((t) => isTaskDelivered(t)).length;
   const percent = denominator === 0 ? 0 : Math.round((completed / denominator) * 100);
-  // `total` keeps its original meaning (every task) because callers render it
-  // as the task count; only the percentage divides by `denominator`.
-  return { total, completed, percent, counts };
+  // `total` keeps its original meaning (every task) for genuine inventory
+  // counts; `inScope` publishes the denominator so a caller rendering a pair
+  // beside `percent` can describe the SAME set the percentage does.
+  return { total, inScope: denominator, completed, percent, counts };
 }
 
 /** Date-driven schedule RAG: Red if any task is overdue, Amber if any is due

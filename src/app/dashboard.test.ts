@@ -42,7 +42,7 @@ const holidays = new Set<string>();
 
 describe("computeDashboardProgress", () => {
   it("returns 0% and zero counts for an empty workspace", () => {
-    expect(computeDashboardProgress([], today, holidays)).toEqual({ total: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 } });
+    expect(computeDashboardProgress([], today, holidays)).toEqual({ total: 0, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 } });
   });
   it("computes percent from completedDate and R/A/G counts from health", () => {
     const tasks = [
@@ -407,6 +407,20 @@ describe("Cancelled tasks are closed, not active", () => {
     expect(p.completed).toBe(1);
     // `total` keeps its original meaning: every task, cancelled included.
     expect(p.total).toBe(2);
+    // ...and `inScope` exposes the denominator the percentage actually used, so
+    // a caller rendering "completed of X" beside `percent` can stay consistent.
+    expect(p.inScope).toBe(1);
+  });
+
+  it("exposes inScope as the percentage denominator (5 done / 5 cancelled)", () => {
+    const tasks = [
+      ...[1, 2, 3, 4, 5].map((id) => task({ id, status: "Done", completedDate: "2026-08-01" })),
+      ...[6, 7, 8, 9, 10].map((id) => task({ id, status: "Cancelled" })),
+    ];
+    const p = computeDashboardProgress(tasks, "2026-08-03", holidays);
+    expect(p).toMatchObject({ total: 10, inScope: 5, completed: 5, percent: 100 });
+    // Self-consistency: percent must equal completed/inScope, never completed/total.
+    expect(Math.round((p.completed / p.inScope) * 100)).toBe(p.percent);
   });
 
   it("reports 0% when every task is cancelled (empty denominator)", () => {

@@ -33,6 +33,20 @@ describe("isAtRisk", () => {
     const m = ms({ date: "2026-08-01", linkedTaskIds: [10] });
     expect(isAtRisk(m, byId(task({ id: 10, dueDate: "2026-07-20" })))).toBe(false);
   });
+  it("ignores a cancelled linked task whose due date is past the milestone", () => {
+    // Cancelled work carries no completedDate, so `completedDate || dueDate`
+    // used to fall back to the (late) dueDate and report at-risk. Must mirror
+    // snapshot.ts milestoneForecast, which already excludes closed-not-delivered.
+    const m = ms({ date: "2026-08-10", linkedTaskIds: [7] });
+    expect(isAtRisk(m, byId(task({ id: 7, status: "Cancelled", dueDate: "2026-09-01" })))).toBe(false);
+    expect(milestoneStatus(m, byId(task({ id: 7, status: "Cancelled", dueDate: "2026-09-01" })), today, holidays)).toBe("on-track");
+  });
+  it("still counts a DELIVERED linked task whose completedDate is past the milestone", () => {
+    // Done is closed too, but its completedDate is a real historical end date —
+    // the guard must exclude closed-but-NOT-delivered only.
+    const m = ms({ date: "2026-08-10", linkedTaskIds: [7] });
+    expect(isAtRisk(m, byId(task({ id: 7, status: "Done", completedDate: "2026-09-01", dueDate: "2026-07-01" })))).toBe(true);
+  });
   it("uses completedDate over dueDate, and ignores achieved milestones + missing tasks", () => {
     const m = ms({ date: "2026-08-01", linkedTaskIds: [10, 99] });
     expect(isAtRisk(m, byId(task({ id: 10, dueDate: "2026-09-01", completedDate: "2026-07-15" })))).toBe(false);
