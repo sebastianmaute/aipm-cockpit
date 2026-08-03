@@ -98,7 +98,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 
 ### Prerequisites
 
-- **[Node.js](https://nodejs.org/en/download/current) ≥ 20.9.0** (the CI image is `node:20`). Check with `node --version`.
+- **[Node.js](https://nodejs.org/en/download/current) ≥ 24** (the CI image is `node:24`). Check with `node --version`.
 - **npm** (ships with Node.js).
 - *(Optional)* **[Turso](https://turso.tech/)** account/database — only needed for multi-device or multi-project (portfolio) use; the app runs fully without it.
 

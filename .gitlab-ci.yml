@@ -5,7 +5,7 @@ stages:
   - e2e
 
 default:
-  image: node:24-bookworm-slim          # Debian/glibc (not alpine/musl); >=24 clears ESLint 10's Node floor
+  image: node:24-bookworm-slim          # Debian/glibc (not alpine/musl); node 20 went EOL 2026-04-30
   cache:
     key:
       files: [package-lock.json]

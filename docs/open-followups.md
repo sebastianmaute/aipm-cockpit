@@ -1941,6 +1941,23 @@ acting** — `npm view eslint-plugin-react peerDependencies` — and do not read
 impossible here". §45 above is the cautionary case: it earned its own correction by recording a
 measurement in the grammar of a property.
 
+★★★ **THIS BLOCKER WAS ALREADY DOCUMENTED, AND NOBODY LOOKED.** The `eslint` row in
+[`tech-debt-register.md`](tech-debt-register.md) has recorded it all along, on `main`, before the
+attempt — naming the same package, the same removed API and the same consequence:
+
+> `eslint-config-next`'s bundled `eslint-plugin-react` calls `context.getFilename` (removed in
+> eslint 10's flat-config API) → lint crashes.
+
+Neither the plan nor §45 consulted it, so a full install-and-crash cycle was spent re-deriving a
+finding the repo already held. ★★ The near-miss is worse than the waste: §45 asserted "the risk is
+entirely in rule drift, not install resolution" while that row sat one file away saying the lint
+*crashes* — and §45's confident do-not-relitigate framing is what made the contradiction easy to
+walk past. **Two masters is exactly the failure the register/follow-ups split was meant to prevent**
+(see this file's own preamble on not copying `tech-debt-register.md` rows here). The rule that
+follows: before opening a dependency slice, grep the register for the package name. The re-derivation
+was not wasted only because it upgraded a plausible claim into measured evidence — the crash trace,
+the peer ranges and the version matrix below are new; the *conclusion* was not.
+
 ### What is established
 
 **The crash is universal, not React-specific.** It fired on `src/app/abort-error.test.ts` — a plain
