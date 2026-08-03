@@ -4,7 +4,6 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 import { PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { isTaskClosed, isTaskDelivered } from "./task-closed";
-import { RagDot } from "./rag-dot";
 import { descriptionText } from "./rich-text-projection";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
@@ -14,6 +13,7 @@ import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
 import { NotesBadgeButton } from "./notes-badge-button";
 import { RaidBadge } from "./task-raid-badge";
+import { TaskStatusGlyph } from "./task-status-glyph";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
@@ -405,19 +405,7 @@ function TaskRowImpl({
       </Td>
       {!hiddenCols.has("status") && (
         <Td padding="tight">
-          {isClosed && !task.healthOverride ? (
-            isTaskDelivered(task) ? (
-              <span role="img" title={label} aria-label={label} className="text-ui-green-strong">✓</span>
-            ) : (
-              // Closed but NOT delivered — cancelled. Differs from a delivered
-              // row by GLYPH SHAPE, not colour: the Status column is hideable,
-              // and a colour-only distinction is the WCAG 1.4.1 pattern this
-              // repo already tracks two open follow-ups about.
-              <span role="img" title={label} aria-label={label} className="text-muted-foreground">✕</span>
-            )
-          ) : (
-            <RagDot level={health.color} size="md" label={label} />
-          )}
+          <TaskStatusGlyph task={task} health={health} label={label} />
         </Td>
       )}
       {!hiddenCols.has("id") && <Td className="font-mono text-muted-foreground">
