@@ -6,7 +6,7 @@
 
 import type { Health } from "./health";
 import type { DashboardModel } from "./dashboard";
-import { isTaskClosed } from "./task-closed";
+import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import type { Milestone, Task } from "./types";
 
 export type SnapshotCadence = "weekly" | "daily" | "monthly";
@@ -131,12 +131,18 @@ function lastNonNull(values: readonly (number | null)[]): number | null {
 }
 
 /** Latest effective end for a milestone: max of its target date and any linked
- *  task's effective end (completedDate || dueDate). */
+ *  task's effective end (completedDate || dueDate).
+ *
+ *  Closed-but-undelivered (Cancelled) work is skipped: it will never land, so
+ *  its dueDate is not a date this milestone is waiting on. A DELIVERED task
+ *  still contributes its completedDate — that is a real historical end, and
+ *  dropping it would move the forecast in the wrong direction. */
 export function milestoneForecast(m: Milestone, tasksById: ReadonlyMap<number, Task>): string {
   let latest = m.date;
   for (const id of m.linkedTaskIds) {
     const t = tasksById.get(id);
     if (!t) continue;
+    if (isTaskClosed(t) && !isTaskDelivered(t)) continue;
     const end = t.completedDate || t.dueDate;
     if (end && end > latest) latest = end;
   }

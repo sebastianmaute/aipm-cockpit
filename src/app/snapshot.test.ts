@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate } from "./snapshot";
+import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, milestoneForecast } from "./snapshot";
+import type { Milestone } from "./types";
 import type { SnapshotMilestone, SnapshotRecord } from "./snapshot";
 import type { DashboardModel } from "./dashboard";
 
@@ -81,6 +82,33 @@ describe("forecastEndDate", () => {
     const tasks = [{ ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" }];
     expect(forecastEndDate(tasks, [], new Map(), "2026-08-31")).toBe("2026-08-31");
   });
+  it("a cancelled task LINKED TO A MILESTONE does not push out the forecast either", () => {
+    // The task loop skips it, but it re-enters through the milestone loop unless
+    // milestoneForecast skips it too.
+    const t = { ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" };
+    const ms: Milestone[] = [{ id: 1, name: "M", date: "2026-09-01", linkedTaskIds: [1] }];
+    expect(forecastEndDate([t], ms, new Map([[1, t]]), "2026-08-31")).toBe("2026-09-01");
+  });
+});
+
+describe("milestoneForecast", () => {
+  const ms = (linkedTaskIds: number[]): Milestone =>
+    ({ id: 1, name: "M", date: "2026-09-01", linkedTaskIds });
+
+  it("ignores a cancelled linked task's dueDate", () => {
+    const t = { ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" };
+    expect(milestoneForecast(ms([1]), new Map([[1, t]]))).toBe("2026-09-01");
+  });
+
+  it("still takes a DELIVERED linked task's completedDate (a real historical end)", () => {
+    const t = { ...baseTask, id: 1, status: "Done" as const, dueDate: "2026-10-01", completedDate: "2026-11-15" };
+    expect(milestoneForecast(ms([1]), new Map([[1, t]]))).toBe("2026-11-15");
+  });
+
+  it("still takes an OPEN linked task's dueDate", () => {
+    const t = { ...baseTask, id: 1, dueDate: "2026-12-01" };
+    expect(milestoneForecast(ms([1]), new Map([[1, t]]))).toBe("2026-12-01");
+  });
 });
 
 describe("buildSnapshot", () => {
@@ -123,6 +151,17 @@ describe("buildSnapshot", () => {
     expect(rec.series).toHaveLength(2);
     expect(rec.series[0]).toEqual({ period: "2026-06", plannedHours: 50, actualHours: 60, plannedCost: 5000, actualCost: 6000 });
     expect(rec.series[1].actualHours).toBeNull();
+  });
+
+  it("does not let a cancelled linked task drive a milestone's captured forecast", () => {
+    const t = { ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" };
+    const milestones: Milestone[] = [{ id: 1, name: "M", date: "2026-09-01", linkedTaskIds: [1] }];
+    const rec = buildSnapshot({
+      model, tasks: [t], milestones, planEndDate: "2026-07-31", currency: "EUR",
+      capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "manual",
+    });
+    expect(rec.milestones[0].forecast).toBe("2026-09-01");
+    expect(rec.forecastEndDate).toBe("2026-09-01");
   });
 
   it("yields null remaining + empty series when there is no burndown", () => {
