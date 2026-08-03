@@ -102,10 +102,18 @@ describe("DashboardPanel captions and thresholds", () => {
     expect(screen.getByText(/Amber ≥ 90%/)).toBeInTheDocument();
   });
 
+  // Assert the KEY renders, not a hardcoded fragment of its English wording.
+  // The old form matched /Tasks completed vs total/ — a sentence that had been
+  // FALSE since the completion denominator became `inScope` (the tile beneath
+  // it reads "{completed} of {inScope}"), and the test kept passing precisely
+  // because it pinned the stale words. A fragment assertion cannot tell a
+  // correct caption from an incorrect one; it only makes copy edits fail. It
+  // never was, and still is not, coverage for whether the sentence is TRUE —
+  // nothing automated is. It just no longer pretends to be.
   it("renders the progress and burn captions", () => {
     renderDashboard();
-    expect(screen.getByText(/Tasks completed vs total/)).toBeInTheDocument();
-    expect(screen.getByText(/burn-down shows remaining budget/)).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "dashboardProgressCaption"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "dashboardBurnCaption"))).toBeInTheDocument();
   });
 
   it("applies the RAG role-token colour class to the overall status word", () => {

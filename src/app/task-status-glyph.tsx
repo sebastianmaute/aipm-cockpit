@@ -25,9 +25,19 @@ import type { Task } from "./types";
  * pattern. Do not copy the headline number. (§56 is a NEIGHBOURING but
  * different SC — 1.4.11 contrast — so do not read this as "the §56 problem".)
  *
- * ★ `label` is the caller's already-derived accessible name and is IDENTICAL
- * in every branch: it already says "cancelled" vs "Completed on {date}", so AT
- * distinguishes them. This adds the VISUAL channel only — do not fork `label`.
+ * ★ `label` is the caller's already-derived accessible name and is passed
+ * through IDENTICALLY in every branch. For the pair this change is about it
+ * already distinguishes them — "Completed on {date}" for a delivered task,
+ * "…: cancelled" for a cancelled one — so this adds the VISUAL channel only.
+ * Do not fork `label`.
+ *
+ * ★★ It does NOT distinguish the THIRD case. A task with status "Done" and no
+ * `completedDate` is closed but not delivered, so it takes the ✕ branch while
+ * `formatHealthTooltip` still derives its drivers from `status` and announces
+ * "completed" — the same thing the ✓ announces. That is the open defect
+ * `docs/open-followups.md` §65 records, and its fix belongs in the health
+ * engine, not here. Do not read the bullet above as "AT is covered in every
+ * branch"; it is covered in two of three.
  */
 export function TaskStatusGlyph({ task, health, label }: {
   task: Task;

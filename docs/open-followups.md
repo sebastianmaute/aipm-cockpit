@@ -2703,8 +2703,23 @@ numbering it — a name cannot go stale when the next bullet lands.
 - `committee-report/report-draft.ts:68` emits `"- Completion: 0% complete"` into the
   steering-committee AI draft. So the model is handed the misreading a human no longer sees,
   and can restate it in generated prose.
-- `snapshot.ts:211` (`pctComplete`) and `ai-dashboard-snapshot.ts:92` (`percent`) persist and feed
-  the model the bare number.
+- `ai-dashboard-snapshot.ts:92` (`percent`) feeds the model the bare number.
+
+★★ `snapshot.ts:211` (`pctComplete`) IS IN BOTH BUCKETS AND AN EARLIER REVISION FILED IT ONLY UNDER
+THIS ONE. The same assignment feeds the persisted snapshot AND the LIVE current-snapshot that
+`computeVariance` diffs against the baseline, so it reaches two rendered surfaces:
+`dashboard-panel.tsx:378` `VarianceSummary` (the Turso-gated Trends card in the dashboard masonry,
+which sits DIRECTLY AFTER the Progress `<Section>` that closes at `:365`) and `trends-panel.tsx:159`.
+`snapshot.ts:274` builds the row with `worseIfLower`, so a project baselined at 40% whose remaining
+work is then all cancelled renders **"Percent complete −40%"** beside a red `RagDot`, one card below
+a tile reading "No active scope" — delivery announced as having gone backwards on a project with no
+scope left. The Trends VIEW shows the same figure as an absolute `0%`.
+
+★ The two halves need SEPARATE decisions and that is why the split matters. Suppressing the rendered
+variance row is a presentation change of the same shape as the five already made. Giving the
+PERSISTED `pctComplete` a null state is a data-shape change that Trends charts over time and version
+history diffs — migration consequences for every stored snapshot. Do not do the second because you
+decided the first.
 - `dashboard-panel.tsx:175` writes `complete: model.progress.percent` into the per-device
   landing-state snapshot, so the NEXT visit's trend arrow is baselined off a number the UI has just
   decided not to show.
@@ -2715,11 +2730,16 @@ Trends charts over time and version history diffs, so giving it a null state is 
 decision with migration consequences for every stored snapshot. Decide those separately; do not
 "finish the sweep" by pattern-matching the presentation fix onto the stored ones.
 
-★ The honest framing meanwhile: every user-read surface ON THE THREE SCREENS THE BATCH TOUCHED is
-now fixed. **Portfolio health** — a different screen, the cross-project table — is the one remaining
-surface a user reads. Named, not numbered: the ordinal that used to live in this sentence went stale
-twice, and the sparkline bullet that briefly sat above this line was fixed rather than deferred,
-which would have staled it a third time.
+★★ The honest framing meanwhile — and the previous two attempts at this sentence were both WRONG in
+the same direction, each declaring a screen finished that was not. THREE user-read surfaces remain:
+the **Trends card** and the **Trends view** (both fed by `snapshot.ts:211`, the first of them ON the
+dashboard the batch just fixed), and **Portfolio health** (the cross-project table, a different
+screen). Named, not numbered: every ordinal that has lived in this sentence went stale within days.
+
+★★★ THE LESSON THAT KEEPS COSTING: a claim of the form "every X on screen Y is now fixed" is a claim
+about EVERY CONSUMER of a value, and it cannot be made from a diff. It was written twice from the
+set of surfaces that had been CHANGED, which is the wrong set. Before writing it a third time, grep
+every reader of `progress.percent`, `progress.inScope` and `pctComplete` and enumerate them.
 
 ★★ TRANSCRIPTION WARNING, learned here: the first draft of this entry cited
 `ai-dashboard-snapshot.ts:92` as `completionPercent`. That file's key is `percent`;

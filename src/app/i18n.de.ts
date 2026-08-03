@@ -2193,7 +2193,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardScopeUnset: "Nicht gesetzt",
   dashboardMilestones: "Meilensteine",
   dashboardRagThresholds: "Verbrauch / Stunden: Gelb ≥ 90%, Rot > 100% · Kostenverbrauch: Rot < 0,80, Gelb < 0,90 · Marge: Grün ≥ 15%, Gelb 0–15%, Rot < 0",
-  dashboardProgressCaption: "Abgeschlossene vs. gesamte Aufgaben, mit der Rot/Gelb/Grün-Aufteilung der offenen Arbeit.",
+  dashboardProgressCaption: "Erledigte Aufgaben im Verhältnis zum Umfang — abgebrochene Arbeit bleibt in beiden außen vor. Die Rot/Gelb/Grün-Aufteilung umfasst alle Aufgaben; geschlossene Arbeit zählt als Grün.",
   dashboardBurnCaption: "Verbrauchtes Budget und Stunden gegenüber dem Verfügbaren. Das Burn-down zeigt das verbleibende Budget gegen den geplanten Verlauf — die Ist-Linie über der gestrichelten Linie bedeutet Rückstand zum Plan.",
   navMilestones: "Meilensteine",
   milestoneNew: "Neuer Meilenstein",

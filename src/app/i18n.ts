@@ -2207,7 +2207,7 @@ const enUS = {
   dashboardScopeUnset: "Not set",
   dashboardMilestones: "Milestones",
   dashboardRagThresholds: "Consumption / hours: Amber ≥ 90%, Red > 100% · Cost burn: Red < 0.80, Amber < 0.90 · Margin: Green ≥ 15%, Amber 0–15%, Red < 0",
-  dashboardProgressCaption: "Tasks completed vs total, with the Red / Amber / Green health split of open work.",
+  dashboardProgressCaption: "Completed tasks vs tasks in scope — cancelled work is out of both. The Red / Amber / Green split covers every task, and closed work counts Green.",
   dashboardBurnCaption: "Budget and hours consumed vs available. The burn-down shows remaining budget against the planned glide-path — the actual line above the dashed line means you are behind plan.",
   navMilestones: "Milestones",
   milestoneNew: "New milestone",
