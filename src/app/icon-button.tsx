@@ -11,7 +11,7 @@ import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 
 export type IconButtonSize = "sm" | "md";
-export type IconButtonVariant = "ghost" | "danger" | "bordered";
+export type IconButtonVariant = "ghost" | "danger" | "bordered" | "dangerBordered";
 
 // Square padding by size (the icon sets its own dimensions).
 const SIZE_CLASS: Record<IconButtonSize, string> = {
@@ -28,6 +28,12 @@ const VARIANT_CLASS: Record<IconButtonVariant, string> = {
   // (codifies the recipe ResetSizeButton/ResetColWidthsButton already used).
   bordered:
     "border border-line bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+  // Destructive AND bordered: a standing destructive affordance in a toolbar,
+  // matching Settings → General's "Reset to clean slate". `danger` above is the
+  // per-row remove glyph, which stays muted until hover; this one reads as
+  // destructive at rest because it wipes everything.
+  dangerBordered:
+    "border border-ui-pink/50 bg-surface text-ui-pink-strong hover:bg-ui-pink/10",
 };
 
 const BASE_CLASS =

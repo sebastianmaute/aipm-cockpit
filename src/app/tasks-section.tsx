@@ -771,7 +771,7 @@ export function TasksSection({
           calendarPullBusy={taskPull.busy}
         />
         <IconButton
-          variant="bordered"
+          variant="dangerBordered"
           size="md"
           onClick={() => setClearConfirmOpen(true)}
           disabled={tasks.length === 0}

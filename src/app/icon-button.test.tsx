@@ -37,4 +37,11 @@ describe("IconButton", () => {
     render(<IconButton label="X" className="shrink-0">x</IconButton>);
     expect(screen.getByRole("button", { name: "X" }).className).toContain("shrink-0");
   });
+
+  it("dangerBordered carries the destructive border and text at rest", () => {
+    render(<IconButton label="Clear all" variant="dangerBordered">x</IconButton>);
+    const btn = screen.getByRole("button", { name: "Clear all" });
+    expect(btn.className).toContain("border-ui-pink/50");
+    expect(btn.className).toContain("text-ui-pink-strong");
+  });
 });
