@@ -9,13 +9,19 @@
 // memoization form it had in use-resource-planner.ts, so the move cannot itself
 // regress anything downstream. ★ An earlier revision of this comment justified
 // that by citing open-followups §1 and "the ResourcesPanel memo these handler
-// identities feed" — FALSE, and checked: 14 of the 15 reach only RolesPanel,
-// which is not memo()'d and whose wrapping JSX is rebuilt every render anyway,
-// and the 15th (handleAssignRoleById) reaches the memo'd ResourceDirectory
-// already wrapped in guardEdit(), which mints a fresh identity per render
-// regardless. §1 is about ResourcesPanel and ResourceCalendar; neither receives
-// any handler from this file. Preserving the memoization form needs no reason
-// beyond this being a move-only commit — don't reintroduce one.
+// identities feed" — FALSE. ★★ Counted, after that same revision asserted a
+// wrong count of its own ("14 of the 15 reach only RolesPanel"): TWELVE reach
+// RolesPanel (task-manager.tsx:2200-2211), which is not memo()'d and whose
+// wrapping JSX is rebuilt every render anyway; handleAssignRoleById is the
+// thirteenth and reaches the memo'd ResourceDirectory already wrapped in
+// guardEdit(), which mints a fresh identity per render regardless; and the
+// remaining TWO — handleAssignResourceRole and handleClearResourceRole — have
+// no production consumer at all, only use-resource-planner.test.tsx (dead at
+// base too, carried through by the move-only rule; open-followups §62).
+// §1 is about ResourcesPanel and ResourceCalendar, and onAssignRoleById reaches
+// only ResourceDirectory (workspace-section.tsx:486), so neither §1 component
+// receives any handler from this file. Preserving the memoization form needs no
+// reason beyond this being a move-only commit — don't reintroduce one.
 //
 // The two REFS the moved bodies read are re-derived here rather than threaded
 // in: exhaustive-deps only knows a value is render-stable when it can see the

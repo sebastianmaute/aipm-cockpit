@@ -102,8 +102,9 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
 | 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **HALF CLOSED post-0.212.0** — version stamp + guard test; fresh-port convention still required |
 | 59 | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open — ★ the finding is the PATTERN, three releases running |
-| 60 | The file-size ratchet ignores every file at or under 800 lines, and `--update` erases a sub-limit entry | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ `--update` would delete §2's new guard |
+| 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
+| 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -209,7 +210,8 @@ Those are the same number: `scripts/check-file-sizes.mjs` measures `content.spli
 which is one MORE than `wc -l` for a file ending in a newline. Anyone hand-editing
 `docs/baselines/file-sizes.json` must use the script's count, not `wc -l`'s. ★ That baseline entry is
 now BELOW the limit and therefore invisible to the tool's own regeneration — see §60, which records
-why `--update` would silently delete it.
+why `--update` dropping it costs nothing (the entry is inert at 554), and why the value of this
+commit is REMOVING the stale 1043, not installing a 554.
 
 Verified move-only rather than asserted:
 
@@ -234,8 +236,12 @@ warned that these NON-memoized handlers are what keep §1's `ResourcesPanel` mem
 split must not tempt anyone into memoizing. An early draft of the extraction repeated that as the
 reason to preserve the memoization form. It does not hold:
 
-- **reference-data handlers reach only `RolesPanel`** (`roles-panel.tsx:7`), a plain function
-  component — its JSX is rebuilt every render regardless, so nothing there can bail;
+- **twelve of the fifteen reference-data handlers reach `RolesPanel`** (`roles-panel.tsx:7`), a plain
+  function component — its JSX is rebuilt every render regardless, so nothing there can bail. ★ The
+  other three do NOT, and an earlier revision of this bullet said "reach only `RolesPanel`" flatly,
+  contradicting the very header comment it defers to: `handleAssignRoleById` reaches the memo'd
+  `ResourceDirectory` (arriving `guardEdit()`-wrapped, so unstable anyway), and
+  `handleAssignResourceRole` + `handleClearResourceRole` reach nothing in production at all (§62);
 - **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx:442`)
   and `ResourcesPanel` (`resources-panel.tsx:682`) — but they arrive `guardEdit()`-wrapped
   (`task-manager.tsx:2258-2261`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
@@ -2439,7 +2445,7 @@ contrast. What is not covered, and what these checks are for:
 
 ---
 
-## 60. The file-size ratchet ignores every file at or under 800 lines, and `--update` erases a sub-limit entry — open
+## 60. The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — open
 
 `scripts/check-file-sizes.mjs`'s comparison loop opens with `if (n <= LIMIT) continue;` and `LIMIT` is
 800. **A baseline entry is never consulted for a file at or under 800 lines.** So the ratchet cannot
@@ -2462,6 +2468,14 @@ walk the loop at `scripts/check-file-sizes.mjs:38-41` for `n = 801`. With `prev 
 line.** A sub-limit baseline entry is behaviourally identical to no entry at all, so `--update`
 dropping it is a no-op and there is no trap here. The reasoning in commit `d7c423bd` is unaffected —
 it argues about the harm of the old 1043 value, which was real.
+
+★★ **There IS a residual, and it is social rather than behavioural** (found in review, 2026-08-03,
+after the correction above): the committed baseline no longer matches what `--update` generates. The
+flag emits only the five files over 800 (`chat-panel` 977 · `task-manager` 2966 · `task-row` 817 ·
+`tasks-section` 1043 · `workspace-section` 963); the committed file carries those five **plus** the
+`use-resource-planner.ts: 554` line. So the next person to regenerate gets a one-line DELETION diff
+that reads as a regression and is not one. Either accept the line will be dropped whenever anyone
+regenerates, or drop it now — behaviourally the two are the same file.
 
 ★ Also note the counting difference, since it will bite anyone hand-editing the baseline: the script
 counts `content.split("\n").length`, which is **one more** than `wc -l` for a file ending in a
@@ -2525,6 +2539,29 @@ tasks, so it is a judgement call rather than an obvious inclusion.) Absence and 
 belong in the planner and should stay. ★★ **There is no ratchet pressure — the file is 553 against a
 554 baseline and a 800 limit. Do not do this speculatively**; it is recorded so the next person under
 real pressure does not have to re-derive it.
+
+---
+
+## 62. Two reference-data handlers have no production consumer — open, pre-existing
+
+`handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts:127` and `:140`)
+are reachable only from `use-resource-planner.test.tsx` (`:1012`, `:1023`, `:1085`, `:1096`). Nothing
+in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller.
+
+★ **Pre-existing, not introduced by §2's split** — they were equally dead at `0d770283`
+(`use-resource-planner.ts:710` and `:723`, returned at `:1023`/`:1025`). The move-only rule required
+carrying them across verbatim, so the split re-exported two dead handlers through a three-level
+spread rather than creating the problem.
+
+★★ **The role-assignment path that IS live is `handleAssignRoleById`**, which the directory picker
+uses and which never mints a role. `handleAssignResourceRole` is the older discipline×grade variant
+that mints via `resolveOrCreateRole` — so deleting it would also remove the only non-test caller of
+`resolveOrCreateRole`, which is itself passed to `RolesPanel` as `onResolveOrCreateRole`. Check that
+prop is live before deleting anything; this is a small thread to pull, not a one-line removal.
+
+The decision is delete-or-record, and it needs a commit that is allowed to change behaviour — not a
+move-only one. Recorded here so the next reader does not assume a tested handler is a used one.
+★ Four tests would go with them.
 
 ---
 
@@ -2602,8 +2639,17 @@ mechanism this whole file warns about** — the prose has no gate, and a number 
 ago is a historical record, not a fact.
 
 ★ Opened by the slice: **§59** (eye verification owed, third release running), **§60** (the ratchet
-ignores sub-limit files, and `--update` would erase §2's new baseline entry), **§61** (three residuals
-from the split).
+ignores sub-limit files, so §2's new baseline entry is inert), **§61** (three residuals from the
+split), **§62** (two handlers with no production consumer, pre-existing).
+
+★★ **And the review of the slice found four more falsehoods in prose the slice itself had just
+written**, two of them inside corrections of earlier falsehoods: `use-reference-data.ts`'s header
+asserted "14 of the 15 reach only RolesPanel" while correcting a different wrong claim (the true
+split is 12 / 1 / 2 dead); §2's bullet said "reach only `RolesPanel`", contradicting the very header
+comment it defers to; and §60's index row plus §2's cross-reference both still pointed at the
+`--update` trap that §60's own body had retracted **in the same commit**. Correcting a claim is when
+you are most likely to write a new one — re-measure the replacement, and grep every pointer to a
+paragraph you just rewrote.
 
 ### 0.211.1 — the small-correctness batch (§11 · §14 · §15 · §29)
 
