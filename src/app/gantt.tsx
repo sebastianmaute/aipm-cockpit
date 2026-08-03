@@ -35,7 +35,7 @@ import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
 import { GanttDependencyLayer, GanttHeader, GanttToolbar } from "./gantt-chrome";
-import { GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
+import { dayLeftPx, GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
@@ -531,8 +531,9 @@ export function GanttPanel({
     return { min, max, days };
   }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref]);
 
-  const todayOffsetPx =
-    nameColWidth + diffDays(range.min, today) * DAY_WIDTH_PX;
+  // Same expression the holiday shading and the day grid use — shared so the
+  // marker cannot drift off the day column it is supposed to sit on.
+  const todayOffsetPx = dayLeftPx(diffDays(range.min, today), nameColWidth);
   const timelineWidthPx = range.days * DAY_WIDTH_PX;
 
   // On mount (and on the first render where layout is meaningful), scroll
@@ -596,6 +597,22 @@ export function GanttPanel({
   // say so instead of showing a blank grid the user can't interpret.
   const noStatusSelected = prefs.statuses.length === 0;
 
+  // ONE source for the "why is this empty" copy, shared by the whole-panel
+  // early return below and by the chart-body guard. Both branches ask the same
+  // question, so a second inline copy of the ternary is how the two drift.
+  const emptyMessageKey = noStatusSelected
+    ? "ganttNoStatusSelected"
+    : filtersActive
+      ? "ganttNoMatches"
+      : "ganttEmpty";
+
+  // "The chart body would render nothing." Strictly wider than
+  // `noStatusSelected`: a non-empty status selection that matches no task AND
+  // no milestone lands here too (e.g. only "overdue" ticked, with one future
+  // task and one future milestone), and used to fall through to a header and
+  // today marker drawn over an unexplained void.
+  const rendersNothing = rows.length === 0;
+
   const toolbar = (
     <GanttToolbar
       lang={lang}
@@ -641,13 +658,7 @@ export function GanttPanel({
           />
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-            <span>
-              {noStatusSelected
-                ? t(lang, "ganttNoStatusSelected")
-                : filtersActive
-                  ? t(lang, "ganttNoMatches")
-                  : t(lang, "ganttEmpty")}
-            </span>
+            <span>{t(lang, emptyMessageKey)}</span>
           </div>
         )}
       </div>
@@ -681,11 +692,13 @@ export function GanttPanel({
         />
 
         {/* --- rows ----------------------------------------------------- */}
-        {noStatusSelected ? (
-          // Header and toolbar stay mounted on purpose — the status checkboxes
-          // in the toolbar are the only way back out of this state.
+        {rendersNothing ? (
+          // Header and toolbar stay mounted on purpose — the way back out of
+          // this state lives in the toolbar (the status checkboxes, the other
+          // filter controls, or Reset filters), so unmounting it would strand
+          // the user.
           <div className="flex flex-col items-center gap-3 border-t border-line p-10 text-center text-sm text-muted-foreground">
-            <span>{t(lang, "ganttNoStatusSelected")}</span>
+            <span>{t(lang, emptyMessageKey)}</span>
           </div>
         ) : (
         <div className="relative">
@@ -727,7 +740,14 @@ export function GanttPanel({
           )}
 
           {/* Dependency arrow layer — sits over the rows but under the bars
-              for hover contrast. */}
+              for hover contrast. Gated on the View popover's Dependencies
+              toggle; it also carries the linked-task -> milestone connectors,
+              so turning it off hides both overlays.
+              ★ An edge draws only when BOTH endpoints are rendered rows: a
+              predecessor with no due date has no bar (deriveBar returns null),
+              and one excluded by the status/priority/assignee/search filters
+              has no row index, so either way the arrow is silently skipped. */}
+          {prefs.showDependencies && (
           <GanttDependencyLayer
             placeable={layout.placeable}
             bars={layout.bars}
@@ -740,6 +760,7 @@ export function GanttPanel({
             totalRowsCount={totalRowsCount}
             nameColWidth={nameColWidth}
           />
+          )}
 
           {/* --- rows: task bars + milestone diamonds. In "below" mode all
               task rows come first, then the milestone block; in "inline" mode

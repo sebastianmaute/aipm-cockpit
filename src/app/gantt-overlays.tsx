@@ -5,10 +5,12 @@
 // non-working day) and the optional day grid (one dotted rule per day column).
 //
 // Both take the SAME geometry the day-axis header uses — a day at index `i`
-// starts at `nameColWidth + i * DAY_WIDTH_PX` (see `GanttHeader` in
-// gantt-chrome.tsx, and the `todayOffsetPx` the panel derives the same way).
-// If either layer ever computes its own origin or column width, a grid line
-// stops sitting under its date label, which is the entire point of the grid.
+// starts at `nameColWidth + i * DAY_WIDTH_PX`. `dayLeftPx` below is that
+// expression, and the panel's `todayOffsetPx` now CALLS it rather than
+// re-inlining the arithmetic; `GanttHeader` (gantt-chrome.tsx) still spells it
+// out via per-day divs. If either layer ever computes its own origin or column
+// width, a grid line stops sitting under its date label, which is the entire
+// point of the grid.
 //
 // Both are inert: `aria-hidden` (the dates are already in the header, the
 // absences already in the rows) and `pointer-events-none` so they can never
@@ -16,8 +18,11 @@
 
 import { addDays, DAY_WIDTH_PX, toISODay } from "./gantt-engine";
 
-/** Left offset, in px, of the day at index `i` — the header's expression. */
-function dayLeftPx(i: number, nameColWidth: number): number {
+/** Left offset, in px, of the day at index `i` — the header's expression.
+ *  EXPORTED because the panel's today marker needs the identical number: one
+ *  place owns where a day column starts, or a rule stops sitting under its
+ *  date label. */
+export function dayLeftPx(i: number, nameColWidth: number): number {
   return nameColWidth + i * DAY_WIDTH_PX;
 }
 

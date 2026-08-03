@@ -277,9 +277,10 @@ export function GanttTaskRow({
           const dWidth = Math.max(DAY_WIDTH_PX / 2, dEndX - dStartX);
 
           // Whether bar-drag editing is allowed for this row.
-          // We block completed tasks (you shouldn't accidentally
-          // change the date of something already done) and any
-          // task that simply lacks an edit callback.
+          // We block CLOSED tasks — `isTaskClosed` is Done OR
+          // Cancelled — on the grounds that neither is still being
+          // scheduled, so a stray drag would only ever be an
+          // accident. Also blocked: any task lacking an edit callback.
           const editable = !!onUpdateBar && !isComplete;
 
           return (

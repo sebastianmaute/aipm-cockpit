@@ -272,6 +272,124 @@ describe("GanttPanel dependency arrows", () => {
     const { container } = render(<GanttPanel {...BASE_PROPS} tasks={tasks} />);
     expect(container.querySelectorAll("path[marker-end]").length).toBe(0);
   });
+
+  it("gives the edge real coordinates and the layer a real height", () => {
+    // The presence assertions above hold even for a degenerate path (all-zero
+    // `d`, zero-height <svg>) — which is one of the ways "the arrows exist but
+    // nobody sees them" could have been true. None of this depends on layout:
+    // every number comes from DAY_WIDTH_PX / ROW_HEIGHT_PX arithmetic, so jsdom
+    // (which reports every rect as zero) can still check it.
+    const tasks = [
+      ...BASE_TASKS,
+      {
+        id: 2,
+        taskName: "B",
+        assignee: "y",
+        priority: "Medium" as const,
+        startDate: dayPlus(1),
+        dueDate: dayPlus(10),
+        dependencies: [{ taskId: 1, type: "FS" as const }],
+      } as unknown as Task,
+    ];
+    const { container } = render(<GanttPanel {...BASE_PROPS} tasks={tasks} />);
+    const edge = container.querySelector("path[marker-end]") as SVGPathElement | null;
+    expect(edge).not.toBeNull();
+    const d = edge?.getAttribute("d") ?? "";
+    const nums = [...d.matchAll(/-?\d+(?:\.\d+)?/g)].map((mm) => Number(mm[0]));
+    expect(nums.length).toBeGreaterThan(0);
+    expect(nums.every((n) => Number.isFinite(n))).toBe(true);
+    expect(nums.some((n) => n !== 0)).toBe(true);
+    // The two endpoints sit on DIFFERENT rows — a collapsed y would draw a flat
+    // line hidden inside one row's own separator.
+    const yStart = nums[1];
+    const yEnd = nums[nums.length - 1];
+    expect(yStart).not.toBe(yEnd);
+
+    const svg = edge?.ownerSVGElement;
+    expect(Number(svg?.getAttribute("height"))).toBeGreaterThan(0);
+  });
+
+  it("draws the non-critical edge heavily enough to read against the row lines", () => {
+    // Pins the A3 values. The old 0.45 / 1.25 composited EDGE_STROKE_MUTED to a
+    // pale grey; this is the only guard on that, since jsdom cannot measure
+    // anything and axe scans neither opacity nor an aria-hidden overlay.
+    const tasks = [
+      ...BASE_TASKS,
+      {
+        id: 2,
+        taskName: "B",
+        assignee: "y",
+        priority: "Medium" as const,
+        startDate: dayPlus(1),
+        dueDate: dayPlus(10),
+        dependencies: [{ taskId: 1, type: "FS" as const }],
+      } as unknown as Task,
+    ];
+    const { container } = render(<GanttPanel {...BASE_PROPS} tasks={tasks} />);
+    const edge = container.querySelector("path[marker-end]");
+    expect(edge?.getAttribute("stroke-opacity")).toBe("0.7");
+    expect(edge?.getAttribute("stroke-width")).toBe("1.5");
+  });
+});
+
+// ---------- dependency overlay ↔ the View popover's toggle ------------------
+//
+// The layer rendered unconditionally until now: `prefs.showDependencies` existed
+// and drove a toggle, but nothing read it. Both directions matter — without the
+// "on" case, deleting the layer outright would still satisfy the "off" case.
+
+describe("GanttPanel dependency toggle", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  // savePrefs over the FULL default blob, not a bare `{ v: 2, showDependencies }`
+  // — a v2 blob with no `statuses` key hydrates to an empty selection, which
+  // shows no rows at all and would make every assertion here pass or fail for
+  // the wrong reason.
+  const seedPrefs = (patch: Partial<GanttPrefs>): void =>
+    savePrefs({ ...DEFAULT_PREFS, ...patch });
+
+  const DEP_TASKS: Task[] = [
+    ...BASE_TASKS,
+    {
+      id: 2,
+      taskName: "B",
+      assignee: "y",
+      priority: "Medium" as const,
+      startDate: dayPlus(1),
+      dueDate: dayPlus(10),
+      dependencies: [{ taskId: 1, type: "FS" as const }],
+    } as unknown as Task,
+  ];
+
+  it("draws the edges when showDependencies is on", () => {
+    seedPrefs({ showDependencies: true });
+    const { container } = render(<GanttPanel {...BASE_PROPS} tasks={DEP_TASKS} />);
+    expect(container.querySelectorAll("path[marker-end]").length).toBe(1);
+  });
+
+  it("draws none when showDependencies is off", () => {
+    seedPrefs({ showDependencies: false });
+    const { container } = render(<GanttPanel {...BASE_PROPS} tasks={DEP_TASKS} />);
+    expect(container.querySelectorAll("path[marker-end]").length).toBe(0);
+    // The task rows themselves are untouched — this hides an overlay, not data.
+    expect(screen.getByText("B")).toBeInTheDocument();
+  });
+
+  it("takes the milestone connectors down with it", () => {
+    // The connectors live in the SAME <svg>, so the toggle governs both. Stated
+    // here so the coupling is a pinned decision rather than an accident.
+    seedPrefs({ showDependencies: false });
+    const { container } = render(
+      <GanttPanel
+        {...BASE_PROPS}
+        milestones={[
+          { id: 1, name: "Gamma", date: dayPlus(10), linkedTaskIds: [1] } as unknown as Milestone,
+        ]}
+      />,
+    );
+    expect(container.querySelector("path[data-milestone-connector]")).toBeNull();
+  });
 });
 
 // ---------- source-scan tests (Task 6: toolbar ordering + pane resize) ------
@@ -601,6 +719,29 @@ describe("GanttPanel v2 status filter", () => {
     ).toBeInTheDocument();
   });
 
+  it("explains a non-empty selection that matches nothing, instead of a blank grid", () => {
+    // The sibling of the no-status case, and the one that had no message: a
+    // status IS ticked, but neither the task nor the milestone lands in it. The
+    // milestone keeps `sortedMilestones.length > 0`, so the whole-panel early
+    // return is NOT taken and the chart body used to render a header and a
+    // today marker over nothing at all.
+    seedPrefs({ statuses: ["overdue"] });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mkTask({ id: 1, taskName: "Later", dueDate: dayPlus(10) })]}
+        milestones={[
+          { id: 1, name: "Pending", date: dayPlus(30), linkedTaskIds: [] } as unknown as Milestone,
+        ]}
+      />,
+    );
+    expect(screen.queryByText("Later")).toBeNull();
+    expect(screen.queryByText("Pending")).toBeNull();
+    // "No matches" — a filter IS narrowing, and it is not the empty-selection case.
+    expect(screen.getByText(t("en-US", "ganttNoMatches"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "ganttNoStatusSelected"))).toBeNull();
+  });
+
   it("hides a cancelled task when only 'open' is ticked", () => {
     seedPrefs({ statuses: ["open"] });
     render(
@@ -680,9 +821,12 @@ describe("GanttPanel v2 status filter", () => {
     expect(screen.queryByText("Pending")).toBeNull();
   });
 
-  it("draws no milestone connector for a milestone the status filter hid", () => {
+  it("draws no milestone connector for a milestone the SHOW-MILESTONES toggle hid", () => {
     // Connector layer and the row list must see the SAME milestone set — a
     // connector drawn to a row index that no longer exists points at nothing.
+    // NOTE the input: all three statuses are ticked, so this is the toggle arm
+    // of `visibleMilestones`, not the bucket arm. The bucket arm is the test
+    // below (this one used to be titled as though it covered both).
     seedPrefs({ statuses: ["open", "completed", "overdue"], showMilestones: false });
     const { container } = render(
       <GanttPanel
@@ -695,12 +839,93 @@ describe("GanttPanel v2 status filter", () => {
     expect(container.querySelector("path[data-milestone-connector]")).toBeNull();
   });
 
+  it("draws no milestone connector for a milestone the STATUS BUCKET hid", () => {
+    // The bucket arm. The task must land in the ticked bucket so at least one
+    // row renders — otherwise the chart body's empty state takes over and the
+    // connector would be absent for a reason that has nothing to do with the
+    // milestone filter.
+    seedPrefs({ statuses: ["completed"] });
+    const { container } = render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[
+          mkTask({
+            id: 1,
+            taskName: "Shipped",
+            status: "Done",
+            completedDate: dayPlus(-2),
+            startDate: dayPlus(-10),
+            dueDate: dayPlus(-2),
+          }),
+        ]}
+        milestones={[
+          // Unachieved and future → bucket "open" → filtered out.
+          { id: 1, name: "Gamma", date: dayPlus(10), linkedTaskIds: [1] } as unknown as Milestone,
+        ]}
+      />,
+    );
+    // The chart really did render (so the assertion below is not vacuous).
+    expect(screen.getByText("Shipped")).toBeInTheDocument();
+    expect(screen.queryByText("Gamma")).toBeNull();
+    expect(container.querySelector("path[data-milestone-connector]")).toBeNull();
+  });
+
   it("reads an empty project as 'no tasks yet', not 'filtered out', under default prefs", () => {
     // Default v2 prefs tick every status, so a `statuses.length > 0` test for
     // "a filter is active" would mislabel an untouched, empty project.
     render(<GanttPanel {...BASE_PROPS} tasks={[]} />);
     expect(screen.getByText(t("en-US", "ganttEmpty"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "ganttNoMatches"))).toBeNull();
+  });
+});
+
+// ---------- bar drag-editability -------------------------------------------
+//
+// `editable` in gantt-rows.tsx moved from a completedDate test to `isTaskClosed`
+// (Done OR Cancelled), so a CANCELLED bar lost its drag handles. That was an
+// unmentioned behaviour change; this pins it. Tested through the panel rather
+// than the row so it covers the wiring (`onUpdateBar` threading) too.
+
+describe("GanttPanel bar drag handles", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  const mk = (over: Partial<Task> & { id: number; taskName: string }): Task =>
+    ({
+      assignee: "x",
+      priority: "Medium" as const,
+      startDate: dayPlus(-10),
+      dueDate: dayPlus(10),
+      ...over,
+    }) as unknown as Task;
+
+  it("gives an active task a move handle when onUpdateBar is wired", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Live" })]}
+        onUpdateBar={() => {}}
+      />,
+    );
+    expect(
+      screen.getAllByRole("button", { name: t("en-US", "ganttBarMove") }),
+    ).toHaveLength(1);
+  });
+
+  it("gives a cancelled task none", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Dropped", status: "Cancelled" })]}
+        onUpdateBar={() => {}}
+      />,
+    );
+    // The row is still rendered (default prefs tick "completed") — it is only
+    // the drag affordance that is gone.
+    expect(screen.getByText("Dropped")).toBeInTheDocument();
+    expect(
+      screen.queryAllByRole("button", { name: t("en-US", "ganttBarMove") }),
+    ).toHaveLength(0);
   });
 });
 

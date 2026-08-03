@@ -436,8 +436,12 @@ export function GanttDependencyLayer({
               key={`${task.id}-${depIdx}`}
               d={path}
               stroke={isCritical ? "rgb(220, 38, 38)" : EDGE_STROKE_MUTED}
-              strokeOpacity={isCritical ? 0.85 : 0.45}
-              strokeWidth={isCritical ? 2 : 1.25}
+              // The non-critical arm was 0.45 / 1.25, which composites
+              // EDGE_STROKE_MUTED to a pale grey barely separable from the
+              // `border-line` row separators it crosses. The critical arm keeps
+              // its heavier values so the red chain stays the stronger signal.
+              strokeOpacity={isCritical ? 0.85 : 0.7}
+              strokeWidth={isCritical ? 2 : 1.5}
               fill="none"
               markerEnd={
                 isCritical ? "url(#gantt-arrow-critical)" : "url(#gantt-arrow)"
