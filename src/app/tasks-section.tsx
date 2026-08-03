@@ -90,6 +90,12 @@ export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }>
 export interface TasksSectionProps {
   lang: Lang;
   today: string;
+  /** The holidays behind the RAG health filter, from task-manager's ONE
+   *  `useHolidaySet`. It feeds the same value to `useBulkOperations`, and the
+   *  two must agree or the shared `visibleTaskRows()` stops being one
+   *  definition. OPTIONAL only because the standalone pane unit test renders
+   *  without it; production always passes it. */
+  holidaySet?: Set<string>;
   /** When set, the pane fills its parent (modern full-height layout) instead of
    *  rendering as a fixed-height, user-resizable box (classic layout). */
   fillHeight?: boolean;
@@ -182,6 +188,7 @@ export interface TasksSectionProps {
 export function TasksSection({
   lang,
   today,
+  holidaySet: holidaySetProp,
   fillHeight,
   jiraSiteUrl,
   jiraExtraProjects,
@@ -264,7 +271,13 @@ export function TasksSection({
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
 
   const { settings, setSettings } = useSettings();
-  const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
+  // ONE holidaySet, threaded from task-manager, which feeds the SAME value to
+  // useBulkOperations. Deriving a second one here made the pane and the hook
+  // agree only by convention — both happened to read the same device setting.
+  // The local hook survives solely as the fallback for the standalone pane unit
+  // test (it renders TasksSection with no prop); task-manager always passes one.
+  const { holidaySet: fallbackHolidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
+  const holidaySet = holidaySetProp ?? fallbackHolidaySet;
   const { flashId, containerRef } = useDeepLinkRowFlash("open-points");
 
   // Inline "Ask Claude" task edit (SP1) — wired via a dedicated glue hook so this
@@ -283,7 +296,6 @@ export function TasksSection({
     capture: captureMerge, logActivity,
   });
 
-  const hideFinished = settings.hideFinishedTasks ?? false;
   const hideExternal = settings.hideExternalTasks ?? false;
   // View mode reads the EFFECTIVE value (device default OR this project's
   // appearance override). The in-pane toggle below writes to whichever scope is
@@ -298,6 +310,13 @@ export function TasksSection({
     () => getAppearanceSnapshot(pid),
     () => getAppearanceSnapshot(pid),
   );
+  // EFFECTIVE, not device: useBulkOperations reads this flag off the settings
+  // task-manager hands it, which are the effective ones. `hideFinishedTasks` is
+  // not an override today, but `tasksViewMode` already joined that list once —
+  // reading device here would silently re-open the drift the shared
+  // visibleTaskRows() exists to close. The toggle below still writes device
+  // settings, which is where the flag lives.
+  const hideFinished = effectiveSettings.hideFinishedTasks ?? false;
   const tasksViewMode = effectiveSettings.tasksViewMode ?? "table";
   const viewModeOverridden = projectAppearance.tasksViewMode !== undefined;
   const setTasksViewMode = useCallback(

@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import type { BudgetBucket, Task } from "./types";
 import { defaultSettings } from "./settings-types";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -147,8 +147,10 @@ describe("useBulkOperations", () => {
       });
       act(() => { result.current.bulk.toggleSelectAllVisible(); });
       expect([...result.current.bulk.selectedIds].sort()).toEqual([1]);
-      // The header checkbox's checked state must agree with what clicking it
-      // does — both read the same `visibleIds`.
+      // The header checkbox now reports on the SAME set it acts on AND the same
+      // set the table renders. (It always agreed with itself — both read
+      // `visibleIds` — so the pre-fix defect was the set, not the agreement:
+      // "all selected" was true while two unrendered rows were also selected.)
       expect(result.current.bulk.allVisibleSelected).toBe(true);
     });
 
@@ -221,7 +223,7 @@ describe("useBulkOperations", () => {
     // being written after a later filter change hid it. The filter change is
     // the whole point: a fixture that never changes it passes either way.
     it("bulk apply never touches a selected row that a filter has since hidden", () => {
-      const { result } = renderBulk();
+      const { result, args } = renderBulk();
       act(() => {
         result.current.workspace.setTasks([
           { id: 1, taskName: "Overdue", status: "To Do", dueDate: "2020-01-01",
@@ -256,11 +258,18 @@ describe("useBulkOperations", () => {
       expect(hidden.localModifiedAt).toBe("STAMP");
       // The "N updated" count claims only the rows actually written.
       expect(result.current.bulk.selectedIds.size).toBe(0);
+      // …and the user is TOLD about the one that was withheld. Skipping it
+      // silently would look identical to an edit that simply did not take.
+      expect(args.showToast).toHaveBeenCalledWith(
+        "info",
+        t("en-US", "bulkEditHiddenSkipped", 1),
+      );
+      expect(args.showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
     });
 
-    it("a bulk apply whose whole selection is hidden writes nothing at all", () => {
+    it("a bulk apply whose whole selection is hidden writes nothing, and says so", () => {
       const logActivity = vi.fn();
-      const { result } = renderBulk({ logActivity });
+      const { result, args } = renderBulk({ logActivity });
       act(() => {
         result.current.workspace.setTasks([
           { id: 1, taskName: "Fine", status: "To Do", dueDate: "2027-01-01",
@@ -279,6 +288,14 @@ describe("useBulkOperations", () => {
       // Reference-identical: no fresh array, so nothing dirties the workspace.
       expect(result.current.workspace.tasks).toBe(before);
       expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
+      // The modal closes and the selection clears either way, so WITHOUT this
+      // notice the whole apply is indistinguishable from one that worked.
+      expect(args.showToast).toHaveBeenCalledWith(
+        "info",
+        t("en-US", "bulkEditHiddenSkipped", 1),
+      );
+      // …and it must not also claim rows were updated.
+      expect(args.showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
     });
 
     it("skips Jira-managed fields on synced rows but applies local-only fields; warns", () => {

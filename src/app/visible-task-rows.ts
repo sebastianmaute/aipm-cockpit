@@ -3,9 +3,10 @@
 //
 // Both the pane (which draws the rows) and useBulkOperations (which decides
 // what select-all reaches) call this. They used to disagree: the hook read
-// `filteredSortedTasks`, which is upstream of BOTH filters, so select-all
-// silently picked up rows the user could not see, and the header checkbox's
-// checked state could disagree with what clicking it would do.
+// `filteredSortedTasks`, which is upstream of BOTH filters, so the header
+// checkbox reported on — and acted on — rows the table was not rendering.
+// (Its checked state and its click could NOT disagree with each other: both
+// read the same `visibleIds`. They agreed perfectly, over the wrong set.)
 import { filterTasksByHealth, type HealthFilter } from "./health";
 import { isTaskClosed } from "./task-closed";
 import { type Task } from "./types";

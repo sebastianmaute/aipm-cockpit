@@ -45,14 +45,18 @@ describe("visibleTaskRows", () => {
     expect(visibleTaskRows(tasks, "red", false, args).map((t) => t.id)).toEqual([1]);
   });
 
-  it("applies the health filter BEFORE hide-finished, so both narrow the list", () => {
-    // Overdue-and-cancelled would be kept by neither: cancelled tasks derive
-    // Green, so the red filter drops it before hide-finished ever sees it.
+  it("narrows by both filters at once", () => {
+    // NOT an ordering test, and no fixture can make it one: both stages are
+    // element-wise predicates, so their composition commutes. What it pins is
+    // that BOTH actually run — and that needs a filter a FINISHED task can
+    // survive. Under "red" none can (health.ts returns Green for Done AND
+    // Cancelled before it ever looks at dueDate), so a red fixture exercises the
+    // health filter alone and passes with hide-finished disconnected entirely.
     const tasks = [
-      task({ id: 1, dueDate: "2020-01-01" }),
-      task({ id: 2, dueDate: "2020-01-01", status: "Cancelled" }),
-      task({ id: 3, dueDate: "2027-01-01" }),
+      task({ id: 1 }), //                                            green + open → kept
+      task({ id: 2, status: "Done", completedDate: "2026-08-01" }), // green, dropped by hide-finished
+      task({ id: 3, dueDate: "2020-01-01" }), //                     red, dropped by the health filter
     ];
-    expect(visibleTaskRows(tasks, "red", true, args).map((t) => t.id)).toEqual([1]);
+    expect(visibleTaskRows(tasks, "green", true, args).map((t) => t.id)).toEqual([1]);
   });
 });

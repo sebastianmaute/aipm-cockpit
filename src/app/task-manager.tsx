@@ -2347,6 +2347,9 @@ function TaskManagerInner() {
     <TasksSection
       lang={lang}
       today={today}
+      // The SAME holidaySet useBulkOperations gets — the pane and the hook must
+      // not derive the health filter's day context independently.
+      holidaySet={holidaySet}
       fillHeight={settings.layout === "modern"}
       nextActions={nextActions}
       onOpenAction={openAction}

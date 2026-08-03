@@ -468,6 +468,11 @@ const enUS = {
   bulkEditNoFields: "Tick at least one field to update.",
   bulkEditDoneOne: "Updated 1 task.",
   bulkEditDoneMany: "Updated {0} tasks.",
+  // Bulk apply only writes rows the table is CURRENTLY showing, so a selection
+  // made before a filter change can be partly (or wholly) withheld. Saying so
+  // is the whole point: the modal closes and the selection clears either way.
+  bulkEditHiddenSkipped:
+    "{0} selected task(s) were skipped — the current filters no longer show them in the table.",
   bulkSendNoTasks: "No tasks ready to send.",
   bulkSendDone: "Opened {0} email(s) for {1} task(s).",
   confirmBulkSend: "Send {0} email(s) for {1} task(s)?",

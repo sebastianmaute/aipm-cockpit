@@ -57,8 +57,16 @@ export interface UseBulkOperationsArgs {
    *  button (type "yes, clear all tasks") instead of a one-click window.confirm.
    *  Undefined ⇒ voice clear-all is a safe no-op (popout / view not mounted). */
   requestClearAllConfirm?: () => void;
-  /** Day-boundary context for the health filter, so the hook's idea of a
-   *  visible row is byte-for-byte the pane's. */
+  /** Day-boundary context for the health filter. task-manager threads the SAME
+   *  `today` and `holidaySet` VALUES into the Open Points pane, so two of the
+   *  three inputs to `visibleTaskRows()` cannot drift at all.
+   *  The third, `hideFinishedTasks`, is read off `settings` here (task-manager
+   *  passes its EFFECTIVE settings) and off the pane's own `useEffectiveSettings`.
+   *  Those are two objects, not one — equal for THIS flag because neither the
+   *  policy nor the appearance override layer touches it (`settings-effective.ts`),
+   *  so a future override for it would have to be added to both readers at once.
+   *  Passing a pane-local re-derivation of any of the three brings back exactly
+   *  the drift `visibleTaskRows()` exists to close. */
   today: string;
   holidaySet: ReadonlySet<string>;
 }
@@ -181,14 +189,17 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const tz = resolveTimezone(args.settings.timezone, project?.operatingTimezone);
   const applyBulkEdit = useCallback(() => {
     const lang = langRef.current;
-    const today = todayInZone(new Date(), tz);
+    // Named apart from the hook-scope `today` (args.today, the pane's day
+    // boundary for the health filter): two day values that coincide today but
+    // are not the same thing, and shadowing hid that.
+    const editToday = todayInZone(new Date(), tz);
     const fields = bulkEdit.enabled;
     const anyEnabled = Object.values(fields).some(Boolean);
     if (!anyEnabled) {
       showToastRef.current("error", t(lang, "bulkEditNoFields"));
       return;
     }
-    const built = buildBulkEditUpdates(bulkEdit, today);
+    const built = buildBulkEditUpdates(bulkEdit, editToday);
     if (!built.ok) {
       showToastRef.current(
         "error",
@@ -204,6 +215,11 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const visible = new Set(visibleIds);
     const targetIds = [...selectedIds].filter((id) => visible.has(id));
     const targetSet = new Set(targetIds);
+    // Withholding a row is a decision the user has to be told about: the modal
+    // closes and the selection clears whether or not anything was written, so
+    // an unannounced skip is indistinguishable from an edit that worked. The
+    // all-hidden case (targetIds empty) is the same failure, only total.
+    const skippedHidden = selectedIds.size - targetIds.length;
     // `status` isn't in `updates` (it must route through applyStatusChange to keep
     // the Done ⟺ completedDate invariant), so track its enablement separately.
     const statusEnabled = fields.status;
@@ -260,7 +276,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
         // Non-synced: apply the flat field patch, then the status transition (via
         // applyStatusChange so status + completedDate stay in sync).
         const next = { ...row, ...updates };
-        const withStatus = statusEnabled ? applyStatusChange(next, newStatus, today) : next;
+        const withStatus = statusEnabled ? applyStatusChange(next, newStatus, editToday) : next;
         return { ...withStatus, localModifiedAt: stamp };
       }),
     );
@@ -270,6 +286,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     }
     if (skippedSynced > 0) {
       showToastRef.current("info", t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
+    }
+    // Mirrors the Jira notice above — same shape, different reason for skipping.
+    if (skippedHidden > 0) {
+      showToastRef.current("info", t(lang, "bulkEditHiddenSkipped", skippedHidden));
     }
     // A bucket-only apply whose move is a no-op (every selected task is already
     // in the target) writes nothing — so it must not claim rows either. The

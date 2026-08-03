@@ -474,6 +474,8 @@ export const de: Record<TranslationKey, string> = {
   bulkEditNoFields: "Mindestens ein Feld zum Aktualisieren auswählen.",
   bulkEditDoneOne: "1 Aufgabe aktualisiert.",
   bulkEditDoneMany: "{0} Aufgaben aktualisiert.",
+  bulkEditHiddenSkipped:
+    "{0} ausgewählte Aufgabe(n) wurden übersprungen — die aktuellen Filter zeigen sie nicht mehr in der Tabelle an.",
   bulkSendNoTasks: "Keine Aufgaben zum Versenden bereit.",
   bulkSendDone: "{0} E-Mail(s) für {1} Aufgabe(n) geöffnet.",
   confirmBulkSend: "{0} E-Mail(s) für {1} Aufgabe(n) senden?",
