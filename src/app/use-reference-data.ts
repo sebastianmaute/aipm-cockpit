@@ -6,9 +6,16 @@
 // — the earlier extraction out of that same file, for that same reason.
 //
 // MOVE ONLY, no behaviour change: each handler keeps the body and the
-// memoization form it had in use-resource-planner.ts. Render identity is
-// load-bearing here — open-followups §1 tracks the ResourcesPanel memo that
-// these handler identities feed.
+// memoization form it had in use-resource-planner.ts, so the move cannot itself
+// regress anything downstream. ★ An earlier revision of this comment justified
+// that by citing open-followups §1 and "the ResourcesPanel memo these handler
+// identities feed" — FALSE, and checked: 14 of the 15 reach only RolesPanel,
+// which is not memo()'d and whose wrapping JSX is rebuilt every render anyway,
+// and the 15th (handleAssignRoleById) reaches the memo'd ResourceDirectory
+// already wrapped in guardEdit(), which mints a fresh identity per render
+// regardless. §1 is about ResourcesPanel and ResourceCalendar; neither receives
+// any handler from this file. Preserving the memoization form needs no reason
+// beyond this being a move-only commit — don't reintroduce one.
 //
 // The two REFS the moved bodies read are re-derived here rather than threaded
 // in: exhaustive-deps only knows a value is render-stable when it can see the
