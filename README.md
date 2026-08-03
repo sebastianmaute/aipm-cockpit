@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.211.1_%22Samatar%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.211.2_%22Samatar%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > **The AI project-management cockpit that knows *your* project.**
@@ -98,7 +98,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 
 ### Prerequisites
 
-- **[Node.js](https://nodejs.org/en/download/current) ≥ 20.9.0** (the CI image is `node:20`). Check with `node --version`.
+- **[Node.js](https://nodejs.org/en/download/current) ≥ 24** (the CI image is `node:24`). Check with `node --version`.
 - **npm** (ships with Node.js).
 - *(Optional)* **[Turso](https://turso.tech/)** account/database — only needed for multi-device or multi-project (portfolio) use; the app runs fully without it.
 

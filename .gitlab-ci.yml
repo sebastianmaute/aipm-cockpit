@@ -5,7 +5,7 @@ stages:
   - e2e
 
 default:
-  image: node:20-bookworm-slim          # glibc, compatible with the Playwright image
+  image: node:24-bookworm-slim          # Debian/glibc (not alpine/musl); node 20 went EOL 2026-04-30
   cache:
     key:
       files: [package-lock.json]

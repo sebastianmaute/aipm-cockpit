@@ -8,6 +8,44 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.211.2] - 2026-08-03 "Samatar"
+
+A toolchain chore. No user-facing behaviour changes.
+
+### Changed
+
+- **CI now builds and tests on Node 24.** The default CI image moved from
+  `node:20-bookworm-slim` to `node:24-bookworm-slim`: Node 20 reached end-of-life
+  on 2026-04-30, stopped receiving security updates, and was dropped from the
+  official Docker images. 24 is the current active LTS.
+- **The documented Node floor is now 24**, in both the README prerequisites and
+  the RUNBOOK's build and self-hosting notes (previously ≥ 20.9.0), matching what
+  CI actually runs. `package.json` gained an advisory `engines: { "node": ">=24" }`
+  to state the same floor where a package manager can see it.
+- Dropped six dead variable initializers — locals assigned `0`, `-1`, `false` or a
+  seed value that every path overwrote before the first read. They are bare typed
+  declarations now, so the compiler enforces definite assignment instead of a
+  placeholder silently standing in for a missed branch. No behaviour change.
+
+### Added
+
+- Two entries in [`docs/open-followups.md`](docs/open-followups.md): **§53** records
+  why ESLint 10 is blocked upstream, and **§54** a pre-existing production-only CSP
+  bug — the prod CSP refuses the `<style>` element the rich-text editor injects at
+  runtime, so every rich-text editor renders without its base stylesheet in a
+  production build. Dev is unaffected, which is why it had gone unseen. Recorded
+  with a reproduction; not fixed here.
+
+### Not shipped
+
+- **ESLint 9 → 10 was attempted and abandoned.** `eslint@10` installs cleanly and
+  then crashes before linting a single file: `eslint-config-next` bundles
+  `eslint-plugin-react@7.37.5`, which calls `context.getFilename()`, removed in
+  ESLint 10 — the run dies at rule-load with no output. No published version of
+  that plugin supports v10, so the upgrade is blocked upstream and nothing of it
+  is in this release. The branch was re-scoped to the changes above, which stand on
+  their own. Details and the command to re-measure are in §53.
+
 ## [0.211.1] - 2026-07-31 "Samatar"
 
 A small-correctness batch closing four entries from the open-followups register.

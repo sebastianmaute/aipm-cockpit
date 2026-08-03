@@ -1,8 +1,11 @@
 {
   "name": "aipm-cockpit",
-  "version": "0.211.1",
+  "version": "0.211.2",
   "private": true,
   "license": "EUPL-1.2",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/sync-script-docs.mjs --check && node scripts/gen-operating-guide.mjs",

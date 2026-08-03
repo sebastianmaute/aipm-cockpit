@@ -81,7 +81,7 @@ export function ProjectSwitcher({
     const activeIndex = items.indexOf(
       document.activeElement as HTMLButtonElement,
     );
-    let next = -1;
+    let next: number;
     switch (e.key) {
       case "Tab":
         // Tab exits the focus-managed menu (APG). Menuitems are tabIndex=-1 so
