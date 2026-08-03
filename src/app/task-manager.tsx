@@ -1552,6 +1552,9 @@ function TaskManagerInner() {
     logActivity,
     capture: undoApi.capture, commitBuckets,
     showToast, allowDestructiveSave,
+    // Day-boundary context for the health filter, so the hook's idea of a
+    // visible row matches the Open Points pane's exactly.
+    today, holidaySet,
     requestClearAllConfirm: () => {
       setActiveTab("open-points");
       setClearAllRequestNonce((clearAllReqSeqRef.current += 1));

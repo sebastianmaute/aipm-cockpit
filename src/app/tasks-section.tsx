@@ -30,6 +30,7 @@ import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { filterTasksByHealth, type HealthFilter } from "./health";
+import { visibleTaskRows } from "./visible-task-rows";
 import { sanitizeInlinePatch } from "./task-inline-patch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
@@ -365,9 +366,13 @@ export function TasksSection({
     () => filterTasksByHealth(filteredSortedTasks, healthFilter, today, holidaySet),
     [filteredSortedTasks, healthFilter, today, holidaySet],
   );
-  const visibleRows = hideFinished
-    ? healthFilteredTasks.filter((r) => !isTaskFinished(r))
-    : healthFilteredTasks;
+  // ONE definition, shared with useBulkOperations — see visible-task-rows.ts.
+  // The hook used to derive select-all from `filteredSortedTasks`, upstream of
+  // both filters, so it reached rows the user could not see.
+  const visibleRows = useMemo(
+    () => visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, { today, holidaySet }),
+    [filteredSortedTasks, healthFilter, hideFinished, today, holidaySet],
+  );
 
   const laneIds = useMemo(
     () => laneResourceIds(healthFilteredTasks, resourcesById, extraLaneIds),

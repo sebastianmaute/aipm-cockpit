@@ -6,7 +6,7 @@ import type { Lang } from "./i18n";
 import type { BudgetBucket, Task } from "./types";
 import { defaultSettings } from "./settings-types";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
-import { FiltersProvider } from "./filters-context";
+import { FiltersProvider, useFilters } from "./filters-context";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
 import {
   useBulkOperations,
@@ -40,6 +40,8 @@ function makeArgs(
     capture: vi.fn(),
     commitBuckets: vi.fn(),
     showToast: vi.fn(),
+    today: "2026-08-03",
+    holidaySet: new Set<string>(),
     ...overrides,
   };
 }
@@ -51,6 +53,7 @@ function renderBulk(overrides?: Partial<UseBulkOperationsArgs>) {
       bulk: useBulkOperations(args),
       workspace: useWorkspace(),
       taskForm: useTaskForm(),
+      filters: useFilters(),
     }),
     { wrapper: Wrapper },
   );
@@ -127,6 +130,40 @@ describe("useBulkOperations", () => {
       act(() => { result.current.bulk.toggleSelectAllVisible(); });
       expect(result.current.bulk.selectedIds.size).toBe(0);
     });
+
+    // GUARD 1 of 2 — what select-all can REACH. The hook used to derive its
+    // visible set from `filteredSortedTasks`, upstream of the pane's
+    // hide-finished and health filters, so it picked up invisible rows.
+    it("select-all skips rows hidden by hide-finished", () => {
+      const { result } = renderBulk({
+        settings: { ...defaultSettings, hideFinishedTasks: true },
+      });
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Open", status: "To Do" },
+          { id: 2, taskName: "Finished", status: "Done", completedDate: "2026-08-01" },
+          { id: 3, taskName: "Cancelled", status: "Cancelled" },
+        ] as unknown as Task[]);
+      });
+      act(() => { result.current.bulk.toggleSelectAllVisible(); });
+      expect([...result.current.bulk.selectedIds].sort()).toEqual([1]);
+      // The header checkbox's checked state must agree with what clicking it
+      // does — both read the same `visibleIds`.
+      expect(result.current.bulk.allVisibleSelected).toBe(true);
+    });
+
+    it("select-all skips rows hidden by the RAG health filter", () => {
+      const { result } = renderBulk();
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Overdue", status: "To Do", dueDate: "2020-01-01" },
+          { id: 2, taskName: "Fine", status: "To Do", dueDate: "2027-01-01" },
+        ] as unknown as Task[]);
+      });
+      act(() => { result.current.filters.setHealthFilter("red"); });
+      act(() => { result.current.bulk.toggleSelectAllVisible(); });
+      expect([...result.current.bulk.selectedIds]).toEqual([1]);
+    });
   });
 
   describe("bulk edit", () => {
@@ -177,6 +214,71 @@ describe("useBulkOperations", () => {
       const capOpts = capture.mock.calls[0][0] as { kind: string; edited: { id: number; priority: string }[] };
       expect(capOpts.kind).toBe("bulk.edit");
       expect(capOpts.edited).toEqual([expect.objectContaining({ id: 1, priority: "Medium" })]);
+    });
+
+    // GUARD 2 of 2 — what a STALE selection can REACH. Guard 1 stops select-all
+    // picking up a hidden row; this stops a row selected WHILE VISIBLE from
+    // being written after a later filter change hid it. The filter change is
+    // the whole point: a fixture that never changes it passes either way.
+    it("bulk apply never touches a selected row that a filter has since hidden", () => {
+      const { result } = renderBulk();
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Overdue", status: "To Do", dueDate: "2020-01-01",
+            priority: "Medium", assignee: "", assigneeEmail: "", blockers: "",
+            description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+            localModifiedAt: "STAMP" },
+          { id: 2, taskName: "Fine", status: "To Do", dueDate: "2027-01-01",
+            priority: "Medium", assignee: "", assigneeEmail: "", blockers: "",
+            description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+            localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+      });
+      // Both rows are visible right now, so both are legitimately selectable.
+      act(() => { result.current.bulk.onToggleSelect(1); result.current.bulk.onToggleSelect(2); });
+      expect(result.current.bulk.selectedIds.size).toBe(2);
+      // …then the user narrows the view, hiding row 2 while it stays selected.
+      act(() => { result.current.filters.setHealthFilter("red"); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev,
+          enabled: { ...prev.enabled, priority: true },
+          priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      const visible = result.current.workspace.tasks.find((x) => x.id === 1)!;
+      const hidden = result.current.workspace.tasks.find((x) => x.id === 2)!;
+      expect(visible.priority).toBe("High");
+      // Untouched — not even a localModifiedAt bump.
+      expect(hidden.priority).toBe("Medium");
+      expect(hidden.localModifiedAt).toBe("STAMP");
+      // The "N updated" count claims only the rows actually written.
+      expect(result.current.bulk.selectedIds.size).toBe(0);
+    });
+
+    it("a bulk apply whose whole selection is hidden writes nothing at all", () => {
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ logActivity });
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Fine", status: "To Do", dueDate: "2027-01-01",
+            priority: "Medium", localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      const before = result.current.workspace.tasks;
+      act(() => { result.current.filters.setHealthFilter("red"); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      // Reference-identical: no fresh array, so nothing dirties the workspace.
+      expect(result.current.workspace.tasks).toBe(before);
+      expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
     });
 
     it("skips Jira-managed fields on synced rows but applies local-only fields; warns", () => {
