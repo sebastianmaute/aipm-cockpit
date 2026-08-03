@@ -138,6 +138,22 @@ file-size-ratchet:
   script:
     - npm run size:check
 
+# AGENTS.md symbol check — BLOCKING. Nothing else gates that file, and a false
+# symbol name there does not stay in the doc: `migrateTaskStatus` (a function
+# that never existed) was read by three contributors in one release, each of
+# whom grepped src/, found nothing to contradict it, and wrote the claim into
+# code comments and a commit message. This checks only that a named symbol is
+# real, never that a claim about it is true.
+# A symbol that is deliberately absent (a prohibition, a rejected design, a
+# retired module) is fine — say so NEAR the mention with one of the words in the
+# script's ABSENCE_MARKERS list. Genuinely-not-repo-code goes in its ALLOWLIST
+# with a reason. Never widen either to make a pipeline pass.
+agents-symbol-check:
+  stage: quality
+  needs: []
+  script:
+    - npm run docs:symbols:check
+
 # Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
 # non-zero if any format's duplication % exceeds the `--threshold` set in the
 # `dup:check` script (post-TD-6 exit level: tsx 1.69% / typescript 1.71% [binding]

@@ -27,12 +27,27 @@ Conventions used throughout: **★** = a non-obvious rule, **★★** = somethin
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
 live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 
-★★★ **No gate checks anything in this file.** Every claim here was true when written and some have
-outlived their code — six false clusters were found and fixed on 2026-07-30 alone, one of them
-restated four times (a bundled-themes directory that does not exist). Before relying on a specific
-claim (a path, a count, a call site, "X is guarded"), **grep it.** A function named `sanitizeX`
-proves nothing about whether the path you care about calls it. Correct what you disprove, in the
-same commit.
+★★★ **Almost nothing gates this file, and the one gate that exists checks the weakest property.**
+`agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name here exists nowhere
+in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME is real, never that a CLAIM about it
+is true. "`sanitizeX` guards this path" passes the gate whether or not that path calls it.
+
+★★ It exists because a false NAME does not stay in the doc. `migrateTaskStatus` — a function that
+never existed — was read by three contributors in one release; each grepped `src/`, found nothing to
+contradict it, and wrote the claim into code comments and a commit message as justification for
+editing test fixtures. The gate catches that class at the source.
+
+★★ Deliberately-absent names are fine and are most of what it had to learn to ignore: prohibitions
+("was removed. Do NOT reintroduce it"), rejected designs ("evaluated and deliberately NOT built"),
+retired modules. Say so NEAR the mention using one of the script's `ABSENCE_MARKERS`; genuinely
+non-repo names (browser APIs, upstream API fields) go in its allowlist WITH a reason. Never widen
+either to make a pipeline pass — a defeated gate reports success.
+
+★★ Everything else here is still ungated. Every claim was true when written and some have outlived
+their code — six false clusters were found and fixed on 2026-07-30 alone, one of them restated four
+times (a bundled-themes directory that does not exist), and 0.213.0 found eight more. Before relying
+on a specific claim (a path, a count, a call site, "X is guarded"), **grep it.** Correct what you
+disprove, in the same commit.
 
 ## The doc set — what lives where
 
@@ -224,7 +239,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **agents-symbol-check** BLOCKING
+  [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`]) → build → e2e. All quality gates are ratchets and
   carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
@@ -448,7 +464,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
   left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the SOLE
   writer of status+completedDate — EVERY status mutation (form save create+update in `use-task-submit`,
-  inline dropdown + `onToggleComplete` in `use-task-row-handlers`, AI/Jira/template seeds) routes through
+  inline status dropdown (`onStatusChange`) in `use-task-row-handlers`, AI/Jira/template seeds) routes through
   it. ★★★ THE LOAD-PATH REPAIR IS `migrateTask`, NOT `migrateTaskStatus` (no such function exists), AND
   IT IS WEAKER THAN THIS BULLET USED TO CLAIM. It runs on all six load paths but only backfills an
   ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
@@ -1164,7 +1180,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `csv-codecs-config`; a new assembler stays with its peer.
 - **useStorageBackend module map:** `use-storage-backend.ts` keeps the PERSISTENCE core (backend memo,
   reactive refs, `applyWorkspace`, the load/save debounce effects, broadcast sync, the storage-file controls
-  `onPick`/`onGrant`/`onOpen`/`onRequestStorageSwitch`, and shared helpers
+  `onPick`/`onGrantWriteAccess`/`onOpen`/`onRequestStorageSwitch`, and shared helpers
   `backendFor`/`currentWorkspace`/`commitRegistry`/`persistBackendHandle`/`tursoConfigNow`/
   `reportProjectError`). The two project-operation clusters live in hook factories it composes:
   `use-storage-file-ops.ts` `useFileProjectOps` (switchToProject / createProject / loadProjectFromFile /
@@ -2242,7 +2258,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   override ⇒ identical to before. ★★ the appearance store's projectId MUST be `portfolioCurrentId` (= tursoProjectId
   in Turso mode), NOT raw `registry.currentProjectId` — SettingsView + workspace-section must agree or the override
   lands under the wrong key in Turso portfolio mode (a caught review HIGH). The "This project" UI REUSES
-  `NextActions`/`Notifications`/`TimezoneSettingsSection` fed effective + an override-writing onChange (Timezone
+  `NextActionsSection`/`Notifications`/`TimezoneSettingsSection` fed effective + an override-writing onChange (Timezone
   passes `hideDisplaySwitcher` — the device-only switcher flag can't be captured into the override).
 - **AI `update_settings` tool (safe-subset, v0.190.41):** a NON-entity write tool letting the assistant change
   a whitelisted slice of app settings on request — `dashboardDensity`, `showViewHints`, `tasksViewMode`,
@@ -2611,7 +2627,7 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
   `settings.dictation.hotkey`, default `F4`) remote-triggers the focused field's mic — captures the pressed
   target so a mid-hold focus change / window blur can't strand it. ★★ Web Speech fires `onFinal` MULTIPLE
   times per hold → a field's `onAppendFinal` MUST read the LATEST state (functional setter or a ref), else
-  each segment overwrites the last (bit RAID/change/stakeholder). ★★ `DictationMic`'s `target` useMemo must
+  each segment overwrites the last (bit RAID/change/stakeholder). ★★ `useDictationMic`'s `target` useMemo must
   be identity-STABLE (route `press`/`release` through refs) or the unmount-cleanup effect nulls the live
   target every render (bit the hotkey).
 - **`/api/stt` proxy (`api/stt/route.ts` + `_helpers.ts`):** browser → same-origin `/api/stt` (NO new CSP
