@@ -116,23 +116,39 @@ export function useColumnResize<TId extends string>(
     //    column SNAPPED narrow and only then tracked the pointer — on the one
     //    column this release makes flexible. The grip is absolutely positioned
     //    inside its <th>, so that element's box is the rendered column width.
-    // ★★ THIS CHANGES THE SEED FOR EVERY TABLE, not just Open Points, and the
-    //    criterion is *rendered == declared* — NOT "has an auto column".
-    //    `tableLayout: "fixed"` appears EXACTLY ONCE in the app (tasks-section);
-    //    all 37 other call sites are `table-layout: auto`, where `SortResizeTh`
-    //    emits width + minWidth as a HINT the browser routinely exceeds. So they
-    //    take the measured path too, in a real browser. Believed to REMOVE a
-    //    latent jump there rather than add one — but that is reasoned, not
-    //    verified, and jsdom cannot check it (every rect is 0).
+    // ★★★ AN EARLIER REVISION LET EVERY TABLE TAKE THE MEASURED PATH, reasoning
+    //     it would "REMOVE a latent jump rather than add one" and marking that
+    //     unverified. It was WRONG, and in the harmful direction — see the
+    //     measurement below. jsdom cannot check it (every rect is 0), so it was
+    //     settled in a real browser instead. Never leave a cross-cutting change
+    //     resting on a hedge when a 5-minute probe can decide it.
     // ★ The fallback's only live consumer today is jsdom: every grip reaches
     //   here through `ColumnResizeHandle` → `DragHandle`, always inside a <th>.
     //   It is kept as defence for a future non-<th> host. (Gantt's name-column
     //   grip is NOT one — gantt has its own handler seeded from its own state
     //   and never calls this hook, which is correct there because its host div's
     //   declared width IS its rendered width.)
-    const measured = (e.currentTarget as HTMLElement | null)
-      ?.closest("th")
-      ?.getBoundingClientRect().width ?? 0;
+    // ★★★ MEASURE ONLY UNDER `table-layout: fixed`. The seed is a RENDERED width
+    //     but it is stored as a DECLARED one, and those are the same number only
+    //     when the layout guarantees it. Measured in Chromium:
+    //       fixed  — a declared 100px column renders at exactly 100. Safe.
+    //       auto   — a declared 100px column whose content wants more renders at
+    //                207. Seeding 207 and dragging LEFT 30 stores 177, and the
+    //                column then renders 297 — the gesture meaning "narrower"
+    //                made it WIDER. The old declared seed stored 70 and rendered
+    //                161, which is what the user asked for.
+    //     Every resizable `<th>` sets `width` AND `minWidth` (`report-table.tsx`
+    //     `SortResizeTh`, plus the hand-rolled copies in change-panel / raid-panel-rows
+    //     / stakeholders-panel / activity-log-panel), which is why raising the
+    //     declared value re-allocates the column rather than being ignored.
+    //     Open Points is the ONLY `table-layout: fixed` table in the app, and it is
+    //     the only one that needed the measured seed — its flex `taskName` column
+    //     declares no width at all, so there is nothing else to seed from.
+    const th = (e.currentTarget as HTMLElement | null)?.closest("th") ?? null;
+    const tableEl = th?.closest("table") ?? null;
+    const fixedLayout =
+      tableEl !== null && window.getComputedStyle(tableEl).tableLayout === "fixed";
+    const measured = fixedLayout ? (th?.getBoundingClientRect().width ?? 0) : 0;
     dragRef.current = {
       col,
       startX: e.clientX,

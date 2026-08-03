@@ -18,6 +18,18 @@ describe("visibleTaskCols", () => {
     expect(visibleTaskCols(hidden)).toEqual(ALL_TASK_COLS.filter((c) => !hidden.has(c)));
   });
 
+  // ★★ `hiddenCols` is hydrated verbatim from untrusted localStorage, so a blob
+  //    naming the flex column must not be able to remove it: `tasks-section`
+  //    renders that <th> unconditionally, so dropping the <col> would leave one
+  //    more header cell than column AND no auto column at all.
+  it("never hides the flex column, however it got into hiddenCols", () => {
+    expect(visibleTaskCols(new Set(["taskName"]))).toContain("taskName");
+    // A neighbouring hide still works — this exempts one id, it does not ignore the set.
+    const withPriorityHidden = visibleTaskCols(new Set(["taskName", "priority"]));
+    expect(withPriorityHidden).toContain("taskName");
+    expect(withPriorityHidden).not.toContain("priority");
+  });
+
   it("returns every column when nothing is hidden", () => {
     // toHaveLength(18) would pass for 18 wrong strings.
     expect(visibleTaskCols(new Set())).toEqual([...ALL_TASK_COLS]);

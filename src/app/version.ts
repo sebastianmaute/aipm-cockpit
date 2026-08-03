@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.212.0";
-export const APP_BUILD_DATE = "2026-08-02"; // 0.212.0: toolbar order + Open Points column geometry (Nayler)
+export const APP_BUILD_DATE = "2026-08-03"; // 0.212.0: Open Points column geometry + Outlook toggle buttons + non-colour pressed cue (Nayler)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.212.x line is "Nayler" (Ray Nayler, speculative-fiction author). */
 export const APP_MILESTONE = "Nayler";

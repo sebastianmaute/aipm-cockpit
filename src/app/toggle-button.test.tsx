@@ -73,6 +73,12 @@ describe("ToggleButton", () => {
     expect(btn).toBeDisabled();
     fireEvent.click(btn);
     expect(onToggle).not.toHaveBeenCalled();
+    // ★★ And it must LOOK inoperable. The whole point of the disabled styling is
+    //    that this component accepted `disabled` for its entire life while
+    //    rendering pixel-identically to a live toggle; without this assertion,
+    //    deleting those two classes restores that exact defect with a green suite.
+    expect(btn.className).toContain("disabled:opacity-60");
+    expect(btn.className).toContain("disabled:cursor-not-allowed");
   });
 
   // ★★ The suffix ends "click to turn on". On a disabled control that is an

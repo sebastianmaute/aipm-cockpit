@@ -2055,7 +2055,7 @@ export const de: Record<TranslationKey, string> = {
   toggleStateOff: "Derzeit inaktiv – zum Aktivieren klicken",
   calendarSyncEnableHint: "Outlook-Kalendereinträge für diese Einträge erstellen und aktualisieren",
   calendarSyncAutoHint: "Änderungen ohne Rückfrage im Hintergrund an Outlook übertragen",
-  calendarSyncAutoRequiresEnable: "Verfügbar, sobald die Outlook-Verknüpfung aktiv ist",
+  calendarSyncAutoRequiresEnable: "Verfügbar, sobald Zu Outlook hinzufügen aktiv ist",
   calendarPushShort: "Senden",
   calendarPullShort: "Abrufen",
   raciSuggest: "RACI vorschlagen",

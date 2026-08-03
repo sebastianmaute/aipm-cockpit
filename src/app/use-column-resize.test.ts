@@ -153,22 +153,53 @@ describe("useColumnResize", () => {
   //    mousemove before it tracked the pointer. jsdom reports every rect as 0,
   //    which is exactly the fallback path, so the measurement has to be stubbed
   //    or this can only ever exercise the old behaviour.
-  it("seeds the drag from the rendered width, not the declared default", () => {
-    vi.useFakeTimers();
-    const { result } = renderHook(() => useColumnResize("t8", DEFAULTS));
-
+  /** A `<th>` with a stubbed rect, inside a table of the given layout mode. */
+  function thInTable(layout: "fixed" | "auto", renderedWidth: number) {
+    const table = document.createElement("table");
+    table.style.tableLayout = layout;
     const th = document.createElement("th");
-    th.getBoundingClientRect = () => ({ width: 640 }) as DOMRect;
+    th.getBoundingClientRect = () => ({ width: renderedWidth }) as DOMRect;
     const handle = document.createElement("span");
     th.appendChild(handle);
+    table.appendChild(th);
+    document.body.appendChild(table);
+    return handle;
+  }
+
+  it("seeds the drag from the rendered width under table-layout: fixed", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useColumnResize("t8", DEFAULTS));
+    const handle = thInTable("fixed", 640);
 
     const ev = { clientX: 100, preventDefault: () => {}, currentTarget: handle } as unknown as React.MouseEvent;
     act(() => { result.current.startColResize("a", ev); });
     act(() => { window.dispatchEvent(new MouseEvent("mousemove", { clientX: 150 })); });
 
-    // 640 rendered + 50 moved. Seeding from DEFAULTS.a would give 50 less than
-    // that plus the default — i.e. the column would jump before tracking.
+    // 640 rendered + 50 moved. Seeding from DEFAULTS.a would give 250 — the
+    // column would jump narrow before it started tracking the pointer.
     expect(result.current.sizedWidths.a).toBe(690);
+  });
+
+  // ★★★ THE SEED IS A RENDERED WIDTH BUT IT IS STORED AS A DECLARED ONE, and
+  //     those agree only under `table-layout: fixed`. Measured in Chromium: an
+  //     auto-layout column declared 100px whose content wants more renders at
+  //     207, so seeding 207 and dragging LEFT 30 stores 177 — and the column
+  //     then renders 297. The gesture meaning "narrower" made it WIDER, on all
+  //     37 tables this hook serves that are NOT Open Points. Hence: measure only
+  //     under fixed layout, else fall back to the declared width.
+  it("ignores the rendered width under table-layout: auto, so a leftward drag narrows", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useColumnResize("t10", DEFAULTS));
+    // Rendered far wider than the 100px default — the regression case.
+    const handle = thInTable("auto", 640);
+
+    const ev = { clientX: 100, preventDefault: () => {}, currentTarget: handle } as unknown as React.MouseEvent;
+    act(() => { result.current.startColResize("a", ev); });
+    act(() => { window.dispatchEvent(new MouseEvent("mousemove", { clientX: 70 })); });
+
+    // Declared 100 − 30 dragged = 70. Seeding from the rendered 640 would store
+    // 610 — SIX times what the user dragged to, and wider than where it started.
+    expect(result.current.sizedWidths.a).toBe(70);
   });
 
   it("falls back to the declared width when there is no <th> to measure", () => {

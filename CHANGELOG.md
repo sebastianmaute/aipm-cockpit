@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.212.0] - 2026-08-02 "Nayler"
+## [0.212.0] - 2026-08-03 "Nayler"
 
 Toolbar ordering in two panes, and a table-geometry fix that reclaims the wasted
 space at both edges of Open Points.
@@ -46,8 +46,13 @@ space at both edges of Open Points.
   states and switching one does not shift the controls beside it. This covers the
   toggles built on the shared control — the gantt view options, the Open Points
   view switches, the Outlook ones below and others. Fourteen other places
-  elsewhere in the app (the rich-text editor's bold/italic buttons, the health
-  chips, the template pickers, the mic) still show their on-state by colour only.
+  elsewhere in the app are unchanged, and most of them — the rich-text editor's
+  bold/italic buttons, the health chips, the template pickers — still show their
+  on-state by colour only.
+- **Turning on Outlook sync for a register can no longer start background syncing
+  on its own.** A settings file that recorded "sync automatically" for a register
+  whose sync was switched off could arm unattended two-way syncing the moment the
+  register was switched back on. Such a setting is now cleared when settings load.
 - **Planning's "Hide externals" sits beside the Outlook calendar controls.** It had
   been separated from them by the spacer that pushes that group to the right, while
   the Workload view already rendered the two together.
@@ -64,6 +69,7 @@ space at both edges of Open Points.
   later changes to a default width could never reach anyone who had ever opened that
   table. Open Points discards its stored widths once as part of this change so the
   retuned defaults apply; other tables keep theirs.
+
 ## [0.211.2] - 2026-08-03 "Samatar"
 
 A toolchain chore. No user-facing behaviour changes.

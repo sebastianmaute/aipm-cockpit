@@ -1982,11 +1982,16 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   pane's prop is `sizedWidths`, carrying the SIZED-ONLY map (an absent key is what lets `taskName` render
   width-free). ★★ It was briefly left named `colWidths` on the argument that renaming cost ratchet lines;
   that was wrong — a rename is net-zero — and the name matters: passing the DEFAULTS-FILLED map instead
-  gives every column a width and silently reverts the flex layout. ★★★ THE NAME IS THE ONLY GUARD, AND IT
-  IS A HUMAN ONE. An earlier revision of this bullet claimed the revert is "a TYPE error"; it is NOT —
-  `Record<string, number>` is assignable to `Partial<Record<string, number>>`, so `sizedWidths={colWidths}`
-  compiles clean (proved with a standalone `tsc --strict`, exit 0). Nothing in the type system, and no
-  test, stops that one-word regression. Believing otherwise is worse than knowing it is unguarded. ★ The
+  gives every column a width and silently reverts the flex layout. ★★★ THE GUARD IS THAT
+  `useColumnManager` DOES NOT RETURN THE MERGED MAP — there is no `colWidths` binding anywhere in
+  `task-manager.tsx` (grep it: zero occurrences), so `sizedWidths={colWidths}` is `TS2304 Cannot find
+  name`, and `use-column-manager.test.ts` pins the omission with a `@ts-expect-error` that fails tsc as
+  an unused directive if the key ever returns. ★★ DO NOT re-expose it on the argument that "the type
+  wouldn't catch it anyway" — that much is true (`Record<string, number>` IS assignable to
+  `Partial<Record<string, number>>`, proved with a standalone `tsc --strict`, exit 0), and it is exactly
+  why the value must not be in scope. Two revisions of this bullet got this wrong in opposite directions:
+  first claiming the type system catches it, then — after the removal made the guard real — still saying
+  "the name is the only guard, and it is a human one". Both were false when written. ★ The
   leading gutter `<col>` renders from `GUTTER_WIDTH_PX`, never a `w-7` class, because `tableMinWidthPx`
   seeds its sum with that same constant and a class would let the two drift with nothing to catch it —
   jsdom sees neither.

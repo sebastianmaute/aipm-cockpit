@@ -11,6 +11,9 @@
 //   + `status` group rendered ~138px against 100px declared — roughly +12.7px on
 //   EACH, which is invisible on a 200px column and about a third again on a 36px
 //   one. That is the padding at both edges of the table.
+//   ★ That "100px declared" is the PRE-0.212.0 sum (gutter 28 + sel 36 + status
+//   36). This release retuned status to 28, so the same three now declare 92 — a
+//   reader re-measuring against today's widths will not reproduce the figure.
 //   ★★ The exact distribution rule is NOT verified here. An equal-per-column
 //   split fits the measurement above; a proportional split does not. But that
 //   inference is from one screenshot, no gate or test in this repo can check it,
@@ -67,7 +70,18 @@ export type TaskColId = (typeof ALL_TASK_COLS)[number];
 
 /** Visible columns, in declaration order. */
 export function visibleTaskCols(hiddenCols: ReadonlySet<string>): TaskColId[] {
-  return ALL_TASK_COLS.filter((col) => !hiddenCols.has(col));
+  // ★★★ THE FLEX COLUMN CAN NEVER BE HIDDEN. `hiddenCols` is hydrated verbatim
+  //     from `aipm-cockpit:hidden-cols`, which is UNTRUSTED — `use-column-manager`
+  //     honours a stored v2 `hidden` array as-is. A blob containing "taskName"
+  //     would drop its `<col>` while `tasks-section` renders that `<th>`
+  //     unconditionally, so the table would have one more header cell than
+  //     column AND no auto column at all — the surplus goes back to padding the
+  //     narrow ones, which is the whole defect this module exists to prevent.
+  //     The UI cannot produce it (`CONFIGURABLE_COLS` omits taskName, guarded by
+  //     its own test), but that list is one edit away and the stored blob is not
+  //     validated. Same "the payload is UNTRUSTED" reasoning as `usableWidths`
+  //     in `use-column-resize.ts`; it just was not applied here first time.
+  return ALL_TASK_COLS.filter((col) => col === FLEX_COL || !hiddenCols.has(col));
 }
 
 /**
