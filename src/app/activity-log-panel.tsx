@@ -133,7 +133,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       );
     }
     const sorted = result.slice().sort((a, b) => {
-      let cmp = 0;
+      let cmp: number;
       if (sortKey === "timestamp") {
         cmp = a.entry.timestamp.localeCompare(b.entry.timestamp);
       } else if (sortKey === "kind") {

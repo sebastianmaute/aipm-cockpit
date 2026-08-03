@@ -1643,9 +1643,15 @@ right; the clever alternative is not.~~ ← npm's advice has since changed to a 
   changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
   edits, which a major would likely require. That is a slice with its own verification, not an install.
 
-★ Plugin peers would NOT block it — `eslint-config-next@16.2.6` is `>=9.0.0`, and typescript-eslint
+★★★ ~~Plugin peers would NOT block it — `eslint-config-next@16.2.6` is `>=9.0.0`, and typescript-eslint
 and `eslint-plugin-react-hooks` both list `^10.0.0`. The risk is entirely in rule drift, not install
-resolution.
+resolution.~~ ← **FALSE in its conclusion, and this is the sentence that made the 2026-08-03 attempt
+look safe — see §53.** The peer survey is accurate as far as it goes (install DID resolve cleanly, no
+ERESOLVE), but it draws the boundary wrong twice. It surveyed `eslint-plugin-react-hooks` and never
+**`eslint-plugin-react`**, whose own peer is `^3 || … || ^8 || ^9.7` — no published version mentions
+v10. And it framed the risk space as *peers vs rule drift*, when the actual failure was a third
+category it did not model: a transitive plugin calling `context.getFilename()`, which v10 removed.
+Measured rule drift was **ZERO** — `eslint:recommended` is not layered into this repo at all.
 
 ★★ **The WEEKLY `dependency-audit-full` job DOES include dev deps and all severities, so it will keep
 reporting this.** That is expected, not a regression — this entry exists so the finding is not
@@ -1653,9 +1659,12 @@ re-litigated from scratch each week, and so nobody re-attempts the two overrides
 **one** high now, not nine; if the weekly job reports a different count than this entry, the entry is
 the stale one — re-measure, don't reconcile.
 
-**To close:** upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
+**To close:** ~~upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
 `npx eslint --max-warnings=0 src/app` against the full rule set, and expect to fix drift rather than
-merely bump a version. Current: eslint `^9` (9.39.4).
+merely bump a version.~~ ← **that route is shut on published packages as of 2026-08-03 — it was
+attempted and reverted; see §53** for the upstream blocker and what to re-measure before trying again.
+★ Nothing here is blocked on it: this entry's own advisory was closed by the scoped overrides above,
+not by an eslint major. Current: eslint `^9` (9.39.4).
 
 ---
 
@@ -1974,7 +1983,237 @@ failing without the guard.
 
 ---
 
-## 53. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
+## 53. ESLint 10 is blocked upstream by `eslint-plugin-react` — open, not actionable today
+
+Attempted 2026-08-03 as the slice §45 called for. **Reverted; nothing shipped.** `eslint@10.8.0`
+installs cleanly and then crashes before linting a single file.
+
+★★★ **Everything below is a MEASUREMENT dated 2026-08-03, not a property.** This blocker evaporates the
+day `eslint-plugin-react` publishes v10 support, which is one upstream release away. **Re-measure before
+acting** — `npm view eslint-plugin-react peerDependencies` — and do not read this entry as "eslint 10 is
+impossible here". §45 above is the cautionary case: it earned its own correction by recording a
+measurement in the grammar of a property.
+
+★★★ **THIS BLOCKER WAS ALREADY DOCUMENTED, AND NOBODY LOOKED.** The `eslint` row in
+[`tech-debt-register.md`](tech-debt-register.md) has recorded it all along, on `main`, before the
+attempt — naming the same package, the same removed API and the same consequence:
+
+> `eslint-config-next`'s bundled `eslint-plugin-react` calls `context.getFilename` (removed in
+> eslint 10's flat-config API) → lint crashes.
+
+Neither the plan nor §45 consulted it, so a full install-and-crash cycle was spent re-deriving a
+finding the repo already held. ★★ The near-miss is worse than the waste: §45 asserted "the risk is
+entirely in rule drift, not install resolution" while that row sat one file away saying the lint
+*crashes* — and §45's confident do-not-relitigate framing is what made the contradiction easy to
+walk past. **Two masters is exactly the failure the register/follow-ups split was meant to prevent**
+(see this file's own preamble on not copying `tech-debt-register.md` rows here). The rule that
+follows: before opening a dependency slice, grep the register for the package name. The re-derivation
+was not wasted only because it upgraded a plausible claim into measured evidence — the crash trace,
+the peer ranges and the version matrix below are new; the *conclusion* was not.
+
+### What is established
+
+**The crash is universal, not React-specific.** It fired on `src/app/abort-error.test.ts` — a plain
+`.ts` file with no JSX:
+
+```
+TypeError: Error while loading rule 'react/display-name':
+  contextOrFilename.getFilename is not a function
+  at resolveBasedir (eslint-plugin-react/lib/util/version.js:31)
+  at detectReactVersion → getReactVersionFromContext → testReactVersion
+  → usedPropTypesInstructions → Components.componentRule
+  at createRuleListeners (eslint/lib/linter/linter.js:497)
+```
+
+`context.getFilename()` was removed in ESLint 10. The call at `version.js:31` is **unguarded**
+(`typeof contextOrFilename === 'string' ? contextOrFilename : contextOrFilename.getFilename()`), sits in
+React version detection, and is reached from `Components.componentRule` — which backs
+`react/display-name` and most other react rules, all enabled by `eslint-config-next/core-web-vitals`.
+★★ It is a rule-LOAD failure, so it aborts before any file is linted: `--max-warnings=0` exits **2** and
+`-f json -o <file>` writes **no file at all**. That is zero output, not zero findings — do not mistake
+an empty report for a clean run.
+
+**No published version combination fixes it.**
+
+| package | measured 2026-08-03 |
+|---|---|
+| `eslint-plugin-react` | **7.37.5 is the latest** — the last six releases are all 7.37.x. Peer: `^3 \|\| ^4 \|\| ^5 \|\| ^6 \|\| ^7 \|\| ^8 \|\| ^9.7`. **No published version's peer range mentions v10.** |
+| `eslint-config-next` | 16.2.6 (ours), 16.2.12 (latest stable), and the 16.3.0 pre-release line (preview.10 and canary.106 both checked) — **all pin `eslint-plugin-react: ^7.37.0`**, so bumping it changes nothing |
+
+★★★ **A satisfied peer range is not a compatibility test.** `eslint-config-next` declares
+`peerDependencies: {eslint: ">=9.0.0"}` while nesting a dependency capped at `^9.7`. The parent's range
+is broader than its own transitive dependency actually supports, so npm resolves silently, a dry run
+reports no conflict, and the install exits 0. **Only running the tool proves anything.** This is
+precisely how §45 arrived at "the risk is entirely in rule drift".
+
+**Rule drift was ZERO — the risk model was aimed at the wrong layer.** `--print-config` across seven
+representative files (`.tsx`, `.ts`, a test, `.mjs`, `next.config.ts`, `eslint.config.mjs`, `e2e/`) is
+uniform:
+
+- **`eslint:recommended` is NOT layered into this repo.** Zero canaries — `no-cond-assign`, `no-empty`,
+  `no-fallthrough`, `use-isnan`, `valid-typeof`, `no-debugger` are all "not configured". The config is
+  only `...nextVitals, ...nextTs, globalIgnores([...])`: no custom plugins, no custom rules.
+- Of **112** configured rules only **26** are core, and just **four** are ON: `no-var`, `prefer-const`,
+  `prefer-rest-params`, `prefer-spread`.
+- Core `no-unused-vars` and `no-undef` are **OFF everywhere** (turned off by typescript-eslint's
+  `eslint-recommended` layer), so v10's new JSX reference tracking cannot report here at all.
+  `@typescript-eslint/no-unused-vars` at severity 1 is what actually runs; `react/jsx-uses-vars` at 2 is
+  what currently marks JSX identifiers as used.
+- v10's three newly-recommended rules therefore **cannot activate**. Measured under v9:
+  `no-unassigned-vars` **0**, `preserve-caught-error` **0**, `no-useless-assignment` **6** — and only
+  those six were ever real. ★ They were cleaned up anyway (`ea3cd093`), which stands on its own merits,
+  but that commit's original message justified them as "gate failures on upgrade". That was false and
+  the message was amended.
+
+**Two plugins were cleared — do not re-investigate them.** `eslint-plugin-react-hooks@7.1.1` is properly
+feature-detected (`typeof context.getSourceCode === 'function' ? … : context.sourceCode`, likewise
+`getScope`) and degrades correctly on v10. `eslint-plugin-jsx-a11y`, `eslint-plugin-import`,
+`@next/eslint-plugin-next` and `@typescript-eslint/eslint-plugin` have **zero** files touching removed
+context APIs.
+
+### What is NOT established
+
+- ★★ **Whether anything else breaks behind the crash.** Rule loading aborts at the first failure, so v10
+  has never linted this tree — not one file. `eslint-plugin-react` is the first blocker, **not provably
+  the only one**. When upstream ships a fix, expect to re-run the whole spike and find a new
+  first-failure, rather than to confirm a clean pass.
+- **When upstream lands it.** No release is announced; nothing here predicts a date.
+- ★ Three further unguarded call sites exist in `eslint-plugin-react` — `lib/util/eslint.js:18`,
+  `rules/forward-ref-uses-ref.js:60`, `rules/jsx-filename-extension.js:64` — but those rules are not
+  enabled here, so their reachability is unproven either way.
+
+### Two method notes worth keeping
+
+★★ **A name-based grep undercounts this defect class.** Sweeping for `context.<method>(` **missed the
+actual failing line**, because the parameter there is named `contextOrFilename`. The count it produced
+was a floor, not a total — grep the bare `.getFilename()` shape instead.
+
+★★ **`"eslint": "^9"` is an unpinned caret, so a reinstall is NOT the inverse of a version experiment.**
+`npm install -D eslint@^9` resolves *forward*: it landed **9.39.5**, a patch published after the
+lockfile was written, and rewrote the spec to `"^9.39.5"` plus ~740 lines of lockfile churn.
+**`npm ci` from the committed lockfile is the reliable inverse** — `git checkout -- package.json
+package-lock.json && npm ci` restored 9.39.4 exactly. This applies to any dependency experiment in this
+repo, not just eslint.
+
+### State on 2026-08-03
+
+Reverted to **eslint 9.39.4**. `npx eslint --max-warnings=0 src/app`, `npx eslint --max-warnings=0 .`
+and `npx tsc --noEmit` all exit **0**; working tree clean. The branch that carried the attempt kept its
+Node-24 and cleanup commits and dropped ESLint from its scope, so nothing downstream is waiting on this.
+
+**To close:** re-measure `eslint-plugin-react`'s peer range. When a version supporting ESLint 10 is
+published, re-run the spike from the top — install, `--print-config` to re-establish what is actually in
+effect, then the unpiped gate — and treat the result as a fresh measurement.
+
+---
+
+## 54. Prod-only CSP blocks ProseMirror's base CSS — open, PRE-EXISTING, user-visible
+
+Every rich-text editor in a **production build** renders without ProseMirror's base stylesheet, because
+the prod CSP refuses the `<style>` element Tiptap injects at runtime. Dev is unaffected, which is why
+this has gone unseen.
+
+★★★ **MEASURED 2026-08-03 on `main` (`13b518db`) in an isolated worktree — observed, not inferred.**
+Same dated-measurement rule as §53: re-measure before acting, do not treat these values as properties.
+Reproduction:
+
+```bash
+npm ci
+npm run build
+npx next start -p 3200
+E2E_URL=http://localhost:3200/ npm run e2e:smoke     # → REAL_EXIT=1, ISSUES (1)
+PORT=3200 npm run stop
+```
+
+### What is established
+
+**The violation.** Prod smoke on plain `main` is RED — `REAL_EXIT=1`, `=== ISSUES (1) ===`, and this is
+the *only* issue; 22 nav views found, 20 visited, the app otherwise loads fine:
+
+```
+Applying inline style violates the following Content Security Policy directive
+'style-src-elem 'self' 'nonce-…''. Either the 'unsafe-inline' keyword, a hash
+('sha256-PlumsSlvJ7vvWzjqibGAYKq92O3y/4JTxWWsWJvyUYA='), or a nonce is required
+```
+
+**The culprit was identified by hashing every `<style>` in the live prod DOM, not by inference.**
+Exactly one `<style>` element: 1329 bytes, no nonce, `sha256=PlumsSlvJ7vvWzjqibGAYKq92O3y/4JTxWWsWJvyUYA=`
+— an exact match for the hash the browser named. Its content is ProseMirror's base stylesheet
+(`.ProseMirror { position: relative } … white-space: break-spaces …`). The violation event named the
+injector directly: `sourceFile: /_next/static/chunks/2uni9ru3abh_p.js`, and that built chunk contains
+both `ProseMirror` (19 hits) and `createElement("style")`.
+
+**It is dependency behaviour, not app code.** `@tiptap/react` + `@tiptap/starter-kit` → `@tiptap/core` →
+prosemirror CSS. The editor loads via `next/dynamic`, so Turbopack ships that CSS inside a lazily-loaded
+client chunk which injects it at runtime with no nonce. `grep -rn "prosemirror.css" src/` returns
+nothing — the app never imports it. Fires once, on initial load.
+
+★★ **Why it is prod-only, structurally** (`src/proxy.ts:51-52`) — verified on the live response header:
+
+| build | `style-src-elem` | injected `<style>` |
+|---|---|---|
+| dev | `'self' 'unsafe-inline'` | allowed |
+| prod | `'self' 'nonce-${nonce}'` | **blocked** |
+
+★ It is `style-src-**elem**`. React `style={{…}}` props ride `style-src-attr 'unsafe-inline'`
+(`proxy.ts:60`) and are **not** implicated — do not conflate the two axes when reasoning about a fix.
+★ The SSR HTML is clean: zero un-nonced `<style>` tags, and its one stylesheet `<link>` correctly
+carries the nonce. The offender is client-injected only, which is exactly why an SSR-level audit would
+report all-clear.
+
+**It is user-visible, measured on the live prod editor.** Computed styles read off the live
+`.ProseMirror` element (Open Points → "Add task"):
+
+| property | measured | expected |
+|---|---|---|
+| `white-space` | `normal` | `break-spaces` |
+| `position` | `static` | `relative` |
+| any ProseMirror rule in CSSOM | `false` | — |
+
+Nothing compensates: `grep -c "ProseMirror" src/app/globals.css` → **0**. So in a production build,
+consecutive spaces and newlines collapse while typing, and anything ProseMirror absolutely-positions
+against the editor box (cursor, gap-cursor, placeholder) loses its containing block. prosemirror-view
+ships its own warning about precisely this at `node_modules/prosemirror-view/dist/index.js:4908`.
+
+**Blast radius — every rich-text surface in a prod build:** task description · note log · RAID
+description + mitigation · change description + impact description + resolution notes · milestone
+description.
+
+**Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
+its only runtime commit is six type annotations. The same violation, with an identical hash and only the
+per-request nonce differing, was seen from the branch first and then measured on `main`.
+
+### What is NOT established
+
+- ★★ **Only `main` was measured.** That is sufficient to establish the branch did not introduce it, but
+  it is **not** an independent re-confirmation of the branch-side observation — the two are one
+  measurement plus one corroborating sighting, not two measurements.
+- **Which fix is right.** Both options below are recorded; neither is decided.
+- Whether any other lazily-loaded dependency injects an un-nonced `<style>` on a route the smoke does not
+  reach. Only one such element was found on initial load; the sweep was not exhaustive across all views.
+
+### Fix options — recorded, neither chosen
+
+1. **Nonce Next's runtime style injection**, so the injected `<style>` carries the per-request nonce and
+   the policy is unchanged.
+2. **Allow `'unsafe-inline'` in prod `style-src-elem`.** ★★ This weakens the policy
+   `docs/security/threat-model.md:71` leans on — precisely: that row's mitigation reads "strict
+   nonce-based CSP, no `unsafe-inline` script" and lists `style-src-attr 'unsafe-inline'` as the single
+   documented low-risk residual. Option 2 would extend that residual from style *attributes* to style
+   *elements*. It does not touch the script axis, so it is narrower than "abandons the CSP" — but it is a
+   real widening of the one exception the threat model already calls out, and it should be argued on that
+   row, not around it.
+
+### ★★★ Why this went unseen — the process lesson
+
+**`npm run e2e:smoke` starts no server of its own.** Its header says so: *"Requires the dev/prod server
+to be already running at the target URL."* `npm run e2e` is the opposite — Playwright's `webServer`
+config auto-starts one. So in practice the smoke is only ever pointed at a dev server somebody already
+had running, and **the dev CSP is the permissive branch**. A prod-only defect of this size was therefore
+structurally invisible to the one suite most likely to catch it. That is the reason this bug is old and
+unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to point the smoke at a real
+`next start`, as the reproduction above does.
+## 55. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
 Fourteen controls do NOT use that primitive and were left as they were. For MOST of them the only
@@ -2009,7 +2248,7 @@ the natural first migration.
 
 ---
 
-## 54. `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open
+## 56. `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open
 
 Pressed-vs-unpressed border contrast, computed from `src/app/builtin-schemes.ts`:
 
@@ -2041,7 +2280,7 @@ combo. Scheme DATA remains 5-of-6 covered — this is that hole producing a real
 
 ---
 
-## 55. The four toolbar Outlook enable-toggles carry an untested `auto` guard — open
+## 57. The four toolbar Outlook enable-toggles carry an untested `auto` guard — open
 
 `tasks-section.tsx` and the raid/change/absence writers in `use-calendar-integrations.ts` each read
 the RAW stored `auto` when switching a row on (`auto: enabled ? (s.outlookCalendar?.X?.auto ?? false)

@@ -75,7 +75,7 @@ export function escapeOwner(): symbol | null {
   for (let i = stack.length - 1; i >= 0; i--) {
     const entry = stack[i];
     if (!entry.claims) return entry.token;
-    let claimed = false;
+    let claimed: boolean;
     try {
       claimed = entry.claims() === true;
     } catch {

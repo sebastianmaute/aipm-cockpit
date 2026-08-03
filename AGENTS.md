@@ -169,7 +169,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   of ≥3:1 as the required additional distinction, and pressed-vs-unpressed border measures
   harbor-light 8.97:1 · meridian-light 7.71:1 · umber-light 9.30:1 (computed from `builtin-schemes.ts`).
   Those were already conformant. The DARK maps are 1.22 / 1.16 / 1.03:1 — that is the real failure,
-  and it is not merely a colour-perception one (see §54). The primitive renders a trailing
+  and it is not merely a colour-perception one (see §56). The primitive renders a trailing
   `data-pressed-marker` check glyph (`aria-hidden`, since `aria-pressed` already tells AT). ★ It is present in BOTH states and merely
   `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
   ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click

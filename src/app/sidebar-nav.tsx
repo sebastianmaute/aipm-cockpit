@@ -79,7 +79,7 @@ function CollapsedNavFlyout({
     );
     if (items.length === 0) return;
     const i = items.indexOf(document.activeElement as HTMLButtonElement);
-    let next = -1;
+    let next: number;
     switch (e.key) {
       case "Escape":
         e.preventDefault();
