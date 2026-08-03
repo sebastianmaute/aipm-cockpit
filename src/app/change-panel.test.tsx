@@ -138,7 +138,7 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
       <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} />,
       { wrapper: Providers },
     );
-    expect(getByRole("checkbox", { name: calLabel })).toBeTruthy();
+    expect(getByRole("button", { name: calLabel })).toBeTruthy();
   });
 
   it("labels the toggle for change decisions", () => {
@@ -146,7 +146,7 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
       <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} />,
       { wrapper: Providers },
     );
-    expect(getByRole("checkbox", { name: /change decisions/i })).toBeTruthy();
+    expect(getByRole("button", { name: /change decisions/i })).toBeTruthy();
   });
 
   it("does NOT render the toggle without m365Configured", () => {
@@ -154,7 +154,7 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
       <ChangePanel {...base} m365Configured={false} onToggleCalendar={vi.fn()} />,
       { wrapper: Providers },
     );
-    expect(queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(queryByRole("button", { name: calLabel })).toBeNull();
   });
 
   it("does NOT render the toggle in a popout", () => {
@@ -162,16 +162,16 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
       <ChangePanel {...base} m365Configured isPopout onToggleCalendar={vi.fn()} />,
       { wrapper: Providers },
     );
-    expect(queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(queryByRole("button", { name: calLabel })).toBeNull();
   });
 
-  it("calls onToggleCalendar(true) when the checkbox is ticked", () => {
+  it("calls onToggleCalendar(true) when the enable toggle is pressed", () => {
     const onToggleCalendar = vi.fn();
     const { getByRole } = render(
       <ChangePanel {...base} m365Configured onToggleCalendar={onToggleCalendar} />,
       { wrapper: Providers },
     );
-    fireEvent.click(getByRole("checkbox", { name: calLabel }));
+    fireEvent.click(getByRole("button", { name: calLabel }));
     expect(onToggleCalendar).toHaveBeenCalledWith(true);
   });
 

@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RaciPanel } from "./raci-panel";
 import { t } from "./i18n";
+import { expectButtonOrder } from "../test/toolbar-order";
 import type { Stakeholder, Milestone } from "./types";
 
 // "Suggest RACI" (use-raci-suggest) reads settings.ai via useSettings(); mocked
@@ -152,5 +153,42 @@ describe("RaciPanel", () => {
   it("hides the trigger when AI is not configured", () => {
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
+  });
+
+  it("renders Suggest RACI ahead of the person filter, with Print/Reset still trailing", () => {
+    stubSettings(AI_ON);
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+
+    // ★ Button order rides the SHARED helper, not a local compareDocumentPosition
+    //   walk: it fails loudly when a key matches zero or several buttons, where a
+    //   hand-rolled `findIndex` would silently take the first and let the
+    //   assertion pass against the wrong control.
+    // `contiguous` is the part that actually pins the convention — plain ordering
+    // still holds if Suggest drifts back BETWEEN Print and Reset.
+    expectButtonOrder(["raciSuggest", "printHint", "tableResetSizeHint"], { contiguous: false });
+    expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
+
+    // The filter is a combobox, not a button, so the shared helper cannot place
+    // it — this one comparison stays hand-rolled of necessity.
+    const suggest = screen.getByRole("button", { name: t("en-US", "raciSuggest") });
+    const filter = screen.getByRole("combobox", { name: /filter people/i });
+    expect(suggest.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  // The button is null when AI is off, so the filter must simply become first —
+  // no placeholder, no reserved gap.
+  // ★ Asserting only "trigger absent AND filter present" would duplicate the
+  //   existing "hides the trigger when AI is not configured" test and prove
+  //   nothing about the gap: a spacer <div> rendered in the trigger's place
+  //   would satisfy it. Checking that the filter lives in the group's FIRST
+  //   child is what actually rules that out.
+  it("leaves the filter first when the Suggest trigger is absent", () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "raciSuggest") })).toBeNull();
+
+    const filter = screen.getByRole("combobox", { name: /filter people/i });
+    const group = filter.closest("div.flex-1");
+    expect(group).not.toBeNull();
+    expect(group?.firstElementChild).toContainElement(filter);
   });
 });

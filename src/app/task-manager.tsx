@@ -217,7 +217,7 @@ function TaskManagerInner() {
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
   const {
-    colWidths,
+    sizedWidths,
     hiddenCols,
     setHiddenCols,
     colConfigOpen,
@@ -2371,7 +2371,7 @@ function TaskManagerInner() {
       onDelete={onDelete}
       hiddenCols={hiddenCols}
       setHiddenCols={setHiddenCols}
-      colWidths={colWidths}
+      sizedWidths={sizedWidths}
       colConfigOpen={colConfigOpen}
       setColConfigOpen={setColConfigOpen}
       colConfigRef={colConfigRef}

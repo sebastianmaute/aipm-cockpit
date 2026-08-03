@@ -162,6 +162,40 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   "Compact view, pressed" ⇒ compact is on. (The dashboard's own density + Trends toggles followed this
   before they were REMOVED — density moved to Settings → Appearance, Trends is now Turso-gated.) The
   pin-the-enabled-label + `aria-pressed` pattern remains the RULE for any new toggle button.
+  ★★ THAT PIN CREATES A WCAG 1.4.1 PROBLEM IN THE DARK SCHEMES AND `ToggleButton` NOW CLOSES IT.
+  Because the label may not say which state is active, the ON state rode the accent border+tint.
+  ★★★ SCOPE IT CORRECTLY — an earlier revision here said "colour as the sole visual channel" flatly
+  and that is FALSE for the three LIGHT schemes: Understanding 1.4.1 counts a lightness difference
+  of ≥3:1 as the required additional distinction, and pressed-vs-unpressed border measures
+  harbor-light 8.97:1 · meridian-light 7.71:1 · umber-light 9.30:1 (computed from `builtin-schemes.ts`).
+  Those were already conformant. The DARK maps are 1.22 / 1.16 / 1.03:1 — that is the real failure,
+  and it is not merely a colour-perception one (see §56). The primitive renders a trailing
+  `data-pressed-marker` check glyph (`aria-hidden`, since `aria-pressed` already tells AT). ★ It is present in BOTH states and merely
+  `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
+  ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click
+  (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
+  `opacity-0` is NOT load-bearing: heroicons DEFAULTS `aria-hidden` on every icon (its own attributes
+  come first and `props` spread after, so a caller can override it — a default, not a hard-code), so the glyph is
+  out of the a11y tree in both states either way. An earlier revision of this bullet claimed the
+  a11y tree was the reason — it is inert, and a test written to pin it could not fail.
+  ★★ `disabled` was declared on this primitive from the start but styled NOTHING until 0.212.0 — no
+  call site ever passed it, so an inoperable toggle was pixel-identical to a live one. It now carries
+  `disabled:cursor-not-allowed disabled:opacity-60`. ★★ THE JUSTIFICATION IS THE MEASURED FLOOR, not
+  the exemption: at 60% the disabled label lands at 4.16:1 worst case (umber-light; harbor-light 4.34,
+  meridian-light 4.51, all three dark 5.7+), so it stays readable. WCAG 1.4.3's inactive-component
+  exemption is the conformance BACKSTOP, not the reason — quoting it alone would license `opacity-30`
+  on some other disabled control, which is formally conformant and unreadable. Do not read this as
+  licence for the enabled-state alpha traps recorded elsewhere in this file. ★ The disabled BORDER
+  drops to ~1.15:1 and effectively vanishes; the control reads as a control via its text, which is
+  why the floor above is the number that matters. ★ Keep it a real `disabled` attribute — an
+  `aria-disabled` lookalike still fires `onClick`, which for the Settings auto-sync row would arm
+  background sync from a row the user had switched off (pinned by a test).
+  ★★ axe 4.12.1's ONLY `wcag141` rule is `link-in-text-block` (links vs surrounding text) — nothing
+  in axe evaluates whether a CONTROL's state is colour-only, so the gate is silent on this for every
+  toggle in the app and the primitive's unit test is the only coverage. (An earlier revision said
+  "axe has NO rule for colour-as-sole-cue"; a contributor grepping the tag list finds one and stops
+  trusting the bullet.) A hand-rolled `aria-pressed` button gets neither the cue nor the test — use
+  `ToggleButton`.
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
@@ -772,6 +806,21 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `ResetSizeIcon`; Gantt's name-column reset once wore the reset-SIZE glyph, making the two adjacent resets
   indistinguishable. That one was fixed in an EARLIER release — 0.211.0 did not touch Gantt at all, and this
   sentence sitting under a "fixed in 0.211.0" clause made it read as though it had.
+  ★★ A pane's PRIMARY action leads the control row, ahead of its filters — `PlanningToolbar`'s `aiPlanButton`
+  is the reference, and RACI's "Suggest RACI" joined it in 0.212.0 (it had been sitting in the trailing group
+  beside Print/Reset, reading as a trailing utility). The trailing group is unaffected either way: a leading
+  control only has to come BEFORE it, which is why `expectButtonOrder` takes `contiguous` per call.
+  ★★ ASSERT THIS WITH THE SHARED `src/test/toolbar-order.ts`, never a local `compareDocumentPosition` walk.
+  `buttonIndex` THROWS when a key matches zero or several buttons; a hand-rolled `findIndex` silently takes
+  the first, so an ordering assertion can pass against the wrong control. And plain ordering is NOT enough
+  for the trailing group — only `contiguous: true` catches a control drifting BETWEEN two members, which is
+  the exact drift this bullet lists four instances of. ★ The helper reads BUTTONS only, so a combobox filter
+  still needs one hand-rolled position check.
+  ★ 0.212.0 also moved Planning's "Hide externals" INTO the trailing `ml-auto` group so it sits beside the
+  Outlook block, matching what `renderWorkloadHeader` already did — Planning had been the outlier. ★ That is
+  a GROUPING change, not an ordering one: the toggle was already the element immediately preceding the group,
+  so a DOM-ORDER assertion passes against the unfixed code. Assert `closest("div.ml-auto")` contains the
+  Outlook control instead.
 
 ### Dashboard landing cockpit
 
@@ -1101,12 +1150,16 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   verbatim across the RAID / Change / Absence toolbars — only the entity aria-label differed) is one shared
   `CalendarSyncControls` (`calendar-sync-controls.tsx`), keyed by an i18n `entityLabelKey`. Renders null
   unless `m365Configured && !isPopout && onToggleCalendar`. Milestone push/pull stays SEPARATE (manual-only,
-  no enable toggle). ★ Tasks (Open Points) hand-rolled its OWN copy of this whole block (checkbox + push +
-  pull) rather than consuming the shared component, and its checkbox used the bare `calendarSyncEnable` name
+  no enable toggle). ★ Tasks (Open Points) hand-rolled its OWN copy of this whole block (enable control + push
+  + pull) rather than consuming the shared component, and its control used the bare `calendarSyncEnable` name
   with no entity qualifier — until the 0.211.0 toolbar-polish batch, which moved it onto `CalendarSyncControls`
-  (`entityLabelKey="calendarSyncEntityTask"`) like every other calendar-capable pane. The enable checkbox now
+  (`entityLabelKey="calendarSyncEntityTask"`) like every other calendar-capable pane. The enable control now
   carries the same per-entity accessible name the other panes do ("… – Tasks (due dates)"), which is what
-  makes N panes' identically-labelled checkboxes distinguishable under WCAG 2.4.6.
+  makes N panes' identically-labelled controls distinguishable under WCAG 2.4.6.
+  ★★ IT IS A `ToggleButton`, NOT A CHECKBOX, since 0.212.0 — in all four panes AND in the four Settings rows,
+  labelled "Add to Outlook". This bullet said "checkbox" four times after that stopped being true. Query it by
+  `role="button"`. The toolbars carry ONLY the enable control; Settings additionally has the auto-sync
+  control, which is a `ToggleButton` too — so neither surface has a calendar checkbox left to find.
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
   lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
   `useResizable("aipm-cockpit:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
@@ -1894,6 +1947,54 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable pane's DEFAULT size silently
   no-ops for anyone with a persisted size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale
   size is discarded (pane stays resizable from the new baseline). Bit Milestones/Knowledge going full-width.
+- **★★ `useColumnResize` persists ONLY user-dragged widths (v2, 0.212.0)** — `{v:2,widths}` where `widths`
+  holds just the columns the user actually dragged, returned raw as `sizedWidths` beside the unchanged
+  merged `colWidths` (37 other call sites across 17 files read `colWidths` and are untouched — count them
+  as INVOCATIONS, not files: `raid-report-panel` alone holds 7 and `resources-report` 5). So a `*_COL_WIDTHS` default change
+  now reaches a user who once dragged one unrelated column. ★★ BUT NOT retroactively, and the reason is a
+  trap: the PRE-v2 persist effect had NO first-run guard, so it fired ~250ms after MOUNT and wrote the whole
+  MERGED map — meaning a v1 blob is a full DEFAULTS SNAPSHOT, not a record of drags, and `readSized`
+  promotes every key of it to user-set. A table carrying a v1 blob therefore still ignores its new defaults.
+  Open Points escapes ONLY because its id was bumped `open-points` → `open-points-v2`; the other 37 tables
+  did not (`docs/open-followups.md` §52). Bumping the tableId is the same remedy as the `useResizable`
+  storage-key bump above, for the same reason. ★ An unrecognised VERSION reads as "no user widths" rather
+  than falling through to the v1 branch — a `{v:3,widths:{…}}` spread verbatim would put a numeric `v` and
+  an OBJECT-valued `widths` into a `Record<TId, number>`.
+- **★★ Open Points table geometry — ONE auto column, computed minWidth (0.212.0).** The table is
+  `tableLayout: fixed` + `width: 100%` + `minWidth: ${tableMinWidthPx(...)}px`. It was `width: max-content`
+  + `minWidth: 100%`, so the table outgrew the sum of its declared columns and the browser spread the
+  leftover across them. ★★ OBSERVED: gutter + `sel` + `status` rendered ~138px against 100px declared —
+  about +12.7px EACH, invisible on a 200px column and a third again on a 36px one. `taskName` is now the
+  SINGLE column that emits no `width` (only while un-sized — once dragged it declares one), so it absorbs
+  the leftover. ★★ The exact distribution RULE is NOT verified: an equal-per-column split fits that one
+  measurement and a proportional split does not, but it is an inference from a screenshot and nothing here
+  can check it (CSS 2.1 §17.5.2.1 only says the excess "should be distributed over the columns"). The fix
+  holds either way — an auto column takes the leftover before any fixed column does — so do NOT restate the
+  mechanism as settled; measure it in DevTools first. An earlier revision of this bullet asserted
+  "EQUALLY, NOT proportionally" at ★★★, which is exactly the unverifiable-claim shape this file warns about.
+  ★★ DRAGGING `taskName` RE-ENABLES THE DEFECT: it then declares a width, no column is auto, and the edge
+  padding comes back until "reset columns". Accepted — treating the drag as a floor while keeping the column
+  auto makes the grip stop tracking the pointer, which reads as broken. ★ Do NOT restore `width: max-content`: with an
+  auto column present it resolves against that column's longest unwrapped content — the longest task title
+  — so the pane would scroll horizontally at all times. ★ Arithmetic lives in pure `open-points-table-geometry.ts`
+  (`visibleTaskCols` · `colWidthStyle` · `tableMinWidthPx` · `GUTTER_WIDTH_PX` · `TASK_NAME_MIN_PX`), NOT in
+  the pane, which sits at its size ratchet; the column list is the leaf `tasks-section-columns.ts`. ★ The
+  pane's prop is `sizedWidths`, carrying the SIZED-ONLY map (an absent key is what lets `taskName` render
+  width-free). ★★ It was briefly left named `colWidths` on the argument that renaming cost ratchet lines;
+  that was wrong — a rename is net-zero — and the name matters: passing the DEFAULTS-FILLED map instead
+  gives every column a width and silently reverts the flex layout. ★★★ THE GUARD IS THAT
+  `useColumnManager` DOES NOT RETURN THE MERGED MAP — there is no `colWidths` binding anywhere in
+  `task-manager.tsx` (grep it: zero occurrences), so `sizedWidths={colWidths}` is `TS2304 Cannot find
+  name`, and `use-column-manager.test.ts` pins the omission with a `@ts-expect-error` that fails tsc as
+  an unused directive if the key ever returns. ★★ DO NOT re-expose it on the argument that "the type
+  wouldn't catch it anyway" — that much is true (`Record<string, number>` IS assignable to
+  `Partial<Record<string, number>>`, proved with a standalone `tsc --strict`, exit 0), and it is exactly
+  why the value must not be in scope. Two revisions of this bullet got this wrong in opposite directions:
+  first claiming the type system catches it, then — after the removal made the guard real — still saying
+  "the name is the only guard, and it is a human one". Both were false when written. ★ The
+  leading gutter `<col>` renders from `GUTTER_WIDTH_PX`, never a `w-7` class, because `tableMinWidthPx`
+  seeds its sum with that same constant and a class would let the two drift with nothing to catch it —
+  jsdom sees neither.
 - **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.aipm-cockpit-thead` marker; the Dark-Blue fill lives on
   `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with `border-spacing:0`.
   Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
@@ -2356,7 +2457,14 @@ generic `fieldToString` default arm; MD decoder lives in `markdown-codecs-decode
 `CSV_COLUMNS`; JSON/IDB whole-object pass-through, no task sanitizer). Per-device `settings.outlookCalendar?:
 Partial<Record<CalendarEntityType,{enabled,auto}>>` (`calendar-sync-config.ts` `calendarSyncFor`, `sanitizeOutlookCalendar`;
 writeSettings SPREAD, no allowlist edit); toggled in BOTH Settings→Integrations AND the tasks pane — ★ BOTH sites
-force `auto:false` when un-enabling (else re-enabling silently reactivates auto). Manual "Push to Outlook" button
+force `auto:false` when un-enabling (else re-enabling silently reactivates auto).
+★★★ AND `sanitizeOutlookCalendar` MASKS `auto` BY `enabled` AT LOAD — do not weaken that on the assumption the
+read-side `calendarSyncFor` mask covers everything, because it does NOT. The four toolbar enable-toggles
+(`tasks-section.tsx`, plus raid/change/absence in `use-calendar-integrations.ts`) read the RAW stored `auto`
+when switching a row ON, not the masked value, so a stored `{enabled:false, auto:true}` would arm unattended
+two-way sync from a single click. No in-app writer produces that pair; an imported or hand-edited settings blob
+can, which is why the guarantee has to hold at the STORAGE layer. Pinned by `calendar-sync-config.test.ts`; the
+four toolbar guards themselves are still untested (`docs/open-followups.md` §57). Manual "Push to Outlook" button
 (pushable = `!isTaskFinished && !!dueDate`) + debounced `use-calendar-auto-sync.ts` runner (mounted in task-manager,
 4s, fail-once-per-change; ★ auto-PUSH is STAGGERED via `staggerMs` (base `AUTO_SYNC_DEBOUNCE_MS`) — the 4 entity
 sites pass 0/1×/2×/3× `AUTO_SYNC_STAGGER_STEP_MS=750` to avoid a save-time herd (background auto-PULL is already

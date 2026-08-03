@@ -25,10 +25,34 @@ describe("CalendarSyncControls", () => {
     expect(pull.textContent).toBe(t("en-US", "calendarPullShort"));
   });
 
-  it("gives the enable checkbox an explanatory tooltip", () => {
+  // ★ The enable control is a ToggleButton, not a checkbox: the visible label is
+  //   PINNED to what pressed=true enables and `aria-pressed` carries the state.
+  //   A label that flipped with the state would announce the wrong mode as on.
+  it("gives the enable toggle an explanatory tooltip and a pressed state", () => {
     render(<CalendarSyncControls {...base} />);
-    const box = screen.getByRole("checkbox");
-    expect(box.getAttribute("title")).toBe(t("en-US", "calendarSyncEnableHint"));
+    const toggle = screen.getByRole("button", {
+      name: `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+    });
+    // ★ The tooltip carries the STATE; the label may not (it is pinned to what
+    //   turning it on does). `title` is the accessible description, not the name.
+    expect(toggle.getAttribute("title")).toContain(t("en-US", "calendarSyncEnableHint"));
+    expect(toggle.getAttribute("title")).toContain(t("en-US", "toggleStateOn"));
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    // Pinned, not flipped: the label names what turning it ON does, in both states.
+    expect(toggle.textContent).toBe(t("en-US", "calendarSyncEnable"));
+  });
+
+  it("keeps the same pinned label when off, with aria-pressed false", () => {
+    render(<CalendarSyncControls {...base} calendarEnabled={false} />);
+    const toggle = screen.getByRole("button", {
+      name: `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityRaid")}`,
+    });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(toggle.textContent).toBe(t("en-US", "calendarSyncEnable"));
+    // The tooltip is the one thing that DOES flip, and it must actually flip —
+    // asserting only the "on" case would pass against a hardcoded string.
+    expect(toggle.getAttribute("title")).toContain(t("en-US", "toggleStateOff"));
+    expect(toggle.getAttribute("title")).not.toContain(t("en-US", "toggleStateOn"));
   });
 
   it("switches the accessible name to the busy text while pushing, so the name still contains the visible label", () => {

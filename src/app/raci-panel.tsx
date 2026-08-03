@@ -162,12 +162,16 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
       {onLearnMore && (
         <ViewCallout view="raci" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
-      {/* Person (column) filter + actions on one row — type a name to add a person
-          to the filter (empty filter shows everyone); added persons appear as
-          removable chips. The chips wrap onto further rows when space runs out;
-          Print/Reset stay top-right. */}
+      {/* Suggest RACI leads the row (the pane's primary action, mirroring
+          PlanningToolbar's aiPlanButton), then the person (column) filter — type
+          a name to add a person to the filter (empty filter shows everyone);
+          added persons appear as removable chips. The chips wrap onto further
+          rows when space runs out; Print/Reset stay top-right. The Suggest
+          trigger is null when AI is off or in a popout, leaving the filter
+          first. */}
       <div className="mb-2 flex shrink-0 flex-wrap items-start gap-2 print:hidden">
         <div className="flex flex-1 flex-wrap items-center gap-2">
+          {suggest.button}
           {/* ★ onClear hits the setter DIRECTLY, never the onChange above —
               routing it through onChange would re-run the auto-add match. */}
           <ClearableSearchInput
@@ -238,7 +242,6 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {suggest.button}
           <PrintButton lang={lang} />
           <ResetSizeButton onClick={resetPaneSize} lang={lang} />
         </div>

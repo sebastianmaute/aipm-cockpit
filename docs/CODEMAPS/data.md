@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.211.2 "Samatar" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 | App 0.212.0 "Nayler" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 

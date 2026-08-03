@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { t } from "./i18n";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 import { expectButtonOrder } from "../test/toolbar-order";
@@ -71,8 +71,10 @@ import { useSettings } from "./use-settings";
 import type { Settings } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
 import { useHolidaySet } from "./use-holiday-set";
-import { TasksSection, type TasksSectionProps } from "./tasks-section";
+import { TasksSection, CONFIGURABLE_COLS, type TasksSectionProps } from "./tasks-section";
 import { TASK_STATUSES } from "./types";
+import { DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
+import { GUTTER_WIDTH_PX, visibleTaskCols } from "./open-points-table-geometry";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
 const mockUseFilters = useFilters as ReturnType<typeof vi.fn>;
@@ -178,7 +180,7 @@ function makeProps(): TasksSectionProps {
     // column manager
     hiddenCols: new Set(),
     setHiddenCols: vi.fn(),
-    colWidths: {},
+    sizedWidths: {},
     colConfigOpen: false,
     setColConfigOpen: vi.fn(),
     colConfigRef: React.createRef<HTMLDivElement>(),
@@ -960,10 +962,10 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
-  // The tasks pane now renders the shared CalendarSyncControls, whose checkbox is
+  // The tasks pane now renders the shared CalendarSyncControls, whose enable toggle is
   // named per entity so that N panes' enable boxes are distinguishable (WCAG 2.4.6).
-  // Querying the bare "Add to Outlook calendar" would match nothing and quietly
-  // make every absence assertion below pass for the wrong reason.
+  // Querying the bare "Add to Outlook" would match nothing and quietly make
+  // every absence assertion below pass for the wrong reason.
   const calEnableLabel = `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityTask")}`;
 
   it("hides the calendar controls entirely when M365 is not configured", () => {
@@ -975,17 +977,21 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: calEnableLabel }),
+      screen.queryByRole("button", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
   });
 
-  it("gives the Outlook enable checkbox an explanatory tooltip", () => {
+  it("gives the Outlook enable toggle an explanatory tooltip carrying its state", () => {
     stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} m365Configured />);
-    const box = screen.getByRole("checkbox", { name: calEnableLabel });
-    expect(box.getAttribute("title")).toBe(t("en-US", "calendarSyncEnableHint"));
+    const box = screen.getByRole("button", { name: calEnableLabel });
+    // ★ `toContain`, not `toBe`: ToggleButton appends the current on/off state to
+    //   every tooltip, so the hint is now a prefix rather than the whole title.
+    expect(box.getAttribute("title")).toContain(t("en-US", "calendarSyncEnableHint"));
+    // This fixture stubs the sync ON, so the tooltip must say so.
+    expect(box.getAttribute("title")).toContain(t("en-US", "toggleStateOn"));
   });
 
   it("shows the Pull-from-Outlook button when M365 is configured and task calendar sync is enabled", () => {
@@ -1026,7 +1032,7 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: calEnableLabel }),
+      screen.queryByRole("button", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
   });
 
@@ -1141,5 +1147,102 @@ describe("TasksSection", () => {
     });
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
+  // Geometry, not pixels: jsdom has no layout engine, so assert what we EMIT.
+  describe("table geometry", () => {
+    function renderTable(over: Partial<TasksSectionProps> = {}) {
+      const task = { id: 1, taskName: "T1" };
+      stubWorkspace([task], [task]);
+      return render(<TasksSection {...makeProps()} {...over} />);
+    }
+
+    /** The <col>s in render order, paired with the column id each one carries.
+     *
+     *  ★ Derived, never hardcoded. cols[0] is the leading gutter, so the column
+     *  `visibleTaskCols(hidden)[i]` is cols[i + 1] — an index guessed from a
+     *  remembered column order silently lands on some OTHER narrow column and
+     *  the assertion then passes for the wrong reason. `makeProps()` passes an
+     *  EMPTY hiddenCols (it does not go through useColumnManager, so the
+     *  default-hidden set does not apply here) unless a test overrides it, and
+     *  the length assertion below is what proves the +1 offset actually holds. */
+    function colsById(container: HTMLElement, hidden: ReadonlySet<string> = new Set()) {
+      const cols = Array.from(container.querySelectorAll("colgroup col"));
+      const visible = visibleTaskCols(hidden);
+      expect(cols).toHaveLength(visible.length + 1);
+      return new Map(visible.map((col, i) => [col as string, cols[i + 1]]));
+    }
+
+    it("leaves taskName's <col> width-free so it absorbs the leftover", () => {
+      const { container } = renderTable();
+      const byId = colsById(container);
+
+      expect(byId.get("taskName")!.getAttribute("style") ?? "").not.toMatch(/width/);
+      // EVERY other column carries one — otherwise they would all go auto and
+      // share the leftover again, which is the bug this fixes.
+      for (const [col, el] of byId) {
+        if (col === "taskName") continue;
+        expect(el.getAttribute("style") ?? "", `${col} should declare a width`).toMatch(/width/);
+      }
+    });
+
+    it("emits a width for taskName once the user has sized it", () => {
+      const { container } = renderTable({ sizedWidths: { taskName: 420 } });
+      expect(colsById(container).get("taskName")!.getAttribute("style") ?? "")
+        .toMatch(/width:\s*420px/);
+    });
+
+    it("sets minWidth from the declared widths and drops it when a column hides", () => {
+      const { container, unmount } = renderTable();
+      const wide = (container.querySelector("table") as HTMLTableElement).style.minWidth;
+      unmount();
+
+      const { container: c2 } = renderTable({ hiddenCols: new Set(["priority"]) });
+      const narrow = (c2.querySelector("table") as HTMLTableElement).style.minWidth;
+
+      expect(parseInt(wide, 10) - parseInt(narrow, 10)).toBe(DEFAULT_COL_WIDTHS.priority);
+    });
+
+    it("no longer relies on width:max-content", () => {
+      // With an auto column present, max-content resolves against the longest
+      // task title, which would mean permanent horizontal scroll.
+      const { container } = renderTable();
+      const table = container.querySelector("table") as HTMLTableElement;
+      expect(table.style.width).toBe("100%");
+    });
+
+    // ★★ The flex column MUST NOT be hideable, and two separate things break if
+    //    it becomes so. (1) Geometry: taskName is the only <col> that emits no
+    //    width, so hiding it leaves NO auto column and the surplus goes back to
+    //    being split evenly across every column — the exact defect this whole
+    //    change removes, reachable again through a supported user action.
+    //    (2) Structure: its <th> renders UNCONDITIONALLY, unlike every hideable
+    //    column's, so `visibleTaskCols` would drop the <col> while the header
+    //    kept its cell — under table-layout:fixed that shifts every width onto
+    //    the neighbouring column. Neither is visible in jsdom or to axe, and
+    //    nothing else pins it: the guard is that taskName is absent from
+    //    CONFIGURABLE_COLS, which is a module-local list one edit away.
+    it("does not offer the flex column in the column-config popover", () => {
+      // ★★ Assert on the KEY, not a rendered label. `CONFIGURABLE_COLS` maps
+      //    key→labelKey freely, so `{ key: "taskName", labelKey: "anythingElse" }`
+      //    would reintroduce the defect while a label-based assertion stayed green.
+      expect(CONFIGURABLE_COLS.map((c) => c.key)).not.toContain("taskName");
+
+      // …and the list really is what drives the popover, so the check above is
+      // about the rendered control rather than an unused constant.
+      renderTable({ colConfigOpen: true });
+      const dialog = within(screen.getByRole("dialog", { name: t("en-US", "colConfigTitle") }));
+      expect(dialog.getAllByRole("checkbox")).toHaveLength(CONFIGURABLE_COLS.length);
+    });
+
+    // ★ The gutter is the one column tableMinWidthPx accounts for but does not
+    //   render from the same expression. It used to be a `w-7` class, which meant
+    //   the constant and the rendered width could drift with nothing to catch it —
+    //   and neither is visible to jsdom or to axe. This binds them.
+    it("renders the leading gutter at exactly the width the minimum accounts for", () => {
+      const { container } = renderTable();
+      const gutter = container.querySelector("colgroup col") as HTMLTableColElement;
+      expect(gutter.style.width).toBe(`${GUTTER_WIDTH_PX}px`);
+    });
   });
 });

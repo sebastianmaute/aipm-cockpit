@@ -278,7 +278,7 @@ function ResourceDirectoryInner({
             {t(lang, "outlookImportButton")}
           </Button>
         )}
-        <ToggleButton
+        <ToggleButton lang={lang}
           pressed={hideExternal}
           onToggle={toggleHideExternal}
           icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}

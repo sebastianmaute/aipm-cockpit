@@ -41,6 +41,11 @@ vi.mock("./app-modals", async (importOriginal) => ({
   },
 }));
 
+// ★ NOT captured here: TasksSection. This suite mounts TaskManager on its
+//   DEFAULT view (dashboard), and the modern shell renders only the active view,
+//   so the pane never mounts and a mock of it captures nothing — measured, not
+//   assumed. Its prop contract is therefore untested from this side; see the
+//   `colWidths` note in `use-column-manager.test.ts` for what that leaves open.
 import TaskManager from "./task-manager";
 
 function seedRegistry() {

@@ -466,23 +466,23 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
 
   it("renders the toggle when m365 is configured and a handler is given", () => {
     renderPanel(makeProps({ m365Configured: true, onToggleCalendar: vi.fn() }));
-    expect(screen.getByRole("checkbox", { name: calLabel })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: calLabel })).toBeInTheDocument();
   });
 
   it("does NOT render the toggle without m365Configured", () => {
     renderPanel(makeProps({ m365Configured: false, onToggleCalendar: vi.fn() }));
-    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(screen.queryByRole("button", { name: calLabel })).toBeNull();
   });
 
   it("does NOT render the toggle in a popout", () => {
     renderPanel(makeProps({ m365Configured: true, isPopout: true, onToggleCalendar: vi.fn() }));
-    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(screen.queryByRole("button", { name: calLabel })).toBeNull();
   });
 
-  it("calls onToggleCalendar(true) when the checkbox is ticked", () => {
+  it("calls onToggleCalendar(true) when the enable toggle is pressed", () => {
     const onToggleCalendar = vi.fn();
     renderPanel(makeProps({ m365Configured: true, onToggleCalendar }));
-    fireEvent.click(screen.getByRole("checkbox", { name: calLabel }));
+    fireEvent.click(screen.getByRole("button", { name: calLabel }));
     expect(onToggleCalendar).toHaveBeenCalledWith(true);
   });
 

@@ -181,7 +181,7 @@ export function GanttToolbar({
           {t(lang, "ganttResetFilters")}
         </button>
       )}
-      <ToggleButton
+      <ToggleButton lang={lang}
         pressed={prefs.showCriticalPath}
         onToggle={toggleCriticalPath}
         accent="pink"
@@ -191,7 +191,7 @@ export function GanttToolbar({
         {t(lang, "ganttCriticalPath")}
       </ToggleButton>
       {hasBaseline && (
-        <ToggleButton
+        <ToggleButton lang={lang}
           pressed={prefs.showBaseline}
           onToggle={toggleBaseline}
           title={t(lang, "ganttBaselineHint")}
@@ -201,7 +201,7 @@ export function GanttToolbar({
         </ToggleButton>
       )}
       {hasMilestones && (
-        <ToggleButton
+        <ToggleButton lang={lang}
           // Name/state coherence: the visible label is pinned to what the toggle
           // ENABLES ("Inline milestones") and aria-pressed tracks THAT state, so
           // "Inline milestones, pressed" ⇒ inline is on.

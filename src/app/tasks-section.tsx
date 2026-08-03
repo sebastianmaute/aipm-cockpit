@@ -38,7 +38,6 @@ import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { taskToGraphEvent } from "./outlook-calendar-write";
 import { calendarSyncFor } from "./calendar-sync-config";
-import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
@@ -58,18 +57,18 @@ import {
   Th,
 } from "./task-manager-ui";
 import { SortResizeTh } from "./report-table";
+import { GUTTER_WIDTH_PX, colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
  *  reference-stable (a fresh `[]` each render would bust it). */
 const EMPTY_RESOURCES: readonly Resource[] = [];
 
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","createdDate","priority","taskStatus","blockers","description","notesLog","depRelations","estimate","spent","actions"] as const;
-
 /** Fixed English friction phrase to confirm clearing all tasks (mirrors the
  *  factory-reset dialog). Deliberately not localized. */
 const CLEAR_TASKS_CONFIRM_PHRASE = "yes, clear all tasks";
 
-const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
+// ★ Exported for its guard test: `taskName` must never appear here (see open-points-table-geometry.ts).
+export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "status",         labelKey: "health" },
   { key: "id",             labelKey: "id" },
   { key: "assignee",       labelKey: "assignee" },
@@ -111,7 +110,9 @@ export interface TasksSectionProps {
   // column manager
   hiddenCols: Set<string>;
   setHiddenCols: React.Dispatch<React.SetStateAction<Set<string>>>;
-  colWidths: Record<string, number>;
+  /** ONLY the columns the user explicitly sized — an absent key is at its
+   *  default, which is what lets taskName render width-free. */
+  sizedWidths: Partial<Record<string, number>>;
   colConfigOpen: boolean;
   setColConfigOpen: React.Dispatch<React.SetStateAction<boolean>>;
   colConfigRef: React.RefObject<HTMLDivElement | null>;
@@ -194,7 +195,7 @@ export function TasksSection({
   onDelete,
   hiddenCols,
   setHiddenCols,
-  colWidths,
+  sizedWidths,
   colConfigOpen,
   setColConfigOpen,
   colConfigRef,
@@ -512,7 +513,9 @@ export function TasksSection({
     }
   }
 
-  const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
+  const visibleCols = useMemo(() => visibleTaskCols(hiddenCols), [hiddenCols]);
+  const tableMinWidth = useMemo(() => tableMinWidthPx(visibleCols, sizedWidths), [visibleCols, sizedWidths]);
+  const visibleColumnCount = visibleCols.length;
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [deleteSelectedConfirmOpen, setDeleteSelectedConfirmOpen] = useState(false);
@@ -592,14 +595,14 @@ export function TasksSection({
           </button>
         )}
         {dedup.button}
-        <ToggleButton
+        <ToggleButton lang={lang}
           pressed={hideFinished}
           onToggle={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
           icon={<CheckCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />}
         >
           {t(lang, "hideFinishedTasks")}
         </ToggleButton>
-        <ToggleButton
+        <ToggleButton lang={lang}
           pressed={hideExternal}
           onToggle={() => setSettings((s) => ({ ...s, hideExternalTasks: !(s.hideExternalTasks ?? false) }))}
           icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
@@ -754,7 +757,7 @@ export function TasksSection({
               outlookCalendar: {
                 ...s.outlookCalendar,
                 // Disabling here also forces auto off (mirrors the Settings toggle)
-                // so re-enabling from this checkbox can't silently reactivate auto-sync.
+                // so re-enabling from this toggle can't silently reactivate auto-sync.
                 task: {
                   enabled,
                   auto: enabled ? (s.outlookCalendar?.task?.auto ?? false) : false,
@@ -810,7 +813,7 @@ export function TasksSection({
             >
               {t(lang, "bulkSendInquiries")}
             </button>
-            <ToggleButton pressed={bulkEditOpen} onToggle={() => setBulkEditOpen((o) => !o)}>
+            <ToggleButton lang={lang} pressed={bulkEditOpen} onToggle={() => setBulkEditOpen((o) => !o)}>
               {t(lang, "bulkEdit")}
             </ToggleButton>
             <button
@@ -930,18 +933,15 @@ export function TasksSection({
         <RowContextProvider value={rowContextValue} tasksById={tasksById}>
           <table
             className="divide-y divide-line text-left text-sm"
-            style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
+            style={{ tableLayout: "fixed", width: "100%", minWidth: `${tableMinWidth}px` }}
           >
             <colgroup>
-              {/* Leading gutter column matching the per-row hover Ask-Claude cell
-                  and the leading <th> below — under table-layout:fixed a missing
-                  <col> shifts every column's width to its left neighbour. */}
-              <col className="w-7" />
-              {ALL_TASK_COLS
-                .filter((col) => !hiddenCols.has(col))
-                .map((col) => (
-                  <col key={col} style={{ width: colWidths[col] ?? DEFAULT_COL_WIDTHS[col] }} />
-                ))}
+              {/* Gutter for the hover Ask-Claude cell; a missing <col> shifts every width to its
+                  neighbour. ★ Uses the same GUTTER_WIDTH_PX that tableMinWidthPx sums, not a class. */}
+              <col style={{ width: GUTTER_WIDTH_PX }} />
+              {visibleCols.map((col) => (
+                <col key={col} style={{ width: colWidthStyle(col, sizedWidths) }} />
+              ))}
             </colgroup>
             <thead className={TABLE_HEAD_CLASS}>
               <tr>

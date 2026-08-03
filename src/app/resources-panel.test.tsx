@@ -528,6 +528,35 @@ describe("ResourcesPanel", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "colResetWidthsHint") })).toBeNull();
   });
 
+  // ★ THIS CANNOT BE A DOM-ORDER TEST. `{hideExternalToggle}` was already the
+  //   element immediately preceding the `ml-auto` group, so `compareDocumentPosition`
+  //   and a "nothing interactive between" query BOTH pass against the unfixed code.
+  //   The defect was purely that the toggle sat OUTSIDE the auto-margin group, so
+  //   flexbox pushed the Outlook block away from it. The fix moves the toggle INTO
+  //   that group — which is what this asserts. Do not "simplify" this back into an
+  //   order assertion; that is the vacuous version.
+  // ★ `CalendarSyncControls` returns null unless m365Configured && !isPopout &&
+  //   onToggleCalendar, so `calendarProps` is what gives this test an Outlook
+  //   checkbox to group against at all. Without it `getByRole` throws — the test
+  //   fails loudly rather than passing vacuously, but it would be failing on the
+  //   fixture, not on the grouping it exists to check.
+  test("planning: Hide externals sits inside the trailing Outlook group", () => {
+    render(
+      <ResourcesPanel {...baseProps} {...calendarProps} view="planning" lang="en-US" plan={PLAN}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+
+    const hide = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
+    const outlook = screen.getByRole("button", {
+      name: new RegExp(t("en-US", "calendarSyncEnable"), "i"),
+    });
+
+    const trailingGroup = hide.closest("div.ml-auto");
+    expect(trailingGroup).not.toBeNull();
+    expect(trailingGroup).toContainElement(outlook);
+  });
+
   test("A2: absence override input uses text-sm (not text-[10px])", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };
@@ -545,28 +574,28 @@ describe("ResourcesPanel — Outlook calendar toggle (SP4)", () => {
 
   test("renders the toggle when m365Configured and a handler is given", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} />);
-    expect(screen.getByRole("checkbox", { name: calLabel })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: calLabel })).toBeInTheDocument();
   });
 
   test("labels the toggle for resource absences", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} />);
-    expect(screen.getByRole("checkbox", { name: /resource absences/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /resource absences/i })).toBeInTheDocument();
   });
 
   test("does NOT render the toggle without m365Configured", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured={false} onToggleCalendar={vi.fn()} />);
-    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(screen.queryByRole("button", { name: calLabel })).toBeNull();
   });
 
   test("does NOT render the toggle in a popout", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured isPopout onToggleCalendar={vi.fn()} />);
-    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(screen.queryByRole("button", { name: calLabel })).toBeNull();
   });
 
-  test("calls onToggleCalendar(true) when the checkbox is ticked", () => {
+  test("calls onToggleCalendar(true) when the enable toggle is pressed", () => {
     const onToggleCalendar = vi.fn();
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={onToggleCalendar} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: calLabel }));
+    fireEvent.click(screen.getByRole("button", { name: calLabel }));
     expect(onToggleCalendar).toHaveBeenCalledWith(true);
   });
 
