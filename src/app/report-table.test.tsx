@@ -339,9 +339,18 @@ describe("TableFilter", () => {
 });
 
 describe("Tile sub slot", () => {
-  it("renders the sub line under the value when given", () => {
-    render(<Tile label="Total" value={10} sub="2 cancelled" />);
-    expect(screen.getByText("2 cancelled")).toBeInTheDocument();
+  it("renders the sub line after the value when given", () => {
+    const { container } = render(<Tile label="Total" value={10} sub="2 cancelled" />);
+    const sub = container.querySelector("[data-tile-sub]");
+    expect(sub).not.toBeNull();
+    expect(sub?.textContent).toBe("2 cancelled");
+    // The name says "after the value", so assert the ORDER — otherwise
+    // rendering the qualifier ABOVE the headline number also passes, and a
+    // qualifier that precedes what it qualifies reads as a second metric.
+    const value = screen.getByText("10");
+    expect(
+      value.compareDocumentPosition(sub as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("renders no sub line when omitted", () => {

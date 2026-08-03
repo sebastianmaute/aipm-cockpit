@@ -67,6 +67,29 @@ describe("TaskStatusGlyph", () => {
     expect(container.querySelector("span.rounded-full")).not.toBeNull();
   });
 
+  // ★★ The INCONSISTENT pair: status "Done" with no completedDate. AGENTS.md
+  // records that `migrateTask` deliberately does NOT repair it — it short-
+  // circuits on a valid-but-inconsistent status — so an imported or hand-edited
+  // blob can carry it. `isTaskDelivered` is `!!completedDate`, so such a row now
+  // renders the CROSS where it used to render the check.
+  //
+  // Pinned as correct rather than "fixed": completedDate is the field that
+  // answers "was this delivered?", and there is no date to show. The stale half
+  // is the TOOLTIP — computeTaskHealth reads `status`, so it still says
+  // "completed" while the glyph says otherwise. That contradiction lives in the
+  // health engine, not here; recorded as an open follow-up.
+  test("a Done task with NO completedDate renders the cross — it was never delivered", () => {
+    const { container } = render(
+      <TaskStatusGlyph
+        task={makeTask({ status: "Done" })}
+        health={GREEN_HEALTH}
+        label="Completed"
+      />,
+    );
+    expect(container.textContent).toContain("✕");
+    expect(container.textContent).not.toContain("✓");
+  });
+
   test("a cancelled task WITH a healthOverride takes the RagDot branch, not the cross", () => {
     const { container } = render(
       <TaskStatusGlyph

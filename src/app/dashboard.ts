@@ -93,6 +93,26 @@ export function computeDashboardProgress(
   return { total, inScope: denominator, completed, percent, counts };
 }
 
+/** True when a project HAS tasks but none of them are still in scope — i.e.
+ *  every task was cancelled. Such a project renders 0% from `percent`, which is
+ *  literally true and reads as "not started yet", so the surfaces that show
+ *  completion give it a distinct state instead.
+ *
+ *  ★★ `total === 0` is DELIBERATELY EXCLUDED. A brand-new empty project also
+ *  has `inScope === 0`, and it must keep showing 0% — the dashboard already
+ *  greets that screen with the coaching card, and changing the most common
+ *  first-run view to fix a case that is not broken is the wrong trade.
+ *
+ *  ★★ Shared rather than re-derived at each call site, and that is the whole
+ *  point: the Progress tile and the at-a-glance KPI card render the SAME
+ *  metric, so a copy of this expression that drifts puts two cards on one
+ *  screen disagreeing about whether the project has any scope left. That is
+ *  not hypothetical — it shipped, for exactly one commit, when only one of
+ *  the two had been updated. */
+export function hasNoActiveScope(progress: Pick<DashboardProgress, "total" | "inScope">): boolean {
+  return progress.total > 0 && progress.inScope === 0;
+}
+
 /** Date-driven schedule RAG: Red if any task is overdue, Amber if any is due
  *  within `dueSoonWorkdays` working days, else Green. Closed tasks (Done or
  *  Cancelled) ignored. */

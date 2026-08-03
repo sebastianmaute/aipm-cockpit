@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
 import { Card } from "./card";
-import { buildDashboardInput, computeDashboard } from "./dashboard";
+import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
 import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
@@ -154,9 +154,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // and renders directly beneath the completion tile, so it must divide by the
   // same denominator the tile's percentage does.
   const currentTotal = model.progress.inScope;
-  // Every task cancelled ⇒ inScope === 0 with total > 0 — distinguish "abandoned"
-  // from a brand-new empty project (total === 0), which must stay on 0% complete.
-  const noActiveScope = model.progress.total > 0 && model.progress.inScope === 0;
+  // Shared with the at-a-glance KPI card, which renders the SAME metric — see
+  // hasNoActiveScope. Re-deriving it here is how the two cards once disagreed.
+  const noActiveScope = hasNoActiveScope(model.progress);
   const completionSeries = useMemo(
     () =>
       computeCompletionTrend({ snapshots, activity, currentDone, currentTotal, today }),

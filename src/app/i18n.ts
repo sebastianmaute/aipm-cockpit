@@ -3514,7 +3514,7 @@ const enUS = {
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Share of tasks marked Done out of all tasks. Trending up is good; a flat line signals stalled delivery.",
+  dashboardKpiCompleteHint: "Share of tasks marked Done out of the tasks still in scope; cancelled work is excluded. Trending up is good; a flat line signals stalled delivery.",
   dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
   dashboardKpiOpenRaidHint: "Open risks, assumptions, issues and dependencies that still need attention.",
   dashboardRagHint: "Red / Amber / Green health counts across your project areas — how many are off track, at risk, or healthy.",

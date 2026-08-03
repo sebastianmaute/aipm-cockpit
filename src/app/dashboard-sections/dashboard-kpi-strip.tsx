@@ -4,7 +4,7 @@ import { KpiGradientBar, Tile } from "../report-table";
 import { Card } from "../card";
 import { type Lang, t } from "../i18n";
 import { TrendArrow } from "../trend-arrow";
-import type { DashboardModel } from "../dashboard";
+import { hasNoActiveScope, type DashboardModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
 import type { DensityClasses } from "../dashboard-density";
 import type { AppView } from "../nav-config";
@@ -20,7 +20,7 @@ interface DashboardKpiStripProps {
 /** Standalone "at a glance" KPI card: completion % · overdue · open RAID.
  *  Extracted from DashboardHero so it can be a first-class masonry item. */
 export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
-  const noActiveScope = model.progress.total > 0 && model.progress.inScope === 0;
+  const noActiveScope = hasNoActiveScope(model.progress);
   return (
     <Card boxed className={dc.cardPad}>
       <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>

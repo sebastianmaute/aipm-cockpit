@@ -324,11 +324,18 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
 
 describe("ReportsPanel — Total tile names the cancelled count", () => {
   it("names the cancelled count under Total when there is any", () => {
-    renderReports([
+    const { container } = renderReports([
       makeTask({ id: 1, assignee: "Alex", status: "To Do" }),
       makeTask({ id: 2, assignee: "Bea", status: "Cancelled" }),
     ]);
     expect(screen.getByText(t("en-US", "reportsCancelledCount", "1"))).toBeInTheDocument();
+    // WHICH tile carries the qualifier is the decision, not merely that some
+    // tile does: `Total` is the number that stopped reconciling with Open +
+    // Completed, so the sub must sit in ITS tile. A bare getByText passes with
+    // the line moved onto Open or Completed.
+    const sub = container.querySelector("[data-tile-sub]");
+    expect(sub).not.toBeNull();
+    expect(sub?.parentElement?.textContent).toContain(t("en-US", "reportsTotal"));
   });
 
   it("shows no cancelled line when nothing is cancelled", () => {

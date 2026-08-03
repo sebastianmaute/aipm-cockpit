@@ -105,6 +105,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
+| 64 | Two more surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — steering-committee AI draft + the persisted snapshot/AI-snapshot figure |
+| 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -2671,6 +2673,50 @@ took it to 554, and per **§60** the ratchet ignores everything at or under 800,
 inert and `--update` dropped it. That is §60's finding demonstrated rather than argued — worth noting
 because it means the baseline file is not a record of "files we are watching", only of files
 currently over the limit.
+
+---
+
+## 64. Two more surfaces still read "0% complete" for an all-cancelled project — open
+
+The cancelled-work presentation batch fixed the three surfaces it scoped: the Reports headline
+tiles, the Dashboard completion tile, and the Open Points status glyph. A fourth and fifth were
+found during review and deliberately left out rather than widening the branch.
+
+- `committee-report/report-draft.ts:68` emits `"- Completion: 0% complete"` into the
+  steering-committee AI draft. So the model is handed the same misreading a human no longer sees,
+  and can restate it in generated prose.
+- `snapshot.ts:211` (`pctComplete`) and `ai-dashboard-snapshot.ts:92` (`completionPercent`) persist
+  and feed the model the bare number.
+
+★ These are NOT the same kind of change as the three that shipped. The dashboard fix is presentation
+— it swaps a label and a value in one component. `pctComplete` is a PERSISTED figure that Trends
+charts over time and version history diffs, so giving it a null state is a data-shape decision with
+migration consequences for every stored snapshot. Decide that separately; do not "finish the sweep"
+by pattern-matching the presentation fix onto it.
+
+★ The honest framing meanwhile: the batch fixed the surfaces a user READS, not every surface that
+computes the figure.
+
+## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — open
+
+`isTaskDelivered` is `!!task.completedDate`, so a task whose status is `"Done"` but which carries no
+completion date is CLOSED but not DELIVERED, and `TaskStatusGlyph` renders the muted ✕ where it used
+to render the green ✓.
+
+★★ The glyph is the correct half and is pinned by a test — `completedDate` is the field that answers
+"was this delivered?", and there is no date to show. The STALE half is the tooltip:
+`computeTaskHealth` derives its drivers from `status`, so it still yields `completed` and the
+accessible name still reads "Completed on …"-style text while the glyph disagrees.
+
+★ Reachability: AGENTS.md records that `migrateTask` deliberately does NOT repair a valid-but-
+inconsistent status/`completedDate` pair — it short-circuits on a valid status — so the invariant is
+held by the WRITERS, and an imported or hand-edited blob can carry the pair. Not producible through
+the UI.
+
+★ The fix belongs in the health engine (drivers should consult `completedDate`, not `status` alone),
+which is why it was not folded into a presentation batch. Anything done here must keep the two
+predicates distinct: `isTaskClosed` answers "will this be worked on again?", `isTaskDelivered`
+answers "was it delivered?", and collapsing them is the defect 0.213.0 existed to remove.
 
 ---
 
