@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { ArrowPathIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowsPointingInIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { useVoiceCommand } from "./voice-command-context";
@@ -81,7 +81,7 @@ export function ModalHeader({
             title={t(lang, "modalResetSize")}
             className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
           >
-            <ArrowPathIcon aria-hidden="true" className="h-4 w-4" />
+            <ArrowsPointingInIcon aria-hidden="true" className="h-4 w-4" />
           </button>
         )}
         {!hideClose && (

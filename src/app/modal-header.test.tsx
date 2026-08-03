@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ModalHeader } from "./modal-header";
+import { ResetSizeIcon } from "./task-manager-ui";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { t } from "./i18n";
 import type { ReactNode } from "react";
@@ -54,6 +55,20 @@ describe("ModalHeader", () => {
     expect(
       screen.queryByRole("button", { name: t("en-US", "alertModalClose") }),
     ).toBeNull();
+  });
+
+  it("reset-size button uses the same inward-arrows glyph as the main-window reset buttons", () => {
+    setup({ onResetLayout: () => {} });
+    const resetLabel = t("en-US", "modalResetSize");
+    const button = screen.getByRole("button", { name: resetLabel });
+    const headerSvg = button.querySelector("svg");
+    expect(headerSvg).toBeTruthy();
+
+    const { container: refContainer } = render(<ResetSizeIcon />);
+    const refSvg = refContainer.querySelector("svg");
+    expect(refSvg).toBeTruthy();
+
+    expect(headerSvg?.innerHTML).toBe(refSvg?.innerHTML);
   });
 
   it("dragHandleProps adds cursor-move class to the header element", () => {
