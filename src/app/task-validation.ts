@@ -29,11 +29,20 @@ export type TaskErrorKey =
 export type TaskFieldErrors = Partial<Record<TaskErrorField, TaskErrorKey>>;
 
 /**
- * Validate a task-form draft. `today` is an ISO date (YYYY-MM-DD); a due date
- * earlier than it is rejected. Mirrors the checks the submit handler enforces,
- * but reported per field instead of as one banner.
+ * Validate a task-form draft. `today` is an ISO date (YYYY-MM-DD). Mirrors the
+ * checks the submit handler enforces, but reported per field instead of as one
+ * banner.
+ *
+ * `isNew` gates the past-date rule ONLY. A due date that has since gone stale
+ * must never block editing an existing task — that made every overdue task
+ * unsavable, whatever the user was actually changing. Creating a task with a
+ * past due date is still refused, which is the case the rule exists for.
  */
-export function validateTaskForm(form: TaskFormDraft, today: string): TaskFieldErrors {
+export function validateTaskForm(
+  form: TaskFormDraft,
+  today: string,
+  isNew: boolean,
+): TaskFieldErrors {
   const errors: TaskFieldErrors = {};
 
   if (!sanitizeTaskName(form.taskName)) errors.taskName = "errorTaskNameRequired";
@@ -41,7 +50,7 @@ export function validateTaskForm(form: TaskFormDraft, today: string): TaskFieldE
 
   const dueDate = sanitizeIsoDate(form.dueDate);
   if (!dueDate) errors.dueDate = "errorDueDateRequired";
-  else if (dueDate < today) errors.dueDate = "errorPastDate";
+  else if (isNew && dueDate < today) errors.dueDate = "errorPastDate";
 
   // A blank email is allowed (the field is optional); a non-empty one must parse.
   const email = sanitizeEmail(form.assigneeEmail);
