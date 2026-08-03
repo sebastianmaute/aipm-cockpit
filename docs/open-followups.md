@@ -2054,6 +2054,115 @@ effect, then the unpiped gate — and treat the result as a fresh measurement.
 
 ---
 
+## 53. Prod-only CSP blocks ProseMirror's base CSS — open, PRE-EXISTING, user-visible
+
+Every rich-text editor in a **production build** renders without ProseMirror's base stylesheet, because
+the prod CSP refuses the `<style>` element Tiptap injects at runtime. Dev is unaffected, which is why
+this has gone unseen.
+
+★★★ **MEASURED 2026-08-03 on `main` (`13b518db`) in an isolated worktree — observed, not inferred.**
+Same dated-measurement rule as §52: re-measure before acting, do not treat these values as properties.
+Reproduction:
+
+```bash
+npm ci
+npm run build
+npx next start -p 3200
+E2E_URL=http://localhost:3200/ npm run e2e:smoke     # → REAL_EXIT=1, ISSUES (1)
+PORT=3200 npm run stop
+```
+
+### What is established
+
+**The violation.** Prod smoke on plain `main` is RED — `REAL_EXIT=1`, `=== ISSUES (1) ===`, and this is
+the *only* issue; 22 nav views found, 20 visited, the app otherwise loads fine:
+
+```
+Applying inline style violates the following Content Security Policy directive
+'style-src-elem 'self' 'nonce-…''. Either the 'unsafe-inline' keyword, a hash
+('sha256-PlumsSlvJ7vvWzjqibGAYKq92O3y/4JTxWWsWJvyUYA='), or a nonce is required
+```
+
+**The culprit was identified by hashing every `<style>` in the live prod DOM, not by inference.**
+Exactly one `<style>` element: 1329 bytes, no nonce, `sha256=PlumsSlvJ7vvWzjqibGAYKq92O3y/4JTxWWsWJvyUYA=`
+— an exact match for the hash the browser named. Its content is ProseMirror's base stylesheet
+(`.ProseMirror { position: relative } … white-space: break-spaces …`). The violation event named the
+injector directly: `sourceFile: /_next/static/chunks/2uni9ru3abh_p.js`, and that built chunk contains
+both `ProseMirror` (19 hits) and `createElement("style")`.
+
+**It is dependency behaviour, not app code.** `@tiptap/react` + `@tiptap/starter-kit` → `@tiptap/core` →
+prosemirror CSS. The editor loads via `next/dynamic`, so Turbopack ships that CSS inside a lazily-loaded
+client chunk which injects it at runtime with no nonce. `grep -rn "prosemirror.css" src/` returns
+nothing — the app never imports it. Fires once, on initial load.
+
+★★ **Why it is prod-only, structurally** (`src/proxy.ts:51-52`) — verified on the live response header:
+
+| build | `style-src-elem` | injected `<style>` |
+|---|---|---|
+| dev | `'self' 'unsafe-inline'` | allowed |
+| prod | `'self' 'nonce-${nonce}'` | **blocked** |
+
+★ It is `style-src-**elem**`. React `style={{…}}` props ride `style-src-attr 'unsafe-inline'`
+(`proxy.ts:60`) and are **not** implicated — do not conflate the two axes when reasoning about a fix.
+★ The SSR HTML is clean: zero un-nonced `<style>` tags, and its one stylesheet `<link>` correctly
+carries the nonce. The offender is client-injected only, which is exactly why an SSR-level audit would
+report all-clear.
+
+**It is user-visible, measured on the live prod editor.** Computed styles read off the live
+`.ProseMirror` element (Open Points → "Add task"):
+
+| property | measured | expected |
+|---|---|---|
+| `white-space` | `normal` | `break-spaces` |
+| `position` | `static` | `relative` |
+| any ProseMirror rule in CSSOM | `false` | — |
+
+Nothing compensates: `grep -c "ProseMirror" src/app/globals.css` → **0**. So in a production build,
+consecutive spaces and newlines collapse while typing, and anything ProseMirror absolutely-positions
+against the editor box (cursor, gap-cursor, placeholder) loses its containing block. prosemirror-view
+ships its own warning about precisely this at `node_modules/prosemirror-view/dist/index.js:4908`.
+
+**Blast radius — every rich-text surface in a prod build:** task description · note log · RAID
+description + mitigation · change description + impact description + resolution notes · milestone
+description.
+
+**Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
+its only runtime commit is six type annotations. The same violation, with an identical hash and only the
+per-request nonce differing, was seen from the branch first and then measured on `main`.
+
+### What is NOT established
+
+- ★★ **Only `main` was measured.** That is sufficient to establish the branch did not introduce it, but
+  it is **not** an independent re-confirmation of the branch-side observation — the two are one
+  measurement plus one corroborating sighting, not two measurements.
+- **Which fix is right.** Both options below are recorded; neither is decided.
+- Whether any other lazily-loaded dependency injects an un-nonced `<style>` on a route the smoke does not
+  reach. Only one such element was found on initial load; the sweep was not exhaustive across all views.
+
+### Fix options — recorded, neither chosen
+
+1. **Nonce Next's runtime style injection**, so the injected `<style>` carries the per-request nonce and
+   the policy is unchanged.
+2. **Allow `'unsafe-inline'` in prod `style-src-elem`.** ★★ This weakens the policy
+   `docs/security/threat-model.md:71` leans on — precisely: that row's mitigation reads "strict
+   nonce-based CSP, no `unsafe-inline` script" and lists `style-src-attr 'unsafe-inline'` as the single
+   documented low-risk residual. Option 2 would extend that residual from style *attributes* to style
+   *elements*. It does not touch the script axis, so it is narrower than "abandons the CSP" — but it is a
+   real widening of the one exception the threat model already calls out, and it should be argued on that
+   row, not around it.
+
+### ★★★ Why this went unseen — the process lesson
+
+**`npm run e2e:smoke` starts no server of its own.** Its header says so: *"Requires the dev/prod server
+to be already running at the target URL."* `npm run e2e` is the opposite — Playwright's `webServer`
+config auto-starts one. So in practice the smoke is only ever pointed at a dev server somebody already
+had running, and **the dev CSP is the permissive branch**. A prod-only defect of this size was therefore
+structurally invisible to the one suite most likely to catch it. That is the reason this bug is old and
+unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to point the smoke at a real
+`next start`, as the reproduction above does.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
