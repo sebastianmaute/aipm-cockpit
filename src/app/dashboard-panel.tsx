@@ -497,8 +497,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
               </Section>
             </div>
           )}
-          {/* Completion-trend sparkline — self-hides without >= 2 points */}
-          {completionSeries.length >= 2 && (
+          {/* Completion-trend sparkline — self-hides without >= 2 points, and
+              is suppressed outright when there is no active scope. It renders
+              directly beneath the completion tile, so an all-cancelled project
+              would otherwise show a flat 0% trajectory under a tile reading
+              "No active scope": the same one-screen disagreement d6fb68ab
+              removed one card over. ★ The snapshot-fed series does NOT go to
+              zero on its own — `fromSnapshots` reads each record's stored
+              `pctComplete` and never consults `inScope` — so this is a real
+              suppression on that path, not a no-op dressed up as a guard. */}
+          {completionSeries.length >= 2 && !noActiveScope && (
             <div className={`break-inside-avoid ${dc.cardGap}`}>
               {(() => {
                 const sparkBody = (

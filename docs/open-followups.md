@@ -105,7 +105,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
-| 64 | Two more surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — steering-committee AI draft + the persisted snapshot/AI-snapshot figure |
+| 64 | Five more surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — Portfolio health (user-read) + steering-committee AI draft + the persisted snapshot/AI-snapshot/landing-state figures |
 | 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
@@ -2676,28 +2676,22 @@ currently over the limit.
 
 ---
 
-## 64. Six more surfaces still read "0% complete" for an all-cancelled project — open
+## 64. Five more surfaces still read "0% complete" for an all-cancelled project — open
 
-The cancelled-work presentation batch fixed four surfaces: the Reports headline tiles, the Dashboard
-completion tile, the Dashboard at-a-glance KPI card, and the Open Points status glyph. Six more were
-found during review and deliberately left out rather than widening the branch.
+The cancelled-work presentation batch fixed five surfaces: the Reports headline tiles, the Dashboard
+completion tile, the Dashboard at-a-glance KPI card, the Dashboard completion-trend sparkline, and
+the Open Points status glyph. Five more were found during review and deliberately left out rather
+than widening the branch.
 
-★★ THE COUNT IN THIS HEADING HAS BEEN WRONG TWICE. The entry opened at "two" and each later review
-round added bullets without re-counting — once in the very commit that added the TRANSCRIPTION
-WARNING at the foot of this entry. If you add a bullet, re-count the heading and every ordinal in
-the body in the SAME edit. Do not write an ordinal ("the fourth") that a later addition will
-silently invalidate; name the surface instead.
+★★ THE COUNT IN THIS HEADING HAS BEEN WRONG THREE TIMES. The entry opened at "two" and each later
+review round added bullets without re-counting — once in the very commit that added the
+TRANSCRIPTION WARNING at the foot of this entry, and once more in the commit that added THIS
+paragraph, which named the heading and the body ordinals and forgot the **index table row at the top
+of this file**. A count in this register lives in THREE places: the table row, the `##` heading, and
+any ordinal in the prose. Re-count all three in the SAME edit, and prefer naming a surface to
+numbering it — a name cannot go stale when the next bullet lands.
 
-**A user READS these two — they belong with the four that were fixed, not with the persisted figures:**
-
-- `dashboard-panel.tsx:501` renders the completion-trend sparkline **directly beneath the completion
-  tile on the very screen this batch fixed**, and it is anchored on `currentTotal:
-  model.progress.inScope` (`:157`). `completion-trend.ts:37` `clampPctFromCounts` returns `0` when
-  `total <= 0`, so an all-cancelled project draws a flat 0% trajectory under a tile reading "No
-  active scope" — the same one-screen disagreement `d6fb68ab` was written to remove one card over.
-  `hasNoActiveScope` is ALREADY computed in that component (`:159`), so the fix is one guard.
-  ★ The dashboard-panel tests cannot see it: jsdom's `loadActivityLog()` returns empty, so
-  `completionSeries.length >= 2` is false and the card never mounts there.
+**A user READS this one — it belongs with the five that were fixed, not with the persisted figures:**
 
 - `use-portfolio-health.ts:142` sets `completionPercent: model.progress.percent`, and
   `portfolio-health-panel.tsx:164` renders it as `{row.completionPercent}%` in the Turso
@@ -2721,10 +2715,11 @@ Trends charts over time and version history diffs, so giving it a null state is 
 decision with migration consequences for every stored snapshot. Decide those separately; do not
 "finish the sweep" by pattern-matching the presentation fix onto the stored ones.
 
-★ The honest framing meanwhile: the batch fixed the four user-read surfaces it scoped, and TWO more
-that a user also reads are still open — the completion-trend sparkline (on the fixed screen) and
-Portfolio health (the cross-project table). Named, not numbered, because the ordinal in this sentence
-went stale twice.
+★ The honest framing meanwhile: every user-read surface ON THE THREE SCREENS THE BATCH TOUCHED is
+now fixed. **Portfolio health** — a different screen, the cross-project table — is the one remaining
+surface a user reads. Named, not numbered: the ordinal that used to live in this sentence went stale
+twice, and the sparkline bullet that briefly sat above this line was fixed rather than deferred,
+which would have staled it a third time.
 
 ★★ TRANSCRIPTION WARNING, learned here: the first draft of this entry cited
 `ai-dashboard-snapshot.ts:92` as `completionPercent`. That file's key is `percent`;

@@ -637,6 +637,27 @@ describe("DashboardPanel completion-trend card", () => {
     render(<DashboardPanel {...baseProps} snapshots={[]} />, { wrapper });
     expect(screen.queryByText("Completion trend")).toBeNull();
   });
+
+  // The card renders directly beneath the completion tile, so on an
+  // all-cancelled project it would draw a trajectory under a tile reading
+  // "No active scope". The fixture is IDENTICAL to the control test above
+  // except for the tasks, and the snapshot path does not consult `inScope`
+  // (`fromSnapshots` reads each record's stored `pctComplete`) — so the series
+  // genuinely still has two points here and the absence is a suppression, not
+  // a series that collapsed on its own.
+  it("hides the trend card when every task is cancelled, even with a real series", () => {
+    const cancelled = [1, 2].map((id) => ({
+      id, taskName: `Cancelled ${id}`, assignee: "A", assigneeEmail: "a@x.io",
+      dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled" as const,
+      priority: "Medium" as const, blockers: "", description: "",
+    }));
+    const snapshots = [snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-14T00:00:00.000Z", 55)];
+    render(<DashboardPanel {...baseProps} tasks={cancelled} snapshots={snapshots} />, { wrapper });
+    // Two, for the same reason as the paired assertion further down this file:
+    // the Progress tile and the at-a-glance KPI card both carry the state.
+    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(2);
+    expect(screen.queryByText("Completion trend")).toBeNull();
+  });
 });
 
 describe("DashboardPanel density (slice #8)", () => {
