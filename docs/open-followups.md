@@ -105,7 +105,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
-| 64 | Five more surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — Portfolio health (user-read) + steering-committee AI draft + the persisted snapshot/AI-snapshot/landing-state figures |
+| 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health + the Trends card and view; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
 | 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
@@ -2676,20 +2676,31 @@ currently over the limit.
 
 ---
 
-## 64. Five more surfaces still read "0% complete" for an all-cancelled project — open
+## 64. Other surfaces still read "0% complete" for an all-cancelled project — open
 
-The cancelled-work presentation batch fixed five surfaces: the Reports headline tiles, the Dashboard
-completion tile, the Dashboard at-a-glance KPI card, the Dashboard completion-trend sparkline, and
-the Open Points status glyph. Five more were found during review and deliberately left out rather
+The cancelled-work presentation batch fixed the Reports headline tiles, the Dashboard completion
+tile, the Dashboard at-a-glance KPI card, the Dashboard completion-trend sparkline, and the Open
+Points status glyph. The surfaces below were found during review and deliberately left out rather
 than widening the branch.
 
-★★ THE COUNT IN THIS HEADING HAS BEEN WRONG THREE TIMES. The entry opened at "two" and each later
-review round added bullets without re-counting — once in the very commit that added the
-TRANSCRIPTION WARNING at the foot of this entry, and once more in the commit that added THIS
-paragraph, which named the heading and the body ordinals and forgot the **index table row at the top
-of this file**. A count in this register lives in THREE places: the table row, the `##` heading, and
-any ordinal in the prose. Re-count all three in the SAME edit, and prefer naming a surface to
-numbering it — a name cannot go stale when the next bullet lands.
+★ The heading deliberately carries NO NUMBER. It held one for four revisions and was wrong in three
+of them — the last time within the hour, when this entry's own bullets grew from the review that
+added the Trends pair. See the paragraph below.
+
+★★ THE COUNT IN THIS HEADING WAS WRONG IN THREE OF THE FOUR REVISIONS IT SURVIVED, so it has now
+been REMOVED rather than corrected a fifth time. The entry opened at "two" and each later review
+round added bullets without re-counting — once in the very commit that added the TRANSCRIPTION
+WARNING at the foot of this entry, and once more in the commit that added THIS paragraph, which
+named the heading and the body ordinals and forgot the **index table row at the top of this file**.
+
+★★★ AND THE FIX FOR THAT WAS ITSELF WRONG. It said "a count lives in THREE places: the table row,
+the `##` heading, and any ordinal in the prose" — a closed list, which is the error. A review found a
+FOURTH copy nine lines below it ("the same shape as the three already done"), stale since the day it
+was written. There is no fixed number of places: **a count lives wherever someone wrote one.**
+Enumerating the places is the losing move, because the next writer adds a place. The durable habit
+is to stop writing counts an edit can invalidate — name the surfaces, say "the fixes already made",
+and reserve a number for the heading, where one is unavoidable. When you must change that number,
+`grep -n` the entry for every digit-word before you commit.
 
 **A user READS this one — it belongs with the five that were fixed, not with the persisted figures:**
 
@@ -2716,7 +2727,7 @@ a tile reading "No active scope" — delivery announced as having gone backwards
 scope left. The Trends VIEW shows the same figure as an absolute `0%`.
 
 ★ The two halves need SEPARATE decisions and that is why the split matters. Suppressing the rendered
-variance row is a presentation change of the same shape as the five already made. Giving the
+variance row is a presentation change of the same shape as the fixes already made. Giving the
 PERSISTED `pctComplete` a null state is a data-shape change that Trends charts over time and version
 history diffs — migration consequences for every stored snapshot. Do not do the second because you
 decided the first.
@@ -2724,14 +2735,23 @@ decided the first.
   landing-state snapshot, so the NEXT visit's trend arrow is baselined off a number the UI has just
   decided not to show.
 
-★★ These are NOT one class of change, and the split is the point. Portfolio health is
-PRESENTATION — the same shape as the three already done. `pctComplete` is a PERSISTED figure that
-Trends charts over time and version history diffs, so giving it a null state is a data-shape
-decision with migration consequences for every stored snapshot. Decide those separately; do not
-"finish the sweep" by pattern-matching the presentation fix onto the stored ones.
+★★ These are NOT one class of change, and the split is the point. Portfolio health, the Trends card
+and the Trends view are PRESENTATION — the same shape as the fixes already made. `pctComplete` is
+also a PERSISTED figure that Trends charts over time and version history diffs, so giving THAT a
+null state is a data-shape decision with migration consequences for every stored snapshot. Decide
+those separately; do not "finish the sweep" by pattern-matching the presentation fix onto the
+stored ones.
+
+★★★ THIS SENTENCE HELD A FOURTH COPY OF THE COUNT AND IT WAS WRONG FROM THE DAY IT WAS WRITTEN —
+"the same shape as the three already done", written when four surfaces were already fixed, then left
+untouched while two later commits corrected the heading, the index row and the intro around it. The
+paragraph nine lines above, which instructs re-counting "all three" places, sat directly over a
+fourth one it did not know about. **A count in this register lives in as many places as someone
+chose to write one.** Do not enumerate the places; the durable fix is to stop writing counts that a
+later edit can invalidate — say "the fixes already made", not "the three already done".
 
 ★★ The honest framing meanwhile — and the previous two attempts at this sentence were both WRONG in
-the same direction, each declaring a screen finished that was not. THREE user-read surfaces remain:
+the same direction, each declaring a screen finished that was not. These user-read surfaces remain:
 the **Trends card** and the **Trends view** (both fed by `snapshot.ts:211`, the first of them ON the
 dashboard the batch just fixed), and **Portfolio health** (the cross-project table, a different
 screen). Named, not numbered: every ordinal that has lived in this sentence went stale within days.
@@ -2768,8 +2788,11 @@ transcription, the same failure the TRANSCRIPTION WARNING in §64 records.
 
 ★★ The same `status`-driven derivation makes ONE MORE string wrong, and it is not a tooltip:
 `inScope` (`dashboard.ts:86`) subtracts every task that is closed-but-not-delivered, so a project
-made only of these rows renders the new `dashboardAllCancelled` — "N tasks, all cancelled" — about
+made only of these rows renders `dashboardAllCancelled` — currently "All cancelled ({0})" — about
 rows whose status says Done. Fixing the drivers fixes both; fixing only the tooltip leaves this.
+★ Quoted by KEY with the value marked "currently", because the previous revision pinned the literal
+"N tasks, all cancelled" and the value changed three commits later in the same branch. A register
+entry that quotes a string verbatim acquires a maintenance obligation nothing enforces.
 
 ★ Reachability: AGENTS.md records that `migrateTask` deliberately does NOT repair a valid-but-
 inconsistent status/`completedDate` pair — it short-circuits on a valid status — so the invariant is
