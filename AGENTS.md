@@ -449,9 +449,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the SOLE
   writer of status+completedDate — EVERY status mutation (form save create+update in `use-task-submit`,
   inline dropdown + `onToggleComplete` in `use-task-row-handlers`, AI/Jira/template seeds) routes through
-  it; `migrateTaskStatus` runs on ALL SIX load paths (completedDate set → Done, else To Do).
+  it. ★★★ THE LOAD-PATH REPAIR IS `migrateTask`, NOT `migrateTaskStatus` (no such function exists), AND
+  IT IS WEAKER THAN THIS BULLET USED TO CLAIM. It runs on all six load paths but only backfills an
+  ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
+  task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
+  NOT repaired. The invariant is held by the WRITERS (`applyStatusChange`; Jira's `issueToTaskFields`
+  drives both fields off one `isDone` flag), not at load, so an imported or hand-edited blob can carry
+  the bad pair. The old wording caused three separate defects in one session — every reader concluded
+  load normalises the pair and wrote that into code comments and commit messages.
   `isTaskFinished`=Done|Cancelled; Cancelled is terminal-but-NOT-completed (excluded from
-  overdue/next-actions/health-red, but completion-% still counts Done only). UI labels via
+  overdue/next-actions/health-red). ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0
+  cancelled work is dropped from the DENOMINATOR (`dashboard.ts` `computeDashboardProgress`), so a
+  project with cancelled scope can reach 100%. Reports carry a third `cancelled` bucket — a cancelled
+  task is neither open nor completed there, and never overdue. UI labels via
   `task-status-ui.ts` (AIPM palette tokens only). ★ The table status column key is **`taskStatus`** — the
   pre-existing `"status"` col key is the RAG/health DOT (header "Health"/DE "Ampel"). ★ The tasks view
   ("Open Points") IS in axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label
