@@ -1935,7 +1935,9 @@ MOUNT and wrote the whole MERGED map. So a v1 blob is not a record of the user's
 full defaults snapshot taken the first time that table was ever displayed for a quarter second.
 Found by a reviewer of the 0.212.0 batch, not by the implementation.
 
-Consequences, for the ~19 tables that are NOT Open Points:
+Consequences, for the 37 tables that are NOT Open Points (37 `useColumnResize` INVOCATIONS across
+17 files — count call sites, not files: `raid-report-panel` holds 7 and `resources-report` 5, so a
+file count understates the blast radius by half):
 
 | | |
 |---|---|

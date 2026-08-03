@@ -22,7 +22,8 @@ const KEY_PREFIX = "aipm-cockpit:col-widths";
  *  installs, to anyone who clicks reset, and to a table whose id was bumped
  *  (which is exactly why Open Points moved to `open-points-v2`). Dropping v1
  *  keys whose value already equals the default would recover it; that is a
- *  behaviour change for ~19 other tables and is deliberately NOT done here.
+ *  behaviour change for the 37 other tables (37 call sites across 17 files — count
+ *  invocations, not files) and is deliberately NOT done here.
  *
  *  ★ An unrecognised VERSION reads as "no user widths" rather than falling
  *  through to the v1 branch — otherwise a future `{v:3,widths:{…}}` would be
