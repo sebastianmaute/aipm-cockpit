@@ -107,8 +107,9 @@ export function computeDashboardProgress(
  *  point: the Progress tile and the at-a-glance KPI card render the SAME
  *  metric, so a copy of this expression that drifts puts two cards on one
  *  screen disagreeing about whether the project has any scope left. That is
- *  not hypothetical — it shipped, for exactly one commit, when only one of
- *  the two had been updated. */
+ *  not hypothetical — it happened, across four commits on this branch, while
+ *  only one of the two had been updated. Caught in review, not by a gate, and
+ *  never released. */
 export function hasNoActiveScope(progress: Pick<DashboardProgress, "total" | "inScope">): boolean {
   return progress.total > 0 && progress.inScope === 0;
 }

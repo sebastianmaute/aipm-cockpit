@@ -64,7 +64,13 @@ describe("TaskStatusGlyph", () => {
     // Assert the dot POSITIVELY. Absence-only assertions pass just as happily
     // against `return null`, which would render every open row's Health cell
     // empty — and nothing else in the suite pins this branch.
-    expect(container.querySelector("span.rounded-full")).not.toBeNull();
+    // Shape AND name. `span.rounded-full` alone fails `return null` but NOT the
+    // dropping of `label` from <RagDot>, which sends Dot down its aria-hidden
+    // branch and silently strips the accessible name from every open row's
+    // Health cell (verified by mutation — both assertions passed without it).
+    expect(
+      container.querySelector('span.rounded-full[role="img"][aria-label="On track"]'),
+    ).not.toBeNull();
   });
 
   // ★★ The INCONSISTENT pair: status "Done" with no completedDate. AGENTS.md
@@ -100,6 +106,8 @@ describe("TaskStatusGlyph", () => {
     );
     expect(container.textContent).not.toContain("✕");
     expect(container.textContent).not.toContain("✓");
-    expect(container.querySelector("span.rounded-full")).not.toBeNull();
+    expect(
+      container.querySelector('span.rounded-full[role="img"][aria-label="Manual override"]'),
+    ).not.toBeNull();
   });
 });

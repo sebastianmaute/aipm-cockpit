@@ -2682,20 +2682,38 @@ The cancelled-work presentation batch fixed the three surfaces it scoped: the Re
 tiles, the Dashboard completion tile, and the Open Points status glyph. A fourth and fifth were
 found during review and deliberately left out rather than widening the branch.
 
+**A user READS this one — it belongs with the three that were fixed, not with the persisted figures:**
+
+- `use-portfolio-health.ts:142` sets `completionPercent: model.progress.percent`, and
+  `portfolio-health-panel.tsx:164` renders it as `{row.completionPercent}%` in the Turso
+  Portfolio-health table. An all-cancelled project reads "0%" in a table a portfolio owner scans
+  across projects — the same misreading, on the surface where cross-project comparison happens.
+
+**The rest are model- or storage-facing:**
+
 - `committee-report/report-draft.ts:68` emits `"- Completion: 0% complete"` into the
-  steering-committee AI draft. So the model is handed the same misreading a human no longer sees,
+  steering-committee AI draft. So the model is handed the misreading a human no longer sees,
   and can restate it in generated prose.
-- `snapshot.ts:211` (`pctComplete`) and `ai-dashboard-snapshot.ts:92` (`completionPercent`) persist
-  and feed the model the bare number.
+- `snapshot.ts:211` (`pctComplete`) and `ai-dashboard-snapshot.ts:92` (`percent`) persist and feed
+  the model the bare number.
+- `dashboard-panel.tsx:175` writes `complete: model.progress.percent` into the per-device
+  landing-state snapshot, so the NEXT visit's trend arrow is baselined off a number the UI has just
+  decided not to show.
 
-★ These are NOT the same kind of change as the three that shipped. The dashboard fix is presentation
-— it swaps a label and a value in one component. `pctComplete` is a PERSISTED figure that Trends
-charts over time and version history diffs, so giving it a null state is a data-shape decision with
-migration consequences for every stored snapshot. Decide that separately; do not "finish the sweep"
-by pattern-matching the presentation fix onto it.
+★★ These are NOT one class of change, and the split is the point. Portfolio health is
+PRESENTATION — the same shape as the three already done. `pctComplete` is a PERSISTED figure that
+Trends charts over time and version history diffs, so giving it a null state is a data-shape
+decision with migration consequences for every stored snapshot. Decide those separately; do not
+"finish the sweep" by pattern-matching the presentation fix onto the stored ones.
 
-★ The honest framing meanwhile: the batch fixed the surfaces a user READS, not every surface that
-computes the figure.
+★ The honest framing meanwhile: the batch fixed three of the four surfaces a user READS. Portfolio
+health is the fourth and is still open.
+
+★★ TRANSCRIPTION WARNING, learned here: the first draft of this entry cited
+`ai-dashboard-snapshot.ts:92` as `completionPercent`. That file's key is `percent`;
+`completionPercent` is the portfolio symbol above. The design spec had it right and the register
+degraded it while copying. Nothing catches this — the AGENTS.md symbol gate reads AGENTS.md only,
+never this file. Grep a symbol before citing it here.
 
 ## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — open
 

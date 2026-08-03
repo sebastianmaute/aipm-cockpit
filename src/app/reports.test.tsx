@@ -333,9 +333,11 @@ describe("ReportsPanel — Total tile names the cancelled count", () => {
     // tile does: `Total` is the number that stopped reconciling with Open +
     // Completed, so the sub must sit in ITS tile. A bare getByText passes with
     // the line moved onto Open or Completed.
-    const sub = container.querySelector("[data-tile-sub]");
-    expect(sub).not.toBeNull();
-    expect(sub?.parentElement?.textContent).toContain(t("en-US", "reportsTotal"));
+    const subs = container.querySelectorAll("[data-tile-sub]");
+    // Exactly one, so this cannot silently start testing some other section's
+    // sub line if one is ever added earlier in the panel.
+    expect(subs).toHaveLength(1);
+    expect(subs[0].parentElement?.textContent).toContain(t("en-US", "reportsTotal"));
   });
 
   it("shows no cancelled line when nothing is cancelled", () => {
