@@ -2606,7 +2606,28 @@ move-only one. Recorded here so the next reader does not assume a tested handler
 
 ---
 
-## 63. `gantt.tsx` crossed 800 and was baselined rather than split — open, deliberate deferral
+## 63. ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ — CLOSED in 0.213.0, split after all
+
+★ **Closed the same day it opened.** The entry below was written when the split had been called off;
+it was then completed and accepted, so `gantt.tsx` is **715** lines and its baseline entry is gone.
+The chart body — scroll container through footer, ~190 contiguous lines of presentational JSX —
+moved to `gantt-chart.tsx` (320). Proved move-only mechanically rather than by eye: slice both
+regions, apply the three intended renames (`layout.bars`→`bars`, `layout.placeable`→`placeable`,
+`startNameColResize`→`onStartNameColResize`), normalise whitespace, diff → identical over 5,279
+chars. 70 tests before and after, no test file edited.
+
+★★ **Two things learned that outlive the entry.** (1) The empty-state block, which looked like the
+obvious seam, nets about **7** lines — the whole-panel early return has to stay in `gantt.tsx`
+because it carries the `print-root` / `print-landscape` / `VIEW_PANE_RESIZABLE_CLASS` strings that
+three source-scan tests assert against that specific file. Only the chart body clears 800. (2) The
+cost is a ~35-prop bag at the new boundary; that is inherent to this seam, not a bad cut.
+
+★ **A baseline entry is a licence to grow, not just a record.** While the split was in flight, the
+stopgap commit added `"src/app/gantt.tsx": 864`, which would have let the file grow back to 864
+unchallenged AND made `size:check` passing meaningless as evidence about that file. Removed. Verified
+the split stands on its own: the ratchet is green with no `gantt.tsx` entry at all.
+
+**The original entry, kept because its measurements are still the record of what happened:**
 
 0.213.0 grew four already-large files past the ratchet. All four were baselined
 (`docs/baselines/file-sizes.json`) rather than split. **Three of those are routine increments on

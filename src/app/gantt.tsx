@@ -26,7 +26,6 @@
 // glance at. For dynamic editing, the user goes back to the tasks list.
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { ViewCallout } from "./view-callout";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -34,9 +33,9 @@ import { AddFirstItemButton } from "./add-first-item-button";
 import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
-import { GanttDependencyLayer, GanttHeader, GanttToolbar } from "./gantt-chrome";
-import { dayLeftPx, GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
-import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
+import { GanttToolbar } from "./gantt-chrome";
+import { GanttChart } from "./gantt-chart";
+import { dayLeftPx } from "./gantt-overlays";
 import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { descriptionText } from "./rich-text-projection";
@@ -53,13 +52,11 @@ import {
   deriveBar,
   diffDays,
   EMPTY_HOLIDAY_SET,
-  fmtFull,
   fmtMonth,
   type GanttBarEdit,
   LEFT_GUTTER_PX,
   naturalCompare,
   parseISO,
-  ROW_HEIGHT_PX,
   todayUTC,
   toISODay,
 } from "./gantt-engine";
@@ -108,7 +105,6 @@ export function GanttPanel({
   /** AI "Deduplicate & unify" trigger, built by the view wrapper. See GanttToolbar. */
   dedupButton?: ReactNode;
 }) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScroll = useRef(false);
   const { ref: ganttRef, reset: resetGanttSize } = useResizable("aipm-cockpit:gantt-size");
@@ -671,193 +667,49 @@ export function GanttPanel({
         <ViewCallout view="gantt" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
       {toolbar}
-      <div
-        ref={scrollRef}
-        className="min-h-[240px] w-full min-w-[480px] flex-1 overflow-auto rounded-md border border-line pr-2"
-      >
-      <div
-        ref={wrapperRef}
-        style={{ width: chartWidthPx, minWidth: "100%" }}
-        className="relative bg-surface"
-      >
-        {/* --- top header rows: months + days -------------------------- */}
-        <GanttHeader
-          lang={lang}
-          monthGroups={monthGroups}
-          range={range}
-          today={today}
-          timelineWidthPx={timelineWidthPx}
-          nameColWidth={nameColWidth}
-          onStartNameColResize={startNameColResize}
-        />
-
-        {/* --- rows ----------------------------------------------------- */}
-        {rendersNothing ? (
-          // Header and toolbar stay mounted on purpose — the way back out of
-          // this state lives in the toolbar (the status checkboxes, the other
-          // filter controls, or Reset filters), so unmounting it would strand
-          // the user.
-          <div className="flex flex-col items-center gap-3 border-t border-line p-10 text-center text-sm text-muted-foreground">
-            <span>{t(lang, emptyMessageKey)}</span>
-          </div>
-        ) : (
-        <div className="relative">
-          {/* Holiday shading + the optional day grid. Rendered FIRST so they
-              paint underneath the today marker, the dependency arrows and the
-              bars; both are pointer-events-none, so they can't intercept a bar
-              drag. Their height matches the today marker's exactly — the task +
-              milestone rows, not the trailing "add task" affordance. */}
-          {prefs.showHolidays && (
-            <GanttNonWorkingLayer
-              range={range}
-              holidaySet={holidaySet}
-              nameColWidth={nameColWidth}
-              heightPx={totalRowsCount * ROW_HEIGHT_PX}
-            />
-          )}
-          {prefs.showGrid && (
-            <GanttGridLayer
-              range={range}
-              nameColWidth={nameColWidth}
-              heightPx={totalRowsCount * ROW_HEIGHT_PX}
-            />
-          )}
-
-          {/* Today marker — drawn as an absolutely positioned line that
-              spans the rows area. Sits behind the bars (z-0) but on top
-              of the row backgrounds. */}
-          {todayOffsetPx >= nameColWidth && (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute z-10 w-px bg-ui-dark-blue/60"
-              style={{
-                left: todayOffsetPx,
-                top: 0,
-                height: totalRowsCount * ROW_HEIGHT_PX,
-              }}
-              title={t(lang, "ganttToday")}
-            />
-          )}
-
-          {/* Dependency arrow layer — sits over the rows but under the bars
-              for hover contrast. Gated on the View popover's Dependencies
-              toggle; it also carries the linked-task -> milestone connectors,
-              so turning it off hides both overlays.
-              ★ An edge draws only when BOTH endpoints are rendered rows: a
-              predecessor with no due date has no bar (deriveBar returns null),
-              and one excluded by the status/priority/assignee/search filters
-              has no row index, so either way the arrow is silently skipped. */}
-          {prefs.showDependencies && (
-          <GanttDependencyLayer
-            placeable={layout.placeable}
-            bars={layout.bars}
-            taskRowIndexById={taskRowIndexById}
-            range={range}
-            critical={critical}
-            sortedMilestones={visibleMilestones}
-            milestoneRowIndexById={milestoneRowIndexById}
-            chartWidthPx={chartWidthPx}
-            totalRowsCount={totalRowsCount}
-            nameColWidth={nameColWidth}
-          />
-          )}
-
-          {/* --- rows: task bars + milestone diamonds. In "below" mode all
-              task rows come first, then the milestone block; in "inline" mode
-              each non-achieved milestone is spliced into the task sequence at
-              its due-date position (buildGanttRows). Milestone rows aren't part
-              of the critical-path / dependency math. */}
-          {rows.map((row) => {
-            if (row.kind === "task") {
-              const task = row.task;
-              const bar = layout.bars.get(task.id);
-              if (!bar) return null;
-              return (
-                <GanttTaskRow
-                  key={`t-${task.id}`}
-                  task={task}
-                  bar={bar}
-                  lang={lang}
-                  today={today}
-                  timelineWidthPx={timelineWidthPx}
-                  nameColWidth={nameColWidth}
-                  range={range}
-                  absencesByAssigneeKey={absencesByAssigneeKey}
-                  showAbsences={prefs.showAbsences}
-                  resourcesById={resourcesById}
-                  critical={critical}
-                  draggingId={draggingId}
-                  dropTargetId={dropTargetId}
-                  setDraggingId={setDraggingId}
-                  setDropTargetId={setDropTargetId}
-                  handleDrop={handleDrop}
-                  interactingWithBarRef={interactingWithBarRef}
-                  barDrag={barDrag}
-                  barDragDeltaDays={barDragDeltaDays}
-                  previewDates={previewDates}
-                  startBarDrag={startBarDrag}
-                  onUpdateBar={onUpdateBar}
-                  onEditTask={onEditTask}
-                />
-              );
-            }
-            const m = row.milestone;
-            return (
-              <GanttMilestoneRow
-                key={`m-${m.id}`}
-                m={m}
-                lang={lang}
-                range={range}
-                timelineWidthPx={timelineWidthPx}
-                nameColWidth={nameColWidth}
-                tasksById={tasksById}
-                todayISO={todayISO}
-                onEditMilestone={onEditMilestone}
-                baselineDate={baselineMilestoneDates?.get(m.id)}
-                showBaseline={prefs.showBaseline}
-              />
-            );
-          })}
-
-          {onAddTask && (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={onAddTask}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onAddTask();
-                }
-              }}
-              className="group relative flex cursor-pointer border-b border-dashed border-line hover:bg-surface-muted"
-              style={{ height: ROW_HEIGHT_PX }}
-              aria-label={t(lang, "addTaskButton")}
-            >
-              <div
-                className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-ui-dark-blue"
-                style={{ width: nameColWidth }}
-              >
-                <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-                <span>{t(lang, "ganttAddTask")}</span>
-              </div>
-              <div style={{ width: timelineWidthPx }} />
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* --- Footer with the date range so it's visible without hover -- */}
-        <div
-          className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface-muted px-3 py-1 text-[11px] text-muted-foreground"
-          style={{ minHeight: 22 }}
-        >
-          <span>
-            {t(lang, "ganttRange", fmtFull(range.min, lang), fmtFull(range.max, lang))}
-          </span>
-        </div>
-      </div>
-      </div>
+      <GanttChart
+        scrollRef={scrollRef}
+        lang={lang}
+        prefs={prefs}
+        range={range}
+        monthGroups={monthGroups}
+        today={today}
+        todayISO={todayISO}
+        timelineWidthPx={timelineWidthPx}
+        nameColWidth={nameColWidth}
+        chartWidthPx={chartWidthPx}
+        todayOffsetPx={todayOffsetPx}
+        onStartNameColResize={startNameColResize}
+        rendersNothing={rendersNothing}
+        emptyMessageKey={emptyMessageKey}
+        holidaySet={holidaySet}
+        totalRowsCount={totalRowsCount}
+        rows={rows}
+        bars={layout.bars}
+        placeable={layout.placeable}
+        taskRowIndexById={taskRowIndexById}
+        milestoneRowIndexById={milestoneRowIndexById}
+        critical={critical}
+        visibleMilestones={visibleMilestones}
+        absencesByAssigneeKey={absencesByAssigneeKey}
+        resourcesById={resourcesById}
+        tasksById={tasksById}
+        draggingId={draggingId}
+        dropTargetId={dropTargetId}
+        setDraggingId={setDraggingId}
+        setDropTargetId={setDropTargetId}
+        handleDrop={handleDrop}
+        interactingWithBarRef={interactingWithBarRef}
+        barDrag={barDrag}
+        barDragDeltaDays={barDragDeltaDays}
+        previewDates={previewDates}
+        startBarDrag={startBarDrag}
+        onUpdateBar={onUpdateBar}
+        onEditTask={onEditTask}
+        onEditMilestone={onEditMilestone}
+        onAddTask={onAddTask}
+        baselineMilestoneDates={baselineMilestoneDates}
+      />
     </div>
   );
 }
