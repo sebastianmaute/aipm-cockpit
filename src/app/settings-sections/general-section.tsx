@@ -3,24 +3,29 @@
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
+import type { Resource } from "../types";
+import { resourceDisplayName } from "../resource-foundation";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
 import { resetAppToCleanSlate } from "../app-reset";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
-import { Input } from "../form-controls";
+import { Input, Select } from "../form-controls";
 
 interface GeneralSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
+  /** Resource directory for the "I am this resource" picker. Optional so the
+   *  section renders standalone (tests) with just the "Not set" option. */
+  resources?: readonly Resource[];
 }
 
 /** The exact phrase the user must type to confirm a full reset. Deliberately a
  *  fixed English phrase (a friction gate), not localized. */
 const RESET_CONFIRM_PHRASE = "yes, reset everything";
 
-export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps) {
+export function GeneralSection({ lang, settings, onChange, resources = [] }: GeneralSectionProps) {
   const [resetOpen, setResetOpen] = useState(false);
   return (
     <>
@@ -65,6 +70,35 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
             }}
           />
         </label>
+      </div>
+
+      <hr className="my-4 border-line" />
+
+      <div className="mb-4">
+        <label htmlFor="general-self-resource" className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "selfResourceLabel")}
+          <InfoTooltip text={t(lang, "selfResourceHint")} />
+        </label>
+        <Select
+          size="xs"
+          id="general-self-resource"
+          value={settings.selfResourceId != null ? String(settings.selfResourceId) : ""}
+          aria-label={t(lang, "selfResourceLabel")}
+          onChange={(e) =>
+            onChange({
+              ...settings,
+              selfResourceId: e.target.value === "" ? undefined : Number(e.target.value),
+            })
+          }
+          className="w-full"
+        >
+          <option value="">{t(lang, "selfResourceNone")}</option>
+          {resources.map((r) => (
+            <option key={r.id} value={r.id}>
+              {resourceDisplayName(r)}
+            </option>
+          ))}
+        </Select>
       </div>
 
       <hr className="my-4 border-line" />

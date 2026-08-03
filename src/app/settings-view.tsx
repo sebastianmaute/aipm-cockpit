@@ -301,7 +301,7 @@ export function SettingsView(props: SettingsViewProps) {
           <LocalizationSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "appearance" && (
-          <AppearanceSection lang={lang} settings={settings} onChange={onChange} resources={props.resources} />
+          <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "projectOverrides" && (
           <ProjectOverridesSection lang={lang} settings={settings} projectId={props.projectId ?? "default"} />
@@ -312,6 +312,7 @@ export function SettingsView(props: SettingsViewProps) {
               lang={lang}
               settings={settings}
               onChange={onChange}
+              resources={props.resources}
             />
             <hr className="my-6 border-line" />
             <h3 className="mb-3 text-sm font-semibold text-foreground">
