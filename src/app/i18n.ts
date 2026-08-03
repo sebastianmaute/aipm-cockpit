@@ -974,6 +974,8 @@ const enUS = {
   ganttEmpty:
     "Add at least one task with a due date to see it on the Gantt chart.",
   ganttNoMatches: "No tasks match the current filters.",
+  ganttNoStatusSelected:
+    "No status selected — tick at least one status to show rows.",
   ganttAddTask: "+ Add task",
   ganttAddMilestone: "Add milestone",
   ganttToday: "Today",

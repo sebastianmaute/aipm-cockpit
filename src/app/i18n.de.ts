@@ -965,6 +965,8 @@ export const de: Record<TranslationKey, string> = {
   ganttEmpty:
     "Lege mindestens eine Aufgabe mit Fälligkeit an, um sie im Gantt-Diagramm zu sehen.",
   ganttNoMatches: "Keine Aufgaben passen zu den Filtern.",
+  ganttNoStatusSelected:
+    "Kein Status ausgewählt – wählen Sie mindestens einen Status, um Zeilen anzuzeigen.",
   ganttAddTask: "+ Aufgabe hinzufügen",
   ganttAddMilestone: "Meilenstein hinzufügen",
   ganttToday: "Heute",

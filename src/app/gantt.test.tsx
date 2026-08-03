@@ -524,3 +524,167 @@ describe("GanttPanel dedupButton slot", () => {
     expect(screen.getByRole("button", { name: "Dedup trigger" })).toBeInTheDocument();
   });
 });
+
+// ---------- v2 status filter semantics (Task 8) ----------------------------
+//
+// Under the v2 prefs schema an EMPTY `statuses` array means "show nothing", not
+// "show everything", and the milestone rows obey the same buckets. These tests
+// seed the persisted prefs blob directly (stamped `v: 2` so loadPrefs leaves an
+// empty status list alone instead of migrating it to "all ticked").
+
+describe("GanttPanel v2 status filter", () => {
+  const PREFS_KEY = "aipm-cockpit:gantt-prefs";
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  function seedPrefs(partial: Record<string, unknown>) {
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ v: 2, ...partial }));
+  }
+
+  function mkTask(over: Partial<Task> & { id: number; taskName: string }): Task {
+    return {
+      assignee: "x",
+      priority: "Medium" as const,
+      startDate: dayPlus(-10),
+      dueDate: dayPlus(10),
+      ...over,
+    } as unknown as Task;
+  }
+
+  it("shows nothing and says why when no status is ticked", () => {
+    seedPrefs({ statuses: [] });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mkTask({ id: 1, taskName: "Visible normally" })]}
+      />,
+    );
+    expect(screen.queryByText("Visible normally")).toBeNull();
+    expect(
+      screen.getByText(t("en-US", "ganttNoStatusSelected")),
+    ).toBeInTheDocument();
+  });
+
+  it("still says why when the chart itself renders (milestones present)", () => {
+    // A project with milestones takes the full-chart branch rather than the
+    // `rowsCount === 0 && no milestones` early return, so the message has to
+    // exist on BOTH paths.
+    seedPrefs({ statuses: [] });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mkTask({ id: 1, taskName: "Visible normally" })]}
+        milestones={[
+          { id: 1, name: "Pending", date: dayPlus(30), linkedTaskIds: [] } as unknown as Milestone,
+        ]}
+      />,
+    );
+    expect(screen.queryByText("Visible normally")).toBeNull();
+    expect(screen.queryByText("Pending")).toBeNull();
+    expect(
+      screen.getByText(t("en-US", "ganttNoStatusSelected")),
+    ).toBeInTheDocument();
+  });
+
+  it("hides a cancelled task when only 'open' is ticked", () => {
+    seedPrefs({ statuses: ["open"] });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mkTask({ id: 1, taskName: "Dropped", status: "Cancelled" })]}
+      />,
+    );
+    expect(screen.queryByText("Dropped")).toBeNull();
+  });
+
+  it("shows a cancelled task under 'completed'", () => {
+    seedPrefs({ statuses: ["completed"] });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mkTask({ id: 1, taskName: "Dropped", status: "Cancelled" })]}
+      />,
+    );
+    expect(screen.getByText("Dropped")).toBeInTheDocument();
+  });
+
+  it("keeps a cancelled task out of the 'overdue' bucket", () => {
+    // The bar ends in the past, so the pre-v2 code would have called it
+    // overdue. Cancelled work is closed, not late.
+    seedPrefs({ statuses: ["overdue"] });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[
+          mkTask({
+            id: 1,
+            taskName: "Dropped",
+            status: "Cancelled",
+            startDate: dayPlus(-20),
+            dueDate: dayPlus(-10),
+          }),
+        ]}
+      />,
+    );
+    expect(screen.queryByText("Dropped")).toBeNull();
+  });
+
+  it("filters milestone rows by the status buckets", () => {
+    seedPrefs({ statuses: ["completed"] });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[]}
+        milestones={[
+          {
+            id: 1,
+            name: "Shipped",
+            date: dayPlus(-30),
+            achievedDate: dayPlus(-30),
+            linkedTaskIds: [],
+          } as unknown as Milestone,
+          { id: 2, name: "Pending", date: dayPlus(30), linkedTaskIds: [] } as unknown as Milestone,
+        ]}
+      />,
+    );
+    expect(screen.getByText("Shipped")).toBeInTheDocument();
+    expect(screen.queryByText("Pending")).toBeNull();
+  });
+
+  it("hides every milestone when the milestones toggle is off", () => {
+    seedPrefs({ statuses: ["open", "completed", "overdue"], showMilestones: false });
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[]}
+        milestones={[
+          { id: 1, name: "Pending", date: dayPlus(30), linkedTaskIds: [] } as unknown as Milestone,
+        ]}
+      />,
+    );
+    expect(screen.queryByText("Pending")).toBeNull();
+  });
+
+  it("draws no milestone connector for a milestone the status filter hid", () => {
+    // Connector layer and the row list must see the SAME milestone set — a
+    // connector drawn to a row index that no longer exists points at nothing.
+    seedPrefs({ statuses: ["open", "completed", "overdue"], showMilestones: false });
+    const { container } = render(
+      <GanttPanel
+        {...BASE_PROPS}
+        milestones={[
+          { id: 1, name: "Gamma", date: dayPlus(10), linkedTaskIds: [1] } as unknown as Milestone,
+        ]}
+      />,
+    );
+    expect(container.querySelector("path[data-milestone-connector]")).toBeNull();
+  });
+
+  it("reads an empty project as 'no tasks yet', not 'filtered out', under default prefs", () => {
+    // Default v2 prefs tick every status, so a `statuses.length > 0` test for
+    // "a filter is active" would mislabel an untouched, empty project.
+    render(<GanttPanel {...BASE_PROPS} tasks={[]} />);
+    expect(screen.getByText(t("en-US", "ganttEmpty"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "ganttNoMatches"))).toBeNull();
+  });
+});

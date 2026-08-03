@@ -8,6 +8,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./milestones";
+import { isTaskClosed } from "./task-closed";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
 import {
   absenceBandBg,
@@ -73,7 +74,9 @@ export function GanttTaskRow({
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onEditTask?: (task: Task) => void;
 }) {
-  const isComplete = !!task.completedDate;
+  // Closed, not merely delivered — a cancelled bar renders struck-through
+  // rather than overdue-red, matching the status filter's buckets.
+  const isComplete = isTaskClosed(task);
   const isOverdue = !isComplete && bar.end.getTime() < today.getTime();
   const isDragging = draggingId === task.id;
   const isDropTarget = dropTargetId === task.id && draggingId !== task.id;

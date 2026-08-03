@@ -40,8 +40,11 @@ import { type Absence, type Milestone, type Priority, type Resource, type Task }
 import { effectivePersonName } from "./resource-foundation";
 import { descriptionText } from "./rich-text-projection";
 import { sortMilestones } from "./milestones";
+import { milestoneStatusBucket, taskStatusBuckets } from "./gantt-status-buckets";
+import { isTaskClosed } from "./task-closed";
 import {
   addDays,
+  ALL_GANTT_STATUSES,
   buildGanttRows,
   clampNameColWidth,
   computeCriticalPath,
@@ -217,7 +220,8 @@ export function GanttPanel({
     }
     const completed = new Set<number>();
     for (const t of tasks) {
-      if (t.completedDate) completed.add(t.id);
+      // Closed, not merely delivered: a cancelled task is not a schedule driver.
+      if (isTaskClosed(t)) completed.add(t.id);
     }
     return computeCriticalPath(tasks, allBars, completed);
   }, [tasks, allBars, prefs.showCriticalPath]);
@@ -267,20 +271,11 @@ export function GanttPanel({
       const bar = allBars.get(task.id);
       if (!bar) continue;
 
-      // Status filter — multi-select, OR within the filter (empty = all). A
-      // task passes if it matches ANY selected status bucket.
-      if (prefs.statuses.length > 0) {
-        const isComplete = !!task.completedDate;
-        const isOverdue = !isComplete && bar.end.getTime() < today.getTime();
-        const isOpen = !isComplete;
-        const matches = prefs.statuses.some(
-          (s) =>
-            (s === "open" && isOpen) ||
-            (s === "completed" && isComplete) ||
-            (s === "overdue" && isOverdue),
-        );
-        if (!matches) continue;
-      }
+      // Status filter — a task shows when it lands in ANY ticked bucket. An
+      // EMPTY selection shows nothing (v2 semantics); the chart renders an
+      // explicit message rather than a blank grid.
+      const buckets = taskStatusBuckets(task, bar, today);
+      if (!prefs.statuses.some((s) => buckets.has(s))) continue;
 
       // Priority filter — multi-select, OR within the filter (empty = all).
       if (prefs.priorities.length > 0 && !prefs.priorities.includes(task.priority))
@@ -361,9 +356,27 @@ export function GanttPanel({
   // position. Hoisted scalar for the dep array (exhaustive-deps bans
   // `prefs.milestonePlacement`).
   const milestonePlacement = prefs.milestonePlacement;
+
+  // Milestones obey the same status buckets as the tasks, plus the independent
+  // "show milestone rows at all" toggle. Both the row list AND the dependency
+  // overlay read THIS list, so a hidden milestone can never get a connector
+  // drawn to a row index that no longer exists.
+  //
+  // `statusesKey` is a string, not the array: `prefs.statuses` is a fresh
+  // identity every render, and exhaustive-deps rejects an `obj.member` dep.
+  const statusesKey = prefs.statuses.join(",");
+  const showMilestones = prefs.showMilestones;
+  const visibleMilestones = useMemo(() => {
+    if (!showMilestones) return [];
+    const ticked = new Set(statusesKey ? statusesKey.split(",") : []);
+    return sortedMilestones.filter((m) =>
+      ticked.has(milestoneStatusBucket(m, todayISO)),
+    );
+  }, [showMilestones, statusesKey, sortedMilestones, todayISO]);
+
   const rows = useMemo(
-    () => buildGanttRows(visible, sortedMilestones, milestonePlacement, allBars),
-    [visible, sortedMilestones, milestonePlacement, allBars],
+    () => buildGanttRows(visible, visibleMilestones, milestonePlacement, allBars),
+    [visible, visibleMilestones, milestonePlacement, allBars],
   );
 
   // Row index lookups for the dependency-arrow + milestone-connector overlays.
@@ -555,11 +568,18 @@ export function GanttPanel({
 
   // Differentiate "no tasks at all" from "all tasks filtered out" so the
   // user gets a recoverable empty state when their filters are too tight.
+  // The status filter is "active" only when it NARROWS something: under v2 the
+  // default is every bucket ticked, so a `length > 0` test would call an
+  // untouched project filtered and hide its "add your first task" affordance.
   const filtersActive =
     prefs.search.trim() !== "" ||
-    prefs.statuses.length > 0 ||
+    prefs.statuses.length < ALL_GANTT_STATUSES.length ||
     prefs.priorities.length > 0 ||
     prefs.assignees.length > 0;
+
+  // Nothing ticked at all — the filter excludes every row by construction, so
+  // say so instead of showing a blank grid the user can't interpret.
+  const noStatusSelected = prefs.statuses.length === 0;
 
   const toolbar = (
     <GanttToolbar
@@ -601,7 +621,13 @@ export function GanttPanel({
           />
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-            <span>{filtersActive ? t(lang, "ganttNoMatches") : t(lang, "ganttEmpty")}</span>
+            <span>
+              {noStatusSelected
+                ? t(lang, "ganttNoStatusSelected")
+                : filtersActive
+                  ? t(lang, "ganttNoMatches")
+                  : t(lang, "ganttEmpty")}
+            </span>
           </div>
         )}
       </div>
@@ -635,6 +661,13 @@ export function GanttPanel({
         />
 
         {/* --- rows ----------------------------------------------------- */}
+        {noStatusSelected ? (
+          // Header and toolbar stay mounted on purpose — the status checkboxes
+          // in the toolbar are the only way back out of this state.
+          <div className="flex flex-col items-center gap-3 border-t border-line p-10 text-center text-sm text-muted-foreground">
+            <span>{t(lang, "ganttNoStatusSelected")}</span>
+          </div>
+        ) : (
         <div className="relative">
           {/* Today marker — drawn as an absolutely positioned line that
               spans the rows area. Sits behind the bars (z-0) but on top
@@ -660,7 +693,7 @@ export function GanttPanel({
             taskRowIndexById={taskRowIndexById}
             range={range}
             critical={critical}
-            sortedMilestones={sortedMilestones}
+            sortedMilestones={visibleMilestones}
             milestoneRowIndexById={milestoneRowIndexById}
             chartWidthPx={chartWidthPx}
             totalRowsCount={totalRowsCount}
@@ -749,6 +782,7 @@ export function GanttPanel({
             </div>
           )}
         </div>
+        )}
 
         {/* --- Footer with the date range so it's visible without hover -- */}
         <div
