@@ -6,6 +6,7 @@ import { ThemeProvider } from "./use-theme";
 import { CiStyleProvider } from "./use-style";
 import { ServiceWorkerRegistrar } from "./service-worker-registrar";
 import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
+import { APP_VERSION } from "./version";
 
 const titillium = Titillium_Web({
   subsets: ["latin"],
@@ -36,6 +37,11 @@ export default async function RootLayout({
     <html
       lang="en"
       className={`${titillium.variable} h-full antialiased`}
+      // Lets e2e assert the server it is talking to IS this checkout.
+      // playwright.config.ts reuses an existing dev server outside CI, so a run
+      // can otherwise scan another worktree's code and pass (open-followups §58).
+      // Build-time constant, so SSR and client render it identically.
+      data-app-version={APP_VERSION}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-[var(--font-titillium)]">

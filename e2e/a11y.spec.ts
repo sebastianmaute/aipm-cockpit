@@ -7,6 +7,7 @@ import {
 } from "../src/app/builtin-schemes";
 import { resolveSchemeColors } from "../src/app/scheme-tokens";
 import type { SchemeColorMap } from "../src/app/scheme-apply";
+import { APP_VERSION } from "../src/app/version";
 
 // Accessibility gate: scan the critical views (with a DATA-SEEDED project, so
 // colour-coded RAG/status states actually render) for WCAG 2.0/2.1 A & AA
@@ -50,6 +51,27 @@ const SCHEME_SEED: Record<
 
 const comboLabel = (combo: (typeof COMBOS)[number]): string =>
   `${combo.scheme}-${combo.dark ? "dark" : "light"}`;
+
+// The server under test must BE this checkout. playwright.config.ts sets
+// reuseExistingServer outside CI, so a run can silently attach to a dev server
+// left over from another worktree and report 85/85 about code that is not on
+// this branch (open-followups §58). Necessary but NOT sufficient — two
+// worktrees on the same version still agree — so keep pairing this with the
+// PORT=3100 fresh-port convention AGENTS.md prescribes.
+test("guard: the served app is this checkout", async ({ page }) => {
+  await gotoApp(page);
+  const served = await page.evaluate(
+    () => document.documentElement.getAttribute("data-app-version"),
+  );
+  expect(
+    served,
+    `Served app reports version ${served ?? "(absent)"} but this checkout is ${APP_VERSION}. ` +
+      `Playwright reused an existing dev server from another worktree. Stop it, or run on a ` +
+      `fresh port: PORT=3100 npm run dev (stop with PORT=3100 npm run stop). ` +
+      `NOTE: a version MATCH does not prove the right server — two worktrees on the same ` +
+      `version agree. The fresh-port convention still applies.`,
+  ).toBe(APP_VERSION);
+});
 
 // Build the pre-navigation localStorage seed for a combo. Every combo is now a
 // scheme-driven "custom" style, so we seed the SAME keys the real boot script +
