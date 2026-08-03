@@ -148,6 +148,30 @@ describe("useColumnResize", () => {
     expect(JSON.parse(localStorage.getItem(KEY("t5")) as string)).toEqual({ v: 2, widths: {} });
   });
 
+  // ★★ A non-numeric or nonsensical stored width now costs more than a weird
+  //    column: it reaches `colWidthStyle`, is emitted as an inline `width`, the
+  //    browser discards the invalid value, and that column falls back to AUTO —
+  //    a SECOND auto column, which defeats the single-flex-column invariant the
+  //    Open Points geometry rests on. It also turns `tableMinWidthPx`'s running
+  //    sum into a string. Neither is visible in jsdom.
+  it.each([
+    ["a string", "220"],
+    ["null", null],
+    ["a nested object", { px: 220 }],
+    ["NaN-by-JSON (absent number)", undefined],
+    ["zero", 0],
+    ["a negative", -40],
+  ] as const)("drops %s from the stored widths", async (_label, bad) => {
+    localStorage.setItem(KEY("t7"), JSON.stringify({ v: 2, widths: { a: bad, b: 150 } }));
+    const { result } = renderHook(() => useColumnResize("t7", DEFAULTS));
+    await act(async () => {});
+
+    expect(result.current.sizedWidths.a).toBeUndefined();
+    // The good sibling survives — this drops the bad ENTRY, not the payload.
+    expect(result.current.sizedWidths.b).toBe(150);
+    expect(result.current.colWidths.a).toBe(DEFAULTS.a);
+  });
+
   // ★ An unrecognised version must NOT fall through to the v1 branch: a future
   //   `{v:3,widths:{…}}` spread verbatim would put a numeric `v` and an
   //   object-valued `widths` into a Record<TId, number>, and on into colWidths.

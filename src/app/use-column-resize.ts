@@ -30,6 +30,24 @@ const KEY_PREFIX = "aipm-cockpit:col-widths";
  *  spread verbatim, putting a numeric `v` and an OBJECT-valued `widths` into a
  *  `Record<TId, number>` and on into `colWidths`. Safe only by accident today
  *  (no column is named `v` or `widths`). */
+/** Keeps only entries whose value is a usable width.
+ *
+ *  ★★ The stored payload is UNTRUSTED, and a non-numeric value now costs more
+ *  than it used to. It reaches `colWidthStyle`, which emits it as an inline
+ *  `width`; the browser discards the invalid value and that column falls back to
+ *  AUTO — a SECOND auto column, which defeats the single-flex-column invariant
+ *  the Open Points geometry depends on and puts the surplus back to being split.
+ *  It also poisons `tableMinWidthPx`, whose running sum turns into a string.
+ *  Neither is visible in jsdom. The pre-v2 hook spread the payload verbatim too,
+ *  so this is hardening rather than a regression fix. */
+function usableWidths<TId extends string>(obj: object): Partial<Record<TId, number>> {
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) out[k] = v;
+  }
+  return out as Partial<Record<TId, number>>;
+}
+
 function readSized<TId extends string>(storageKey: string): Partial<Record<TId, number>> {
   try {
     const raw = window.localStorage.getItem(storageKey);
@@ -39,11 +57,11 @@ function readSized<TId extends string>(storageKey: string): Partial<Record<TId, 
     const v2 = parsed as { v?: unknown; widths?: unknown };
     if (v2.v === 2) {
       const w = v2.widths;
-      if (w && typeof w === "object" && !Array.isArray(w)) return { ...(w as Partial<Record<TId, number>>) };
+      if (w && typeof w === "object" && !Array.isArray(w)) return usableWidths<TId>(w);
       return {};
     }
     if (v2.v !== undefined) return {};
-    return { ...(parsed as Partial<Record<TId, number>>) };
+    return usableWidths<TId>(parsed);
   } catch {
     return {};
   }
