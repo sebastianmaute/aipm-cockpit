@@ -6,6 +6,7 @@ import { render, act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GanttPanel } from "./gantt";
 import { t } from "./i18n";
+import { expectButtonOrder } from "../test/toolbar-order";
 import type { Milestone, Task } from "./types";
 
 // useResizable reads/writes localStorage — mock it so tests run in JSDOM.
@@ -199,8 +200,20 @@ describe("GanttPanel milestone placement toggle", () => {
     { id: 100, name: "Beta", date: dayPlus(10), linkedTaskIds: [] },
   ];
 
+  // The toggle moved into the toolbar's "View" popover, so both cases must OPEN
+  // it first — otherwise "not in the DOM" would hold for the trivial reason that
+  // nothing is rendered until the popover opens. The assertions are unchanged.
+  const openViewMenu = (getByRole: ReturnType<typeof render>["getByRole"]) => {
+    act(() => {
+      fireEvent.click(getByRole("button", { name: t("en-US", "ganttViewMenu") }));
+    });
+  };
+
   it("hides the toggle when there are no milestones", () => {
-    const { queryByRole } = render(<GanttPanel {...BASE_PROPS} />);
+    const { getByRole, queryByRole } = render(<GanttPanel {...BASE_PROPS} />);
+    openViewMenu(getByRole);
+    // Sanity: the popover really is open (a control that is NOT milestone-gated).
+    expect(queryByRole("button", { name: t("en-US", "ganttShowGrid") })).not.toBeNull();
     expect(queryByRole("button", { name: /inline milestones/i })).toBeNull();
   });
 
@@ -208,6 +221,7 @@ describe("GanttPanel milestone placement toggle", () => {
     const { getByRole } = render(
       <GanttPanel {...BASE_PROPS} milestones={milestones} />,
     );
+    openViewMenu(getByRole);
     const btn = getByRole("button", { name: /inline milestones/i });
     // Label is pinned to what it ENABLES; default (below) → not pressed.
     expect(btn.getAttribute("aria-pressed")).toBe("false");
@@ -686,5 +700,27 @@ describe("GanttPanel v2 status filter", () => {
     render(<GanttPanel {...BASE_PROPS} tasks={[]} />);
     expect(screen.getByText(t("en-US", "ganttEmpty"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "ganttNoMatches"))).toBeNull();
+  });
+});
+
+// ---------- toolbar order ---------------------------------------------------
+
+describe("GanttToolbar control order", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  it("keeps Print · reset-columns · reset-size as the contiguous trailing group", () => {
+    render(<GanttPanel {...BASE_PROPS} />);
+    // `contiguous` is what catches a control drifting BETWEEN two members —
+    // plain ordering would still read as ascending and miss it.
+    expectButtonOrder(["printHint", "ganttResetNameCol", "tableResetSizeHint"], {
+      contiguous: true,
+    });
+  });
+
+  it("puts the View menu before that trailing group", () => {
+    render(<GanttPanel {...BASE_PROPS} />);
+    // A leading control only has to PRECEDE the group, so no `contiguous` here.
+    expectButtonOrder(["ganttViewMenu", "printHint"]);
   });
 });

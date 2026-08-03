@@ -1008,6 +1008,13 @@ const enUS = {
   ganttMilestonesInline: "Inline milestones",
   ganttMilestonesInlineHint:
     "Place each milestone as its own row among the tasks at its due date, instead of in a block below them.",
+  ganttViewMenu: "View",
+  ganttViewMenuHint: "Show or hide chart layers",
+  ganttShowHolidays: "Holidays",
+  ganttShowAbsences: "Absences",
+  ganttShowDependencies: "Dependencies",
+  ganttShowMilestones: "Milestones",
+  ganttShowGrid: "Day grid",
   health: "Health",
   healthAuto: "Auto",
   healthRed: "Red",

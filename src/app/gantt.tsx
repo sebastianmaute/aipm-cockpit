@@ -154,6 +154,11 @@ export function GanttPanel({
     toggleCriticalPath,
     toggleBaseline,
     toggleMilestonePlacement,
+    toggleHolidays,
+    toggleAbsences,
+    toggleDependencies,
+    toggleMilestones,
+    toggleGrid,
   } = useGanttPrefs();
 
   // The Gantt shows the milestone baseline overlay only when the pinned snapshot
@@ -602,6 +607,11 @@ export function GanttPanel({
       hasBaseline={hasBaseline}
       toggleMilestonePlacement={toggleMilestonePlacement}
       hasMilestones={sortedMilestones.length > 0}
+      toggleHolidays={toggleHolidays}
+      toggleAbsences={toggleAbsences}
+      toggleDependencies={toggleDependencies}
+      toggleMilestones={toggleMilestones}
+      toggleGrid={toggleGrid}
       dedupButton={dedupButton}
     />
   );

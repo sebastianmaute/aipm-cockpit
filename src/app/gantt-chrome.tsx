@@ -3,7 +3,7 @@
 // dependency/connector arrow overlay. All pure (no local state); GanttPanel
 // owns the data + handlers and passes them in.
 import type { ReactNode } from "react";
-import { BoltIcon, EllipsisVerticalIcon, FlagIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { Input, Select } from "./form-controls";
@@ -12,7 +12,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
 import { PrintButton, ResetColWidthsIcon, ResetSizeButton } from "./task-manager-ui";
 import { IconButton } from "./icon-button";
-import { ToggleButton } from "./toggle-button";
+import { GanttViewMenu } from "./gantt-view-menu";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
 import {
   addDays,
@@ -58,6 +58,11 @@ export function GanttToolbar({
   hasBaseline,
   toggleMilestonePlacement,
   hasMilestones,
+  toggleHolidays,
+  toggleAbsences,
+  toggleDependencies,
+  toggleMilestones,
+  toggleGrid,
   dedupButton,
 }: {
   lang: Lang;
@@ -79,6 +84,11 @@ export function GanttToolbar({
   hasBaseline: boolean;
   toggleMilestonePlacement: () => void;
   hasMilestones: boolean;
+  toggleHolidays: () => void;
+  toggleAbsences: () => void;
+  toggleDependencies: () => void;
+  toggleMilestones: () => void;
+  toggleGrid: () => void;
   /**
    * The AI "Deduplicate & unify" trigger, pre-built by the view wrapper
    * (it needs settings/setTasks/undo-capture the chart never sees). Null
@@ -181,38 +191,23 @@ export function GanttToolbar({
           {t(lang, "ganttResetFilters")}
         </button>
       )}
-      <ToggleButton lang={lang}
-        pressed={prefs.showCriticalPath}
-        onToggle={toggleCriticalPath}
-        accent="pink"
-        title={t(lang, "ganttCriticalPathHint")}
-        icon={<BoltIcon aria-hidden="true" className="h-3.5 w-3.5" />}
-      >
-        {t(lang, "ganttCriticalPath")}
-      </ToggleButton>
-      {hasBaseline && (
-        <ToggleButton lang={lang}
-          pressed={prefs.showBaseline}
-          onToggle={toggleBaseline}
-          title={t(lang, "ganttBaselineHint")}
-          icon={<FlagIcon aria-hidden="true" className="h-3.5 w-3.5" />}
-        >
-          {t(lang, "ganttBaseline")}
-        </ToggleButton>
-      )}
-      {hasMilestones && (
-        <ToggleButton lang={lang}
-          // Name/state coherence: the visible label is pinned to what the toggle
-          // ENABLES ("Inline milestones") and aria-pressed tracks THAT state, so
-          // "Inline milestones, pressed" ⇒ inline is on.
-          pressed={prefs.milestonePlacement === "inline"}
-          onToggle={toggleMilestonePlacement}
-          title={t(lang, "ganttMilestonesInlineHint")}
-          icon={<MapPinIcon aria-hidden="true" className="h-3.5 w-3.5" />}
-        >
-          {t(lang, "ganttMilestonesInline")}
-        </ToggleButton>
-      )}
+      {/* Every display toggle lives in one popover — eight chips inline would
+        * have swamped this row. It is a LEADING control, so the convention only
+        * requires it to come BEFORE the trailing group. */}
+      <GanttViewMenu
+        lang={lang}
+        prefs={prefs}
+        hasBaseline={hasBaseline}
+        hasMilestones={hasMilestones}
+        toggleCriticalPath={toggleCriticalPath}
+        toggleBaseline={toggleBaseline}
+        toggleMilestonePlacement={toggleMilestonePlacement}
+        toggleHolidays={toggleHolidays}
+        toggleAbsences={toggleAbsences}
+        toggleDependencies={toggleDependencies}
+        toggleMilestones={toggleMilestones}
+        toggleGrid={toggleGrid}
+      />
       {/* Trailing group, ordered as everywhere else: Print · reset-columns ·
         * reset-pane-size. The column reset carries the COLUMNS icon — it wore
         * the reset-size glyph, making the two adjacent resets indistinguishable. */}

@@ -998,6 +998,13 @@ export const de: Record<TranslationKey, string> = {
   ganttBaselineHint:
     "Zeigt das zugesagte Baseline-Datum jedes Meilensteins als Geisterraute hinter dem aktuellen Datum, um Terminverschiebungen sichtbar zu machen.",
   ganttMilestonesInline: "Meilensteine inline",
+  ganttViewMenu: "Ansicht",
+  ganttViewMenuHint: "Ebenen ein- oder ausblenden",
+  ganttShowHolidays: "Feiertage",
+  ganttShowAbsences: "Abwesenheiten",
+  ganttShowDependencies: "Abhängigkeiten",
+  ganttShowMilestones: "Meilensteine",
+  ganttShowGrid: "Tagesraster",
   ganttMilestonesInlineHint:
     "Jeden Meilenstein als eigene Zeile zwischen den Aufgaben an seinem Fälligkeitsdatum anzeigen, statt als Block darunter.",
   health: "Ampel",
