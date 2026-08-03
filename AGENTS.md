@@ -458,7 +458,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the bad pair. The old wording caused three separate defects in one session — every reader concluded
   load normalises the pair and wrote that into code comments and commit messages.
   `isTaskFinished`=Done|Cancelled; Cancelled is terminal-but-NOT-completed (excluded from
-  overdue/next-actions/health-red). ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0
+  overdue/next-actions/health-red). ★★ SINCE 0.213.0 THE CALLER MUST SAY WHICH QUESTION IT IS ASKING —
+  pure `task-closed.ts` exposes `isTaskClosed(task)` (= `isTaskFinished`, Done|Cancelled → "will this be
+  worked on again?": overdue, schedule RAG, forecast, workload, row styling, chasing, the Gantt status
+  filter, milestone at-risk) and `isTaskDelivered(task)` (= `!!completedDate` → "was it delivered?": the
+  completion-% NUMERATOR, earned value, on-time/late, and anywhere a real date is shown). Cancelled is
+  CLOSED but never DELIVERED. Reading `!!completedDate` as "closed" is the bug that made cancelled tasks
+  keep reporting as open and overdue — 11 modules import the split (dashboard · gantt · gantt-rows ·
+  gantt-status-buckets · milestones · reports-stats · resource-workload-rows · resources-panel · snapshot ·
+  task-row · visible-task-rows). ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0
   cancelled work is dropped from the DENOMINATOR (`dashboard.ts` `computeDashboardProgress`), so a
   project with cancelled scope can reach 100%. Reports carry a third `cancelled` bucket — a cancelled
   task is neither open nor completed there, and never overdue. UI labels via
@@ -733,16 +741,39 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `disciplines`/`grades`/`setResources` and passes them to sibling panels. (Every other panel it renders —
   tasks, milestones, dashboard, insights, knowledge, timelog — is un-memoized, so consuming context there
   costs nothing.)
-- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation + layout); heavy
-  parts extracted. Pure i18n-free ENGINE `gantt-engine.ts` (date math, prefs load/save, critical-path,
-  derive-bar). React pieces: hooks `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
+- **Gantt module map:** `GanttPanel` (`gantt.tsx`, 715 lines) is orchestrator only (data derivation +
+  layout); heavy
+  parts extracted. Pure i18n-free ENGINES `gantt-engine.ts` (date math, prefs load/save, critical-path,
+  derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
+  status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
+  `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
   lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
   `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
   `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone
-  connectors) and `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`). Rows/chrome are PURE —
+  connectors), `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`), `gantt-chart.tsx` (`GanttChart` —
+  the scrollable chart surface: sticky header, overlays, today marker, dependency layer, the interleaved
+  row list, the trailing add-task affordance and the range footer; extracted from `gantt.tsx`),
+  `gantt-overlays.tsx` (`GanttNonWorkingLayer` holiday shading + `GanttGridLayer` dotted day rules, both
+  `aria-hidden` + `pointer-events-none` so they can never intercept a bar drag; both derive their origin
+  from the SHARED `dayLeftPx(i, nameColWidth)` — a layer computing its own origin/column width puts a grid
+  line off its date label) and `gantt-view-menu.tsx` (`GanttViewMenu`, the toolbar's View popover holding
+  all EIGHT display toggles — dependencies · holidays · absences · grid · critical path · baseline ·
+  show-milestones · inline milestone placement; every one is a `ToggleButton`, never a hand-rolled
+  `aria-pressed` button, so each gets the non-colour pressed marker). Rows/chrome/chart/overlays are PURE —
   `GanttPanel` threads data + drag state/handlers (incl. the same `interactingWithBarRef` the row's
   `onDragStart` reads synchronously) down as props. ★ Gantt IS in axe `A11Y_VIEWS`. ★ One brittle
   markup-ORDER source test reads `gantt-chrome.tsx` (toolbar markup moved there), not `gantt.tsx`.
+  ★★★ **GANTT PREFS ARE v2 AND `statuses: []` NOW MEANS "SHOW NOTHING".** `GANTT_PREFS_VERSION = 2`
+  (`gantt-engine.ts`); `DEFAULT_PREFS.statuses` is `[...ALL_GANTT_STATUSES]`, i.e. every bucket TICKED.
+  The pre-v2 blob used empty-means-all, so `loadPrefs` migrates it — `!isV2 && statuses.length === 0`
+  re-fills all three buckets — and `savePrefs` stamps `v`. Writing `statuses: []` intending "show
+  everything" now yields an EMPTY chart. ★★ Consequently **any "is a filter active" test must compare
+  `prefs.statuses.length < ALL_GANTT_STATUSES.length`, NEVER `> 0`** — a `> 0` test calls an untouched
+  project filtered and hides its "add your first task" affordance (that exact mistake shipped a regression
+  in the 0.213.0 branch; `gantt.tsx:588` holds the correct form). ★ `resetFilters` restores all three
+  statuses, NOT `[]`; priorities and assignees keep empty-means-all and still clear to `[]`. ★
+  `ALL_GANTT_STATUSES` is `Object.freeze`d and `loadPrefs` returns `DEFAULT_PREFS` BY REFERENCE on its
+  SSR/no-blob/catch paths — spread it (`[...ALL_GANTT_STATUSES]`) wherever a mutable array is wanted.
   ★ The name-column resize handle (in `GanttHeader`, `gantt-chrome.tsx`) renders the SAME 3-dot ⋮ grip
   glyph as the Open Points table but tuned for the LIGHT `bg-surface-muted` header (`text-muted-foreground/60`
   + `hover:bg-ui-dark-blue/10` + `hover:text-ui-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
@@ -833,6 +864,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   a GROUPING change, not an ordering one: the toggle was already the element immediately preceding the group,
   so a DOM-ORDER assertion passes against the unfixed code. Assert `closest("div.ml-auto")` contains the
   Outlook control instead.
+  ★ Gantt's **View** menu (`GanttViewMenu`, 0.213.0) sits AFTER the reset-filters button and BEFORE the
+  trailing Print · reset-columns · reset-size group (`gantt-chrome.tsx`) — it collects display toggles, so
+  it is neither a primary action nor a member of the trailing group.
 
 ### Dashboard landing cockpit
 
