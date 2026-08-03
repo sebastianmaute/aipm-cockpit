@@ -7,7 +7,7 @@ import {
   visibleTaskCols,
 } from "./open-points-table-geometry";
 import { ALL_TASK_COLS } from "./tasks-section-columns";
-import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
+import { DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
 
 describe("visibleTaskCols", () => {
   // ★ Assert the WHOLE list, not a sampled pair. `indexOf("id") < indexOf("taskName")`

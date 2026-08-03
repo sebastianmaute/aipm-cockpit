@@ -21,30 +21,12 @@ const DEFAULT_HIDDEN = ["estimate", "spent", "createdDate"] as const;
  *  re-hiding a column the user has since chosen to show. */
 const NEW_HIDDEN_IN_V2 = ["createdDate"] as const;
 
-export const DEFAULT_COL_WIDTHS: Record<string, number> = {
-  // ★ These are DECLARED widths, and under `table-layout: fixed` every column
-  //   that declares one keeps it — the leftover all goes to `taskName`, the one
-  //   auto column (see open-points-table-geometry.ts). So a utility column is
-  //   tuned to what it actually holds rather than padded to absorb slack.
-  sel: 36, // a 16px checkbox plus its tap padding
-  status: 28, // holds a single ~10px RAG dot
-  id: 80,
-  taskName: 200,
-  assignee: 140,
-  startDate: 110,
-  dueDate: 110,
-  lastUpdateDate: 110,
-  createdDate: 110,
-  priority: 90,
-  taskStatus: 110,
-  blockers: 140,
-  description: 140,
-  notesLog: 80,
-  depRelations: 96, // an em-dash, or a short chip plus a pencil
-  estimate: 80,
-  spent: 80,
-  actions: 32, // one ⋮ icon button
-};
+/** Re-exported from the DOM-free leaf so long-standing importers keep working.
+ *  It lives there, not here, because the pure geometry module needs it and this
+ *  module is `"use client"` — importing it from here dragged React into the
+ *  geometry module's graph, defeating the extraction that created the leaf. */
+import { DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
+export { DEFAULT_COL_WIDTHS };
 
 /** Open Points table column state. The width/drag/reset concern delegates to the
  *  shared `useColumnResize` (tableId "open-points-v2"); this hook adds the
@@ -60,10 +42,15 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
  *  a no-op for exactly the users who see the wasted space. The cost is losing
  *  genuine drags for this one table; "reset columns" is unaffected. */
 export function useColumnManager(): {
-  colWidths: Record<string, number>;
-  /** ONLY the columns the user explicitly sized. The pane needs these, not the
-   *  defaults-filled map — an absent key is what lets `taskName` render with no
-   *  declared width and so absorb the table's leftover. */
+  /** ONLY the columns the user explicitly sized. An absent key is what lets
+   *  `taskName` render with no declared width and so absorb the table's leftover.
+   *  ★★★ THE DEFAULTS-FILLED MAP IS DELIBERATELY NOT RETURNED. `useColumnResize`
+   *  still computes it and 37 other tables consume it, but handing it out HERE is
+   *  the one-word regression that kills the flex column — and it is NOT a type
+   *  error (`Record<string, number>` is assignable to `Partial<Record<…>>`), so
+   *  neither tsc nor any test would catch `sizedWidths={colWidths}`. Not exposing
+   *  it is what makes that unwritable rather than merely unwise. Re-adding it to
+   *  this return type re-opens the hole. */
   sizedWidths: Partial<Record<string, number>>;
   hiddenCols: Set<string>;
   setHiddenCols: Dispatch<SetStateAction<Set<string>>>;
@@ -73,7 +60,7 @@ export function useColumnManager(): {
   resetColWidths: () => void;
   startColResize: (col: string, e: React.MouseEvent) => void;
 } {
-  const { colWidths, sizedWidths, startColResize, resetColWidths } = useColumnResize<string>(
+  const { sizedWidths, startColResize, resetColWidths } = useColumnResize<string>(
     "open-points-v2",
     DEFAULT_COL_WIDTHS,
   );
@@ -113,7 +100,6 @@ export function useColumnManager(): {
   usePopoverDismiss(colConfigOpen, colConfigRef, closeColConfig);
 
   return {
-    colWidths,
     sizedWidths,
     hiddenCols,
     setHiddenCols,

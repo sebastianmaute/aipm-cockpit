@@ -73,7 +73,7 @@ import type { ToolDispatcher } from "./chat-tools";
 import { useHolidaySet } from "./use-holiday-set";
 import { TasksSection, CONFIGURABLE_COLS, type TasksSectionProps } from "./tasks-section";
 import { TASK_STATUSES } from "./types";
-import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
+import { DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
 import { GUTTER_WIDTH_PX, visibleTaskCols } from "./open-points-table-geometry";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
@@ -180,7 +180,7 @@ function makeProps(): TasksSectionProps {
     // column manager
     hiddenCols: new Set(),
     setHiddenCols: vi.fn(),
-    colWidths: {},
+    sizedWidths: {},
     colConfigOpen: false,
     setColConfigOpen: vi.fn(),
     colConfigRef: React.createRef<HTMLDivElement>(),
@@ -962,7 +962,7 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
-  // The tasks pane now renders the shared CalendarSyncControls, whose checkbox is
+  // The tasks pane now renders the shared CalendarSyncControls, whose enable toggle is
   // named per entity so that N panes' enable boxes are distinguishable (WCAG 2.4.6).
   // Querying the bare "Add to Outlook calendar" would match nothing and quietly
   // make every absence assertion below pass for the wrong reason.
@@ -977,17 +977,21 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: calEnableLabel }),
+      screen.queryByRole("button", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
   });
 
-  it("gives the Outlook enable checkbox an explanatory tooltip", () => {
+  it("gives the Outlook enable toggle an explanatory tooltip carrying its state", () => {
     stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
     const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} m365Configured />);
-    const box = screen.getByRole("checkbox", { name: calEnableLabel });
-    expect(box.getAttribute("title")).toBe(t("en-US", "calendarSyncEnableHint"));
+    const box = screen.getByRole("button", { name: calEnableLabel });
+    // ★ `toContain`, not `toBe`: ToggleButton appends the current on/off state to
+    //   every tooltip, so the hint is now a prefix rather than the whole title.
+    expect(box.getAttribute("title")).toContain(t("en-US", "calendarSyncEnableHint"));
+    // This fixture stubs the sync ON, so the tooltip must say so.
+    expect(box.getAttribute("title")).toContain(t("en-US", "toggleStateOn"));
   });
 
   it("shows the Pull-from-Outlook button when M365 is configured and task calendar sync is enabled", () => {
@@ -1028,7 +1032,7 @@ describe("TasksSection", () => {
       screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: calEnableLabel }),
+      screen.queryByRole("button", { name: calEnableLabel }),
     ).not.toBeInTheDocument();
   });
 
@@ -1183,7 +1187,7 @@ describe("TasksSection", () => {
     });
 
     it("emits a width for taskName once the user has sized it", () => {
-      const { container } = renderTable({ colWidths: { taskName: 420 } });
+      const { container } = renderTable({ sizedWidths: { taskName: 420 } });
       expect(colsById(container).get("taskName")!.getAttribute("style") ?? "")
         .toMatch(/width:\s*420px/);
     });

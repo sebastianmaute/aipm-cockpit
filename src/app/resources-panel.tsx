@@ -496,7 +496,7 @@ function ResourcesPanelInner({
   // Shared by the planning control row and the workload header — the same
   // filter drives both views' resource list.
   const hideExternalToggle = (
-    <ToggleButton
+    <ToggleButton lang={lang}
       pressed={hideExternal}
       onToggle={() => setHideExternal((v) => !v)}
       icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}

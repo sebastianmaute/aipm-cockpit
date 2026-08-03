@@ -1,7 +1,7 @@
 // src/app/use-column-manager.test.ts
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_COL_WIDTHS, useColumnManager } from "./use-column-manager";
+import { useColumnManager } from "./use-column-manager";
 
 // Width state is delegated to the shared useColumnResize (tableId
 // "open-points-v2"), which owns the suffixed storage key + the debounced-persist
@@ -12,9 +12,9 @@ const HIDDEN_COLS_KEY = "aipm-cockpit:hidden-cols";
 
 describe("useColumnManager", () => {
   describe("initial state", () => {
-    it("colWidths equals DEFAULT_COL_WIDTHS initially", () => {
+    it("sizedWidths is empty initially — every column is at its default", () => {
       const { result } = renderHook(() => useColumnManager());
-      expect(result.current.colWidths).toEqual(DEFAULT_COL_WIDTHS);
+      expect(result.current.sizedWidths).toEqual({});
     });
 
     it("hiddenCols contains the default-hidden columns initially", () => {
@@ -29,11 +29,11 @@ describe("useColumnManager", () => {
   });
 
   describe("localStorage hydration", () => {
-    it("loads colWidths from localStorage on mount", async () => {
+    it("loads stored widths from localStorage on mount", async () => {
       localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify({ taskName: 300 }));
       const { result } = renderHook(() => useColumnManager());
       await act(async () => {});
-      expect(result.current.colWidths.taskName).toBe(300);
+      expect(result.current.sizedWidths.taskName).toBe(300);
     });
 
     it("reads widths from the v2 table key, ignoring a stale open-points blob", () => {
@@ -45,8 +45,8 @@ describe("useColumnManager", () => {
         JSON.stringify({ status: 999, actions: 999 }),
       );
       const { result } = renderHook(() => useColumnManager());
-      expect(result.current.colWidths.status).toBe(DEFAULT_COL_WIDTHS.status);
-      expect(result.current.colWidths.actions).toBe(DEFAULT_COL_WIDTHS.actions);
+      expect(result.current.sizedWidths.status).toBeUndefined();
+      expect(result.current.sizedWidths.actions).toBeUndefined();
     });
 
     it("loads hiddenCols from localStorage on mount", async () => {
@@ -59,14 +59,16 @@ describe("useColumnManager", () => {
   });
 
   describe("resetColWidths", () => {
-    it("resets to DEFAULT_COL_WIDTHS and removes the localStorage key", async () => {
+    it("clears every user-set width and removes the localStorage key", async () => {
       localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify({ taskName: 300 }));
       const { result } = renderHook(() => useColumnManager());
       await act(async () => {});
       act(() => {
         result.current.resetColWidths();
       });
-      expect(result.current.colWidths).toEqual(DEFAULT_COL_WIDTHS);
+      // Empty, NOT defaults-filled: reset must restore the flex column, and a
+      // taskName entry of any value — including its own default — pins a width.
+      expect(result.current.sizedWidths).toEqual({});
       expect(localStorage.getItem(COL_WIDTHS_KEY)).toBeNull();
     });
   });
@@ -110,28 +112,24 @@ describe("useColumnManager", () => {
     });
   });
 
-  // ★★ The pane binds to `sizedWidths`, NOT `colWidths` — an absent key is what
-  //    lets `taskName` render with no declared width and so absorb the table's
-  //    leftover. If this hook stopped re-exporting it, or re-exported the merged
-  //    map under that name, every column would declare a width, the flex column
-  //    would silently never engage, and the leftover would go back to being split
-  //    evenly across all of them. That is invisible in jsdom and to axe.
-  // ★★ KNOWN GAP, deliberately not closed here: these tests pin the HOOK's half
-  //    of the contract. The other half — `task-manager.tsx` passing `sizedWidths`
-  //    as the pane's `colWidths` prop — has NO test. `tasks-section.test.tsx`
-  //    supplies that prop directly, and the characterization suite mounts
-  //    TaskManager on the dashboard, so TasksSection never renders there (probed:
-  //    a mock of it captures nothing). Reverting that one line would kill the flex
-  //    column with every gate still green. Covering it needs a TaskManager mount
-  //    navigated to Open Points — worth doing if that pane grows more wiring.
+  // ★★ The pane binds to `sizedWidths`, and an ABSENT key is what lets `taskName`
+  //    render with no declared width and so absorb the table's leftover. Hand the
+  //    pane the defaults-filled map instead and every column declares a width, the
+  //    flex column silently never engages, and the leftover goes back to padding
+  //    the narrow columns. Invisible in jsdom and to axe.
+  // ★★★ THAT REVERT IS NOT A TYPE ERROR — `Record<string, number>` is assignable
+  //     to `Partial<Record<string, number>>`, so `sizedWidths={colWidths}` compiles
+  //     clean and no test catches it. The guard is that this hook does NOT RETURN
+  //     the merged map at all, so there is no `colWidths` in `task-manager.tsx`'s
+  //     scope to pass. The test below is what pins that: it fails to compile if the
+  //     key comes back. `useColumnResize` still computes it for the 37 other tables.
   describe("sizedWidths", () => {
-    it("is empty on a fresh install, where colWidths is fully populated", () => {
+    it("is empty on a fresh install", () => {
       const { result } = renderHook(() => useColumnManager());
       expect(result.current.sizedWidths).toEqual({});
-      expect(Object.keys(result.current.colWidths).length).toBeGreaterThan(10);
     });
 
-    it("carries only the dragged column, while colWidths still fills the rest", () => {
+    it("carries only the dragged column", () => {
       localStorage.setItem(
         "aipm-cockpit:col-widths:open-points-v2",
         JSON.stringify({ v: 2, widths: { taskName: 333 } }),
@@ -139,8 +137,17 @@ describe("useColumnManager", () => {
       const { result } = renderHook(() => useColumnManager());
 
       expect(result.current.sizedWidths).toEqual({ taskName: 333 });
-      expect(result.current.colWidths.taskName).toBe(333);
-      expect(result.current.colWidths.status).toBe(DEFAULT_COL_WIDTHS.status);
+      expect(result.current.sizedWidths.status).toBeUndefined();
+    });
+
+    it("does not expose the defaults-filled map, so it cannot be wired to the pane", () => {
+      const { result } = renderHook(() => useColumnManager());
+      // A ts-expect-error IS the assertion: if `colWidths` is ever added back to
+      // the return type this line stops erroring and `npx tsc --noEmit` FAILS on
+      // the unused directive. Runtime absence alone would not catch it, since the
+      // damage is done by a caller that CAN name the key.
+      // @ts-expect-error — colWidths is deliberately not part of this hook's API.
+      expect(result.current.colWidths).toBeUndefined();
     });
   });
 });

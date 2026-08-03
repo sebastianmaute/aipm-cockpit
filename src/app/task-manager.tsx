@@ -2371,7 +2371,7 @@ function TaskManagerInner() {
       onDelete={onDelete}
       hiddenCols={hiddenCols}
       setHiddenCols={setHiddenCols}
-      colWidths={sizedWidths}
+      sizedWidths={sizedWidths}
       colConfigOpen={colConfigOpen}
       setColConfigOpen={setColConfigOpen}
       colConfigRef={colConfigRef}

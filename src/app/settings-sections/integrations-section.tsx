@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ArrowPathIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
+import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";
 import { FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
@@ -56,8 +58,8 @@ interface IntegrationsSectionProps {
   hideJira?: boolean;
 }
 
-/** One calendar write-back entity row (label + Enable + Auto-sync checkboxes).
- *  Reused per entity type so every row renders identical markup/a11y. */
+/** One calendar write-back entity row (label + an Enable and an Auto-sync toggle
+ *  button). Reused per entity type so every row renders identical markup/a11y. */
 function CalendarSyncEntityRow({
   lang,
   settings,
@@ -73,6 +75,7 @@ function CalendarSyncEntityRow({
 }) {
   const sync = calendarSyncFor(settings, entityType);
   const label = t(lang, labelKey);
+  const autoHintId = `${useId()}-auto-hint`;
   const write = (enabled: boolean, auto: boolean) =>
     onChange({
       ...settings,
@@ -82,26 +85,61 @@ function CalendarSyncEntityRow({
     <div className="mt-2">
       <p className="text-sm font-medium text-foreground">{label}</p>
       <div className="mt-1 flex flex-col gap-1 pl-1">
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <Checkbox
-            aria-label={`${t(lang, "calendarSyncEnable")} – ${label}`}
-            title={t(lang, "calendarSyncEnableHint")}
-            checked={sync.enabled}
-            onChange={(e) => write(e.target.checked, e.target.checked ? sync.auto : false)}
-          />
-          <span>{t(lang, "calendarSyncEnable")}</span>
-        </label>
-        <label
-          className={`flex items-center gap-2 text-sm ${sync.enabled ? "text-foreground" : "text-muted-foreground"}`}
+        {/* ★ Label PINNED to what pressed=true enables; `aria-pressed` carries the
+            state (WCAG 4.1.2). `ariaLabel` keeps the four entity rows distinguishable
+            (WCAG 2.4.6). ★★ NOT because a gate would catch it — nothing automated sees
+            this row at all, and that is CERTAIN, not likely, for two independent
+            reasons: `settings-view.tsx` seeds `active` to "general" and the e2e seed
+            only clicks the nav entry, never the rail; and the whole calendar block is
+            gated on `m365.enabled`, which `e2e/seed.ts` never configures. Same applies
+            to the toolbar copies via `CalendarSyncControls`' `m365Configured` guard —
+            so RAID/Resources being in `A11Y_VIEWS` buys nothing here. */}
+        <ToggleButton
+          pressed={sync.enabled}
+          // ★★ Always false, and deliberately so. This once read
+          //    `!sync.enabled ? sync.auto : false` to "preserve" auto when
+          //    re-enabling — dead code: `sync` comes from `calendarSyncFor`, which
+          //    already masks auto to false whenever enabled is false, so the
+          //    preserved branch could only ever yield false. Turning a row back on
+          //    starts with background sync OFF, which is the safe direction and
+          //    what the tests pin.
+          // ★★ The four TOOLBAR enable-toggles (tasks-section, and raid/change/
+          //    absence in use-calendar-integrations) are NOT equivalent — they read
+          //    the RAW stored auto, not this masked one. What makes them safe is
+          //    `sanitizeOutlookCalendar` masking at load; do not weaken that on the
+          //    assumption the reader-side mask covers them, because it does not.
+          onToggle={() => write(!sync.enabled, false)}
+          ariaLabel={`${t(lang, "calendarSyncEnable")} – ${label}`}
+          title={t(lang, "calendarSyncEnableHint")}
+          lang={lang}
+          icon={<CalendarDaysIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+          className="w-fit"
         >
-          <Checkbox
-            aria-label={`${t(lang, "calendarSyncAuto")} – ${label}`}
-            disabled={!sync.enabled}
-            checked={sync.auto}
-            onChange={(e) => write(sync.enabled, e.target.checked)}
-          />
-          <span>{t(lang, "calendarSyncAuto")}</span>
-        </label>
+          {t(lang, "calendarSyncEnable")}
+        </ToggleButton>
+        {/* ★ Both halves of this setting are ToggleButtons so the row reads as one
+            control family. ★★ A real `disabled` (not `aria-disabled`) means the
+            auto toggle LEAVES THE TAB ORDER — so a keyboard-only user never lands
+            on it and it cannot explain itself. That is why the dependency is
+            spelled out in a VISIBLE hint wired via `aria-describedby`, and why the
+            primitive drops its "click to turn on" state suffix while disabled: an
+            instruction the control cannot honour is worse than none. */}
+        <ToggleButton
+          pressed={sync.auto}
+          onToggle={() => write(sync.enabled, !sync.auto)}
+          ariaLabel={`${t(lang, "calendarSyncAuto")} – ${label}`}
+          title={t(lang, "calendarSyncAutoHint")}
+          lang={lang}
+          ariaDescribedBy={sync.enabled ? undefined : autoHintId}
+          disabled={!sync.enabled}
+          icon={<ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+          className="w-fit"
+        >
+          {t(lang, "calendarSyncAuto")}
+        </ToggleButton>
+        {!sync.enabled && (
+          <FieldHint id={autoHintId}>{t(lang, "calendarSyncAutoRequiresEnable")}</FieldHint>
+        )}
       </div>
     </div>
   );

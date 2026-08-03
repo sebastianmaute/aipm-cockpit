@@ -519,7 +519,18 @@ export function sanitizeOutlookCalendar(
     const v = o[type];
     if (v && typeof v === "object") {
       const e = v as Record<string, unknown>;
-      out[type] = { enabled: e.enabled === true, auto: e.auto === true };
+      // ★★★ `auto` IS MASKED BY `enabled` AT LOAD, mirroring `calendarSyncFor`.
+      //     Without this the STORED state can hold {enabled:false, auto:true}
+      //     while every UI surface renders the masked (false) value — and the four
+      //     toolbar enable-toggles read the RAW stored auto when switching a row
+      //     on (`tasks-section.tsx`, plus raid/change/absence in
+      //     `use-calendar-integrations.ts`). One click would then arm unattended
+      //     two-way Outlook sync on a row the user had only just enabled.
+      //     Not reachable from a clean install — every in-app writer forces
+      //     auto:false on disable — but an imported or hand-edited settings blob
+      //     is, and this is the one place that can rule it out for all of them.
+      const enabled = e.enabled === true;
+      out[type] = { enabled, auto: enabled && e.auto === true };
     }
   }
   return Object.keys(out).length > 0 ? out : undefined;

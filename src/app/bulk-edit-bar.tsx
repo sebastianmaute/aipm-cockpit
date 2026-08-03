@@ -20,7 +20,7 @@ export function BulkEditBar({ lang, count, open, onToggleOpen, onClear }: BulkEd
   return (
     <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5">
       <span className="text-xs font-medium text-foreground">{t(lang, "selectionCount", String(count))}</span>
-      <ToggleButton pressed={open} onToggle={onToggleOpen}>
+      <ToggleButton lang={lang} pressed={open} onToggle={onToggleOpen}>
         {t(lang, "bulkEdit")}
       </ToggleButton>
       <button

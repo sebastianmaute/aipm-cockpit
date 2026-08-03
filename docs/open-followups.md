@@ -1953,14 +1953,106 @@ conservative" as "the feature works for everyone" — those two facts are about 
 ★ The cheap fix, if this is ever worth doing: drop v1 keys whose value already equals
 `defaults[key]`. The only thing lost is a user who dragged a column to *exactly* its default width,
 who then keeps seeing that width anyway and diverges only once the default changes — arguably the
-desired outcome. Not done in 0.212.0 because it is a behaviour change for 19 tables that were not in
+desired outcome. Not done in 0.212.0 because it is a behaviour change for the 37 other tables that were not in
 that slice's scope.
+
+★★★ **BUT THAT DEFERRAL IS NOT FREE, AND IT IS ALREADY SPENT.** The migration is SELF-SEALING: on the
+first mount after upgrading, `readSized` reads the v1 bare object, promotes every key to `sizedWidths`,
+and the debounced effect writes it straight back as `{v:2, widths:{…every key…}}`. From the second
+launch onward that former defaults-snapshot is INDISTINGUISHABLE from genuine drags. The cheap fix
+above can only ever run against a **v1** payload — so once a user has launched 0.212.0 even once,
+there is nothing left for it to identify. This was not "deferred"; for every user who runs this
+release it is **foreclosed**. Raised by a cold reviewer before merge and recorded rather than acted
+on: recovering the benefit later needs a different mechanism entirely (e.g. shipping the defaults
+alongside the payload so a future version can tell chosen from inherited), not this predicate.
 
 ★ Related and CLOSED in the same release: an unrecognised version (`{v:3,…}`, `{v:"2",…}`) used to
 fall through to the v1 branch and get spread verbatim, putting a numeric `v` and an object-valued
 `widths` into a `Record<TId, number>` and on into `colWidths`. It is now `if (v2.v !== undefined)
 return {}` — an unknown version reads as "no user widths". Pinned by an `it.each` test; verified
 failing without the guard.
+
+---
+
+## 53. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
+
+0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
+Fourteen controls do NOT use that primitive and were left as they were. For MOST of them the only
+visual signal that they are active is a fill or tint change — WCAG 1.4.1.
+
+★★ TWO OF THE FOURTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
+all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
+flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
+`status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
+four callers that render it are covered and the two that destructure without it
+(`note-log-panel.tsx:68,181`) are not. Check the caller, not the grep hit.
+
+`rich-text-editor.tsx:83-84` is the clearest and the most used: `BTN` and `BTN_ON` differ by
+`bg-ui-dark-blue` + `text-white` and nothing else, on the bold/italic/list buttons every task
+description and note passes through. The others: `task-form-fields.tsx:545,559` (health-override
+chips) · `create-project-wizard.tsx:308,337` (template picker) · `modal-field-controls.tsx:63` (tier
+selector) · `raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
+`settings-sections/comm-templates-section.tsx:335,357` (version compare) · `step0-import-panel.tsx:304`
+· `influence-interest-matrix.tsx:80` · `dictation-mic.tsx:73` · `voice-button.tsx:101`.
+
+★★ NOTHING AUTOMATED WILL FLAG THESE. axe 4.12.1 ships exactly ONE rule tagged `wcag141` —
+`link-in-text-block`, which is about links against surrounding text — and nothing in axe evaluates
+whether a CONTROL's state is colour-only (queried in-process: 105 rules, one `wcag141`). Several of
+the hosts sit on axe-scanned views and pass today. The count above is the whole population — every
+`aria-pressed` JSX attribute outside the primitive, counted, not estimated.
+
+★ The fix is not uniformly "migrate to `ToggleButton`". Some are radio-like single-select groups
+(template picker, tier selector, RACI role, import method, quadrant) where the primitive's chip
+styling and pinned-label rule may not fit, and where `role="radio"` might be the better answer than
+`aria-pressed` at all. The editor toolbar and the two mic buttons are genuine binary toggles and are
+the natural first migration.
+
+---
+
+## 54. `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open
+
+Pressed-vs-unpressed border contrast, computed from `src/app/builtin-schemes.ts`:
+
+| scheme | `--line` vs `--ui-dark-blue` |
+|---|---|
+| harbor-light | 8.97:1 |
+| meridian-light | 7.71:1 |
+| umber-light | 9.30:1 |
+| **harbor-dark** | **1.22:1** |
+| **meridian-dark** | **1.16:1** |
+| **umber-dark** | **1.03:1** |
+
+★★★ THIS IS NOT THE 1.4.1 PROBLEM 0.212.0 FIXED, AND THE CHECK GLYPH ONLY MASKS IT. SC **1.4.11
+Non-text Contrast** requires 3:1 for "visual information required to identify user interface
+components **and states**" — "states" is in the normative text. At 1.03:1 the pressed styling is
+invisible to EVERY user, not only to users with a colour-vision deficiency, so this is a contrast
+defect rather than a colour-reliance one. The new glyph means state is still discoverable, which is
+why this is a follow-up and not a release blocker — but `--ui-dark-blue` as an accent ON a dark
+surface does no visual work anywhere in the app, and the fix belongs in the dark scheme maps
+(a pressed border clearing 3:1 against `--line`), not in the component.
+
+★★ The header comment in `toggle-button.tsx` — "gains an accent border + tint when pressed, so the
+ON state is visible at a glance" — is measurably false in the dark schemes. Pre-existing text; this
+is the release that made it disprovable.
+
+★ Why no gate caught it: `e2e/a11y.spec.ts` runs axe over 5 of the 6 built-in scheme combos, but
+axe's contrast rules evaluate TEXT, not a component's state border, and umber-dark is the omitted
+combo. Scheme DATA remains 5-of-6 covered — this is that hole producing a real defect.
+
+---
+
+## 55. The four toolbar Outlook enable-toggles carry an untested `auto` guard — open
+
+`tasks-section.tsx` and the raid/change/absence writers in `use-calendar-integrations.ts` each read
+the RAW stored `auto` when switching a row on (`auto: enabled ? (s.outlookCalendar?.X?.auto ?? false)
+: false`). Every fixture stubs `auto: false`, so the guard is never exercised with a true value:
+deleting the `enabled ? … : false` wrapper at any of the four sites leaves the whole suite green.
+
+★ Since 0.212.0 `sanitizeOutlookCalendar` masks `auto` by `enabled` at LOAD, so a stale
+`{enabled:false, auto:true}` can no longer reach these writers — that is the real defence and it IS
+tested (`calendar-sync-config.test.ts`). These four guards are now belt-and-braces, which is exactly
+why nobody would notice removing them. Removing BOTH would arm unattended two-way Outlook sync from
+a single click on an imported settings blob.
 
 ---
 

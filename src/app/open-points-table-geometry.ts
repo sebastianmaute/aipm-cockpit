@@ -26,8 +26,10 @@
 //   and the pane would scroll horizontally at all times. `tableMinWidthPx` gives
 //   the same overflow floor deterministically, from numbers we already hold.
 
-import { ALL_TASK_COLS } from "./tasks-section-columns";
-import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
+// ★ BOTH from the DOM-free leaf. Importing DEFAULT_COL_WIDTHS from
+//   `use-column-manager` (which is `"use client"`) put React back into this
+//   module's graph and made the "no React" claim above false.
+import { ALL_TASK_COLS, DEFAULT_COL_WIDTHS } from "./tasks-section-columns";
 
 /** The leading gutter <col className="w-7"> that matches the per-row hover
  *  Ask-Claude cell. Tailwind `w-7` is 1.75rem = 28px at the default root size. */

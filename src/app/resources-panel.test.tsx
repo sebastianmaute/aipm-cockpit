@@ -548,7 +548,7 @@ describe("ResourcesPanel", () => {
     );
 
     const hide = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
-    const outlook = screen.getByRole("checkbox", {
+    const outlook = screen.getByRole("button", {
       name: new RegExp(t("en-US", "calendarSyncEnable"), "i"),
     });
 
@@ -574,28 +574,28 @@ describe("ResourcesPanel — Outlook calendar toggle (SP4)", () => {
 
   test("renders the toggle when m365Configured and a handler is given", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} />);
-    expect(screen.getByRole("checkbox", { name: calLabel })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: calLabel })).toBeInTheDocument();
   });
 
   test("labels the toggle for resource absences", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} />);
-    expect(screen.getByRole("checkbox", { name: /resource absences/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /resource absences/i })).toBeInTheDocument();
   });
 
   test("does NOT render the toggle without m365Configured", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured={false} onToggleCalendar={vi.fn()} />);
-    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(screen.queryByRole("button", { name: calLabel })).toBeNull();
   });
 
   test("does NOT render the toggle in a popout", () => {
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured isPopout onToggleCalendar={vi.fn()} />);
-    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+    expect(screen.queryByRole("button", { name: calLabel })).toBeNull();
   });
 
-  test("calls onToggleCalendar(true) when the checkbox is ticked", () => {
+  test("calls onToggleCalendar(true) when the enable toggle is pressed", () => {
     const onToggleCalendar = vi.fn();
     render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={onToggleCalendar} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: calLabel }));
+    fireEvent.click(screen.getByRole("button", { name: calLabel }));
     expect(onToggleCalendar).toHaveBeenCalledWith(true);
   });
 

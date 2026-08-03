@@ -2055,9 +2055,19 @@ const enUS = {
   calendarSyncEntityRaid: "RAID items (review dates)",
   calendarSyncEntityChange: "Change decisions (decision dates)",
   calendarSyncEntityAbsence: "Resource absences (vacation/training dates)",
-  calendarSyncEnable: "Add to Outlook calendar",
+  calendarSyncEnable: "Add to Outlook",
+  // ★ Tooltip STATE suffixes, appended by the shared ToggleButton to EVERY
+  //   toggle. The visible label is pinned to what turning it ON does, and
+  //   `aria-pressed` carries the state for assistive tech — leaving a sighted
+  //   mouse user to read state off colour alone. These say it in words.
+  //   `title` is the accessible DESCRIPTION, never the name, so it may vary
+  //   with state where the label may not.
+  toggleStateOn: "Currently on — click to turn off",
+  toggleStateOff: "Currently off — click to turn on",
   calendarSyncAuto: "Keep in sync automatically",
   calendarSyncEnableHint: "Create and update Outlook calendar events for these items",
+  calendarSyncAutoHint: "Push changes to Outlook in the background, without asking",
+  calendarSyncAutoRequiresEnable: "Available once Add to Outlook is on",
   calendarPushShort: "Push",
   calendarPullShort: "Pull",
   raciSuggest: "Suggest RACI",
@@ -3563,7 +3573,7 @@ const enUS = {
   versionHighlight0208: "Edit the open project from Settings → General, load your own theme files, and resize any edit modal vertically.",
   versionHighlight0209: "Rich text: descriptions in RAID, changes and milestones now take bold, italics, lists and links, and existing plain text is upgraded as it is read — nothing needs converting. A task's dated note log now opens inside the editor, where new notes save immediately rather than waiting for the form.",
   versionHighlight0210: "Document exports (PDF, Word, Excel, PowerPoint) keep paragraph breaks, and task descriptions export as text instead of raw HTML. The CSV and Markdown exports are the storage format and still carry a description exactly as stored, so a project round-trips without loss. Inline AI edits now keep a description's formatting instead of flattening it to plain text.",
-  versionHighlight0212: "Open Points no longer wastes space at the edges of the table: the checkbox, health-dot, relations and action columns are sized to what they actually hold, and the Task column now absorbs the leftover width instead of it being spread evenly across every column. Dragging the Task column still pins it to a chosen width, and \"reset columns\" restores the flexible layout. In Planning, \"Hide externals\" now sits beside the Outlook calendar controls, and the RACI matrix leads its toolbar with \"Suggest RACI\".",
+  versionHighlight0212: "Open Points no longer wastes space at the edges of the table: the checkbox, health-dot, relations and action columns are sized to what they actually hold, and the Task column now absorbs the leftover width instead of it being shared out across every column. Dragging the Task column still pins it to a chosen width, and \"reset columns\" restores the flexible layout. The Outlook sync switch — in the task, RAID, change and absence toolbars and in Settings — is now a button reading \"Add to Outlook\", and toggle buttons show a check mark while they are on. In Planning, \"Hide externals\" now sits beside the Outlook calendar controls, and the RACI matrix leads its toolbar with \"Suggest RACI\".",
   versionHighlight0211: "Toolbar polish: Print, push/pull and other shared controls now use consistent icon-first buttons across every pane, and several hide/show toggles read their state more clearly. Open Points regained its Edit menu and its standard toolbar order. The RACI matrix can now suggest assignments with AI from stakeholder titles and milestones — review each proposed cell before applying. Dictation now works inside the rich-text note editor and the note log composer.",
   versionHighlight02023: "Accessibility: link pickers are proper comboboxes (arrow keys, Enter to add, Escape to dismiss), sortable table headers announce their sort direction, calendar meetings can be rescheduled from the keyboard (Alt+Arrow to move, Enter to confirm), and purple text now clears AA contrast on hover in every theme.",
   versionHighlight0202: "Calendar: absences drag to reschedule, drag across rows to reassign, and edge-drag to resize — with a keyboard equivalent (Alt+Arrow to move, Alt+Shift+Arrow to resize) and single-entry undo; and a new recurring-meetings entity brings daily/weekly/monthly recurrence, per-occurrence skip and move exceptions, a meetings band, an editor, and an all-series list, persisted across every storage backend and exported by default.",

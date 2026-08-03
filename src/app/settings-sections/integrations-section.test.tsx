@@ -41,6 +41,93 @@ function tursoSettings(authToken: string) {
   };
 }
 
+// ★★ The four per-entity calendar rows had NO test at all — the two below cover
+//    the enable control, whose `auto:false`-on-disable behaviour AGENTS.md calls
+//    load-bearing (re-enabling would otherwise silently reactivate auto-sync) and
+//    which was asserted only at the toolbar site. The control is a ToggleButton,
+//    not a checkbox, so it is reached by ROLE and its per-entity accessible name.
+describe("IntegrationsSection per-entity calendar sync rows", () => {
+  function syncSettings(enabled: boolean, auto: boolean) {
+    const s = m365EnabledSettings();
+    return {
+      ...s,
+      outlookCalendar: { ...(s.outlookCalendar ?? {}), task: { enabled, auto } },
+    };
+  }
+
+  // ★★ The stale-auto flag is defended at three layers, and this pins the reader:
+  //    `calendarSyncFor` masks `auto` to false whenever `enabled` is false. The
+  //    writers force auto:false on disable, and `sanitizeOutlookCalendar` masks at
+  //    LOAD so the stored state cannot hold the combination either.
+  //    ★ No claim is made that a shipped build ever wrote {enabled:false,
+  //    auto:true} — an earlier version of this comment asserted that without
+  //    evidence. The reachable source is an imported or hand-edited blob.
+  it("enabling a row does not resurrect a stale auto flag", () => {
+    const onChange = vi.fn();
+    render(
+      <IntegrationsSection lang="en-US" settings={syncSettings(false, true)} onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Add to Outlook – Tasks/i }));
+    expect(onChange.mock.calls.at(-1)![0].outlookCalendar.task).toEqual({ enabled: true, auto: false });
+  });
+
+  // ★★ Auto is a ToggleButton too, and it is the app's FIRST consumer of the
+  //    primitive's `disabled`. It must stay a real disabled <button> — an
+  //    aria-disabled lookalike would still fire onToggle and could arm background
+  //    sync from a row the user has switched off.
+  it("leaves auto inoperable while the row is off", () => {
+    const onChange = vi.fn();
+    render(
+      <IntegrationsSection lang="en-US" settings={syncSettings(false, false)} onChange={onChange} />,
+    );
+    const auto = screen.getByRole("button", { name: /Keep in sync automatically – Tasks/i });
+    expect(auto).toBeDisabled();
+    fireEvent.click(auto);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // ★★ A real `disabled` leaves the tab order, so the auto toggle cannot explain
+  //    itself to a keyboard user. The dependency has to be stated somewhere the
+  //    user actually reaches — a visible hint, wired as the button's description.
+  it("explains why auto is inert, and drops the explanation once it is live", () => {
+    const { rerender } = render(
+      <IntegrationsSection lang="en-US" settings={syncSettings(false, false)} onChange={() => {}} />,
+    );
+    const auto = screen.getByRole("button", { name: /Keep in sync automatically – Tasks/i });
+    const hintId = auto.getAttribute("aria-describedby");
+    expect(hintId).toBeTruthy();
+    expect(document.getElementById(hintId!)).toHaveTextContent(/Available once Add to Outlook is on/i);
+
+    rerender(
+      <IntegrationsSection lang="en-US" settings={syncSettings(true, false)} onChange={() => {}} />,
+    );
+    const live = screen.getByRole("button", { name: /Keep in sync automatically – Tasks/i });
+    expect(live).not.toHaveAttribute("aria-describedby");
+    // Scoped to THIS row's hint by id. A `queryByText` here matches the three
+    // sibling rows that are still off and legitimately still showing theirs.
+    expect(document.getElementById(hintId!)).toBeNull();
+  });
+
+  it("toggles auto without disturbing enabled once the row is on", () => {
+    const onChange = vi.fn();
+    render(
+      <IntegrationsSection lang="en-US" settings={syncSettings(true, false)} onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Keep in sync automatically – Tasks/i }));
+    expect(onChange.mock.calls.at(-1)![0].outlookCalendar.task).toEqual({ enabled: true, auto: true });
+  });
+
+  it("disabling a row also clears auto, so re-enabling cannot silently resume background sync", () => {
+    const onChange = vi.fn();
+    render(
+      <IntegrationsSection lang="en-US" settings={syncSettings(true, true)} onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Add to Outlook – Tasks/i }));
+    // auto MUST come back false here — `{enabled:false, auto:true}` is the bug.
+    expect(onChange.mock.calls.at(-1)![0].outlookCalendar.task).toEqual({ enabled: false, auto: false });
+  });
+});
+
 describe("IntegrationsSection Outlook calendar push toggle", () => {
   it("renders the push checkbox when M365 is enabled", () => {
     const { getByLabelText } = render(

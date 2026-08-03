@@ -1,7 +1,7 @@
 // src/app/calendar-sync-controls.tsx
 //
 // Shared two-way Outlook calendar controls for a panel toolbar: the enable
-// checkbox plus (when enabled) the Push and Pull buttons. This block was
+// toggle plus (when enabled) the Push and Pull buttons. This block was
 // duplicated verbatim in the RAID, Change, and Absence (Resources) toolbars —
 // only the entity aria-label differed. Consolidated here (jscpd flagged the
 // copies). Renders nothing unless M365 is configured, not in a popout, and a
@@ -10,14 +10,14 @@
 //
 // Milestone push/pull is deliberately NOT routed through this (milestone is
 // manual-only, with no enable toggle — a different shape).
-import { ArrowDownTrayIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
 import { Button } from "./button";
+import { ToggleButton } from "./toggle-button";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface CalendarSyncControlsProps {
   lang: Lang;
-  /** i18n key for the entity name in the enable checkbox's accessible name. */
+  /** i18n key for the entity name in the enable toggle's accessible name. */
   entityLabelKey: TranslationKey;
   m365Configured?: boolean;
   isPopout?: boolean;
@@ -44,17 +44,22 @@ export function CalendarSyncControls({
   if (!(m365Configured && !isPopout && onToggleCalendar)) return null;
   return (
     <>
-      <label className="flex items-center gap-1.5 text-xs text-foreground">
-        <input
-          type="checkbox"
-          checked={!!calendarEnabled}
-          onChange={(e) => onToggleCalendar(e.target.checked)}
-          aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, entityLabelKey)}`}
-          title={t(lang, "calendarSyncEnableHint")}
-          className={`h-3.5 w-3.5 rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-        />
+      {/* ★★ A ToggleButton, not a checkbox: the label is PINNED to what pressed=true
+          ENABLES ("Add to Outlook") and `aria-pressed` tracks that same state, so
+          "Add to Outlook, pressed" ⇒ sync is on (WCAG 4.1.2). Never let the label
+          flip to the opposite action. ★ `ariaLabel` re-qualifies it per entity —
+          several of these render in one view and N identical "Add to Outlook"
+          names is a WCAG 2.4.6 failure that axe PASSES, since a name exists. */}
+      <ToggleButton
+        pressed={!!calendarEnabled}
+        onToggle={() => onToggleCalendar(!calendarEnabled)}
+        ariaLabel={`${t(lang, "calendarSyncEnable")} – ${t(lang, entityLabelKey)}`}
+        title={t(lang, "calendarSyncEnableHint")}
+        lang={lang}
+        icon={<CalendarDaysIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+      >
         {t(lang, "calendarSyncEnable")}
-      </label>
+      </ToggleButton>
       {calendarEnabled && onPushCalendar && (
         <Button
           variant="secondary"

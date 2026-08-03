@@ -116,10 +116,20 @@ export function useColumnResize<TId extends string>(
     //    column SNAPPED narrow and only then tracked the pointer — on the one
     //    column this release makes flexible. The grip is absolutely positioned
     //    inside its <th>, so that element's box is the rendered column width.
-    // ★ Falls back to the declared width whenever there is nothing to measure —
-    //   a non-<th> host (gantt's name-column grip) or jsdom, which reports every
-    //   rect as 0. That fallback is the pre-existing behaviour, so the other
-    //   tables — none of which has an auto column — are unaffected either way.
+    // ★★ THIS CHANGES THE SEED FOR EVERY TABLE, not just Open Points, and the
+    //    criterion is *rendered == declared* — NOT "has an auto column".
+    //    `tableLayout: "fixed"` appears EXACTLY ONCE in the app (tasks-section);
+    //    all 37 other call sites are `table-layout: auto`, where `SortResizeTh`
+    //    emits width + minWidth as a HINT the browser routinely exceeds. So they
+    //    take the measured path too, in a real browser. Believed to REMOVE a
+    //    latent jump there rather than add one — but that is reasoned, not
+    //    verified, and jsdom cannot check it (every rect is 0).
+    // ★ The fallback's only live consumer today is jsdom: every grip reaches
+    //   here through `ColumnResizeHandle` → `DragHandle`, always inside a <th>.
+    //   It is kept as defence for a future non-<th> host. (Gantt's name-column
+    //   grip is NOT one — gantt has its own handler seeded from its own state
+    //   and never calls this hook, which is correct there because its host div's
+    //   declared width IS its rendered width.)
     const measured = (e.currentTarget as HTMLElement | null)
       ?.closest("th")
       ?.getBoundingClientRect().width ?? 0;

@@ -32,4 +32,23 @@ describe("sanitizeOutlookCalendar", () => {
       sanitizeOutlookCalendar({ raid: { enabled: true, auto: true } }),
     ).toEqual({ raid: { enabled: true, auto: true } });
   });
+
+  // ★★★ A stored {enabled:false, auto:true} must not survive the load. Four
+  //     toolbar enable-toggles read the RAW stored `auto` when switching a row on
+  //     (`tasks-section.tsx`, plus raid/change/absence in
+  //     `use-calendar-integrations.ts`) — NOT the masked value the UI renders. So
+  //     without this mask, one click on "Add to Outlook" would arm unattended
+  //     two-way sync. No in-app writer produces that combination today; an
+  //     imported or hand-edited settings blob can.
+  it("masks a stale auto flag on a disabled entry, so no writer can resurrect it", () => {
+    expect(
+      sanitizeOutlookCalendar({ task: { enabled: false, auto: true } }),
+    ).toEqual({ task: { enabled: false, auto: false } });
+  });
+
+  it("leaves auto alone on an enabled entry", () => {
+    expect(
+      sanitizeOutlookCalendar({ task: { enabled: true, auto: true } }),
+    ).toEqual({ task: { enabled: true, auto: true } });
+  });
 });

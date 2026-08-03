@@ -193,7 +193,9 @@ describe("useColumnResize", () => {
     ["a string", "220"],
     ["null", null],
     ["a nested object", { px: 220 }],
-    ["NaN-by-JSON (absent number)", undefined],
+    // ★ NOT included: `undefined`. JSON.stringify DROPS an undefined value, so
+    //   the key never reaches the payload and the case would pass with
+    //   `usableWidths` deleted entirely — vacuous.
     ["zero", 0],
     ["a negative", -40],
   ] as const)("drops %s from the stored widths", async (_label, bad) => {

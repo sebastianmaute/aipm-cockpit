@@ -162,6 +162,39 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   "Compact view, pressed" ⇒ compact is on. (The dashboard's own density + Trends toggles followed this
   before they were REMOVED — density moved to Settings → Appearance, Trends is now Turso-gated.) The
   pin-the-enabled-label + `aria-pressed` pattern remains the RULE for any new toggle button.
+  ★★ THAT PIN CREATES A WCAG 1.4.1 PROBLEM IN THE DARK SCHEMES AND `ToggleButton` NOW CLOSES IT.
+  Because the label may not say which state is active, the ON state rode the accent border+tint.
+  ★★★ SCOPE IT CORRECTLY — an earlier revision here said "colour as the sole visual channel" flatly
+  and that is FALSE for the three LIGHT schemes: Understanding 1.4.1 counts a lightness difference
+  of ≥3:1 as the required additional distinction, and pressed-vs-unpressed border measures
+  harbor-light 8.97:1 · meridian-light 7.71:1 · umber-light 9.30:1 (computed from `builtin-schemes.ts`).
+  Those were already conformant. The DARK maps are 1.22 / 1.16 / 1.03:1 — that is the real failure,
+  and it is not merely a colour-perception one (see §54). The primitive renders a trailing
+  `data-pressed-marker` check glyph (`aria-hidden`, since `aria-pressed` already tells AT). ★ It is present in BOTH states and merely
+  `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
+  ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click
+  (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
+  `opacity-0` is NOT load-bearing: heroicons hard-codes `aria-hidden` on every icon, so the glyph is
+  out of the a11y tree in both states either way. An earlier revision of this bullet claimed the
+  a11y tree was the reason — it is inert, and a test written to pin it could not fail.
+  ★★ `disabled` was declared on this primitive from the start but styled NOTHING until 0.212.0 — no
+  call site ever passed it, so an inoperable toggle was pixel-identical to a live one. It now carries
+  `disabled:cursor-not-allowed disabled:opacity-60`. ★★ THE JUSTIFICATION IS THE MEASURED FLOOR, not
+  the exemption: at 60% the disabled label lands at 4.16:1 worst case (umber-light; harbor-light 4.34,
+  meridian-light 4.51, all three dark 5.7+), so it stays readable. WCAG 1.4.3's inactive-component
+  exemption is the conformance BACKSTOP, not the reason — quoting it alone would license `opacity-30`
+  on some other disabled control, which is formally conformant and unreadable. Do not read this as
+  licence for the enabled-state alpha traps recorded elsewhere in this file. ★ The disabled BORDER
+  drops to ~1.15:1 and effectively vanishes; the control reads as a control via its text, which is
+  why the floor above is the number that matters. ★ Keep it a real `disabled` attribute — an
+  `aria-disabled` lookalike still fires `onClick`, which for the Settings auto-sync row would arm
+  background sync from a row the user had switched off (pinned by a test).
+  ★★ axe 4.12.1's ONLY `wcag141` rule is `link-in-text-block` (links vs surrounding text) — nothing
+  in axe evaluates whether a CONTROL's state is colour-only, so the gate is silent on this for every
+  toggle in the app and the primitive's unit test is the only coverage. (An earlier revision said
+  "axe has NO rule for colour-as-sole-cue"; a contributor grepping the tag list finds one and stops
+  trusting the bullet.) A hand-rolled `aria-pressed` button gets neither the cue nor the test — use
+  `ToggleButton`.
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
@@ -1941,8 +1974,14 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   — so the pane would scroll horizontally at all times. ★ Arithmetic lives in pure `open-points-table-geometry.ts`
   (`visibleTaskCols` · `colWidthStyle` · `tableMinWidthPx` · `GUTTER_WIDTH_PX` · `TASK_NAME_MIN_PX`), NOT in
   the pane, which sits at its size ratchet; the column list is the leaf `tasks-section-columns.ts`. ★ The
-  pane's `colWidths` PROP now carries the SIZED-ONLY map (an absent key is what lets `taskName` render
-  width-free) — the name was kept to hold `task-manager.tsx` at net-zero lines under its ratchet. ★ The
+  pane's prop is `sizedWidths`, carrying the SIZED-ONLY map (an absent key is what lets `taskName` render
+  width-free). ★★ It was briefly left named `colWidths` on the argument that renaming cost ratchet lines;
+  that was wrong — a rename is net-zero — and the name matters: passing the DEFAULTS-FILLED map instead
+  gives every column a width and silently reverts the flex layout. ★★★ THE NAME IS THE ONLY GUARD, AND IT
+  IS A HUMAN ONE. An earlier revision of this bullet claimed the revert is "a TYPE error"; it is NOT —
+  `Record<string, number>` is assignable to `Partial<Record<string, number>>`, so `sizedWidths={colWidths}`
+  compiles clean (proved with a standalone `tsc --strict`, exit 0). Nothing in the type system, and no
+  test, stops that one-word regression. Believing otherwise is worse than knowing it is unguarded. ★ The
   leading gutter `<col>` renders from `GUTTER_WIDTH_PX`, never a `w-7` class, because `tableMinWidthPx`
   seeds its sum with that same constant and a class would let the two drift with nothing to catch it —
   jsdom sees neither.

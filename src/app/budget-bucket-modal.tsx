@@ -512,7 +512,7 @@ export function BudgetBucketModal({
           {isVisible("planningDetail") && (
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1">{t(lang, "budgetDetailedPlanning")}<InfoTooltip text={t(lang, "budgetDetailedPlanningHint")} /></span>
-            <ToggleButton
+            <ToggleButton lang={lang}
               pressed={!isBlended}
               onToggle={togglePlanningMode}
               ariaLabel={t(lang, "budgetDetailedPlanning")}

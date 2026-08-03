@@ -112,7 +112,7 @@ export interface TasksSectionProps {
   setHiddenCols: React.Dispatch<React.SetStateAction<Set<string>>>;
   /** ONLY the columns the user explicitly sized — an absent key is at its
    *  default, which is what lets taskName render width-free. */
-  colWidths: Partial<Record<string, number>>;
+  sizedWidths: Partial<Record<string, number>>;
   colConfigOpen: boolean;
   setColConfigOpen: React.Dispatch<React.SetStateAction<boolean>>;
   colConfigRef: React.RefObject<HTMLDivElement | null>;
@@ -195,7 +195,7 @@ export function TasksSection({
   onDelete,
   hiddenCols,
   setHiddenCols,
-  colWidths,
+  sizedWidths,
   colConfigOpen,
   setColConfigOpen,
   colConfigRef,
@@ -514,7 +514,7 @@ export function TasksSection({
   }
 
   const visibleCols = useMemo(() => visibleTaskCols(hiddenCols), [hiddenCols]);
-  const tableMinWidth = useMemo(() => tableMinWidthPx(visibleCols, colWidths), [visibleCols, colWidths]);
+  const tableMinWidth = useMemo(() => tableMinWidthPx(visibleCols, sizedWidths), [visibleCols, sizedWidths]);
   const visibleColumnCount = visibleCols.length;
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
@@ -595,14 +595,14 @@ export function TasksSection({
           </button>
         )}
         {dedup.button}
-        <ToggleButton
+        <ToggleButton lang={lang}
           pressed={hideFinished}
           onToggle={() => setSettings((s) => ({ ...s, hideFinishedTasks: !(s.hideFinishedTasks ?? false) }))}
           icon={<CheckCircleIcon aria-hidden="true" className="h-3.5 w-3.5" />}
         >
           {t(lang, "hideFinishedTasks")}
         </ToggleButton>
-        <ToggleButton
+        <ToggleButton lang={lang}
           pressed={hideExternal}
           onToggle={() => setSettings((s) => ({ ...s, hideExternalTasks: !(s.hideExternalTasks ?? false) }))}
           icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
@@ -813,7 +813,7 @@ export function TasksSection({
             >
               {t(lang, "bulkSendInquiries")}
             </button>
-            <ToggleButton pressed={bulkEditOpen} onToggle={() => setBulkEditOpen((o) => !o)}>
+            <ToggleButton lang={lang} pressed={bulkEditOpen} onToggle={() => setBulkEditOpen((o) => !o)}>
               {t(lang, "bulkEdit")}
             </ToggleButton>
             <button
@@ -937,10 +937,10 @@ export function TasksSection({
           >
             <colgroup>
               {/* Gutter for the hover Ask-Claude cell; a missing <col> shifts every width to its
-                  neighbour. ★ Rides the constant tableMinWidthPx sums with, never a `w-7` class. */}
+                  neighbour. ★ Uses the same GUTTER_WIDTH_PX that tableMinWidthPx sums, not a class. */}
               <col style={{ width: GUTTER_WIDTH_PX }} />
               {visibleCols.map((col) => (
-                <col key={col} style={{ width: colWidthStyle(col, colWidths) }} />
+                <col key={col} style={{ width: colWidthStyle(col, sizedWidths) }} />
               ))}
             </colgroup>
             <thead className={TABLE_HEAD_CLASS}>

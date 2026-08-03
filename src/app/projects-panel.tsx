@@ -178,7 +178,7 @@ export function ProjectsPanel({
             // Label PINNED to what pressed=true enables (archived shown), so
             // aria-pressed announces the correct state — WCAG 4.1.2 (the
             // pin-the-enabled-label rule ToggleButton bakes in).
-            <ToggleButton pressed={showArchived} onToggle={() => setShowArchived((v) => !v)}>
+            <ToggleButton lang={lang} pressed={showArchived} onToggle={() => setShowArchived((v) => !v)}>
               {t(lang, "projectsShowArchived")}
             </ToggleButton>
           )}

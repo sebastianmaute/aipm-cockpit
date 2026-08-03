@@ -31,7 +31,23 @@ space at both edges of Open Points.
   the column's *declared* width rather than the width it was actually rendered
   at, so grabbing the Task column — which is now flexible and usually far wider
   than its declared 200px — jumped it narrow before it began following the
-  pointer.
+  pointer. The change reaches every resizable table, not just Open Points, and
+  should remove the same jump wherever a column was rendering wider than its
+  declared width — though only the Open Points case was actually observed.
+- **Both halves of each Outlook calendar row are now toggle buttons.** "Add to
+  Outlook" and "Keep in sync automatically" sit side by side in Settings →
+  Integrations instead of a button above a checkbox. Auto-sync stays visible but
+  inoperable until the row is switched on, rather than disappearing.
+- **The standard toggle buttons no longer signal "on" by colour alone.** A toggle
+  pins its label to what switching it on does, so the label cannot say which state
+  is currently active and the accent tint was the only visual channel left. These
+  toggles now also show a check mark while on, and spell the state out in the
+  tooltip. The mark keeps its slot when off, so a toggle is the same width in both
+  states and switching one does not shift the controls beside it. This covers the
+  toggles built on the shared control — the gantt view options, the Open Points
+  view switches, the Outlook ones below and others. Fourteen one-off toggles
+  elsewhere in the app (the rich-text editor's bold/italic buttons, the health
+  chips, the template pickers, the mic) still show their on-state by colour only.
 - **Planning's "Hide externals" sits beside the Outlook calendar controls.** It had
   been separated from them by the spacer that pushes that group to the right, while
   the Workload view already rendered the two together.
