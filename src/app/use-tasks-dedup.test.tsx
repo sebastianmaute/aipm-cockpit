@@ -106,8 +106,11 @@ describe("useTasksDedup (plan-then-apply)", () => {
     renderHarness({ captureSpy });
 
     fireEvent.click(screen.getByRole("button", { name: /deduplicate & unify tasks/i }));
-    await waitFor(() => expect(screen.getByText(/dup/i)).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /merge selected/i }));
+    // The wait and the assumption must be the SAME condition: /dup/i is a
+    // substring of the trigger's own name ("Deduplicate & unify tasks"), so a
+    // waitFor on it can pass without the preview modal being open, leaving the
+    // next line's un-waited getByRole to fail immediately (open-followups §51).
+    fireEvent.click(await screen.findByRole("button", { name: /merge selected/i }));
 
     await waitFor(() => expect(screen.getByTestId("ids").textContent).toBe("1,3"));
     expect(captureSpy).toHaveBeenCalledTimes(1);
