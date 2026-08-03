@@ -52,7 +52,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
 | 1 | Two dead `memo()`s in the Resources subtree | R5 (0.202.0) | S–M | **fork open — decision needed** |
-| 2 | `use-resource-planner.ts` 30% over the 800-line ceiling | R5 (0.202.0) | M | decided: split, unscheduled |
+| 2 | ~~`use-resource-planner.ts` 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED post-0.212.0** — two verbatim extractions, 1043 → 553; ★ the entry's own numbers AND its stated precedent were wrong |
 | 3 | `optimize_wbs` never built | R4 (0.201.0) | ? | owed; open design question |
 | 4 | Two-tab last-writer clobber on file/IDB (#39) | audit (2026-07) | L | parked — own design |
 | 5 | No list virtualization anywhere (#14) | audit (2026-07) | L | parked — own batch |
@@ -81,12 +81,30 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
 | 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
+| 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — needs a real diagnosis, NOT a timeout |
+| 40 | `text-ui-dark-blue` with no mode-appropriate companion — **40 sites** | pre-existing, counted 0.211.0 | M–L | open — needs its own slice |
+| 41 | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open — a11y/visual |
+| 42 | `CalendarSyncControls` push/pull buttons carry unqualified names | pre-existing, found 0.211.0 | S | open — WCAG 2.4.6 |
+| 43 | Two "Suggest RACI" reporting gaps | 0.211.0 (Samatar) | S | open — both incomplete rather than wrong |
+| 44 | UX-roadmap S6 planned but UNEXECUTED, S7 undesigned | roadmap (gitignored, local-only) | L | open — invisible to every tracked doc |
+| 45 | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED 0.211.1** — major-scoped `overrides` pair |
 | 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
 | 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
 | 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
 | 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
 | 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
-| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open — 2nd flaky test; ★ mechanism NOT established, do not raise a timeout |
+| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open — 2nd flaky test; ★ matcher hardened post-0.212.0, mechanism STILL NOT established |
+| 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
+| 53 | ESLint 10 is blocked upstream by `eslint-plugin-react` | 0.211.2 | — | open — **not actionable today**; a dated MEASUREMENT, re-measure before acting |
+| 54 | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | open — **user-visible in production**, no gate sees it |
+| 55 | Fourteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 14 are NOT colour-only |
+| 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
+| 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
+| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **HALF CLOSED post-0.212.0** — version stamp + guard test; ★ other half has a designed follow-up (cwd hash / boot nonce), fresh-port convention still required |
+| 59 | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open — ★ the finding is the PATTERN, three releases running |
+| 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
+| 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
+| 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -164,17 +182,87 @@ does not bail, but it still frames the guidance as protecting a live optimizatio
 
 ---
 
-## 2. `use-resource-planner.ts` is 30% over the 800-line ceiling — decided: split, unscheduled
+## 2. ~~`use-resource-planner.ts` is 30% over the 800-line ceiling~~ — CLOSED post-0.212.0
 
-**1037 lines.** The baseline records 1038 (`docs/baselines/file-sizes.json`), so it passes CI on one
-line of slack — **the next line added to that file fails the build.** `LIMIT` is 800 in
-`scripts/check-file-sizes.mjs`; the ratchet fails only on growth of a baselined file or a NEW file
-over the limit.
+**Was:** the file sat over the 800-line ratchet with the baseline recording its own size, so the next
+line added to it failed the build.
 
-It is **not** in `vitest.config.ts` `coverage.exclude`, so it is coverage-gated today — extraction
-into new `.ts` files is coverage-neutral and needs no exclusion entry.
+★★ **BOTH NUMBERS IN THE ORIGINAL ENTRY WERE ALREADY STALE WHEN THE WORK STARTED, AND IN THE
+DIRECTION THAT MATTERS.** It said "1037 lines, baseline 1038 — one line of slack". The true state on
+`main` `0d770283` was **1043 lines against a 1043 baseline: zero slack, not one line.** 0.212.0 had
+grown the file and re-baselined it in passing, and nobody came back to this entry. The cluster line
+ranges recorded below had drifted by roughly six lines for the same reason. An entry that quantifies
+something quantifies it *as of its writing* — **re-measure before acting on a number in this file.**
 
-Cohesive clusters, with line ranges:
+**Resolution:** two **verbatim, move-only** extractions, in that order:
+
+| new file | lines | what moved |
+|---|---|---|
+| `src/app/use-reference-data.ts` | 308 | 15 handlers — roles · disciplines · grades (create/save/delete/assign/reorder) |
+| `src/app/use-resource-directory.ts` | 344 | 9 exports — resource CRUD, bulk edit/delete, import; plus the private helpers `recordMatchesRemoved` and `purgeCalendarFor` |
+
+`plainSeed` moved into `use-resource-directory.ts` but is **exported and imported back** by the
+planner (`use-resource-planner.ts:11`), which is what keeps the module graph acyclic without
+duplicating the helper.
+
+`use-resource-planner.ts` is now **553 lines** and its baseline entry was re-recorded at **554**.
+Those are the same number: `scripts/check-file-sizes.mjs` measures `content.split("\n").length`,
+which is one MORE than `wc -l` for a file ending in a newline. Anyone hand-editing
+`docs/baselines/file-sizes.json` must use the script's count, not `wc -l`'s. ★ That baseline entry is
+now BELOW the limit and therefore invisible to the tool's own regeneration — see §60, which records
+why `--update` dropping it costs nothing (the entry is inert at 554), and why the value of this
+commit is REMOVING the stale 1043, not installing a 554.
+
+Verified move-only rather than asserted:
+
+- the public return shape is **54 keys in identical order**, before and after (23 named keys plus
+  three spreads — `resourceDirectoryApi` 9, `calendarEventsApi` 7, `referenceDataApi` 15);
+- every `useCallback` dependency array survives verbatim as a multiset. Measured with one regex on
+  both sides: **18 dependency arrays before, 25 after** — the seven new ones are the ref-sync
+  `useEffect` deps the two new files re-derive locally, and nothing else changed;
+- neither new file needed a `vitest.config.ts` `coverage.exclude` entry, exactly as the original
+  entry predicted: these are pure `.ts` modules, coverage-gated like their parent.
+
+★★ **THE PRECEDENT THIS ENTRY NAMED WAS THE WRONG ONE, and it cost a review round.** It said to
+follow `use-storage-file-ops.ts` — a typed `deps` object, `use*`, NON-memoized handlers. That
+convention is for **cross-cutting orchestration extracted from `task-manager.tsx`**, which is not
+what this is. The precedent that actually applies is **`use-calendar-events.ts`**: extracted from
+*this same file* for *this same reason*, using `useWorkspace()` and `useCallback`. The two conflict,
+and the conflict was sidestepped rather than settled — a verbatim move keeps whatever form the code
+already had, so no convention had to win.
+
+★★ **AND THE MEMO JUSTIFICATION THE ENTRY IMPLIED IS FALSE FOR BOTH CLUSTERS.** The old ★ note here
+warned that these NON-memoized handlers are what keep §1's `ResourcesPanel` memo from bailing, so a
+split must not tempt anyone into memoizing. An early draft of the extraction repeated that as the
+reason to preserve the memoization form. It does not hold:
+
+- **twelve of the fifteen reference-data handlers reach `RolesPanel`** (`roles-panel.tsx:7`), a plain
+  function component — its JSX is rebuilt every render regardless, so nothing there can bail. ★ The
+  other three do NOT, and an earlier revision of this bullet said "reach only `RolesPanel`" flatly,
+  contradicting the very header comment it defers to: `handleAssignRoleById` reaches the memo'd
+  `ResourceDirectory` (arriving `guardEdit()`-wrapped, so unstable anyway), and
+  `handleAssignResourceRole` + `handleClearResourceRole` reach nothing in production at all (§62);
+- **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx:442`)
+  and `ResourcesPanel` (`resources-panel.tsx:682`) — but they arrive `guardEdit()`-wrapped
+  (`task-manager.tsx:2258-2261`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
+  render (`task-manager.tsx:2041`), so their identities are unstable whatever this hook does.
+
+Preserving the memoization form needed no justification beyond the commit being move-only, and the
+corrected reasoning now lives in `use-reference-data.ts`'s own header comment. ★ §1 is unaffected in
+either direction by this split.
+
+★ This was the surviving half of the 2026-06 review's **B2** ("`use-bulk-operations` +
+`use-resource-planner` multi-concern"), so B2 is now fully closed. `use-bulk-operations.ts` was
+**419 lines** as of 2026-07-27 — no longer a finding. `task-manager.tsx` (B3) is tracked as **TD-5**,
+not here.
+
+★ Residuals the split left behind — a stale warning prefix, a doc comment that now names one of two
+consumers, and a duplication seam jscpd cannot yet see — are **§61**, not re-opened here. If a
+further cut is ever wanted, §61 also names the cleanest next one; there is no ratchet pressure for it.
+
+**The original write-up follows — present tense, and NO LONGER TRUE at HEAD.** Kept for the cluster
+analysis, which is what made the two-cluster choice, not for its figures (see the correction above).
+The line ranges are pre-0.212.0 and have drifted; the sizes are still roughly right.
 
 | cluster | lines | size |
 |---|---|---|
@@ -186,20 +274,8 @@ Cohesive clusters, with line ranges:
 | Planning grid (utilization, absence override, plan window) | 912-986 | ~75 |
 
 ★ **One cluster is not enough**: 1037 − 228 = 809, plus wiring ≈ 819, still over. Clearing 800 takes
-**two** — reference data + resource directory lands at ≈620.
-
-Follow the Phase-3 deps-object hook convention (`use-storage-file-ops.ts` is the pattern): a typed
-`deps` object of live render-scope values, named `use*`, called unconditionally, returning
-NON-memoized handlers.
-
-★ Note the interaction with item 1: those NON-memoized handlers are the same ones that keep the
-`ResourcesPanel` memo from bailing. Doing this split does not make item 1 worse, but do not let a
-split tempt anyone into memoizing on the way past.
-
-★ This is the surviving half of the 2026-06 review's **B2** ("`use-bulk-operations` + `use-resource-planner`
-multi-concern"). `use-bulk-operations.ts` is **419 lines** as of 2026-07-27 — no longer a finding.
-`task-manager.tsx` (B3) is tracked as **TD-5**, not here; it has grown 2224 → 2973 lines since that
-review.
+**two** — reference data + resource directory lands at ≈620. (The prediction held: the real landing
+point was 553, better than estimated because the two clusters had grown since the ranges were taken.)
 
 ---
 
@@ -1910,6 +1986,12 @@ by something that does not imply the modal is open. Assert on a modal-specific n
 "merge selected") so the wait and the assumption are the same condition. ★ The trigger renders no text
 child, so it is not proven that it is what matched — this is a fragility argument, not the diagnosis.
 
+★★ **DONE post-0.212.0 — and it changes nothing about the diagnosis.** The test now awaits
+`findByRole("button", { name: /merge selected/i })`, so the wait and the assertion are one condition
+and `/dup/i` is gone. **The entry stays open**: this removed a way the test could mislead, not the
+reason it failed. If it fails again, the failure is now at least trustworthy — do not read the fix as
+a root cause, and still do not raise a timeout.
+
 ★★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case directly above: 5 s → 15 s
 moved the failure point and bought nothing, and three subsequent failures then consumed the 15 s budget
 to within 24 ms. This one is not even timeout-shaped (38 ms).
@@ -2295,7 +2377,7 @@ a single click on an imported settings blob.
 
 ---
 
-## 58. The axe gate can pass against a STALE dev server, and only a manual check catches it — open
+## 58. The axe gate can pass against a STALE dev server — HALF CLOSED post-0.212.0
 
 `playwright.config.ts` sets `reuseExistingServer: !process.env.CI`, so a local `npx playwright test
 e2e/a11y.spec.ts` attaches to whatever already answers on the target port. On a machine with a dev
@@ -2308,11 +2390,219 @@ port actually took. During 0.212.0 the check was done by hand — resolving `Num
 3000)` to 3100 and then confirming with `netstat` that nothing answered on :3000 — which is three
 steps too many to expect reliably.
 
-★ Suggested fix (from a reviewer, not yet implemented): have `e2e/a11y.spec.ts` read the served
-page's `APP_VERSION` and compare it against `src/app/version.ts`, failing the suite on a mismatch.
-That turns "did you point it at the right server?" into something the run answers itself. A version
-match is necessary but not sufficient — two worktrees on the same version would still agree — so pair
-it with the fresh-port convention rather than replacing it.
+**Resolution (the gate half only).** `src/app/layout.tsx` renders `data-app-version={APP_VERSION}` on
+the server-rendered `<html>`, and `e2e/a11y.spec.ts` opens with a guard test — "the served app is this
+checkout" — that reads the attribute back and compares it to the imported `APP_VERSION`, failing with
+an error message that names both versions and prescribes the fresh-port run. The suite is now **86
+tests: 85 axe scans (5 scheme combos × 16 views + 5 Kanban variants) + 1 guard.**
+
+★★ **STILL ONLY HALF, which is why this entry stays open rather than closing.** A version match is
+necessary and not sufficient: two worktrees on the SAME version still agree, and that is the normal
+state here between releases. The `PORT=3100 npm run dev` convention AGENTS.md prescribes still
+applies — the guard removes the *stale-release* failure mode, not the *sibling-worktree* one.
+
+★★ **The error message names a cause the guard cannot detect.** It says the reused server may be "a
+dev server from another worktree, or a leftover process in this one" — but `APP_VERSION` only moves
+at release, so BOTH of those read as a match for the whole of a release cycle. The message is
+accurate about what to DO (fresh port) and overstated about what was DETECTED. Two reviewers raised
+this independently. Leave the remedy wording; the diagnosis half is what the follow-up below fixes.
+
+### The remaining half — follow-up, not yet built
+
+**What it needs:** a token that differs per CHECKOUT, not per release, surviving from the serving
+process into the DOM, comparable from the test process. Three candidates, cheapest first. ★★ None is
+verified — this is a design sketch written at the point the gap was understood, and the first job of
+whoever picks it up is to disprove the assumption each rests on.
+
+**(a) Working directory of the serving process — recommended.** `RootLayout` is a Server Component,
+so it executes in the server's own node process; `process.cwd()` there is the checkout that is
+serving. Emit a short hash of it as a second attribute and have the guard compare it to the test
+process's own `process.cwd()` hash. Two worktrees differ; a leftover process in the same worktree
+does NOT — so this closes the sibling-worktree case and leaves the same-worktree-stale-Tailwind case
+open. *Unverified:* that a Server Component may call `process.cwd()` under `next dev` in this Next
+version, and that playwright's runner process shares the repo cwd (it does today; a config change
+could break it). *Constraint:* hash it, and gate it on `NODE_ENV !== "production"` — a raw filesystem
+path in shipped HTML is an information leak for zero benefit, since CI sets
+`reuseExistingServer: false` and cannot hit this failure mode at all.
+
+**(b) Boot nonce.** The server mints a random id at start, writes it somewhere the test can read
+(`.next/`), and stamps it. Catches EVERY stale server including same-worktree, which is the case (a)
+misses. Costs a file-write side effect at boot and a gitignore entry, and the read path has to fail
+loudly rather than skip when the file is absent, or it degrades to a no-op guard.
+
+**(c) Git HEAD SHA.** Rejected on inspection: a dirty tree has the same SHA as a clean one, so the
+stale-Tailwind case — the one AGENTS.md's landmine is actually about — is exactly the case it cannot
+see. Recorded so it is not re-proposed.
+
+★ **Do not "close" this entry with (a) alone.** (a) makes the error message's diagnosis honest and
+kills the common failure; only (b) covers a leftover process in the current worktree. Closing it
+needs (b), or an explicit decision that the fresh-port convention carries that half forever.
+
+★ **DECIDED 2026-08-03 — the production DOM change stays.** `data-app-version` renders on every
+served page, not only under test, on a branch with no version bump. Reviewed and accepted: one static
+server-rendered attribute, no runtime cost, no PII, and making it test-only would mean the guard no
+longer exercises the same code path it is protecting. Do not "fix" this by gating it on `NODE_ENV`.
+★ That reasoning does NOT extend to (a)'s cwd hash, which is a filesystem path and must be gated.
+
+★★★ **THE OBVIOUS MUTATION PROOF CANNOT WORK, and reading its result as "the guard is vacuous" would
+be the wrong conclusion.** The natural way to prove the guard discriminates is
+`page.addInitScript(() => document.documentElement.setAttribute("data-app-version", "0.0.0"))` — and
+it silently does nothing, because `document.documentElement` is **`null`** at the moment an init
+script runs. The write no-ops, the real attribute survives, and the guard passes. It was proved live
+two other ways instead: a temporary wrong-literal comparison in the assertion (fails, with the
+intended message), and a `MutationObserver` registered inside the init script that catches `<html>`
+at insertion and rewrites the attribute (also fails). Either is reproducible; the `addInitScript`
+one-liner is the trap.
+
+★ React does **not** reconcile this attribute. `RootLayout` is an async Server Component, so it
+renders once server-side and nothing on the client recomputes or rewrites the value — it is always
+the serving process's own version, which is the whole point. That is recorded in the JSX comment too,
+because "is this attribute client-authoritative?" is the first question anyone will have.
+
+---
+
+## 59. Eye verification owed on 0.212.0 — and on the two releases before it — open
+
+Settings → Integrations changed shape in 0.212.0: the calendar rows became **two stacked
+`ToggleButton`s**, and `ToggleButton`'s `disabled` styling (`disabled:cursor-not-allowed
+disabled:opacity-60`) rendered **for the first time anywhere** — it had been declared since the
+primitive shipped and styled nothing, because no call site passed the prop. Neither was looked at
+before the release went out.
+
+★★ **THE FINDING IS NOT THIS RELEASE — IT IS THE PATTERN.** Three consecutive releases now carry owed
+eye verification and none has been discharged: **§21** (0.209.0), **§41** (0.211.0), and this. That is
+one process finding, recorded here rather than as its own number: the eye-verify step is **not
+happening**, and filing a fourth entry after 0.213.0 would confirm that rather than fix it. Whoever
+picks this up should decide what to do about the step, not just work through the backlog of three.
+
+Settings → General **is** axe-scanned, so structural a11y is covered — labels, roles, resting-state
+contrast. What is not covered, and what these checks are for:
+
+- whether the two stacked toggles read as **two distinct controls** rather than one control with a
+  stray second row;
+- whether the disabled row reads as **disabled** rather than merely faint. §56 is the reason to doubt
+  this by default: opacity and border changes on this primitive measure far worse in the dark schemes
+  than the light ones, and the 60% floor was reasoned from the light-scheme label contrast.
+
+---
+
+## 60. The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — open
+
+`scripts/check-file-sizes.mjs`'s comparison loop opens with `if (n <= LIMIT) continue;` and `LIMIT` is
+800. **A baseline entry is never consulted for a file at or under 800 lines.** So the ratchet cannot
+catch growth below the limit at all — it only caps how far an *already-oversized* file may grow. That
+is the design (it is a ratchet, not a budget), but the consequence is not obvious from the name and it
+interacts badly with the flag below.
+
+★ The useful half, for §2's split: re-recording `use-resource-planner.ts`'s baseline 1043 → **554**
+still buys something real — but the value is in **removing the 1043**, not in installing a 554. Under
+the old entry the first size the gate rejected was 1044; with any entry ≤ 800, or with none, it is
+801. So the file could have crept back up with the gate firing **243 lines late**.
+
+★★★ **CORRECTED 2026-08-03, same day it was written — the original text of this bullet was FALSE and
+is the exact decay this file's preamble warns about.** It claimed that `node
+scripts/check-file-sizes.mjs --update` (which regenerates the baseline as
+`Object.entries(sizes).filter(([, n]) => n > LIMIT)`) would DELETE the 554 entry and thereby "silently
+remove the regrowth protection §2 just installed". It deletes the entry, but that removes **nothing**:
+walk the loop at `scripts/check-file-sizes.mjs:38-41` for `n = 801`. With `prev = 554` the
+`n > prev` arm fires; with `prev === undefined` the NEW-file arm fires. **Both reject, at the same
+line.** A sub-limit baseline entry is behaviourally identical to no entry at all, so `--update`
+dropping it is a no-op and there is no trap here. The reasoning in commit `d7c423bd` is unaffected —
+it argues about the harm of the old 1043 value, which was real.
+
+★★ **There IS a residual, and it is social rather than behavioural** (found in review, 2026-08-03,
+after the correction above): the committed baseline no longer matches what `--update` generates. The
+flag emits only the five files over 800 (`chat-panel` 977 · `task-manager` 2966 · `task-row` 817 ·
+`tasks-section` 1043 · `workspace-section` 963); the committed file carries those five **plus** the
+`use-resource-planner.ts: 554` line. So the next person to regenerate gets a one-line DELETION diff
+that reads as a regression and is not one. Either accept the line will be dropped whenever anyone
+regenerates, or drop it now — behaviourally the two are the same file.
+
+★ Also note the counting difference, since it will bite anyone hand-editing the baseline: the script
+counts `content.split("\n").length`, which is **one more** than `wc -l` for a file ending in a
+newline. `use-resource-planner.ts` is 553 by `wc -l` and 554 by the script. Use the script's number.
+
+**No fix is proposed**, and the real gap is narrower than the first draft of this entry suggested.
+It is not `--update`; it is that **a file which has been brought back under 800 cannot be held
+there.** §2 took `use-resource-planner.ts` from 1043 to 553, and nothing now stops it returning to
+799 one commit at a time. The two options: (a) leave it — the ratchet is a ratchet, not a budget, and
+800 is the only line anyone agreed to; (b) give the baseline an explicit per-file `pin` the loop
+honours regardless of `LIMIT`, so a file that earned its way down can be held near where it landed.
+(b) makes the ratchet two mechanisms and needs a decision about who may raise a pin, which is why it
+is a slice of its own rather than a tweak. There is no pressure to do either now.
+
+---
+
+## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, all small
+
+Left deliberately by §2's move-only extractions. None blocks anything; grouped as one entry because
+they share a cause and would be fixed in one pass.
+
+**(a) A warning names the wrong hook.** `plainSeed`'s dev warning still reads
+`"[useResourcePlanner] non-plain seed dropped (event forwarded as seed?)"` and is now emitted from
+`use-resource-directory.ts:68`. Preserving the string verbatim was **required** by the move-only rule,
+so this is a consequence of that discipline, not a defect of the commit that carries it. Fix it in any
+commit that is allowed to change behaviour-adjacent strings.
+
+**(b) A doc comment names one of two consumers.** `UseResourcePlannerArgs.captureComposite`
+(`src/app/use-resource-planner.ts`, near line 60) says: "reference-data deletes (role/discipline/grade)
+that cascade an edit into **a second array**". Resource deletes use it too, cascading across **three**
+arrays (resources + absences + shifts). Now that the field is a pure passthrough into two sub-hooks,
+the comment describes half of what it forwards.
+
+**(c) A duplication seam the gate cannot see yet.** Two sibling hooks —
+`use-reference-data.ts` and `use-resource-directory.ts` — now each hand-roll the same
+ref-per-arg boilerplate (`const xRef = useRef(args.x)` plus its sync effect) over a different subset
+of `{lang, logActivity, showToast, capture, captureComposite, captureFieldEdit}`. Each pair is ~2
+lines, well under jscpd's 50-token floor, so the **blocking** duplication gate is silent — but the
+moment a third extraction needs the same subset in the same order it becomes a 150+ token contiguous
+match. Current numbers (measured 2026-08-03, threshold **1.75%**): tsx **1.71%** · typescript
+**1.36%** · total **1.53%**. tsx has roughly **0.04pp** of headroom — that near-breach is pre-existing
+and in a different bucket (these two files are `.ts`), but it means the total has no slack to absorb a
+new `.ts` clone either.
+
+★ **CORRECTION to how this was first written up:** it was described as *three* sibling hooks, adding
+`use-calendar-events.ts`. That file contains **no `useRef` at all** — it takes its four optional
+callbacks directly and uses `useWorkspace()` + `useCallback`. It is the naming precedent §2 should
+have cited, not an instance of this duplication.
+
+★ The refs are not gratuitous, so "just thread the ref objects in" is not the fix: `exhaustive-deps`
+only knows a value is render-stable when it can *see* the `useRef`, so threading them as args makes
+the rule demand them in every dependency array — a change to the memoization form a move-only commit
+is forbidden to make. The rationale is already in `use-reference-data.ts`'s header. Any shared helper
+has to preserve that property.
+
+**(d) If a further extraction is ever wanted**, the **RAID cluster** is the cleanest next cut: ~130
+lines, `use-resource-planner.ts:133-265` — `handleSaveRaidItem`, `handleDeleteRaidItem`,
+`handleSendRaidInquiry`, `captureRaidBulkUndo` — self-contained, and conceptually not "resource
+planning" at all. (`handleCreateMitigationTaskFromRaid` at `:407` is RAID-adjacent but reaches into
+tasks, so it is a judgement call rather than an obvious inclusion.) Absence and shift CRUD genuinely
+belong in the planner and should stay. ★★ **There is no ratchet pressure — the file is 553 against a
+554 baseline and a 800 limit. Do not do this speculatively**; it is recorded so the next person under
+real pressure does not have to re-derive it.
+
+---
+
+## 62. Two reference-data handlers have no production consumer — open, pre-existing
+
+`handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts:127` and `:140`)
+are reachable only from `use-resource-planner.test.tsx` (`:1012`, `:1023`, `:1085`, `:1096`). Nothing
+in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller.
+
+★ **Pre-existing, not introduced by §2's split** — they were equally dead at `0d770283`
+(`use-resource-planner.ts:710` and `:723`, returned at `:1023`/`:1025`). The move-only rule required
+carrying them across verbatim, so the split re-exported two dead handlers through a three-level
+spread rather than creating the problem.
+
+★★ **The role-assignment path that IS live is `handleAssignRoleById`**, which the directory picker
+uses and which never mints a role. `handleAssignResourceRole` is the older discipline×grade variant
+that mints via `resolveOrCreateRole` — so deleting it would also remove the only non-test caller of
+`resolveOrCreateRole`, which is itself passed to `RolesPanel` as `onResolveOrCreateRole`. Check that
+prop is live before deleting anything; this is a small thread to pull, not a one-line removal.
+
+The decision is delete-or-record, and it needs a commit that is allowed to change behaviour — not a
+move-only one. Recorded here so the next reader does not assume a tested handler is a used one.
+★ Four tests would go with them.
 
 ---
 
@@ -2369,6 +2659,38 @@ believing a severity label.
 Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
 it is, and because several entries are **negative results** — work already done that returned nothing,
 which is exactly the kind of thing that gets re-run.
+
+### post-0.212.0 — the machine-unblocking slice (§2 closed · §58 half · §51 hardened)
+
+Branch `chore/machine-unblocking-slice-1`; no version bump (nothing user-facing shipped).
+
+| was | what closed it |
+|---|---|
+| §2 planner over the ratchet | two verbatim extractions — `use-reference-data.ts` (308) + `use-resource-directory.ts` (344); planner 1043 → 553, baseline re-recorded 554 |
+| §58 axe gate can scan a stale server | `data-app-version` on the server-rendered `<html>` + a guard test in `e2e/a11y.spec.ts`; **half** — the sibling-worktree case is untouched |
+| §51 fragile `/dup/i` matcher | `findByRole(/merge selected/i)`; the flake **mechanism is still unestablished** and the entry stays open |
+
+★★ **Every quantified claim in the entries this slice touched had to be re-measured, and two were
+wrong.** §2 recorded 1037/1038 when the real state was 1043/1043 — zero slack, not one line — because
+0.212.0 had grown and re-baselined the file without revisiting the entry. §2 also named the wrong
+extraction precedent (`use-storage-file-ops.ts`, which is for `task-manager.tsx` orchestration) when
+the applicable one was `use-calendar-events.ts`, extracted from the same file for the same reason.
+Neither error was visible from the entry itself; both surfaced only on measuring. **This is the
+mechanism this whole file warns about** — the prose has no gate, and a number written eight releases
+ago is a historical record, not a fact.
+
+★ Opened by the slice: **§59** (eye verification owed, third release running), **§60** (the ratchet
+ignores sub-limit files, so §2's new baseline entry is inert), **§61** (three residuals from the
+split), **§62** (two handlers with no production consumer, pre-existing).
+
+★★ **And the review of the slice found four more falsehoods in prose the slice itself had just
+written**, two of them inside corrections of earlier falsehoods: `use-reference-data.ts`'s header
+asserted "14 of the 15 reach only RolesPanel" while correcting a different wrong claim (the true
+split is 12 / 1 / 2 dead); §2's bullet said "reach only `RolesPanel`", contradicting the very header
+comment it defers to; and §60's index row plus §2's cross-reference both still pointed at the
+`--update` trap that §60's own body had retracted **in the same commit**. Correcting a claim is when
+you are most likely to write a new one — re-measure the replacement, and grep every pointer to a
+paragraph you just rewrote.
 
 ### 0.211.1 — the small-correctness batch (§11 · §14 · §15 · §29)
 
