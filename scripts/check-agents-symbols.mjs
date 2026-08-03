@@ -22,6 +22,26 @@
 // ★ Whole-identifier matching, not substring. `onGrant` looks present under a
 // substring search because the code has `onGrantWrite`; the doc naming the
 // wrong prop is exactly what this should catch.
+//
+// ★★ TWO HOLES, both known, neither closed. Say so rather than implying cover:
+//
+// 1. COMMENT-SHADOWING. The scan reads raw file text, so a name surviving only
+//    in a CODE COMMENT counts as existing — including the comment that records
+//    its own rename. Two live stale claims passed this gate on the day it
+//    shipped (`NoteBody`, whose sink is really `RichTextView`, and
+//    `fetchBookingsForCustomer`), each kept "alive" by exactly one comment.
+//    Stripping comments was considered and REJECTED: many legitimately-named
+//    things are string literals or key names (`propose_project`,
+//    `knowledge_items`, i18n keys), so it trades this hole for false findings,
+//    and a gate that cries wolf gets switched off.
+// 2. PROXIMITY BLEED. An absence marker within the window suppresses ANY symbol
+//    near it, not just the one it describes — `onToggleComplete` is masked today
+//    by an unrelated "no such function exists" two lines away. No purely lexical
+//    rule separates "this marker belongs to this symbol" from "a marker is
+//    nearby".
+//
+// Both mean a GREEN run is weaker evidence than it looks: it proves no name is
+// absent EVERYWHERE, not that every claim is true. Grep before trusting a bullet.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -74,36 +94,19 @@ const ABSENCE_MARKERS = [
 
 /** Symbols that are legitimately absent and carry no absence marker, each with
  *  the reason. Additions need a reason — an unexplained entry here is how this
- *  gate rots into a rubber stamp. */
+ *  gate rots into a rubber stamp.
+ *
+ *  ★ Kept to only what ACTUALLY fires. `known.has(name)` short-circuits before
+ *  this map, so an entry for a name that also appears in the code is dead — and
+ *  worse than dead: if that name later leaves the codebase, the entry silently
+ *  masks the stale claim instead of reporting it. A first draft carried 25 such
+ *  entries (browser APIs, upstream TimeLog fields, `Record`) that all resolve in
+ *  code anyway. Before adding one, confirm the name is absent from
+ *  src/scripts/e2e — otherwise you are pre-authorising a future false claim. */
 const ALLOWLIST = new Map([
-  ["sanitizeX", "placeholder for any per-entity sanitizer, not a real function"],
-  ["compareX", "placeholder for a panel's own comparator"],
-  ["setX", "placeholder for any entity setter"],
-  ["taskFields", "placeholder in the AI tool-schema description"],
-  ["raidFields", "placeholder in the AI tool-schema description"],
+  ["compareX", "placeholder for a panel's own comparator, not a real function"],
   ["resolveJsonModule", "a tsconfig compiler option, not repo code"],
   ["UnsupportedApiVersion", "an upstream TimeLog API error string"],
-  ["RegistrationAllTasks", "an upstream TimeLog privilege name"],
-  ["Project_GetAll", "an upstream TimeLog endpoint name"],
-  ["ProjectManagerID", "an upstream TimeLog response field"],
-  ["ActualHours", "an upstream TimeLog v2 response field"],
-  ["NonBillable", "an upstream TimeLog v2 response field"],
-  ["TimeRegistrationId", "an upstream TimeLog v2 response field"],
-  ["IsBillable", "an upstream TimeLog v1 response field"],
-  ["EmployeeInitials", "an upstream TimeLog v2 response field"],
-  ["ProjectName", "an upstream TimeLog v2 response field"],
-  ["TaskName", "an upstream TimeLog v2 response field"],
-  ["ProjectID", "an upstream TimeLog v1 response field"],
-  ["TaskID", "an upstream TimeLog v1 response field"],
-  ["UserID", "an upstream TimeLog v1 response field"],
-  ["rate_limit_error", "an Anthropic API error type"],
-  ["overloaded_error", "an Anthropic API error type"],
-  ["Bearer", "an HTTP auth scheme"],
-  ["MediaRecorder", "a browser API"],
-  ["IntersectionObserver", "a browser API"],
-  ["AbortController", "a browser API"],
-  ["FileReader", "a browser API"],
-  ["Record", "a TypeScript utility type"],
 ]);
 
 /** ★★★ THIS FILE MUST EXCLUDE ITSELF, and the reason is not hygiene.
@@ -219,7 +222,7 @@ function main() {
     `\nEach is one of:\n` +
       `  - a stale claim -> fix the doc (this is what the gate is for)\n` +
       `  - a symbol you renamed -> update the doc to the new name\n` +
-      `  - deliberately absent -> say so on the SAME LINE using one of:\n` +
+      `  - deliberately absent -> say so NEAR the mention (within ~240 chars) using one of:\n` +
       `      ${ABSENCE_MARKERS.slice(0, 8).join(", ")} ...\n` +
       `  - genuinely not repo code -> add it to ALLOWLIST with a reason\n`,
   );
