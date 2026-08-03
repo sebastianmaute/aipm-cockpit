@@ -5,12 +5,14 @@ import { ReportsPanel } from "./reports";
 import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
+import { t } from "./i18n";
 
 const TODAY = "2026-05-28";
 
 function makeTask(p: Partial<Task> & { id: number; assignee: string }): Task {
   return {
     id: p.id,
+    status: p.status,
     taskName: p.taskName ?? `Task ${p.id}`,
     assignee: p.assignee,
     assigneeEmail: p.assigneeEmail ?? "",
@@ -315,5 +317,20 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
 
     expect(onChange).toHaveBeenCalledOnce();
     expect(onChange).toHaveBeenCalledWith(["budget-report", "raid-report"]);
+  });
+});
+
+describe("ReportsPanel — Total tile names the cancelled count", () => {
+  it("names the cancelled count under Total when there is any", () => {
+    renderReports([
+      makeTask({ id: 1, assignee: "Alex", status: "To Do" }),
+      makeTask({ id: 2, assignee: "Bea", status: "Cancelled" }),
+    ]);
+    expect(screen.getByText(t("en-US", "reportsCancelledCount", "1"))).toBeInTheDocument();
+  });
+
+  it("shows no cancelled line when nothing is cancelled", () => {
+    const { container } = renderReports([makeTask({ id: 1, assignee: "Alex", status: "To Do" })]);
+    expect(container.querySelector("[data-tile-sub]")).toBeNull();
   });
 });

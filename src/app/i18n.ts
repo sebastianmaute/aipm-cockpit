@@ -1128,6 +1128,7 @@ const enUS = {
   reportsOpen: "Open",
   reportsCompleted: "Completed",
   reportsCancelled: "Cancelled",
+  reportsCancelledCount: "{0} cancelled",
   reportsOverdue: "Overdue",
   reportsOpenByStatus: "Open tasks by status",
   reportsDueSoon: "Due soon (≤3 work days)",

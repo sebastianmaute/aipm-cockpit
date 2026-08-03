@@ -278,7 +278,17 @@ export function ReportsPanel({
   return (
     <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={<>{addReportControl}{removeReportControl}</>} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label={t(lang, "reportsTotal")} value={stats.total} size="2xl" flat />
+        <Tile
+          label={t(lang, "reportsTotal")}
+          value={stats.total}
+          sub={
+            stats.cancelled > 0
+              ? t(lang, "reportsCancelledCount", String(stats.cancelled))
+              : undefined
+          }
+          size="2xl"
+          flat
+        />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} size="2xl" flat />
         <Tile
           label={t(lang, "reportsCompleted")}

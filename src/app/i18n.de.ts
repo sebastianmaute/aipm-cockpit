@@ -1117,6 +1117,7 @@ export const de: Record<TranslationKey, string> = {
   reportsOpen: "Offen",
   reportsCompleted: "Erledigt",
   reportsCancelled: "Abgebrochen",
+  reportsCancelledCount: "{0} abgebrochen",
   reportsOverdue: "Überfällig",
   reportsOpenByStatus: "Offene Aufgaben nach Status",
   reportsDueSoon: "Bald fällig (≤3 Arbeitstage)",
