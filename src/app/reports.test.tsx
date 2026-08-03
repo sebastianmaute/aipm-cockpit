@@ -9,24 +9,26 @@ import { t } from "./i18n";
 
 const TODAY = "2026-05-28";
 
+// Defaults first, overrides SPREAD last. The earlier shape wired each field by
+// hand (`status: p.status`), so any field it forgot — healthOverride, jiraKey,
+// resourceId — was silently dropped and a test overriding one would pass
+// against broken code. The `as unknown as Task` cast hides that from tsc, so
+// the spread is the only thing keeping overrides honest.
 function makeTask(p: Partial<Task> & { id: number; assignee: string }): Task {
   return {
-    id: p.id,
-    status: p.status,
-    taskName: p.taskName ?? `Task ${p.id}`,
-    assignee: p.assignee,
-    assigneeEmail: p.assigneeEmail ?? "",
-    priority: p.priority ?? "Medium",
-    startDate: p.startDate ?? TODAY,
-    dueDate: p.dueDate ?? TODAY,
-    completedDate: p.completedDate,
-    lastUpdateDate: p.lastUpdateDate ?? TODAY,
-    blockers: p.blockers ?? "",
-    description: p.description ?? "",
-    inquiriesSent: p.inquiriesSent ?? 0,
-    group: p.group ?? "",
-    labels: p.labels ?? [],
-    dependencies: p.dependencies ?? [],
+    taskName: `Task ${p.id}`,
+    assigneeEmail: "",
+    priority: "Medium",
+    startDate: TODAY,
+    dueDate: TODAY,
+    lastUpdateDate: TODAY,
+    blockers: "",
+    description: "",
+    inquiriesSent: 0,
+    group: "",
+    labels: [],
+    dependencies: [],
+    ...p,
   } as unknown as Task;
 }
 

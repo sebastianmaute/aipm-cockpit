@@ -346,7 +346,8 @@ describe("Tile sub slot", () => {
 
   it("renders no sub line when omitted", () => {
     const { container } = render(<Tile label="Total" value={10} />);
-    expect(container.textContent).not.toContain("cancelled");
+    // Structural, not textual: this fixture never passes the string "cancelled",
+    // so asserting its absence could not fail whatever `Tile` did.
     expect(container.querySelector("[data-tile-sub]")).toBeNull();
   });
 });

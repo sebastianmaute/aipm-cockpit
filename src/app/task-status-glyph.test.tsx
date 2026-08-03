@@ -61,6 +61,10 @@ describe("TaskStatusGlyph", () => {
     );
     expect(container.textContent).not.toContain("✓");
     expect(container.textContent).not.toContain("✕");
+    // Assert the dot POSITIVELY. Absence-only assertions pass just as happily
+    // against `return null`, which would render every open row's Health cell
+    // empty — and nothing else in the suite pins this branch.
+    expect(container.querySelector("span.rounded-full")).not.toBeNull();
   });
 
   test("a cancelled task WITH a healthOverride takes the RagDot branch, not the cross", () => {
@@ -73,5 +77,6 @@ describe("TaskStatusGlyph", () => {
     );
     expect(container.textContent).not.toContain("✕");
     expect(container.textContent).not.toContain("✓");
+    expect(container.querySelector("span.rounded-full")).not.toBeNull();
   });
 });
