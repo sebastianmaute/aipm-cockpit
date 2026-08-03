@@ -1646,7 +1646,7 @@ right; the clever alternative is not.~~ ← npm's advice has since changed to a 
 ★★★ ~~Plugin peers would NOT block it — `eslint-config-next@16.2.6` is `>=9.0.0`, and typescript-eslint
 and `eslint-plugin-react-hooks` both list `^10.0.0`. The risk is entirely in rule drift, not install
 resolution.~~ ← **FALSE in its conclusion, and this is the sentence that made the 2026-08-03 attempt
-look safe — see §52.** The peer survey is accurate as far as it goes (install DID resolve cleanly, no
+look safe — see §53.** The peer survey is accurate as far as it goes (install DID resolve cleanly, no
 ERESOLVE), but it draws the boundary wrong twice. It surveyed `eslint-plugin-react-hooks` and never
 **`eslint-plugin-react`**, whose own peer is `^3 || … || ^8 || ^9.7` — no published version mentions
 v10. And it framed the risk space as *peers vs rule drift*, when the actual failure was a third
@@ -1662,7 +1662,7 @@ the stale one — re-measure, don't reconcile.
 **To close:** ~~upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
 `npx eslint --max-warnings=0 src/app` against the full rule set, and expect to fix drift rather than
 merely bump a version.~~ ← **that route is shut on published packages as of 2026-08-03 — it was
-attempted and reverted; see §52** for the upstream blocker and what to re-measure before trying again.
+attempted and reverted; see §53** for the upstream blocker and what to re-measure before trying again.
 ★ Nothing here is blocked on it: this entry's own advisory was closed by the scoped overrides above,
 not by an eslint major. Current: eslint `^9` (9.39.4).
 
@@ -1930,7 +1930,7 @@ nothing.
 
 ---
 
-## 52. ESLint 10 is blocked upstream by `eslint-plugin-react` — open, not actionable today
+## 53. ESLint 10 is blocked upstream by `eslint-plugin-react` — open, not actionable today
 
 Attempted 2026-08-03 as the slice §45 called for. **Reverted; nothing shipped.** `eslint@10.8.0`
 installs cleanly and then crashes before linting a single file.
@@ -2054,14 +2054,14 @@ effect, then the unpiped gate — and treat the result as a fresh measurement.
 
 ---
 
-## 53. Prod-only CSP blocks ProseMirror's base CSS — open, PRE-EXISTING, user-visible
+## 54. Prod-only CSP blocks ProseMirror's base CSS — open, PRE-EXISTING, user-visible
 
 Every rich-text editor in a **production build** renders without ProseMirror's base stylesheet, because
 the prod CSP refuses the `<style>` element Tiptap injects at runtime. Dev is unaffected, which is why
 this has gone unseen.
 
 ★★★ **MEASURED 2026-08-03 on `main` (`13b518db`) in an isolated worktree — observed, not inferred.**
-Same dated-measurement rule as §52: re-measure before acting, do not treat these values as properties.
+Same dated-measurement rule as §53: re-measure before acting, do not treat these values as properties.
 Reproduction:
 
 ```bash
