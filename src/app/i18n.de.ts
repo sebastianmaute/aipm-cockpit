@@ -2193,7 +2193,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardScopeUnset: "Nicht gesetzt",
   dashboardMilestones: "Meilensteine",
   dashboardRagThresholds: "Verbrauch / Stunden: Gelb ≥ 90%, Rot > 100% · Kostenverbrauch: Rot < 0,80, Gelb < 0,90 · Marge: Grün ≥ 15%, Gelb 0–15%, Rot < 0",
-  dashboardProgressCaption: "Erledigte Aufgaben im Verhältnis zum Umfang — abgebrochene Arbeit bleibt in beiden außen vor. Die Rot/Gelb/Grün-Aufteilung umfasst alle Aufgaben; geschlossene Arbeit zählt als Grün.",
+  dashboardProgressCaption: "Erledigte Aufgaben im Verhältnis zum Umfang — abgebrochene Arbeit bleibt in beiden außen vor. Die Rot/Gelb/Grün-Aufteilung umfasst alle Aufgaben; geschlossene Arbeit zählt als Grün, sofern die Ampel nicht manuell gesetzt wurde.",
   dashboardBurnCaption: "Verbrauchtes Budget und Stunden gegenüber dem Verfügbaren. Das Burn-down zeigt das verbleibende Budget gegen den geplanten Verlauf — die Ist-Linie über der gestrichelten Linie bedeutet Rückstand zum Plan.",
   navMilestones: "Meilensteine",
   milestoneNew: "Neuer Meilenstein",
@@ -3486,7 +3486,7 @@ export const de: Record<TranslationKey, string> = {
   contactPersonsTip:
     "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Anteil der als erledigt markierten Aufgaben an den Aufgaben im aktiven Umfang; abgebrochene Arbeit wird ausgeschlossen. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
+  dashboardKpiCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben außer den abgebrochenen. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
   dashboardKpiOverdueHint: "Aufgaben, die überfällig und noch nicht erledigt sind. Möglichst auf null senken.",
   dashboardKpiOpenRaidHint: "Offene Risiken, Annahmen, Probleme und Abhängigkeiten, die noch Aufmerksamkeit brauchen.",
   dashboardRagHint: "Rot / Gelb / Grün: Anzahl der Projektbereiche, die vom Kurs abweichen, gefährdet oder gesund sind.",

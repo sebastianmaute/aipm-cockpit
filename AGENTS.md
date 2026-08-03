@@ -926,8 +926,23 @@ The presentational slices:
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
   `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
 - `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the 3 "at a glance" KPI tiles
-  (complete % · overdue · open RAID, each with a `TrendArrow`); a standalone masonry card. Uses a
+  (complete % · overdue · open RAID; overdue and open-RAID always carry a `TrendArrow`, completion
+  carries one only outside the no-active-scope state below); a standalone masonry card. Uses a
   `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+  ★★★ **NEVER RE-DERIVE "is this project all cancelled" — call `hasNoActiveScope(progress)`
+  (`dashboard.ts`), or `tasksHaveNoActiveScope(tasks)` when you hold only tasks.** Both go through the
+  one `scopeCounts`, so a surface gated on either cannot drift from the tiles. This rule exists
+  because the predicate WAS re-derived: the Progress tile got the state and the KPI card did not, and
+  for four commits one dashboard showed "No active scope" beside "Complete 0%". THREE more surfaces
+  then turned out to render the same metric — the completion sparkline, and the Trends variance row
+  in both of its consumers (gated in `use-snapshots.ts`, the hook that PRODUCES `variance`, not at
+  either render site). In that state the completion tile drops its `TrendArrow`, `KpiGradientBar` and
+  `hint` together, since each explains a percentage it no longer shows. ★ `total === 0` is
+  DELIBERATELY excluded — an empty project keeps 0%, and a test pins that exclusion.
+  ★★ STILL INCONSISTENT, recorded not fixed (`docs/open-followups.md` §66): the R/A/G tile beside it
+  counts a cancelled task GREEN, because `computeGroupHealth` tallies `computeTaskHealth` per task
+  and that returns Green for anything finished. So an all-cancelled project reads "No active scope"
+  next to "G 2".
 - `dashboard-sections/dashboard-top-actions.tsx` (`DashboardTopActions`) — the ranked Top-actions queue;
   returns `null` when `!topActions?.length`, and the PANEL also gates its `break-inside-avoid` wrapper on
   `topActions?.length` so an empty queue leaves no dead `dc.cardGap` margin in the flow.

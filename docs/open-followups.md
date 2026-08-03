@@ -107,6 +107,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
 | 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
 | 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
+| 66 | The R/A/G tile counts a cancelled task GREEN, one tile from the fix | cancelled-work presentation | M | open — `computeGroupHealth` is per-task and Green-for-finished; not presentation-only |
+| 67 | A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps | pre-existing (`909118b2`) | XS | open — benign at runtime, silently skips the file in every grep |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -2693,6 +2695,17 @@ round added bullets without re-counting — once in the very commit that added t
 WARNING at the foot of this entry, and once more in the commit that added THIS paragraph, which
 named the heading and the body ordinals and forgot the **index table row at the top of this file**.
 
+★★★ **A `file:line` CITATION CAN BE BROKEN BY THE COMMIT THAT WRITES IT.** Two here were: the same
+commit that added `withoutCompletionVariance` to `snapshot.ts` and `scopeCounts` to `dashboard.ts`
+also edited this entry, and both insertions pushed a line the entry cites further down the file. The
+numbers were correct when read and wrong when committed — no later drift, no staleness, just an
+edit-order trap. A third citation named a location that had been TRIED AND ABANDONED earlier in the
+same commit, while the commit message recorded the real one, so the doc contradicted its own commit.
+★ THE HABIT THAT SURVIVES THIS: cite the SYMBOL and the file (`computeVariance` in `snapshot.ts`),
+not the line. A symbol is checkable by grep, it is what the `agents-symbol-check` gate can see in
+AGENTS.md, and it does not move when someone inserts a function above it. Reserve `file:line` for a
+spot with no symbol to name, and re-read it AFTER staging.
+
 ★★★ AND THE FIX FOR THAT WAS ITSELF WRONG. It said "a count lives in THREE places: the table row,
 the `##` heading, and any ordinal in the prose" — a closed list, which is the error. A review found a
 FOURTH copy nine lines below it ("the same shape as the three already done"), stale since the day it
@@ -2702,7 +2715,7 @@ is to stop writing counts an edit can invalidate — name the surfaces, say "the
 and reserve a number for the heading, where one is unavoidable. When you must change that number,
 `grep -n` the entry for every digit-word before you commit.
 
-**A user READS this one — it belongs with the five that were fixed, not with the persisted figures:**
+**A user READS this one — it belongs with the surfaces that were fixed, not with the persisted figures:**
 
 - `use-portfolio-health.ts:142` sets `completionPercent: model.progress.percent`, and
   `portfolio-health-panel.tsx:164` renders it as `{row.completionPercent}%` in the Turso
@@ -2720,17 +2733,23 @@ and reserve a number for the heading, where one is unavoidable. When you must ch
 THIS ONE. The same assignment feeds the persisted snapshot AND the LIVE current-snapshot that
 `computeVariance` diffs against the baseline, so it reaches two rendered surfaces:
 `dashboard-panel.tsx:378` `VarianceSummary` (the Turso-gated Trends card in the dashboard masonry,
-which sits DIRECTLY AFTER the Progress `<Section>` that closes at `:365`) and `trends-panel.tsx:159`.
-`snapshot.ts:274` builds the row with `worseIfLower`, so a project baselined at 40% whose remaining
-work is then all cancelled rendered **"Percent complete −40%"** beside an AMBER dot, one card below a
-tile reading "No active scope" — delivery announced as having gone backwards on a project with no
-scope left. ★ AMBER, not red: `worseIfLower` returns only `"A"` or `"G"`; an earlier revision of this
-bullet said red and a test assertion disproved it.
+which sits DIRECTLY AFTER the Progress `<Section>`) and the Trends view (`trends-panel.tsx`).
+`computeVariance` (`snapshot.ts`) builds that row with `worseIfLower`, so a project baselined at 40%
+whose remaining work is then all cancelled rendered **"Percent complete −40%"** beside an AMBER dot,
+one card below a tile reading "No active scope" — delivery announced as having gone backwards on a
+project with no scope left. ★ AMBER, not red: `worseIfLower` returns only `"A"` or `"G"`; an earlier
+revision of this bullet said red and a test assertion disproved it.
 
 ★ **THE RENDERED HALF IS NOW FIXED.** `withoutCompletionVariance` (`snapshot.ts`) drops the
-completion ROW, applied ONCE in `workspace-section.tsx` — the sole feeder of both surfaces — gated on
-`tasksHaveNoActiveScope` (`dashboard.ts`), which is `hasNoActiveScope` over the same `scopeCounts`
-the tiles use, so a surface gated on it cannot drift from them. Partial cancellation keeps the row.
+completion ROW, applied ONCE in **`use-snapshots.ts`** — the hook that PRODUCES `variance`, whose two
+consumers are the dashboard Trends card and the Trends view — gated on `tasksHaveNoActiveScope`
+(`dashboard.ts`), which is `hasNoActiveScope` over the same `scopeCounts` the tiles use, so a surface
+gated on it cannot drift from them. Partial cancellation keeps the row.
+★★ An earlier revision of this sentence named `workspace-section.tsx`. That placement was TRIED and
+ABANDONED (the file sits at its size-ratchet baseline), and the register kept the abandoned location
+while the commit message recorded the real one — so the doc and its own commit contradicted each
+other. The appositive that followed it ("the sole feeder of both surfaces") was true OF
+workspace-section, which is exactly what let a wrong location survive a skim.
 
 ★★ **THE PERSISTED HALF IS STILL OPEN**, and the split is why it survived the fix above. Giving the
 stored `pctComplete` a null state is a data-shape change that Trends charts over time and version
@@ -2791,7 +2810,7 @@ sibling claim in `task-status-glyph.test.tsx` was correct and the register degra
 transcription, the same failure the TRANSCRIPTION WARNING in §64 records.
 
 ★★ The same `status`-driven derivation makes ONE MORE string wrong, and it is not a tooltip:
-`inScope` (`dashboard.ts:86`) subtracts every task that is closed-but-not-delivered, so a project
+`inScope` (`scopeCounts`, `dashboard.ts`) subtracts every task that is closed-but-not-delivered, so a project
 made only of these rows renders `dashboardAllCancelled` — currently "All cancelled ({0})" — about
 rows whose status says Done. Fixing the drivers fixes both; fixing only the tooltip leaves this.
 ★ Quoted by KEY with the value marked "currently", because the previous revision pinned the literal
@@ -2807,6 +2826,54 @@ the UI.
 which is why it was not folded into a presentation batch. Anything done here must keep the two
 predicates distinct: `isTaskClosed` answers "will this be worked on again?", `isTaskDelivered`
 answers "was it delivered?", and collapsing them is the defect 0.213.0 existed to remove.
+
+---
+
+## 66. The R/A/G tile counts a cancelled task GREEN, one tile from the fix — open
+
+`computeGroupHealth` (`health.ts`) tallies `computeTaskHealth` per TASK, and that returns `"G"` for
+anything `isTaskFinished` — Cancelled included. So the Dashboard's Progress `<Section>` renders, side
+by side inside ONE card, "No active scope / All cancelled (2)" and "R 0 · A 0 · G 2".
+
+★★ This is the cancelled-work batch's own premise, violated one tile away from where it was applied.
+The whole reason `task-row.tsx` stopped showing the delivered green ✓ for a cancelled row is that
+cancelled work must not wear the healthy/delivered signal — and the AGGREGATE of those same rows
+still does. The only disclosure is an 11px caption under the tiles.
+
+★ The PARTIAL case is worse in kind, not better: 8 open + 2 cancelled shows two green counts mixed
+into genuinely on-track work, with nothing distinguishing them.
+
+★ Found by a cold reviewer asked to enumerate every renderer of a completion figure or cancelled
+count. It is NOT §64 (that entry is about surfaces reading `0%`) and NOT §65 (the Done-without-date
+pair), which is why it needed its own number rather than a bullet on either.
+
+★★ Not fixed here because it is not a presentation-only change. `computeGroupHealth` and
+`computeTaskHealth` feed group health across the app, so the options — a fourth bucket, excluding
+cancelled from the tally, or a per-caller flag — each ripple well past the dashboard and want their
+own decision. ★ Whatever is chosen must keep `isTaskClosed` and `isTaskDelivered` distinct, for the
+same reason §65 says so.
+
+★ `healthOverride` wins over the Green path (`computeTaskHealth` checks it first), so a cancelled
+task pinned Red counts Red. The `dashboardProgressCaption` string says "unless its health was set by
+hand" for exactly that reason — do not simplify that clause away.
+
+---
+
+## 67. A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps — open
+
+Byte offset 2940 is a raw `0x00` inside a template literal — `` `${tursoConfig.httpUrl}\0${tursoConfig.authToken}` ``
+— almost certainly the recorded Edit-tool corruption (see the memory note on NUL corruption). It is
+PRE-EXISTING, not from the cancelled-work branch: present at `c5313d9f`, last touched by `909118b2`.
+
+★★ It is benign at runtime — a NUL works as a cache-key separator exactly as a space would, which is
+why nothing ever caught it — but ripgrep and grep classify the file as BINARY and print
+`Binary file … matches` with no line content. So a content sweep silently SKIPS this file. That bit
+a reviewer during the §64 work: the file holds `completionPercent`, one of the user-read surfaces
+§64 depends on, and the grep that should have found it returned nothing usable.
+
+★ Fix is one byte (NUL → a normal separator such as `|`). The reason to bother is not the runtime
+behaviour, it is that every future `grep -rn` over `src/app` is quietly incomplete until it is done.
+★ Worth a one-off scan for other NUL bytes in tracked source at the same time.
 
 ---
 

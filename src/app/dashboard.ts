@@ -70,10 +70,6 @@ export type DashboardProgress = {
   counts: Record<Health, number>;
 };
 
-/** % complete (delivered-based) + R/A/G health counts from computeGroupHealth.
- *  Note: completed tasks are counted in BOTH `completed` and `counts.G`
- *  (computeGroupHealth colors a completed task Green), so `counts.G` includes
- *  done items, not just active on-track ones. */
 /** Total tasks and the in-scope denominator, in one place.
  *
  *  ★ Cancelled work is out of scope, not outstanding: leaving it in the
@@ -97,6 +93,10 @@ export function tasksHaveNoActiveScope(tasks: readonly Task[]): boolean {
   return hasNoActiveScope(scopeCounts(tasks));
 }
 
+/** % complete (delivered-based) + R/A/G health counts from computeGroupHealth.
+ *  Note: completed tasks are counted in BOTH `completed` and `counts.G`
+ *  (computeGroupHealth colors a completed task Green), so `counts.G` includes
+ *  done items, not just active on-track ones. */
 export function computeDashboardProgress(
   tasks: readonly Task[],
   todayISO: string,

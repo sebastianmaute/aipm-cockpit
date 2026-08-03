@@ -223,8 +223,18 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   // and the Trends view — read this one value, and a per-surface gate is exactly
   // how the dashboard's own two completion cards came to disagree.
   // ★ PRESENTATION ONLY: the stored `SnapshotRecord.pctComplete` is untouched.
+  // ★★ KNOWN LIMIT — the gate mixes LIVE and HISTORICAL data: the rows come from
+  // two stored snapshots, the predicate reads today's tasks. Narrow in practice
+  // (no-active-scope needs every task to lack a `completedDate`, so a non-zero
+  // historical `pctComplete` requires the delivered tasks to have been DELETED
+  // since), but it is not "unconditionally correct" — say so rather than let a
+  // later reader assume it.
+  // ★ `rawVariance.length` FIRST, and it is not a micro-optimisation: this hook
+  // is called unconditionally from the root orchestrator, Trends is Turso-only,
+  // so on a file backend `rawVariance` is always [] and `scopeCounts` would
+  // otherwise filter+allocate over every task on every render of the whole app.
   const rawVariance = latest ? computeVariance(baseline, latest) : [];
-  const variance = tasksHaveNoActiveScope(args.tasks)
+  const variance = rawVariance.length > 0 && tasksHaveNoActiveScope(args.tasks)
     ? withoutCompletionVariance(rawVariance)
     : rawVariance;
   const gaps = detectGaps(snapshots, cadence, today);

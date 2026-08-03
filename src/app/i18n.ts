@@ -2207,7 +2207,7 @@ const enUS = {
   dashboardScopeUnset: "Not set",
   dashboardMilestones: "Milestones",
   dashboardRagThresholds: "Consumption / hours: Amber ≥ 90%, Red > 100% · Cost burn: Red < 0.80, Amber < 0.90 · Margin: Green ≥ 15%, Amber 0–15%, Red < 0",
-  dashboardProgressCaption: "Completed tasks vs tasks in scope — cancelled work is out of both. The Red / Amber / Green split covers every task, and closed work counts Green.",
+  dashboardProgressCaption: "Completed tasks vs tasks in scope — cancelled work is out of both. The Red / Amber / Green split covers every task; closed work counts Green unless its health was set by hand.",
   dashboardBurnCaption: "Budget and hours consumed vs available. The burn-down shows remaining budget against the planned glide-path — the actual line above the dashed line means you are behind plan.",
   navMilestones: "Milestones",
   milestoneNew: "New milestone",
@@ -3514,7 +3514,7 @@ const enUS = {
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Share of tasks marked Done out of the tasks still in scope; cancelled work is excluded. Trending up is good; a flat line signals stalled delivery.",
+  dashboardKpiCompleteHint: "Share of tasks with a completion date, out of every task except the cancelled ones. Trending up is good; a flat line signals stalled delivery.",
   dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
   dashboardKpiOpenRaidHint: "Open risks, assumptions, issues and dependencies that still need attention.",
   dashboardRagHint: "Red / Amber / Green health counts across your project areas — how many are off track, at risk, or healthy.",

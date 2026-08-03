@@ -501,8 +501,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
               is suppressed outright when there is no active scope. It renders
               directly beneath the completion tile, so an all-cancelled project
               would otherwise show a flat 0% trajectory under a tile reading
-              "No active scope": the same one-screen disagreement d6fb68ab
-              removed one card over. ★ The snapshot-fed series does NOT go to
+              "No active scope": the same one-screen disagreement that the
+              at-a-glance KPI card had to be fixed for, one card over.
+              ★ The snapshot-fed series does NOT go to
               zero on its own — `fromSnapshots` reads each record's stored
               `pctComplete` and never consults `inScope` — so this is a real
               suppression on that path, not a no-op dressed up as a guard. */}
