@@ -30,10 +30,18 @@ export const GANTT_STATUS_VALUES = ["open", "completed", "overdue"] as const;
 export type GanttStatus = (typeof GANTT_STATUS_VALUES)[number];
 
 /** Every status bucket, i.e. the "everything ticked" filter state.
- *  Frozen and typed `readonly` on purpose: it backs `DEFAULT_PREFS.statuses`
- *  and every reset, so an in-place `sort()`/`push()` by any consumer would
- *  silently corrupt the default for the rest of the session. Spread it
- *  (`[...ALL_GANTT_STATUSES]`) wherever a mutable `GanttStatus[]` is needed. */
+ *  Typed `readonly` so TS callers cannot mutate it, and frozen so a JS caller
+ *  or an `as any` cannot either. That is ALL the freeze buys: it protects THIS
+ *  constant only. `DEFAULT_PREFS.statuses` is a fresh spread of it, so it is
+ *  neither frozen nor an alias, and nothing here protects the default.
+ *
+ *  ★ The default IS still mutable through `loadPrefs`, which returns
+ *  `DEFAULT_PREFS` BY REFERENCE on its SSR / no-blob / non-object / catch
+ *  paths — `loadPrefs().statuses.push("open")` corrupts the module default for
+ *  the rest of the session. Pre-existing (equally true when the default was
+ *  `[]`) and no consumer does it today, but neither `readonly` nor the freeze
+ *  prevents it. Spread it (`[...ALL_GANTT_STATUSES]`) wherever a mutable
+ *  `GanttStatus[]` is needed. */
 export const ALL_GANTT_STATUSES: readonly GanttStatus[] = Object.freeze([
   ...GANTT_STATUS_VALUES,
 ]);
