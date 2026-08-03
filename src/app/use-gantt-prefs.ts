@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { type Priority } from "./types";
 import {
+  ALL_GANTT_STATUSES,
   DEFAULT_PREFS,
   type GanttPrefs,
   type GanttSort,
@@ -26,6 +27,11 @@ export type GanttPrefsApi = {
   toggleCriticalPath: () => void;
   toggleBaseline: () => void;
   toggleMilestonePlacement: () => void;
+  toggleHolidays: () => void;
+  toggleAbsences: () => void;
+  toggleDependencies: () => void;
+  toggleMilestones: () => void;
+  toggleGrid: () => void;
 };
 
 /** Toggle a value's membership in an array (add if absent, remove if present),
@@ -70,10 +76,13 @@ export function useGanttPrefs(): GanttPrefsApi {
     setPrefs((p) => ({ ...p, assignees: toggleIn(p.assignees, assignee) }));
   }
   function resetFilters() {
+    // "No filter" is every status TICKED under the v2 semantics — an empty
+    // list would reset the chart to showing nothing. Priorities and assignees
+    // keep empty-means-all, so they still clear to [].
     setPrefs((p) => ({
       ...p,
       search: "",
-      statuses: [],
+      statuses: [...ALL_GANTT_STATUSES],
       priorities: [],
       assignees: [],
     }));
@@ -90,6 +99,21 @@ export function useGanttPrefs(): GanttPrefsApi {
       milestonePlacement: p.milestonePlacement === "inline" ? "below" : "inline",
     }));
   }
+  function toggleHolidays() {
+    setPrefs((p) => ({ ...p, showHolidays: !p.showHolidays }));
+  }
+  function toggleAbsences() {
+    setPrefs((p) => ({ ...p, showAbsences: !p.showAbsences }));
+  }
+  function toggleDependencies() {
+    setPrefs((p) => ({ ...p, showDependencies: !p.showDependencies }));
+  }
+  function toggleMilestones() {
+    setPrefs((p) => ({ ...p, showMilestones: !p.showMilestones }));
+  }
+  function toggleGrid() {
+    setPrefs((p) => ({ ...p, showGrid: !p.showGrid }));
+  }
 
   return {
     prefs,
@@ -103,5 +127,10 @@ export function useGanttPrefs(): GanttPrefsApi {
     toggleCriticalPath,
     toggleBaseline,
     toggleMilestonePlacement,
+    toggleHolidays,
+    toggleAbsences,
+    toggleDependencies,
+    toggleMilestones,
+    toggleGrid,
   };
 }

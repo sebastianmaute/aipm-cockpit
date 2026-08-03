@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildGanttRows,
   clampNameColWidth,
+  DEFAULT_PREFS,
   GANTT_NAME_COL_MAX,
   GANTT_NAME_COL_MIN,
   LEFT_GUTTER_PX,
   loadPrefs,
   milestoneSlipDays,
+  savePrefs,
 } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
@@ -15,9 +17,11 @@ const PREFS_KEY = "aipm-cockpit:gantt-prefs";
 describe("loadPrefs multi-select filters", () => {
   beforeEach(() => window.localStorage.clear());
 
-  it("defaults the three filters to empty arrays (= all)", () => {
+  // Under the v2 schema an empty status list means "show nothing", so the
+  // default is every status ticked. Priorities/assignees keep empty = all.
+  it("defaults statuses to every bucket, priorities/assignees to empty (= all)", () => {
     const p = loadPrefs();
-    expect(p.statuses).toEqual([]);
+    expect([...p.statuses].sort()).toEqual(["completed", "open", "overdue"]);
     expect(p.priorities).toEqual([]);
     expect(p.assignees).toEqual([]);
   });
@@ -48,13 +52,16 @@ describe("loadPrefs multi-select filters", () => {
     expect(p.assignees).toEqual(["Sample"]);
   });
 
-  it("treats the legacy 'all'/'All' sentinels as no filter (empty)", () => {
+  it("treats the legacy 'all'/'All' sentinels as no filter", () => {
     window.localStorage.setItem(
       PREFS_KEY,
       JSON.stringify({ status: "all", priority: "All", assignee: "All" }),
     );
     const p = loadPrefs();
-    expect(p.statuses).toEqual([]);
+    // The blob carries no `v`, so the status sentinel parses to [] and then
+    // migrates to every bucket — which is what "all" meant. The other two
+    // filters still express "no filter" as an empty list.
+    expect([...p.statuses].sort()).toEqual(["completed", "open", "overdue"]);
     expect(p.priorities).toEqual([]);
     expect(p.assignees).toEqual([]);
   });
@@ -135,6 +142,85 @@ describe("buildGanttRows milestone placement", () => {
       "t2",
       "m20",
       "m21",
+    ]);
+  });
+});
+
+describe("prefs v2 migration", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("a legacy blob with an empty statuses array migrates to all statuses ticked", () => {
+    window.localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ sort: "auto", statuses: [] }),
+    );
+    expect([...loadPrefs().statuses].sort()).toEqual([
+      "completed",
+      "open",
+      "overdue",
+    ]);
+  });
+
+  it("a legacy blob with a non-empty statuses array is left alone", () => {
+    window.localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ sort: "auto", statuses: ["overdue"] }),
+    );
+    expect(loadPrefs().statuses).toEqual(["overdue"]);
+  });
+
+  it("a v2 blob with an empty statuses array keeps it empty", () => {
+    window.localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ v: 2, sort: "auto", statuses: [] }),
+    );
+    expect(loadPrefs().statuses).toEqual([]);
+  });
+
+  it("savePrefs stamps the version, so an emptied filter survives a reload", () => {
+    // The round trip is the point: without the version stamp the migration
+    // above would re-expand a deliberately-emptied filter on every load and
+    // the "show nothing" state would be unreachable.
+    savePrefs({ ...DEFAULT_PREFS, statuses: [] });
+    expect(loadPrefs().statuses).toEqual([]);
+  });
+
+  it("defaults the new display toggles when absent", () => {
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ v: 2, statuses: [] }));
+    const p = loadPrefs();
+    expect(p.showHolidays).toBe(true);
+    expect(p.showAbsences).toBe(true);
+    expect(p.showDependencies).toBe(true);
+    expect(p.showMilestones).toBe(true);
+    expect(p.showGrid).toBe(false);
+  });
+
+  it("honours a stored false for each display toggle", () => {
+    window.localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({
+        v: 2,
+        statuses: [],
+        showHolidays: false,
+        showAbsences: false,
+        showDependencies: false,
+        showMilestones: false,
+        showGrid: true,
+      }),
+    );
+    const p = loadPrefs();
+    expect(p.showHolidays).toBe(false);
+    expect(p.showAbsences).toBe(false);
+    expect(p.showDependencies).toBe(false);
+    expect(p.showMilestones).toBe(false);
+    expect(p.showGrid).toBe(true);
+  });
+
+  it("DEFAULT_PREFS ticks every status", () => {
+    expect([...DEFAULT_PREFS.statuses].sort()).toEqual([
+      "completed",
+      "open",
+      "overdue",
     ]);
   });
 });
