@@ -202,7 +202,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **16** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
   Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 scheme COMBOS × 16
-  + 5 Kanban-board variants = **85** checks. It does NOT include Projects, Knowledge, or the
+  + 5 Kanban-board variants = **85** axe scans, plus ONE non-scan guard test (asserts the served app's
+  `data-app-version` matches this checkout, open-followups §58) — **86** tests total in the spec file.
+  It does NOT include Projects, Knowledge, or the
   Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
   surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).
   ★★ Calendar being unscanned has already cost real bugs: 0.202.0 shipped an AA contrast failure

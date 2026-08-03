@@ -40,7 +40,9 @@ export default async function RootLayout({
       // Lets e2e assert the server it is talking to IS this checkout.
       // playwright.config.ts reuses an existing dev server outside CI, so a run
       // can otherwise scan another worktree's code and pass (open-followups §58).
-      // Build-time constant, so SSR and client render it identically.
+      // Rendered once, server-side (RootLayout is an async Server Component); nothing
+      // on the client recomputes or rewrites this attribute, so it is always the
+      // serving process's own version.
       data-app-version={APP_VERSION}
       suppressHydrationWarning
     >

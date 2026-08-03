@@ -66,7 +66,8 @@ test("guard: the served app is this checkout", async ({ page }) => {
   expect(
     served,
     `Served app reports version ${served ?? "(absent)"} but this checkout is ${APP_VERSION}. ` +
-      `Playwright reused an existing dev server from another worktree. Stop it, or run on a ` +
+      `Playwright reused an existing server already answering on this port (a dev server from ` +
+      `another worktree, or a leftover process in this one). Stop it, or run on a ` +
       `fresh port: PORT=3100 npm run dev (stop with PORT=3100 npm run stop). ` +
       `NOTE: a version MATCH does not prove the right server — two worktrees on the same ` +
       `version agree. The fresh-port convention still applies.`,
