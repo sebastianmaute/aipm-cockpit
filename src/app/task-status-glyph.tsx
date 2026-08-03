@@ -20,8 +20,10 @@ import type { Task } from "./types";
  * off, this glyph and the row's strikethrough are the entire signal. A muted ✓
  * was the smaller change and was rejected: it would distinguish the two by
  * colour alone, which is the WCAG 1.4.1 pattern `docs/open-followups.md` §55
- * already tracks fourteen instances of. (§56 is a NEIGHBOURING but different
- * SC — 1.4.11 contrast — so do not read this as "the §56 problem".)
+ * tracks. ★ §55's HEADLINE count is fourteen and its body retracts it — two of
+ * the fourteen toggles carry a non-colour cue, so twelve are instances of this
+ * pattern. Do not copy the headline number. (§56 is a NEIGHBOURING but
+ * different SC — 1.4.11 contrast — so do not read this as "the §56 problem".)
  *
  * ★ `label` is the caller's already-derived accessible name and is IDENTICAL
  * in every branch: it already says "cancelled" vs "Completed on {date}", so AT

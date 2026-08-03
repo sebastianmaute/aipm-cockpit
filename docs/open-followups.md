@@ -2676,13 +2676,28 @@ currently over the limit.
 
 ---
 
-## 64. Two more surfaces still read "0% complete" for an all-cancelled project — open
+## 64. Six more surfaces still read "0% complete" for an all-cancelled project — open
 
-The cancelled-work presentation batch fixed the three surfaces it scoped: the Reports headline
-tiles, the Dashboard completion tile, and the Open Points status glyph. A fourth and fifth were
+The cancelled-work presentation batch fixed four surfaces: the Reports headline tiles, the Dashboard
+completion tile, the Dashboard at-a-glance KPI card, and the Open Points status glyph. Six more were
 found during review and deliberately left out rather than widening the branch.
 
-**A user READS this one — it belongs with the three that were fixed, not with the persisted figures:**
+★★ THE COUNT IN THIS HEADING HAS BEEN WRONG TWICE. The entry opened at "two" and each later review
+round added bullets without re-counting — once in the very commit that added the TRANSCRIPTION
+WARNING at the foot of this entry. If you add a bullet, re-count the heading and every ordinal in
+the body in the SAME edit. Do not write an ordinal ("the fourth") that a later addition will
+silently invalidate; name the surface instead.
+
+**A user READS these two — they belong with the four that were fixed, not with the persisted figures:**
+
+- `dashboard-panel.tsx:501` renders the completion-trend sparkline **directly beneath the completion
+  tile on the very screen this batch fixed**, and it is anchored on `currentTotal:
+  model.progress.inScope` (`:157`). `completion-trend.ts:37` `clampPctFromCounts` returns `0` when
+  `total <= 0`, so an all-cancelled project draws a flat 0% trajectory under a tile reading "No
+  active scope" — the same one-screen disagreement `d6fb68ab` was written to remove one card over.
+  `hasNoActiveScope` is ALREADY computed in that component (`:159`), so the fix is one guard.
+  ★ The dashboard-panel tests cannot see it: jsdom's `loadActivityLog()` returns empty, so
+  `completionSeries.length >= 2` is false and the card never mounts there.
 
 - `use-portfolio-health.ts:142` sets `completionPercent: model.progress.percent`, and
   `portfolio-health-panel.tsx:164` renders it as `{row.completionPercent}%` in the Turso
@@ -2706,8 +2721,10 @@ Trends charts over time and version history diffs, so giving it a null state is 
 decision with migration consequences for every stored snapshot. Decide those separately; do not
 "finish the sweep" by pattern-matching the presentation fix onto the stored ones.
 
-★ The honest framing meanwhile: the batch fixed three of the four surfaces a user READS. Portfolio
-health is the fourth and is still open.
+★ The honest framing meanwhile: the batch fixed the four user-read surfaces it scoped, and TWO more
+that a user also reads are still open — the completion-trend sparkline (on the fixed screen) and
+Portfolio health (the cross-project table). Named, not numbered, because the ordinal in this sentence
+went stale twice.
 
 ★★ TRANSCRIPTION WARNING, learned here: the first draft of this entry cited
 `ai-dashboard-snapshot.ts:92` as `completionPercent`. That file's key is `percent`;
@@ -2723,8 +2740,21 @@ to render the green ✓.
 
 ★★ The glyph is the correct half and is pinned by a test — `completedDate` is the field that answers
 "was this delivered?", and there is no date to show. The STALE half is the tooltip:
-`computeTaskHealth` derives its drivers from `status`, so it still yields `completed` and the
-accessible name still reads "Completed on …"-style text while the glyph disagrees.
+`computeTaskHealth` derives its drivers from `status` (`health.ts:62-66`), so it still yields the
+`completed` driver and the accessible name reads `"{colour}: completed"` while the glyph disagrees.
+
+★★★ IT DOES **NOT** READ "Completed on {date}" — an earlier revision of this entry said it did, and
+that is the one string the code provably never produces here. `task-row.tsx:354` picks the label with
+`isTaskDelivered(task) ? t(lang, "completedOn", …) : formatHealthTooltip(health, lang)`, and
+`isTaskDelivered` is `!!completedDate`, so for THIS pair the `completedOn` arm is unreachable — the
+adjacent comment says the ternary exists precisely to avoid rendering "Completed on undefined". The
+sibling claim in `task-status-glyph.test.tsx` was correct and the register degraded it in
+transcription, the same failure the TRANSCRIPTION WARNING in §64 records.
+
+★★ The same `status`-driven derivation makes ONE MORE string wrong, and it is not a tooltip:
+`inScope` (`dashboard.ts:86`) subtracts every task that is closed-but-not-delivered, so a project
+made only of these rows renders the new `dashboardAllCancelled` — "N tasks, all cancelled" — about
+rows whose status says Done. Fixing the drivers fixes both; fixing only the tooltip leaves this.
 
 ★ Reachability: AGENTS.md records that `migrateTask` deliberately does NOT repair a valid-but-
 inconsistent status/`completedDate` pair — it short-circuits on a valid status — so the invariant is

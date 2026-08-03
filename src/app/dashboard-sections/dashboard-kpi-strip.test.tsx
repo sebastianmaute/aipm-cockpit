@@ -129,6 +129,11 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     // tile no longer shows. The control test below proves this fixture DOES
     // render an arrow, so this absence is a suppression, not a no-op.
     expect(screen.queryByLabelText(COMPLETE_TREND_LABEL)).toBeNull();
+    // Same reason as the bar and the arrow: the hint explains how a percentage
+    // is derived, and this tile shows none. InfoTooltip's accessible name IS
+    // the hint text (`info-tooltip.tsx:47`, `aria-label={label ?? text}`), and
+    // the control test proves it renders for a normal project.
+    expect(screen.queryByLabelText(t("en-US", "dashboardKpiCompleteHint"))).toBeNull();
   });
 
   it("still renders the percent + gradient bar for a normal (non-cancelled) project", () => {
@@ -151,6 +156,7 @@ describe("DashboardKpiStrip completion tile no-active-scope state", () => {
     // The half that makes the suppression above meaningful: with the same
     // fixture, an arrow really does render here.
     expect(screen.getByLabelText(COMPLETE_TREND_LABEL)).toBeInTheDocument();
+    expect(screen.getByLabelText(t("en-US", "dashboardKpiCompleteHint"))).toBeInTheDocument();
   });
 
   it("leaves an empty project on 0% complete (not no-active-scope)", () => {
