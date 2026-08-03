@@ -2295,6 +2295,27 @@ a single click on an imported settings blob.
 
 ---
 
+## 58. The axe gate can pass against a STALE dev server, and only a manual check catches it — open
+
+`playwright.config.ts` sets `reuseExistingServer: !process.env.CI`, so a local `npx playwright test
+e2e/a11y.spec.ts` attaches to whatever already answers on the target port. On a machine with a dev
+server left running from another worktree — which is the normal state here, since this repo is
+routinely checked out twice — an 85/85 pass can be evidence about code that is not on your branch.
+
+★★ AGENTS.md already warns about this and prescribes `PORT=3100 npm run dev` plus a fresh-port run.
+That is a LANDMINE, not a gate: it depends on the next person remembering, and on them verifying the
+port actually took. During 0.212.0 the check was done by hand — resolving `Number(process.env.PORT ??
+3000)` to 3100 and then confirming with `netstat` that nothing answered on :3000 — which is three
+steps too many to expect reliably.
+
+★ Suggested fix (from a reviewer, not yet implemented): have `e2e/a11y.spec.ts` read the served
+page's `APP_VERSION` and compare it against `src/app/version.ts`, failing the suite on a mismatch.
+That turns "did you point it at the right server?" into something the run answers itself. A version
+match is necessary but not sufficient — two worktrees on the same version would still agree — so pair
+it with the fresh-port convention rather than replacing it.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
