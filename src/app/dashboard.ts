@@ -74,17 +74,36 @@ export type DashboardProgress = {
  *  Note: completed tasks are counted in BOTH `completed` and `counts.G`
  *  (computeGroupHealth colors a completed task Green), so `counts.G` includes
  *  done items, not just active on-track ones. */
+/** Total tasks and the in-scope denominator, in one place.
+ *
+ *  ★ Cancelled work is out of scope, not outstanding: leaving it in the
+ *  denominator means a project with cancelled scope can never read 100%.
+ *
+ *  ★★ Extracted so a caller that needs only the SCOPE question does not have to
+ *  re-derive `isTaskClosed(t) && !isTaskDelivered(t)` — re-deriving that pair is
+ *  how two dashboard cards came to disagree in the first place. Callers outside
+ *  `computeDashboardProgress` want `tasksHaveNoActiveScope` below, not this.
+ */
+export function scopeCounts(tasks: readonly Task[]): { total: number; inScope: number } {
+  const total = tasks.length;
+  const cancelled = tasks.filter((t) => isTaskClosed(t) && !isTaskDelivered(t)).length;
+  return { total, inScope: Math.max(0, total - cancelled) };
+}
+
+/** `hasNoActiveScope` for a caller that holds tasks but no `DashboardProgress`
+ *  — the same predicate over the same counts, so a surface gated on this cannot
+ *  disagree with the dashboard tiles. */
+export function tasksHaveNoActiveScope(tasks: readonly Task[]): boolean {
+  return hasNoActiveScope(scopeCounts(tasks));
+}
+
 export function computeDashboardProgress(
   tasks: readonly Task[],
   todayISO: string,
   holidaySet: ReadonlySet<string>,
 ): DashboardProgress {
   const counts = computeGroupHealth(tasks, todayISO, holidaySet).counts;
-  const total = tasks.length;
-  // Cancelled work is out of scope, not outstanding: leaving it in the
-  // denominator means a project with cancelled scope can never read 100%.
-  const cancelled = tasks.filter((t) => isTaskClosed(t) && !isTaskDelivered(t)).length;
-  const denominator = Math.max(0, total - cancelled);
+  const { total, inScope: denominator } = scopeCounts(tasks);
   const completed = tasks.filter((t) => isTaskDelivered(t)).length;
   const percent = denominator === 0 ? 0 : Math.round((completed / denominator) * 100);
   // `total` keeps its original meaning (every task) for genuine inventory

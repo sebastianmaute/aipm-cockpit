@@ -105,7 +105,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
-| 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health + the Trends card and view; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
+| 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
 | 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
@@ -2722,25 +2722,29 @@ THIS ONE. The same assignment feeds the persisted snapshot AND the LIVE current-
 `dashboard-panel.tsx:378` `VarianceSummary` (the Turso-gated Trends card in the dashboard masonry,
 which sits DIRECTLY AFTER the Progress `<Section>` that closes at `:365`) and `trends-panel.tsx:159`.
 `snapshot.ts:274` builds the row with `worseIfLower`, so a project baselined at 40% whose remaining
-work is then all cancelled renders **"Percent complete −40%"** beside a red `RagDot`, one card below
-a tile reading "No active scope" — delivery announced as having gone backwards on a project with no
-scope left. The Trends VIEW shows the same figure as an absolute `0%`.
+work is then all cancelled rendered **"Percent complete −40%"** beside an AMBER dot, one card below a
+tile reading "No active scope" — delivery announced as having gone backwards on a project with no
+scope left. ★ AMBER, not red: `worseIfLower` returns only `"A"` or `"G"`; an earlier revision of this
+bullet said red and a test assertion disproved it.
 
-★ The two halves need SEPARATE decisions and that is why the split matters. Suppressing the rendered
-variance row is a presentation change of the same shape as the fixes already made. Giving the
-PERSISTED `pctComplete` a null state is a data-shape change that Trends charts over time and version
-history diffs — migration consequences for every stored snapshot. Do not do the second because you
-decided the first.
+★ **THE RENDERED HALF IS NOW FIXED.** `withoutCompletionVariance` (`snapshot.ts`) drops the
+completion ROW, applied ONCE in `workspace-section.tsx` — the sole feeder of both surfaces — gated on
+`tasksHaveNoActiveScope` (`dashboard.ts`), which is `hasNoActiveScope` over the same `scopeCounts`
+the tiles use, so a surface gated on it cannot drift from them. Partial cancellation keeps the row.
+
+★★ **THE PERSISTED HALF IS STILL OPEN**, and the split is why it survived the fix above. Giving the
+stored `pctComplete` a null state is a data-shape change that Trends charts over time and version
+history diffs — migration consequences for every stored snapshot. Do not do the second because the
+first was done; the fix above deliberately touches no record.
 - `dashboard-panel.tsx:175` writes `complete: model.progress.percent` into the per-device
   landing-state snapshot, so the NEXT visit's trend arrow is baselined off a number the UI has just
   decided not to show.
 
-★★ These are NOT one class of change, and the split is the point. Portfolio health, the Trends card
-and the Trends view are PRESENTATION — the same shape as the fixes already made. `pctComplete` is
-also a PERSISTED figure that Trends charts over time and version history diffs, so giving THAT a
-null state is a data-shape decision with migration consequences for every stored snapshot. Decide
-those separately; do not "finish the sweep" by pattern-matching the presentation fix onto the
-stored ones.
+★★ These are NOT one class of change, and the split is the point. Portfolio health is PRESENTATION —
+the same shape as the fixes already made. `pctComplete` is also a PERSISTED figure that Trends charts
+over time and version history diffs, so giving THAT a null state is a data-shape decision with
+migration consequences for every stored snapshot. Decide those separately; do not "finish the sweep"
+by pattern-matching the presentation fix onto the stored ones.
 
 ★★★ THIS SENTENCE HELD A FOURTH COPY OF THE COUNT AND IT WAS WRONG FROM THE DAY IT WAS WRITTEN —
 "the same shape as the three already done", written when four surfaces were already fixed, then left
@@ -2751,10 +2755,10 @@ chose to write one.** Do not enumerate the places; the durable fix is to stop wr
 later edit can invalidate — say "the fixes already made", not "the three already done".
 
 ★★ The honest framing meanwhile — and the previous two attempts at this sentence were both WRONG in
-the same direction, each declaring a screen finished that was not. These user-read surfaces remain:
-the **Trends card** and the **Trends view** (both fed by `snapshot.ts:211`, the first of them ON the
-dashboard the batch just fixed), and **Portfolio health** (the cross-project table, a different
-screen). Named, not numbered: every ordinal that has lived in this sentence went stale within days.
+the same direction, each declaring a screen finished that was not. **Portfolio health** — the
+cross-project table, a different screen — is the user-read surface that remains. The Trends card and
+Trends view, named here in the previous revision, were fixed rather than deferred. Named, not
+numbered: every ordinal that has lived in this sentence went stale within days.
 
 ★★★ THE LESSON THAT KEEPS COSTING: a claim of the form "every X on screen Y is now fixed" is a claim
 about EVERY CONSUMER of a value, and it cannot be made from a diff. It was written twice from the

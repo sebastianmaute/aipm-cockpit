@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, milestoneForecast } from "./snapshot";
+import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, milestoneForecast, withoutCompletionVariance } from "./snapshot";
 import type { Milestone } from "./types";
 import type { SnapshotMilestone, SnapshotRecord } from "./snapshot";
 import type { DashboardModel } from "./dashboard";
@@ -185,6 +185,28 @@ function recWith(over: Partial<SnapshotRecord>): SnapshotRecord {
     currency: "EUR", milestones: [], series: [], ...over,
   };
 }
+
+describe("withoutCompletionVariance", () => {
+  // The row is DROPPED, not zeroed: for a project with no active scope the 0%
+  // is an empty denominator, so `worseIfLower` flags a fall that never happened.
+  // ★ The health assertion pins AMBER. Both the review that found this surface
+  // and the first draft of the comment on `withoutCompletionVariance` said the
+  // dot was RED; `worseIfLower` only ever returns "A" or "G". This assertion is
+  // what disproved it, and it stays so the claim cannot drift back.
+  it("removes only the completion row and keeps the rest in order", () => {
+    const rows = computeVariance(recWith({ pctComplete: 40 }), recWith({ pctComplete: 0 }));
+    expect(rows.find((r) => r.key === "pctComplete")?.health).toBe("A");
+    const kept = withoutCompletionVariance(rows);
+    expect(kept.find((r) => r.key === "pctComplete")).toBeUndefined();
+    expect(kept.map((r) => r.key)).toEqual(rows.filter((r) => r.key !== "pctComplete").map((r) => r.key));
+  });
+  it("leaves the input untouched", () => {
+    const rows = computeVariance(recWith({ pctComplete: 40 }), recWith({ pctComplete: 0 }));
+    const before = rows.length;
+    withoutCompletionVariance(rows);
+    expect(rows).toHaveLength(before);
+  });
+});
 
 describe("computeVariance", () => {
   it("flags a later forecast end as Red (schedule slip)", () => {

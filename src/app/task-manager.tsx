@@ -509,7 +509,7 @@ function TaskManagerInner() {
     !isPopout && snapshotsCfg.enabled &&
     isModuleEnabled("trends", settings.features);
   const snapshots = useSnapshots({
-    active: trendsActive, cadence: snapshotsCfg.cadence,
+    active: trendsActive, cadence: snapshotsCfg.cadence, tasks,
     tursoConfig,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeDashboardProgress, computeScheduleStatus, computeBudgetStatus,
   selectTopRaid, partitionUpcoming, recentActivity, computeDashboard,
-  evmIndexHealth,
+  evmIndexHealth, scopeCounts, tasksHaveNoActiveScope, hasNoActiveScope,
   type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
@@ -426,5 +426,51 @@ describe("Cancelled tasks are closed, not active", () => {
   it("reports 0% when every task is cancelled (empty denominator)", () => {
     const tasks = [task({ id: 1, status: "Cancelled" })];
     expect(computeDashboardProgress(tasks, "2026-08-03", holidays).percent).toBe(0);
+  });
+});
+
+describe("scopeCounts / tasksHaveNoActiveScope", () => {
+  // These exist so a caller holding only tasks does not RE-DERIVE
+  // `isTaskClosed && !isTaskDelivered`. The point of the pair is that it stays
+  // in lockstep with what the dashboard tiles show, so the binding assertion is
+  // the agreement one at the bottom, not the individual cases.
+  it("puts cancelled work out of scope and delivered work in it", () => {
+    expect(scopeCounts([])).toEqual({ total: 0, inScope: 0 });
+    expect(scopeCounts([task({ id: 1, status: "Cancelled" })])).toEqual({ total: 1, inScope: 0 });
+    expect(scopeCounts([
+      task({ id: 1, status: "Cancelled" }),
+      task({ id: 2, status: "Done", completedDate: "2026-06-02" }),
+      task({ id: 3, status: "To Do" }),
+    ])).toEqual({ total: 3, inScope: 2 });
+  });
+
+  it("separates an all-cancelled project from an empty one", () => {
+    expect(tasksHaveNoActiveScope([])).toBe(false);
+    expect(tasksHaveNoActiveScope([task({ id: 1, status: "Cancelled" })])).toBe(true);
+    // Partial cancellation is NOT no-active-scope — the Trends completion row
+    // and the sparkline both stay visible here.
+    expect(tasksHaveNoActiveScope([
+      task({ id: 1, status: "Cancelled" }),
+      task({ id: 2, status: "To Do" }),
+    ])).toBe(false);
+  });
+
+  // The assertion that actually protects the invariant: whatever the tiles
+  // decide from `DashboardProgress`, the task-only helper decides identically.
+  // Re-deriving the predicate is precisely how two dashboard cards once
+  // disagreed, so this fails if either side is changed alone.
+  it("agrees with hasNoActiveScope over computeDashboardProgress for the same tasks", () => {
+    const cases: Task[][] = [
+      [],
+      [task({ id: 1, status: "Cancelled" })],
+      [task({ id: 1, status: "Cancelled" }), task({ id: 2, status: "Cancelled" })],
+      [task({ id: 1, status: "Cancelled" }), task({ id: 2, status: "To Do" })],
+      [task({ id: 1, status: "Done", completedDate: "2026-06-02" })],
+    ];
+    for (const tasks of cases) {
+      const progress = computeDashboardProgress(tasks, "2026-06-10", new Set<string>());
+      expect(tasksHaveNoActiveScope(tasks)).toBe(hasNoActiveScope(progress));
+      expect(scopeCounts(tasks)).toEqual({ total: progress.total, inScope: progress.inScope });
+    }
   });
 });

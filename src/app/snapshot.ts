@@ -257,6 +257,28 @@ function worseIfLower(baseline: number | null, current: number | null): Health |
   return "G";
 }
 
+/** Drop the completion row from a variance list.
+ *
+ *  ★★ For a project whose every remaining task is cancelled, `pctComplete` is 0
+ *  because the denominator is 0 — not because delivery regressed. `computeVariance`
+ *  pairs that with `worseIfLower`, so a project baselined at 40% renders
+ *  "Percent complete −40%" beside an AMBER dot, and on the dashboard that card
+ *  sits one card below a tile reading "No active scope". Removing the ROW keeps
+ *  the other KPIs (hours, cost, forecast date), which stay meaningful.
+ *  ★ AMBER, not red: `worseIfLower` returns only `"A"` or `"G"` — this module
+ *  never emits `"R"` for a numeric KPI, only for a forecast-date slip. A review
+ *  and this comment both said "red" until a test asserted it.
+ *
+ *  ★★★ This is PRESENTATION ONLY and must stay that way. The stored
+ *  `SnapshotRecord.pctComplete` is untouched: giving THAT a null state is a
+ *  data-shape change with migration consequences for every stored snapshot and
+ *  for what Trends charts over time (`docs/open-followups.md` §64 keeps the two
+ *  halves apart deliberately). Do not "finish the job" at the record.
+ */
+export function withoutCompletionVariance(rows: readonly VarianceRow[]): VarianceRow[] {
+  return rows.filter((row) => row.key !== "pctComplete");
+}
+
 /** Baseline-vs-current variance per KPI with a directional RAG. A null baseline
  *  (no baseline snapshot yet) yields rows with null baseline/health. */
 export function computeVariance(
