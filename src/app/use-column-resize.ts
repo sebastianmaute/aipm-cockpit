@@ -109,10 +109,26 @@ export function useColumnResize<TId extends string>(
 
   const startColResize = useCallback((col: TId, e: React.MouseEvent) => {
     e.preventDefault();
+    // ★★ Seed from the RENDERED width, not the declared one. A column absent from
+    //    `sizedWidths` can render far wider than its default: Open Points' flex
+    //    column is AUTO and routinely 2-4x its 200px default. Seeding from the
+    //    default made the first mousemove write `max(40, 200 + delta)`, so the
+    //    column SNAPPED narrow and only then tracked the pointer — on the one
+    //    column this release makes flexible. The grip is absolutely positioned
+    //    inside its <th>, so that element's box is the rendered column width.
+    // ★ Falls back to the declared width whenever there is nothing to measure —
+    //   a non-<th> host (gantt's name-column grip) or jsdom, which reports every
+    //   rect as 0. That fallback is the pre-existing behaviour, so the other
+    //   tables — none of which has an auto column — are unaffected either way.
+    const measured = (e.currentTarget as HTMLElement | null)
+      ?.closest("th")
+      ?.getBoundingClientRect().width ?? 0;
     dragRef.current = {
       col,
       startX: e.clientX,
-      startW: colWidthsRef.current[col] ?? defaults[col] ?? 80,
+      startW: measured > 0
+        ? Math.round(measured)
+        : (colWidthsRef.current[col] ?? defaults[col] ?? 80),
     };
     function onMove(mv: MouseEvent) {
       if (!dragRef.current) return;

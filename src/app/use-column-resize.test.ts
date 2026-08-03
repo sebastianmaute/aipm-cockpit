@@ -148,6 +148,41 @@ describe("useColumnResize", () => {
     expect(JSON.parse(localStorage.getItem(KEY("t5")) as string)).toEqual({ v: 2, widths: {} });
   });
 
+  // ★★ The flex column renders AUTO — far wider than its declared default — so
+  //    seeding the drag from the default snapped it narrow on the first
+  //    mousemove before it tracked the pointer. jsdom reports every rect as 0,
+  //    which is exactly the fallback path, so the measurement has to be stubbed
+  //    or this can only ever exercise the old behaviour.
+  it("seeds the drag from the rendered width, not the declared default", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useColumnResize("t8", DEFAULTS));
+
+    const th = document.createElement("th");
+    th.getBoundingClientRect = () => ({ width: 640 }) as DOMRect;
+    const handle = document.createElement("span");
+    th.appendChild(handle);
+
+    const ev = { clientX: 100, preventDefault: () => {}, currentTarget: handle } as unknown as React.MouseEvent;
+    act(() => { result.current.startColResize("a", ev); });
+    act(() => { window.dispatchEvent(new MouseEvent("mousemove", { clientX: 150 })); });
+
+    // 640 rendered + 50 moved. Seeding from DEFAULTS.a would give 50 less than
+    // that plus the default — i.e. the column would jump before tracking.
+    expect(result.current.sizedWidths.a).toBe(690);
+  });
+
+  it("falls back to the declared width when there is no <th> to measure", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useColumnResize("t9", DEFAULTS));
+
+    const orphan = document.createElement("span"); // no <th> ancestor
+    const ev = { clientX: 100, preventDefault: () => {}, currentTarget: orphan } as unknown as React.MouseEvent;
+    act(() => { result.current.startColResize("a", ev); });
+    act(() => { window.dispatchEvent(new MouseEvent("mousemove", { clientX: 150 })); });
+
+    expect(result.current.sizedWidths.a).toBe(DEFAULTS.a + 50);
+  });
+
   // ★★ A non-numeric or nonsensical stored width now costs more than a weird
   //    column: it reaches `colWidthStyle`, is emitted as an inline `width`, the
   //    browser discards the invalid value, and that column falls back to AUTO —

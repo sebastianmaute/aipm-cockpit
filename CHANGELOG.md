@@ -17,16 +17,21 @@ space at both edges of Open Points.
 
 - **Open Points no longer pads its narrow columns.** The table is laid out with
   `table-layout: fixed`, and when the table is wider than the sum of its declared
-  columns the browser hands the surplus out *equally to every column* rather than
-  in proportion to their widths. A 36px checkbox column therefore gained as much
-  as a 200px content column — invisible on the wide ones, roughly a third wider on
-  the narrow ones. That is the padding around the gutter, checkbox, health-dot and
-  relations columns. The Task column is now the single flexible one and absorbs the
-  whole surplus, so the utility columns render at the width they were given and
-  task titles get the rest.
+  columns the browser spreads the surplus across them, and the narrow columns
+  picked up roughly as many pixels as the wide ones — which is invisible on a
+  200px column and about a third again on a 36px one. That is the padding around
+  the gutter, checkbox, health-dot and relations columns. The Task column is now
+  the single flexible one and absorbs the whole surplus, so the utility columns
+  render at the width they were given and task titles get the rest.
 - **Dragging the Task column still works, and still wins.** Once dragged it holds
   the chosen width instead of flexing; "reset columns" restores the flexible
-  layout.
+  layout. While it holds a fixed width no column is flexible, so the surplus is
+  spread across the table again — "reset columns" is the way back.
+- **Dragging a column no longer snaps it before it moves.** The drag started from
+  the column's *declared* width rather than the width it was actually rendered
+  at, so grabbing the Task column — which is now flexible and usually far wider
+  than its declared 200px — jumped it narrow before it began following the
+  pointer.
 - **Planning's "Hide externals" sits beside the Outlook calendar controls.** It had
   been separated from them by the spacer that pushes that group to the right, while
   the Workload view already rendered the two together.

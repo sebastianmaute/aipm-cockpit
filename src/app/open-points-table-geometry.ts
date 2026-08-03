@@ -4,13 +4,21 @@
 // reports every rect as 0, so every number here has to be derivable from the
 // declared widths alone.
 //
-// ★ WHY THIS EXISTS AT ALL. The table is `table-layout: fixed`. When its used
-//   width exceeds the sum of the declared <col> widths, Blink hands the leftover
-//   out EQUALLY to every column — not in proportion to declared width. So a 36px
-//   utility column gained the same ~7-13px a 200px content column did, which is
-//   invisible on the wide ones and a ~35% inflation on the narrow ones. Making
-//   `taskName` the single auto-width column sends all of that leftover to the one
-//   column that can use it.
+// ★ WHY THIS EXISTS AT ALL. The table is `table-layout: fixed` and was sized
+//   `width: max-content; min-width: 100%`, so its used width exceeded the sum of
+//   the declared <col> widths and the browser spread the leftover across the
+//   columns. OBSERVED SYMPTOM (from the reported screenshot): the gutter + `sel`
+//   + `status` group rendered ~138px against 100px declared — roughly +12.7px on
+//   EACH, which is invisible on a 200px column and about a third again on a 36px
+//   one. That is the padding at both edges of the table.
+//   ★★ The exact distribution rule is NOT verified here. An equal-per-column
+//   split fits the measurement above; a proportional split does not. But that
+//   inference is from one screenshot, no gate or test in this repo can check it,
+//   and CSS 2.1 §17.5.2.1 only says the excess "should be distributed over the
+//   columns". Do not restate it as settled engine behaviour — the FIX holds
+//   under either rule, because an auto column absorbs the leftover before any
+//   fixed column does. Settle it with a DevTools measurement before relying on
+//   the mechanism for anything else.
 //
 // ★ WHY NOT `width: max-content` (what the table used before). With an auto
 //   column present, max-content resolves against that column's longest unwrapped
@@ -67,6 +75,14 @@ export function visibleTaskCols(hiddenCols: ReadonlySet<string>): TaskColId[] {
  * ★ Only an UN-SIZED flex column goes auto. Once the user has dragged it they
  *   have expressed a width, and silently ignoring it would make the resize grip
  *   look broken on that one column.
+ *
+ * ★★ CONSEQUENCE, and it is a real one: dragging `taskName` leaves NO auto
+ *    column, so the table's leftover goes back to being spread across every
+ *    column and the edge padding this module exists to remove RETURNS — until
+ *    the user hits "reset columns". Accepted for now because the alternative
+ *    (honour the drag as a floor but keep the column auto) makes the grip stop
+ *    tracking the pointer past that floor, which reads as broken. If this is
+ *    ever revisited, that is the trade to weigh. Documented in AGENTS.md.
  */
 export function colWidthStyle(
   col: string,

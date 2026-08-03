@@ -67,7 +67,8 @@ const EMPTY_RESOURCES: readonly Resource[] = [];
  *  factory-reset dialog). Deliberately not localized. */
 const CLEAR_TASKS_CONFIRM_PHRASE = "yes, clear all tasks";
 
-const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
+// ★ Exported for its guard test: `taskName` must never appear here (see open-points-table-geometry.ts).
+export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "status",         labelKey: "health" },
   { key: "id",             labelKey: "id" },
   { key: "assignee",       labelKey: "assignee" },
@@ -935,9 +936,8 @@ export function TasksSection({
             style={{ tableLayout: "fixed", width: "100%", minWidth: `${tableMinWidth}px` }}
           >
             <colgroup>
-              {/* Leading gutter matching the hover Ask-Claude cell and the <th> below; a
-                  missing <col> shifts every width to its neighbour. ★ Rides the constant
-                  tableMinWidthPx sums with, never a `w-7` class, so they cannot drift. */}
+              {/* Gutter for the hover Ask-Claude cell; a missing <col> shifts every width to its
+                  neighbour. ★ Rides the constant tableMinWidthPx sums with, never a `w-7` class. */}
               <col style={{ width: GUTTER_WIDTH_PX }} />
               {visibleCols.map((col) => (
                 <col key={col} style={{ width: colWidthStyle(col, colWidths) }} />

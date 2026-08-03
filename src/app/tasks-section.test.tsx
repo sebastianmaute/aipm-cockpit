@@ -71,7 +71,7 @@ import { useSettings } from "./use-settings";
 import type { Settings } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
 import { useHolidaySet } from "./use-holiday-set";
-import { TasksSection, type TasksSectionProps } from "./tasks-section";
+import { TasksSection, CONFIGURABLE_COLS, type TasksSectionProps } from "./tasks-section";
 import { TASK_STATUSES } from "./types";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { GUTTER_WIDTH_PX, visibleTaskCols } from "./open-points-table-geometry";
@@ -1219,16 +1219,16 @@ describe("TasksSection", () => {
     //    nothing else pins it: the guard is that taskName is absent from
     //    CONFIGURABLE_COLS, which is a module-local list one edit away.
     it("does not offer the flex column in the column-config popover", () => {
+      // ★★ Assert on the KEY, not a rendered label. `CONFIGURABLE_COLS` maps
+      //    key→labelKey freely, so `{ key: "taskName", labelKey: "anythingElse" }`
+      //    would reintroduce the defect while a label-based assertion stayed green.
+      expect(CONFIGURABLE_COLS.map((c) => c.key)).not.toContain("taskName");
+
+      // …and the list really is what drives the popover, so the check above is
+      // about the rendered control rather than an unused constant.
       renderTable({ colConfigOpen: true });
       const dialog = within(screen.getByRole("dialog", { name: t("en-US", "colConfigTitle") }));
-
-      // ★ Query by ACCESSIBLE NAME rather than scraping label textContent — the
-      //   name is what the checkbox actually exposes, and it is the thing a
-      //   future CONFIGURABLE_COLS entry would surface.
-      expect(dialog.queryByRole("checkbox", { name: t("en-US", "task") })).toBeNull();
-      // …and the popover really did render checkboxes, so the absence above is
-      // a fact about taskName rather than about an empty dialog.
-      expect(dialog.getAllByRole("checkbox").length).toBeGreaterThan(0);
+      expect(dialog.getAllByRole("checkbox")).toHaveLength(CONFIGURABLE_COLS.length);
     });
 
     // ★ The gutter is the one column tableMinWidthPx accounts for but does not

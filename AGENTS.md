@@ -1923,12 +1923,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   than falling through to the v1 branch — a `{v:3,widths:{…}}` spread verbatim would put a numeric `v` and
   an OBJECT-valued `widths` into a `Record<TId, number>`.
 - **★★ Open Points table geometry — ONE auto column, computed minWidth (0.212.0).** The table is
-  `tableLayout: fixed` + `width: 100%` + `minWidth: ${tableMinWidthPx(...)}px`. ★★★ Under `table-layout:
-  fixed` Blink hands surplus width out **EQUALLY to every column**, NOT in proportion to declared width —
-  so a 36px utility column gained the same ~7-13px a 200px content column did (invisible on the wide ones,
-  ~35% inflation on the narrow ones, which is what made the gutter/checkbox/health/relations columns look
-  padded). `taskName` is therefore the SINGLE column that emits no `width` (only while un-sized — once
-  dragged it declares one), so it absorbs all the leftover. ★ Do NOT restore `width: max-content`: with an
+  `tableLayout: fixed` + `width: 100%` + `minWidth: ${tableMinWidthPx(...)}px`. It was `width: max-content`
+  + `minWidth: 100%`, so the table outgrew the sum of its declared columns and the browser spread the
+  leftover across them. ★★ OBSERVED: gutter + `sel` + `status` rendered ~138px against 100px declared —
+  about +12.7px EACH, invisible on a 200px column and a third again on a 36px one. `taskName` is now the
+  SINGLE column that emits no `width` (only while un-sized — once dragged it declares one), so it absorbs
+  the leftover. ★★ The exact distribution RULE is NOT verified: an equal-per-column split fits that one
+  measurement and a proportional split does not, but it is an inference from a screenshot and nothing here
+  can check it (CSS 2.1 §17.5.2.1 only says the excess "should be distributed over the columns"). The fix
+  holds either way — an auto column takes the leftover before any fixed column does — so do NOT restate the
+  mechanism as settled; measure it in DevTools first. An earlier revision of this bullet asserted
+  "EQUALLY, NOT proportionally" at ★★★, which is exactly the unverifiable-claim shape this file warns about.
+  ★★ DRAGGING `taskName` RE-ENABLES THE DEFECT: it then declares a width, no column is auto, and the edge
+  padding comes back until "reset columns". Accepted — treating the drag as a floor while keeping the column
+  auto makes the grip stop tracking the pointer, which reads as broken. ★ Do NOT restore `width: max-content`: with an
   auto column present it resolves against that column's longest unwrapped content — the longest task title
   — so the pane would scroll horizontally at all times. ★ Arithmetic lives in pure `open-points-table-geometry.ts`
   (`visibleTaskCols` · `colWidthStyle` · `tableMinWidthPx` · `GUTTER_WIDTH_PX` · `TASK_NAME_MIN_PX`), NOT in
