@@ -363,9 +363,9 @@ function TaskRowImpl({
     : isSelected
       ? "bg-surface-muted"
       : isClosed
-        ? // Completed rows are signalled by the strikethrough title + a muted
-          // tint — NOT `opacity`, which dims all text/badges below the WCAG AA
-          // contrast threshold (axe flagged the whole row).
+        ? // Closed rows (Done OR Cancelled) are signalled by the strikethrough
+          // title + a muted tint — NOT `opacity`, which dims all text/badges
+          // below the WCAG AA contrast threshold (axe flagged the whole row).
           "bg-surface-muted/60"
         : isStriped
           ? "bg-surface-muted/40"
