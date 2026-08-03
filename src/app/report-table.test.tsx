@@ -337,3 +337,16 @@ describe("TableFilter", () => {
     expect(screen.getByRole("searchbox").className).toContain("pr-8");
   });
 });
+
+describe("Tile sub slot", () => {
+  it("renders the sub line under the value when given", () => {
+    render(<Tile label="Total" value={10} sub="2 cancelled" />);
+    expect(screen.getByText("2 cancelled")).toBeInTheDocument();
+  });
+
+  it("renders no sub line when omitted", () => {
+    const { container } = render(<Tile label="Total" value={10} />);
+    expect(container.textContent).not.toContain("cancelled");
+    expect(container.querySelector("[data-tile-sub]")).toBeNull();
+  });
+});
