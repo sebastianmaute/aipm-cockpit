@@ -16,6 +16,7 @@ import { GanttPanel } from "./gantt";
 import { type GanttBarEdit } from "./gantt-engine";
 import { t } from "./i18n";
 import { useActivityLogger } from "./activity-log-context";
+import { useHolidaySet } from "./use-holiday-set";
 import { useSettings } from "./use-settings";
 import { useTasksDedup } from "./use-tasks-dedup";
 import { useWorkspace } from "./workspace-context";
@@ -51,6 +52,11 @@ export function GanttView({
   const { tasks, setTasks, absences, resources, milestones } = useWorkspace();
   const { isPopout, requestHelpConcept } = useWorkspaceTab();
   const logActivity = useActivityLogger();
+  // Read directly from settings rather than threading a prop down from
+  // workspace-section — the same call tasks-section.tsx already makes. An empty
+  // `holidayCountries` (the default) short-circuits inside the hook without
+  // loading the holiday library at all.
+  const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
 
   const dedup = useTasksDedup({
     settings,
@@ -80,6 +86,7 @@ export function GanttView({
         isPopout={isPopout}
         onLearnMore={requestHelpConcept}
         baselineMilestoneDates={baselineMilestoneDates}
+        holidaySet={holidaySet}
         dedupButton={dedup.button}
       />
       {dedup.modal}

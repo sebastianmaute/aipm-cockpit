@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { GanttPanel } from "./gantt";
 import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { DEFAULT_PREFS, type GanttPrefs, savePrefs } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
 // useResizable reads/writes localStorage — mock it so tests run in JSDOM.
@@ -722,5 +723,88 @@ describe("GanttToolbar control order", () => {
     render(<GanttPanel {...BASE_PROPS} />);
     // A leading control only has to PRECEDE the group, so no `contiguous` here.
     expectButtonOrder(["ganttViewMenu", "printHint"]);
+  });
+});
+
+// ---------- display toggles → overlay wiring --------------------------------
+//
+// gantt-overlays.test.tsx proves the two layers themselves. THESE tests prove
+// the seam the leaf tests can't see: that the panel actually mounts them, gated
+// on the right pref, and that the absence bands are gated too. jsdom has no
+// layout engine, so nothing here (or anywhere) can check that a grid line lines
+// up with its day label — that stays eye-only.
+
+describe("GanttPanel display toggles", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  /** Seed the persisted prefs blob the panel hydrates from on mount. */
+  function seedPrefs(patch: Partial<GanttPrefs>): void {
+    savePrefs({ ...DEFAULT_PREFS, ...patch });
+  }
+
+  const ABSENT_TASKS: Task[] = [
+    {
+      id: 1,
+      taskName: "A",
+      assignee: "Ada",
+      priority: "Medium" as const,
+      startDate: dayPlus(-3),
+      dueDate: dayPlus(3),
+    } as unknown as Task,
+  ];
+  const ABSENCES = [
+    {
+      id: 7,
+      assignee: "Ada",
+      type: "vacation",
+      startDate: dayPlus(-1),
+      endDate: dayPlus(1),
+    },
+  ] as unknown as React.ComponentProps<typeof GanttPanel>["absences"];
+
+  it("draws no day grid by default and one line per day once showGrid is on", () => {
+    const { container: off } = render(<GanttPanel {...BASE_PROPS} />);
+    expect(off.querySelectorAll("[data-grid-line]")).toHaveLength(0);
+
+    seedPrefs({ showGrid: true });
+    const { container: on } = render(<GanttPanel {...BASE_PROPS} />);
+    // One rule per day column in the derived window — a non-empty count is the
+    // claim; the exact window width is the range memo's business, not this test's.
+    expect(on.querySelectorAll("[data-grid-line]").length).toBeGreaterThan(0);
+  });
+
+  it("shades a holiday that falls inside the window, and stops when showHolidays is off", () => {
+    const holidaySet = new Set([dayPlus(0), dayPlus(1)]);
+    const { container: on } = render(
+      <GanttPanel {...BASE_PROPS} holidaySet={holidaySet} />,
+    );
+    // Both seeded days sit inside the window (it always includes today plus
+    // padding), so the count is exact rather than merely non-zero.
+    expect(on.querySelectorAll("[data-holiday]")).toHaveLength(2);
+
+    seedPrefs({ showHolidays: false });
+    const { container: off } = render(
+      <GanttPanel {...BASE_PROPS} holidaySet={holidaySet} />,
+    );
+    expect(off.querySelectorAll("[data-holiday]")).toHaveLength(0);
+  });
+
+  it("shades no holiday when the caller passes none (the default backend state)", () => {
+    const { container } = render(<GanttPanel {...BASE_PROPS} />);
+    expect(container.querySelectorAll("[data-holiday]")).toHaveLength(0);
+  });
+
+  it("draws absence bands by default and drops them when showAbsences is off", () => {
+    const { container: on } = render(
+      <GanttPanel {...BASE_PROPS} tasks={ABSENT_TASKS} absences={ABSENCES} />,
+    );
+    expect(on.querySelectorAll("[data-absence]")).toHaveLength(1);
+
+    seedPrefs({ showAbsences: false });
+    const { container: off } = render(
+      <GanttPanel {...BASE_PROPS} tasks={ABSENT_TASKS} absences={ABSENCES} />,
+    );
+    expect(off.querySelectorAll("[data-absence]")).toHaveLength(0);
   });
 });

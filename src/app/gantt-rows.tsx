@@ -36,6 +36,7 @@ export function GanttTaskRow({
   nameColWidth,
   range,
   absencesByAssigneeKey,
+  showAbsences,
   resourcesById,
   critical,
   draggingId,
@@ -59,6 +60,8 @@ export function GanttTaskRow({
   nameColWidth: number;
   range: { min: Date; max: Date };
   absencesByAssigneeKey: ReadonlyMap<string, Absence[]>;
+  /** View-popover toggle. Defaults ON in prefs, so this is invisible until used. */
+  showAbsences: boolean;
   resourcesById: ReadonlyMap<number, Pick<Resource, "firstName" | "lastName">>;
   critical: { criticalTasks: ReadonlySet<number> };
   draggingId: number | null;
@@ -201,6 +204,7 @@ export function GanttTaskRow({
           don't intercept drag-edits.
         */}
         {(() => {
+          if (!showAbsences) return null;
           const rowKey = effectivePersonName(task.assignee, task.resourceId, resourcesById)
             .trim()
             .toLowerCase();
@@ -233,6 +237,7 @@ export function GanttTaskRow({
             return (
               <div
                 key={a.id}
+                data-absence={a.id}
                 aria-hidden="true"
                 title={`${effectivePersonName(a.assignee, a.resourceId, resourcesById)}: ${a.type} ${a.startDate}${
                   a.startDate === a.endDate ? "" : `–${a.endDate}`

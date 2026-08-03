@@ -35,6 +35,7 @@ import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
 import { GanttDependencyLayer, GanttHeader, GanttToolbar } from "./gantt-chrome";
+import { GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
 import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
@@ -51,6 +52,7 @@ import {
   DAY_WIDTH_PX,
   deriveBar,
   diffDays,
+  EMPTY_HOLIDAY_SET,
   fmtFull,
   fmtMonth,
   type GanttBarEdit,
@@ -79,6 +81,7 @@ export function GanttPanel({
   isPopout,
   onLearnMore,
   baselineMilestoneDates,
+  holidaySet = EMPTY_HOLIDAY_SET,
   dedupButton,
 }: {
   lang: Lang;
@@ -95,6 +98,13 @@ export function GanttPanel({
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
   baselineMilestoneDates?: ReadonlyMap<number, string>;
+  /**
+   * Non-working days (ISO `YYYY-MM-DD`) shaded behind the rows when the View
+   * popover's holiday toggle is on. Defaults to the SHARED module-level
+   * `EMPTY_HOLIDAY_SET` — an inline `new Set()` would be a fresh identity every
+   * render and churn any memo that ever depends on it.
+   */
+  holidaySet?: ReadonlySet<string>;
   /** AI "Deduplicate & unify" trigger, built by the view wrapper. See GanttToolbar. */
   dedupButton?: ReactNode;
 }) {
@@ -679,6 +689,27 @@ export function GanttPanel({
           </div>
         ) : (
         <div className="relative">
+          {/* Holiday shading + the optional day grid. Rendered FIRST so they
+              paint underneath the today marker, the dependency arrows and the
+              bars; both are pointer-events-none, so they can't intercept a bar
+              drag. Their height matches the today marker's exactly — the task +
+              milestone rows, not the trailing "add task" affordance. */}
+          {prefs.showHolidays && (
+            <GanttNonWorkingLayer
+              range={range}
+              holidaySet={holidaySet}
+              nameColWidth={nameColWidth}
+              heightPx={totalRowsCount * ROW_HEIGHT_PX}
+            />
+          )}
+          {prefs.showGrid && (
+            <GanttGridLayer
+              range={range}
+              nameColWidth={nameColWidth}
+              heightPx={totalRowsCount * ROW_HEIGHT_PX}
+            />
+          )}
+
           {/* Today marker — drawn as an absolutely positioned line that
               spans the rows area. Sits behind the bars (z-0) but on top
               of the row backgrounds. */}
@@ -731,6 +762,7 @@ export function GanttPanel({
                   nameColWidth={nameColWidth}
                   range={range}
                   absencesByAssigneeKey={absencesByAssigneeKey}
+                  showAbsences={prefs.showAbsences}
                   resourcesById={resourcesById}
                   critical={critical}
                   draggingId={draggingId}
