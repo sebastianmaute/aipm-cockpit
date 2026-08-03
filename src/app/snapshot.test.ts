@@ -69,13 +69,17 @@ describe("forecastEndDate", () => {
     const tasks = [
       { ...baseTask, id: 1, dueDate: "2026-07-01" },
       { ...baseTask, id: 2, dueDate: "2026-09-15" },
-      { ...baseTask, id: 3, dueDate: "2026-12-31", completedDate: "2026-06-01" }, // completed -> ignored
+      { ...baseTask, id: 3, dueDate: "2026-12-31", status: "Done" as const, completedDate: "2026-06-01" }, // completed -> ignored
     ];
     expect(forecastEndDate(tasks, [], new Map(), "2026-08-01")).toBe("2026-09-15");
   });
   it("falls back to the plan end date when nothing slips", () => {
     const tasks = [{ ...baseTask, id: 1, dueDate: "2026-05-01" }];
     expect(forecastEndDate(tasks, [], new Map(), "2026-08-01")).toBe("2026-08-01");
+  });
+  it("a cancelled task does not push out the forecast end date", () => {
+    const tasks = [{ ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" }];
+    expect(forecastEndDate(tasks, [], new Map(), "2026-08-31")).toBe("2026-08-31");
   });
 });
 

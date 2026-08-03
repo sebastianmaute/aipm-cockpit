@@ -10,6 +10,7 @@ import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
+import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import type {
   Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
@@ -63,10 +64,10 @@ export type DashboardProgress = {
   counts: Record<Health, number>;
 };
 
-/** % complete (completedDate-based) + R/A/G health counts from
- *  computeGroupHealth. Note: completed tasks are counted in BOTH `completed`
- *  and `counts.G` (computeGroupHealth colors a completed task Green), so
- *  `counts.G` includes done items, not just active on-track ones. */
+/** % complete (delivered-based) + R/A/G health counts from computeGroupHealth.
+ *  Note: completed tasks are counted in BOTH `completed` and `counts.G`
+ *  (computeGroupHealth colors a completed task Green), so `counts.G` includes
+ *  done items, not just active on-track ones. */
 export function computeDashboardProgress(
   tasks: readonly Task[],
   todayISO: string,
@@ -74,13 +75,20 @@ export function computeDashboardProgress(
 ): DashboardProgress {
   const counts = computeGroupHealth(tasks, todayISO, holidaySet).counts;
   const total = tasks.length;
-  const completed = tasks.filter((t) => !!t.completedDate).length;
-  const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+  // Cancelled work is out of scope, not outstanding: leaving it in the
+  // denominator means a project with cancelled scope can never read 100%.
+  const cancelled = tasks.filter((t) => isTaskClosed(t) && !isTaskDelivered(t)).length;
+  const denominator = Math.max(0, total - cancelled);
+  const completed = tasks.filter((t) => isTaskDelivered(t)).length;
+  const percent = denominator === 0 ? 0 : Math.round((completed / denominator) * 100);
+  // `total` keeps its original meaning (every task) because callers render it
+  // as the task count; only the percentage divides by `denominator`.
   return { total, completed, percent, counts };
 }
 
 /** Date-driven schedule RAG: Red if any task is overdue, Amber if any is due
- *  within `dueSoonWorkdays` working days, else Green. Completed tasks ignored. */
+ *  within `dueSoonWorkdays` working days, else Green. Closed tasks (Done or
+ *  Cancelled) ignored. */
 export function computeScheduleStatus(
   tasks: readonly Task[],
   todayISO: string,
@@ -91,7 +99,7 @@ export function computeScheduleStatus(
   let overdue = 0;
   let dueSoon = 0;
   for (const t of tasks) {
-    if (t.completedDate || !t.dueDate) continue;
+    if (isTaskClosed(t) || !t.dueDate) continue;
     if (t.dueDate < todayISO) { overdue++; continue; }
     // workdaysUntil returns 0 for a same-day (or past) dueDate, so a task due
     // today counts as due-soon here (it already failed the overdue check above).
@@ -139,8 +147,8 @@ export function selectTopRaid(
     .map((x) => x.r);
 }
 
-/** Non-completed tasks split into overdue (dueDate < today) and due-soon
- *  (within `dueSoonWorkdays`), each sorted by dueDate then id. */
+/** Open tasks (neither Done nor Cancelled) split into overdue (dueDate < today)
+ *  and due-soon (within `dueSoonWorkdays`), each sorted by dueDate then id. */
 export function partitionUpcoming(
   tasks: readonly Task[],
   todayISO: string,
@@ -151,7 +159,7 @@ export function partitionUpcoming(
   const overdue: Task[] = [];
   const dueSoon: Task[] = [];
   for (const t of tasks) {
-    if (t.completedDate || !t.dueDate) continue;
+    if (isTaskClosed(t) || !t.dueDate) continue;
     if (t.dueDate < todayISO) overdue.push(t);
     else if (workdaysUntil(t.dueDate, todayISO, hs) <= dueSoonWorkdays) dueSoon.push(t);
   }

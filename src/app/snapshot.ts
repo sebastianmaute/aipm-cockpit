@@ -6,6 +6,7 @@
 
 import type { Health } from "./health";
 import type { DashboardModel } from "./dashboard";
+import { isTaskClosed } from "./task-closed";
 import type { Milestone, Task } from "./types";
 
 export type SnapshotCadence = "weekly" | "daily" | "monthly";
@@ -142,8 +143,9 @@ export function milestoneForecast(m: Milestone, tasksById: ReadonlyMap<number, T
   return latest;
 }
 
-/** Project forecast finish: the latest effective end across incomplete tasks and
- *  unachieved milestones, never earlier than `planEndDate`. */
+/** Project forecast finish: the latest effective end across OPEN tasks (neither
+ *  Done nor Cancelled) and unachieved milestones, never earlier than
+ *  `planEndDate`. */
 export function forecastEndDate(
   tasks: readonly Task[],
   milestones: readonly Milestone[],
@@ -152,7 +154,7 @@ export function forecastEndDate(
 ): string {
   let latest = planEndDate;
   for (const t of tasks) {
-    if (t.completedDate) continue;
+    if (isTaskClosed(t)) continue;
     if (t.dueDate && t.dueDate > latest) latest = t.dueDate;
   }
   for (const m of milestones) {

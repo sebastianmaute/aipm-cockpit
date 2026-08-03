@@ -46,7 +46,7 @@ describe("computeDashboardProgress", () => {
   });
   it("computes percent from completedDate and R/A/G counts from health", () => {
     const tasks = [
-      task({ id: 1, completedDate: "2026-06-01" }),
+      task({ id: 1, status: "Done", completedDate: "2026-06-01" }),
       task({ id: 2, dueDate: "2026-05-01" }),
       task({ id: 3, dueDate: "2026-06-02" }),
       task({ id: 4, dueDate: "2026-12-01" }),
@@ -70,7 +70,7 @@ describe("computeScheduleStatus", () => {
     expect(computeScheduleStatus([task({ dueDate: "2026-05-01" }), task({ dueDate: "2026-12-01" })], today, holidays)).toBe("R");
   });
   it("ignores completed tasks", () => {
-    expect(computeScheduleStatus([task({ dueDate: "2026-05-01", completedDate: "2026-05-02" })], today, holidays)).toBe("G");
+    expect(computeScheduleStatus([task({ dueDate: "2026-05-01", status: "Done", completedDate: "2026-05-02" })], today, holidays)).toBe("G");
   });
 });
 
@@ -144,7 +144,7 @@ describe("partitionUpcoming", () => {
       task({ id: 2, dueDate: "2026-05-10" }),
       task({ id: 3, dueDate: "2026-06-03" }),
       task({ id: 4, dueDate: "2026-12-01" }),
-      task({ id: 5, dueDate: "2026-05-01", completedDate: "2026-05-02" }),
+      task({ id: 5, dueDate: "2026-05-01", status: "Done", completedDate: "2026-05-02" }),
     ];
     const { overdue, dueSoon } = partitionUpcoming(tasks, today, holidays);
     expect(overdue.map((t) => t.id)).toEqual([2, 1]);
@@ -210,7 +210,7 @@ describe("computeDashboard", () => {
   });
   it("computes EVM from task estimates (independent of budgets)", () => {
     const tasks = [
-      task({ id: 1, originalEstimateMinutes: 2400, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 2700 }),
+      task({ id: 1, originalEstimateMinutes: 2400, dueDate: "2026-05-01", status: "Done", completedDate: "2026-04-30", timeSpentMinutes: 2700 }),
       task({ id: 2, originalEstimateMinutes: 1200, dueDate: "2026-12-01" }),
     ];
     const m = computeDashboard(baseInput({ tasks }));
@@ -224,7 +224,7 @@ describe("computeDashboard", () => {
     // task 1: 80h done today (PV 80, EV 80). task 2: 40h due today, open
     // (PV +40, due-soon -> taskSchedule Amber). SPI = 80/120 = 0.667 -> Red.
     const tasks = [
-      task({ id: 1, originalEstimateMinutes: 4800, dueDate: today, completedDate: today }),
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: today, status: "Done", completedDate: today }),
       task({ id: 2, originalEstimateMinutes: 2400, dueDate: today }),
     ];
     const m = computeDashboard(baseInput({ tasks }));
@@ -234,7 +234,7 @@ describe("computeDashboard", () => {
   it("folds a low CPI into the Budget RAG even with no budget buckets", () => {
     // 80h earned, 100h spent -> CPI 0.8 -> Amber; no budgets configured.
     const tasks = [
-      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 6000 }),
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", status: "Done", completedDate: "2026-04-30", timeSpentMinutes: 6000 }),
     ];
     const m = computeDashboard(baseInput({ tasks }));
     expect(m.evm.cpi).toBeCloseTo(0.8, 5);
@@ -243,7 +243,7 @@ describe("computeDashboard", () => {
   });
   it("leaves the RAGs unchanged when EVM indices are healthy", () => {
     const tasks = [
-      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 4800 }),
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", status: "Done", completedDate: "2026-04-30", timeSpentMinutes: 4800 }),
     ];
     const m = computeDashboard(baseInput({ tasks }));
     expect(m.evm.spi).toBe(1);
@@ -253,7 +253,7 @@ describe("computeDashboard", () => {
   });
   it("lets a manual Budget override win over a low CPI", () => {
     const tasks = [
-      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", completedDate: "2026-04-30", timeSpentMinutes: 6000 }),
+      task({ id: 1, originalEstimateMinutes: 4800, dueDate: "2026-05-01", status: "Done", completedDate: "2026-04-30", timeSpentMinutes: 6000 }),
     ];
     const m = computeDashboard(baseInput({ tasks, status: { budgetOverride: "G" } }));
     expect(m.budget.computed).toBe("A");
@@ -377,5 +377,40 @@ describe("computeDashboard burndown", () => {
     const model = computeDashboard(dashInput({ budgets, roles }));
     expect(model.burndown).not.toBeNull();
     expect(model.burndown!.totalBudgetHours).toBe(100);
+  });
+});
+
+describe("Cancelled tasks are closed, not active", () => {
+  it("excludes a cancelled task from the schedule RAG", () => {
+    const tasks = [task({ id: 1, status: "Cancelled", dueDate: "2020-01-01" })];
+    expect(computeScheduleStatus(tasks, "2026-08-03", holidays)).toBe("G");
+  });
+
+  it("excludes a cancelled task from the overdue list", () => {
+    const tasks = [task({ id: 1, status: "Cancelled", dueDate: "2020-01-01" })];
+    expect(partitionUpcoming(tasks, "2026-08-03", holidays).overdue).toEqual([]);
+  });
+
+  it("still counts a done task as overdue-free but delivered", () => {
+    const tasks = [task({ id: 1, status: "Done", completedDate: "2026-08-01", dueDate: "2020-01-01" })];
+    expect(partitionUpcoming(tasks, "2026-08-03", holidays).overdue).toEqual([]);
+    expect(computeDashboardProgress(tasks, "2026-08-03", holidays).completed).toBe(1);
+  });
+
+  it("drops cancelled work from the completion-percentage denominator", () => {
+    const tasks = [
+      task({ id: 1, status: "Done", completedDate: "2026-08-01" }),
+      task({ id: 2, status: "Cancelled" }),
+    ];
+    const p = computeDashboardProgress(tasks, "2026-08-03", holidays);
+    expect(p.percent).toBe(100);
+    expect(p.completed).toBe(1);
+    // `total` keeps its original meaning: every task, cancelled included.
+    expect(p.total).toBe(2);
+  });
+
+  it("reports 0% when every task is cancelled (empty denominator)", () => {
+    const tasks = [task({ id: 1, status: "Cancelled" })];
+    expect(computeDashboardProgress(tasks, "2026-08-03", holidays).percent).toBe(0);
   });
 });
