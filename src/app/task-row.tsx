@@ -3,6 +3,7 @@
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
+import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import { RagDot } from "./rag-dot";
 import { descriptionText } from "./rich-text-projection";
 import { priorityLabel, t, type Lang } from "./i18n";
@@ -343,9 +344,14 @@ function TaskRowImpl({
     );
   };
 
-  const isComplete = !!task.completedDate;
+  // Two different questions. CLOSED (Done or Cancelled) drives everything about
+  // active work — the tint, the strikethrough, the ✓ instead of a RAG dot.
+  // DELIVERED is the narrower one, and only it may name a date: a cancelled task
+  // carries no completedDate, so labelling it from `isClosed` would render
+  // "Completed on undefined".
+  const isClosed = isTaskClosed(task);
   const health: TaskHealth = computeTaskHealth(task, today, holidaySet);
-  const label = isComplete
+  const label = isTaskDelivered(task)
     ? t(lang, "completedOn", task.completedDate!)
     : formatHealthTooltip(health, lang);
 
@@ -356,7 +362,7 @@ function TaskRowImpl({
     ? "bg-ui-purple/10 dark:bg-ui-purple/15"
     : isSelected
       ? "bg-surface-muted"
-      : isComplete
+      : isClosed
         ? // Completed rows are signalled by the strikethrough title + a muted
           // tint — NOT `opacity`, which dims all text/badges below the WCAG AA
           // contrast threshold (axe flagged the whole row).
@@ -399,7 +405,7 @@ function TaskRowImpl({
       </Td>
       {!hiddenCols.has("status") && (
         <Td padding="tight">
-          {isComplete && !task.healthOverride ? (
+          {isClosed && !task.healthOverride ? (
             <span role="img" title={label} aria-label={label} className="text-ui-green-strong">✓</span>
           ) : (
             <RagDot level={health.color} size="md" label={label} />
@@ -444,7 +450,7 @@ function TaskRowImpl({
         )}
       </Td>}
       <Td
-        className={`font-medium text-foreground ${isComplete ? "line-through" : ""}`}
+        className={`font-medium text-foreground ${isClosed ? "line-through" : ""}`}
       >
         {inlineEditable && inline.editing === "taskName" ? (
           <Input
@@ -643,9 +649,13 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const stop = (e: MouseEvent) => e.stopPropagation();
 
-  const showSendInquiry = !task.completedDate;
+  // Separate component, separate scope — `isClosed` is recomputed here. Both
+  // verbs are about work still in play: nobody is chased about a cancelled task,
+  // and there is nothing left to push.
+  const isClosed = isTaskClosed(task);
+  const showSendInquiry = !isClosed;
   const showPushToJira =
-    jiraEnabled && !!jiraProjectKey && !task.jiraKey && !task.completedDate;
+    jiraEnabled && !!jiraProjectKey && !task.jiraKey && !isClosed;
 
   // All row verbs (Edit / Send inquiry / Push to Jira / Delete) live in the
   // ⋮ overflow menu. The trigger's aria-label is row-unique (WCAG 2.4.6) so
