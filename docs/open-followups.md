@@ -100,7 +100,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 55 | Fourteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 14 are NOT colour-only |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
-| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **HALF CLOSED post-0.212.0** — version stamp + guard test; fresh-port convention still required |
+| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **HALF CLOSED post-0.212.0** — version stamp + guard test; ★ other half has a designed follow-up (cwd hash / boot nonce), fresh-port convention still required |
 | 59 | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open — ★ the finding is the PATTERN, three releases running |
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
@@ -2399,9 +2399,50 @@ tests: 85 axe scans (5 scheme combos × 16 views + 5 Kanban variants) + 1 guard.
 ★★ **STILL ONLY HALF, which is why this entry stays open rather than closing.** A version match is
 necessary and not sufficient: two worktrees on the SAME version still agree, and that is the normal
 state here between releases. The `PORT=3100 npm run dev` convention AGENTS.md prescribes still
-applies — the guard removes the *stale-release* failure mode, not the *sibling-worktree* one. The
-remaining half wants something per-checkout (a build id, a worktree path), and nothing has been
-designed for it.
+applies — the guard removes the *stale-release* failure mode, not the *sibling-worktree* one.
+
+★★ **The error message names a cause the guard cannot detect.** It says the reused server may be "a
+dev server from another worktree, or a leftover process in this one" — but `APP_VERSION` only moves
+at release, so BOTH of those read as a match for the whole of a release cycle. The message is
+accurate about what to DO (fresh port) and overstated about what was DETECTED. Two reviewers raised
+this independently. Leave the remedy wording; the diagnosis half is what the follow-up below fixes.
+
+### The remaining half — follow-up, not yet built
+
+**What it needs:** a token that differs per CHECKOUT, not per release, surviving from the serving
+process into the DOM, comparable from the test process. Three candidates, cheapest first. ★★ None is
+verified — this is a design sketch written at the point the gap was understood, and the first job of
+whoever picks it up is to disprove the assumption each rests on.
+
+**(a) Working directory of the serving process — recommended.** `RootLayout` is a Server Component,
+so it executes in the server's own node process; `process.cwd()` there is the checkout that is
+serving. Emit a short hash of it as a second attribute and have the guard compare it to the test
+process's own `process.cwd()` hash. Two worktrees differ; a leftover process in the same worktree
+does NOT — so this closes the sibling-worktree case and leaves the same-worktree-stale-Tailwind case
+open. *Unverified:* that a Server Component may call `process.cwd()` under `next dev` in this Next
+version, and that playwright's runner process shares the repo cwd (it does today; a config change
+could break it). *Constraint:* hash it, and gate it on `NODE_ENV !== "production"` — a raw filesystem
+path in shipped HTML is an information leak for zero benefit, since CI sets
+`reuseExistingServer: false` and cannot hit this failure mode at all.
+
+**(b) Boot nonce.** The server mints a random id at start, writes it somewhere the test can read
+(`.next/`), and stamps it. Catches EVERY stale server including same-worktree, which is the case (a)
+misses. Costs a file-write side effect at boot and a gitignore entry, and the read path has to fail
+loudly rather than skip when the file is absent, or it degrades to a no-op guard.
+
+**(c) Git HEAD SHA.** Rejected on inspection: a dirty tree has the same SHA as a clean one, so the
+stale-Tailwind case — the one AGENTS.md's landmine is actually about — is exactly the case it cannot
+see. Recorded so it is not re-proposed.
+
+★ **Do not "close" this entry with (a) alone.** (a) makes the error message's diagnosis honest and
+kills the common failure; only (b) covers a leftover process in the current worktree. Closing it
+needs (b), or an explicit decision that the fresh-port convention carries that half forever.
+
+★ **DECIDED 2026-08-03 — the production DOM change stays.** `data-app-version` renders on every
+served page, not only under test, on a branch with no version bump. Reviewed and accepted: one static
+server-rendered attribute, no runtime cost, no PII, and making it test-only would mean the guard no
+longer exercises the same code path it is protecting. Do not "fix" this by gating it on `NODE_ENV`.
+★ That reasoning does NOT extend to (a)'s cwd hash, which is a filesystem path and must be gated.
 
 ★★★ **THE OBVIOUS MUTATION PROOF CANNOT WORK, and reading its result as "the guard is vacuous" would
 be the wrong conclusion.** The natural way to prove the guard discriminates is
