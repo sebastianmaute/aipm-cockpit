@@ -851,9 +851,18 @@ describe("DashboardPanel completion tile", () => {
         priority: "Medium", blockers: "", description: "",
       },
     ]);
-    expect(screen.getByText(t("en-US", "dashboardNoActiveScope"))).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "dashboardAllCancelled", "2"))).toBeInTheDocument();
+    // TWO, not one, and the count is the point: the Progress tile and the
+    // at-a-glance KPI card both render this state, and a dashboard showing
+    // "No active scope" on one card while the other still reads "0% complete"
+    // is the defect this pair exists to prevent. `getByText` would throw on
+    // the second match, and `getAllByText(...)[0]` would pass with the KPI
+    // card left unfixed — so assert the length.
+    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(2);
+    expect(screen.getAllByText(t("en-US", "dashboardAllCancelled", "2"))).toHaveLength(2);
     expect(screen.queryByText(t("en-US", "dashboardPercentComplete", "0"))).toBeNull();
+    // The KPI card's own percentage must be gone too — a 0% gradient bar reads
+    // as "nothing done yet", which is exactly the misreading being fixed.
+    expect(screen.queryByText("0%")).toBeNull();
   });
 
   it("leaves an empty project on 0% complete", () => {
