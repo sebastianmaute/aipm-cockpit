@@ -565,6 +565,7 @@ const enUS = {
   budgetFollowsPlanHint: "When on, budget hours for lines with assigned resources mirror planned capacity and become read-only.",
   budgetCellBudget: "Budget",
   budgetCellActual: "Actual",
+  budgetTotal: "Total",
   budgetRoleStatus: "Status",
   budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Hours remaining",

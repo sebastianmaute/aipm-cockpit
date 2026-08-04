@@ -568,6 +568,7 @@ export const de: Record<TranslationKey, string> = {
   budgetFollowsPlanHint: "Wenn aktiv, spiegeln die Budgetstunden von Zeilen mit zugewiesenen Ressourcen die geplante Kapazität wider und sind schreibgeschützt.",
   budgetCellBudget: "Budget",
   budgetCellActual: "Ist",
+  budgetTotal: "Gesamt",
   budgetRoleStatus: "Status",
   budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Verbleibende Stunden",

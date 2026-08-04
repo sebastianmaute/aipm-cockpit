@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
@@ -524,7 +524,11 @@ describe("budget: follow-plan mirror (Task 8)", () => {
         buckets={zeroBudgetBucket}
       />,
     );
-    const rowStatus = screen.getByLabelText(t("en-US", "budgetRoleStatus"));
+    // Scoped to the ALLOCATION row (row 0 is the header, the last row is the
+    // bucket total) — the total row carries a same-titled badge, and this test
+    // is about the allocation row's own mirrored total.
+    const allocRow = screen.getAllByRole("row")[1];
+    const rowStatus = within(allocRow).getByLabelText(t("en-US", "budgetRoleStatus"));
     expect(rowStatus.textContent).not.toBe("—");
   });
 });
@@ -567,5 +571,91 @@ describe("budget: per-period cell RAG is period-aware", () => {
   test("the same empty cell in a period that has not closed stays Green", () => {
     render(<BudgetPanel {...props} buckets={emptyBothPeriods} />);
     expect(cellBadgeLabel("2026-02")).toBe("Green");
+  });
+});
+
+describe("BudgetPanel — Total column + total row", () => {
+  // 2 rows x 2 periods, every marginal distinct:
+  //   rows    : 80/65 and 40/50
+  //   columns : 60/55 (Jan) and 60/60 (Feb)
+  //   grand   : 120/115
+  // A single-row or single-period fixture passes whether the code sums the right
+  // axis or not, which is the whole failure mode being guarded here.
+  const totalsRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 1, gradeId: 2, internalRate: 100, externalRate: 150 },
+  ];
+  const totalsBuckets: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-02-28", status: "open",
+    allocations: [
+      { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40, "2026-02": 40 }, actualHours: { "2026-01": 30, "2026-02": 35 } },
+      { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 20, "2026-02": 20 }, actualHours: { "2026-01": 25, "2026-02": 25 } },
+    ],
+  }];
+  const renderTotals = () =>
+    render(<BudgetPanel {...props} roles={totalsRoles} buckets={totalsBuckets} />);
+
+  test("each row carries its summed budget and actual in the Total column", () => {
+    renderTotals();
+    expect(screen.getByRole("columnheader", { name: t("en-US", "budgetTotal") })).toBeInTheDocument();
+
+    // Row-scoped: the CCI tiles above the table render their own numbers, so a
+    // bare getByText could match one of those instead.
+    const rows = screen.getAllByRole("row");
+    const firstCells = within(rows[1]).getAllByRole("cell");
+    expect(firstCells[2].textContent).toContain("80");
+    expect(firstCells[2].textContent).toContain("65");
+    const secondCells = within(rows[2]).getAllByRole("cell");
+    expect(secondCells[2].textContent).toContain("40");
+    expect(secondCells[2].textContent).toContain("50");
+  });
+
+  test("the total row carries each period's column sums and the grand total", () => {
+    renderTotals();
+    const totalRow = screen.getByText(t("en-US", "budgetTotal"), { selector: "td" }).closest("tr") as HTMLElement;
+    const cells = within(totalRow).getAllByRole("cell");
+    // cell 0 = RAG dot, 1 = "Total", 2 = grand, 3.. = per-period sums
+    expect(cells[2].textContent).toContain("120");
+    expect(cells[2].textContent).toContain("115");
+    expect(cells[3].textContent).toContain("60");
+    expect(cells[3].textContent).toContain("55");
+    expect(cells[4].textContent).toContain("60");
+  });
+
+  test("the three leading columns are pinned, Total offset by the live role width", () => {
+    renderTotals();
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[0].style.position).toBe("sticky");
+    expect(headers[0].style.left).toBe("0px");
+    expect(headers[1].style.position).toBe("sticky");
+    expect(headers[1].style.left).toBe("28px");
+    // 28 + the 160px default role width. The role column is user-resizable, so
+    // this offset is derived from its live width, never hardcoded.
+    expect(headers[2].style.position).toBe("sticky");
+    expect(headers[2].style.left).toBe("188px");
+  });
+
+  test("the total row's separating rule is on its CELLS, not the <tr>", () => {
+    // globals.css puts this table in `border-collapse: separate`, where a border
+    // set on a row is ignored — verified in Chrome, a `border-top` on a <tr>
+    // paints nothing. On the <tr> the rule would be dead markup and the total
+    // would read as just another allocation row.
+    renderTotals();
+    const totalRow = screen.getByText(t("en-US", "budgetTotal"), { selector: "td" }).closest("tr") as HTMLElement;
+    expect(totalRow.className).not.toContain("border-t");
+    for (const cell of within(totalRow).getAllByRole("cell")) {
+      expect(cell.className).toContain("border-t-2");
+    }
+  });
+
+  test("the pinned body cells carry an opaque background", () => {
+    // Without it the scrolled period cells show straight through the pinned ones
+    // — these rows carry no background of their own.
+    renderTotals();
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells[0].className).toContain("bg-surface");
+    expect(cells[1].className).toContain("bg-surface");
+    expect(cells[2].className).toContain("bg-surface");
   });
 });
