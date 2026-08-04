@@ -511,14 +511,34 @@ export function BudgetPanel(props: BudgetPanelProps) {
               />
               <div className="mt-3 overflow-x-auto">
                 <DataTable
-                  className="w-full text-xs"
+                  // `w-max`, NOT `w-full`. A `width: 100%` table whose columns
+                  // sum to less than the container spreads the leftover across
+                  // ALL of them — including the three pinned ones, whose offsets
+                  // are arithmetic over their DECLARED widths. This is a SECOND
+                  // mechanism, independent of the content clamps below: measured
+                  // in Chromium with those clamps already applied, 3 periods in
+                  // a 1400px container still rendered the 28px dot column at 53
+                  // and a 60px role column at 113.5. Sizing to content leaves no
+                  // leftover to spread; the cost is that a short plan no longer
+                  // stretches to fill the pane.
+                  className="w-max text-xs"
                   head={<>
                     <tr>
                       <th
-                        className="px-1 py-1 text-left font-medium print:static"
-                        style={{ position: "sticky", left: 0, width: DOT_COL_PX, minWidth: DOT_COL_PX }}
+                        className="sticky px-1 py-1 text-left font-medium print:static"
+                        style={{ left: 0, width: DOT_COL_PX, minWidth: DOT_COL_PX }}
                       >
-                        {t(lang, "budgetRoleStatus")}
+                        {/* Visually hidden: this column shows RAG dots, and each
+                            badge carries its own title. The visible word was
+                            what rendered the column at 41.3px against a declared
+                            28, so the role column — pinned at DOT_COL_PX — sat
+                            over its right 13px once scrolled, clipping the tail
+                            of the word. Widening the constant instead would tune
+                            it to ONE string: this key happens to be "Status" in
+                            both EN and DE today, but nothing holds it there, and
+                            a constant cannot track a translation. Taking the
+                            label out of layout makes 28 true in every language. */}
+                        <span className="sr-only">{t(lang, "budgetRoleStatus")}</span>
                       </th>
                       <SortResizeTh
                         label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
@@ -532,11 +552,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       />
                       {/* Fixed Total column. Its offset tracks the LIVE role width —
                           the role column is user-resizable, so a hardcoded offset
-                          drifts the moment it is dragged. */}
+                          drifts the moment it is dragged. The offset is only true
+                          because the two columns to its left are clamped to their
+                          declared widths; nothing pins to the RIGHT of this one,
+                          so it needs no clamp of its own. */}
                       <th
-                        className="px-3 py-2 font-medium print:static"
+                        className="sticky px-3 py-2 font-medium print:static"
                         style={{
-                          position: "sticky",
                           left: DOT_COL_PX + colWidths.role,
                           width: TOTAL_COL_PX,
                           minWidth: TOTAL_COL_PX,

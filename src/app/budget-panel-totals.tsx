@@ -25,8 +25,19 @@ import { useCommitDraft } from "./use-commit-draft";
  *  was named; the h-4 w-4 badge plus px-1 (16 + 8) fits inside it.
  *  TOTAL_COL_PX is the w-14 label (56) + gap-1 (4) + w-16 number (64) = 124 of
  *  content, plus the cell's own px-3 (24) since Tailwind's preflight makes every
- *  box border-box. Both are HINTS: this table is `table-layout: auto`, so a
- *  column whose content is wider renders wider regardless. */
+ *  box border-box.
+ *
+ *  ★ DOT_COL_PX is a width the column ACTUALLY renders at, and TWO independent
+ *  mechanisms had to be closed for that to be true: `table-layout: auto` lets
+ *  CONTENT push a column past its declared width, and a `w-full` table pads
+ *  every column with LEFTOVER space when they sum to less than the container.
+ *  So this column's header label is `sr-only` (the visible word rendered it
+ *  41.3px against a declared 28) and the table is sized `w-max`.
+ *
+ *  This matters because the role column pins at DOT_COL_PX and the Total column
+ *  at DOT_COL_PX + the role width: an offset is only correct if every column to
+ *  its LEFT renders exactly as wide as it declares. TOTAL_COL_PX is still only a
+ *  hint — nothing is positioned against it, so nothing depends on it. */
 export const DOT_COL_PX = 28;
 export const TOTAL_COL_PX = 148;
 
@@ -168,12 +179,10 @@ export function TotalsTd({
 }) {
   return (
     <td
-      className={`px-3 py-2${left === undefined ? "" : " bg-surface print:static"}${cellClass ? ` ${cellClass}` : ""}`}
-      style={
-        left === undefined
-          ? undefined
-          : { position: "sticky", left, width: TOTAL_COL_PX, minWidth: TOTAL_COL_PX }
-      }
+      // `sticky` is a CLASS: an inline `position: sticky` outranks any author
+      // rule, which would leave the `print:static` beside it with nothing to do.
+      className={`px-3 py-2${left === undefined ? "" : " sticky bg-surface print:static"}${cellClass ? ` ${cellClass}` : ""}`}
+      style={left === undefined ? undefined : { left, width: TOTAL_COL_PX, minWidth: TOTAL_COL_PX }}
     >
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-1">
@@ -223,10 +232,20 @@ export function BucketRowLeadCells({
   const extra = cellClass ? ` ${cellClass}` : "";
   return (
     <>
-      <td className={`bg-surface px-1 py-1 print:static${extra}`} style={{ position: "sticky", left: 0 }}>
+      {/* `sticky` rides a CLASS on all three, never the inline style — an inline
+          declaration outranks author rules in every media, so an inline
+          `position: sticky` would make the `print:static` beside it inert. */}
+      <td className={`sticky bg-surface px-1 py-1 print:static${extra}`} style={{ left: 0 }}>
         <RowDot budget={budget} actual={actual} lang={lang} />
       </td>
-      <td className={`bg-surface px-3 py-2 print:static${extra}`} style={{ position: "sticky", left: DOT_COL_PX }}>
+      {/* Clamped to the declared role width so the column cannot render wider
+          than the arithmetic that places the Total column assumes — a long
+          discipline name otherwise grows this cell past `DOT_COL_PX +
+          roleWidth`, and the pinned Total then sits on top of the label. */}
+      <td
+        className={`sticky truncate bg-surface px-3 py-2 print:static${extra}`}
+        style={{ left: DOT_COL_PX, width: roleWidth, maxWidth: roleWidth }}
+      >
         {label}
       </td>
       <TotalsTd budget={budget} actual={actual} lang={lang} left={DOT_COL_PX + roleWidth} cellClass={cellClass} />

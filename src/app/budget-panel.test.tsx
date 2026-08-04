@@ -634,12 +634,72 @@ describe("BudgetPanel — Total column + total row", () => {
   test("the three leading columns are pinned", () => {
     renderTotals();
     const headers = screen.getAllByRole("columnheader");
-    expect(headers[0].style.position).toBe("sticky");
+    // Two halves, both required: `sticky` rides a CLASS (an inline
+    // `position: sticky` would outrank the `print:static` beside it and make it
+    // inert), while the per-instance offset stays inline.
+    expect(headers[0].classList.contains("sticky")).toBe(true);
     expect(headers[0].style.left).toBe("0px");
-    expect(headers[1].style.position).toBe("sticky");
+    expect(headers[1].classList.contains("sticky")).toBe(true);
     expect(headers[1].style.left).toBe("28px");
-    expect(headers[2].style.position).toBe("sticky");
+    expect(headers[2].classList.contains("sticky")).toBe(true);
     expect(headers[2].style.left).toBe("188px"); // 28 + the 160px default role width
+    // No inline position on any of them, or print could never override it.
+    for (const th of headers.slice(0, 3)) expect(th.style.position).toBe("");
+  });
+
+  test("the pinned BODY cells are sticky too, in the data rows and the total row", () => {
+    // Without this the shipped behaviour — everything left of and including
+    // Total stays put while the months scroll — can go missing in every data
+    // row while the headers stay pinned, and the suite stays green: the other
+    // assertions here read a <th>, or read a body cell's `left` WITHOUT its
+    // position, which a cell that is not positioned at all still carries.
+    renderTotals();
+    const dataCells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    const totalRow = screen.getByText(t("en-US", "budgetTotal"), { selector: "td" }).closest("tr") as HTMLElement;
+    const totalCells = within(totalRow).getAllByRole("cell");
+    for (const cells of [dataCells, totalCells]) {
+      for (const td of cells.slice(0, 3)) {
+        expect(td.classList.contains("sticky")).toBe(true);
+        expect(td.style.position).toBe("");
+      }
+      expect(cells[0].style.left).toBe("0px");
+      expect(cells[1].style.left).toBe("28px");
+      expect(cells[2].style.left).toBe("188px");
+      // A period cell scrolls — it must NOT be pinned, or the whole row is.
+      expect(cells[3].classList.contains("sticky")).toBe(false);
+      expect(cells[3].style.left).toBe("");
+    }
+  });
+
+  test("the pinned role column is clamped to its declared width", () => {
+    // `table-layout: auto` treats a declared width as a MINIMUM, so a long
+    // discipline name renders the column wider — and Total, pinned by arithmetic
+    // at 28 + the declared width, then sits on top of that label. Measured in
+    // Chromium before the clamp, with a long discipline name and the table
+    // scrolled: both a 40px and a 60px role column rendered 156.9, hiding 117px
+    // and 97px of the label behind Total respectively.
+    seedRoleWidth(60);
+    renderTotals();
+    const roleTh = screen.getAllByRole("columnheader")[1];
+    expect(roleTh.style.maxWidth).toBe("60px");
+    const roleTd = within(screen.getAllByRole("row")[1]).getAllByRole("cell")[1];
+    expect(roleTd.style.maxWidth).toBe("60px");
+    expect(roleTd.style.width).toBe("60px");
+    expect(roleTd.className).toContain("truncate");
+  });
+
+  test("the RAG-dot header names its column without occupying it", () => {
+    // The visible word rendered the column at 41.3px against a declared
+    // DOT_COL_PX of 28, so the role column — pinned at 28 — sat over its right
+    // 13px once scrolled. Widening the constant would tune it to one string;
+    // taking the label out of layout makes 28 true whatever the translation.
+    // The accessible name must survive (Budget is axe-scanned, and an unnamed
+    // header is a WCAG 1.3.1 failure).
+    renderTotals();
+    const dotTh = screen.getAllByRole("columnheader")[0];
+    expect(dotTh).toHaveAccessibleName(t("en-US", "budgetRoleStatus"));
+    const labelSpan = within(dotTh).getByText(t("en-US", "budgetRoleStatus"));
+    expect(labelSpan.className).toContain("sr-only");
   });
 
   test("Total's offset tracks a RESIZED role column, not the default 188", () => {
@@ -658,7 +718,25 @@ describe("BudgetPanel — Total column + total row", () => {
     expect(cells[2].style.left).toBe("268px");
   });
 
+  test("the bucket table is sized to its content, not stretched to the pane", () => {
+    // A `width: 100%` table whose columns sum to less than the container spreads
+    // the leftover across ALL of them, pinned ones included — so the clamps
+    // above are not enough on their own. Measured in Chromium WITH those clamps
+    // applied, 3 periods in a 1400px container still rendered the 28px dot
+    // column at 53 and a 60px role column at 113.5. Sizing to content leaves no
+    // leftover to spread.
+    renderTotals();
+    const table = document.querySelector("table") as HTMLElement;
+    expect(table.className).toContain("w-max");
+    expect(table.className).not.toContain("w-full");
+  });
+
   test("every pinned cell carries print:static", () => {
+    // Now that `position: sticky` rides a class rather than the inline style
+    // this actually overrides something: Tailwind emits `.print\:static` after
+    // `.sticky` at equal specificity, so the print rule wins. Verified in
+    // Chromium under emulated print media — inline sticky + class static
+    // computes `sticky`; class sticky + class static computes `static`.
     // The print stylesheet resets `overflow` on every .print-root descendant,
     // which removes the scroll container these cells are positioned against —
     // a sticky cell with no scroller offsets against the page instead and lands
