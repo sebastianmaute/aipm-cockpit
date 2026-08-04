@@ -3080,7 +3080,7 @@ without threading one more field through.
 
 ---
 
-## 75. Both hide-external toggles trust whatever `readDeviceJson` returns — open
+## 75. Both hide-external toggles trust whatever `readDeviceJson` returns — CLOSED
 
 `resources-panel.tsx` and `resource-directory.tsx` each seed their toggle with
 `readDeviceJson<boolean>(key, false)`, and `device-store.ts` documents explicitly that the parsed
@@ -3093,9 +3093,16 @@ non-boolean.
 inherited the same shape deliberately, to match precedent rather than diverge from it. `=== true` at
 both read sites closes both.
 
+★ CLOSED in review follow-up: both sites now read `readDeviceJson<unknown>(key, false) === true`. The
+type argument was changed to `unknown` on purpose — leaving `<boolean>` there would keep asserting a
+shape nothing checks, which is what made this survive review in the first place. BOTH sites are
+pinned, by a "treats a non-boolean stored value as off" test apiece (`resources-panel.test.tsx` and
+`resource-directory.test.tsx`) — an earlier close-out fixed both and pinned only one, which is how a
+site silently regresses while the entry reads CLOSED.
+
 ---
 
-## 76. The swimlane no-op drop guard no longer holds for a name-resolved task — open
+## 76. The swimlane no-op drop guard no longer holds for a name-resolved task — CLOSED
 
 `use-task-row-handlers.ts` `onSwimlaneDrop` documents "A drop that changes nothing writes nothing and
 records no undo entry", enforced by `sameLane`, which compares `prevRow.resourceId ?? undefined`
@@ -3110,6 +3117,31 @@ invariant the code no longer has, and a spurious undo entry is a real (if small)
 
 ★ Fix is either direction: compare against the RESOLVED id rather than the stored one, or narrow the
 comment to say a lane-repairing drop is a deliberate exception.
+
+★ CLOSED in review follow-up, taking the FIRST direction. `task-kanban.ts` now exports `laneKeyOf`
+(the same resolution `groupByStatusAndPerson` performs) and the guard asks it, so the question is
+"does this card already display in this cell" rather than "does its stored FK match". ★★ The
+harmlessness assessment above was too generous and is why this was nearly left open: the write also
+armed the AUTOSAVE, so an accidental drag that landed where it started cost a network round trip on a
+Turso backend and a spurious undo entry. ★ Deliberate consequence: a self-drop no longer
+opportunistically rewrites a stale `assignee` cache to the live directory spelling — a drag is not a
+rename tool, and the load-time backfill owns that repair. Pinned by
+`use-task-row-handlers.test.ts` "dropping a card back on its own cell", with two controls (status-only
+change, and a real lane change) so the guard cannot pass by swallowing everything; mutation-verified
+against the old comparison.
+
+★★★ THE FIRST ATTEMPT AT THIS FIX BROKE THE ASSIGN CONTROL, and a cold review caught it before commit.
+`onSwimlaneDrop` is not drag-only: `tasks-section.tsx` `onAssignFromCard` routes the per-card assignee
+`<select>` through it with the task's CURRENT status. That select is controlled on `task.resourceId`
+(`task-kanban-card.tsx`), so the very row this whole fix is about — free-string assignee, no FK —
+displays "Unassigned" while its card sits in the person's lane. Picking that person is the repair, and
+a "does it already DISPLAY here" test answers yes, swallows the write, and lets the controlled select
+snap straight back. An inert control, no feedback, forever. ★★ The handler now takes a
+`source: "drag" | "assign"` and picks the no-op test from the CALLER'S INTENT — the same
+inspect-intent-not-state rule `resolveEntitySave` follows for the id-mint race, and for the same
+reason: the two situations are indistinguishable from the row alone. Both paths still fall through to
+ONE write, so keyboard and mouse cannot diverge. ★ The three original tests could not catch this:
+two are controls that pass under both old and new code, and none exercised the assign path.
 
 ---
 
@@ -3132,6 +3164,14 @@ and the idempotent pass is harmless for every shape encountered so far.
 
 ★★ There are now **two** load funnels and a third would silently miss the backfill. They are listed in
 the function's own doc comment — keep that list current.
+
+★★ Both funnels are now pinned, and the second one was NOT until a review audit found it:
+`applyRestoredWorkspace` had zero tests of any kind, so deleting its backfill call — leaving a bare
+`setTasks(w.tasks ?? [])` — kept the whole suite green while a version restore silently reverted a
+project's task FKs to the broken pre-repair shape. Covered by
+`task-manager.restore-backfill.test.tsx` (mutation-verified). A third funnel needs its own file; a
+per-funnel test is the only thing that catches this class, because the engine's own unit tests pass
+either way.
 
 ---
 

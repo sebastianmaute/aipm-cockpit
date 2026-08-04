@@ -247,8 +247,12 @@ function ResourcesPanelInner({
   // Which of the two neighbouring tabs you happened to test decided whether the
   // bug existed. Any state a user would call a preference has to outlive the
   // mount, because nothing on screen tells them the panel went away.
+  // ★ `=== true`, not a `<boolean>` type argument: `readDeviceJson` hands back
+  // whatever JSON.parse produced, UNVALIDATED — the type argument is a claim,
+  // not a check. A hand-edited or older-format value (`"true"`, `1`, `{}`) would
+  // otherwise reach `aria-pressed` as a non-boolean and render `aria-pressed="1"`.
   const [hideExternal, setHideExternal] = useState<boolean>(
-    () => readDeviceJson<boolean>(HIDE_EXTERNAL_KEY, false),
+    () => readDeviceJson<unknown>(HIDE_EXTERNAL_KEY, false) === true,
   );
   // Kept OUT of the setState updater (which must stay pure — StrictMode invokes
   // it twice): the write is a side effect, so it sits beside the setter exactly

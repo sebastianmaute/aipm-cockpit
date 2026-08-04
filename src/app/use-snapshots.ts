@@ -37,8 +37,16 @@ export interface UseSnapshotsArgs {
    * of a live project was lost this way, and the only visible symptom was the
    * charts reading "Not enough snapshots yet" beside a full snapshot table.
    *
-   * ★ A capture is DEFERRED, never skipped: the effect re-runs when this flips,
-   * so the bucket is still captured — just with real data.
+   * ★ A capture is DEFERRED until a load LANDS, not skipped outright: the effect
+   * re-runs when this flips, so the bucket is still captured — just with real
+   * data. ★★ It IS skipped when no load lands at all: a FAILED load leaves the
+   * flag false for the session (pinned by use-storage-backend.test.tsx), and the
+   * bucket is only picked up by a later successful load — `reloadCurrentProject`
+   * or a project switch, both of which re-enter `applyWorkspace`. That is the
+   * correct trade: a failed load must never license a capture, because capturing
+   * the default workspace is the exact corruption this flag exists to stop.
+   * Do not soften this to "never skipped" — an earlier revision said so, and
+   * this repo's recurring defect is prose that outlives its code.
    *
    * ★ Deliberately SEPARATE from `active` at the call site rather than folded
    * into it: `active` also decides whether the Trends view renders its panel at

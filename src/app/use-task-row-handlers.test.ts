@@ -573,3 +573,117 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     expect(openEditModal).toHaveBeenCalledWith(tasksRef.current[0]);
   });
 });
+
+// ★★★ REGRESSION GUARD — the lane-unification fix introduced this and review
+// caught it. A task whose free-string `assignee` uniquely names a directory
+// person now RENDERS in `res:<id>` while its stored `resourceId` is still null:
+// `backfillTaskResourceFks` stamps the FK at LOAD, so a task created in-session
+// has never been through it. The old guard compared the STORED field against the
+// lane's id, so dropping such a card back onto its own cell read as a lane
+// CHANGE — it wrote, stamped `localModifiedAt`, pushed an undo entry the user
+// never made and armed the autosave (a network round trip on Turso) for a drag
+// that visibly moved nothing. The guard must ask where the row DISPLAYS.
+describe("onSwimlaneDrop — dropping a card back on its own cell", () => {
+  const resources: Resource[] = [
+    { id: 1, firstName: "Alice", lastName: "Ng", roleId: null,
+      utilizationMode: "percent", utilization: {} },
+  ];
+  const resourcesById: ReadonlyMap<number, Resource> = new Map(resources.map((r) => [r.id, r]));
+  // Unlinked on purpose: `resourceId` absent is the whole point of the case.
+  const nameOnly = () => ({ current: [makeTask({ id: 1, assignee: "Alice Ng", status: "To Do" })] });
+  const ownLane = { key: "res:1", label: "Alice Ng", resourceId: 1 };
+
+  it("writes nothing and records no undo entry", () => {
+    const setTasks = vi.fn();
+    const captureFieldEdit = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({
+        tasksRef: nameOnly(),
+        setTasks,
+        resourcesById,
+        captureFieldEdit,
+      })),
+    );
+    act(() => result.current.onSwimlaneDrop(1, ownLane, "To Do"));
+    expect(setTasks).not.toHaveBeenCalled();
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
+  // Control: proves the guard is not simply swallowing every drop. Same lane,
+  // different status — the status half of the cell changed, so this MUST write.
+  it("still writes when only the STATUS half of the cell changed", () => {
+    const setTasks = vi.fn();
+    const captureFieldEdit = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({
+        tasksRef: nameOnly(),
+        setTasks,
+        resourcesById,
+        captureFieldEdit,
+      })),
+    );
+    act(() => result.current.onSwimlaneDrop(1, ownLane, "In Progress"));
+    expect(setTasks).toHaveBeenCalled();
+    expect(captureFieldEdit).toHaveBeenCalled();
+  });
+
+  // Control: a genuine lane change still writes and stamps the FK.
+  it("still writes when the card moves to a different lane", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({
+        tasksRef: nameOnly(),
+        setTasks,
+        resourcesById,
+      })),
+    );
+    act(() =>
+      result.current.onSwimlaneDrop(1, { key: "unassigned", label: "", resourceId: null }, "To Do"),
+    );
+    expect(setTasks).toHaveBeenCalled();
+  });
+});
+
+// ★★★ THE ASSIGN PATH IS NOT A DRAG, AND THE DISPLAY-BASED NO-OP TEST BREAKS IT.
+// `tasks-section.tsx` onAssignFromCard routes the per-card assignee <select>
+// through this same handler with the task's CURRENT status. The select is
+// controlled on `task.resourceId` (`task-kanban-card.tsx`), so a task whose
+// free-string assignee names a directory person shows "Unassigned" while its
+// card sits in that person's lane — the exact row the FK repair exists for.
+// Asking "does it already DISPLAY here" answers yes, swallows the write, and the
+// controlled select snaps back: an inert control with no feedback. Asking "does
+// it already STORE this" answers no, so the repair lands.
+describe("onSwimlaneDrop — explicit assign from a card", () => {
+  const resources: Resource[] = [
+    { id: 1, firstName: "Alice", lastName: "Ng", roleId: null,
+      utilizationMode: "percent", utilization: {} },
+  ];
+  const resourcesById: ReadonlyMap<number, Resource> = new Map(resources.map((r) => [r.id, r]));
+  const ownLane = { key: "res:1", label: "Alice Ng", resourceId: 1 };
+
+  it("stamps the FK when the picked person is the one the card already displays under", () => {
+    const setTasks = vi.fn();
+    // Name-only: renders in res:1, stores no FK. Status unchanged, lane key
+    // unchanged — everything a drag would call a no-op.
+    const tasksRef = { current: [makeTask({ id: 1, assignee: "Alice Ng", status: "To Do" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, resourcesById })),
+    );
+    act(() => result.current.onSwimlaneDrop(1, ownLane, "To Do", "assign"));
+    expect(setTasks).toHaveBeenCalled();
+  });
+
+  it("still no-ops an assign that genuinely changes nothing", () => {
+    const setTasks = vi.fn();
+    // Already linked AND already named — the stored state matches the pick, so
+    // there is nothing to write. Without this the fix could be "always write".
+    const tasksRef = {
+      current: [makeTask({ id: 1, assignee: "Alice Ng", resourceId: 1, status: "To Do" })],
+    };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, resourcesById })),
+    );
+    act(() => result.current.onSwimlaneDrop(1, ownLane, "To Do", "assign"));
+    expect(setTasks).not.toHaveBeenCalled();
+  });
+});

@@ -215,6 +215,20 @@ describe("backfillTaskResourceFks", () => {
     expect(out[0].resourceId).toBe(20);
   });
 
+  // ★★ The guard is `task.resourceId != null`, NOT "resolves in the directory".
+  // A DANGLING id must stay dangling: re-pointing it at a same-named person is a
+  // guess dressed as a repair, and it would silently move one person's work onto
+  // another's. The existing "never overwrites" test uses an id the directory
+  // HOLDS, so tightening the guard to `!= null && byId.has(...)` passes it —
+  // this is the case that fails.
+  it("leaves a DANGLING FK dangling rather than re-resolving it by name", () => {
+    const input = [task({ resourceId: 999, assignee: "Ada Lovelace" })];
+    const out = backfillTaskResourceFks(dir, input);
+    expect(out[0].resourceId).toBe(999);
+    // Untouched means the no-op fast path, so the array identity survives too.
+    expect(out).toBe(input);
+  });
+
   it("leaves an ambiguous name unlinked rather than guessing", () => {
     const twins: Resource[] = [
       { ...dir[0], id: 1, email: "" },
@@ -260,6 +274,24 @@ describe("backfillTaskResourceFks — ambiguity and precedence", () => {
     const out = backfillTaskResourceFks(dupes, [task({ assigneeEmail: "shared@example.com" })]);
     // First-wins would yield 10 — a different value, so this cannot pass by accident.
     expect(out[0].resourceId ?? null).toBeNull();
+  });
+
+  // ★ An AMBIGUOUS email must not veto the task — it only fails to answer, so
+  // resolution falls through to the name (`viaEmail ?? viaName ?? null`). The
+  // duplicated-email test above carries no `assignee`, so it never reaches this
+  // branch: blocking outright (`if (viaEmail === null) return task;`) passes it
+  // and fails here.
+  it("falls through to an unambiguous NAME when the email is ambiguous", () => {
+    const dupes: Resource[] = [
+      { id: 10, firstName: "Ada", lastName: "Lovelace", email: "shared@example.com",
+        roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 20, firstName: "Alan", lastName: "Turing", email: "Shared@Example.com",
+        roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    const out = backfillTaskResourceFks(dupes, [
+      task({ assignee: "Ada Lovelace", assigneeEmail: "shared@example.com" }),
+    ]);
+    expect(out[0].resourceId).toBe(10);
   });
 
   it("prefers the email match when email and name name DIFFERENT people", () => {

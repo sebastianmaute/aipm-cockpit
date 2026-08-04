@@ -111,7 +111,7 @@ export interface TasksSectionProps {
   onPushToJira: (id: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
   /** Swimlane cell drop: identifies both the person (lane) and status in one call. */
-  onSwimlaneDrop: (id: number, lane: KanbanLane, status: TaskStatus) => void;
+  onSwimlaneDrop: (id: number, lane: KanbanLane, status: TaskStatus, source?: "drag" | "assign") => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
   // column manager
@@ -419,9 +419,9 @@ export function TasksSection({
     [hideExternal, extraLaneIds, resourcesById],
   );
 
-  // Swimlane keyboard assign path: reuses onSwimlaneDrop (the same functional
-  // write the drag uses) with the task's CURRENT status, so keyboard and mouse
-  // can never diverge in what they write.
+  // Swimlane keyboard assign path: reuses onSwimlaneDrop (the same functional write the drag uses)
+  // with the task's CURRENT status, so keyboard and mouse can never diverge. ★★ Passes "assign" — an
+  // explicit pick against a select controlled on the STORED FK, so its no-op test differs; see there.
   const onAssignFromCard = useCallback(
     (taskId: number, resourceId: number | null) => {
       const current = healthFilteredTasks.find((t) => t.id === taskId);
@@ -432,7 +432,7 @@ export function TasksSection({
         r
           ? { key: `res:${r.id}`, label: resourceDisplayName(r), resourceId: r.id }
           : { key: UNASSIGNED_LANE, label: "", resourceId: null },
-        current.status,
+        current.status, "assign",
       );
     },
     [healthFilteredTasks, resourcesById, onSwimlaneDrop],

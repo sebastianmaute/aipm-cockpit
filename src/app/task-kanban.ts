@@ -127,11 +127,37 @@ function laneOf(
   // for the ones it does not. `ensure()` keeps the first lane object for a key,
   // so the first spelling encountered supplies the label.
   // ★ Safe for the drop payload: `use-task-row-handlers.ts` writes `lane.label`,
-  // never `lane.key`, so a drop still stores a human spelling. It does mean
-  // dropping a variant-spelled task into the merged lane normalises its
-  // `assignee` to the label — a deliberate write, on an explicit user action.
+  // never `lane.key`, so a drop still stores a human spelling.
+  // ★★ It no longer normalises a variant spelling on EVERY drop, and the older
+  // wording here said it did. A variant-spelled task is ALREADY IN the merged
+  // lane — that is what merging means — so a same-status drop there is caught by
+  // the no-op guard and writes nothing. Only a drop that also changes status (or
+  // an explicit assign) rewrites `assignee` to the label.
   if (name) return { key: `name:${nameKey(name)}`, label: name, resourceId: null };
   return { key: UNASSIGNED_LANE, label: "", resourceId: null };
+}
+
+/**
+ * The lane a task currently DISPLAYS in — the same resolution
+ * `groupByStatusAndPerson` performs, exposed for the drop guard.
+ *
+ * ★★ The drop guard MUST ask this and must NOT compare `task.resourceId`
+ * against the lane's. The two disagree BY DESIGN: a task whose `assignee`
+ * string uniquely names a directory person renders in `res:<id>` while its
+ * stored FK is still null, because `backfillTaskResourceFks` stamps the FK at
+ * LOAD and a task created in-session has never been through it. Comparing the
+ * stored field made dropping such a card back onto its own cell a real write —
+ * dirtying the workspace, stamping `localModifiedAt`, pushing an undo entry the
+ * user never asked for and arming the autosave (a network round trip on a Turso
+ * backend) for a drag that visibly moved nothing.
+ *
+ * ★ Consequence, deliberate: a self-drop no longer opportunistically rewrites a
+ * stale `assignee` cache to the live directory spelling. A drag is not a rename
+ * tool, every surface already renders the live name, and the load-time backfill
+ * owns that repair.
+ */
+export function laneKeyOf(task: Task, resourcesById: ReadonlyMap<number, Resource>): string {
+  return laneOf(task, resourcesById, nameToResourceId(resourcesById)).key;
 }
 
 function emptyCells(): Record<TaskStatus, Task[]> {

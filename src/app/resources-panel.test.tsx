@@ -930,4 +930,23 @@ describe("hide-external persistence", () => {
       workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
   });
+
+  // ★★ The key must NOT be the directory's. Sharing one would make hiding a
+  // contractor from a people LIST silently drop their allocations out of plan
+  // capacity and workload totals — a filter on one screen quietly changing the
+  // numbers on another. Nothing else here asserts the key, so pointing
+  // HIDE_EXTERNAL_KEY at the directory's string passes every other test.
+  test("does not read the directory's hide-external flag", () => {
+    window.localStorage.setItem("aipm-cockpit:directory-hide-external", "true");
+    render(<ResourcesPanel {...baseProps} view="workload" resources={resources} />);
+    expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // ★ `readDeviceJson` returns whatever JSON.parse produced — its type argument
+  // is a claim, not a check. A non-boolean must not reach `aria-pressed`.
+  test("treats a non-boolean stored value as off", () => {
+    window.localStorage.setItem("aipm-cockpit:resources-hide-external", '"true"');
+    render(<ResourcesPanel {...baseProps} view="workload" resources={resources} />);
+    expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "false");
+  });
 });

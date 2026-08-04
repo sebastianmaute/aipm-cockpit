@@ -73,11 +73,18 @@ describe("BudgetPanel", () => {
     expect(onSetBudgetFollowsPlan).toHaveBeenCalledWith(true);
   });
 
-  test("budget: the follow-plan toggle reports its ON state via aria-pressed", () => {
+  // ★★ The OFF→ON test above is satisfied by a handler that ignores the current
+  // state entirely (a literal `onSetBudgetFollowsPlan(true)` passes it), and an
+  // inverted/constant handler is exactly the defect a checkbox→button swap
+  // invites. Clicking while PRESSED is the only assertion that pins the negation.
+  test("budget: the follow-plan toggle reports its ON state and turns back OFF", () => {
+    const onSetBudgetFollowsPlan = vi.fn();
     render(<BudgetPanel {...props} plan={{ ...plan, budgetFollowsPlan: true }}
-      onSetBudgetFollowsPlan={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /budget hours follow plan/i }))
-      .toHaveAttribute("aria-pressed", "true");
+      onSetBudgetFollowsPlan={onSetBudgetFollowsPlan} />);
+    const toggle = screen.getByRole("button", { name: /budget hours follow plan/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(toggle);
+    expect(onSetBudgetFollowsPlan).toHaveBeenCalledWith(false);
     // No checkbox survives anywhere in the header.
     expect(screen.queryByRole("checkbox", { name: /budget hours follow plan/i })).toBeNull();
   });

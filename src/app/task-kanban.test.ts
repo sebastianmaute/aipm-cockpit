@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupByStatus, groupByStatusAndPerson, laneResourceIds, UNASSIGNED_LANE } from "./task-kanban";
+import { groupByStatus, groupByStatusAndPerson, laneKeyOf, laneResourceIds, UNASSIGNED_LANE } from "./task-kanban";
 import { TASK_STATUSES, type Resource, type Task } from "./types";
 
 const t = (id: number, status: Task["status"]): Task =>
@@ -116,8 +116,12 @@ describe("laneResourceIds", () => {
     expect(laneResourceIds([task({ assignee: "Anna Jordan" })], resources, [])).toEqual([1]);
   });
 
+  // ★ Name deliberately NOT contractor-ish: `resources` here holds no external
+  // at all, so an "Ext …" fixture would read as an externals-exclusion test
+  // while actually passing because nobody answers to the name. The real
+  // externals guard is covered separately with the `withExternal` map.
   it("still contributes nothing for a name no resource answers to", () => {
-    expect(laneResourceIds([task({ assignee: "Ext Contractor" })], resources, [])).toEqual([]);
+    expect(laneResourceIds([task({ assignee: "Nobody At All" })], resources, [])).toEqual([]);
   });
 
   // Mirrors groupByStatusAndPerson's own dangling-FK handling: an id that does
@@ -153,9 +157,10 @@ describe("groupByStatusAndPerson — name/FK lane unification", () => {
     expect(out.cells["res:1"]["To Do"].map((x) => x.id)).toEqual([1]);
   });
 
+  // ★ See above — an unknown name, not an external, is what this pins.
   it("keeps a name lane when the string matches no directory resource", () => {
-    const out = groupByStatusAndPerson([task({ id: 1, assignee: "Ext Contractor" })], resources, []);
-    expect(out.lanes.map((l) => l.key)).toContain("name:ext contractor");
+    const out = groupByStatusAndPerson([task({ id: 1, assignee: "Nobody At All" })], resources, []);
+    expect(out.lanes.map((l) => l.key)).toContain("name:nobody at all");
   });
 
   it("keeps a name lane when the string is ambiguous across two resources", () => {
@@ -248,5 +253,31 @@ describe("unknown-person lanes are keyed on the normalised name", () => {
     // as the task's assignee, so it must stay human-readable.
     expect(lanes[0].label).toBe("Ext  Contractor");
     expect(out.cells[lanes[0].key]["To Do"].map((x) => x.id)).toEqual([1, 2]);
+  });
+});
+
+// The drop guard's contract. `laneKeyOf` MUST agree with what
+// `groupByStatusAndPerson` actually rendered, because the handler compares its
+// answer against a lane key produced by that function — any divergence turns a
+// self-drop back into the spurious write this was extracted to stop.
+describe("laneKeyOf", () => {
+  it("resolves an UNLINKED but uniquely-named task to the linked lane key", () => {
+    // The row the regression was about: renders under `res:1`, stores no FK.
+    expect(laneKeyOf({ ...t(1, "To Do"), assignee: "Anna Jordan" }, resources)).toBe("res:1");
+  });
+
+  it("agrees with the key groupByStatusAndPerson actually rendered", () => {
+    const row = { ...t(1, "To Do"), assignee: "  anna   Jordan " };
+    const out = groupByStatusAndPerson([row], resources, []);
+    const rendered = out.lanes.find((l) => out.cells[l.key]["To Do"].some((x) => x.id === 1));
+    expect(laneKeyOf(row, resources)).toBe(rendered!.key);
+  });
+
+  it("falls back to the normalised name key, then to unassigned", () => {
+    // Double-spaced AND unknown: exercises the normaliser without the externals
+    // overtone the two renamed fixtures above dropped for the same reason.
+    expect(laneKeyOf({ ...t(1, "To Do"), assignee: "Nobody  At All" }, resources))
+      .toBe("name:nobody at all");
+    expect(laneKeyOf(t(2, "To Do"), resources)).toBe(UNASSIGNED_LANE);
   });
 });

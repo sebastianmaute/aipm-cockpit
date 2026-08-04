@@ -255,8 +255,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Publishes "render scope now holds real project data". Snapshot capture
     // gates on this: it is the ONLY thing separating a KPI capture from the
     // boot race against this very load (see useSnapshots `workspaceReady`).
-    // Set LAST, after every setter above, so no consumer can observe it true
-    // while a slice is still empty.
+    // ★★ Set LAST. Today no consumer can observe it true beside an empty slice
+    // whatever the position, because React auto-batches this whole callback into
+    // ONE commit — so under the CURRENT code no test can distinguish last from
+    // first, and one claiming to would be vacuous.
+    // ★★★ Position becomes load-bearing the moment anything above stops being
+    // batched, and LAST is the safe end in both such cases. A `flushSync` above
+    // commits the setters queued so far with this flag still FALSE — a partial
+    // workspace behind a CLOSED gate, which is exactly right. A throw between
+    // setters likewise leaves the gate shut. Put this call first and both
+    // reverse: the gate opens over a half-applied workspace and snapshot
+    // capture writes a null-KPI row that permanently claims its bucket.
+    // ★ An earlier revision of this comment asserted the opposite (that a
+    // flushSync would defeat the ordering) and invited the first-line move.
     setWorkspaceLoaded(true);
   };
 
