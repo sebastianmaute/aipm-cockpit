@@ -489,6 +489,42 @@ describe("useStorageBackend — save effect", () => {
 
     expect(onStorageOutcome).not.toHaveBeenCalled();
   });
+
+  // ★★★ The guard above must be MOUNTED-scoped. If someone re-implements it with
+  //     the load effect's per-run `cancelled` flag, THIS test fails: the save
+  //     effect re-runs on every workspace edit, so an in-flight save whose effect
+  //     run was superseded would stop reporting — and a genuine save FAILURE
+  //     would be swallowed in production with no banner and no toast.
+  it("still reports the outcome of a save superseded while in flight (§72: mounted-scoped, not per-run)", async () => {
+    const onStorageOutcome = vi.fn();
+    let resolveSave!: () => void;
+    const deferred = new Promise<void>((resolve) => { resolveSave = resolve; });
+
+    const { result } = renderBackend(makeArgs({ onStorageOutcome }));
+
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+    onStorageOutcome.mockClear();
+
+    mockBackend.save.mockReturnValueOnce(deferred);
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+
+    // A second edit supersedes the effect run that started the in-flight save.
+    // The component is still mounted, so its outcome must still be reported.
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1 edited" } as unknown as Task]);
+    });
+
+    await act(async () => { resolveSave(); await Promise.resolve(); });
+
+    expect(onStorageOutcome).toHaveBeenCalledWith(null);
+  });
 });
 
 describe("useStorageBackend — handlers", () => {
