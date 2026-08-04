@@ -235,16 +235,35 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     seedMintFromWorkspace(workspace, seedMode);
   };
 
+  // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
+  //     four setters. These are the last §72 setters in this hook that can
+  //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
+  //     `applyWorkspace`'s 24 setters and `onOpenStorageFile`'s raw ones are
+  //     still unguarded, deliberately, because every one of them sits inside a
+  //     `try` whose `catch` calls only guarded emitters. Three of the eight
+  //     call sites await this function outside any `try`: the load effect's
+  //     suppress branch and the last statement of its `catch`, plus the bare
+  //     await in `onGrantWriteAccess`. Unguarded, a post-teardown
+  //     `setStorageReady` throws, the `catch` below then runs its own
+  //     `setStorageReady(false)` — inside the catch, outside any `try` — and
+  //     THAT second throw leaves the function and rejects a floating promise.
+  //     Mounted-scoped is unambiguously right here (unlike the save outcome):
+  //     this is the hook's OWN state, so there is no superseded-run result a
+  //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
+  //     status failure is still recorded.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();
+      if (!mountedRef.current) return;
       setStorageReady(ready);
       const desc = backend.describe ? await backend.describe() : null;
+      if (!mountedRef.current) return;
       setStorageDescription(desc ?? null);
     } catch (err) {
       // A thrown status check is distinct from a clean "not ready" (false) — log
       // it so diagnostics can tell an exception apart from a normal negative.
       logDiag("warn", "storage.statusCheckFailed", { message: err instanceof Error ? err.message : String(err) });
+      if (!mountedRef.current) return;
       setStorageReady(false);
       setStorageDescription(null);
     }

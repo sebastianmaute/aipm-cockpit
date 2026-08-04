@@ -118,6 +118,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
 | 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
 | 75 | Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage) | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`), and each file reproduces ALONE; verified pre-existing on `main`; not a live CI failure |
+| 76 | Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount | pre-existing, found post-0.214.0 | S | open — `use-scheduled-jobs.ts` + `use-operating-guides.ts`; one-line fix each, the same one §72 already made |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3218,8 +3219,19 @@ Found by a cold reviewer naming the one-line mutation; verified by running it.
 `dispatchSetState → requestUpdateLane → resolveUpdatePriority → window` shape, with a different top
 frame, still exists at every one of these, all **surveyed and deliberately left**:
 
-- `refreshBackendStatus`'s own `setStorageReady` / `setStorageDescription`, after `await
-  backend.isReady()` / `await backend.describe()` — reached from eight call sites.
+- ~~`refreshBackendStatus`'s own `setStorageReady` / `setStorageDescription`~~ — **NOW GUARDED.**
+  **THREE** guards cover all four setters — the two in the `catch` share one, and neither follows an
+  await of its own (they follow `logDiag`). Don't grep for four and conclude one was dropped. This
+  was the last
+  escape in the hook that could surface as an UNHANDLED REJECTION rather than a discarded update,
+  so it is the one that actually reproduced §72's signature; the rest below are silent no-ops in a
+  browser. ★ `logDiag` stays OUTSIDE the guard on purpose — a status check that fails during
+  teardown is still worth recording, and that placement is what makes the fix observable at all
+  (see below). ★ Mounted-scoped is unambiguously right here, unlike the save outcome: this is the
+  hook's OWN state, so no caller is waiting on a superseded run's result.
+  ★★ **A DIFFERENT RACE REMAINS AND THIS DOES NOT ADDRESS IT** — two overlapping refreshes can
+  still land out of order, letting an older `isReady()` overwrite a newer status. That needs a
+  per-run sequence token, not a mounted flag. Not attempted; out of §72's scope.
 - `applyWorkspace`'s **24** workspace-context setters after awaits (`use-storage-backend.ts:203-226`).
   ★★ Count them BY EYE. There is no honest one-liner: `grep -cE "^\s+set[A-Z]" src/app/use-storage-backend.ts`
   returns **34** (it sweeps the whole file — type declarations, `refreshBackendStatus`, `onOpenStorageFile`,
@@ -3236,8 +3248,19 @@ frame, still exists at every one of these, all **surveyed and deliberately left*
 ★★★ **THREE OF THOSE ARE UNPROTECTED, NOT ONE — and an earlier revision of this bullet named the wrong
 one and credited the wrong mechanism.** It said "the load effect's `cancelled` shields its own instances
 by accident. The one that does not is `onGrantWriteAccess`". Both halves are false, and the two reviewers
-who caught it did so independently. What the code actually says (the load effect is
-`use-storage-backend.ts:253-308`; the last row is outside it):
+who caught it did so independently.
+
+★★★ **THE LINE NUMBERS IN THIS TABLE ARE PRE-FIX AND ARE NOW ALL 16 TOO LOW — kept deliberately, as
+the record of what was wrong.** The fix inserted 16 lines (12 comment + 3 guards + 1 blank) above the
+old `:251`, so every citation below that point shifted. Current `refreshBackendStatus` call sites are
+**275 · 290 · 297 · 319 · 459 · 470 · 500 · 716**; the load effect is **269-324**. ★★ This is the
+`file:line`-invalidated-by-its-own-commit trap in its purest form — one sentence further down cited
+`:443/:484/:700`, was written BY the fixing commit, and was false the moment it landed. Prefer
+function names to line numbers here; where a number is unavoidable, re-derive it with
+`grep -n "refreshBackendStatus()" src/app/use-storage-backend.ts` after any edit to that file.
+
+What the code said at the time (the load effect was `use-storage-backend.ts:253-308`; the last row is
+outside it):
 
 | `await refreshBackendStatus()` | protected? | by what |
 |---|---|---|
@@ -3257,9 +3280,30 @@ existing tests), while `:259` returns at `:260` **before `backend.load()` is eve
 from — still exposed. ★ Secondary damage on the way past: the first throw is swallowed into
 `logDiag("warn", "storage.statusCheckFailed", …)`, filing a React teardown error as a storage fault.
 
-★ Pre-existing, not introduced here, and still the cheapest real follow-up in this entry:
-`refreshBackendStatus`'s two setters are the hook's OWN state, so suppressing them is unambiguously
-correct — there is no superseded-save analogue to worry about. One guard closes all three rows above.
+★★ **ALL THREE ROWS ARE NOW CLOSED BY ONE GUARD** — the fix lands in `refreshBackendStatus` ITSELF,
+not at the three call sites, so the other five — `onPickStorageFile`, `onOpenStorageFile`,
+`reloadCurrentProject`, and the load effect's data-loss-refusal and success paths — are covered too,
+and no future call site can reopen it. (`onGrantWriteAccess` is one of the three escapes, not one of
+these five.) The table above is kept as the RECORD of what was wrong, not as an open list.
+
+★★★ **NOTHING IN THE SUITE PINS THESE GUARDS — DELETING ALL THREE LEAVES EVERY GATE GREEN.**
+Measured, not assumed: with the three `if (!mountedRef.current) return;` lines removed,
+`use-storage-backend.test.tsx` passes **64/64**. So a future contributor who sees the four emitters
+already guarded, decides these are redundant and deletes them, reintroduces §72's unhandled
+rejection with a green suite, a green tsc, a green lint and this row struck through as CLOSED.
+That is the single most likely way this regresses.
+
+★★★ **AND AN EARLIER REVISION OF THIS BULLET CLAIMED THE OPPOSITE — the distinction is between an
+EXPERIMENT and an ARTIFACT.** The guard's purpose (stopping a post-teardown `setStorageReady` from
+throwing) cannot be staged: React 19 discards a post-unmount setState silently and the throw needs a
+torn-down jsdom. But `logDiag` sits ahead of the guard in the `catch`, so a test that rejects
+`isReady()` AFTER unmount and asserts the warn still lands **fails when the `logDiag` call is moved
+below the guard** — and it can only fail if the guard fired. That reasoning is sound, and it is what
+the shipped test does NOT do: it never re-runs that mutation, so it demonstrates the guard was live
+*once, on my machine*, and pins nothing thereafter. ★ The generalisable trap: "I proved X with a
+mutation" and "the suite pins X" are different claims, and a comment asserting the second while
+having only done the first is how a guard gets deleted later. A cold reviewer caught this one; the
+mutation that settled it took ninety seconds.
 
 ★★★ **Honesty note — and the obvious reason is the WRONG one.** An earlier revision of this entry said
 production impact is near-zero because "`task-manager` is the root orchestrator and effectively never
@@ -3427,6 +3471,38 @@ which is rare enough in this register to be worth its own entry.
 ★★ **Do not confuse this with `--no-isolate`.** Those runs produced 22–82 failures each and prove
 nothing: most of this suite is not written to share a module registry, so removing isolation is
 expected to fail broadly. The shuffle result is the informative one precisely because isolation stays on.
+
+---
+
+## 76. Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression — open
+
+★★★ **This is the exact defect §72's `use-storage-backend.ts` guard was written to avoid, sitting
+unfixed in two sibling hooks.** Both declare the ref and then clear it in a cleanup WITHOUT re-setting
+it on mount:
+
+```ts
+const mountedRef = useRef(true);
+useEffect(() => () => { mountedRef.current = false; }, []);   // ← no `mountedRef.current = true;`
+```
+
+- `use-scheduled-jobs.ts:47,52` — gates `setReady(true)` (`:62`), `setBusy` (`:71`, `:80`, `:81`) and
+  `setJobs(next)` (`:76`), plus an early return at `:57`.
+- `use-operating-guides.ts:74,76` — gates `setReady(true)` (`:92`) and an early return at `:87`.
+
+★★ **Consequence is dev-only and TOTAL.** Next 16 defaults `reactStrictMode: true`, so every dev mount
+is mount→unmount→remount; after that first cycle `mountedRef.current` is permanently `false` and every
+one of those setters is suppressed for the rest of the session. The scheduled-jobs surface never leaves
+its loading state. Production is unaffected (one mount, no remount) — but so is the entire test suite,
+which is why this has survived: **a fully green suite says nothing about it**, exactly as measured for
+§72's own re-set line, which no test can pin either.
+
+★ Fix is one line in each — `mountedRef.current = true;` as the first statement of the effect body,
+identical to `use-storage-backend.ts:174-180`. ★ Verified there are exactly TWO such hooks:
+`grep -rln "useEffect(() => () => { mountedRef.current = false; }, \[\])" src/app/`.
+
+★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
+had the same shape. Deliberately NOT fixed in that change — it is unrelated code and a separate
+follow-up, not scope creep on a CI-facing slice.
 
 ---
 
