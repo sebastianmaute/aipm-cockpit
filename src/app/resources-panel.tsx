@@ -42,6 +42,14 @@ import {
   type WeekHours,
 } from "./types";
 import { effectivePersonEmail, effectivePersonName, resourceDisplayName } from "./resource-foundation";
+import { readDeviceJson, writeDeviceJson } from "./device-store";
+
+// Per-device, and DELIBERATELY not the directory's key
+// (`aipm-cockpit:directory-hide-external`): that toggle filters a people LIST,
+// this one filters planning capacity and workload. Sharing one key would make
+// hiding a contractor from the directory silently drop their allocations out of
+// the plan totals.
+const HIDE_EXTERNAL_KEY = "aipm-cockpit:resources-hide-external";
 import { isTaskClosed } from "./task-closed";
 import { useSettings } from "./use-settings";
 import { useAllocPlan } from "./use-alloc-plan";
@@ -228,8 +236,28 @@ function ResourcesPanelInner({
   const { ref: resRef, reset: resetResSize } = useResizable(`aipm-cockpit:${view}-size`);
 
   const [showRollup, setShowRollup] = useState(false);
-  // Planning-only: hide external resources from the grid + rollup (view-local).
-  const [hideExternal, setHideExternal] = useState(false);
+  // Planning + Workload: hide external resources from the grid, rollup and
+  // workload rows. PER-DEVICE, mirroring the directory's own copy.
+  //
+  // ★★★ IT WAS `useState(false)` AND THAT LOOKED PERSISTENT FROM INSIDE THE
+  // FEATURE. workspace-section renders ONE ResourcesPanel for workload /
+  // calendar / planning, so moving between those three changes only the `view`
+  // PROP and the state survives — but the DIRECTORY tab is a sibling mount
+  // branch, so visiting it unmounted this panel and silently reset the toggle.
+  // Which of the two neighbouring tabs you happened to test decided whether the
+  // bug existed. Any state a user would call a preference has to outlive the
+  // mount, because nothing on screen tells them the panel went away.
+  const [hideExternal, setHideExternal] = useState<boolean>(
+    () => readDeviceJson<boolean>(HIDE_EXTERNAL_KEY, false),
+  );
+  // Kept OUT of the setState updater (which must stay pure — StrictMode invokes
+  // it twice): the write is a side effect, so it sits beside the setter exactly
+  // as `resource-directory.tsx` does it.
+  const toggleHideExternal = () => {
+    const next = !hideExternal;
+    setHideExternal(next);
+    writeDeviceJson(HIDE_EXTERNAL_KEY, next);
+  };
   // View granularity controls how the planning grid is sliced for display.
   // It is independent of the plan's CANONICAL (entry) granularity, where
   // utilization is actually stored. Finer views derive from canonical data.
@@ -499,7 +527,7 @@ function ResourcesPanelInner({
   const hideExternalToggle = (
     <ToggleButton lang={lang}
       pressed={hideExternal}
-      onToggle={() => setHideExternal((v) => !v)}
+      onToggle={toggleHideExternal}
       icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
     >
       {t(lang, "planningHideExternal")}

@@ -3010,6 +3010,145 @@ budget and actual off their own labelled lines), so a refactor has something to 
 
 ---
 
+## 72. The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project — open
+
+`use-storage-backend.ts` publishes `workspaceLoaded`, set `true` at the end of `applyWorkspace` and
+**never set back to `false`**. `useSnapshots` gates auto-capture on it (as `workspaceReady`), which
+closes the boot race that made every auto snapshot record an empty project. It does not close the
+same race at a *later* trigger.
+
+`backend` is memoized on `settings.storageConfig`, and the load effect keys on `[backend, hydrated]`.
+So pointing Settings at a different backend mid-session re-runs the load while `workspaceLoaded` is
+still `true` from the previous one. If that switch also makes `tursoConfig` non-null, `trendsActive`
+flips, the capture effect re-fires, and it captures the OLD project's tasks/budgets into the NEW
+project's current bucket — which `hasCurrent` then permanently claims. **Worse than the boot bug it
+sits beside:** the captured numbers are non-null and plausible, so nothing looks broken.
+
+★ **Pre-existing, not a regression.** Before the gate there was no check at all, so this path was
+already wrong; the fix narrowed the bug rather than introducing it.
+
+★★ **The two obvious fixes are both wrong, which is why this is deferred rather than done.**
+(a) `setWorkspaceLoaded(false)` at the top of the load effect strands the flag `false` forever on the
+`suppressNextLoadRef` early-return path — the one project switches take — silently disabling capture
+for the rest of the session. (b) Resetting it anywhere in state loses the race anyway: both effects
+run in the SAME commit, and the capture effect reads the `workspaceReady` of the render it was
+scheduled from, so a reset lands one render too late.
+
+★ What would actually work: a **ref** carrying readiness (mutated synchronously when a load starts,
+so the capture effect reads the fresh value at the moment it runs) *plus* the existing state (to
+re-trigger the effect when it flips true). `useStorageBackend` is registered before `useSnapshots` in
+`task-manager.tsx`, so its effect body runs first and the ref is already `false` by the time capture
+is considered. Not attempted here — it is a storage-layer change and this was a bug-fix pass.
+
+---
+
+## 73. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — open
+
+`use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
+workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§72) is legitimately
+`true` — a workspace *was* applied, there is just nothing in it — so the capture effect re-fires on
+the changed `projectId`, finds `history.length === 0`, and takes the `isFirstEver` branch in
+`use-snapshots.ts`: it writes a row with null `remainingHours`/`remainingCost`/`spi`/`cpi` **and
+`isBaseline: true`**.
+
+`hasCurrent` then claims that cadence bucket permanently. Create a project on Monday, populate it on
+Tuesday, and that week is stuck at the empty capture — and because the empty row is the *baseline*,
+every later variance row compares against nulls forever, not just that one week.
+
+★ Pre-existing, and `workspaceReady` is behaving correctly by its own definition: it answers "has a
+load landed", not "is this project worth snapshotting". Do NOT overload it — that flag's contract is
+what makes §72's reasoning tractable.
+
+★ The fix is on the other side: gate `isFirstEver` (or the auto-capture itself) on the workspace
+having content. Deliberately not done here, because "empty" needs defining — a project with one task
+and no budget legitimately produces null KPIs, so a naive `tasks.length > 0` test would still baseline
+a snapshot with no SPI/CPI. Recorded in the `workspaceReady` doc comment as a known exception.
+
+---
+
+## 74. The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open
+
+`task-kanban.ts` `laneResourceIdOf` resolves an FK-less task to a resource by **name** only.
+`backfillTaskResourceFks` (`resource-foundation.ts`) prefers **email**, then falls back to name. So a
+task carrying an email but no usable name and no FK — the Jira-import shape — gets its own lane until
+the next load stamps its FK, then merges.
+
+★ Narrow and self-healing (a reload fixes it), which is why it is recorded rather than fixed. The
+asymmetry is worth knowing about before someone "aligns" the two: the backfill's email pass exists
+because it is the *definite* identifier, and the lane engine has no email in hand at that point
+without threading one more field through.
+
+---
+
+## 75. Both hide-external toggles trust whatever `readDeviceJson` returns — open
+
+`resources-panel.tsx` and `resource-directory.tsx` each seed their toggle with
+`readDeviceJson<boolean>(key, false)`, and `device-store.ts` documents explicitly that the parsed
+value is returned **as-is** with shape validation left to the caller. Neither caller validates. A
+stored `"true"`, `1` or `{}` — from a hand-edited localStorage, or a future writer that stores a
+different shape under the same key — becomes a truthy `hideExternal` and lands on `aria-pressed` as a
+non-boolean.
+
+★ Pre-existing in the directory; the resources-panel copy (added when its toggle was made persistent)
+inherited the same shape deliberately, to match precedent rather than diverge from it. `=== true` at
+both read sites closes both.
+
+---
+
+## 76. The swimlane no-op drop guard no longer holds for a name-resolved task — open
+
+`use-task-row-handlers.ts` `onSwimlaneDrop` documents "A drop that changes nothing writes nothing and
+records no undo entry", enforced by `sameLane`, which compares `prevRow.resourceId ?? undefined`
+against the lane's `resourceId`. Since the lane engine started resolving a free-string assignee to a
+resource, a task in a name-resolved lane has `prevRow.resourceId === undefined` while the lane carries
+a real id — so `sameLane` is `false` and dropping a card back onto **its own cell** writes, stamps
+`localModifiedAt`, and pushes an undo entry.
+
+★ The write itself is harmless-to-good: it stamps the FK the lane already implies, which is the repair
+`backfillTaskResourceFks` performs at load. The defect is the promise — the comment claims an
+invariant the code no longer has, and a spurious undo entry is a real (if small) cost.
+
+★ Fix is either direction: compare against the RESOLVED id rather than the stored one, or narrow the
+comment to say a lane-repairing drop is a deliberate exception.
+
+---
+
+## 77. The task-FK backfill lives in a React hook, outside the numbered migration chain — open
+
+`backfillTaskResourceFks` runs from `applyWorkspace` (`use-storage-backend.ts`) and
+`applyRestoredWorkspace` (`task-manager.tsx`), not from `migrateWorkspaceV*`. That placement is
+correct for *reach* — the chain misses CSV, Markdown and the Turso relational tables entirely, and no
+migration has ever back-filled `Task.resourceId` for a project that already has a directory (v9 covers
+absence/raid/shift only; v5 stamps task FKs but only inside `if (resources.length === 0)`).
+
+The cost is that it is a **permanent normalisation pass**, not a one-shot migration: it re-runs on
+every load. Any path that legitimately produces a name without an FK — a Jira/CSV re-import, an AI
+write, a bulk edit that clears only `resourceId` — is silently re-linked next load, and there is no way
+to express "this task names a person who is deliberately NOT the same-named directory resource".
+
+★ A `migrateWorkspaceV11` invoked from the load funnel would make the one-shot intent explicit while
+keeping the reach. Not done here: the version-stamp plumbing is a bigger change than the fix warranted,
+and the idempotent pass is harmless for every shape encountered so far.
+
+★★ There are now **two** load funnels and a third would silently miss the backfill. They are listed in
+the function's own doc comment — keep that list current.
+
+---
+
+## 78. Email/name disagreement in the FK backfill resolves silently to email — open
+
+`backfillTaskResourceFks` poisons an *ambiguous* key (one owned by two resources) to `null` in both
+its email and name indexes, so it refuses to guess between namesakes. It does not treat a
+**disagreement** the same way: when an unambiguous email resolves to resource A and an unambiguous
+name resolves to resource B, email wins with no signal.
+
+★ Defensible — an address is a stronger identifier than a cached display name, which goes stale after
+a rename — and it is the documented precedence. Recorded because the module's stated bar is "never
+guess", and this is the one case where it picks a side rather than declining. Very low frequency: it
+needs a task whose stored email and stored name point at two different live directory rows.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).

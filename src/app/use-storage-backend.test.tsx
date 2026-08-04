@@ -1612,3 +1612,61 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
     expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
   });
 });
+
+// ★★★ THE SEAM, NOT THE UNITS. `useSnapshots` has its own test proving it honours
+// a `workspaceReady` prop it is handed directly — but that test would keep
+// passing if this hook never published the flag, or published it too early.
+// Snapshot capture is permanently destructive when it fires against an unloaded
+// workspace (it claims the bucket with null KPIs and no retry ever follows), so
+// the wiring is the part that has to be pinned.
+describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  // ★ The assertion is AFTER a flushed tick on purpose. Asserting synchronously
+  // would pass with any mock at all — it would only be restating the `useState`
+  // literal, and would not catch a setter moved to the top of the load effect.
+  // With the load pinned in flight, this pins the property that matters: the
+  // flag stays false for as long as the workspace has not landed.
+  it("stays false while a load is still in flight", async () => {
+    mockBackend.load.mockImplementation(() => new Promise(() => {})); // never resolves
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.workspaceLoaded).toBe(false);
+  });
+
+  it("flips true once a load has been applied to workspace state", async () => {
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      tasks: [{ id: 1, taskName: "Real" }],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.workspaceLoaded).toBe(true);
+    // Control: it is true BECAUSE data landed, not merely because time passed.
+    expect(result.current.tasks).toHaveLength(1);
+  });
+
+  it("stays false when the load fails — a failed load must not license a capture", async () => {
+    mockBackend.load.mockRejectedValue(new Error("turso down"));
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.workspaceLoaded).toBe(false);
+  });
+
+  it("back-fills task resource FKs through the load funnel", async () => {
+    // The v9 FK migration lives in jsonToWorkspace, which the CSV/Markdown/Turso
+    // backends never reach — so the funnel is the only place this can happen for
+    // them. Proving the pure helper works is not proving it is CALLED.
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      resources: [{ id: 42, firstName: "Dennis", lastName: "Kurschner", email: "" }],
+      tasks: [{ id: 1, taskName: "T", assignee: "dennis kurschner", assigneeEmail: "" }],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect((result.current.tasks[0] as { resourceId?: number }).resourceId).toBe(42);
+  });
+});

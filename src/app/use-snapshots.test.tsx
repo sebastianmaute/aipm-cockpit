@@ -16,6 +16,7 @@ function rec(id: string, bucket: string, isBaseline = false): SnapshotRecord {
 
 const baseArgs = {
   active: true,
+  workspaceReady: true,
   cadence: "weekly" as const,
   tursoConfig: { httpUrl: "https://db", authToken: "t" },
   projectId: "p1",
@@ -52,6 +53,46 @@ describe("useSnapshots", () => {
     await waitFor(() => expect(append).toHaveBeenCalledTimes(1));
     expect(append.mock.calls[0][1].bucket).toBe("2026-W24");
     await waitFor(() => expect(result.current.snapshots.length).toBeGreaterThanOrEqual(1));
+  });
+
+  // ★★★ REGRESSION (Trends recorded an empty project): the auto-capture effect
+  // and the workspace load are two INDEPENDENT async reads fired on the same
+  // commit. `loadSnapshots` (2 small tables) reliably beats `backend.load()`
+  // (the whole workspace), so capture ran against the still-empty render scope:
+  // no tasks, no budgets, a default-seeded plan. That writes a row with null
+  // remainingHours/remainingCost/spi/cpi and pctComplete 0 — and because the
+  // bucket now EXISTS, the real values are never captured for it again. Every
+  // weekly bucket in a live project was poisoned this way.
+  it("does NOT auto-capture until the workspace has finished loading", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const { rerender } = renderHook((args: Parameters<typeof useSnapshots>[0]) => useSnapshots(args), {
+      initialProps: { ...baseArgs, workspaceReady: false },
+    });
+    await waitFor(() => expect(store.loadSnapshots).not.toHaveBeenCalled());
+    expect(append).not.toHaveBeenCalled();
+
+    // The workspace lands: NOW the capture is allowed, and it sees real data.
+    rerender({
+      ...baseArgs,
+      workspaceReady: true,
+      buildContext: () => ({
+        model: { progress: { percent: 42 }, overall: { effective: "G" }, schedule: { effective: "G" },
+          budget: { effective: "G" }, scope: { effective: null },
+          burndown: { periods: ["2026-06"], plannedRemainingHours: [10], actualRemainingHours: [8],
+            plannedRemainingValue: [1000], actualRemainingValue: [800] },
+          evm: { spi: 0.9, cpi: 1.1 } },
+        tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR",
+      }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
+    });
+
+    await waitFor(() => expect(append).toHaveBeenCalledTimes(1));
+    const captured = append.mock.calls[0][1];
+    expect(captured.remainingHours).toBe(8);
+    expect(captured.remainingCost).toBe(800);
+    expect(captured.spi).toBe(0.9);
+    expect(captured.cpi).toBe(1.1);
+    expect(captured.pctComplete).toBe(42);
   });
 
   it("does NOT auto-capture when the current bucket already has a snapshot", async () => {

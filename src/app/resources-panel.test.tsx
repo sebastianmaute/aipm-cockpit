@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { useState } from "react";
-import { describe, test, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
 import { t } from "./i18n";
@@ -873,4 +873,61 @@ test("puts Plan with AI ahead of the plan-window date fields", () => {
   const ai = screen.getByRole("button", { name: t("en-US", "allocPlan") });
   const start = screen.getByLabelText(t("en-US", "resourcesPlanStart"));
   expect(ai.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+// ★★★ REGRESSION (the toggle forgot itself): `hideExternal` was plain
+// `useState(false)`. workspace-section renders ONE ResourcesPanel for
+// workload/calendar/planning — switching among those three only changes the
+// `view` PROP, so the state survived and the toggle looked persistent. The
+// DIRECTORY tab is a sibling mount branch, so visiting it unmounted the panel
+// and silently reset the toggle. `resource-directory.tsx` already stored its
+// own copy per device; this mirrors that.
+// ★ TEST TRAP: re-rendering with a changed `view` cannot reproduce the bug —
+// that is the path that always worked. The unmount must be REAL.
+describe("hide-external persistence", () => {
+  const label = t("en-US", "planningHideExternal");
+  const resources: Resource[] = [
+    { id: 1, firstName: "Ann", lastName: "Intern", roleId: null, utilizationMode: "percent", utilization: {} },
+    { id: 2, firstName: "Ex", lastName: "Ternal", roleId: null, utilizationMode: "percent", utilization: {}, isExternal: true },
+  ];
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+  // ★ Clear AFTER too: these are the only tests here that WRITE the persisted
+  // flag, so without this the block exits leaving `hideExternal: true` on disk
+  // and anything appended below it silently inherits a filtered resource list.
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  test("survives a full unmount/remount of the panel", () => {
+    const first = render(<ResourcesPanel {...baseProps} view="workload" resources={resources} />);
+    const toggle = screen.getByRole("button", { name: label });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
+
+    // Visiting the directory tab unmounts this panel entirely.
+    first.unmount();
+
+    render(<ResourcesPanel {...baseProps} view="workload" resources={resources} />);
+    expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  // ★ CROSS-VIEW on purpose: toggled in WORKLOAD, asserted in PLANNING. One
+  // state object backs both views, so a later split into per-view storage keys
+  // must not silently desync them. Toggling and reading back within a single
+  // view would only re-prove the test above — it would still pass with two
+  // separate keys, which is the failure this is here to catch.
+  test("the flag stored from workload is the one planning reads", () => {
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    const first = render(<ResourcesPanel {...baseProps} view="workload" resources={resources} />);
+    fireEvent.click(screen.getByRole("button", { name: label }));
+    first.unmount();
+
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
+      workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
+  });
 });

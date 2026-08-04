@@ -17,6 +17,7 @@ import {
   requestWriteAccessForBackend,
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
+import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
@@ -128,6 +129,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Storage status
   const [storageReady, setStorageReady] = useState(false);
+  // ★ NOT the same question as `storageReady`. That one is `backend.isReady()`
+  // — "can this backend be talked to" — and it is also set on the load-error
+  // and suppressed-load paths, where no workspace was applied at all. This one
+  // means "a workspace has been applied to render scope", which is what a
+  // consumer reading live entity state actually needs.
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [storageDescription, setStorageDescription] = useState<string | null>(null);
 
   // Suppresses the save effect that fires immediately after a load
@@ -197,7 +204,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // project switch / create / load-from-file flows so they apply data the same
   // way. No side-effects beyond the setState calls.
   const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset") => {
-    setTasks(workspace.tasks ?? []);
+    // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
+    // PROJECT, on any backend. Two near-misses make it look otherwise and both
+    // were written into an earlier version of this comment before being
+    // checked: `migrateWorkspaceV9` back-fills Absence / RaidItem / Shift and
+    // never touches tasks, and `migrateWorkspaceV5` does stamp task FKs but only
+    // inside `if (resources.length === 0)` (`workspace.ts:240`) — the legacy
+    // case where the directory is BUILT from the assignee strings. A project
+    // that already has a directory falls straight through both.
+    // ★ So this is not "the backends the chain misses" (it misses CSV, Markdown
+    // and the Turso relational tables, while IndexedDB reaches it directly via
+    // `browser-backend.ts:292` and Turso's legacy-blob fallback reaches it via
+    // `jsonToWorkspace`) — the gap is the FIELD, everywhere. Which is why this
+    // belongs at the one function every backend converges on rather than in the
+    // versioned chain. Idempotent and reference-preserving: a workspace needing
+    // nothing keeps its array identity.
+    setTasks(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []));
     setRaid(workspace.raid ?? []);
     setAbsences(workspace.absences ?? []);
     setShifts(workspace.shifts ?? []);
@@ -230,6 +252,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Side-effecting (mutates module state) — safe here inside the load callback,
     // never a render body.
     seedMintFromWorkspace(workspace, seedMode);
+    // Publishes "render scope now holds real project data". Snapshot capture
+    // gates on this: it is the ONLY thing separating a KPI capture from the
+    // boot race against this very load (see useSnapshots `workspaceReady`).
+    // Set LAST, after every setter above, so no consumer can observe it true
+    // while a slice is still empty.
+    setWorkspaceLoaded(true);
   };
 
   const refreshBackendStatus = async () => {
@@ -706,6 +734,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription,
     storageReady,
+    workspaceLoaded,
     onPickStorageFile,
     onGrantWriteAccess,
     onOpenStorageFile,
