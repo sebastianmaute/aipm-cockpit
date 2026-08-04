@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
@@ -180,6 +182,27 @@ describe("ResourceEditModal", () => {
       expect(screen.queryByText(t("en-US", "resourceJobTitle"))).toBeNull();
       expect(screen.queryByLabelText("Birthday")).toBeNull();
       expect(screen.getByText(t("en-US", "resourceFirstName"))).toBeInTheDocument();
+    });
+  });
+
+  describe("panel height", () => {
+    it("fits its content instead of pinning 620px", () => {
+      setup();
+      const panel = document.querySelector("[data-modal-panel]") as HTMLElement;
+      // h-auto lets the panel shrink to the visible field set; the floor keeps the
+      // useResizable drag contract and the cap keeps it inside the viewport.
+      expect(panel.className).toContain("h-auto");
+      expect(panel.className).toContain("min-h-[280px]");
+      expect(panel.className).toContain("max-h-[95vh]");
+      expect(panel.className).not.toContain("h-[620px]");
+    });
+
+    it("uses a bumped size key so a stored 620px height cannot win", () => {
+      // useResizable writes an inline height that beats any class. Without the
+      // bump, every user who ever dragged this modal keeps the old fixed height
+      // and sees no change at all.
+      const src = readFileSync(join(process.cwd(), "src/app", "resource-edit-modal.tsx"), "utf8");
+      expect(src).toContain('sizeKey="aipm-cockpit:modal-size:resource-edit-v2"');
     });
   });
 });

@@ -130,11 +130,18 @@ export function ResourceEditModal({
       offset={offset}
       dragHandleProps={handleProps}
       onDragReset={dragReset}
-      sizeKey="aipm-cockpit:modal-size:resource-edit"
+      /* ★★ KEY BUMPED (`-v2`) WITH THE HEIGHT CHANGE. `useResizable` persists an
+         inline height that beats any class, so on the old key every user who had
+         ever dragged this modal would keep the fixed 620px and see nothing
+         change. Same remedy as the `useResizable` storage-key bump rule. */
+      sizeKey="aipm-cockpit:modal-size:resource-edit-v2"
       widthClassName="w-[560px] min-w-[320px]"
-      /* Slightly under the shell's 720px default — ~11 rows in a two-column
-         grid, several of them field-visibility gated. */
-      heightClassName="h-[620px] min-h-[400px] max-h-[95vh]"
+      /* Content-fit: the field set here is field-visibility gated, so a pinned
+         height opened with dead space under short sets. The panel is
+         flex-col + overflow-hidden and the form is flex-1 min-h-0 overflow-y-auto,
+         so it grows to its content and only scrolls once the 95vh cap bites.
+         The min-h- floor stays — a drag below it would collapse the panel. */
+      heightClassName="h-auto min-h-[280px] max-h-[95vh]"
       formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
           {/* First name */}
