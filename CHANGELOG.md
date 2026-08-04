@@ -8,6 +8,42 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.214.0] - 2026-08-04 "Lostetter"
+
+A budget bucket adds up. Four smaller pieces of chrome stop getting in the way.
+
+### Added
+
+- **A fixed Total column and a total row in every budget bucket.** Each role or
+  discipline row now carries its own budget and actual summed across all months,
+  and a total row beneath the rows adds up each month's column and the bucket as
+  a whole. The health dot, the role name and Total stay put while the months
+  scroll sideways. Both totals come from the same figure the cells show, so the
+  row totals, the column totals and the grand total cannot disagree.
+- **The start-window logo is configurable.** Settings → Appearance takes a
+  start-window logo alongside the sidebar logo and the favicon; unset, the
+  window shows the shipped banner. It is a **separate field** from the sidebar
+  logo and there is deliberately no migration — the two wanted different
+  shapes, one a small mark and one a wide banner — so a deployment that had
+  customised its sidebar logo sees the shipped banner on the start window until
+  it uploads one there. Raster only (PNG, JPG, WebP, GIF), as for the other two.
+
+### Changed
+
+- **The resource calendar's "Include externals" checkbox is a "Hide externals"
+  toggle**, sitting beside the Outlook controls the way Planning's equivalent
+  already does. The stored preference is unchanged; only the label and the
+  control changed, so an existing setting carries over as it was.
+- **The customer filter in Time bookings is three times wider.** It was too
+  narrow to read a customer name in.
+- **The resource edit window fits its fields** instead of reserving a fixed
+  height, so a short field set no longer opens with dead space beneath it. It
+  stays resizable; dragging it pins a height as before.
+- **A budget bucket's table is now sized to its own columns.** This is what lets
+  the three leading columns stay pinned where they belong, and it has a visible
+  cost: a plan with few months no longer stretches to fill the width of its
+  card.
+
 ## [0.213.0] - 2026-08-03 "McKillip"
 
 Cancelled work stops counting as work still to be done, the Gantt gains a set of

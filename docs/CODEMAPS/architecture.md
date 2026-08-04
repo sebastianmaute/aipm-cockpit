@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.213.0 "McKillip" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 | App 0.214.0 "Lostetter" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
 
 # Architecture
 

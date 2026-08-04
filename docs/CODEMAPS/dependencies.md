@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.213.0 "McKillip" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 | App 0.214.0 "Lostetter" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 
