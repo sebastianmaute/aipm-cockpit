@@ -2886,6 +2886,130 @@ extension, or it reports binaries as findings.
 
 ---
 
+## 68. The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — open
+
+`budget-panel.tsx`'s two allocation rows — the `<tr key={a.roleId}>` in the detailed/role branch and
+the `<tr key={a.disciplineId}>` in the blended/discipline one — both render
+`<tr className="border-t border-line">`. That border has never rendered. `globals.css:125`
+`table:has(> .aipm-cockpit-thead)` sets **`border-collapse: separate`**, and CSS 2.2 §17.6.1 puts that
+table in the separated-borders model, where "borders set on rows, row groups, columns and column
+groups are ignored".
+
+★ Note the direction: Tailwind's preflight sets `border-collapse: collapse` on every `<table>`
+(`preflight.css:166`), under which a `<tr>` border WOULD paint. It is the `globals.css` override that
+breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
+`globals.css:124` puts that at ~25 tables.
+
+★★ **NOT budget-specific.** Sweeping `<tr …className=…border-…>` across `src/app/*.tsx` finds **8
+occurrences in 6 files**, and all six render their tables through the marked shell: `budget-panel`
+(×2) · `learning-insights` · `portfolio-health-panel` · `steering-committee-panel` (×2) ·
+`timelog-people-table` · `timelog-projects-table`. Reproduce with
+`grep -rn '<tr[^>]*className="[^"]*border-' src/app --include=*.tsx | grep -v "\.test\.tsx:"` —
+deliberately no line numbers, because the first revision of this entry cited two that the very
+commit writing it had already invalidated (it named `budget-panel.tsx:567`/`:599`; the rows had moved
+to `:589`/`:621` before the commit landed, and they were `:654`/`:684` at its base). Only budget's two
+were verified in a browser; the other six share the mechanism but were not individually confirmed.
+★ `learning-insights.tsx:72` additionally sets an explicit `border-collapse` Tailwind utility on the
+table, which reads as if it opts back into the collapsed model — it does not, because the
+`globals.css` rule is UNLAYERED and therefore beats a layered utility whatever the specificity. That
+class is misleading and should go with the fix.
+
+★★ Verified in Chrome, not inferred: a `border-top` on a `<tr>` paints nothing AND adds nothing to
+the row box (a row measured 30px at both `1px` and `2px`), while the same border on a `<td>` paints
+and grows the box to 32px. A screenshot of the three-row repro shows exactly one rule — the `<td>`
+one. So the allocation rows in every bucket table are, and always have been, separated by nothing but
+their cell padding.
+
+★ The Total-column work on `feat/ui-batch-five-fixes` (UNVERSIONED — 0.213.0 "McKillip" shipped
+before this branch and contains no Total column; §69 says the same about `branding.startLogo` and the
+two entries must not drift apart) hit this and **worked around it rather than fixing it**:
+`BucketTotalRow` (`budget-panel-totals.tsx`) passes a `cellClass` of `border-t-2 border-line` to each
+of its cells and leaves the `<tr>` carrying only `font-medium`. A unit test pins that split, so the
+total row's rule cannot regress onto the `<tr>`. The allocation rows were deliberately left alone.
+
+★★ **Fixing this is a VISUAL change, not a bug fix, and needs sign-off.** Moving these borders to the
+cells would give the tables in six panels row separators they have never had. That may well be what
+each author intended, but nobody has seen those tables with the lines, and "restore the intended
+styling" and "add row separators across six panels" are the same diff described two ways. Decide
+which one is wanted before touching it. ★ If it IS wanted, the mechanism already exists (`cellClass` in
+`budget-panel-totals.tsx`) — the work is agreeing the look, not finding the fix.
+
+## 69. `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — open
+
+Adding a branding field means extending **two independent field lists**, and missing either is a
+silent data-loss path rather than an error:
+
+- `sanitizeBranding` (`settings-types.ts`) ends `return out.logo || out.slogan || out.footerSlogan ||
+  out.favicon || out.startLogo ? out : undefined;`
+- `AppearanceSection`'s `setBranding` (`settings-sections/appearance-section.tsx`) has its own
+  `cleaned` gate over the same fields.
+
+★★ This is not hypothetical — it bit on the FIRST addition. `branding.startLogo` (added on the
+`feat/ui-batch-five-fixes` branch; no version has been cut for it) was added to the sanitizer arm and
+its presence check, and the `setBranding` gate was missed. Two failure
+modes followed, both silent: uploading ONLY a start logo wrote `branding: undefined`, so the upload
+appeared to do nothing; and removing the sidebar logo while a start logo existed **destroyed the start
+logo**. Caught in review, fixed in `876b8777`, and pinned by
+`appearance-section.test.tsx` ("keeps the start logo when the sidebar logo is removed").
+
+★ What is pinned today is only the SECOND failure mode, for THIS field. There is no test that the two
+lists agree, and there cannot easily be one — a TS interface has no runtime keys to walk, so a generic
+"every `BrandingConfig` key appears in both gates" test would need a hand-maintained key array, which
+is a third list to keep in step.
+
+★ The fix, if wanted: export one `hasAnyBrandingField(cfg): boolean` from `settings-types.ts` and call
+it from both sites, making the field list a single source of truth. Deliberately NOT done in the
+five-fixes UI batch — it is a refactor of a shipped, tested path at the end of that batch, and
+the slice that surfaced it had already fixed the live bug. ★ Until then, the AGENTS.md branding bullet
+carries the lockstep note, which is prose, and prose here decays ungated.
+
+---
+
+## 70. A budget bucket's Total column and total row silently follow the role filter — open
+
+`budget-panel.tsx` builds its per-bucket totals from `rowsForTotals`, which is whichever of
+`detailedRows`/`blendedRows` applies — and BOTH come out of `filterSortAllocations(..., roleFilter,
+roleSort)`, so both are already narrowed by the role filter. The CCI tiles rendered directly above
+them read `br` (the `BucketReport` straight off the engine) and are NOT narrowed.
+
+So with a role filter typed in, one card shows whole-bucket margin/burn/CPI/consumption above a Total
+column and total row that are a subtotal of the matching roles only — and the label just says "Total",
+with nothing on screen saying which of the two scopes it means.
+
+★ Defensible as-is: a total of what you are looking at is the more useful reading for a filtered table,
+and it is what every other filtered table in the app does. Recorded, deliberately NOT changed — the
+alternative (an unfiltered total, or a "Total (filtered)" label) is a product decision, not a bug fix.
+★ Untested either way: no test pins which scope those totals use, so a future edit could flip them to
+the unfiltered list and nothing would fail.
+
+---
+
+## 71. A budget bucket evaluates `cellBudget` three times per (row, period) — open
+
+`cellBudget` (`budget-panel.tsx`, a closure over `effectiveBudgetHours`) is the most expensive call in
+the panel: it walks resources, absences, holidays and the budget-follows-plan mirroring rule. Every
+`(allocation, period)` pair now evaluates it **three** times per render — once for the cell
+(`HoursTd budget={cellBudget(a, p, periods)}`), once inside the row's `totBudget` reduce, and once more
+inside `bucketColumnTotals`. Nothing memoizes any of them; they sit inside a `.map` over buckets where a
+`useMemo` cannot easily go.
+
+★ Two of the three pre-date this work — the cell and the row total have both called it since the RAG
+row dot was added. The Total-column work on `feat/ui-batch-five-fixes` added the third, so it raised
+the count by **50%**, it did not create the pattern.
+
+★ Not measured. No profile exists and no gate covers render cost, so the impact is unknown; the
+argument for fixing it is structural, not a benchmark. Buckets are typically a handful of allocations
+by a handful of periods, so the absolute number is probably small.
+
+★★ The real prize is not speed. Building the row×period matrix ONCE and deriving both the row totals
+and the column totals from it would make "the two axes cannot disagree" a STRUCTURAL property. Today it
+holds only by convention — `bucketColumnTotals` takes the caller's own `cellBudget` as `budgetOf`
+precisely so the two agree, which works but relies on every future caller passing the same accessor.
+★ A test pins the current agreement (`budget-panel.test.tsx`, the row-totals and total-row cases read
+budget and actual off their own labelled lines), so a refactor has something to land against.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).

@@ -48,6 +48,22 @@ describe("sanitizeBranding", () => {
     expect(sanitizeBranding({ favicon: "data:image/svg+xml;base64,PHN2Zz4=" })).toBeUndefined();
     expect(sanitizeBranding({ favicon: "javascript:alert(1)" })).toBeUndefined();
   });
+  // A start-logo-only blob is the case that catches a missed `startLogo` in the
+  // final presence check: the arm can populate `out` and the function still
+  // return undefined, so the field never persists.
+  it("keeps a raster startLogo", () => {
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    expect(sanitizeBranding({ startLogo: png })).toEqual({ startLogo: png });
+  });
+
+  it("rejects an SVG startLogo (the data-URL XSS surface)", () => {
+    expect(sanitizeBranding({ startLogo: "data:image/svg+xml;base64,PHN2Zz4=" })).toBeUndefined();
+  });
+
+  it("rejects an oversized startLogo", () => {
+    const huge = "data:image/png;base64," + "A".repeat(BRANDING_LOGO_MAX_LEN);
+    expect(sanitizeBranding({ startLogo: huge })).toBeUndefined();
+  });
 });
 
 describe("sanitizeAiConfig groundInGuides", () => {

@@ -212,6 +212,7 @@ export function SortResizeTh<K extends string>({
   align = "left",
   hint,
   title,
+  stickyLeft,
 }: {
   label: string;
   sortCol: K;
@@ -228,6 +229,18 @@ export function SortResizeTh<K extends string>({
   align?: "left" | "right";
   hint?: string;
   title?: string;
+  /** Pins this column at the given px offset inside a horizontally scrolling
+   *  table (`position: sticky`). Omit for an ordinary scrolling column. `0` is a
+   *  REAL offset — the leading fixed column — so this is checked for `undefined`,
+   *  never for truthiness.
+   *
+   *  ★ Passing this ALSO clamps the header to `width` (see below). The clamp is
+   *  scoped to pinned columns because that is where a wider-than-declared render
+   *  breaks something: anything pinned to the RIGHT of this column is placed by
+   *  arithmetic over its DECLARED width, so a wider render puts that neighbour on
+   *  top of this column's own content. An ordinary scrolling column has no such
+   *  neighbour and stays free to grow to fit its label. */
+  stickyLeft?: number;
 }) {
   // "off" is a real SortDir (the asc→desc→off cycle), so naming this column in
   // `sortKey` is not enough to call it sorted — both halves gate `active`, and
@@ -241,12 +254,30 @@ export function SortResizeTh<K extends string>({
       // not a state a screen reader can present as one. axe has no rule for a
       // missing aria-sort, so the gate never flagged it.
       aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
-      className={
+      className={`${
         align === "right"
           ? "relative px-3 py-2 text-right font-medium"
           : "relative px-3 py-2 font-medium"
-      }
-      style={width === undefined ? undefined : { width, minWidth: width }}
+      }${stickyLeft === undefined ? "" : " sticky overflow-hidden whitespace-nowrap print:static"}`}
+      // `position: sticky` is a CLASS, not an inline declaration. Inline styles
+      // beat author class rules whatever the media query, so an inline `sticky`
+      // would make the `print:static` beside it inert — verified in Chromium
+      // under emulated print media: inline sticky + class static computes
+      // `sticky`, class sticky + class static computes `static`. The offsets
+      // stay inline because they are per-instance values.
+      style={{
+        ...(width === undefined ? undefined : { width, minWidth: width }),
+        // maxWidth turns the declared width into the RENDERED one: under
+        // `table-layout: auto` a declared width is only a minimum, so a wider
+        // label grows the column and every offset computed from that width is
+        // then short by the difference. Clamping is only correct because the
+        // column is pinned — an ordinary column may grow to fit its content.
+        // (CSS 2.1 leaves max-width on a table cell undefined; Chromium honours
+        // it, measured at declared widths of 40, 60 and 160.)
+        ...(stickyLeft === undefined
+          ? undefined
+          : { left: stickyLeft, ...(width === undefined ? undefined : { maxWidth: width }) }),
+      }}
     >
       <SortHeaderButton
         label={label}

@@ -37,6 +37,11 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
+/** Shipped default for the start window. A path, not a data URL — user overrides
+ *  are raster data URLs (SVG uploads stay rejected), but the shipped asset is our
+ *  own file and is served same-origin. */
+const DEFAULT_START_LOGO = "/ai-pm-cockpit-banner-harbor.svg";
+
 export interface ProjectEmptyStateProps {
   lang: Lang;
   stakeholderNames: string[];
@@ -110,7 +115,7 @@ export function ProjectEmptyState({
 
   const titleKey = view === "create" ? "projectsNew" : "projectsEmptyTitle";
   const TITLE_ID = "project-empty-state-title";
-  const brandLogo = settings.branding?.logo;
+  const startLogo = settings.branding?.startLogo;
 
   return (
     <Modal
@@ -140,9 +145,29 @@ export function ProjectEmptyState({
             view === "choices" ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={brandLogo || "/AIPM-logo.svg"}
-                alt={brandLogo ? (settings.branding?.slogan ?? t(lang, "appTitle")) : "Acme"}
-                className={brandLogo ? "max-h-10 max-w-[200px] w-auto object-contain" : "h-7 w-auto"}
+                src={startLogo || DEFAULT_START_LOGO}
+                alt={settings.branding?.slogan ?? t(lang, "appTitle")}
+                // ONE sizing for both branches now: the old split gave the default
+                // a bare `h-7 w-auto` and only a custom upload a capped box, which
+                // stops making sense once the default IS a user-replaceable banner.
+                // ★★★ `h-12` IS A DEFINITE HEIGHT AND MUST STAY ONE. This shipped
+                // once as `max-h-12 w-auto` — all constraints, no definite size —
+                // and the header COLLAPSED: the default banner carries a viewBox
+                // but NO width/height attributes, so it has no intrinsic size
+                // (`naturalWidth` reports the 300×70 default object size, not the
+                // real 1200×280), and with nothing definite to derive from Chrome
+                // sized it against the sibling heading's line box — img 128×29.9,
+                // `<h2>` 0px wide, "No projects yet" invisible. `e2e/smoke.spec.ts`
+                // caught it; nothing in the unit suite or the axe gate can, since
+                // jsdom has no layout and the axe seed has a project. A CUSTOM
+                // upload is a raster and always has intrinsic dimensions, so only
+                // the DEFAULT — i.e. every fresh install — was broken.
+                // With the height definite, `w-auto` derives ~206px from the 1200×280
+                // ratio; `max-w-[280px]` engages only above 280/48 ≈ 5.8:1 (an upload
+                // WIDER than this banner, never a squarer one) and `object-contain`
+                // keeps it undistorted when it does. `shrink-0` keeps the logo whole
+                // and lets the `truncate` heading absorb a narrow window instead.
+                className="h-12 w-auto max-w-[280px] shrink-0 object-contain"
               />
             ) : undefined
           }

@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.213.0";
-export const APP_BUILD_DATE = "2026-08-04"; // 0.213.0: cancelled-task lifecycle + Gantt view controls + bulk-edit visibility (McKillip)
+export const APP_VERSION = "0.214.0";
+export const APP_BUILD_DATE = "2026-08-04"; // 0.214.0: budget Total column + five UI fixes (Lostetter)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.213.x line is "McKillip" (Patricia A. McKillip, fantasy author). */
-export const APP_MILESTONE = "McKillip";
+ *  0.214.x line is "Lostetter" (Marina J. Lostetter, science-fiction author). */
+export const APP_MILESTONE = "Lostetter";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -258,4 +258,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0211",
   "versionHighlight0212",
   "versionHighlight0213",
+  "versionHighlight0214",
 ] as const;

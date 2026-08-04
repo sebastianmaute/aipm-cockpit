@@ -801,6 +801,26 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep (reports →
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`.
+- **Budget panel module map (gantt pattern):** `budget-panel.tsx` is the orchestrator (state, derivation,
+  the bucket cards, the CCI tiles); the bucket table's CELL layer is the presentational leaf
+  `budget-panel-totals.tsx` — `HoursCell`/`HoursTd` (the editable period cells), `TotalsTd` (the fixed
+  Total column's cells and every cell of a bucket total row), `BucketRowLeadCells` (the three PINNED
+  leading cells: RAG dot · label · Total), `BucketTotalRow`, `RowDot`, and the pure `bucketColumnTotals`
+  arithmetic. Split out to keep the orchestrator under the 800-line ratchet.
+  ★★ The three leading columns are PINNED by arithmetic — role at `DOT_COL_PX`, Total at `DOT_COL_PX +
+  the LIVE role width` (the role column is user-resizable, so a hardcoded offset drifts the moment it is
+  dragged). That arithmetic is only true while every column to a pinned one's LEFT renders exactly as
+  wide as it declares, and TWO independent mechanisms break that: `table-layout: auto` lets CONTENT push
+  a column past its declared width (so the dot header's label is `sr-only` and the role cells are
+  clamped), and a `w-full` table spreads LEFTOVER width across every column including the pinned ones
+  (so the table is `w-max`). ★ The `w-max` cost is real and deliberate: a short plan no longer stretches
+  to fill the pane. ★ jsdom has no layout, so NOTHING in the unit suite can see any of this — the tests
+  pin the class/offset plumbing only, and the geometry itself was measured in Chromium.
+  ★★ The total row's separating rule rides `cellClass` onto the CELLS, never the `<tr>` — see
+  `docs/open-followups.md` §68 for why a `<tr>` border in these tables has never painted.
+  ★ `bucketColumnTotals` takes the caller's OWN `cellBudget` as `budgetOf`, so the column sums and the
+  row sums come from one accessor and cannot disagree (it honours budget-follows-plan mirroring). It is
+  fed the FILTERED rows, so the totals follow the role filter — §70.
 - **Shared sortable/resizable header cell (`SortResizeTh<K>` in `report-table.tsx`):** the
   `<th className="relative px-3 py-2[ text-right] font-medium"> + SortHeaderButton + ColumnResizeHandle`
   trio every report panel repeated per column (top cross-file jscpd clones, TD-6) is now ONE generic
@@ -808,9 +828,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
   `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
   width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
-  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). ★ Consumers are now raid-report (34) /
-  resources-panel-rows (6) / change-report (6) / calendar-series-list (2) / milestones (2) /
-  tasks-section (11) / reports-tables (4) / budget-panel (1) / budget-report-panel (1) — `reports-tables`
+  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). ★ Consumers are now raid-report (28) /
+  resources-report (16) / tasks-section (11) / change-report (6) / resources-panel-rows (6) /
+  reports-tables (4) / calendar-series-list (2) / milestones (2) / budget-panel (1) /
+  budget-report-panel (1) — TEN non-test files, 77 invocations (2026-08-04, reproduce with
+  `grep -ro "<SortResizeTh" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`; the unfiltered
+  grep returns 83 because `report-table.test.tsx` holds 6 more, and an earlier revision here both said
+  "raid-report (34)" and omitted `resources-report` entirely) — `reports-tables`
   and `budget-report` were once "left as-is" over local sort-var naming and have since adopted it, so
   every sortable header in the app now flows through here (which is why the `aria-sort` below lifts them
   all at once). NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` +
@@ -818,6 +842,29 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ `onResize` is OPTIONAL — omit it for a table that sorts but stores no column widths (the calendar series
   list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
   nothing, the exact false affordance this component exists to avoid.
+  ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
+  (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at the other 76
+  invocations `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
+  passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width
+  becomes the RENDERED one. That coupling is deliberate — anything pinned to the RIGHT is placed by
+  arithmetic over this column's DECLARED width, so a wider render puts the neighbour on top of this
+  column's own content — but a caller reaching for "pin this" gets a clamp it did not ask for. ★ `0` is a
+  REAL offset (the leading fixed column), so both the class branch and the style branch check
+  `stickyLeft === undefined`, never truthiness; `report-table.test.tsx` pins the offset-0 case in BOTH
+  branches precisely because a `!stickyLeft` "simplification" ships green otherwise.
+  ★★★ `position` MUST stay in the CLASS, never the inline style. An inline declaration outranks every
+  author rule in every media, so an inline `position: sticky` leaves the `print:static` beside it
+  permanently inert — and the print stylesheet strips the scroll container these cells are positioned
+  against, so a pinned cell with no scroller offsets against the PAGE. Measured in Chromium under
+  emulated print media: inline sticky + class static computes `sticky`; class sticky + class static
+  computes `static`. Only `left`/`width` are inline (per-instance values).
+  ★★ The pinned header clips with `overflow-hidden whitespace-nowrap` while the matching BODY cell in
+  `budget-panel-totals.tsx` uses `truncate` (the same two properties PLUS `text-overflow: ellipsis`), so
+  a narrowed role column cuts the header label mid-glyph while the row labels beneath it get "…".
+  **Do NOT "fix" that by swapping in `truncate` — measured in Chromium, the two render IDENTICALLY.**
+  The header's content is an inline-flex `SortHeaderButton`, an atomic inline, and `text-overflow` does
+  not apply to one; the body cell ellipsizes only because its content is raw text. The asymmetry is
+  inherent to the header holding a button, not to the class choice, and jsdom cannot see either.
   ★★ The `<th>` carries **`aria-sort`** (`ascending`/`descending`/`none`), derived from the SAME `active` value
   the arrow is, so the announced and drawn states cannot drift; `active` gates on BOTH `sortKey === sortCol`
   AND `sortDir !== "off"` ("off" is a real member of the asc→desc→off cycle, so naming the column is not
@@ -1777,8 +1824,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   stakeholders/RAID/resources/
   knowledge/history/steering/portfolio/RACI/timelog) + the ReportCard views are wired; Settings/Chat/Projects
   are not (nothing to print).
-- **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?}`):** rides the
-  `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon must be a
+- **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?, startLogo?}`):** rides the
+  `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon/startLogo must be a
   size-capped RASTER `data:image` URL (SVG EXCLUDED — XSS surface), slogan/footerSlogan trimmed+capped. Edited
   in Settings → Appearance. `logo` overrides the sidebar logo — ★ a custom logo renders WITHOUT
   `brightness-0 invert` (that filter only whitens the mono AIPM default); `slogan` = sidebar app-name subtitle;
@@ -1786,8 +1833,36 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `defaultSettings.branding`). `favicon` drives the document `<link rel=icon>` via `useApplyFavicon`/
   `applyFavicon` (`use-favicon.ts`) — captures the build-time default ONCE so a remove restores it. Sidebar +
   classic `AppHeader` + `app-modals` footer read branding via `useSettings()`. CSP already allows `data:` in
-  `img-src`. Default sidebar logo is `/app-logo.svg` (mono mark, whitened by `brightness-0 invert`); classic
-  header uses it un-inverted (light header).
+  `img-src`. Default sidebar logo is `/app-logo.svg` (mono mark, whitened by `brightness-0 invert`); the classic
+  `AppHeader` renders `/AIPM-logo.svg` un-inverted (light header) — ★ the two default assets are DIFFERENT files,
+  which an earlier "classic header uses it" wording hid.
+  ★★ `startLogo` is a FIFTH, SEPARATE field driving ONLY the start window (`project-empty-state.tsx`, the
+  `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-harbor.svg`, NOT `logo` and NOT the
+  AIPM mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
+  banner. ★★★ THE `<img>` NEEDS A **DEFINITE** HEIGHT (`h-12`), NEVER ONLY A CAP. It shipped once as
+  `max-h-12 w-auto` — all constraints, nothing definite — and the empty-state HEADER COLLAPSED: the shipped
+  banner carries a `viewBox` but NO `width`/`height` attributes, so it has no intrinsic size (`naturalWidth`
+  reports the 300×70 default object size, not the real 1200×280), and with nothing definite to derive from
+  Chrome sized it against the sibling heading's line box — img 128×29.9, `<h2>` **0px wide**, the title
+  invisible. `e2e/smoke.spec.ts` failed on it in CI; NOTHING local can see it (jsdom has no layout, and the
+  axe seed has a project so the empty state never renders there). ★ A CUSTOM upload is a raster and always
+  carries intrinsic dimensions, so only the DEFAULT — every fresh install — was affected. ★ With the height
+  definite, `w-auto` derives ~206×48 from the ratio; `max-w-[280px]` engages only above 280/48 ≈ 5.8:1 and
+  `object-contain` keeps that case undistorted. `shrink-0` lets the `truncate` heading absorb a narrow
+  window instead of the logo. `project-empty-state.test.tsx` pins the definite height as the proxy.
+  ★★ Adding a branding field means
+  TWO presence checks in lockstep — `sanitizeBranding`'s final `out.x || …` AND `appearance-section.tsx`'s
+  `setBranding` `cleaned` gate; miss the second and setting that field ALONE writes `branding: undefined`, so
+  the upload silently no-ops and any sibling field is destroyed along with it. ★ Schemes do NOT own it:
+  `mergeAppliedBranding` spreads `current` and overwrites only the other four, so a scheme apply can neither
+  set nor clear it (pinned in `color-schemes.test.ts` — the four-field version passed happily without a pin).
+  ★★ Because no scheme can own it, the Settings → Appearance branding block edits it UNGATED — unlike the
+  other four rows, which sit behind `activeIsBuiltin`. That is NOT a parity break to "fix": the other four
+  merely MOVE to the scheme editor under a user scheme, whereas `startLogo` has no second editor, so gating
+  it removed the field from the app entirely for those users (shipped that way, caught in review, pinned by
+  `appearance-section.test.tsx` "keeps the start-logo row reachable under a USER scheme"). Do not add it to
+  `color-scheme-editor.tsx` either — a scheme cannot carry it into `settings`, so that control would appear
+  to work and do nothing.
 - **Footer bar / page scrollbars (★★):** the footer (`app-modals.tsx`, `!isPopout`) is `position: fixed`
   bottom-right ON PURPOSE — `modalsBlock` is an in-flow SIBLING of the `h-screen` ModernShell, so an in-flow
   footer adds height > 100vh → a page VERTICAL scrollbar. Keep it fixed (out of flow) + `pointer-events-none`;

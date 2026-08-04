@@ -454,6 +454,14 @@ export interface BrandingConfig {
   slogan?: string;
   footerSlogan?: string;
   favicon?: string;
+  /** Start-window logo (shown while no project exists yet). SEPARATE from
+   *  `logo`, which is the sidebar mark. Unset ⇒ the shipped harbor banner.
+   *  Schemes do not own this field — mergeAppliedBranding spreads `current` and
+   *  overwrites only the other four, so a scheme apply can neither set nor
+   *  clear it. (It is not in the scheme EDITOR either; a hand-crafted imported
+   *  scheme JSON carrying one would survive sanitizeBranding and round-trip
+   *  through exportScheme, but could still never be applied.) */
+  startLogo?: string;
 }
 /** Default bottom footer-bar tagline (used when no custom footerSlogan is set). */
 export const DEFAULT_FOOTER_SLOGAN = "Command your projects - AI-assisted tracking that plugs into M365, Jira and Timelog. Local-first, no backend.";
@@ -486,7 +494,10 @@ export function sanitizeBranding(obj: unknown): BrandingConfig | undefined {
   if (typeof o.favicon === "string" && BRANDING_LOGO_RE.test(o.favicon) && o.favicon.length <= BRANDING_LOGO_MAX_LEN) {
     out.favicon = o.favicon;
   }
-  return out.logo || out.slogan || out.footerSlogan || out.favicon ? out : undefined;
+  if (typeof o.startLogo === "string" && BRANDING_LOGO_RE.test(o.startLogo) && o.startLogo.length <= BRANDING_LOGO_MAX_LEN) {
+    out.startLogo = o.startLogo;
+  }
+  return out.logo || out.slogan || out.footerSlogan || out.favicon || out.startLogo ? out : undefined;
 }
 
 /** Entity types that can be written back to the Outlook calendar. */

@@ -52,9 +52,15 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   const branding = settings.branding;
   const [logoError, setLogoError] = useState<string | null>(null);
   const [faviconError, setFaviconError] = useState<string | null>(null);
+  const [startLogoError, setStartLogoError] = useState<string | null>(null);
   function setBranding(next: BrandingConfig) {
+    // Mirrors sanitizeBranding's presence check — every branding field belongs
+    // here. Omitting one drops the WHOLE blob when that field is the only thing
+    // set, so the upload appears to do nothing and any sibling field goes with it.
     const cleaned =
-      next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon ? next : undefined;
+      next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon || next.startLogo
+        ? next
+        : undefined;
     onChange({ ...settings, branding: cleaned });
   }
   return (
@@ -219,88 +225,121 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         />
       </div>
 
-      {/* GLOBAL branding: logo/favicon/app-name/footer edited HERE only while a
-          BUILT-IN scheme is active (built-ins ship empty branding, read-only in
-          the editor). A USER scheme OWNS all four (its editor edits them; apply
-          replaces via mergeAppliedBranding) — the whole block hides then to avoid
-          a dual editor. */}
-      {activeIsBuiltin && (
-        <div className="mb-4">
-          <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-            {t(lang, "brandingTitle")}
+      {/* GLOBAL branding. The block itself always renders, but its rows split on
+          WHO CAN OWN THE FIELD:
+          • logo/favicon/app-name/footer are edited HERE only while a BUILT-IN
+            scheme is active (built-ins ship empty branding, read-only in the
+            editor). A USER scheme OWNS those four (its editor edits them; apply
+            replaces via mergeAppliedBranding), so they hide to avoid a dual
+            editor — they stay editable, just in the scheme editor instead.
+          • startLogo is ALWAYS editable here, because NO scheme can own it:
+            mergeAppliedBranding spreads `current` and overwrites only the other
+            four, so a scheme can neither set nor clear it and an editor there
+            would be a control that appears to work and does nothing. This is its
+            ONLY editor — gating it with the other four made the field
+            unreachable for anyone running a user scheme. */}
+      <div className="mb-4">
+        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "brandingTitle")}
+        </span>
+
+        {activeIsBuiltin && (
+          <>
+            {/* Logo upload */}
+            <div className="mb-3">
+              <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                {t(lang, "brandingLogo")}
+                <InfoTooltip text={t(lang, "brandingLogoHint")} />
+              </span>
+              <BrandingImageInput
+                label={t(lang, "brandingLogoChoose")}
+                removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingLogo")}`}
+                value={branding?.logo}
+                onChange={(logo) => { setLogoError(null); setBranding({ ...branding, logo }); }}
+                onRemove={() => { setLogoError(null); setBranding({ ...branding, logo: undefined }); }}
+                error={logoError}
+                invalidMessage={t(lang, "brandingLogoError")}
+                onError={(m) => setLogoError(m)}
+              />
+            </div>
+
+            {/* Favicon (browser tab icon) */}
+            <div className="mb-3">
+              <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                {t(lang, "brandingFavicon")}
+                <InfoTooltip text={t(lang, "brandingFaviconHint")} />
+              </span>
+              <BrandingImageInput
+                label={t(lang, "brandingFaviconChoose")}
+                removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingFavicon")}`}
+                value={branding?.favicon}
+                onChange={(favicon) => { setFaviconError(null); setBranding({ ...branding, favicon }); }}
+                onRemove={() => { setFaviconError(null); setBranding({ ...branding, favicon: undefined }); }}
+                error={faviconError}
+                invalidMessage={t(lang, "brandingLogoError")}
+                onError={(m) => setFaviconError(m)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Start-window logo (shown before any project exists) — see the block
+            comment: scheme-independent, so it is NOT gated. */}
+        <div className="mb-3">
+          <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+            {t(lang, "brandingStartLogo")}
+            <InfoTooltip text={t(lang, "brandingStartLogoHint")} />
           </span>
-
-          {/* Logo upload */}
-          <div className="mb-3">
-            <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-              {t(lang, "brandingLogo")}
-              <InfoTooltip text={t(lang, "brandingLogoHint")} />
-            </span>
-            <BrandingImageInput
-              label={t(lang, "brandingLogoChoose")}
-              removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingLogo")}`}
-              value={branding?.logo}
-              onChange={(logo) => { setLogoError(null); setBranding({ ...branding, logo }); }}
-              onRemove={() => { setLogoError(null); setBranding({ ...branding, logo: undefined }); }}
-              error={logoError}
-              invalidMessage={t(lang, "brandingLogoError")}
-              onError={(m) => setLogoError(m)}
-            />
-          </div>
-
-          {/* Favicon (browser tab icon) */}
-          <div className="mb-3">
-            <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-              {t(lang, "brandingFavicon")}
-              <InfoTooltip text={t(lang, "brandingFaviconHint")} />
-            </span>
-            <BrandingImageInput
-              label={t(lang, "brandingFaviconChoose")}
-              removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingFavicon")}`}
-              value={branding?.favicon}
-              onChange={(favicon) => { setFaviconError(null); setBranding({ ...branding, favicon }); }}
-              onRemove={() => { setFaviconError(null); setBranding({ ...branding, favicon: undefined }); }}
-              error={faviconError}
-              invalidMessage={t(lang, "brandingLogoError")}
-              onError={(m) => setFaviconError(m)}
-            />
-          </div>
-
-          {/* App name (sidebar subtitle under the logo) */}
-          <div className="mb-3">
-            <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
-              {t(lang, "brandingAppName")}
-            </label>
-            <Input
-              size="xs"
-              id="branding-appname"
-              type="text"
-              maxLength={60}
-              value={branding?.slogan ?? ""}
-              placeholder={t(lang, "sidebarBrandSubtitle")}
-              onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
-              className="w-full"
-            />
-          </div>
-
-          {/* Slogan (bottom footer-bar tagline) */}
-          <div>
-            <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
-              {t(lang, "brandingFooterSlogan")}
-            </label>
-            <Input
-              size="xs"
-              id="branding-footer-slogan"
-              type="text"
-              maxLength={120}
-              value={branding?.footerSlogan ?? ""}
-              placeholder={DEFAULT_FOOTER_SLOGAN}
-              onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
-              className="w-full"
-            />
-          </div>
+          <BrandingImageInput
+            label={t(lang, "brandingStartLogoChoose")}
+            removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingStartLogo")}`}
+            value={branding?.startLogo}
+            onChange={(startLogo) => { setStartLogoError(null); setBranding({ ...branding, startLogo }); }}
+            onRemove={() => { setStartLogoError(null); setBranding({ ...branding, startLogo: undefined }); }}
+            error={startLogoError}
+            invalidMessage={t(lang, "brandingLogoError")}
+            onError={(m) => setStartLogoError(m)}
+          />
         </div>
-      )}
+
+        {activeIsBuiltin && (
+          <>
+            {/* App name (sidebar subtitle under the logo) */}
+            <div className="mb-3">
+              <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
+                {t(lang, "brandingAppName")}
+              </label>
+              <Input
+                size="xs"
+                id="branding-appname"
+                type="text"
+                maxLength={60}
+                value={branding?.slogan ?? ""}
+                placeholder={t(lang, "sidebarBrandSubtitle")}
+                onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
+                className="w-full"
+              />
+            </div>
+
+            {/* Slogan (bottom footer-bar tagline) */}
+            <div>
+              <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
+                {t(lang, "brandingFooterSlogan")}
+              </label>
+              <Input
+                size="xs"
+                id="branding-footer-slogan"
+                type="text"
+                maxLength={120}
+                value={branding?.footerSlogan ?? ""}
+                placeholder={DEFAULT_FOOTER_SLOGAN}
+                onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
+                className="w-full"
+              />
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 }

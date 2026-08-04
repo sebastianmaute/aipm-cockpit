@@ -23,7 +23,7 @@ import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { TableFilter, SortResizeTh, nextSortDir, type SortDir } from "./report-table";
 import {
-  ratioHealth, cellHealth, marginHealth, costPerformanceHealth, costPerformanceIndexHealth,
+  ratioHealth, marginHealth, costPerformanceHealth, costPerformanceIndexHealth,
   winLossHealth, planVsBudgetHealth,
 } from "./budget-health";
 import type { Health } from "./health";
@@ -33,6 +33,10 @@ import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { useConfirm } from "./confirm-dialog";
+import {
+  DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketColumnTotals,
+  type TotalsRow,
+} from "./budget-panel-totals";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -59,88 +63,6 @@ function filterSortAllocations<T>(
     });
   }
   return rows;
-}
-
-/** Mirrored plan hours are derived (utilization x capacity) and carry float
- *  noise such as 10.559999999999999, which the narrow input then truncates
- *  mid-number. Rounded for DISPLAY only — the stored and aggregated values are
- *  untouched. Editable cells are left alone: rounding a field while the user
- *  types fights the input. */
-function displayHours(v: number | undefined, readOnly: boolean | undefined): number | "" {
-  if (v === undefined || !Number.isFinite(v)) return "";
-  return readOnly ? Math.round(v * 100) / 100 : v;
-}
-
-function HoursCell({
-  ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang, readOnly,
-  periodEnd, today,
-}: {
-  ariaPrefix: string;
-  budget: number | undefined;
-  actual: number | undefined;
-  onBudget: (v: number) => void;
-  onActual: (v: number) => void;
-  budgetHint: string;
-  actualHint: string;
-  lang: Lang;
-  // The cell badge is period-aware: a closed period with nothing booked is a
-  // signal, not health. `today` is passed in (never read from the clock here)
-  // so this stays a pure render.
-  periodEnd: string;
-  today: string;
-  // When true, the budget input mirrors the live planned hours and is not
-  // editable (the 'budget hours follow plan' toggle). The actual input is
-  // always editable regardless.
-  readOnly?: boolean;
-}) {
-  // Draft-then-commit: these cells write into workspace state, where each write
-  // is captured for undo and logged. Committing per keystroke would make typing
-  // "40" two undo entries and two activity rows. Both hooks are called
-  // unconditionally — only the handler wiring below is conditional.
-  const budgetDraft = useCommitDraft(String(displayHours(budget, readOnly)), (raw) => onBudget(Number(raw) || 0));
-  const actualDraft = useCommitDraft(actual === undefined ? "" : String(actual), (raw) => onActual(Number(raw) || 0));
-  // Both label spans are w-14, not w-10: "Actual" plus its tooltip overflowed
-  // the narrower box, shoving the icon flush against the input while the
-  // shorter "Plan" row kept its gap. The two rows must share one width or the
-  // inputs stop aligning — change them together.
-  return (
-    <div className="flex flex-col gap-0.5">
-      <div className="flex items-center gap-1">
-        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
-          {t(lang, "budgetCellBudget")}
-          <InfoTooltip text={budgetHint} />
-        </span>
-        <input
-          aria-label={`budget-${ariaPrefix}`}
-          type="number"
-          value={readOnly ? displayHours(budget, readOnly) : budgetDraft.value}
-          readOnly={readOnly}
-          onChange={readOnly ? undefined : (e) => budgetDraft.onChange(e.target.value)}
-          onFocus={readOnly ? undefined : budgetDraft.onFocus}
-          onBlur={readOnly ? undefined : budgetDraft.onBlur}
-          onKeyDown={readOnly ? undefined : budgetDraft.onKeyDown}
-          className={`w-16 rounded border border-line ${readOnly ? "bg-surface-muted text-muted-foreground" : "bg-surface"} px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
-        />
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
-          {t(lang, "budgetCellActual")}
-          <InfoTooltip text={actualHint} />
-        </span>
-        <input
-          aria-label={`actual-${ariaPrefix}`}
-          type="number"
-          value={actualDraft.value}
-          onChange={(e) => actualDraft.onChange(e.target.value)}
-          onFocus={actualDraft.onFocus}
-          onBlur={actualDraft.onBlur}
-          onKeyDown={actualDraft.onKeyDown}
-          className={`w-16 rounded border border-line bg-surface-muted px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
-        />
-        <RagBadge value={cellHealth(actual ?? 0, budget ?? 0, periodEnd, today)} lang={lang} />
-      </div>
-    </div>
-  );
 }
 
 /** The bucket's Manual % complete, editable without opening the bucket modal.
@@ -189,40 +111,6 @@ function ManualPercentCell({
       />
       <span aria-hidden="true">%</span>
     </span>
-  );
-}
-
-// A period `<td>` wrapping a HoursCell — shared by the role rows and the
-// discipline (blended) rows, which differ only in ariaPrefix + the setter.
-function HoursTd({
-  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly, periodEnd, today,
-}: {
-  ariaPrefix: string;
-  budget: number | undefined;
-  actual: number | undefined;
-  onBudget: (v: number) => void;
-  onActual: (v: number) => void;
-  lang: Lang;
-  readOnly?: boolean;
-  periodEnd: string;
-  today: string;
-}) {
-  return (
-    <td className="px-3 py-2">
-      <HoursCell
-        ariaPrefix={ariaPrefix}
-        budget={budget}
-        actual={actual}
-        onBudget={onBudget}
-        onActual={onActual}
-        budgetHint={t(lang, "budgetBudgetHoursHint")}
-        actualHint={t(lang, "budgetActualHoursHint")}
-        lang={lang}
-        readOnly={readOnly}
-        periodEnd={periodEnd}
-        today={today}
-      />
-    </td>
   );
 }
 
@@ -533,6 +421,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
             (a) => props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`,
             roleFilter, roleSort,
           );
+          // Only one of the two branches renders, so the totals follow the same
+          // choice the rows do. Both allocation shapes carry the three fields
+          // TotalsRow names, so the union widens without a cast.
+          const rowsForTotals: readonly TotalsRow[] = isBlended ? blendedRows : detailedRows;
+          const totals = bucketColumnTotals(rowsForTotals, periods, (r, p) => cellBudget(r, p, periods));
           return (
             <div
               key={br.bucketId}
@@ -618,19 +511,61 @@ export function BudgetPanel(props: BudgetPanelProps) {
               />
               <div className="mt-3 overflow-x-auto">
                 <DataTable
-                  className="w-full text-xs"
+                  // `w-max`, NOT `w-full`. A `width: 100%` table whose columns
+                  // sum to less than the container spreads the leftover across
+                  // ALL of them — including the three pinned ones, whose offsets
+                  // are arithmetic over their DECLARED widths. This is a SECOND
+                  // mechanism, independent of the content clamps below: measured
+                  // in Chromium with those clamps already applied, 3 periods in
+                  // a 1400px container still rendered the 28px dot column at 53
+                  // and a 60px role column at 113.5. Sizing to content leaves no
+                  // leftover to spread; the cost is that a short plan no longer
+                  // stretches to fill the pane.
+                  className="w-max text-xs"
                   head={<>
                     <tr>
-                      <th className="px-1 py-1 text-left font-medium" style={{ width: 28, minWidth: 28 }}>{t(lang, "budgetRoleStatus")}</th>
+                      <th
+                        className="sticky px-1 py-1 text-left font-medium print:static"
+                        style={{ left: 0, width: DOT_COL_PX, minWidth: DOT_COL_PX }}
+                      >
+                        {/* Visually hidden: this column shows RAG dots, and each
+                            badge carries its own title. The visible word was
+                            what rendered the column at 41.3px against a declared
+                            28, so the role column — pinned at DOT_COL_PX — sat
+                            over its right 13px once scrolled, clipping the tail
+                            of the word. Widening the constant instead would tune
+                            it to ONE string: this key happens to be "Status" in
+                            both EN and DE today, but nothing holds it there, and
+                            a constant cannot track a translation. Taking the
+                            label out of layout makes 28 true in every language. */}
+                        <span className="sr-only">{t(lang, "budgetRoleStatus")}</span>
+                      </th>
                       <SortResizeTh
                         label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
                         sortCol="role"
                         width={colWidths.role}
+                        stickyLeft={DOT_COL_PX}
                         sortKey="role"
                         sortDir={roleSort}
                         onSort={() => setRoleSort((d) => nextSortDir(d))}
                         onResize={startResize}
                       />
+                      {/* Fixed Total column. Its offset tracks the LIVE role width —
+                          the role column is user-resizable, so a hardcoded offset
+                          drifts the moment it is dragged. The offset is only true
+                          because the two columns to its left are clamped to their
+                          declared widths; nothing pins to the RIGHT of this one,
+                          so it needs no clamp of its own. */}
+                      <th
+                        className="sticky px-3 py-2 font-medium print:static"
+                        style={{
+                          left: DOT_COL_PX + colWidths.role,
+                          width: TOTAL_COL_PX,
+                          minWidth: TOTAL_COL_PX,
+                        }}
+                      >
+                        {t(lang, "budgetTotal")}
+                      </th>
                       {periods.map((p) => (
                         <th
                           key={p.key}
@@ -652,8 +587,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
                       <tr key={a.roleId} className="border-t border-line">
-                        <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
-                        <td className="px-3 py-2">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
+                        <BucketRowLeadCells
+                          label={roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}
+                          budget={totBudget} actual={totActual} lang={lang} roleWidth={colWidths.role}
+                        />
                         {periods.map((p) => (
                           <HoursTd
                             key={p.key}
@@ -682,8 +619,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
                       <tr key={a.disciplineId} className="border-t border-line">
-                        <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
-                        <td className="px-3 py-2">{props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}</td>
+                        <BucketRowLeadCells
+                          label={props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}
+                          budget={totBudget} actual={totActual} lang={lang} roleWidth={colWidths.role}
+                        />
                         {periods.map((p) => (
                           <HoursTd
                             key={p.key}
@@ -701,6 +640,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       </tr>
                       );
                     })}
+                    {rowsForTotals.length > 0 && (
+                      <BucketTotalRow
+                        columns={totals.columns}
+                        grandBudget={totals.grandBudget}
+                        grandActual={totals.grandActual}
+                        lang={lang}
+                        roleWidth={colWidths.role}
+                      />
+                    )}
                 </DataTable>
               </div>
               <div className="mt-2 flex items-center gap-4">

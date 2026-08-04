@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, test, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
@@ -524,7 +524,11 @@ describe("budget: follow-plan mirror (Task 8)", () => {
         buckets={zeroBudgetBucket}
       />,
     );
-    const rowStatus = screen.getByLabelText(t("en-US", "budgetRoleStatus"));
+    // Scoped to the ALLOCATION row (row 0 is the header, the last row is the
+    // bucket total) — the total row carries a same-titled badge, and this test
+    // is about the allocation row's own mirrored total.
+    const allocRow = screen.getAllByRole("row")[1];
+    const rowStatus = within(allocRow).getByLabelText(t("en-US", "budgetRoleStatus"));
     expect(rowStatus.textContent).not.toBe("—");
   });
 });
@@ -567,5 +571,218 @@ describe("budget: per-period cell RAG is period-aware", () => {
   test("the same empty cell in a period that has not closed stays Green", () => {
     render(<BudgetPanel {...props} buckets={emptyBothPeriods} />);
     expect(cellBadgeLabel("2026-02")).toBe("Green");
+  });
+});
+
+describe("BudgetPanel — Total column + total row", () => {
+  // 2 rows x 2 periods, every marginal distinct:
+  //   rows    : 80/65 and 40/50
+  //   columns : 60/55 (Jan) and 60/60 (Feb)
+  //   grand   : 120/115
+  // A single-row or single-period fixture passes whether the code sums the right
+  // axis or not, which is the whole failure mode being guarded here.
+  const totalsRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 1, gradeId: 2, internalRate: 100, externalRate: 150 },
+  ];
+  const totalsBuckets: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-02-28", status: "open",
+    allocations: [
+      { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40, "2026-02": 40 }, actualHours: { "2026-01": 30, "2026-02": 35 } },
+      { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 20, "2026-02": 20 }, actualHours: { "2026-01": 25, "2026-02": 25 } },
+    ],
+  }];
+  const renderTotals = () =>
+    render(<BudgetPanel {...props} roles={totalsRoles} buckets={totalsBuckets} />);
+
+  /** The two numbers in a totals cell, each read from its OWN labelled line.
+   *  Asserting `cell.textContent` instead reads both lines at once, so swapping
+   *  the two props at the TotalsTd call site (`budget={actual} actual={budget}`)
+   *  leaves every such assertion passing while every Total cell in the app shows
+   *  the actual on the Budget line — the exact reversed-argument hazard this
+   *  file already warns about for `ratioHealth`. */
+  const totalsLines = (cell: HTMLElement) => {
+    const lineFor = (key: "budgetCellBudget" | "budgetCellActual") => {
+      const label = t("en-US", key);
+      const row = within(cell).getByText(label).parentElement as HTMLElement;
+      return (row.textContent ?? "").replace(label, "").trim();
+    };
+    return { budget: lineFor("budgetCellBudget"), actual: lineFor("budgetCellActual") };
+  };
+
+  test("each row carries its summed budget and actual in the Total column", () => {
+    renderTotals();
+    expect(screen.getByRole("columnheader", { name: t("en-US", "budgetTotal") })).toBeInTheDocument();
+
+    // Row-scoped: the CCI tiles above the table render their own numbers, so a
+    // bare getByText could match one of those instead.
+    const rows = screen.getAllByRole("row");
+    expect(totalsLines(within(rows[1]).getAllByRole("cell")[2])).toEqual({ budget: "80", actual: "65" });
+    expect(totalsLines(within(rows[2]).getAllByRole("cell")[2])).toEqual({ budget: "40", actual: "50" });
+  });
+
+  test("the total row carries each period's column sums and the grand total", () => {
+    renderTotals();
+    const totalRow = screen.getByText(t("en-US", "budgetTotal"), { selector: "td" }).closest("tr") as HTMLElement;
+    const cells = within(totalRow).getAllByRole("cell");
+    // cell 0 = RAG dot, 1 = "Total", 2 = grand, 3.. = per-period sums
+    expect(totalsLines(cells[2])).toEqual({ budget: "120", actual: "115" });
+    expect(totalsLines(cells[3])).toEqual({ budget: "60", actual: "55" });
+    // Jan and Feb differ on actual only (55 vs 60), so a column-vs-column mixup
+    // shows up here and not in the budget figure.
+    expect(totalsLines(cells[4])).toEqual({ budget: "60", actual: "60" });
+  });
+
+  // useColumnResize's v2 blob for this table. It is read in a lazy useState
+  // initializer, so a seed only takes effect if it is written BEFORE render.
+  const COL_WIDTHS_KEY = "aipm-cockpit:col-widths:budget";
+  const seedRoleWidth = (px: number) =>
+    window.localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify({ v: 2, widths: { role: px } }));
+  beforeEach(() => window.localStorage.removeItem(COL_WIDTHS_KEY));
+  afterEach(() => window.localStorage.removeItem(COL_WIDTHS_KEY));
+
+  test("the three leading columns are pinned", () => {
+    renderTotals();
+    const headers = screen.getAllByRole("columnheader");
+    // Two halves, both required: `sticky` rides a CLASS (an inline
+    // `position: sticky` would outrank the `print:static` beside it and make it
+    // inert), while the per-instance offset stays inline.
+    expect(headers[0].classList.contains("sticky")).toBe(true);
+    expect(headers[0].style.left).toBe("0px");
+    expect(headers[1].classList.contains("sticky")).toBe(true);
+    expect(headers[1].style.left).toBe("28px");
+    expect(headers[2].classList.contains("sticky")).toBe(true);
+    expect(headers[2].style.left).toBe("188px"); // 28 + the 160px default role width
+    // No inline position on any of them, or print could never override it.
+    for (const th of headers.slice(0, 3)) expect(th.style.position).toBe("");
+  });
+
+  test("the pinned BODY cells are sticky too, in the data rows and the total row", () => {
+    // Without this the shipped behaviour — everything left of and including
+    // Total stays put while the months scroll — can go missing in every data
+    // row while the headers stay pinned, and the suite stays green: the other
+    // assertions here read a <th>, or read a body cell's `left` WITHOUT its
+    // position, which a cell that is not positioned at all still carries.
+    renderTotals();
+    const dataCells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    const totalRow = screen.getByText(t("en-US", "budgetTotal"), { selector: "td" }).closest("tr") as HTMLElement;
+    const totalCells = within(totalRow).getAllByRole("cell");
+    for (const cells of [dataCells, totalCells]) {
+      for (const td of cells.slice(0, 3)) {
+        expect(td.classList.contains("sticky")).toBe(true);
+        expect(td.style.position).toBe("");
+      }
+      expect(cells[0].style.left).toBe("0px");
+      expect(cells[1].style.left).toBe("28px");
+      expect(cells[2].style.left).toBe("188px");
+      // A period cell scrolls — it must NOT be pinned, or the whole row is.
+      expect(cells[3].classList.contains("sticky")).toBe(false);
+      expect(cells[3].style.left).toBe("");
+    }
+  });
+
+  test("the pinned role column is clamped to its declared width", () => {
+    // `table-layout: auto` treats a declared width as a MINIMUM, so a long
+    // discipline name renders the column wider — and Total, pinned by arithmetic
+    // at 28 + the declared width, then sits on top of that label. Measured in
+    // Chromium before the clamp, with a long discipline name and the table
+    // scrolled: both a 40px and a 60px role column rendered 156.9, hiding 117px
+    // and 97px of the label behind Total respectively.
+    seedRoleWidth(60);
+    renderTotals();
+    const roleTh = screen.getAllByRole("columnheader")[1];
+    expect(roleTh.style.maxWidth).toBe("60px");
+    const roleTd = within(screen.getAllByRole("row")[1]).getAllByRole("cell")[1];
+    expect(roleTd.style.maxWidth).toBe("60px");
+    expect(roleTd.style.width).toBe("60px");
+    expect(roleTd.className).toContain("truncate");
+  });
+
+  test("the RAG-dot header names its column without occupying it", () => {
+    // The visible word rendered the column at 41.3px against a declared
+    // DOT_COL_PX of 28, so the role column — pinned at 28 — sat over its right
+    // 13px once scrolled. Widening the constant would tune it to one string;
+    // taking the label out of layout makes 28 true whatever the translation.
+    // The accessible name must survive (Budget is axe-scanned, and an unnamed
+    // header is a WCAG 1.3.1 failure).
+    renderTotals();
+    const dotTh = screen.getAllByRole("columnheader")[0];
+    expect(dotTh).toHaveAccessibleName(t("en-US", "budgetRoleStatus"));
+    const labelSpan = within(dotTh).getByText(t("en-US", "budgetRoleStatus"));
+    expect(labelSpan.className).toContain("sr-only");
+  });
+
+  test("Total's offset tracks a RESIZED role column, not the default 188", () => {
+    // The previous test cannot tell a derived offset from a hardcoded 188: the
+    // default role width is 160 and 28 + 160 is exactly 188, so both spellings
+    // agree there. Only a NON-default width separates them — and the role column
+    // is user-resizable, so this is the case that actually ships broken.
+    seedRoleWidth(240);
+    renderTotals();
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[1].style.left).toBe("28px"); // role still sits at the fixed dot width
+    expect(headers[2].style.left).toBe("268px"); // 28 + the seeded 240
+    // The body's pinned Total cells track the same width, or the column would
+    // shear away from its own header.
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells[2].style.left).toBe("268px");
+  });
+
+  test("the bucket table is sized to its content, not stretched to the pane", () => {
+    // A `width: 100%` table whose columns sum to less than the container spreads
+    // the leftover across ALL of them, pinned ones included — so the clamps
+    // above are not enough on their own. Measured in Chromium WITH those clamps
+    // applied, 3 periods in a 1400px container still rendered the 28px dot
+    // column at 53 and a 60px role column at 113.5. Sizing to content leaves no
+    // leftover to spread.
+    renderTotals();
+    const table = document.querySelector("table") as HTMLElement;
+    expect(table.className).toContain("w-max");
+    expect(table.className).not.toContain("w-full");
+  });
+
+  test("every pinned cell carries print:static", () => {
+    // Now that `position: sticky` rides a class rather than the inline style
+    // this actually overrides something: Tailwind emits `.print\:static` after
+    // `.sticky` at equal specificity, so the print rule wins. Verified in
+    // Chromium under emulated print media — inline sticky + class static
+    // computes `sticky`; class sticky + class static computes `static`.
+    // The print stylesheet resets `overflow` on every .print-root descendant,
+    // which removes the scroll container these cells are positioned against —
+    // a sticky cell with no scroller offsets against the page instead and lands
+    // somewhere else entirely. report-table covers the role <th> via
+    // SortResizeTh; nothing else covers the other five.
+    renderTotals();
+    for (const th of screen.getAllByRole("columnheader").slice(0, 3)) {
+      expect(th.className).toContain("print:static");
+    }
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    for (const td of cells.slice(0, 3)) {
+      expect(td.className).toContain("print:static");
+    }
+  });
+
+  test("the total row's separating rule is on its CELLS, not the <tr>", () => {
+    // globals.css puts this table in `border-collapse: separate`, where a border
+    // set on a row is ignored — verified in Chrome, a `border-top` on a <tr>
+    // paints nothing. On the <tr> the rule would be dead markup and the total
+    // would read as just another allocation row.
+    renderTotals();
+    const totalRow = screen.getByText(t("en-US", "budgetTotal"), { selector: "td" }).closest("tr") as HTMLElement;
+    expect(totalRow.className).not.toContain("border-t");
+    for (const cell of within(totalRow).getAllByRole("cell")) {
+      expect(cell.className).toContain("border-t-2");
+    }
+  });
+
+  test("the pinned body cells carry an opaque background", () => {
+    // Without it the scrolled period cells show straight through the pinned ones
+    // — these rows carry no background of their own.
+    renderTotals();
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells[0].className).toContain("bg-surface");
+    expect(cells[1].className).toContain("bg-surface");
+    expect(cells[2].className).toContain("bg-surface");
   });
 });

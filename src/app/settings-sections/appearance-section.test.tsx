@@ -135,6 +135,65 @@ describe("AppearanceSection scheme control", () => {
     expect(document.getElementById("branding-footer-slogan")).toBeNull();
     expect(screen.getAllByLabelText(t("en-US", "brandingAppName"))).toHaveLength(1);
   });
+
+  it("offers a start-window logo row with a row-unique remove label", () => {
+    renderSection(
+      { branding: { startLogo: "data:image/png;base64,QUJD" } },
+      "custom", // fresh → Harbor (built-in) active, so the global branding block shows
+    );
+    expect(
+      screen.getByRole("button", { name: t("en-US", "brandingStartLogoChoose") }),
+    ).toBeInTheDocument();
+    // Three branding image rows share one Remove verb, so each name is qualified
+    // (WCAG 2.4.6 — axe reports MISSING names, never DUPLICATE ones).
+    expect(
+      screen.getByRole("button", {
+        name: `${t("en-US", "remove")} – ${t("en-US", "brandingStartLogo")}`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the start-logo row reachable under a USER scheme, where the other four hide", () => {
+    // NO scheme can own startLogo (mergeAppliedBranding overwrites only the other
+    // four), so this block is its ONLY editor. Gating it with the scheme-owned
+    // rows made the field unreachable for anyone running a user scheme — the
+    // other four merely MOVE to the scheme editor, this one vanished outright.
+    addScheme("Draft", { "--ui-green": "#000000" }, {}); // user scheme active
+    renderSection({ branding: { startLogo: "data:image/png;base64,QUJD" } }, "custom");
+    expect(
+      screen.getByRole("button", { name: t("en-US", "brandingStartLogoChoose") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: `${t("en-US", "remove")} – ${t("en-US", "brandingStartLogo")}`,
+      }),
+    ).toBeInTheDocument();
+    // The scheme-owned rows still behave as they did: hidden here, because the
+    // editor renders them. Asserted on the two whose global inputs carry ids.
+    expect(document.getElementById("branding-appname")).toBeNull();
+    expect(document.getElementById("branding-footer-slogan")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "brandingLogoChoose") }),
+    ).toBeNull();
+  });
+
+  it("keeps the start logo when the sidebar logo is removed", () => {
+    // setBranding's presence check drops the WHOLE blob when it thinks nothing
+    // is left, so a startLogo missing from that check dies with the sidebar logo.
+    const START = "data:image/png;base64,QUJD";
+    const { onChange } = renderSection(
+      { branding: { logo: "data:image/png;base64,WFla", startLogo: START } },
+      "custom",
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "remove")} – ${t("en-US", "brandingLogo")}`,
+      }),
+    );
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ branding: expect.objectContaining({ startLogo: START }) }),
+    );
+  });
 });
 
 describe("AppearanceSection Phase 3 (DB-stored schemes)", () => {

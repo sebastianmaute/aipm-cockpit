@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { useState } from "react";
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
@@ -555,6 +556,66 @@ describe("ResourcesPanel", () => {
     const trailingGroup = hide.closest("div.ml-auto");
     expect(trailingGroup).not.toBeNull();
     expect(trailingGroup).toContainElement(outlook);
+  });
+
+  // The calendar's externals filter was a bare checkbox sitting BEFORE the
+  // ml-auto group. Assert CONTAINMENT, never DOM order: the checkbox already
+  // preceded that group, so an order-only assertion passes against the unfixed
+  // code — the vacuous version of this test.
+  test("calendar: Hide externals is a toggle button inside the trailing Outlook group", () => {
+    render(
+      <ResourcesPanel {...baseProps} {...calendarProps} view="calendar" lang="en-US" plan={PLAN}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+
+    const hide = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
+    const outlook = screen.getByRole("button", {
+      name: new RegExp(t("en-US", "calendarSyncEnable"), "i"),
+    });
+
+    const trailingGroup = hide.closest("div.ml-auto");
+    expect(trailingGroup).not.toBeNull();
+    expect(trailingGroup).toContainElement(outlook);
+  });
+
+  test("calendar: the old Include-externals checkbox is gone", () => {
+    render(
+      <ResourcesPanel {...baseProps} {...calendarProps} view="calendar" lang="en-US" plan={PLAN}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+    expect(screen.queryByRole("checkbox", { name: /externals/i })).toBeNull();
+  });
+
+  // The stored field keeps its INVERTED sense (`calendarIncludeExternals`), so
+  // pressed must mean "excluded". Reading the state back off aria-pressed proves
+  // the write and the render agree — a write test alone could pass while the
+  // button showed the opposite state.
+  test("calendar: pressing the toggle flips to hiding externals and back", () => {
+    // ★ The shared `stubSettings` helper hands back a `setSettings` SPY that never
+    //   feeds a new value back in, so the round-trip needs a stateful stub for this
+    //   test alone — `beforeEach`'s `mockReturnValue` restores the spy for every
+    //   other test. `resources-panel.tsx` is the only `useSettings()` consumer in
+    //   this render tree, so the panel reads the very state its toggle writes.
+    mockUseSettings.mockImplementation(() => {
+      const [settings, setSettings] = useState<Settings>(defaultSettings);
+      return { settings, setSettings, hydrated: true, i18nReady: true, lang: "en-US" as const };
+    });
+
+    render(
+      <ResourcesPanel {...baseProps} {...calendarProps} view="calendar" lang="en-US" plan={PLAN}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+    const hide = screen.getByRole("button", { name: t("en-US", "planningHideExternal") });
+    expect(hide).toHaveAttribute("aria-pressed", "false"); // externals shown by default
+
+    fireEvent.click(hide);
+    expect(hide).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(hide);
+    expect(hide).toHaveAttribute("aria-pressed", "false");
   });
 
   test("A2: absence override input uses text-sm (not text-[10px])", () => {

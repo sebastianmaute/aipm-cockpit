@@ -97,7 +97,7 @@ describe("narrow EditModalShell consumers pin their own height", () => {
     }
   });
 
-  test.each(NARROW_CONSUMERS)("%s pins a height shorter than the 720px default", (name) => {
+  test.each(NARROW_CONSUMERS)("%s pins its own height, never the 720px default", (name) => {
     const { src } = sources.find((s) => s.name === name)!;
     // Scoped to the text AFTER the opening <EditModalShell tag, and matched
     // exactly once: a whole-file regex takes the FIRST hit anywhere, so a
@@ -106,14 +106,15 @@ describe("narrow EditModalShell consumers pin their own height", () => {
     const shellAt = src.indexOf("<EditModalShell");
     expect(shellAt, `${name} no longer renders EditModalShell`).toBeGreaterThan(-1);
     const rendered = src.slice(shellAt);
-    const all = [...rendered.matchAll(/heightClassName="h-\[(\d+)px\][^"]*"/g)];
+    // Accepts EITHER a pixel height shorter than the shell's 720px default OR
+    // `h-auto` (content-fit). The guard's point is unchanged: no consumer may
+    // silently fall back to the 720px default, and every override must carry
+    // its own floor and cap because the prop REPLACES all three classes.
+    const all = [...rendered.matchAll(/heightClassName="(h-auto|h-\[(\d+)px\])[^"]*"/g)];
     expect(all, `${name} declares no heightClassName on the shell`).toHaveLength(1);
 
-    const [declared, px] = all[0];
-    expect(Number(px)).toBeLessThan(720);
-    // The prop REPLACES all three classes, so an override that forgets the cap
-    // loses the viewport guard and one that forgets the floor loses the
-    // useResizable contract (there is no tailwind-merge to fill either in).
+    const [declared, , px] = all[0];
+    if (px !== undefined) expect(Number(px)).toBeLessThan(720);
     expect(declared).toContain("max-h-[95vh]");
     expect(declared, `${name} height override has no min-h- floor`).toMatch(/min-h-\[\d+px\]/);
   });

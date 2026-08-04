@@ -34,7 +34,7 @@ export function TimelogCustomerScope({
   return (
     <>
       {/* The sizing lives on the POSITIONING wrapper and the field goes w-full:
-          leaving w-28 on the field would size it independently of the box the
+          leaving the width on the field would size it independently of the box the
           clear button is absolutely positioned against, so the ✕ would land
           off-target.
 
@@ -47,7 +47,11 @@ export function TimelogCustomerScope({
         value={filter}
         onClear={() => onFilterChange("")}
         clearLabel={`${t(lang, "clear")} – ${t(lang, "timelogCustomerLabel")}`}
-        className="w-28 print:hidden"
+        /* `max-w-full` is not decoration: 21rem is a fixed 336px, and the pane
+           this sits in is `overflow-hidden`, so on a ~375px viewport the field
+           would be CLIPPED rather than scrolled — a state the old `w-28` (112px)
+           could never reach. The cap lets it shrink instead. */
+        className="w-[21rem] max-w-full print:hidden"
       >
         <Input
           type="search"
@@ -68,7 +72,7 @@ export function TimelogCustomerScope({
         disabled={disabled}
         onFocus={onFocusLoad}
         onChange={(e) => onSelectChange(e.target.value === "" ? "" : Number(e.target.value))}
-        className="max-w-[14rem] print:hidden"
+        className="max-w-[20rem] print:hidden"
       >
         <option value="">{t(lang, "timelogCustomerAll")}</option>
         {options.map((c) => (
