@@ -17,6 +17,7 @@ import {
   requestWriteAccessForBackend,
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
+import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
 import { seedMintFromWorkspace } from "./id-mint-session";
@@ -128,6 +129,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Storage status
   const [storageReady, setStorageReady] = useState(false);
+  // ★ NOT the same question as `storageReady`. That one is `backend.isReady()`
+  // — "can this backend be talked to" — and it is also set on the load-error
+  // and suppressed-load paths, where no workspace was applied at all. This one
+  // means "a workspace has been applied to render scope", which is what a
+  // consumer reading live entity state actually needs.
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [storageDescription, setStorageDescription] = useState<string | null>(null);
 
   // Suppresses the save effect that fires immediately after a load
@@ -200,7 +207,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // project switch / create / load-from-file flows so they apply data the same
   // way. No side-effects beyond the setState calls.
   const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset") => {
-    setTasks(workspace.tasks ?? []);
+    // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
+    // PROJECT, on any backend. Two near-misses make it look otherwise and both
+    // were written into an earlier version of this comment before being
+    // checked: `migrateWorkspaceV9` back-fills Absence / RaidItem / Shift and
+    // never touches tasks, and `migrateWorkspaceV5` does stamp task FKs but only
+    // inside `if (resources.length === 0)` (`workspace.ts:240`) — the legacy
+    // case where the directory is BUILT from the assignee strings. A project
+    // that already has a directory falls straight through both.
+    // ★ So this is not "the backends the chain misses" (it misses CSV, Markdown
+    // and the Turso relational tables, while IndexedDB reaches it directly via
+    // `browser-backend.ts:292` and Turso's legacy-blob fallback reaches it via
+    // `jsonToWorkspace`) — the gap is the FIELD, everywhere. Which is why this
+    // belongs at the one function every backend converges on rather than in the
+    // versioned chain. Idempotent and reference-preserving: a workspace needing
+    // nothing keeps its array identity.
+    setTasks(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []));
     setRaid(workspace.raid ?? []);
     setAbsences(workspace.absences ?? []);
     setShifts(workspace.shifts ?? []);
@@ -233,12 +255,29 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Side-effecting (mutates module state) — safe here inside the load callback,
     // never a render body.
     seedMintFromWorkspace(workspace, seedMode);
+    // Publishes "render scope now holds real project data". Snapshot capture
+    // gates on this: it is the ONLY thing separating a KPI capture from the
+    // boot race against this very load (see useSnapshots `workspaceReady`).
+    // ★★ Set LAST. Today no consumer can observe it true beside an empty slice
+    // whatever the position, because React auto-batches this whole callback into
+    // ONE commit — so under the CURRENT code no test can distinguish last from
+    // first, and one claiming to would be vacuous.
+    // ★★★ Position becomes load-bearing the moment anything above stops being
+    // batched, and LAST is the safe end in both such cases. A `flushSync` above
+    // commits the setters queued so far with this flag still FALSE — a partial
+    // workspace behind a CLOSED gate, which is exactly right. A throw between
+    // setters likewise leaves the gate shut. Put this call first and both
+    // reverse: the gate opens over a half-applied workspace and snapshot
+    // capture writes a null-KPI row that permanently claims its bucket.
+    // ★ An earlier revision of this comment asserted the opposite (that a
+    // flushSync would defeat the ordering) and invited the first-line move.
+    setWorkspaceLoaded(true);
   };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
   //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
-  //     `applyWorkspace`'s 24 setters and `onOpenStorageFile`'s raw ones are
+  //     `applyWorkspace`'s 25 setters and `onOpenStorageFile`'s raw ones are
   //     still unguarded, deliberately, because every one of them sits inside a
   //     `try` whose `catch` calls only guarded emitters. Three of the eight
   //     call sites await this function outside any `try`: the load effect's
@@ -734,6 +773,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription,
     storageReady,
+    workspaceLoaded,
     onPickStorageFile,
     onGrantWriteAccess,
     onOpenStorageFile,

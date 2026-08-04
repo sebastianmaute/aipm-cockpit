@@ -1,5 +1,5 @@
 // src/app/task-kanban.ts — pure, i18n-free Kanban grouping.
-import { effectiveAssignee } from "./resource-foundation";
+import { effectiveAssignee, personNameKey, resourceDisplayName } from "./resource-foundation";
 import { TASK_STATUSES, type Resource, type Task, type TaskStatus } from "./types";
 
 /** Partition tasks into one bucket per TaskStatus (all buckets present, even empty).
@@ -30,17 +30,134 @@ export interface SwimlaneGrouping {
   cells: Record<string, Record<TaskStatus, Task[]>>;
 }
 
-function laneOf(task: Task, resourcesById: ReadonlyMap<number, Resource>): KanbanLane {
-  if (task.resourceId != null && resourcesById.has(task.resourceId)) {
+/** Case-folded, whitespace-collapsed key for matching a stored assignee string
+ *  against a directory display name.
+ *
+ *  ★★ `raw` is typed `string` and is NOT always one — `Task.assignee` is absent
+ *  on partial/legacy rows. `laneOf` has always had this hazard on its FK-miss
+ *  branch (the pre-change code did a bare `task.assignee.trim()` there, so
+ *  `groupByStatusAndPerson` crashed on such a row before this work too). What
+ *  changed is the SECOND entry point: `laneResourceIds` previously read only
+ *  `resourceId` and never touched the field at all, so an unguarded `.trim()`
+ *  here took down the whole Open Points view on mount via `tasks-section.tsx`.
+ *  ★ Linked tasks are NOT the ones at risk — `laneResourceIdOf` returns on the
+ *  FK branch before reaching this. It is the UNLINKED rows. Coerce at this one
+ *  choke point rather than at each call site. */
+const nameKey = personNameKey;
+
+/**
+ * Display name -> resource id, with a name owned by MORE THAN ONE resource
+ * mapping to `null`.
+ *
+ * ★★ The null is not the same as absent and both branches are load-bearing:
+ * absent means "nobody here is called that" and ambiguous means "several people
+ * are". Both keep the task in its own name lane, but collapsing them to one
+ * state invites a later `?? firstMatch` that would file one person's work under
+ * a namesake. Poisoning on insert (rather than counting afterwards) also means
+ * a third resource with the same name cannot un-poison the clash.
+ */
+function nameToResourceId(resourcesById: ReadonlyMap<number, Resource>): Map<string, number | null> {
+  const out = new Map<string, number | null>();
+  for (const r of resourcesById.values()) {
+    // ★★★ EXTERNALS ARE NEVER NAME-MATCHED. `task-external.ts` classifies
+    // external ownership LINK-ONLY and says why: "a name collision would HIDE
+    // REAL WORK, so this fails safe". Resolving a free-string assignee onto an
+    // external would hand this lane a `resourceId`, making it a live DROP
+    // TARGET — and a task dropped there gets that FK, which `isExternalTask`
+    // then classifies as external, so with "Hide externals" on the card
+    // silently vanishes. `tasks-section.tsx` already filters `extraLaneIds`
+    // (`visibleExtraLaneIds`) for exactly this failure; task-DERIVED lanes are
+    // not filtered, so the guard has to live here.
+    // ★ Cost: an external with both FK-linked and string-only tasks still shows
+    // two lanes while "Hide externals" is OFF. That is the documented lesser
+    // evil — a duplicate lane is visible and harmless, a vanishing card is not.
+    if (r.isExternal === true) continue;
+    const key = nameKey(resourceDisplayName(r));
+    if (!key) continue;
+    out.set(key, out.has(key) ? null : r.id);
+  }
+  return out;
+}
+
+/**
+ * The resource a task belongs to for LANE purposes: its FK when that resolves,
+ * otherwise the resource its assignee string uniquely names. `null` when the
+ * task names nobody the directory knows.
+ *
+ * ★★★ THE NAME FALLBACK IS THE WHOLE POINT. Keying a linked task `res:<id>` and
+ * an unlinked one `name:<string>` rendered the SAME person as two lanes with
+ * identical labels — indistinguishable on screen, and only the FK lane's cards
+ * had a populated assignee select. A project acquires both shapes routinely:
+ * Jira/CSV imports and AI-created tasks write the name, the picker writes the
+ * FK. `backfillTaskResourceFks` repairs the DATA at load, but this must resolve
+ * too — a task created in-session with a free-text assignee, or one whose
+ * person was renamed after the string was cached, never reaches that pass.
+ */
+function laneResourceIdOf(
+  task: Task,
+  resourcesById: ReadonlyMap<number, Resource>,
+  names: ReadonlyMap<string, number | null>,
+): number | null {
+  if (task.resourceId != null && resourcesById.has(task.resourceId)) return task.resourceId;
+  const key = nameKey(task.assignee);
+  if (!key) return null;
+  return names.get(key) ?? null;
+}
+
+function laneOf(
+  task: Task,
+  resourcesById: ReadonlyMap<number, Resource>,
+  names: ReadonlyMap<string, number | null>,
+): KanbanLane {
+  const resourceId = laneResourceIdOf(task, resourcesById, names);
+  if (resourceId != null) {
     return {
-      key: `res:${task.resourceId}`,
-      label: effectiveAssignee(task, resourcesById),
-      resourceId: task.resourceId,
+      key: `res:${resourceId}`,
+      // The LIVE directory name, never the task's cached string — two tasks
+      // reaching this lane by different routes must not disagree on its label.
+      label: effectiveAssignee({ assignee: "", resourceId }, resourcesById),
+      resourceId,
     };
   }
-  const name = task.assignee.trim();
-  if (name) return { key: `name:${name}`, label: name, resourceId: null };
+  const name = (task.assignee ?? "").trim();
+  // ★ The KEY is normalised, the LABEL is the first-seen spelling. Keying on the
+  // raw string forked `"Ext  Contractor"` (double space) and `"Ext Contractor"`
+  // into two lanes with visually identical headers — the same duplicate-lane
+  // symptom this module now prevents for people the directory KNOWS, left open
+  // for the ones it does not. `ensure()` keeps the first lane object for a key,
+  // so the first spelling encountered supplies the label.
+  // ★ Safe for the drop payload: `use-task-row-handlers.ts` writes `lane.label`,
+  // never `lane.key`, so a drop still stores a human spelling.
+  // ★★ It no longer normalises a variant spelling on EVERY drop, and the older
+  // wording here said it did. A variant-spelled task is ALREADY IN the merged
+  // lane — that is what merging means — so a same-status drop there is caught by
+  // the no-op guard and writes nothing. Only a drop that also changes status (or
+  // an explicit assign) rewrites `assignee` to the label.
+  if (name) return { key: `name:${nameKey(name)}`, label: name, resourceId: null };
   return { key: UNASSIGNED_LANE, label: "", resourceId: null };
+}
+
+/**
+ * The lane a task currently DISPLAYS in — the same resolution
+ * `groupByStatusAndPerson` performs, exposed for the drop guard.
+ *
+ * ★★ The drop guard MUST ask this and must NOT compare `task.resourceId`
+ * against the lane's. The two disagree BY DESIGN: a task whose `assignee`
+ * string uniquely names a directory person renders in `res:<id>` while its
+ * stored FK is still null, because `backfillTaskResourceFks` stamps the FK at
+ * LOAD and a task created in-session has never been through it. Comparing the
+ * stored field made dropping such a card back onto its own cell a real write —
+ * dirtying the workspace, stamping `localModifiedAt`, pushing an undo entry the
+ * user never asked for and arming the autosave (a network round trip on a Turso
+ * backend) for a drag that visibly moved nothing.
+ *
+ * ★ Consequence, deliberate: a self-drop no longer opportunistically rewrites a
+ * stale `assignee` cache to the live directory spelling. A drag is not a rename
+ * tool, every surface already renders the live name, and the load-time backfill
+ * owns that repair.
+ */
+export function laneKeyOf(task: Task, resourcesById: ReadonlyMap<number, Resource>): string {
+  return laneOf(task, resourcesById, nameToResourceId(resourcesById)).key;
 }
 
 function emptyCells(): Record<TaskStatus, Task[]> {
@@ -60,8 +177,15 @@ export function laneResourceIds(
   extraLaneIds: readonly number[],
 ): number[] {
   const ids = new Set<number>();
+  const names = nameToResourceId(resourcesById);
   for (const id of extraLaneIds) if (resourcesById.has(id)) ids.add(id);
-  for (const t of tasks) if (t.resourceId != null && resourcesById.has(t.resourceId)) ids.add(t.resourceId);
+  // Must use the SAME resolution as `laneOf`, name fallback included: a person
+  // who owns a lane only by way of a free-string assignee still owns a lane, and
+  // offering them in the add-lane picker would promise a second one.
+  for (const t of tasks) {
+    const id = laneResourceIdOf(t, resourcesById, names);
+    if (id != null) ids.add(id);
+  }
   return [...ids];
 }
 
@@ -92,8 +216,9 @@ export function groupByStatusAndPerson(
     return lane.key;
   };
 
+  const names = nameToResourceId(resourcesById);
   for (const task of tasks) {
-    const key = ensure(laneOf(task, resourcesById));
+    const key = ensure(laneOf(task, resourcesById, names));
     cells[key][task.status].push(task);
   }
 

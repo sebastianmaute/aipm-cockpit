@@ -18,6 +18,51 @@ import type { Lang } from "./i18n";
 export interface UseSnapshotsArgs {
   /** True only when storage is Turso, this is not a popout, and recording is on. */
   active: boolean;
+  /**
+   * True once the backend's workspace load has been APPLIED to render scope.
+   *
+   * ★★★ WITHOUT THIS GATE EVERY AUTO SNAPSHOT RECORDS AN EMPTY PROJECT. The
+   * auto-capture below and the workspace load (`use-storage-backend`'s load
+   * effect) are two independent async reads fired on the same commit, and this
+   * one wins essentially always — `loadSnapshots` reads two small tables while
+   * `backend.load()` reads the whole workspace. `buildContext()` then closes
+   * over `tasks: []`, `budgets: []` and the DEFAULT-SEEDED plan, so
+   * `model.burndown` is null (it needs at least one budget bucket),
+   * `evm.spi`/`cpi` are null and `progress.percent` is 0 — and the row is
+   * written with all four KPIs null.
+   *
+   * ★★ The damage is PERMANENT for that bucket, which is why this is a gate and
+   * not a retry: `hasCurrent` sees the poisoned row, decides the bucket is
+   * covered, and the real values are never captured for it. Every weekly bucket
+   * of a live project was lost this way, and the only visible symptom was the
+   * charts reading "Not enough snapshots yet" beside a full snapshot table.
+   *
+   * ★ A capture is DEFERRED until a load LANDS, not skipped outright: the effect
+   * re-runs when this flips, so the bucket is still captured — just with real
+   * data. ★★ It IS skipped when no load lands at all: a FAILED load leaves the
+   * flag false for the session (pinned by use-storage-backend.test.tsx), and the
+   * bucket is only picked up by a later successful load — `reloadCurrentProject`
+   * or a project switch, both of which re-enter `applyWorkspace`. That is the
+   * correct trade: a failed load must never license a capture, because capturing
+   * the default workspace is the exact corruption this flag exists to stop.
+   * Do not soften this to "never skipped" — an earlier revision said so, and
+   * this repo's recurring defect is prose that outlives its code.
+   *
+   * ★ Deliberately SEPARATE from `active` at the call site rather than folded
+   * into it: `active` also decides whether the Trends view renders its panel at
+   * all, so gating that on the load would flash the "needs Turso" placeholder on
+   * every boot. Only CAPTURE has to wait.
+   *
+   * ★★ KNOWN EXCEPTION — a brand-new project. `createTursoProject` applies an
+   * empty workspace and changes `projectId` in one batch, so this flag is
+   * legitimately true (data WAS applied — there just isn't any) and the effect
+   * captures a null-KPI row that, being the first ever, is also flagged
+   * `isBaseline`. Every later variance row then compares against nulls. That is
+   * pre-existing and NOT what this flag is for: it answers "has a load
+   * landed", not "is the project worth snapshotting". Gate `isFirstEver` on
+   * content if it needs closing — do not overload this flag.
+   */
+  workspaceReady: boolean;
   cadence: SnapshotCadence;
   tursoConfig: TursoConfig | null;
   /** Active project id (Turso multi-tenant scoping). */
@@ -60,7 +105,7 @@ function pickBaseline(snaps: readonly SnapshotRecord[]): SnapshotRecord | null {
 }
 
 export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
-  const { active, cadence, tursoConfig, today } = args;
+  const { active, workspaceReady, cadence, tursoConfig, today } = args;
   const [snapshots, setSnapshots] = useState<SnapshotRecord[]>([]);
   const [busy, setBusy] = useState(false);
   const ctxRef = useRef(args.buildContext);
@@ -103,7 +148,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   useEffect(() => {
     // Defense-in-depth: even if `active` leaks true, never run a Turso pipeline
     // without a config — it would throw StorageNotReadyError on mount.
-    if (!active || !cfgRef.current) return;
+    // `workspaceReady` keeps the capture off the boot race entirely (see the
+    // arg's note): until the load has been applied, a snapshot taken here would
+    // record an empty project and permanently claim this bucket.
+    if (!active || !workspaceReady || !cfgRef.current) return;
     let cancelled = false;
     const startSeq = opSeqRef.current;
     const stale = () => cancelled || opSeqRef.current !== startSeq;
@@ -137,7 +185,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     // every render-new buildContext would re-fetch history (and re-auto-capture) each
     // render. The effect fires only when active/cadence/bucket/project actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, cadence, currentBucket, args.projectId]);
+  }, [active, workspaceReady, cadence, currentBucket, args.projectId]);
 
   const captureNow = useCallback(async () => {
     if (!active) { reportInactiveBail(); return; }

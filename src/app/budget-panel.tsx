@@ -29,6 +29,7 @@ import {
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
@@ -347,18 +348,25 @@ export function BudgetPanel(props: BudgetPanelProps) {
         </h2>
         <div className="flex items-center gap-2">
           {!isPopout && onSetBudgetFollowsPlan ? (
-            // The InfoTooltip sits OUTSIDE the <label> so its hint text does not
-            // bleed into the checkbox's name-from-content accessible name.
+            // ★ A bare `<input type="checkbox">` here was the odd one out: this is
+            //   a binary display/behaviour switch in a row of toggle chips, and
+            //   the shared primitive is what carries the non-colour pressed
+            //   marker and the pinned-label/aria-pressed coherence a hand-rolled
+            //   input has neither of (AGENTS.md: use ToggleButton, never a
+            //   hand-rolled aria-pressed button — or, as here, a lone checkbox).
+            // ★ The label already names what pressed=true ENABLES ("budget hours
+            //   FOLLOW plan") and does not flip with state, so it satisfies the
+            //   primitive's WCAG 4.1.2 contract as written.
+            // ★ The InfoTooltip stays OUTSIDE the control so its hint text does
+            //   not bleed into the name-from-content accessible name.
             <div className="flex items-center gap-1.5 text-sm print:hidden">
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={plan.budgetFollowsPlan ?? false}
-                  onChange={(e) => onSetBudgetFollowsPlan(e.target.checked)}
-                  className={`${FOCUS_RING} ${TRANSITION}`}
-                />
-                <span>{t(lang, "budgetFollowsPlan")}</span>
-              </label>
+              <ToggleButton
+                lang={lang}
+                pressed={plan.budgetFollowsPlan ?? false}
+                onToggle={() => onSetBudgetFollowsPlan(!(plan.budgetFollowsPlan ?? false))}
+              >
+                {t(lang, "budgetFollowsPlan")}
+              </ToggleButton>
               <InfoTooltip text={t(lang, "budgetFollowsPlanHint")} />
             </div>
           ) : null}
