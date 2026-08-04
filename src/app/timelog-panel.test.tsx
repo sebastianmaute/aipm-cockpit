@@ -267,6 +267,13 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      // ★★★ Wait for ENABLED, not merely present. The button renders (it is gated
+      // only on `fetchedAt`) while `isMisconfigured` is still true, because
+      // useSettings commits the stored config behind an `await` that act() does
+      // not drain. React drops onClick on a disabled <button>, so clicking here
+      // is a SILENT no-op that nothing retries — the toast then never arrives and
+      // waitFor burns its whole budget. That is §39. See docs/open-followups.md §39.
+      await waitFor(() => expect(btn).toBeEnabled());
       fireEvent.click(btn);
       // Re-fetches the PERSISTED scope (links.projectIds = [9]), not the live
       // picker — so the exact id list must be forwarded to the fetch.
@@ -289,16 +296,24 @@ describe("TimelogPanel", () => {
         </>,
         { wrapper },
       );
-      fireEvent.click(await screen.findByRole("button", { name: t("en-US", "timelogRefresh") }));
-      // ★★ This one assertion gets an explicit timeout above the global
-      // `asyncUtilTimeout: 5000` (vitest.setup.ts). It has failed in CI five
-      // times — 0.205.0, 0.208.0, and twice on the 0.209.0 MR plus once on main
-      // after that merge — always THIS test, always at ~5.1s, always with the
-      // other 765 files green and the full suite passing locally. That profile
-      // is worker starvation under full parallel load, not a race: a real race
-      // fails deterministically rather than a hair over the limit. `testTimeout`
-      // is 20s, so a genuinely broken expectation still fails the test well
-      // inside its own budget — this only buys wall-clock, not silence.
+      const refreshBtn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      // ★★★ Wait for ENABLED, not merely present. The button renders (it is gated
+      // only on `fetchedAt`) while `isMisconfigured` is still true, because
+      // useSettings commits the stored config behind an `await` that act() does
+      // not drain. React drops onClick on a disabled <button>, so clicking here
+      // is a SILENT no-op that nothing retries — the toast then never arrives and
+      // waitFor burns its whole budget. That is §39. See docs/open-followups.md §39.
+      await waitFor(() => expect(refreshBtn).toBeEnabled());
+      fireEvent.click(refreshBtn);
+      // ★★★ This assertion failed in CI eight times and NEVER locally. The old
+      // diagnosis in this comment was worker starvation; that is DISPROVED —
+      // three failures ran under this 15s budget and consumed 15,093 / 15,098 /
+      // 15,117 ms, a 24 ms spread at the ceiling, i.e. the toast never arrives.
+      // Raising the budget again buys nothing; 5s -> 15s already bought nothing.
+      // The cause is a click swallowed by the button's `disabled` state, which
+      // the wait above now closes. See docs/open-followups.md §39.
+      // ★ Two assertions, not one, so a CI failure says WHICH half broke.
+      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled(), { timeout: 15000 });
       await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)), {
         timeout: 15000,
       });
