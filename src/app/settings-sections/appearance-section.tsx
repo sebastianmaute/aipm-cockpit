@@ -52,9 +52,15 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   const branding = settings.branding;
   const [logoError, setLogoError] = useState<string | null>(null);
   const [faviconError, setFaviconError] = useState<string | null>(null);
+  const [startLogoError, setStartLogoError] = useState<string | null>(null);
   function setBranding(next: BrandingConfig) {
+    // Mirrors sanitizeBranding's presence check — every branding field belongs
+    // here. Omitting one drops the WHOLE blob when that field is the only thing
+    // set, so the upload appears to do nothing and any sibling field goes with it.
     const cleaned =
-      next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon ? next : undefined;
+      next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon || next.startLogo
+        ? next
+        : undefined;
     onChange({ ...settings, branding: cleaned });
   }
   return (
@@ -263,6 +269,24 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
               error={faviconError}
               invalidMessage={t(lang, "brandingLogoError")}
               onError={(m) => setFaviconError(m)}
+            />
+          </div>
+
+          {/* Start-window logo (shown before any project exists) */}
+          <div className="mb-3">
+            <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              {t(lang, "brandingStartLogo")}
+              <InfoTooltip text={t(lang, "brandingStartLogoHint")} />
+            </span>
+            <BrandingImageInput
+              label={t(lang, "brandingStartLogoChoose")}
+              removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingStartLogo")}`}
+              value={branding?.startLogo}
+              onChange={(startLogo) => { setStartLogoError(null); setBranding({ ...branding, startLogo }); }}
+              onRemove={() => { setStartLogoError(null); setBranding({ ...branding, startLogo: undefined }); }}
+              error={startLogoError}
+              invalidMessage={t(lang, "brandingLogoError")}
+              onError={(m) => setStartLogoError(m)}
             />
           </div>
 

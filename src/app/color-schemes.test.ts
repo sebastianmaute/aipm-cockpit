@@ -39,6 +39,17 @@ describe("mergeAppliedBranding", () => {
   it("handles an undefined current branding", () => {
     expect(mergeAppliedBranding(undefined, { slogan: "X" }).slogan).toBe("X");
   });
+
+  it("leaves startLogo alone — schemes own the other four, not the start window", () => {
+    const START = "data:image/png;base64,SSS";
+    // Neither set (a scheme carrying one must not apply it) nor cleared (applying
+    // a scheme must not destroy the user's start-window logo).
+    expect(mergeAppliedBranding({ startLogo: START }, {}).startLogo).toBe(START);
+    expect(
+      mergeAppliedBranding({ startLogo: START }, { startLogo: "data:image/png;base64,ZZZ" })
+        .startLogo,
+    ).toBe(START);
+  });
 });
 
 describe("mergeAppliedBranding: logo + favicon (Phase 3)", () => {

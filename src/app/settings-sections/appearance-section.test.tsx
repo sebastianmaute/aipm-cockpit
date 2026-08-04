@@ -135,6 +135,41 @@ describe("AppearanceSection scheme control", () => {
     expect(document.getElementById("branding-footer-slogan")).toBeNull();
     expect(screen.getAllByLabelText(t("en-US", "brandingAppName"))).toHaveLength(1);
   });
+
+  it("offers a start-window logo row with a row-unique remove label", () => {
+    renderSection(
+      { branding: { startLogo: "data:image/png;base64,QUJD" } },
+      "custom", // fresh → Harbor (built-in) active, so the global branding block shows
+    );
+    expect(
+      screen.getByRole("button", { name: t("en-US", "brandingStartLogoChoose") }),
+    ).toBeInTheDocument();
+    // Three branding image rows share one Remove verb, so each name is qualified
+    // (WCAG 2.4.6 — axe reports MISSING names, never DUPLICATE ones).
+    expect(
+      screen.getByRole("button", {
+        name: `${t("en-US", "remove")} – ${t("en-US", "brandingStartLogo")}`,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the start logo when the sidebar logo is removed", () => {
+    // setBranding's presence check drops the WHOLE blob when it thinks nothing
+    // is left, so a startLogo missing from that check dies with the sidebar logo.
+    const START = "data:image/png;base64,QUJD";
+    const { onChange } = renderSection(
+      { branding: { logo: "data:image/png;base64,WFla", startLogo: START } },
+      "custom",
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "remove")} – ${t("en-US", "brandingLogo")}`,
+      }),
+    );
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ branding: expect.objectContaining({ startLogo: START }) }),
+    );
+  });
 });
 
 describe("AppearanceSection Phase 3 (DB-stored schemes)", () => {

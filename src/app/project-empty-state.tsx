@@ -37,6 +37,11 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
+/** Shipped default for the start window. A path, not a data URL — user overrides
+ *  are raster data URLs (SVG uploads stay rejected), but the shipped asset is our
+ *  own file and is served same-origin. */
+const DEFAULT_START_LOGO = "/ai-pm-cockpit-banner-harbor.svg";
+
 export interface ProjectEmptyStateProps {
   lang: Lang;
   stakeholderNames: string[];
@@ -110,7 +115,7 @@ export function ProjectEmptyState({
 
   const titleKey = view === "create" ? "projectsNew" : "projectsEmptyTitle";
   const TITLE_ID = "project-empty-state-title";
-  const brandLogo = settings.branding?.logo;
+  const startLogo = settings.branding?.startLogo;
 
   return (
     <Modal
@@ -140,9 +145,13 @@ export function ProjectEmptyState({
             view === "choices" ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={brandLogo || "/AIPM-logo.svg"}
-                alt={brandLogo ? (settings.branding?.slogan ?? t(lang, "appTitle")) : "Acme"}
-                className={brandLogo ? "max-h-10 max-w-[200px] w-auto object-contain" : "h-7 w-auto"}
+                src={startLogo || DEFAULT_START_LOGO}
+                alt={settings.branding?.slogan ?? t(lang, "appTitle")}
+                // ONE sizing for both branches now (the default is no longer a
+                // small square mark, so the old default-vs-custom split is moot).
+                // The shipped banner is 1200×280 (~4.3:1), so the HEIGHT cap binds
+                // and it lands ~206×48; the width cap only bounds a squarer upload.
+                className="max-h-12 w-auto max-w-[280px] object-contain"
               />
             ) : undefined
           }

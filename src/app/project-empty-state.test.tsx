@@ -268,32 +268,57 @@ describe("ProjectEmptyState", () => {
     ).toBeNull();
   });
 
-  it("uses the active branding logo on the no-project landing when set", () => {
+  it("uses the configured start logo on the no-project landing when set", () => {
     const LOGO = "data:image/png;base64,QUJD";
     setup({
-      settings: { ...defaultSettings, branding: { ...defaultSettings.branding, logo: LOGO } },
+      settings: { ...defaultSettings, branding: { ...defaultSettings.branding, startLogo: LOGO } },
     });
     const img = screen.getByRole("img", { name: t("en-US", "appTitle") });
     expect(img).toHaveAttribute("src", LOGO);
   });
 
-  it("uses the branding slogan as the custom logo's alt text when set", () => {
+  it("uses the branding slogan as the start logo's alt text when set", () => {
     const LOGO = "data:image/png;base64,QUJD";
     const SLOGAN = "Acme Consulting";
     setup({
       settings: {
         ...defaultSettings,
-        branding: { ...defaultSettings.branding, logo: LOGO, slogan: SLOGAN },
+        branding: { ...defaultSettings.branding, startLogo: LOGO, slogan: SLOGAN },
       },
     });
     expect(screen.getByRole("img", { name: SLOGAN })).toHaveAttribute("src", LOGO);
   });
 
-  it("falls back to the default Acme alt text when no branding logo is set", () => {
+  it("names the shipped default banner with the app title, not the consultancy", () => {
     setup();
-    expect(screen.getByRole("img", { name: "Acme" })).toHaveAttribute(
+    expect(screen.getByRole("img", { name: t("en-US", "appTitle") })).toHaveAttribute(
       "src",
-      "/AIPM-logo.svg",
+      "/ai-pm-cockpit-banner-harbor.svg",
     );
+  });
+});
+
+describe("start-window logo", () => {
+  it("shows the shipped harbor banner when no start logo is configured", () => {
+    setup();
+    const img = document.querySelector("img[src='/ai-pm-cockpit-banner-harbor.svg']");
+    expect(img).not.toBeNull();
+  });
+
+  it("shows the configured start logo instead", () => {
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    setup({ settings: { ...defaultSettings, branding: { startLogo: png } } });
+    expect(document.querySelector(`img[src='${png}']`)).not.toBeNull();
+    expect(document.querySelector("img[src='/ai-pm-cockpit-banner-harbor.svg']")).toBeNull();
+  });
+
+  it("does not fall back to the sidebar logo", () => {
+    // The two are separate fields on purpose: the sidebar wants a small mark and
+    // this window wants a wide banner, so a sidebar upload must not land here.
+    // (It would not be distorted — object-contain — just the wrong image.)
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    setup({ settings: { ...defaultSettings, branding: { logo: png } } });
+    expect(document.querySelector(`img[src='${png}']`)).toBeNull();
+    expect(document.querySelector("img[src='/ai-pm-cockpit-banner-harbor.svg']")).not.toBeNull();
   });
 });

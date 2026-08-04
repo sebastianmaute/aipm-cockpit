@@ -1779,8 +1779,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   stakeholders/RAID/resources/
   knowledge/history/steering/portfolio/RACI/timelog) + the ReportCard views are wired; Settings/Chat/Projects
   are not (nothing to print).
-- **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?}`):** rides the
-  `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon must be a
+- **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?, startLogo?}`):** rides the
+  `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon/startLogo must be a
   size-capped RASTER `data:image` URL (SVG EXCLUDED — XSS surface), slogan/footerSlogan trimmed+capped. Edited
   in Settings → Appearance. `logo` overrides the sidebar logo — ★ a custom logo renders WITHOUT
   `brightness-0 invert` (that filter only whitens the mono AIPM default); `slogan` = sidebar app-name subtitle;
@@ -1788,8 +1788,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `defaultSettings.branding`). `favicon` drives the document `<link rel=icon>` via `useApplyFavicon`/
   `applyFavicon` (`use-favicon.ts`) — captures the build-time default ONCE so a remove restores it. Sidebar +
   classic `AppHeader` + `app-modals` footer read branding via `useSettings()`. CSP already allows `data:` in
-  `img-src`. Default sidebar logo is `/app-logo.svg` (mono mark, whitened by `brightness-0 invert`); classic
-  header uses it un-inverted (light header).
+  `img-src`. Default sidebar logo is `/app-logo.svg` (mono mark, whitened by `brightness-0 invert`); the classic
+  `AppHeader` renders `/AIPM-logo.svg` un-inverted (light header) — ★ the two default assets are DIFFERENT files,
+  which an earlier "classic header uses it" wording hid.
+  ★★ `startLogo` is a FIFTH, SEPARATE field driving ONLY the start window (`project-empty-state.tsx`, the
+  `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-harbor.svg`, NOT `logo` and NOT the
+  AIPM mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
+  banner (the default is 1200×280, so `max-h-12` binds and it renders ~206×48). ★★ Adding a branding field means
+  TWO presence checks in lockstep — `sanitizeBranding`'s final `out.x || …` AND `appearance-section.tsx`'s
+  `setBranding` `cleaned` gate; miss the second and setting that field ALONE writes `branding: undefined`, so
+  the upload silently no-ops and any sibling field is destroyed along with it. ★ Schemes do NOT own it:
+  `mergeAppliedBranding` spreads `current` and overwrites only the other four, so a scheme apply can neither
+  set nor clear it (pinned in `color-schemes.test.ts` — the four-field version passed happily without a pin).
+  ★ It is edited in the Settings → Appearance branding block, which is gated on `activeIsBuiltin`, so like the
+  other global branding fields it is uneditable while a USER scheme is active.
 - **Footer bar / page scrollbars (★★):** the footer (`app-modals.tsx`, `!isPopout`) is `position: fixed`
   bottom-right ON PURPOSE — `modalsBlock` is an in-flow SIBLING of the `h-screen` ModernShell, so an in-flow
   footer adds height > 100vh → a page VERTICAL scrollbar. Keep it fixed (out of flow) + `pointer-events-none`;
