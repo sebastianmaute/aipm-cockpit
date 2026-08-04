@@ -49,7 +49,19 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   // can't interleave their load/save against Turso.
   const writeChainRef = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => { cfgRef.current = config; }, [config]);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // ★★ Re-set on mount, not merely cleared on unmount. React StrictMode mounts,
+  //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
+  //    true), so a cleanup-only guard is permanently false after that first cycle
+  //    and every setter below it — setJobs, setBusy, setReady — is suppressed for
+  //    the rest of the dev session: the panel never leaves its loading state.
+  //    Declared BEFORE the refresh effect so the remount restores the flag before
+  //    that effect re-runs. Mirrors use-storage-backend.ts (open-followups §72/§76).
+  //    ★ No test can pin this: StrictMode invokes effects ONCE under this suite
+  //    (measured — see §76), so a StrictMode-wrapped test would be vacuous.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const refresh = useCallback(async () => {
     try {

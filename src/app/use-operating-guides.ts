@@ -73,7 +73,16 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
   const opSeqRef = useRef(0);
   const mountedRef = useRef(true);
   useEffect(() => { cfgRef.current = config; }, [config]);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // ★★ Re-set on mount, not merely cleared on unmount — see the same guard in
+  //    use-scheduled-jobs.ts. StrictMode's dev mount→unmount→remount would
+  //    otherwise leave this permanently false, suppressing setGuides/setReady
+  //    for the whole session so the panel never leaves its loading state.
+  //    Declared BEFORE the refresh effect so the flag is restored first.
+  //    Untestable here (StrictMode single-invokes effects in this suite) — §76.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const refresh = useCallback(async () => {
     const startSeq = opSeqRef.current;

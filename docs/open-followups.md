@@ -118,7 +118,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
 | 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
 | 75 | Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage) | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`), and each file reproduces ALONE; verified pre-existing on `main`; not a live CI failure |
-| 76 | Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount | pre-existing, found post-0.214.0 | S | open — `use-scheduled-jobs.ts` + `use-operating-guides.ts`; one-line fix each, the same one §72 already made |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★ ships UNTESTED of necessity (StrictMode single-invokes here), sweep re-run on the broad pattern |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3474,7 +3474,7 @@ expected to fail broadly. The shuffle result is the informative one precisely be
 
 ---
 
-## 76. Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression — open
+## 76. ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ — CLOSED post-!346
 
 ★★★ **This is the exact defect §72's `use-storage-backend.ts` guard was written to avoid, sitting
 unfixed in two sibling hooks.** Both declare the ref and then clear it in a cleanup WITHOUT re-setting
@@ -3496,13 +3496,27 @@ its loading state. Production is unaffected (one mount, no remount) — but so i
 which is why this has survived: **a fully green suite says nothing about it**, exactly as measured for
 §72's own re-set line, which no test can pin either.
 
-★ Fix is one line in each — `mountedRef.current = true;` as the first statement of the effect body,
-identical to `use-storage-backend.ts:174-180`. ★ Verified there are exactly TWO such hooks:
-`grep -rln "useEffect(() => () => { mountedRef.current = false; }, \[\])" src/app/`.
+★★ **FIXED.** Both effects now re-set the flag as their first statement, identical to
+`use-storage-backend.ts`. ★ Placement matters and is recorded in both files: the guard effect is
+declared BEFORE the `refresh` effect that consumes it, so on a StrictMode remount React restores the
+flag before re-running the effect that calls the guarded setters. Reordering them silently reinstates
+the bug.
+
+★★★ **AND IT SHIPS UNTESTED, NECESSARILY — the same wall as §72's own re-set line.** StrictMode
+invokes effects ONCE under this suite (measured: `["mount"]`, no cleanup+remount, react 19.2.4 /
+`NODE_ENV=test`), so a StrictMode-wrapped test is VACUOUS — it passes with the fix reverted. None was
+written; a test that passes against the mutation it names is worse than none. The 15 existing tests
+across the two hooks pass unchanged, which confirms no regression and pins nothing about this fix.
+★ Production was never affected (one mount, no remount), so there is no user-facing behaviour change
+and no version bump — this is a dev-experience fix.
+
+★★ Sweep is COMPLETE and re-run on the broad pattern, not the literal string that found it:
+`grep -rnE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" src/app/` returns exactly three hits —
+these two plus `use-storage-backend.ts` — and all three now re-set on mount. There are exactly three
+`mountedRef`s in the app.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
-had the same shape. Deliberately NOT fixed in that change — it is unrelated code and a separate
-follow-up, not scope creep on a CI-facing slice.
+had the same shape — a question worth asking of every guard fix.
 
 ---
 
