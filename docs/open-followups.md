@@ -2927,6 +2927,34 @@ styling" and "add row separators across six panels" are the same diff described 
 which one is wanted before touching it. ★ If it IS wanted, the mechanism already exists (`cellClass` in
 `budget-panel-totals.tsx`) — the work is agreeing the look, not finding the fix.
 
+## 69. `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — open
+
+Adding a branding field means extending **two independent field lists**, and missing either is a
+silent data-loss path rather than an error:
+
+- `sanitizeBranding` (`settings-types.ts`) ends `return out.logo || out.slogan || out.footerSlogan ||
+  out.favicon || out.startLogo ? out : undefined;`
+- `AppearanceSection`'s `setBranding` (`settings-sections/appearance-section.tsx`) has its own
+  `cleaned` gate over the same fields.
+
+★★ This is not hypothetical — it bit on the FIRST addition. `branding.startLogo` (0.214.0 line) was
+added to the sanitizer arm and its presence check, and the `setBranding` gate was missed. Two failure
+modes followed, both silent: uploading ONLY a start logo wrote `branding: undefined`, so the upload
+appeared to do nothing; and removing the sidebar logo while a start logo existed **destroyed the start
+logo**. Caught in review, fixed in `876b8777`, and pinned by
+`appearance-section.test.tsx` ("keeps the start logo when the sidebar logo is removed").
+
+★ What is pinned today is only the SECOND failure mode, for THIS field. There is no test that the two
+lists agree, and there cannot easily be one — a TS interface has no runtime keys to walk, so a generic
+"every `BrandingConfig` key appears in both gates" test would need a hand-maintained key array, which
+is a third list to keep in step.
+
+★ The fix, if wanted: export one `hasAnyBrandingField(cfg): boolean` from `settings-types.ts` and call
+it from both sites, making the field list a single source of truth. Deliberately NOT done in the
+0.214.0 batch — it is a refactor of a shipped, tested path at the end of a five-slice UI batch, and
+the slice that surfaced it had already fixed the live bug. ★ Until then, the AGENTS.md branding bullet
+carries the lockstep note, which is prose, and prose here decays ungated.
+
 ---
 
 ## Decided — do not re-litigate
