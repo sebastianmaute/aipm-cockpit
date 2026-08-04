@@ -3175,7 +3175,7 @@ grep -c 'emitToast(' src/app/use-storage-backend.ts        # 24 = 23 sites + 1 d
 ★★ The trap in sweeping this: the four emitter BODIES necessarily contain `args.<callback>(`, so a
 blanket find-and-replace rewrites them into infinite self-recursion. A residual sweep for
 `args.showToast|args.onStorageOutcome|args.onRegistryChange|args.setStorageConfig` correctly returns
-**five** lines — the four emitter bodies plus one prose comment — **not zero**.
+**four** lines — exactly the four emitter bodies — **not zero**. Any fifth hit is an unrouted call site.
 
 ★★★ **It must be a MOUNTED ref, not the load effect's per-run `cancelled` flag.** The save effect's
 deps include the whole workspace, so it re-runs on every edit. A per-run flag would suppress the outcome
