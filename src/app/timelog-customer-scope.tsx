@@ -34,7 +34,7 @@ export function TimelogCustomerScope({
   return (
     <>
       {/* The sizing lives on the POSITIONING wrapper and the field goes w-full:
-          leaving w-28 on the field would size it independently of the box the
+          leaving the width on the field would size it independently of the box the
           clear button is absolutely positioned against, so the ✕ would land
           off-target.
 
@@ -47,7 +47,7 @@ export function TimelogCustomerScope({
         value={filter}
         onClear={() => onFilterChange("")}
         clearLabel={`${t(lang, "clear")} – ${t(lang, "timelogCustomerLabel")}`}
-        className="w-28 print:hidden"
+        className="w-[21rem] print:hidden"
       >
         <Input
           type="search"
@@ -68,7 +68,7 @@ export function TimelogCustomerScope({
         disabled={disabled}
         onFocus={onFocusLoad}
         onChange={(e) => onSelectChange(e.target.value === "" ? "" : Number(e.target.value))}
-        className="max-w-[14rem] print:hidden"
+        className="max-w-[20rem] print:hidden"
       >
         <option value="">{t(lang, "timelogCustomerAll")}</option>
         {options.map((c) => (
