@@ -193,6 +193,9 @@ export function TotalsTd({
  *  bucket total row alike. ONE definition, so a row and the total beneath it
  *  cannot band the same budget/actual ratio differently. */
 function RowDot({ budget, actual, lang }: { budget: number; actual: number; lang: Lang }) {
+  // ★ `ratioHealth` takes (actual, budget) — the REVERSE of this component's prop
+  // order. "Tidying" the call to match the props inverts every RAG badge in every
+  // bucket table: an over-budget row would read Green.
   return <RagBadge value={ratioHealth(actual, budget)} lang={lang} title={t(lang, "budgetRoleStatus")} />;
 }
 
