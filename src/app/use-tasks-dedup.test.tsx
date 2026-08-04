@@ -83,6 +83,20 @@ describe("useTasksDedup (plan-then-apply)", () => {
   beforeEach(() => { vi.clearAllMocks(); });
   afterEach(() => { vi.restoreAllMocks(); });
 
+  // §51 failure capture — read-only, failure path only.
+  // ★★★ NOT `onTestFailed`: measured in this repo, it runs after RTL's `cleanup()`
+  // in vitest.setup.ts (and after any mock-clearing afterEach), so every DOM field
+  // reads null and every mock counter reads zero. This afterEach is registered LAST
+  // and therefore runs FIRST (LIFO), while the DOM and the mocks are still live.
+  // ★ Still failure-path only: it returns immediately unless the test failed, and it
+  //   neither awaits nor flushes — nothing left to perturb once the body has returned.
+  let captureOnFailure: (() => void) | undefined;
+  afterEach((ctx) => {
+    const capture = captureOnFailure;
+    captureOnFailure = undefined;
+    if (ctx.task.result?.state === "fail") capture?.();
+  });
+
   it("shows the proposed groups in a preview and mutates NOTHING before confirm", async () => {
     vi.mocked(call.runDedupProposal).mockResolvedValue([
       { keepId: 1, mergeIds: [2], rationale: "same deliverable" },
@@ -104,12 +118,31 @@ describe("useTasksDedup (plan-then-apply)", () => {
     ]);
     const captureSpy = vi.fn();
     renderHarness({ captureSpy });
+    // No root cause was ever established for §51, so this is the primary
+    // instrument: it says whether the proposal resolved, whether the preview was
+    // still open, and how far the merge got.
+    captureOnFailure = () => {
+      console.error(
+        "[§51 capture]",
+        JSON.stringify({
+          proposalCalls: vi.mocked(call.runDedupProposal).mock.calls.length,
+          triggerDisabled:
+            screen
+              .queryByRole("button", { name: /deduplicate & unify tasks/i })
+              ?.hasAttribute("disabled") ?? null,
+          mergeButtonPresent: !!screen.queryByRole("button", { name: /merge selected/i }),
+          captureSpyCalls: captureSpy.mock.calls.length,
+          ids: screen.queryByTestId("ids")?.textContent ?? null,
+        }),
+      );
+    };
 
     fireEvent.click(screen.getByRole("button", { name: /deduplicate & unify tasks/i }));
-    // The wait and the assumption must be the SAME condition: /dup/i is a
-    // substring of the trigger's own name ("Deduplicate & unify tasks"), so a
-    // waitFor on it can pass without the preview modal being open, leaving the
-    // next line's un-waited getByRole to fail immediately (open-followups §51).
+    // The wait and the assertion must be the SAME condition. The old gate was
+    // getByText(/dup/i), which matched the trigger's own TEXT — not its
+    // accessible name; getByText never consults one — so it resolved while the
+    // preview modal was still closed, leaving the next line's un-waited
+    // getByRole to fail immediately (open-followups §51).
     fireEvent.click(await screen.findByRole("button", { name: /merge selected/i }));
 
     await waitFor(() => expect(screen.getByTestId("ids").textContent).toBe("1,3"));

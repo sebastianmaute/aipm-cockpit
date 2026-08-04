@@ -159,8 +159,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
-  // Every callback this hook fires back into the component runs `setState` up
-  // there. Several of them run after an `await`, from promises nobody waits for
+  // Every callback this hook fires back into the component drives React state up
+  // there — and `onStorageOutcome` does more besides, arming the version-history
+  // idle checkpoint via `versionNotifyRef`. Suppressing it after unmount skips
+  // that too, which is inert only because the whole tree goes down together.
+  // Several of them run after an `await`, from promises nobody waits for
   // (the debounced save is fire-and-forget by design). If the component has
   // unmounted by then, React 19 schedules an update, `resolveUpdatePriority`
   // reads `window`, and in a torn-down jsdom that throws — an unhandled
@@ -271,16 +274,35 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setWorkspaceLoaded(true);
   };
 
+  // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
+  //     four setters. These are the last §72 setters in this hook that can
+  //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
+  //     `applyWorkspace`'s 25 setters and `onOpenStorageFile`'s raw ones are
+  //     still unguarded, deliberately, because every one of them sits inside a
+  //     `try` whose `catch` calls only guarded emitters. Three of the eight
+  //     call sites await this function outside any `try`: the load effect's
+  //     suppress branch and the last statement of its `catch`, plus the bare
+  //     await in `onGrantWriteAccess`. Unguarded, a post-teardown
+  //     `setStorageReady` throws, the `catch` below then runs its own
+  //     `setStorageReady(false)` — inside the catch, outside any `try` — and
+  //     THAT second throw leaves the function and rejects a floating promise.
+  //     Mounted-scoped is unambiguously right here (unlike the save outcome):
+  //     this is the hook's OWN state, so there is no superseded-run result a
+  //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
+  //     status failure is still recorded.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();
+      if (!mountedRef.current) return;
       setStorageReady(ready);
       const desc = backend.describe ? await backend.describe() : null;
+      if (!mountedRef.current) return;
       setStorageDescription(desc ?? null);
     } catch (err) {
       // A thrown status check is distinct from a clean "not ready" (false) — log
       // it so diagnostics can tell an exception apart from a normal negative.
       logDiag("warn", "storage.statusCheckFailed", { message: err instanceof Error ? err.message : String(err) });
+      if (!mountedRef.current) return;
       setStorageReady(false);
       setStorageDescription(null);
     }
@@ -386,8 +408,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     prevCollectionCountRef.current = curCollections;
     prevRecordCountRef.current = curRecords;
     // Fire-and-forget save with the effect's full error handling — the .catch
-    // routes every rejection to the storage-outcome/toast path, so neither the
-    // timer nor the flush-on-hide below can produce an unhandled rejection.
+    // routes every rejection to the storage-outcome/toast path, so a REJECTED
+    // save never escapes unhandled.
+    // ★★ That is not the same as "this chain cannot produce an unhandled
+    //    rejection", which an earlier revision of this comment claimed. The
+    //    HANDLERS themselves throw if they run after the component unmounted
+    //    (setState -> resolveUpdatePriority -> `window`), which is precisely the
+    //    §72 failure. They are routed through emitOutcome/emitToast for that
+    //    reason; do not call args.* directly here.
     const doSave = () => {
       backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents }).then(() => {
         emitOutcome(null);
@@ -528,10 +556,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
 
   // Reads the current workspace via render-scope closure — same pattern
   // as onPickStorageFile/onOpenStorageFile. Must NOT be memoized by consumers,
-  // or it would capture a stale snapshot of tasks/raid/etc. The same applies
-  // to args.setStorageConfig and args.showToast, which are also read from the
-  // live args closure — memoizing this handler would capture stale versions of
-  // those callbacks too.
+  // or it would capture a stale snapshot of tasks/raid/etc. The same applies to
+  // the emitters it calls (emitStorageConfig, emitToast): they are re-created
+  // each render and read `args.*` live, so memoizing this handler would capture
+  // stale versions of those callbacks too — and a stale `mountedRef` with them.
   async function onRequestStorageSwitch(newKind: StorageKind): Promise<void> {
     if (args.isPopout) return;
     const current = settingsRef.current.storageConfig;
