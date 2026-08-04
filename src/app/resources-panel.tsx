@@ -506,6 +506,26 @@ function ResourcesPanelInner({
     </ToggleButton>
   );
 
+  // Calendar's externals filter is the PERSISTED per-device
+  // `settings.calendarIncludeExternals`, NOT planning's view-local `hideExternal`
+  // — so it gets its own node rather than sharing the one above.
+  // ★ The stored field keeps its INVERTED sense (include), which is what avoids a
+  //   settings migration; the label is pinned to what pressing ENABLES (hiding),
+  //   so "Hide externals, pressed" ⇒ externals are hidden (WCAG 4.1.2).
+  // ★ The next value is read out of the updater's OWN state, never the closure —
+  //   the same rule the tasks-section hide-externals toggle follows.
+  const calendarHideExternalToggle = (
+    <ToggleButton lang={lang}
+      pressed={!includeExternals}
+      onToggle={() =>
+        setSettings((s) => ({ ...s, calendarIncludeExternals: s.calendarIncludeExternals === false }))
+      }
+      icon={<EyeSlashIcon aria-hidden="true" className="h-3.5 w-3.5" />}
+    >
+      {t(lang, "planningHideExternal")}
+    </ToggleButton>
+  );
+
   // The header count sits inches from the Hide-external toggle, so it has to
   // track it. Filter a COPY: `rows` also feeds the calendar, which has its own
   // separate includeExternals setting and must not be double-filtered.
@@ -641,8 +661,7 @@ function ResourcesPanelInner({
               setCalendarFrom(w.startDate);
               setCalendarTo(w.endDate);
             }}
-            includeExternals={includeExternals}
-            onToggleIncludeExternals={(checked) => setSettings((s) => ({ ...s, calendarIncludeExternals: checked }))}
+            hideExternalToggle={calendarHideExternalToggle}
             headerActions={headerActions}
           />
           <ResourceCalendar

@@ -1543,7 +1543,6 @@ const enUS = {
   calendarPrev: "Previous",
   calendarNext: "Next",
   calendarToday: "Today",
-  calendarIncludeExternals: "Include externals",
   calendarFrom: "From",
   calendarTo: "To",
   calendarWeekAbbrev: "W",

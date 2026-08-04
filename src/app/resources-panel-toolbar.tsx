@@ -14,7 +14,7 @@ import { Input } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 import { TableFilter } from "./report-table";
 import type { PlanGranularity } from "./types";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 
 interface PlanningToolbarProps {
   lang: Lang;
@@ -111,8 +111,10 @@ interface CalendarToolbarProps {
   calendarTo: string;
   onCalendarTo: (value: string) => void;
   onCalendarCustomToday: () => void;
-  includeExternals: boolean;
-  onToggleIncludeExternals: (checked: boolean) => void;
+  /** The "Hide externals" toggle, built by the orchestrator (its state is the
+   *  persisted per-device setting, so the closure stays there). Rendered in the
+   *  trailing group beside the Outlook controls, mirroring PlanningToolbar. */
+  hideExternalToggle: ReactNode;
   headerActions: ReactNode;
 }
 
@@ -131,8 +133,7 @@ export function CalendarToolbar({
   calendarTo,
   onCalendarTo,
   onCalendarCustomToday,
-  includeExternals,
-  onToggleIncludeExternals,
+  hideExternalToggle,
   headerActions,
 }: CalendarToolbarProps) {
   return (
@@ -218,17 +219,10 @@ export function CalendarToolbar({
           </button>
         </div>
       )}
-      <label className="flex items-center gap-1.5 text-foreground">
-        <input
-          type="checkbox"
-          checked={includeExternals}
-          aria-label={t(lang, "calendarIncludeExternals")}
-          onChange={(e) => onToggleIncludeExternals(e.target.checked)}
-          className={`align-middle ${FOCUS_RING}`}
-        />
-        <span>{t(lang, "calendarIncludeExternals")}</span>
-      </label>
-      <div className="ml-auto">{headerActions}</div>
+      <div className="ml-auto flex items-center gap-2">
+        {hideExternalToggle}
+        {headerActions}
+      </div>
     </div>
   );
 }
