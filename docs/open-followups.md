@@ -81,7 +81,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
 | 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
-| 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — mechanism ESTABLISHED (a click swallowed by the button's `disabled` state) + fix landed in both affected tests; ★ closure pending CI, never reproduced locally |
+| 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — mechanism CANDIDATE (a click swallowed by the button's `disabled` state): precondition proved locally, **causation unreproduced**; fix landed in both affected tests |
 | 40 | `text-ui-dark-blue` with no mode-appropriate companion — **40 sites** | pre-existing, counted 0.211.0 | M–L | open — needs its own slice |
 | 41 | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open — a11y/visual |
 | 42 | `CalendarSyncControls` push/pull buttons carry unqualified names | pre-existing, found 0.211.0 | S | open — WCAG 2.4.6 |
@@ -105,6 +105,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
+| 63 | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED in 0.213.0** — split after all; `gantt.tsx` is 715 lines and its baseline entry is gone |
 | 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
 | 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
 | 66 | The R/A/G tile counts a cancelled task GREEN, one tile from the fix | cancelled-work presentation | M | open — `computeGroupHealth` is per-task and Green-for-finished; not presentation-only |
@@ -1263,7 +1264,7 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
-## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism established, fix landed, closure pending CI
+## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed
 
 `timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
@@ -1287,7 +1288,7 @@ scatter; a toast that never arrives pins at the ceiling. **Do NOT raise the time
 moved the failure point and bought nothing, and 30 s would cost another 15 s of CI wall-clock per
 failure.
 
-**The mechanism.** The Refresh **button** carries a fifth `disabled` condition the **handler** does not
+**The mechanism CANDIDATE.** The Refresh **button** carries a fifth `disabled` condition the **handler** does not
 (that asymmetry is §74, recorded separately as a product-code finding):
 
 - handler `handleRefreshBookings` guards `isPopout || sync.busy || confirming || !canRefresh`;
@@ -1302,8 +1303,11 @@ zero protection against that. React drops `onClick` on a disabled `<button>`, so
 no-op that nothing retries** — the toast never arrives and `waitFor` burns its whole budget, which is
 exactly the 15,09x ms signature above.
 
-**PROVED locally:** a probe asserting `toBeDisabled()` immediately after `render()` passes, and
-mutation-checking it (flipping to `toBeEnabled()`) fails. The button IS disabled at first commit.
+**PROVED locally:** a probe asserting `toBeDisabled()` immediately after `render()` passes, and flipping
+it to `toBeEnabled()` fails. The button IS disabled at first commit.
+★ That flip is the NEGATION of the assertion, not a mutation of the implementation — it shows the probe
+is non-vacuous, it does not show the disabled state CAUSES the CI failure. Do not cite it as a mutation
+check; the causal step is the unproved one below.
 
 ★★ **NOT proved — state this precisely.** That the button is *still* disabled at click time in the CI
 failures. It cannot be deterministic: if the click were always swallowed the tests would fail on every
@@ -1315,17 +1319,26 @@ moment than the one that fails.
 `await waitFor(() => expect(btn).toBeEnabled())` — applied to **both** affected tests: the toast test and
 its structurally identical sibling ("shows a Refresh button once bookings are read and re-fetches the
 persisted scope"). The record had attributed every failure to the toast test; both had the same exposure.
-Timeouts are unchanged in both directions — nothing was raised and nothing was lowered.
+No timeout VALUE was changed — nothing raised, nothing lowered.
 
 ★ The toast assertion was also split in two (`fetchBookingsForProjects` called, then `showToast`) so a
-future failure says which half broke. Record the limit: the two 15 s budgets sum past the 20 s
-`testTimeout`, so a *double* failure reports a timeout rather than naming a half. Only one half can burn
-its budget first, so a single real failure still names itself.
+future failure says which half broke. ★★ **But be precise about what that did to the budget**, in an
+entry whose operative rule is "do not raise the timeout": no value moved, yet the assertion's worst case
+went from one 15 s wait to two, i.e. **15 s → 30 s nominal**. That sum exceeds the 20 s `testTimeout`,
+so the excess is unreachable — and the practical consequence is not the one an earlier draft of this
+paragraph claimed. A first-half FAILURE throws at ~15 s, inside `testTimeout`, and **does** name its
+half. The case that reports a bare "timed out in 20000 ms" with no half named is a first half that is
+**slow but passing** followed by a second-half failure.
 
-**State: mechanism established and fix landed, but closure pending CI confirmation.** The failure never
+**State: mechanism CANDIDATE, fix landed, closure pending CI confirmation.** ★★ The precondition is
+proved and the causation is not — do not let the shorthand "diagnosed" harden into "established" in a
+later edit. The failure never
 reproduced locally, so a local green is the same signal it always gave and proves nothing. Do not mark
 this flatly CLOSED until a run of CI pipelines has passed with the fix in place.
 ★ Meanwhile the operational answer is unchanged: **retry the job**, do not edit the test again.
+★ Six full-suite amplification configurations (3 × `--no-isolate`, 3 × `--sequence.shuffle` seeds 1–3)
+failed to reproduce this test on 2026-08-04 — see the amplification note in §51 for what that negative
+is and is not worth.
 ★ It was untracked here until 2026-07-30 despite six occurrences and one red main — which is why the
 frequency data lived only in a code comment and a memory file.
 ★ Instrumentation: a failure capture now lives in that describe block. It is deliberately NOT
@@ -2007,8 +2020,10 @@ The line before the failure was
 ★★★ **This entry cited the wrong string.** It said `/dup/i` is a substring of the trigger's own
 **accessible name**, "**Dedup**licate & unify tasks". But `getByText` matches an element's direct child
 TEXT NODES, never its `aria-label`. The accessible name is irrelevant to the old gate. Verified: the
-trigger's accessible name comes from `aria-label={triggerLabel}` (= `taskDedupTitle`), while its rendered
-text child is a *different* string.
+trigger's accessible name comes from `aria-label={triggerLabel}`, while its rendered text child is a
+*different* string. ★ `triggerLabel` is `taskDedupTitle` only when `triggerQualifier` is absent — with
+one it is `` `${taskDedupTitle} – ${triggerQualifier}` ``. Immaterial here (the failing test passes no
+qualifier), but the equality is not unconditional.
 
 ★★★ **This entry's hedge was FALSE.** It said "The trigger renders no text child, so it is not proven
 that it is what matched". It does render one: `use-tasks-dedup.tsx` renders
@@ -2022,6 +2037,9 @@ that it is what matched". It does render one: `use-tasks-dedup.tsx` renders
 phase === "applying"`. Modal absent **and** trigger disabled ⇒ the phase was **`"thinking"`** ⇒ the
 trigger's text child read "Claude is looking for duplicate tasks…" ⇒ exactly one node matched ⇒
 `getByText` **succeeded**. Nothing opened and closed; the gate simply matched the trigger.
+★ The single-match step is not a *unique* deduction — the `idle` phase also yields exactly one match
+("Deduplicate & unify"). It does not need to be: the decisive point below is that the modal being OPEN
+yields several, which is the case the gate had to survive and could not.
 
 ★★ **Decisive.** With the modal OPEN, `/dup/i` would have matched **four** nodes in this test's own
 fixture — the trigger's text, the modal's `<h2>` (`taskDedupTitle`), the intro `<p>`
@@ -2077,6 +2095,27 @@ nothing.
 immediately — **cannot recur**, because that gate is gone. What stays open is the mechanism: a plausible
 macrotask-ordering candidate that has never been reproduced. Close this only on a reproduction or on a
 decision that it is unfalsifiable and not worth chasing.
+
+★★ **BOUNDED AMPLIFICATION RAN AND DID NOT REPRODUCE — the first negative evidence either flake has.**
+Six full-suite configurations on 2026-08-04, against a branch already carrying §39's fix: three
+`--no-isolate` runs (hypothesis: cross-file async leakage) and three `--sequence.shuffle` runs at seeds
+1 / 2 / 3 (hypothesis: file-neighbour ordering). **`use-tasks-dedup.test.tsx` failed in none of the six,
+and neither did `timelog-panel.test.tsx`.** Record what that is and is not worth:
+
+- It is **not** a clean bill of health. `--no-isolate` produced 22–82 unrelated failures per run, so
+  those three runs say little about anything — most of this suite is not written to share a module
+  registry. The shuffle runs are the informative ones, and they were quieter (4 / 4 / 5 failures).
+- ★ Seeds 2 and 3 each also logged **16 unhandled errors, all of them
+  `[vitest-pool]: Failed to start forks worker … Timeout waiting for worker to respond`** — this
+  machine saturating after six back-to-back full suites, with 16 files never running (768 of 784).
+  Those are **not** the §72 signature and must not be counted as one. ★★ But they make the negative
+  slightly *stronger*, not weaker: under load heavy enough to time out worker startup, neither flaky
+  test failed.
+- ★★ **No `ReferenceError: window is not defined` appeared in any of the six runs** — consistent with
+  §72 being fixed, though six runs of an intermittent fault prove nothing on their own.
+- ★ Reproduce: `npx vitest run --sequence.shuffle --sequence.seed=<n> --reporter=dot`. A seed that
+  reproduces either flake is the single most valuable artifact this hunt could produce; seeds 1–3 are
+  now known **not** to.
 
 ---
 
@@ -3199,8 +3238,8 @@ this branch.
 **Scope:** this affects **any** test in this repo that would inspect DOM or mock state from
 `onTestFailed` or `onTestFinished`, because the setup file's `cleanup()` always wins the race.
 `onTestFailed` was previously unused anywhere in `src` or `e2e` — these captures are the first use, and
-the first time the ordering bit. ★ The two mentions a grep finds today are the warning comments those
-two test files now carry, not calls.
+the first time the ordering bit. ★ The three mentions a grep finds today (two in `timelog-panel.test.tsx`,
+one in `use-tasks-dedup.test.tsx`) are the warning comments those files now carry, not calls.
 
 ★ Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.
 

@@ -356,9 +356,10 @@ describe("TimelogPanel", () => {
       // Raising the budget again buys nothing; 5s -> 15s already bought nothing.
       // The cause is a click swallowed by the button's `disabled` state when the
       // settings commit loses the race described above; the enabled-wait closes it.
-      // ★ These two 15s budgets sum past the 20s testTimeout, so a DOUBLE failure
-      //   reports "timed out in 20000ms" rather than naming a half. Only one half
-      //   can burn its budget first, so a real failure still names itself.
+      // ★ These two 15s budgets sum past the 20s testTimeout. A first-half FAILURE
+      //   throws at ~15s, inside testTimeout, and DOES name its half. The case that
+      //   reports a bare "timed out in 20000ms" with no half named is a first half
+      //   that is SLOW BUT PASSING followed by a second-half failure.
       // See docs/open-followups.md §39.
       // ★ Two assertions, not one, so a CI failure says WHICH half broke.
       await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled(), { timeout: 15000 });
