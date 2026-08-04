@@ -130,13 +130,13 @@ unit-tests:
 #
 # ★★ `needs` includes `unit-tests` ON PURPOSE. No other quality-stage job lists
 # `unit-tests` in its own `needs` — each needs at most `install` (lint,
-# typecheck, dependency-audit, dependency-audit-full, duplication-gate) or
-# nothing at all (semgrep, file-size-ratchet, agents-symbol-check) — so absent
-# this dependency GitLab would run this job concurrently with `unit-tests`,
-# meaning two full vitest processes contending for the runner's CPU at once.
-# That is the same class of resource contention as the full-suite parallel-load
-# worker starvation already documented for the CPU-heavy fast-check property
-# suites (see the `test:coverage` note above; open-followups §39/§51/§73/§74).
+# typecheck, dependency-audit, dependency-audit-full, duplication-gate,
+# unit-tests-shuffled-random) or nothing at all (semgrep, file-size-ratchet,
+# agents-symbol-check) — so absent this dependency GitLab would run this job
+# concurrently with `unit-tests`, meaning two full vitest processes contending
+# for the runner's CPU at once. That is the same class of resource contention
+# as the full-suite parallel-load worker starvation (see AGENTS.md's
+# `npm run test:run` note, and open-followups §51's amplification note).
 # Serialising costs pipeline wall-clock and buys back determinism.
 #
 # ★ No coverage here: `unit-tests` owns the floors, and instrumenting a second
@@ -144,7 +144,10 @@ unit-tests:
 # ★ `--reporter=basic` does NOT exist in vitest 4.1.8 (errors at startup).
 unit-tests-shuffled:
   stage: quality
-  needs: [install, unit-tests]
+  needs:
+    - install
+    - job: unit-tests
+      artifacts: false
   script:
     - npm run test:run -- --sequence.shuffle --sequence.seed=1 --reporter=dot
 
@@ -167,7 +170,7 @@ unit-tests-shuffled-random:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   allow_failure: true
   script:
-    - echo "shuffle seed=$CI_PIPELINE_ID  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID)"
+    - 'echo "shuffle seed=$CI_PIPELINE_ID  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID)"'
     - npm run test:run -- --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID --reporter=dot
 
 # File-size ratchet — BLOCKING as of Phase 4 (was warn-only allow_failure).
