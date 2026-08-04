@@ -117,6 +117,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★ near-zero production impact, the win is a job that stops lying |
 | 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
 | 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
+| 75 | Two test files fail under a shuffled file order | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`); verified pre-existing on `main`; not a live CI failure |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3267,6 +3268,42 @@ works precisely because the button carries a guard the handler does not. **Read 
 
 ★ The cheap fix is to lift `isMisconfigured` into both handler guards, making the button's `disabled`
 a presentation of the handler's contract rather than a second, stricter contract.
+
+---
+
+## 75. Two test files fail under a shuffled file order — and there is a REPRODUCING SEED — open
+
+★★ **This is the artifact the §39/§51 flake hunt was looking for, attached to different tests.** Both
+of those flakes are load-sensitive and have never reproduced on demand; this one reproduces
+deterministically:
+
+```bash
+npx vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot
+```
+
+**4 tests fail across 2 files** — `modern-shell.test.tsx` (3) and `use-storage-backend.test.tsx` (1,
+"confirm=true writes current workspace to new backend + commits config + shows info toast", where
+`expect(targetSave).toHaveBeenCalledTimes(1)` gets 0). Seeds 2 and 3 also fail, 4 and 5 tests
+respectively.
+
+★★★ **PRE-EXISTING, and verified so rather than assumed.** `use-storage-backend.ts` and its test were
+both modified by the §72 work, which makes "did we break this?" the first question. Ruled out by
+running the SAME seed on `main`: identical result — 4 failed / 2 files, the same named test. The §72
+guard adds no module-level state (`mountedRef` is per-hook-instance via `useRef`), and the failing
+assertion is a `backend.save` call count, upstream of every emitter.
+
+★ Note what `--sequence.shuffle` does and does not shuffle: **files**, not tests within a file
+(`sequence.shuffle.tests` defaults false). Both files pass in isolation, so the contamination is
+cross-file — module state surviving into the next file, not intra-file ordering.
+
+★ Scope this honestly: nothing says CI shuffles, so this is **not** a live CI failure and **not** an
+explanation for §39 or §51 (neither of those two files failed under any of the six amplification
+configurations). It is a latent test-isolation defect that a deterministic seed makes cheap to chase —
+which is rare enough in this register to be worth its own entry.
+
+★★ **Do not confuse this with `--no-isolate`.** Those runs produced 22–82 failures each and prove
+nothing: most of this suite is not written to share a module registry, so removing isolation is
+expected to fail broadly. The shuffle result is the informative one precisely because isolation stays on.
 
 ---
 
