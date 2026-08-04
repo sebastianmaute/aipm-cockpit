@@ -267,12 +267,16 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
-      // ★★★ Wait for ENABLED, not merely present. The button renders (it is gated
-      // only on `fetchedAt`) while `isMisconfigured` is still true, because
-      // useSettings commits the stored config behind an `await` that act() does
-      // not drain. React drops onClick on a disabled <button>, so clicking here
-      // is a SILENT no-op that nothing retries — the toast then never arrives and
-      // waitFor burns its whole budget. That is §39. See docs/open-followups.md §39.
+      // ★★★ Wait for ENABLED, not merely present. The button's EXISTENCE is gated
+      // only on `fetchedAt`, so it renders while `isMisconfigured` is still true —
+      // useSettings commits the stored config behind an `await` that act() does not
+      // drain, and a probe placed right after render() confirms the button IS
+      // disabled at first commit. ★★ It is a RACE, not a certainty: `findByRole`'s
+      // own await usually drains that commit before the first successful match,
+      // which is why this passes locally — under CI load it sometimes does not.
+      // React drops onClick on a disabled <button>, so the click is then a SILENT
+      // no-op that nothing retries: the toast never arrives and waitFor burns its
+      // whole budget. See docs/open-followups.md §39.
       await waitFor(() => expect(btn).toBeEnabled());
       fireEvent.click(btn);
       // Re-fetches the PERSISTED scope (links.projectIds = [9]), not the live
@@ -297,12 +301,16 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       const refreshBtn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
-      // ★★★ Wait for ENABLED, not merely present. The button renders (it is gated
-      // only on `fetchedAt`) while `isMisconfigured` is still true, because
-      // useSettings commits the stored config behind an `await` that act() does
-      // not drain. React drops onClick on a disabled <button>, so clicking here
-      // is a SILENT no-op that nothing retries — the toast then never arrives and
-      // waitFor burns its whole budget. That is §39. See docs/open-followups.md §39.
+      // ★★★ Wait for ENABLED, not merely present. The button's EXISTENCE is gated
+      // only on `fetchedAt`, so it renders while `isMisconfigured` is still true —
+      // useSettings commits the stored config behind an `await` that act() does not
+      // drain, and a probe placed right after render() confirms the button IS
+      // disabled at first commit. ★★ It is a RACE, not a certainty: `findByRole`'s
+      // own await usually drains that commit before the first successful match,
+      // which is why this passes locally — under CI load it sometimes does not.
+      // React drops onClick on a disabled <button>, so the click is then a SILENT
+      // no-op that nothing retries: the toast never arrives and waitFor burns its
+      // whole budget. See docs/open-followups.md §39.
       await waitFor(() => expect(refreshBtn).toBeEnabled());
       fireEvent.click(refreshBtn);
       // ★★★ This assertion failed in CI eight times and NEVER locally. The old
@@ -310,8 +318,12 @@ describe("TimelogPanel", () => {
       // three failures ran under this 15s budget and consumed 15,093 / 15,098 /
       // 15,117 ms, a 24 ms spread at the ceiling, i.e. the toast never arrives.
       // Raising the budget again buys nothing; 5s -> 15s already bought nothing.
-      // The cause is a click swallowed by the button's `disabled` state, which
-      // the wait above now closes. See docs/open-followups.md §39.
+      // The cause is a click swallowed by the button's `disabled` state when the
+      // settings commit loses the race described above; the enabled-wait closes it.
+      // ★ These two 15s budgets sum past the 20s testTimeout, so a DOUBLE failure
+      //   reports "timed out in 20000ms" rather than naming a half. Only one half
+      //   can burn its budget first, so a real failure still names itself.
+      // See docs/open-followups.md §39.
       // ★ Two assertions, not one, so a CI failure says WHICH half broke.
       await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled(), { timeout: 15000 });
       await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)), {
