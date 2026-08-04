@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModernShell } from "./modern-shell";
 
 function setup(over: Partial<React.ComponentProps<typeof ModernShell>> = {}) {
@@ -133,18 +133,39 @@ describe("ModernShell cross-view focus (#48)", () => {
 });
 
 describe("ModernShell mobile drawer (#25)", () => {
+  // ★★★ MUST be restorable. This used to be a bare `window.matchMedia = vi.fn()`
+  //     assignment, which no mock-lifecycle call can undo: `clearAllMocks` and
+  //     `restoreAllMocks` do nothing to a plain property write, and jsdom ships
+  //     no `matchMedia` for anything to restore it to. So after the first test
+  //     here ran, EVERY later test in the file saw a narrow viewport, ModernShell
+  //     rendered the mobile drawer instead of the in-flow sidebar, and the
+  //     sidebar's buttons ("RAID", "Collapse sidebar", "Expand sidebar") were
+  //     simply absent. Invisible in file order — the drawer describe is last —
+  //     and reproduced by `--sequence.shuffle --sequence.seed=1`, which runs it
+  //     first. See open-followups §75.
   function stubViewport(matches: boolean) {
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((query: string) => ({
+        matches,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
   }
+
+  // Restores `matchMedia` to its pre-stub state (absent, under jsdom), so the
+  // viewport cannot leak into another test. Do NOT replace this with a manual
+  // re-assignment — `window.matchMedia = undefined` is a type error and leaves
+  // the property defined-but-undefined rather than absent.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it("opens an off-canvas dialog drawer from the hamburger on a narrow viewport", () => {
     stubViewport(true); // matches SIDEBAR_NARROW_QUERY → mobile
