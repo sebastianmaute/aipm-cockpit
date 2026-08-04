@@ -2717,8 +2717,8 @@ and reserve a number for the heading, where one is unavoidable. When you must ch
 
 **A user READS this one — it belongs with the surfaces that were fixed, not with the persisted figures:**
 
-- `use-portfolio-health.ts:142` sets `completionPercent: model.progress.percent`, and
-  `portfolio-health-panel.tsx:164` renders it as `{row.completionPercent}%` in the Turso
+- `use-portfolio-health.ts` sets `completionPercent: model.progress.percent`, and
+  `portfolio-health-panel.tsx` renders that `completionPercent` as a percentage in the Turso
   Portfolio-health table. An all-cancelled project reads "0%" in a table a portfolio owner scans
   across projects — the same misreading, on the surface where cross-project comparison happens.
 
@@ -2838,7 +2838,8 @@ by side inside ONE card, "No active scope / All cancelled (2)" and "R 0 · A 0 �
 ★★ This is the cancelled-work batch's own premise, violated one tile away from where it was applied.
 The whole reason `task-row.tsx` stopped showing the delivered green ✓ for a cancelled row is that
 cancelled work must not wear the healthy/delivered signal — and the AGGREGATE of those same rows
-still does. The only disclosure is an 11px caption under the tiles.
+still does. The only disclosure is the `text-xs` caption under the tiles
+(`dashboardProgressCaption`).
 
 ★ The PARTIAL case is worse in kind, not better: 8 open + 2 cancelled shows two green counts mixed
 into genuinely on-track work, with nothing distinguishing them.
@@ -2871,9 +2872,17 @@ why nothing ever caught it — but ripgrep and grep classify the file as BINARY 
 a reviewer during the §64 work: the file holds `completionPercent`, one of the user-read surfaces
 §64 depends on, and the grep that should have found it returned nothing usable.
 
-★ Fix is one byte (NUL → a normal separator such as `|`). The reason to bother is not the runtime
-behaviour, it is that every future `grep -rn` over `src/app` is quietly incomplete until it is done.
-★ Worth a one-off scan for other NUL bytes in tracked source at the same time.
+★ Fix is one byte. ★ Pick the replacement deliberately: NUL is the one separator that CANNOT occur
+in a URL or a token, so a printable stand-in (`|`, a space) is merely UNLIKELY to collide rather
+than unable to. That is fine here — `configKey` is only a `useEffect` dep and is never sent anywhere
+— but do not carry the swap to a key that is persisted or transmitted without re-checking it.
+★ The reason to bother is not the runtime behaviour, it is that every future `grep -rn` over
+`src/app` is quietly incomplete until it is done. ★ The repo-wide scan is DONE (2026-08-04): this is
+the only tracked **`.ts`/`.tsx`** file containing a NUL, so the sweep half of this entry is closed.
+★★ Say `.ts`/`.tsx`, not "under `src`" — `src/app/favicon.ico` is a tracked binary under `src` and
+contains NULs legitimately, so the looser phrasing is FALSE. It was written that way for one command
+and the sweep that was supposed to confirm it disproved it instead. Any future sweep must filter by
+extension, or it reports binaries as findings.
 
 ---
 

@@ -3486,7 +3486,7 @@ export const de: Record<TranslationKey, string> = {
   contactPersonsTip:
     "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben außer den abgebrochenen. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
+  dashboardKpiCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
   dashboardKpiOverdueHint: "Aufgaben, die überfällig und noch nicht erledigt sind. Möglichst auf null senken.",
   dashboardKpiOpenRaidHint: "Offene Risiken, Annahmen, Probleme und Abhängigkeiten, die noch Aufmerksamkeit brauchen.",
   dashboardRagHint: "Rot / Gelb / Grün: Anzahl der Projektbereiche, die vom Kurs abweichen, gefährdet oder gesund sind.",

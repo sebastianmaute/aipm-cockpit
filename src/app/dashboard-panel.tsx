@@ -501,8 +501,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
               is suppressed outright when there is no active scope. It renders
               directly beneath the completion tile, so an all-cancelled project
               would otherwise show a flat 0% trajectory under a tile reading
-              "No active scope": the same one-screen disagreement that the
-              at-a-glance KPI card had to be fixed for, one card over.
+              "No active scope": the same one-screen disagreement the
+              at-a-glance KPI card had to be fixed for. ★ "Beneath" is reading
+              order, not adjacency — this is a `column-fill: balance` multicolumn
+              flow, so which cards sit next to which depends on the viewport and
+              nothing here can promise a neighbour.
               ★ The snapshot-fed series does NOT go to
               zero on its own — `fromSnapshots` reads each record's stored
               `pctComplete` and never consults `inScope` — so this is a real
