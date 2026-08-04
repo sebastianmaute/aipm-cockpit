@@ -252,6 +252,27 @@ describe("TimelogPanel", () => {
   });
 
   describe("Refresh bookings", () => {
+    // §39 failure capture — read-only, failure path only. Eight CI failures have
+    // produced only frequency data; this makes the ninth readable.
+    // ★★★ NOT `onTestFailed`, which is UNUSABLE here — measured, not assumed: it
+    // runs AFTER the file-level `afterEach` (`vi.clearAllMocks()`, line ~213) AND
+    // after RTL's `cleanup()` in vitest.setup.ts, so every field reads zeroed.
+    // The `onTestFailed` form of this capture printed
+    // `{"fetchCalls":0,"toastCalls":[],"refreshButtonPresent":false,...}` on a run
+    // where the fetch HAD been called and the error toast HAD fired — i.e. it would
+    // have falsely CONFIRMED "the click was swallowed", which is worse than no
+    // capture at all. A describe-scoped afterEach is registered LAST and therefore
+    // runs FIRST (LIFO), while the mocks and the DOM are still live.
+    // ★ Still failure-path only: it returns immediately unless the test failed, and
+    //   it neither awaits nor flushes — it runs after the test body has returned,
+    //   so there is no scheduling left to perturb.
+    let captureOnFailure: (() => void) | undefined;
+    afterEach((ctx) => {
+      const capture = captureOnFailure;
+      captureOnFailure = undefined;
+      if (ctx.task.result?.state === "fail") capture?.();
+    });
+
     it("shows a Refresh button once bookings are read and re-fetches the persisted scope", async () => {
       enableTimelog();
       const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
@@ -267,6 +288,17 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      // ★★★ Wait for ENABLED, not merely present. The button's EXISTENCE is gated
+      // only on `fetchedAt`, so it renders while `isMisconfigured` is still true —
+      // useSettings commits the stored config behind an `await` that act() does not
+      // drain, and a probe placed right after render() confirms the button IS
+      // disabled at first commit. ★★ It is a RACE, not a certainty: `findByRole`'s
+      // own await usually drains that commit before the first successful match,
+      // which is why this passes locally — under CI load it sometimes does not.
+      // React drops onClick on a disabled <button>, so the click is then a SILENT
+      // no-op that nothing retries: the toast never arrives and waitFor burns its
+      // whole budget. See docs/open-followups.md §39.
+      await waitFor(() => expect(btn).toBeEnabled());
       fireEvent.click(btn);
       // Re-fetches the PERSISTED scope (links.projectIds = [9]), not the live
       // picker — so the exact id list must be forwarded to the fetch.
@@ -289,16 +321,48 @@ describe("TimelogPanel", () => {
         </>,
         { wrapper },
       );
-      fireEvent.click(await screen.findByRole("button", { name: t("en-US", "timelogRefresh") }));
-      // ★★ This one assertion gets an explicit timeout above the global
-      // `asyncUtilTimeout: 5000` (vitest.setup.ts). It has failed in CI five
-      // times — 0.205.0, 0.208.0, and twice on the 0.209.0 MR plus once on main
-      // after that merge — always THIS test, always at ~5.1s, always with the
-      // other 765 files green and the full suite passing locally. That profile
-      // is worker starvation under full parallel load, not a race: a real race
-      // fails deterministically rather than a hair over the limit. `testTimeout`
-      // is 20s, so a genuinely broken expectation still fails the test well
-      // inside its own budget — this only buys wall-clock, not silence.
+      // The fix on this branch (wait for ENABLED before clicking) should prevent a
+      // recurrence — if it recurs anyway, these four values say which assumption
+      // broke. `fetchCalls: 0` is the direct evidence of a swallowed click.
+      captureOnFailure = () => {
+        const btn = screen.queryByRole("button", { name: t("en-US", "timelogRefresh") });
+        console.error(
+          "[§39 capture]",
+          JSON.stringify({
+            fetchCalls: fetchBookingsForProjects.mock.calls.length,
+            toastCalls: showToast.mock.calls.map((c) => c[0]),
+            refreshButtonPresent: !!btn,
+            refreshButtonDisabled: btn?.hasAttribute("disabled") ?? null,
+          }),
+        );
+      };
+      const refreshBtn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      // ★★★ Wait for ENABLED, not merely present. The button's EXISTENCE is gated
+      // only on `fetchedAt`, so it renders while `isMisconfigured` is still true —
+      // useSettings commits the stored config behind an `await` that act() does not
+      // drain, and a probe placed right after render() confirms the button IS
+      // disabled at first commit. ★★ It is a RACE, not a certainty: `findByRole`'s
+      // own await usually drains that commit before the first successful match,
+      // which is why this passes locally — under CI load it sometimes does not.
+      // React drops onClick on a disabled <button>, so the click is then a SILENT
+      // no-op that nothing retries: the toast never arrives and waitFor burns its
+      // whole budget. See docs/open-followups.md §39.
+      await waitFor(() => expect(refreshBtn).toBeEnabled());
+      fireEvent.click(refreshBtn);
+      // ★★★ This assertion failed in CI eight times and NEVER locally. The old
+      // diagnosis in this comment was worker starvation; that is DISPROVED —
+      // three failures ran under this 15s budget and consumed 15,093 / 15,098 /
+      // 15,117 ms, a 24 ms spread at the ceiling, i.e. the toast never arrives.
+      // Raising the budget again buys nothing; 5s -> 15s already bought nothing.
+      // The cause is a click swallowed by the button's `disabled` state when the
+      // settings commit loses the race described above; the enabled-wait closes it.
+      // ★ These two 15s budgets sum past the 20s testTimeout. A first-half FAILURE
+      //   throws at ~15s, inside testTimeout, and DOES name its half. The case that
+      //   reports a bare "timed out in 20000ms" with no half named is a first half
+      //   that is SLOW BUT PASSING followed by a second-half failure.
+      // See docs/open-followups.md §39.
+      // ★ Two assertions, not one, so a CI failure says WHICH half broke.
+      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled(), { timeout: 15000 });
       await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)), {
         timeout: 15000,
       });

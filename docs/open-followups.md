@@ -81,7 +81,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
 | 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
-| 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — needs a real diagnosis, NOT a timeout |
+| 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — mechanism CANDIDATE (a click swallowed by the button's `disabled` state): precondition proved locally, **causation unreproduced**; fix landed in both affected tests |
 | 40 | `text-ui-dark-blue` with no mode-appropriate companion — **40 sites** | pre-existing, counted 0.211.0 | M–L | open — needs its own slice |
 | 41 | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open — a11y/visual |
 | 42 | `CalendarSyncControls` push/pull buttons carry unqualified names | pre-existing, found 0.211.0 | S | open — WCAG 2.4.6 |
@@ -93,7 +93,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
 | 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
 | 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
-| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open — 2nd flaky test; ★ matcher hardened post-0.212.0, mechanism STILL NOT established |
+| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open, narrower — the recorded symptom cannot recur; ★★ two of this entry's OWN claims were false and are corrected; ★★★ a future failure wears §39's clothes — match on duration, not message |
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
 | 53 | ESLint 10 is blocked upstream by `eslint-plugin-react` | 0.211.2 | — | open — **not actionable today**; a dated MEASUREMENT, re-measure before acting |
 | 54 | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | open — **user-visible in production**, no gate sees it |
@@ -105,10 +105,20 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
+| 63 | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED in 0.213.0** — split after all; `gantt.tsx` is 715 lines and its baseline entry is gone |
 | 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
 | 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
 | 66 | The R/A/G tile counts a cancelled task GREEN, one tile from the fix | cancelled-work presentation | M | open — `computeGroupHealth` is per-task and Green-for-finished; not presentation-only |
 | 67 | A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps | pre-existing (`909118b2`) | XS | open — benign at runtime, silently skips the file in every grep |
+| 68 | Allocation rows' `border-t` sits on the `<tr>`, where it has never painted | 0.214.0 (Lostetter) | S–M | open — **VISUAL change across six panels, needs sign-off**; 6 of the 8 sites unconfirmed |
+| 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
+| 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
+| 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, the same shape survives in `refreshBackendStatus`/`applyWorkspace` (surveyed, left); ★ near-zero production impact, the win is a job that stops lying |
+| 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
+| 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
+| 75 | Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage) | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`), and each file reproduces ALONE; verified pre-existing on `main`; not a live CI failure |
+| 76 | Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount | pre-existing, found post-0.214.0 | S | open — `use-scheduled-jobs.ts` + `use-operating-guides.ts`; one-line fix each, the same one §72 already made |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -1256,7 +1266,7 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
-## 39. The timelog partial-failure toast has now failed CI eight times, and raising its timeout did not fix it — open, needs a real diagnosis
+## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed
 
 `timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
@@ -1264,8 +1274,10 @@ locally: 0.205.0 · 0.208.0 · twice on the 0.209.0 MR · once on main after tha
 **red**) · the 0.210.0 MR pipeline #5305 · and TWO on 2026-08-02 — the weekly `schedule` pipeline #5403
 (00:25) and the post-merge main pipeline #5418 (19:38) for the 0.211.1 MR !338, which again left main red.
 
-★★★ **THE "ONE DATA POINT" CAVEAT AT THE BOTTOM OF THIS ENTRY IS NOW CLOSED — the toast never arrives.**
-Three failures have now run under the 15 s budget, and they consumed:
+★★★ **THE "WORKER STARVATION UNDER FULL PARALLEL LOAD" DIAGNOSIS IS DISPROVED.** It was what justified
+raising this assertion's budget from the global `asyncUtilTimeout: 5000` to an explicit `timeout: 15000`
+(!335). The failure then recurred **with that mitigation in place**. Three failures have now run under
+the 15 s budget and consumed:
 
 | run | duration |
 |---|---|
@@ -1273,39 +1285,66 @@ Three failures have now run under the 15 s budget, and they consumed:
 | #5403 (weekly schedule, 2026-08-02) | **15,098 ms** |
 | #5418 (main post-merge, 2026-08-02) | **15,117 ms** |
 
-A spread of **24 ms across three runs** at a 15,000 ms ceiling. If the toast were merely arriving slowly
-under load, the durations would scatter — some runs passing at 6 s or 11 s, failures landing at varied
-points past 15 s. Instead all three consume the entire budget to within 0.16%. That is the timeout
-expiring on a toast that is never coming, on those runs. Stop treating this as a performance problem.
-★ What is still NOT established: why it is reachable on most runs and not these. The next step remains
-the one below — determine whether `showToast("error", …)` is reachable on that path at all under CI
-conditions — but it can now be pursued as a logic/race question rather than a timing one.
+A spread of **24 ms across three runs** at a 15,000 ms ceiling — 0.16%. A toast arriving slowly would
+scatter; a toast that never arrives pins at the ceiling. **Do NOT raise the timeout again**: 5 s → 15 s
+moved the failure point and bought nothing, and 30 s would cost another 15 s of CI wall-clock per
+failure.
 
-★★★ **The recorded diagnosis is now in doubt, and the obvious next step is wrong.** The in-test comment
-reasons from "always at ~5.1s ... a hair over the limit" to "worker starvation under full parallel load,
-not a race", and !335 acted on that by giving this one assertion an explicit `timeout: 15000` above the
-global `asyncUtilTimeout: 5000`. The 6th failure happened **with that mitigation in place** and burned
-**15,093 ms** — the whole budget, again a hair over. The file took 18,488 ms.
+**The mechanism CANDIDATE.** The Refresh **button** carries a fifth `disabled` condition the **handler** does not
+(that asymmetry is §74, recorded separately as a product-code finding):
 
-Two budgets, 3× apart, both consumed almost exactly: that is the signature of the toast **never
-arriving** in the failing run, not of it arriving slowly. Pure starvation would produce a spread — some
-runs passing at 6s or 11s under a 15s budget. So:
+- handler `handleRefreshBookings` guards `isPopout || sync.busy || confirming || !canRefresh`;
+- the button in `timelog-panel-toolbar.tsx` adds **`isMisconfigured`** = `!cfg.enabled || !cfg.host ||
+  !cfg.apiToken`.
 
-- **Do NOT raise the timeout again.** 5s → 15s moved the failure point and bought nothing. 30s would
-  move it again and cost another 15s of CI wall-clock per failure.
-- The next step is to find out whether `showToast("error", …)` is reachable at all on that path under
-  CI conditions — e.g. an unresolved promise in the mocked `useTimelogSync`, a lost `act()` flush, or a
-  partial-failure branch that only fires when a timer wins a race it usually loses.
-- ~~★ Honest limit of this inference: one data point at 15s. The toast could genuinely arrive at 15.5s.~~
-  **SUPERSEDED 2026-08-02 — see the three-run table above.** Two further failures at 15,098 ms and
-  15,117 ms put the spread at 24 ms across three runs, which rules out "arrives at 15.5 s": a value that
-  close to the ceiling three times running is the ceiling, not the arrival. What *is* established is
-  that the mitigation did not work and the reasoning behind it no longer fits the evidence.
+`useSettings` starts at defaults — `defaultTimelogConfig.enabled === false` — and commits the stored
+config **behind an `await migratePlaintextSecrets(...)`**, which act-wrapped `render()` does not drain.
+So at first commit `isMisconfigured` is true and the button is disabled. The button's *existence* is
+gated only on `fetchedAt` (a static truthy mock), so `findByRole` matches it **immediately** and offers
+zero protection against that. React drops `onClick` on a disabled `<button>`, so the click is a **silent
+no-op that nothing retries** — the toast never arrives and `waitFor` burns its whole budget, which is
+exactly the 15,09x ms signature above.
 
-★ Until diagnosed, the operational answer is to **retry the job**, not to edit the test. It is a known
-flake with a known signature, and it has never failed locally.
+**PROVED locally:** a probe asserting `toBeDisabled()` immediately after `render()` passes, and flipping
+it to `toBeEnabled()` fails. The button IS disabled at first commit.
+★ That flip is the NEGATION of the assertion, not a mutation of the implementation — it shows the probe
+is non-vacuous, it does not show the disabled state CAUSES the CI failure. Do not cite it as a mutation
+check; the causal step is the unproved one below.
+
+★★ **NOT proved — state this precisely.** That the button is *still* disabled at click time in the CI
+failures. It cannot be deterministic: if the click were always swallowed the tests would fail on every
+local run, and they never have. `findByRole`'s own await usually drains the settings commit before the
+first successful match. This is a **race at that boundary**, and the local probe measured a different
+moment than the one that fails.
+
+**The fix:** wait for the ENABLED state before clicking —
+`await waitFor(() => expect(btn).toBeEnabled())` — applied to **both** affected tests: the toast test and
+its structurally identical sibling ("shows a Refresh button once bookings are read and re-fetches the
+persisted scope"). The record had attributed every failure to the toast test; both had the same exposure.
+No timeout VALUE was changed — nothing raised, nothing lowered.
+
+★ The toast assertion was also split in two (`fetchBookingsForProjects` called, then `showToast`) so a
+future failure says which half broke. ★★ **But be precise about what that did to the budget**, in an
+entry whose operative rule is "do not raise the timeout": no value moved, yet the assertion's worst case
+went from one 15 s wait to two, i.e. **15 s → 30 s nominal**. That sum exceeds the 20 s `testTimeout`,
+so the excess is unreachable — and the practical consequence is not the one an earlier draft of this
+paragraph claimed. A first-half FAILURE throws at ~15 s, inside `testTimeout`, and **does** name its
+half. The case that reports a bare "timed out in 20000 ms" with no half named is a first half that is
+**slow but passing** followed by a second-half failure.
+
+**State: mechanism CANDIDATE, fix landed, closure pending CI confirmation.** ★★ The precondition is
+proved and the causation is not — do not let the shorthand "diagnosed" harden into "established" in a
+later edit. The failure never
+reproduced locally, so a local green is the same signal it always gave and proves nothing. Do not mark
+this flatly CLOSED until a run of CI pipelines has passed with the fix in place.
+★ Meanwhile the operational answer is unchanged: **retry the job**, do not edit the test again.
+★ Six full-suite amplification configurations (3 × `--no-isolate`, 3 × `--sequence.shuffle` seeds 1–3)
+failed to reproduce this test on 2026-08-04 — see the amplification note in §51 for what that negative
+is and is not worth.
 ★ It was untracked here until 2026-07-30 despite six occurrences and one red main — which is why the
 frequency data lived only in a code comment and a memory file.
+★ Instrumentation: a failure capture now lives in that describe block. It is deliberately NOT
+`onTestFailed` — see §73 for why that form would have fabricated evidence *for this very hypothesis*.
 
 ---
 
@@ -1961,7 +2000,7 @@ a fixture that adds it before passes either way (the §48 trap, restated).
 
 ---
 
-## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, mechanism NOT established
+## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced
 
 `use-tasks-dedup.test.tsx` → "on confirm, removes the duplicate and records ONE undo entry" failed on
 the post-merge main pipeline **#5418** (2026-08-02, MR !338), in the same `unit-tests` job where §39
@@ -1976,29 +2015,74 @@ failed for the 8th time. It left main red.
   phase: the mocked `runDedupProposal` had not resolved.
 - Duration **38 ms** — this is NOT a timeout. `getByRole` fails immediately.
 
-**What is NOT established — and the two facts do not reconcile from the CI trace alone:**
-the line before the failure is `await waitFor(() => expect(screen.getByText(/dup/i)).toBeTruthy())`.
-For the reported error to be the one that surfaced, that `waitFor` must have SUCCEEDED — yet the modal
-was absent and the trigger still busy. Either something other than the modal satisfied `/dup/i`, or the
-preview opened and closed again between the two lines. **Do not write a fix based on either guess;
-reproduce it first.**
+**Two corrections to this entry's own recorded text — both were wrong, and both were load-bearing.**
+The line before the failure was
+`await waitFor(() => expect(screen.getByText(/dup/i)).toBeTruthy())`.
 
-★★ **The matcher is fragile independently of the root cause, and that is worth fixing regardless.**
-`/dup/i` is a substring of the trigger's own accessible name, "**Dedup**licate & unify tasks". The gate
-is therefore not a reliable barrier for the un-waited `getByRole` on the next line: it can be satisfied
-by something that does not imply the modal is open. Assert on a modal-specific node (`findByRole` for
-"merge selected") so the wait and the assumption are the same condition. ★ The trigger renders no text
-child, so it is not proven that it is what matched — this is a fragility argument, not the diagnosis.
+★★★ **This entry cited the wrong string.** It said `/dup/i` is a substring of the trigger's own
+**accessible name**, "**Dedup**licate & unify tasks". But `getByText` matches an element's direct child
+TEXT NODES, never its `aria-label`. The accessible name is irrelevant to the old gate. Verified: the
+trigger's accessible name comes from `aria-label={triggerLabel}`, while its rendered text child is a
+*different* string. ★ `triggerLabel` is `taskDedupTitle` only when `triggerQualifier` is absent — with
+one it is `` `${taskDedupTitle} – ${triggerQualifier}` ``. Immaterial here (the failing test passes no
+qualifier), but the equality is not unconditional.
 
-★★ **DONE post-0.212.0 — and it changes nothing about the diagnosis.** The test now awaits
-`findByRole("button", { name: /merge selected/i })`, so the wait and the assertion are one condition
-and `/dup/i` is gone. **The entry stays open**: this removed a way the test could mislead, not the
-reason it failed. If it fails again, the failure is now at least trustworthy — do not read the fix as
-a root cause, and still do not raise a timeout.
+★★★ **This entry's hedge was FALSE.** It said "The trigger renders no text child, so it is not proven
+that it is what matched". It does render one: `use-tasks-dedup.tsx` renders
+`{phase === "thinking" ? t(lang, "taskDedupThinking") : t(lang, "taskDedup")}` as the button's text child
+(the `SparklesIcon` beside it is `aria-hidden`). And **both** strings match `/dup/i` —
+`taskDedup: "Deduplicate & unify"` and `taskDedupThinking: "Claude is looking for duplicate tasks…"`
+(`i18n.ts`).
 
-★★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case directly above: 5 s → 15 s
-moved the failure point and bought nothing, and three subsequent failures then consumed the 15 s budget
-to within 24 ms. This one is not even timeout-shaped (38 ms).
+**The contradiction resolves, and the phase is deducible rather than guessed.** `disabled` is
+`phase === "thinking" || phase === "applying"`; the modal renders for `phase === "preview" ||
+phase === "applying"`. Modal absent **and** trigger disabled ⇒ the phase was **`"thinking"`** ⇒ the
+trigger's text child read "Claude is looking for duplicate tasks…" ⇒ exactly one node matched ⇒
+`getByText` **succeeded**. Nothing opened and closed; the gate simply matched the trigger.
+★ The single-match step is not a *unique* deduction — the `idle` phase also yields exactly one match
+("Deduplicate & unify"). It does not need to be: the decisive point below is that the modal being OPEN
+yields several, which is the case the gate had to survive and could not.
+
+★★ **Decisive.** With the modal OPEN, `/dup/i` would have matched **four** nodes in this test's own
+fixture — the trigger's text, the modal's `<h2>` (`taskDedupTitle`), the intro `<p>`
+(`taskDedupIntro`, "…possible **dup**licates…") and that test's rationale `<span>` (the string `"dup"`) —
+and `getByText` **throws** on multiple matches. So the old gate could *only ever* resolve while the modal
+was **closed**. It was structurally incapable of waiting for what the next line needed. ★ Three of those
+four are structural; the fourth is this test's rationale fixture, so the count is 3 for a sibling test
+with a rationale that does not contain "dup".
+
+**A mechanism candidate now exists — derived from source, NOT reproduced.** ★ Deliberately unquantified:
+an earlier revision said "confidence moderate (~70%)", a specific number with no stated method, sitting
+beside §39's honest qualitative hedge ("precondition proved, causation unreproduced") for a claim that
+at least HAS a local measurement. The unsourced percentage read as the more rigorous of the two while
+resting on strictly weaker evidence. Neither is reproduced; say so, and do not invent a number.
+With the wait a no-op, correctness rested on macrotask ordering: RTL's `asyncWrapper` disables the act
+environment during `findBy*` and opens exactly one `setTimeout(0)` window, while React 19 commits the
+`setPhase("preview")` DefaultLane update on a Scheduler macrotask. Two independently-scheduled
+macrotasks, order unspecified and load-sensitive. ★ **This is inference, not observation.** Do not
+promote it to "established" without a reproduction.
+
+★★ **DONE post-0.212.0 — and the matcher fix is NOT a root cause; this entry must not record it as
+one.** The test now awaits `findByRole("button", { name: /merge selected/i })`, so the wait and the
+assertion are one condition. That it *also* removes the ordering dependence — `findByRole` retries
+against the 5000 ms `asyncUtilTimeout` — is a **side effect of retrying, not its rationale**. The
+rationale was only ever "wait on the thing you are about to assert".
+
+★★★ **A FUTURE FAILURE WILL WEAR §39'S CLOTHES.** The error text is unchanged
+(`Unable to find … role "button" and name /merge selected/i`), but the duration flips from **38 ms** to
+**~5000 ms** — budget fully consumed, because `findByRole` retries where `getByRole` did not. §51's "not
+even timeout-shaped" defence therefore no longer applies to future failures, and the two entries can no
+longer be told apart by their message. **Match on duration, not message.**
+
+★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case: 5 s → 15 s moved the failure
+point and bought nothing, and three subsequent failures then consumed the 15 s budget to within 24 ms.
+
+★ **The same falsehood was in the source and is now fixed.** The comment above the fixed line in
+`use-tasks-dedup.test.tsx` said "`/dup/i` is a substring of the trigger's own **name**". It is the
+trigger's **text**; `getByText` never consults an accessible name. An earlier revision of this bullet
+deferred the correction on the grounds that "only `docs/open-followups.md` was in scope" — but the slice
+edits that very file to add the §51 failure capture, so the deferral did not hold (AGENTS.md: correct
+what you disprove, in the same commit). Corrected in the same commit that recorded it.
 
 ★ Two load-sensitive failures in one job, on a runner that also took 15.1 s to not-deliver a toast,
 suggests a shared environmental trigger rather than two unrelated test bugs. Worth investigating
@@ -2013,6 +2097,33 @@ environmental: the identical tree produced both outcomes.
 ★ Operational answer meanwhile, as with §39: **retry the job.** It is a known-flaky failure, not a
 signal to edit the test — and editing on a red-CI reflex is how §39 acquired a 15 s timeout that bought
 nothing.
+
+**State: still open, but for a narrower reason than when this entry was written.** The recorded symptom
+— a `getByText(/dup/i)` gate that resolves against the trigger and lets an un-waited `getByRole` miss
+immediately — **cannot recur**, because that gate is gone. What stays open is the mechanism: a plausible
+macrotask-ordering candidate that has never been reproduced. Close this only on a reproduction or on a
+decision that it is unfalsifiable and not worth chasing.
+
+★★ **BOUNDED AMPLIFICATION RAN AND DID NOT REPRODUCE — the first negative evidence either flake has.**
+Six full-suite configurations on 2026-08-04, against a branch already carrying §39's fix: three
+`--no-isolate` runs (hypothesis: cross-file async leakage) and three `--sequence.shuffle` runs at seeds
+1 / 2 / 3 (hypothesis: file-neighbour ordering). **`use-tasks-dedup.test.tsx` failed in none of the six,
+and neither did `timelog-panel.test.tsx`.** Record what that is and is not worth:
+
+- It is **not** a clean bill of health. `--no-isolate` produced 22–82 unrelated failures per run, so
+  those three runs say little about anything — most of this suite is not written to share a module
+  registry. The shuffle runs are the informative ones, and they were quieter (4 / 4 / 5 failures).
+- ★ Seeds 2 and 3 each also logged **16 unhandled errors, all of them
+  `[vitest-pool]: Failed to start forks worker … Timeout waiting for worker to respond`** — this
+  machine saturating after six back-to-back full suites, with 16 files never running (768 of 784).
+  Those are **not** the §72 signature and must not be counted as one. ★★ But they make the negative
+  slightly *stronger*, not weaker: under load heavy enough to time out worker startup, neither flaky
+  test failed.
+- ★★ **No `ReferenceError: window is not defined` appeared in any of the six runs** — consistent with
+  §72 being fixed, though six runs of an intermittent fault prove nothing on their own.
+- ★ Reproduce: `npx vitest run --sequence.shuffle --sequence.seed=<n> --reporter=dot`. A seed that
+  reproduces either flake is the single most valuable artifact this hunt could produce; seeds 1–3 are
+  now known **not** to.
 
 ---
 
@@ -2920,9 +3031,10 @@ and grows the box to 32px. A screenshot of the three-row repro shows exactly one
 one. So the allocation rows in every bucket table are, and always have been, separated by nothing but
 their cell padding.
 
-★ The Total-column work on `feat/ui-batch-five-fixes` (UNVERSIONED — 0.213.0 "McKillip" shipped
-before this branch and contains no Total column; §69 says the same about `branding.startLogo` and the
-two entries must not drift apart) hit this and **worked around it rather than fixing it**:
+★ The Total-column work on `feat/ui-batch-five-fixes` (unversioned when this entry was written; it has
+since shipped as **0.214.0 "Lostetter"** — 0.213.0 "McKillip" preceded it and contains no Total column;
+§69 says the same about `branding.startLogo` and the two entries must not drift apart) hit this and
+**worked around it rather than fixing it**:
 `BucketTotalRow` (`budget-panel-totals.tsx`) passes a `cellClass` of `border-t-2 border-line` to each
 of its cells and leaves the `<tr>` carrying only `font-medium`. A unit test pins that split, so the
 total row's rule cannot regress onto the `<tr>`. The allocation rows were deliberately left alone.
@@ -2945,7 +3057,8 @@ silent data-loss path rather than an error:
   `cleaned` gate over the same fields.
 
 ★★ This is not hypothetical — it bit on the FIRST addition. `branding.startLogo` (added on the
-`feat/ui-batch-five-fixes` branch; no version has been cut for it) was added to the sanitizer arm and
+`feat/ui-batch-five-fixes` branch, unversioned when this entry was written; it has since shipped as
+**0.214.0 "Lostetter"**) was added to the sanitizer arm and
 its presence check, and the `setBranding` gate was missed. Two failure
 modes followed, both silent: uploading ONLY a start logo wrote `branding: undefined`, so the upload
 appeared to do nothing; and removing the sidebar logo while a start logo existed **destroyed the start
@@ -3007,6 +3120,389 @@ holds only by convention — `bucketColumnTotals` takes the caller's own `cellBu
 precisely so the two agree, which works but relies on every future caller passing the same accessor.
 ★ A test pins the current agreement (`budget-panel.test.tsx`, the row-totals and total-row cases read
 budget and actual off their own labelled lines), so a refactor has something to land against.
+
+---
+
+## 72. ~~Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing~~ — CLOSED in this slice
+
+**The symptom is the point.** Vitest exits non-zero on an unhandled error even when the whole suite is
+green, so this failure mode does not look like a test failure at all. Captured from pipeline **#5446**
+on main `6dcee7eb` (the slice-1 merge, before 0.214.0) — a pipeline that failed while a pipeline on the
+SAME sha, **#5441**, passed:
+
+```
+Test Files  778 passed (778)
+     Tests  8792 passed (8792)
+     Errors  1 error
+ERROR: Job failed: exit code 1
+```
+
+★★★ **Do NOT grep such a trace for `FAIL` or `✗`** — there is nothing to find, and the reader concludes
+the runner broke. Search for `Errors  N error` / `Unhandled Errors`.
+
+**The trace:**
+
+```
+ReferenceError: window is not defined
+ ❯ resolveUpdatePriority  react-dom-client.development.js
+ ❯ requestUpdateLane
+ ❯ dispatchSetState
+ ❯ Object.onStorageOutcome  src/app/task-manager.tsx
+ ❯                          src/app/use-storage-backend.ts
+This error originated in "src/app/task-manager.editor-modal.test.tsx"
+```
+
+An async storage callback resolves AFTER the test file's jsdom environment has been torn down, so
+React's own `setState` path reaches for a `window` that no longer exists.
+
+★★ **THREE DISTINCT SIGNATURES NOW EXIST ON THIS ONE JOB.** Anyone diagnosing from "unit-tests failed"
+alone will conflate them, and two of the three have already been mistaken for each other:
+
+| entry | does a test fail? | duration | what the trace shows |
+|---|---|---|---|
+| §39 | yes | budget fully consumed (15,093 / 15,098 / 15,117 ms) | `waitFor` timed out — a toast that never arrives |
+| §51 | yes | 38 ms | `getByRole`/`findByRole` miss — the modal was not in the DOM |
+| §72 | **no — every test passes** | n/a | `Errors  1 error`, an unhandled `ReferenceError` after teardown |
+
+**The fix.** A hook-scope `mountedRef` in `use-storage-backend.ts` plus four emitters — `emitOutcome`,
+`emitToast`, `emitRegistryChange`, `emitStorageConfig` — as the single choke point every caller callback
+now goes through. **33 direct call sites** (8 outcome + 23 toast + 1 registry + 1 config) plus **3
+pass-through props** (2 × `showToast`, 1 × `setStorageConfig`) = 36 sites. Routing the pass-throughs
+through the emitters extends the guard into `useTursoProjectOps` (`use-storage-turso-ops.ts`) and
+`useFileProjectOps` (`use-storage-file-ops.ts`) at zero extra cost.
+
+★ Reproduce commands rather than line numbers, because a line number can be invalidated by the very
+commit that writes it:
+
+```bash
+grep -c 'args.showToast(' src/app/use-storage-backend.ts   # 1 = the emitToast body only
+grep -c 'emitToast(' src/app/use-storage-backend.ts        # 24 = 23 sites + 1 declaration
+```
+
+★★ The trap in sweeping this: the four emitter BODIES necessarily contain `args.<callback>(`, so a
+blanket find-and-replace rewrites them into infinite self-recursion. A residual sweep for
+`args.showToast|args.onStorageOutcome|args.onRegistryChange|args.setStorageConfig` correctly returns
+**four** lines — exactly the four emitter bodies — **not zero**. Any fifth hit is an unrouted call site.
+
+★★★ **It must be a MOUNTED ref, not the load effect's per-run `cancelled` flag.** The save effect's
+deps include the whole workspace, so it re-runs on every edit. A per-run flag would suppress the outcome
+of a save merely SUPERSEDED while still in flight — silently swallowing real save failures in
+production, with no banner and no toast. The load effect keeps its `cancelled`: a superseded *load*
+genuinely is irrelevant, a superseded *save* is not.
+
+★★ Pinned by **two** tests in `use-storage-backend.test.tsx`, and the second one is not redundant —
+record the evidence, because a future reader will try to delete it. Under a deliberately-wrong per-run
+implementation, the superseded-save test fails **while the unmount test still passes**. The unmount test
+alone cannot distinguish the two implementations.
+
+★ **Also required: the ref is re-set to `true` on mount, not merely cleared on unmount.** React
+StrictMode mounts, unmounts and remounts in development; a cleanup-only guard would leave every callback
+permanently suppressed after that first cycle.
+
+★★★ **THAT LINE IS UNTESTED, AND NOT FOR WANT OF TRYING — THE SUITE STRUCTURALLY CANNOT SEE IT.**
+Deleting `mountedRef.current = true` from the effect body leaves **every gate green**: 63/63 in
+`use-storage-backend.test.tsx`, tsc, eslint. A `<StrictMode>`-wrapped `renderHook` was written to pin it
+and is **VACUOUS** — measured 2026-08-04 with a throwaway probe that recorded the effect's own
+mount/cleanup sequence, StrictMode in this environment yields `["mount"]`: **one invocation, no
+cleanup+remount** (react 19.2.4, `NODE_ENV=test`). The probe was deleted; the test was NOT kept, because
+a test that passes against the mutation it names is worse than no test. ★ Do not re-attempt it with
+StrictMode without re-running that probe first — the double-invoke React's docs describe is not
+happening here, and a test written on the assumption that it does will look like coverage and be none.
+★ The consequence if the line is ever dropped is **dev-only and total**: after the first StrictMode
+cycle in `npm run dev`, every toast, every storage banner and every `versionNotifyRef` version-history
+checkpoint is silently suppressed for the rest of the session, with a fully green suite. ★ This is the
+same class as the CSS landmines recorded in §68-§71 — a real behaviour the unit suite cannot observe.
+Found by a cold reviewer naming the one-line mutation; verified by running it.
+
+★★★ **THE CHOKE POINT IS COMPLETE FOR *CALLER CALLBACKS*, NOT FOR THE *MECHANISM* — do not read
+"single choke point" as "post-unmount `setState` is handled in this hook".** It is not. The same
+`dispatchSetState → requestUpdateLane → resolveUpdatePriority → window` shape, with a different top
+frame, still exists at every one of these, all **surveyed and deliberately left**:
+
+- ~~`refreshBackendStatus`'s own `setStorageReady` / `setStorageDescription`~~ — **NOW GUARDED.**
+  **THREE** guards cover all four setters — the two in the `catch` share one, and neither follows an
+  await of its own (they follow `logDiag`). Don't grep for four and conclude one was dropped. This
+  was the last
+  escape in the hook that could surface as an UNHANDLED REJECTION rather than a discarded update,
+  so it is the one that actually reproduced §72's signature; the rest below are silent no-ops in a
+  browser. ★ `logDiag` stays OUTSIDE the guard on purpose — a status check that fails during
+  teardown is still worth recording, and that placement is what makes the fix observable at all
+  (see below). ★ Mounted-scoped is unambiguously right here, unlike the save outcome: this is the
+  hook's OWN state, so no caller is waiting on a superseded run's result.
+  ★★ **A DIFFERENT RACE REMAINS AND THIS DOES NOT ADDRESS IT** — two overlapping refreshes can
+  still land out of order, letting an older `isReady()` overwrite a newer status. That needs a
+  per-run sequence token, not a mounted flag. Not attempted; out of §72's scope.
+- `applyWorkspace`'s **24** workspace-context setters after awaits (`use-storage-backend.ts:203-226`).
+  ★★ Count them BY EYE. There is no honest one-liner: `grep -cE "^\s+set[A-Z]" src/app/use-storage-backend.ts`
+  returns **34** (it sweeps the whole file — type declarations, `refreshBackendStatus`, `onOpenStorageFile`,
+  the return object), and scoping it to the block —
+  `sed -n '203,226p' src/app/use-storage-backend.ts | grep -cE "^\s+set[A-Z]"` — returns **23**, because
+  `setPlan` (`:211`) sits behind an `if (workspace.plan)` prefix and the anchored pattern cannot see it.
+  An earlier revision here quoted the unscoped command with the scoped command's output. In
+  `use-storage-turso-ops.ts` and
+  `use-storage-file-ops.ts`; likewise `setTursoProjectId`, and `setTasks`/`setRaid` in
+  `onOpenStorageFile`.
+- `args.setActivityLog`, handed to `useBroadcastSync`, which owns its own listener lifecycle and
+  cleanup. Guarding it needs a different design.
+
+★★★ **THREE OF THOSE ARE UNPROTECTED, NOT ONE — and an earlier revision of this bullet named the wrong
+one and credited the wrong mechanism.** It said "the load effect's `cancelled` shields its own instances
+by accident. The one that does not is `onGrantWriteAccess`". Both halves are false, and the two reviewers
+who caught it did so independently.
+
+★★★ **THE LINE NUMBERS IN THIS TABLE ARE PRE-FIX AND ARE NOW ALL 16 TOO LOW — kept deliberately, as
+the record of what was wrong.** The fix inserted 16 lines (12 comment + 3 guards + 1 blank) above the
+old `:251`, so every citation below that point shifted. Current `refreshBackendStatus` call sites are
+**275 · 290 · 297 · 319 · 459 · 470 · 500 · 716**; the load effect is **269-324**. ★★ This is the
+`file:line`-invalidated-by-its-own-commit trap in its purest form — one sentence further down cited
+`:443/:484/:700`, was written BY the fixing commit, and was false the moment it landed. Prefer
+function names to line numbers here; where a number is unavoidable, re-derive it with
+`grep -n "refreshBackendStatus()" src/app/use-storage-backend.ts` after any edit to that file.
+
+What the code said at the time (the load effect was `use-storage-backend.ts:253-308`; the last row is
+outside it):
+
+| `await refreshBackendStatus()` | protected? | by what |
+|---|---|---|
+| `:259` — the `suppressNextLoadRef` branch | **NO** | before the `try`; no `cancelled` check on that path at all |
+| `:274` (the data-loss REFUSAL early return) and `:281` (the success path) | yes | the **enclosing `try`**, whose `catch` opens `if (cancelled) return;` — NOT `cancelled` reaching them |
+| `:303` — last statement of the `catch` | **NO** | inside the `catch`, therefore outside any `try`; `cancelled` was checked at `:284`, *before* this await |
+| `onGrantWriteAccess` `:454` | **NO** | a bare await on a floating promise |
+
+★★ The escape is a DOUBLE throw, which is why an inner `try`/`catch` does not stop it:
+`setStorageReady(ready)` (`:241`) throws, `refreshBackendStatus`'s own `catch` (`:244`) then runs
+`setStorageReady(false)` (`:248`) — inside the catch, outside any `try` — and *that* throw leaves the
+function. ★ The two load-effect escapes are the HOTTER pair, but they are reached DIFFERENTLY and a repro
+written for one will not reach the other: `:303` needs a rejecting `backend.load()` (staged by many
+existing tests), while `:259` returns at `:260` **before `backend.load()` is ever called** and needs
+`suppressNextLoadRef.current === true`. `onGrantWriteAccess` needs a user click. Scoping the follow-up to
+`onGrantWriteAccess` alone would leave the hook's hottest path — the one the original CI crash came
+from — still exposed. ★ Secondary damage on the way past: the first throw is swallowed into
+`logDiag("warn", "storage.statusCheckFailed", …)`, filing a React teardown error as a storage fault.
+
+★★ **ALL THREE ROWS ARE NOW CLOSED BY ONE GUARD** — the fix lands in `refreshBackendStatus` ITSELF,
+not at the three call sites, so the other five — `onPickStorageFile`, `onOpenStorageFile`,
+`reloadCurrentProject`, and the load effect's data-loss-refusal and success paths — are covered too,
+and no future call site can reopen it. (`onGrantWriteAccess` is one of the three escapes, not one of
+these five.) The table above is kept as the RECORD of what was wrong, not as an open list.
+
+★★★ **NOTHING IN THE SUITE PINS THESE GUARDS — DELETING ALL THREE LEAVES EVERY GATE GREEN.**
+Measured, not assumed: with the three `if (!mountedRef.current) return;` lines removed,
+`use-storage-backend.test.tsx` passes **64/64**. So a future contributor who sees the four emitters
+already guarded, decides these are redundant and deletes them, reintroduces §72's unhandled
+rejection with a green suite, a green tsc, a green lint and this row struck through as CLOSED.
+That is the single most likely way this regresses.
+
+★★★ **AND AN EARLIER REVISION OF THIS BULLET CLAIMED THE OPPOSITE — the distinction is between an
+EXPERIMENT and an ARTIFACT.** The guard's purpose (stopping a post-teardown `setStorageReady` from
+throwing) cannot be staged: React 19 discards a post-unmount setState silently and the throw needs a
+torn-down jsdom. But `logDiag` sits ahead of the guard in the `catch`, so a test that rejects
+`isReady()` AFTER unmount and asserts the warn still lands **fails when the `logDiag` call is moved
+below the guard** — and it can only fail if the guard fired. That reasoning is sound, and it is what
+the shipped test does NOT do: it never re-runs that mutation, so it demonstrates the guard was live
+*once, on my machine*, and pins nothing thereafter. ★ The generalisable trap: "I proved X with a
+mutation" and "the suite pins X" are different claims, and a comment asserting the second while
+having only done the first is how a guard gets deleted later. A cold reviewer caught this one; the
+mutation that settled it took ninety seconds.
+
+★★★ **Honesty note — and the obvious reason is the WRONG one.** An earlier revision of this entry said
+production impact is near-zero because "`task-manager` is the root orchestrator and effectively never
+unmounts". **That is false.** `page.tsx` wraps `<TaskManager />` in an `ErrorBoundary` whose `render`
+returns the fallback *instead of* its children, so any thrown render error anywhere in the tree unmounts
+the whole subtree. Next 16 also defaults `reactStrictMode` to true, so every dev mount is
+mount→unmount→remount.
+
+The impact is near-zero for a different and stronger reason: **in a browser these calls were already
+no-ops.** React 19 does not throw on `setState`-after-unmount while `window` exists — it schedules the
+update and discards it. The throw is specific to a torn-down jsdom. So suppressing them changes nothing
+observable in production *even on the path that really does unmount*. ★ Durable side effects are
+ordered BEFORE the emitters and survive regardless: `commitRegistry` calls `saveRegistry(next)` before
+`emitRegistryChange(next)`, `recordDataLossEvent` precedes its refusal toast, and `logDiag` sits outside
+the guard. ★★ **Do NOT extend that to the file-ops path** — an earlier revision here said it "calls
+`writeSettings(...)` directly", which is true at only TWO of its config-commit sites
+(`use-storage-file-ops.ts:235` and `:294`, both immediately before a `window.location.reload()`).
+the OTHER **four** commits go through `deps.setStorageConfig` — the now-guarded emitter — with no direct
+durable write behind them: `switchToProject` (`:96`), `createProject` (`:150`), and the default paths of
+`loadProjectFromFile` (`:221`) and `createDemoProject` (`:305`). ★ Read that as four, not two: the two
+`writeSettings` calls are in CONDITIONAL branches of the latter two functions
+(`switchPortfolioToFileOnSuccess`, `loadPortfolioMode() === "turso"`), so those functions appear on BOTH
+lists and an enumeration naming only the first two understates the exposure by half. No persistence is
+lost on any of the four, but for the reason given above (an unmounted `setSettings` was already discarded
+by React), NOT because a `writeSettings` backstop exists. A reader who takes the old sentence at face
+value will assume a durable write on those paths that is not there.
+
+The value of this fix is a CI job that stops exiting 1 with a fully green suite; do not read it as a
+user-facing bug fix.
+
+★ One more true thing worth recording: `onStorageOutcome` does more than `setState`.
+`reportStorageOutcome` (`task-manager.tsx`) also calls `versionNotifyRef.current()` on a clean save,
+arming the version-history idle checkpoint. Suppressing the callback after unmount skips that too —
+inert only because the whole tree goes down together.
+
+---
+
+## 73. `onTestFailed` reports post-teardown state, so any capture it makes is a false witness — open
+
+Found while instrumenting §39 and §51. This is repo-wide, not specific to those two tests.
+
+Vitest runs `onTestFailed` **after** all `afterEach` hooks. `afterEach` runs LIFO, so the real order is:
+describe-scoped `afterEach` → the test file's own `afterEach` (e.g. `vi.clearAllMocks()`) → the setup
+file's `afterEach` (RTL `cleanup()`, `vitest.setup.ts`) → **`onTestFailed` last**, against zeroed mocks
+and an empty `document.body`.
+
+★★★ **Measured, not theorised.** A capture written per the obvious pattern printed
+`{"fetchCalls":0,"toastCalls":[],"refreshButtonPresent":false,…}` on a run where the fetch HAD been
+called once and the error toast HAD fired. It would have reported "the click was swallowed" — **falsely
+CONFIRMING the already-suspected §39 hypothesis with fabricated evidence.** That is strictly worse than
+no capture at all: a capture that agrees with your prior is the one you stop checking.
+
+**The working pattern** — a describe-scoped `afterEach` guarded on the task result, holding a closure the
+test body assigns. Registered last ⇒ runs first ⇒ mocks and DOM are still live:
+
+```ts
+let captureOnFailure: (() => void) | undefined;
+afterEach((ctx) => {
+  const capture = captureOnFailure;
+  captureOnFailure = undefined;
+  if (ctx.task.result?.state === "fail") capture?.();
+});
+```
+
+Used by the §39 capture (`timelog-panel.test.tsx`) and the §51 capture (`use-tasks-dedup.test.tsx`) on
+this branch.
+
+**Scope:** this affects **any** test in this repo that would inspect DOM or mock state from
+`onTestFailed` or `onTestFinished`, because the setup file's `cleanup()` always wins the race.
+`onTestFailed` is used **nowhere** in `src` or `e2e` — it was tried here, found unusable, and replaced
+by the `afterEach` pattern shown above, so the hook has no call site in this repo at all. ★ The three mentions
+a grep finds today (two in `timelog-panel.test.tsx`, one in `use-tasks-dedup.test.tsx`) are the warning
+comments those files now carry, not calls. (An earlier revision said "these captures are the first use",
+contradicting its own next sentence and this entry's whole conclusion.)
+
+★ Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.
+
+---
+
+## 74. The TimeLog refresh handlers omit a guard their button carries — open
+
+`handleRefreshBookings` and `handleFetchBookings` (`timelog-panel.tsx`) each open with an early return,
+and neither includes `isMisconfigured` — while the corresponding buttons in `timelog-panel-toolbar.tsx`
+both do:
+
+| | handler guard | button `disabled` |
+|---|---|---|
+| Refresh | `isPopout \|\| sync.busy \|\| confirming \|\| !canRefresh` | the same four **plus `isMisconfigured`** |
+| Fetch | `isPopout \|\| sync.busy \|\| confirming \|\| projectCustomerId === "" \|\| selectedProjectIds.size === 0` | the same five **plus `isMisconfigured`** |
+
+`isMisconfigured` is `!cfg.enabled || !cfg.host || !cfg.apiToken`. So any **non-button** caller — a voice
+command, a keyboard shortcut, a future Action-Center CTA — would act against an unconfigured TimeLog.
+Today the button is the only caller of each, so it is latent, not live.
+
+★ **This asymmetry is what made §39 possible.** The test compensated for the product code's split
+instead of the product code resolving it: the fix there waits for the button to become enabled, which
+works precisely because the button carries a guard the handler does not. **Read §39 as "test fixed", not
+"cause removed."**
+
+★ The cheap fix is to lift `isMisconfigured` into both handler guards, making the button's `disabled`
+a presentation of the handler's contract rather than a second, stricter contract.
+
+---
+
+## 75. Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED — open
+
+★★ **This is the artifact the §39/§51 flake hunt was looking for, attached to different tests.** Both
+of those flakes are load-sensitive and have never reproduced on demand; this one reproduces
+deterministically:
+
+```bash
+npx vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot
+```
+
+**4 tests fail across 2 files** — `modern-shell.test.tsx` (3) and `use-storage-backend.test.tsx` (1,
+"confirm=true writes current workspace to new backend + commits config + shows info toast", where
+`expect(targetSave).toHaveBeenCalledTimes(1)` gets 0). Seeds 2 and 3 also fail, 4 and 5 tests
+respectively — ★ but treat those two counts as soft: those same two runs had 16 files never execute
+(768 of 784) from worker-startup timeouts under machine saturation, as §51's amplification note records.
+Seed 1 is the clean, fully-executed reproduction; quote that one.
+
+★★★ **PRE-EXISTING, and verified so rather than assumed.** `use-storage-backend.ts` and its test were
+both modified by the §72 work, which makes "did we break this?" the first question. Ruled out by
+running the SAME seed on `main`: identical result — 4 failed / 2 files, the same named test. The §72
+guard adds no module-level state (`mountedRef` is per-hook-instance via `useRef`), and the failing
+assertion is a `backend.save` call count, upstream of every emitter.
+
+★★★ **THE DEFECT IS INTRA-FILE TEST ORDERING, NOT CROSS-FILE CONTAMINATION — an earlier revision of
+this entry said the opposite and would have sent the next contributor hunting the wrong thing.** It
+claimed "`--sequence.shuffle` shuffles **files**, not tests within a file (`sequence.shuffle.tests`
+defaults false); both files pass in isolation, so the contamination is cross-file". Both halves are
+wrong, and the second was derived from the first.
+
+★★ The citations below are into **hash-named build artifacts** and were read at **vitest 4.1.8 /
+@vitest/runner 4.1.8**. The `coverage.DM_a_rWm.js` filename dies on any vitest bump and every line number
+dies on a patch release — re-derive by grepping `shuffle` in `node_modules/vitest/dist/chunks/` and
+`node_modules/@vitest/runner/dist/` rather than trusting these positions.
+
+The `.tests` default governs only the **object** form. The bare CLI flag this entry prescribes parses to
+boolean `true`, and `vitest/dist/chunks/coverage.DM_a_rWm.js:470` gates the object branch on
+`typeof … === "object"` — so for a boolean it is SKIPPED, `sequence.shuffle` stays `true`, and BOTH
+effects fire: `:477` picks `RandomSequencer` (files) **and** `@vitest/runner/dist/chunk-artifact.js:2442`
+sets `file.shuffle`, which `:3151` uses to shuffle suites and tests **inside** each file.
+
+Measured, not reasoned — each file run ALONE under the same seed:
+
+```bash
+npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=1  # 1 failed / 62 passed
+npx vitest run src/app/modern-shell.test.tsx        --sequence.shuffle --sequence.seed=1  # 3 failed / 17 passed
+npx vitest run src/app/use-storage-backend.test.tsx src/app/modern-shell.test.tsx         # control: 83 passed
+```
+
+1 + 3 = **the same 4 failures the full-suite run produces**, with no other file present. So the whole
+effect is intra-file, the unshuffled control rules out the pairing itself, and "passes in isolation" was
+true only because it was measured WITHOUT the flag — a control that cannot distinguish the two
+hypotheses it was cited to settle. ★ Chase these as order-dependent tests within each file (shared
+module state, a leaked mock, a `beforeAll` some earlier test in the file relies on), not as cross-file
+leakage.
+
+★ Scope this honestly: nothing says CI shuffles, so this is **not** a live CI failure and **not** an
+explanation for §39 or §51 (neither of those two files failed under any of the six amplification
+configurations). It is a latent test-isolation defect that a deterministic seed makes cheap to chase —
+which is rare enough in this register to be worth its own entry.
+
+★★ **Do not confuse this with `--no-isolate`.** Those runs produced 22–82 failures each and prove
+nothing: most of this suite is not written to share a module registry, so removing isolation is
+expected to fail broadly. The shuffle result is the informative one precisely because isolation stays on.
+
+---
+
+## 76. Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression — open
+
+★★★ **This is the exact defect §72's `use-storage-backend.ts` guard was written to avoid, sitting
+unfixed in two sibling hooks.** Both declare the ref and then clear it in a cleanup WITHOUT re-setting
+it on mount:
+
+```ts
+const mountedRef = useRef(true);
+useEffect(() => () => { mountedRef.current = false; }, []);   // ← no `mountedRef.current = true;`
+```
+
+- `use-scheduled-jobs.ts:47,52` — gates `setReady(true)` (`:62`), `setBusy` (`:71`, `:80`, `:81`) and
+  `setJobs(next)` (`:76`), plus an early return at `:57`.
+- `use-operating-guides.ts:74,76` — gates `setReady(true)` (`:92`) and an early return at `:87`.
+
+★★ **Consequence is dev-only and TOTAL.** Next 16 defaults `reactStrictMode: true`, so every dev mount
+is mount→unmount→remount; after that first cycle `mountedRef.current` is permanently `false` and every
+one of those setters is suppressed for the rest of the session. The scheduled-jobs surface never leaves
+its loading state. Production is unaffected (one mount, no remount) — but so is the entire test suite,
+which is why this has survived: **a fully green suite says nothing about it**, exactly as measured for
+§72's own re-set line, which no test can pin either.
+
+★ Fix is one line in each — `mountedRef.current = true;` as the first statement of the effect body,
+identical to `use-storage-backend.ts:174-180`. ★ Verified there are exactly TWO such hooks:
+`grep -rln "useEffect(() => () => { mountedRef.current = false; }, \[\])" src/app/`.
+
+★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
+had the same shape. Deliberately NOT fixed in that change — it is unrelated code and a separate
+follow-up, not scope creep on a CI-facing slice.
 
 ---
 

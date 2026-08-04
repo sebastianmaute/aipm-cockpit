@@ -59,6 +59,11 @@ vi.mock("./broadcast-sync", () => ({
   useBroadcastSync: vi.fn(),
 }));
 
+// ── Diagnostics mock (only the §72 teardown test asserts on it) ───────────────
+vi.mock("./diagnostics", () => ({
+  logDiag: vi.fn(),
+}));
+
 // ── Turso portfolio mock (the portfolio-level project ops over the shared DB) ──
 vi.mock("./turso-portfolio", () => ({
   createProject: vi.fn(async () => undefined),
@@ -448,6 +453,126 @@ describe("useStorageBackend — save effect", () => {
 
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
+
+  // ── §72: the teardown race ──────────────────────────────────────────────────
+  // The save effect fires `doSave()` fire-and-forget. Its .then/.catch call back
+  // into the component. If the component unmounted while the save was in flight,
+  // that callback runs `setState` on a dead tree — in CI's torn-down jsdom that
+  // surfaces as `ReferenceError: window is not defined` from React's
+  // resolveUpdatePriority, and Vitest exits 1 with every test passing.
+  //
+  // ★ This test pins the GUARD (no callback after unmount), not the crash. The
+  //   crash needs environment teardown, which a unit test cannot stage — see
+  //   docs/open-followups.md §72.
+  it("does not report a save outcome after unmount (§72 teardown race)", async () => {
+    const onStorageOutcome = vi.fn();
+    let resolveSave!: () => void;
+    const deferred = new Promise<void>((resolve) => { resolveSave = resolve; });
+
+    const { result, unmount } = renderBackend(makeArgs({ onStorageOutcome }));
+
+    // Burn the load + the suppressed first debounce cycle.
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+    onStorageOutcome.mockClear();
+
+    // Next save hangs until we resolve it by hand.
+    mockBackend.save.mockReturnValueOnce(deferred);
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+
+    // Component goes away while the save is still in flight.
+    unmount();
+
+    // Now the save lands. Nothing may call back into the dead tree.
+    await act(async () => { resolveSave(); await Promise.resolve(); });
+
+    expect(onStorageOutcome).not.toHaveBeenCalled();
+  });
+
+  // ★★★ The guard above must be MOUNTED-scoped. If someone re-implements it with
+  //     the load effect's per-run `cancelled` flag, THIS test fails: the save
+  //     effect re-runs on every workspace edit, so an in-flight save whose effect
+  //     run was superseded would stop reporting — and a genuine save FAILURE
+  //     would be swallowed in production with no banner and no toast.
+  it("still reports the outcome of a save superseded while in flight (§72: mounted-scoped, not per-run)", async () => {
+    const onStorageOutcome = vi.fn();
+    let resolveSave!: () => void;
+    const deferred = new Promise<void>((resolve) => { resolveSave = resolve; });
+
+    const { result } = renderBackend(makeArgs({ onStorageOutcome }));
+
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+    onStorageOutcome.mockClear();
+
+    mockBackend.save.mockReturnValueOnce(deferred);
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+
+    // A second edit supersedes the effect run that started the in-flight save.
+    // The component is still mounted, so its outcome must still be reported.
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1 edited" } as unknown as Task]);
+    });
+
+    await act(async () => { resolveSave(); await Promise.resolve(); });
+
+    expect(onStorageOutcome).toHaveBeenCalledWith(null);
+  });
+
+  // §72 residual: `refreshBackendStatus`'s own setters are guarded too.
+  //
+  // The guard's PURPOSE — stopping a post-teardown `setStorageReady` from
+  // throwing — is not stageable here: React 19 discards a post-unmount
+  // setState silently, and the throw needs a torn-down jsdom.
+  //
+  // ★★★ READ THIS BEFORE TRUSTING IT. This test pins the `logDiag`-outside-
+  //   the-guard decision and NOTHING ELSE. Deleting all three
+  //   `if (!mountedRef.current) return;` lines from `refreshBackendStatus`
+  //   leaves it GREEN — verified by running that mutation, 64/64. An earlier
+  //   version of this comment claimed the test "demonstrates the guard is live
+  //   in this catch path": true of the one-time experiment (moving the logDiag
+  //   call below the guard DOES fail it, which can only happen if the guard
+  //   fired), false of the shipped artifact, which never re-runs it.
+  //   So: nothing in this suite stops someone deleting the guard and
+  //   reintroducing §72's unhandled rejection with every gate green.
+  it("still records a status failure that lands after unmount (§72)", async () => {
+    const { logDiag } = await import("./diagnostics");
+    let rejectReady!: (err: Error) => void;
+    mockBackend.isReady.mockReturnValueOnce(new Promise<boolean>((_, reject) => { rejectReady = reject; }));
+
+    const { unmount } = renderBackend(makeArgs());
+    await act(async () => { await Promise.resolve(); });
+
+    unmount();
+    await act(async () => {
+      rejectReady(new Error("backend gone"));
+      await Promise.resolve();
+    });
+
+    expect(logDiag).toHaveBeenCalledWith(
+      "warn",
+      "storage.statusCheckFailed",
+      expect.objectContaining({ message: "backend gone" }),
+    );
+  });
+
+  // ★★★ `mountedRef.current = true` in the effect BODY (not just the cleanup) is
+  //     load-bearing in dev and CANNOT be pinned here. A StrictMode-wrapped
+  //     renderHook was tried and is VACUOUS: measured 2026-08-04, StrictMode in
+  //     this suite invokes the effect ONCE (["mount"], no cleanup+remount), so
+  //     deleting the re-set keeps all 63 tests green. See open-followups.md §72.
 });
 
 describe("useStorageBackend — handlers", () => {
