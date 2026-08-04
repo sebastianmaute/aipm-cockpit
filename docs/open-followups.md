@@ -115,10 +115,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
 | 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, the same shape survives in `refreshBackendStatus`/`applyWorkspace` (surveyed, left); ★ near-zero production impact, the win is a job that stops lying |
-| 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
-| 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
-| 75 | Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage) | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`), and each file reproduces ALONE; verified pre-existing on `main`; not a live CI failure |
+| 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
+| 74 | ~~The TimeLog refresh handlers omit a guard their button carries~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift (untestable by construction); ★ it is what made §39 possible |
+| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ does NOT mean either file is now order-independent, see §77 |
 | 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★ ships UNTESTED of necessity (StrictMode single-invokes here), sweep re-run on the broad pattern |
+| 77 | A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75 | pre-existing, found post-0.214.0 | S | open — reproduces at `--sequence.seed=7`, alone; verified twice independently; root cause unknown; not caught by the seed-1 gate |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3341,7 +3342,7 @@ inert only because the whole tree goes down together.
 
 ---
 
-## 73. `onTestFailed` reports post-teardown state, so any capture it makes is a false witness — open
+## 73. ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ — CLOSED
 
 Found while instrumenting §39 and §51. This is repo-wide, not specific to those two tests.
 
@@ -3381,9 +3382,24 @@ contradicting its own next sentence and this entry's whole conclusion.)
 
 ★ Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.
 
+★★★ **CLOSED — the landmine now lives in AGENTS.md's `npm run test:run` command block**, so it reaches
+every session automatically rather than requiring a targeted open of this file. It records the same
+LIFO ordering, the same measured `{"fetchCalls":0,…}` fabricated-evidence example, and the same working
+`afterEach`-closure pattern, citing `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx`.
+
+★ **`agents-symbol-check`'s only anchor for the name `onTestFailed` is the three warning COMMENTS** —
+two in `timelog-panel.test.tsx`, one in `use-tasks-dedup.test.tsx` — confirmed still present. There is
+no call site anywhere in `src`/`scripts`/`e2e`: the gate proves only that the NAME `onTestFailed`
+resolves somewhere in the repo, and today it resolves solely because those comments exist. A future
+comment cleanup that removed all three (e.g. "dead warning, nobody would try this again") would delete
+the gate's only anchor for the name and fail `docs:symbols:check` — not because the trap stopped being
+true, but because the one place recording it in code was gone. Keep at least one comment naming
+`onTestFailed` alive, or move the citation into an allowlisted absence marker if the comments are ever
+pruned.
+
 ---
 
-## 74. The TimeLog refresh handlers omit a guard their button carries — open
+## 74. ~~The TimeLog refresh handlers omit a guard their button carries~~ — CLOSED
 
 `handleRefreshBookings` and `handleFetchBookings` (`timelog-panel.tsx`) each open with an early return,
 and neither includes `isMisconfigured` — while the corresponding buttons in `timelog-panel-toolbar.tsx`
@@ -3406,9 +3422,28 @@ works precisely because the button carries a guard the handler does not. **Read 
 ★ The cheap fix is to lift `isMisconfigured` into both handler guards, making the button's `disabled`
 a presentation of the handler's contract rather than a second, stricter contract.
 
+★★★ **FIXED — went structural instead of taking the cheap fix.** A shared pure module
+`src/app/timelog-guards.ts` exports `canFetchBookings`/`canRefreshBookings`, and BOTH the handlers'
+early returns and the buttons' `disabled` expressions now evaluate the same predicate. The cheap
+two-copy lift recorded above was deliberately rejected: it would have left two copies of one contract —
+the exact shape that produced this defect — and is **untestable by construction**, because the new
+guard's only trigger is precisely the state in which the button is already disabled, so no UI test can
+ever reach it. A pure predicate is directly unit-testable regardless of what renders it.
+
+★ The predicates were verified logically equivalent to the buttons' PREVIOUS `disabled` expressions —
+no button changes behaviour in any state; the handlers gained the `isMisconfigured` check they lacked,
+declared once above both handlers rather than read through a closure over a later-declared const.
+
+★ `TimelogFetchState.projectCustomerId` is `number | ""` (matching `use-timelog-picker-scope.ts`'s
+`useState<number | "">("")` and `TimelogToolbar`'s own prop), not `string` — the module's first version
+typed it `string`, and review caught the mismatch before the wiring commit landed.
+
+★ Keep the §39 provenance sentence above as written — "read §39 as 'test fixed', not 'cause removed'"
+stays true of §39's own history regardless of this fix.
+
 ---
 
-## 75. Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED — open
+## 75. ~~Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED~~ — CLOSED
 
 ★★ **This is the artifact the §39/§51 flake hunt was looking for, attached to different tests.** Both
 of those flakes are load-sensitive and have never reproduced on demand; this one reproduces
@@ -3472,6 +3507,71 @@ which is rare enough in this register to be worth its own entry.
 nothing: most of this suite is not written to share a module registry, so removing isolation is
 expected to fail broadly. The shuffle result is the informative one precisely because isolation stays on.
 
+★★★ **FIXED — both mechanisms, NAMED, and they are two different bugs.**
+
+- `modern-shell.test.tsx`: `stubViewport` assigned `window.matchMedia` **directly**
+  (`window.matchMedia = vi.fn()...`). A plain property write is invisible to `vi.clearAllMocks()` and
+  `vi.restoreAllMocks()` (neither touches a non-mock property), and jsdom ships no `matchMedia` for
+  anything to restore it to — so the first mobile-drawer test pinned the whole file to a narrow
+  viewport for the rest of the run, and `ModernShell` rendered the off-canvas drawer instead of the
+  in-flow sidebar for every later test. Now stubbed via `vi.stubGlobal` and undone by a describe-scoped
+  `afterEach(() => vi.unstubAllGlobals())`, which deletes the property rather than setting it to
+  `undefined`.
+  ★★ It stayed invisible in DECLARATION order only by **coincidence, not because the drawer describe is
+  last — it is third of five** ("settings slot" and "banners slot" both follow it). That describe's
+  final test happens to stub `matches: false`, the wide-viewport value the two trailing describes need
+  anyway. Adding or reordering a test inside the drawer describe would have broken them with no shuffle
+  flag involved. The fix's first comment claimed "the drawer describe is last"; that was false, and a
+  follow-up commit corrected it. **The correction is recorded, not silently overwritten** — this file's
+  own convention (see the intra-file/cross-file correction above) is to keep a disproven claim visible
+  as the instructive artifact rather than launder it out.
+- `use-storage-backend.test.tsx`: `vi.clearAllMocks()` is `mockClear` — it wipes calls/instances/results
+  and does **not** drain a `mockReturnValueOnce` queue; only `mockReset` does. Three tests in the
+  `onRequestStorageSwitch` describe queue two `createBackend` return values and consume only one (the
+  early return under test **is** the assertion), so a leftover queued value survived into whichever test
+  ran next and shifted its queue by one: the switch target came back as the main backend, the main
+  backend as the switch target, and `targetSave` was never called.
+  ★★ The first fix drained the queue in `beforeEach` only, which is **one-directional**: it makes
+  intra-describe ordering safe but does nothing for whichever test `--sequence.shuffle` happens to
+  schedule LAST in that describe, whose leftover then carries into whichever describe runs next (a
+  plain `.mockReturnValue` default does not out-rank a queued once-value). A follow-up commit added the
+  same `mockReset()` drain to the describe's `afterEach`, and moved the `vi.resetAllMocks()`-vs-
+  `mockReset()` rationale out of the commit message and into the test file's own comment.
+
+★ **Stale count, corrected:** the measured block above (`# 1 failed / 62 passed` for the storage file)
+was accurate when this entry was written but is now stale — an unrelated §72 test landed on `main`
+after the fact, so the file's total grew from 63 tests to 64. Re-measured today the same bug would read
+`1 failed / 63 passed`. Not a behaviour change; recorded here rather than silently rewritten into the
+historical measurement above.
+
+★★★ **The gate.** `unit-tests-shuffled` (BLOCKING quality-stage job) runs the full unit suite at
+`--sequence.shuffle --sequence.seed=1` — the seed that reproduces both leaks above — so it can only go
+red on a real regression, never on the seed of the day. Its `needs` is `[install, {job: unit-tests,
+artifacts: false}]`: the dependency edge is there deliberately, because no other quality-stage job
+depends on `unit-tests` and without it GitLab would run this job concurrently with `unit-tests` — two
+full vitest processes contending for one runner's CPU, the same class of resource contention as the
+documented full-suite parallel-load worker-starvation flakes (AGENTS.md's `npm run test:run` note;
+§51's amplification note). `artifacts: false` keeps the serialisation without downloading
+`unit-tests`'s coverage/junit artifacts, which this job never reads. A weekly-`schedule`-only
+`unit-tests-shuffled-random` (`allow_failure: true`) samples the class instead of pinning one point of
+it: its seed is `$CI_PIPELINE_ID`, echoed alongside the exact local reproduce command. ★ `$RANDOM` was
+rejected as the seed source because it is a bash builtin and the runner shell is not guaranteed to be
+bash. ★ The echo line **must stay single-quoted in YAML** — written unquoted, its embedded `": "`
+parses as a YAML mapping rather than a plain string and GitLab rejects the job at config-parse time;
+that bug shipped in the first version of the job and was caught only by parsing the file with a YAML
+library and printing the parsed `script` array, not by eye.
+
+★ **Prerequisite met before the blocking job was added:** the full suite passes shuffled at seed 1 —
+784/784 files, 8959 tests, exit 0 — which is why `unit-tests-shuffled` ships without `allow_failure`.
+
+★★ **Scope, honestly.** This was never a live CI failure — nothing in CI shuffled before this slice.
+From these commits forward it is gated at **seed 1 only**; a new order-dependent test that only fails
+at some other seed still reaches `main`, and is caught, at best, by the weekly random-seed job.
+
+★★★ **Do NOT read this closure as "these two files are now order-independent."** Only the two named
+leaks are fixed. A third, unrelated order-dependent test in `use-storage-backend.test.tsx` — a
+different mechanism, root cause unknown — is open under §77.
+
 ---
 
 ## 76. ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ — CLOSED post-!346
@@ -3517,6 +3617,40 @@ these two plus `use-storage-backend.ts` — and all three now re-set on mount. T
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.
+
+---
+
+## 77. A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75 — open
+
+`useStorageBackend — Layer 3 wipe guard (persistence choke point) > refuses to persist a MULTI-collection
+simultaneous wipe (bug signature)` fails under
+
+```bash
+npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=7
+```
+
+with `expected "vi.fn()" to be called with arguments: ['info', StringContaining{…}] — Number of calls: 0`
+— the shape `toHaveBeenCalledWith` produces when the mock was never invoked at all
+(`expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"))`). It
+reproduces with the file run ALONE.
+
+★★ **Pre-existing, verified TWICE and independently** — by the §75 implementer (stash the §75 fix,
+re-run seed 7) and by the coordinator (`git checkout 2d7db4e3 -- src/app/use-storage-backend.test.tsx`,
+re-run seed 7, identical failure, then restore). Not caused by §75's `mockReset()` fix.
+
+★★ **NOT §75's class.** The "Layer 3 wipe guard" describe never calls `createBackend.mockReturnValueOnce`
+— its `beforeEach` sets `mockReturnValue` once and nothing queues — so there is no once-queue to drain,
+and `showToast` fires synchronously off a state update inside `act()`, not off a debounced timer. **Root
+cause unknown — do not assume a shared diagnosis with §75.** §51 already records the general caution
+this entry is an instance of: two failures sharing a file (or a job, or an environment) "suggests a
+shared trigger rather than two unrelated bugs... but do not assume one diagnosis covers both" — here the
+symptom shape, the describe block and the guard layer all differ from §75's two leaks, so treat this as
+a separate defect until proven otherwise.
+
+★ **Not a live CI failure and NOT caught by `unit-tests-shuffled`**, which pins seed 1 — this reproduces
+at seed 7, not seed 1. `unit-tests-shuffled-random` (weekly, `$CI_PIPELINE_ID`-seeded) will reach this
+class of bug eventually by sampling; that sampling is the argument for that job existing at all rather
+than relying on the pinned seed alone.
 
 ---
 
