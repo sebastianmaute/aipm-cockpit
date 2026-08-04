@@ -117,9 +117,9 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, the same shape survives in `refreshBackendStatus`/`applyWorkspace` (surveyed, left); ★ near-zero production impact, the win is a job that stops lying |
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
 | 74 | ~~The TimeLog refresh handlers omit a guard their button carries~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift (untestable by construction); ★ it is what made §39 possible |
-| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ does NOT mean either file is now order-independent, see §77 |
+| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §77 |
 | 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★ ships UNTESTED of necessity (StrictMode single-invokes here), sweep re-run on the broad pattern |
-| 77 | A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75 | pre-existing, found post-0.214.0 | S | open — reproduces at `--sequence.seed=7`, alone; verified twice independently; root cause unknown; not caught by the seed-1 gate |
+| 77 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3534,9 +3534,26 @@ expected to fail broadly. The shuffle result is the informative one precisely be
   ★★ The first fix drained the queue in `beforeEach` only, which is **one-directional**: it makes
   intra-describe ordering safe but does nothing for whichever test `--sequence.shuffle` happens to
   schedule LAST in that describe, whose leftover then carries into whichever describe runs next (a
-  plain `.mockReturnValue` default does not out-rank a queued once-value). A follow-up commit added the
-  same `mockReset()` drain to the describe's `afterEach`, and moved the `vi.resetAllMocks()`-vs-
-  `mockReset()` rationale out of the commit message and into the test file's own comment.
+  plain `.mockReturnValue` default does not out-rank a queued once-value). This gap was flagged by a
+  code-quality reviewer reading the code alone, before it was connected to any failing seed. A follow-up
+  commit added the same `mockReset()` drain to the describe's `afterEach`, and moved the
+  `vi.resetAllMocks()`-vs-`mockReset()` rationale out of the commit message and into the test file's own
+  comment.
+  ★★★ **That reviewer's prediction is now empirically PROVEN, not just theoretically plausible.** The
+  `beforeEach`-only drain leaves `Layer 3 wipe guard (persistence choke point) > refuses to persist a
+  MULTI-collection simultaneous wipe (bug signature)` failing at `--sequence.seed=7` — the leftover
+  once-value from `onRequestStorageSwitch`'s last-scheduled test survives past that describe's
+  `beforeEach`-only drain and leaks into the wipe-guard describe's first `createBackend()` call:
+
+  | tree state | seed 7, `use-storage-backend.test.tsx` alone |
+  |---|---|
+  | no drain at all (`2d7db4e3`) | **FAIL** — `Layer 3 wipe guard … MULTI-collection simultaneous wipe` |
+  | `beforeEach` drain only (`55143042`) | **FAIL**, 2 runs of 2 |
+  | `beforeEach` + `afterEach` drains (`e0064815`/HEAD) | **PASS**, 3 runs of 3 |
+
+  This was first filed as a separate, mechanism-unknown defect (§77) before being re-measured against
+  the wrong baseline and closed as the same leak. See §77 for the full account and the transferable
+  lesson about measuring against a partially-fixed tree.
 
 ★ **Stale count, corrected:** the measured block above (`# 1 failed / 62 passed` for the storage file)
 was accurate when this entry was written but is now stale — an unrelated §72 test landed on `main`
@@ -3568,9 +3585,13 @@ library and printing the parsed `script` array, not by eye.
 From these commits forward it is gated at **seed 1 only**; a new order-dependent test that only fails
 at some other seed still reaches `main`, and is caught, at best, by the weekly random-seed job.
 
-★★★ **Do NOT read this closure as "these two files are now order-independent."** Only the two named
-leaks are fixed. A third, unrelated order-dependent test in `use-storage-backend.test.tsx` — a
-different mechanism, root cause unknown — is open under §77.
+★★★ **Do NOT read this closure as "these two files are now order-independent" as a general property —
+only as "verified at the seeds tested."** Seeds 1, 2, 3, 7 and the unshuffled control all pass on both
+files today, and seed 7 in particular is now confirmed to be the SAME `use-storage-backend.test.tsx`
+mechanism above rather than a third one (§77, closed, was filed as a separate defect and found to be
+this one, measured on a tree with only the `beforeEach` half of this fix). Nothing was tested beyond
+that finite set of seeds, and `unit-tests-shuffled` pins seed 1 only — a new order-dependent test that
+happens to fail at some other seed still reaches `main`, caught at best by the weekly random-seed job.
 
 ---
 
@@ -3620,37 +3641,57 @@ had the same shape — a question worth asking of every guard fix.
 
 ---
 
-## 77. A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75 — open
+## 77. ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ — CLOSED, FALSE: same mechanism, measured on a partially-fixed tree
 
-`useStorageBackend — Layer 3 wipe guard (persistence choke point) > refuses to persist a MULTI-collection
-simultaneous wipe (bug signature)` fails under
+**This entry was wrong.** It was filed as a third, different-mechanism order dependence with root cause
+unknown, on the strength of two independent observations of seed 7 failing
+(`useStorageBackend — Layer 3 wipe guard (persistence choke point) > refuses to persist a MULTI-collection
+simultaneous wipe (bug signature)`, `expected "vi.fn()" to be called with arguments: ['info',
+StringContaining{…}] — Number of calls: 0`, reproducing alone under
+`npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=7`). Both
+observations were real. Both were taken on a tree that had only §75's `beforeEach` drain
+(`55143042`) — never on a tree with no fix at all, and never on the tree with BOTH drains
+(`e0064815`/HEAD). Re-measured three ways after this entry was written:
 
-```bash
-npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=7
-```
+| tree state | seed 7, `use-storage-backend.test.tsx` alone |
+|---|---|
+| `2d7db4e3` (no drain at all) | **FAIL** — `Layer 3 wipe guard … MULTI-collection simultaneous wipe` |
+| `55143042` (`beforeEach` drain only) | **FAIL**, 2 runs of 2 |
+| `f993e5ae` / HEAD (`beforeEach` + `afterEach` drains) | **PASS**, 3 runs of 3 |
 
-with `expected "vi.fn()" to be called with arguments: ['info', StringContaining{…}] — Number of calls: 0`
-— the shape `toHaveBeenCalledWith` produces when the mock was never invoked at all
-(`expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"))`). It
-reproduces with the file run ALONE.
+So this was never a third, separate defect. It **is** §75's second mechanism — the undrained
+`mockReturnValueOnce` queue — escaping the `onRequestStorageSwitch` describe's boundary: under
+`--sequence.shuffle`, seed 7 schedules one of that describe's leftover-producing tests LAST within the
+describe, and with only a `beforeEach` drain that leftover once-value survives into the very next
+describe to run, "Layer 3 wipe guard". Its own `beforeEach` calls `vi.clearAllMocks()` (which does not
+drain a once-queue) then `mockReturnValue(mockBackend)` — a plain default, which does **not** out-rank a
+queued once-value. So the wipe-guard test's `renderBackend()` call receives whichever backend leaked in
+from the prior describe instead of `mockBackend`, its `load` mock never resolves the seeded
+two-collection workspace, `prevCollectionCountRef` never baselines at 2, the wipe condition
+(`curCollections === 0 && prevCollectionCountRef.current >= 2`) never evaluates true, and `showToast`
+is correctly never called — "Number of calls: 0" is the leaked-backend symptom, not a separate bug.
+`e0064815`'s `afterEach` drain (added for exactly the reason recorded in §75) closes this too, which the
+table above confirms directly rather than by re-deriving the mechanism.
 
-★★ **Pre-existing, verified TWICE and independently** — by the §75 implementer (stash the §75 fix,
-re-run seed 7) and by the coordinator (`git checkout 2d7db4e3 -- src/app/use-storage-backend.test.tsx`,
-re-run seed 7, identical failure, then restore). Not caused by §75's `mockReset()` fix.
+★★★ **The transferable lesson, which is why this entry stays instead of being deleted — this file's
+convention is that a wrong claim stays visible as the instructive artifact.** A defect measured on a
+PARTIALLY-FIXED tree can look like a new and unrelated one. Both observers here were careful and both
+verified "pre-existing" — but "pre-existing" was checked against a tree with an incomplete fix, not
+against a tree with no fix and not against current HEAD, so a fix that was already 90% landed read as
+"this bug still exists, untouched by anything we just did." **Re-measure against the CURRENT head before
+filing a new entry, not only against whatever baseline is convenient** — a baseline one commit behind
+the tip can already contain half the fix for the thing being reported as unfixed.
 
-★★ **NOT §75's class.** The "Layer 3 wipe guard" describe never calls `createBackend.mockReturnValueOnce`
-— its `beforeEach` sets `mockReturnValue` once and nothing queues — so there is no once-queue to drain,
-and `showToast` fires synchronously off a state update inside `act()`, not off a debounced timer. **Root
-cause unknown — do not assume a shared diagnosis with §75.** §51 already records the general caution
-this entry is an instance of: two failures sharing a file (or a job, or an environment) "suggests a
-shared trigger rather than two unrelated bugs... but do not assume one diagnosis covers both" — here the
-symptom shape, the describe block and the guard layer all differ from §75's two leaks, so treat this as
-a separate defect until proven otherwise.
+★ **It was predicted before it was observed.** The gap this entry turned out to be — a `beforeEach`-only
+drain being one-directional, protecting intra-describe ordering but not a leftover produced by the LAST
+test scheduled in a describe — was flagged by a code-quality reviewer reading `55143042` alone, before
+anyone had connected it to a failing seed. `e0064815` closed that theoretical gap; the seed-7 failure
+above is empirical confirmation of the same prediction, arrived at independently and from the opposite
+direction (a failing test, not a code read). Both routes converged on the same fix.
 
-★ **Not a live CI failure and NOT caught by `unit-tests-shuffled`**, which pins seed 1 — this reproduces
-at seed 7, not seed 1. `unit-tests-shuffled-random` (weekly, `$CI_PIPELINE_ID`-seeded) will reach this
-class of bug eventually by sampling; that sampling is the argument for that job existing at all rather
-than relying on the pinned seed alone.
+★ Filed and closed within the same slice: caught only because the entry's own claim ("verified TWICE and
+independently... not caused by §75's `mockReset()` fix") was checked against the current tree before
+being written into the tracked register, rather than left resting on the two prior observations alone.
 
 ---
 
