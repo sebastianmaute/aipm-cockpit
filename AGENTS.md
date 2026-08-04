@@ -118,6 +118,19 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.8 — it fails to load a
                             # reporter module and errors at startup, which reads like a broken test run.
                             # Use `--reporter=dot`.
+                            # ★★ `onTestFailed` runs AFTER every `afterEach`, and `afterEach` is LIFO — by
+                            # the time it fires, vitest.setup.ts's RTL cleanup() and the test file's own
+                            # vi.clearAllMocks() have both already run, so the capture reads zeroed mocks
+                            # and an empty document.body. Measured, not theorised: a capture written the
+                            # obvious way printed `{"fetchCalls":0,"toastCalls":[],…}` on a run where the
+                            # fetch HAD fired and the toast HAD rendered — which would have falsely
+                            # CONFIRMED the already-suspected hypothesis with fabricated evidence. That is
+                            # worse than no capture: one that agrees with your prior is the one you stop
+                            # checking. The working pattern is a describe-scoped afterEach holding a
+                            # closure the test body assigns, guarded on ctx.task.result?.state === "fail"
+                            # — registered LAST, so it runs FIRST, while mocks and DOM are still live.
+                            # `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx` carry that pattern
+                            # with a warning comment (open-followups §73).
 npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
                             # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
                             # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
@@ -254,9 +267,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
   BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
-  80/stmts 89 + per-engine globs in `vitest.config.ts`]) → build → e2e. All quality gates are ratchets and
+  80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
+  unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
+  false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
+  machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
+  dependence, open-followups §75]) → build → e2e. All quality gates are ratchets and
   carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
-  `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
+  `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
+  its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
+  otherwise). (Phases 1-4 of the
   tech-debt roadmap are complete — gates flipped to blocking in Phase 4, MR !174.)
   New CI gate → also update this line.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
