@@ -147,10 +147,15 @@ export function ProjectEmptyState({
               <img
                 src={startLogo || DEFAULT_START_LOGO}
                 alt={settings.branding?.slogan ?? t(lang, "appTitle")}
-                // ONE sizing for both branches now (the default is no longer a
-                // small square mark, so the old default-vs-custom split is moot).
-                // The shipped banner is 1200×280 (~4.3:1), so the HEIGHT cap binds
-                // and it lands ~206×48; the width cap only bounds a squarer upload.
+                // ONE sizing for both branches now: the old split gave the default
+                // a bare `h-7 w-auto` and only a custom upload a capped box, which
+                // stops making sense once the default IS a user-replaceable banner.
+                // That banner is 1200×280 (~4.29:1), so at max-h-12 the HEIGHT cap
+                // binds and it lands ~206×48. The width cap engages only above
+                // 280/48 ≈ 5.8:1 — i.e. for an upload WIDER than this banner, never
+                // a squarer one. (The old default, /AIPM-logo.svg, was a ~5.74:1
+                // wordmark, not a square mark — the square one is /app-logo.svg,
+                // which this window has never rendered.)
                 className="max-h-12 w-auto max-w-[280px] object-contain"
               />
             ) : undefined
