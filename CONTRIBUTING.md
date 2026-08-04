@@ -47,7 +47,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
 | `npm run dup:check` | Report code duplication in `src/` via jscpd (Phase 1 tech-debt baseline) |
 | `npm run size:check` | Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet) |
-| `npm run docs:symbols:check` | Fail if AGENTS.md names a code symbol that does not exist (nothing else gates that file) |
+| `npm run docs:symbols:check` | Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them) |
 <!-- END AUTO-GENERATED -->
 
 There is no separate `tsc` script — `next build` runs the TypeScript check
@@ -96,6 +96,13 @@ The root `AGENTS.md` warns that this Next.js install is **not** the version
 the model has seen most of in training. Before adding code that touches Next
 APIs (routing, headers, server actions, etc.), check
 `node_modules/next/dist/docs/` for the version-specific guide.
+
+`AGENTS.md` holds what applies to any task — commands, hard constraints,
+architecture pointers. The per-subsystem deep reference lives in
+[`docs/AGENTS/`](docs/AGENTS/) (dashboard · ui-shell · theming · insights ·
+ai-assistant · integrations · platform · features): **open the file for the
+subsystem you are editing.** Those files are not auto-loaded, so nothing will
+put their landmines in front of you — you have to go and read them.
 
 ### TypeScript
 

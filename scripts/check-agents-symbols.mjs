@@ -46,7 +46,23 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const DOC = "AGENTS.md";
+// ★★ AGENTS.md plus every file split out of it. The subsystem reference moved to
+// docs/AGENTS/ on 2026-08-04 so it would stop costing ~59k tokens on every
+// session; scanning only AGENTS.md afterwards would have silently dropped 73% of
+// the prose this gate exists to police. The directory is globbed rather than
+// listed so a NEW subsystem file is covered the moment it is written — an
+// explicit list is a thing you forget to extend.
+const DOC_DIR = "docs/AGENTS";
+const DOCS = [
+  "AGENTS.md",
+  ...(fs.existsSync(DOC_DIR)
+    ? fs
+        .readdirSync(DOC_DIR)
+        .filter((f) => f.endsWith(".md"))
+        .sort()
+        .map((f) => path.join(DOC_DIR, f))
+    : []),
+];
 const CODE_DIRS = ["src", "scripts", "e2e"];
 const CODE_EXT = /\.(ts|tsx|mjs|cjs|js|jsx|json)$/;
 const SKIP_DIRS = new Set(["node_modules", ".next", "dist", "build", "coverage"]);
@@ -133,8 +149,21 @@ function collectIdentifiers(dir, into) {
 }
 
 function main() {
-  if (!fs.existsSync(DOC)) {
-    console.error(`${DOC} not found — run from the repo root.`);
+  for (const doc of DOCS) {
+    if (!fs.existsSync(doc)) {
+      console.error(`${doc} not found — run from the repo root.`);
+      process.exit(2);
+    }
+  }
+  // ★★ Same principle as the identifier floor below: a gate that scans nothing
+  // passes everything. If the split files vanish (moved, renamed, folder gone)
+  // this must FAIL rather than quietly go back to checking AGENTS.md alone —
+  // that would leave ~73% of the prose unscanned while still printing a pass.
+  if (DOCS.length < 2) {
+    console.error(
+      `no ${DOC_DIR}/*.md found — the subsystem reference would go unscanned. ` +
+        `Refusing to report a pass.`,
+    );
     process.exit(2);
   }
 
@@ -151,8 +180,6 @@ function main() {
     process.exit(2);
   }
 
-  const lines = fs.readFileSync(DOC, "utf8").split(/\r?\n/);
-
   // ★★ Suppression is PROXIMITY-based, and both simpler rules were tried and
   // rejected against the real file:
   //   - same LINE only  -> 9 false findings, because these bullets wrap and the
@@ -165,57 +192,68 @@ function main() {
   // lines either side — wide enough for the wrap case, narrow enough that an
   // unrelated removal later in the same bullet does not grant cover.
   const PROXIMITY = 240;
-  const doc = lines.join("\n");
-  const lineStart = [];
-  {
-    let off = 0;
-    for (const l of lines) {
-      lineStart.push(off);
-      off += l.length + 1;
-    }
-  }
-  const markedNear = (absoluteIndex) => {
-    const from = Math.max(0, absoluteIndex - PROXIMITY);
-    // ★ Collapse whitespace before matching. These bullets wrap mid-phrase, so
-    // "REPLACING the dead\n  `onTakeTour`" leaves a NEWLINE where the marker
-    // "the dead " expects a space — the suppression silently failed and the
-    // line was reported as a stale claim when the doc was correct.
-    const window = doc.slice(from, absoluteIndex + PROXIMITY).replace(/\s+/g, " ");
-    return ABSENCE_MARKERS.some((w) => window.includes(w));
-  };
 
   const findings = [];
+  // ★ `seen` spans ALL docs on purpose: one dead name restated in three
+  // subsystem files is one stale claim, not three findings. `verified` likewise
+  // counts distinct names, so the pass line does not inflate with the split.
   const seen = new Set();
   const verified = new Set(); // doc symbols that resolved — the honest pass count
 
-  lines.forEach((line, i) => {
-    for (const m of line.matchAll(/`([^`\n]+)`/g)) {
-      const name = m[1];
-      if (!IDENTIFIER.test(name)) continue;
-      if (name.length <= 3) continue;
-      if (!/[a-z]/.test(name) || !/[A-Z_]/.test(name)) continue; // mixed case only
-      if (known.has(name)) {
-        verified.add(name);
-        continue;
+  for (const docPath of DOCS) {
+    const lines = fs.readFileSync(docPath, "utf8").split(/\r?\n/);
+    const doc = lines.join("\n");
+    const lineStart = [];
+    {
+      let off = 0;
+      for (const l of lines) {
+        lineStart.push(off);
+        off += l.length + 1;
       }
-      if (ALLOWLIST.has(name) || seen.has(name)) continue;
-      if (markedNear(lineStart[i] + m.index)) continue;
-      seen.add(name);
-      findings.push({ name, line: i + 1, text: line.trim() });
     }
-  });
+    // ★★ Proximity is scoped to ONE file. Concatenating the docs first would let
+    // an absence marker at the top of one file suppress a real stale claim at the
+    // bottom of the previous one — the PROXIMITY BLEED hole above, widened across
+    // file boundaries where it is even harder to spot.
+    const markedNear = (absoluteIndex) => {
+      const from = Math.max(0, absoluteIndex - PROXIMITY);
+      // ★ Collapse whitespace before matching. These bullets wrap mid-phrase, so
+      // "REPLACING the dead\n  `onTakeTour`" leaves a NEWLINE where the marker
+      // "the dead " expects a space — the suppression silently failed and the
+      // line was reported as a stale claim when the doc was correct.
+      const window = doc.slice(from, absoluteIndex + PROXIMITY).replace(/\s+/g, " ");
+      return ABSENCE_MARKERS.some((w) => window.includes(w));
+    };
+
+    lines.forEach((line, i) => {
+      for (const m of line.matchAll(/`([^`\n]+)`/g)) {
+        const name = m[1];
+        if (!IDENTIFIER.test(name)) continue;
+        if (name.length <= 3) continue;
+        if (!/[a-z]/.test(name) || !/[A-Z_]/.test(name)) continue; // mixed case only
+        if (known.has(name)) {
+          verified.add(name);
+          continue;
+        }
+        if (ALLOWLIST.has(name) || seen.has(name)) continue;
+        if (markedNear(lineStart[i] + m.index)) continue;
+        seen.add(name);
+        findings.push({ doc: docPath, name, line: i + 1, text: line.trim() });
+      }
+    });
+  }
 
   if (findings.length === 0) {
     console.log(
-      `${DOC}: ${verified.size} named symbols all resolve ` +
+      `${DOCS.length} doc(s): ${verified.size} named symbols all resolve ` +
         `(against ${known.size} identifiers in ${CODE_DIRS.join("/")})`,
     );
     return;
   }
 
-  console.error(`${DOC} names ${findings.length} symbol(s) that do not exist in the codebase:\n`);
+  console.error(`${findings.length} symbol(s) named in the docs do not exist in the codebase:\n`);
   for (const f of findings) {
-    console.error(`  ${DOC}:${f.line}  \`${f.name}\``);
+    console.error(`  ${f.doc}:${f.line}  \`${f.name}\``);
     console.error(`    ${f.text.slice(0, 140)}`);
   }
   console.error(
