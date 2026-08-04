@@ -596,6 +596,21 @@ describe("BudgetPanel — Total column + total row", () => {
   const renderTotals = () =>
     render(<BudgetPanel {...props} roles={totalsRoles} buckets={totalsBuckets} />);
 
+  /** The two numbers in a totals cell, each read from its OWN labelled line.
+   *  Asserting `cell.textContent` instead reads both lines at once, so swapping
+   *  the two props at the TotalsTd call site (`budget={actual} actual={budget}`)
+   *  leaves every such assertion passing while every Total cell in the app shows
+   *  the actual on the Budget line — the exact reversed-argument hazard this
+   *  file already warns about for `ratioHealth`. */
+  const totalsLines = (cell: HTMLElement) => {
+    const lineFor = (key: "budgetCellBudget" | "budgetCellActual") => {
+      const label = t("en-US", key);
+      const row = within(cell).getByText(label).parentElement as HTMLElement;
+      return (row.textContent ?? "").replace(label, "").trim();
+    };
+    return { budget: lineFor("budgetCellBudget"), actual: lineFor("budgetCellActual") };
+  };
+
   test("each row carries its summed budget and actual in the Total column", () => {
     renderTotals();
     expect(screen.getByRole("columnheader", { name: t("en-US", "budgetTotal") })).toBeInTheDocument();
@@ -603,12 +618,8 @@ describe("BudgetPanel — Total column + total row", () => {
     // Row-scoped: the CCI tiles above the table render their own numbers, so a
     // bare getByText could match one of those instead.
     const rows = screen.getAllByRole("row");
-    const firstCells = within(rows[1]).getAllByRole("cell");
-    expect(firstCells[2].textContent).toContain("80");
-    expect(firstCells[2].textContent).toContain("65");
-    const secondCells = within(rows[2]).getAllByRole("cell");
-    expect(secondCells[2].textContent).toContain("40");
-    expect(secondCells[2].textContent).toContain("50");
+    expect(totalsLines(within(rows[1]).getAllByRole("cell")[2])).toEqual({ budget: "80", actual: "65" });
+    expect(totalsLines(within(rows[2]).getAllByRole("cell")[2])).toEqual({ budget: "40", actual: "50" });
   });
 
   test("the total row carries each period's column sums and the grand total", () => {
@@ -616,11 +627,11 @@ describe("BudgetPanel — Total column + total row", () => {
     const totalRow = screen.getByText(t("en-US", "budgetTotal"), { selector: "td" }).closest("tr") as HTMLElement;
     const cells = within(totalRow).getAllByRole("cell");
     // cell 0 = RAG dot, 1 = "Total", 2 = grand, 3.. = per-period sums
-    expect(cells[2].textContent).toContain("120");
-    expect(cells[2].textContent).toContain("115");
-    expect(cells[3].textContent).toContain("60");
-    expect(cells[3].textContent).toContain("55");
-    expect(cells[4].textContent).toContain("60");
+    expect(totalsLines(cells[2])).toEqual({ budget: "120", actual: "115" });
+    expect(totalsLines(cells[3])).toEqual({ budget: "60", actual: "55" });
+    // Jan and Feb differ on actual only (55 vs 60), so a column-vs-column mixup
+    // shows up here and not in the budget figure.
+    expect(totalsLines(cells[4])).toEqual({ budget: "60", actual: "60" });
   });
 
   // useColumnResize's v2 blob for this table. It is read in a lazy useState

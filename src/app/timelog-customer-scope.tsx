@@ -47,7 +47,11 @@ export function TimelogCustomerScope({
         value={filter}
         onClear={() => onFilterChange("")}
         clearLabel={`${t(lang, "clear")} – ${t(lang, "timelogCustomerLabel")}`}
-        className="w-[21rem] print:hidden"
+        /* `max-w-full` is not decoration: 21rem is a fixed 336px, and the pane
+           this sits in is `overflow-hidden`, so on a ~375px viewport the field
+           would be CLIPPED rather than scrolled — a state the old `w-28` (112px)
+           could never reach. The cap lets it shrink instead. */
+        className="w-[21rem] max-w-full print:hidden"
       >
         <Input
           type="search"

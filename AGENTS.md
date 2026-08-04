@@ -801,6 +801,26 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep (reports →
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`.
+- **Budget panel module map (gantt pattern):** `budget-panel.tsx` is the orchestrator (state, derivation,
+  the bucket cards, the CCI tiles); the bucket table's CELL layer is the presentational leaf
+  `budget-panel-totals.tsx` — `HoursCell`/`HoursTd` (the editable period cells), `TotalsTd` (the fixed
+  Total column's cells and every cell of a bucket total row), `BucketRowLeadCells` (the three PINNED
+  leading cells: RAG dot · label · Total), `BucketTotalRow`, `RowDot`, and the pure `bucketColumnTotals`
+  arithmetic. Split out to keep the orchestrator under the 800-line ratchet.
+  ★★ The three leading columns are PINNED by arithmetic — role at `DOT_COL_PX`, Total at `DOT_COL_PX +
+  the LIVE role width` (the role column is user-resizable, so a hardcoded offset drifts the moment it is
+  dragged). That arithmetic is only true while every column to a pinned one's LEFT renders exactly as
+  wide as it declares, and TWO independent mechanisms break that: `table-layout: auto` lets CONTENT push
+  a column past its declared width (so the dot header's label is `sr-only` and the role cells are
+  clamped), and a `w-full` table spreads LEFTOVER width across every column including the pinned ones
+  (so the table is `w-max`). ★ The `w-max` cost is real and deliberate: a short plan no longer stretches
+  to fill the pane. ★ jsdom has no layout, so NOTHING in the unit suite can see any of this — the tests
+  pin the class/offset plumbing only, and the geometry itself was measured in Chromium.
+  ★★ The total row's separating rule rides `cellClass` onto the CELLS, never the `<tr>` — see
+  `docs/open-followups.md` §68 for why a `<tr>` border in these tables has never painted.
+  ★ `bucketColumnTotals` takes the caller's OWN `cellBudget` as `budgetOf`, so the column sums and the
+  row sums come from one accessor and cannot disagree (it honours budget-follows-plan mirroring). It is
+  fed the FILTERED rows, so the totals follow the role filter — §70.
 - **Shared sortable/resizable header cell (`SortResizeTh<K>` in `report-table.tsx`):** the
   `<th className="relative px-3 py-2[ text-right] font-medium"> + SortHeaderButton + ColumnResizeHandle`
   trio every report panel repeated per column (top cross-file jscpd clones, TD-6) is now ONE generic
@@ -822,6 +842,29 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ `onResize` is OPTIONAL — omit it for a table that sorts but stores no column widths (the calendar series
   list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
   nothing, the exact false affordance this component exists to avoid.
+  ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
+  (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at the other 76
+  invocations `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
+  passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width
+  becomes the RENDERED one. That coupling is deliberate — anything pinned to the RIGHT is placed by
+  arithmetic over this column's DECLARED width, so a wider render puts the neighbour on top of this
+  column's own content — but a caller reaching for "pin this" gets a clamp it did not ask for. ★ `0` is a
+  REAL offset (the leading fixed column), so both the class branch and the style branch check
+  `stickyLeft === undefined`, never truthiness; `report-table.test.tsx` pins the offset-0 case in BOTH
+  branches precisely because a `!stickyLeft` "simplification" ships green otherwise.
+  ★★★ `position` MUST stay in the CLASS, never the inline style. An inline declaration outranks every
+  author rule in every media, so an inline `position: sticky` leaves the `print:static` beside it
+  permanently inert — and the print stylesheet strips the scroll container these cells are positioned
+  against, so a pinned cell with no scroller offsets against the PAGE. Measured in Chromium under
+  emulated print media: inline sticky + class static computes `sticky`; class sticky + class static
+  computes `static`. Only `left`/`width` are inline (per-instance values).
+  ★★ The pinned header clips with `overflow-hidden whitespace-nowrap` while the matching BODY cell in
+  `budget-panel-totals.tsx` uses `truncate` (the same two properties PLUS `text-overflow: ellipsis`), so
+  a narrowed role column cuts the header label mid-glyph while the row labels beneath it get "…".
+  **Do NOT "fix" that by swapping in `truncate` — measured in Chromium, the two render IDENTICALLY.**
+  The header's content is an inline-flex `SortHeaderButton`, an atomic inline, and `text-overflow` does
+  not apply to one; the body cell ellipsizes only because its content is raw text. The asymmetry is
+  inherent to the header holding a button, not to the class choice, and jsdom cannot see either.
   ★★ The `<th>` carries **`aria-sort`** (`ascending`/`descending`/`none`), derived from the SAME `active` value
   the arrow is, so the announced and drawn states cannot drift; `active` gates on BOTH `sortKey === sortCol`
   AND `sortDir !== "off"` ("off" is a real member of the asc→desc→off cycle, so naming the column is not

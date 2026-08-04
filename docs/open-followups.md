@@ -2888,7 +2888,8 @@ extension, or it reports binaries as findings.
 
 ## 68. The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — open
 
-`budget-panel.tsx:567` and `:599` (the detailed/role and blended/discipline branches) both render
+`budget-panel.tsx`'s two allocation rows — the `<tr key={a.roleId}>` in the detailed/role branch and
+the `<tr key={a.disciplineId}>` in the blended/discipline one — both render
 `<tr className="border-t border-line">`. That border has never rendered. `globals.css:125`
 `table:has(> .aipm-cockpit-thead)` sets **`border-collapse: separate`**, and CSS 2.2 §17.6.1 puts that
 table in the separated-borders model, where "borders set on rows, row groups, columns and column
@@ -2901,9 +2902,13 @@ breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `D
 
 ★★ **NOT budget-specific.** Sweeping `<tr …className=…border-…>` across `src/app/*.tsx` finds **8
 occurrences in 6 files**, and all six render their tables through the marked shell: `budget-panel`
-(:567, :599) · `learning-insights` (:88) · `portfolio-health-panel` (:146) · `steering-committee-panel`
-(:332, :446) · `timelog-people-table` (:84) · `timelog-projects-table` (:96). Only budget's two were
-verified in a browser; the other six share the mechanism but were not individually confirmed.
+(×2) · `learning-insights` · `portfolio-health-panel` · `steering-committee-panel` (×2) ·
+`timelog-people-table` · `timelog-projects-table`. Reproduce with
+`grep -rn '<tr[^>]*className="[^"]*border-' src/app --include=*.tsx | grep -v "\.test\.tsx:"` —
+deliberately no line numbers, because the first revision of this entry cited two that the very
+commit writing it had already invalidated (it named `budget-panel.tsx:567`/`:599`; the rows had moved
+to `:589`/`:621` before the commit landed, and they were `:654`/`:684` at its base). Only budget's two
+were verified in a browser; the other six share the mechanism but were not individually confirmed.
 ★ `learning-insights.tsx:72` additionally sets an explicit `border-collapse` Tailwind utility on the
 table, which reads as if it opts back into the collapsed model — it does not, because the
 `globals.css` rule is UNLAYERED and therefore beats a layered utility whatever the specificity. That
@@ -2915,7 +2920,9 @@ and grows the box to 32px. A screenshot of the three-row repro shows exactly one
 one. So the allocation rows in every bucket table are, and always have been, separated by nothing but
 their cell padding.
 
-★ The 0.213.0 Total-column work hit this and **worked around it rather than fixing it**:
+★ The Total-column work on `feat/ui-batch-five-fixes` (UNVERSIONED — 0.213.0 "McKillip" shipped
+before this branch and contains no Total column; §69 says the same about `branding.startLogo` and the
+two entries must not drift apart) hit this and **worked around it rather than fixing it**:
 `BucketTotalRow` (`budget-panel-totals.tsx`) passes a `cellClass` of `border-t-2 border-line` to each
 of its cells and leaves the `<tr>` carrying only `font-medium`. A unit test pins that split, so the
 total row's rule cannot regress onto the `<tr>`. The allocation rows were deliberately left alone.
@@ -2974,6 +2981,32 @@ and it is what every other filtered table in the app does. Recorded, deliberatel
 alternative (an unfiltered total, or a "Total (filtered)" label) is a product decision, not a bug fix.
 ★ Untested either way: no test pins which scope those totals use, so a future edit could flip them to
 the unfiltered list and nothing would fail.
+
+---
+
+## 71. A budget bucket evaluates `cellBudget` three times per (row, period) — open
+
+`cellBudget` (`budget-panel.tsx`, a closure over `effectiveBudgetHours`) is the most expensive call in
+the panel: it walks resources, absences, holidays and the budget-follows-plan mirroring rule. Every
+`(allocation, period)` pair now evaluates it **three** times per render — once for the cell
+(`HoursTd budget={cellBudget(a, p, periods)}`), once inside the row's `totBudget` reduce, and once more
+inside `bucketColumnTotals`. Nothing memoizes any of them; they sit inside a `.map` over buckets where a
+`useMemo` cannot easily go.
+
+★ Two of the three pre-date this work — the cell and the row total have both called it since the RAG
+row dot was added. The Total-column work on `feat/ui-batch-five-fixes` added the third, so it raised
+the count by **50%**, it did not create the pattern.
+
+★ Not measured. No profile exists and no gate covers render cost, so the impact is unknown; the
+argument for fixing it is structural, not a benchmark. Buckets are typically a handful of allocations
+by a handful of periods, so the absolute number is probably small.
+
+★★ The real prize is not speed. Building the row×period matrix ONCE and deriving both the row totals
+and the column totals from it would make "the two axes cannot disagree" a STRUCTURAL property. Today it
+holds only by convention — `bucketColumnTotals` takes the caller's own `cellBudget` as `budgetOf`
+precisely so the two agree, which works but relies on every future caller passing the same accessor.
+★ A test pins the current agreement (`budget-panel.test.tsx`, the row-totals and total-row cases read
+budget and actual off their own labelled lines), so a refactor has something to land against.
 
 ---
 
