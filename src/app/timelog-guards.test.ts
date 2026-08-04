@@ -14,7 +14,7 @@ const fetchOk = {
   syncBusy: false,
   confirming: false,
   isMisconfigured: false,
-  projectCustomerId: "42",
+  projectCustomerId: 42,
   selectedCount: 3,
 };
 
