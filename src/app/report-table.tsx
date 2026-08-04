@@ -212,6 +212,7 @@ export function SortResizeTh<K extends string>({
   align = "left",
   hint,
   title,
+  stickyLeft,
 }: {
   label: string;
   sortCol: K;
@@ -228,6 +229,11 @@ export function SortResizeTh<K extends string>({
   align?: "left" | "right";
   hint?: string;
   title?: string;
+  /** Pins this column at the given px offset inside a horizontally scrolling
+   *  table (`position: sticky`). Omit for an ordinary scrolling column. `0` is a
+   *  REAL offset — the leading fixed column — so this is checked for `undefined`,
+   *  never for truthiness. */
+  stickyLeft?: number;
 }) {
   // "off" is a real SortDir (the asc→desc→off cycle), so naming this column in
   // `sortKey` is not enough to call it sorted — both halves gate `active`, and
@@ -241,12 +247,15 @@ export function SortResizeTh<K extends string>({
       // not a state a screen reader can present as one. axe has no rule for a
       // missing aria-sort, so the gate never flagged it.
       aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
-      className={
+      className={`${
         align === "right"
           ? "relative px-3 py-2 text-right font-medium"
           : "relative px-3 py-2 font-medium"
-      }
-      style={width === undefined ? undefined : { width, minWidth: width }}
+      }${stickyLeft === undefined ? "" : " print:static"}`}
+      style={{
+        ...(width === undefined ? undefined : { width, minWidth: width }),
+        ...(stickyLeft === undefined ? undefined : { position: "sticky" as const, left: stickyLeft }),
+      }}
     >
       <SortHeaderButton
         label={label}

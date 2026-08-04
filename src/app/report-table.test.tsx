@@ -360,3 +360,43 @@ describe("Tile sub slot", () => {
     expect(container.querySelector("[data-tile-sub]")).toBeNull();
   });
 });
+
+describe("SortResizeTh stickyLeft", () => {
+  function renderTh(extra: { stickyLeft?: number } = {}) {
+    render(
+      <table><thead><tr>
+        <SortResizeTh
+          label="Role"
+          sortCol="role"
+          width={160}
+          sortKey="role"
+          sortDir="off"
+          onSort={() => {}}
+          {...extra}
+        />
+      </tr></thead></table>,
+    );
+    return document.querySelector("th") as HTMLElement;
+  }
+
+  it("stays a plain header cell when stickyLeft is omitted", () => {
+    const th = renderTh();
+    expect(th.style.position).toBe("");
+    expect(th.className).not.toContain("print:static");
+  });
+
+  it("pins the column at the given offset when stickyLeft is passed", () => {
+    const th = renderTh({ stickyLeft: 28 });
+    expect(th.style.position).toBe("sticky");
+    expect(th.style.left).toBe("28px");
+    // The print stylesheet resets the scroll container out from under a sticky
+    // cell, so a pinned column must opt back out for print.
+    expect(th.className).toContain("print:static");
+  });
+
+  it("pins at offset 0 (a falsy but real offset)", () => {
+    const th = renderTh({ stickyLeft: 0 });
+    expect(th.style.position).toBe("sticky");
+    expect(th.style.left).toBe("0px");
+  });
+});
