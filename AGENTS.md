@@ -808,9 +808,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
   `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
   width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
-  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). ★ Consumers are now raid-report (34) /
-  resources-panel-rows (6) / change-report (6) / calendar-series-list (2) / milestones (2) /
-  tasks-section (11) / reports-tables (4) / budget-panel (1) / budget-report-panel (1) — `reports-tables`
+  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). ★ Consumers are now raid-report (28) /
+  resources-report (16) / tasks-section (11) / change-report (6) / resources-panel-rows (6) /
+  reports-tables (4) / calendar-series-list (2) / milestones (2) / budget-panel (1) /
+  budget-report-panel (1) — TEN files, 77 invocations (counted `<SortResizeTh` 2026-08-04; an earlier
+  revision here said "raid-report (34)" and omitted `resources-report` entirely) — `reports-tables`
   and `budget-report` were once "left as-is" over local sort-var naming and have since adopted it, so
   every sortable header in the app now flows through here (which is why the `aria-sort` below lifts them
   all at once). NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` +

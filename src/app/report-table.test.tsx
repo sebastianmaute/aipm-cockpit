@@ -398,5 +398,11 @@ describe("SortResizeTh stickyLeft", () => {
     const th = renderTh({ stickyLeft: 0 });
     expect(th.style.position).toBe("sticky");
     expect(th.style.left).toBe("0px");
+    // The className branch needs its own offset-0 assertion: the style branch
+    // and the class branch are two separate `stickyLeft === undefined` checks,
+    // and only this pins the class one at 0. Without it, "simplifying" that
+    // check to `!stickyLeft` ships green while the LEADING pinned column — the
+    // exact case the prop doc calls out — silently loses print:static.
+    expect(th.className).toContain("print:static");
   });
 });
