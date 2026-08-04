@@ -448,6 +448,47 @@ describe("useStorageBackend — save effect", () => {
 
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
+
+  // ── §72: the teardown race ──────────────────────────────────────────────────
+  // The save effect fires `doSave()` fire-and-forget. Its .then/.catch call back
+  // into the component. If the component unmounted while the save was in flight,
+  // that callback runs `setState` on a dead tree — in CI's torn-down jsdom that
+  // surfaces as `ReferenceError: window is not defined` from React's
+  // resolveUpdatePriority, and Vitest exits 1 with every test passing.
+  //
+  // ★ This test pins the GUARD (no callback after unmount), not the crash. The
+  //   crash needs environment teardown, which a unit test cannot stage — see
+  //   docs/open-followups.md §72.
+  it("does not report a save outcome after unmount (§72 teardown race)", async () => {
+    const onStorageOutcome = vi.fn();
+    let resolveSave!: () => void;
+    const deferred = new Promise<void>((resolve) => { resolveSave = resolve; });
+
+    const { result, unmount } = renderBackend(makeArgs({ onStorageOutcome }));
+
+    // Burn the load + the suppressed first debounce cycle.
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+    onStorageOutcome.mockClear();
+
+    // Next save hangs until we resolve it by hand.
+    mockBackend.save.mockReturnValueOnce(deferred);
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    expect(mockBackend.save).toHaveBeenCalledTimes(1);
+
+    // Component goes away while the save is still in flight.
+    unmount();
+
+    // Now the save lands. Nothing may call back into the dead tree.
+    await act(async () => { resolveSave(); await Promise.resolve(); });
+
+    expect(onStorageOutcome).not.toHaveBeenCalled();
+  });
 });
 
 describe("useStorageBackend — handlers", () => {
