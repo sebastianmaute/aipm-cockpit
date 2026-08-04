@@ -252,6 +252,27 @@ describe("TimelogPanel", () => {
   });
 
   describe("Refresh bookings", () => {
+    // §39 failure capture — read-only, failure path only. Eight CI failures have
+    // produced only frequency data; this makes the ninth readable.
+    // ★★★ NOT `onTestFailed`, which is UNUSABLE here — measured, not assumed: it
+    // runs AFTER the file-level `afterEach` (`vi.clearAllMocks()`, line ~213) AND
+    // after RTL's `cleanup()` in vitest.setup.ts, so every field reads zeroed.
+    // The `onTestFailed` form of this capture printed
+    // `{"fetchCalls":0,"toastCalls":[],"refreshButtonPresent":false,...}` on a run
+    // where the fetch HAD been called and the error toast HAD fired — i.e. it would
+    // have falsely CONFIRMED "the click was swallowed", which is worse than no
+    // capture at all. A describe-scoped afterEach is registered LAST and therefore
+    // runs FIRST (LIFO), while the mocks and the DOM are still live.
+    // ★ Still failure-path only: it returns immediately unless the test failed, and
+    //   it neither awaits nor flushes — it runs after the test body has returned,
+    //   so there is no scheduling left to perturb.
+    let captureOnFailure: (() => void) | undefined;
+    afterEach((ctx) => {
+      const capture = captureOnFailure;
+      captureOnFailure = undefined;
+      if (ctx.task.result?.state === "fail") capture?.();
+    });
+
     it("shows a Refresh button once bookings are read and re-fetches the persisted scope", async () => {
       enableTimelog();
       const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
@@ -300,6 +321,21 @@ describe("TimelogPanel", () => {
         </>,
         { wrapper },
       );
+      // The fix on this branch (wait for ENABLED before clicking) should prevent a
+      // recurrence — if it recurs anyway, these four values say which assumption
+      // broke. `fetchCalls: 0` is the direct evidence of a swallowed click.
+      captureOnFailure = () => {
+        const btn = screen.queryByRole("button", { name: t("en-US", "timelogRefresh") });
+        console.error(
+          "[§39 capture]",
+          JSON.stringify({
+            fetchCalls: fetchBookingsForProjects.mock.calls.length,
+            toastCalls: showToast.mock.calls.map((c) => c[0]),
+            refreshButtonPresent: !!btn,
+            refreshButtonDisabled: btn?.hasAttribute("disabled") ?? null,
+          }),
+        );
+      };
       const refreshBtn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
       // ★★★ Wait for ENABLED, not merely present. The button's EXISTENCE is gated
       // only on `fetchedAt`, so it renders while `isMisconfigured` is still true —
