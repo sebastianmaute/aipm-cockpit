@@ -758,14 +758,22 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     vi.clearAllMocks();
     // ★★★ `clearAllMocks` does NOT drain a `mockReturnValueOnce` queue — it is
     //     `mockClear`, which only wipes calls/instances/results. `createBackend`
-    //     is a MODULE-LEVEL mock shared by every test in this file, and
-    //     "confirm=false → no save, no config change" queues two values while
-    //     deliberately consuming one (the early return is the thing it asserts).
-    //     Under `--sequence.shuffle --sequence.seed=1` that leftover became the
-    //     next test's FIRST createBackend() result, shifting the whole queue by
-    //     one: the switch target came back as the main backend and `targetSave`
-    //     was never called. `mockReset` drains the queue; the mockReturnValue
-    //     below re-establishes the default. See open-followups §75.
+    //     is a MODULE-LEVEL mock shared by every test in this file, and THREE
+    //     tests in this describe queue two values while deliberately consuming
+    //     only one — the early return under test IS the assertion, so the
+    //     second queued value is left over: "confirm=false → no save, no
+    //     config change", "warns (recording stops) and aborts when leaving
+    //     Turso and the user cancels", and "uses the generic convert-confirm
+    //     for a non-Turso source switch". Under `--sequence.shuffle
+    //     --sequence.seed=1` one such leftover became the next test's FIRST
+    //     createBackend() result, shifting the whole queue by one: the switch
+    //     target came back as the main backend and `targetSave` was never
+    //     called. `mockReset` drains the queue; the mockReturnValue below
+    //     re-establishes the default. NOT `vi.resetAllMocks()` — that resets
+    //     every mock in the module back to its bare `vi.fn()`, wiping the
+    //     module-scope `mockBackend.*` implementations (and the TursoBackend
+    //     mock methods) that several other describes in this file rely on
+    //     without re-establishing. See open-followups §75.
     createBackendMock.mockReset();
     vi.useFakeTimers();
     setStorageConfig = vi.fn<(config: StorageConfig) => void>();
@@ -779,6 +787,17 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
   });
 
   afterEach(() => {
+    // ★ Drain `createBackend`'s once-queue on the way OUT too. The `beforeEach`
+    //   drain above only fires at the START of each test in THIS describe, so
+    //   it makes intra-describe ordering safe but does nothing for whichever
+    //   test `--sequence.shuffle` schedules LAST here. A leftover once-value
+    //   from that test would then survive into whichever describe runs next —
+    //   that describe's own `beforeEach` sets its default with
+    //   `.mockReturnValue(mockBackend)`, but a plain default does NOT out-rank
+    //   a queued once-value (vitest's dispatcher shifts the once-queue first),
+    //   so its first `createBackend()` call would silently receive the
+    //   leftover instead of `mockBackend`. See open-followups §75.
+    createBackendMock.mockReset();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
