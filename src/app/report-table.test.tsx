@@ -381,22 +381,45 @@ describe("SortResizeTh stickyLeft", () => {
 
   it("stays a plain header cell when stickyLeft is omitted", () => {
     const th = renderTh();
-    expect(th.style.position).toBe("");
+    expect(th.classList.contains("sticky")).toBe(false);
     expect(th.className).not.toContain("print:static");
+    // The nine other panels using this component omit stickyLeft, so the
+    // unpinned output must be byte-identical to what it was before pinning
+    // existed: the declared width is a MINIMUM there and the column is still
+    // free to grow to fit its content.
+    expect(th.style.width).toBe("160px");
+    expect(th.style.maxWidth).toBe("");
+    expect(th.className).not.toContain("overflow-hidden");
   });
 
   it("pins the column at the given offset when stickyLeft is passed", () => {
     const th = renderTh({ stickyLeft: 28 });
-    expect(th.style.position).toBe("sticky");
+    // `sticky` must be a CLASS. Inline styles outrank author class rules in
+    // every media, so an inline `position: sticky` would leave the
+    // `print:static` beside it with nothing to override — the print stylesheet
+    // resets the scroll container out from under a sticky cell, so a pinned
+    // column has to be able to opt back out.
+    expect(th.classList.contains("sticky")).toBe(true);
+    expect(th.style.position).toBe("");
     expect(th.style.left).toBe("28px");
-    // The print stylesheet resets the scroll container out from under a sticky
-    // cell, so a pinned column must opt back out for print.
     expect(th.className).toContain("print:static");
+  });
+
+  it("clamps a pinned column to its declared width", () => {
+    // Under `table-layout: auto` a declared width is only a minimum, so a wide
+    // label renders the column wider — and whatever pins to its right is placed
+    // by arithmetic over the DECLARED width, landing on top of this column's
+    // own content. Only a pinned column is clamped; see the omitted-stickyLeft
+    // case above.
+    const th = renderTh({ stickyLeft: 28 });
+    expect(th.style.maxWidth).toBe("160px");
+    expect(th.className).toContain("overflow-hidden");
+    expect(th.className).toContain("whitespace-nowrap");
   });
 
   it("pins at offset 0 (a falsy but real offset)", () => {
     const th = renderTh({ stickyLeft: 0 });
-    expect(th.style.position).toBe("sticky");
+    expect(th.classList.contains("sticky")).toBe(true);
     expect(th.style.left).toBe("0px");
     // The className branch needs its own offset-0 assertion: the style branch
     // and the class branch are two separate `stickyLeft === undefined` checks,
@@ -404,5 +427,6 @@ describe("SortResizeTh stickyLeft", () => {
     // check to `!stickyLeft` ships green while the LEADING pinned column — the
     // exact case the prop doc calls out — silently loses print:static.
     expect(th.className).toContain("print:static");
+    expect(th.style.maxWidth).toBe("160px");
   });
 });
