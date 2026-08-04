@@ -2886,6 +2886,49 @@ extension, or it reports binaries as findings.
 
 ---
 
+## 68. The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — open
+
+`budget-panel.tsx:567` and `:599` (the detailed/role and blended/discipline branches) both render
+`<tr className="border-t border-line">`. That border has never rendered. `globals.css:125`
+`table:has(> .aipm-cockpit-thead)` sets **`border-collapse: separate`**, and CSS 2.2 §17.6.1 puts that
+table in the separated-borders model, where "borders set on rows, row groups, columns and column
+groups are ignored".
+
+★ Note the direction: Tailwind's preflight sets `border-collapse: collapse` on every `<table>`
+(`preflight.css:166`), under which a `<tr>` border WOULD paint. It is the `globals.css` override that
+breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
+`globals.css:124` puts that at ~25 tables.
+
+★★ **NOT budget-specific.** Sweeping `<tr …className=…border-…>` across `src/app/*.tsx` finds **8
+occurrences in 6 files**, and all six render their tables through the marked shell: `budget-panel`
+(:567, :599) · `learning-insights` (:88) · `portfolio-health-panel` (:146) · `steering-committee-panel`
+(:332, :446) · `timelog-people-table` (:84) · `timelog-projects-table` (:96). Only budget's two were
+verified in a browser; the other six share the mechanism but were not individually confirmed.
+★ `learning-insights.tsx:72` additionally sets an explicit `border-collapse` Tailwind utility on the
+table, which reads as if it opts back into the collapsed model — it does not, because the
+`globals.css` rule is UNLAYERED and therefore beats a layered utility whatever the specificity. That
+class is misleading and should go with the fix.
+
+★★ Verified in Chrome, not inferred: a `border-top` on a `<tr>` paints nothing AND adds nothing to
+the row box (a row measured 30px at both `1px` and `2px`), while the same border on a `<td>` paints
+and grows the box to 32px. A screenshot of the three-row repro shows exactly one rule — the `<td>`
+one. So the allocation rows in every bucket table are, and always have been, separated by nothing but
+their cell padding.
+
+★ The 0.213.0 Total-column work hit this and **worked around it rather than fixing it**:
+`BucketTotalRow` (`budget-panel-totals.tsx`) passes a `cellClass` of `border-t-2 border-line` to each
+of its cells and leaves the `<tr>` carrying only `font-medium`. A unit test pins that split, so the
+total row's rule cannot regress onto the `<tr>`. The allocation rows were deliberately left alone.
+
+★★ **Fixing this is a VISUAL change, not a bug fix, and needs sign-off.** Moving these borders to the
+cells would give the tables in six panels row separators they have never had. That may well be what
+each author intended, but nobody has seen those tables with the lines, and "restore the intended
+styling" and "add row separators across six panels" are the same diff described two ways. Decide
+which one is wanted before touching it. ★ If it IS wanted, the mechanism already exists (`cellClass` in
+`budget-panel-totals.tsx`) — the work is agreeing the look, not finding the fix.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
@@ -623,17 +623,55 @@ describe("BudgetPanel — Total column + total row", () => {
     expect(cells[4].textContent).toContain("60");
   });
 
-  test("the three leading columns are pinned, Total offset by the live role width", () => {
+  // useColumnResize's v2 blob for this table. It is read in a lazy useState
+  // initializer, so a seed only takes effect if it is written BEFORE render.
+  const COL_WIDTHS_KEY = "aipm-cockpit:col-widths:budget";
+  const seedRoleWidth = (px: number) =>
+    window.localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify({ v: 2, widths: { role: px } }));
+  beforeEach(() => window.localStorage.removeItem(COL_WIDTHS_KEY));
+  afterEach(() => window.localStorage.removeItem(COL_WIDTHS_KEY));
+
+  test("the three leading columns are pinned", () => {
     renderTotals();
     const headers = screen.getAllByRole("columnheader");
     expect(headers[0].style.position).toBe("sticky");
     expect(headers[0].style.left).toBe("0px");
     expect(headers[1].style.position).toBe("sticky");
     expect(headers[1].style.left).toBe("28px");
-    // 28 + the 160px default role width. The role column is user-resizable, so
-    // this offset is derived from its live width, never hardcoded.
     expect(headers[2].style.position).toBe("sticky");
-    expect(headers[2].style.left).toBe("188px");
+    expect(headers[2].style.left).toBe("188px"); // 28 + the 160px default role width
+  });
+
+  test("Total's offset tracks a RESIZED role column, not the default 188", () => {
+    // The previous test cannot tell a derived offset from a hardcoded 188: the
+    // default role width is 160 and 28 + 160 is exactly 188, so both spellings
+    // agree there. Only a NON-default width separates them — and the role column
+    // is user-resizable, so this is the case that actually ships broken.
+    seedRoleWidth(240);
+    renderTotals();
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[1].style.left).toBe("28px"); // role still sits at the fixed dot width
+    expect(headers[2].style.left).toBe("268px"); // 28 + the seeded 240
+    // The body's pinned Total cells track the same width, or the column would
+    // shear away from its own header.
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    expect(cells[2].style.left).toBe("268px");
+  });
+
+  test("every pinned cell carries print:static", () => {
+    // The print stylesheet resets `overflow` on every .print-root descendant,
+    // which removes the scroll container these cells are positioned against —
+    // a sticky cell with no scroller offsets against the page instead and lands
+    // somewhere else entirely. report-table covers the role <th> via
+    // SortResizeTh; nothing else covers the other five.
+    renderTotals();
+    for (const th of screen.getAllByRole("columnheader").slice(0, 3)) {
+      expect(th.className).toContain("print:static");
+    }
+    const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
+    for (const td of cells.slice(0, 3)) {
+      expect(td.className).toContain("print:static");
+    }
   });
 
   test("the total row's separating rule is on its CELLS, not the <tr>", () => {
