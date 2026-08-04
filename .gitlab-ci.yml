@@ -122,6 +122,54 @@ unit-tests:
     paths: [coverage/]
     expire_in: 1 week
 
+# Order-dependence gate. Runs the unit suite with vitest's shuffle at a PINNED
+# seed, so the result is deterministic: it can only go red on a real regression,
+# never on the seed of the day. Seed 1 is the seed that reproduced the two
+# leaks closed in open-followups §75 (a leaked `window.matchMedia` stub, an
+# undrained `mockReturnValueOnce` queue).
+#
+# ★★ `needs` includes `unit-tests` ON PURPOSE. No other quality-stage job lists
+# `unit-tests` in its own `needs` — each needs at most `install` (lint,
+# typecheck, dependency-audit, dependency-audit-full, duplication-gate) or
+# nothing at all (semgrep, file-size-ratchet, agents-symbol-check) — so absent
+# this dependency GitLab would run this job concurrently with `unit-tests`,
+# meaning two full vitest processes contending for the runner's CPU at once.
+# That is the same class of resource contention as the full-suite parallel-load
+# worker starvation already documented for the CPU-heavy fast-check property
+# suites (see the `test:coverage` note above; open-followups §39/§51/§73/§74).
+# Serialising costs pipeline wall-clock and buys back determinism.
+#
+# ★ No coverage here: `unit-tests` owns the floors, and instrumenting a second
+# full run doubles the cost of the runs we just argued must not contend.
+# ★ `--reporter=basic` does NOT exist in vitest 4.1.8 (errors at startup).
+unit-tests-shuffled:
+  stage: quality
+  needs: [install, unit-tests]
+  script:
+    - npm run test:run -- --sequence.shuffle --sequence.seed=1 --reporter=dot
+
+# Weekly random-seed sweep via a GitLab pipeline schedule. The pinned job above
+# proves seed 1 stays green; this one samples the class instead of pinning one
+# point of it. Warn-only: informational, not a merge gate.
+#
+# ★★ The seed is `$CI_PIPELINE_ID` and is echoed with its reproduce command. A
+# random-seed failure whose seed was not recorded is unreproducible, which costs
+# the reader's attention and returns nothing. `$RANDOM` was the obvious choice
+# and is WRONG: it is a bash builtin, the runner shell on node:24-bookworm-slim
+# is not guaranteed to be bash, and under sh it expands to empty — yielding a
+# malformed `--sequence.seed=` on the one job whose entire value is a recorded
+# seed. `$CI_PIPELINE_ID` is always present, needs no shell features, and is
+# unique per pipeline.
+unit-tests-shuffled-random:
+  stage: quality
+  needs: [install]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true
+  script:
+    - echo "shuffle seed=$CI_PIPELINE_ID  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID)"
+    - npm run test:run -- --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID --reporter=dot
+
 # File-size ratchet — BLOCKING as of Phase 4 (was warn-only allow_failure).
 # Freezes the oversized files at their current size and blocks new oversized
 # files (>800 lines, i18n dictionaries exempt). Regenerate the baseline with
