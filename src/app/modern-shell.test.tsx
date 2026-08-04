@@ -140,8 +140,14 @@ describe("ModernShell mobile drawer (#25)", () => {
   //     here ran, EVERY later test in the file saw a narrow viewport, ModernShell
   //     rendered the mobile drawer instead of the in-flow sidebar, and the
   //     sidebar's buttons ("RAID", "Collapse sidebar", "Expand sidebar") were
-  //     simply absent. Invisible in file order — the drawer describe is last —
-  //     and reproduced by `--sequence.shuffle --sequence.seed=1`, which runs it
+  //     simply absent. It stayed invisible in DECLARATION order only by
+  //     coincidence, not because this describe is last (it isn't — "settings
+  //     slot" and "banners slot" both follow it): the last `it` in this
+  //     describe stubs `matches: false`, the wide/desktop value the two
+  //     trailing describes happen to need anyway. Adding a test here, or
+  //     reordering the ones already here, would have broken them with no
+  //     shuffle flag involved. It reproduces reliably under
+  //     `--sequence.shuffle --sequence.seed=1`, which runs this describe
   //     first. See open-followups §75.
   function stubViewport(matches: boolean) {
     vi.stubGlobal(
