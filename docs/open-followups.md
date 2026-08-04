@@ -3441,6 +3441,41 @@ typed it `string`, and review caught the mismatch before the wiring commit lande
 ★ Keep the §39 provenance sentence above as written — "read §39 as 'test fixed', not 'cause removed'"
 stays true of §39's own history regardless of this fix.
 
+★★★ **No test in the suite would fail if `isMisconfigured` were dropped from either handler guard
+again — verified, not assumed.**
+- `timelog-guards.test.ts` tests `canFetchBookings`/`canRefreshBookings` in isolation, calling them
+  directly with hand-built state objects. It never imports `timelog-panel.tsx`, so it is blind to what
+  the handlers actually pass.
+- `timelog-panel.test.tsx` contains **zero** direct references to `handleFetchBookings`,
+  `handleRefreshBookings`, `onFetch` or `onRefresh` (`grep` returns no matches). Every test that
+  exercises either handler does so through `screen.getByRole("button", {…})` +
+  `fireEvent.click(btn)` — and every such test explicitly waits for the button to become **enabled**
+  first (e.g. `await waitFor(() => expect(btn).toBeEnabled())` before the Refresh click, an identical
+  wait before the Fetch click), because a disabled `<button>` drops `onClick` and the click would
+  otherwise be a silent no-op (the same fact §39's own comment records, for the same reason).
+- Both buttons carry the SAME `isMisconfigured` term the handlers now also carry. So in any scenario
+  where `isMisconfigured` is true, the button is disabled, its `onClick` never fires, and the handler is
+  never invoked. **The path "handler invoked while misconfigured" is structurally unreachable from this
+  DOM-driven suite** — the 58 passing tests (51 in `timelog-panel.test.tsx` + 7 in
+  `timelog-guards.test.ts`) confirm **no regression**; they pin **nothing** about the new
+  `isMisconfigured` term in either handler.
+
+★★ **This is the same wall as §76 (and as §72's own re-set line):** the guard's only trigger is exactly
+the state that makes it unreachable through the normal surface. A test written today would either be
+vacuous or would have to bypass the button entirely. **A test that passes against the mutation it names
+is worse than none.**
+
+★ The fix is still correct and still worth having — it closes the gap for the next non-button caller,
+which is the entire point of this entry. Do not read this closure as though a green suite verified that
+closure; it verified only that nothing already passing broke.
+
+★ **Shape for real coverage, for whoever picks this up:** a direct unit test that invokes the handler
+(or exercises `canFetchBookings`/`canRefreshBookings` at the handler's own call site, with the handler's
+actual argument construction) with `isMisconfigured: true` and everything else permissive, asserting
+`sync.fetchBookingsForProjects` is NOT called. The difficulty — and the reason this was not done here —
+is reaching the handler at all without going through the disabled button, which is exactly what the DOM
+suite cannot do.
+
 ---
 
 ## 75. ~~Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED~~ — CLOSED
