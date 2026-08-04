@@ -11,7 +11,7 @@ function model(over: Partial<DashboardModel> = {}): DashboardModel {
     scope: { computed: null, effective: null, overridden: false },
     changes: { pending: 2, approved: 1, implemented: 4, total: 7 },
     topChanges: [],
-    progress: { total: 10, completed: 4, percent: 40, counts: { R: 1, A: 2, G: 7 } },
+    progress: { total: 10, inScope: 10, completed: 4, percent: 40, counts: { R: 1, A: 2, G: 7 } },
     burn: null,
     burndown: null,
     bucketChain: null,
@@ -80,9 +80,19 @@ describe("buildDashboardSnapshot", () => {
   it("emits the progress shape exactly, without leaking counts into it", () => {
     const snap = buildDashboardSnapshot(model(), report(), "2026-07-25");
 
-    expect(snap.progress).toEqual({ total: 10, completed: 4, percent: 40 });
+    expect(snap.progress).toEqual({ total: 10, inScope: 10, completed: 4, percent: 40 });
   });
 
+
+  it("carries inScope so the model can reconcile percent with the pair", () => {
+    // 5 Done + 5 Cancelled: total:10/completed:5/percent:100 alone is an
+    // arithmetic contradiction. inScope is the denominator percent used.
+    const m = model();
+    (m as { progress: Record<string, unknown> }).progress = { total: 10, inScope: 5, completed: 5, percent: 100, counts: { R: 0, A: 0, G: 10 } };
+    const snap = buildDashboardSnapshot(m, report(), "2026-07-25");
+
+    expect(snap.progress).toEqual({ total: 10, inScope: 5, completed: 5, percent: 100 });
+  });
   it("passes real cost figures through when cost is knowable", () => {
     const snap = buildDashboardSnapshot(model(), report(), "2026-07-25");
 

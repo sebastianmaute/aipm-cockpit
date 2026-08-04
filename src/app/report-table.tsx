@@ -273,7 +273,7 @@ export function SortResizeTh<K extends string>({
  *    are intentionally un-elevated; the dashboard tiles are raised).
  */
 export function Tile({
-  label, value, rag, trend, bar, onActivate, activateLabel, hint,
+  label, value, rag, trend, bar, sub, onActivate, activateLabel, hint,
   danger = false, size = "xl", flat = false,
 }: {
   label: React.ReactNode;
@@ -281,6 +281,10 @@ export function Tile({
   rag?: React.ReactNode;
   trend?: React.ReactNode;
   bar?: React.ReactNode;
+  /** Small muted line under the value. For a qualifier the headline number needs
+   *  to stay honest (e.g. "2 cancelled" under a Total that no longer equals
+   *  open + completed) — NOT for a second metric, which wants its own tile. */
+  sub?: React.ReactNode;
   onActivate?: () => void;
   activateLabel?: string;
   /** Optional explanation shown as an InfoTooltip in the tile's corner. Rendered
@@ -306,6 +310,9 @@ export function Tile({
         {rag}
       </div>
       {bar ? <div className="mt-1.5">{bar}</div> : null}
+      {sub ? (
+        <p data-tile-sub className="mt-1 text-xs text-muted-foreground">{sub}</p>
+      ) : null}
       {trend ? <div className="mt-1">{trend}</div> : null}
     </>
   );

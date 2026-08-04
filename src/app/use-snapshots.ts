@@ -6,10 +6,12 @@ import {
   deleteSnapshots as storeDeleteMany,
   loadSnapshots, setBaseline as storeSetBaseline,
 } from "./snapshot-store";
-import { bucketKey, buildSnapshot, computeVariance, detectGaps } from "./snapshot";
+import { bucketKey, buildSnapshot, computeVariance, detectGaps, withoutCompletionVariance } from "./snapshot";
 import type { SnapshotCadence, SnapshotRecord, SnapshotTrigger, VarianceRow } from "./snapshot";
 import type { BuildSnapshotInput } from "./snapshot";
 import type { TursoConfig } from "./turso-config";
+import { tasksHaveNoActiveScope } from "./dashboard";
+import type { Task } from "./types";
 import { reportCapabilityGap } from "./guard-feedback";
 import type { Lang } from "./i18n";
 
@@ -31,6 +33,9 @@ export interface UseSnapshotsArgs {
    *  (e.g. Turso quarantined mid-session after the panel/CTA already rendered). */
   showToast: (kind: "info" | "error", text: string) => void;
   lang: Lang;
+  /** Live task list. Used ONLY to decide whether the completion variance row is
+   *  meaningful — see the `variance` derivation below. */
+  tasks: readonly Task[];
 }
 
 export interface UseSnapshotsResult {
@@ -211,7 +216,27 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   const baseline = pickBaseline(snapshots);
   const sorted = [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
   const latest = sorted.length ? sorted[sorted.length - 1] : null;
-  const variance = latest ? computeVariance(baseline, latest) : [];
+  // The completion row is dropped for a project with no active scope: 0% there
+  // is an empty denominator, not lost delivery, and `worseIfLower` would report
+  // it as a fall against the baseline. Gated HERE rather than at either render
+  // site because both surfaces that show variance — the dashboard's Trends card
+  // and the Trends view — read this one value, and a per-surface gate is exactly
+  // how the dashboard's own two completion cards came to disagree.
+  // ★ PRESENTATION ONLY: the stored `SnapshotRecord.pctComplete` is untouched.
+  // ★★ KNOWN LIMIT — the gate mixes LIVE and HISTORICAL data: the rows come from
+  // two stored snapshots, the predicate reads today's tasks. Narrow in practice
+  // (no-active-scope needs every task to lack a `completedDate`, so a non-zero
+  // historical `pctComplete` requires the delivered tasks to have been DELETED
+  // since), but it is not "unconditionally correct" — say so rather than let a
+  // later reader assume it.
+  // ★ `rawVariance.length` FIRST, and it is not a micro-optimisation: this hook
+  // is called unconditionally from the root orchestrator, Trends is Turso-only,
+  // so on a file backend `rawVariance` is always [] and `scopeCounts` would
+  // otherwise filter+allocate over every task on every render of the whole app.
+  const rawVariance = latest ? computeVariance(baseline, latest) : [];
+  const variance = rawVariance.length > 0 && tasksHaveNoActiveScope(args.tasks)
+    ? withoutCompletionVariance(rawVariance)
+    : rawVariance;
   const gaps = detectGaps(snapshots, cadence, today);
 
   return { snapshots: sorted, baseline, latest, variance, gaps, busy, captureNow, rebaselineNow, setBaseline, deleteSnapshot, deleteSnapshots };

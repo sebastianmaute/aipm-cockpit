@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
 import { Card } from "./card";
-import { buildDashboardInput, computeDashboard } from "./dashboard";
+import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
 import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
@@ -150,7 +150,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const snapCount = snapshots.length;
   const activityCount = activity.length;
   const currentDone = model.progress.completed;
-  const currentTotal = model.progress.total;
+  // inScope, NOT total: the sparkline's last point is anchored on these counts
+  // and renders directly beneath the completion tile, so it must divide by the
+  // same denominator the tile's percentage does.
+  const currentTotal = model.progress.inScope;
+  // Shared with the at-a-glance KPI card, which renders the SAME metric — see
+  // hasNoActiveScope. Re-deriving it here is how the two cards once disagreed.
+  const noActiveScope = hasNoActiveScope(model.progress);
   const completionSeries = useMemo(
     () =>
       computeCompletionTrend({ snapshots, activity, currentDone, currentTotal, today }),
@@ -330,10 +336,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
             <Section title={t(lang, "dashboardProgress")} boxed>
               <div className="flex flex-wrap gap-2">
                 <Tile
-                  label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
-                  value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.total))}
+                  label={noActiveScope
+                    ? t(lang, "dashboardNoActiveScope")
+                    : t(lang, "dashboardPercentComplete", String(model.progress.percent))}
+                  value={noActiveScope
+                    ? t(lang, "dashboardAllCancelled", String(model.progress.total))
+                    : t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.inScope))}
                   onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                  activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
+                  activateLabel={noActiveScope
+                    ? `${t(lang, "dashboardNoActiveScope")} – ${t(lang, "dashboardOpenTasksView")}`
+                    : `${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
                 />
                 <Tile
                   label="R / A / G" hint={t(lang, "dashboardRagHint")}
@@ -485,8 +497,20 @@ export function DashboardPanel(props: DashboardPanelProps) {
               </Section>
             </div>
           )}
-          {/* Completion-trend sparkline — self-hides without >= 2 points */}
-          {completionSeries.length >= 2 && (
+          {/* Completion-trend sparkline — self-hides without >= 2 points, and
+              is suppressed outright when there is no active scope. It renders
+              directly beneath the completion tile, so an all-cancelled project
+              would otherwise show a flat 0% trajectory under a tile reading
+              "No active scope": the same one-screen disagreement the
+              at-a-glance KPI card had to be fixed for. ★ "Beneath" is reading
+              order, not adjacency — this is a `column-fill: balance` multicolumn
+              flow, so which cards sit next to which depends on the viewport and
+              nothing here can promise a neighbour.
+              ★ The snapshot-fed series does NOT go to
+              zero on its own — `fromSnapshots` reads each record's stored
+              `pctComplete` and never consults `inScope` — so this is a real
+              suppression on that path, not a no-op dressed up as a guard. */}
+          {completionSeries.length >= 2 && !noActiveScope && (
             <div className={`break-inside-avoid ${dc.cardGap}`}>
               {(() => {
                 const sparkBody = (

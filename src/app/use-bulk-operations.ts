@@ -20,6 +20,7 @@ import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-hel
 import { applyStatusChange } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
+import { visibleTaskRows } from "./visible-task-rows";
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
 // them on a `jiraKey` row would be silently reverted by the next read-only pull
@@ -56,6 +57,18 @@ export interface UseBulkOperationsArgs {
    *  button (type "yes, clear all tasks") instead of a one-click window.confirm.
    *  Undefined ⇒ voice clear-all is a safe no-op (popout / view not mounted). */
   requestClearAllConfirm?: () => void;
+  /** Day-boundary context for the health filter. task-manager threads the SAME
+   *  `today` and `holidaySet` VALUES into the Open Points pane, so two of the
+   *  three inputs to `visibleTaskRows()` cannot drift at all.
+   *  The third, `hideFinishedTasks`, is read off `settings` here (task-manager
+   *  passes its EFFECTIVE settings) and off the pane's own `useEffectiveSettings`.
+   *  Those are two objects, not one — equal for THIS flag because neither the
+   *  policy nor the appearance override layer touches it (`settings-effective.ts`),
+   *  so a future override for it would have to be added to both readers at once.
+   *  Passing a pane-local re-derivation of any of the three brings back exactly
+   *  the drift `visibleTaskRows()` exists to close. */
+  today: string;
+  holidaySet: ReadonlySet<string>;
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
@@ -67,7 +80,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     () => new Map(resources.map((r) => [r.id, r])),
     [resources],
   );
-  const { setSearchImmediate } = useFilters();
+  const { setSearchImmediate, healthFilter } = useFilters();
   const {
     bulkEdit,
     setBulkEdit,
@@ -97,9 +110,23 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  // The rows the Open Points table ACTUALLY renders — the same helper the pane
+  // calls, so select-all can never reach a row the user cannot see. Deriving
+  // this from `filteredSortedTasks` (upstream of the health + hide-finished
+  // filters) is the reported bug.
+  // `args.today`/`args.holidaySet` are hoisted: exhaustive-deps rejects an
+  // `obj.member` dependency outright (fatal at --max-warnings=0).
+  const today = args.today;
+  const holidaySet = args.holidaySet;
+  const hideFinished = args.settings.hideFinishedTasks ?? false;
+  const visibleRows = useMemo(
+    () => visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, { today, holidaySet }),
+    [filteredSortedTasks, healthFilter, hideFinished, today, holidaySet],
+  );
+
   const visibleIds = useMemo(
-    () => filteredSortedTasks.map((r) => r.id),
-    [filteredSortedTasks],
+    () => visibleRows.map((r) => r.id),
+    [visibleRows],
   );
 
   const allVisibleSelected = useMemo(
@@ -162,14 +189,17 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const tz = resolveTimezone(args.settings.timezone, project?.operatingTimezone);
   const applyBulkEdit = useCallback(() => {
     const lang = langRef.current;
-    const today = todayInZone(new Date(), tz);
+    // Named apart from the hook-scope `today` (args.today, the pane's day
+    // boundary for the health filter): two day values that coincide today but
+    // are not the same thing, and shadowing hid that.
+    const editToday = todayInZone(new Date(), tz);
     const fields = bulkEdit.enabled;
     const anyEnabled = Object.values(fields).some(Boolean);
     if (!anyEnabled) {
       showToastRef.current("error", t(lang, "bulkEditNoFields"));
       return;
     }
-    const built = buildBulkEditUpdates(bulkEdit, today);
+    const built = buildBulkEditUpdates(bulkEdit, editToday);
     if (!built.ok) {
       showToastRef.current(
         "error",
@@ -178,6 +208,18 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       return;
     }
     const updates = built.updates;
+    // A row selected while visible and hidden by a LATER filter change must not
+    // be edited from under the user. `visibleIds` is what they can see now, so
+    // this is a second, independent guard: the first stops select-all REACHING a
+    // hidden row, this one stops a STALE selection from being written.
+    const visible = new Set(visibleIds);
+    const targetIds = [...selectedIds].filter((id) => visible.has(id));
+    const targetSet = new Set(targetIds);
+    // Withholding a row is a decision the user has to be told about: the modal
+    // closes and the selection clears whether or not anything was written, so
+    // an unannounced skip is indistinguishable from an edit that worked. The
+    // all-hidden case (targetIds empty) is the same failure, only total.
+    const skippedHidden = selectedIds.size - targetIds.length;
     // `status` isn't in `updates` (it must route through applyStatusChange to keep
     // the Done ⟺ completedDate invariant), so track its enablement separately.
     const statusEnabled = fields.status;
@@ -192,19 +234,19 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // via applyStatusChange only on non-synced rows below).
     const noLocalForSynced = Object.keys(jiraSafeUpdates).length === 0;
     const skippedSynced = managedEnabled
-      ? tasks.reduce((n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n), 0)
+      ? tasks.reduce((n, row) => (targetSet.has(row.id) && row.jiraKey ? n + 1 : n), 0)
       : 0;
     // Synced rows are left fully untouched only when the edit was managed-fields-
     // only (nothing local to apply); subtract those so the count reflects rows
     // actually changed.
     const untouchedSynced = managedEnabled && noLocalForSynced ? skippedSynced : 0;
-    const count = selectedIds.size - untouchedSynced;
+    const count = targetIds.length - untouchedSynced;
     const stamp = new Date().toISOString();
-    const beforeRows = tasks.filter((r) => selectedIds.has(r.id));
+    const beforeRows = tasks.filter((r) => targetSet.has(r.id));
     // Bucket links live on the BUCKET, so this writes `budgets`. A task-field
     // patch and a bucket change in the same apply must be ONE undo entry.
     const nextBuckets = fields.budgetBucket
-      ? moveTasksToBucket(budgets, [...selectedIds], bulkEdit.budgetBucket === "" ? null : Number(bulkEdit.budgetBucket), stamp)
+      ? moveTasksToBucket(budgets, targetIds, bulkEdit.budgetBucket === "" ? null : Number(bulkEdit.budgetBucket), stamp)
       : budgets;
     const bucketsChanged = nextBuckets !== budgets;
     // A managed-fields-only edit already writes nothing to tasks; a BUCKET-only
@@ -217,10 +259,12 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     if (tasksPart !== null && !bucketsChanged) {
       captureRef.current({ setter: setTasks, kind: "bulk.edit", edited: beforeRows, fromArray: tasks, entityKey: "task" });
     }
-    if (taskFieldsEnabled) {
+    // `targetIds.length > 0` also keeps a fully-hidden selection from producing a
+    // fresh (identical) tasks array, which would dirty the workspace for nothing.
+    if (taskFieldsEnabled && targetIds.length > 0) {
     setTasks((prev) =>
       prev.map((row) => {
-        if (!selectedIds.has(row.id)) return row;
+        if (!targetSet.has(row.id)) return row;
         if (row.jiraKey) {
           if (!managedEnabled) return { ...row, ...updates, localModifiedAt: stamp };
           // Only managed fields (incl. status) were enabled → nothing local to
@@ -232,7 +276,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
         // Non-synced: apply the flat field patch, then the status transition (via
         // applyStatusChange so status + completedDate stay in sync).
         const next = { ...row, ...updates };
-        const withStatus = statusEnabled ? applyStatusChange(next, newStatus, today) : next;
+        const withStatus = statusEnabled ? applyStatusChange(next, newStatus, editToday) : next;
         return { ...withStatus, localModifiedAt: stamp };
       }),
     );
@@ -242,6 +286,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     }
     if (skippedSynced > 0) {
       showToastRef.current("info", t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
+    }
+    // Mirrors the Jira notice above — same shape, different reason for skipping.
+    if (skippedHidden > 0) {
+      showToastRef.current("info", t(lang, "bulkEditHiddenSkipped", skippedHidden));
     }
     // A bucket-only apply whose move is a no-op (every selected task is already
     // in the target) writes nothing — so it must not claim rows either. The
@@ -259,7 +307,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setBulkEditOpen(false);
     setBulkEdit(emptyBulkEdit());
     setSelectedIds(new Set());
-  }, [bulkEdit, selectedIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz, budgets, commitBuckets]);
+  }, [bulkEdit, selectedIds, visibleIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz, budgets, commitBuckets]);
 
   // Unconditional clear — callers own the confirmation (the tasks view gates it
   // with TypeToConfirmDialog; the voice command below gates it with window.confirm).

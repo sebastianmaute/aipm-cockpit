@@ -102,10 +102,18 @@ describe("DashboardPanel captions and thresholds", () => {
     expect(screen.getByText(/Amber ≥ 90%/)).toBeInTheDocument();
   });
 
+  // Assert the KEY renders, not a hardcoded fragment of its English wording.
+  // The old form matched /Tasks completed vs total/ — a sentence that had been
+  // FALSE since the completion denominator became `inScope` (the tile beneath
+  // it reads "{completed} of {inScope}"), and the test kept passing precisely
+  // because it pinned the stale words. A fragment assertion cannot tell a
+  // correct caption from an incorrect one; it only makes copy edits fail. It
+  // never was, and still is not, coverage for whether the sentence is TRUE —
+  // nothing automated is. It just no longer pretends to be.
   it("renders the progress and burn captions", () => {
     renderDashboard();
-    expect(screen.getByText(/Tasks completed vs total/)).toBeInTheDocument();
-    expect(screen.getByText(/burn-down shows remaining budget/)).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "dashboardProgressCaption"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "dashboardBurnCaption"))).toBeInTheDocument();
   });
 
   it("applies the RAG role-token colour class to the overall status word", () => {
@@ -637,6 +645,27 @@ describe("DashboardPanel completion-trend card", () => {
     render(<DashboardPanel {...baseProps} snapshots={[]} />, { wrapper });
     expect(screen.queryByText("Completion trend")).toBeNull();
   });
+
+  // The card renders directly beneath the completion tile, so on an
+  // all-cancelled project it would draw a trajectory under a tile reading
+  // "No active scope". The fixture is IDENTICAL to the control test above
+  // except for the tasks, and the snapshot path does not consult `inScope`
+  // (`fromSnapshots` reads each record's stored `pctComplete`) — so the series
+  // genuinely still has two points here and the absence is a suppression, not
+  // a series that collapsed on its own.
+  it("hides the trend card when every task is cancelled, even with a real series", () => {
+    const cancelled = [1, 2].map((id) => ({
+      id, taskName: `Cancelled ${id}`, assignee: "A", assigneeEmail: "a@x.io",
+      dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled" as const,
+      priority: "Medium" as const, blockers: "", description: "",
+    }));
+    const snapshots = [snapRec("2026-06-10T00:00:00.000Z", 20), snapRec("2026-06-14T00:00:00.000Z", 55)];
+    render(<DashboardPanel {...baseProps} tasks={cancelled} snapshots={snapshots} />, { wrapper });
+    // Two, for the same reason as the paired assertion further down this file:
+    // the Progress tile and the at-a-glance KPI card both carry the state.
+    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(2);
+    expect(screen.queryByText("Completion trend")).toBeNull();
+  });
 });
 
 describe("DashboardPanel density (slice #8)", () => {
@@ -774,5 +803,100 @@ describe("DashboardPanel burn-down chain warning", () => {
   it("does not warn when the buckets form one chain", () => {
     render(<DashboardPanel {...chainProps} budgets={[{ ...bucketA, successorId: 2 }, bucketB]} />, { wrapper });
     expect(screen.queryByText(/not linked into one chain/)).toBeNull();
+  });
+});
+
+describe("DashboardPanel completion tile self-consistency", () => {
+  // 5 Done + 5 Cancelled: the percentage divides by the in-scope count (5), so
+  // the pair rendered beside it must read "5 of 5", not "5 of 10".
+  const mixed = [
+    ...[1, 2, 3, 4, 5].map((id) => ({
+      id, taskName: `Done ${id}`, assignee: "A", assigneeEmail: "a@x.io",
+      dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Done",
+      completedDate: "2026-05-02", priority: "Medium", blockers: "", description: "",
+    })),
+    ...[6, 7, 8, 9, 10].map((id) => ({
+      id, taskName: `Cancelled ${id}`, assignee: "A", assigneeEmail: "a@x.io",
+      dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+      priority: "Medium", blockers: "", description: "",
+    })),
+  ] as never;
+
+  it("renders '5 of 5 complete' beside '100% complete'", () => {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={mixed}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    expect(screen.getByText(t("en-US", "dashboardPercentComplete", "100"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "dashboardCompletedOf", "5", "5"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "dashboardCompletedOf", "5", "10"))).toBeNull();
+  });
+});
+
+describe("DashboardPanel completion tile", () => {
+  // Mirrors renderDashboard() above verbatim, except tasks is a parameter —
+  // renderDashboard() itself hardcodes a single task and can't express these fixtures.
+  function renderDashboardWithTasks(tasks: unknown) {
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={tasks as never}
+        raid={[]}
+        budgets={minimalBudget as never}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+  }
+
+  it("reads as no-active-scope when every task is cancelled", () => {
+    renderDashboardWithTasks([
+      {
+        id: 1, taskName: "Cancelled 1", assignee: "A", assigneeEmail: "a@x.io",
+        dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+        priority: "Medium", blockers: "", description: "",
+      },
+      {
+        id: 2, taskName: "Cancelled 2", assignee: "A", assigneeEmail: "a@x.io",
+        dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+        priority: "Medium", blockers: "", description: "",
+      },
+    ]);
+    // TWO, not one, and the count is the point: the Progress tile and the
+    // at-a-glance KPI card both render this state, and a dashboard showing
+    // "No active scope" on one card while the other still reads "0% complete"
+    // is the defect this pair exists to prevent. `getByText` would throw on
+    // the second match, and `getAllByText(...)[0]` would pass with the KPI
+    // card left unfixed — so assert the length.
+    expect(screen.getAllByText(t("en-US", "dashboardNoActiveScope"))).toHaveLength(2);
+    expect(screen.getAllByText(t("en-US", "dashboardAllCancelled", "2"))).toHaveLength(2);
+    expect(screen.queryByText(t("en-US", "dashboardPercentComplete", "0"))).toBeNull();
+    // The KPI card's own percentage must be gone too — a 0% gradient bar reads
+    // as "nothing done yet", which is exactly the misreading being fixed.
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  it("leaves an empty project on 0% complete", () => {
+    renderDashboardWithTasks([]);
+    expect(screen.getByText(t("en-US", "dashboardPercentComplete", "0"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
   });
 });

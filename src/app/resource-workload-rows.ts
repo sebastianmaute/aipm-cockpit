@@ -1,4 +1,5 @@
 import { isTerminalStatus } from "./raid";
+import { isTaskClosed } from "./task-closed";
 import { resourceDisplayName, splitName } from "./resource-foundation";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Shift, type Task, type WeekHours } from "./types";
 
@@ -85,7 +86,7 @@ export function buildResourceWorkload(
   for (const t of tasks) {
     const row = resolve(t.resourceId, t.assignee, t.assigneeEmail);
     if (!row) continue;
-    if (!t.completedDate) {
+    if (!isTaskClosed(t)) {
       row.openCount++;
       if (t.dueDate && t.dueDate < today) {
         row.overdueCount++;

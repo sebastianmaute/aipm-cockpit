@@ -66,7 +66,9 @@ export function buildMeetingReportPrompt(model: DashboardModel, agenda: string, 
     `Base the report on these project facts:\n` +
     `- Overall RAG status: ${rag}\n` +
     `- Completion: ${model.progress.percent}% complete ` +
-    `(${model.progress.completed} of ${model.progress.total} tasks done)\n` +
+    // inScope, NOT total: this pair sits inside the same sentence as the
+    // percentage, and a model handed 100% beside "5 of 10" will contradict itself.
+    `(${model.progress.completed} of ${model.progress.inScope} tasks done)\n` +
     `- Overdue tasks: ${model.overdue.length}\n` +
     `- Tasks due soon: ${model.dueSoon.length}\n` +
     `- Open RAID items: ${model.openRaidCount}\n` +

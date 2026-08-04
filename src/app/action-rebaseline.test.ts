@@ -27,6 +27,13 @@ describe("milestoneRebaselineDate", () => {
     const m = milestone({ date: "2026-06-16", linkedTaskIds: [] });
     expect(milestoneRebaselineDate(m, [], "2026-06-16")).toBe("2026-06-16");
   });
+  it("does not re-baseline around a CANCELLED linked task", () => {
+    // Cancelled work will never land, so it must not drag the prefilled target
+    // out; the milestone's own date wins.
+    const m = milestone({ date: "2026-07-01", linkedTaskIds: [1] });
+    const tasks = [task({ id: 1, status: "Cancelled", dueDate: "2027-08-15" })];
+    expect(milestoneRebaselineDate(m, tasks, "2026-06-16")).toBe("2026-07-01");
+  });
 });
 
 describe("applyMilestoneRebaseline", () => {

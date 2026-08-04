@@ -337,3 +337,26 @@ describe("TableFilter", () => {
     expect(screen.getByRole("searchbox").className).toContain("pr-8");
   });
 });
+
+describe("Tile sub slot", () => {
+  it("renders the sub line after the value when given", () => {
+    const { container } = render(<Tile label="Total" value={10} sub="2 cancelled" />);
+    const sub = container.querySelector("[data-tile-sub]");
+    expect(sub).not.toBeNull();
+    expect(sub?.textContent).toBe("2 cancelled");
+    // The name says "after the value", so assert the ORDER — otherwise
+    // rendering the qualifier ABOVE the headline number also passes, and a
+    // qualifier that precedes what it qualifies reads as a second metric.
+    const value = screen.getByText("10");
+    expect(
+      value.compareDocumentPosition(sub as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("renders no sub line when omitted", () => {
+    const { container } = render(<Tile label="Total" value={10} />);
+    // Structural, not textual: this fixture never passes the string "cancelled",
+    // so asserting its absence could not fail whatever `Tile` did.
+    expect(container.querySelector("[data-tile-sub]")).toBeNull();
+  });
+});

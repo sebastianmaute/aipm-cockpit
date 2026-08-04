@@ -10,6 +10,7 @@ import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
+import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import type {
   Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
@@ -57,30 +58,84 @@ function worstHealth(...signals: SubStatus[]): SubStatus {
 }
 
 export type DashboardProgress = {
+  /** Every task, cancelled included — an inventory count. */
   total: number;
+  /** The denominator `percent` divides by: total minus cancelled work. A caller
+   *  rendering "completed of N" NEXT TO `percent` must use this, not `total`,
+   *  or the two numbers describe different sets (5 Done + 5 Cancelled reads
+   *  "100% complete" above "5 of 10 complete"). */
+  inScope: number;
   completed: number;
   percent: number;
   counts: Record<Health, number>;
 };
 
-/** % complete (completedDate-based) + R/A/G health counts from
- *  computeGroupHealth. Note: completed tasks are counted in BOTH `completed`
- *  and `counts.G` (computeGroupHealth colors a completed task Green), so
- *  `counts.G` includes done items, not just active on-track ones. */
+/** Total tasks and the in-scope denominator, in one place.
+ *
+ *  ★ Cancelled work is out of scope, not outstanding: leaving it in the
+ *  denominator means a project with cancelled scope can never read 100%.
+ *
+ *  ★★ Extracted so a caller that needs only the SCOPE question does not have to
+ *  re-derive `isTaskClosed(t) && !isTaskDelivered(t)` — re-deriving that pair is
+ *  how two dashboard cards came to disagree in the first place. Callers outside
+ *  `computeDashboardProgress` want `tasksHaveNoActiveScope` below, not this.
+ */
+export function scopeCounts(tasks: readonly Task[]): { total: number; inScope: number } {
+  const total = tasks.length;
+  const cancelled = tasks.filter((t) => isTaskClosed(t) && !isTaskDelivered(t)).length;
+  return { total, inScope: Math.max(0, total - cancelled) };
+}
+
+/** `hasNoActiveScope` for a caller that holds tasks but no `DashboardProgress`
+ *  — the same predicate over the same counts, so a surface gated on this cannot
+ *  disagree with the dashboard tiles. */
+export function tasksHaveNoActiveScope(tasks: readonly Task[]): boolean {
+  return hasNoActiveScope(scopeCounts(tasks));
+}
+
+/** % complete (delivered-based) + R/A/G health counts from computeGroupHealth.
+ *  Note: completed tasks are counted in BOTH `completed` and `counts.G`
+ *  (computeGroupHealth colors a completed task Green), so `counts.G` includes
+ *  done items, not just active on-track ones. */
 export function computeDashboardProgress(
   tasks: readonly Task[],
   todayISO: string,
   holidaySet: ReadonlySet<string>,
 ): DashboardProgress {
   const counts = computeGroupHealth(tasks, todayISO, holidaySet).counts;
-  const total = tasks.length;
-  const completed = tasks.filter((t) => !!t.completedDate).length;
-  const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-  return { total, completed, percent, counts };
+  const { total, inScope: denominator } = scopeCounts(tasks);
+  const completed = tasks.filter((t) => isTaskDelivered(t)).length;
+  const percent = denominator === 0 ? 0 : Math.round((completed / denominator) * 100);
+  // `total` keeps its original meaning (every task) for genuine inventory
+  // counts; `inScope` publishes the denominator so a caller rendering a pair
+  // beside `percent` can describe the SAME set the percentage does.
+  return { total, inScope: denominator, completed, percent, counts };
+}
+
+/** True when a project HAS tasks but none of them are still in scope — i.e.
+ *  every task was cancelled. Such a project renders 0% from `percent`, which is
+ *  literally true and reads as "not started yet", so the surfaces that show
+ *  completion give it a distinct state instead.
+ *
+ *  ★★ `total === 0` is DELIBERATELY EXCLUDED. A brand-new empty project also
+ *  has `inScope === 0`, and it must keep showing 0% — the dashboard already
+ *  greets that screen with the coaching card, and changing the most common
+ *  first-run view to fix a case that is not broken is the wrong trade.
+ *
+ *  ★★ Shared rather than re-derived at each call site, and that is the whole
+ *  point: the Progress tile and the at-a-glance KPI card render the SAME
+ *  metric, so a copy of this expression that drifts puts two cards on one
+ *  screen disagreeing about whether the project has any scope left. That is
+ *  not hypothetical — it happened, across four commits on this branch, while
+ *  only one of the two had been updated. Caught in review, not by a gate, and
+ *  never released. */
+export function hasNoActiveScope(progress: Pick<DashboardProgress, "total" | "inScope">): boolean {
+  return progress.total > 0 && progress.inScope === 0;
 }
 
 /** Date-driven schedule RAG: Red if any task is overdue, Amber if any is due
- *  within `dueSoonWorkdays` working days, else Green. Completed tasks ignored. */
+ *  within `dueSoonWorkdays` working days, else Green. Closed tasks (Done or
+ *  Cancelled) ignored. */
 export function computeScheduleStatus(
   tasks: readonly Task[],
   todayISO: string,
@@ -91,7 +146,7 @@ export function computeScheduleStatus(
   let overdue = 0;
   let dueSoon = 0;
   for (const t of tasks) {
-    if (t.completedDate || !t.dueDate) continue;
+    if (isTaskClosed(t) || !t.dueDate) continue;
     if (t.dueDate < todayISO) { overdue++; continue; }
     // workdaysUntil returns 0 for a same-day (or past) dueDate, so a task due
     // today counts as due-soon here (it already failed the overdue check above).
@@ -139,8 +194,8 @@ export function selectTopRaid(
     .map((x) => x.r);
 }
 
-/** Non-completed tasks split into overdue (dueDate < today) and due-soon
- *  (within `dueSoonWorkdays`), each sorted by dueDate then id. */
+/** Open tasks (neither Done nor Cancelled) split into overdue (dueDate < today)
+ *  and due-soon (within `dueSoonWorkdays`), each sorted by dueDate then id. */
 export function partitionUpcoming(
   tasks: readonly Task[],
   todayISO: string,
@@ -151,7 +206,7 @@ export function partitionUpcoming(
   const overdue: Task[] = [];
   const dueSoon: Task[] = [];
   for (const t of tasks) {
-    if (t.completedDate || !t.dueDate) continue;
+    if (isTaskClosed(t) || !t.dueDate) continue;
     if (t.dueDate < todayISO) overdue.push(t);
     else if (workdaysUntil(t.dueDate, todayISO, hs) <= dueSoonWorkdays) dueSoon.push(t);
   }

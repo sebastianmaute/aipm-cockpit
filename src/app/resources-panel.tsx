@@ -42,6 +42,7 @@ import {
   type WeekHours,
 } from "./types";
 import { effectivePersonEmail, effectivePersonName, resourceDisplayName } from "./resource-foundation";
+import { isTaskClosed } from "./task-closed";
 import { useSettings } from "./use-settings";
 import { useAllocPlan } from "./use-alloc-plan";
 import { type ActivityKind } from "./activity-log";
@@ -337,7 +338,7 @@ function ResourcesPanelInner({
     for (const task of tasks) {
       const row = upsertRef(task.resourceId, task.assignee, task.assigneeEmail);
       if (!row) continue;
-      if (!task.completedDate) {
+      if (!isTaskClosed(task)) {
         row.openCount++;
         if (task.dueDate && task.dueDate < today) row.overdueCount++;
       }

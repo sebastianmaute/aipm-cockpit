@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GeneralSection } from "./general-section";
 import { defaultSettings } from "../settings-types";
+import type { Resource } from "../types";
 import { t } from "../i18n";
 
 const resetMock = vi.fn();
@@ -14,9 +15,11 @@ afterEach(() => resetMock.mockReset());
 describe("GeneralSection", () => {
   it("no longer renders the project block or its edit button", () => {
     // GeneralSectionProps dropped project/stakeholderNames/addressBook/
-    // resources/onUpdateProject entirely, so there is no longer any way to
-    // even ask this component to render a project. The base render below is
-    // sufficient to prove that: the old heading rendered UNCONDITIONALLY
+    // onUpdateProject entirely, so there is no longer any way to even ask
+    // this component to render a project. (`resources` came BACK later, for
+    // the "I am this resource" picker below — it feeds that select and
+    // nothing else, so it cannot revive the project block.) The base render
+    // below is sufficient to prove that: the old heading rendered UNCONDITIONALLY
     // (not gated on a project prop), so it — and the edit button, which can
     // no longer be reached via any prop combination — are both provably gone.
     render(<GeneralSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
@@ -64,5 +67,72 @@ describe("GeneralSection", () => {
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     expect(resetMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+const SELF_RESOURCES = [
+  { id: 5, firstName: "Alice", lastName: "Smith" },
+] as unknown as Resource[];
+
+describe("GeneralSection 'I am' resource", () => {
+  it("renders a labeled directory select defaulting to 'Not set'", () => {
+    render(
+      <GeneralSection
+        lang="en-US"
+        settings={defaultSettings}
+        onChange={vi.fn()}
+        resources={SELF_RESOURCES}
+      />,
+    );
+    expect(screen.getByLabelText(t("en-US", "selfResourceLabel"))).toHaveValue("");
+    expect(screen.getByRole("option", { name: "Alice Smith" })).toBeInTheDocument();
+  });
+
+  it("writes settings.selfResourceId when a resource is picked", () => {
+    const onChange = vi.fn();
+    render(
+      <GeneralSection
+        lang="en-US"
+        settings={defaultSettings}
+        onChange={onChange}
+        resources={SELF_RESOURCES}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(t("en-US", "selfResourceLabel")), {
+      target: { value: "5" },
+    });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ selfResourceId: 5 }));
+  });
+
+  it("picking 'Not set' CLEARS the id rather than storing 0", () => {
+    // The "" → undefined mapping is load-bearing: a bare Number("") is 0, which
+    // would claim the user is resource #0 instead of clearing the setting.
+    const onChange = vi.fn();
+    render(
+      <GeneralSection
+        lang="en-US"
+        settings={{ ...defaultSettings, selfResourceId: 5 }}
+        onChange={onChange}
+        resources={SELF_RESOURCES}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(t("en-US", "selfResourceLabel")), {
+      target: { value: "" },
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ selfResourceId: undefined }),
+    );
+  });
+
+  it("reflects a stored selfResourceId", () => {
+    render(
+      <GeneralSection
+        lang="en-US"
+        settings={{ ...defaultSettings, selfResourceId: 5 }}
+        onChange={vi.fn()}
+        resources={SELF_RESOURCES}
+      />,
+    );
+    expect(screen.getByLabelText(t("en-US", "selfResourceLabel"))).toHaveValue("5");
   });
 });

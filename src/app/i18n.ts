@@ -468,6 +468,11 @@ const enUS = {
   bulkEditNoFields: "Tick at least one field to update.",
   bulkEditDoneOne: "Updated 1 task.",
   bulkEditDoneMany: "Updated {0} tasks.",
+  // Bulk apply only writes rows the table is CURRENTLY showing, so a selection
+  // made before a filter change can be partly (or wholly) withheld. Saying so
+  // is the whole point: the modal closes and the selection clears either way.
+  bulkEditHiddenSkipped:
+    "{0} selected task(s) were skipped — the current filters no longer show them in the table.",
   bulkSendNoTasks: "No tasks ready to send.",
   bulkSendDone: "Opened {0} email(s) for {1} task(s).",
   confirmBulkSend: "Send {0} email(s) for {1} task(s)?",
@@ -974,6 +979,8 @@ const enUS = {
   ganttEmpty:
     "Add at least one task with a due date to see it on the Gantt chart.",
   ganttNoMatches: "No tasks match the current filters.",
+  ganttNoStatusSelected:
+    "No status selected — tick at least one status to show rows.",
   ganttAddTask: "+ Add task",
   ganttAddMilestone: "Add milestone",
   ganttToday: "Today",
@@ -1006,6 +1013,13 @@ const enUS = {
   ganttMilestonesInline: "Inline milestones",
   ganttMilestonesInlineHint:
     "Place each milestone as its own row among the tasks at its due date, instead of in a block below them.",
+  ganttViewMenu: "View",
+  ganttViewMenuHint: "Show or hide chart layers",
+  ganttShowHolidays: "Holidays",
+  ganttShowAbsences: "Absences",
+  ganttShowDependencies: "Dependencies",
+  ganttShowMilestones: "Milestones",
+  ganttShowGrid: "Day grid",
   health: "Health",
   healthAuto: "Auto",
   healthRed: "Red",
@@ -1113,6 +1127,8 @@ const enUS = {
   reportsTotal: "Total",
   reportsOpen: "Open",
   reportsCompleted: "Completed",
+  reportsCancelled: "Cancelled",
+  reportsCancelledCount: "{0} cancelled",
   reportsOverdue: "Overdue",
   reportsOpenByStatus: "Open tasks by status",
   reportsDueSoon: "Due soon (≤3 work days)",
@@ -2140,6 +2156,8 @@ const enUS = {
   dashboardProgress: "Progress",
   dashboardPercentComplete: "{0}% complete",
   dashboardCompletedOf: "{0} of {1} complete",
+  dashboardNoActiveScope: "No active scope",
+  dashboardAllCancelled: "All cancelled ({0})",
   dashboardBudgetBurn: "Budget burn",
   dashboardNoBudget: "No budget configured",
   dashboardTopRaid: "Top open RAID",
@@ -2189,7 +2207,7 @@ const enUS = {
   dashboardScopeUnset: "Not set",
   dashboardMilestones: "Milestones",
   dashboardRagThresholds: "Consumption / hours: Amber ≥ 90%, Red > 100% · Cost burn: Red < 0.80, Amber < 0.90 · Margin: Green ≥ 15%, Amber 0–15%, Red < 0",
-  dashboardProgressCaption: "Tasks completed vs total, with the Red / Amber / Green health split of open work.",
+  dashboardProgressCaption: "Completed tasks vs tasks in scope — cancelled work is out of both. The Red / Amber / Green split covers every task; closed work counts Green unless its health was set by hand.",
   dashboardBurnCaption: "Budget and hours consumed vs available. The burn-down shows remaining budget against the planned glide-path — the actual line above the dashed line means you are behind plan.",
   navMilestones: "Milestones",
   milestoneNew: "New milestone",
@@ -3496,7 +3514,7 @@ const enUS = {
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Share of tasks marked Done out of all tasks. Trending up is good; a flat line signals stalled delivery.",
+  dashboardKpiCompleteHint: "Share of tasks with a completion date, out of every task still counted as scope. Trending up is good; a flat line signals stalled delivery.",
   dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
   dashboardKpiOpenRaidHint: "Open risks, assumptions, issues and dependencies that still need attention.",
   dashboardRagHint: "Red / Amber / Green health counts across your project areas — how many are off track, at risk, or healthy.",
@@ -3574,6 +3592,7 @@ const enUS = {
   versionHighlight0209: "Rich text: descriptions in RAID, changes and milestones now take bold, italics, lists and links, and existing plain text is upgraded as it is read — nothing needs converting. A task's dated note log now opens inside the editor, where new notes save immediately rather than waiting for the form.",
   versionHighlight0210: "Document exports (PDF, Word, Excel, PowerPoint) keep paragraph breaks, and task descriptions export as text instead of raw HTML. The CSV and Markdown exports are the storage format and still carry a description exactly as stored, so a project round-trips without loss. Inline AI edits now keep a description's formatting instead of flattening it to plain text.",
   versionHighlight0212: "Open Points no longer wastes space at the edges of the table: the checkbox, health-dot, relations and action columns are sized to what they actually hold, and the Task column now absorbs the leftover width instead of it being shared out across every column. Dragging the Task column still pins it to a chosen width, and \"reset columns\" restores the flexible layout. The Outlook sync switch — in the task, RAID, change and absence toolbars and in Settings — is now a button reading \"Add to Outlook\", and toggle buttons show a check mark while they are on. In Planning, \"Hide externals\" now sits beside the Outlook calendar controls, and the RACI matrix leads its toolbar with \"Suggest RACI\".",
+  versionHighlight0213: "Cancelled tasks now count as closed everywhere it matters: they are no longer overdue, no longer count toward a resource's load, and no longer hold the completion percentage below 100% — while the completion figure, earned value and the on-time counts still credit genuinely finished work only. A due date in the past no longer blocks saving an existing task; that rule now applies when a task is created. The Gantt collects its eight display toggles into a View menu, adds holiday columns and an optional day grid, filters milestones along with tasks, and draws dependency arrows heavily enough to see. In Open Points, select-all and bulk edit reach only the rows the table is showing, and a bulk edit that skips hidden rows says so. A project whose every task was cancelled now reads 'No active scope' instead of '0% complete' — on the progress tile, the at-a-glance card, the completion sparkline and the trend comparison alike — and a cancelled task in Open Points shows a muted cross rather than the green check that means delivered. The Reports total names how many tasks were cancelled, so the headline figures reconcile.",
   versionHighlight0211: "Toolbar polish: Print, push/pull and other shared controls now use consistent icon-first buttons across every pane, and several hide/show toggles read their state more clearly. Open Points regained its Edit menu and its standard toolbar order. The RACI matrix can now suggest assignments with AI from stakeholder titles and milestones — review each proposed cell before applying. Dictation now works inside the rich-text note editor and the note log composer.",
   versionHighlight02023: "Accessibility: link pickers are proper comboboxes (arrow keys, Enter to add, Escape to dismiss), sortable table headers announce their sort direction, calendar meetings can be rescheduled from the keyboard (Alt+Arrow to move, Enter to confirm), and purple text now clears AA contrast on hover in every theme.",
   versionHighlight0202: "Calendar: absences drag to reschedule, drag across rows to reassign, and edge-drag to resize — with a keyboard equivalent (Alt+Arrow to move, Alt+Shift+Arrow to resize) and single-entry undo; and a new recurring-meetings entity brings daily/weekly/monthly recurrence, per-occurrence skip and move exceptions, a meetings band, an editor, and an all-series list, persisted across every storage backend and exported by default.",

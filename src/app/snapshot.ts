@@ -6,6 +6,7 @@
 
 import type { Health } from "./health";
 import type { DashboardModel } from "./dashboard";
+import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import type { Milestone, Task } from "./types";
 
 export type SnapshotCadence = "weekly" | "daily" | "monthly";
@@ -130,20 +131,27 @@ function lastNonNull(values: readonly (number | null)[]): number | null {
 }
 
 /** Latest effective end for a milestone: max of its target date and any linked
- *  task's effective end (completedDate || dueDate). */
+ *  task's effective end (completedDate || dueDate).
+ *
+ *  Closed-but-undelivered (Cancelled) work is skipped: it will never land, so
+ *  its dueDate is not a date this milestone is waiting on. A DELIVERED task
+ *  still contributes its completedDate — that is a real historical end, and
+ *  dropping it would move the forecast in the wrong direction. */
 export function milestoneForecast(m: Milestone, tasksById: ReadonlyMap<number, Task>): string {
   let latest = m.date;
   for (const id of m.linkedTaskIds) {
     const t = tasksById.get(id);
     if (!t) continue;
+    if (isTaskClosed(t) && !isTaskDelivered(t)) continue;
     const end = t.completedDate || t.dueDate;
     if (end && end > latest) latest = end;
   }
   return latest;
 }
 
-/** Project forecast finish: the latest effective end across incomplete tasks and
- *  unachieved milestones, never earlier than `planEndDate`. */
+/** Project forecast finish: the latest effective end across OPEN tasks (neither
+ *  Done nor Cancelled) and unachieved milestones, never earlier than
+ *  `planEndDate`. */
 export function forecastEndDate(
   tasks: readonly Task[],
   milestones: readonly Milestone[],
@@ -152,7 +160,7 @@ export function forecastEndDate(
 ): string {
   let latest = planEndDate;
   for (const t of tasks) {
-    if (t.completedDate) continue;
+    if (isTaskClosed(t)) continue;
     if (t.dueDate && t.dueDate > latest) latest = t.dueDate;
   }
   for (const m of milestones) {
@@ -247,6 +255,28 @@ function worseIfLower(baseline: number | null, current: number | null): Health |
   if (baseline === null || current === null) return null;
   if (current < baseline) return "A";
   return "G";
+}
+
+/** Drop the completion row from a variance list.
+ *
+ *  ★★ For a project whose every remaining task is cancelled, `pctComplete` is 0
+ *  because the denominator is 0 — not because delivery regressed. `computeVariance`
+ *  pairs that with `worseIfLower`, so a project baselined at 40% renders
+ *  "Percent complete −40%" beside an AMBER dot, and on the dashboard that card
+ *  sits one card below a tile reading "No active scope". Removing the ROW keeps
+ *  the other KPIs (hours, cost, forecast date), which stay meaningful.
+ *  ★ AMBER, not red: `worseIfLower` returns only `"A"` or `"G"` — this module
+ *  never emits `"R"` for a numeric KPI, only for a forecast-date slip. A review
+ *  and this comment both said "red" until a test asserted it.
+ *
+ *  ★★★ This is PRESENTATION ONLY and must stay that way. The stored
+ *  `SnapshotRecord.pctComplete` is untouched: giving THAT a null state is a
+ *  data-shape change with migration consequences for every stored snapshot and
+ *  for what Trends charts over time (`docs/open-followups.md` §64 keeps the two
+ *  halves apart deliberately). Do not "finish the job" at the record.
+ */
+export function withoutCompletionVariance(rows: readonly VarianceRow[]): VarianceRow[] {
+  return rows.filter((row) => row.key !== "pctComplete");
 }
 
 /** Baseline-vs-current variance per KPI with a directional RAG. A null baseline

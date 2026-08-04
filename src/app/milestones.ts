@@ -1,5 +1,6 @@
 // Pure milestone-domain logic. No React, no I/O — testable core.
 import { workdaysUntil } from "./due-dates";
+import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import type { Milestone, Task } from "./types";
 
 export type MilestoneStatus = "achieved" | "overdue" | "at-risk" | "due-soon" | "on-track";
@@ -10,12 +11,17 @@ export function isAchieved(m: Milestone): boolean {
 }
 
 /** Not achieved AND some linked task's effective end (completedDate||dueDate)
- *  lands after the milestone date — the gating work will be late. */
+ *  lands after the milestone date — the gating work will be late.
+ *  Closed-but-not-delivered (Cancelled) tasks are skipped: they gate nothing,
+ *  and their dueDate is not an end date. A DELIVERED task still contributes its
+ *  completedDate — that is a real historical end. Mirrors `milestoneForecast`
+ *  in snapshot.ts; the two must agree about the same milestone. */
 export function isAtRisk(m: Milestone, tasksById: ReadonlyMap<number, Task>): boolean {
   if (m.achievedDate) return false;
   for (const id of m.linkedTaskIds) {
     const t = tasksById.get(id);
     if (!t) continue;
+    if (isTaskClosed(t) && !isTaskDelivered(t)) continue;
     const end = t.completedDate || t.dueDate;
     if (end && end > m.date) return true;
   }

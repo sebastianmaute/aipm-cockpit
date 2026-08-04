@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSnapshots } from "./use-snapshots";
 import * as store from "./snapshot-store";
 import type { SnapshotRecord } from "./snapshot";
+import type { Task } from "./types";
 
 function rec(id: string, bucket: string, isBaseline = false): SnapshotRecord {
   return {
@@ -27,7 +28,16 @@ const baseArgs = {
   }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
   showToast: vi.fn(),
   lang: "en-US" as const,
+  tasks: [] as readonly Task[],
 };
+
+function taskWith(id: number, status: Task["status"]): Task {
+  return {
+    id, taskName: `T${id}`, assignee: "A", assigneeEmail: "a@x.io",
+    dueDate: "2026-06-10", lastUpdateDate: "2026-06-01", status,
+    priority: "Medium", blockers: "", description: "",
+  };
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -199,5 +209,40 @@ describe("useSnapshots", () => {
       expect(call[0]).toBe("info");
       expect(typeof call[1]).toBe("string");
     }
+  });
+});
+
+describe("useSnapshots completion variance for an all-cancelled project", () => {
+  // Gated in the HOOK, not at either render site, because both surfaces that
+  // show variance read this one value. The pure filter and the pure predicate
+  // have their own tests; this pins that the hook actually applies them.
+  function renderWithTasks(tasks: readonly Task[]) {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([
+      rec("2026-06-01T00:00:00.000Z", "2026-W23", true),
+      { ...rec("2026-06-10T00:00:00.000Z", "2026-W24"), pctComplete: 0 },
+    ]);
+    vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    return renderHook(() => useSnapshots({ ...baseArgs, tasks }));
+  }
+
+  it("drops the completion row when every task is cancelled", async () => {
+    const { result } = renderWithTasks([taskWith(1, "Cancelled"), taskWith(2, "Cancelled")]);
+    await waitFor(() => expect(result.current.variance.length).toBeGreaterThan(0));
+    expect(result.current.variance.find((r) => r.key === "pctComplete")).toBeUndefined();
+    // Control: the other rows survive, so the absence above is the filter and
+    // not an empty variance list.
+    expect(result.current.variance.find((r) => r.key === "remainingHours")).toBeDefined();
+  });
+
+  it("keeps the completion row when only some work is cancelled", async () => {
+    const { result } = renderWithTasks([taskWith(1, "Cancelled"), taskWith(2, "To Do")]);
+    await waitFor(() => expect(result.current.variance.length).toBeGreaterThan(0));
+    expect(result.current.variance.find((r) => r.key === "pctComplete")).toBeDefined();
+  });
+
+  it("keeps the completion row for a project with no tasks at all", async () => {
+    const { result } = renderWithTasks([]);
+    await waitFor(() => expect(result.current.variance.length).toBeGreaterThan(0));
+    expect(result.current.variance.find((r) => r.key === "pctComplete")).toBeDefined();
   });
 });

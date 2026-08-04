@@ -5,8 +5,6 @@ import { type Lang, t } from "../i18n";
 import { SegmentedControl } from "../segmented-control";
 import type { DashboardDensity } from "../dashboard-density";
 import { type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN } from "../settings-types";
-import type { Resource } from "../types";
-import { resourceDisplayName } from "../resource-foundation";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
@@ -25,12 +23,9 @@ interface AppearanceSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
-  /** Resource directory for the "I am this resource" picker. Optional so the
-   *  section renders standalone (tests) with just the "Not set" option. */
-  resources?: readonly Resource[];
 }
 
-export function AppearanceSection({ lang, settings, onChange, resources = [] }: AppearanceSectionProps) {
+export function AppearanceSection({ lang, settings, onChange }: AppearanceSectionProps) {
   const { theme, setTheme } = useTheme();
   const config = getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
@@ -171,33 +166,6 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
           ]}
           onChange={(v) => onChange({ ...settings, dashboardDensity: v })}
         />
-      </div>
-
-      <div className="mb-4">
-        <label htmlFor="appearance-self-resource" className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-          {t(lang, "selfResourceLabel")}
-          <InfoTooltip text={t(lang, "selfResourceHint")} />
-        </label>
-        <Select
-          size="xs"
-          id="appearance-self-resource"
-          value={settings.selfResourceId != null ? String(settings.selfResourceId) : ""}
-          aria-label={t(lang, "selfResourceLabel")}
-          onChange={(e) =>
-            onChange({
-              ...settings,
-              selfResourceId: e.target.value === "" ? undefined : Number(e.target.value),
-            })
-          }
-          className="w-full"
-        >
-          <option value="">{t(lang, "selfResourceNone")}</option>
-          {resources.map((r) => (
-            <option key={r.id} value={r.id}>
-              {resourceDisplayName(r)}
-            </option>
-          ))}
-        </Select>
       </div>
 
       <div className="mb-4">

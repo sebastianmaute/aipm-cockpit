@@ -5,26 +5,30 @@ import { ReportsPanel } from "./reports";
 import type { BudgetBucket, ResourcePlan, Role, Task } from "./types";
 import type { AddableReportId } from "./addable-reports";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
+import { t } from "./i18n";
 
 const TODAY = "2026-05-28";
 
+// Defaults first, overrides SPREAD last. The earlier shape wired each field by
+// hand (`status: p.status`), so any field it forgot — healthOverride, jiraKey,
+// resourceId — was silently dropped and a test overriding one would pass
+// against broken code. The `as unknown as Task` cast hides that from tsc, so
+// the spread is the only thing keeping overrides honest.
 function makeTask(p: Partial<Task> & { id: number; assignee: string }): Task {
   return {
-    id: p.id,
-    taskName: p.taskName ?? `Task ${p.id}`,
-    assignee: p.assignee,
-    assigneeEmail: p.assigneeEmail ?? "",
-    priority: p.priority ?? "Medium",
-    startDate: p.startDate ?? TODAY,
-    dueDate: p.dueDate ?? TODAY,
-    completedDate: p.completedDate,
-    lastUpdateDate: p.lastUpdateDate ?? TODAY,
-    blockers: p.blockers ?? "",
-    description: p.description ?? "",
-    inquiriesSent: p.inquiriesSent ?? 0,
-    group: p.group ?? "",
-    labels: p.labels ?? [],
-    dependencies: p.dependencies ?? [],
+    taskName: `Task ${p.id}`,
+    assigneeEmail: "",
+    priority: "Medium",
+    startDate: TODAY,
+    dueDate: TODAY,
+    lastUpdateDate: TODAY,
+    blockers: "",
+    description: "",
+    inquiriesSent: 0,
+    group: "",
+    labels: [],
+    dependencies: [],
+    ...p,
   } as unknown as Task;
 }
 
@@ -315,5 +319,29 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
 
     expect(onChange).toHaveBeenCalledOnce();
     expect(onChange).toHaveBeenCalledWith(["budget-report", "raid-report"]);
+  });
+});
+
+describe("ReportsPanel — Total tile names the cancelled count", () => {
+  it("names the cancelled count under Total when there is any", () => {
+    const { container } = renderReports([
+      makeTask({ id: 1, assignee: "Alex", status: "To Do" }),
+      makeTask({ id: 2, assignee: "Bea", status: "Cancelled" }),
+    ]);
+    expect(screen.getByText(t("en-US", "reportsCancelledCount", "1"))).toBeInTheDocument();
+    // WHICH tile carries the qualifier is the decision, not merely that some
+    // tile does: `Total` is the number that stopped reconciling with Open +
+    // Completed, so the sub must sit in ITS tile. A bare getByText passes with
+    // the line moved onto Open or Completed.
+    const subs = container.querySelectorAll("[data-tile-sub]");
+    // Exactly one, so this cannot silently start testing some other section's
+    // sub line if one is ever added earlier in the panel.
+    expect(subs).toHaveLength(1);
+    expect(subs[0].parentElement?.textContent).toContain(t("en-US", "reportsTotal"));
+  });
+
+  it("shows no cancelled line when nothing is cancelled", () => {
+    const { container } = renderReports([makeTask({ id: 1, assignee: "Alex", status: "To Do" })]);
+    expect(container.querySelector("[data-tile-sub]")).toBeNull();
   });
 });

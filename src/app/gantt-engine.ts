@@ -23,10 +23,28 @@ const GANTT_SORTS = [
 ] as const;
 export type GanttSort = (typeof GANTT_SORTS)[number];
 
-/** Concrete status buckets a task can be filtered to. An empty `statuses`
- *  array means "no status filter" (show all). */
+/** Concrete status buckets a task can be filtered to. Under the v2 prefs
+ *  schema an empty `statuses` array means "show nothing", not "show all" —
+ *  see `GanttPrefs.statuses`. */
 export const GANTT_STATUS_VALUES = ["open", "completed", "overdue"] as const;
 export type GanttStatus = (typeof GANTT_STATUS_VALUES)[number];
+
+/** Every status bucket, i.e. the "everything ticked" filter state.
+ *  Typed `readonly` so TS callers cannot mutate it, and frozen so a JS caller
+ *  or an `as any` cannot either. That is ALL the freeze buys: it protects THIS
+ *  constant only. `DEFAULT_PREFS.statuses` is a fresh spread of it, so it is
+ *  neither frozen nor an alias, and nothing here protects the default.
+ *
+ *  ★ The default IS still mutable through `loadPrefs`, which returns
+ *  `DEFAULT_PREFS` BY REFERENCE on its SSR / no-blob / non-object / catch
+ *  paths — `loadPrefs().statuses.push("open")` corrupts the module default for
+ *  the rest of the session. Pre-existing (equally true when the default was
+ *  `[]`) and no consumer does it today, but neither `readonly` nor the freeze
+ *  prevents it. Spread it (`[...ALL_GANTT_STATUSES]`) wherever a mutable
+ *  `GanttStatus[]` is needed. */
+export const ALL_GANTT_STATUSES: readonly GanttStatus[] = Object.freeze([
+  ...GANTT_STATUS_VALUES,
+]);
 
 /** Where milestone rows render relative to the task rows:
  *  - "below" (default): all milestones as a block beneath the task rows.
@@ -38,7 +56,10 @@ export type MilestonePlacement = (typeof GANTT_MILESTONE_PLACEMENTS)[number];
 export type GanttPrefs = {
   sort: GanttSort;
   search: string;
-  /** Selected status buckets; empty = all. OR within the filter. */
+  /** Selected status buckets. EMPTY MEANS SHOW NOTHING (v2 semantics) — the
+   *  chart renders an explicit "no status selected" message instead of an
+   *  empty grid. Pre-v2 blobs stored `[]` to mean "show everything"; loadPrefs
+   *  migrates those. OR within the filter. */
   statuses: GanttStatus[];
   /** Selected priorities; empty = all. OR within the filter. */
   priorities: Priority[];
@@ -57,20 +78,39 @@ export type GanttPrefs = {
   /** Where milestone rows render relative to the task rows. Defaults to
    *  "below" (the historical block-beneath-tasks layout). */
   milestonePlacement: MilestonePlacement;
+  /** Shade non-working public holidays as full-height columns. */
+  showHolidays: boolean;
+  /** Draw the per-row absence bands. */
+  showAbsences: boolean;
+  /** Draw the dependency arrows between task bars. */
+  showDependencies: boolean;
+  /** Render milestone rows at all (independent of the status filter). */
+  showMilestones: boolean;
+  /** Dotted vertical day lines, aligned to the header's day columns. */
+  showGrid: boolean;
 };
 
 const PREFS_KEY = "aipm-cockpit:gantt-prefs";
 
+/** Persisted prefs schema version. v2 flipped the meaning of an empty
+ *  `statuses` array from "show everything" to "show nothing". */
+export const GANTT_PREFS_VERSION = 2;
+
 export const DEFAULT_PREFS: GanttPrefs = {
   sort: "auto",
   search: "",
-  statuses: [],
+  statuses: [...ALL_GANTT_STATUSES],
   priorities: [],
   assignees: [],
   customOrder: [],
   showCriticalPath: true,
   showBaseline: true,
   milestonePlacement: "below",
+  showHolidays: true,
+  showAbsences: true,
+  showDependencies: true,
+  showMilestones: true,
+  showGrid: false,
 };
 
 /** De-duplicate while preserving first-seen order. */
@@ -142,10 +182,18 @@ export function loadPrefs(): GanttPrefs {
     const statuses = parseStatusFilters(parsed);
     const priorities = parsePriorityFilters(parsed);
     const assignees = parseAssigneeFilters(parsed);
+    // v1 stored `[]` to mean "show everything". Under v2 that means "show
+    // nothing", so carrying it forward verbatim would open the chart empty for
+    // every existing user. A non-empty v1 list means the same under both
+    // schemas and passes through untouched. `priorities`/`assignees` keep the
+    // empty-means-all semantics, so only the status filter migrates.
+    const isV2 = parsed.v === GANTT_PREFS_VERSION;
+    const migratedStatuses =
+      !isV2 && statuses.length === 0 ? [...ALL_GANTT_STATUSES] : statuses;
     return {
       sort,
       search: typeof parsed.search === "string" ? parsed.search : "",
-      statuses,
+      statuses: migratedStatuses,
       priorities,
       assignees,
       customOrder: Array.isArray(parsed.customOrder)
@@ -168,6 +216,28 @@ export function loadPrefs(): GanttPrefs {
       )
         ? (parsed.milestonePlacement as MilestonePlacement)
         : DEFAULT_PREFS.milestonePlacement,
+      // Display toggles; older saved prefs won't have these fields, so a
+      // missing value falls back to the default.
+      showHolidays:
+        typeof parsed.showHolidays === "boolean"
+          ? parsed.showHolidays
+          : DEFAULT_PREFS.showHolidays,
+      showAbsences:
+        typeof parsed.showAbsences === "boolean"
+          ? parsed.showAbsences
+          : DEFAULT_PREFS.showAbsences,
+      showDependencies:
+        typeof parsed.showDependencies === "boolean"
+          ? parsed.showDependencies
+          : DEFAULT_PREFS.showDependencies,
+      showMilestones:
+        typeof parsed.showMilestones === "boolean"
+          ? parsed.showMilestones
+          : DEFAULT_PREFS.showMilestones,
+      showGrid:
+        typeof parsed.showGrid === "boolean"
+          ? parsed.showGrid
+          : DEFAULT_PREFS.showGrid,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -177,7 +247,12 @@ export function loadPrefs(): GanttPrefs {
 export function savePrefs(p: GanttPrefs): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+    // Stamp the schema version so the next load knows the blob is already
+    // migrated and leaves a deliberately-emptied status filter alone.
+    window.localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ ...p, v: GANTT_PREFS_VERSION }),
+    );
   } catch {
     // Quota / disabled — drop silently.
   }

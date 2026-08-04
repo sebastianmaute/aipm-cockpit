@@ -27,12 +27,27 @@ Conventions used throughout: **★** = a non-obvious rule, **★★** = somethin
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
 live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 
-★★★ **No gate checks anything in this file.** Every claim here was true when written and some have
-outlived their code — six false clusters were found and fixed on 2026-07-30 alone, one of them
-restated four times (a bundled-themes directory that does not exist). Before relying on a specific
-claim (a path, a count, a call site, "X is guarded"), **grep it.** A function named `sanitizeX`
-proves nothing about whether the path you care about calls it. Correct what you disprove, in the
-same commit.
+★★★ **Almost nothing gates this file, and the one gate that exists checks the weakest property.**
+`agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name here exists nowhere
+in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME is real, never that a CLAIM about it
+is true. "`sanitizeX` guards this path" passes the gate whether or not that path calls it.
+
+★★ It exists because a false NAME does not stay in the doc. `migrateTaskStatus` — a function that
+never existed — was read by three contributors in one release; each grepped `src/`, found nothing to
+contradict it, and wrote the claim into code comments and a commit message as justification for
+editing test fixtures. The gate catches that class at the source.
+
+★★ Deliberately-absent names are fine and are most of what it had to learn to ignore: prohibitions
+("was removed. Do NOT reintroduce it"), rejected designs ("evaluated and deliberately NOT built"),
+retired modules. Say so NEAR the mention using one of the script's `ABSENCE_MARKERS`; genuinely
+non-repo names (browser APIs, upstream API fields) go in its allowlist WITH a reason. Never widen
+either to make a pipeline pass — a defeated gate reports success.
+
+★★ Everything else here is still ungated. Every claim was true when written and some have outlived
+their code — six false clusters were found and fixed on 2026-07-30 alone, one of them restated four
+times (a bundled-themes directory that does not exist), and 0.213.0 found eight more. Before relying
+on a specific claim (a path, a count, a call site, "X is guarded"), **grep it.** Correct what you
+disprove, in the same commit.
 
 ## The doc set — what lives where
 
@@ -224,7 +239,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **agents-symbol-check** BLOCKING
+  [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`]) → build → e2e. All quality gates are ratchets and
   carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
@@ -448,10 +464,28 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
   left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the SOLE
   writer of status+completedDate — EVERY status mutation (form save create+update in `use-task-submit`,
-  inline dropdown + `onToggleComplete` in `use-task-row-handlers`, AI/Jira/template seeds) routes through
-  it; `migrateTaskStatus` runs on ALL SIX load paths (completedDate set → Done, else To Do).
+  inline status dropdown (`onStatusChange`) in `use-task-row-handlers`, AI/Jira/template seeds) routes through
+  it. ★★★ THE LOAD-PATH REPAIR IS `migrateTask`, NOT `migrateTaskStatus` (no such function exists), AND
+  IT IS WEAKER THAN THIS BULLET USED TO CLAIM. It runs on all six load paths but only backfills an
+  ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
+  task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
+  NOT repaired. The invariant is held by the WRITERS (`applyStatusChange`; Jira's `issueToTaskFields`
+  drives both fields off one `isDone` flag), not at load, so an imported or hand-edited blob can carry
+  the bad pair. The old wording caused three separate defects in one session — every reader concluded
+  load normalises the pair and wrote that into code comments and commit messages.
   `isTaskFinished`=Done|Cancelled; Cancelled is terminal-but-NOT-completed (excluded from
-  overdue/next-actions/health-red, but completion-% still counts Done only). UI labels via
+  overdue/next-actions/health-red). ★★ SINCE 0.213.0 THE CALLER MUST SAY WHICH QUESTION IT IS ASKING —
+  pure `task-closed.ts` exposes `isTaskClosed(task)` (= `isTaskFinished`, Done|Cancelled → "will this be
+  worked on again?": overdue, schedule RAG, forecast, workload, row styling, chasing, the Gantt status
+  filter, milestone at-risk) and `isTaskDelivered(task)` (= `!!completedDate` → "was it delivered?": the
+  completion-% NUMERATOR, earned value, on-time/late, and anywhere a real date is shown). Cancelled is
+  CLOSED but never DELIVERED. Reading `!!completedDate` as "closed" is the bug that made cancelled tasks
+  keep reporting as open and overdue — 11 modules import the split (dashboard · gantt · gantt-rows ·
+  gantt-status-buckets · milestones · reports-stats · resource-workload-rows · resources-panel · snapshot ·
+  task-row · visible-task-rows). ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0
+  cancelled work is dropped from the DENOMINATOR (`dashboard.ts` `computeDashboardProgress`), so a
+  project with cancelled scope can reach 100%. Reports carry a third `cancelled` bucket — a cancelled
+  task is neither open nor completed there, and never overdue. UI labels via
   `task-status-ui.ts` (AIPM palette tokens only). ★ The table status column key is **`taskStatus`** — the
   pre-existing `"status"` col key is the RAG/health DOT (header "Health"/DE "Ampel"). ★ The tasks view
   ("Open Points") IS in axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label
@@ -528,7 +562,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.
   RaidItem's `description?` is PRE-EXISTING (unrelated); other entities' `notes?` fields are untouched.
   ★★★ STORED-XSS defense-in-depth — noteLog `html` is `dangerouslySetInnerHTML`, guarded at THREE layers:
-  (1) SINK re-sanitize `sanitizeNoteHtml(html)` in `NoteBody` (idempotent; mirrors comm-send-preview/
+  (1) SINK re-sanitize `sanitizeNoteHtml(html)` in `RichTextView` (idempotent; mirrors comm-send-preview/
   meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
   cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
   CSV/MD/Turso route `noteLog` through `decodeNoteLog` — ★★ that covers `noteLog` ONLY, and reads as
@@ -723,16 +757,39 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `disciplines`/`grades`/`setResources` and passes them to sibling panels. (Every other panel it renders —
   tasks, milestones, dashboard, insights, knowledge, timelog — is un-memoized, so consuming context there
   costs nothing.)
-- **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation + layout); heavy
-  parts extracted. Pure i18n-free ENGINE `gantt-engine.ts` (date math, prefs load/save, critical-path,
-  derive-bar). React pieces: hooks `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
+- **Gantt module map:** `GanttPanel` (`gantt.tsx`, 715 lines) is orchestrator only (data derivation +
+  layout); heavy
+  parts extracted. Pure i18n-free ENGINES `gantt-engine.ts` (date math, prefs load/save, critical-path,
+  derive-bar) and `gantt-status-buckets.ts` (`taskStatusBuckets`/`milestoneStatusBucket` — which
+  status-filter buckets an entity belongs to; `today` passed in, no clock). React pieces: hooks
+  `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
   lifecycle + `previewDates`/`startBarDrag`, mirrors drag into state for the preview bar) and
   `use-gantt-prefs.ts` (sort/filter prefs state + localStorage hydrate/persist + setters); presentational
   `gantt-chrome.tsx` (`GanttToolbar`, `GanttHeader` axis, `GanttDependencyLayer` SVG arrows + milestone
-  connectors) and `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`). Rows/chrome are PURE —
+  connectors), `gantt-rows.tsx` (`GanttTaskRow`, `GanttMilestoneRow`), `gantt-chart.tsx` (`GanttChart` —
+  the scrollable chart surface: sticky header, overlays, today marker, dependency layer, the interleaved
+  row list, the trailing add-task affordance and the range footer; extracted from `gantt.tsx`),
+  `gantt-overlays.tsx` (`GanttNonWorkingLayer` holiday shading + `GanttGridLayer` dotted day rules, both
+  `aria-hidden` + `pointer-events-none` so they can never intercept a bar drag; both derive their origin
+  from the SHARED `dayLeftPx(i, nameColWidth)` — a layer computing its own origin/column width puts a grid
+  line off its date label) and `gantt-view-menu.tsx` (`GanttViewMenu`, the toolbar's View popover holding
+  all EIGHT display toggles — dependencies · holidays · absences · grid · critical path · baseline ·
+  show-milestones · inline milestone placement; every one is a `ToggleButton`, never a hand-rolled
+  `aria-pressed` button, so each gets the non-colour pressed marker). Rows/chrome/chart/overlays are PURE —
   `GanttPanel` threads data + drag state/handlers (incl. the same `interactingWithBarRef` the row's
   `onDragStart` reads synchronously) down as props. ★ Gantt IS in axe `A11Y_VIEWS`. ★ One brittle
   markup-ORDER source test reads `gantt-chrome.tsx` (toolbar markup moved there), not `gantt.tsx`.
+  ★★★ **GANTT PREFS ARE v2 AND `statuses: []` NOW MEANS "SHOW NOTHING".** `GANTT_PREFS_VERSION = 2`
+  (`gantt-engine.ts`); `DEFAULT_PREFS.statuses` is `[...ALL_GANTT_STATUSES]`, i.e. every bucket TICKED.
+  The pre-v2 blob used empty-means-all, so `loadPrefs` migrates it — `!isV2 && statuses.length === 0`
+  re-fills all three buckets — and `savePrefs` stamps `v`. Writing `statuses: []` intending "show
+  everything" now yields an EMPTY chart. ★★ Consequently **any "is a filter active" test must compare
+  `prefs.statuses.length < ALL_GANTT_STATUSES.length`, NEVER `> 0`** — a `> 0` test calls an untouched
+  project filtered and hides its "add your first task" affordance (that exact mistake shipped a regression
+  in the 0.213.0 branch; `gantt.tsx:588` holds the correct form). ★ `resetFilters` restores all three
+  statuses, NOT `[]`; priorities and assignees keep empty-means-all and still clear to `[]`. ★
+  `ALL_GANTT_STATUSES` is `Object.freeze`d and `loadPrefs` returns `DEFAULT_PREFS` BY REFERENCE on its
+  SSR/no-blob/catch paths — spread it (`[...ALL_GANTT_STATUSES]`) wherever a mutable array is wanted.
   ★ The name-column resize handle (in `GanttHeader`, `gantt-chrome.tsx`) renders the SAME 3-dot ⋮ grip
   glyph as the Open Points table but tuned for the LIGHT `bg-surface-muted` header (`text-muted-foreground/60`
   + `hover:bg-ui-dark-blue/10` + `hover:text-ui-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
@@ -823,6 +880,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   a GROUPING change, not an ordering one: the toggle was already the element immediately preceding the group,
   so a DOM-ORDER assertion passes against the unfixed code. Assert `closest("div.ml-auto")` contains the
   Outlook control instead.
+  ★ Gantt's **View** menu (`GanttViewMenu`, 0.213.0) sits AFTER the reset-filters button and BEFORE the
+  trailing Print · reset-columns · reset-size group (`gantt-chrome.tsx`) — it collects display toggles, so
+  it is neither a primary action nor a member of the trailing group.
 
 ### Dashboard landing cockpit
 
@@ -866,8 +926,28 @@ The presentational slices:
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
   `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
 - `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the 3 "at a glance" KPI tiles
-  (complete % · overdue · open RAID, each with a `TrendArrow`); a standalone masonry card. Uses a
+  (complete % · overdue · open RAID; overdue and open-RAID always carry a `TrendArrow`, completion
+  carries one only outside the no-active-scope state below); a standalone masonry card. Uses a
   `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+  ★★★ **NEVER RE-DERIVE "is this project all cancelled" — call `hasNoActiveScope(progress)`
+  (`dashboard.ts`), or `tasksHaveNoActiveScope(tasks)` when you hold only tasks.** Both go through the
+  one `scopeCounts`, so a surface gated on either cannot drift from the tiles. This rule exists
+  because the predicate WAS re-derived: the Progress tile got the state and the KPI card did not, and
+  for four commits one dashboard showed "No active scope" beside "Complete 0%". THREE more surfaces
+  then turned out to render the same metric — the completion sparkline, and the Trends variance row
+  in both of its consumers (gated in `use-snapshots.ts`, the hook that PRODUCES `variance`, not at
+  either render site). In that state the completion tile drops its `TrendArrow`, `KpiGradientBar` and
+  `hint` together, since each explains a percentage it no longer shows. ★ `total === 0` is
+  DELIBERATELY excluded — an empty project keeps 0%, and a test pins that exclusion.
+  ★★ DROPPING `hint` CHANGES THE TILE'S BOX: `Tile` only wraps itself in the
+  `relative h-full w-full` div when `hint` is present, so the completion tile is a DIFFERENT element
+  in the grid between the two states. Harmless in the `grid` strip (cells stretch), but jsdom has no
+  layout so no test here can see it — eye-verify this tile in both states, and never assume the
+  wrapper is there when writing a `.parentElement` walk against it.
+  ★★ STILL INCONSISTENT, recorded not fixed (`docs/open-followups.md` §66): the R/A/G tile beside it
+  counts a cancelled task GREEN, because `computeGroupHealth` tallies `computeTaskHealth` per task
+  and that returns Green for anything finished. So an all-cancelled project reads "No active scope"
+  next to "G 2".
 - `dashboard-sections/dashboard-top-actions.tsx` (`DashboardTopActions`) — the ranked Top-actions queue;
   returns `null` when `!topActions?.length`, and the PANEL also gates its `break-inside-avoid` wrapper on
   `topActions?.length` so an empty queue leaves no dead `dc.cardGap` margin in the flow.
@@ -1120,7 +1200,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `csv-codecs-config`; a new assembler stays with its peer.
 - **useStorageBackend module map:** `use-storage-backend.ts` keeps the PERSISTENCE core (backend memo,
   reactive refs, `applyWorkspace`, the load/save debounce effects, broadcast sync, the storage-file controls
-  `onPick`/`onGrant`/`onOpen`/`onRequestStorageSwitch`, and shared helpers
+  `onPick`/`onGrantWriteAccess`/`onOpen`/`onRequestStorageSwitch`, and shared helpers
   `backendFor`/`currentWorkspace`/`commitRegistry`/`persistBackendHandle`/`tursoConfigNow`/
   `reportProjectError`). The two project-operation clusters live in hook factories it composes:
   `use-storage-file-ops.ts` `useFileProjectOps` (switchToProject / createProject / loadProjectFromFile /
@@ -2198,7 +2278,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   override ⇒ identical to before. ★★ the appearance store's projectId MUST be `portfolioCurrentId` (= tursoProjectId
   in Turso mode), NOT raw `registry.currentProjectId` — SettingsView + workspace-section must agree or the override
   lands under the wrong key in Turso portfolio mode (a caught review HIGH). The "This project" UI REUSES
-  `NextActions`/`Notifications`/`TimezoneSettingsSection` fed effective + an override-writing onChange (Timezone
+  `NextActionsSection`/`Notifications`/`TimezoneSettingsSection` fed effective + an override-writing onChange (Timezone
   passes `hideDisplaySwitcher` — the device-only switcher flag can't be captured into the override).
 - **AI `update_settings` tool (safe-subset, v0.190.41):** a NON-entity write tool letting the assistant change
   a whitelisted slice of app settings on request — `dashboardDensity`, `showViewHints`, `tasksViewMode`,
@@ -2534,7 +2614,7 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period hours into the `actualHours` of the allocation line the booking's PERSON belongs to, via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ ATTRIBUTION (fixed — it previously folded the whole bucket total into `allocations[0]`, so `computeBucketReport`'s `cost += aActual * internal` costed EVERY person at the first role's rate): `ActualsByBucket` cells carry an OPTIONAL `byResource` breakdown (`BucketPeriodCell`), and `allocationIndexFor` routes each person by `allocation.resourceIds` first, else their directory `Resource.roleId` → `allocation.roleId` (blended: role's `disciplineId` → `disciplineAllocation.disciplineId`). ★★ The panel passes **`matchableResources`** (internal only), NOT `ws.resources`, and `allocationIndexFor` returns `null` for anyone ABSENT from that list — checked BEFORE the `resourceIds` match, which otherwise never consults the directory. `isExternal` means capacity-only/excluded from all cost figures, but `autoMatchUsers` passes MANUAL links through unconditionally, so a hand-linked external does reach `byResource`; without both halves of this guard their hours land on a role line and `budget-report` costs them at its internal rate (review-caught). A dangling `resourceIds` ref to a deleted resource is withheld for the same reason. ★★ Apply OWNS every target line of a period that routed at least one NON-ZERO booking (`hc.hours !== 0` gates `routedPeriods.add`) — a person whose hours net to zero (a +4/-4 credit correction) says nothing about the period, so on its own it must not claim every line and zero a HAND-ENTERED figure; their own line is still written to 0 when some other booking arms the period — a line with no bookings in such a period is written to **0**, never skipped, or a stale total (e.g. one left by the old `allocations[0]` behaviour) survives beside the new per-role numbers and DOUBLE-COUNTS the bucket. ★★ A period whose hours were ENTIRELY unattributable is EXCLUDED from `Routed.periods` and nothing is written for it — ownership exists to clear a stale total the same period is about to replace, so with nothing to replace there is nothing to clear. Do NOT revert this to `Object.keys(periods)`: `use-timelog-sync` seeds `aggregates` from the persisted cache, so an upgraded user whose cached cells predate `byResource` would zero EVERY line in one click (review-caught data loss). ★ KNOWN consequence of that exclusion: within ONE bucket a routed period is rewritten per-role while an unroutable period keeps whatever a previous apply left — mixed provenance in a single bucket total. Accepted (the alternative is the data loss above); the unmatched notice is what tells the user some periods were skipped. ★★ Hours matching NO line (unlinked person, `roleId: null`, external/unknown resource, role absent from the bucket, or a pre-breakdown cached cell with no `byResource` — the empty-breakdown guard is `cell.hours !== 0`, NOT `> 0`, since TimeLog emits negative credit corrections) are WITHHELD and surfaced via the `timelogApplyUnmatched` notice (fed by `buildApplyPlan().unmatchedBuckets` — `bucketsWithUnmatchedHours`/`planApply` are now test-only wrappers, NOT the runtime path) — never written to an arbitrary line, which is the original defect at another role's rate. ★★ The notice also carries `unmatchedHours` (NET withheld hours), because a bare bucket count told the user something was wrong but not how far off the budget would read. Gate the notice on `unmatchedBuckets`, NEVER on `unmatchedHours` — a +40/-40 credit-correction pair nets to ZERO while hours are still being withheld. ★★ `actualHours` is a USER-EDITABLE input (`budget-panel.tsx` `onActual`), so period-ownership can zero a HAND-ENTERED figure on a line TimeLog never routed to (PM types 40h for a designer who books no time; someone else books that week; the 40 → 0). The confirm dialog therefore ITEMIZES every row via `describeApplyRows` (bucket · role/discipline line · period · current → next) instead of showing a bare count — do NOT revert it to a count, that is a silent overwrite of user-entered financial data. `describeApplyRows` reuses `roleLabel` (a `Role` has NO name of its own — it is discipline × grade). `byResource` is optional because the per-device actuals cache persists aggregates and its guard only shallow-checks `aggregates`; a re-fetch repopulates it. ★ `planApply` rows are per bucket·**allocIndex**·period and OMIT unchanged lines, so the confirm modal's count means "changes that will be written". ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; ★ `granularity` is a REQUIRED arg (no default — a silent "month" fallback was removed; a monthly key on a weekly plan silently drops hours from win/loss). ★ `aggregateActuals` builds project refs from items but SKIPS `projectId <= 0` (absence/non-project time → would render a blank Projects row). ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
 - **`timelog` view IS in axe `A11Y_VIEWS`** ("Time bookings"); project-row discovery comes from `useTimelogSync().projectRefs` (distinct projects in fetched items) merged with already-linked projects.
 - **Paging (★):** all TimeLog list endpoints page at 10 by default but honour OData `$page`/`$pagesize` (uncapped — `callPaged` uses 500/page, `MAX_PAGES=100`). WITHOUT a paging loop the app silently ingests only the first 10 rows of any list (e.g. 10 of 77 bookings). The proxy `encodeURIComponent`s the `$` (`%24page`) — upstream decodes it. `callRaw` transparently RETRIES a 429 honouring `Retry-After` (else exp backoff, abortable via the same signal), bounded at `MAX_429_RETRIES`.
-- **★★ v2 per-project registrations use a DIFFERENT shape than v1 (`mapV2TimeItem`, NOT `mapTimeItem`):** the customer-scoped fetch's `/v2/projects/{id}/time-registrations` (the SOLE v2 endpoint; `/v2/...` on any other path → 404 `UnsupportedApiVersion`) returns rows keyed `ActualHours` (not `Hours`), `NonBillable` (not `IsBillable`, INVERTED), `TimeRegistrationId` (lowercase `d`), and carries **NO `ProjectID`/`TaskID`/`UserID`** — only `ProjectName`/`TaskName`/`EmployeeInitials`. Mapping it with the v1 `mapTimeItem` yields ALL-ZERO rows (hours 0, projectId 0) → "no bookings" (the bug fixed in this line's release). `mapV2TimeItem` injects `projectId` from the request path and resolves `userId` from `EmployeeInitials` against the loaded directory (`initialsToUserId`, built in `fetchBookingsForCustomer`; unmatched → 0 = unattributed). ★ v2 ALSO ignores `startDate`/`endDate` + paging → returns the project's WHOLE history unpaged (hence the 30s proxy timeout for this path); the hook clamps to the window client-side. Verified live: mapped `sum(ActualHours)` == the envelope's `Properties.TimeRegistrationsTotalActualHours`.
+- **★★ v2 per-project registrations use a DIFFERENT shape than v1 (`mapV2TimeItem`, NOT `mapTimeItem`):** the customer-scoped fetch's `/v2/projects/{id}/time-registrations` (the SOLE v2 endpoint; `/v2/...` on any other path → 404 `UnsupportedApiVersion`) returns rows keyed `ActualHours` (not `Hours`), `NonBillable` (not `IsBillable`, INVERTED), `TimeRegistrationId` (lowercase `d`), and carries **NO `ProjectID`/`TaskID`/`UserID`** — only `ProjectName`/`TaskName`/`EmployeeInitials`. Mapping it with the v1 `mapTimeItem` yields ALL-ZERO rows (hours 0, projectId 0) → "no bookings" (the bug fixed in this line's release). `mapV2TimeItem` injects `projectId` from the request path and resolves `userId` from `EmployeeInitials` against the loaded directory (`initialsToUserId`, built in `use-timelog-sync.ts` and passed into `listProjectTimeRegistrations`; unmatched → 0 = unattributed). ★ v2 ALSO ignores `startDate`/`endDate` + paging → returns the project's WHOLE history unpaged (hence the 30s proxy timeout for this path); the hook clamps to the window client-side. Verified live: mapped `sum(ActualHours)` == the envelope's `Properties.TimeRegistrationsTotalActualHours`.
 - **Two-step fetch (`use-timelog-sync.ts`):** `loadDirectory()` pulls ONLY the directory (cheap); `fetchBookings(start,end,userIds?)` pulls timesheets — org scope iterates ONLY the passed (ticked) ids, else all loaded users. Split so org scope doesn't fire one request/employee for the whole org. `displayableUsers`/`isDisplayableUser` (`timelog-match.ts`) drop inactive/nameless directory rows. Hook also exposes `removeUsers`/`clearAll`/`cancel` (AbortController threaded to every call; loading modal's Cancel aborts) + `loadManagedProjects`/`loadCustomers`. ★ Plain (non-memoized) functions reading live state — like the storage handlers. ★ Fetched `users`+`projectRefs` cached per-device (cache `aggregates` is now OPTIONAL so a directory-only load persists); `loadDirectory` only writes cache when bookings already exist (no fabricated `fetchedAt`).
 - **Load my projects (`listManagedProjects`):** REST `/v1/project/get-all` exposes `ProjectManagerID`; filter `=== getMe().userId` (guard `managerUserId<=0`→[] so a bad /me can't match null-PM projects). `Project_GetAll` defaults `isActive=true` — pass `includeClosed` to ALSO pull `isActive=false`. `listProjectsForCustomer(customerId)` server-filters by `customerID` (NOT PM-scoped — lets a non-PM load a client's projects); `listCustomers` populates the picker (lazy on focus, no modal). Project allocations (people↔project) are Transactional-API only — NOT reachable via the REST employee token.
 
@@ -2567,7 +2647,7 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
   `settings.dictation.hotkey`, default `F4`) remote-triggers the focused field's mic — captures the pressed
   target so a mid-hold focus change / window blur can't strand it. ★★ Web Speech fires `onFinal` MULTIPLE
   times per hold → a field's `onAppendFinal` MUST read the LATEST state (functional setter or a ref), else
-  each segment overwrites the last (bit RAID/change/stakeholder). ★★ `DictationMic`'s `target` useMemo must
+  each segment overwrites the last (bit RAID/change/stakeholder). ★★ `useDictationMic`'s `target` useMemo must
   be identity-STABLE (route `press`/`release` through refs) or the unmount-cleanup effect nulls the live
   target every render (bit the hotkey).
 - **`/api/stt` proxy (`api/stt/route.ts` + `_helpers.ts`):** browser → same-origin `/api/stt` (NO new CSP

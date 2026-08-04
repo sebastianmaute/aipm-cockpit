@@ -8,6 +8,97 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.213.0] - 2026-08-03 "McKillip"
+
+Cancelled work stops counting as work still to be done, the Gantt gains a set of
+view controls, and a stale due date no longer blocks saving a task.
+
+### Fixed
+
+- **A stale due date no longer blocks editing an existing task.** The rule that
+  refuses a due date in the past now applies when a task is CREATED, not when one
+  is edited. It was reported as "changed the status to Done and could not save",
+  but the scope was wider than that: every overdue task was unsavable, whatever
+  you had changed on it, because the date that made it overdue failed validation
+  on the way out.
+- **Cancelled tasks no longer report as open work.** A cancelled task is closed —
+  it is not overdue, does not count toward a resource's load, does not drag the
+  schedule rating down, is not chased, and is filtered as completed on the Gantt.
+  It is still not *delivered*: no completion date is invented for it, so the
+  completion percentage, earned value and the on-time figures continue to count
+  genuinely finished work only.
+- **Cancelled scope no longer holds the completion percentage below 100%.**
+  Cancelled tasks are dropped from the denominator as well, so a project whose
+  remaining work is done reads as complete. The in-scope count behind the figure
+  is shared, so the dashboard tile, the completion sparkline and the steering
+  committee report all compute it from the same denominator. (They still *present*
+  it differently — the committee draft states a percentage where the dashboard now
+  reads "No active scope"; that gap is tracked as an open follow-up.)
+- **A project whose every task was cancelled no longer reads "0% complete".**
+  It says "No active scope — all cancelled (N)" instead, because 0% there is an
+  empty denominator rather than work not done, and the two are worth telling
+  apart. The state reaches every place on the screen that showed the figure: the
+  Progress tile, the at-a-glance KPI card, the completion-trend sparkline (which
+  hides rather than draw a flat zero line beneath a tile saying there is no
+  scope), and the Trends completion-variance row, which had reported a project
+  baselined at 40% as having gone *backwards* to 0. An empty project is
+  deliberately left reading 0% — it has not abandoned anything.
+- **A cancelled task no longer wears the same green check as a delivered one.**
+  In Open Points it shows a muted ✕. The two states differ by the shape of the
+  glyph rather than its colour, which matters because the column that spells out
+  "Cancelled" in words can be hidden — with it off, this mark and the row's
+  strikethrough are the whole signal.
+- **The Reports headline tiles reconcile again.** `Total` gained a small line
+  naming how many of them were cancelled, so the reader can see why Total no
+  longer equals Open plus Completed. A project with nothing cancelled is
+  unchanged.
+- **Two dashboard descriptions caught up with the numbers they describe.** The
+  Progress caption still said "tasks completed vs total" after the denominator
+  became in-scope work, and claimed the red/amber/green split covered open work
+  when it counts every task. The completion tooltip named the wrong numerator.
+  Both corrected, in English and German.
+- **Unticking every status in the Gantt filter now shows nothing, and says so.**
+  It used to show everything, on the reading that an empty filter list means "no
+  filter". An existing user's stored preferences are migrated rather than
+  reinterpreted, so a saved filter does not silently change meaning or open an
+  empty chart.
+- **Milestones follow the Gantt status filter.** They were exempt from it, so
+  filtering to overdue work still showed every milestone. They also gained their
+  own show/hide toggle.
+- **Gantt dependency arrows are legible.** The non-critical arrow was drawn thin
+  and faint enough to measure about 1.96:1 against the chart surface, which reads
+  as "the arrows are missing" rather than "the arrows are subtle". It is now about
+  3.11:1. Nothing about the arrows was broken — they were being drawn all along.
+- **A cancelled task's bar reads as cancelled.** It renders struck through rather
+  than in the overdue colour, and can no longer be dragged to new dates — its
+  dates are not going to be worked to.
+- **Select-all and bulk edit only reach the rows on screen.** Both used to be able
+  to reach rows the table was not rendering, so "select all" could select more
+  than was visible and a bulk edit could change rows the user could not see. When
+  a bulk edit does skip hidden rows, it now says so instead of silently applying
+  to fewer rows than expected.
+- **The bulk-edit panel scrolls.** With many fields ticked it grew past the bottom
+  of the pane and its Apply and Cancel buttons went with it; the field list now
+  scrolls and the actions stay in view.
+
+### Changed
+
+- **The Gantt's display toggles collect into a View popover.** All eight of them —
+  dependencies, holidays, absences, the day grid, critical path, baseline,
+  milestones and inline milestone placement — sit in one menu instead of competing
+  for room in the toolbar. The menu sits after "reset filters" and before the
+  trailing Print and reset controls.
+- **New Gantt layers: holiday columns and an optional dotted day grid**, and the
+  absence bands became toggleable. All three are decorative and cannot intercept a
+  bar drag.
+- **Reports carry a third Cancelled bucket.** A cancelled task is neither open nor
+  completed there, and is never counted overdue.
+- **"Clear all" in Open Points reads as destructive**, matching the clean-slate
+  button in Settings → General. It still requires typing the confirmation phrase.
+- **The task editor's reset-size button uses the same icon as the main windows.**
+- **"I am this resource" moved from Settings → Appearance to Settings → General.**
+  It says who you are, which is not an appearance preference.
+
 ## [0.212.0] - 2026-08-03 "Nayler"
 
 Toolbar ordering in two panes, and a table-geometry fix that reclaims the wasted

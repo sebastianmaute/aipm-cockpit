@@ -39,9 +39,29 @@ describe("buildResourceWorkload", () => {
     expect(managed[0].overdueTasks.map((t) => t.id)).toEqual([10]);
   });
   it("ignores completed tasks for open/overdue counts", () => {
-    const { managed } = buildResourceWorkload([res(1, "Sample", "Dummy")], [task(10, "Alex Example", { resourceId: 1, dueDate: "2026-01-01", completedDate: "2026-02-01" })], [], [], [], "2026-06-01");
+    // `status: "Done"` is not decoration: the invariant is
+    // `status === "Done" ⟺ completedDate set`, maintained by every WRITER
+    // (applyStatusChange is the sole in-app status writer; Jira's
+    // issueToTaskFields drives both fields from one isDone flag), so a
+    // completedDate on a "To Do" task is a shape the app does not produce.
+    // Note it is NOT enforced at load: migrateTask derives status from
+    // completedDate only when status is absent or invalid, so an imported or
+    // hand-edited blob carrying the bad pair survives unrepaired.
+    const { managed } = buildResourceWorkload([res(1, "Sample", "Dummy")], [task(10, "Alex Example", { resourceId: 1, dueDate: "2026-01-01", status: "Done", completedDate: "2026-02-01" })], [], [], [], "2026-06-01");
     expect(managed[0].openCount).toBe(0);
     expect(managed[0].overdueCount).toBe(0);
+  });
+  it("a cancelled task adds no open or overdue load", () => {
+    // Cancelled is terminal but carries NO completedDate, so a `!completedDate`
+    // read counts it as open work and chases the assignee for it forever.
+    const { managed } = buildResourceWorkload(
+      [res(1, "Sample", "Dummy")],
+      [task(10, "Alex Example", { resourceId: 1, status: "Cancelled", dueDate: "2026-01-01" })],
+      [], [], [], "2026-06-01",
+    );
+    expect(managed[0].openCount).toBe(0);
+    expect(managed[0].overdueCount).toBe(0);
+    expect(managed[0].overdueTasks).toEqual([]);
   });
   it("groups an unknown assignee under unlinked with a split name + email seed", () => {
     const { managed, unlinked } = buildResourceWorkload([], [task(10, "Bob Lee", { assigneeEmail: "bob@x.com" })], [], [], [], "2026-06-01");

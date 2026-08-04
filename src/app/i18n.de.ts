@@ -474,6 +474,8 @@ export const de: Record<TranslationKey, string> = {
   bulkEditNoFields: "Mindestens ein Feld zum Aktualisieren auswählen.",
   bulkEditDoneOne: "1 Aufgabe aktualisiert.",
   bulkEditDoneMany: "{0} Aufgaben aktualisiert.",
+  bulkEditHiddenSkipped:
+    "{0} ausgewählte Aufgabe(n) wurden übersprungen — die aktuellen Filter zeigen sie nicht mehr in der Tabelle an.",
   bulkSendNoTasks: "Keine Aufgaben zum Versenden bereit.",
   bulkSendDone: "{0} E-Mail(s) für {1} Aufgabe(n) geöffnet.",
   confirmBulkSend: "{0} E-Mail(s) für {1} Aufgabe(n) senden?",
@@ -965,6 +967,8 @@ export const de: Record<TranslationKey, string> = {
   ganttEmpty:
     "Lege mindestens eine Aufgabe mit Fälligkeit an, um sie im Gantt-Diagramm zu sehen.",
   ganttNoMatches: "Keine Aufgaben passen zu den Filtern.",
+  ganttNoStatusSelected:
+    "Kein Status ausgewählt – wählen Sie mindestens einen Status, um Zeilen anzuzeigen.",
   ganttAddTask: "+ Aufgabe hinzufügen",
   ganttAddMilestone: "Meilenstein hinzufügen",
   ganttToday: "Heute",
@@ -996,6 +1000,13 @@ export const de: Record<TranslationKey, string> = {
   ganttBaselineHint:
     "Zeigt das zugesagte Baseline-Datum jedes Meilensteins als Geisterraute hinter dem aktuellen Datum, um Terminverschiebungen sichtbar zu machen.",
   ganttMilestonesInline: "Meilensteine inline",
+  ganttViewMenu: "Ansicht",
+  ganttViewMenuHint: "Ebenen ein- oder ausblenden",
+  ganttShowHolidays: "Feiertage",
+  ganttShowAbsences: "Abwesenheiten",
+  ganttShowDependencies: "Abhängigkeiten",
+  ganttShowMilestones: "Meilensteine",
+  ganttShowGrid: "Tagesraster",
   ganttMilestonesInlineHint:
     "Jeden Meilenstein als eigene Zeile zwischen den Aufgaben an seinem Fälligkeitsdatum anzeigen, statt als Block darunter.",
   health: "Ampel",
@@ -1105,6 +1116,8 @@ export const de: Record<TranslationKey, string> = {
   reportsTotal: "Gesamt",
   reportsOpen: "Offen",
   reportsCompleted: "Erledigt",
+  reportsCancelled: "Abgebrochen",
+  reportsCancelledCount: "{0} abgebrochen",
   reportsOverdue: "Überfällig",
   reportsOpenByStatus: "Offene Aufgaben nach Status",
   reportsDueSoon: "Bald fällig (≤3 Arbeitstage)",
@@ -2129,6 +2142,8 @@ export const de: Record<TranslationKey, string> = {
   dashboardProgress: "Fortschritt",
   dashboardPercentComplete: "{0}% abgeschlossen",
   dashboardCompletedOf: "{0} von {1} abgeschlossen",
+  dashboardNoActiveScope: "Kein aktiver Umfang",
+  dashboardAllCancelled: "Alle abgebrochen ({0})",
   dashboardBudgetBurn: "Budgetverbrauch",
   dashboardNoBudget: "Kein Budget konfiguriert",
   dashboardTopRaid: "Wichtigste offene RAID",
@@ -2178,7 +2193,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardScopeUnset: "Nicht gesetzt",
   dashboardMilestones: "Meilensteine",
   dashboardRagThresholds: "Verbrauch / Stunden: Gelb ≥ 90%, Rot > 100% · Kostenverbrauch: Rot < 0,80, Gelb < 0,90 · Marge: Grün ≥ 15%, Gelb 0–15%, Rot < 0",
-  dashboardProgressCaption: "Abgeschlossene vs. gesamte Aufgaben, mit der Rot/Gelb/Grün-Aufteilung der offenen Arbeit.",
+  dashboardProgressCaption: "Erledigte Aufgaben im Verhältnis zum Umfang — abgebrochene Arbeit bleibt in beiden außen vor. Die Rot/Gelb/Grün-Aufteilung umfasst alle Aufgaben; geschlossene Arbeit zählt als Grün, sofern die Ampel nicht manuell gesetzt wurde.",
   dashboardBurnCaption: "Verbrauchtes Budget und Stunden gegenüber dem Verfügbaren. Das Burn-down zeigt das verbleibende Budget gegen den geplanten Verlauf — die Ist-Linie über der gestrichelten Linie bedeutet Rückstand zum Plan.",
   navMilestones: "Meilensteine",
   milestoneNew: "Neuer Meilenstein",
@@ -3471,7 +3486,7 @@ export const de: Record<TranslationKey, string> = {
   contactPersonsTip:
     "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
   // UX batch "Aldiss" (0.177.0)
-  dashboardKpiCompleteHint: "Anteil der als erledigt markierten Aufgaben an allen Aufgaben. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
+  dashboardKpiCompleteHint: "Anteil der Aufgaben mit Abschlussdatum an allen Aufgaben, die noch zum Umfang zählen. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
   dashboardKpiOverdueHint: "Aufgaben, die überfällig und noch nicht erledigt sind. Möglichst auf null senken.",
   dashboardKpiOpenRaidHint: "Offene Risiken, Annahmen, Probleme und Abhängigkeiten, die noch Aufmerksamkeit brauchen.",
   dashboardRagHint: "Rot / Gelb / Grün: Anzahl der Projektbereiche, die vom Kurs abweichen, gefährdet oder gesund sind.",
@@ -3549,6 +3564,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlight0209: "Rich-Text: Beschreibungen in RAID, Änderungen und Meilensteinen unterstützen jetzt Fettschrift, Kursivschrift, Listen und Links; vorhandener einfacher Text wird beim Lesen übernommen — es muss nichts konvertiert werden. Das datierte Notizprotokoll einer Aufgabe öffnet sich jetzt direkt im Editor, wo neue Notizen sofort gespeichert werden, statt auf das Formular zu warten.",
   versionHighlight0210: "Dokument-Exporte (PDF, Word, Excel, PowerPoint) behalten Absätze bei, und Aufgabenbeschreibungen werden als Text statt als rohes HTML exportiert. Die CSV- und Markdown-Exporte sind das Speicherformat und enthalten eine Beschreibung weiterhin genau wie gespeichert, damit ein Projekt verlustfrei wieder importiert werden kann. Inline-KI-Bearbeitungen bewahren jetzt die Formatierung einer Beschreibung, statt sie zu einfachem Text zu glätten.",
   versionHighlight0212: "Offene Punkte verschwendet keinen Platz mehr an den Rändern der Tabelle: die Spalten für Auswahl, Ampel, Beziehungen und Aktionen sind auf ihren tatsächlichen Inhalt bemessen, und die Aufgaben-Spalte nimmt die übrige Breite auf, statt sie auf alle Spalten zu verteilen. Ein Ziehen der Aufgaben-Spalte legt sie weiterhin auf eine feste Breite fest, und Spalten zurücksetzen stellt das flexible Layout wieder her. Der Outlook-Schalter – in den Symbolleisten für Aufgaben, RAID, Änderungen und Abwesenheiten sowie in den Einstellungen – ist jetzt eine Schaltfläche mit der Beschriftung Zu Outlook hinzufügen, und Umschalt-Schaltflächen zeigen ein Häkchen, solange sie aktiv sind. In der Planung steht Externe ausblenden jetzt neben den Outlook-Kalender-Bedienelementen, und die RACI-Matrix beginnt ihre Symbolleiste mit RACI vorschlagen.",
+  versionHighlight0213: "Abgebrochene Aufgaben gelten jetzt überall dort als abgeschlossen, wo es darauf ankommt: Sie sind nicht mehr überfällig, zählen nicht mehr zur Auslastung einer Ressource und halten den Fertigstellungsgrad nicht mehr unter 100 % – während Fertigstellungsgrad, Ertragswert und die Termintreue weiterhin nur tatsächlich erledigte Arbeit anrechnen. Ein in der Vergangenheit liegendes Fälligkeitsdatum blockiert das Speichern einer bestehenden Aufgabe nicht mehr; diese Regel gilt jetzt beim Anlegen einer Aufgabe. Das Gantt-Diagramm fasst seine acht Anzeigeschalter in einem Ansicht-Menü zusammen, ergänzt Feiertagsspalten und ein optionales Tagesraster, filtert Meilensteine gemeinsam mit Aufgaben und zeichnet Abhängigkeitspfeile kräftig genug, um sie zu erkennen. In Offene Punkte erfassen Alle auswählen und die Sammelbearbeitung nur die Zeilen, die die Tabelle anzeigt, und eine Sammelbearbeitung, die ausgeblendete Zeilen überspringt, weist darauf hin. Ein Projekt, dessen Aufgaben alle abgebrochen wurden, zeigt jetzt „Kein aktiver Umfang“ statt „0 % abgeschlossen“ – auf der Fortschrittskachel, der Übersichtskarte, der Fertigstellungskurve und im Trendvergleich gleichermaßen – und eine abgebrochene Aufgabe in Offene Punkte trägt ein gedämpftes Kreuz statt des grünen Hakens, der Lieferung bedeutet. Die Gesamtzahl in Berichte nennt die Anzahl der abgebrochenen Aufgaben, damit die Kennzahlen wieder zusammenpassen.",
   versionHighlight0211: "Symbolleisten-Politur: Drucken, Push/Pull und andere gemeinsam genutzte Bedienelemente verwenden jetzt einheitliche, symbolgeführte Schaltflächen in jedem Bereich, und mehrere Ein-/Ausblenden-Schalter zeigen ihren Zustand deutlicher an. Offene Punkte hat sein Bearbeiten-Menü und die Standard-Reihenfolge der Symbolleiste zurückerhalten. Die RACI-Matrix kann jetzt Zuordnungen anhand von Stakeholder-Titeln und Meilensteinen per KI vorschlagen – jede vorgeschlagene Zelle wird vor der Übernahme geprüft. Diktieren funktioniert jetzt auch im Rich-Text-Notizeditor und im Notizprotokoll.",
   versionHighlight02023: "Barrierefreiheit: Verknüpfungsfelder sind jetzt echte Comboboxen (Pfeiltasten, Enter zum Hinzufügen, Escape zum Schließen), sortierbare Tabellenüberschriften geben ihre Sortierrichtung an, Termine im Kalender lassen sich per Tastatur verschieben (Alt+Pfeil zum Verschieben, Enter zum Bestätigen), und violetter Text erfüllt beim Überfahren mit der Maus in allen Themes den AA-Kontrast.",
   versionHighlight0202: "Kalender: Abwesenheiten lassen sich jetzt per Ziehen verschieben, per Ziehen über Zeilen neu zuweisen und durch Ziehen am Rand in der Länge anpassen — mit Tastatur-Äquivalent (Alt+Pfeil zum Verschieben, Alt+Umschalt+Pfeil zur Größenänderung) und einstufigem Rückgängig; außerdem bringt eine neue Termin-Entität tägliche/wöchentliche/monatliche Wiederholung, Ausnahmen zum Überspringen oder Verschieben einzelner Termine, ein Terminband im Kalender, einen Editor und eine Serienliste mit — gespeichert über alle Speicher-Backends hinweg und standardmäßig im Export enthalten.",

@@ -12,7 +12,7 @@ const MODEL = {
     { id: 1, title: "Rescope phase 2", status: "pending" },
     { id: 2, title: "Add QA gate", status: "approved" },
   ],
-  progress: { total: 10, completed: 4, percent: 40, counts: { R: 1, A: 2, G: 7 } },
+  progress: { total: 10, inScope: 10, completed: 4, percent: 40, counts: { R: 1, A: 2, G: 7 } },
   burn: null,
   burndown: null,
   evm: {},
@@ -51,6 +51,19 @@ describe("parseMeetingReport", () => {
 });
 
 describe("buildMeetingReportPrompt", () => {
+  it("states the completion pair against the percentage's own denominator", () => {
+    // 5 Done + 5 Cancelled: percent divides by inScope (5). "(5 of 10 tasks
+    // done)" beside "100% complete" would be an arithmetic contradiction in a
+    // fact list handed to a model drafting a steering-committee report.
+    const cancelledScope = {
+      ...MODEL,
+      progress: { total: 10, inScope: 5, completed: 5, percent: 100, counts: { R: 0, A: 0, G: 10 } },
+    } as unknown as DashboardModel;
+    const p = buildMeetingReportPrompt(cancelledScope, "Budget review", "en-US");
+    expect(p).toContain("100% complete (5 of 5 tasks done)");
+    expect(p).not.toContain("5 of 10 tasks done");
+  });
+
   it("weaves in the agenda and key metrics", () => {
     const p = buildMeetingReportPrompt(MODEL, "Budget review\nStaffing", "en-US");
     expect(p).toContain("Budget review");

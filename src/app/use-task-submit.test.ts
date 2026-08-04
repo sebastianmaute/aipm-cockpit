@@ -194,6 +194,31 @@ describe("useTaskSubmit — validation guards", () => {
     expect(setTasks).not.toHaveBeenCalled();
   });
 
+  // The reported bug: `validateTaskForm` rejected ANY past due date and Save is
+  // gated on that, so every overdue task was unsavable whatever the user was
+  // actually changing. This pins the WIRING (the hook must pass isNew=false when
+  // editing) — the pure-function tests in task-validation.test.ts all still pass
+  // if the flag is hardcoded here, so they cannot catch a mis-thread.
+  it("allows saving an existing task whose due date has gone stale", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, dueDate: "2029-12-31" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          setTasks,
+          editingId: 1,
+          tasks: [existing],
+          tasksRef: { current: [existing] },
+          form: { ...validForm(), dueDate: "2029-12-31", status: "Done" as const },
+        }),
+      ),
+    );
+    expect(result.current.fieldErrors.dueDate).toBeUndefined();
+    expect(result.current.saveDisabled).toBe(false);
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(setTasks).toHaveBeenCalled();
+  });
+
   it("rejects an invalid assignee email", () => {
     const setTasks = vi.fn();
     const { result } = renderHook(() =>

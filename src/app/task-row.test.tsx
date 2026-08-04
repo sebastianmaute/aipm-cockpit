@@ -497,7 +497,10 @@ describe("TaskRow zebra striping", () => {
         context: ctx,
         children: (
           <TaskRow
-            task={makeTask({ id: 5, completedDate: "2026-05-20" })}
+            // status + completedDate move together (`status === "Done" ⟺
+            // completedDate set`); a completedDate on a "To Do" task is a shape
+            // applyStatusChange never produces.
+            task={makeTask({ id: 5, status: "Done", completedDate: "2026-05-20" })}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -511,6 +514,72 @@ describe("TaskRow zebra striping", () => {
     // completed affordance is a full-opacity muted tint (+ strikethrough title).
     expect(tr?.className).not.toContain("opacity-60");
     expect(tr?.className).toContain("bg-surface-muted/60");
+  });
+
+  test("a cancelled row reads as closed but shows no completion date", () => {
+    // Cancelled carries no completedDate, so the row must take the closed
+    // styling (muted tint + strikethrough) WITHOUT claiming a delivery date —
+    // a single `isComplete` flag would render "Completed on undefined".
+    const ctx = makeContext();
+    const { container, queryByLabelText, getByLabelText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 6, status: "Cancelled", dueDate: "2026-01-01" })}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={undefined}
+            isStriped
+          />
+        ),
+      }),
+    );
+    const tr = container.querySelector("tbody tr");
+    expect(tr?.className).toContain("bg-surface-muted/60");
+    expect(container.querySelector("td.line-through")).not.toBeNull();
+    // The health cell falls back to the health tooltip, never a completion date.
+    expect(queryByLabelText(/completed on/i)).toBeNull();
+    expect(getByLabelText(/cancelled/i)).toBeInTheDocument();
+  });
+});
+
+describe("TaskRow closed glyph", () => {
+  // isClosed covers Done AND Cancelled, but only Done is DELIVERED — the
+  // status cell must render a different glyph SHAPE (not just colour) for
+  // the two, so a cancelled row can never be read as a delivered one.
+  function renderClosedRow(task: Task) {
+    const ctx = makeContext();
+    return render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={undefined}
+            isStriped={false}
+          />
+        ),
+      }),
+    );
+  }
+
+  test("shows a cross, not a check, for a cancelled task", () => {
+    const { container } = renderClosedRow(makeTask({ id: 1, status: "Cancelled" }));
+    expect(container.textContent).toContain("✕");
+    expect(container.textContent).not.toContain("✓");
+  });
+
+  test("still shows the check for a delivered task", () => {
+    const { container } = renderClosedRow(
+      makeTask({ id: 2, status: "Done", completedDate: "2026-05-20" }),
+    );
+    expect(container.textContent).toContain("✓");
+    expect(container.textContent).not.toContain("✕");
   });
 });
 
@@ -742,6 +811,22 @@ describe("TaskActions", () => {
     expect(getByText("Send inquiry")).toBeInTheDocument();
     expect(getByText("Push to Jira")).toBeInTheDocument();
     expect(getByText("Delete")).toBeInTheDocument();
+  });
+
+  test("a cancelled task offers no Send inquiry and no Push to Jira", () => {
+    // Nobody should be chased about work that will never be done, and there is
+    // nothing left to push. Cancelled carries no completedDate, so the old
+    // `!task.completedDate` guard kept both verbs on offer.
+    const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
+    const task = makeTask({ id: 99, status: "Cancelled" });
+    const { getByText, getByRole, queryByText } = renderActions(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "More actions – Sample task" }));
+    // Guard: the menu really is open, so the two absences below mean something.
+    expect(getByText("Edit")).toBeInTheDocument();
+    expect(getByText("Delete")).toBeInTheDocument();
+    expect(queryByText("Send inquiry")).toBeNull();
+    expect(queryByText("Push to Jira")).toBeNull();
   });
 
   test("overflow Delete fires onDelete with the task id", () => {

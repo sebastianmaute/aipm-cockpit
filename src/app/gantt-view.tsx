@@ -16,6 +16,7 @@ import { GanttPanel } from "./gantt";
 import { type GanttBarEdit } from "./gantt-engine";
 import { t } from "./i18n";
 import { useActivityLogger } from "./activity-log-context";
+import { useHolidaySet } from "./use-holiday-set";
 import { useSettings } from "./use-settings";
 import { useTasksDedup } from "./use-tasks-dedup";
 import { useWorkspace } from "./workspace-context";
@@ -51,6 +52,18 @@ export function GanttView({
   const { tasks, setTasks, absences, resources, milestones } = useWorkspace();
   const { isPopout, requestHelpConcept } = useWorkspaceTab();
   const logActivity = useActivityLogger();
+  // Deliberately a SECOND derivation rather than a prop threaded from
+  // workspace-section. Safe here only because nothing in the Gantt shares a
+  // derived value that two holiday sets could disagree about — the set drives
+  // decorative shading, not a filter another component must match. Do NOT cite
+  // tasks-section as precedent for copying this: its own comment demotes its
+  // local hook to a unit-test fallback, because task-manager always passes it
+  // one. If the Gantt ever gains a consumer that must agree with another pane,
+  // thread it instead.
+  // The empty-`holidayCountries` default costs nothing, but the guard is in
+  // `holidaysForCountries` (it returns an empty Set before the `date-holidays`
+  // dynamic import), NOT in this hook — the hook calls it unconditionally.
+  const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
 
   const dedup = useTasksDedup({
     settings,
@@ -80,6 +93,7 @@ export function GanttView({
         isPopout={isPopout}
         onLearnMore={requestHelpConcept}
         baselineMilestoneDates={baselineMilestoneDates}
+        holidaySet={holidaySet}
         dedupButton={dedup.button}
       />
       {dedup.modal}

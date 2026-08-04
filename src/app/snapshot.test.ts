@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate } from "./snapshot";
+import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, milestoneForecast, withoutCompletionVariance } from "./snapshot";
+import type { Milestone } from "./types";
 import type { SnapshotMilestone, SnapshotRecord } from "./snapshot";
 import type { DashboardModel } from "./dashboard";
 
@@ -69,13 +70,44 @@ describe("forecastEndDate", () => {
     const tasks = [
       { ...baseTask, id: 1, dueDate: "2026-07-01" },
       { ...baseTask, id: 2, dueDate: "2026-09-15" },
-      { ...baseTask, id: 3, dueDate: "2026-12-31", completedDate: "2026-06-01" }, // completed -> ignored
+      { ...baseTask, id: 3, dueDate: "2026-12-31", status: "Done" as const, completedDate: "2026-06-01" }, // completed -> ignored
     ];
     expect(forecastEndDate(tasks, [], new Map(), "2026-08-01")).toBe("2026-09-15");
   });
   it("falls back to the plan end date when nothing slips", () => {
     const tasks = [{ ...baseTask, id: 1, dueDate: "2026-05-01" }];
     expect(forecastEndDate(tasks, [], new Map(), "2026-08-01")).toBe("2026-08-01");
+  });
+  it("a cancelled task does not push out the forecast end date", () => {
+    const tasks = [{ ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" }];
+    expect(forecastEndDate(tasks, [], new Map(), "2026-08-31")).toBe("2026-08-31");
+  });
+  it("a cancelled task LINKED TO A MILESTONE does not push out the forecast either", () => {
+    // The task loop skips it, but it re-enters through the milestone loop unless
+    // milestoneForecast skips it too.
+    const t = { ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" };
+    const ms: Milestone[] = [{ id: 1, name: "M", date: "2026-09-01", linkedTaskIds: [1] }];
+    expect(forecastEndDate([t], ms, new Map([[1, t]]), "2026-08-31")).toBe("2026-09-01");
+  });
+});
+
+describe("milestoneForecast", () => {
+  const ms = (linkedTaskIds: number[]): Milestone =>
+    ({ id: 1, name: "M", date: "2026-09-01", linkedTaskIds });
+
+  it("ignores a cancelled linked task's dueDate", () => {
+    const t = { ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" };
+    expect(milestoneForecast(ms([1]), new Map([[1, t]]))).toBe("2026-09-01");
+  });
+
+  it("still takes a DELIVERED linked task's completedDate (a real historical end)", () => {
+    const t = { ...baseTask, id: 1, status: "Done" as const, dueDate: "2026-10-01", completedDate: "2026-11-15" };
+    expect(milestoneForecast(ms([1]), new Map([[1, t]]))).toBe("2026-11-15");
+  });
+
+  it("still takes an OPEN linked task's dueDate", () => {
+    const t = { ...baseTask, id: 1, dueDate: "2026-12-01" };
+    expect(milestoneForecast(ms([1]), new Map([[1, t]]))).toBe("2026-12-01");
   });
 });
 
@@ -121,6 +153,17 @@ describe("buildSnapshot", () => {
     expect(rec.series[1].actualHours).toBeNull();
   });
 
+  it("does not let a cancelled linked task drive a milestone's captured forecast", () => {
+    const t = { ...baseTask, id: 1, status: "Cancelled" as const, dueDate: "2027-12-31" };
+    const milestones: Milestone[] = [{ id: 1, name: "M", date: "2026-09-01", linkedTaskIds: [1] }];
+    const rec = buildSnapshot({
+      model, tasks: [t], milestones, planEndDate: "2026-07-31", currency: "EUR",
+      capturedAt: "2026-06-03T09:00:00.000Z", cadence: "weekly", trigger: "manual",
+    });
+    expect(rec.milestones[0].forecast).toBe("2026-09-01");
+    expect(rec.forecastEndDate).toBe("2026-09-01");
+  });
+
   it("yields null remaining + empty series when there is no burndown", () => {
     const rec = buildSnapshot({
       model: { ...model, burndown: null } as DashboardModel, tasks: [], milestones: [],
@@ -142,6 +185,28 @@ function recWith(over: Partial<SnapshotRecord>): SnapshotRecord {
     currency: "EUR", milestones: [], series: [], ...over,
   };
 }
+
+describe("withoutCompletionVariance", () => {
+  // The row is DROPPED, not zeroed: for a project with no active scope the 0%
+  // is an empty denominator, so `worseIfLower` flags a fall that never happened.
+  // ★ The health assertion pins AMBER. Both the review that found this surface
+  // and the first draft of the comment on `withoutCompletionVariance` said the
+  // dot was RED; `worseIfLower` only ever returns "A" or "G". This assertion is
+  // what disproved it, and it stays so the claim cannot drift back.
+  it("removes only the completion row and keeps the rest in order", () => {
+    const rows = computeVariance(recWith({ pctComplete: 40 }), recWith({ pctComplete: 0 }));
+    expect(rows.find((r) => r.key === "pctComplete")?.health).toBe("A");
+    const kept = withoutCompletionVariance(rows);
+    expect(kept.find((r) => r.key === "pctComplete")).toBeUndefined();
+    expect(kept.map((r) => r.key)).toEqual(rows.filter((r) => r.key !== "pctComplete").map((r) => r.key));
+  });
+  it("leaves the input untouched", () => {
+    const rows = computeVariance(recWith({ pctComplete: 40 }), recWith({ pctComplete: 0 }));
+    const before = rows.length;
+    withoutCompletionVariance(rows);
+    expect(rows).toHaveLength(before);
+  });
+});
 
 describe("computeVariance", () => {
   it("flags a later forecast end as Red (schedule slip)", () => {

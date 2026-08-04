@@ -173,4 +173,26 @@ describe("BulkEditModal", () => {
       screen.getByRole("textbox", { name: t("en-US", "assignee") }),
     ).toBeInTheDocument();
   });
+
+  test("caps the field list height and scrolls it, keeping the actions reachable", () => {
+    const { container } = render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...defaultProps({ selectedIds: new Set([1]) })} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    const scroller = container.querySelector("[data-bulk-fields]");
+    expect(scroller).not.toBeNull();
+    expect(scroller!.className).toContain("overflow-y-auto");
+    expect(scroller!.className).toContain("max-h-[60vh]");
+    const actions = container.querySelector("[data-bulk-actions]");
+    expect(actions).not.toBeNull();
+    expect(actions!.className).toContain("sticky");
+    // The sticky footer only has an effect relative to a scrolling ancestor —
+    // jsdom has no layout engine so the actual scrolling can't be asserted,
+    // but containment inside the scroller (not a sibling of it) is what makes
+    // "sticky bottom-0" resolve against the right box, so pin it structurally.
+    expect(scroller!.contains(actions)).toBe(true);
+  });
 });

@@ -26,6 +26,7 @@ export const REPORTS_ASSIGNEE_COL_WIDTHS = {
   assignee: 160,
   total: 90,
   open: 90,
+  cancelled: 90,
   overdue: 90,
   onTime: 90,
   late: 90,
@@ -38,15 +39,16 @@ export const REPORTS_BY_X_COL_WIDTHS = {
   total: 90,
   open: 90,
   completed: 90,
+  cancelled: 90,
   overdue: 90,
   inquiries: 90,
 } as const;
 export type ReportsByXCol = keyof typeof REPORTS_BY_X_COL_WIDTHS;
 
-export type AssigneeSortKey = "assignee" | "total" | "open" | "overdue" | "onTime" | "late" | "inquiries";
+export type AssigneeSortKey = "assignee" | "total" | "open" | "cancelled" | "overdue" | "onTime" | "late" | "inquiries";
 export type AssigneeSort = { key: AssigneeSortKey; dir: SortDir };
 
-export type GroupOrLabelSortKey = "name" | "total" | "open" | "completed" | "overdue" | "inquiries";
+export type GroupOrLabelSortKey = "name" | "total" | "open" | "completed" | "cancelled" | "overdue" | "inquiries";
 export type GroupOrLabelSort = { key: GroupOrLabelSortKey; dir: SortDir };
 
 // The "no rows match the filter" body row shared by both report tables.
@@ -67,6 +69,7 @@ const GROUP_NUMERIC_COLS: readonly { key: GroupOrLabelSortKey; labelKey: Paramet
   { key: "total", labelKey: "reportsTotal" },
   { key: "open", labelKey: "reportsOpen" },
   { key: "completed", labelKey: "reportsCompleted" },
+  { key: "cancelled", labelKey: "reportsCancelled" },
   { key: "overdue", labelKey: "reportsOverdue" },
   { key: "inquiries", labelKey: "reportsInquiriesCol" },
 ];
@@ -74,6 +77,7 @@ const GROUP_NUMERIC_COLS: readonly { key: GroupOrLabelSortKey; labelKey: Paramet
 const ASSIGNEE_NUMERIC_COLS: readonly { key: AssigneeSortKey; labelKey: Parameters<typeof t>[1] }[] = [
   { key: "total", labelKey: "reportsTotal" },
   { key: "open", labelKey: "reportsOpen" },
+  { key: "cancelled", labelKey: "reportsCancelled" },
   { key: "overdue", labelKey: "reportsOverdue" },
   { key: "onTime", labelKey: "reportsCompletedOnTime" },
   { key: "late", labelKey: "reportsCompletedLate" },
@@ -152,7 +156,7 @@ export function GroupOrLabelTable({
           tbodyClassName="divide-y divide-line"
         >
             {sorted.length === 0 && filter !== "" ? (
-              <NoMatchesRow lang={lang} colSpan={6} />
+              <NoMatchesRow lang={lang} colSpan={7} />
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
@@ -160,6 +164,8 @@ export function GroupOrLabelTable({
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
                   <td className="px-3 py-2 text-right text-[var(--rag-green-text)]">{row.completed}</td>
+                  {/* Muted, not a RAG token: cancelled is neither good nor bad news. */}
+                  <td className="px-3 py-2 text-right text-muted-foreground">{row.cancelled}</td>
                   <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-[var(--rag-red-text)] font-semibold" : ""}`}>{row.overdue}</td>
                   <td className="px-3 py-2 text-right">{row.inquiries}</td>
                 </tr>
@@ -234,13 +240,15 @@ export function AssigneeTable({
           tbodyClassName="divide-y divide-line"
         >
             {sorted.length === 0 && filter !== "" ? (
-              <NoMatchesRow lang={lang} colSpan={7} />
+              <NoMatchesRow lang={lang} colSpan={8} />
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
                   <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{row.name}</td>
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
+                  {/* Muted, not a RAG token: cancelled is neither good nor bad news. */}
+                  <td className="px-3 py-2 text-right text-muted-foreground">{row.cancelled}</td>
                   <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-[var(--rag-red-text)] font-semibold" : ""}`}>{row.overdue}</td>
                   <td className="px-3 py-2 text-right text-[var(--rag-green-text)]">{row.onTime}</td>
                   <td className="px-3 py-2 text-right text-[var(--rag-red-text)]">{row.late}</td>

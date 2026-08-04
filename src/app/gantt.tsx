@@ -26,7 +26,6 @@
 // glance at. For dynamic editing, the user goes back to the tasks list.
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { ViewCallout } from "./view-callout";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -34,27 +33,30 @@ import { AddFirstItemButton } from "./add-first-item-button";
 import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
-import { GanttDependencyLayer, GanttHeader, GanttToolbar } from "./gantt-chrome";
-import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
+import { GanttToolbar } from "./gantt-chrome";
+import { GanttChart } from "./gantt-chart";
+import { dayLeftPx } from "./gantt-overlays";
 import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { descriptionText } from "./rich-text-projection";
 import { sortMilestones } from "./milestones";
+import { milestoneStatusBucket, taskStatusBuckets } from "./gantt-status-buckets";
+import { isTaskClosed } from "./task-closed";
 import {
   addDays,
+  ALL_GANTT_STATUSES,
   buildGanttRows,
   clampNameColWidth,
   computeCriticalPath,
   DAY_WIDTH_PX,
   deriveBar,
   diffDays,
-  fmtFull,
+  EMPTY_HOLIDAY_SET,
   fmtMonth,
   type GanttBarEdit,
   LEFT_GUTTER_PX,
   naturalCompare,
   parseISO,
-  ROW_HEIGHT_PX,
   todayUTC,
   toISODay,
 } from "./gantt-engine";
@@ -76,6 +78,7 @@ export function GanttPanel({
   isPopout,
   onLearnMore,
   baselineMilestoneDates,
+  holidaySet = EMPTY_HOLIDAY_SET,
   dedupButton,
 }: {
   lang: Lang;
@@ -92,10 +95,16 @@ export function GanttPanel({
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
   baselineMilestoneDates?: ReadonlyMap<number, string>;
+  /**
+   * Non-working days (ISO `YYYY-MM-DD`) shaded behind the rows when the View
+   * popover's holiday toggle is on. Defaults to the SHARED module-level
+   * `EMPTY_HOLIDAY_SET` — an inline `new Set()` would be a fresh identity every
+   * render and churn any memo that ever depends on it.
+   */
+  holidaySet?: ReadonlySet<string>;
   /** AI "Deduplicate & unify" trigger, built by the view wrapper. See GanttToolbar. */
   dedupButton?: ReactNode;
 }) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScroll = useRef(false);
   const { ref: ganttRef, reset: resetGanttSize } = useResizable("aipm-cockpit:gantt-size");
@@ -151,6 +160,11 @@ export function GanttPanel({
     toggleCriticalPath,
     toggleBaseline,
     toggleMilestonePlacement,
+    toggleHolidays,
+    toggleAbsences,
+    toggleDependencies,
+    toggleMilestones,
+    toggleGrid,
   } = useGanttPrefs();
 
   // The Gantt shows the milestone baseline overlay only when the pinned snapshot
@@ -217,7 +231,8 @@ export function GanttPanel({
     }
     const completed = new Set<number>();
     for (const t of tasks) {
-      if (t.completedDate) completed.add(t.id);
+      // Closed, not merely delivered: a cancelled task is not a schedule driver.
+      if (isTaskClosed(t)) completed.add(t.id);
     }
     return computeCriticalPath(tasks, allBars, completed);
   }, [tasks, allBars, prefs.showCriticalPath]);
@@ -267,20 +282,11 @@ export function GanttPanel({
       const bar = allBars.get(task.id);
       if (!bar) continue;
 
-      // Status filter — multi-select, OR within the filter (empty = all). A
-      // task passes if it matches ANY selected status bucket.
-      if (prefs.statuses.length > 0) {
-        const isComplete = !!task.completedDate;
-        const isOverdue = !isComplete && bar.end.getTime() < today.getTime();
-        const isOpen = !isComplete;
-        const matches = prefs.statuses.some(
-          (s) =>
-            (s === "open" && isOpen) ||
-            (s === "completed" && isComplete) ||
-            (s === "overdue" && isOverdue),
-        );
-        if (!matches) continue;
-      }
+      // Status filter — a task shows when it lands in ANY ticked bucket. An
+      // EMPTY selection shows nothing (v2 semantics); the chart renders an
+      // explicit message rather than a blank grid.
+      const buckets = taskStatusBuckets(task, bar, today);
+      if (!prefs.statuses.some((s) => buckets.has(s))) continue;
 
       // Priority filter — multi-select, OR within the filter (empty = all).
       if (prefs.priorities.length > 0 && !prefs.priorities.includes(task.priority))
@@ -361,9 +367,27 @@ export function GanttPanel({
   // position. Hoisted scalar for the dep array (exhaustive-deps bans
   // `prefs.milestonePlacement`).
   const milestonePlacement = prefs.milestonePlacement;
+
+  // Milestones obey the same status buckets as the tasks, plus the independent
+  // "show milestone rows at all" toggle. Both the row list AND the dependency
+  // overlay read THIS list, so a hidden milestone can never get a connector
+  // drawn to a row index that no longer exists.
+  //
+  // `statusesKey` is a string, not the array: `prefs.statuses` is a fresh
+  // identity every render, and exhaustive-deps rejects an `obj.member` dep.
+  const statusesKey = prefs.statuses.join(",");
+  const showMilestones = prefs.showMilestones;
+  const visibleMilestones = useMemo(() => {
+    if (!showMilestones) return [];
+    const ticked = new Set(statusesKey ? statusesKey.split(",") : []);
+    return sortedMilestones.filter((m) =>
+      ticked.has(milestoneStatusBucket(m, todayISO)),
+    );
+  }, [showMilestones, statusesKey, sortedMilestones, todayISO]);
+
   const rows = useMemo(
-    () => buildGanttRows(visible, sortedMilestones, milestonePlacement, allBars),
-    [visible, sortedMilestones, milestonePlacement, allBars],
+    () => buildGanttRows(visible, visibleMilestones, milestonePlacement, allBars),
+    [visible, visibleMilestones, milestonePlacement, allBars],
   );
 
   // Row index lookups for the dependency-arrow + milestone-connector overlays.
@@ -503,8 +527,9 @@ export function GanttPanel({
     return { min, max, days };
   }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref]);
 
-  const todayOffsetPx =
-    nameColWidth + diffDays(range.min, today) * DAY_WIDTH_PX;
+  // Same expression the holiday shading and the day grid use — shared so the
+  // marker cannot drift off the day column it is supposed to sit on.
+  const todayOffsetPx = dayLeftPx(diffDays(range.min, today), nameColWidth);
   const timelineWidthPx = range.days * DAY_WIDTH_PX;
 
   // On mount (and on the first render where layout is meaningful), scroll
@@ -555,11 +580,34 @@ export function GanttPanel({
 
   // Differentiate "no tasks at all" from "all tasks filtered out" so the
   // user gets a recoverable empty state when their filters are too tight.
+  // The status filter is "active" only when it NARROWS something: under v2 the
+  // default is every bucket ticked, so a `length > 0` test would call an
+  // untouched project filtered and hide its "add your first task" affordance.
   const filtersActive =
     prefs.search.trim() !== "" ||
-    prefs.statuses.length > 0 ||
+    prefs.statuses.length < ALL_GANTT_STATUSES.length ||
     prefs.priorities.length > 0 ||
     prefs.assignees.length > 0;
+
+  // Nothing ticked at all — the filter excludes every row by construction, so
+  // say so instead of showing a blank grid the user can't interpret.
+  const noStatusSelected = prefs.statuses.length === 0;
+
+  // ONE source for the "why is this empty" copy, shared by the whole-panel
+  // early return below and by the chart-body guard. Both branches ask the same
+  // question, so a second inline copy of the ternary is how the two drift.
+  const emptyMessageKey = noStatusSelected
+    ? "ganttNoStatusSelected"
+    : filtersActive
+      ? "ganttNoMatches"
+      : "ganttEmpty";
+
+  // "The chart body would render nothing." Strictly wider than
+  // `noStatusSelected`: a non-empty status selection that matches no task AND
+  // no milestone lands here too (e.g. only "overdue" ticked, with one future
+  // task and one future milestone), and used to fall through to a header and
+  // today marker drawn over an unexplained void.
+  const rendersNothing = rows.length === 0;
 
   const toolbar = (
     <GanttToolbar
@@ -582,6 +630,11 @@ export function GanttPanel({
       hasBaseline={hasBaseline}
       toggleMilestonePlacement={toggleMilestonePlacement}
       hasMilestones={sortedMilestones.length > 0}
+      toggleHolidays={toggleHolidays}
+      toggleAbsences={toggleAbsences}
+      toggleDependencies={toggleDependencies}
+      toggleMilestones={toggleMilestones}
+      toggleGrid={toggleGrid}
       dedupButton={dedupButton}
     />
   );
@@ -601,7 +654,7 @@ export function GanttPanel({
           />
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-            <span>{filtersActive ? t(lang, "ganttNoMatches") : t(lang, "ganttEmpty")}</span>
+            <span>{t(lang, emptyMessageKey)}</span>
           </div>
         )}
       </div>
@@ -614,153 +667,49 @@ export function GanttPanel({
         <ViewCallout view="gantt" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
       {toolbar}
-      <div
-        ref={scrollRef}
-        className="min-h-[240px] w-full min-w-[480px] flex-1 overflow-auto rounded-md border border-line pr-2"
-      >
-      <div
-        ref={wrapperRef}
-        style={{ width: chartWidthPx, minWidth: "100%" }}
-        className="relative bg-surface"
-      >
-        {/* --- top header rows: months + days -------------------------- */}
-        <GanttHeader
-          lang={lang}
-          monthGroups={monthGroups}
-          range={range}
-          today={today}
-          timelineWidthPx={timelineWidthPx}
-          nameColWidth={nameColWidth}
-          onStartNameColResize={startNameColResize}
-        />
-
-        {/* --- rows ----------------------------------------------------- */}
-        <div className="relative">
-          {/* Today marker — drawn as an absolutely positioned line that
-              spans the rows area. Sits behind the bars (z-0) but on top
-              of the row backgrounds. */}
-          {todayOffsetPx >= nameColWidth && (
-            <div
-              aria-hidden
-              className="pointer-events-none absolute z-10 w-px bg-ui-dark-blue/60"
-              style={{
-                left: todayOffsetPx,
-                top: 0,
-                height: totalRowsCount * ROW_HEIGHT_PX,
-              }}
-              title={t(lang, "ganttToday")}
-            />
-          )}
-
-          {/* Dependency arrow layer — sits over the rows but under the bars
-              for hover contrast. */}
-          <GanttDependencyLayer
-            placeable={layout.placeable}
-            bars={layout.bars}
-            taskRowIndexById={taskRowIndexById}
-            range={range}
-            critical={critical}
-            sortedMilestones={sortedMilestones}
-            milestoneRowIndexById={milestoneRowIndexById}
-            chartWidthPx={chartWidthPx}
-            totalRowsCount={totalRowsCount}
-            nameColWidth={nameColWidth}
-          />
-
-          {/* --- rows: task bars + milestone diamonds. In "below" mode all
-              task rows come first, then the milestone block; in "inline" mode
-              each non-achieved milestone is spliced into the task sequence at
-              its due-date position (buildGanttRows). Milestone rows aren't part
-              of the critical-path / dependency math. */}
-          {rows.map((row) => {
-            if (row.kind === "task") {
-              const task = row.task;
-              const bar = layout.bars.get(task.id);
-              if (!bar) return null;
-              return (
-                <GanttTaskRow
-                  key={`t-${task.id}`}
-                  task={task}
-                  bar={bar}
-                  lang={lang}
-                  today={today}
-                  timelineWidthPx={timelineWidthPx}
-                  nameColWidth={nameColWidth}
-                  range={range}
-                  absencesByAssigneeKey={absencesByAssigneeKey}
-                  resourcesById={resourcesById}
-                  critical={critical}
-                  draggingId={draggingId}
-                  dropTargetId={dropTargetId}
-                  setDraggingId={setDraggingId}
-                  setDropTargetId={setDropTargetId}
-                  handleDrop={handleDrop}
-                  interactingWithBarRef={interactingWithBarRef}
-                  barDrag={barDrag}
-                  barDragDeltaDays={barDragDeltaDays}
-                  previewDates={previewDates}
-                  startBarDrag={startBarDrag}
-                  onUpdateBar={onUpdateBar}
-                  onEditTask={onEditTask}
-                />
-              );
-            }
-            const m = row.milestone;
-            return (
-              <GanttMilestoneRow
-                key={`m-${m.id}`}
-                m={m}
-                lang={lang}
-                range={range}
-                timelineWidthPx={timelineWidthPx}
-                nameColWidth={nameColWidth}
-                tasksById={tasksById}
-                todayISO={todayISO}
-                onEditMilestone={onEditMilestone}
-                baselineDate={baselineMilestoneDates?.get(m.id)}
-                showBaseline={prefs.showBaseline}
-              />
-            );
-          })}
-
-          {onAddTask && (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={onAddTask}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onAddTask();
-                }
-              }}
-              className="group relative flex cursor-pointer border-b border-dashed border-line hover:bg-surface-muted"
-              style={{ height: ROW_HEIGHT_PX }}
-              aria-label={t(lang, "addTaskButton")}
-            >
-              <div
-                className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-ui-dark-blue"
-                style={{ width: nameColWidth }}
-              >
-                <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-                <span>{t(lang, "ganttAddTask")}</span>
-              </div>
-              <div style={{ width: timelineWidthPx }} />
-            </div>
-          )}
-        </div>
-
-        {/* --- Footer with the date range so it's visible without hover -- */}
-        <div
-          className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface-muted px-3 py-1 text-[11px] text-muted-foreground"
-          style={{ minHeight: 22 }}
-        >
-          <span>
-            {t(lang, "ganttRange", fmtFull(range.min, lang), fmtFull(range.max, lang))}
-          </span>
-        </div>
-      </div>
-      </div>
+      <GanttChart
+        scrollRef={scrollRef}
+        lang={lang}
+        prefs={prefs}
+        range={range}
+        monthGroups={monthGroups}
+        today={today}
+        todayISO={todayISO}
+        timelineWidthPx={timelineWidthPx}
+        nameColWidth={nameColWidth}
+        chartWidthPx={chartWidthPx}
+        todayOffsetPx={todayOffsetPx}
+        onStartNameColResize={startNameColResize}
+        rendersNothing={rendersNothing}
+        emptyMessageKey={emptyMessageKey}
+        holidaySet={holidaySet}
+        totalRowsCount={totalRowsCount}
+        rows={rows}
+        bars={layout.bars}
+        placeable={layout.placeable}
+        taskRowIndexById={taskRowIndexById}
+        milestoneRowIndexById={milestoneRowIndexById}
+        critical={critical}
+        visibleMilestones={visibleMilestones}
+        absencesByAssigneeKey={absencesByAssigneeKey}
+        resourcesById={resourcesById}
+        tasksById={tasksById}
+        draggingId={draggingId}
+        dropTargetId={dropTargetId}
+        setDraggingId={setDraggingId}
+        setDropTargetId={setDropTargetId}
+        handleDrop={handleDrop}
+        interactingWithBarRef={interactingWithBarRef}
+        barDrag={barDrag}
+        barDragDeltaDays={barDragDeltaDays}
+        previewDates={previewDates}
+        startBarDrag={startBarDrag}
+        onUpdateBar={onUpdateBar}
+        onEditTask={onEditTask}
+        onEditMilestone={onEditMilestone}
+        onAddTask={onAddTask}
+        baselineMilestoneDates={baselineMilestoneDates}
+      />
     </div>
   );
 }

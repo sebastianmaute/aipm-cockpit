@@ -8,6 +8,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./milestones";
+import { isTaskClosed } from "./task-closed";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
 import {
   absenceBandBg,
@@ -35,6 +36,7 @@ export function GanttTaskRow({
   nameColWidth,
   range,
   absencesByAssigneeKey,
+  showAbsences,
   resourcesById,
   critical,
   draggingId,
@@ -58,6 +60,8 @@ export function GanttTaskRow({
   nameColWidth: number;
   range: { min: Date; max: Date };
   absencesByAssigneeKey: ReadonlyMap<string, Absence[]>;
+  /** View-popover toggle. Defaults ON in prefs, so this is invisible until used. */
+  showAbsences: boolean;
   resourcesById: ReadonlyMap<number, Pick<Resource, "firstName" | "lastName">>;
   critical: { criticalTasks: ReadonlySet<number> };
   draggingId: number | null;
@@ -73,7 +77,9 @@ export function GanttTaskRow({
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onEditTask?: (task: Task) => void;
 }) {
-  const isComplete = !!task.completedDate;
+  // Closed, not merely delivered — a cancelled bar renders struck-through
+  // rather than overdue-red, matching the status filter's buckets.
+  const isComplete = isTaskClosed(task);
   const isOverdue = !isComplete && bar.end.getTime() < today.getTime();
   const isDragging = draggingId === task.id;
   const isDropTarget = dropTargetId === task.id && draggingId !== task.id;
@@ -198,6 +204,7 @@ export function GanttTaskRow({
           don't intercept drag-edits.
         */}
         {(() => {
+          if (!showAbsences) return null;
           const rowKey = effectivePersonName(task.assignee, task.resourceId, resourcesById)
             .trim()
             .toLowerCase();
@@ -230,6 +237,7 @@ export function GanttTaskRow({
             return (
               <div
                 key={a.id}
+                data-absence={a.id}
                 aria-hidden="true"
                 title={`${effectivePersonName(a.assignee, a.resourceId, resourcesById)}: ${a.type} ${a.startDate}${
                   a.startDate === a.endDate ? "" : `–${a.endDate}`
@@ -269,9 +277,10 @@ export function GanttTaskRow({
           const dWidth = Math.max(DAY_WIDTH_PX / 2, dEndX - dStartX);
 
           // Whether bar-drag editing is allowed for this row.
-          // We block completed tasks (you shouldn't accidentally
-          // change the date of something already done) and any
-          // task that simply lacks an edit callback.
+          // We block CLOSED tasks — `isTaskClosed` is Done OR
+          // Cancelled — on the grounds that neither is still being
+          // scheduled, so a stray drag would only ever be an
+          // accident. Also blocked: any task lacking an edit callback.
           const editable = !!onUpdateBar && !isComplete;
 
           return (

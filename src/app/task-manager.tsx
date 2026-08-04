@@ -509,7 +509,7 @@ function TaskManagerInner() {
     !isPopout && snapshotsCfg.enabled &&
     isModuleEnabled("trends", settings.features);
   const snapshots = useSnapshots({
-    active: trendsActive, cadence: snapshotsCfg.cadence,
+    active: trendsActive, cadence: snapshotsCfg.cadence, tasks,
     tursoConfig,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
@@ -1552,6 +1552,9 @@ function TaskManagerInner() {
     logActivity,
     capture: undoApi.capture, commitBuckets,
     showToast, allowDestructiveSave,
+    // Day-boundary context for the health filter, so the hook's idea of a
+    // visible row matches the Open Points pane's exactly.
+    today, holidaySet,
     requestClearAllConfirm: () => {
       setActiveTab("open-points");
       setClearAllRequestNonce((clearAllReqSeqRef.current += 1));
@@ -2344,6 +2347,9 @@ function TaskManagerInner() {
     <TasksSection
       lang={lang}
       today={today}
+      // The SAME holidaySet useBulkOperations gets — the pane and the hook must
+      // not derive the health filter's day context independently.
+      holidaySet={holidaySet}
       fillHeight={settings.layout === "modern"}
       nextActions={nextActions}
       onOpenAction={openAction}

@@ -102,7 +102,11 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
   // reveal even for fields the user never blurred. Live `fieldErrors` also gate
   // the Save button (saveDisabled) — see task-validation.ts for the rules.
   const [submitted, setSubmitted] = useState(false);
-  const fieldErrors = useMemo(() => validateTaskForm(form, today), [form, today]);
+  const isNewTask = editingId === null;
+  const fieldErrors = useMemo(
+    () => validateTaskForm(form, today, isNewTask),
+    [form, today, isNewTask],
+  );
   const saveDisabled = hasTaskErrors(fieldErrors);
   const adj = useAdjustmentTracker();
 
@@ -115,7 +119,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // Per-field validation gates the submit (same rules surfaced inline).
       // Normally the Save button is already disabled when invalid; this is the
       // belt-and-suspenders guard for any path that still fires onSubmit.
-      if (hasTaskErrors(validateTaskForm(form, today))) return;
+      if (hasTaskErrors(validateTaskForm(form, today, isNewTask))) return;
 
       // Safety net: fields are normally already trimmed on blur, but we re-cap here at submit time in case blur was skipped.
       const taskName = sanitizeTaskName(adj.track(describeTextCap(form.taskName, TASK_NAME_MAX)));
@@ -277,6 +281,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     [
       form,
       editingId,
+      isNewTask,
       tasks,
       today,
       lang,
