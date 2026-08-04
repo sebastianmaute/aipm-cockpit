@@ -150,13 +150,24 @@ export function ProjectEmptyState({
                 // ONE sizing for both branches now: the old split gave the default
                 // a bare `h-7 w-auto` and only a custom upload a capped box, which
                 // stops making sense once the default IS a user-replaceable banner.
-                // That banner is 1200×280 (~4.29:1), so at max-h-12 the HEIGHT cap
-                // binds and it lands ~206×48. The width cap engages only above
-                // 280/48 ≈ 5.8:1 — i.e. for an upload WIDER than this banner, never
-                // a squarer one. (The old default, /AIPM-logo.svg, was a ~5.74:1
-                // wordmark, not a square mark — the square one is /app-logo.svg,
-                // which this window has never rendered.)
-                className="max-h-12 w-auto max-w-[280px] object-contain"
+                // ★★★ `h-12` IS A DEFINITE HEIGHT AND MUST STAY ONE. This shipped
+                // once as `max-h-12 w-auto` — all constraints, no definite size —
+                // and the header COLLAPSED: the default banner carries a viewBox
+                // but NO width/height attributes, so it has no intrinsic size
+                // (`naturalWidth` reports the 300×70 default object size, not the
+                // real 1200×280), and with nothing definite to derive from Chrome
+                // sized it against the sibling heading's line box — img 128×29.9,
+                // `<h2>` 0px wide, "No projects yet" invisible. `e2e/smoke.spec.ts`
+                // caught it; nothing in the unit suite or the axe gate can, since
+                // jsdom has no layout and the axe seed has a project. A CUSTOM
+                // upload is a raster and always has intrinsic dimensions, so only
+                // the DEFAULT — i.e. every fresh install — was broken.
+                // With the height definite, `w-auto` derives ~206px from the 1200×280
+                // ratio; `max-w-[280px]` engages only above 280/48 ≈ 5.8:1 (an upload
+                // WIDER than this banner, never a squarer one) and `object-contain`
+                // keeps it undistorted when it does. `shrink-0` keeps the logo whole
+                // and lets the `truncate` heading absorb a narrow window instead.
+                className="h-12 w-auto max-w-[280px] shrink-0 object-contain"
               />
             ) : undefined
           }

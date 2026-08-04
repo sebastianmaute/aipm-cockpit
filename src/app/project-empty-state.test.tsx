@@ -321,4 +321,24 @@ describe("start-window logo", () => {
     expect(document.querySelector(`img[src='${png}']`)).toBeNull();
     expect(document.querySelector("img[src='/ai-pm-cockpit-banner-harbor.svg']")).not.toBeNull();
   });
+
+  it("sizes the logo with a DEFINITE height, never only a cap", () => {
+    // This shipped once as `max-h-12 w-auto` — all constraints, no definite
+    // size — and the whole header collapsed: the default banner carries a
+    // viewBox but no width/height attributes, so it has no intrinsic size, and
+    // with nothing definite to derive from Chrome sized it against the sibling
+    // heading's line box and squeezed the <h2> to 0px wide. `e2e/smoke.spec.ts`
+    // caught it in CI.
+    //
+    // jsdom has no layout engine, so the collapse itself is unobservable here.
+    // The definite height is the proxy: it is what makes the width derivable,
+    // and its ABSENCE is precisely what shipped broken.
+    setup();
+    const img = document.querySelector<HTMLElement>("img[src='/ai-pm-cockpit-banner-harbor.svg']");
+    expect(img).not.toBeNull();
+    // Anchored on start-or-space: a bare /\bh-\d/ also matches INSIDE `max-h-12`
+    // (the `-` makes a word boundary), so it would pass against the broken class
+    // list and pin nothing at all.
+    expect(img!.className).toMatch(/(?:^|\s)h-\d/);
+  });
 });

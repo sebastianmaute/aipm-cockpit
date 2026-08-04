@@ -1839,7 +1839,18 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★★ `startLogo` is a FIFTH, SEPARATE field driving ONLY the start window (`project-empty-state.tsx`, the
   `view === "choices"` branch); unset ⇒ the shipped `/ai-pm-cockpit-banner-harbor.svg`, NOT `logo` and NOT the
   AIPM mark. It is deliberately not shared with the sidebar `logo` — one wants a small mark, the other a wide
-  banner (the default is 1200×280, so `max-h-12` binds and it renders ~206×48). ★★ Adding a branding field means
+  banner. ★★★ THE `<img>` NEEDS A **DEFINITE** HEIGHT (`h-12`), NEVER ONLY A CAP. It shipped once as
+  `max-h-12 w-auto` — all constraints, nothing definite — and the empty-state HEADER COLLAPSED: the shipped
+  banner carries a `viewBox` but NO `width`/`height` attributes, so it has no intrinsic size (`naturalWidth`
+  reports the 300×70 default object size, not the real 1200×280), and with nothing definite to derive from
+  Chrome sized it against the sibling heading's line box — img 128×29.9, `<h2>` **0px wide**, the title
+  invisible. `e2e/smoke.spec.ts` failed on it in CI; NOTHING local can see it (jsdom has no layout, and the
+  axe seed has a project so the empty state never renders there). ★ A CUSTOM upload is a raster and always
+  carries intrinsic dimensions, so only the DEFAULT — every fresh install — was affected. ★ With the height
+  definite, `w-auto` derives ~206×48 from the ratio; `max-w-[280px]` engages only above 280/48 ≈ 5.8:1 and
+  `object-contain` keeps that case undistorted. `shrink-0` lets the `truncate` heading absorb a narrow
+  window instead of the logo. `project-empty-state.test.tsx` pins the definite height as the proxy.
+  ★★ Adding a branding field means
   TWO presence checks in lockstep — `sanitizeBranding`'s final `out.x || …` AND `appearance-section.tsx`'s
   `setBranding` `cleaned` gate; miss the second and setting that field ALONE writes `branding: undefined`, so
   the upload silently no-ops and any sibling field is destroyed along with it. ★ Schemes do NOT own it:
