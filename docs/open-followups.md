@@ -81,7 +81,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 36 | Template import has no allow-list; `noteLog` exports as a JSON blob — both wrongly cited as recorded in §28 | 0.210.0 (Larbalestier) | S | open — one decision each |
 | 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
-| 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — needs a real diagnosis, NOT a timeout |
+| 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — mechanism ESTABLISHED (a click swallowed by the button's `disabled` state) + fix landed in both affected tests; ★ closure pending CI, never reproduced locally |
 | 40 | `text-ui-dark-blue` with no mode-appropriate companion — **40 sites** | pre-existing, counted 0.211.0 | M–L | open — needs its own slice |
 | 41 | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open — a11y/visual |
 | 42 | `CalendarSyncControls` push/pull buttons carry unqualified names | pre-existing, found 0.211.0 | S | open — WCAG 2.4.6 |
@@ -93,7 +93,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
 | 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
 | 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
-| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open — 2nd flaky test; ★ matcher hardened post-0.212.0, mechanism STILL NOT established |
+| 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open, narrower — the recorded symptom cannot recur; ★★ two of this entry's OWN claims were false and are corrected; ★★★ a future failure wears §39's clothes — match on duration, not message |
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
 | 53 | ESLint 10 is blocked upstream by `eslint-plugin-react` | 0.211.2 | — | open — **not actionable today**; a dated MEASUREMENT, re-measure before acting |
 | 54 | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | open — **user-visible in production**, no gate sees it |
@@ -109,6 +109,13 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
 | 66 | The R/A/G tile counts a cancelled task GREEN, one tile from the fix | cancelled-work presentation | M | open — `computeGroupHealth` is per-task and Green-for-finished; not presentation-only |
 | 67 | A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps | pre-existing (`909118b2`) | XS | open — benign at runtime, silently skips the file in every grep |
+| 68 | Allocation rows' `border-t` sits on the `<tr>`, where it has never painted | 0.214.0 (Lostetter) | S–M | open — **VISUAL change across six panels, needs sign-off**; 6 of the 8 sites unconfirmed |
+| 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
+| 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
+| 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★ near-zero production impact, the win is a job that stops lying |
+| 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
+| 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -1256,7 +1263,7 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ---
 
-## 39. The timelog partial-failure toast has now failed CI eight times, and raising its timeout did not fix it — open, needs a real diagnosis
+## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism established, fix landed, closure pending CI
 
 `timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
@@ -1264,8 +1271,10 @@ locally: 0.205.0 · 0.208.0 · twice on the 0.209.0 MR · once on main after tha
 **red**) · the 0.210.0 MR pipeline #5305 · and TWO on 2026-08-02 — the weekly `schedule` pipeline #5403
 (00:25) and the post-merge main pipeline #5418 (19:38) for the 0.211.1 MR !338, which again left main red.
 
-★★★ **THE "ONE DATA POINT" CAVEAT AT THE BOTTOM OF THIS ENTRY IS NOW CLOSED — the toast never arrives.**
-Three failures have now run under the 15 s budget, and they consumed:
+★★★ **THE "WORKER STARVATION UNDER FULL PARALLEL LOAD" DIAGNOSIS IS DISPROVED.** It was what justified
+raising this assertion's budget from the global `asyncUtilTimeout: 5000` to an explicit `timeout: 15000`
+(!335). The failure then recurred **with that mitigation in place**. Three failures have now run under
+the 15 s budget and consumed:
 
 | run | duration |
 |---|---|
@@ -1273,39 +1282,54 @@ Three failures have now run under the 15 s budget, and they consumed:
 | #5403 (weekly schedule, 2026-08-02) | **15,098 ms** |
 | #5418 (main post-merge, 2026-08-02) | **15,117 ms** |
 
-A spread of **24 ms across three runs** at a 15,000 ms ceiling. If the toast were merely arriving slowly
-under load, the durations would scatter — some runs passing at 6 s or 11 s, failures landing at varied
-points past 15 s. Instead all three consume the entire budget to within 0.16%. That is the timeout
-expiring on a toast that is never coming, on those runs. Stop treating this as a performance problem.
-★ What is still NOT established: why it is reachable on most runs and not these. The next step remains
-the one below — determine whether `showToast("error", …)` is reachable on that path at all under CI
-conditions — but it can now be pursued as a logic/race question rather than a timing one.
+A spread of **24 ms across three runs** at a 15,000 ms ceiling — 0.16%. A toast arriving slowly would
+scatter; a toast that never arrives pins at the ceiling. **Do NOT raise the timeout again**: 5 s → 15 s
+moved the failure point and bought nothing, and 30 s would cost another 15 s of CI wall-clock per
+failure.
 
-★★★ **The recorded diagnosis is now in doubt, and the obvious next step is wrong.** The in-test comment
-reasons from "always at ~5.1s ... a hair over the limit" to "worker starvation under full parallel load,
-not a race", and !335 acted on that by giving this one assertion an explicit `timeout: 15000` above the
-global `asyncUtilTimeout: 5000`. The 6th failure happened **with that mitigation in place** and burned
-**15,093 ms** — the whole budget, again a hair over. The file took 18,488 ms.
+**The mechanism.** The Refresh **button** carries a fifth `disabled` condition the **handler** does not
+(that asymmetry is §74, recorded separately as a product-code finding):
 
-Two budgets, 3× apart, both consumed almost exactly: that is the signature of the toast **never
-arriving** in the failing run, not of it arriving slowly. Pure starvation would produce a spread — some
-runs passing at 6s or 11s under a 15s budget. So:
+- handler `handleRefreshBookings` guards `isPopout || sync.busy || confirming || !canRefresh`;
+- the button in `timelog-panel-toolbar.tsx` adds **`isMisconfigured`** = `!cfg.enabled || !cfg.host ||
+  !cfg.apiToken`.
 
-- **Do NOT raise the timeout again.** 5s → 15s moved the failure point and bought nothing. 30s would
-  move it again and cost another 15s of CI wall-clock per failure.
-- The next step is to find out whether `showToast("error", …)` is reachable at all on that path under
-  CI conditions — e.g. an unresolved promise in the mocked `useTimelogSync`, a lost `act()` flush, or a
-  partial-failure branch that only fires when a timer wins a race it usually loses.
-- ~~★ Honest limit of this inference: one data point at 15s. The toast could genuinely arrive at 15.5s.~~
-  **SUPERSEDED 2026-08-02 — see the three-run table above.** Two further failures at 15,098 ms and
-  15,117 ms put the spread at 24 ms across three runs, which rules out "arrives at 15.5 s": a value that
-  close to the ceiling three times running is the ceiling, not the arrival. What *is* established is
-  that the mitigation did not work and the reasoning behind it no longer fits the evidence.
+`useSettings` starts at defaults — `defaultTimelogConfig.enabled === false` — and commits the stored
+config **behind an `await migratePlaintextSecrets(...)`**, which act-wrapped `render()` does not drain.
+So at first commit `isMisconfigured` is true and the button is disabled. The button's *existence* is
+gated only on `fetchedAt` (a static truthy mock), so `findByRole` matches it **immediately** and offers
+zero protection against that. React drops `onClick` on a disabled `<button>`, so the click is a **silent
+no-op that nothing retries** — the toast never arrives and `waitFor` burns its whole budget, which is
+exactly the 15,09x ms signature above.
 
-★ Until diagnosed, the operational answer is to **retry the job**, not to edit the test. It is a known
-flake with a known signature, and it has never failed locally.
+**PROVED locally:** a probe asserting `toBeDisabled()` immediately after `render()` passes, and
+mutation-checking it (flipping to `toBeEnabled()`) fails. The button IS disabled at first commit.
+
+★★ **NOT proved — state this precisely.** That the button is *still* disabled at click time in the CI
+failures. It cannot be deterministic: if the click were always swallowed the tests would fail on every
+local run, and they never have. `findByRole`'s own await usually drains the settings commit before the
+first successful match. This is a **race at that boundary**, and the local probe measured a different
+moment than the one that fails.
+
+**The fix:** wait for the ENABLED state before clicking —
+`await waitFor(() => expect(btn).toBeEnabled())` — applied to **both** affected tests: the toast test and
+its structurally identical sibling ("shows a Refresh button once bookings are read and re-fetches the
+persisted scope"). The record had attributed every failure to the toast test; both had the same exposure.
+Timeouts are unchanged in both directions — nothing was raised and nothing was lowered.
+
+★ The toast assertion was also split in two (`fetchBookingsForProjects` called, then `showToast`) so a
+future failure says which half broke. Record the limit: the two 15 s budgets sum past the 20 s
+`testTimeout`, so a *double* failure reports a timeout rather than naming a half. Only one half can burn
+its budget first, so a single real failure still names itself.
+
+**State: mechanism established and fix landed, but closure pending CI confirmation.** The failure never
+reproduced locally, so a local green is the same signal it always gave and proves nothing. Do not mark
+this flatly CLOSED until a run of CI pipelines has passed with the fix in place.
+★ Meanwhile the operational answer is unchanged: **retry the job**, do not edit the test again.
 ★ It was untracked here until 2026-07-30 despite six occurrences and one red main — which is why the
 frequency data lived only in a code comment and a memory file.
+★ Instrumentation: a failure capture now lives in that describe block. It is deliberately NOT
+`onTestFailed` — see §73 for why that form would have fabricated evidence *for this very hypothesis*.
 
 ---
 
@@ -1961,7 +1985,7 @@ a fixture that adds it before passes either way (the §48 trap, restated).
 
 ---
 
-## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, mechanism NOT established
+## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced
 
 `use-tasks-dedup.test.tsx` → "on confirm, removes the duplicate and records ONE undo entry" failed on
 the post-merge main pipeline **#5418** (2026-08-02, MR !338), in the same `unit-tests` job where §39
@@ -1976,29 +2000,63 @@ failed for the 8th time. It left main red.
   phase: the mocked `runDedupProposal` had not resolved.
 - Duration **38 ms** — this is NOT a timeout. `getByRole` fails immediately.
 
-**What is NOT established — and the two facts do not reconcile from the CI trace alone:**
-the line before the failure is `await waitFor(() => expect(screen.getByText(/dup/i)).toBeTruthy())`.
-For the reported error to be the one that surfaced, that `waitFor` must have SUCCEEDED — yet the modal
-was absent and the trigger still busy. Either something other than the modal satisfied `/dup/i`, or the
-preview opened and closed again between the two lines. **Do not write a fix based on either guess;
-reproduce it first.**
+**Two corrections to this entry's own recorded text — both were wrong, and both were load-bearing.**
+The line before the failure was
+`await waitFor(() => expect(screen.getByText(/dup/i)).toBeTruthy())`.
 
-★★ **The matcher is fragile independently of the root cause, and that is worth fixing regardless.**
-`/dup/i` is a substring of the trigger's own accessible name, "**Dedup**licate & unify tasks". The gate
-is therefore not a reliable barrier for the un-waited `getByRole` on the next line: it can be satisfied
-by something that does not imply the modal is open. Assert on a modal-specific node (`findByRole` for
-"merge selected") so the wait and the assumption are the same condition. ★ The trigger renders no text
-child, so it is not proven that it is what matched — this is a fragility argument, not the diagnosis.
+★★★ **This entry cited the wrong string.** It said `/dup/i` is a substring of the trigger's own
+**accessible name**, "**Dedup**licate & unify tasks". But `getByText` matches an element's direct child
+TEXT NODES, never its `aria-label`. The accessible name is irrelevant to the old gate. Verified: the
+trigger's accessible name comes from `aria-label={triggerLabel}` (= `taskDedupTitle`), while its rendered
+text child is a *different* string.
 
-★★ **DONE post-0.212.0 — and it changes nothing about the diagnosis.** The test now awaits
-`findByRole("button", { name: /merge selected/i })`, so the wait and the assertion are one condition
-and `/dup/i` is gone. **The entry stays open**: this removed a way the test could mislead, not the
-reason it failed. If it fails again, the failure is now at least trustworthy — do not read the fix as
-a root cause, and still do not raise a timeout.
+★★★ **This entry's hedge was FALSE.** It said "The trigger renders no text child, so it is not proven
+that it is what matched". It does render one: `use-tasks-dedup.tsx` renders
+`{phase === "thinking" ? t(lang, "taskDedupThinking") : t(lang, "taskDedup")}` as the button's text child
+(the `SparklesIcon` beside it is `aria-hidden`). And **both** strings match `/dup/i` —
+`taskDedup: "Deduplicate & unify"` and `taskDedupThinking: "Claude is looking for duplicate tasks…"`
+(`i18n.ts`).
 
-★★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case directly above: 5 s → 15 s
-moved the failure point and bought nothing, and three subsequent failures then consumed the 15 s budget
-to within 24 ms. This one is not even timeout-shaped (38 ms).
+**The contradiction resolves, and the phase is deducible rather than guessed.** `disabled` is
+`phase === "thinking" || phase === "applying"`; the modal renders for `phase === "preview" ||
+phase === "applying"`. Modal absent **and** trigger disabled ⇒ the phase was **`"thinking"`** ⇒ the
+trigger's text child read "Claude is looking for duplicate tasks…" ⇒ exactly one node matched ⇒
+`getByText` **succeeded**. Nothing opened and closed; the gate simply matched the trigger.
+
+★★ **Decisive.** With the modal OPEN, `/dup/i` would have matched **four** nodes in this test's own
+fixture — the trigger's text, the modal's `<h2>` (`taskDedupTitle`), the intro `<p>`
+(`taskDedupIntro`, "…possible **dup**licates…") and that test's rationale `<span>` (the string `"dup"`) —
+and `getByText` **throws** on multiple matches. So the old gate could *only ever* resolve while the modal
+was **closed**. It was structurally incapable of waiting for what the next line needed. ★ Three of those
+four are structural; the fourth is this test's rationale fixture, so the count is 3 for a sibling test
+with a rationale that does not contain "dup".
+
+**A mechanism candidate now exists — derived from source, NOT reproduced. Confidence moderate (~70%).**
+With the wait a no-op, correctness rested on macrotask ordering: RTL's `asyncWrapper` disables the act
+environment during `findBy*` and opens exactly one `setTimeout(0)` window, while React 19 commits the
+`setPhase("preview")` DefaultLane update on a Scheduler macrotask. Two independently-scheduled
+macrotasks, order unspecified and load-sensitive. ★ **This is inference, not observation.** Do not
+promote it to "established" without a reproduction.
+
+★★ **DONE post-0.212.0 — and the matcher fix is NOT a root cause; this entry must not record it as
+one.** The test now awaits `findByRole("button", { name: /merge selected/i })`, so the wait and the
+assertion are one condition. That it *also* removes the ordering dependence — `findByRole` retries
+against the 5000 ms `asyncUtilTimeout` — is a **side effect of retrying, not its rationale**. The
+rationale was only ever "wait on the thing you are about to assert".
+
+★★★ **A FUTURE FAILURE WILL WEAR §39'S CLOTHES.** The error text is unchanged
+(`Unable to find … role "button" and name /merge selected/i`), but the duration flips from **38 ms** to
+**~5000 ms** — budget fully consumed, because `findByRole` retries where `getByRole` did not. §51's "not
+even timeout-shaped" defence therefore no longer applies to future failures, and the two entries can no
+longer be told apart by their message. **Match on duration, not message.**
+
+★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case: 5 s → 15 s moved the failure
+point and bought nothing, and three subsequent failures then consumed the 15 s budget to within 24 ms.
+
+★ **The same falsehood is still in the source.** The comment above the fixed line in
+`use-tasks-dedup.test.tsx` repeats "`/dup/i` is a substring of the trigger's own **name**". Only
+`docs/open-followups.md` was in scope for this slice, so that comment is uncorrected — fix it in the next
+commit that touches the file.
 
 ★ Two load-sensitive failures in one job, on a runner that also took 15.1 s to not-deliver a toast,
 suggests a shared environmental trigger rather than two unrelated test bugs. Worth investigating
@@ -2013,6 +2071,12 @@ environmental: the identical tree produced both outcomes.
 ★ Operational answer meanwhile, as with §39: **retry the job.** It is a known-flaky failure, not a
 signal to edit the test — and editing on a red-CI reflex is how §39 acquired a 15 s timeout that bought
 nothing.
+
+**State: still open, but for a narrower reason than when this entry was written.** The recorded symptom
+— a `getByText(/dup/i)` gate that resolves against the trigger and lets an un-waited `getByRole` miss
+immediately — **cannot recur**, because that gate is gone. What stays open is the mechanism: a plausible
+macrotask-ordering candidate that has never been reproduced. Close this only on a reproduction or on a
+decision that it is unfalsifiable and not worth chasing.
 
 ---
 
@@ -2920,9 +2984,10 @@ and grows the box to 32px. A screenshot of the three-row repro shows exactly one
 one. So the allocation rows in every bucket table are, and always have been, separated by nothing but
 their cell padding.
 
-★ The Total-column work on `feat/ui-batch-five-fixes` (UNVERSIONED — 0.213.0 "McKillip" shipped
-before this branch and contains no Total column; §69 says the same about `branding.startLogo` and the
-two entries must not drift apart) hit this and **worked around it rather than fixing it**:
+★ The Total-column work on `feat/ui-batch-five-fixes` (unversioned when this entry was written; it has
+since shipped as **0.214.0 "Lostetter"** — 0.213.0 "McKillip" preceded it and contains no Total column;
+§69 says the same about `branding.startLogo` and the two entries must not drift apart) hit this and
+**worked around it rather than fixing it**:
 `BucketTotalRow` (`budget-panel-totals.tsx`) passes a `cellClass` of `border-t-2 border-line` to each
 of its cells and leaves the `<tr>` carrying only `font-medium`. A unit test pins that split, so the
 total row's rule cannot regress onto the `<tr>`. The allocation rows were deliberately left alone.
@@ -2945,7 +3010,8 @@ silent data-loss path rather than an error:
   `cleaned` gate over the same fields.
 
 ★★ This is not hypothetical — it bit on the FIRST addition. `branding.startLogo` (added on the
-`feat/ui-batch-five-fixes` branch; no version has been cut for it) was added to the sanitizer arm and
+`feat/ui-batch-five-fixes` branch, unversioned when this entry was written; it has since shipped as
+**0.214.0 "Lostetter"**) was added to the sanitizer arm and
 its presence check, and the `setBranding` gate was missed. Two failure
 modes followed, both silent: uploading ONLY a start logo wrote `branding: undefined`, so the upload
 appeared to do nothing; and removing the sidebar logo while a start logo existed **destroyed the start
@@ -3007,6 +3073,161 @@ holds only by convention — `bucketColumnTotals` takes the caller's own `cellBu
 precisely so the two agree, which works but relies on every future caller passing the same accessor.
 ★ A test pins the current agreement (`budget-panel.test.tsx`, the row-totals and total-row cases read
 budget and actual off their own labelled lines), so a refactor has something to land against.
+
+---
+
+## 72. Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing — CLOSED in this slice
+
+**The symptom is the point.** Vitest exits non-zero on an unhandled error even when the whole suite is
+green, so this failure mode does not look like a test failure at all. Captured from pipeline **#5446**
+on main `6dcee7eb` (the slice-1 merge, before 0.214.0) — a pipeline that failed while a pipeline on the
+SAME sha, **#5441**, passed:
+
+```
+Test Files  778 passed (778)
+     Tests  8792 passed (8792)
+     Errors  1 error
+ERROR: Job failed: exit code 1
+```
+
+★★★ **Do NOT grep such a trace for `FAIL` or `✗`** — there is nothing to find, and the reader concludes
+the runner broke. Search for `Errors  N error` / `Unhandled Errors`.
+
+**The trace:**
+
+```
+ReferenceError: window is not defined
+ ❯ resolveUpdatePriority  react-dom-client.development.js
+ ❯ requestUpdateLane
+ ❯ dispatchSetState
+ ❯ Object.onStorageOutcome  src/app/task-manager.tsx
+ ❯                          src/app/use-storage-backend.ts
+This error originated in "src/app/task-manager.editor-modal.test.tsx"
+```
+
+An async storage callback resolves AFTER the test file's jsdom environment has been torn down, so
+React's own `setState` path reaches for a `window` that no longer exists.
+
+★★ **THREE DISTINCT SIGNATURES NOW EXIST ON THIS ONE JOB.** Anyone diagnosing from "unit-tests failed"
+alone will conflate them, and two of the three have already been mistaken for each other:
+
+| entry | does a test fail? | duration | what the trace shows |
+|---|---|---|---|
+| §39 | yes | budget fully consumed (15,093 / 15,098 / 15,117 ms) | `waitFor` timed out — a toast that never arrives |
+| §51 | yes | 38 ms | `getByRole`/`findByRole` miss — the modal was not in the DOM |
+| §72 | **no — every test passes** | n/a | `Errors  1 error`, an unhandled `ReferenceError` after teardown |
+
+**The fix.** A hook-scope `mountedRef` in `use-storage-backend.ts` plus four emitters — `emitOutcome`,
+`emitToast`, `emitRegistryChange`, `emitStorageConfig` — as the single choke point every caller callback
+now goes through. **33 direct call sites** (8 outcome + 23 toast + 1 registry + 1 config) plus **3
+pass-through props** (2 × `showToast`, 1 × `setStorageConfig`) = 36 sites. Routing the pass-throughs
+through the emitters extends the guard into `useTursoProjectOps` (`use-storage-turso-ops.ts`) and
+`useFileProjectOps` (`use-storage-file-ops.ts`) at zero extra cost.
+
+★ Reproduce commands rather than line numbers, because a line number can be invalidated by the very
+commit that writes it:
+
+```bash
+grep -c 'args.showToast(' src/app/use-storage-backend.ts   # 1 = the emitToast body only
+grep -c 'emitToast(' src/app/use-storage-backend.ts        # 24 = 23 sites + 1 declaration
+```
+
+★★ The trap in sweeping this: the four emitter BODIES necessarily contain `args.<callback>(`, so a
+blanket find-and-replace rewrites them into infinite self-recursion. A residual sweep for
+`args.showToast|args.onStorageOutcome|args.onRegistryChange|args.setStorageConfig` correctly returns
+**five** lines — the four emitter bodies plus one prose comment — **not zero**.
+
+★★★ **It must be a MOUNTED ref, not the load effect's per-run `cancelled` flag.** The save effect's
+deps include the whole workspace, so it re-runs on every edit. A per-run flag would suppress the outcome
+of a save merely SUPERSEDED while still in flight — silently swallowing real save failures in
+production, with no banner and no toast. The load effect keeps its `cancelled`: a superseded *load*
+genuinely is irrelevant, a superseded *save* is not.
+
+★★ Pinned by **two** tests in `use-storage-backend.test.tsx`, and the second one is not redundant —
+record the evidence, because a future reader will try to delete it. Under a deliberately-wrong per-run
+implementation, the superseded-save test fails **while the unmount test still passes**. The unmount test
+alone cannot distinguish the two implementations.
+
+★ **Also required: the ref is re-set to `true` on mount, not merely cleared on unmount.** React
+StrictMode mounts, unmounts and remounts in development; a cleanup-only guard would leave every callback
+permanently suppressed after that first cycle.
+
+★ **Surveyed and deliberately left:** `args.setActivityLog` is handed to `useBroadcastSync`, which owns
+its own listener lifecycle and cleanup. Guarding it needs a different design. Not fixed here.
+
+★★ **Honesty note — production impact is near-zero.** `task-manager` is the root orchestrator and
+effectively never unmounts in production. The value of this fix is a CI job that stops exiting 1 with a
+fully green suite; do not read it as a user-facing bug fix.
+
+★ One more true thing worth recording: `onStorageOutcome` does more than `setState`.
+`reportStorageOutcome` (`task-manager.tsx`) also calls `versionNotifyRef.current()` on a clean save,
+arming the version-history idle checkpoint. Suppressing the callback after unmount skips that too —
+inert only because the whole tree goes down together.
+
+---
+
+## 73. `onTestFailed` reports post-teardown state, so any capture it makes is a false witness — open
+
+Found while instrumenting §39 and §51. This is repo-wide, not specific to those two tests.
+
+Vitest runs `onTestFailed` **after** all `afterEach` hooks. `afterEach` runs LIFO, so the real order is:
+describe-scoped `afterEach` → the test file's own `afterEach` (e.g. `vi.clearAllMocks()`) → the setup
+file's `afterEach` (RTL `cleanup()`, `vitest.setup.ts`) → **`onTestFailed` last**, against zeroed mocks
+and an empty `document.body`.
+
+★★★ **Measured, not theorised.** A capture written per the obvious pattern printed
+`{"fetchCalls":0,"toastCalls":[],"refreshButtonPresent":false,…}` on a run where the fetch HAD been
+called once and the error toast HAD fired. It would have reported "the click was swallowed" — **falsely
+CONFIRMING the already-suspected §39 hypothesis with fabricated evidence.** That is strictly worse than
+no capture at all: a capture that agrees with your prior is the one you stop checking.
+
+**The working pattern** — a describe-scoped `afterEach` guarded on the task result, holding a closure the
+test body assigns. Registered last ⇒ runs first ⇒ mocks and DOM are still live:
+
+```ts
+let captureOnFailure: (() => void) | undefined;
+afterEach((ctx) => {
+  const capture = captureOnFailure;
+  captureOnFailure = undefined;
+  if (ctx.task.result?.state === "fail") capture?.();
+});
+```
+
+Used by the §39 capture (`timelog-panel.test.tsx`) and the §51 capture (`use-tasks-dedup.test.tsx`) on
+this branch.
+
+**Scope:** this affects **any** test in this repo that would inspect DOM or mock state from
+`onTestFailed` or `onTestFinished`, because the setup file's `cleanup()` always wins the race.
+`onTestFailed` was previously unused anywhere in `src` or `e2e` — these captures are the first use, and
+the first time the ordering bit. ★ The two mentions a grep finds today are the warning comments those
+two test files now carry, not calls.
+
+★ Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.
+
+---
+
+## 74. The TimeLog refresh handlers omit a guard their button carries — open
+
+`handleRefreshBookings` and `handleFetchBookings` (`timelog-panel.tsx`) each open with an early return,
+and neither includes `isMisconfigured` — while the corresponding buttons in `timelog-panel-toolbar.tsx`
+both do:
+
+| | handler guard | button `disabled` |
+|---|---|---|
+| Refresh | `isPopout \|\| sync.busy \|\| confirming \|\| !canRefresh` | the same four **plus `isMisconfigured`** |
+| Fetch | `isPopout \|\| sync.busy \|\| confirming \|\| projectCustomerId === "" \|\| selectedProjectIds.size === 0` | the same five **plus `isMisconfigured`** |
+
+`isMisconfigured` is `!cfg.enabled || !cfg.host || !cfg.apiToken`. So any **non-button** caller — a voice
+command, a keyboard shortcut, a future Action-Center CTA — would act against an unconfigured TimeLog.
+Today the button is the only caller of each, so it is latent, not live.
+
+★ **This asymmetry is what made §39 possible.** The test compensated for the product code's split
+instead of the product code resolving it: the fix there waits for the button to become enabled, which
+works precisely because the button carries a guard the handler does not. **Read §39 as "test fixed", not
+"cause removed."**
+
+★ The cheap fix is to lift `isMisconfigured` into both handler guards, making the button's `disabled`
+a presentation of the handler's contract rather than a second, stricter contract.
 
 ---
 
