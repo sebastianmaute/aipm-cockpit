@@ -114,7 +114,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
-| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★ near-zero production impact, the win is a job that stops lying |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, the same shape survives in `refreshBackendStatus`/`applyWorkspace` (surveyed, left); ★ near-zero production impact, the win is a job that stops lying |
 | 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
 | 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
 | 75 | Two test files fail under a shuffled file order | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`); verified pre-existing on `main`; not a live CI failure |
@@ -3192,12 +3192,41 @@ alone cannot distinguish the two implementations.
 StrictMode mounts, unmounts and remounts in development; a cleanup-only guard would leave every callback
 permanently suppressed after that first cycle.
 
-★ **Surveyed and deliberately left:** `args.setActivityLog` is handed to `useBroadcastSync`, which owns
-its own listener lifecycle and cleanup. Guarding it needs a different design. Not fixed here.
+★★★ **THE CHOKE POINT IS COMPLETE FOR *CALLER CALLBACKS*, NOT FOR THE *MECHANISM* — do not read
+"single choke point" as "post-unmount `setState` is handled in this hook".** It is not. The same
+`dispatchSetState → requestUpdateLane → resolveUpdatePriority → window` shape, with a different top
+frame, still exists at every one of these, all **surveyed and deliberately left**:
 
-★★ **Honesty note — production impact is near-zero.** `task-manager` is the root orchestrator and
-effectively never unmounts in production. The value of this fix is a CI job that stops exiting 1 with a
-fully green suite; do not read it as a user-facing bug fix.
+- `refreshBackendStatus`'s own `setStorageReady` / `setStorageDescription`, after `await
+  backend.isReady()` / `await backend.describe()` — reached from eight call sites.
+- `applyWorkspace`'s ~23 workspace-context setters after awaits, in `use-storage-turso-ops.ts` and
+  `use-storage-file-ops.ts`; likewise `setTursoProjectId`, and `setTasks`/`setRaid` in
+  `onOpenStorageFile`.
+- `args.setActivityLog`, handed to `useBroadcastSync`, which owns its own listener lifecycle and
+  cleanup. Guarding it needs a different design.
+
+★★ Most of those sit inside a `try`/`catch` that swallows the secondary throw, and the load effect's
+`cancelled` shields its own instances by accident. **The one that does not is `onGrantWriteAccess`**: a
+bare `await refreshBackendStatus()` with no `try`/`catch`, on a floating promise — so a post-unmount
+throw there escapes exactly as §72 did. Pre-existing, not introduced here, and the cheapest real
+follow-up in this entry: `refreshBackendStatus`'s two setters are the hook's OWN state, so suppressing
+them is unambiguously correct — there is no superseded-save analogue to worry about.
+
+★★★ **Honesty note — and the obvious reason is the WRONG one.** An earlier revision of this entry said
+production impact is near-zero because "`task-manager` is the root orchestrator and effectively never
+unmounts". **That is false.** `page.tsx` wraps `<TaskManager />` in an `ErrorBoundary` whose `render`
+returns the fallback *instead of* its children, so any thrown render error anywhere in the tree unmounts
+the whole subtree. Next 16 also defaults `reactStrictMode` to true, so every dev mount is
+mount→unmount→remount.
+
+The impact is near-zero for a different and stronger reason: **in a browser these calls were already
+no-ops.** React 19 does not throw on `setState`-after-unmount while `window` exists — it schedules the
+update and discards it. The throw is specific to a torn-down jsdom. So suppressing them changes nothing
+observable in production *even on the path that really does unmount*. ★ Durable side effects are
+ordered BEFORE the emitters and survive regardless: `commitRegistry` calls `saveRegistry(next)` before
+`emitRegistryChange(next)`, and the file-ops path calls `writeSettings(...)` directly. No persistence is
+lost. The value of this fix is a CI job that stops exiting 1 with a fully green suite; do not read it as
+a user-facing bug fix.
 
 ★ One more true thing worth recording: `onStorageOutcome` does more than `setState`.
 `reportStorageOutcome` (`task-manager.tsx`) also calls `versionNotifyRef.current()` on a clean save,
