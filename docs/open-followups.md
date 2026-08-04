@@ -2937,8 +2937,9 @@ silent data-loss path rather than an error:
 - `AppearanceSection`'s `setBranding` (`settings-sections/appearance-section.tsx`) has its own
   `cleaned` gate over the same fields.
 
-★★ This is not hypothetical — it bit on the FIRST addition. `branding.startLogo` (0.214.0 line) was
-added to the sanitizer arm and its presence check, and the `setBranding` gate was missed. Two failure
+★★ This is not hypothetical — it bit on the FIRST addition. `branding.startLogo` (added on the
+`feat/ui-batch-five-fixes` branch; no version has been cut for it) was added to the sanitizer arm and
+its presence check, and the `setBranding` gate was missed. Two failure
 modes followed, both silent: uploading ONLY a start logo wrote `branding: undefined`, so the upload
 appeared to do nothing; and removing the sidebar logo while a start logo existed **destroyed the start
 logo**. Caught in review, fixed in `876b8777`, and pinned by
@@ -2951,9 +2952,28 @@ is a third list to keep in step.
 
 ★ The fix, if wanted: export one `hasAnyBrandingField(cfg): boolean` from `settings-types.ts` and call
 it from both sites, making the field list a single source of truth. Deliberately NOT done in the
-0.214.0 batch — it is a refactor of a shipped, tested path at the end of a five-slice UI batch, and
+five-fixes UI batch — it is a refactor of a shipped, tested path at the end of that batch, and
 the slice that surfaced it had already fixed the live bug. ★ Until then, the AGENTS.md branding bullet
 carries the lockstep note, which is prose, and prose here decays ungated.
+
+---
+
+## 70. A budget bucket's Total column and total row silently follow the role filter — open
+
+`budget-panel.tsx` builds its per-bucket totals from `rowsForTotals`, which is whichever of
+`detailedRows`/`blendedRows` applies — and BOTH come out of `filterSortAllocations(..., roleFilter,
+roleSort)`, so both are already narrowed by the role filter. The CCI tiles rendered directly above
+them read `br` (the `BucketReport` straight off the engine) and are NOT narrowed.
+
+So with a role filter typed in, one card shows whole-bucket margin/burn/CPI/consumption above a Total
+column and total row that are a subtotal of the matching roles only — and the label just says "Total",
+with nothing on screen saying which of the two scopes it means.
+
+★ Defensible as-is: a total of what you are looking at is the more useful reading for a filtered table,
+and it is what every other filtered table in the app does. Recorded, deliberately NOT changed — the
+alternative (an unfiltered total, or a "Total (filtered)" label) is a product decision, not a bug fix.
+★ Untested either way: no test pins which scope those totals use, so a future edit could flip them to
+the unfiltered list and nothing would fail.
 
 ---
 

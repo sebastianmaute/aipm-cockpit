@@ -153,6 +153,30 @@ describe("AppearanceSection scheme control", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the start-logo row reachable under a USER scheme, where the other four hide", () => {
+    // NO scheme can own startLogo (mergeAppliedBranding overwrites only the other
+    // four), so this block is its ONLY editor. Gating it with the scheme-owned
+    // rows made the field unreachable for anyone running a user scheme — the
+    // other four merely MOVE to the scheme editor, this one vanished outright.
+    addScheme("Draft", { "--ui-green": "#000000" }, {}); // user scheme active
+    renderSection({ branding: { startLogo: "data:image/png;base64,QUJD" } }, "custom");
+    expect(
+      screen.getByRole("button", { name: t("en-US", "brandingStartLogoChoose") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: `${t("en-US", "remove")} – ${t("en-US", "brandingStartLogo")}`,
+      }),
+    ).toBeInTheDocument();
+    // The scheme-owned rows still behave as they did: hidden here, because the
+    // editor renders them. Asserted on the two whose global inputs carry ids.
+    expect(document.getElementById("branding-appname")).toBeNull();
+    expect(document.getElementById("branding-footer-slogan")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "brandingLogoChoose") }),
+    ).toBeNull();
+  });
+
   it("keeps the start logo when the sidebar logo is removed", () => {
     // setBranding's presence check drops the WHOLE blob when it thinks nothing
     // is left, so a startLogo missing from that check dies with the sidebar logo.

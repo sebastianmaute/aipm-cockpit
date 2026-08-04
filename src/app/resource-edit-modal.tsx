@@ -140,6 +140,10 @@ export function ResourceEditModal({
          height opened with dead space under short sets. The panel is
          flex-col + overflow-hidden and the form is flex-1 min-h-0 overflow-y-auto,
          so it grows to its content and only scrolls once the 95vh cap bites.
+         ★★ That is a BEFORE-ANY-DRAG property, not an invariant: the moment the
+         user resizes the modal, `useResizable` writes an inline height, which
+         beats `h-auto` exactly as the key-bump note above describes — the panel
+         is pinned again until the size is reset. Inherent to the mechanism.
          The min-h- floor stays — a drag below it would collapse the panel. */
       heightClassName="h-auto min-h-[280px] max-h-[95vh]"
       formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"

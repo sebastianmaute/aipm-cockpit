@@ -811,8 +811,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). ★ Consumers are now raid-report (28) /
   resources-report (16) / tasks-section (11) / change-report (6) / resources-panel-rows (6) /
   reports-tables (4) / calendar-series-list (2) / milestones (2) / budget-panel (1) /
-  budget-report-panel (1) — TEN files, 77 invocations (counted `<SortResizeTh` 2026-08-04; an earlier
-  revision here said "raid-report (34)" and omitted `resources-report` entirely) — `reports-tables`
+  budget-report-panel (1) — TEN non-test files, 77 invocations (2026-08-04, reproduce with
+  `grep -ro "<SortResizeTh" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`; the unfiltered
+  grep returns 83 because `report-table.test.tsx` holds 6 more, and an earlier revision here both said
+  "raid-report (34)" and omitted `resources-report` entirely) — `reports-tables`
   and `budget-report` were once "left as-is" over local sort-var naming and have since adopted it, so
   every sortable header in the app now flows through here (which is why the `aria-sort` below lifts them
   all at once). NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` +
@@ -1800,8 +1802,13 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   the upload silently no-ops and any sibling field is destroyed along with it. ★ Schemes do NOT own it:
   `mergeAppliedBranding` spreads `current` and overwrites only the other four, so a scheme apply can neither
   set nor clear it (pinned in `color-schemes.test.ts` — the four-field version passed happily without a pin).
-  ★ It is edited in the Settings → Appearance branding block, which is gated on `activeIsBuiltin`, so like the
-  other global branding fields it is uneditable while a USER scheme is active.
+  ★★ Because no scheme can own it, the Settings → Appearance branding block edits it UNGATED — unlike the
+  other four rows, which sit behind `activeIsBuiltin`. That is NOT a parity break to "fix": the other four
+  merely MOVE to the scheme editor under a user scheme, whereas `startLogo` has no second editor, so gating
+  it removed the field from the app entirely for those users (shipped that way, caught in review, pinned by
+  `appearance-section.test.tsx` "keeps the start-logo row reachable under a USER scheme"). Do not add it to
+  `color-scheme-editor.tsx` either — a scheme cannot carry it into `settings`, so that control would appear
+  to work and do nothing.
 - **Footer bar / page scrollbars (★★):** the footer (`app-modals.tsx`, `!isPopout`) is `position: fixed`
   bottom-right ON PURPOSE — `modalsBlock` is an in-flow SIBLING of the `h-screen` ModernShell, so an in-flow
   footer adds height > 100vh → a page VERTICAL scrollbar. Keep it fixed (out of flow) + `pointer-events-none`;
