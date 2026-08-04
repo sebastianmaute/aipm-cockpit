@@ -138,10 +138,11 @@ describe("useTasksDedup (plan-then-apply)", () => {
     };
 
     fireEvent.click(screen.getByRole("button", { name: /deduplicate & unify tasks/i }));
-    // The wait and the assumption must be the SAME condition: /dup/i is a
-    // substring of the trigger's own name ("Deduplicate & unify tasks"), so a
-    // waitFor on it can pass without the preview modal being open, leaving the
-    // next line's un-waited getByRole to fail immediately (open-followups §51).
+    // The wait and the assertion must be the SAME condition. The old gate was
+    // getByText(/dup/i), which matched the trigger's own TEXT — not its
+    // accessible name; getByText never consults one — so it resolved while the
+    // preview modal was still closed, leaving the next line's un-waited
+    // getByRole to fail immediately (open-followups §51).
     fireEvent.click(await screen.findByRole("button", { name: /merge selected/i }));
 
     await waitFor(() => expect(screen.getByTestId("ids").textContent).toBe("1,3"));

@@ -525,6 +525,12 @@ describe("useStorageBackend — save effect", () => {
 
     expect(onStorageOutcome).toHaveBeenCalledWith(null);
   });
+
+  // ★★★ `mountedRef.current = true` in the effect BODY (not just the cleanup) is
+  //     load-bearing in dev and CANNOT be pinned here. A StrictMode-wrapped
+  //     renderHook was tried and is VACUOUS: measured 2026-08-04, StrictMode in
+  //     this suite invokes the effect ONCE (["mount"], no cleanup+remount), so
+  //     deleting the re-set keeps all 63 tests green. See open-followups.md §72.
 });
 
 describe("useStorageBackend — handlers", () => {

@@ -2072,10 +2072,12 @@ longer be told apart by their message. **Match on duration, not message.**
 ★★ **DO NOT "FIX" THIS BY RAISING A TIMEOUT.** §39 is the cautionary case: 5 s → 15 s moved the failure
 point and bought nothing, and three subsequent failures then consumed the 15 s budget to within 24 ms.
 
-★ **The same falsehood is still in the source.** The comment above the fixed line in
-`use-tasks-dedup.test.tsx` repeats "`/dup/i` is a substring of the trigger's own **name**". Only
-`docs/open-followups.md` was in scope for this slice, so that comment is uncorrected — fix it in the next
-commit that touches the file.
+★ **The same falsehood was in the source and is now fixed.** The comment above the fixed line in
+`use-tasks-dedup.test.tsx` said "`/dup/i` is a substring of the trigger's own **name**". It is the
+trigger's **text**; `getByText` never consults an accessible name. An earlier revision of this bullet
+deferred the correction on the grounds that "only `docs/open-followups.md` was in scope" — but the slice
+edits that very file to add the §51 failure capture, so the deferral did not hold (AGENTS.md: correct
+what you disprove, in the same commit). Corrected in the same commit that recorded it.
 
 ★ Two load-sensitive failures in one job, on a runner that also took 15.1 s to not-deliver a toast,
 suggests a shared environmental trigger rather than two unrelated test bugs. Worth investigating
@@ -3192,6 +3194,21 @@ alone cannot distinguish the two implementations.
 StrictMode mounts, unmounts and remounts in development; a cleanup-only guard would leave every callback
 permanently suppressed after that first cycle.
 
+★★★ **THAT LINE IS UNTESTED, AND NOT FOR WANT OF TRYING — THE SUITE STRUCTURALLY CANNOT SEE IT.**
+Deleting `mountedRef.current = true` from the effect body leaves **every gate green**: 63/63 in
+`use-storage-backend.test.tsx`, tsc, eslint. A `<StrictMode>`-wrapped `renderHook` was written to pin it
+and is **VACUOUS** — measured 2026-08-04 with a throwaway probe that recorded the effect's own
+mount/cleanup sequence, StrictMode in this environment yields `["mount"]`: **one invocation, no
+cleanup+remount** (react 19.2.4, `NODE_ENV=test`). The probe was deleted; the test was NOT kept, because
+a test that passes against the mutation it names is worse than no test. ★ Do not re-attempt it with
+StrictMode without re-running that probe first — the double-invoke React's docs describe is not
+happening here, and a test written on the assumption that it does will look like coverage and be none.
+★ The consequence if the line is ever dropped is **dev-only and total**: after the first StrictMode
+cycle in `npm run dev`, every toast, every storage banner and every `versionNotifyRef` version-history
+checkpoint is silently suppressed for the rest of the session, with a fully green suite. ★ This is the
+same class as the CSS landmines recorded in §68-§71 — a real behaviour the unit suite cannot observe.
+Found by a cold reviewer naming the one-line mutation; verified by running it.
+
 ★★★ **THE CHOKE POINT IS COMPLETE FOR *CALLER CALLBACKS*, NOT FOR THE *MECHANISM* — do not read
 "single choke point" as "post-unmount `setState` is handled in this hook".** It is not. The same
 `dispatchSetState → requestUpdateLane → resolveUpdatePriority → window` shape, with a different top
@@ -3205,12 +3222,30 @@ frame, still exists at every one of these, all **surveyed and deliberately left*
 - `args.setActivityLog`, handed to `useBroadcastSync`, which owns its own listener lifecycle and
   cleanup. Guarding it needs a different design.
 
-★★ Most of those sit inside a `try`/`catch` that swallows the secondary throw, and the load effect's
-`cancelled` shields its own instances by accident. **The one that does not is `onGrantWriteAccess`**: a
-bare `await refreshBackendStatus()` with no `try`/`catch`, on a floating promise — so a post-unmount
-throw there escapes exactly as §72 did. Pre-existing, not introduced here, and the cheapest real
-follow-up in this entry: `refreshBackendStatus`'s two setters are the hook's OWN state, so suppressing
-them is unambiguously correct — there is no superseded-save analogue to worry about.
+★★★ **THREE OF THOSE ARE UNPROTECTED, NOT ONE — and an earlier revision of this bullet named the wrong
+one and credited the wrong mechanism.** It said "the load effect's `cancelled` shields its own instances
+by accident. The one that does not is `onGrantWriteAccess`". Both halves are false, and the two reviewers
+who caught it did so independently. What the code actually says (`use-storage-backend.ts:253-308`):
+
+| `await refreshBackendStatus()` | protected? | by what |
+|---|---|---|
+| `:259` — the `suppressNextLoadRef` branch | **NO** | before the `try`; no `cancelled` check on that path at all |
+| `:274`, `:281` — the success paths | yes | the **enclosing `try`**, whose `catch` opens `if (cancelled) return;` — NOT `cancelled` reaching them |
+| `:303` — last statement of the `catch` | **NO** | inside the `catch`, therefore outside any `try`; `cancelled` was checked at `:284`, *before* this await |
+| `onGrantWriteAccess` `:454` | **NO** | a bare await on a floating promise |
+
+★★ The escape is a DOUBLE throw, which is why an inner `try`/`catch` does not stop it:
+`setStorageReady(ready)` (`:241`) throws, `refreshBackendStatus`'s own `catch` (`:244`) then runs
+`setStorageReady(false)` (`:248`) — inside the catch, outside any `try` — and *that* throw leaves the
+function. ★ The two load-effect escapes are the HOTTER pair: they need only a rejecting `backend.load()`
+(staged by many existing tests), where `onGrantWriteAccess` needs a user click. Scoping the follow-up to
+`onGrantWriteAccess` alone would leave the hook's hottest path — the one the original CI crash came
+from — still exposed. ★ Secondary damage on the way past: the first throw is swallowed into
+`logDiag("warn", "storage.statusCheckFailed", …)`, filing a React teardown error as a storage fault.
+
+★ Pre-existing, not introduced here, and still the cheapest real follow-up in this entry:
+`refreshBackendStatus`'s two setters are the hook's OWN state, so suppressing them is unambiguously
+correct — there is no superseded-save analogue to worry about. One guard closes all three rows above.
 
 ★★★ **Honesty note — and the obvious reason is the WRONG one.** An earlier revision of this entry said
 production impact is near-zero because "`task-manager` is the root orchestrator and effectively never
@@ -3224,8 +3259,15 @@ no-ops.** React 19 does not throw on `setState`-after-unmount while `window` exi
 update and discards it. The throw is specific to a torn-down jsdom. So suppressing them changes nothing
 observable in production *even on the path that really does unmount*. ★ Durable side effects are
 ordered BEFORE the emitters and survive regardless: `commitRegistry` calls `saveRegistry(next)` before
-`emitRegistryChange(next)`, and the file-ops path calls `writeSettings(...)` directly. No persistence is
-lost. The value of this fix is a CI job that stops exiting 1 with a fully green suite; do not read it as
+`emitRegistryChange(next)`, `recordDataLossEvent` precedes its refusal toast, and `logDiag` sits outside
+the guard. ★★ **Do NOT extend that to the file-ops path** — an earlier revision here said it "calls
+`writeSettings(...)` directly", which is true at only TWO of its config-commit sites
+(`use-storage-file-ops.ts:235` and `:294`, both immediately before a `window.location.reload()`).
+`switchToProject` (`:96`) and `createProject` (`:150`) commit through `deps.setStorageConfig` — the
+now-guarded emitter — with no direct durable write behind it. No persistence is lost there either, but
+for the reason given above (an unmounted `setSettings` was already discarded by React), NOT because a
+`writeSettings` backstop exists. A reader who takes the old sentence at face value will assume a durable
+write on those two paths that is not there. The value of this fix is a CI job that stops exiting 1 with a fully green suite; do not read it as
 a user-facing bug fix.
 
 ★ One more true thing worth recording: `onStorageOutcome` does more than `setState`.
