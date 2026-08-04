@@ -152,8 +152,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
-  // Every callback this hook fires back into the component runs `setState` up
-  // there. Several of them run after an `await`, from promises nobody waits for
+  // Every callback this hook fires back into the component drives React state up
+  // there — and `onStorageOutcome` does more besides, arming the version-history
+  // idle checkpoint via `versionNotifyRef`. Suppressing it after unmount skips
+  // that too, which is inert only because the whole tree goes down together.
+  // Several of them run after an `await`, from promises nobody waits for
   // (the debounced save is fire-and-forget by design). If the component has
   // unmounted by then, React 19 schedules an update, `resolveUpdatePriority`
   // reads `window`, and in a torn-down jsdom that throws — an unhandled
@@ -347,8 +350,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     prevCollectionCountRef.current = curCollections;
     prevRecordCountRef.current = curRecords;
     // Fire-and-forget save with the effect's full error handling — the .catch
-    // routes every rejection to the storage-outcome/toast path, so neither the
-    // timer nor the flush-on-hide below can produce an unhandled rejection.
+    // routes every rejection to the storage-outcome/toast path, so a REJECTED
+    // save never escapes unhandled.
+    // ★★ That is not the same as "this chain cannot produce an unhandled
+    //    rejection", which an earlier revision of this comment claimed. The
+    //    HANDLERS themselves throw if they run after the component unmounted
+    //    (setState -> resolveUpdatePriority -> `window`), which is precisely the
+    //    §72 failure. They are routed through emitOutcome/emitToast for that
+    //    reason; do not call args.* directly here.
     const doSave = () => {
       backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents }).then(() => {
         emitOutcome(null);
