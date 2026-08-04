@@ -10,6 +10,7 @@ import { t, type Lang } from "./i18n";
 import { TimelogCustomerScope } from "./timelog-customer-scope";
 import { INTERACTIVE } from "./interaction-styles";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
+import { canFetchBookings, canRefreshBookings } from "./timelog-guards";
 
 interface TimelogToolbarProps {
   lang: Lang;
@@ -79,7 +80,7 @@ export function TimelogToolbar({
         </button>
         <button
           type="button"
-          disabled={syncBusy || isPopout || isMisconfigured || confirming || projectCustomerId === "" || selectedCount === 0}
+          disabled={!canFetchBookings({ isPopout, syncBusy, confirming, isMisconfigured, projectCustomerId, selectedCount })}
           onClick={onFetch}
           title={projectCustomerId === "" || selectedCount === 0 ? t(lang, "timelogFetchNeedsSelection") : undefined}
           className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
@@ -95,7 +96,7 @@ export function TimelogToolbar({
         {fetchedAt && (
           <button
             type="button"
-            disabled={syncBusy || isPopout || isMisconfigured || confirming || !canRefresh}
+            disabled={!canRefreshBookings({ isPopout, syncBusy, confirming, isMisconfigured, canRefresh })}
             onClick={onRefresh}
             title={t(lang, "timelogRefreshHint")}
             className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
