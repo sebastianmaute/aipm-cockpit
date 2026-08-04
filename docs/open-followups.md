@@ -117,7 +117,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, the same shape survives in `refreshBackendStatus`/`applyWorkspace` (surveyed, left); ★ near-zero production impact, the win is a job that stops lying |
 | 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
 | 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
-| 75 | Two test files fail under a shuffled file order | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`); verified pre-existing on `main`; not a live CI failure |
+| 75 | Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage) | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`), and each file reproduces ALONE; verified pre-existing on `main`; not a live CI failure |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3220,9 +3220,14 @@ frame, still exists at every one of these, all **surveyed and deliberately left*
 
 - `refreshBackendStatus`'s own `setStorageReady` / `setStorageDescription`, after `await
   backend.isReady()` / `await backend.describe()` — reached from eight call sites.
-- `applyWorkspace`'s **24** workspace-context setters after awaits (`use-storage-backend.ts:202-226`;
-  ★ count them by eye, not with `grep -cE "^\s+set[A-Z]"` — that returns 23 because `setPlan` sits
-  behind an `if (workspace.plan)` prefix), in `use-storage-turso-ops.ts` and
+- `applyWorkspace`'s **24** workspace-context setters after awaits (`use-storage-backend.ts:203-226`).
+  ★★ Count them BY EYE. There is no honest one-liner: `grep -cE "^\s+set[A-Z]" src/app/use-storage-backend.ts`
+  returns **34** (it sweeps the whole file — type declarations, `refreshBackendStatus`, `onOpenStorageFile`,
+  the return object), and scoping it to the block —
+  `sed -n '203,226p' src/app/use-storage-backend.ts | grep -cE "^\s+set[A-Z]"` — returns **23**, because
+  `setPlan` (`:211`) sits behind an `if (workspace.plan)` prefix and the anchored pattern cannot see it.
+  An earlier revision here quoted the unscoped command with the scoped command's output. In
+  `use-storage-turso-ops.ts` and
   `use-storage-file-ops.ts`; likewise `setTursoProjectId`, and `setTasks`/`setRaid` in
   `onOpenStorageFile`.
 - `args.setActivityLog`, handed to `useBroadcastSync`, which owns its own listener lifecycle and
@@ -3231,20 +3236,23 @@ frame, still exists at every one of these, all **surveyed and deliberately left*
 ★★★ **THREE OF THOSE ARE UNPROTECTED, NOT ONE — and an earlier revision of this bullet named the wrong
 one and credited the wrong mechanism.** It said "the load effect's `cancelled` shields its own instances
 by accident. The one that does not is `onGrantWriteAccess`". Both halves are false, and the two reviewers
-who caught it did so independently. What the code actually says (`use-storage-backend.ts:253-308`):
+who caught it did so independently. What the code actually says (the load effect is
+`use-storage-backend.ts:253-308`; the last row is outside it):
 
 | `await refreshBackendStatus()` | protected? | by what |
 |---|---|---|
 | `:259` — the `suppressNextLoadRef` branch | **NO** | before the `try`; no `cancelled` check on that path at all |
-| `:274`, `:281` — the success paths | yes | the **enclosing `try`**, whose `catch` opens `if (cancelled) return;` — NOT `cancelled` reaching them |
+| `:274` (the data-loss REFUSAL early return) and `:281` (the success path) | yes | the **enclosing `try`**, whose `catch` opens `if (cancelled) return;` — NOT `cancelled` reaching them |
 | `:303` — last statement of the `catch` | **NO** | inside the `catch`, therefore outside any `try`; `cancelled` was checked at `:284`, *before* this await |
 | `onGrantWriteAccess` `:454` | **NO** | a bare await on a floating promise |
 
 ★★ The escape is a DOUBLE throw, which is why an inner `try`/`catch` does not stop it:
 `setStorageReady(ready)` (`:241`) throws, `refreshBackendStatus`'s own `catch` (`:244`) then runs
 `setStorageReady(false)` (`:248`) — inside the catch, outside any `try` — and *that* throw leaves the
-function. ★ The two load-effect escapes are the HOTTER pair: they need only a rejecting `backend.load()`
-(staged by many existing tests), where `onGrantWriteAccess` needs a user click. Scoping the follow-up to
+function. ★ The two load-effect escapes are the HOTTER pair, but they are reached DIFFERENTLY and a repro
+written for one will not reach the other: `:303` needs a rejecting `backend.load()` (staged by many
+existing tests), while `:259` returns at `:260` **before `backend.load()` is ever called** and needs
+`suppressNextLoadRef.current === true`. `onGrantWriteAccess` needs a user click. Scoping the follow-up to
 `onGrantWriteAccess` alone would leave the hook's hottest path — the one the original CI crash came
 from — still exposed. ★ Secondary damage on the way past: the first throw is swallowed into
 `logDiag("warn", "storage.statusCheckFailed", …)`, filing a React teardown error as a storage fault.
@@ -3269,12 +3277,18 @@ ordered BEFORE the emitters and survive regardless: `commitRegistry` calls `save
 the guard. ★★ **Do NOT extend that to the file-ops path** — an earlier revision here said it "calls
 `writeSettings(...)` directly", which is true at only TWO of its config-commit sites
 (`use-storage-file-ops.ts:235` and `:294`, both immediately before a `window.location.reload()`).
-`switchToProject` (`:96`) and `createProject` (`:150`) commit through `deps.setStorageConfig` — the
-now-guarded emitter — with no direct durable write behind it. No persistence is lost there either, but
-for the reason given above (an unmounted `setSettings` was already discarded by React), NOT because a
-`writeSettings` backstop exists. A reader who takes the old sentence at face value will assume a durable
-write on those two paths that is not there. The value of this fix is a CI job that stops exiting 1 with a fully green suite; do not read it as
-a user-facing bug fix.
+the OTHER **four** commits go through `deps.setStorageConfig` — the now-guarded emitter — with no direct
+durable write behind them: `switchToProject` (`:96`), `createProject` (`:150`), and the default paths of
+`loadProjectFromFile` (`:221`) and `createDemoProject` (`:305`). ★ Read that as four, not two: the two
+`writeSettings` calls are in CONDITIONAL branches of the latter two functions
+(`switchPortfolioToFileOnSuccess`, `loadPortfolioMode() === "turso"`), so those functions appear on BOTH
+lists and an enumeration naming only the first two understates the exposure by half. No persistence is
+lost on any of the four, but for the reason given above (an unmounted `setSettings` was already discarded
+by React), NOT because a `writeSettings` backstop exists. A reader who takes the old sentence at face
+value will assume a durable write on those paths that is not there.
+
+The value of this fix is a CI job that stops exiting 1 with a fully green suite; do not read it as a
+user-facing bug fix.
 
 ★ One more true thing worth recording: `onStorageOutcome` does more than `setState`.
 `reportStorageOutcome` (`task-manager.tsx`) also calls `versionNotifyRef.current()` on a clean save,
@@ -3316,7 +3330,7 @@ this branch.
 **Scope:** this affects **any** test in this repo that would inspect DOM or mock state from
 `onTestFailed` or `onTestFinished`, because the setup file's `cleanup()` always wins the race.
 `onTestFailed` is used **nowhere** in `src` or `e2e` — it was tried here, found unusable, and replaced
-by the `afterEach` pattern below, so the hook has no call site in this repo at all. ★ The three mentions
+by the `afterEach` pattern shown above, so the hook has no call site in this repo at all. ★ The three mentions
 a grep finds today (two in `timelog-panel.test.tsx`, one in `use-tasks-dedup.test.tsx`) are the warning
 comments those files now carry, not calls. (An earlier revision said "these captures are the first use",
 contradicting its own next sentence and this entry's whole conclusion.)
@@ -3350,7 +3364,7 @@ a presentation of the handler's contract rather than a second, stricter contract
 
 ---
 
-## 75. Two test files fail under a shuffled file order — and there is a REPRODUCING SEED — open
+## 75. Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED — open
 
 ★★ **This is the artifact the §39/§51 flake hunt was looking for, attached to different tests.** Both
 of those flakes are load-sensitive and have never reproduced on demand; this one reproduces
@@ -3378,6 +3392,11 @@ this entry said the opposite and would have sent the next contributor hunting th
 claimed "`--sequence.shuffle` shuffles **files**, not tests within a file (`sequence.shuffle.tests`
 defaults false); both files pass in isolation, so the contamination is cross-file". Both halves are
 wrong, and the second was derived from the first.
+
+★★ The citations below are into **hash-named build artifacts** and were read at **vitest 4.1.8 /
+@vitest/runner 4.1.8**. The `coverage.DM_a_rWm.js` filename dies on any vitest bump and every line number
+dies on a patch release — re-derive by grepping `shuffle` in `node_modules/vitest/dist/chunks/` and
+`node_modules/@vitest/runner/dist/` rather than trusting these positions.
 
 The `.tests` default governs only the **object** form. The bare CLI flag this entry prescribes parses to
 boolean `true`, and `vitest/dist/chunks/coverage.DM_a_rWm.js:470` gates the object branch on
