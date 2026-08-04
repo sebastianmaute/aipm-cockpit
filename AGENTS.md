@@ -939,6 +939,11 @@ The presentational slices:
   either render site). In that state the completion tile drops its `TrendArrow`, `KpiGradientBar` and
   `hint` together, since each explains a percentage it no longer shows. ★ `total === 0` is
   DELIBERATELY excluded — an empty project keeps 0%, and a test pins that exclusion.
+  ★★ DROPPING `hint` CHANGES THE TILE'S BOX: `Tile` only wraps itself in the
+  `relative h-full w-full` div when `hint` is present, so the completion tile is a DIFFERENT element
+  in the grid between the two states. Harmless in the `grid` strip (cells stretch), but jsdom has no
+  layout so no test here can see it — eye-verify this tile in both states, and never assume the
+  wrapper is there when writing a `.parentElement` walk against it.
   ★★ STILL INCONSISTENT, recorded not fixed (`docs/open-followups.md` §66): the R/A/G tile beside it
   counts a cancelled task GREEN, because `computeGroupHealth` tallies `computeTaskHealth` per task
   and that returns Green for anything finished. So an all-cancelled project reads "No active scope"
