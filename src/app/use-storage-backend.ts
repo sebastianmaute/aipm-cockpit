@@ -151,6 +151,48 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
 
+  // ── §72: caller-callback teardown guard ─────────────────────────────────────
+  // Every callback this hook fires back into the component runs `setState` up
+  // there. Several of them run after an `await`, from promises nobody waits for
+  // (the debounced save is fire-and-forget by design). If the component has
+  // unmounted by then, React 19 schedules an update, `resolveUpdatePriority`
+  // reads `window`, and in a torn-down jsdom that throws — an unhandled
+  // rejection that makes vitest exit 1 with the whole suite green
+  // (docs/open-followups.md §72).
+  //
+  // ★★★ This is a MOUNTED ref, NOT the load effect's per-run `cancelled` flag,
+  //     and the two are easy to confuse. The save effect's deps include the whole
+  //     workspace, so it re-runs on every edit. A per-run flag would suppress the
+  //     outcome of a save that was merely SUPERSEDED while still in flight, which
+  //     silently swallows real save errors in production. The load effect keeps
+  //     its `cancelled` — a superseded load genuinely is irrelevant, a superseded
+  //     save is not. Pinned by the two §72 tests in use-storage-backend.test.tsx.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    // Re-set on mount, not just cleared on unmount: React StrictMode mounts,
+    // unmounts and remounts in development, and a cleanup-only guard would
+    // leave every callback permanently suppressed after that first cycle.
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  function emitOutcome(err: unknown | null): void {
+    if (!mountedRef.current) return;
+    args.onStorageOutcome?.(err);
+  }
+  function emitToast(kind: "info" | "error" | "success", text: string): void {
+    if (!mountedRef.current) return;
+    args.showToast(kind, text);
+  }
+  function emitRegistryChange(registry: ProjectsRegistry): void {
+    if (!mountedRef.current) return;
+    args.onRegistryChange?.(registry);
+  }
+  function emitStorageConfig(config: StorageConfig): void {
+    if (!mountedRef.current) return;
+    args.setStorageConfig(config);
+  }
+
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
   // way. No side-effects beyond the setState calls.
@@ -225,19 +267,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // workspace is empty, so a normal first load is never blocked.
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
-          args.showToast("info", t(langRef.current, "storageKeptCurrentData"));
+          emitToast("info", t(langRef.current, "storageKeptCurrentData"));
           await refreshBackendStatus();
-          args.onStorageOutcome?.(null);
+          emitOutcome(null);
           return;
         }
         applyWorkspace(workspace);
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
-        args.onStorageOutcome?.(null);
+        emitOutcome(null);
       } catch (err) {
         if (cancelled) return;
-        args.onStorageOutcome?.(err);
+        emitOutcome(err);
         logDiag("error", "storage.loadFailed", { kind: settingsRef.current.storageConfig.kind, message: String(err) });
         // Turso connectivity/auth failures surface as the persistent storage
         // banner (via onStorageOutcome) — skip the transient toast for those.
@@ -250,10 +292,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
                 : hint === "storage-unreachable"
                   ? "storageUnreachable"
                   : "storageNotReady";
-            args.showToast("error", t(langRef.current, key));
+            emitToast("error", t(langRef.current, key));
           }
         } else if (!(err instanceof StorageNotImplementedError) && !tursoErrorKind(err)) {
-          args.showToast("error", t(langRef.current, "storageLoadFailed", String(err)));
+          emitToast("error", t(langRef.current, "storageLoadFailed", String(err)));
         }
         await refreshBackendStatus();
       }
@@ -294,7 +336,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
     if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
       recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: curCollections, refused: true });
-      args.showToast("info", t(langRef.current, "storageRefusedWipe"));
+      emitToast("info", t(langRef.current, "storageRefusedWipe"));
       return; // keep baselines so a later change re-evaluates
     }
     if (curCollections === 0 && prevCollectionCountRef.current === 1) {
@@ -309,9 +351,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // timer nor the flush-on-hide below can produce an unhandled rejection.
     const doSave = () => {
       backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents }).then(() => {
-        args.onStorageOutcome?.(null);
+        emitOutcome(null);
       }).catch((err) => {
-        args.onStorageOutcome?.(err);
+        emitOutcome(err);
         logDiag("error", "storage.saveFailed", { message: String(err) });
         // Turso connectivity/auth failures show the persistent banner — skip the toast.
         if (tursoErrorKind(err)) return;
@@ -321,12 +363,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
             hint === "local-file-permission-needed" ? "storagePermissionGestureNeeded" :
             hint === "local-file-write-blocked"     ? "storageWriteBlocked" :
                                                       "storageNotReady";
-          args.showToast("error", t(langRef.current, key));
+          emitToast("error", t(langRef.current, key));
         } else if (isTursoLockTimeout(err)) {
           // Localized text — the error's own message is English-only.
-          args.showToast("error", t(langRef.current, "tursoLockTimeout"));
+          emitToast("error", t(langRef.current, "tursoLockTimeout"));
         } else if (!(err instanceof StorageNotImplementedError)) {
-          args.showToast("error", t(langRef.current, "storageSaveFailed", String(err)));
+          emitToast("error", t(langRef.current, "storageSaveFailed", String(err)));
         }
       });
     };
@@ -390,9 +432,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents });
       await refreshBackendStatus();
-      args.showToast("info", t(langRef.current, "storageSwitchedToast"));
+      emitToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
-      args.showToast("error", t(langRef.current, "storageSaveFailed", String(err)));
+      emitToast("error", t(langRef.current, "storageSaveFailed", String(err)));
     }
   }
 
@@ -402,9 +444,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     const granted = await promise;
     await refreshBackendStatus();
     if (granted) {
-      args.showToast("info", t(langRef.current, "storagePermissionGranted"));
+      emitToast("info", t(langRef.current, "storagePermissionGranted"));
     } else {
-      args.showToast("error", t(langRef.current, "storagePermissionDenied"));
+      emitToast("error", t(langRef.current, "storagePermissionDenied"));
     }
   }
 
@@ -431,16 +473,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // NOTE: absences and shifts intentionally NOT restored here —
       // faithful extraction of original behavior (not a bug fix).
       await refreshBackendStatus();
-      args.showToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
+      emitToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
     } catch (err) {
       if (err instanceof StorageNotReadyError) {
         const key =
           (err as StorageNotReadyError).hint === "local-file-permission-needed"
             ? "storagePermissionGestureNeeded"
             : "storageNotReady";
-        args.showToast("error", t(langRef.current, key));
+        emitToast("error", t(langRef.current, key));
       } else {
-        args.showToast("error", t(langRef.current, "storageLoadFailed", String(err)));
+        emitToast("error", t(langRef.current, "storageLoadFailed", String(err)));
       }
     }
   }
@@ -478,8 +520,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       if (pick) await pick;
       await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents });
       suppressNextLoadRef.current = true;
-      args.setStorageConfig(newConfig);
-      args.showToast("info", t(langRef.current, "storageConvertedToast", label));
+      emitStorageConfig(newConfig);
+      emitToast("info", t(langRef.current, "storageConvertedToast", label));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (/abort/i.test(msg) || /user activation/i.test(msg)) return;
@@ -491,14 +533,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
             : hint === "storage-unreachable"
               ? "storageUnreachable"
               : "storageNotReady";
-        args.showToast("error", t(langRef.current, key));
+        emitToast("error", t(langRef.current, key));
       } else if (isTursoLockTimeout(err)) {
         // Conversion target was Turso and the cross-tab write lock timed out.
-        args.showToast("error", t(langRef.current, "tursoLockTimeout"));
+        emitToast("error", t(langRef.current, "tursoLockTimeout"));
       } else {
         // StorageNotImplementedError also surfaces here — user confirmed a
         // conversion write, so silent failure is wrong.
-        args.showToast("error", t(langRef.current, "storageSaveFailed", msg));
+        emitToast("error", t(langRef.current, "storageSaveFailed", msg));
       }
     }
   }
@@ -521,9 +563,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // this session; only persistence across reloads is at risk.
   function commitRegistry(next: ProjectsRegistry): void {
     const persisted = saveRegistry(next);
-    args.onRegistryChange?.(next);
+    emitRegistryChange(next);
     if (!persisted) {
-      args.showToast("error", t(langRef.current, "projectsRegistrySaveFailed"));
+      emitToast("error", t(langRef.current, "projectsRegistrySaveFailed"));
     }
   }
 
@@ -566,9 +608,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         hint === "local-file-permission-needed"
           ? "storagePermissionGestureNeeded"
           : "storageNotReady";
-      args.showToast("error", t(langRef.current, key));
+      emitToast("error", t(langRef.current, key));
     } else if (!(err instanceof StorageNotImplementedError)) {
-      args.showToast("error", t(langRef.current, "storageLoadFailed", msg));
+      emitToast("error", t(langRef.current, "storageLoadFailed", msg));
     }
   }
 
@@ -581,7 +623,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     hardDeleteTursoProject,
   } = useTursoProjectOps({
     isPopout: args.isPopout,
-    showToast: args.showToast,
+    showToast: emitToast,
     langRef,
     settingsRef,
     tursoConfigNow,
@@ -602,8 +644,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     createDemoProject,
   } = useFileProjectOps({
     isPopout: args.isPopout,
-    showToast: args.showToast,
-    setStorageConfig: args.setStorageConfig,
+    showToast: emitToast,
+    setStorageConfig: emitStorageConfig,
     langRef,
     settingsRef,
     backend,
@@ -638,7 +680,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           window.confirm(t(langRef.current, "reloadEmptyConfirm"));
         recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: !confirmed });
         if (!confirmed) {
-          args.onStorageOutcome?.(null);
+          emitOutcome(null);
           return;
         }
       }
@@ -647,15 +689,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       applyWorkspace(workspace, "raise");
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
-      args.onStorageOutcome?.(null);
+      emitOutcome(null);
       // Confirm the manual recovery action succeeded (a bare re-render gives no
       // feedback that the reload actually re-read the backend).
-      args.showToast("success", t(langRef.current, "reloadProjectSuccess"));
+      emitToast("success", t(langRef.current, "reloadProjectSuccess"));
     } catch (err) {
       // onStorageOutcome raises the sticky banner; the toast is the transient
       // acknowledgement of THIS click (reload has no other toast path).
-      args.onStorageOutcome?.(err);
-      args.showToast("error", t(langRef.current, "reloadProjectError"));
+      emitOutcome(err);
+      emitToast("error", t(langRef.current, "reloadProjectError"));
     } finally {
       reloadInFlightRef.current = false;
     }
