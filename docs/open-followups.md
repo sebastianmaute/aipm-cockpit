@@ -2050,7 +2050,11 @@ was **closed**. It was structurally incapable of waiting for what the next line 
 four are structural; the fourth is this test's rationale fixture, so the count is 3 for a sibling test
 with a rationale that does not contain "dup".
 
-**A mechanism candidate now exists — derived from source, NOT reproduced. Confidence moderate (~70%).**
+**A mechanism candidate now exists — derived from source, NOT reproduced.** ★ Deliberately unquantified:
+an earlier revision said "confidence moderate (~70%)", a specific number with no stated method, sitting
+beside §39's honest qualitative hedge ("precondition proved, causation unreproduced") for a claim that
+at least HAS a local measurement. The unsourced percentage read as the more rigorous of the two while
+resting on strictly weaker evidence. Neither is reproduced; say so, and do not invent a number.
 With the wait a no-op, correctness rested on macrotask ordering: RTL's `asyncWrapper` disables the act
 environment during `findBy*` and opens exactly one `setTimeout(0)` window, while React 19 commits the
 `setPhase("preview")` DefaultLane update on a Scheduler macrotask. Two independently-scheduled
@@ -3118,7 +3122,7 @@ budget and actual off their own labelled lines), so a refactor has something to 
 
 ---
 
-## 72. Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing — CLOSED in this slice
+## 72. ~~Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing~~ — CLOSED in this slice
 
 **The symptom is the point.** Vitest exits non-zero on an unhandled error even when the whole suite is
 green, so this failure mode does not look like a test failure at all. Captured from pipeline **#5446**
@@ -3216,7 +3220,9 @@ frame, still exists at every one of these, all **surveyed and deliberately left*
 
 - `refreshBackendStatus`'s own `setStorageReady` / `setStorageDescription`, after `await
   backend.isReady()` / `await backend.describe()` — reached from eight call sites.
-- `applyWorkspace`'s ~23 workspace-context setters after awaits, in `use-storage-turso-ops.ts` and
+- `applyWorkspace`'s **24** workspace-context setters after awaits (`use-storage-backend.ts:202-226`;
+  ★ count them by eye, not with `grep -cE "^\s+set[A-Z]"` — that returns 23 because `setPlan` sits
+  behind an `if (workspace.plan)` prefix), in `use-storage-turso-ops.ts` and
   `use-storage-file-ops.ts`; likewise `setTursoProjectId`, and `setTasks`/`setRaid` in
   `onOpenStorageFile`.
 - `args.setActivityLog`, handed to `useBroadcastSync`, which owns its own listener lifecycle and
@@ -3309,9 +3315,11 @@ this branch.
 
 **Scope:** this affects **any** test in this repo that would inspect DOM or mock state from
 `onTestFailed` or `onTestFinished`, because the setup file's `cleanup()` always wins the race.
-`onTestFailed` was previously unused anywhere in `src` or `e2e` — these captures are the first use, and
-the first time the ordering bit. ★ The three mentions a grep finds today (two in `timelog-panel.test.tsx`,
-one in `use-tasks-dedup.test.tsx`) are the warning comments those files now carry, not calls.
+`onTestFailed` is used **nowhere** in `src` or `e2e` — it was tried here, found unusable, and replaced
+by the `afterEach` pattern below, so the hook has no call site in this repo at all. ★ The three mentions
+a grep finds today (two in `timelog-panel.test.tsx`, one in `use-tasks-dedup.test.tsx`) are the warning
+comments those files now carry, not calls. (An earlier revision said "these captures are the first use",
+contradicting its own next sentence and this entry's whole conclusion.)
 
 ★ Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.
 
@@ -3355,7 +3363,9 @@ npx vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot
 **4 tests fail across 2 files** — `modern-shell.test.tsx` (3) and `use-storage-backend.test.tsx` (1,
 "confirm=true writes current workspace to new backend + commits config + shows info toast", where
 `expect(targetSave).toHaveBeenCalledTimes(1)` gets 0). Seeds 2 and 3 also fail, 4 and 5 tests
-respectively.
+respectively — ★ but treat those two counts as soft: those same two runs had 16 files never execute
+(768 of 784) from worker-startup timeouts under machine saturation, as §51's amplification note records.
+Seed 1 is the clean, fully-executed reproduction; quote that one.
 
 ★★★ **PRE-EXISTING, and verified so rather than assumed.** `use-storage-backend.ts` and its test were
 both modified by the §72 work, which makes "did we break this?" the first question. Ruled out by
@@ -3363,9 +3373,32 @@ running the SAME seed on `main`: identical result — 4 failed / 2 files, the sa
 guard adds no module-level state (`mountedRef` is per-hook-instance via `useRef`), and the failing
 assertion is a `backend.save` call count, upstream of every emitter.
 
-★ Note what `--sequence.shuffle` does and does not shuffle: **files**, not tests within a file
-(`sequence.shuffle.tests` defaults false). Both files pass in isolation, so the contamination is
-cross-file — module state surviving into the next file, not intra-file ordering.
+★★★ **THE DEFECT IS INTRA-FILE TEST ORDERING, NOT CROSS-FILE CONTAMINATION — an earlier revision of
+this entry said the opposite and would have sent the next contributor hunting the wrong thing.** It
+claimed "`--sequence.shuffle` shuffles **files**, not tests within a file (`sequence.shuffle.tests`
+defaults false); both files pass in isolation, so the contamination is cross-file". Both halves are
+wrong, and the second was derived from the first.
+
+The `.tests` default governs only the **object** form. The bare CLI flag this entry prescribes parses to
+boolean `true`, and `vitest/dist/chunks/coverage.DM_a_rWm.js:470` gates the object branch on
+`typeof … === "object"` — so for a boolean it is SKIPPED, `sequence.shuffle` stays `true`, and BOTH
+effects fire: `:477` picks `RandomSequencer` (files) **and** `@vitest/runner/dist/chunk-artifact.js:2442`
+sets `file.shuffle`, which `:3151` uses to shuffle suites and tests **inside** each file.
+
+Measured, not reasoned — each file run ALONE under the same seed:
+
+```bash
+npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=1  # 1 failed / 62 passed
+npx vitest run src/app/modern-shell.test.tsx        --sequence.shuffle --sequence.seed=1  # 3 failed / 17 passed
+npx vitest run src/app/use-storage-backend.test.tsx src/app/modern-shell.test.tsx         # control: 83 passed
+```
+
+1 + 3 = **the same 4 failures the full-suite run produces**, with no other file present. So the whole
+effect is intra-file, the unshuffled control rules out the pairing itself, and "passes in isolation" was
+true only because it was measured WITHOUT the flag — a control that cannot distinguish the two
+hypotheses it was cited to settle. ★ Chase these as order-dependent tests within each file (shared
+module state, a leaked mock, a `beforeAll` some earlier test in the file relies on), not as cross-file
+leakage.
 
 ★ Scope this honestly: nothing says CI shuffles, so this is **not** a live CI failure and **not** an
 explanation for §39 or §51 (neither of those two files failed under any of the six amplification
