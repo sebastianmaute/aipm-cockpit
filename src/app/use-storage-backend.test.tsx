@@ -756,6 +756,17 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // ★★★ `clearAllMocks` does NOT drain a `mockReturnValueOnce` queue — it is
+    //     `mockClear`, which only wipes calls/instances/results. `createBackend`
+    //     is a MODULE-LEVEL mock shared by every test in this file, and
+    //     "confirm=false → no save, no config change" queues two values while
+    //     deliberately consuming one (the early return is the thing it asserts).
+    //     Under `--sequence.shuffle --sequence.seed=1` that leftover became the
+    //     next test's FIRST createBackend() result, shifting the whole queue by
+    //     one: the switch target came back as the main backend and `targetSave`
+    //     was never called. `mockReset` drains the queue; the mockReturnValue
+    //     below re-establishes the default. See open-followups §75.
+    createBackendMock.mockReset();
     vi.useFakeTimers();
     setStorageConfig = vi.fn<(config: StorageConfig) => void>();
     // Default main backend (kind="browser")
