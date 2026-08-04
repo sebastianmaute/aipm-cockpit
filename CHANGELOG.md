@@ -30,8 +30,33 @@ view controls, and a stale due date no longer blocks saving a task.
 - **Cancelled scope no longer holds the completion percentage below 100%.**
   Cancelled tasks are dropped from the denominator as well, so a project whose
   remaining work is done reads as complete. The in-scope count behind the figure
-  is now shared, so the dashboard tile, the completion sparkline and the steering
-  committee report cannot disagree about it.
+  is shared, so the dashboard tile, the completion sparkline and the steering
+  committee report all compute it from the same denominator. (They still *present*
+  it differently — the committee draft states a percentage where the dashboard now
+  reads "No active scope"; that gap is tracked as an open follow-up.)
+- **A project whose every task was cancelled no longer reads "0% complete".**
+  It says "No active scope — all cancelled (N)" instead, because 0% there is an
+  empty denominator rather than work not done, and the two are worth telling
+  apart. The state reaches every place on the screen that showed the figure: the
+  Progress tile, the at-a-glance KPI card, the completion-trend sparkline (which
+  hides rather than draw a flat zero line beneath a tile saying there is no
+  scope), and the Trends completion-variance row, which had reported a project
+  baselined at 40% as having gone *backwards* to 0. An empty project is
+  deliberately left reading 0% — it has not abandoned anything.
+- **A cancelled task no longer wears the same green check as a delivered one.**
+  In Open Points it shows a muted ✕. The two states differ by the shape of the
+  glyph rather than its colour, which matters because the column that spells out
+  "Cancelled" in words can be hidden — with it off, this mark and the row's
+  strikethrough are the whole signal.
+- **The Reports headline tiles reconcile again.** `Total` gained a small line
+  naming how many of them were cancelled, so the reader can see why Total no
+  longer equals Open plus Completed. A project with nothing cancelled is
+  unchanged.
+- **Two dashboard descriptions caught up with the numbers they describe.** The
+  Progress caption still said "tasks completed vs total" after the denominator
+  became in-scope work, and claimed the red/amber/green split covered open work
+  when it counts every task. The completion tooltip named the wrong numerator.
+  Both corrected, in English and German.
 - **Unticking every status in the Gantt filter now shows nothing, and says so.**
   It used to show everything, on the reading that an empty filter list means "no
   filter". An existing user's stored preferences are migrated rather than
