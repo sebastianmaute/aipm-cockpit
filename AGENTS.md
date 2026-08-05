@@ -131,6 +131,20 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # — registered LAST, so it runs FIRST, while mocks and DOM are still live.
                             # `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx` carry that pattern
                             # with a warning comment (open-followups §73).
+                            # ★★★ A StrictMode test is VACUOUS-BUT-GREEN in the obvious shape. React
+                            # double-invokes at the topmost NEWLY-PLACED fiber on a branch, and only if
+                            # StrictMode is at or above it — so on a MOUNT nothing may sit between the root
+                            # and StrictMode on that branch. `wrapper: StrictMode` and RTL's
+                            # `reactStrictMode: true` satisfy that; composing it inside a wrapper
+                            # (`({children}) => <StrictMode>{children}</StrictMode>`) does NOT, and the
+                            # test then passes with the line it claims to pin DELETED. That shape is why
+                            # three `mountedRef` mount re-sets shipped unpinned while a register entry
+                            # called them untestable (§85). ★★ It is a rule about the mount COMMIT, not the
+                            # tree: the SAME nesting DOES double-invoke a child mounted on a LATER commit —
+                            # four successive revisions of this rule were over-general, each measured at one
+                            # shape and written as if it held at all of them. Every edge is pinned in
+                            # `src/app/strictmode.meta.test.tsx`; read it rather than this summary, and
+                            # mutation-test any new StrictMode guard before believing it.
 npm run test:shuffle        # vitest at the SAME pinned seed CI's unit-tests-shuffled uses (BLOCKING).
                             # ★ Run this before pushing anything that adds or reorders tests — it is
                             # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare
