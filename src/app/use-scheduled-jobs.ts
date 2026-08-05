@@ -67,11 +67,13 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   //    ★ Pinned by "still applies the loaded jobs after StrictMode's remount"
   //    in use-scheduled-jobs.test.tsx. This previously read "No test can pin
   //    this: StrictMode invokes effects ONCE under this suite". That
-  //    OBSERVATION is reproducible — StrictMode single-invokes whenever a
-  //    wrapper component sits between it and the root — but the CONCLUSION
-  //    was wrong: with
-  //    `wrapper: StrictMode` it double-invokes and this line is pinnable.
-  //    strictmode.meta.test.tsx pins both halves of that shape rule.
+  //    OBSERVATION is reproducible — a child mounted under a StrictMode that
+  //    is itself nested inside a wrapper is single-invoked — but the
+  //    CONCLUSION was wrong: with `wrapper: StrictMode` it double-invokes and
+  //    this line is pinnable. strictmode.meta.test.tsx pins that shape rule
+  //    and its edges (including that the same nesting DOES double-invoke a
+  //    child mounted on a later commit — it is a rule about the mount commit,
+  //    not about the tree).
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };

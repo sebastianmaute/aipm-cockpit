@@ -176,7 +176,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     outcome of a save that was merely SUPERSEDED while still in flight, which
   //     silently swallows real save errors in production. The load effect keeps
   //     its `cancelled` — a superseded load genuinely is irrelevant, a superseded
-  //     save is not. Pinned by the two §72 tests in use-storage-backend.test.tsx.
+  //     save is not. Pinned by "does not report a save outcome after unmount"
+  //     + "still reports the outcome of a save superseded while in flight" in
+  //     use-storage-backend.test.tsx. ★ Grepping `§72` there finds FOUR blocks,
+  //     not those two — the other two pin the status-failure path and the
+  //     StrictMode mount re-set. Name the test, not the register number.
   const mountedRef = useRef(true);
   useEffect(() => {
     // Re-set on mount, not just cleared on unmount: React StrictMode mounts,

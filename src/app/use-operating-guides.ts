@@ -87,9 +87,9 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
   //    Pinned by "still applies the loaded guides after StrictMode's remount"
   //    in use-operating-guides.test.tsx. This previously read "Untestable here
   //    (StrictMode single-invokes effects in this suite)" — which holds only
-  //    for a StrictMode nested inside a wrapper component. With
-  //    `wrapper: StrictMode` it double-invokes; see strictmode.meta.test.tsx
-  //    for the shape rule. (§76)
+  //    for a child mounted under a StrictMode that has any fiber above it on
+  //    the same branch. With `wrapper: StrictMode` it double-invokes; see
+  //    strictmode.meta.test.tsx for the shape rule and its edges. (§76)
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };

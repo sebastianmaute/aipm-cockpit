@@ -573,14 +573,15 @@ describe("useStorageBackend — save effect", () => {
   //    (§72)" describe at the end of this file.
   //    ★★★ This comment previously said the opposite: that a StrictMode-wrapped
   //    renderHook had been tried and was VACUOUS, measured 2026-08-04 as
-  //    ["mount"] with no cleanup+remount. That observation is REPRODUCIBLE, and
-  //    the reason is a shape rule nobody had isolated then: StrictMode only
-  //    double-invokes when nothing sits between the root and it on its own
-  //    branch, so composing it inside a wrapper function silences it. (Which
-  //    shape the 2026-08-04 run used was never recovered.) The guard below
-  //    uses RTL's `reactStrictMode: true`, which keeps nothing between the
-  //    root and StrictMode, and it dies when the re-set is deleted. See
-  //    strictmode.meta.test.tsx, open-followups §85.
+  //    ["mount"] with no cleanup+remount. That observation is REPRODUCIBLE —
+  //    a StrictMode composed inside a wrapper function does single-invoke a
+  //    child mounted in the same commit — but the CONCLUSION drawn from it
+  //    (that the behaviour could not be pinned) was wrong. (Which shape the
+  //    2026-08-04 run used was never recovered.) The guard below uses RTL's
+  //    `reactStrictMode: true`, which leaves nothing between the root and
+  //    StrictMode, and it dies when the re-set is deleted. The shape rule and
+  //    its edges are pinned in strictmode.meta.test.tsx; see open-followups
+  //    §85.
 });
 
 describe("useStorageBackend — handlers", () => {
@@ -1825,26 +1826,19 @@ describe("useStorageBackend — StrictMode mount re-set (§72)", () => {
     // fails: onStorageOutcome is never called. Verified by running that
     // mutation.
     //
-    // ★★★ NOTHING MAY SIT BETWEEN THE ROOT AND STRICTMODE ON ITS OWN BRANCH, so
-    //     this passes `reactStrictMode` (RTL renders
-    //     `<StrictMode><Wrapper>…</Wrapper></StrictMode>`) instead of composing
-    //     `<StrictMode><TestProviders>` inside the wrapper itself. That is not
-    //     a style preference. React's double-invoke walk
-    //     (`recursivelyTraverseAndDoubleInvokeEffectsInDEV`, read in the
-    //     react-dom development build) stops at the topmost fiber carrying the
-    //     placement flag on that branch and double-invokes there only if
-    //     StrictMode is AT OR ABOVE that fiber (the fiber's own type counts,
-    //     which is what makes `wrapper: StrictMode` work), and it never
-    //     recurses PAST that fiber either way — a StrictMode nested BELOW it
-    //     is never reached. So one extra component ABOVE StrictMode — even a
-    //     bare `({children}) => <StrictMode>{children}</StrictMode>` with no
-    //     providers at all — yields ["mount"], no cleanup+remount, and a guard
-    //     test written that way is VACUOUS: measured 2026-08-05, that shape
-    //     stayed green with the pinned line deleted. It is the likely source
-    //     of the 2026-08-04 "StrictMode single-invokes here" measurement this
-    //     test refutes.
-    //     `src/app/strictmode.meta.test.tsx` pins the harness property; it uses
-    //     the outermost shape too.
+    // ★★★ The `reactStrictMode: true` OPTION is load-bearing here — do not
+    //     "simplify" it to `wrapper: ({children}) => <StrictMode>…`. RTL's
+    //     option renders `<StrictMode><Wrapper>…</Wrapper></StrictMode>`,
+    //     leaving nothing between the root and StrictMode; composing
+    //     StrictMode inside the wrapper instead puts a fiber above it on the
+    //     same branch and, on a mount commit, silences the double invoke
+    //     entirely. Measured 2026-08-05: that shape stayed green with the
+    //     pinned line deleted — i.e. the guard becomes VACUOUS and looks
+    //     identical. The full rule, the React-internals reason and every
+    //     measured edge live in ONE place: `src/app/strictmode.meta.test.tsx`.
+    //     That shape is also the likely source of the 2026-08-04 "StrictMode
+    //     single-invokes here" observation — which reproduces; it is its
+    //     CONCLUSION ("therefore untestable") that this test refutes.
     const onStorageOutcome = vi.fn();
     const { result } = renderHook(makeProbe(makeArgs({ onStorageOutcome })), {
       wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
