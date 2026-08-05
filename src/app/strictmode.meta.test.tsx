@@ -19,6 +19,18 @@
 // a ref created inside the component is handed back fresh by StrictMode's
 // remount, so it reads ["mount"] whether or not the double invoke happened —
 // which is the leading theory for how the original measurement went wrong.
+//
+// ★★★ THE SHAPE RULE: StrictMode only double-invokes when it is the OUTERMOST
+// element under the root. `wrapper: StrictMode` (renderHook's wrapper IS the
+// StrictMode component) and `reactStrictMode: true` (RTL wraps the root in
+// StrictMode itself and leaves `wrapper` untouched) are the two safe forms.
+// Composing `<StrictMode>` INSIDE a wrapper function — `wrapper: ({children})
+// => <StrictMode>{children}</StrictMode>`, or with anything else nested
+// inside that — puts a non-StrictMode fiber above it and silently turns off
+// the double invoke, which makes any guard built on that shape vacuous. The
+// implementation plan's own Task 4 sketch used exactly that nested shape; it
+// was only caught because Task 4 ran the mutation and watched the guard stay
+// green with the guarded line deleted. See the two tests below.
 import { StrictMode, useEffect } from "react";
 import { render, renderHook } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
@@ -26,6 +38,30 @@ import React from "react";
 
 const componentLog: string[] = [];
 const hookLog: string[] = [];
+const nestedLog: string[] = [];
+const strictOptionLog: string[] = [];
+
+function Shell({ children }: { children?: React.ReactNode }) {
+  return <div>{children}</div>;
+}
+
+function useNestedProbe() {
+  useEffect(() => {
+    nestedLog.push("mount");
+    return () => {
+      nestedLog.push("cleanup");
+    };
+  }, []);
+}
+
+function useStrictOptionProbe() {
+  useEffect(() => {
+    strictOptionLog.push("mount");
+    return () => {
+      strictOptionLog.push("cleanup");
+    };
+  }, []);
+}
 
 function Probe() {
   useEffect(() => {
@@ -59,6 +95,33 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
   it("double-invokes a hook's mount effect via renderHook's wrapper", () => {
     renderHook(() => useProbeHook(), { wrapper: StrictMode });
     expect(hookLog).toEqual(["mount", "cleanup", "mount"]);
+  });
+
+  // This pins CURRENT React behaviour (traced to
+  // recursivelyTraverseAndDoubleInvokeEffectsInDEV, which stops its walk at
+  // the first placed fiber and only double-invokes there if IT is
+  // StrictMode-typed) — not a guarantee React owes us. If a future React
+  // version makes the nested shape double-invoke too, this test goes red,
+  // and that is a GOOD failure: it means the shape rule above changed and
+  // every guard built on it needs re-checking, not that something broke.
+  // Do not delete this test out of confusion if that day comes.
+  it("does NOT double-invoke when StrictMode is nested inside a wrapper component", () => {
+    renderHook(() => useNestedProbe(), {
+      wrapper: ({ children }) => (
+        <StrictMode>
+          <Shell>{children}</Shell>
+        </StrictMode>
+      ),
+    });
+    expect(nestedLog).toEqual(["mount"]);
+  });
+
+  it("double-invokes via renderHook's reactStrictMode option, which keeps StrictMode outermost", () => {
+    renderHook(() => useStrictOptionProbe(), {
+      wrapper: Shell,
+      reactStrictMode: true,
+    });
+    expect(strictOptionLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
   it("resolves the DEVELOPMENT React build", () => {
