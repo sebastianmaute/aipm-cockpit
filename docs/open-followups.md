@@ -114,9 +114,9 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
-| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace` alone; ★ near-zero production impact, the win is a job that stops lying |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★ near-zero production impact, the win is a job that stops lying |
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
-| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★ the first pass closed only Fetch + Refresh and left `handleLoadManagedProjects` (a third hand-rolled copy of the contract) while claiming the class closed — found in review, now routed through `canLoadManagedProjects`; ★★ the BUTTON half was unpinned by any test until the same review |
+| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations, after a revision that wrongly called Fetch untestable |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §77 |
 | 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★ ships UNTESTED of necessity (StrictMode single-invokes here — **why is now §78, and it is a whole-suite property, not a local one**), sweep re-run on the broad pattern |
 | 77 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
@@ -3447,6 +3447,20 @@ declarations invoked from `onClick`, long after the const initialises — and in
 get copied into later commit messages as justification, a comment asserting a bug that cannot occur is
 worse than no comment. The move is readability only.
 
+★★★ **AND THEN A FOURTH INSTANCE TURNED UP — `clearAllFetched`.** Its handler guarded on
+`isPopout || confirming` while its button carried `syncBusy || isPopout || !fetchedAt || confirming`:
+exactly ONE arm mirrored by hand, with a comment stating that it mirrored the button, which is how a
+partial mirror reads as a complete one. Now `canClearAllFetched`.
+★★ It deliberately does NOT take `isMisconfigured`, and takes its own `TimelogClearState` so the
+omission is visible in the type rather than looking like a fifth oversight: clearing is the only one of
+the four actions that never reaches the network — it forgets local data the user already has — and a
+broken config is precisely when someone wants stale bookings gone. Gating it would trap them with data
+they can neither refresh nor remove.
+★★★ So the count went 2-of-3 → 3-of-3 → 3-of-4. **Each "closed" was declared after fixing every
+instance the author had looked at.** The durable fix is not another sweep of the same shape but a rule:
+enumerate the CALL SITES of the contract (`grep -n 'disabled={' src/app/timelog-panel-toolbar.tsx
+src/app/timelog-projects-table.tsx` and diff each against its handler), then close them as a set.
+
 ★★★ **THE FIRST PASS CLOSED TWO OF THREE ACTIONS AND DECLARED THE CLASS CLOSED.**
 `handleLoadManagedProjects` checked `isPopout || sync.busy` while its button evaluated all four shared
 blockers — that button's `disabled` was literally `isBlocked` spelled out by hand, in a third file.
@@ -3468,20 +3482,38 @@ mutated BOTH sites at once, so the failure is fully explained by the Load-manage
 alone and says nothing about Fetch. **A mutation that changes two call sites cannot attribute the
 failure to either.** Mutate one site at a time.
 
-- **Load-managed-projects (`timelog-projects-table.tsx`) — genuinely pinned.** That action has no
-  precondition beyond the shared blockers, so the paired enabled-state test is a real positive control.
-- **Fetch (`timelog-panel-toolbar.tsx`) — NOT pinned, and cannot be from the DOM.** `canFetchBookings`
-  also requires a customer and ≥1 selected project, and in the unconfigured state those already hold,
-  so the button is disabled with or without the `isMisconfigured` term. ★★ It is not merely a weak
-  fixture: `timelog-panel.tsx` renders the project picker under `!isPopout && !isMisconfigured`, so
-  `selectedCount > 0` is UNREACHABLE while misconfigured. The term is defence-in-depth against a future
-  non-button caller, exactly like the handler guards, and is covered at the predicate level only.
-- **Refresh — no coverage in either direction.** Its button renders only under `fetchedAt &&`, which
-  neither new test seeds.
+★★★ **A SECOND REVISION OF THIS PARAGRAPH CLAIMED FETCH "CANNOT BE PINNED FROM THE DOM". THAT WAS
+FALSE, AND IT WAS THE STATED REASON FOR NOT WRITING THE TEST.** The argument was: `timelog-panel.tsx`
+renders the project picker under `!isPopout && !isMisconfigured`, so `selectedCount > 0` is unreachable
+while misconfigured. The picker's RENDERING is gated; its STATE is not. `useTimelogPickerScope` runs
+unconditionally and seeds `projectCustomerId` + `selectedProjectIds` from the persisted per-device
+picker scope or the workspace's `timelogLinks` (`timelog-initial-scope.ts` ranks 1 and 2) — neither
+reads `isMisconfigured`. A device that once configured TimeLog, fetched a scope, then had the token
+cleared or the integration disabled mounts in exactly that state. It is the ORDINARY failure path, not
+a contrived one. ★★★ Converting a missing test into a documented impossibility is worse than leaving
+the gap: the gap invites a fix, the impossibility forbids one. Two independent reviewers caught it;
+neither was given the previous round's findings. **Write "not done", never "cannot be done", unless the
+impossibility itself has been tested.**
 
-★★ So the honest state is: 4 of 4 predicate ARMS are covered by `timelog-guards.test.ts`; 1 of 3
-WIRINGS is covered by the DOM tests. Those are different properties and the distinction is the whole
-point of the module.
+★★ **ALL FOUR WIRINGS ARE NOW PINNED, each verified by a SINGLE-SITE mutation:**
+
+| wiring | arm pinned | single-site mutation |
+|---|---|---|
+| Fetch (`timelog-panel-toolbar.tsx`) | `isMisconfigured` | `isMisconfigured: false` → new test FAILS |
+| Refresh (same file) | `isMisconfigured` | `isMisconfigured: false` → FAILS |
+| Load-managed (`timelog-projects-table.tsx`) | `isMisconfigured` | `isMisconfigured: false` → FAILS |
+| Clear-all (`timelog-panel-toolbar.tsx`) | `hasFetched` | `hasFetched: true` → FAILS |
+
+★ The Fetch/Refresh fixture seeds `links={{customerId, projectIds}}` with NO config, so the selection
+exists and `isMisconfigured` is the only term left blocking. Its query matches the accessible name
+`/\(1\)$/` — the Fetch label gains ` (N)` only when `selectedCount > 0`, so the query itself PROVES the
+seed took, which is what stops the assertion passing vacuously off an empty selection (how the first
+version of these tests failed to pin Fetch at all). ★ It also means an exact-name query silently stops
+resolving once a selection exists — do not "simplify" the regex back to a plain string.
+
+★★ Coverage now: 4 of 4 predicates unit-tested, 4 of 4 wirings DOM-pinned. Those remain different
+properties — the predicates prove the logic, the wirings prove each button evaluates it — and keeping
+them distinct is the point of the module.
 
 ★★ "Untestable by construction" was true of the HANDLER and got generalised to the whole fix. The
 handler path really is unreachable from the UI; the BUTTON path is DOM-reachable and cheap. Watch for
@@ -3494,11 +3526,13 @@ typed it `string`, and review caught the mismatch before the wiring commit lande
 ★ Keep the §39 provenance sentence above as written — "read §39 as 'test fixed', not 'cause removed'"
 stays true of §39's own history regardless of this fix.
 
-★★★ **No test in the suite would fail if `isMisconfigured` were dropped from either handler guard
-again — verified, not assumed.**
-- `timelog-guards.test.ts` tests `canFetchBookings`/`canRefreshBookings` in isolation, calling them
-  directly with hand-built state objects. It never imports `timelog-panel.tsx`, so it is blind to what
-  the handlers actually pass.
+★★★ **No test in the suite would fail if `isMisconfigured` were dropped from any of the three HANDLER
+guards that carry it again — verified, not assumed.** (Three, not two: `handleLoadManagedProjects`
+joined `handleFetchBookings`/`handleRefreshBookings` later. The fourth handler, `clearAllFetched`,
+deliberately never takes the term.) ★ This is about the HANDLERS only — all four BUTTON wirings are now
+pinned; see the mutation table above.
+- `timelog-guards.test.ts` tests the predicates in isolation, calling them directly with hand-built
+  state objects. It never imports `timelog-panel.tsx`, so it is blind to what the handlers actually pass.
 - `timelog-panel.test.tsx` contains **zero** direct references to `handleFetchBookings`,
   `handleRefreshBookings`, `onFetch` or `onRefresh` (`grep` returns no matches). Every test that
   exercises either handler does so through `screen.getByRole("button", {…})` +
@@ -3799,10 +3833,19 @@ across the two hooks pass unchanged, which confirms no regression and pins nothi
 ★ Production was never affected (one mount, no remount), so there is no user-facing behaviour change
 and no version bump — this is a dev-experience fix.
 
-★★ Sweep is COMPLETE and re-run on the broad pattern, not the literal string that found it:
-`grep -rnE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" src/app/` returns exactly three hits —
-these two plus `use-storage-backend.ts` — and all three now re-set on mount. There are exactly three
-`mountedRef`s in the app.
+★★★ **THE SWEEP REGEX THIS ENTRY DOCUMENTED CANNOT MATCH THE DEFECT IT SWEPT FOR.** It read
+`grep -rnE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" src/app/` → "exactly three hits". Three
+is the right answer TODAY, which is why it survived review twice — but run it against the pre-fix tree
+and it returns **ZERO**: both defects were written in the concise arrow-returning-arrow form,
+`useEffect(() => () => { mountedRef.current = false; }, []);` (`git show 4a81420a:src/app/use-scheduled-jobs.ts`),
+which contains no `return () => {` at all. The regex only matches the BLOCK form the FIX introduced. So
+it validated the fixed state and would structurally miss a NEW instance written the way both real ones
+were. **A sweep pattern must be run against the tree where the defect existed, not the tree where it is
+fixed** — otherwise "the sweep is complete" is a statement about your own diff.
+★ The form that covers both: `grep -rnE "=> *\{? *[a-zA-Z]+Ref\.current = false" src/app/` — 1 hit on
+the base tree for `use-scheduled-jobs.ts`, and it finds the block form too. Cross-checked against
+`grep -rn "mountedRef = useRef" src/app/` → exactly three, all re-set on mount, so the CONCLUSION held;
+only the evidence for it was invalid.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.

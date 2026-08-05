@@ -169,6 +169,17 @@ describe("ModernShell mobile drawer (#25)", () => {
   // viewport cannot leak into another test. Do NOT replace this with a manual
   // re-assignment — `window.matchMedia = undefined` is a type error and leaves
   // the property defined-but-undefined rather than absent.
+  // ★★ TWO caveats for whoever edits this file next:
+  //   1. `vi.unstubAllGlobals()` is FILE-WIDE, not describe-scoped. It is safe
+  //      today only because this describe is the file's sole stubber; a future
+  //      file-level `beforeAll(() => vi.stubGlobal(...))` would be torn down by
+  //      the first test here and stay gone for the rest of the run.
+  //   2. Restoring matchMedia to ABSENT is safe for the current consumers
+  //      because `use-media-query.ts` guards `!window.matchMedia` — but
+  //      `use-theme.tsx` calls `window.matchMedia(...)` behind only a
+  //      `typeof window` check, so a test added to this file that renders the
+  //      theme provider would THROW after this teardown runs. Stub it in that
+  //      test rather than deleting this afterEach.
   afterEach(() => {
     vi.unstubAllGlobals();
   });

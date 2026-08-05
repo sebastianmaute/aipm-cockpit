@@ -123,10 +123,22 @@ unit-tests:
     expire_in: 1 week
 
 # Order-dependence gate. Runs the unit suite with vitest's shuffle at a PINNED
-# seed, so the result is deterministic: it can only go red on a real regression,
-# never on the seed of the day. Seed 1 is the seed that reproduced the two
-# leaks closed in open-followups §75 (a leaked `window.matchMedia` stub, an
-# undrained `mockReturnValueOnce` queue).
+# seed, so a red run is REPRODUCIBLE — the same commit shuffles the same way
+# every time, and `npm run test:shuffle` reproduces it locally.
+#
+# ★★ It is NOT true that "only a real regression can turn this red", which an
+# earlier version of this comment claimed. The seed pins the PRNG, not the
+# permutation: the shuffle is a permutation of the CURRENT test array, so
+# adding, removing or renaming any test anywhere changes the resulting order.
+# An MR that merely adds an unrelated test can therefore expose a PRE-EXISTING
+# latent order dependence and go red without having introduced anything —
+# §75 documents 38 undrained `mockReturnValueOnce` calls on `mockBackend` that
+# are exactly such latents. Read a red run as "an order dependence exists
+# somewhere in the suite", not "this MR caused it", and bisect with
+# `npm run test:shuffle`.
+#
+# Seed 1 is the seed that reproduced the two leaks closed in open-followups §75
+# (a leaked `window.matchMedia` stub, an undrained `mockReturnValueOnce` queue).
 #
 # ★★ `needs` includes `unit-tests` ON PURPOSE. No other quality-stage job lists
 # `unit-tests` in its own `needs` — most need at most `install` (lint,
@@ -164,7 +176,11 @@ unit-tests-shuffled:
     - job: unit-tests
       artifacts: false
   script:
-    - npm run test:run -- --sequence.shuffle --sequence.seed=1 --reporter=dot
+    # Calls the npm script rather than repeating the flags, so the gate and its
+    # documented local reproduction cannot drift apart. Nothing would have caught
+    # a mismatch: they were identical strings in two files with no gate over the
+    # pair, while AGENTS.md told contributors `test:shuffle` reproduces this job.
+    - npm run test:shuffle
 
 # Weekly random-seed sweep via a GitLab pipeline schedule. The pinned job above
 # proves seed 1 stays green; this one samples the class instead of pinning one

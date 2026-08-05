@@ -86,11 +86,15 @@ describe("canClearAllFetched", () => {
   //     can neither refresh nor remove. Every other action gains
   //     `isMisconfigured`; this one must not.
   //     ★ A `@ts-expect-error` on an extra `isMisconfigured` property was tried
-  //       here and REMOVED as unsound: excess-property checking does not fire
-  //       through a spread, so the directive was unused and `tsc` failed with
-  //       TS2578 — the "type enforces it" claim was false. The real guarantee is
-  //       that `canClearAllFetched` never reads such a field, which this asserts
-  //       behaviourally instead.
+  //       here and REMOVED because the directive was unused (`tsc` TS2578).
+  //       ★★ The reason first written here — "excess-property checking does not
+  //       fire through a spread" — is FALSE, and worth correcting because a
+  //       reader would carry that rule to other files: EPC does fire through a
+  //       spread. The real rule is FRESHNESS. EPC applies to an object literal
+  //       in the argument position and is lost once the literal is bound to a
+  //       `const` first — which is exactly what the line below does. So the
+  //       guarantee is behavioural, not type-level: `canClearAllFetched` never
+  //       reads such a field, which is what this asserts.
   it("ignores TimeLog config state entirely — a misconfigured TimeLog can still clear", () => {
     const withExtra = { ...clearOk, isMisconfigured: true } as typeof clearOk;
     expect(canClearAllFetched(withExtra)).toBe(true);

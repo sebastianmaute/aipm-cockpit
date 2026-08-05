@@ -282,13 +282,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
-  in prose, with no rules block; and `lint`, `typecheck`, `dependency-audit`, `agents-symbol-check`,
-  `unit-tests` and `unit-tests-shuffled` mention it nowhere. ★★★ Two successive revisions of this
+  in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
+  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `unit-tests`,
+  `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
+  `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ THREE successive revisions of this
   sentence were false — first "All quality gates … carry" one, then a "correction" naming
   **agents-symbol-check** (which never mentions the label) while asserting **duplication-gate** had none
-  (it is the only other job that does). Both send an operator hunting for a bypass block on whichever
-  gate is actually red. The reproduce command was attached in the second revision and REFUTED the
-  sentence it was attached to — attach the command AND run it. A weekly `schedule` pipeline also runs
+  (it is the only other job that does), then a third that fixed those two but under-enumerated the jobs
+  carrying nothing. Each sends an operator hunting for a bypass block on whichever gate is actually red.
+  The reproduce command was attached in the second revision and REFUTED the sentence it was attached to
+  — attach the command AND run it. ★ "Ratchets" above is loose for two of them: `unit-tests-shuffled`
+  and semgrep's ERROR gate have no baseline to ratchet — they are pass/fail. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
   its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
   otherwise). (Phases 1-4 of the
