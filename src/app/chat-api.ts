@@ -120,8 +120,7 @@ export function buildSystemPrompt(
         mode: snapshot.mode, modules: snapshot.enabledModules, view: snapshot.currentView,
       }))
     : "";
-  const viewScopeBlock = buildViewScopeBlock(snapshot.currentView);
-  const stableText = [stableInstructions, viewScopeBlock, guideBlock].filter(Boolean).join("\n\n");
+  const stableText = [stableInstructions, guideBlock].filter(Boolean).join("\n\n");
 
   // VOLATILE suffix (uncached): per-call state + the APP CONTEXT block. Placed
   // AFTER the cached prefix so it never invalidates the cache.
@@ -139,10 +138,18 @@ export function buildSystemPrompt(
   // filter/sort tweak — it MUST stay in the uncached suffix too, or it would
   // silently invalidate the cache on every interaction. See view-ai-scope-block.ts.
   const viewStateBlock = buildViewStateBlock(snapshot.viewDigest);
+  // ★★ VIEW SCOPE IS VOLATILE TOO: it is invariant per VIEW, which is NOT the
+  // property prompt caching rewards — that is invariance per CONVERSATION.
+  // ★ The cache SAVING comes from CACHED_TOOLS below, not from this placement;
+  // do not re-derive a per-message cost argument here (one was written, priced
+  // against a baseline that did not exist, and retracted). Sits before VIEW
+  // STATE so the model reads "what this surface is" before "what is on it".
+  const viewScopeBlock = buildViewScopeBlock(snapshot.currentView);
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
+    viewScopeBlock,
     viewStateBlock,
     insightsBlock,
   ]
@@ -221,6 +228,27 @@ export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
   return out;
 }
 
+/** ★★★ TOOLS CARRY THEIR OWN CACHE BREAKPOINT, and this is the one that matters.
+ *  Without it, `tools` shares the single prefix that ends at the system block's
+ *  breakpoint — so ANY view-dependent byte in `stableText` rewrites all ~6.5k
+ *  tokens of tool schemas along with it.
+ *  ★★★ AND `stableText` IS VIEW-DEPENDENT BY DEFAULT — this was mis-analysed
+ *  once and the wrong conclusion nearly shipped. `settings.ai.groundInGuides`
+ *  defaults to TRUE (`settings-types.ts`, and a missing key reads as true), and
+ *  20 of the 21 `BUILTIN_FEATURE_GUIDES` are view-scoped (mean ~1 KB, Open
+ *  Points ~2.9 KB), so `selectActiveGuides` swaps a multi-KB guide in and out of
+ *  `guideBlock` on EVERY view switch, for every user, out of the box. Moving the
+ *  ~100-token view-scope block into the volatile suffix therefore never bought a
+ *  cache read on its own; only this breakpoint does, by closing a segment at the
+ *  end of `tools` so the guide swap re-caches only the smaller system slice.
+ *  ★ Marking the LAST tool is how a tools-block breakpoint is expressed — the
+ *  segment covers everything up to and including the marked element. */
+export const CACHED_TOOLS = TOOL_DEFS.map((def, i) =>
+  i === TOOL_DEFS.length - 1
+    ? { ...def, cache_control: { type: "ephemeral" as const } }
+    : def,
+);
+
 export async function callClaude(
   apiKey: string,
   model: string,
@@ -245,7 +273,7 @@ export async function callClaude(
       max_tokens: maxOutputTokensFor(model),
       system: system,
       messages,
-      tools: TOOL_DEFS,
+      tools: CACHED_TOOLS,
     }),
     signal,
   });
