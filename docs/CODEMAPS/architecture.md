@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.215.0 "Friedman" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 | App 0.216.0 "Martine" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
 
 # Architecture
 

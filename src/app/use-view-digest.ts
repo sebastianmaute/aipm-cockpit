@@ -93,8 +93,13 @@ export function useViewDigest(input: ViewDigestInput): string | undefined {
     // board and swimlanes render `healthFilteredTasks` — health only — because
     // hide-finished is deliberately table-only, so their Done/Cancelled columns
     // still populate (`tasks-section.tsx` says so at both render sites).
-    // Applying hide-finished unconditionally made the digest under-report a
-    // board by every finished card while calling them "rows in the table".
+    // ★ Precisely: the SHIPPED digest (0.215.0) applied NEITHER filter — it fed
+    // raw `filteredSortedTasks` — so on a board it OVER-reported, counting
+    // finished and health-filtered cards the board never renders, and called
+    // them "rows in the table". An intermediate draft of this fix then applied
+    // hide-finished unconditionally, which would have UNDER-reported a board by
+    // every finished card. Both are wrong in opposite directions; the mode
+    // split below is what makes the count match the surface.
     const isTable = viewMode === "table";
     const rows = isTable
       ? visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, { today, holidaySet })

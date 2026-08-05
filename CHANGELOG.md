@@ -8,6 +8,45 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.216.0] - 2026-08-05 "Martine"
+
+The assistant now knows which screen you are on, and says so when it cannot see
+something rather than guessing.
+
+### Added
+
+- **View-aware AI.** Claude is told which of the app's 34 views is active and
+  what that view is for. On Open Points, Workload, Gantt and Budget it is also
+  handed a short summary of what is currently on screen.
+- **Three read tools**: knowledge-library links, resource-calendar meetings
+  (the recurring series definition and its skip/move exceptions, never an
+  expanded occurrence list), and budget-planner buckets.
+- **Starter prompts on 26 views** instead of 14.
+- **Settings -> AI -> "What Claude is told about each view"** lists, read-only,
+  the exact description the assistant receives for every view.
+- **Honest gaps.** Where no tool can answer -- time bookings, the activity log,
+  cross-project portfolio data, RACI assignments, and calendar absences -- the
+  assistant is told to say so instead of estimating.
+
+### Fixed
+
+- **The on-screen summary named rows you could not see.** On Open Points it was
+  built one filtering layer above what the table renders, so hidden rows were
+  reported as visible; and a search, priority filter or hide-externals left it
+  claiming "no filters active". It now uses the same row set the table and
+  select-all use, and names every active filter.
+- **Board and swimlane modes were counted as if they were the table.** The
+  hide-finished toggle is table-only, so a board was under-reported by every
+  finished card and its cards were called "rows in the table".
+- **Inline "Ask Claude" edits saw neighbouring rows.** An inline edit inherited
+  the on-screen summary, handing a mutation planner a list of other tasks and
+  their ids while instructing it to change only one.
+
+### Changed
+
+- Tool schemas now carry their own prompt-cache breakpoint, so switching views
+  no longer re-sends roughly 6.5k tokens of schema definitions.
+
 ## [0.215.0] - 2026-08-04 "Friedman"
 
 Trends stops recording an empty project. Three smaller fixes where a control

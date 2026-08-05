@@ -5,7 +5,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 ## Overview
 
 - Covers portfolio and project delivery: open points (tasks), action center, dashboards, trends, RAID, change control, milestones and Gantt, stakeholders and RACI, steering committee, reports, budget, resources and capacity, calendar, knowledge links, time bookings, version history, the portfolio-health rollup, and settings.
-- Recent additions: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, and the Turso-only portfolio-health rollup. Newest: formatted (rich-text) descriptions across the registers plus a dated note log on tasks and RAID items, rate-card day rates, a planning capacity column with a hide-external toggle, dashboard tile tooltips, a RACI people-column filter, richer version-history compare, and advisory AI usage-limit notices.
+- Recent additions: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, and the Turso-only portfolio-health rollup. Newest: view-aware AI (the assistant is told which view you are on, what it is for, and on four views what your filters are showing, plus read tools for knowledge links, calendar meetings and budget buckets), formatted (rich-text) descriptions across the registers plus a dated note log on tasks and RAID items, rate-card day rates, a planning capacity column with a hide-external toggle, dashboard tile tooltips, a RACI people-column filter, richer version-history compare, and advisory AI usage-limit notices.
 - Formatted text: seven fields accept bold, italic, bulleted/numbered lists and links — a task's description, a RAID item's description and mitigation, a change's description, impact description and resolution notes, and a milestone's description. Character limits count visible text, not markup. Older plain-text values stay valid and are upgraded when read, so a project can hold both shapes at once.
 - Note log: tasks and RAID items carry dated notes in a separate floating window (a `🗒 N` badge on the row). Notes are NOT the same field as the description. You have no tool that can read or write a note — if the user asks about notes, say so and point them at the window rather than guessing from the description.
 - Tip for the user: most views have an "Ask Claude" button (and an "Explain this" prompt) that opens this assistant with a view-aware question.
@@ -45,6 +45,8 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - All AI features are gated by an "Enable AI assistant" master switch in Settings → AI (off by default); a Claude API key is still required on top.
 - Attach documents (PDF, image, text) — they are read natively and records can be extracted from them.
 - Reads the live workspace via list tools for grounded answers.
+- Knows which view you are on and what that view is for, and on Open Points, Workload, Gantt and Budget it is also told what the current filters are showing. Where it has no way to read something it says so instead of guessing.
+- AI: I am told the active view and, on those four, a short summary of what is on screen. Trust that summary only for what it explicitly claims: on Gantt, Workload and Budget the counts are project totals, because those panes apply their own filters I cannot see.
 - AI: that's me — I can create/update/delete tasks, RAID items, change items, milestones, and stakeholders, and read everything else.
 - AI: usage limits are advisory and never block a message. If you hit Claude's own weekly or rate limit a notice is appended to this transcript and you can retry after it resets; if you hit your own token cap (set in Settings → AI) you get a notice too, but the assistant keeps working.
 
@@ -126,7 +128,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Resource calendar plus a live multi-timezone world-clock strip (the default zone and any additional zones the user adds).
 - Zones for the strip are configured in Settings.
-- AI: can explain the calendar and timezone strip; there is no calendar tool to add events or zones.
+- AI: can explain the calendar and timezone strip, and can LIST recurring meetings (`list_calendar_events` returns each series definition plus its skip/move exceptions, never an expanded occurrence list). It cannot add or change events or zones. ABSENCES are not readable by any tool even though the grid shows them beside meetings, so any clash or availability answer covers meetings only — say so rather than implying otherwise.
 
 ## Settings
 
@@ -141,6 +143,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Integrations panel holds storage, Turso, Microsoft 365, Timelog, and Jira together. Jira lives inside Integrations: its configuration fields appear only after the "Enable Jira sync" checkbox is ticked. Configure a primary Jira project (two-way sync) and optionally add extra projects to sync read-only (pull-only — edits never push back); each extra project has a per-project read-only toggle (default ON). The task Jira badge shows a padlock for read-only vs sync-arrows for two-way, and the task editor shows a read-only warning for watched projects.
 - A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through Storage & connections (storage, Turso, M365, Timelog), AI, and Jira, then a Review step summarising what is configured. The same wizard is reachable from the new-project window. Steps are skippable, and the flat Integrations panel can be used to adjust any setting later.
 - **Settings → Functions** lists the feature modules (Dashboard, Trends, Gantt, Milestones, Resources, Budget, RAID, Changes, Stakeholders, History, Knowledge, Timelog) as toggles, with Simple / Modular / Advanced presets that flip whole sets at once. Each toggle now carries a short description of what the function does and when to enable it, so choosing what a project uses is self-explanatory. Enabling or disabling a module changes which views and automation appear, per project.
+- **Settings → AI → "What Claude is told about each view"** lists, read-only, the exact description the assistant receives for every view, so you can see what it does and does not know before asking.
 - AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).
 - AI: can explain what each feature function does and recommend which to enable for a given project from those descriptions; it cannot toggle the functions for you (that is a Settings action).
 - AI: your session and weekly token caps in Settings → AI are advisory notices you set yourself — reaching one shows a notice but never blocks a request; the token multiplier (default 5) scales how usage is counted against those caps, and the max-turns-per-message setting (default 12) bounds how many tool-use rounds one request may take. Claude's own weekly/rate limit is separate: it shows a distinct notice and you retry after it resets.
@@ -156,7 +159,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Cost, margin and burn all derive from internal rates. When a bucket's roles carry no internal rate those tiles read "—" rather than a figure, because a cost of 0 for want of a rate card would otherwise render as a perfect 100% margin. A notice points to Resources → Roles. A T&M bucket's win/loss runs on external rates and stays valid regardless.
 - A per-period cell scores amber when the period has closed with nothing booked against a real budget; an untouched future period stays green.
 - Optional EUR overrides for non-EUR rates; the budget report (a separate view) shares this data for sharing/export.
-- AI: read-only here — there is no budget write tool. To change figures, point the user to this budget view (plan, allocations, actuals).
+- AI: read-only here — there is no budget write tool. It can LIST the planner buckets (name, status, dates and per-role budget hours); for spend, margin and CPI use the dashboard snapshot instead, which carries the computed figures. To change anything, point the user to this budget view (plan, allocations, actuals).
 
 ## Resources & capacity
 
@@ -175,7 +178,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - A standalone register of project knowledge links — documents, Confluence pages, and general web URLs; entities (RAID, changes, milestones, stakeholders, etc.) can also carry their own knowledge links.
 - A link can be added three ways: a SharePoint document (when Microsoft 365 / SharePoint is configured), a Confluence page URL, or any general web URL; every link is validated as a safe http(s) URL and shows a kind-appropriate icon.
-- AI: no knowledge write tool — it cannot add links here. In chat it can read documents you attach (PDF/image/text) natively and extract records from them.
+- AI: can LIST the library's links (name, URL, kind, and which tasks each is linked to) but has no knowledge WRITE tool — it cannot add links here. It reads the link record, never the linked document's contents. In chat it can read documents you attach (PDF/image/text) natively and extract records from them.
 
 ## Time bookings
 
