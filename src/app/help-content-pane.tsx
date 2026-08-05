@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
 import { matchesQuery, highlightSegments } from "./help-search";
+import { parseHelpBody, stripHelpMarkers } from "./help-body-markup";
 import { navLabelKey, type AppView } from "./nav-config";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -46,7 +47,9 @@ export function HelpContentPane({
 
   const groups = useMemo(() => {
     const matched = HELP_ENTRIES.filter((e) =>
-      matchesQuery(t(lang, e.titleKey), t(lang, e.bodyKey), query),
+      // ★ STRIPPED, not raw: searching the raw body would let a query match
+      // `[[` markup that is never rendered.
+      matchesQuery(t(lang, e.titleKey), stripHelpMarkers(t(lang, e.bodyKey)), query),
     );
     return HELP_GROUP_ORDER.map((group) => ({
       group,
@@ -134,7 +137,20 @@ export function HelpContentPane({
                     <Highlighted text={t(lang, e.titleKey)} query={query} />
                   </h3>
                   <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                    <Highlighted text={t(lang, e.bodyKey)} query={query} />
+                    {/* ★ Segments, not one string: a label renders emphasised
+                        against the muted body. `Highlighted` runs PER segment,
+                        so a search term spanning a label boundary matches (the
+                        search body is stripped) but highlights only within its
+                        own segment. Accepted — see the spec. */}
+                    {parseHelpBody(t(lang, e.bodyKey)).map((seg, i) =>
+                      seg.isLabel ? (
+                        <span key={i} className="font-medium text-foreground">
+                          <Highlighted text={seg.text} query={query} />
+                        </span>
+                      ) : (
+                        <Highlighted key={i} text={seg.text} query={query} />
+                      ),
+                    )}
                   </p>
                   {(e.relatedConcepts?.length ?? 0) > 0 || (e.relatedViews?.length ?? 0) > 0 ? (
                     <p className="mt-1.5 text-xs text-muted-foreground">

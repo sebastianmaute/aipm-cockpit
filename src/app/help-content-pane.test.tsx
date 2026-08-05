@@ -4,6 +4,7 @@ import { beforeAll, expect, test, vi } from "vitest";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
 import { HELP_ENTRIES } from "./help-content";
 import { loadI18n } from "./i18n";
+import { stripHelpMarkers } from "./help-body-markup";
 
 // jsdom has no IntersectionObserver; the scroll-spy effect only needs the
 // constructor to exist (the observer path itself is not exercised without
@@ -77,4 +78,22 @@ test("activates a TOC item on click", () => {
   fireEvent.click(tocButtons[0]);
   // the clicked TOC button gets the active styling marker class
   expect(tocButtons[0].className).toContain("border-ui-dark-blue");
+});
+
+// ★ Searching the RAW body lets a query match `[[` markup the user never sees.
+// Searching the STRIPPED body must still find the label's own words.
+test("strips markers before matching so markup is unsearchable", () => {
+  const body = "Click [[Take the tour]] below.";
+  expect(stripHelpMarkers(body)).toBe("Click Take the tour below.");
+  expect(stripHelpMarkers(body)).not.toContain("[[");
+});
+
+// ★★ A property over the WHOLE rendered pane, not one entry: no help body may
+// ever show bracket markup to a user. It passes trivially until the first
+// marker lands, and becomes load-bearing the moment one does — Task 9 Step 5
+// of the plan breaks a marker to prove this can actually fail.
+test("renders a marked label as styled text, never as raw brackets", () => {
+  render(<HelpContentPane lang="en-US" query="" />);
+  expect(screen.queryByText(/\[\[/)).toBeNull();
+  expect(screen.queryByText(/\]\]/)).toBeNull();
 });
