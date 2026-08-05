@@ -35,6 +35,7 @@ import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
+import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -63,6 +64,11 @@ export function TimelogPanel({
   const showToast = useToastContext();
   const confirm = useConfirm();
   const cfg = settings.timelog ?? defaultTimelogConfig;
+
+  // Declared once, directly below `cfg` and above every reader — the action
+  // handlers and the `disabled` expressions evaluate this same const rather
+  // than recomputing the condition (open-followups §74).
+  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
 
   // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
   const timelogLinks = ws.timelogLinks;
@@ -154,9 +160,11 @@ export function TimelogPanel({
   }
 
   async function clearAllFetched() {
-    // `confirming` mirrors the button's disabled state (the disabled+early-return
-    // convention used for isPopout) so an open confirm keeps its snapshot.
-    if (isPopout || confirming) return;
+    // ★★ SAME predicate the Clear-all button's `disabled` evaluates. This guard
+    //    previously mirrored exactly ONE arm of that expression (`confirming`)
+    //    and omitted `syncBusy` and `!fetchedAt` (open-followups §74).
+    //    `isMisconfigured` is deliberately absent here — see timelog-guards.ts.
+    if (!canClearAllFetched({ isPopout, syncBusy: sync.busy, confirming, hasFetched: !!sync.fetchedAt })) return;
     if (!(await confirm({ message: t(lang, "timelogClearAllConfirm") }))) return;
     sync.clearAll();
     sel.clear();
@@ -369,7 +377,10 @@ export function TimelogPanel({
     showToast,
   });
   async function handleLoadManagedProjects() {
-    if (isPopout || sync.busy) return;
+    // ★★ SAME predicate the Load-managed-projects button's `disabled`
+    //    evaluates. This guard omitted BOTH `isMisconfigured` and `confirming`
+    //    while the button carried all four (open-followups §74).
+    if (!canLoadManagedProjects({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured })) return;
     await sync.loadManagedProjects(
       includeClosedProjects,
       projectCustomerId === "" ? undefined : projectCustomerId,
@@ -386,8 +397,12 @@ export function TimelogPanel({
   const refreshProjectIds = links.projectIds ?? [];
   const canRefresh =
     refreshCustomerId !== undefined && refreshProjectIds.length > 0;
+
   async function handleRefreshBookings() {
-    if (isPopout || sync.busy || confirming || !canRefresh) return;
+    // ★★ SAME predicate the Refresh button's `disabled` evaluates — see
+    //    timelog-guards.ts. This guard previously omitted `isMisconfigured`
+    //    while the button included it (open-followups §74).
+    if (!canRefreshBookings({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return;
     const { start, end } = fetchWindow();
     const result = await sync.fetchBookingsForProjects([...refreshProjectIds], start, end);
     // Surface a partial per-project failure the same way Fetch does — else a
@@ -403,7 +418,18 @@ export function TimelogPanel({
   // derived from who booked on them. Persists customer + project scope so the
   // selection survives a reload.
   async function handleFetchBookings() {
-    if (isPopout || sync.busy || confirming || projectCustomerId === "" || selectedProjectIds.size === 0) return;
+    // ★★ SAME predicate the Fetch button's `disabled` evaluates.
+    if (
+      !canFetchBookings({
+        isPopout,
+        syncBusy: sync.busy,
+        confirming,
+        isMisconfigured,
+        projectCustomerId,
+        selectedCount: selectedProjectIds.size,
+      })
+    )
+      return;
     const { start, end } = fetchWindow();
     const cid = Number(projectCustomerId);
     const ids = [...selectedProjectIds];
@@ -433,8 +459,6 @@ export function TimelogPanel({
     );
   }, [fetchedUsers, peopleFilter]);
   const visibleFilteredIds = useMemo(() => filteredUsers.map((u) => u.userId), [filteredUsers]);
-
-  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>

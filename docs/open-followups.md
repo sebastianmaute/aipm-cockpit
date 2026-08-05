@@ -114,11 +114,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
-| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, `refreshBackendStatus` was later guarded too (see the section — this row said "surveyed, left" after that landed), leaving `applyWorkspace`'s 25 setters as the deliberate remainder; ★ near-zero production impact, the win is a job that stops lying |
-| 73 | `onTestFailed` reports post-teardown state, so any capture it makes is a false witness | found post-0.214.0 | S | open — repo-wide test-authoring trap; ★ **measured**: it fabricated evidence for §39 |
-| 74 | The TimeLog refresh handlers omit a guard their button carries | pre-existing, found post-0.214.0 | S | open — latent today (the button is the only caller); ★ it is what made §39 possible |
-| 75 | Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage) | pre-existing, found post-0.214.0 | S–M | open — ★★ has a **REPRODUCING SEED** (`--sequence.shuffle --sequence.seed=1`), and each file reproduces ALONE; verified pre-existing on `main`; not a live CI failure |
-| 76 | Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount | pre-existing, found post-0.214.0 | S | open — `use-scheduled-jobs.ts` + `use-operating-guides.ts`; one-line fix each, the same one §72 already made |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★ near-zero production impact, the win is a job that stops lying |
+| 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
+| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations (each pinning the ONE arm that was the defect — `isMisconfigured`×3, `hasFetched`×1; `isPopout`/`syncBusy`/`confirming` stay unpinned at every call site), after a revision that wrongly called Fetch untestable |
+| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §84 |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§85 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
 | 77 | The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project | found post-0.214.0 | M | open — ★★ both obvious fixes are WRONG (suppress-path strands it false; a state reset lands a render late, both effects run in one commit); needs ref+state |
 | 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | open — every later variance row then compares against nulls; fix `isFirstEver`, do NOT overload §77's flag |
 | 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
@@ -126,6 +126,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`; ★★★ the first fix broke the ASSIGN control (inert select), so `source` now carries caller INTENT |
 | 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
+| 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
+| 85 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the real app double-invokes correctly IN DEV (mount→cleanup→mount observed in `next dev`; React double-invokes in development only, so this says nothing about production), making this a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3257,14 +3259,10 @@ one and credited the wrong mechanism.** It said "the load effect's `cancelled` s
 by accident. The one that does not is `onGrantWriteAccess`". Both halves are false, and the two reviewers
 who caught it did so independently.
 
-★★★ **THE LINE NUMBERS IN THIS TABLE ARE PRE-FIX — kept deliberately, as the record of what was
-wrong.** The fix inserted 16 lines (12 comment + 3 guards + 1 blank) above the old `:251`, so every
-citation below that point shifted. ★★ Do NOT read that 16 as a usable offset any more: merging
-`feat/thing-a` added `workspaceLoaded` and its comment ABOVE this region as well, so the drift is no
-longer uniform and the table is not offset-comparable to today's file at all — it is history, full
-stop. Current `refreshBackendStatus` call sites are **317 · 332 · 339 · 361 · 501 · 512 · 542 · 758**;
-the load effect is **311-367** (re-derived post-merge with the command below, which is the only way
-these should ever be quoted). ★★ This is the
+★★★ **THE LINE NUMBERS IN THIS TABLE ARE PRE-FIX AND ARE NOW ALL 16 TOO LOW — kept deliberately, as
+the record of what was wrong.** The fix inserted 16 lines (12 comment + 3 guards + 1 blank) above the
+old `:251`, so every citation below that point shifted. Current `refreshBackendStatus` call sites are
+**275 · 290 · 297 · 319 · 459 · 470 · 500 · 716**; the load effect is **269-324**. ★★ This is the
 `file:line`-invalidated-by-its-own-commit trap in its purest form — one sentence further down cited
 `:443/:484/:700`, was written BY the fixing commit, and was false the moment it landed. Prefer
 function names to line numbers here; where a number is unavoidable, re-derive it with
@@ -3352,7 +3350,7 @@ inert only because the whole tree goes down together.
 
 ---
 
-## 73. `onTestFailed` reports post-teardown state, so any capture it makes is a false witness — open
+## 73. ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ — CLOSED
 
 Found while instrumenting §39 and §51. This is repo-wide, not specific to those two tests.
 
@@ -3379,8 +3377,10 @@ afterEach((ctx) => {
 });
 ```
 
-Used by the §39 capture (`timelog-panel.test.tsx`) and the §51 capture (`use-tasks-dedup.test.tsx`) on
-this branch.
+Used by the §39 capture (`timelog-panel.test.tsx`) and the §51 capture (`use-tasks-dedup.test.tsx`),
+both merged in the machine-unblocking slice-2 MR (`!346`). ★ An earlier revision said "on this branch",
+which stopped being true the moment that branch merged — a relative reference in a long-lived register
+decays silently. Name the MR or the commit.
 
 **Scope:** this affects **any** test in this repo that would inspect DOM or mock state from
 `onTestFailed` or `onTestFinished`, because the setup file's `cleanup()` always wins the race.
@@ -3390,11 +3390,31 @@ a grep finds today (two in `timelog-panel.test.tsx`, one in `use-tasks-dedup.tes
 comments those files now carry, not calls. (An earlier revision said "these captures are the first use",
 contradicting its own next sentence and this entry's whole conclusion.)
 
-★ Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.
+★ ~~Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.~~
+**SUPERSEDED by the paragraph directly below — it WAS added.** Struck rather than deleted because two
+independent reviewers flagged this line, both reading it as the file's live answer and taking away the
+opposite of the truth. Elsewhere this file marks a disproven claim explicitly ("**This entry was
+wrong.**"); leaving one unmarked directly above the paragraph that disproves it makes the convention
+look optional.
+
+★★★ **CLOSED — the landmine now lives in AGENTS.md's `npm run test:run` command block**, so it reaches
+every session automatically rather than requiring a targeted open of this file. It records the same
+LIFO ordering, the same measured `{"fetchCalls":0,…}` fabricated-evidence example, and the same working
+`afterEach`-closure pattern, citing `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx`.
+
+★ **`agents-symbol-check`'s only anchor for the name `onTestFailed` is the three warning COMMENTS** —
+two in `timelog-panel.test.tsx`, one in `use-tasks-dedup.test.tsx` — confirmed still present. There is
+no call site anywhere in `src`/`scripts`/`e2e`: the gate proves only that the NAME `onTestFailed`
+resolves somewhere in the repo, and today it resolves solely because those comments exist. A future
+comment cleanup that removed all three (e.g. "dead warning, nobody would try this again") would delete
+the gate's only anchor for the name and fail `docs:symbols:check` — not because the trap stopped being
+true, but because the one place recording it in code was gone. Keep at least one comment naming
+`onTestFailed` alive, or move the citation into an allowlisted absence marker if the comments are ever
+pruned.
 
 ---
 
-## 74. The TimeLog refresh handlers omit a guard their button carries — open
+## 74. ~~The TimeLog refresh handlers omit a guard their button carries~~ — CLOSED
 
 `handleRefreshBookings` and `handleFetchBookings` (`timelog-panel.tsx`) each open with an early return,
 and neither includes `isMisconfigured` — while the corresponding buttons in `timelog-panel-toolbar.tsx`
@@ -3417,9 +3437,86 @@ works precisely because the button carries a guard the handler does not. **Read 
 ★ The cheap fix is to lift `isMisconfigured` into both handler guards, making the button's `disabled`
 a presentation of the handler's contract rather than a second, stricter contract.
 
+★★★ **FIXED — went structural instead of the cheap lift.** A shared pure module
+`src/app/timelog-guards.ts` exports `canFetchBookings` / `canRefreshBookings` /
+`canLoadManagedProjects` / `canClearAllFetched`, and BOTH the handlers' early returns and the buttons'
+`disabled` expressions evaluate the same predicate. The two-copy lift was rejected deliberately: it
+leaves two copies of one contract — the shape that produced this defect — while a pure predicate is
+unit-testable regardless of what renders it. Predicates were verified logically equivalent to the
+buttons' PREVIOUS `disabled` expressions, so no button changed behaviour in any state; the handlers
+gained the terms they lacked. `isMisconfigured` is declared once directly below `cfg`, above every
+reader (readability only — both handlers are hoisted `function` declarations invoked from `onClick`,
+so the earlier placement was never a TDZ hazard, whatever a previous comment here implied).
+
+★★★ **`canClearAllFetched` deliberately does NOT take `isMisconfigured`,** and takes its own
+`TimelogClearState` so the omission is visible in the type rather than reading as a fifth oversight.
+Clearing is the only one of the four actions that never reaches the network — it forgets local data the
+user already has — and a broken config is exactly when someone wants stale bookings gone. Gating it
+would trap them with data they can neither refresh nor remove.
+
+★★★ **THE CLOSURE WAS DECLARED THREE TIMES BEFORE IT WAS TRUE: 2-of-3 → 3-of-3 → 3-of-4.** Each time,
+every instance the author had looked at was fixed. `handleLoadManagedProjects` (a third file, whose
+button spelled out `isBlocked` by hand) and then `clearAllFetched` (one arm mirrored, with a comment
+saying it mirrored the button) turned up in successive reviews. **The durable rule is not another sweep
+of the same shape: enumerate the CALL SITES of the contract and close them as a set** —
+`grep -n 'disabled={' src/app/timelog-panel-toolbar.tsx src/app/timelog-projects-table.tsx`, diffing
+each against its handler.
+
+★★ **ALL FOUR BUTTON WIRINGS ARE PINNED, each by a SINGLE-SITE mutation** (`timelog-panel.test.tsx`,
+describe "action buttons while TimeLog is unconfigured"):
+
+| wiring | arm pinned | mutation that must fail a test |
+|---|---|---|
+| Fetch (`timelog-panel-toolbar.tsx`) | `isMisconfigured` | `isMisconfigured: false` |
+| Refresh (same file) | `isMisconfigured` | `isMisconfigured: false` |
+| Load-managed (`timelog-projects-table.tsx`) | `isMisconfigured` | `isMisconfigured: false` |
+| Clear-all (`timelog-panel-toolbar.tsx`) | `hasFetched` | `hasFetched: true` |
+
+★★★ **Mutate ONE site at a time.** An earlier revision claimed the button half was pinned on the
+strength of a mutation that changed two sites at once — whose failure was fully explained by one of
+them, and said nothing about the other. A mutation spanning two call sites cannot attribute the failure
+to either.
+
+★★★ **Write "not done", never "cannot be done", unless the impossibility has itself been tested.** A
+revision here claimed Fetch "cannot be pinned from the DOM" because the picker renders under
+`!isPopout && !isMisconfigured`. The picker's RENDERING is gated; its STATE is not —
+`useTimelogPickerScope` runs unconditionally and seeds the customer + selection from the persisted
+picker scope or `timelogLinks` (`timelog-initial-scope.ts` ranks 1 and 2), neither of which reads
+`isMisconfigured`. A device that lost its token mounts in exactly that state. **Converting a missing
+test into a documented impossibility is worse than the gap: the gap invites a fix, the impossibility
+forbids one.** Two independent reviewers caught it.
+
+★ The Fetch/Refresh fixture seeds `links={{customerId, projectIds}}` with NO config, so the selection
+exists and `isMisconfigured` is the only remaining blocker. Its query is anchored on the full label
+(`^<timelogSync> \(1\)$`): the ` (N)` suffix appears only when `selectedCount > 0`, so the match
+proves the seed took and the assertion cannot pass vacuously off an empty selection. Keep it anchored —
+a bare `/\(1\)$/` would multi-match any future counted button, and a plain exact-name query stops
+resolving the moment a selection exists.
+
+★★ Coverage: 4 of 4 predicates unit-tested; 4 of 4 button wirings DOM-pinned; each wiring pins the ONE
+arm that was the defect, so `isPopout` / `syncBusy` / `confirming` remain unpinned at every site.
+
+★★★ **The HANDLER guards are still unpinned, and that half really is hard.** No test fails if
+`isMisconfigured` is dropped from any of the three handlers carrying it. `timelog-guards.test.ts` calls
+the predicates directly and never imports `timelog-panel.tsx`; `timelog-panel.test.tsx` reaches the
+handlers only through a button, and every such test waits for ENABLED first, because a disabled button
+drops `onClick`. Since the buttons now carry the same terms, "handler invoked while misconfigured" is
+unreachable from a DOM suite. ★ Shape for real coverage: invoke the handler directly (or exercise the
+predicate at the handler's own call site, with the handler's actual argument construction) with
+`isMisconfigured: true` and everything else permissive, asserting `sync.fetchBookingsForProjects` is
+NOT called. ★ Do not read the green suite as verifying that closure — it verified only that nothing
+already passing broke.
+
+★ `TimelogFetchState.projectCustomerId` is `number | ""` (matching `use-timelog-picker-scope.ts`), not
+`string`; review caught that before the wiring landed.
+
+★ Test totals are deliberately not written here — reproduce with
+`grep -cE '^\s+it\(' src/app/timelog-panel.test.tsx src/app/timelog-guards.test.ts`. A hardcoded count
+in this entry went stale twice inside this branch.
+
 ---
 
-## 75. Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED — open
+## 75. ~~Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED~~ — CLOSED
 
 ★★ **This is the artifact the §39/§51 flake hunt was looking for, attached to different tests.** Both
 of those flakes are load-sensitive and have never reproduced on demand; this one reproduces
@@ -3483,9 +3580,142 @@ which is rare enough in this register to be worth its own entry.
 nothing: most of this suite is not written to share a module registry, so removing isolation is
 expected to fail broadly. The shuffle result is the informative one precisely because isolation stays on.
 
+★★★ **FIXED — both mechanisms, NAMED, and they are two different bugs.**
+
+★★★ **SCOPE THE SECOND FIX HONESTLY: it closes `createBackend`, NOT the once-queue class.** The
+storage fix below drains exactly ONE of the file's six module-level mocks. `mockBackend` is a
+module-level const (`use-storage-backend.test.tsx:103`) that is never rebuilt, and eight further
+describes queue once-values on `mockBackend.load` / `isReady` / `describe` / `save` — 60 `Once(` calls
+across the file against 2 `mockReset()` calls — with no drain anywhere. (★ 60 is the FILE-WIDE count;
+38 of those are on `mockBackend`, the other 22 on `createBackendMock`. ★ "one of six" is loose too: six
+is the number of `vi.mock()` factories, `createBackend` is one function inside the `./storage` one, and
+`mockBackend` is not a member of that set at all. The precise statement is: the drain covers
+`createBackend` and nothing else.)
+
+★★ **A first version of this paragraph claimed "Every one of them re-establishes its default with
+`.mockResolvedValue(...)`". That is false for FIVE of the eight** — `load effect`,
+`reloadCurrentProject`, `id-minter`, `Layer 3 wipe guard` and `Layer B` re-arm only `createBackend` in
+their `beforeEach` and otherwise rely on the declaration-time defaults at `use-storage-backend.test.tsx:103`.
+The conclusion survives (a standing default does not out-rank a queued once-value either) but the
+premise was checkable and wrong — and it makes the hazard slightly WORSE than stated, since in those
+five a leaked once-value goes straight into the next test's mount with nothing re-arming over it.
+
+★ This is a LATENT hazard, not a known live leak: read statically each
+queued value looks consumed by a mount or an explicit reload, and the suite passes shuffled at seeds
+1/2/3/7. But nothing structurally prevents the next test added to any of those describes from
+reopening the exact defect this entry closes. ★★ The comment in the test file states the general fact
+("`clearAllMocks` does NOT drain a `mockReturnValueOnce` queue — only `mockReset` does") beside a
+remedy applied to one mock, which reads as though the general fact had been generally handled.
+★★★ **DO NOT reach for `mockReset: true` in `vitest.config.ts` — an earlier revision of this entry
+recommended it as "the cheap structural close" and it is a SUITE-BREAKER.** The justification given
+("every `beforeEach` in the file already re-establishes its own defaults, so nothing depends on values
+surviving a test") is false: `mockBackend`'s methods are built as `vi.fn().mockResolvedValue(...)` at
+DECLARATION (`use-storage-backend.test.tsx:103`), the implementation is not an argument to `vi.fn()`,
+and the five describes named above depend on exactly that surviving. `mockReset` returns such a mock to
+a noop yielding `undefined`, so `load()` / `isReady()` / `describe()` would resolve `undefined`
+suite-wide. Recording an untried remedy as "cheap" is precisely the failure this register exists to
+prevent — a later reader adopts it on the entry's authority. Closing the class properly would first
+require moving those declaration-time defaults into every `beforeEach`.
+★ Related and separate: the `project flows` describe sets a PERSISTENT `.mockReturnValue(targetBackend)`
+that survives `clearAllMocks` into later describes. Harmless today only because every subsequent
+describe re-arms `createBackend` in its own `beforeEach` — do not let anyone "simplify" one of those
+re-arms away.
+
+- `modern-shell.test.tsx`: `stubViewport` assigned `window.matchMedia` **directly**
+  (`window.matchMedia = vi.fn()...`). A plain property write is invisible to `vi.clearAllMocks()` and
+  `vi.restoreAllMocks()` (neither touches a non-mock property), and jsdom ships no `matchMedia` for
+  anything to restore it to — so the first mobile-drawer test pinned the whole file to a narrow
+  viewport for the rest of the run, and `ModernShell` rendered the off-canvas drawer instead of the
+  in-flow sidebar for every later test. Now stubbed via `vi.stubGlobal` and undone by a describe-scoped
+  `afterEach(() => vi.unstubAllGlobals())`, which deletes the property rather than setting it to
+  `undefined`.
+  ★★ It stayed invisible in DECLARATION order only by **coincidence, not because the drawer describe is
+  last — it is third of five** ("settings slot" and "banners slot" both follow it). That describe's
+  final test happens to stub `matches: false`, the wide-viewport value the two trailing describes need
+  anyway. Adding or reordering a test inside the drawer describe would have broken them with no shuffle
+  flag involved. The fix's first comment claimed "the drawer describe is last"; that was false, and a
+  follow-up commit corrected it. **The correction is recorded, not silently overwritten** — this file's
+  own convention (see the intra-file/cross-file correction above) is to keep a disproven claim visible
+  as the instructive artifact rather than launder it out.
+- `use-storage-backend.test.tsx`: `vi.clearAllMocks()` is `mockClear` — it wipes calls/instances/results
+  and does **not** drain a `mockReturnValueOnce` queue; only `mockReset` does. Three tests in the
+  `onRequestStorageSwitch` describe queue two `createBackend` return values and consume only one (the
+  early return under test **is** the assertion), so a leftover queued value survived into whichever test
+  ran next and shifted its queue by one: the switch target came back as the main backend, the main
+  backend as the switch target, and `targetSave` was never called.
+  ★★ The first fix drained the queue in `beforeEach` only, which is **one-directional**: it makes
+  intra-describe ordering safe but does nothing for whichever test `--sequence.shuffle` happens to
+  schedule LAST in that describe, whose leftover then carries into whichever describe runs next (a
+  plain `.mockReturnValue` default does not out-rank a queued once-value). This gap was flagged by a
+  code-quality reviewer reading the code alone, before it was connected to any failing seed. A follow-up
+  commit added the same `mockReset()` drain to the describe's `afterEach`, and moved the
+  `vi.resetAllMocks()`-vs-`mockReset()` rationale out of the commit message and into the test file's own
+  comment.
+  ★★★ **That reviewer's prediction is now empirically PROVEN, not just theoretically plausible.** The
+  `beforeEach`-only drain leaves `Layer 3 wipe guard (persistence choke point) > refuses to persist a
+  MULTI-collection simultaneous wipe (bug signature)` failing at `--sequence.seed=7` — the leftover
+  once-value from `onRequestStorageSwitch`'s last-scheduled test survives past that describe's
+  `beforeEach`-only drain and leaks into the wipe-guard describe's first `createBackend()` call:
+
+  | tree state | seed 7, `use-storage-backend.test.tsx` alone |
+  |---|---|
+  | no drain at all (`2d7db4e3`) | **FAIL** — `Layer 3 wipe guard … MULTI-collection simultaneous wipe` |
+  | `beforeEach` drain only (`55143042`) | **FAIL**, 2 runs of 2 |
+  | `beforeEach` + `afterEach` drains (`e0064815` onward) | **PASS**, 3 runs of 3 |
+
+  This was first filed as a separate, mechanism-unknown defect (§84) before being re-measured against
+  the wrong baseline and closed as the same leak. See §84 for the full account and the transferable
+  lesson about measuring against a partially-fixed tree.
+
+★ The measured block above (`1 failed / 62 passed`) is historical: an unrelated §72 test later grew
+that file's total, so the same bug would read `1 failed / 63 passed` today. Left as measured.
+
+★★★ **The gate.** `unit-tests-shuffled` (BLOCKING quality-stage job) runs the full unit suite at
+`--sequence.shuffle --sequence.seed=1` — the seed that reproduces both leaks above — so a red run is
+REPRODUCIBLE. ★★ It does NOT follow that "only a real regression can turn it red": the seed pins the
+PRNG, not the permutation, which is over the CURRENT test array — so adding or removing any test
+anywhere reshuffles, and an MR can go red by newly exposing a PRE-EXISTING latent (the undrained
+`*Once()` queues below are exactly such latents). Read a red run as "an order dependence exists
+somewhere in the suite", not "this MR caused it". Its `needs` is `[install, {job: unit-tests,
+artifacts: false}]`: the dependency edge is there deliberately, because no other quality-stage job
+depends on `unit-tests` and without it GitLab would run this job concurrently with `unit-tests` — two
+full vitest processes contending for one runner's CPU, the same class of resource contention as the
+documented full-suite parallel-load worker-starvation flakes (AGENTS.md's `npm run test:run` note;
+§51's amplification note). `artifacts: false` keeps the serialisation without downloading
+`unit-tests`'s coverage/junit artifacts, which this job never reads. A weekly-`schedule`-only
+`unit-tests-shuffled-random` (`allow_failure: true`) samples the class instead of pinning one point of
+it: its seed is `$CI_PIPELINE_ID`, echoed alongside the exact local reproduce command. ★ `$RANDOM` was
+rejected as the seed source because it is a bash builtin and the runner shell is not guaranteed to be
+bash. ★ The echo line **must stay single-quoted in YAML** — written unquoted, its embedded `": "`
+parses as a YAML mapping rather than a plain string and GitLab rejects the job at config-parse time;
+that bug shipped in the first version of the job and was caught only by parsing the file with a YAML
+library and printing the parsed `script` array, not by eye.
+
+★ **Prerequisite met — and re-measured at the branch tip:** the full suite passes shuffled at seed 1,
+all files, exit 0. **Reproduce with `npm run test:shuffle`** (added in this slice — it pins the same
+seed CI's `unit-tests-shuffled` uses, so a red gate is reproducible locally in one command).
+
+★★★ **NO TEST TOTAL IS WRITTEN HERE — the number went stale THREE TIMES inside this one branch**
+(8959 → 8966 → 8971, each correction written by someone who had just finished a paragraph about stale
+counts, each invalidated by the next commit). The lesson is not "be more careful"; three careful
+attempts failed. **A count of something the branch is actively changing cannot be maintained in prose.**
+★★ Related and separate: the first prerequisite measurement was taken at the commit that ADDED the
+gate, then three more commits landed. **A prerequisite for a BLOCKING gate must be re-taken at the tip**
+— every later commit invalidates it and CI cannot notice, because the gate has not run yet.
+
+★★ **Scope, honestly.** This was never a live CI failure — nothing in CI shuffled before this slice.
+From these commits forward it is gated at **seed 1 only**; a new order-dependent test that only fails
+at some other seed still reaches `main`, and is caught, at best, by the weekly random-seed job.
+
+★★★ **Do NOT read this closure as "these two files are now order-independent" as a general property —
+only as "verified at the seeds tested."** Seeds 1, 2, 3, 7 and the unshuffled control all pass on both
+files today, and seed 7 in particular is now confirmed to be the SAME `use-storage-backend.test.tsx`
+mechanism above rather than a third one (§84, closed, was filed as a separate defect and found to be
+this one, measured on a tree with only the `beforeEach` half of this fix). Nothing was tested beyond that finite set of seeds.
+
 ---
 
-## 76. Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression — open
+## 76. ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ — CLOSED post-!346
 
 ★★★ **This is the exact defect §72's `use-storage-backend.ts` guard was written to avoid, sitting
 unfixed in two sibling hooks.** Both declare the ref and then clear it in a cleanup WITHOUT re-setting
@@ -3496,24 +3726,110 @@ const mountedRef = useRef(true);
 useEffect(() => () => { mountedRef.current = false; }, []);   // ← no `mountedRef.current = true;`
 ```
 
-- `use-scheduled-jobs.ts:47,52` — gates `setReady(true)` (`:62`), `setBusy` (`:71`, `:80`, `:81`) and
-  `setJobs(next)` (`:76`), plus an early return at `:57`.
-- `use-operating-guides.ts:74,76` — gates `setReady(true)` (`:92`) and an early return at `:87`.
+- `use-scheduled-jobs.ts` — the ref gates `setReady`, `setBusy` and `setJobs`, plus an early return
+  inside `refresh` and the guarded setters inside `mutate`.
+- `use-operating-guides.ts` — the ref gates `setGuides` and `setReady`, plus an early return inside its
+  refresh path. (`setBusy` there is genuinely unguarded; the asymmetry with the file above is real, not
+  a copy-paste slip.)
+
+★★★ **These were LINE CITATIONS and the fix invalidated every one of them.** The original read
+`use-scheduled-jobs.ts:47,52 — gates setReady (:62), setBusy (:71, :80, :81) and setJobs(next) (:76),
+plus an early return at :57`. Inserting the mount effect pushed 12 lines into one file and 9 into the
+other, above every cited site: `setReady` moved `:62`→`:74`, `setBusy` `:71`/`:80`/`:81`→`:83`/`:92`/
+`:93`, `setJobs` `:76`→`:70`/`:88`, the early return `:57`→`:69`, and guides' `setReady` `:92`→`:101`.
+Only the two `useRef` declarations still resolved. Most stale numbers pointed at a real line holding
+unrelated code — a comment, a `} catch {`, a `}, []);` — so nothing looked broken. ★★ Two did NOT, and
+they are the more dangerous kind: old `:62` now holds `mountedRef.current = true` (the line the FIX
+added — the most related line in the file, so the citation reads as freshly correct) and old `:81`
+holds `const mutate = useCallback(`. A stale citation that lands on plausible code is unfalsifiable by
+skim. **Cite the SYMBOL, not the line, for anything in the file the commit is editing.** This is the third recorded instance of
+a `file:line` being invalidated by the very commit that wrote it.
 
 ★★ **Consequence is dev-only and TOTAL.** Next 16 defaults `reactStrictMode: true`, so every dev mount
 is mount→unmount→remount; after that first cycle `mountedRef.current` is permanently `false` and every
-one of those setters is suppressed for the rest of the session. The scheduled-jobs surface never leaves
-its loading state. Production is unaffected (one mount, no remount) — but so is the entire test suite,
+one of those setters is suppressed for the rest of the session.
+
+★★★ **OBSERVED, not reasoned — and the symptom this entry claimed was WRONG.** Measured 2026-08-05 in a
+real `next dev` server (isolated `PORT=3100`), with a temporary probe in the mount effect and in
+`refresh`, driving the Settings → Scheduled jobs section through Playwright. Pre-fix shape (the mount
+re-set deleted, everything else identical):
+
+```
+mount-effect run          ← first mount
+mount-effect cleanup      ← StrictMode unmount: mountedRef = false
+mount-effect run          ← remount; nothing restores the flag
+refresh resolved, mountedRef=false jobs=1     ← the data DID load
+(no "setJobs APPLIED")                        ← the setter is suppressed
+```
+
+With the shipped fix, the same run reads `mountedRef=true` followed by `setJobs APPLIED`. So the defect
+and the fix are now both observed, on the real surface, not inferred from the code.
+
+★★★ **The claimed symptom — "the scheduled-jobs surface never leaves its loading state" — is FALSE, and
+survived three review rounds.** `useScheduledJobs` returns `ready`, and NEITHER consumer reads it, so
+no loading state is driven by that flag at all. Reproduce: `grep -rn "useScheduledJobs" src/`.
+
+There are **TWO** consumers, and the more serious symptom is the invisible one:
+
+| consumer | reads | dev symptom pre-fix |
+|---|---|---|
+| `settings-sections/scheduled-jobs-section.tsx` | `jobs, busy, createJob, updateJob, deleteJob` | the job LIST renders empty — a user sees "no scheduled jobs" |
+| `use-ai-orchestration.ts` | `jobs`, `recordRun` → `useScheduledJobRunner` | the runner sees a permanently empty list, so **NO SCHEDULED JOB EVER FIRES**, silently |
+
+★ `useOperatingGuides` is a third case again: its `ready` IS consumed, reaching `chat-panel.tsx` as
+`guidesPending = ai.groundInGuides && !guidesReady`, which blocks send and disables the composer — so
+its symptom is the AI chat composer, and only when "ground in guides" is on.
+★ "The section renders EMPTY" is loose and worth not copying forward: the section still renders its
+title, help text, master toggle and Add button. It is the job LIST that is empty.
+
+★★★ **Why three rounds missed it, and why the FIRST correction still got it wrong.** Every reviewer
+verified that the SETTERS were guarded — a question about the hook. Nobody traced the flag OUT of the
+hook to a render. **A claim about a symptom is a claim about a consumer — check the consumer, not the
+producer.** ★★★ That sentence was written while checking exactly ONE of the two consumers, and the
+correction asserted "its ONLY consumer". One `grep -rn "useScheduledJobs" src/` would have caught it.
+Stating the lesson is not the same as applying it: when the claim is "the consumers do X", the
+enumeration of consumers IS the claim, so grep it before writing the word "only". Production is unaffected (one mount, no remount) — but so is the entire test suite,
 which is why this has survived: **a fully green suite says nothing about it**, exactly as measured for
 §72's own re-set line, which no test can pin either.
 
-★ Fix is one line in each — `mountedRef.current = true;` as the first statement of the effect body,
-identical to `use-storage-backend.ts:174-180`. ★ Verified there are exactly TWO such hooks:
-`grep -rln "useEffect(() => () => { mountedRef.current = false; }, \[\])" src/app/`.
+★★ **FIXED.** Both effects now re-set the flag as their first statement, identical to
+`use-storage-backend.ts`. ★ Placement matters and is recorded in both files: the guard effect is
+declared BEFORE the `refresh` effect that consumes it, so on a StrictMode remount React restores the
+flag before re-running the effect that calls the guarded setters. Reordering them silently reinstates
+the bug.
+
+★★★ **AND IT SHIPS UNTESTED, NECESSARILY — the same wall as §72's own re-set line.** StrictMode
+invokes effects ONCE under this suite (measured: `["mount"]`, no cleanup+remount, react 19.2.4 /
+`NODE_ENV=test`), so a StrictMode-wrapped test is VACUOUS — it passes with the fix reverted. None was
+written; a test that passes against the mutation it names is worse than none. The 15 existing tests
+across the two hooks pass unchanged, which confirms no regression and pins nothing about this fix.
+★ Production was never affected (one mount, no remount), so there is no user-facing behaviour change
+and no version bump — this is a dev-experience fix.
+
+★★★ **THE SWEEP REGEX THIS ENTRY FIRST DOCUMENTED COULD NOT MATCH THE DEFECT IT SWEPT FOR.** It read
+`grep -rnE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" src/app/` → "exactly three hits", which is
+the right answer TODAY. Against the pre-fix tree it returns ONE — `use-storage-backend.ts:179`, already
+in block form from §72 — so the only file it finds is the one that was never a §76 defect, and it
+misses both real instances. Those were written in the concise arrow-returning-arrow form,
+`useEffect(() => () => { mountedRef.current = false; }, []);`, which contains no `return () => {` at
+all: the pattern only matched the BLOCK form the FIX introduced. **A sweep pattern must be run against
+the tree where the defect existed, not the tree where it is fixed** — otherwise "the sweep is complete"
+is a statement about your own diff.
+
+★ The form that covers both, validated in BOTH directions:
+`grep -rnE "=> *\{? *[a-zA-Z]+Ref\.current = false" src/app/` (add `4a81420a --` after `git grep -nE` to
+run it against the base tree). At base it finds the concise form in the two §76 files plus the block
+form in `use-storage-backend`; at HEAD, the three block forms. It returns FOUR hits at both revisions —
+the extra is `use-push-to-talk.ts` `pressingRef`, a pointer-press flag, not a mount guard. That is the
+cost of matching a SHAPE rather than a name; cross-check with `grep -rn "mountedRef = useRef" src/app/`
+→ three, all re-set on mount.
+
+★★ Two successive revisions of the evidence above were wrong ("returns ZERO"; "the concise form in all
+three files"), both asserted rather than run, in the entry whose own rule is to run the sweep. The
+conclusion never changed; only the numbers offered for it did. Run the commands.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
-had the same shape. Deliberately NOT fixed in that change — it is unrelated code and a separate
-follow-up, not scope creep on a CI-facing slice.
+had the same shape — a question worth asking of every guard fix.
 ## 77. The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project — open
 
 `use-storage-backend.ts` publishes `workspaceLoaded`, set `true` at the end of `applyWorkspace` and
@@ -3690,6 +4006,133 @@ name resolves to resource B, email wins with no signal.
 a rename — and it is the documented precedence. Recorded because the module's stated bar is "never
 guess", and this is the one case where it picks a side rather than declining. Very low frequency: it
 needs a task whose stored email and stored name point at two different live directory rows.
+
+---
+
+
+---
+
+## 84. ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ — CLOSED, FALSE: same mechanism, measured on a partially-fixed tree
+
+**This entry was wrong.** It was filed as a third, different-mechanism order dependence with root cause
+unknown, on the strength of two independent observations of seed 7 failing
+(`useStorageBackend — Layer 3 wipe guard (persistence choke point) > refuses to persist a MULTI-collection
+simultaneous wipe (bug signature)`, `expected "vi.fn()" to be called with arguments: ['info',
+StringContaining{…}] — Number of calls: 0`, reproducing alone under
+`npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=7`). Both
+observations were real. Both were taken on a tree that had only §75's `beforeEach` drain
+(`55143042`) — never on a tree with no fix at all, and never on the tree with BOTH drains
+(`e0064815`/HEAD). Re-measured three ways after this entry was written:
+
+| tree state | seed 7, `use-storage-backend.test.tsx` alone |
+|---|---|
+| `2d7db4e3` (no drain at all) | **FAIL** — `Layer 3 wipe guard … MULTI-collection simultaneous wipe` |
+| `55143042` (`beforeEach` drain only) | **FAIL**, 2 runs of 2 |
+| `f993e5ae` onward (`beforeEach` + `afterEach` drains) | **PASS**, 3 runs of 3 |
+
+So this was never a third, separate defect. It **is** §75's second mechanism — the undrained
+`mockReturnValueOnce` queue — escaping the `onRequestStorageSwitch` describe's boundary: under
+`--sequence.shuffle`, seed 7 schedules one of that describe's leftover-producing tests LAST within the
+describe, and with only a `beforeEach` drain that leftover once-value survives into the very next
+describe to run, "Layer 3 wipe guard". Its own `beforeEach` calls `vi.clearAllMocks()` (which does not
+drain a once-queue) then `mockReturnValue(mockBackend)` — a plain default, which does **not** out-rank a
+queued once-value. So the wipe-guard test's `renderBackend()` call receives whichever backend leaked in
+from the prior describe instead of `mockBackend`, its `load` mock never resolves the seeded
+two-collection workspace, `prevCollectionCountRef` never baselines at 2, the wipe condition
+(`curCollections === 0 && prevCollectionCountRef.current >= 2`) never evaluates true, and `showToast`
+is correctly never called — "Number of calls: 0" is the leaked-backend symptom, not a separate bug.
+`e0064815`'s `afterEach` drain (added for exactly the reason recorded in §75) closes this too, which the
+table above confirms directly rather than by re-deriving the mechanism.
+
+★★★ **The transferable lesson, which is why this entry stays instead of being deleted — this file's
+convention is that a wrong claim stays visible as the instructive artifact.** A defect measured on a
+PARTIALLY-FIXED tree can look like a new and unrelated one. Both observers here were careful and both
+verified "pre-existing" — but "pre-existing" was checked against a tree with an incomplete fix, not
+against a tree with no fix and not against current HEAD, so a fix that was already 90% landed read as
+"this bug still exists, untouched by anything we just did." **Re-measure against the CURRENT head before
+filing a new entry, not only against whatever baseline is convenient** — a baseline one commit behind
+the tip can already contain half the fix for the thing being reported as unfixed.
+
+★ **It was predicted before it was observed.** The gap this entry turned out to be — a `beforeEach`-only
+drain being one-directional, protecting intra-describe ordering but not a leftover produced by the LAST
+test scheduled in a describe — was flagged by a code-quality reviewer reading `55143042` alone, before
+anyone had connected it to a failing seed. `e0064815` closed that theoretical gap; the seed-7 failure
+above is empirical confirmation of the same prediction, arrived at independently and from the opposite
+direction (a failing test, not a code read). Both routes converged on the same fix.
+
+★ Filed and closed within the same slice: caught only because the entry's own claim ("verified TWICE and
+independently... not caused by §75's `mockReset()` fix") was checked against the current tree before
+being written into the tracked register, rather than left resting on the two prior observations alone.
+
+---
+
+## 85. StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous
+
+**Status: OPEN — but NARROWED by a direct measurement, and the scope is now known.**
+
+★★★ **StrictMode DOES double-invoke effects in the real app. The anomaly is the TEST environment
+alone.** Measured 2026-08-05 in `next dev` (isolated `PORT=3100`) with a probe in
+`use-scheduled-jobs`'s mount effect, driven through Playwright:
+
+```
+mount-effect run
+mount-effect cleanup
+mount-effect run
+```
+
+That is the mount→unmount→remount cycle the vitest measurement (`["mount"]`, no cleanup) does not
+reproduce. So this entry is NOT "does StrictMode work here" — it is specifically **"why does vitest not
+reproduce it"**, and everything downstream of that changes: the app's behaviour is correct and
+understood, the untestability is a test-harness problem, and §76/§72's guards are load-bearing in dev
+exactly as claimed (see §76's observed before/after trace).
+★ The hypotheses below are therefore all about the TEST environment. The measurement-artefact one is
+still the cheapest first check, and it now has a companion: the probe that works is a module-scope
+array written from inside the effect, which is exactly the shape a per-instance log would have got
+wrong — so reproduce the vitest measurement with THAT shape before concluding anything from it.
+
+§72 and §76 both ship UNTESTED, and both give the same reason: a StrictMode-wrapped `renderHook` was
+tried and found VACUOUS. The measurement is recorded in code at `use-storage-backend.test.tsx` beside
+the §72 guard — StrictMode invoked the effect ONCE (`["mount"]`, no cleanup+remount), so deleting the
+`mountedRef.current = true` re-set kept the whole file green.
+
+★★★ **That measurement was treated as a fact about those two tests. It is a fact about the whole
+suite.** A cleanup-only `mountedRef` is dev-only-total precisely BECAUSE React double-invokes effects
+in dev StrictMode. If nothing in this repo's test environment reproduces that, then **no** test here
+can pin **any** StrictMode-dependent behaviour, and any future test that appears to is worth
+distrusting until this is understood.
+
+★★ **What is checked, and what is not.** Checked: React and react-dom are both 19.2.4; `vitest.config.ts`
+sets no `resolve.conditions` override (only the `@` alias and `environment: "jsdom"`). Under vitest
+`NODE_ENV` is `test`, and React's entry dispatches on `NODE_ENV === "production"` — so the DEVELOPMENT
+build should be loading and StrictMode SHOULD double-invoke. **The obvious explanation ("vitest resolves
+production React") is therefore NOT the answer**, which is exactly why this needs a real investigation
+rather than a guess. NOT checked: how RTL's `renderHook` composes the wrapper, whether the specific
+`renderBackend` helper wraps in `StrictMode` at the level assumed, and whether some setup-file or
+transform step is involved.
+
+★ **Why it is worth the effort:** if resolved, it unlocks a class of tests currently declared
+impossible — §72's post-unmount guard and §76's mount re-set become pinnable, and both are shipped
+guards that a contributor can today delete with every gate green. That is the actual cost of leaving
+this open: not a broken test, an unguarded fix.
+
+★ Do NOT close this by writing a StrictMode test that passes. A test that passes against a suite where
+StrictMode is inert proves nothing — first prove the double-invocation happens (assert an effect body
+runs twice), THEN write the guard test.
+
+★★★ **A HYPOTHESIS RANKED ABOVE "production React", raised in review: a MEASUREMENT ARTEFACT.** If the
+mount/unmount log lived in per-instance state or in a ref created INSIDE the hook, then StrictMode's
+remount hands the observer a FRESH log — so `["mount"]` is what you see whether or not the double
+invocation happened. The log has to be module- or test-scope for the measurement to mean anything.
+This costs nothing to rule out and would invalidate the entire premise, so check it FIRST.
+
+★★ **The instrument is not in the tree.** The only trace of the `["mount"]` measurement is a comment;
+the probe itself was deleted, so the next reader cannot re-take it and has to trust prose — the same
+shape as the stale counts this file keeps correcting. Whoever picks this up should commit the probe
+(or paste it here verbatim) rather than re-deriving it.
+
+★ Also NOT checked, and cheap: assert directly that the DEVELOPMENT React build is what resolves under
+vitest (e.g. that a dev-only `console.error` warning fires). The reasoning above is an inference chain
+from config, not an observation.
 
 ---
 
