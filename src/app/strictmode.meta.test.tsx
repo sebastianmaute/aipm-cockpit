@@ -10,10 +10,12 @@
 //
 // Every one of those guards is only meaningful while StrictMode actually
 // double-invokes HERE. open-followups §85 records what happens when it stops
-// being: a single mis-taken measurement convinced three separate comments that
-// the behaviour was unpinnable, and the three shipped guards went untested for
-// two releases. If this file goes red, those guard tests have become vacuous —
-// fix this before trusting them.
+// being: an OBSERVATION that is reproducible — StrictMode single-invokes when
+// nested inside a wrapper component — was read as a CONCLUSION that the
+// behaviour was unpinnable outright, and each of the three mount re-sets
+// landed with no guard pinning it; deleting any one of them kept every gate
+// green until this branch closed the gap. If this file goes red, those guard
+// tests have become vacuous — fix this before trusting them.
 //
 // The logs are MODULE-SCOPE for convenience — a plain array is simple to
 // assert against and survives unmount — NOT because per-instance state would
