@@ -285,4 +285,64 @@
   control bytes; they corrupt the file to binary).
 - **No `settings.mode` field:** PM mode is DERIVED — `deriveMode(settings.features)` (same call the chat
   snapshot uses in `use-chat-dispatcher.ts`). Reading `settings.mode` is `undefined`; use `deriveMode`.
+- **View-scoped AI prompts:** before this, the assistant was told only `Current view: <name>` — a bare
+  string with no meaning attached. `view-ai-scope.ts` fixes that: `VIEW_AI_SCOPE` is a **total**
+  `Record<AppView, ViewScope>` (`purpose` / optional `reading` / optional `toolHints`) describing what
+  every one of the app's 34 views is for. ★ Total BY CONSTRUCTION — adding an `AppView` is a typecheck
+  error until it is described here, which is why there is deliberately **no** "every view is present"
+  test: such a test could not fail. `view-ai-scope-block.ts` formats the registry into two blocks:
+  `buildViewScopeBlock` (what the surface IS — call-invariant per view) and `buildViewStateBlock` (what
+  is currently ON it). `buildSystemPrompt`'s SIGNATURE was deliberately not changed — both blocks derive
+  from the `snapshot` it already receives, so `chat-panel.tsx` is untouched.
+  ★★ **The scope block is NOT gated by `settings.ai.groundInGuides` and NOT counted in
+  `GUIDE_CHAR_BUDGET`.** It is deliberately **not** an `OperatingGuide`, even though that type carries a
+  `builtIn` flag that makes routing built-ins through the guide store look natural — the whole guide
+  block is gated by that one user preference, so doing that would let a user setting silently switch off
+  shipped product behavior. `VIEW_AI_SCOPE`/`VIEW_AI_DIGEST` stay their own registries.
+  ★★★ **THE CACHE BOUNDARY.** View *scope* is invariant per view → `buildViewScopeBlock` output goes into
+  the `cache_control:{type:"ephemeral"}` **cached** prefix (`stableText` in `buildSystemPrompt`). The
+  *digest* — what's on screen — changes on every filter/sort tweak → `buildViewStateBlock` output MUST
+  stay in the **volatile**, uncached suffix. Moving the digest into the cached prefix breaks **nothing
+  visible** — it silently invalidates the prompt cache on every interaction and raises cost.
+  `chat-api.system-prompt.test.ts` ("puts the digest in the UNCACHED block, never the cached one") is the
+  only thing that would catch it.
+  ★ `view-ai-digest.ts`'s `VIEW_AI_DIGEST` is a **`Partial<Record<AppView, DigestFn>>`** on purpose,
+  covering exactly four views (`open-points`, `workload`, `gantt`, `budget`) fed through
+  `getSnapshot().viewDigest` in `use-chat-dispatcher.ts` — the other 30 views cost nothing and nobody
+  should fill them in for symmetry. Pure, i18n-free, **clock-free** (`today` passed in, unread by all
+  four digests today but kept required so the first date-based digest doesn't have to touch every call
+  site to add it).
+  ★★ **The digest must describe what the user can actually SEE.** `open-points`'s digest is fed
+  `filteredSortedTasksRef.current` — the array the Open Points TABLE actually renders (it alone applies
+  the assignee/group/label filters) — never raw `tasks`; an early revision passed the raw list while the
+  digest text claimed "N task(s) visible… Rows outside these filters are NOT shown", which named hidden
+  rows as visible. ★ `gantt`'s digest correctly still reads raw `tasksRef.current`, because Gantt filters
+  through its own independent status/priority/assignee prefs and never through the global
+  `FiltersProvider` state (see "Orphaned list filters" above) — swapping it to `filteredSortedTasks` too
+  would relocate the same bug, making the Gantt count drift from what the chart shows whenever an
+  Open-Points filter happens to be set. Workload/budget don't read `tasks` at all.
+  ★★ The digest reads the view's **`effectiveFilters`**, never the raw `FiltersProvider` state, for the
+  same reason the table and the `<select>`s do. The "no filter" sentinel is the shared **`FILTER_ALL`**
+  (`"All"`, imported from `task-filters.ts`) — not an invented `"__all__"`. A local sentinel would have
+  made every message from Open Points report three phantom active filters.
+  ★★ **Two registry entries disclose gaps rather than hinting at tools that cannot answer:**
+  `portfolio-health` (`get_dashboard_snapshot` covers the active project only — there is no cross-project
+  tool) and `raci` (RACI assignments are not tool-readable at all: `Stakeholder.raci` is absent from both
+  `StakeholderSummary` and `MilestoneSummary`, the shapes `list_stakeholders`/`list_milestones` actually
+  return). `activity` and `timelog` likewise state outright that the model cannot read them, rather than
+  staying silent and risking an invented answer.
+  - **The chip↔capability rule:** every view in `ASK_CLAUDE_PROMPTS` (`ask-claude-prompts.ts`) must have
+    `toolHints` in `VIEW_AI_SCOPE` or a digest behind it in `VIEW_AI_DIGEST` — pinned by
+    `ask-claude-prompts.test.ts` ("every chipped view has tool hints or a digest behind it"). A chip
+    asking a question no tool can answer is a dead prompt; the same test file also pins that `timelog`
+    and `activity` carry **no** chips at all.
+    26 of 34 views carry chips (2026-08-05, reproduce:
+    `grep -c "^  \"\?[a-z-]*\"\?: \[" src/app/ask-claude-prompts.ts` — or count the keys of
+    `ASK_CLAUDE_PROMPTS`).
+  - **The Settings disclosure is invisible to the axe gate** — `AiViewScopeDisclosure`
+    (`settings-sections/ai-view-scope-disclosure.tsx`) lives in the AI section of Settings, and the axe
+    gate scans Settings → **General** only, so this section is never reached. Its unit tests are the only
+    coverage. It reuses `ToggleButton`'s new `variant="disclosure"` (`aria-expanded`+`aria-controls`
+    instead of `aria-pressed` — a disclosure REVEALS content, it doesn't change application state, so the
+    stateful on/off semantics don't apply).
 

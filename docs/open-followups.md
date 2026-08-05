@@ -126,6 +126,9 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`; ★★★ the first fix broke the ASSIGN control (inert select), so `source` now carries caller INTENT |
 | 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
+| 84 | AI cannot read timelog entries — no tool exposes them | view-scoped AI prompts, unreleased | — | deliberate — `VIEW_AI_SCOPE.timelog` says so; no chips |
+| 85 | AI cannot read the activity log — no tool exposes it | view-scoped AI prompts, unreleased | — | deliberate — `VIEW_AI_SCOPE.activity` says so; no chips |
+| 86 | `ai-section.tsx`'s own sub-section titles are styled `<span>`/`<p>`, not real headings | found during view-scoped AI prompts review, unreleased | S | open — a11y, unguarded; the new disclosure's `<h3>` was not extended back to them |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3690,6 +3693,64 @@ name resolves to resource B, email wins with no signal.
 a rename — and it is the documented precedence. Recorded because the module's stated bar is "never
 guess", and this is the one case where it picks a side rather than declining. Very low frequency: it
 needs a task whose stored email and stored name point at two different live directory rows.
+
+---
+
+## 84. AI cannot read timelog entries — deliberate, no tool exposes them
+
+`Workspace` holds only `timelogLinks?: Readonly<TimelogLinks>` (`workspace.ts`) — user→resource and
+project→bucket LINK mappings, additive and optional. The real booked-time entries never enter
+`Workspace`; they are fetched live over the `/api/timelog` proxy (`api/timelog/route.ts` +
+`_helpers.ts`), which is host-allowlisted and private-IP-guarded via the shared
+`api/_shared/proxy-ssrf.ts` and authenticated with the device-sealed `timelogApiToken` secret.
+
+A read tool here would mean the model triggers a live authenticated external call on request — a
+different risk class (an outbound request to a third-party host, not a read of local project data) and
+a different failure mode: the v2 per-project endpoint has already timed out for large projects once in
+production (fixed by widening its request budget to 30s while every other Timelog call keeps 10s — see
+CHANGELOG). Building a chat tool on top of that path reintroduces that failure mode as an AI-triggered
+one, on a call the user did not directly initiate.
+
+`VIEW_AI_SCOPE.timelog.reading` tells the model outright that it cannot read booked time entries, so it
+says so rather than estimating. `ASK_CLAUDE_PROMPTS` deliberately has no `timelog` entry — pinned by
+`ask-claude-prompts.test.ts` ("has no chips for the views whose read tools are deferred") — because a
+chip there would be a dead prompt.
+
+---
+
+## 85. AI cannot read the activity log — deliberate, no tool exposes it
+
+`activity-log-context.tsx` exposes a WRITER only — `LogActivityFn`, delivered through
+`ActivityLogProvider`/`useActivityLogger()` — and the log itself is not part of `Workspace`, so there is
+nothing for a read tool to query without new plumbing. Reading it would mean threading it through
+`task-manager.tsx`, which is the Phase-3 baselined orchestrator (see "task-manager decomposition map"
+above) and is deliberately kept from growing new responsibilities.
+
+Same handling as §84: `VIEW_AI_SCOPE.activity.reading` states the model cannot read the log, and
+`ASK_CLAUDE_PROMPTS` has no `activity` entry (same test pins both absences together).
+
+---
+
+## 86. `ai-section.tsx`'s own sub-section titles are not real headings — open, a11y
+
+Found while building the view-scoped AI prompts' Settings disclosure (`AiViewScopeDisclosure`,
+`settings-sections/ai-view-scope-disclosure.tsx`, unreleased at time of writing). Its own "AI
+Assistant" and "Operating guides" sub-section titles in `ai-section.tsx` are styled elements, not
+headings:
+
+- `{t(lang, "aiAssistant")}` renders inside a `<span className="... text-sm font-medium ...">`
+  (`ai-section.tsx:412`).
+- `{t(lang, "aiGuidesHeading")}` renders inside a `<p className="text-sm font-medium ...">`
+  (`ai-section.tsx:603`).
+
+A screen-reader user navigating that Settings tab by heading (NVDA/JAWS "next heading", VoiceOver
+rotor) skips both — they read as body text, not section landmarks. `AiViewScopeDisclosure` was written
+correctly from the start — a real `<h3>` for its own title — but the two pre-existing titles above it
+were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
+sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
+`aria-sort` and §55's colour-only toggles). Fix is
+mechanical — swap both to `<h3>` with matching classes — but touches visual rhythm in a settings tab
+with no eye-verification pass scheduled, so it is recorded rather than fixed in this slice.
 
 ---
 
