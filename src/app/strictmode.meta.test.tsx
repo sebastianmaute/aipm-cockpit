@@ -15,13 +15,16 @@
 // two releases. If this file goes red, those guard tests have become vacuous —
 // fix this before trusting them.
 //
-// The logs are MODULE-SCOPE on purpose. A log held in per-instance state or in
-// a ref created inside the component is handed back fresh by StrictMode's
-// remount, so it reads ["mount"] whether or not the double invoke happened —
-// but that is not what produced the original measurement: a per-instance
-// probe was separately tried and DID observe the full cycle. The actual cause
-// is the SHAPE RULE below — StrictMode nested inside a wrapper component
-// silences the double invoke outright.
+// The logs are MODULE-SCOPE for convenience — a plain array is simple to
+// assert against and survives unmount — NOT because per-instance state would
+// miss the cycle. It would not: `doubleInvokeEffectsOnFiber` (read in the
+// react-dom development build) disconnects and reconnects effects on the SAME
+// fiber rather than replacing it, so a `useRef`/`useState` log held on that
+// fiber observes the full ["mount","cleanup","mount"] cycle exactly like a
+// module-scope one. The SHAPE RULE below is the measured, and likely,
+// explanation for how the earlier "untestable" comments got written — but
+// which wrapper shape that 2026-08-04 run actually used was never recovered,
+// so this is the likely cause, not a confirmed one.
 //
 // ★★★ THE SHAPE RULE: StrictMode only double-invokes when it is the OUTERMOST
 // element under the root. `wrapper: StrictMode` (renderHook's wrapper IS the
