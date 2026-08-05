@@ -3842,10 +3842,14 @@ which contains no `return () => {` at all. The regex only matches the BLOCK form
 it validated the fixed state and would structurally miss a NEW instance written the way both real ones
 were. **A sweep pattern must be run against the tree where the defect existed, not the tree where it is
 fixed** — otherwise "the sweep is complete" is a statement about your own diff.
-★ The form that covers both: `grep -rnE "=> *\{? *[a-zA-Z]+Ref\.current = false" src/app/` — 1 hit on
-the base tree for `use-scheduled-jobs.ts`, and it finds the block form too. Cross-checked against
-`grep -rn "mountedRef = useRef" src/app/` → exactly three, all re-set on mount, so the CONCLUSION held;
-only the evidence for it was invalid.
+★ The form that covers both: `grep -rnE "=> *\{? *[a-zA-Z]+Ref\.current = false" src/app/`. Validated
+in BOTH directions, which is the point: on the base tree it finds the concise form in all three files
+(`use-scheduled-jobs`, `use-operating-guides`, `use-storage-backend`); at HEAD it finds the three block
+forms. ★ It returns FOUR hits at HEAD, not three — the extra is `use-push-to-talk.ts` `pressingRef`, a
+pointer-press flag, not a mount guard. That is the intended cost of a pattern matching a SHAPE rather
+than a name, and it is recorded here so the next reader is not alarmed by a count that disagrees with
+"exactly three `mountedRef`s". Cross-check with `grep -rn "mountedRef = useRef" src/app/` → three, all
+re-set on mount. The CONCLUSION always held; only the evidence for it was invalid.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.
