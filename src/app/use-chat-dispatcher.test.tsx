@@ -651,6 +651,41 @@ describe("useChatDispatcher", () => {
     expect(snap.currentView).toBe("milestones");
   });
 
+  it("includes a viewDigest on a digest view and omits it elsewhere", () => {
+    const { result: onWorkload } = renderDispatcher(seedTasks(), false, "workload");
+    expect(onWorkload.current.getSnapshot().viewDigest).toBeTruthy();
+
+    const { result: onRaid } = renderDispatcher(seedTasks(), false, "raid");
+    expect(onRaid.current.getSnapshot().viewDigest).toBeUndefined();
+  });
+
+  it("open-points viewDigest reflects the live task count", () => {
+    const { result } = renderDispatcher(seedTasks(), false, "open-points");
+    expect(result.current.getSnapshot().viewDigest).toContain("3");
+  });
+
+  // Pins the seam the bug actually lived at: getSnapshot must build the
+  // open-points digest from `filteredSortedTasks` (what the table renders),
+  // never the raw workspace-wide `tasks`. view-ai-digest.ts never sees the
+  // raw list, so a unit test of the digest alone can't catch a dispatcher
+  // that wires the wrong ref back in — this has to assert against the
+  // dispatcher's own getSnapshot().
+  it("open-points viewDigest reports the FILTERED count, not the workspace-wide one", () => {
+    const { result } = renderDispatcher(seedTasks(), false, "open-points");
+    // Unfiltered: 3 tasks (Alice/Bob/Carol).
+    expect(result.current.getSnapshot().viewDigest).toContain("3 task(s)");
+
+    act(() => {
+      result.current.setFilters({ assignee: "Alice" });
+    });
+
+    const digest = result.current.getSnapshot().viewDigest;
+    // Filtered to Alice's one task: the digest must report 1, not 3.
+    expect(digest).toContain("1 task(s)");
+    expect(digest).not.toContain("3 task(s)");
+    expect(digest).toContain("Alice");
+  });
+
   it("dispatcher identity is stable across editingId-change re-renders", () => {
     // Render the hook AND useTaskForm in the same TestProviders wrapper so
     // setEditingId triggers a re-render of the dispatcher's host component.

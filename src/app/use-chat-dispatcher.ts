@@ -24,6 +24,7 @@ import {
 } from "./chat-tools";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
+import { digestForView } from "./view-ai-digest";
 import type { AppView } from "./nav-config";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
@@ -105,6 +106,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     knowledgeItems,
     calendarEvents,
     budgets,
+    effectiveFilters,
+    filteredSortedTasks,
   } = useWorkspace();
   const { editingId, setEditingId, setForm } = useTaskForm();
   const {
@@ -133,6 +136,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const knowledgeItemsRef = useRef(knowledgeItems);
   const calendarEventsRef = useRef(calendarEvents);
   const budgetsRef = useRef(budgets);
+  const effectiveFiltersRef = useRef(effectiveFilters);
+  const filteredSortedTasksRef = useRef(filteredSortedTasks);
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
@@ -178,6 +183,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     budgetsRef.current = budgets;
   }, [budgets]);
+  useEffect(() => {
+    effectiveFiltersRef.current = effectiveFilters;
+  }, [effectiveFilters]);
+  useEffect(() => {
+    filteredSortedTasksRef.current = filteredSortedTasks;
+  }, [filteredSortedTasks]);
   useEffect(() => {
     getDashboardModelRef.current = args.getDashboardModel;
   }, [args.getDashboardModel]);
@@ -735,6 +746,25 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           enabledModules: settingsRef.current.features as FeatureModuleId[],
           currentView: viewRef.current,
           insights: insightsRef.current ?? [],
+          viewDigest: digestForView(viewRef.current, {
+            // The digest promises to describe what the user can SEE. Only
+            // the Open Points TABLE renders `filteredSortedTasks` (it alone
+            // applies the assignee/group/label filters this ref tracks) —
+            // Gantt keeps its own independent status/priority/assignee prefs
+            // over the RAW task list, so feeding it filteredSortedTasks would
+            // make its count drift from what the chart shows whenever an
+            // Open-Points filter happens to be set. Workload/budget don't
+            // read `tasks` at all.
+            tasks:
+              viewRef.current === "open-points"
+                ? filteredSortedTasksRef.current
+                : tasksRef.current,
+            filters: effectiveFiltersRef.current,
+            resources: resourcesRef.current,
+            budgets: budgetsRef.current,
+            milestones: milestonesRef.current,
+            today: todayRef.current,
+          }),
         };
       },
 
