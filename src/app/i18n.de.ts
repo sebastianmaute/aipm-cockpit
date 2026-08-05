@@ -914,7 +914,7 @@ export const de: Record<TranslationKey, string> = {
   aiConsentBullet1:
     "Ihre Nachrichten und Aufgabendaten (Namen, Zugewiesene, E-Mails, Datumsangaben, Blocker, Notizen) werden bei jeder Anfrage direkt aus diesem Browser an api.anthropic.com gesendet.",
   aiConsentBullet2:
-    "Ihr Anthropic-API-Schlüssel wird unverschlüsselt im localStorage dieses Browsers gespeichert und direkt aus diesem Browser an api.anthropic.com gesendet. Jeder mit Zugriff auf dieses Browser-Profil kann ihn lesen und nutzen, und Anthropic stellt jegliche Nutzung diesem Schlüssel in Rechnung – verwenden Sie einen eigenen API-Schlüssel mit Ausgabenlimit.",
+    "Ihr Anthropic-API-Schlüssel wird in diesem Browser verschlüsselt gespeichert (AES-256-GCM, mit einem nicht exportierbaren Geräteschlüssel) und direkt aus diesem Browser an api.anthropic.com gesendet. Jeder mit Zugriff auf dieses Browser-Profil kann ihn lesen und nutzen, und Anthropic stellt jegliche Nutzung diesem Schlüssel in Rechnung – verwenden Sie einen eigenen API-Schlüssel mit Ausgabenlimit.",
   aiConsentBullet3:
     "Die Datenverarbeitung durch Anthropic unterliegt deren Datenschutz- und Nutzungsrichtlinien. Bitte vor der Aktivierung lesen.",
   aiConsentBullet4:

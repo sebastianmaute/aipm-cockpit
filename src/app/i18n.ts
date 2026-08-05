@@ -933,7 +933,7 @@ const enUS = {
   aiConsentBullet1:
     "Your messages and task data (names, assignees, emails, dates, blockers, notes) are sent directly from this browser to api.anthropic.com whenever you chat.",
   aiConsentBullet2:
-    "Your Anthropic API key is stored unencrypted in this browser's localStorage and sent directly from this browser to api.anthropic.com. Anyone with access to this browser profile can read and use it, and Anthropic will bill any usage to that key — use a dedicated API key with a spend limit.",
+    "Your Anthropic API key is encrypted at rest in this browser (AES-256-GCM, under a non-extractable device key) and sent directly from this browser to api.anthropic.com. Anyone with access to this browser profile can read and use it, and Anthropic will bill any usage to that key — use a dedicated API key with a spend limit.",
   aiConsentBullet3:
     "Anthropic's handling of your data is governed by their Privacy Policy and Usage Policy. Review them before enabling.",
   aiConsentBullet4:
