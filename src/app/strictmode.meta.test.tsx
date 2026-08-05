@@ -30,15 +30,17 @@
 //
 // ★★★ THE SHAPE RULE: StrictMode only double-invokes when it is the OUTERMOST
 // element under the root. `wrapper: StrictMode` (renderHook's wrapper IS the
-// StrictMode component) and `reactStrictMode: true` (RTL wraps the root in
-// StrictMode itself and leaves `wrapper` untouched) are the two safe forms.
-// Composing `<StrictMode>` INSIDE a wrapper function — `wrapper: ({children})
-// => <StrictMode>{children}</StrictMode>`, or with anything else nested
-// inside that — puts a non-StrictMode fiber above it and silently turns off
-// the double invoke, which makes any guard built on that shape vacuous. The
-// implementation plan's own Task 4 sketch used exactly that nested shape; it
-// was only caught because Task 4 ran the mutation and watched the guard stay
-// green with the guarded line deleted. See the two tests below.
+// StrictMode component) and `reactStrictMode: true` (RTL renders
+// `<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary element
+// placed outside the wrapper, not something that reaches `createRoot`) are
+// the two safe forms. Composing `<StrictMode>` INSIDE a wrapper function —
+// `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`, or with
+// anything else nested inside that — puts a non-StrictMode fiber above it
+// and silently turns off the double invoke, which makes any guard built on
+// that shape vacuous. The implementation plan's own Task 4 sketch used
+// exactly that nested shape; it was only caught because Task 4 ran the
+// mutation and watched the guard stay green with the guarded line deleted.
+// See the tests below.
 import { StrictMode, useEffect } from "react";
 import { render, renderHook } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
@@ -117,12 +119,14 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
 
   // This pins CURRENT React behaviour (traced to
   // recursivelyTraverseAndDoubleInvokeEffectsInDEV, which stops its walk at
-  // the first placed fiber and double-invokes there only if StrictMode was
-  // seen on the path down to it from an ANCESTOR, not only if that fiber
-  // itself is StrictMode-typed) — not a guarantee React owes us. If a future
-  // React version makes the nested shape double-invoke too, this test goes red,
-  // and that is a GOOD failure: it means the shape rule above changed and
-  // every guard built on it needs re-checking, not that something broke.
+  // the first placed fiber and double-invokes there only if StrictMode is AT
+  // OR ABOVE that fiber — the fiber's own type counts, which is what makes
+  // `wrapper: StrictMode` work — and it never recurses PAST that fiber
+  // either way, so a StrictMode nested BELOW it is never reached at all) —
+  // not a guarantee React owes us. If a future React version makes the
+  // nested shape double-invoke too, this test goes red, and that is a GOOD
+  // failure: it means the shape rule above changed and every guard built on
+  // it needs re-checking, not that something broke.
   // Do not delete this test out of confusion if that day comes.
   it("does NOT double-invoke when StrictMode is nested inside a wrapper component", () => {
     renderHook(() => useNestedProbe(), {

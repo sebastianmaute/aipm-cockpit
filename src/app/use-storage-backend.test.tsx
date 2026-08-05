@@ -1832,9 +1832,11 @@ describe("useStorageBackend — StrictMode mount re-set (§72)", () => {
     //     (`recursivelyTraverseAndDoubleInvokeEffectsInDEV`, read in the
     //     react-dom development build) stops at the topmost fiber carrying the
     //     placement flag — on an initial mount, the root's only child — and
-    //     double-invokes there only if StrictMode was seen on the path down to
-    //     it from an ANCESTOR, not only if that fiber itself is StrictMode-
-    //     typed. So one extra component ABOVE StrictMode — even a
+    //     double-invokes there only if StrictMode is AT OR ABOVE that fiber
+    //     (the fiber's own type counts, which is what makes `wrapper:
+    //     StrictMode` work), and it never recurses PAST that fiber either
+    //     way — a StrictMode nested BELOW it is never reached. So one extra
+    //     component ABOVE StrictMode — even a
     //     bare `({children}) => <StrictMode>{children}</StrictMode>` with no
     //     providers at all — yields ["mount"], no cleanup+remount, and a guard
     //     test written that way is VACUOUS: measured 2026-08-05, that shape

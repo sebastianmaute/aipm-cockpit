@@ -137,9 +137,11 @@ describe("useScheduledJobs — StrictMode mount re-set (§76)", () => {
     // AFTER that cycle, so `mountedRef.current = true` in the mount effect body
     // is what lets setJobs/setReady land at all.
     //
-    // Delete that line from use-scheduled-jobs.ts and this fails: `jobs` stays
-    // [] — which in dev means useScheduledJobRunner sees an empty list and no
-    // scheduled job ever fires.
+    // Delete that line from use-scheduled-jobs.ts and this fails: `ready` never
+    // becomes true, so the `waitFor` below times out — `setReady(true)` is
+    // gated on the same `mountedRef.current` check as `setJobs`, so both are
+    // suppressed together. That matters because in dev it means
+    // useScheduledJobRunner sees an empty list and no scheduled job ever fires.
     const { result } = renderHook(() => useScheduledJobs({ config: null }), {
       wrapper: StrictMode,
     });

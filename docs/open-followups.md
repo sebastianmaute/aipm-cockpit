@@ -4101,17 +4101,19 @@ entry called unpinnable are now pinned.
 
 ★★★ **THE SHAPE RULE.** StrictMode double-invokes only when it is the OUTERMOST element under the
 root. `wrapper: StrictMode` (renderHook's wrapper IS the StrictMode component) and
-`reactStrictMode: true` (RTL wraps the root itself and leaves `wrapper` untouched) are the two safe
-forms. Composing `<StrictMode>` INSIDE a wrapper function puts a non-StrictMode fiber above it and
-silently turns the double invoke off — even with nothing else nested inside it. Mechanism, cited by
-symbol because a `node_modules` line number rots on the next install:
+`reactStrictMode: true` (RTL renders `<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary
+element placed outside the wrapper, not something that reaches `createRoot`) are the two safe forms.
+Composing `<StrictMode>` INSIDE a wrapper function puts a non-StrictMode fiber above it and silently
+turns the double invoke off — even with nothing else nested inside it. Mechanism, cited by symbol
+because a `node_modules` line number rots on the next install:
 `recursivelyTraverseAndDoubleInvokeEffectsInDEV` (react-dom development build) stops its walk at the
-topmost fiber carrying the placement flag and double-invokes there only if StrictMode was seen on the
-path down to it from an ANCESTOR — not only if that fiber is itself StrictMode-typed.
+topmost fiber carrying the placement flag and double-invokes there only if StrictMode is AT OR ABOVE
+that fiber — the fiber's own type counts, which is what makes `wrapper: StrictMode` work — and it
+never recurses PAST that fiber either way, so a StrictMode nested BELOW it is never reached.
 
 ★★★ **The standing instrument is `src/app/strictmode.meta.test.tsx`** — a meta-test asserting a
 property of the HARNESS, not of the app. It covers a plain component render, both safe `renderHook`
-forms, the nested form as a negative case, and that the DEVELOPMENT React build is what resolves.
+forms, the nested-shape negative cases, and that the DEVELOPMENT React build is what resolves.
 Read it instead of trusting this paragraph: last time this measurement lived only in prose, the probe
 was deleted and every later reader had to take the prose on faith. ★ If that file ever goes red, the
 three guard tests below have become vacuous — fix it before trusting them.
