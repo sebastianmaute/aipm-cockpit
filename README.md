@@ -9,12 +9,19 @@
 >
 > A command surface for project leads with a Claude copilot grounded in your operating guides and the view you're in — it surfaces the next best action and can act on it. It plugs into the Microsoft 365 / Jira / Timelog stack you already use, so it accelerates your workflow instead of becoming one more place to re-key data. Local-first, bring-your-own-key, open source — no backend account required.
 
+![The AI PM Cockpit dashboard: project health, ranked next actions, open RAID and budget burn](docs/assets/dashboard.png)
+
+<sub>The landing dashboard, loaded from the bundled demo project.</sub>
+
 ---
 
 ## Why AI PM Cockpit
 
 **A copilot that knows *this* project — not a chatbot bolted on.**
-The Claude assistant is grounded in your operating guides and aware of the view and mode you're in, so its advice fits this project rather than reading like a generic chatbot. Per-view **"Ask Claude"** prompts and one-tap actions ("What's next?", a status overview, "prioritize") mean the tool tells you the next step — and can take it, creating and updating tasks, RAID, changes, milestones, and stakeholders in natural language. The **Action Center** ranks live project data into next-best-actions and **learns** from how you respond (act / snooze / dismiss).
+The Claude assistant is grounded in your operating guides, so its advice fits this project rather than reading like a generic chatbot. Per-view **"Ask Claude"** prompts and one-tap actions ("What's next?", a status overview, "prioritize") mean the tool tells you the next step — and can take it, creating and updating tasks, RAID, changes, milestones, and stakeholders in natural language. The **Action Center** ranks live project data into next-best-actions and **learns** from how you respond (act / snooze / dismiss).
+
+**It tells you what it cannot see.**
+The assistant knows which view you are on and — on Open Points, Workload, Gantt and Budget — what your current filters are actually showing. Where no tool can answer it says so, by name: time bookings, the activity log, cross-project portfolio data, RACI assignments, calendar absences. A copilot that reports its own blind spots is one whose answers you can check.
 
 **Plugs into your stack, not another silo.**
 Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget — so you accelerate your existing workflow instead of re-keying the same data into yet another tool.
@@ -25,12 +32,12 @@ It runs in your browser with no backend account. Bring your own API keys — the
 **One cockpit for the whole engagement.**
 Project-health RAG, RAID and change-control registers, a stakeholder register with RACI, resource capacity and budget with Earned Value, and a multi-project portfolio — in one surface, with a landing dashboard that opens on what needs you.
 
-**Adapts to you, not the other way around.**
-No two project leads track the same things. The cockpit bends to fit through deep customizability: choose how you see work (table, Kanban board, or Gantt), switch views and panes to what this engagement needs, toggle whole feature modules on or off, pick a Simple / Modular / Advanced **mode** that gates complexity, and start from a reusable **project template** that presets it all. The result fits your workflow and information needs — a solo consultant and a regulated multi-workstream programme run the same tool, configured differently.
+**A solo consultant and a regulated multi-workstream programme run the same tool.**
+No two project leads track the same things, so the cockpit bends to fit: see work as a table, Kanban board or Gantt, toggle whole feature modules off, pick a Simple / Modular / Advanced **mode** that gates complexity, and start from a reusable **project template** that presets it all.
 
 ### Built to be trusted
 
-Not a prototype, and not shelfware: the cockpit is **already in active friendly-user testing**, exercised against real projects by real project leads rather than sitting behind a demo. It is backed by 8,600+ automated tests with enforced coverage floors, a WCAG accessibility gate (axe across 16 views × 5 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: there is no application server holding your accounts or secrets, so the browser profile is the security boundary (see [Security Model](#security-model)).
+Not a prototype, and not shelfware: the cockpit is **already in active friendly-user testing**, exercised against real projects by real project leads rather than sitting behind a demo. It is backed by 9,100+ automated tests with enforced coverage floors, a WCAG accessibility gate (axe across 16 views × 5 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: no server stores your data or credentials (the handful of API routes are stateless proxies to services you configure), so the browser profile is the security boundary (see [Security Model](#security-model)).
 
 ### See it in a minute
 
