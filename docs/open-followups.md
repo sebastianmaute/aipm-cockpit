@@ -3670,7 +3670,16 @@ that bug shipped in the first version of the job and was caught only by parsing 
 library and printing the parsed `script` array, not by eye.
 
 ★ **Prerequisite met — and RE-MEASURED at the branch tip:** the full suite passes shuffled at seed 1,
-**785/785 files, 8966 tests, exit 0**.
+**785/785 files, 8971 tests, exit 0**. Reproduce:
+`npm run test:run -- --sequence.shuffle --sequence.seed=1 --reporter=dot`
+
+★★★ **This line went stale TWICE on one branch, the second time within a single commit of being
+corrected.** The correction below was written reading `8966`; the very next commit added five tests to
+`timelog-guards.test.ts` and `timelog-panel.test.tsx`, making it `8971`, and it was caught only because
+the final gate sweep printed a number that disagreed with the prose. That is the whole lesson in one
+artifact: **a count in this file has a half-life measured in commits, and no gate reads it.** Put the
+reproduce command beside every count so the next reader can re-take it in one line instead of trusting
+it.
 
 ★★ The first version of this line read `784/784 files, 8959 tests`, and both numbers were honest when
 written — they were taken at `0a7356e9`, the commit that added the job. The branch then added
