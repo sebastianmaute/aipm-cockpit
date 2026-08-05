@@ -52,7 +52,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
 | 1 | Two dead `memo()`s in the Resources subtree | R5 (0.202.0) | S–M | **fork open — decision needed** |
-| 2 | ~~`use-resource-planner.ts` 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED post-0.212.0** — two verbatim extractions, 1043 → 553; ★ the entry's own numbers AND its stated precedent were wrong |
+| 2 | ~~`use-resource-planner.ts` 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED post-0.212.0** — two verbatim extractions, 1043 → 553 |
 | 3 | `optimize_wbs` never built | R4 (0.201.0) | ? | owed; open design question |
 | 4 | Two-tab last-writer clobber on file/IDB (#39) | audit (2026-07) | L | parked — own design |
 | 5 | No list virtualization anywhere (#14) | audit (2026-07) | L | parked — own batch |
@@ -61,7 +61,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 8 | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | open — a11y, unguarded |
 | 9 | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | open — a11y, unguarded |
 | 10 | Keyboard move has no preview (band + day grid) | R5 (0.202.2) | M | open — a11y/UX |
-| 11 | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED 0.211.1** — shared `isAbortError`, all four sites. ★ premise DISPROVED in review: hardening, not a user-visible fix |
+| 11 | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED 0.211.1** — shared `isAbortError`, all four sites |
 | 12 | `list_allocations` dumps the grid; should be a scoped query | R4 (0.201.0) | M | open — design |
 | 13 | Security audit is scope-stale — 39 releases of unaudited surface | audit was v0.164 | M | open — re-scope |
 | 14 | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED 0.211.1** — re-keyed canonical, no fallback |
@@ -90,8 +90,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 45 | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED 0.211.1** — major-scoped `overrides` pair |
 | 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
 | 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
-| 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
-| 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
+| 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row |
+| 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — `updateRaid` re-applies the stored `noteLog` after sanitizing |
 | 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
 | 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open, narrower — the recorded symptom cannot recur; ★★ two of this entry's OWN claims were false and are corrected; ★★★ a future failure wears §39's clothes — match on duration, not message |
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
@@ -100,7 +100,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 55 | Fourteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 14 are NOT colour-only |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
-| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **HALF CLOSED post-0.212.0** — version stamp + guard test; ★ other half has a designed follow-up (cwd hash / boot nonce), fresh-port convention still required |
+| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half CLOSED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
 | 59 | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open — ★ the finding is the PATTERN, three releases running |
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
@@ -114,25 +114,27 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
-| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★★ the hook's mount re-set is now PINNED by `still emits a save outcome after StrictMode's remount` (§85 retracts the "untestable" premise), but `refreshBackendStatus`'s three guards are STILL UNPINNED — deleting them leaves every gate green, which is the entry's own most-likely-regression path; ★ near-zero production impact, the win is a job that stops lying |
-| 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
-| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations (each pinning the ONE arm that was the defect — `isMisconfigured`×3, `hasFetched`×1; `isPopout`/`syncBusy`/`confirming` stay unpinned at every call site), after a revision that wrongly called Fetch untestable |
-| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §84 |
-| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★★★ it shipped UNTESTED on the belief that vitest could not reproduce StrictMode's remount — that belief is retracted (§85) and BOTH re-sets are now pinned, by `still applies the loaded jobs after StrictMode's remount` and `still applies the loaded guides after StrictMode's remount`; sweep regex corrected after it was found unable to match the pre-fix shape |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs, for CALLER CALLBACKS only; see the entry's Residual block. ★ Row-only history: `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), and an earlier one-name version of this row contradicted the body |
+| 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block |
+| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates; all four button wirings DOM-pinned |
+| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed, plus the pinned-seed blocking gate `unit-tests-shuffled` and a weekly random-seed sweep |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; both pinned |
 | 77 | The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project | found post-0.214.0 | M | open — ★★ both obvious fixes are WRONG (suppress-path strands it false; a state reset lands a render late, both effects run in one commit); needs ref+state |
 | 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | open — every later variance row then compares against nulls; fix `isFirstEver`, do NOT overload §77's flag |
 | 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
-| 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites, with `<unknown>` so the type argument stops asserting an unchecked shape; both pinned |
-| 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`; ★★★ the first fix broke the ASSIGN control (inert select), so `source` now carries caller INTENT |
+| 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites; both pinned |
+| 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`, and `source` carries caller INTENT |
 | 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
-| 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; the single-invoke observation is reproducible but belongs to a nested-wrapper shape whose child mounts in the same commit as the wrapper (the rule turns on which fiber is flagged for PLACEMENT — not the tree, not the commit number — and a pure keyed REORDER can double-invoke with nothing mounting), and the entry's own "measurement artefact" hypothesis is separately false (the fiber is reused, so a per-instance log sees the whole cycle); ★★★ all three mount re-sets are now pinned, and `src/app/strictmode.meta.test.tsx` is the standing instrument |
+| 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix |
+| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; `src/app/strictmode.meta.test.tsx` is the standing instrument |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
 file: `rich-text-plain.ts:96` points at §24, AGENTS.md at §22 and §28, and `docs/CODEMAPS/*` at §4,
 §7 B4, §8–§10 and §13. Renumbering silently redirects every one of those.
+
+★ `48-was` was a duplicate left behind when §48 closed; it was folded into §48 on 2026-08-05 and the label is retired. `48` keeps its meaning.
 
 ---
 
@@ -3717,6 +3719,9 @@ conclusion never changed; only the numbers offered for it did. Run the commands.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.
+
+---
+
 ## 77. The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project — open
 
 `use-storage-backend.ts` publishes `workspaceLoaded`, set `true` at the end of `applyWorkspace` and
@@ -3787,7 +3792,7 @@ without threading one more field through.
 
 ---
 
-## 80. Both hide-external toggles trust whatever `readDeviceJson` returns — CLOSED
+## 80. ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ — CLOSED
 
 `resources-panel.tsx` and `resource-directory.tsx` each seed their toggle with
 `readDeviceJson<boolean>(key, false)`, and `device-store.ts` documents explicitly that the parsed
@@ -3809,7 +3814,7 @@ site silently regresses while the entry reads CLOSED.
 
 ---
 
-## 81. The swimlane no-op drop guard no longer holds for a name-resolved task — CLOSED
+## 81. ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ — CLOSED
 
 `use-task-row-handlers.ts` `onSwimlaneDrop` documents "A drop that changes nothing writes nothing and
 records no undo entry", enforced by `sameLane`, which compares `prevRow.resourceId ?? undefined`
@@ -3954,6 +3959,8 @@ being written into the tracked register, rather than left resting on the two pri
 ---
 
 ## 85. ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ — CLOSED, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test
+
+**Cited from:** `strictmode.meta.test.tsx` — this entry cannot be deleted.
 
 **The OBSERVATION was real and is reproducible. The CONCLUSION drawn from it was wrong.** `["mount"]`
 — one invocation, no cleanup+remount — is exactly what ONE wrapper shape yields here, and the
