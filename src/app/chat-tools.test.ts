@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { runTool, TOOL_DEFS, type ToolDispatcher, type Filters } from "./chat-tools";
+import {
+  runTool,
+  TOOL_DEFS,
+  toKnowledgeSummary,
+  toCalendarEventSummary,
+  toBudgetBucketSummary,
+  type ToolDispatcher,
+  type Filters,
+} from "./chat-tools";
 import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
 
 function makeTask(over: Partial<Task> = {}): Task {
@@ -162,6 +170,18 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     // this fixture and forgets to override it fails legibly.
     listAllocations: vi.fn(() => {
       throw new Error("listAllocations not stubbed");
+    }),
+    // Same "throw a named error" convention — none of the tests using this
+    // fixture exercise these three; a future test that reuses it and forgets
+    // to override one fails legibly instead of returning a silent [].
+    listKnowledgeItems: vi.fn(() => {
+      throw new Error("listKnowledgeItems not stubbed");
+    }),
+    listCalendarEvents: vi.fn(() => {
+      throw new Error("listCalendarEvents not stubbed");
+    }),
+    listBudgetBuckets: vi.fn(() => {
+      throw new Error("listBudgetBuckets not stubbed");
     }),
     ...over,
   };
@@ -492,8 +512,22 @@ describe("TOOL_DEFS — new read-only tools are registered", () => {
     expect(names).toContain("list_milestones");
   });
 
+  it("list_knowledge_items, list_calendar_events, list_budget_buckets appear in TOOL_DEFS", () => {
+    const names = TOOL_DEFS.map((t) => t.name);
+    expect(names).toContain("list_knowledge_items");
+    expect(names).toContain("list_calendar_events");
+    expect(names).toContain("list_budget_buckets");
+  });
+
   it("each new tool has an empty-object input_schema (read-only, no params)", () => {
-    for (const toolName of ["list_raid", "list_changes", "list_milestones"]) {
+    for (const toolName of [
+      "list_raid",
+      "list_changes",
+      "list_milestones",
+      "list_knowledge_items",
+      "list_calendar_events",
+      "list_budget_buckets",
+    ]) {
       const def = TOOL_DEFS.find((t) => t.name === toolName);
       expect(def).toBeDefined();
       expect(def!.input_schema).toEqual({ type: "object", properties: {} });
@@ -817,5 +851,113 @@ describe("list_allocations", () => {
     const d = { listAllocations: () => snapshot } as unknown as ToolDispatcher;
 
     await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
+  });
+});
+
+// NOTE: the plan this test block came from guessed field names (KnowledgeItem
+// title/description, BudgetBucket label/roleId/periods) that don't exist on
+// the real types — see chat-tools.ts for what's actually there. Verified via
+// document-link.ts (KnowledgeItem = KnowledgeLink & {taskIds?}, no description
+// field at all — it's a link, not a document with a summary) and types.ts
+// (BudgetBucket.name, .allocations: BucketAllocation[] with roleId/budgetHours
+// per role, not a flat roleId/periods pair). These tests assert the REAL shape.
+describe("read-tool summary mappers", () => {
+  it("maps a knowledge item to id, name, url, link kind and linked task ids", () => {
+    const summary = toKnowledgeSummary({
+      id: "dl-1",
+      name: "Charter",
+      url: "https://example.com/charter",
+      kind: "file",
+      linkKind: "confluence",
+      taskIds: [5],
+    } as never);
+    expect(summary).toEqual({
+      id: "dl-1",
+      name: "Charter",
+      url: "https://example.com/charter",
+      linkKind: "confluence",
+      taskIds: [5],
+    });
+  });
+
+  it("defaults a knowledge item's link kind to document and task ids to empty", () => {
+    const summary = toKnowledgeSummary({
+      id: "dl-2",
+      name: "Spec",
+      url: "https://example.com/spec",
+      kind: "file",
+    } as never);
+    expect(summary.linkKind).toBe("document");
+    expect(summary.taskIds).toEqual([]);
+  });
+
+  it("returns a calendar event's series definition rather than an expansion", () => {
+    const summary = toCalendarEventSummary({
+      id: 7,
+      title: "Weekly sync",
+      startDate: "2026-02-02",
+      startTime: "09:00",
+      durationMinutes: 30,
+      recurrence: { freq: "weekly", interval: 1 },
+    } as never);
+    expect(summary.recurrence).toEqual({ freq: "weekly", interval: 1 });
+    expect(Array.isArray((summary as Record<string, unknown>).occurrences)).toBe(false);
+    expect(summary.attendeeResourceIds).toEqual([]);
+    expect(summary.exceptions).toEqual([]);
+  });
+
+  it("passes a calendar event's recurrence exceptions through verbatim", () => {
+    const summary = toCalendarEventSummary({
+      id: 8,
+      title: "Weekly sync",
+      startDate: "2026-02-02",
+      startTime: "09:00",
+      durationMinutes: 30,
+      recurrence: { freq: "weekly", interval: 1 },
+      exceptions: [
+        { date: "2026-02-09", kind: "skip" },
+        { date: "2026-02-16", kind: "move", toDate: "2026-02-17", toTime: "10:00" },
+      ],
+    } as never);
+    expect(summary.exceptions).toEqual([
+      { date: "2026-02-09", kind: "skip" },
+      { date: "2026-02-16", kind: "move", toDate: "2026-02-17", toTime: "10:00" },
+    ]);
+  });
+
+  it("maps a budget bucket to id, name and its per-role budget hours", () => {
+    const summary = toBudgetBucketSummary({
+      id: 3,
+      name: "Delivery",
+      status: "open",
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      allocations: [
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} },
+      ],
+    } as never);
+    expect(summary.id).toBe(3);
+    expect(summary.name).toBe("Delivery");
+    expect(summary.allocations).toEqual([{ roleId: 2, budgetHours: { "2026-01": 40 } }]);
+  });
+});
+
+describe("runTool — knowledge/calendar/budget read tools", () => {
+  it("routes list_knowledge_items to the dispatcher", async () => {
+    const items = [{ id: "dl-1", name: "Charter", url: "https://x", linkKind: "document" as const, taskIds: [] }];
+    const d = { listKnowledgeItems: () => items } as unknown as ToolDispatcher;
+    await expect(runTool(d, "list_knowledge_items", {})).resolves.toBe(items);
+  });
+
+  it("routes list_calendar_events to the dispatcher", async () => {
+    const events: unknown[] = [];
+    const d = { listCalendarEvents: () => events } as unknown as ToolDispatcher;
+    await expect(runTool(d, "list_calendar_events", {})).resolves.toBe(events);
+  });
+
+  it("routes list_budget_buckets to the dispatcher", async () => {
+    const buckets: unknown[] = [];
+    const d = { listBudgetBuckets: () => buckets } as unknown as ToolDispatcher;
+    await expect(runTool(d, "list_budget_buckets", {})).resolves.toBe(buckets);
   });
 });

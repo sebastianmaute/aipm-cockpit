@@ -9,9 +9,12 @@ import {
   type Stakeholder,
   type Resource,
   type TaskDependency,
+  type BudgetBucket,
 } from "./types";
 import type { Lang } from "./i18n";
 import { type DepRejection } from "./task-dependency-write";
+import { type KnowledgeItem, type KnowledgeLinkKind, linkKindOf } from "./document-link";
+import { type CalendarEvent, type RecurrenceRule, type EventException } from "./calendar-event";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
@@ -185,6 +188,54 @@ export type ResourceSummary = {
   roleId?: number | null;
 };
 
+/** A standalone Knowledge-library item is just a link (name/url/kind) — it
+ *  carries NO description field (rich or plain) to project here. */
+export type KnowledgeSummary = {
+  id: string;
+  name: string;
+  url: string;
+  linkKind: KnowledgeLinkKind;
+  taskIds: number[];
+};
+
+/** The event's series definition, never expanded into individual occurrences
+ *  (`recurrence`/`exceptions` are the model's own rule to compute from — an
+ *  `exceptions` entry overrides the rule for its `date`: `kind: "skip"` drops
+ *  that occurrence entirely, `kind: "move"` relocates it to `toDate`/`toTime`).
+ *  `notes` is a plain free-text field on CalendarEvent (sanitizeMultiline at
+ *  the boundary) — NOT one of the six rich-HTML fields, so no projection. */
+export type CalendarEventSummary = {
+  id: number;
+  title: string;
+  startDate: string;
+  startTime: string;
+  durationMinutes: number;
+  location?: string;
+  notes?: string;
+  attendeeResourceIds: number[];
+  recurrence?: RecurrenceRule;
+  exceptions: EventException[];
+};
+
+/** One role line's PLANNED (budget) hours by period within a bucket. */
+export type BudgetBucketAllocationSummary = {
+  roleId: number;
+  budgetHours: Record<string, number>;
+};
+
+/** Per-bucket detail: id/name/status/window plus each role line's PLANNED
+ *  (budget) hours by period. Deliberately omits actualHours, disciplineAllocations
+ *  and rate overrides — this is what a "what's planned in this bucket" question
+ *  needs, not the full budget-planner row shape. */
+export type BudgetBucketSummary = {
+  id: number;
+  name: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  allocations: BudgetBucketAllocationSummary[];
+};
+
 export type ToolDispatcher = {
   listTasks(): readonly Task[];
   getTask(id: number): Task | null;
@@ -249,6 +300,9 @@ export type ToolDispatcher = {
   };
   getDashboardSnapshot(): DashboardSnapshot;
   listAllocations(): AllocationsSnapshot;
+  listKnowledgeItems(): KnowledgeSummary[];
+  listCalendarEvents(): CalendarEventSummary[];
+  listBudgetBuckets(): BudgetBucketSummary[];
 };
 
 function asString(v: unknown): string | undefined {
@@ -369,6 +423,45 @@ export function toResourceSummary(item: Resource): ResourceSummary {
     department: item.department,
     isExternal: item.isExternal,
     roleId: item.roleId,
+  };
+}
+
+export function toKnowledgeSummary(item: KnowledgeItem): KnowledgeSummary {
+  return {
+    id: item.id,
+    name: item.name,
+    url: item.url,
+    linkKind: linkKindOf(item),
+    taskIds: item.taskIds ?? [],
+  };
+}
+
+export function toCalendarEventSummary(event: CalendarEvent): CalendarEventSummary {
+  return {
+    id: event.id,
+    title: event.title,
+    startDate: event.startDate,
+    startTime: event.startTime,
+    durationMinutes: event.durationMinutes,
+    location: event.location,
+    notes: event.notes,
+    attendeeResourceIds: event.attendeeResourceIds ?? [],
+    recurrence: event.recurrence,
+    exceptions: event.exceptions ?? [],
+  };
+}
+
+export function toBudgetBucketSummary(bucket: BudgetBucket): BudgetBucketSummary {
+  return {
+    id: bucket.id,
+    name: bucket.name,
+    status: bucket.status,
+    startDate: bucket.startDate,
+    endDate: bucket.endDate,
+    allocations: bucket.allocations.map((a) => ({
+      roleId: a.roleId,
+      budgetHours: a.budgetHours,
+    })),
   };
 }
 
@@ -514,6 +607,15 @@ export async function runTool(
 
     case "list_allocations":
       return d.listAllocations();
+
+    case "list_knowledge_items":
+      return d.listKnowledgeItems();
+
+    case "list_calendar_events":
+      return d.listCalendarEvents();
+
+    case "list_budget_buckets":
+      return d.listBudgetBuckets();
 
     case "create_raid_item":
       return d.createRaid(input as RaidInput);

@@ -18,6 +18,9 @@ import {
   toMilestoneSummary,
   toStakeholderSummary,
   toResourceSummary,
+  toKnowledgeSummary,
+  toCalendarEventSummary,
+  toBudgetBucketSummary,
 } from "./chat-tools";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
@@ -99,6 +102,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     resources,
     setResources,
     insights,
+    knowledgeItems,
+    calendarEvents,
+    budgets,
   } = useWorkspace();
   const { editingId, setEditingId, setForm } = useTaskForm();
   const {
@@ -124,6 +130,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const stakeholdersRef = useRef(stakeholders);
   const resourcesRef = useRef(resources);
   const insightsRef = useRef(insights);
+  const knowledgeItemsRef = useRef(knowledgeItems);
+  const calendarEventsRef = useRef(calendarEvents);
+  const budgetsRef = useRef(budgets);
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
@@ -160,6 +169,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     insightsRef.current = insights;
   }, [insights]);
+  useEffect(() => {
+    knowledgeItemsRef.current = knowledgeItems;
+  }, [knowledgeItems]);
+  useEffect(() => {
+    calendarEventsRef.current = calendarEvents;
+  }, [calendarEvents]);
+  useEffect(() => {
+    budgetsRef.current = budgets;
+  }, [budgets]);
   useEffect(() => {
     getDashboardModelRef.current = args.getDashboardModel;
   }, [args.getDashboardModel]);
@@ -728,6 +746,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         ),
 
       listAllocations: () => getAllocationsSnapshotRef.current(),
+
+      listKnowledgeItems: () => (knowledgeItemsRef.current ?? []).map(toKnowledgeSummary),
+      listCalendarEvents: () => (calendarEventsRef.current ?? []).map(toCalendarEventSummary),
+      listBudgetBuckets: () => (budgetsRef.current ?? []).map(toBudgetBucketSummary),
     }),
     // Empty deps: every reactive value is read via a ref. Identity is stable.
     // Note: when Task 6 lands, audit whether any captured value still needs

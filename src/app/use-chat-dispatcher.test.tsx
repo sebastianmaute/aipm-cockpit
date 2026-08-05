@@ -1107,3 +1107,101 @@ describe("useChatDispatcher – resource directory", () => {
     expect(() => result.current.deleteResource(1)).toThrow();
   });
 });
+
+// Knowledge items / calendar events / budget buckets are read-only tools with
+// no matching create* tool, so the fixtures are seeded directly into the
+// workspace (via renderRaidProbe's `ws`, the same pattern the RAID-write
+// tests above use to read what was actually stored) rather than round-tripped
+// through the dispatcher.
+describe("useChatDispatcher – knowledge, calendar and budget read tools", () => {
+  it("lists knowledge items with real name/url/linkKind/taskIds fields", () => {
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.ws.setKnowledgeItems([
+        {
+          id: "dl-1",
+          name: "Charter",
+          url: "https://example.com/charter",
+          kind: "file",
+          linkKind: "confluence",
+          taskIds: [1],
+        },
+      ]);
+    });
+    expect(result.current.d.listKnowledgeItems()).toEqual([
+      {
+        id: "dl-1",
+        name: "Charter",
+        url: "https://example.com/charter",
+        linkKind: "confluence",
+        taskIds: [1],
+      },
+    ]);
+  });
+
+  it("returns an empty list when the workspace has no knowledge items", () => {
+    const { result } = renderRaidProbe();
+    expect(result.current.d.listKnowledgeItems()).toEqual([]);
+  });
+
+  it("returns a calendar event's series definition, not an expansion", () => {
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.ws.setCalendarEvents([
+        {
+          id: 7,
+          title: "Weekly sync",
+          startDate: "2026-02-02",
+          startTime: "09:00",
+          durationMinutes: 30,
+          attendeeResourceIds: [1, 2],
+          recurrence: { freq: "weekly", interval: 1 },
+        },
+      ]);
+    });
+    const events = result.current.d.listCalendarEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].recurrence).toEqual({ freq: "weekly", interval: 1 });
+    expect(Array.isArray((events[0] as unknown as Record<string, unknown>).occurrences)).toBe(false);
+  });
+
+  it("returns an empty list when the workspace has no calendar events", () => {
+    const { result } = renderRaidProbe();
+    expect(result.current.d.listCalendarEvents()).toEqual([]);
+  });
+
+  it("lists budget buckets with id, name, status and per-role budget hours", () => {
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.ws.setBudgets([
+        {
+          id: 3,
+          name: "Delivery",
+          type: "tm",
+          currency: "EUR",
+          startDate: "2026-01-01",
+          endDate: "2026-12-31",
+          status: "open",
+          allocations: [
+            { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} },
+          ],
+        },
+      ]);
+    });
+    expect(result.current.d.listBudgetBuckets()).toEqual([
+      {
+        id: 3,
+        name: "Delivery",
+        status: "open",
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        allocations: [{ roleId: 2, budgetHours: { "2026-01": 40 } }],
+      },
+    ]);
+  });
+
+  it("returns an empty list when the workspace has no budget buckets", () => {
+    const { result } = renderRaidProbe();
+    expect(result.current.d.listBudgetBuckets()).toEqual([]);
+  });
+});
