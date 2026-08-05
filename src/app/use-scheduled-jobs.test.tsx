@@ -142,6 +142,16 @@ describe("useScheduledJobs — StrictMode mount re-set (§76)", () => {
     // gated on the same `mountedRef.current` check as `setJobs`, so both are
     // suppressed together. That matters because in dev it means
     // useScheduledJobRunner sees an empty list and no scheduled job ever fires.
+    //
+    // ★★★ `wrapper: StrictMode` is load-bearing — do NOT "simplify" it to
+    //     `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`. Passing
+    //     the component itself leaves nothing between the root and StrictMode;
+    //     composing it inside a wrapper function puts a fiber above it on the
+    //     same branch, and on a mount commit that silences the double invoke —
+    //     the test then passes with the pinned line DELETED and looks identical.
+    //     Measured for the sibling guard in use-storage-backend.test.tsx. The
+    //     rule, the React-internals reason and every measured edge live in ONE
+    //     place: `src/app/strictmode.meta.test.tsx`.
     const { result } = renderHook(() => useScheduledJobs({ config: null }), {
       wrapper: StrictMode,
     });

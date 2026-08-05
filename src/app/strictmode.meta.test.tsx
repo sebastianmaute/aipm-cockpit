@@ -77,7 +77,9 @@
 // (`memoizedState !== null`) is skipped entirely, and a VISIBLE one carrying
 // the Visibility flag (`8192`) under StrictMode is double-invoked AT the
 // Offscreen and not recursed through. THREE arms, not two — the tag-22 branch
-// never consults the placement bit at all. Read from source, NOT measured;
+// never consults the fiber's OWN placement flag; its recurse arm does gate on
+// `subtreeFlags & 67108864`, the narrow single-bit mask rather than the
+// `67117056` of the top-level descend guard. Read from source, NOT measured;
 // nothing here renders StrictMode inside Suspense or `<Activity>`. A lead,
 // not a fact.
 //
@@ -114,14 +116,20 @@ function Shell({ children }: { children?: React.ReactNode }) {
   return <div>{children}</div>;
 }
 
-function LogProbe({ log }: { log: string[] }) {
+// ★★ `marker` exists ONLY so a reorder is OBSERVABLE. With the default `null`
+// render, `["a","sm","c"]` and `["sm","a","c"]` produce the SAME text, so a
+// reorder test asserting nothing-happened is equally satisfied by nothing
+// having moved — measured: neutering the fixture's `order` prop left both
+// reorder negatives GREEN. Any test whose claim is "this MOVED and still did
+// not double-invoke" must pass a marker and assert the text order too.
+function LogProbe({ log, marker }: { log: string[]; marker?: string }) {
   useEffect(() => {
     log.push("mount");
     return () => {
       log.push("cleanup");
     };
   }, [log]);
-  return null;
+  return marker ? <i>{marker}</i> : null;
 }
 
 // A wrapper-nested StrictMode whose child appears only on the SECOND commit.
@@ -159,7 +167,7 @@ function MovedStrictList({ order }: { order: readonly string[] }) {
       {order.map((k) =>
         k === "sm" ? (
           <StrictMode key="sm">
-            <LogProbe log={movedStrictLog} />
+            <LogProbe log={movedStrictLog} marker="x" />
           </StrictMode>
         ) : (
           <div key={k}>{k}</div>
@@ -176,7 +184,7 @@ function EarlierStrictList({ order }: { order: readonly string[] }) {
       {order.map((k) =>
         k === "sm" ? (
           <StrictMode key="sm">
-            <LogProbe log={earlierStrictLog} />
+            <LogProbe log={earlierStrictLog} marker="x" />
           </StrictMode>
         ) : (
           <div key={k}>{k}</div>
@@ -193,7 +201,7 @@ function MovedPlainList({ order }: { order: readonly string[] }) {
       {order.map((k) =>
         k === "p" ? (
           <div key="p">
-            <LogProbe log={movedPlainLog} />
+            <LogProbe log={movedPlainLog} marker="x" />
           </div>
         ) : (
           <div key={k}>{k}</div>
@@ -387,9 +395,12 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
   // disconnects and reconnects its whole subtree's effects. This is the case
   // that makes "placed means new" false.
   it("double-invokes on a pure REORDER when StrictMode itself is a keyed child that moves", () => {
-    const { rerender } = render(<MovedStrictList order={["a", "sm", "c"]} />);
+    const { container, rerender } = render(<MovedStrictList order={["a", "sm", "c"]} />);
+    expect(container.textContent).toBe("axc");
     expect(movedStrictLog).toEqual(["mount"]);
     rerender(<MovedStrictList order={["c", "a", "sm"]} />);
+    // The move is asserted, not assumed — see the note on LogProbe's `marker`.
+    expect(container.textContent).toBe("cax");
     expect(movedStrictLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
@@ -402,8 +413,13 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
   // nothing. (Reproduce: `git show <sha>:src/app/strictmode.meta.test.tsx |
   // grep -ci backwards` across the branch is 0 everywhere else.)
   it("does NOT double-invoke when the keyed StrictMode moves to an EARLIER slot", () => {
-    const { rerender } = render(<EarlierStrictList order={["a", "sm", "c"]} />);
+    const { container, rerender } = render(<EarlierStrictList order={["a", "sm", "c"]} />);
+    expect(container.textContent).toBe("axc");
     rerender(<EarlierStrictList order={["sm", "a", "c"]} />);
+    // ★★ WITHOUT this line the test is VACUOUS: a fixture that ignored `order`
+    //    entirely left it green (measured). "It moved and nothing happened" and
+    //    "nothing moved" are the same observation until the move is asserted.
+    expect(container.textContent).toBe("xac");
     expect(earlierStrictLog).toEqual(["mount"]);
   });
 
@@ -412,8 +428,13 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
   // subtree's effects regardless of StrictMode" — the same discrimination bar
   // the pair below is built to clear.
   it("does NOT double-invoke on that same reorder when no StrictMode is involved", () => {
-    const { rerender } = render(<MovedPlainList order={["a", "p", "c"]} />);
+    const { container, rerender } = render(<MovedPlainList order={["a", "p", "c"]} />);
+    expect(container.textContent).toBe("axc");
     rerender(<MovedPlainList order={["c", "a", "p"]} />);
+    // Same vacuity trap as the test above, and it matters more here: as the
+    // control for the positive reorder, a control that never reorders controls
+    // for nothing. The order MUST match MovedStrictList's exactly.
+    expect(container.textContent).toBe("cax");
     expect(movedPlainLog).toEqual(["mount"]);
   });
 
@@ -501,6 +522,9 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     const messages = spy.mock.calls.map((c) => String(c[0]));
     spy.mockRestore();
     expect(React.version.startsWith("19.")).toBe(true);
-    expect(messages.some((m) => m.includes("key"))).toBe(true);
+    // Match the warning's own phrase, not the bare substring "key" — any other
+    // React console.error mentioning a key would satisfy that and the test
+    // would stop telling us this is the DEVELOPMENT build.
+    expect(messages.some((m) => m.includes('unique "key" prop'))).toBe(true);
   });
 });

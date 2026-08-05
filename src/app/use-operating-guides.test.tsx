@@ -111,6 +111,16 @@ describe("useOperatingGuides — StrictMode mount re-set (§76)", () => {
     //
     // Delete `mountedRef.current = true` from use-operating-guides.ts and this
     // test fails: `guides` stays [] and `ready` stays false.
+    //
+    // ★★★ `wrapper: StrictMode` is load-bearing — do NOT "simplify" it to
+    //     `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`. Passing
+    //     the component itself leaves nothing between the root and StrictMode;
+    //     composing it inside a wrapper function puts a fiber above it on the
+    //     same branch, and on a mount commit that silences the double invoke —
+    //     the test then passes with the pinned line DELETED and looks identical.
+    //     Measured for the sibling guard in use-storage-backend.test.tsx. The
+    //     rule, the React-internals reason and every measured edge live in ONE
+    //     place: `src/app/strictmode.meta.test.tsx`.
     const { result } = renderHook(() => useOperatingGuides({ config: null }), {
       wrapper: StrictMode,
     });
