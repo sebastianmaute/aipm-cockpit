@@ -285,18 +285,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
   `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
-  `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ THREE successive revisions of this
-  sentence were false — first "All quality gates … carry" one, then a "correction" naming
-  **agents-symbol-check** (which never mentions the label) while asserting **duplication-gate** had none
-  (it is the only other job that does), then a third that fixed those two but under-enumerated the jobs
-  carrying nothing. Each sends an operator hunting for a bypass block on whichever gate is actually red.
-  The reproduce command was attached in the second revision and REFUTED the sentence it was attached to
-  — attach the command AND run it. ★ "Ratchets" above is loose: only THREE gates hold a baseline that
-  ratchets — **file-size-ratchet**, **duplication-gate** and **unit-tests**' coverage floors. Everything
-  else is plain pass/fail (`lint` at `--max-warnings=0`, `typecheck`, both dependency audits,
-  `agents-symbol-check`, `unit-tests-shuffled`, semgrep's ERROR gate). An earlier revision named two of
-  the many non-ratchets as if they were the exceptions — under-enumerating, in the paragraph directly
-  below the one correcting an under-enumeration. A weekly `schedule` pipeline also runs
+  `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
+  sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
+  bypass block on whichever gate is actually red. One of them ATTACHED the reproduce command above
+  without running it, and the command refutes the sentence it was attached to. **Attach the command and
+  run it.** ★ "Ratchets" is loose too: only **file-size-ratchet**, **duplication-gate** and
+  **unit-tests**' coverage floors hold a baseline; every other quality gate is plain pass/fail.
+  A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
   its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
   otherwise). (Phases 1-4 of the

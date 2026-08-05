@@ -3430,141 +3430,82 @@ works precisely because the button carries a guard the handler does not. **Read 
 ★ The cheap fix is to lift `isMisconfigured` into both handler guards, making the button's `disabled`
 a presentation of the handler's contract rather than a second, stricter contract.
 
-★★★ **FIXED — went structural instead of taking the cheap fix.** A shared pure module
-`src/app/timelog-guards.ts` exports `canFetchBookings`/`canRefreshBookings`, and BOTH the handlers'
-early returns and the buttons' `disabled` expressions now evaluate the same predicate. The cheap
-two-copy lift recorded above was deliberately rejected: it would have left two copies of one contract —
-the exact shape that produced this defect — and is **untestable by construction**, because the new
-guard's only trigger is precisely the state in which the button is already disabled, so no UI test can
-ever reach it. A pure predicate is directly unit-testable regardless of what renders it.
+★★★ **FIXED — went structural instead of the cheap lift.** A shared pure module
+`src/app/timelog-guards.ts` exports `canFetchBookings` / `canRefreshBookings` /
+`canLoadManagedProjects` / `canClearAllFetched`, and BOTH the handlers' early returns and the buttons'
+`disabled` expressions evaluate the same predicate. The two-copy lift was rejected deliberately: it
+leaves two copies of one contract — the shape that produced this defect — while a pure predicate is
+unit-testable regardless of what renders it. Predicates were verified logically equivalent to the
+buttons' PREVIOUS `disabled` expressions, so no button changed behaviour in any state; the handlers
+gained the terms they lacked. `isMisconfigured` is declared once directly below `cfg`, above every
+reader (readability only — both handlers are hoisted `function` declarations invoked from `onClick`,
+so the earlier placement was never a TDZ hazard, whatever a previous comment here implied).
 
-★ The predicates were verified logically equivalent to the buttons' PREVIOUS `disabled` expressions —
-no button changes behaviour in any state; the handlers gained the `isMisconfigured` check they lacked.
-`isMisconfigured` is declared once directly below `cfg`, above every reader. ★★ An earlier revision of
-that comment justified the move as stopping a handler "reading it through a closure over a
-later-declared const", implying a TDZ hazard. There was none — both handlers are hoisted `function`
-declarations invoked from `onClick`, long after the const initialises — and in a repo where rationales
-get copied into later commit messages as justification, a comment asserting a bug that cannot occur is
-worse than no comment. The move is readability only.
+★★★ **`canClearAllFetched` deliberately does NOT take `isMisconfigured`,** and takes its own
+`TimelogClearState` so the omission is visible in the type rather than reading as a fifth oversight.
+Clearing is the only one of the four actions that never reaches the network — it forgets local data the
+user already has — and a broken config is exactly when someone wants stale bookings gone. Gating it
+would trap them with data they can neither refresh nor remove.
 
-★★★ **AND THEN A FOURTH INSTANCE TURNED UP — `clearAllFetched`.** Its handler guarded on
-`isPopout || confirming` while its button carried `syncBusy || isPopout || !fetchedAt || confirming`:
-exactly ONE arm mirrored by hand, with a comment stating that it mirrored the button, which is how a
-partial mirror reads as a complete one. Now `canClearAllFetched`.
-★★ It deliberately does NOT take `isMisconfigured`, and takes its own `TimelogClearState` so the
-omission is visible in the type rather than looking like a fifth oversight: clearing is the only one of
-the four actions that never reaches the network — it forgets local data the user already has — and a
-broken config is precisely when someone wants stale bookings gone. Gating it would trap them with data
-they can neither refresh nor remove.
-★★★ So the count went 2-of-3 → 3-of-3 → 3-of-4. **Each "closed" was declared after fixing every
-instance the author had looked at.** The durable fix is not another sweep of the same shape but a rule:
-enumerate the CALL SITES of the contract (`grep -n 'disabled={' src/app/timelog-panel-toolbar.tsx
-src/app/timelog-projects-table.tsx` and diff each against its handler), then close them as a set.
+★★★ **THE CLOSURE WAS DECLARED THREE TIMES BEFORE IT WAS TRUE: 2-of-3 → 3-of-3 → 3-of-4.** Each time,
+every instance the author had looked at was fixed. `handleLoadManagedProjects` (a third file, whose
+button spelled out `isBlocked` by hand) and then `clearAllFetched` (one arm mirrored, with a comment
+saying it mirrored the button) turned up in successive reviews. **The durable rule is not another sweep
+of the same shape: enumerate the CALL SITES of the contract and close them as a set** —
+`grep -n 'disabled={' src/app/timelog-panel-toolbar.tsx src/app/timelog-projects-table.tsx`, diffing
+each against its handler.
 
-★★★ **THE FIRST PASS CLOSED TWO OF THREE ACTIONS AND DECLARED THE CLASS CLOSED.**
-`handleLoadManagedProjects` checked `isPopout || sync.busy` while its button evaluated all four shared
-blockers — that button's `disabled` was literally `isBlocked` spelled out by hand, in a third file.
-Both branch reviewers found it independently. It now routes through `canLoadManagedProjects`. ★ The
-lesson is about the CLOSURE, not the code: "extract a shared predicate" is only done when every call
-site of that contract is migrated, and the entry claimed completion while naming only the two sites the
-author happened to be looking at. Grep for the contract's SHAPE, not the two functions in the ticket.
+★★ **ALL FOUR BUTTON WIRINGS ARE PINNED, each by a SINGLE-SITE mutation** (`timelog-panel.test.tsx`,
+describe "action buttons while TimeLog is unconfigured"):
 
-★★★ **AND NOTHING PINNED THE BUTTON HALF.** The module's whole reason to exist is one contract, two
-call sites, cannot drift — but no test asserted any button was disabled while TimeLog is unconfigured.
-Every existing test in `timelog-panel.test.tsx` waits for a button to become ENABLED, so deleting
-`isMisconfigured` from a button's argument object (which makes it enable SOONER) stayed green.
-
-★★★ **ONE of the three button call sites is now pinned, NOT all three — and an earlier revision of this
-paragraph claimed otherwise.** It read "asserts the DISABLED direction for Fetch and
-Load-managed-projects … Verified by mutation: setting `isMisconfigured: false` at both button call
-sites fails the new test and nothing else in the file." That mutation was run and did fail — but it
-mutated BOTH sites at once, so the failure is fully explained by the Load-managed-projects assertion
-alone and says nothing about Fetch. **A mutation that changes two call sites cannot attribute the
-failure to either.** Mutate one site at a time.
-
-★★★ **A SECOND REVISION OF THIS PARAGRAPH CLAIMED FETCH "CANNOT BE PINNED FROM THE DOM". THAT WAS
-FALSE, AND IT WAS THE STATED REASON FOR NOT WRITING THE TEST.** The argument was: `timelog-panel.tsx`
-renders the project picker under `!isPopout && !isMisconfigured`, so `selectedCount > 0` is unreachable
-while misconfigured. The picker's RENDERING is gated; its STATE is not. `useTimelogPickerScope` runs
-unconditionally and seeds `projectCustomerId` + `selectedProjectIds` from the persisted per-device
-picker scope or the workspace's `timelogLinks` (`timelog-initial-scope.ts` ranks 1 and 2) — neither
-reads `isMisconfigured`. A device that once configured TimeLog, fetched a scope, then had the token
-cleared or the integration disabled mounts in exactly that state. It is the ORDINARY failure path, not
-a contrived one. ★★★ Converting a missing test into a documented impossibility is worse than leaving
-the gap: the gap invites a fix, the impossibility forbids one. Two independent reviewers caught it;
-neither was given the previous round's findings. **Write "not done", never "cannot be done", unless the
-impossibility itself has been tested.**
-
-★★ **ALL FOUR WIRINGS ARE NOW PINNED, each verified by a SINGLE-SITE mutation:**
-
-| wiring | arm pinned | single-site mutation |
+| wiring | arm pinned | mutation that must fail a test |
 |---|---|---|
-| Fetch (`timelog-panel-toolbar.tsx`) | `isMisconfigured` | `isMisconfigured: false` → new test FAILS |
-| Refresh (same file) | `isMisconfigured` | `isMisconfigured: false` → FAILS |
-| Load-managed (`timelog-projects-table.tsx`) | `isMisconfigured` | `isMisconfigured: false` → FAILS |
-| Clear-all (`timelog-panel-toolbar.tsx`) | `hasFetched` | `hasFetched: true` → FAILS |
+| Fetch (`timelog-panel-toolbar.tsx`) | `isMisconfigured` | `isMisconfigured: false` |
+| Refresh (same file) | `isMisconfigured` | `isMisconfigured: false` |
+| Load-managed (`timelog-projects-table.tsx`) | `isMisconfigured` | `isMisconfigured: false` |
+| Clear-all (`timelog-panel-toolbar.tsx`) | `hasFetched` | `hasFetched: true` |
+
+★★★ **Mutate ONE site at a time.** An earlier revision claimed the button half was pinned on the
+strength of a mutation that changed two sites at once — whose failure was fully explained by one of
+them, and said nothing about the other. A mutation spanning two call sites cannot attribute the failure
+to either.
+
+★★★ **Write "not done", never "cannot be done", unless the impossibility has itself been tested.** A
+revision here claimed Fetch "cannot be pinned from the DOM" because the picker renders under
+`!isPopout && !isMisconfigured`. The picker's RENDERING is gated; its STATE is not —
+`useTimelogPickerScope` runs unconditionally and seeds the customer + selection from the persisted
+picker scope or `timelogLinks` (`timelog-initial-scope.ts` ranks 1 and 2), neither of which reads
+`isMisconfigured`. A device that lost its token mounts in exactly that state. **Converting a missing
+test into a documented impossibility is worse than the gap: the gap invites a fix, the impossibility
+forbids one.** Two independent reviewers caught it.
 
 ★ The Fetch/Refresh fixture seeds `links={{customerId, projectIds}}` with NO config, so the selection
-exists and `isMisconfigured` is the only term left blocking. Its query matches the accessible name
-`/\(1\)$/` — the Fetch label gains ` (N)` only when `selectedCount > 0`, so the query itself PROVES the
-seed took, which is what stops the assertion passing vacuously off an empty selection (how the first
-version of these tests failed to pin Fetch at all). ★ It also means an exact-name query silently stops
-resolving once a selection exists — do not "simplify" the regex back to a plain string.
+exists and `isMisconfigured` is the only remaining blocker. Its query is anchored on the full label
+(`^<timelogSync> \(1\)$`): the ` (N)` suffix appears only when `selectedCount > 0`, so the match
+proves the seed took and the assertion cannot pass vacuously off an empty selection. Keep it anchored —
+a bare `/\(1\)$/` would multi-match any future counted button, and a plain exact-name query stops
+resolving the moment a selection exists.
 
-★★ Coverage now: 4 of 4 predicates unit-tested, 4 of 4 wirings DOM-pinned. Those remain different
-properties — the predicates prove the logic, the wirings prove each button evaluates it — and keeping
-them distinct is the point of the module.
+★★ Coverage: 4 of 4 predicates unit-tested; 4 of 4 button wirings DOM-pinned; each wiring pins the ONE
+arm that was the defect, so `isPopout` / `syncBusy` / `confirming` remain unpinned at every site.
 
-★★ "Untestable by construction" was true of the HANDLER and got generalised to the whole fix. The
-handler path really is unreachable from the UI; the BUTTON path is DOM-reachable and cheap. Watch for
-a true statement about one half of a change being carried over to the half it does not cover.
+★★★ **The HANDLER guards are still unpinned, and that half really is hard.** No test fails if
+`isMisconfigured` is dropped from any of the three handlers carrying it. `timelog-guards.test.ts` calls
+the predicates directly and never imports `timelog-panel.tsx`; `timelog-panel.test.tsx` reaches the
+handlers only through a button, and every such test waits for ENABLED first, because a disabled button
+drops `onClick`. Since the buttons now carry the same terms, "handler invoked while misconfigured" is
+unreachable from a DOM suite. ★ Shape for real coverage: invoke the handler directly (or exercise the
+predicate at the handler's own call site, with the handler's actual argument construction) with
+`isMisconfigured: true` and everything else permissive, asserting `sync.fetchBookingsForProjects` is
+NOT called. ★ Do not read the green suite as verifying that closure — it verified only that nothing
+already passing broke.
 
-★ `TimelogFetchState.projectCustomerId` is `number | ""` (matching `use-timelog-picker-scope.ts`'s
-`useState<number | "">("")` and `TimelogToolbar`'s own prop), not `string` — the module's first version
-typed it `string`, and review caught the mismatch before the wiring commit landed.
+★ `TimelogFetchState.projectCustomerId` is `number | ""` (matching `use-timelog-picker-scope.ts`), not
+`string`; review caught that before the wiring landed.
 
-★ Keep the §39 provenance sentence above as written — "read §39 as 'test fixed', not 'cause removed'"
-stays true of §39's own history regardless of this fix.
-
-★★★ **No test in the suite would fail if `isMisconfigured` were dropped from any of the three HANDLER
-guards that carry it again — verified, not assumed.** (Three, not two: `handleLoadManagedProjects`
-joined `handleFetchBookings`/`handleRefreshBookings` later. The fourth handler, `clearAllFetched`,
-deliberately never takes the term.) ★ This is about the HANDLERS only — all four BUTTON wirings are now
-pinned; see the mutation table above.
-- `timelog-guards.test.ts` tests the predicates in isolation, calling them directly with hand-built
-  state objects. It never imports `timelog-panel.tsx`, so it is blind to what the handlers actually pass.
-- `timelog-panel.test.tsx` contains **zero** direct references to `handleFetchBookings`,
-  `handleRefreshBookings`, `onFetch` or `onRefresh` (`grep` returns no matches). Every test that
-  exercises either handler does so through `screen.getByRole("button", {…})` +
-  `fireEvent.click(btn)` — and every such test explicitly waits for the button to become **enabled**
-  first (e.g. `await waitFor(() => expect(btn).toBeEnabled())` before the Refresh click, an identical
-  wait before the Fetch click), because a disabled `<button>` drops `onClick` and the click would
-  otherwise be a silent no-op (the same fact §39's own comment records, for the same reason).
-- Both buttons carry the SAME `isMisconfigured` term the handlers now also carry. So in any scenario
-  where `isMisconfigured` is true, the button is disabled, its `onClick` never fires, and the handler is
-  never invoked. **The path "handler invoked while misconfigured" is structurally unreachable from this
-  DOM-driven suite** — the passing tests in `timelog-panel.test.tsx` + `timelog-guards.test.ts` confirm
-  **no regression**; they pin **nothing** about the new `isMisconfigured` term in either handler.
-  (Reproduce the totals: `grep -cE '^\s+it\(' src/app/timelog-panel.test.tsx src/app/timelog-guards.test.ts`.
-  ★★ This sentence used to hardcode "58 passing tests (51 + 7)". Both components were stale within the
-  same branch — the commit closing the review findings added tests to BOTH files. A count written into
-  prose here decays faster than anyone re-reads it; the command does not.)
-
-★★ **This is the same wall as §76 (and as §72's own re-set line):** the guard's only trigger is exactly
-the state that makes it unreachable through the normal surface. A test written today would either be
-vacuous or would have to bypass the button entirely. **A test that passes against the mutation it names
-is worse than none.**
-
-★ The fix is still correct and still worth having — it closes the gap for the next non-button caller,
-which is the entire point of this entry. Do not read this closure as though a green suite verified that
-closure; it verified only that nothing already passing broke.
-
-★ **Shape for real coverage, for whoever picks this up:** a direct unit test that invokes the handler
-(or exercises `canFetchBookings`/`canRefreshBookings` at the handler's own call site, with the handler's
-actual argument construction) with `isMisconfigured: true` and everything else permissive, asserting
-`sync.fetchBookingsForProjects` is NOT called. The difficulty — and the reason this was not done here —
-is reaching the handler at all without going through the disabled button, which is exactly what the DOM
-suite cannot do.
+★ Test totals are deliberately not written here — reproduce with
+`grep -cE '^\s+it\(' src/app/timelog-panel.test.tsx src/app/timelog-guards.test.ts`. A hardcoded count
+in this entry went stale twice inside this branch.
 
 ---
 
@@ -3719,15 +3660,16 @@ re-arms away.
   the wrong baseline and closed as the same leak. See §77 for the full account and the transferable
   lesson about measuring against a partially-fixed tree.
 
-★ **Stale count, corrected:** the measured block above (`# 1 failed / 62 passed` for the storage file)
-was accurate when this entry was written but is now stale — an unrelated §72 test landed on `main`
-after the fact, so the file's total grew from 63 tests to 64. Re-measured today the same bug would read
-`1 failed / 63 passed`. Not a behaviour change; recorded here rather than silently rewritten into the
-historical measurement above.
+★ The measured block above (`1 failed / 62 passed`) is historical: an unrelated §72 test later grew
+that file's total, so the same bug would read `1 failed / 63 passed` today. Left as measured.
 
 ★★★ **The gate.** `unit-tests-shuffled` (BLOCKING quality-stage job) runs the full unit suite at
-`--sequence.shuffle --sequence.seed=1` — the seed that reproduces both leaks above — so it can only go
-red on a real regression, never on the seed of the day. Its `needs` is `[install, {job: unit-tests,
+`--sequence.shuffle --sequence.seed=1` — the seed that reproduces both leaks above — so a red run is
+REPRODUCIBLE. ★★ It does NOT follow that "only a real regression can turn it red": the seed pins the
+PRNG, not the permutation, which is over the CURRENT test array — so adding or removing any test
+anywhere reshuffles, and an MR can go red by newly exposing a PRE-EXISTING latent (the undrained
+`*Once()` queues below are exactly such latents). Read a red run as "an order dependence exists
+somewhere in the suite", not "this MR caused it". Its `needs` is `[install, {job: unit-tests,
 artifacts: false}]`: the dependency edge is there deliberately, because no other quality-stage job
 depends on `unit-tests` and without it GitLab would run this job concurrently with `unit-tests` — two
 full vitest processes contending for one runner's CPU, the same class of resource contention as the
@@ -3746,27 +3688,13 @@ library and printing the parsed `script` array, not by eye.
 all files, exit 0. **Reproduce with `npm run test:shuffle`** (added in this slice — it pins the same
 seed CI's `unit-tests-shuffled` uses, so a red gate is reproducible locally in one command).
 
-★★★ **THE TEST TOTAL IS DELIBERATELY NOT WRITTEN HERE, because it went stale THREE TIMES on this one
-branch.** First `8959` (measured at the commit that added the job, invalidated by three later commits).
-Corrected to `8966` — already wrong on arrival, because the preceding commit had added five tests;
-caught only when the gate sweep printed `8971`. Corrected to `8971` — invalidated within the hour by
-the review-response commit that added three more. Each correction was made carefully, by someone who
-had just finished writing a paragraph about stale counts.
-★★ The lesson is NOT "be more careful": three careful attempts failed. It is that **a count of a thing
-the branch is actively changing cannot be maintained in prose at all.** Cite the reproduce command and
-let the reader run it. Where a number genuinely must be written down, it needs the command beside it
-AND a re-check in the final pre-push sweep — the same rule AGENTS.md gives for its own counts.
-
-★★ The first version of this line read `784/784 files, 8959 tests`, and both numbers were honest when
-written — they were taken at `0a7356e9`, the commit that added the job. The branch then added
-`timelog-guards.test.ts` and edited `timelog-panel.tsx` / `timelog-panel-toolbar.tsx`, which 51 tests
-in `timelog-panel.test.tsx` exercise. So a BLOCKING gate's only green evidence had been taken against
-a tree that was no longer the one it would gate. A cold reviewer caught it by counting test files per
-commit with `git ls-tree`. ★★★ The general rule: **a prerequisite measurement for a blocking gate has
-to be re-taken at the tip, not at the commit that added the gate** — every later commit on the branch
-invalidates it, and nothing in CI notices, because the gate has not run yet. (This same entry three
-paragraphs above meticulously corrects a different stale count, which is how the file demonstrably
-knows to do this and still skipped it here.)
+★★★ **NO TEST TOTAL IS WRITTEN HERE — the number went stale THREE TIMES inside this one branch**
+(8959 → 8966 → 8971, each correction written by someone who had just finished a paragraph about stale
+counts, each invalidated by the next commit). The lesson is not "be more careful"; three careful
+attempts failed. **A count of something the branch is actively changing cannot be maintained in prose.**
+★★ Related and separate: the first prerequisite measurement was taken at the commit that ADDED the
+gate, then three more commits landed. **A prerequisite for a BLOCKING gate must be re-taken at the tip**
+— every later commit invalidates it and CI cannot notice, because the gate has not run yet.
 
 ★★ **Scope, honestly.** This was never a live CI failure — nothing in CI shuffled before this slice.
 From these commits forward it is gated at **seed 1 only**; a new order-dependent test that only fails
@@ -3776,9 +3704,7 @@ at some other seed still reaches `main`, and is caught, at best, by the weekly r
 only as "verified at the seeds tested."** Seeds 1, 2, 3, 7 and the unshuffled control all pass on both
 files today, and seed 7 in particular is now confirmed to be the SAME `use-storage-backend.test.tsx`
 mechanism above rather than a third one (§77, closed, was filed as a separate defect and found to be
-this one, measured on a tree with only the `beforeEach` half of this fix). Nothing was tested beyond
-that finite set of seeds, and `unit-tests-shuffled` pins seed 1 only — a new order-dependent test that
-happens to fail at some other seed still reaches `main`, caught at best by the weekly random-seed job.
+this one, measured on a tree with only the `beforeEach` half of this fix). Nothing was tested beyond that finite set of seeds.
 
 ---
 
@@ -3873,33 +3799,27 @@ across the two hooks pass unchanged, which confirms no regression and pins nothi
 ★ Production was never affected (one mount, no remount), so there is no user-facing behaviour change
 and no version bump — this is a dev-experience fix.
 
-★★★ **THE SWEEP REGEX THIS ENTRY DOCUMENTED CANNOT MATCH THE DEFECT IT SWEPT FOR.** It read
-`grep -rnE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" src/app/` → "exactly three hits". Three
-is the right answer TODAY, which is why it survived review twice — but run it against the pre-fix tree
-(`git grep -nE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" 4a81420a -- src/app/`) and it returns
-**ONE**, and that one hit is `use-storage-backend.ts:179` — already in BLOCK form because §72 had fixed
-it earlier, i.e. the only file it finds is the one that was never a §76 defect, and it misses BOTH real
-instances. ★★★ An earlier revision of this very paragraph said "returns ZERO". That number was
-asserted, not measured, inside the paragraph whose entire point is that a sweep must be RUN against the
-tree where the defect lived. Same failure, one level up, in the sentence naming it.
-Both real defects were written in the concise arrow-returning-arrow form,
-`useEffect(() => () => { mountedRef.current = false; }, []);` (`git show 4a81420a:src/app/use-scheduled-jobs.ts`),
-which contains no `return () => {` at all. The regex only matches the BLOCK form the FIX introduced. So
-it validated the fixed state and would structurally miss a NEW instance written the way both real ones
-were. **A sweep pattern must be run against the tree where the defect existed, not the tree where it is
-fixed** — otherwise "the sweep is complete" is a statement about your own diff.
-★ The form that covers both: `grep -rnE "=> *\{? *[a-zA-Z]+Ref\.current = false" src/app/`. Validated
-in BOTH directions, which is the point: on the base tree it finds the concise form in the TWO §76 files
-(`use-scheduled-jobs`, `use-operating-guides`) PLUS the pre-existing block form in `use-storage-backend`
-— so it catches both real defects where the old pattern caught neither. At HEAD it finds the three
-block forms. ★ It returns FOUR hits — at HEAD *and* at base — the extra being `use-push-to-talk.ts`
-`pressingRef`, a pointer-press flag rather than a mount guard. That is the intended cost of matching a
-SHAPE rather than a name, recorded so the next reader is not alarmed by a count that disagrees with
-"exactly three `mountedRef`s". Cross-check with `grep -rn "mountedRef = useRef" src/app/` → three, all
-re-set on mount.
-★★ A revision of this sentence claimed the concise form in "all three files" and framed the fourth hit
-as HEAD-specific. Both wrong: `use-storage-backend` was block-form at base, and base returns four too.
-The CONCLUSION always held; the evidence offered for it has now been wrong twice.
+★★★ **THE SWEEP REGEX THIS ENTRY FIRST DOCUMENTED COULD NOT MATCH THE DEFECT IT SWEPT FOR.** It read
+`grep -rnE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" src/app/` → "exactly three hits", which is
+the right answer TODAY. Against the pre-fix tree it returns ONE — `use-storage-backend.ts:179`, already
+in block form from §72 — so the only file it finds is the one that was never a §76 defect, and it
+misses both real instances. Those were written in the concise arrow-returning-arrow form,
+`useEffect(() => () => { mountedRef.current = false; }, []);`, which contains no `return () => {` at
+all: the pattern only matched the BLOCK form the FIX introduced. **A sweep pattern must be run against
+the tree where the defect existed, not the tree where it is fixed** — otherwise "the sweep is complete"
+is a statement about your own diff.
+
+★ The form that covers both, validated in BOTH directions:
+`grep -rnE "=> *\{? *[a-zA-Z]+Ref\.current = false" src/app/` (add `4a81420a --` after `git grep -nE` to
+run it against the base tree). At base it finds the concise form in the two §76 files plus the block
+form in `use-storage-backend`; at HEAD, the three block forms. It returns FOUR hits at both revisions —
+the extra is `use-push-to-talk.ts` `pressingRef`, a pointer-press flag, not a mount guard. That is the
+cost of matching a SHAPE rather than a name; cross-check with `grep -rn "mountedRef = useRef" src/app/`
+→ three, all re-set on mount.
+
+★★ Two successive revisions of the evidence above were wrong ("returns ZERO"; "the concise form in all
+three files"), both asserted rather than run, in the entry whose own rule is to run the sweep. The
+conclusion never changed; only the numbers offered for it did. Run the commands.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.
