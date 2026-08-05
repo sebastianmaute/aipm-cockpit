@@ -19,7 +19,8 @@ import {
   toStakeholderSummary,
   toResourceSummary,
 } from "./chat-tools";
-import { deriveMode, sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
+import { deriveMode, type FeatureModuleId } from "./feature-modules";
+import { computeSettingsPatch } from "./chat-settings-patch";
 import type { AppView } from "./nav-config";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
@@ -49,12 +50,7 @@ import {
   sanitizeResource,
 } from "./sanitize";
 import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
-import {
-  NEXT_ACTIONS_FIELD_COERCE,
-  resolveNextActionsConfig,
-  type NextActionsConfig,
-  type Settings,
-} from "./settings-types";
+import { type Settings } from "./settings-types";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
@@ -474,61 +470,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       updateSettings: (patch: SettingsUpdateInput) => {
         if (args.isReadOnly) throw readOnlyError();
         const cur = settingsRef.current;
-        // Accumulate ONLY the changed top-level fields, so the functional setter
-        // below merges them onto the LIVE `prev` — a concurrent non-AI settings
-        // edit in the same tick keeps its own fields instead of being clobbered.
-        const changes: Partial<Settings> = {};
-        const applied: Record<string, unknown> = {};
-
-        if (patch.dashboardDensity === "comfortable" || patch.dashboardDensity === "compact") {
-          changes.dashboardDensity = patch.dashboardDensity;
-          applied.dashboardDensity = patch.dashboardDensity;
-        }
-        if (typeof patch.showViewHints === "boolean") {
-          changes.showViewHints = patch.showViewHints;
-          applied.showViewHints = patch.showViewHints;
-        }
-        if (
-          patch.tasksViewMode === "table" ||
-          patch.tasksViewMode === "board" ||
-          patch.tasksViewMode === "swimlane"
-        ) {
-          changes.tasksViewMode = patch.tasksViewMode;
-          applied.tasksViewMode = patch.tasksViewMode;
-        }
-        if (typeof patch.hideExternalTasks === "boolean") {
-          changes.hideExternalTasks = patch.hideExternalTasks;
-          applied.hideExternalTasks = patch.hideExternalTasks;
-        }
-        if (patch.enabledModules !== undefined) {
-          // sanitizeFeatures drops any unknown/invalid module id — a hallucinated
-          // id can never enable a non-existent module.
-          const feats = sanitizeFeatures(patch.enabledModules);
-          changes.features = feats;
-          applied.enabledModules = feats;
-        }
-        if (patch.nextActionsWeights && typeof patch.nextActionsWeights === "object") {
-          const curCfg = resolveNextActionsConfig(cur.nextActions);
-          const cfg: NextActionsConfig = { ...curCfg };
-          const appliedWeights: Record<string, number> = {};
-          for (const [k, v] of Object.entries(
-            patch.nextActionsWeights as Record<string, unknown>,
-          )) {
-            // Only known tuning fields, each clamped by its own coercer — the
-            // SAME validators the settings UI uses. Unknown keys are ignored.
-            if (Object.prototype.hasOwnProperty.call(NEXT_ACTIONS_FIELD_COERCE, k)) {
-              const key = k as keyof NextActionsConfig;
-              const coerced = NEXT_ACTIONS_FIELD_COERCE[key](v, curCfg[key]);
-              cfg[key] = coerced;
-              appliedWeights[k] = coerced;
-            }
-          }
-          if (Object.keys(appliedWeights).length > 0) {
-            changes.nextActions = cfg;
-            applied.nextActionsWeights = appliedWeights;
-          }
-        }
-
+        const { changes, applied } = computeSettingsPatch(patch, cur);
         if (Object.keys(applied).length > 0) {
           // Ref kept in sync (like the entity setters) so a back-to-back tool
           // call reads the just-applied settings; persistence + writeSettings
