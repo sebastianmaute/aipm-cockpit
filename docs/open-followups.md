@@ -149,8 +149,8 @@ missed half the finding.
 **`ResourcesPanel` (`resources-panel.tsx`, `export const ResourcesPanel = memo(ResourcesPanelInner)`)
 never bails.** `makeEditGuard` is called UNMEMOIZED during render (`task-manager.tsx`,
 `const guardEdit = makeEditGuard(isPopout, …)`), so every `guardEdit(handler)` prop is a fresh
-function each render — that is ~25 of the panel's 47 props (`task-manager.tsx:2180-2274` — one
-anonymous object literal with nothing nameable to cite, so those bounds are inherently fuzzy). The
+function each render — that is ~25 of the panel's 47 props (`task-manager.tsx`, the `workspaceProps`
+object literal). The
 `absenceCalendar:` bag is rebuilt each render, so its four function members are unstable
 too. Call site: `workspace-section.tsx`, the `<ResourcesPanel …>` call.
 
@@ -227,7 +227,7 @@ something quantifies it *as of its writing* — **re-measure before acting on a 
 
 | new file | lines | what moved |
 |---|---|---|
-| `src/app/use-reference-data.ts` | 308 | 15 handlers — roles · disciplines · grades (create/save/delete/assign/reorder) |
+| `src/app/use-reference-data.ts` | 314 | 15 handlers — roles · disciplines · grades (create/save/delete/assign/reorder) |
 | `src/app/use-resource-directory.ts` | 344 | 9 exports — resource CRUD, bulk edit/delete, import; plus the private helpers `recordMatchesRemoved` and `purgeCalendarFor` |
 
 `plainSeed` moved into `use-resource-directory.ts` but is **exported and imported back** by the
@@ -1692,6 +1692,9 @@ every number here as a measurement with a date, not a property.
 - ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
   --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
   2026-07-31. Nothing is red.
+- ★★ eslint 10 is a major landing against a **`--max-warnings=0`** gate, so any rule added, renamed or
+  changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
+  edits, which a major would likely require. That is a slice with its own verification, not an install.
 
 ★★★ **The npm-`overrides` workaround was tried and it does not work. Both forms were EXECUTED, not
 reasoned about — do not repeat them.**
