@@ -146,11 +146,13 @@ missed half the finding.
 
 ### What is actually true
 
-**`ResourcesPanel` (`resources-panel.tsx:680`) never bails.** `makeEditGuard` is called
-UNMEMOIZED during render (`task-manager.tsx:2047`), so every `guardEdit(handler)` prop is a fresh
-function each render — that is ~25 of the panel's 47 props (`task-manager.tsx:2180-2274`). The
-`absenceCalendar` bag (`:2158`) is rebuilt each render, so its four function members are unstable
-too. Call site: `workspace-section.tsx:511-559`.
+**`ResourcesPanel` (`resources-panel.tsx`, `export const ResourcesPanel = memo(ResourcesPanelInner)`)
+never bails.** `makeEditGuard` is called UNMEMOIZED during render (`task-manager.tsx`,
+`const guardEdit = makeEditGuard(isPopout, …)`), so every `guardEdit(handler)` prop is a fresh
+function each render — that is ~25 of the panel's 47 props (`task-manager.tsx:2180-2274` — one
+anonymous object literal with nothing nameable to cite, so those bounds are inherently fuzzy). The
+`absenceCalendar:` bag is rebuilt each render, so its four function members are unstable
+too. Call site: `workspace-section.tsx`, the `<ResourcesPanel …>` call.
 
 **★ NEW — `ResourceCalendar` (`resource-calendar.tsx:697`) is ALSO `memo()`'d and also never bails.**
 The original write-up does not mention it. It guards the heaviest subtree in the view — the calendar
@@ -259,10 +261,13 @@ reason to preserve the memoization form. It does not hold:
   contradicting the very header comment it defers to: `handleAssignRoleById` reaches the memo'd
   `ResourceDirectory` (arriving `guardEdit()`-wrapped, so unstable anyway), and
   `handleAssignResourceRole` + `handleClearResourceRole` reach nothing in production at all (§62);
-- **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx:442`)
-  and `ResourcesPanel` (`resources-panel.tsx:682`) — but they arrive `guardEdit()`-wrapped
+- **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx`,
+  the `memo(ResourceDirectoryInner)` export) and `ResourcesPanel` (`resources-panel.tsx`, the
+  `memo(ResourcesPanelInner)` export) — but they arrive `guardEdit()`-wrapped
   (`task-manager.tsx:2258-2261`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
-  render (`task-manager.tsx:2041`), so their identities are unstable whatever this hook does.
+  render (`task-manager.tsx`, `const guardEdit = makeEditGuard(isPopout, …)`), so their identities
+  are unstable whatever this hook does. ★ §1 and §2 cited that one call as `:2047` and `:2041`, so at
+  least one was wrong the day it was written; the real line is `:2044`. Cite the symbol, not the number.
 
 Preserving the memoization form needed no justification beyond the commit being move-only, and the
 corrected reasoning now lives in `use-reference-data.ts`'s own header comment. ★ §1 is unaffected in
@@ -1565,7 +1570,11 @@ into that tree — enough detail is reproduced below to resume without it.
 
 **S6 — Outlook PUSH for calendar events.** Spec and a 17-task / 109-step plan exist and **not one
 step has been executed**. Written against 0.208.0 targeting 0.209.0, then displaced when that release
-shipped slice B instead. The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
+shipped slice B instead.
+
+★★ **UNEXECUTED — every file and function named in this task list was NOT built and does not exist in the codebase.**
+
+The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
 `GraphEvent` · `eventToGraphEvent` · `exceptionPlan` · freeze/`afterPush` on the shared reconcile ·
 `replayExceptions` · `"event"` as a calendar entity type · i18n EN+DE · settings row for meeting
 series · entity-qualify the Push/Pull names (**= §42 — see there**) · wire the push in
@@ -2285,6 +2294,9 @@ had running, and **the dev CSP is the permissive branch**. A prod-only defect of
 structurally invisible to the one suite most likely to catch it. That is the reason this bug is old and
 unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to point the smoke at a real
 `next start`, as the reproduction above does.
+
+---
+
 ## 55. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
@@ -2577,8 +2589,10 @@ real pressure does not have to re-derive it.
 
 ## 62. Two reference-data handlers have no production consumer — open, pre-existing
 
-`handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts:127` and `:140`)
-are reachable only from `use-resource-planner.test.tsx` (`:1012`, `:1023`, `:1085`, `:1096`). Nothing
+`handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
+are reachable only from `use-resource-planner.test.tsx` (`:1012`, `:1023`, `:1085`, `:1096`). ★ Those
+two cites read `:127` and `:140` until 2026-08-05 and were six lines stale — both handlers moved in
+the §61 split; the sentence names both symbols, which is the durable cite. Nothing
 in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller.
 
 ★ **Pre-existing, not introduced by §2's split** — they were equally dead at `0d770283`
@@ -2767,6 +2781,11 @@ every reader of `progress.percent`, `progress.inScope` and `pctComplete` and enu
 `completionPercent` is the portfolio symbol above. The design spec had it right and the register
 degraded it while copying. Nothing catches this — the AGENTS.md symbol gate reads AGENTS.md only,
 never this file. Grep a symbol before citing it here.
+★ And grep the RIGHT symbol before calling a cite DEAD: a 2026-08-05 audit flagged the
+`ai-dashboard-snapshot.ts` cite above by searching for `completionPercent` — the exact wrong name
+this warning exists to record — and reported the entry's correct cite as a defect.
+
+---
 
 ## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — open
 
@@ -2874,8 +2893,9 @@ table in the separated-borders model, where "borders set on rows, row groups, co
 groups are ignored".
 
 ★ Note the direction: Tailwind's preflight sets `border-collapse: collapse` on every `<table>`
-(`preflight.css:166`), under which a `<tr>` border WOULD paint. It is the `globals.css` override that
-breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
+(Tailwind's own `node_modules/tailwindcss/preflight.css`, the `table { … border-collapse: collapse; }`
+reset — a dependency file, never in this repo), under which a `<tr>` border WOULD paint. It is the
+`globals.css` override that breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
 `globals.css:124` puts that at ~25 tables.
 
 ★★ **NOT budget-specific.** Sweeping `<tr …className=…border-…>` across `src/app/*.tsx` finds **8
@@ -2913,6 +2933,8 @@ styling" and "add row separators across six panels" are the same diff described 
 which one is wanted before touching it. ★ If it IS wanted, the mechanism already exists (`cellClass` in
 `budget-panel-totals.tsx`) — the work is agreeing the look, not finding the fix.
 
+---
+
 ## 69. `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — open
 
 Adding a branding field means extending **two independent field lists**, and missing either is a
@@ -2930,7 +2952,8 @@ its presence check, and the `setBranding` gate was missed. Two failure
 modes followed, both silent: uploading ONLY a start logo wrote `branding: undefined`, so the upload
 appeared to do nothing; and removing the sidebar logo while a start logo existed **destroyed the start
 logo**. Caught in review, fixed in `876b8777`, and pinned by
-`appearance-section.test.tsx` ("keeps the start logo when the sidebar logo is removed").
+`settings-sections/appearance-section.test.tsx` ("keeps the start logo when the sidebar logo is
+removed").
 
 ★ What is pinned today is only the SECOND failure mode, for THIS field. There is no test that the two
 lists agree, and there cannot easily be one — a TS interface has no runtime keys to walk, so a generic
