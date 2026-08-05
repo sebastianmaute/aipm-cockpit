@@ -1791,3 +1791,71 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     expect((result.current.tasks[0] as { resourceId?: number }).resourceId).toBe(42);
   });
 });
+
+describe("useStorageBackend — StrictMode mount re-set (§72)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("still emits a save outcome after StrictMode's remount", async () => {
+    // StrictMode mounts → unmounts → remounts. Without `mountedRef.current =
+    // true` in the mount effect BODY, the flag is false for the rest of the
+    // session and emitOutcome / emitToast / emitRegistryChange /
+    // emitStorageConfig all return early — §72's dev-only total-suppression
+    // failure mode.
+    //
+    // Delete `mountedRef.current = true` from use-storage-backend.ts and this
+    // fails: onStorageOutcome is never called. Verified by running that
+    // mutation.
+    //
+    // ★★★ THE STRICTMODE ELEMENT MUST BE THE OUTERMOST ONE UNDER THE ROOT, so
+    //     this passes `reactStrictMode` (RTL renders
+    //     `<StrictMode><Wrapper>…</Wrapper></StrictMode>`) instead of composing
+    //     `<StrictMode><TestProviders>` inside the wrapper itself. That is not
+    //     a style preference. React's double-invoke walk
+    //     (`recursivelyTraverseAndDoubleInvokeEffectsInDEV`, read in the
+    //     react-dom development build) stops at the topmost fiber carrying the
+    //     placement flag — on an initial mount, the root's only child — and
+    //     double-invokes there ONLY if that fiber is StrictMode, recursing no
+    //     further either way. So one extra component ABOVE StrictMode — even a
+    //     bare `({children}) => <StrictMode>{children}</StrictMode>` with no
+    //     providers at all — yields ["mount"], no cleanup+remount, and a guard
+    //     test written that way is VACUOUS: measured 2026-08-05, that shape
+    //     stayed green with the pinned line deleted. It is the likely source
+    //     of the 2026-08-04 "StrictMode single-invokes here" measurement this
+    //     test refutes.
+    //     `src/app/strictmode.meta.test.tsx` pins the harness property; it uses
+    //     the outermost shape too.
+    const onStorageOutcome = vi.fn();
+    const { result } = renderHook(makeProbe(makeArgs({ onStorageOutcome })), {
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+      reactStrictMode: true,
+    });
+
+    // Let the load settle, then burn the first debounce cycle (the load sets
+    // suppressNextSaveRef, which that cycle clears).
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    onStorageOutcome.mockClear();
+
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // `null` (not merely "called") is what says the save SUCCEEDED — an error
+    // outcome reaches the same callback.
+    expect(onStorageOutcome).toHaveBeenCalledWith(null);
+  });
+});
