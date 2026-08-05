@@ -2218,6 +2218,30 @@ export const de: Record<TranslationKey, string> = {
   helpReadingLevelGuided: "Geführt",
   helpReadingLevelStandard: "Standard",
   helpReadingLevelExpert: "Erfahren",
+  helpConceptMilestonePrimer:
+    "Ein Meilenstein ist ein Datum, das Sie sich im Kalender anstreichen und dem Auftraggeber nennen würden – Design abgenommen, System live. Wenn unklar ist, welche das sind: Fragen Sie, worüber jemand außerhalb des Teams informiert werden möchte.",
+  helpConceptRaidPrimer:
+    "Ein RAID-Log ist eine einzige Liste mit allem, was schiefgehen kann, samt der Annahmen, von denen Sie stillschweigend ausgehen. Eine Sorge aufzuschreiben macht aus einem privaten Zweifel etwas, womit das Team arbeiten kann.",
+  helpConceptChangePrimer:
+    "Projekte scheitern selten in einem großen Moment; sie driften, ein kleines Extra nach dem anderen. Änderungssteuerung heißt nur: Jedes Extra wird festgehalten und abgestimmt, bevor daraus unbemerkt Arbeit wird.",
+  helpConceptStakeholderPrimer:
+    "Ein Stakeholder ist jede Person, die Ihrem Projekt nützen oder schaden kann – auch wer nie an Ihren Terminen teilnimmt. Der Sinn einer Liste liegt darin, genau die zu finden, an die niemand gedacht hat.",
+  helpConceptRaciPrimer:
+    "Wenn alle verantwortlich sind, ist es niemand. RACI ist das kurze, etwas unbequeme Gespräch darüber, wer die Arbeit macht und wer für das Ergebnis geradesteht – schriftlich, damit es den Termin überdauert, in dem es geführt wurde.",
+  helpConceptBudgetPrimer:
+    "Hinter jedem Budget stehen zwei Fragen: Geben wir mehr aus als geplant, und bekommen wir die Leistung, für die wir bezahlen? Die erste ist reine Rechnerei. Für die zweite gibt es die Earned-Value-Rechnung.",
+  helpConceptResourcePrimer:
+    "Menschen sind keine austauschbaren Stunden – jede Person hat begrenzte Zeit, und ein Teil davon ist bereits anderweitig zugesagt. Kapazitätsplanung heißt zu prüfen, ob die zugewiesene Arbeit in die tatsächlich freie Zeit passt.",
+  helpConceptSteeringPrimer:
+    "Manche Entscheidungen übersteigen die Projektleitung: mehr Geld, weniger Umfang, ein späterer Termin. Ein Lenkungsausschuss ist der kleine Kreis mit dieser Befugnis, und regelmäßige Sitzungen verhindern, dass solche Entscheidungen unbemerkt liegen bleiben.",
+  helpConceptTaskStatusPrimer:
+    "Der Status beantwortet eine einzige Frage: Wird daran noch einmal gearbeitet? Fast alles, was die App über den Fortschritt berichtet, baut auf dieser Antwort auf – ein nicht gepflegter Status macht die Zahlen deshalb nicht bloß alt, sondern falsch.",
+  helpConceptBaselinePrimer:
+    "Eine Baseline ist der Plan, den Sie zugesagt haben, unverändert aufbewahrt, um ihn dem heutigen Plan gegenüberzustellen. Ohne sie fehlt der Aussage, man sei drei Wochen spät dran, jeder Bezugspunkt.",
+  helpConceptDependencyPrimer:
+    "Manche Arbeit kann schlicht nicht beginnen, bevor andere fertig ist. Das festzuhalten sorgt dafür, dass sich eine frühe Verzögerung als späteres Ende zeigt, statt alle in der letzten Woche zu überraschen.",
+  helpConceptKnowledgePrimer:
+    "Projektwissen verteilt sich über Dokumente, Wikis und Links, die in irgendeinem Postfach versanden. Alles an einem Ort zu sammeln geht weniger um Ordnung als um die Person, die im sechsten Monat dazukommt und aufholen muss.",
   showFieldConfigLabel: "Feldkonfiguration",
   showFieldConfigHint: "Zeigt den Umschalter Einfach/Erweitert/Vollständig und das Feld-Zahnrad in den Bearbeitungsdialogen.",
   showSavedViewsLabel: "Gespeicherte Ansichten",

@@ -33,6 +33,21 @@ describe("help-content backbone", () => {
   });
 });
 
+describe("concept primers", () => {
+  it("every concept entry has one", () => {
+    const missing = HELP_ENTRIES.filter((e) => e.group === "concepts" && !e.primerKey).map((e) => e.id);
+    expect(missing).toEqual([]);
+  });
+
+  // Primers are the Guided level's whole payload. Putting one on a feature or
+  // workflow entry would render it at Guided with nothing having decided what
+  // it should say there.
+  it("no other group has one", () => {
+    const stray = HELP_ENTRIES.filter((e) => e.group !== "concepts" && e.primerKey).map((e) => e.id);
+    expect(stray).toEqual([]);
+  });
+});
+
 describe("helpGroupOrder", () => {
   it("gives Guided and Standard today's order", () => {
     expect(helpGroupOrder("guided")).toEqual(["concepts", "workflows", "features", "automated"]);

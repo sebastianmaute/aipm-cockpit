@@ -131,3 +131,35 @@ test("omitting readingLevel keeps today's order", () => {
   render(<HelpContentPane lang="en-US" query="" />);
   expect(groupHeadingOrder()[0]).toBe(t("en-US", "helpGroupConcepts"));
 });
+
+// A phrase that exists ONLY in a concept primer, never in a body — so a match
+// proves the primer was searched, not that the query happened to hit the body.
+const PRIMER_ONLY_PHRASE = "circle on a calendar";
+
+test("a primer renders at Guided", () => {
+  render(<HelpContentPane lang="en-US" query="" readingLevel="guided" />);
+  expect(screen.getByText(new RegExp(PRIMER_ONLY_PHRASE, "i"))).toBeInTheDocument();
+});
+
+test("a primer is absent at Standard and at Expert", () => {
+  const { unmount } = render(<HelpContentPane lang="en-US" query="" readingLevel="standard" />);
+  expect(screen.queryByText(new RegExp(PRIMER_ONLY_PHRASE, "i"))).toBeNull();
+  unmount();
+  render(<HelpContentPane lang="en-US" query="" readingLevel="expert" />);
+  expect(screen.queryByText(new RegExp(PRIMER_ONLY_PHRASE, "i"))).toBeNull();
+});
+
+// ★★ Search follows what is RENDERED. Matching text the user cannot see is the
+// same defect that made the search body marker-stripped, so a primer is
+// searchable exactly at the level that shows it. The consequence is deliberate:
+// the same query finds a different number of entries at different levels.
+test("primer text is searchable at Guided and not at Standard", () => {
+  const { unmount } = render(
+    <HelpContentPane lang="en-US" query={PRIMER_ONLY_PHRASE} readingLevel="guided" />,
+  );
+  expect(screen.queryByText(/no matching help/i)).toBeNull();
+  expect(screen.getAllByRole("heading", { level: 2 }).length).toBe(1);
+  unmount();
+  render(<HelpContentPane lang="en-US" query={PRIMER_ONLY_PHRASE} readingLevel="standard" />);
+  expect(screen.queryAllByRole("heading", { level: 2 }).length).toBe(0);
+});

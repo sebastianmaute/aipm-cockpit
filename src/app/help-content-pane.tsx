@@ -50,19 +50,29 @@ export function HelpContentPane({
   const [activeId, setActiveId] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
+  // A concept primer renders at Guided only, so it is SEARCHABLE at Guided
+  // only. ★★ Same principle as stripping markers below: a query must never
+  // match text the user cannot see. The consequence is deliberate — the same
+  // query can find a different number of entries at different reading levels.
+  const showPrimers = readingLevel === "guided";
+  const primerFor = (e: (typeof HELP_ENTRIES)[number]): string =>
+    showPrimers && e.primerKey ? t(lang, e.primerKey) : "";
+
   const groups = useMemo(() => {
-    const matched = HELP_ENTRIES.filter((e) =>
+    const matched = HELP_ENTRIES.filter((e) => {
+      const primer = showPrimers && e.primerKey ? t(lang, e.primerKey) : "";
       // ★ STRIPPED, not raw: searching the raw body would let a query match
       // `[[` markup that is never rendered.
-      matchesQuery(t(lang, e.titleKey), stripHelpMarkers(t(lang, e.bodyKey)), query),
-    );
+      const body = stripHelpMarkers([primer, t(lang, e.bodyKey)].filter(Boolean).join("\n\n"));
+      return matchesQuery(t(lang, e.titleKey), body, query);
+    });
     return helpGroupOrder(readingLevel)
       .map((group) => ({
         group,
         entries: matched.filter((e) => e.group === group),
       }))
       .filter((g) => g.entries.length > 0);
-  }, [lang, query, readingLevel]);
+  }, [lang, query, readingLevel, showPrimers]);
 
   // Stable key of the rendered section ids → re-create the observer when the
   // filtered set changes (search). Hoisted scalar avoids the exhaustive-deps
@@ -143,6 +153,24 @@ export function HelpContentPane({
                   <h3 className="mb-1 text-sm font-semibold text-foreground">
                     <Highlighted text={t(lang, e.titleKey)} query={query} />
                   </h3>
+                  {/* Guided-level primer: everyday framing above the body's
+                      What / Why / In this app. Inset with existing tokens only
+                      — the card is `bg-surface` on a `bg-surface-muted`
+                      scroller, so the muted fill reads as a nested block
+                      without a new token, a gradient or a shadow. */}
+                  {primerFor(e) ? (
+                    <p className="mb-2 max-w-[64ch] whitespace-pre-line rounded border border-line bg-surface-muted p-2 text-sm leading-relaxed text-foreground">
+                      {parseHelpBody(primerFor(e)).map((seg, i) =>
+                        seg.isLabel ? (
+                          <span key={i} className="font-medium">
+                            <Highlighted text={seg.text} query={query} />
+                          </span>
+                        ) : (
+                          <Highlighted key={i} text={seg.text} query={query} />
+                        ),
+                      )}
+                    </p>
+                  ) : null}
                   <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                     {/* ★ Segments, not one string: a label renders emphasised
                         against the body. `Highlighted` runs PER segment, so a

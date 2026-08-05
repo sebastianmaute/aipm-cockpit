@@ -2233,6 +2233,30 @@ const enUS = {
   helpReadingLevelGuided: "Guided",
   helpReadingLevelStandard: "Standard",
   helpReadingLevelExpert: "Expert",
+  helpConceptMilestonePrimer:
+    "Think of a milestone as a date you would circle on a calendar and mention to whoever is paying for the work — design signed off, system live. If you are not sure what yours are, ask what someone outside the team would want to be told about.",
+  helpConceptRaidPrimer:
+    "A RAID log is one list of everything that could go wrong, alongside the things you are quietly assuming will go right. Writing a worry down is what turns it from a private doubt into something the team can actually act on.",
+  helpConceptChangePrimer:
+    "Projects rarely fail in a single dramatic moment; they drift, one small extra at a time. Change control just means every extra gets written down and agreed before it quietly becomes work.",
+  helpConceptStakeholderPrimer:
+    "A stakeholder is anyone who can help your project or harm it, including people who never come to your meetings. The point of listing them is to surface the ones nobody thought to keep informed.",
+  helpConceptRaciPrimer:
+    "When everyone is responsible, nobody is. RACI is the short and slightly awkward conversation about who does the work and who carries the outcome, written down so it survives the meeting it happened in.",
+  helpConceptBudgetPrimer:
+    "Two questions sit behind every budget: are we spending more than we planned, and are we getting the work we paid for? The first is arithmetic. The second is the one earned value exists to answer.",
+  helpConceptResourcePrimer:
+    "People are not interchangeable hours — each has a limited amount of time, and some of it is already promised elsewhere. Capacity planning is checking that what you assign fits in the time that is genuinely free.",
+  helpConceptSteeringPrimer:
+    "Some decisions are bigger than the project manager: more money, less scope, a later date. A steering committee is the small group with the authority to make those calls, and meeting it regularly is what stops such decisions from quietly stalling.",
+  helpConceptTaskStatusPrimer:
+    "Status answers one question: will anyone work on this again? Almost everything the app reports about progress is built on that answer, so a status nobody has updated quietly makes the numbers wrong rather than merely stale.",
+  helpConceptBaselinePrimer:
+    "A baseline is the plan you committed to, kept unchanged so you can hold it up against the plan you have now. Without one, saying you are three weeks late gives you nothing to be late against.",
+  helpConceptDependencyPrimer:
+    "Some work simply cannot start until other work has finished. Recording that is how a delay early on shows up as a later finish, instead of surprising everyone in the final week.",
+  helpConceptKnowledgePrimer:
+    "Project knowledge scatters across documents, wikis, and links buried in somebody's inbox. Gathering it in one place matters less for tidiness than for the person who joins in month six and has to catch up.",
   showFieldConfigLabel: "Field configuration",
   showFieldConfigHint: "Show the Simple/Advanced/Full field switch and the per-field cog in the edit dialogs.",
   showSavedViewsLabel: "Saved views",

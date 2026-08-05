@@ -21,6 +21,14 @@ export interface HelpEntry {
   group: HelpGroup;
   titleKey: TranslationKey;
   bodyKey: TranslationKey;
+  /** Plain-language framing shown ABOVE the body, at the Guided reading level
+   *  only. Concepts group only (a test pins that both ways).
+   *  ★ Primers are deliberately CONCEPTUAL — they name no control, path or
+   *  setting. Every claim about behaviour is a claim that can rot, and slice 1
+   *  spent its entire budget correcting help prose that had; a primer that
+   *  explains an idea rather than an interaction has nothing to fall out of
+   *  step with. Keep it that way when adding one. */
+  primerKey?: TranslationKey;
   relatedViews?: readonly AppView[];
   relatedConcepts?: readonly string[];
 }
@@ -38,18 +46,18 @@ export const HELP_GROUP_LABEL: Record<HelpGroup, TranslationKey> = {
 
 export const HELP_ENTRIES: readonly HelpEntry[] = [
   // ── Concepts (what / why / in this app) ──
-  { id: "concept-milestone", group: "concepts", titleKey: "helpConceptMilestoneTitle", bodyKey: "helpConceptMilestoneBody", relatedViews: ["milestones", "gantt"], relatedConcepts: ["concept-dependency", "concept-baseline"] },
-  { id: "concept-raid", group: "concepts", titleKey: "helpConceptRaidTitle", bodyKey: "helpConceptRaidBody", relatedViews: ["raid"], relatedConcepts: ["concept-change", "concept-stakeholder"] },
-  { id: "concept-change", group: "concepts", titleKey: "helpConceptChangeTitle", bodyKey: "helpConceptChangeBody", relatedViews: ["changes"], relatedConcepts: ["concept-raid", "concept-budget"] },
-  { id: "concept-stakeholder", group: "concepts", titleKey: "helpConceptStakeholderTitle", bodyKey: "helpConceptStakeholderBody", relatedViews: ["stakeholders", "raci"], relatedConcepts: ["concept-raci", "concept-steering"] },
-  { id: "concept-raci", group: "concepts", titleKey: "helpConceptRaciTitle", bodyKey: "helpConceptRaciBody", relatedViews: ["raci", "stakeholders"], relatedConcepts: ["concept-stakeholder"] },
-  { id: "concept-budget", group: "concepts", titleKey: "helpConceptBudgetTitle", bodyKey: "helpConceptBudgetBody", relatedViews: ["budget", "budget-report"], relatedConcepts: ["concept-resource"] },
-  { id: "concept-resource", group: "concepts", titleKey: "helpConceptResourceTitle", bodyKey: "helpConceptResourceBody", relatedViews: ["resources", "workload", "planning"], relatedConcepts: ["concept-budget"] },
-  { id: "concept-steering", group: "concepts", titleKey: "helpConceptSteeringTitle", bodyKey: "helpConceptSteeringBody", relatedViews: ["steering-committee"], relatedConcepts: ["concept-stakeholder"] },
-  { id: "concept-task-status", group: "concepts", titleKey: "helpConceptTaskStatusTitle", bodyKey: "helpConceptTaskStatusBody", relatedViews: ["open-points"], relatedConcepts: ["concept-milestone"] },
-  { id: "concept-baseline", group: "concepts", titleKey: "helpConceptBaselineTitle", bodyKey: "helpConceptBaselineBody", relatedViews: ["trends"], relatedConcepts: ["concept-milestone", "concept-budget"] },
-  { id: "concept-dependency", group: "concepts", titleKey: "helpConceptDependencyTitle", bodyKey: "helpConceptDependencyBody", relatedViews: ["gantt", "open-points"], relatedConcepts: ["concept-milestone"] },
-  { id: "concept-knowledge", group: "concepts", titleKey: "helpConceptKnowledgeTitle", bodyKey: "helpConceptKnowledgeBody", relatedViews: ["knowledge"], relatedConcepts: ["concept-stakeholder"] },
+  { id: "concept-milestone", group: "concepts", titleKey: "helpConceptMilestoneTitle", bodyKey: "helpConceptMilestoneBody", primerKey: "helpConceptMilestonePrimer", relatedViews: ["milestones", "gantt"], relatedConcepts: ["concept-dependency", "concept-baseline"] },
+  { id: "concept-raid", group: "concepts", titleKey: "helpConceptRaidTitle", bodyKey: "helpConceptRaidBody", primerKey: "helpConceptRaidPrimer", relatedViews: ["raid"], relatedConcepts: ["concept-change", "concept-stakeholder"] },
+  { id: "concept-change", group: "concepts", titleKey: "helpConceptChangeTitle", bodyKey: "helpConceptChangeBody", primerKey: "helpConceptChangePrimer", relatedViews: ["changes"], relatedConcepts: ["concept-raid", "concept-budget"] },
+  { id: "concept-stakeholder", group: "concepts", titleKey: "helpConceptStakeholderTitle", bodyKey: "helpConceptStakeholderBody", primerKey: "helpConceptStakeholderPrimer", relatedViews: ["stakeholders", "raci"], relatedConcepts: ["concept-raci", "concept-steering"] },
+  { id: "concept-raci", group: "concepts", titleKey: "helpConceptRaciTitle", bodyKey: "helpConceptRaciBody", primerKey: "helpConceptRaciPrimer", relatedViews: ["raci", "stakeholders"], relatedConcepts: ["concept-stakeholder"] },
+  { id: "concept-budget", group: "concepts", titleKey: "helpConceptBudgetTitle", bodyKey: "helpConceptBudgetBody", primerKey: "helpConceptBudgetPrimer", relatedViews: ["budget", "budget-report"], relatedConcepts: ["concept-resource"] },
+  { id: "concept-resource", group: "concepts", titleKey: "helpConceptResourceTitle", bodyKey: "helpConceptResourceBody", primerKey: "helpConceptResourcePrimer", relatedViews: ["resources", "workload", "planning"], relatedConcepts: ["concept-budget"] },
+  { id: "concept-steering", group: "concepts", titleKey: "helpConceptSteeringTitle", bodyKey: "helpConceptSteeringBody", primerKey: "helpConceptSteeringPrimer", relatedViews: ["steering-committee"], relatedConcepts: ["concept-stakeholder"] },
+  { id: "concept-task-status", group: "concepts", titleKey: "helpConceptTaskStatusTitle", bodyKey: "helpConceptTaskStatusBody", primerKey: "helpConceptTaskStatusPrimer", relatedViews: ["open-points"], relatedConcepts: ["concept-milestone"] },
+  { id: "concept-baseline", group: "concepts", titleKey: "helpConceptBaselineTitle", bodyKey: "helpConceptBaselineBody", primerKey: "helpConceptBaselinePrimer", relatedViews: ["trends"], relatedConcepts: ["concept-milestone", "concept-budget"] },
+  { id: "concept-dependency", group: "concepts", titleKey: "helpConceptDependencyTitle", bodyKey: "helpConceptDependencyBody", primerKey: "helpConceptDependencyPrimer", relatedViews: ["gantt", "open-points"], relatedConcepts: ["concept-milestone"] },
+  { id: "concept-knowledge", group: "concepts", titleKey: "helpConceptKnowledgeTitle", bodyKey: "helpConceptKnowledgeBody", primerKey: "helpConceptKnowledgePrimer", relatedViews: ["knowledge"], relatedConcepts: ["concept-stakeholder"] },
 
   // ── Workflows (numbered guides) ──
   { id: "workflow-end-to-end", group: "workflows", titleKey: "helpWorkflowEndToEndTitle", bodyKey: "helpWorkflowEndToEndBody", relatedViews: ["dashboard", "open-points", "milestones"], relatedConcepts: ["concept-milestone", "concept-task-status"] },
