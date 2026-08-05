@@ -207,6 +207,8 @@ does not bail, but it still frames the guidance as protecting a live optimizatio
 
 ## 2. ~~`use-resource-planner.ts` is 30% over the 800-line ceiling~~ — CLOSED post-0.212.0
 
+**Cited from:** `use-reference-data.ts`, `use-resource-directory.ts` — this entry cannot be deleted.
+
 **Was:** the file sat over the 800-line ratchet with the baseline recording its own size, so the next
 line added to it failed the build.
 
@@ -235,16 +237,6 @@ which is one MORE than `wc -l` for a file ending in a newline. Anyone hand-editi
 now BELOW the limit and therefore invisible to the tool's own regeneration — see §60, which records
 why `--update` dropping it costs nothing (the entry is inert at 554), and why the value of this
 commit is REMOVING the stale 1043, not installing a 554.
-
-Verified move-only rather than asserted:
-
-- the public return shape is **54 keys in identical order**, before and after (23 named keys plus
-  three spreads — `resourceDirectoryApi` 9, `calendarEventsApi` 7, `referenceDataApi` 15);
-- every `useCallback` dependency array survives verbatim as a multiset. Measured with one regex on
-  both sides: **18 dependency arrays before, 25 after** — the seven new ones are the ref-sync
-  `useEffect` deps the two new files re-derive locally, and nothing else changed;
-- neither new file needed a `vitest.config.ts` `coverage.exclude` entry, exactly as the original
-  entry predicted: these are pure `.ts` modules, coverage-gated like their parent.
 
 ★★ **THE PRECEDENT THIS ENTRY NAMED WAS THE WRONG ONE, and it cost a review round.** It said to
 follow `use-storage-file-ops.ts` — a typed `deps` object, `use*`, NON-memoized handlers. That
@@ -2373,7 +2365,9 @@ a single click on an imported settings blob.
 
 ---
 
-## 58. The axe gate can pass against a STALE dev server — HALF CLOSED post-0.212.0
+## 58. The axe gate can pass against a STALE dev server — gate half CLOSED post-0.212.0, sibling-worktree half OPEN
+
+**Cited from:** `layout.tsx`, `e2e/a11y.spec.ts` — this entry cannot be deleted.
 
 `playwright.config.ts` sets `reuseExistingServer: !process.env.CI`, so a local `npx playwright test
 e2e/a11y.spec.ts` attaches to whatever already answers on the target port. On a machine with a dev
@@ -2604,6 +2598,8 @@ move-only one. Recorded here so the next reader does not assume a tested handler
 
 ## 63. ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ — CLOSED in 0.213.0, split after all
 
+**Was:** 0.213.0 grew `gantt.tsx` past the 800-line ratchet and the release baselined it instead of splitting it.
+
 ★ **Closed the same day it opened.** The entry below was written when the split had been called off;
 it was then completed and accepted, so `gantt.tsx` is **715** lines and its baseline entry is gone.
 The chart body — scroll container through footer, ~190 contiguous lines of presentational JSX —
@@ -2641,18 +2637,6 @@ here.**
 orchestrator at the end of a 16-task feature branch carries more regression risk than the ratchet
 violation it clears, and that the split deserves its own focused work rather than being rushed as a
 gate-clearing chore. That is a scope decision, not a claim the file is fine at 864.
-
-**What grew it**, so the next reader does not re-derive it: 0.213.0 added the status-bucket filter
-wiring, the `visibleMilestones` memo, the holiday/grid overlay mounts, the dependency-layer gate, and
-the empty-state branches (`noStatusSelected` / `emptyMessageKey` / `rendersNothing`) with their two
-render sites.
-
-**The seam that was identified before the split was called off:** the empty-state block — the
-message-selection const plus the branches rendering `ganttNoStatusSelected` / `ganttNoMatches` /
-`ganttEmpty` and the add-first-item box. It is prop-driven and self-contained, and it is the piece
-that most recently grew. The Gantt already has the right shape to extract into
-(`gantt-chrome.tsx` · `gantt-rows.tsx` · `gantt-overlays.tsx` · `gantt-view-menu.tsx` ·
-`gantt-engine.ts`), so this is an extraction along an existing grain, not a new architecture.
 
 ★★ **Two traps for whoever does it.** (1) A `.tsx` extraction is coverage-EXCLUDED; a `.ts` one is
 coverage-GATED and needs its own tests or it drags the blocking floor. (2) At least one Gantt test
