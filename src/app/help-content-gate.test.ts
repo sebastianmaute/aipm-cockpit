@@ -58,6 +58,40 @@ describe("help marker resolution", () => {
   const valuesFor = (lang: Lang): Set<string> =>
     new Set((Object.keys(de) as (keyof typeof de)[]).map((k) => t(lang, k).trim()));
 
+  // ★★ `tsc` proves a DE key EXISTS (TranslationKey parity) — it cannot prove
+  // anyone translated it. An entry added with the English body pasted into
+  // `i18n.de.ts` typechecks, renders, and reads as German to every gate in the
+  // repo. This is the only assertion that catches it.
+  //
+  // ★★★ It CANNOT be vacuous through the lazy-dictionary trap, which is the
+  // usual way a DE assertion rots: without the `loadI18n("de")` above, `t("de",
+  // k)` falls back to en-US and every pair becomes IDENTICAL — so the omission
+  // fails this test loudly instead of quietly passing it. That is the opposite
+  // polarity from the marker check below, where the same omission would pass by
+  // testing English twice.
+  // ★★ The identity half covers BODIES and PRIMERS only, and TITLES are held to
+  // the non-empty half alone. Two titles are legitimately identical —
+  // `helpSecTabsTitle` ("Tabs") and `helpConceptStakeholderTitle`
+  // ("Stakeholder") are the same word in German — so a strict check over titles
+  // would need an allow-list, i.e. exactly the kind of baseline that outlives
+  // its reason and turns into a permanent exemption. Scoping the assertion to
+  // where a true match is implausible keeps it true BY CONSTRUCTION with
+  // nothing to maintain. A body is where the content lives anyway.
+  it("every entry's prose is actually translated, not copied from English", () => {
+    const identical: string[] = [];
+    for (const e of HELP_ENTRIES) {
+      for (const key of [e.titleKey, e.bodyKey, e.primerKey]) {
+        if (!key) continue;
+        const enText = t("en-US", key).trim();
+        const deText = t("de", key).trim();
+        expect(enText, `${e.id}: ${key} is empty in en-US`).not.toBe("");
+        expect(deText, `${e.id}: ${key} is empty in de`).not.toBe("");
+        if (key !== e.titleKey && enText === deText) identical.push(`${e.id}: ${key}`);
+      }
+    }
+    expect(identical).toEqual([]);
+  });
+
   it.each(LANGS)("every [[label]] resolves to a real UI string in %s", (lang) => {
     const known = valuesFor(lang);
     const unresolved: string[] = [];
