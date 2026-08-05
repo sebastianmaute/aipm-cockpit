@@ -72,8 +72,8 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   //    CONCLUSION was wrong: with `wrapper: StrictMode` it double-invokes and
   //    this line is pinnable. strictmode.meta.test.tsx pins that shape rule
   //    and its edges (including that the same nesting DOES double-invoke a
-  //    child mounted on a later commit — it is a rule about the mount commit,
-  //    not about the tree).
+  //    child mounted on a later commit — the rule turns on which fiber is
+  //    flagged for PLACEMENT, not on the tree or the commit number).
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };

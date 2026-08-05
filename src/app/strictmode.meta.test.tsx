@@ -8,70 +8,60 @@
 // use-storage-backend), and each is pinned by a guard test that renders under
 // StrictMode.
 //
-// Every one of those guards is only meaningful while StrictMode actually
-// double-invokes HERE. open-followups §85 records what a wrong answer to
-// that question cost: an OBSERVATION that is reproducible — a child mounted
-// under a wrapper-nested StrictMode is single-invoked — was read as a
-// CONCLUSION that the behaviour was unpinnable outright, and each of the
-// three mount re-sets landed with no guard pinning it. For
-// use-storage-backend that was measured (deleting the re-set left its own
-// file green); for the other two it follows from there being no StrictMode
-// test at all, and was not separately run. If this file goes red, those
-// guard tests have become vacuous — fix this before trusting them.
+// Those guards are only meaningful while StrictMode actually double-invokes
+// HERE. If this file goes red they have become vacuous — fix it before
+// trusting them. open-followups §85 has the history: a real observation (a
+// child mounted under a wrapper-nested StrictMode IS single-invoked) was read
+// as "unpinnable", and all three re-sets shipped with nothing pinning them.
 //
-// The logs are MODULE-SCOPE for convenience — a plain array is simple to
-// assert against and survives unmount — NOT because per-instance state would
-// miss the cycle. It would not: `doubleInvokeEffectsOnFiber` (read in the
-// react-dom development build) disconnects and reconnects effects on the SAME
-// fiber rather than replacing it, so a `useRef`/`useState` log held on that
-// fiber observes the full ["mount","cleanup","mount"] cycle exactly like a
-// module-scope one. The SHAPE RULE below is the measured, and likely,
-// explanation for how the earlier "untestable" comments got written — but
-// which wrapper shape that 2026-08-04 run actually used was never recovered,
-// so this is the likely cause, not a confirmed one.
+// ★★★ THE RULE IS ABOUT THE PLACEMENT FLAG. Everything else here is a
+// COROLLARY, and both earlier attempts to state this went wrong by promoting
+// one corollary into the rule.
 //
-// ★★★ THE SHAPE RULE — AND IT IS A RULE ABOUT THE MOUNT COMMIT, NOT ABOUT
-// THE TREE. React's walk stops at the topmost fiber on each branch carrying
-// the placement flag and double-invokes there only if StrictMode is at or
-// above that fiber. A fiber is placed only while it is BRAND NEW
-// (`placeSingleChild` sets the flag on `null === newFiber.alternate`), so on
-// the commit that FIRST mounts a tree the placed fibers are the root's
-// direct children — and StrictMode therefore double-invokes only when
-// nothing (no component, no host element) sits between the root and it on
-// its OWN branch. A sibling branch elsewhere in the tree does not matter:
-// StrictMode can be the root's second child and still double-invoke.
-// `wrapper: StrictMode` (renderHook's wrapper IS the StrictMode component)
-// and `reactStrictMode: true` (RTL renders
-// `<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary element
-// placed outside the wrapper, not something that reaches `createRoot`) both
-// satisfy that. Composing `<StrictMode>` INSIDE a wrapper function —
-// `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`, or with
-// anything else nested inside that — puts a non-StrictMode fiber on the SAME
-// branch above it and silently turns off the double invoke FOR THAT MOUNT,
-// which makes any guard built on that shape vacuous. The implementation
-// plan's own Task 4 sketch used exactly that nested shape; it was only
-// caught because Task 4 ran the mutation and watched the guard stay green
-// with the guarded line deleted.
+//   React's walk descends each branch until it meets a fiber FLAGGED FOR
+//   PLACEMENT, double-invokes there if StrictMode is at or above that fiber,
+//   and never recurses past it either way.
 //
-// ★★★ BUT "a nested StrictMode is inert" is FALSE IN GENERAL, and every
-// revision of this paragraph before 2026-08-05 said it flatly. On a LATER
-// commit the wrapper fiber is no longer new, so it is not placed; the walk
-// recurses THROUGH it, picks up StrictMode on the way down, and DOES
-// double-invoke a child that mounts in that commit. It is inert only for
-// children that mount in the SAME commit as the wrapper above it. Every
-// guard in this repo mounts once and never re-mounts a child, so the
-// initial-mount form is the one that governs them — but do not carry the
-// unqualified sentence into a test that rerenders.
+// Two things carry that flag (`placeChild` / `placeSingleChild`): a BRAND-NEW
+// fiber (`alternate === null`), and an existing KEYED child that MOVED
+// BACKWARDS in a list (`alternate.index < lastPlacedIndex`). **"Placed" does
+// not mean "new"** — the sentence both earlier wordings were built on.
 //
-// ★ "No component, no host element" is literal, and JSX fragments split the
-// difference: the OUTERMOST keyless fragment is unwrapped during
-// reconciliation and never becomes a fiber, so it does not break the rule,
-// while a second one nested inside it does. Both directions are pinned.
+// COROLLARY 1 — the mount commit. On the commit that FIRST mounts a tree the
+// only placed fibers are the root's direct children, so StrictMode
+// double-invokes only when nothing (no component, no host element) sits
+// between the root and it on its OWN branch; a sibling branch elsewhere does
+// not matter. `wrapper: StrictMode` and `reactStrictMode: true` (RTL renders
+// `<StrictMode><Wrapper>…</Wrapper></StrictMode>`, outside your wrapper and
+// nowhere near `createRoot`) both satisfy it. Composing `<StrictMode>` INSIDE
+// a wrapper function does not, so that mount is single-invoked and any guard
+// built on the shape is VACUOUS-BUT-GREEN.
 //
-// Each edge above is a test below rather than a remembered measurement:
-// prose whose instrument was thrown away is exactly what produced §85, and
-// three successive revisions of this header were over-general because a
-// result measured at ONE shape was written as if it held at all of them.
+// COROLLARY 2 — later commits. A nested StrictMode is not inert in general:
+// once the wrapper has an alternate it is no longer placed, the walk recurses
+// THROUGH it, and a child mounting in that commit IS double-invoked. Unless
+// that wrapper is itself a moved keyed child — then it carries the flag and
+// the walk stops before reaching StrictMode.
+//
+// COROLLARY 3 — nothing need mount at all. A `<StrictMode>` that is itself a
+// moved keyed child is placed, so a pure REORDER double-invokes its whole
+// subtree's effects.
+//
+// ★ Fragments: the OUTERMOST keyless fragment is unwrapped during
+// reconciliation and never becomes a fiber, so it does not break the rule; a
+// second one nested inside it does.
+//
+// ★ ONE EXCEPTION IS STATED BUT NOT PINNED, deliberately marked so: an
+// OffscreenComponent (`fiber.tag === 22`, created for a `<Suspense>`
+// boundary's children) is special-cased — a PLACED one does not stop the
+// walk, a HIDDEN one (`memoizedState !== null`) is skipped entirely. Read
+// from source, NOT measured; nothing here renders StrictMode inside Suspense.
+// A lead, not a fact.
+//
+// Everything else above is a test below rather than a remembered measurement
+// — prose whose instrument was thrown away is what produced §85. Module-scope
+// logs are for convenience only: `doubleInvokeEffectsOnFiber` reuses the same
+// fiber, so a `useRef` log would observe the identical cycle.
 import { StrictMode, useEffect } from "react";
 import { render, renderHook } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
@@ -84,6 +74,10 @@ const bareNestedLog: string[] = [];
 const strictOptionLog: string[] = [];
 const laterCommitLog: string[] = [];
 const laterCommitControlLog: string[] = [];
+const firstCommitLog: string[] = [];
+const movedStrictLog: string[] = [];
+const movedWrapperLog: string[] = [];
+const staticWrapperLog: string[] = [];
 const siblingLog: string[] = [];
 const loneFragmentLog: string[] = [];
 const nestedFragmentLog: string[] = [];
@@ -115,6 +109,74 @@ function LaterCommitHost({ show }: { show: boolean }) {
 // StrictMode and not merely from mounting a child on a rerender.
 function LaterCommitControlHost({ show }: { show: boolean }) {
   return <div>{show ? <LogProbe log={laterCommitControlLog} /> : null}</div>;
+}
+
+// Same host as LaterCommitHost, rendered with the child present from the
+// start — the A/B that isolates the COMMIT as the only difference.
+function FirstCommitHost() {
+  return (
+    <div>
+      <StrictMode>
+        <LogProbe log={firstCommitLog} />
+      </StrictMode>
+    </div>
+  );
+}
+
+// `<StrictMode>` as a KEYED list child. Reordering it backwards makes React
+// flag it for placement even though it is not new.
+function MovedStrictList({ order }: { order: readonly string[] }) {
+  return (
+    <div>
+      {order.map((k) =>
+        k === "sm" ? (
+          <StrictMode key="sm">
+            <LogProbe log={movedStrictLog} />
+          </StrictMode>
+        ) : (
+          <div key={k}>{k}</div>
+        ),
+      )}
+    </div>
+  );
+}
+
+// Same reorder, but the moved keyed child is a WRAPPER with StrictMode inside
+// — AND a child mounts in that same commit. The new child is what makes the
+// pair discriminating: without it both "the walk stopped at the placed
+// wrapper" and "nothing was placed at all" predict the same empty result.
+function MovedWrapperNewChild({ order, show }: { order: readonly string[]; show: boolean }) {
+  return (
+    <div>
+      {order.map((k) =>
+        k === "w" ? (
+          <div key="w">
+            <StrictMode>{show ? <LogProbe log={movedWrapperLog} /> : null}</StrictMode>
+          </div>
+        ) : (
+          <div key={k}>{k}</div>
+        ),
+      )}
+    </div>
+  );
+}
+
+// Identical, with the list order held FIXED — so the reorder is the only
+// difference between this and the case above.
+function StaticWrapperNewChild({ show }: { show: boolean }) {
+  return (
+    <div>
+      {["a", "w", "c"].map((k) =>
+        k === "w" ? (
+          <div key="w">
+            <StrictMode>{show ? <LogProbe log={staticWrapperLog} /> : null}</StrictMode>
+          </div>
+        ) : (
+          <div key={k}>{k}</div>
+        ),
+      )}
+    </div>
+  );
 }
 
 function useNestedProbe() {
@@ -178,20 +240,15 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     expect(hookLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
-  // This pins CURRENT React behaviour (traced to
-  // recursivelyTraverseAndDoubleInvokeEffectsInDEV, which stops its walk at
-  // the first placed fiber ON EACH BRANCH and double-invokes there only if
-  // StrictMode is AT OR ABOVE that fiber — the fiber's own type counts,
-  // which is what makes `wrapper: StrictMode` work — and it never recurses
-  // PAST that fiber either way, so a StrictMode nested BELOW it is never
-  // reached at all) — not a guarantee React owes us. If a future React
-  // version makes the nested shape double-invoke on the mount commit too,
-  // this test goes red, and that is a GOOD failure: it means the shape rule
-  // above changed and every guard built on it needs re-checking, not that
-  // something broke.
+  // Corollary 1 (see the header for the rule and the mechanism — this is the
+  // only place the walk is described, deliberately). This pins CURRENT React
+  // behaviour, not a guarantee React owes us: if a future version
+  // double-invokes this shape on the mount commit too, the test goes red, and
+  // that is a GOOD failure — it means the rule changed and every guard built
+  // on it needs re-checking, not that something broke.
   // Do not delete this test out of confusion if that day comes.
-  // ★ Scope: "on the MOUNT commit". The same nesting DOES double-invoke a
-  //   child that mounts on a later commit — pinned two tests below.
+  // ★ Scope: the MOUNT commit. The same nesting DOES double-invoke a child
+  //   that mounts on a later commit — pinned further down.
   it("does NOT double-invoke a child mounted with a wrapper-nested StrictMode", () => {
     renderHook(() => useNestedProbe(), {
       wrapper: ({ children }) => (
@@ -227,11 +284,11 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     expect(strictOptionLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
-  // ★★★ THE OTHER HALF OF THE SHAPE RULE, and the half three revisions of
-  // this file's header got wrong by omission. The nesting in the two
-  // negative tests above is NOT what makes StrictMode inert — the mount
-  // COMMIT is. Here the wrapper `<div>` and the `<StrictMode>` both already
-  // exist when the child mounts, so neither is newly placed; the walk
+  // ★★★ COROLLARY 2, and the half both earlier wordings of this file's
+  // header got wrong by omission. The nesting in the two negative tests
+  // above is NOT what makes StrictMode inert — which fiber is FLAGGED FOR
+  // PLACEMENT is. Here the wrapper `<div>` and the `<StrictMode>` both
+  // already exist when the child mounts, so neither is placed; the walk
   // recurses through them, picks StrictMode up on the way down, and
   // double-invokes at the child. Measured 2026-08-05.
   it("DOES double-invoke through a wrapper-nested StrictMode when the child mounts on a later commit", () => {
@@ -246,6 +303,48 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     const { rerender } = render(<LaterCommitControlHost show={false} />);
     rerender(<LaterCommitControlHost show={true} />);
     expect(laterCommitControlLog).toEqual(["mount"]);
+  });
+
+  // The second control, isolating the COMMIT. The two nested-wrapper
+  // negatives further up differ from the positive in three ways at once
+  // (commit number, `render` vs `renderHook`, wrapper-function vs component),
+  // so on their own they cannot show that the commit is what matters. This
+  // renders the SAME host as the positive, with the child present from the
+  // start.
+  it("does NOT double-invoke that same wrapper-nested StrictMode on the FIRST commit", () => {
+    render(<FirstCommitHost />);
+    expect(firstCommitLog).toEqual(["mount"]);
+  });
+
+  // COROLLARY 3: no new child is needed at all. `<StrictMode>` is a keyed
+  // child here; moving it backwards flags it for placement despite having an
+  // alternate, so the walk double-invokes AT it and its subtree's effects are
+  // disconnected and reconnected by a pure reorder. This is the case that
+  // makes "placed means new" false.
+  it("double-invokes on a pure REORDER when StrictMode itself is a keyed child that moves", () => {
+    const { rerender } = render(<MovedStrictList order={["a", "sm", "c"]} />);
+    expect(movedStrictLog).toEqual(["mount"]);
+    rerender(<MovedStrictList order={["c", "a", "sm"]} />);
+    expect(movedStrictLog).toEqual(["mount", "cleanup", "mount"]);
+  });
+
+  // The limit of COROLLARY 2, as a PAIR. "A later commit recurses through the
+  // wrapper" holds only while the wrapper is not itself placed. These two
+  // differ in exactly one respect — whether the keyed wrapper moved — and
+  // they give different answers, which is what makes either of them evidence.
+  // ★ Asserting only the first would pin NOTHING: "the walk stopped at the
+  //   placed wrapper" and "nothing was placed at all" both predict a single
+  //   invoke, so the control is not optional here.
+  it("does NOT double-invoke a new child when its keyed wrapper moved in the same commit", () => {
+    const { rerender } = render(<MovedWrapperNewChild order={["a", "w", "c"]} show={false} />);
+    rerender(<MovedWrapperNewChild order={["c", "a", "w"]} show={true} />);
+    expect(movedWrapperLog).toEqual(["mount"]);
+  });
+
+  it("DOES double-invoke that same new child when the wrapper did not move", () => {
+    const { rerender } = render(<StaticWrapperNewChild show={false} />);
+    rerender(<StaticWrapperNewChild show={true} />);
+    expect(staticWrapperLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
   // The rule is per-BRANCH: a sibling occupying the root's first slot does

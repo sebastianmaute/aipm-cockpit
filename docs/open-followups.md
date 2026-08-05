@@ -127,7 +127,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
 | 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; the single-invoke observation is reproducible but belongs to a nested-wrapper shape on its MOUNT COMMIT alone (the same nesting double-invokes a child mounted on a later commit), and the entry's own "measurement artefact" hypothesis is separately false (the fiber is reused, so a per-instance log sees the whole cycle); ★★★ all three mount re-sets are now pinned, and `src/app/strictmode.meta.test.tsx` is the standing instrument |
+| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; the single-invoke observation is reproducible but belongs to a nested-wrapper shape whose child mounts in the same commit as the wrapper (the rule turns on which fiber is flagged for PLACEMENT — not the tree, not the commit number — and a pure keyed REORDER can double-invoke with nothing mounting), and the entry's own "measurement artefact" hypothesis is separately false (the fiber is reused, so a per-instance log sees the whole cycle); ★★★ all three mount re-sets are now pinned, and `src/app/strictmode.meta.test.tsx` is the standing instrument |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3212,9 +3212,10 @@ permanently suppressed after that first cycle.
 structurally cannot see it": deleting `mountedRef.current = true` from the effect body left every gate
 green, and a `<StrictMode>`-wrapped `renderHook` written to pin it was **VACUOUS**, on a 2026-08-04
 probe measuring `["mount"]` — one invocation, no cleanup+remount. That measurement reproduces for one
-wrapper shape only; in the right shape StrictMode double-invokes here normally. §85 (retracted) owns the
-shape rule — including the part that is easy to over-generalise, that it governs the MOUNT COMMIT rather
-than the tree — and `src/app/strictmode.meta.test.tsx` is the standing instrument.
+wrapper shape only; in the right shape StrictMode double-invokes here normally. §85 (retracted) carries
+the full rule and the retraction narrative — including the part that is easy to over-generalise, that it
+turns on the PLACEMENT FLAG rather than on the tree or the commit number — and
+`src/app/strictmode.meta.test.tsx` is the standing instrument and the normative copy.
 The guard is `still emits a save outcome after StrictMode's remount`, in the
 `useStorageBackend — StrictMode mount re-set (§72)` describe of `use-storage-backend.test.tsx`;
 deleting the line fails it (`onStorageOutcome` is never called), verified by running that mutation and
@@ -3814,7 +3815,7 @@ the bug.
 This entry previously said a StrictMode-wrapped test was necessarily VACUOUS here, on the strength of
 a measurement of `["mount"]` (no cleanup+remount). That measurement reproduces only for one wrapper
 shape; in the right shape StrictMode double-invokes here normally, and the entry's conclusion is
-retracted in §85, which owns the shape rule (and the mount-commit qualifier that makes it correct) and
+retracted in §85, which carries the full rule and the retraction narrative (`src/app/strictmode.meta.test.tsx` is the normative copy) and
 names `src/app/strictmode.meta.test.tsx` as the standing instrument. The two guards:
 
 | re-set | guard test |
@@ -4098,43 +4099,73 @@ asserted: that nothing in this repo could pin any StrictMode-dependent behaviour
 shape it double-invokes normally, and all three mount re-sets this entry called unpinnable are now
 pinned.
 
-★★★ **THE SHAPE RULE — AND IT IS A RULE ABOUT THE MOUNT COMMIT, NOT ABOUT THE TREE.** Mechanism first,
-cited by symbol because a `node_modules` line number rots on the next install:
-`recursivelyTraverseAndDoubleInvokeEffectsInDEV` (react-dom development build) stops its walk at the
-topmost fiber carrying the placement flag **on that branch** and double-invokes there only if StrictMode
-is AT OR ABOVE that fiber — the fiber's own type counts, which is what makes `wrapper: StrictMode` work
-— and it never recurses PAST that fiber either way, so a StrictMode nested BELOW it is never reached.
-A fiber carries that flag only while it is BRAND NEW (`placeSingleChild` sets it on
-`null === newFiber.alternate`).
+★★ **WHICH COPY IS NORMATIVE:** this entry and `src/app/strictmode.meta.test.tsx` both state the rule in
+full — this one for the reader working out what was retracted and why, the test file for the reader
+about to write a StrictMode guard. If they ever disagree, **the meta-test is right**: it is executable
+and this is not. AGENTS.md carries a summary of the same rule and is normative for nothing.
 
-So **on the commit that FIRST mounts a tree** the placed fibers are the root's direct children, and
-StrictMode double-invokes only when nothing — no component, no host element — sits between the root and
-it on its OWN branch (a sibling branch elsewhere does not matter: StrictMode can be the root's second
-child and still double-invoke). `wrapper: StrictMode` (renderHook's wrapper IS the StrictMode component)
-and `reactStrictMode: true` (RTL renders `<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary
-element placed outside the wrapper, not something that reaches `createRoot`) both satisfy that.
-Composing `<StrictMode>` INSIDE a wrapper function puts a non-StrictMode fiber on the same branch above
-it and silently turns the double invoke off for that mount — even with nothing else nested inside it.
+★★★ **THE RULE IS ABOUT THE PLACEMENT FLAG.** Everything else is a COROLLARY, and both earlier attempts
+to state this went wrong by promoting one corollary into the rule. Cited by symbol because a
+`node_modules` line number rots on the next install: `recursivelyTraverseAndDoubleInvokeEffectsInDEV`
+(react-dom development build) descends each branch to the topmost fiber **flagged for placement**,
+double-invokes there only if StrictMode is AT OR ABOVE that fiber — the fiber's own type counts, which
+is what makes `wrapper: StrictMode` work — and never recurses PAST it either way, so a StrictMode nested
+below is never reached.
 
-★★★ **BUT A NESTED StrictMode IS NOT INERT IN GENERAL, AND THREE REVISIONS OF THIS PARAGRAPH SAID IT
-WAS.** On a LATER commit the wrapper fiber already has an alternate, so it is not placed; the walk
-recurses THROUGH it, picks StrictMode up on the way down, and DOES double-invoke a child that mounts in
-that commit. Measured 2026-08-05 and pinned: nested StrictMode + child mounted on a rerender →
-`["mount","cleanup","mount"]`; the same child on the first commit → `["mount"]`; the same rerender with
-no StrictMode anywhere → `["mount"]`. Every guard in this repo mounts once and never re-mounts a child,
-so the initial-mount form governs them — do not carry the unqualified sentence into a test that
-rerenders. ★ Fragments split the difference and both directions are pinned: the OUTERMOST keyless
-fragment is unwrapped during reconciliation and never becomes a fiber, so it does not break the rule; a
-second one nested inside it does.
+**Two things carry that flag** (`placeChild`, and `placeSingleChild` for a single child): a BRAND-NEW
+fiber (`alternate === null`), and an existing KEYED child that MOVED BACKWARDS in a list
+(`alternate.index < lastPlacedIndex`). **"Placed" does not mean "new"** — the sentence both earlier
+wordings were built on.
 
-★★ Each correction to this paragraph was measured at ONE shape and written as if it held at all of
-them — `outermost` (wrong: siblings), then branch-scoped-with-no-commit-qualifier (wrong: later
-commits). That is why every clause above is now a test rather than a sentence.
+**Corollary 1 — the mount commit.** On the commit that FIRST mounts a tree the only placed fibers are
+the root's direct children, so StrictMode double-invokes only when nothing — no component, no host
+element — sits between the root and it on its OWN branch (a sibling branch elsewhere does not matter:
+StrictMode can be the root's second child and still double-invoke). `wrapper: StrictMode` (renderHook's
+wrapper IS the StrictMode component) and `reactStrictMode: true` (RTL renders
+`<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary element placed outside the wrapper, not
+something that reaches `createRoot`) both satisfy that. Composing `<StrictMode>` INSIDE a wrapper
+function puts a non-StrictMode fiber on the same branch above it and silently turns the double invoke
+off for that mount — even with nothing else nested inside it.
+
+**Corollary 2 — later commits, with a limit.** A nested StrictMode is NOT inert in general: once the
+wrapper has an alternate it is no longer placed, the walk recurses THROUGH it, and a child mounting in
+that commit IS double-invoked. ★★ Unless that wrapper is itself a keyed child that moved — then the
+wrapper carries the flag, the walk stops there, and the StrictMode below is never reached.
+
+**Corollary 3 — no new child needed.** A `<StrictMode>` that is itself a moved keyed child is placed, so
+a pure REORDER disconnects and reconnects its whole subtree's effects with nothing mounting at all.
+
+Measured 2026-08-05, each one a test in the meta-test rather than a sentence here:
+
+| shape | result |
+|---|---|
+| nested StrictMode, child mounts on a rerender | `["mount","cleanup","mount"]` |
+| the SAME host, child present from the first commit | `["mount"]` |
+| the same rerender with no StrictMode anywhere | `["mount"]` |
+| `<StrictMode>` is a moved keyed child (pure reorder) | `["mount","cleanup","mount"]` |
+| a moved keyed WRAPPER with StrictMode inside it | `["mount"]` |
+
+★ Fragments split the difference and both directions are pinned: the OUTERMOST keyless fragment is
+unwrapped during reconciliation and never becomes a fiber, so it does not break the rule; a second one
+nested inside it does. ★ Every guard in this repo mounts once and never re-mounts or reorders a child,
+so Corollary 1 is the one that governs them.
+
+★ **One exception is stated but NOT pinned**, and is marked so deliberately: an OffscreenComponent
+(`fiber.tag === 22`, created for a `<Suspense>` boundary's children) is special-cased — a PLACED one
+does not stop the walk, and a HIDDEN one (`memoizedState !== null`) is skipped entirely. Read from
+source, not measured; nothing in this repo renders StrictMode inside Suspense. A lead, not a fact.
+
+★★ Both earlier corrections were measured at ONE shape and written as if they held at all of them —
+`outermost` (wrong: siblings), then branch-scoped-with-no-commit-qualifier (wrong: later commits, and
+wrong again about what "placed" means). Reproduce that history with
+`git log -p --follow -- src/app/strictmode.meta.test.tsx | grep "THE SHAPE RULE\|THE RULE IS"`. That is
+why every clause above is now a test rather than a sentence.
 
 ★★★ **The standing instrument is `src/app/strictmode.meta.test.tsx`** — a meta-test asserting a
 property of the HARNESS, not of the app. It covers a plain component render, both safe `renderHook`
-forms, the nested-shape negative cases, the later-commit positive case with its no-StrictMode control,
-the sibling and both fragment edges, and that the DEVELOPMENT React build is what resolves.
+forms, the nested-shape negative cases, the later-commit positive with its two controls (no-StrictMode,
+and the same host on its first commit), both moved-keyed-child cases, the sibling and both fragment
+edges, and that the DEVELOPMENT React build is what resolves.
 Read it instead of trusting this paragraph: last time this measurement lived only in prose, the probe
 was deleted and every later reader had to take the prose on faith. ★ If that file ever goes red, the
 three guard tests below have become vacuous — fix it before trusting them.
