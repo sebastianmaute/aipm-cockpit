@@ -251,6 +251,58 @@ describe("TimelogPanel", () => {
     });
   });
 
+  // ★★★ §74's module exists so ONE contract serves both the handler and the
+  // button — but until these tests nothing pinned the BUTTON half. Deleting
+  // `isMisconfigured` from a toolbar/table argument object makes the button
+  // enable SOONER, and every other test in this file still passed, because
+  // they all `waitFor` the button to become ENABLED. The disabled direction is
+  // the one that regresses silently, so it needs its own assertions.
+  // ★ Load-managed-projects is the sharpest pair: that action has no
+  //   precondition beyond the shared blockers, so the second test is a real
+  //   positive control — it proves the first is not passing vacuously off some
+  //   unrelated condition that disables the button anyway.
+  describe("action buttons while TimeLog is unconfigured (§74)", () => {
+    it("disables Fetch and Load-managed-projects with no TimeLog config", () => {
+      // Deliberately NO enableTimelog() — this is the misconfigured state.
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByText(t("en-US", "timelogEnable"))).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogSync") }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeDisabled();
+    });
+
+    it("enables Load-managed-projects once TimeLog is configured", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Settings hydrate async (secret migration), so the button is disabled at
+      // t=0 even when configured — `isMisconfigured` is true against the
+      // pre-hydration defaults. Waiting is what makes this a positive control
+      // rather than a second copy of the test above.
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+        ).toBeEnabled(),
+      );
+    });
+  });
+
   describe("Refresh bookings", () => {
     // §39 failure capture — read-only, failure path only. Eight CI failures have
     // produced only frequency data; this makes the ninth readable.

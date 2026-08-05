@@ -35,7 +35,7 @@ import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
-import { canFetchBookings, canRefreshBookings } from "./timelog-guards";
+import { canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -64,6 +64,11 @@ export function TimelogPanel({
   const showToast = useToastContext();
   const confirm = useConfirm();
   const cfg = settings.timelog ?? defaultTimelogConfig;
+
+  // Declared once, directly below `cfg` and above every reader — the action
+  // handlers and the `disabled` expressions evaluate this same const rather
+  // than recomputing the condition (open-followups §74).
+  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
 
   // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
   const timelogLinks = ws.timelogLinks;
@@ -370,7 +375,10 @@ export function TimelogPanel({
     showToast,
   });
   async function handleLoadManagedProjects() {
-    if (isPopout || sync.busy) return;
+    // ★★ SAME predicate the Load-managed-projects button's `disabled`
+    //    evaluates. This guard omitted BOTH `isMisconfigured` and `confirming`
+    //    while the button carried all four (open-followups §74).
+    if (!canLoadManagedProjects({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured })) return;
     await sync.loadManagedProjects(
       includeClosedProjects,
       projectCustomerId === "" ? undefined : projectCustomerId,
@@ -387,11 +395,6 @@ export function TimelogPanel({
   const refreshProjectIds = links.projectIds ?? [];
   const canRefresh =
     refreshCustomerId !== undefined && refreshProjectIds.length > 0;
-
-  // Declared here — above both handlers below — rather than left at its
-  // previous spot after them, so neither reads it through a closure over a
-  // later-declared const.
-  const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
 
   async function handleRefreshBookings() {
     // ★★ SAME predicate the Refresh button's `disabled` evaluates — see

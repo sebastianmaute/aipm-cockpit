@@ -61,3 +61,21 @@ export function canFetchBookings(state: TimelogFetchState): boolean {
 export function canRefreshBookings(state: TimelogRefreshState): boolean {
   return !isBlocked(state) && state.canRefresh;
 }
+
+/**
+ * Loading the managed-project list has NO precondition beyond the shared
+ * blockers, so this is `isBlocked` negated and nothing more.
+ *
+ * ★ It exists anyway rather than exporting `isBlocked` directly: a call site
+ * asking "may I do X?" reads the same way for all three actions, and the day
+ * this action grows a precondition of its own there is one place to add it.
+ * ★★ Its handler carried the ORIGINAL §74 asymmetry for longer than the other
+ * two — `handleLoadManagedProjects` checked `isPopout || sync.busy` while its
+ * button already evaluated all four blockers, i.e. the button's expression was
+ * literally `isBlocked` spelled out by hand. The first pass at §74 migrated
+ * Fetch and Refresh and left this one, so the entry read as though the class
+ * was closed while a third hand-rolled copy of the contract was still live.
+ */
+export function canLoadManagedProjects(state: TimelogActionState): boolean {
+  return !isBlocked(state);
+}

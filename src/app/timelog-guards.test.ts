@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { canFetchBookings, canRefreshBookings } from "./timelog-guards";
+import { canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
+
+const loadOk = {
+  isPopout: false,
+  syncBusy: false,
+  confirming: false,
+  isMisconfigured: false,
+};
 
 const refreshOk = {
   isPopout: false,
@@ -56,5 +63,24 @@ describe("canFetchBookings", () => {
   it("blocks the fetch with no customer or no selected projects", () => {
     expect(canFetchBookings({ ...fetchOk, projectCustomerId: "" })).toBe(false);
     expect(canFetchBookings({ ...fetchOk, selectedCount: 0 })).toBe(false);
+  });
+});
+
+describe("canLoadManagedProjects", () => {
+  it("allows the load when nothing blocks it", () => {
+    expect(canLoadManagedProjects(loadOk)).toBe(true);
+  });
+
+  // ★ This action's handler was the LAST holdout of the §74 asymmetry: it
+  //   checked only `isPopout || syncBusy`, so `isMisconfigured` and
+  //   `confirming` are the two arms that would have regressed silently.
+  it("blocks the load when TimeLog is misconfigured or a confirm is open", () => {
+    expect(canLoadManagedProjects({ ...loadOk, isMisconfigured: true })).toBe(false);
+    expect(canLoadManagedProjects({ ...loadOk, confirming: true })).toBe(false);
+  });
+
+  it("blocks the load in a popout and while busy", () => {
+    expect(canLoadManagedProjects({ ...loadOk, isPopout: true })).toBe(false);
+    expect(canLoadManagedProjects({ ...loadOk, syncBusy: true })).toBe(false);
   });
 });
