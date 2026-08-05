@@ -271,8 +271,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
   machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
-  dependence, open-followups §75]) → build → e2e. All quality gates are ratchets and
-  carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
+  dependence, open-followups §75]) → build → e2e. All quality gates are ratchets. ★★ Only THREE carry a
+  commented `quality-gate-bypass` escape-hatch rules block — **semgrep**, **file-size-ratchet** and
+  **agents-symbol-check** (reproduce: `grep -n quality-gate-bypass .gitlab-ci.yml`). An earlier revision
+  said "all quality gates … carry" one, which sends an operator hunting for a bypass block that does not
+  exist on the gate that is actually red; `lint`, `typecheck`, `dependency-audit`, `duplication-gate`,
+  `unit-tests` and `unit-tests-shuffled` have none. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
   its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
   otherwise). (Phases 1-4 of the

@@ -129,15 +129,30 @@ unit-tests:
 # undrained `mockReturnValueOnce` queue).
 #
 # ★★ `needs` includes `unit-tests` ON PURPOSE. No other quality-stage job lists
-# `unit-tests` in its own `needs` — each needs at most `install` (lint,
-# typecheck, dependency-audit, dependency-audit-full, duplication-gate,
-# unit-tests-shuffled-random) or nothing at all (semgrep, file-size-ratchet,
-# agents-symbol-check) — so absent this dependency GitLab would run this job
-# concurrently with `unit-tests`, meaning two full vitest processes contending
-# for the runner's CPU at once. That is the same class of resource contention
-# as the full-suite parallel-load worker starvation (see AGENTS.md's
+# `unit-tests` in its own `needs` — most need at most `install` (lint,
+# typecheck, dependency-audit, dependency-audit-full, duplication-gate) or
+# nothing at all (semgrep, file-size-ratchet, agents-symbol-check), and
+# `unit-tests-shuffled-random` chains behind THIS job rather than `install`
+# (see its own comment below) — so absent this dependency GitLab would run
+# this job concurrently with `unit-tests`, meaning two full vitest processes
+# contending for the runner's CPU at once. That is the same class of resource
+# contention as the full-suite parallel-load worker starvation (see AGENTS.md's
 # `npm run test:run` note, and open-followups §51's amplification note).
-# Serialising costs pipeline wall-clock and buys back determinism.
+#
+# ★ What the edge buys is BOUNDED, and overstating it is how the next person
+# talks themselves into deleting it. It removes the worst single contender,
+# not all of them: `build` and `duplication-gate` both need only `install`, so
+# a full `next build` and a jscpd run still overlap this job — and jscpd
+# running concurrently with a vitest run is the documented cause of a
+# `test:coverage` exit 1 with every test passing. Serialising the two full
+# vitest runs costs pipeline wall-clock (each MR now pays two unit runs that
+# cannot overlap) and removes the largest source of contention. It does not
+# make the stage contention-free.
+#
+# ★ Because `needs` requires success, a red `unit-tests` SKIPS this job
+# entirely — the order-dependence gate goes quiet exactly when the suite is
+# already unstable. Accepted: a shuffled run against a suite that is failing
+# unshuffled would not be readable anyway.
 #
 # ★ No coverage here: `unit-tests` owns the floors, and instrumenting a second
 # full run doubles the cost of the runs we just argued must not contend.
