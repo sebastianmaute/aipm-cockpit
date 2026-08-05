@@ -2990,6 +2990,8 @@ budget and actual off their own labelled lines), so a refactor has something to 
 
 ## 72. ~~Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing~~ — CLOSED in this slice
 
+**Cited from:** `use-storage-backend.ts`, `use-storage-backend.test.tsx`, `use-scheduled-jobs.ts` — this entry cannot be deleted.
+
 **The symptom is the point.** Vitest exits non-zero on an unhandled error even when the whole suite is
 green, so this failure mode does not look like a test failure at all. Captured from pipeline **#5446**
 on main `6dcee7eb` (the slice-1 merge, before 0.214.0) — a pipeline that failed while a pipeline on the
@@ -3087,6 +3089,7 @@ as a real behaviour the unit suite cannot observe. It turned out to be observabl
 no longer holds for this line. Found by a cold reviewer naming the one-line mutation; verified by
 running it.
 
+**Residual (still open):**
 ★★★ **THE CHOKE POINT IS COMPLETE FOR *CALLER CALLBACKS*, NOT FOR THE *MECHANISM* — do not read
 "single choke point" as "post-unmount `setState` is handled in this hook".** It is not. The same
 `dispatchSetState → requestUpdateLane → resolveUpdatePriority → window` shape, with a different top
@@ -3284,6 +3287,8 @@ pruned.
 
 ## 74. ~~The TimeLog refresh handlers omit a guard their button carries~~ — CLOSED
 
+**Cited from:** `timelog-guards.ts`, `timelog-panel.tsx` — this entry cannot be deleted.
+
 `handleRefreshBookings` and `handleFetchBookings` (`timelog-panel.tsx`) each open with an early return,
 and neither includes `isMisconfigured` — while the corresponding buttons in `timelog-panel-toolbar.tsx`
 both do:
@@ -3364,6 +3369,7 @@ resolving the moment a selection exists.
 ★★ Coverage: 4 of 4 predicates unit-tested; 4 of 4 button wirings DOM-pinned; each wiring pins the ONE
 arm that was the defect, so `isPopout` / `syncBusy` / `confirming` remain unpinned at every site.
 
+**Residual (still open):**
 ★★★ **The HANDLER guards are still unpinned, and that half really is hard.** No test fails if
 `isMisconfigured` is dropped from any of the three handlers carrying it. `timelog-guards.test.ts` calls
 the predicates directly and never imports `timelog-panel.tsx`; `timelog-panel.test.tsx` reaches the
@@ -3375,9 +3381,6 @@ predicate at the handler's own call site, with the handler's actual argument con
 NOT called. ★ Do not read the green suite as verifying that closure — it verified only that nothing
 already passing broke.
 
-★ `TimelogFetchState.projectCustomerId` is `number | ""` (matching `use-timelog-picker-scope.ts`), not
-`string`; review caught that before the wiring landed.
-
 ★ Test totals are deliberately not written here — reproduce with
 `grep -cE '^\s+it\(' src/app/timelog-panel.test.tsx src/app/timelog-guards.test.ts`. A hardcoded count
 in this entry went stale twice inside this branch.
@@ -3385,6 +3388,8 @@ in this entry went stale twice inside this branch.
 ---
 
 ## 75. ~~Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED~~ — CLOSED
+
+**Cited from:** `modern-shell.test.tsx`, `use-storage-backend.test.tsx` — this entry cannot be deleted.
 
 ★★ **This is the artifact the §39/§51 flake hunt was looking for, attached to different tests.** Both
 of those flakes are load-sensitive and have never reproduced on demand; this one reproduces
@@ -3584,6 +3589,8 @@ this one, measured on a tree with only the `beforeEach` half of this fix). Nothi
 ---
 
 ## 76. ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ — CLOSED post-!346
+
+**Cited from:** `use-scheduled-jobs.ts`, `use-operating-guides.ts` — this entry cannot be deleted.
 
 ★★★ **This is the exact defect §72's `use-storage-backend.ts` guard was written to avoid, sitting
 unfixed in two sibling hooks.** Both declare the ref and then clear it in a cleanup WITHOUT re-setting
