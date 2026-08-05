@@ -24,7 +24,7 @@ import {
 } from "./chat-tools";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
-import { digestForView } from "./view-ai-digest";
+import { useViewDigest } from "./use-view-digest";
 import type { AppView } from "./nav-config";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
@@ -76,6 +76,16 @@ export interface ChatDispatcherArgs {
    *  can't be silently lost (popouts neither persist nor broadcast). */
   isReadOnly: boolean;
   currentView: AppView;
+  /** Canonical per-device settings key (`portfolioCurrentId ?? "default"`) —
+   *  NOT the calendar project id. Only used to resolve this project's APPEARANCE
+   *  override, which is where `tasksViewMode` lives; the Open Points digest has
+   *  to know whether the pane is a table, a board or swimlanes. */
+  settingsProjectId: string;
+  /** Threaded, NOT minted here. `useHolidaySet` owns state + an async effect, so
+   *  a local instance would add a fourth copy re-rendering the whole tree, and
+   *  would leave a window where the digest's set has resolved and the table's
+   *  has not — making the two disagree on the health filter for one paint. */
+  holidaySet: ReadonlySet<string>;
   /** Live dashboard render model. A getter (not the value) so the dispatcher
    *  identity stays stable — it is read through a ref at tool-call time. */
   getDashboardModel: () => DashboardModel;
@@ -136,8 +146,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const knowledgeItemsRef = useRef(knowledgeItems);
   const calendarEventsRef = useRef(calendarEvents);
   const budgetsRef = useRef(budgets);
-  const effectiveFiltersRef = useRef(effectiveFilters);
-  const filteredSortedTasksRef = useRef(filteredSortedTasks);
+  const viewDigest = useViewDigest({
+    view: args.currentView, tasks, filteredSortedTasks, effectiveFilters,
+    resources, budgets, milestones, today: args.today, settings: args.settings,
+    settingsProjectId: args.settingsProjectId, holidaySet: args.holidaySet,
+  });
+  const viewDigestRef = useRef(viewDigest);
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
@@ -184,11 +198,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     budgetsRef.current = budgets;
   }, [budgets]);
   useEffect(() => {
-    effectiveFiltersRef.current = effectiveFilters;
-  }, [effectiveFilters]);
-  useEffect(() => {
-    filteredSortedTasksRef.current = filteredSortedTasks;
-  }, [filteredSortedTasks]);
+    viewDigestRef.current = viewDigest;
+  }, [viewDigest]);
   useEffect(() => {
     getDashboardModelRef.current = args.getDashboardModel;
   }, [args.getDashboardModel]);
@@ -746,25 +757,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           enabledModules: settingsRef.current.features as FeatureModuleId[],
           currentView: viewRef.current,
           insights: insightsRef.current ?? [],
-          viewDigest: digestForView(viewRef.current, {
-            // The digest promises to describe what the user can SEE. Only
-            // the Open Points TABLE renders `filteredSortedTasks` (it alone
-            // applies the assignee/group/label filters this ref tracks) —
-            // Gantt keeps its own independent status/priority/assignee prefs
-            // over the RAW task list, so feeding it filteredSortedTasks would
-            // make its count drift from what the chart shows whenever an
-            // Open-Points filter happens to be set. Workload/budget don't
-            // read `tasks` at all.
-            tasks:
-              viewRef.current === "open-points"
-                ? filteredSortedTasksRef.current
-                : tasksRef.current,
-            filters: effectiveFiltersRef.current,
-            resources: resourcesRef.current,
-            budgets: budgetsRef.current,
-            milestones: milestonesRef.current,
-            today: todayRef.current,
-          }),
+          // Assembled by useViewDigest — it needs pane state this hook does not
+          // hold (health filter, debounced search, effective view mode) to name
+          // the rows the pane is ACTUALLY rendering. See use-view-digest.ts.
+          // ★ Unlike the entity refs above — which tool handlers update
+          // SYNCHRONOUSLY so back-to-back calls see fresh data — this one is
+          // written by an effect, so it can lag one render. Harmless for the
+          // system prompt (built once per send, well after effects flush); a
+          // `get_app_state` called mid-turn right after a create can return a
+          // digest that predates that write. Not worth a synchronous mirror:
+          // the digest describes the SCREEN, which has not repainted yet either.
+          viewDigest: viewDigestRef.current,
         };
       },
 

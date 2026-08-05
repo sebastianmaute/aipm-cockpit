@@ -1663,7 +1663,7 @@ function TaskManagerInner() {
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout,
-    currentView: activeTab,
+    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,

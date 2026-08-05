@@ -27,6 +27,19 @@ export interface DigestInput {
    *  actually apply, see AGENTS.md "Orphaned list filters"). Sentinel for
    *  "no filter" is the shared `FILTER_ALL` ("All"). */
   filters?: TaskFilterValues;
+  /** ★★★ EVERY OTHER NARROWING THE PANE APPLIES, already rendered as text.
+   *  `TaskFilterValues` is ONLY {assignee, group, label} — but the Open Points
+   *  table also applies a priority filter, a debounced full-text search,
+   *  hide-externals, the RAG health filter and hide-finished. Without these the
+   *  digest emitted "No filters active — the table shows every task" while a
+   *  search was hiding 117 of 120 rows, which is worse than silence: that
+   *  sentence exists to tell the model it need not call a tool. */
+  extraFilters?: readonly string[];
+  /** Which Open Points surface is rendered. NOT cosmetic: the board and
+   *  swimlanes do not apply hide-finished (table-only), so the caller feeds a
+   *  different row set per mode — saying "table" over a board would name the
+   *  wrong surface AND the wrong count. Defaults to "table". */
+  surface?: "table" | "board" | "swimlanes";
   /** Only `.length` is read today (workload/gantt/budget report counts, not
    *  fields) — widen to a concrete shape when a digest needs actual fields. */
   resources?: readonly unknown[];
@@ -55,34 +68,58 @@ function activeFilters(filters: TaskFilterValues | undefined): string[] {
 }
 
 const openPoints: DigestFn = (i) => {
-  const filters = activeFilters(i.filters);
-  const lines = [`${i.tasks.length} task(s) visible in the table.`];
+  const filters = [...activeFilters(i.filters), ...(i.extraFilters ?? [])];
+  const surface = i.surface ?? "table";
+  const unit = surface === "table" ? "row(s)" : "card(s)";
+  const lines = [`${i.tasks.length} task(s) visible as ${unit} in the ${surface}.`];
   if (filters.length > 0) {
     lines.push(
-      `Active filters: ${filters.join(", ")}. Rows outside these filters are NOT shown.`,
+      `Active filters: ${filters.join(", ")}. Tasks outside these filters are NOT shown.`,
     );
   } else {
-    lines.push("No filters active — the table shows every task.");
+    lines.push(`No filters active — the ${surface} shows every task.`);
   }
   const sample = i.tasks
     .slice(0, VISIBLE_ROW_SAMPLE_CAP)
     .map((t) => `#${t.id} ${t.taskName} [${t.status}]`);
-  if (sample.length > 0) lines.push(`Visible rows: ${sample.join("; ")}`);
+  // ★ Both strings derive from the surface, never hardcode "rows" — a board
+  // digest that announces "card(s) in the board" and then lists "Visible rows:"
+  // names the wrong surface twice per message, which is what `surface` exists
+  // to prevent. (Plain plural here, not the "(s)" form used for the count.)
+  const plural = surface === "table" ? "rows" : "cards";
+  if (sample.length > 0) lines.push(`Visible ${plural}: ${sample.join("; ")}`);
   if (i.tasks.length > sample.length) {
-    lines.push(`(${i.tasks.length - sample.length} further visible rows not listed.)`);
+    lines.push(`(${i.tasks.length - sample.length} further visible ${plural} not listed.)`);
   }
   return lines.join("\n");
 };
 
+// ★★★ THESE THREE ARE PROJECT TOTALS, NOT WHAT IS ON SCREEN, AND EACH SAYS SO.
+// Only open-points above is fed the pane's true visible row set. The others read
+// workspace-wide arrays because their panes filter through state this module
+// cannot reach without duplicating the panel's own logic — which is exactly how
+// a digest silently drifts from the chart it claims to describe. An earlier
+// revision printed "Gantt showing N task(s)" under a wrapper promising "after
+// their filters and sorting": two overclaims stacked. State the scope in the
+// LINE, because the wrapper is shared by all four views and cannot qualify one.
 const workload: DigestFn = (i) => {
   const people = (i.resources ?? []).length;
-  return `Workload grid for ${people} resource(s).`;
+  return (
+    `Workload grid over ${people} resource(s) in the project. ` +
+    "This is the directory count: the pane's Hide-externals toggle and its extra rows " +
+    "for unlinked assignees are NOT reflected, so it may differ from the rows on screen."
+  );
 };
 
 const gantt: DigestFn = (i) =>
-  `Gantt showing ${i.tasks.length} task(s) and ${(i.milestones ?? []).length} milestone(s).`;
+  `Gantt over ${i.tasks.length} task(s) and ${(i.milestones ?? []).length} milestone(s) in the project. ` +
+  "These are project totals, NOT the bars drawn: the chart applies its own status, priority " +
+  "and assignee filters, hides milestones when that toggle is off, and never draws a task " +
+  "with no due date. Call a tool if the exact on-chart set matters.";
 
-const budget: DigestFn = (i) => `Budget planner with ${(i.budgets ?? []).length} bucket(s).`;
+const budget: DigestFn = (i) =>
+  `Budget planner with ${(i.budgets ?? []).length} bucket(s) in the project. ` +
+  "The pane's own bucket filter is NOT reflected in this count.";
 
 export const VIEW_AI_DIGEST: Partial<Record<AppView, DigestFn>> = {
   "open-points": openPoints,

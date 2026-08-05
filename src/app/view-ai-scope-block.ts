@@ -5,7 +5,9 @@
 import { VIEW_AI_SCOPE } from "./view-ai-scope";
 import type { AppView } from "./nav-config";
 
-/** The CACHED-prefix block: what this surface is. Call-invariant for a view. */
+/** What this surface IS. Emitted into the VOLATILE suffix — see `chat-api.ts`
+ *  for why (the cache saving comes from `CACHED_TOOLS`, not from this
+ *  placement). Keep it SHORT: it is paid on every message. */
 export function buildViewScopeBlock(view: AppView): string {
   const scope = VIEW_AI_SCOPE[view];
   const lines = [
@@ -29,8 +31,14 @@ export function buildViewScopeBlock(view: AppView): string {
 export function buildViewStateBlock(digest: string | undefined): string {
   if (!digest) return "";
   return [
-    "VIEW STATE — what is currently on the user's screen, after their filters and sorting.",
-    "Prefer this over a tool call when the question is about what they can see.",
+    // ★★ DO NOT re-add a blanket "after their filters and sorting" claim here.
+    // This wrapper is shared by all four digest views and only ONE of them
+    // (open-points) is fed the pane's true visible rows; the other three report
+    // project totals. A wrapper that promises filtered data turns three honest
+    // count lines into three false ones, and it is the wrapper the model reads
+    // first. Each digest states its own scope instead — see view-ai-digest.ts.
+    "VIEW STATE — the user's current view. Each line states its own scope.",
+    "Prefer this over a tool call only for what a line explicitly claims to cover.",
     digest,
   ].join("\n");
 }

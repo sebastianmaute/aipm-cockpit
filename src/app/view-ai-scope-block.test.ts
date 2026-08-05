@@ -17,8 +17,16 @@ describe("buildViewScopeBlock", () => {
     expect(text).not.toContain("Relevant tools");
   });
 
-  it("states that user guides win on conflict", () => {
-    expect(buildViewScopeBlock("dashboard").toLowerCase()).toContain("operating guide");
+  // ★ Assert the PRECEDENCE CLAUSE, never the bare phrase. The block names
+  // "operating guide" TWICE — once descriptively, once in the rule — so a
+  // `toContain("operating guide")` assertion stays green after the rule is
+  // inverted to "...where the two conflict, this view scope wins", which is
+  // the one thing this test exists to prevent. The rule is deliberately the
+  // INVERSE of assembleGuideBlock's "earlier wins", so nothing else guards it.
+  it("states that the OPERATING GUIDE wins on conflict, not the view scope", () => {
+    const text = buildViewScopeBlock("dashboard");
+    expect(text).toContain("where the two conflict, the operating guide wins");
+    expect(text).not.toContain("view scope wins");
   });
 });
 

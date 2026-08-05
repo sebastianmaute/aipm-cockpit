@@ -11,7 +11,7 @@ import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
-import { type SettingsUpdateInput } from "./chat-tools";
+import { CALENDAR_SUMMARY_KEYS, type SettingsUpdateInput } from "./chat-tools";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
@@ -141,6 +141,7 @@ function renderRaidProbe() {
         setSettings: vi.fn(),
         isReadOnly: false,
         currentView: "raid",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -171,6 +172,7 @@ function renderDispatcher(
         setSettings,
         isReadOnly,
         currentView,
+        settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -639,6 +641,7 @@ describe("useChatDispatcher", () => {
           setSettings,
           isReadOnly: false,
           currentView: "milestones",
+          settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
           getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -697,6 +700,7 @@ describe("useChatDispatcher", () => {
         setSettings: vi.fn(),
         isReadOnly: false,
         currentView: "open-points",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -1197,7 +1201,12 @@ describe("useChatDispatcher – knowledge, calendar and budget read tools", () =
     const events = result.current.d.listCalendarEvents();
     expect(events).toHaveLength(1);
     expect(events[0].recurrence).toEqual({ freq: "weekly", interval: 1 });
-    expect(Array.isArray((events[0] as unknown as Record<string, unknown>).occurrences)).toBe(false);
+    // ★★ No key outside the contract, rather than probing for `occurrences` —
+    // that field has never existed, so `Array.isArray(undefined)` was false
+    // unconditionally and would stay green against an expansion named anything
+    // else (e.g. `dates: string[]`). See chat-tools.test.ts for the same guard.
+    const ALLOWED_KEYS = new Set<string>(CALENDAR_SUMMARY_KEYS);
+    expect(Object.keys(events[0]).filter((k) => !ALLOWED_KEYS.has(k))).toEqual([]);
   });
 
   it("returns an empty list when the workspace has no calendar events", () => {
