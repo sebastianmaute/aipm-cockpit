@@ -798,8 +798,9 @@ IndexedDB**, because `JSON.stringify` escapes it as `\ud83d`. A silent, **backen
 corruption — harder to diagnose than a uniform one, because the same workspace reads correctly or
 incorrectly depending on where it was stored.
 
-`clipText` is the truncator behind `sanitizeText` and `sanitizeMultiline`, which have **49 call
-sites** — `sanitize-core` (6), `sanitize-entities` (7), `sanitize-records` (36) — every capped name,
+`clipText` is the truncator behind `sanitizeText` and `sanitizeMultiline`, which have **54 call
+sites** — `sanitize-core` (6), `sanitize-entities` (7), `sanitize-records` (36), `calendar-event` (5)
+— every capped name,
 title, note and plain-text field in the app. (`clipText` itself appears only in `sanitize-core.ts`;
 an earlier revision of this entry said "~54 times across" the three files, which sent a reader
 grepping for `clipText` in `sanitize-records.ts` and finding nothing.) The same shape recurs in `note-log.ts`'s `cleanText`,
@@ -813,7 +814,14 @@ const last = text.charCodeAt(max - 1);
 const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
 ```
 
-Applied once inside `clipText`, that closes all ~54 sites at once.
+Applied once inside `clipText`, that closes all 54 sites at once. ★ It closes one MORE than that:
+`sanitizeVoiceTranscript` reaches `clipText` directly and is not one of the 54 (consumer:
+`use-bulk-operations.ts:463`). ★ The body said **49** until 2026-08-05 — its own enumeration summed
+exactly but omitted a fourth file, `calendar-event.ts`, while the index row said `~54`. Reproduce:
+
+```bash
+grep -rPn "(?<!function )\bsanitize(Text|Multiline)\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vP ":\s*(//|\*)" | grep -v "export function" | wc -l   # 54
+```
 
 **Why it was NOT done in slice B:** unlike `capHtmlText` — whose fields are empty in the sample —
 `clipText` reaches fields that **DO ship in the sample workspace**, so changing it needs its own
@@ -1310,8 +1318,8 @@ review happened to surface, then documenting that as the scope.
 ### A. Base text, no companion — 7
 
 `jira-conflicts-modal.tsx:183` (Jira-key badge, on `bg-surface-muted`) · `jira-settings.tsx:617`
-(selected arm, assignee picker) · `settings-sections/integrations-section.tsx:441` (link, carries
-`underline` as a non-colour affordance) · **`tasks-section.tsx:588`** (Jira-sync button) ·
+(selected arm, assignee picker) · `settings-sections/integrations-section.tsx:484` (link, carries
+`underline` as a non-colour affordance) · **`tasks-section.tsx:615`** (Jira-sync button) ·
 **`use-tasks-dedup.tsx:69`** (dedup toolbar button class const) · **`chat-prompt-chips.tsx:37`** ·
 **`rich-text-view.tsx:13`**.
 
@@ -1321,7 +1329,7 @@ independent sweeps missed it.** `PROSE_CLASS` is
 read-only rich-text sink — the note log, the dashboard narrative, and every stored HTML body render
 through it. So **every link in every rendered rich-text field** is near-black navy on `--surface` in
 dark mode. It belongs in this section by the entry's own criteria (it is the same underlined-link
-shape as `integrations-section.tsx:441`, which is listed).
+shape as `integrations-section.tsx:484`, which is listed).
 ★★ **Why both sweeps missed it, which is the transferable part:** it is an ARBITRARY-VARIANT
 utility, `[&_a]:text-*`, not a bare `text-*`. A scan keyed on `text-ui-dark-blue` finds the string
 but a companion test keyed on `dark:text-` never matches, because the correct companion here is
@@ -1347,15 +1355,35 @@ therefore order-immune. The FIX is not: `dark:hover:text-*` compiles to
 That order is stable in Tailwind today, but it means the remedy — unlike the bug — would be sensitive
 to any change in variant emission order.
 
-`combo-input:117` · `gantt-chrome:267` · `gantt-rows:154` · `inline-ai-edit-button:30` ·
-`insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:224,234` ·
-`raid-edit-modal:355` · `raid-panel-rows:373` · `resource-directory:424` · `task-kanban-card:133` ·
-`task-manager-ui:34` · `task-row:385` · `tasks-section:1007` · `workspace-section-chrome:177,178`
+`combo-input:117` · `gantt-chrome:262` · `gantt-rows:160` · `inline-ai-edit-button:30` ·
+`insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:228,238` ·
+`raid-edit-modal:355` · `raid-panel-rows:373` · `resource-directory:425` · `task-kanban-card:133` ·
+`task-manager-ui:34` · `task-row:391` · `tasks-section:1031` · `workspace-section-chrome:177,178`
 
-★ **`inline-ai-edit-button:30`, `task-kanban-card:133` and `task-row:385` each carry a base
+★ **`inline-ai-edit-button:30`, `task-kanban-card:133` and `task-row:391` each carry a base
 `dark:text-ui-light-grey` on the same element** — they read as handled and are not.
 ★ `task-manager-ui:33/34` and `workspace-section-chrome:177/178` are the two-arm ternary shape: in the
 first, the active arm is companioned and the inactive arm is not; in the second, both arms are broken.
+
+★★ **A THIRD UNNAMED VARIANT GAP, found 2026-08-05 — the sweep never handled `group-hover:`,
+`active:` or `focus:` either, and two more uncompanioned sites fall in it.** They are additional to
+the 40 enumerated above, which all re-verified as real and correctly grouped (A 7 · B 18 · C 2 ·
+D 13). `gantt-chart.tsx:296` carries `group-hover:text-ui-dark-blue` on `bg-surface` — the trailing
+"add task" affordance, in no group at all. `gantt-chrome.tsx:262` is already counted in B for its
+`hover:` arm, but the SAME element also carries `active:text-ui-dark-blue`, equally uncompanioned.
+★ `focus:text-ui-dark-blue` also occurs once and was CHECKED and is clean: `modern-shell.tsx:139`
+pairs it with `focus:bg-ui-green` on the skip link, so both colours are forced and the pair is
+mode-independent. Do not add it to the list. ★ This is the second time a variant form defeated a
+sweep here — the arbitrary-variant miss above was the first — which is why the rule is to enumerate
+the forms handled, not to trust a bare-name grep. Reproduce each form separately:
+
+```bash
+for v in "" "hover:" "group-hover:" "active:" "focus:"; do printf '%s %s\n' "$v" "$(grep -rn "$v"'text-ui-dark-blue' src/app --include="*.tsx" --include="*.ts" | grep -vc "\.test\.")"; done
+```
+
+★ Nine of the line numbers above were stale by −5 to +43 and were re-derived 2026-08-05; groups C and
+D were exact. These are class-name occurrences with nothing nameable to cite instead, so a number is
+the only available cite — expect it to drift again and re-run the command rather than trusting it.
 
 ### C. Icons, lower priority — 2
 
@@ -2027,7 +2055,14 @@ Found by a reviewer of the 0.212.0 batch, not by the implementation.
 
 Consequences, for the 37 tables that are NOT Open Points (37 `useColumnResize` INVOCATIONS across
 17 files — count call sites, not files: `raid-report-panel` holds 7 and `resources-report` 5, so a
-file count understates the blast radius by half):
+file count understates the blast radius by half; re-verified 2026-08-05):
+
+```bash
+grep -rPn "(?<!typeof )\buseColumnResize\s*[<(]" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vP ":\s*(import|//|\*)" | grep -v "export function" | wc -l   # 38, minus use-column-manager.ts (Open Points) = 37
+```
+
+★ The `typeof` exclusion is REQUIRED: `ReturnType<typeof useColumnResize<X>>` type aliases match a
+bare `useColumnResize<` grep, so a naive count reads 54 and "disproves" the 37.
 
 | | |
 |---|---|
@@ -2307,8 +2342,20 @@ visual signal that they are active is a fill or tint change — WCAG 1.4.1.
 all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
 flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
 `status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
-four callers that render it are covered and the two that destructure without it
+**13** callers that render it are covered and the two that destructure without it
 (`note-log-panel.tsx:68,181`) are not. Check the caller, not the grep hit.
+★ That number read **four** until 2026-08-05 and understated the covered set by nine, which errs
+against this entry's own argument: `dictation-mic` is the WEAKEST of the twelve colour-only cases,
+not a middling one. Re-measured — all 13 destructure the node AND render it in JSX; the 2 that do
+not destructure it are the only gap. Reproduce:
+
+```bash
+grep -rn "= useDictationMic(" src/app --include="*.tsx" | grep -v "\.test\." | grep -cE "\bstatus\b"   # 13
+```
+
+★ A grep keyed on `status:` answers **12** — `chat-panel.tsx:198` destructures `status` unrenamed, so
+it has no colon. Key on the bare word, and confirm each hit RENDERS the node rather than merely
+destructuring it.
 
 `rich-text-editor.tsx:83-84` is the clearest and the most used: `BTN` and `BTN_ON` differ by
 `bg-ui-dark-blue` + `text-white` and nothing else, on the bold/italic/list buttons every task
