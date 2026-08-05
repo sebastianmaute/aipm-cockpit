@@ -39,11 +39,21 @@ describe("AiViewScopeDisclosure", () => {
     expect(screen.getByText(/capacity versus allocation/i)).toBeInTheDocument();
   });
 
-  it("is reachable by keyboard", async () => {
+  // ★★ "Reachable" is not "operable". The previous version stopped at the tab
+  // landing on a BUTTON, which this component cannot fail — it renders nothing
+  // else focusable. Swapping the row's `onClick` for `onMouseDown` makes the
+  // control keyboard-INOPERABLE and left that assertion green. Drive an actual
+  // key and assert the state flips. (`user.tab()` rather than `.focus()`:
+  // calling .focus() directly proves nothing about tab order.)
+  it("is operable by keyboard: Enter on the focused row expands it", async () => {
     const user = userEvent.setup();
     render(<AiViewScopeDisclosure lang="en-US" />);
     await user.tab();
-    expect(document.activeElement?.tagName).toBe("BUTTON");
+    const focused = document.activeElement as HTMLElement;
+    expect(focused.tagName).toBe("BUTTON");
+    expect(focused).toHaveAttribute("aria-expanded", "false");
+    await user.keyboard("{Enter}");
+    expect(focused).toHaveAttribute("aria-expanded", "true");
   });
 
   // ★ The panel is ALWAYS mounted (aria-controls target must stay in the DOM
