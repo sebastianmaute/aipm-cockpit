@@ -63,8 +63,10 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
 
   it("resolves the DEVELOPMENT React build", () => {
     // The dev-only missing-`key` warning does not exist in the production
-    // build. If this stops firing, React is resolving production here and the
-    // double invoke above would be the next thing to disappear.
+    // build, so its absence is a SIGNAL that React resolved production here —
+    // in which case the double invoke above is the next thing to disappear.
+    // ★ It is not proof: React may also reword the warning between versions.
+    // Diagnose a lone failure of the string match before believing either.
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     render(
       <div>
