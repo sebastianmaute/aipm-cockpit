@@ -257,6 +257,7 @@ const enUS = {
   delete: "Delete",
   sendInquiry: "Send inquiry",
 
+  show: "Show",
   showMore: "Show more",
   showLess: "Show less",
   tableResetSize: "Reset size",
@@ -2026,6 +2027,10 @@ const enUS = {
   aiGuideScopeModules: "Modules",
   aiGuideScopeViews: "Views",
   aiGuideScopeAny: "Always on",
+  aiViewScopeTitle: "What Claude knows about each view",
+  aiViewScopeIntro:
+    "Claude is told what the view you are on is for. This text is sent in English regardless of your interface language.",
+  aiViewScopeDigest: "Also receives a summary of what is currently on screen.",
   aiApiKeyTooltip: "Your Anthropic API key. Stored locally in this browser only.",
   aiKeyInvalid: "That doesn't look like a valid Anthropic API key (sk-ant-…). It was not saved.",
   aiModelTooltip: "Which Claude model the assistant uses.",

@@ -261,6 +261,7 @@ export const de: Record<TranslationKey, string> = {
   sendInquiry: "Anfrage senden",
 
   showMore: "Mehr anzeigen",
+  show: "Anzeigen",
   showLess: "Weniger anzeigen",
   tableResetSize: "Größe zurücksetzen",
   tableResetSizeHint: "Auf die Standardgröße zurücksetzen.",
@@ -2018,6 +2019,9 @@ export const de: Record<TranslationKey, string> = {
   aiGuideScopeModules: "Module",
   aiGuideScopeViews: "Ansichten",
   aiGuideScopeAny: "Immer aktiv",
+  aiViewScopeTitle: "Was Claude über die einzelnen Ansichten weiß",
+  aiViewScopeIntro: "Claude erfährt, wofür die aktuelle Ansicht da ist. Dieser Text wird unabhängig von der Oberflächensprache auf Englisch gesendet.",
+  aiViewScopeDigest: "Erhält zusätzlich eine Zusammenfassung des aktuell Sichtbaren.",
   aiApiKeyTooltip: "Ihr Anthropic-API-Schlüssel. Wird nur lokal in diesem Browser gespeichert.",
   aiKeyInvalid: "Das sieht nicht wie ein gültiger Anthropic-API-Schlüssel aus (sk-ant-…). Er wurde nicht gespeichert.",
   aiModelTooltip: "Welches Claude-Modell der Assistent verwendet.",

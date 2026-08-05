@@ -16,6 +16,7 @@ import { FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
 import { FieldHint } from "../field-hint";
 import { AiUsagePanel } from "./ai-usage-panel";
+import { AiViewScopeDisclosure } from "./ai-view-scope-disclosure";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
 import type { OperatingGuide, GuideScope } from "../operating-guide";
 import { guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
@@ -772,6 +773,8 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           </>
         )}
       </div>
+
+      <AiViewScopeDisclosure lang={lang} />
         </>
       )}
     </div>
