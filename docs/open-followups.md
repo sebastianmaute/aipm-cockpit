@@ -52,7 +52,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
 | 1 | Two dead `memo()`s in the Resources subtree | R5 (0.202.0) | S–M | **fork open — decision needed** |
-| 2 | ~~`use-resource-planner.ts` 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED post-0.212.0** — two verbatim extractions, 1043 → 553; ★ the entry's own numbers AND its stated precedent were wrong |
+| 2 | ~~`use-resource-planner.ts` 30% over the 800-line ceiling~~ | R5 (0.202.0) | M | **CLOSED post-0.212.0** — two verbatim extractions, 1043 → 553 |
 | 3 | `optimize_wbs` never built | R4 (0.201.0) | ? | owed; open design question |
 | 4 | Two-tab last-writer clobber on file/IDB (#39) | audit (2026-07) | L | parked — own design |
 | 5 | No list virtualization anywhere (#14) | audit (2026-07) | L | parked — own batch |
@@ -61,7 +61,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 8 | `tour-overlay` claims `aria-modal` with no Tab trap | 0.203.0 (Czerneda) | S | open — a11y, unguarded |
 | 9 | `aria-sort` inconsistent across the four raw-`<th>` tables | 0.202.2 | S | open — a11y, unguarded |
 | 10 | Keyboard move has no preview (band + day grid) | R5 (0.202.2) | M | open — a11y/UX |
-| 11 | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED 0.211.1** — shared `isAbortError`, all four sites. ★ premise DISPROVED in review: hardening, not a user-visible fix |
+| 11 | ~~`instanceof DOMException` abort check misreports a user cancel~~ | 0.201.0 | S | **CLOSED 0.211.1** — shared `isAbortError`, all four sites |
 | 12 | `list_allocations` dumps the grid; should be a scoped query | R4 (0.201.0) | M | open — design |
 | 13 | Security audit is scope-stale — 39 releases of unaudited surface | audit was v0.164 | M | open — re-scope |
 | 14 | ~~Timelog has two per-device stores keyed differently~~ | 0.207.0 | S | **CLOSED 0.211.1** — re-keyed canonical, no fallback |
@@ -90,8 +90,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 45 | ~~`brace-expansion` advisory in the eslint dev chain~~ | 0.211.0 | S | **CLOSED 0.211.1** — major-scoped `overrides` pair |
 | 46 | A `<label>`-wrapped file input can never show a focus ring | 0.211.1 | S | closed for 3 sites — **pattern open** |
 | 47 | `chat-panel` clicks a `display:none` file input | pre-existing, found 0.211.1 | S | open — contradicts §15's own warning |
-| 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row; ★ the task fix would have been worse |
-| 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — ★ the central fix is FORBIDDEN (DOM-free sanitizer); fixed per-caller |
+| 48 | ~~RAID editor destroys notes added while it is open~~ | pre-existing, found 0.211.1 | M | **CLOSED 0.211.1** — `noteLog` read from the stored row |
+| 49 | ~~Every AI edit to a RAID item erased its whole note log~~ | pre-existing, found 0.211.1 | S | **CLOSED 0.211.1** — `updateRaid` re-applies the stored `noteLog` after sanitizing |
 | 50 | Undo of a BULK edit reverts write-through fields | pre-existing, found 0.211.1 | M | open — **DATA LOSS**, shared undo engine, tasks likely affected too |
 | 51 | `use-tasks-dedup` "on confirm" fails under CI load | found 0.211.1 (main #5418) | S–M | open, narrower — the recorded symptom cannot recur; ★★ two of this entry's OWN claims were false and are corrected; ★★★ a future failure wears §39's clothes — match on duration, not message |
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
@@ -100,7 +100,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 55 | Fourteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 14 are NOT colour-only |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
-| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **HALF CLOSED post-0.212.0** — version stamp + guard test; ★ other half has a designed follow-up (cwd hash / boot nonce), fresh-port convention still required |
+| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half CLOSED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
 | 59 | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open — ★ the finding is the PATTERN, three releases running |
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
@@ -114,25 +114,27 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
-| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★★ the hook's mount re-set is now PINNED by `still emits a save outcome after StrictMode's remount` (§85 retracts the "untestable" premise), but `refreshBackendStatus`'s three guards are STILL UNPINNED — deleting them leaves every gate green, which is the entry's own most-likely-regression path; ★ near-zero production impact, the win is a job that stops lying |
-| 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
-| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations (each pinning the ONE arm that was the defect — `isMisconfigured`×3, `hasFetched`×1; `isPopout`/`syncBusy`/`confirming` stay unpinned at every call site), after a revision that wrongly called Fetch untestable |
-| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §84 |
-| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★★★ it shipped UNTESTED on the belief that vitest could not reproduce StrictMode's remount — that belief is retracted (§85) and BOTH re-sets are now pinned, by `still applies the loaded jobs after StrictMode's remount` and `still applies the loaded guides after StrictMode's remount`; sweep regex corrected after it was found unable to match the pre-fix shape |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs, for CALLER CALLBACKS only; see the entry's Residual block. ★ Row-only history: `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), and an earlier one-name version of this row contradicted the body |
+| 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block |
+| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates; all four button wirings DOM-pinned |
+| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed, plus the pinned-seed blocking gate `unit-tests-shuffled` and a weekly random-seed sweep |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; both pinned |
 | 77 | The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project | found post-0.214.0 | M | open — ★★ both obvious fixes are WRONG (suppress-path strands it false; a state reset lands a render late, both effects run in one commit); needs ref+state |
 | 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | open — every later variance row then compares against nulls; fix `isFirstEver`, do NOT overload §77's flag |
 | 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
-| 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites, with `<unknown>` so the type argument stops asserting an unchecked shape; both pinned |
-| 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`; ★★★ the first fix broke the ASSIGN control (inert select), so `source` now carries caller INTENT |
+| 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites; both pinned |
+| 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`, and `source` carries caller INTENT |
 | 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
-| 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; the single-invoke observation is reproducible but belongs to a nested-wrapper shape whose child mounts in the same commit as the wrapper (the rule turns on which fiber is flagged for PLACEMENT — not the tree, not the commit number — and a pure keyed REORDER can double-invoke with nothing mounting), and the entry's own "measurement artefact" hypothesis is separately false (the fiber is reused, so a per-instance log sees the whole cycle); ★★★ all three mount re-sets are now pinned, and `src/app/strictmode.meta.test.tsx` is the standing instrument |
+| 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix |
+| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; `src/app/strictmode.meta.test.tsx` is the standing instrument |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
 file: `rich-text-plain.ts:96` points at §24, AGENTS.md at §22 and §28, and `docs/CODEMAPS/*` at §4,
 §7 B4, §8–§10 and §13. Renumbering silently redirects every one of those.
+
+★ `48-was` was a duplicate left behind when §48 closed; it was folded into §48 on 2026-08-05 and the label is retired. `48` keeps its meaning.
 
 ---
 
@@ -144,11 +146,13 @@ missed half the finding.
 
 ### What is actually true
 
-**`ResourcesPanel` (`resources-panel.tsx:680`) never bails.** `makeEditGuard` is called
-UNMEMOIZED during render (`task-manager.tsx:2047`), so every `guardEdit(handler)` prop is a fresh
-function each render — that is ~25 of the panel's 47 props (`task-manager.tsx:2180-2274`). The
-`absenceCalendar` bag (`:2158`) is rebuilt each render, so its four function members are unstable
-too. Call site: `workspace-section.tsx:511-559`.
+**`ResourcesPanel` (`resources-panel.tsx`, `export const ResourcesPanel = memo(ResourcesPanelInner)`)
+never bails.** `makeEditGuard` is called UNMEMOIZED during render (`task-manager.tsx`,
+`const guardEdit = makeEditGuard(isPopout, …)`), so every `guardEdit(handler)` prop is a fresh
+function each render — that is ~25 of the panel's 47 props (`task-manager.tsx`, the `workspaceProps`
+object literal). The
+`absenceCalendar:` bag is rebuilt each render, so its four function members are unstable
+too. Call site: `workspace-section.tsx`, the `<ResourcesPanel …>` call.
 
 **★ NEW — `ResourceCalendar` (`resource-calendar.tsx:697`) is ALSO `memo()`'d and also never bails.**
 The original write-up does not mention it. It guards the heaviest subtree in the view — the calendar
@@ -207,6 +211,8 @@ does not bail, but it still frames the guidance as protecting a live optimizatio
 
 ## 2. ~~`use-resource-planner.ts` is 30% over the 800-line ceiling~~ — CLOSED post-0.212.0
 
+**Cited from:** `use-reference-data.ts`, `use-resource-directory.ts` — this entry cannot be deleted.
+
 **Was:** the file sat over the 800-line ratchet with the baseline recording its own size, so the next
 line added to it failed the build.
 
@@ -221,7 +227,7 @@ something quantifies it *as of its writing* — **re-measure before acting on a 
 
 | new file | lines | what moved |
 |---|---|---|
-| `src/app/use-reference-data.ts` | 308 | 15 handlers — roles · disciplines · grades (create/save/delete/assign/reorder) |
+| `src/app/use-reference-data.ts` | 314 | 15 handlers — roles · disciplines · grades (create/save/delete/assign/reorder) |
 | `src/app/use-resource-directory.ts` | 344 | 9 exports — resource CRUD, bulk edit/delete, import; plus the private helpers `recordMatchesRemoved` and `purgeCalendarFor` |
 
 `plainSeed` moved into `use-resource-directory.ts` but is **exported and imported back** by the
@@ -235,16 +241,6 @@ which is one MORE than `wc -l` for a file ending in a newline. Anyone hand-editi
 now BELOW the limit and therefore invisible to the tool's own regeneration — see §60, which records
 why `--update` dropping it costs nothing (the entry is inert at 554), and why the value of this
 commit is REMOVING the stale 1043, not installing a 554.
-
-Verified move-only rather than asserted:
-
-- the public return shape is **54 keys in identical order**, before and after (23 named keys plus
-  three spreads — `resourceDirectoryApi` 9, `calendarEventsApi` 7, `referenceDataApi` 15);
-- every `useCallback` dependency array survives verbatim as a multiset. Measured with one regex on
-  both sides: **18 dependency arrays before, 25 after** — the seven new ones are the ref-sync
-  `useEffect` deps the two new files re-derive locally, and nothing else changed;
-- neither new file needed a `vitest.config.ts` `coverage.exclude` entry, exactly as the original
-  entry predicted: these are pure `.ts` modules, coverage-gated like their parent.
 
 ★★ **THE PRECEDENT THIS ENTRY NAMED WAS THE WRONG ONE, and it cost a review round.** It said to
 follow `use-storage-file-ops.ts` — a typed `deps` object, `use*`, NON-memoized handlers. That
@@ -265,10 +261,13 @@ reason to preserve the memoization form. It does not hold:
   contradicting the very header comment it defers to: `handleAssignRoleById` reaches the memo'd
   `ResourceDirectory` (arriving `guardEdit()`-wrapped, so unstable anyway), and
   `handleAssignResourceRole` + `handleClearResourceRole` reach nothing in production at all (§62);
-- **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx:442`)
-  and `ResourcesPanel` (`resources-panel.tsx:682`) — but they arrive `guardEdit()`-wrapped
+- **resource-directory handlers do reach** the memo'd `ResourceDirectory` (`resource-directory.tsx`,
+  the `memo(ResourceDirectoryInner)` export) and `ResourcesPanel` (`resources-panel.tsx`, the
+  `memo(ResourcesPanelInner)` export) — but they arrive `guardEdit()`-wrapped
   (`task-manager.tsx:2258-2261`), and `guardEdit` is `makeEditGuard(...)` called unmemoized during
-  render (`task-manager.tsx:2041`), so their identities are unstable whatever this hook does.
+  render (`task-manager.tsx`, `const guardEdit = makeEditGuard(isPopout, …)`), so their identities
+  are unstable whatever this hook does. ★ §1 and §2 cited that one call as `:2047` and `:2041`, so at
+  least one was wrong the day it was written; the real line is `:2044`. Cite the symbol, not the number.
 
 Preserving the memoization form needed no justification beyond the commit being move-only, and the
 corrected reasoning now lives in `use-reference-data.ts`'s own header comment. ★ §1 is unaffected in
@@ -510,6 +509,9 @@ bugs are reachable from the keyboard path, and a no-op result must write nothing
 
 ## 11. ~~`instanceof DOMException` abort check misreports a user cancel~~ — CLOSED in 0.211.1
 
+**Was:** four abort checks read `instanceof DOMException` instead of reading `.name` directly.
+**Cited from:** `abort-error.ts` — this entry cannot be deleted.
+
 **Resolution:** pure `abort-error.ts` `isAbortError(e)` reads `.name` directly and is used at **all four**
 sites. The two that also read `signal.aborted` keep that short-circuit as the left operand.
 
@@ -559,15 +561,6 @@ named: `chat-panel.tsx:478`, `use-alloc-plan.tsx:167` and `use-raci-suggest.tsx:
 `.name` correctly with their own four-line explanatory comment. None is a defect, so none was touched —
 but three verbatim copies are `dup:check` fuel, and the helper now exists to absorb them if that
 BLOCKING gate ever flags them.
-
-**The original write-up follows.**
-
-**Scoped out of 0.201.0 deliberately.** A plain user cancel surfaces a spurious error toast.
-
-`use-tasks-dedup.tsx:111` catches the abort as
-`if (e instanceof DOMException && e.name === "AbortError") return;`. When that `instanceof` fails
-the branch falls through to the generic arm and fires `showToast("error", t(lang, "taskDedupError"))`
-— an error the user caused on purpose, reported as a failure.
 
 **The correct pattern is already written down, in the hook added by the same release.**
 `use-alloc-plan.tsx:154-165` reads the name directly and says why:
@@ -669,12 +662,8 @@ not a code change. Do not open a ticket for it now, and do not lose it if hostin
 
 ## 14. ~~Timelog has two per-device stores keyed differently~~ — CLOSED in 0.211.1
 
-**Was:** `timelog-panel.tsx` computed `projectId = ws.project?.code ?? "default"`, which keyed the
-per-device **actuals cache** via `useTimelogSync`. Slice C (0.204.0) added a second per-device store,
-the picker scope, keyed on the canonical `portfolioCurrentId ?? "default"` instead — matching
-`landing-state` and project-appearance. Because the project *code* is user-editable, a rename orphaned
-the actuals cache while the picker scope survived, so the picker restored a selection for bookings that
-were no longer loaded.
+**Was:** Timelog had two per-device stores keyed differently — the actuals cache on the user-editable project code, the picker scope on the canonical id.
+**Cited from:** `timelog-panel.tsx`, `timelog-panel.test.tsx` — this entry cannot be deleted.
 
 **Resolution:** the actuals cache is keyed on the canonical id. `timelog-panel.tsx`'s local is now named
 `projectCode` and no longer keys anything — **it is only the picker's in-place project-switch signal**
@@ -685,6 +674,7 @@ picker stops re-seeding on a switch. Guarded by a test in `timelog-panel.test.ts
 ★★ **A pre-existing cache is ORPHANED, deliberately.** Existing users open Time bookings once, see an
 empty pane, and press Fetch.
 
+**Residual (still open):**
 ★ There is a SECOND, smaller cost that the sentence above originally claimed was "the entire" one:
 the orphaned entry is never reclaimed. `clearActualsCache` deletes only the key it is handed
 (`timelog-actuals-store.ts:54`), so a pre-0.211.1 code-keyed entry — carrying a full
@@ -716,23 +706,12 @@ removes the hazard rather than relocating it.
 "what does the panel hand the hook" has to be done by asserting on the mock's call arguments — which is
 what the §14 guard does, following the one pre-existing precedent in that file.
 
-**The original write-up follows — present tense throughout, and NO LONGER TRUE at HEAD.** Kept for the
-reasoning, not the facts: `timelog-panel.tsx` now passes the canonical `projectId: projectKey`, so
-neither paragraph below describes today's code. (This marker was missing, so a top-to-bottom reader
-could have re-opened a closed bug — §11 and §15 both carry it.)
-
-★ The project *code* is user-editable, so the actuals cache already orphans on a code rename today.
-That is the pre-existing bug this note records, not one slice C introduced.
-
-★ Consequence to keep in mind while it stands: the two stores can disagree about which project they
-describe. Rename the project code and the picker scope survives (canonical key) while the actuals
-cache does not — so the picker restores a selection for bookings that are no longer loaded. The
-scope-mismatch note added in the same slice does not cover this case; it compares the picker against
-`links.customerId`, which is workspace data and unaffected by the rename.
-
 ---
 
 ## 15. ~~Two file-picker patterns — extract a `FilePickerButton` primitive~~ — CLOSED in 0.211.1
+
+**Was:** the app opened a file dialog in two structurally different ways, both on Settings → Appearance.
+**Cited from:** `file-picker-button.tsx` — this entry cannot be deleted.
 
 **Resolution:** `file-picker-button.tsx` — a DS `Button` plus the `sr-only` input it owns
 (`tabIndex={-1}`, `aria-hidden`, value reset **before** the callback so the same file re-picks). It owns
@@ -752,28 +731,6 @@ clone against a BLOCKING gate, which is the very thing this entry says not to do
 
 ★ `theme-gallery.test.tsx`'s tab-order walk was **not touched** and still passes — it is the regression
 guard for the duplicate-accessible-name defect (`df507f95`) that the primitive now prevents structurally.
-One test query did legitimately move: `branding-image-input.test.tsx` went from
-`getByLabelText("Logo")` to `getByRole("button", { name: "Logo" })`, because the accessible name moved
-from the wrapping `<label>` to the Button. No label or `aria-label` was re-added to keep the old query.
-
-**The original write-up follows.**
-
-The app opens a file dialog in two structurally different ways, and slice E (0.208.0) put both on the
-**same settings surface**, Settings → Appearance:
-
-| where | shape |
-|---|---|
-| `color-scheme-editor.tsx:212-215` | `<label className={btn}>` text + an `sr-only` `<input type="file">` as its child. The label IS the control; no ref, no imperative click. |
-| `theme-gallery.tsx:76-95` | DS `<Button>` + a sibling `sr-only` input reached through a `useRef` and `inputRef.current?.click()`. |
-
-Neither is a primitive. **Neither should simply be converted into the other**, which is why this is a
-follow-up and not a slice-E fix:
-
-- Converting the gallery to the label shape means copying the editor's `btn` — a **local hand-rolled
-  class string** (`color-scheme-editor.tsx:190`), not a design-system export. That hand-rolls button
-  styling in a second file and mints a `dup:check` clone, and `dup:check` is BLOCKING.
-- Converting the editor to the gallery shape means the editor grows a ref + an imperative click for
-  what a `<label>` already does declaratively.
 
 The real fix is one small primitive — a `FilePickerButton` wrapping `Button` with an `accept` prop
 and the input it owns — and moving both sites onto it. That also settles the a11y question in ONE
@@ -785,11 +742,6 @@ into it.
 
 ★ Do NOT "fix" this by making the input `display:none` — a hidden input cannot be clicked in every
 browser, which is why both sites use `sr-only`.
-
-★ Scope check before starting: `grep -rn 'type="file"' src/app --include=*.tsx` — that grep also hits
-`BrandingImageInput`, the create-project import panel and `chat-panel.tsx`'s attachment upload. All
-three are image/multi-file flows with their own validation and size caps, so folding them in is a
-bigger question than the two theme pickers; the follow-up is scoped to those two.
 
 ---
 
@@ -846,8 +798,9 @@ IndexedDB**, because `JSON.stringify` escapes it as `\ud83d`. A silent, **backen
 corruption — harder to diagnose than a uniform one, because the same workspace reads correctly or
 incorrectly depending on where it was stored.
 
-`clipText` is the truncator behind `sanitizeText` and `sanitizeMultiline`, which have **49 call
-sites** — `sanitize-core` (6), `sanitize-entities` (7), `sanitize-records` (36) — every capped name,
+`clipText` is the truncator behind `sanitizeText` and `sanitizeMultiline`, which have **54 call
+sites** — `sanitize-core` (6), `sanitize-entities` (7), `sanitize-records` (36), `calendar-event` (5)
+— every capped name,
 title, note and plain-text field in the app. (`clipText` itself appears only in `sanitize-core.ts`;
 an earlier revision of this entry said "~54 times across" the three files, which sent a reader
 grepping for `clipText` in `sanitize-records.ts` and finding nothing.) The same shape recurs in `note-log.ts`'s `cleanText`,
@@ -861,7 +814,14 @@ const last = text.charCodeAt(max - 1);
 const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
 ```
 
-Applied once inside `clipText`, that closes all ~54 sites at once.
+Applied once inside `clipText`, that closes all 54 sites at once. ★ It closes one MORE than that:
+`sanitizeVoiceTranscript` reaches `clipText` directly and is not one of the 54 (consumer:
+`use-bulk-operations.ts:463`). ★ The body said **49** until 2026-08-05 — its own enumeration summed
+exactly but omitted a fourth file, `calendar-event.ts`, while the index row said `~54`. Reproduce:
+
+```bash
+grep -rPn "(?<!function )\bsanitize(Text|Multiline)\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vP ":\s*(//|\*)" | grep -v "export function" | wc -l   # 54
+```
 
 **Why it was NOT done in slice B:** unlike `capHtmlText` — whose fields are empty in the sample —
 `clipText` reaches fields that **DO ship in the sample workspace**, so changing it needs its own
@@ -981,6 +941,9 @@ state on these three backends since 0.196.0.
 
 ## 29. ~~`form.noteLog` is dead state in the task form~~ — CLOSED in 0.211.1
 
+**Was:** `form.noteLog` was dead state in the task form — seeded into the draft, written by nothing.
+**Cited from:** `task-form-fields.tsx`, `task-form-modal.test.tsx` — this entry cannot be deleted.
+
 **Resolution:** the field is gone from `emptyForm` (`task-form-context.tsx`), from the `openEditModal`
 seed (`use-task-submit.ts`) and from the disabled fallback button, **which now shows no count at all**.
 Because
@@ -999,23 +962,6 @@ copy, `queryByText("… (1)")` and `queryByText("Stale draft note")` can no long
 The 1-vs-2 discriminator that made those tests meaningful is structurally impossible now, because the
 bug it guarded against is. Leaving an assertion that *looks* like a guard and proves nothing would have
 been worse than deleting it.
-
-**The original write-up follows.**
-
-Promoted out of the old §27 when that entry closed in 0.210.0; this half was never a doc claim and
-was not fixed. Re-verified 2026-07-29.
-
-`fe779f32` removed `noteLog` from the submit payload — the note log is write-through and owns itself,
-so a draft that snapshots it at modal-open and spreads it over the live row on save destroys any note
-added while the editor was open. `use-task-submit.ts:167` records that deliberate absence. But the
-field is **still seeded** into form state (`:341`, `noteLog: task.noteLog ?? []`), where it now feeds
-only the disabled fallback button's count for an unsaved task — permanently `0`, since nothing can
-write a note in create mode.
-
-Retiring it means changing that button to a literal, then removing `noteLog` from `TaskFormState` and
-the seed together, which touches `emptyForm()` and every fixture constructing a `TaskFormDraft`.
-★ Worth doing as its own change; leaving it invites a future writer to put it back into `payload`,
-which is the data-loss bug `fe779f32` fixed.
 
 ---
 
@@ -1372,8 +1318,8 @@ review happened to surface, then documenting that as the scope.
 ### A. Base text, no companion — 7
 
 `jira-conflicts-modal.tsx:183` (Jira-key badge, on `bg-surface-muted`) · `jira-settings.tsx:617`
-(selected arm, assignee picker) · `settings-sections/integrations-section.tsx:441` (link, carries
-`underline` as a non-colour affordance) · **`tasks-section.tsx:588`** (Jira-sync button) ·
+(selected arm, assignee picker) · `settings-sections/integrations-section.tsx:484` (link, carries
+`underline` as a non-colour affordance) · **`tasks-section.tsx:615`** (Jira-sync button) ·
 **`use-tasks-dedup.tsx:69`** (dedup toolbar button class const) · **`chat-prompt-chips.tsx:37`** ·
 **`rich-text-view.tsx:13`**.
 
@@ -1383,7 +1329,7 @@ independent sweeps missed it.** `PROSE_CLASS` is
 read-only rich-text sink — the note log, the dashboard narrative, and every stored HTML body render
 through it. So **every link in every rendered rich-text field** is near-black navy on `--surface` in
 dark mode. It belongs in this section by the entry's own criteria (it is the same underlined-link
-shape as `integrations-section.tsx:441`, which is listed).
+shape as `integrations-section.tsx:484`, which is listed).
 ★★ **Why both sweeps missed it, which is the transferable part:** it is an ARBITRARY-VARIANT
 utility, `[&_a]:text-*`, not a bare `text-*`. A scan keyed on `text-ui-dark-blue` finds the string
 but a companion test keyed on `dark:text-` never matches, because the correct companion here is
@@ -1409,15 +1355,35 @@ therefore order-immune. The FIX is not: `dark:hover:text-*` compiles to
 That order is stable in Tailwind today, but it means the remedy — unlike the bug — would be sensitive
 to any change in variant emission order.
 
-`combo-input:117` · `gantt-chrome:267` · `gantt-rows:154` · `inline-ai-edit-button:30` ·
-`insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:224,234` ·
-`raid-edit-modal:355` · `raid-panel-rows:373` · `resource-directory:424` · `task-kanban-card:133` ·
-`task-manager-ui:34` · `task-row:385` · `tasks-section:1007` · `workspace-section-chrome:177,178`
+`combo-input:117` · `gantt-chrome:262` · `gantt-rows:160` · `inline-ai-edit-button:30` ·
+`insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:228,238` ·
+`raid-edit-modal:355` · `raid-panel-rows:373` · `resource-directory:425` · `task-kanban-card:133` ·
+`task-manager-ui:34` · `task-row:391` · `tasks-section:1031` · `workspace-section-chrome:177,178`
 
-★ **`inline-ai-edit-button:30`, `task-kanban-card:133` and `task-row:385` each carry a base
+★ **`inline-ai-edit-button:30`, `task-kanban-card:133` and `task-row:391` each carry a base
 `dark:text-ui-light-grey` on the same element** — they read as handled and are not.
 ★ `task-manager-ui:33/34` and `workspace-section-chrome:177/178` are the two-arm ternary shape: in the
 first, the active arm is companioned and the inactive arm is not; in the second, both arms are broken.
+
+★★ **A THIRD UNNAMED VARIANT GAP, found 2026-08-05 — the sweep never handled `group-hover:`,
+`active:` or `focus:` either, and two more uncompanioned sites fall in it.** They are additional to
+the 40 enumerated above, which all re-verified as real and correctly grouped (A 7 · B 18 · C 2 ·
+D 13). `gantt-chart.tsx:296` carries `group-hover:text-ui-dark-blue` on `bg-surface` — the trailing
+"add task" affordance, in no group at all. `gantt-chrome.tsx:262` is already counted in B for its
+`hover:` arm, but the SAME element also carries `active:text-ui-dark-blue`, equally uncompanioned.
+★ `focus:text-ui-dark-blue` also occurs once and was CHECKED and is clean: `modern-shell.tsx:139`
+pairs it with `focus:bg-ui-green` on the skip link, so both colours are forced and the pair is
+mode-independent. Do not add it to the list. ★ This is the second time a variant form defeated a
+sweep here — the arbitrary-variant miss above was the first — which is why the rule is to enumerate
+the forms handled, not to trust a bare-name grep. Reproduce each form separately:
+
+```bash
+for v in "" "hover:" "group-hover:" "active:" "focus:"; do printf '%s %s\n' "$v" "$(grep -rn "$v"'text-ui-dark-blue' src/app --include="*.tsx" --include="*.ts" | grep -vc "\.test\.")"; done
+```
+
+★ Nine of the line numbers above were stale by −5 to +43 and were re-derived 2026-08-05; groups C and
+D were exact. These are class-name occurrences with nothing nameable to cite instead, so a number is
+the only available cite — expect it to drift again and re-run the command rather than trusting it.
 
 ### C. Icons, lower priority — 2
 
@@ -1632,7 +1598,11 @@ into that tree — enough detail is reproduced below to resume without it.
 
 **S6 — Outlook PUSH for calendar events.** Spec and a 17-task / 109-step plan exist and **not one
 step has been executed**. Written against 0.208.0 targeting 0.209.0, then displaced when that release
-shipped slice B instead. The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
+shipped slice B instead.
+
+★★ **UNEXECUTED — every file and function named in this task list was NOT built and does not exist in the codebase.**
+
+The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
 `GraphEvent` · `eventToGraphEvent` · `exceptionPlan` · freeze/`afterPush` on the shared reconcile ·
 `replayExceptions` · `"event"` as a calendar entity type · i18n EN+DE · settings row for meeting
 series · entity-qualify the Push/Pull names (**= §42 — see there**) · wire the push in
@@ -1671,6 +1641,8 @@ be widened — the four shipped entities must not inherit occurrence semantics t
 
 ## 45. ~~`brace-expansion` advisory in the eslint dev chain~~ — CLOSED in 0.211.1
 
+**Was:** a high-severity `brace-expansion` advisory sat in the eslint dev chain.
+
 **Resolution:** a MAJOR-SCOPED override pair in `package.json` — the form this entry's false premise
 had ruled out:
 
@@ -1697,25 +1669,12 @@ survive.** It asserted that "no 1.x release escapes" the advisory and concluded 
 eslint major — then told the reader not to re-litigate. That combination is the dangerous one: a
 confidently-worded do-not-relitigate record steering the next maintainer past a fix that exists.
 
-What `npm audit` actually reports today:
-
-```
-brace-expansion  <1.1.17 || >=4.0.0 <5.0.8
-Severity: high
-fix available via `npm audit fix`
-1 high severity vulnerability
-```
-
 | the entry claimed | live, verified 2026-08-02 |
 |---|---|
 | "`npm audit` reports **9 high**" | **1 high**, total 1 |
 | "range is `<=5.0.7` **across all majors**" | **TWO** sources: `<1.1.17` (1.x) and `>=4.0.0 <5.0.8` (5.x) |
 | "no 1.x release escapes it — not 1.1.17, not 1.1.18" | **both are published and both clear it** (`npm view brace-expansion versions`) |
 | "`npm audit fix --force` offers exactly one remedy: eslint@10.8.0, a breaking major" | npm offers plain **`npm audit fix`** — no `--force`, no major |
-
-Installed today: `brace-expansion@1.1.16` (via `eslint@9.39.4` → `minimatch@3.1.5`) and `5.0.7` (via
-`typescript-eslint` → `minimatch@10.2.5`). **Both are exactly one patch below a clean release**
-(1.1.17 / 5.0.8).
 
 ★★ **The untried remedy is a MAJOR-SCOPED pin on the 1.x side.** Both executed attempts below targeted
 the **5.x** side, which is why both failed — one broke `minimatch@3`, the other upgraded the branch
@@ -1730,15 +1689,12 @@ premise ruled it out:
 between it being written (2026-07-31) and being corrected (2026-08-02) — a 1.x backport landed. Treat
 every number here as a measurement with a date, not a property.
 
-★ Deliberately NOT fixed in 0.211.1: that batch is scoped to four register entries, and a dependency
-change means lockfile churn plus a full re-verification (the `--max-warnings=0` gate makes any eslint
-tree movement a real risk). The blocking CI gate is unaffected either way — see below.
-
-**The original write-up follows, with its two EXECUTED negative results intact — those still stand,
-they simply do not exhaust the option space.**
-
-`npm audit` reports **9 high** (GHSA-mh99-v99m-4gvg — DoS via unbounded expansion → OOM). `npm audit
-fix --force` offers exactly one remedy: **eslint@10.8.0, a breaking major**.
+- ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
+  --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
+  2026-07-31. Nothing is red.
+- ★★ eslint 10 is a major landing against a **`--max-warnings=0`** gate, so any rule added, renamed or
+  changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
+  edits, which a major would likely require. That is a slice with its own verification, not an install.
 
 ★★★ **The npm-`overrides` workaround was tried and it does not work. Both forms were EXECUTED, not
 reasoned about — do not repeat them.**
@@ -1761,16 +1717,6 @@ held there by `eslint-plugin-import` / `eslint-plugin-jsx-a11y` / `eslint-plugin
 right; the clever alternative is not.~~ ← npm's advice has since changed to a non-breaking
 `npm audit fix`.
 
-**Why it is deferred rather than fixed.**
-- ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
-  --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
-  2026-07-31. Nothing is red.
-- It is a **build-time DoS in a linter**. No runtime or shipped-code exposure; eslint and its plugins
-  are dev-only.
-- ★★ eslint 10 is a major landing against a **`--max-warnings=0`** gate, so any rule added, renamed or
-  changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
-  edits, which a major would likely require. That is a slice with its own verification, not an install.
-
 ★★★ ~~Plugin peers would NOT block it — `eslint-config-next@16.2.6` is `>=9.0.0`, and typescript-eslint
 and `eslint-plugin-react-hooks` both list `^10.0.0`. The risk is entirely in rule drift, not install
 resolution.~~ ← **FALSE in its conclusion, and this is the sentence that made the 2026-08-03 attempt
@@ -1780,19 +1726,6 @@ ERESOLVE), but it draws the boundary wrong twice. It surveyed `eslint-plugin-rea
 v10. And it framed the risk space as *peers vs rule drift*, when the actual failure was a third
 category it did not model: a transitive plugin calling `context.getFilename()`, which v10 removed.
 Measured rule drift was **ZERO** — `eslint:recommended` is not layered into this repo at all.
-
-★★ **The WEEKLY `dependency-audit-full` job DOES include dev deps and all severities, so it will keep
-reporting this.** That is expected, not a regression — this entry exists so the finding is not
-re-litigated from scratch each week, and so nobody re-attempts the two overrides above. ★ It is
-**one** high now, not nine; if the weekly job reports a different count than this entry, the entry is
-the stale one — re-measure, don't reconcile.
-
-**To close:** ~~upgrade to eslint 10 as its own slice — migrate `eslint.config.mjs`, run
-`npx eslint --max-warnings=0 src/app` against the full rule set, and expect to fix drift rather than
-merely bump a version.~~ ← **that route is shut on published packages as of 2026-08-03 — it was
-attempted and reverted; see §53** for the upstream blocker and what to re-measure before trying again.
-★ Nothing here is blocked on it: this entry's own advisory was closed by the scoped overrides above,
-not by an eslint major. Current: eslint `^9` (9.39.4).
 
 ---
 
@@ -1848,6 +1781,9 @@ NOT added speculatively in 0.211.1 — or, minimally, swap `hidden` for `sr-only
 
 ## 48. ~~RAID editor destroys notes added while it is open~~ — CLOSED in 0.211.1
 
+**Was:** the RAID editor destroyed notes added while it was open.
+**Cited from:** `use-resource-planner.ts`, `use-resource-planner.test.tsx`, `use-resource-planner.undo.test.tsx` — this entry cannot be deleted.
+
 **Resolution:** `use-resource-planner.ts` builds `withStamp` with `noteLog` taken from the STORED row
 (`previous?.noteLog`), never from the payload — for an UPDATE only; a create keeps whatever the payload
 carries. Reproduced RED first (`expected [ 'first' ] to deeply equal [ 'first', 'added while open' ]`),
@@ -1882,42 +1818,9 @@ file-size ratchet with §2 already tracking a split. An untested line on a file 
 case nobody can reach, is not defense in depth. If a reachable case ever appears, add it back **with a
 test that fails without it.**
 
+**Residual (still open):**
 ★ Still open, cosmetic: `raid-edit-modal.tsx:460`'s `draft.noteLog?.length ?? 0` reads the same stale
 snapshot, so the Notes button can under-report while the window is open. The log itself is safe.
-
-★ The ratchet baseline for `use-resource-planner.ts` moved 1041 → 1043 for the two-line landmine
-comment. Deliberate and minimal; §2 (split that file) is where the real answer lives.
-
-**The original write-up follows.**
-
-## 48-was. RAID editor destroys notes added while it is open — pre-existing, DATA LOSS
-
-**The task-side defect §29 closed still exists in full on RAID.** Found by a reviewer of the 0.211.1
-batch, while checking whether the new AGENTS.md sentence ("Re-adding the field is a typecheck error
-before it is a data-loss bug — keep it that way") was true app-wide. It is not; it is task-scoped.
-
-The chain, traced independently at three hops:
-
-| hop | file | what it does |
-|---|---|---|
-| 1 | `raid-panel.tsx:166`, seeded `:325`/`:346` | `useState<RaidItem \| null>` holds a **snapshot** of the whole row at edit-open, `noteLog` included |
-| 2 | `task-manager.tsx:2128` `openRaidNotes` | the notes window is owned ABOVE the panel and commits **write-through** to the workspace `raid` array — the snapshot never moves |
-| 3 | `use-resource-planner.ts:185` | `const withStamp: RaidItem = { ...item, … }` then `prev.map(r => r.id === id ? withStamp : r)` — a full row **REPLACE** carrying the open-time `noteLog` |
-
-So: open the RAID editor → Notes → add a note → Save ⇒ **the note is gone.** Identical shape to the
-task defect fixed in 0.209.0.
-
-★ The same snapshot also feeds the modal's note count (`raid-edit-modal.tsx:460`,
-`draft.noteLog?.length ?? 0`), so the button under-reports while the window is open. That is the
-falsifiable-count problem 0.211.1 removed from the task form, still live here.
-
-★★ **Not fixed in 0.211.1 on purpose.** That batch was scoped to four named register entries; this is
-a fifth, found during its review. Fixing it means deciding *how* — omit `noteLog` from the RAID save
-payload (mirrors `use-task-submit.ts`), or stop snapshotting the whole row. The second is the better
-shape and the larger change, because `draft` is also what the risk matrix and status handlers mutate.
-
-★ **Traced, NOT repro-tested.** No failing test was written. Write one first — and note the §29 test
-trap it inherits: a fixture that never adds a note while the editor is open passes either way.
 
 ★ Sweep the same shape at the other snapshot-then-replace editors before assuming RAID is the only
 one; the pattern is a full-row `useState` draft plus a write-through side channel, not anything
@@ -1926,6 +1829,8 @@ specific to notes.
 ---
 
 ## 49. ~~Every AI edit to a RAID item erased its whole note log~~ — CLOSED in 0.211.1
+
+**Cited from:** `use-chat-dispatcher.test.tsx` — this entry cannot be deleted.
 
 **Was:** `use-chat-dispatcher.ts` `updateRaid` round-tripped the merged item through `sanitizeRaidItem`
 and wrote the result back. That sanitizer builds its result from an EXPLICIT field list and `noteLog`
@@ -1960,6 +1865,7 @@ sanitizeRaidItem)`), so there is no `(` after the name to match. The first versi
 "the other two callers" for exactly that reason, and both reviewers caught it. Sweep on the BARE name.
 The same trap applies to any sanitizer used as a `.map`/`buildList` callback.
 
+**Residual (still open):**
 ★ KNOWN latent divergence, deliberately not fixed: `updateRaid` stores
 `{ ...merged, noteLog: existing.noteLog }` but returns `toRaidSummary(merged)`. A no-op today
 (`toRaidSummary` reads none of the re-applied fields), but it is the only sibling update path where
@@ -2152,7 +2058,14 @@ Found by a reviewer of the 0.212.0 batch, not by the implementation.
 
 Consequences, for the 37 tables that are NOT Open Points (37 `useColumnResize` INVOCATIONS across
 17 files — count call sites, not files: `raid-report-panel` holds 7 and `resources-report` 5, so a
-file count understates the blast radius by half):
+file count understates the blast radius by half; re-verified 2026-08-05):
+
+```bash
+grep -rPn "(?<!typeof )\buseColumnResize\s*[<(]" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vP ":\s*(import|//|\*)" | grep -v "export function" | wc -l   # 38, minus use-column-manager.ts (Open Points) = 37
+```
+
+★ The `typeof` exclusion is REQUIRED: `ReturnType<typeof useColumnResize<X>>` type aliases match a
+bare `useColumnResize<` grep, so a naive count reads 54 and "disproves" the 37.
 
 | | |
 |---|---|
@@ -2419,6 +2332,9 @@ had running, and **the dev CSP is the permissive branch**. A prod-only defect of
 structurally invisible to the one suite most likely to catch it. That is the reason this bug is old and
 unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to point the smoke at a real
 `next start`, as the reproduction above does.
+
+---
+
 ## 55. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
@@ -2429,8 +2345,20 @@ visual signal that they are active is a fill or tint change — WCAG 1.4.1.
 all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
 flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
 `status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
-four callers that render it are covered and the two that destructure without it
+**13** callers that render it are covered and the two that destructure without it
 (`note-log-panel.tsx:68,181`) are not. Check the caller, not the grep hit.
+★ That number read **four** until 2026-08-05 and understated the covered set by nine, which errs
+against this entry's own argument: `dictation-mic` is the WEAKEST of the twelve colour-only cases,
+not a middling one. Re-measured — all 13 destructure the node AND render it in JSX; the 2 that do
+not destructure it are the only gap. Reproduce:
+
+```bash
+grep -rn "= useDictationMic(" src/app --include="*.tsx" | grep -v "\.test\." | grep -cE "\bstatus\b"   # 13
+```
+
+★ A grep keyed on `status:` answers **12** — `chat-panel.tsx:198` destructures `status` unrenamed, so
+it has no colon. Key on the bare word, and confirm each hit RENDERS the node rather than merely
+destructuring it.
 
 `rich-text-editor.tsx:83-84` is the clearest and the most used: `BTN` and `BTN_ON` differ by
 `bg-ui-dark-blue` + `text-white` and nothing else, on the bold/italic/list buttons every task
@@ -2501,7 +2429,9 @@ a single click on an imported settings blob.
 
 ---
 
-## 58. The axe gate can pass against a STALE dev server — HALF CLOSED post-0.212.0
+## 58. The axe gate can pass against a STALE dev server — gate half CLOSED post-0.212.0, sibling-worktree half OPEN
+
+**Cited from:** `layout.tsx`, `e2e/a11y.spec.ts` — this entry cannot be deleted.
 
 `playwright.config.ts` sets `reuseExistingServer: !process.env.CI`, so a local `npx playwright test
 e2e/a11y.spec.ts` attaches to whatever already answers on the target port. On a machine with a dev
@@ -2709,8 +2639,10 @@ real pressure does not have to re-derive it.
 
 ## 62. Two reference-data handlers have no production consumer — open, pre-existing
 
-`handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts:127` and `:140`)
-are reachable only from `use-resource-planner.test.tsx` (`:1012`, `:1023`, `:1085`, `:1096`). Nothing
+`handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
+are reachable only from `use-resource-planner.test.tsx` (`:1012`, `:1023`, `:1085`, `:1096`). ★ Those
+two cites read `:127` and `:140` until 2026-08-05 and were six lines stale — both handlers moved in
+the §61 split; the sentence names both symbols, which is the durable cite. Nothing
 in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller.
 
 ★ **Pre-existing, not introduced by §2's split** — they were equally dead at `0d770283`
@@ -2731,6 +2663,8 @@ move-only one. Recorded here so the next reader does not assume a tested handler
 ---
 
 ## 63. ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ — CLOSED in 0.213.0, split after all
+
+**Was:** 0.213.0 grew `gantt.tsx` past the 800-line ratchet and the release baselined it instead of splitting it.
 
 ★ **Closed the same day it opened.** The entry below was written when the split had been called off;
 it was then completed and accepted, so `gantt.tsx` is **715** lines and its baseline entry is gone.
@@ -2769,18 +2703,6 @@ here.**
 orchestrator at the end of a 16-task feature branch carries more regression risk than the ratchet
 violation it clears, and that the split deserves its own focused work rather than being rushed as a
 gate-clearing chore. That is a scope decision, not a claim the file is fine at 864.
-
-**What grew it**, so the next reader does not re-derive it: 0.213.0 added the status-bucket filter
-wiring, the `visibleMilestones` memo, the holiday/grid overlay mounts, the dependency-layer gate, and
-the empty-state branches (`noStatusSelected` / `emptyMessageKey` / `rendersNothing`) with their two
-render sites.
-
-**The seam that was identified before the split was called off:** the empty-state block — the
-message-selection const plus the branches rendering `ganttNoStatusSelected` / `ganttNoMatches` /
-`ganttEmpty` and the add-first-item box. It is prop-driven and self-contained, and it is the piece
-that most recently grew. The Gantt already has the right shape to extract into
-(`gantt-chrome.tsx` · `gantt-rows.tsx` · `gantt-overlays.tsx` · `gantt-view-menu.tsx` ·
-`gantt-engine.ts`), so this is an extraction along an existing grain, not a new architecture.
 
 ★★ **Two traps for whoever does it.** (1) A `.tsx` extraction is coverage-EXCLUDED; a `.ts` one is
 coverage-GATED and needs its own tests or it drags the blocking floor. (2) At least one Gantt test
@@ -2909,6 +2831,11 @@ every reader of `progress.percent`, `progress.inScope` and `pctComplete` and enu
 `completionPercent` is the portfolio symbol above. The design spec had it right and the register
 degraded it while copying. Nothing catches this — the AGENTS.md symbol gate reads AGENTS.md only,
 never this file. Grep a symbol before citing it here.
+★ And grep the RIGHT symbol before calling a cite DEAD: a 2026-08-05 audit flagged the
+`ai-dashboard-snapshot.ts` cite above by searching for `completionPercent` — the exact wrong name
+this warning exists to record — and reported the entry's correct cite as a defect.
+
+---
 
 ## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — open
 
@@ -3016,8 +2943,9 @@ table in the separated-borders model, where "borders set on rows, row groups, co
 groups are ignored".
 
 ★ Note the direction: Tailwind's preflight sets `border-collapse: collapse` on every `<table>`
-(`preflight.css:166`), under which a `<tr>` border WOULD paint. It is the `globals.css` override that
-breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
+(Tailwind's own `node_modules/tailwindcss/preflight.css`, the `table { … border-collapse: collapse; }`
+reset — a dependency file, never in this repo), under which a `<tr>` border WOULD paint. It is the
+`globals.css` override that breaks it, and only for tables carrying `TABLE_HEAD_CLASS` / rendered through `DataTable` —
 `globals.css:124` puts that at ~25 tables.
 
 ★★ **NOT budget-specific.** Sweeping `<tr …className=…border-…>` across `src/app/*.tsx` finds **8
@@ -3055,6 +2983,8 @@ styling" and "add row separators across six panels" are the same diff described 
 which one is wanted before touching it. ★ If it IS wanted, the mechanism already exists (`cellClass` in
 `budget-panel-totals.tsx`) — the work is agreeing the look, not finding the fix.
 
+---
+
 ## 69. `BrandingConfig`'s "is this blob empty?" question is answered in TWO places — open
 
 Adding a branding field means extending **two independent field lists**, and missing either is a
@@ -3072,7 +3002,8 @@ its presence check, and the `setBranding` gate was missed. Two failure
 modes followed, both silent: uploading ONLY a start logo wrote `branding: undefined`, so the upload
 appeared to do nothing; and removing the sidebar logo while a start logo existed **destroyed the start
 logo**. Caught in review, fixed in `876b8777`, and pinned by
-`appearance-section.test.tsx` ("keeps the start logo when the sidebar logo is removed").
+`settings-sections/appearance-section.test.tsx` ("keeps the start logo when the sidebar logo is
+removed").
 
 ★ What is pinned today is only the SECOND failure mode, for THIS field. There is no test that the two
 lists agree, and there cannot easily be one — a TS interface has no runtime keys to walk, so a generic
@@ -3133,6 +3064,8 @@ budget and actual off their own labelled lines), so a refactor has something to 
 ---
 
 ## 72. ~~Caller callbacks fire after unmount — the unit-tests job exits 1 with every test passing~~ — CLOSED in this slice
+
+**Cited from:** `use-storage-backend.ts`, `use-storage-backend.test.tsx`, `use-scheduled-jobs.ts` — this entry cannot be deleted.
 
 **The symptom is the point.** Vitest exits non-zero on an unhandled error even when the whole suite is
 green, so this failure mode does not look like a test failure at all. Captured from pipeline **#5446**
@@ -3231,6 +3164,7 @@ as a real behaviour the unit suite cannot observe. It turned out to be observabl
 no longer holds for this line. Found by a cold reviewer naming the one-line mutation; verified by
 running it.
 
+**Residual (still open):**
 ★★★ **THE CHOKE POINT IS COMPLETE FOR *CALLER CALLBACKS*, NOT FOR THE *MECHANISM* — do not read
 "single choke point" as "post-unmount `setState` is handled in this hook".** It is not. The same
 `dispatchSetState → requestUpdateLane → resolveUpdatePriority → window` shape, with a different top
@@ -3428,6 +3362,8 @@ pruned.
 
 ## 74. ~~The TimeLog refresh handlers omit a guard their button carries~~ — CLOSED
 
+**Cited from:** `timelog-guards.ts`, `timelog-panel.tsx` — this entry cannot be deleted.
+
 `handleRefreshBookings` and `handleFetchBookings` (`timelog-panel.tsx`) each open with an early return,
 and neither includes `isMisconfigured` — while the corresponding buttons in `timelog-panel-toolbar.tsx`
 both do:
@@ -3508,6 +3444,7 @@ resolving the moment a selection exists.
 ★★ Coverage: 4 of 4 predicates unit-tested; 4 of 4 button wirings DOM-pinned; each wiring pins the ONE
 arm that was the defect, so `isPopout` / `syncBusy` / `confirming` remain unpinned at every site.
 
+**Residual (still open):**
 ★★★ **The HANDLER guards are still unpinned, and that half really is hard.** No test fails if
 `isMisconfigured` is dropped from any of the three handlers carrying it. `timelog-guards.test.ts` calls
 the predicates directly and never imports `timelog-panel.tsx`; `timelog-panel.test.tsx` reaches the
@@ -3519,9 +3456,6 @@ predicate at the handler's own call site, with the handler's actual argument con
 NOT called. ★ Do not read the green suite as verifying that closure — it verified only that nothing
 already passing broke.
 
-★ `TimelogFetchState.projectCustomerId` is `number | ""` (matching `use-timelog-picker-scope.ts`), not
-`string`; review caught that before the wiring landed.
-
 ★ Test totals are deliberately not written here — reproduce with
 `grep -cE '^\s+it\(' src/app/timelog-panel.test.tsx src/app/timelog-guards.test.ts`. A hardcoded count
 in this entry went stale twice inside this branch.
@@ -3529,6 +3463,8 @@ in this entry went stale twice inside this branch.
 ---
 
 ## 75. ~~Two test files contain ORDER-DEPENDENT tests — and there is a REPRODUCING SEED~~ — CLOSED
+
+**Cited from:** `modern-shell.test.tsx`, `use-storage-backend.test.tsx` — this entry cannot be deleted.
 
 ★★ **This is the artifact the §39/§51 flake hunt was looking for, attached to different tests.** Both
 of those flakes are load-sensitive and have never reproduced on demand; this one reproduces
@@ -3729,6 +3665,8 @@ this one, measured on a tree with only the `beforeEach` half of this fix). Nothi
 
 ## 76. ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression~~ — CLOSED post-!346
 
+**Cited from:** `use-scheduled-jobs.ts`, `use-operating-guides.ts` — this entry cannot be deleted.
+
 ★★★ **This is the exact defect §72's `use-storage-backend.ts` guard was written to avoid, sitting
 unfixed in two sibling hooks.** Both declare the ref and then clear it in a cleanup WITHOUT re-setting
 it on mount:
@@ -3854,6 +3792,9 @@ conclusion never changed; only the numbers offered for it did. Run the commands.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.
+
+---
+
 ## 77. The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project — open
 
 `use-storage-backend.ts` publishes `workspaceLoaded`, set `true` at the end of `applyWorkspace` and
@@ -3924,7 +3865,7 @@ without threading one more field through.
 
 ---
 
-## 80. Both hide-external toggles trust whatever `readDeviceJson` returns — CLOSED
+## 80. ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ — CLOSED
 
 `resources-panel.tsx` and `resource-directory.tsx` each seed their toggle with
 `readDeviceJson<boolean>(key, false)`, and `device-store.ts` documents explicitly that the parsed
@@ -3946,7 +3887,7 @@ site silently regresses while the entry reads CLOSED.
 
 ---
 
-## 81. The swimlane no-op drop guard no longer holds for a name-resolved task — CLOSED
+## 81. ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ — CLOSED
 
 `use-task-row-handlers.ts` `onSwimlaneDrop` documents "A drop that changes nothing writes nothing and
 records no undo entry", enforced by `sameLane`, which compares `prevRow.resourceId ?? undefined`
@@ -4091,6 +4032,8 @@ being written into the tracked register, rather than left resting on the two pri
 ---
 
 ## 85. ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ — CLOSED, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test
+
+**Cited from:** `strictmode.meta.test.tsx` — this entry cannot be deleted.
 
 **The OBSERVATION was real and is reproducible. The CONCLUSION drawn from it was wrong.** `["mount"]`
 — one invocation, no cleanup+remount — is exactly what ONE wrapper shape yields here, and the
