@@ -1,7 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
 import { HELP_ENTRIES } from "./help-content";
 import { allNavViews } from "./nav-config";
 import type { AppView } from "./nav-config";
+import { t, loadI18n, type Lang } from "./i18n";
+import { de } from "./i18n.de";
+import { helpBodyLabels } from "./help-body-markup";
 
 // ★★★ THIS GATE PROVES STRUCTURE, NOT TRUTH. It proves an entry EXISTS for a
 // view and that a marked label RESOLVES. It cannot tell whether a sentence is
@@ -50,5 +53,33 @@ describe("help coverage ratchet", () => {
       .filter((v) => !covered.has(v))
       .sort();
     expect(uncovered).toEqual([...KNOWN_UNCOVERED].sort());
+  });
+});
+
+// ★ All three langs, not just EN + DE. `enGB` is `{ ...enUS }` with zero
+// overrides today, so it is byte-identical — but walking it costs nothing and
+// survives the day someone adds a GB spelling.
+const LANGS: readonly Lang[] = ["en-US", "en-GB", "de"];
+
+describe("help marker resolution", () => {
+  // ★★ The DE dictionary is LAZY. Without this await, `t("de", k)` silently
+  // falls back to en-US and the DE assertion below passes by testing English
+  // twice — vacuous, and it would hide exactly the drift it exists to catch.
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  const valuesFor = (lang: Lang): Set<string> =>
+    new Set((Object.keys(de) as (keyof typeof de)[]).map((k) => t(lang, k).trim()));
+
+  it.each(LANGS)("every [[label]] resolves to a real UI string in %s", (lang) => {
+    const known = valuesFor(lang);
+    const unresolved: string[] = [];
+    for (const e of HELP_ENTRIES) {
+      for (const label of helpBodyLabels(t(lang, e.bodyKey))) {
+        if (!known.has(label.trim())) unresolved.push(`${e.id}: [[${label}]]`);
+      }
+    }
+    expect(unresolved).toEqual([]);
   });
 });
