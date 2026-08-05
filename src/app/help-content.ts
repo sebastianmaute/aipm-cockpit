@@ -1,6 +1,12 @@
-// Structured Help content backbone — consumed by the in-pane Help view
-// (`help-view.tsx`, all groups) and the floating top-bar Help panel
-// (`help-menu.tsx`, features group only, via the derived HELP_SECTIONS).
+// Structured Help content backbone — consumed by BOTH Help surfaces, each of
+// which renders every group through the shared `help-content-pane.tsx`: the
+// in-pane view (`help-view.tsx`) and the floating top-bar panel
+// (`help-menu.tsx`).
+// ★★ The panel is NOT features-only. It was, via a derived `HELP_SECTIONS`
+// slice, and that export outlived its last caller by long enough for this
+// comment and `docs/AGENTS/ui-shell.md` to send a later reader planning work
+// that was already built. Both were corrected and the export deleted; do not
+// reintroduce a group filter here without a caller.
 // Each entry is a title + body i18n key pair (EN/DE in i18n*.ts), tagged by
 // group, with optional relations (related views + related concept entries) that
 // later help surfaces (per-view callouts, the relations map) also read.
@@ -91,5 +97,20 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "automated-health", group: "automated", titleKey: "helpAutomatedHealthTitle", bodyKey: "helpAutomatedHealthBody", relatedViews: ["dashboard", "budget", "trends"], relatedConcepts: ["concept-budget", "concept-baseline"] },
 ];
 
-/** Features-group slice — the floating top-bar Help panel renders only these. */
-export const HELP_SECTIONS = HELP_ENTRIES.filter((e) => e.group === "features");
+/** How much teaching the Help surfaces do. Per-DEVICE (`Settings.helpReadingLevel`),
+ *  deliberately not per-project — see the field's own comment in settings-types. */
+export type HelpReadingLevel = "guided" | "standard" | "expert";
+
+/** Expert reads Help as a reference, not a course: the feature entries and the
+ *  "what's automated" pair come first, the teaching material last. */
+const EXPERT_GROUP_ORDER: readonly HelpGroup[] = ["features", "automated", "workflows", "concepts"];
+
+/** Group render order for a reading level. Guided and Standard share today's
+ *  order — they differ only in whether concept primers render; Expert differs
+ *  only in order.
+ *  ★ Guided/Standard get `HELP_GROUP_ORDER` BY REFERENCE (the pane only reads
+ *  it). A caller wanting a mutable array spreads it, same rule as
+ *  `ALL_GANTT_STATUSES`. */
+export function helpGroupOrder(level: HelpReadingLevel): readonly HelpGroup[] {
+  return level === "expert" ? EXPERT_GROUP_ORDER : HELP_GROUP_ORDER;
+}
