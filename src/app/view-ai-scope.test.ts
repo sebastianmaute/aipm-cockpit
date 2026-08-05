@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { VIEW_AI_SCOPE } from "./view-ai-scope";
+import { TURSO_ONLY_VIEWS } from "./nav-config";
 import { TOOL_DEFS } from "./chat-tool-defs";
 
 const TOOL_NAMES = new Set(TOOL_DEFS.map((d) => d.name));
@@ -28,11 +29,9 @@ describe("VIEW_AI_SCOPE", () => {
     expect(all).not.toContain("list_activity");
   });
 
-  // TURSO_ONLY_VIEWS is not exported from nav-config.ts, so it is hardcoded
-  // here rather than exporting a value solely for this test. Source of truth:
-  // `TURSO_ONLY_VIEWS` in src/app/nav-config.ts.
-  const TURSO_ONLY_VIEWS = ["history", "portfolio-health", "trends"] as const;
-
+  // ★ Imported from nav-config.ts, NOT hand-copied. A local copy only ever
+  // asserts against itself: a FOURTH Turso-gated view added to nav-config
+  // would silently skip this check, which is the one case the test exists for.
   it("mentions Turso-only for every view gated on a Turso backend", () => {
     for (const view of TURSO_ONLY_VIEWS) {
       expect(

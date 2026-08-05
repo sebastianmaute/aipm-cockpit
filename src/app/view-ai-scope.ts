@@ -97,7 +97,15 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   calendar: {
     purpose: "Resource calendar shows meetings and absences on a date grid.",
     toolHints: ["list_calendar_events", "list_resources"],
-    reading: "Recurring events are stored once as a series; occurrences are derived from the rule.",
+    // ★ The gap disclosure matters MORE here than on a view with no tools at
+    // all: list_calendar_events succeeds, so without this the model answers a
+    // double-booking question confidently over meetings alone while the
+    // absences sitting on the same grid are invisible to it. Same treatment as
+    // activity / timelog / raci.
+    reading:
+      "Recurring events are stored once as a series; occurrences are derived from the rule. " +
+      "Absences are NOT tool-readable — list_calendar_events returns meetings only, so any " +
+      "clash or availability answer covers meetings alone. Say so rather than implying the grid was read.",
   },
   planning: {
     purpose: "Planning is the allocation grid: planned hours per person per period.",
