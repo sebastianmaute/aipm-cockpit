@@ -18,7 +18,10 @@
 // The logs are MODULE-SCOPE on purpose. A log held in per-instance state or in
 // a ref created inside the component is handed back fresh by StrictMode's
 // remount, so it reads ["mount"] whether or not the double invoke happened —
-// which is the leading theory for how the original measurement went wrong.
+// but that is not what produced the original measurement: a per-instance
+// probe was separately tried and DID observe the full cycle. The actual cause
+// is the SHAPE RULE below — StrictMode nested inside a wrapper component
+// silences the double invoke outright.
 //
 // ★★★ THE SHAPE RULE: StrictMode only double-invokes when it is the OUTERMOST
 // element under the root. `wrapper: StrictMode` (renderHook's wrapper IS the
@@ -99,9 +102,10 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
 
   // This pins CURRENT React behaviour (traced to
   // recursivelyTraverseAndDoubleInvokeEffectsInDEV, which stops its walk at
-  // the first placed fiber and only double-invokes there if IT is
-  // StrictMode-typed) — not a guarantee React owes us. If a future React
-  // version makes the nested shape double-invoke too, this test goes red,
+  // the first placed fiber and double-invokes there only if StrictMode was
+  // seen on the path down to it from an ANCESTOR, not only if that fiber
+  // itself is StrictMode-typed) — not a guarantee React owes us. If a future
+  // React version makes the nested shape double-invoke too, this test goes red,
   // and that is a GOOD failure: it means the shape rule above changed and
   // every guard built on it needs re-checking, not that something broke.
   // Do not delete this test out of confusion if that day comes.

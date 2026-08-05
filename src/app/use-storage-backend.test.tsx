@@ -568,11 +568,18 @@ describe("useStorageBackend — save effect", () => {
     );
   });
 
-  // ★★★ `mountedRef.current = true` in the effect BODY (not just the cleanup) is
-  //     load-bearing in dev and CANNOT be pinned here. A StrictMode-wrapped
-  //     renderHook was tried and is VACUOUS: measured 2026-08-04, StrictMode in
-  //     this suite invokes the effect ONCE (["mount"], no cleanup+remount), so
-  //     deleting the re-set keeps all 63 tests green. See open-followups.md §72.
+  // ★★ `mountedRef.current = true` in the effect BODY (not just the cleanup) is
+  //    load-bearing in dev, and it IS pinned — see the "StrictMode mount re-set
+  //    (§72)" describe at the end of this file.
+  //    ★★★ This comment previously said the opposite: that a StrictMode-wrapped
+  //    renderHook had been tried and was VACUOUS, measured 2026-08-04 as
+  //    ["mount"] with no cleanup+remount. That observation is REPRODUCIBLE, and
+  //    the reason is a shape rule nobody had isolated then: StrictMode only
+  //    double-invokes when it is the OUTERMOST element under the root, so
+  //    composing it inside a wrapper function silences it. (Which shape the
+  //    2026-08-04 run used was never recovered.) The guard below uses RTL's
+  //    `reactStrictMode: true`, which keeps StrictMode outermost, and it dies
+  //    when the re-set is deleted. See strictmode.meta.test.tsx, open-followups §85.
 });
 
 describe("useStorageBackend — handlers", () => {
