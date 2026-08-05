@@ -40,7 +40,17 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 `agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file or in
 any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
-or not that path calls it. ★★ It cannot see a COUNT either — "the 20 lazy panels" passed every run
+or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
+backticked `SCREAMING_CASE` constant in all nine files is completely ungated.** The scan requires
+both a lowercase and an upper/underscore character (`check-agents-symbols.mjs`, the "mixed case only"
+guard), so `HELP_ENTRIES`, `TABLE_NAMES`, `CONFIG_KEYS`, `A11Y_VIEWS` and every peer are skipped
+outright — a deleted one goes on being documented as current forever. Verified 2026-08-05 by probe,
+not by reading: injecting two backticked names that never existed — one SCREAMING_CASE, one camelCase
+— into a doc failed the gate on the camelCase one ALONE. (Deliberately un-backticked here: quoting a
+fake identifier in backticks makes the gate flag THIS file, which is the gate working.) It cost real work — a `HELP_SECTIONS` export deleted from the
+code stayed described as live here and in `docs/AGENTS/ui-shell.md`, and a whole slice was scoped
+around the behaviour that prose implied. Do not read a green run as covering a constant.
+★★ It cannot see a COUNT either — "the 20 lazy panels" passed every run
 while the number was 23, and two of five counts sampled on 2026-08-04 were wrong. A count is the
 easiest claim to check and the easiest to leave rotting: put the reproduce command beside it.
 

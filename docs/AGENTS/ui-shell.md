@@ -18,8 +18,30 @@
   `dynamic()` strips function props under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
   HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
   SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
-  "Related:" links. The floating top-bar Help panel stays features-only via the
-  derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`).
+  "Related:" links. (`help-sections.ts` was renamed to `help-content.ts`.)
+  ★★★ BOTH surfaces render EVERY group — the floating panel is NOT features-only. It was, via a
+  derived `HELP_SECTIONS` slice, and this file said so long after that stopped being true while
+  CONTRADICTING ITSELF six lines below ("FLOATING panel is CONTENT-PANE ONLY"). The export outlived
+  its last caller; its only surviving reference was a test asserting it equalled its own definition,
+  which would have kept passing however few surfaces used it. Cost: slice 2 of the help roadmap was
+  scoped around "split the surfaces", work that already existed. Both the export and that test are
+  now REMOVED — do not reintroduce a group filter without a caller. `docs:symbols:check` passed the
+  whole time, because `HELP_SECTIONS` was a real NAME; the gate proves names, never claims.
+  ★★ **Reading level** (`Settings.helpReadingLevel`, `SegmentedControl` in Settings → Appearance):
+  `guided` | `standard` | `expert`, per-DEVICE, default `standard` (= today's rendering, byte-identical).
+  `helpGroupOrder(level)` (`help-content.ts`) gives Expert a reference-first order (features →
+  automated → workflows → concepts); Guided/Standard keep teaching-first. `HelpContentPane` takes an
+  optional `readingLevel` (defaults `"standard"`, so every un-wired caller and test is unaffected);
+  `help-menu.tsx` + `help-view.tsx` each read it via a LOCAL `useSettings()`. ★ Do NOT thread it
+  through `ActionMenus` — that contract is guarded by `action-menus-sweep.test.ts`, and the
+  props-not-hooks rule it documents was motivated by staleness that `use-settings.ts`'s listener
+  registry has since fixed. ★ DELIBERATELY device-only: it is the ONLY Appearance field with no
+  `ProjectAppearancePref` entry, because reading level belongs to the reader, not the project.
+  ★★ Guided adds a `primerKey` primer above the body on the 12 `concepts` entries (a test pins that
+  no other group has one). Primers name NO control, path or setting — conceptual prose cannot rot,
+  and twelve paragraphs of behavioural claims would hand the next slice slice 1's job over again.
+  A primer is SEARCHABLE only at the level that renders it, same rule as marker-stripping: never
+  match text the user cannot see. Consequence, pinned by test: one query, different hit counts per level.
   ★★ `help-content-pane.tsx` (shared by the in-pane view AND the floating panel) renders each concept
   as a CARD (`border-l-ui-dark-blue` stripe, no shadow) on a `bg-surface-muted` scroller, with a wider `w-56`
   TOC driven by an `IntersectionObserver` SCROLL-SPY (effect dep = a hoisted scalar `sectionIdsKey` join, NOT an
