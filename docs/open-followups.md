@@ -3754,6 +3754,31 @@ with no eye-verification pass scheduled, so it is recorded rather than fixed in 
 
 ---
 
+## 87. AI cannot read absences, and the Resource-calendar view renders them beside meetings
+
+`list_calendar_events` returns `CalendarEvent` series only. Absences are a separate entity and no tool
+exposes them (`grep -n "absence" src/app/chat-tool-defs.ts src/app/chat-tools.ts` returns nothing), yet
+the `calendar` view draws both on one grid — so a clash or availability question answered from meetings
+alone silently omits half the data the user is looking at.
+
+★★ This is a WORSE shape than §84/§85, and that is why it was missed. There the tool is simply absent,
+so nothing can answer. Here `list_calendar_events` **succeeds**, returns plausible data, and the model
+has no way to know it saw only half the grid. `ask-claude-prompts.test.ts`'s chip↔capability guard
+cannot catch it either: it asserts `hasHints || hasDigest`, and `calendar` has two hints — so the rule
+it really enforces is chip↔*some* capability, never chip↔*sufficient* capability. ★ Stated precisely
+because "some tool" would wrongly imply a digest-only view is unguarded; it is not, the guard just
+cannot judge whether the capability ANSWERS the chip.
+
+Handled for now the same way as §84/§85 — `VIEW_AI_SCOPE.calendar.reading` states outright that
+absences are not readable and that any clash answer covers meetings only. Unlike those two, the chip
+(`aiPromptCalClashBody`, "are any people double-booked in overlapping meetings?") is deliberately KEPT,
+because it is answerable as worded; it asks about meetings, not availability.
+
+Building the tool is the real fix and is not hard — absences are in `Workspace` (unlike timelog entries
+in §84, which are live external calls) — it was simply out of scope for this slice.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
