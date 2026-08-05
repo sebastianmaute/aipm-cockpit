@@ -143,6 +143,123 @@ export function backfillResourceFks(
   };
 }
 
+/**
+ * Idempotently fill an unset `Task.resourceId` from the directory, by
+ * case-folded email first and then by a UNIQUE case-folded display name.
+ *
+ * Tasks were deliberately outside {@link backfillResourceFks} (absence / raid /
+ * shift), so a task whose person was stored only as an `assignee` STRING stayed
+ * unlinked forever. That is what let one human own two swimlanes — the grouping
+ * engine keys a linked task `res:<id>` and an unlinked one `name:<string>` —
+ * and what made the per-card assignee select read "Unassigned" beside a card
+ * printing that person's name.
+ *
+ * ★★ The NAME fallback is what makes this useful here and it is why the
+ * uniqueness check is not optional: `assigneeEmail` is blank on most
+ * hand-entered and AI-created tasks, so an email-only pass (all v9 does) would
+ * fix almost nothing. A name shared by two resources resolves to NEITHER —
+ * guessing would attribute someone's work to the wrong person, which is worse
+ * than the duplicate lane this repairs.
+ *
+ * ★ Never overwrites a set FK, and leaves the denormalized `assignee` /
+ * `assigneeEmail` caches untouched — `effectiveAssignee` already prefers the
+ * live resource name over the cache, so rewriting them here would only destroy
+ * the historical record of what was typed.
+ *
+ * ★ A DANGLING FK (an id absent from the directory) is deliberately NOT
+ * re-resolved: it is a real pointer to something this workspace cannot see —
+ * a partial load, a resource deleted in another tab — and silently repointing
+ * it at a same-named person would be a guess dressed as a repair.
+ *
+ * ★★ `task-kanban.ts` DOES re-resolve a dangling FK through the assignee name,
+ * and the divergence is intended: that is a DISPLAY decision, reversible the
+ * moment the directory changes and costing at most a card in the wrong lane.
+ * This function REWRITES STORED DATA, so it holds the stricter line. If the two
+ * ever need to agree, move this one toward the kanban's leniency only with a
+ * migration story — never the reverse, which would start rewriting FKs on load.
+ *
+ * ★★ TWO call sites, because there are two load funnels: `applyWorkspace`
+ * (`use-storage-backend.ts`, every backend's load / project switch / create) and
+ * `applyRestoredWorkspace` (`task-manager.tsx`, Turso version-history restore).
+ * The second fans STORED rows straight into state without touching the first,
+ * so omitting it there silently reverts a project's task FKs to the pre-repair
+ * shape until the next real load. A third funnel must call this too.
+ *
+ * Pure: returns the SAME array reference when nothing matched, so the caller
+ * can detect a no-op by identity.
+ */
+export function backfillTaskResourceFks(
+  resources: readonly Resource[],
+  tasks: readonly Task[],
+): Task[] {
+  if (tasks.length === 0 || resources.length === 0) return tasks as Task[];
+  // Keys owned by MORE THAN ONE resource are poisoned to `null` rather than
+  // dropped, so a third resource sharing the key cannot un-poison the clash.
+  //
+  // ★★ BOTH indexes poison, and the email one deliberately does NOT reuse the
+  // shared `emailToResourceId` helper, which is FIRST-WINS. That helper backs
+  // the v9 absence/raid/shift backfill and changing it would silently alter
+  // behaviour well outside this fix — but inheriting first-wins here would have
+  // this function refuse to guess between two people called "Anna Jordan" while
+  // happily guessing between two rows sharing an address, which is the exact
+  // outcome the paragraph above calls unacceptable. A duplicated email is
+  // usually one person entered twice, so either id is "probably" right —
+  // "probably" is not the standard for silently rewriting stored rows, and a
+  // task left unlinked is trivially repairable while a task linked to the wrong
+  // id is not.
+  const index = (key: string, id: number, into: Map<string, number | null>) => {
+    if (!key) return;
+    into.set(key, into.has(key) ? null : id);
+  };
+  const byEmail = new Map<string, number | null>();
+  const byName = new Map<string, number | null>();
+  for (const r of resources) {
+    index((r.email ?? "").trim().toLowerCase(), r.id, byEmail);
+    // ★★★ EXTERNALS ARE NEVER NAME-MATCHED — and here it matters MORE than in
+    // the kanban, because this writes to STORAGE. `isExternalTask`
+    // (`task-external.ts`) classifies external ownership LINK-ONLY precisely so
+    // a name collision cannot HIDE REAL WORK; stamping an FK from a name would
+    // manufacture the very link that classification depends on, and with "Hide
+    // externals" on the task then disappears from Open Points — silently, at
+    // load, with no user action to connect it to and no undo entry.
+    // ★ EMAIL still matches externals: an address is a definite identity, not a
+    // guess, which is the whole distinction task-external.ts draws. A task
+    // carrying an external's actual email genuinely IS their work.
+    if (r.isExternal !== true) {
+      index(personNameKey(resourceDisplayName(r)), r.id, byName);
+    }
+  }
+  let changed = false;
+  const out = tasks.map((task) => {
+    if (task.resourceId != null) return task;
+    const email = (task.assigneeEmail ?? "").trim().toLowerCase();
+    const viaEmail = email ? byEmail.get(email) : undefined;
+    const nameKey = personNameKey(task.assignee);
+    const viaName = nameKey ? byName.get(nameKey) : undefined;
+    // ★ A POISONED email (`null`, i.e. shared by two resources) falls THROUGH to
+    // the name pass rather than blocking the link — `??` treats it exactly like
+    // "no email match". That is intended: an ambiguous address plus an
+    // unambiguous name still identifies one person. Only an ambiguity in the
+    // pass that actually matched suppresses the link.
+    const id = viaEmail ?? viaName ?? null;
+    if (id === null || id === undefined) return task;
+    changed = true;
+    return { ...task, resourceId: id };
+  });
+  return changed ? out : (tasks as Task[]);
+}
+
+/** Case-folded, whitespace-collapsed key for matching a stored person NAME
+ *  against a directory display name.
+ *
+ *  ★ Shared with `task-kanban.ts` on purpose: the lane engine and this file's
+ *  backfill must agree on what "the same name" means, or a project gets its
+ *  duplicate lane back for exactly the names the stricter of the two would have
+ *  merged. Anything added here (diacritic folding, punctuation) reaches both. */
+export function personNameKey(raw: string | null | undefined): string {
+  return (raw ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 /** Next monotonic id for an entity array (1-based). */
 export function nextId(items: ReadonlyArray<{ id: number }>): number {
   return items.length ? Math.max(...items.map((i) => i.id)) + 1 : 1;

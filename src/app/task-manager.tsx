@@ -43,7 +43,7 @@ import { useNotesWindow } from "./use-notes-window";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
-import { splitName, resourceDisplayName, effectivePersonName } from "./resource-foundation";
+import { splitName, resourceDisplayName, effectivePersonName, backfillTaskResourceFks } from "./resource-foundation";
 import { descriptionText } from "./rich-text-projection";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
@@ -452,7 +452,7 @@ function TaskManagerInner() {
   const [tursoListLoaded, setTursoListLoaded] = useState(false);
 
   const {
-    storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
+    storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
@@ -509,7 +509,7 @@ function TaskManagerInner() {
     !isPopout && snapshotsCfg.enabled &&
     isModuleEnabled("trends", settings.features);
   const snapshots = useSnapshots({
-    active: trendsActive, cadence: snapshotsCfg.cadence, tasks,
+    active: trendsActive, cadence: snapshotsCfg.cadence, tasks, workspaceReady: workspaceLoaded,
     tursoConfig,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
@@ -1034,10 +1034,10 @@ function TaskManagerInner() {
      steeringCommittee, timelogLinks],
   );
 
-  // Fan a restored workspace into every setter (mirrors use-storage-backend's
-  // applyWorkspace). Used by selective version restore to apply the new state.
+  // Fan a restored workspace into every setter — the SECOND load funnel, so it
+  // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
-    setTasks(w.tasks ?? []); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
+    setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);

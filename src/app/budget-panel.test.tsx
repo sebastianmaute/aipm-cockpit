@@ -60,11 +60,33 @@ describe("BudgetPanel", () => {
     expect(next.find((b) => b.name === "DEV")!.order).toBe(0);
   });
 
+  // The control is the shared ToggleButton primitive, NOT a bare checkbox: it
+  // is a binary display/behaviour switch sitting in a toolbar of toggle chips,
+  // and the primitive is what carries the non-colour pressed marker and the
+  // pinned-label/aria-pressed coherence the hand-rolled input had neither of.
   test("budget: toggling 'budget hours follow plan' calls the setter", () => {
     const onSetBudgetFollowsPlan = vi.fn();
     render(<BudgetPanel {...props} onSetBudgetFollowsPlan={onSetBudgetFollowsPlan} />);
-    fireEvent.click(screen.getByRole("checkbox", { name: /budget hours follow plan/i }));
+    const toggle = screen.getByRole("button", { name: /budget hours follow plan/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
     expect(onSetBudgetFollowsPlan).toHaveBeenCalledWith(true);
+  });
+
+  // ★★ The OFF→ON test above is satisfied by a handler that ignores the current
+  // state entirely (a literal `onSetBudgetFollowsPlan(true)` passes it), and an
+  // inverted/constant handler is exactly the defect a checkbox→button swap
+  // invites. Clicking while PRESSED is the only assertion that pins the negation.
+  test("budget: the follow-plan toggle reports its ON state and turns back OFF", () => {
+    const onSetBudgetFollowsPlan = vi.fn();
+    render(<BudgetPanel {...props} plan={{ ...plan, budgetFollowsPlan: true }}
+      onSetBudgetFollowsPlan={onSetBudgetFollowsPlan} />);
+    const toggle = screen.getByRole("button", { name: /budget hours follow plan/i });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(toggle);
+    expect(onSetBudgetFollowsPlan).toHaveBeenCalledWith(false);
+    // No checkbox survives anywhere in the header.
+    expect(screen.queryByRole("checkbox", { name: /budget hours follow plan/i })).toBeNull();
   });
 
   // A resourced allocation + follow-plan ON: the bucket's budget hours ARE its

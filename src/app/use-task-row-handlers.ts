@@ -11,7 +11,7 @@ import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import { applyStatusChange } from "./task-status";
-import { type KanbanLane } from "./task-kanban";
+import { laneKeyOf, type KanbanLane } from "./task-kanban";
 import type { ActivityKind } from "./activity-log";
 import type { Task, TaskStatus, Resource } from "./types";
 import { effectivePersonEmail } from "./resource-foundation";
@@ -253,19 +253,41 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     [today, setTasks, tasksRef, captureFieldEdit],
   );
 
-  /** Swimlane cell drop: the cell is (person, status), so ONE write covers both.
-   *  Jira-synced tasks are read-only. A drop that changes nothing writes nothing
-   *  and records no undo entry. */
+  /** Swimlane cell write: the cell is (person, status), so ONE write covers both.
+   *  Jira-synced tasks are read-only.
+   *
+   *  ★★★ `source` DECIDES THE NO-OP TEST, AND THE TWO ANSWERS DIFFER. Take it
+   *  from the CALLER'S INTENT; never try to infer it by inspecting state — the
+   *  same rule `resolveEntitySave` follows for the id-mint race, and for the
+   *  same reason: the two situations are indistinguishable from the row alone.
+   *
+   *  - `"drag"` asks "does this card ALREADY DISPLAY in this cell?" A task whose
+   *    free-string assignee uniquely names a directory person renders in
+   *    `res:<id>` while storing no FK, so a stored-field test read a self-drop as
+   *    a lane CHANGE: it wrote, stamped `localModifiedAt`, pushed an undo entry
+   *    the user never made and armed the autosave for a drag that moved nothing.
+   *  - `"assign"` asks "does this row ALREADY STORE this?" The per-card assignee
+   *    `<select>` is controlled on `task.resourceId` (`task-kanban-card.tsx`), so
+   *    for that very same row it reads "Unassigned" while the card sits in the
+   *    person's lane. Picking that person is the repair — and the display test
+   *    would call it a no-op, discard it, and let the controlled select snap
+   *    straight back with no feedback. Inert forever, editor the only way out.
+   *
+   *  ★ Both paths fall through to ONE write below, so keyboard and mouse still
+   *  cannot diverge in what they store (`tasks-section.tsx` onAssignFromCard). */
   const onSwimlaneDrop = useCallback(
-    (id: number, lane: KanbanLane, next: TaskStatus) => {
+    (id: number, lane: KanbanLane, next: TaskStatus, source: "drag" | "assign" = "drag") => {
       const prevRow = tasksRef.current.find((row) => row.id === id);
       if (!prevRow || prevRow.jiraKey) return;
 
       const nextAssignee = lane.resourceId != null || lane.key.startsWith("name:") ? lane.label : "";
       const nextResourceId = lane.resourceId ?? undefined;
-      const sameLane =
-        (prevRow.resourceId ?? undefined) === nextResourceId && prevRow.assignee === nextAssignee;
-      if (sameLane && prevRow.status === next) return;
+      const alreadyThere =
+        source === "drag"
+          ? laneKeyOf(prevRow, resourcesById) === lane.key
+          : (prevRow.resourceId ?? undefined) === nextResourceId
+            && prevRow.assignee === nextAssignee;
+      if (alreadyThere && prevRow.status === next) return;
 
       const stamp = new Date().toISOString();
       const after = applyStatusChange(
@@ -296,7 +318,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         name: prevRow.taskName,
       });
     },
-    [today, setTasks, tasksRef, captureFieldEdit],
+    [today, setTasks, tasksRef, captureFieldEdit, resourcesById],
   );
 
   const onEdit = useCallback(

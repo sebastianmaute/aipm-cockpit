@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.215.0] - 2026-08-04 "Friedman"
+
+Trends stops recording an empty project. Three smaller fixes where a control
+said one thing and did another.
+
+### Fixed
+
+- **Trends recorded the project before it had loaded.** Snapshot auto-capture
+  raced the workspace load and won, writing a snapshot whose KPIs were all
+  null. Because a cadence bucket is claimed by its first snapshot, that row
+  permanently owned its week and no retry ever followed — the charts read
+  "Not enough snapshots yet" beside a full snapshot table. Capture now waits
+  until a workspace has actually been applied.
+  **Snapshots already written this way are not repaired.** Delete the affected
+  rows in the Snapshots table and use "Capture snapshot now"; there is no
+  migration, because a null-KPI row cannot be told apart from a genuinely empty
+  project after the fact.
+- **One person could occupy two Kanban swimlanes.** Tasks that stored an
+  assignee's name and tasks that stored a link to the same person in the
+  directory were grouped separately, so the board showed two lanes with
+  identical headers — and only the linked lane's cards had a populated
+  assignee dropdown; the other read "Unassigned" beside a card printing that
+  person's name. The lanes are now merged, and existing tasks are linked to
+  the directory as they load, matching on email first and then on an
+  unambiguous name. A name shared by two people, or belonging to an external,
+  is deliberately left unlinked rather than guessed.
+- **"Hide externals" forgot itself.** In Planning and Workload the toggle reset
+  whenever the view was left and re-entered. It is now remembered per device,
+  under its own setting — the directory's own hide-external toggle stays
+  separate, because hiding someone from a list must not quietly drop their
+  allocations out of plan totals.
+- **"Budget hours follow plan" was a bare checkbox** in a toolbar of toggle
+  buttons. It is now the same toggle control as its neighbours, carrying the
+  same pressed state and non-colour pressed marker.
+
+---
+
 ## [0.214.0] - 2026-08-04 "Lostetter"
 
 A budget bucket adds up. Four smaller pieces of chrome stop getting in the way.

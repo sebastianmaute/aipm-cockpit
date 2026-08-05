@@ -119,6 +119,13 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations (each pinning the ONE arm that was the defect — `isMisconfigured`×3, `hasFetched`×1; `isPopout`/`syncBusy`/`confirming` stay unpinned at every call site), after a revision that wrongly called Fetch untestable |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §84 |
 | 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§85 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
+| 77 | The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project | found post-0.214.0 | M | open — ★★ both obvious fixes are WRONG (suppress-path strands it false; a state reset lands a render late, both effects run in one commit); needs ref+state |
+| 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | open — every later variance row then compares against nulls; fix `isFirstEver`, do NOT overload §77's flag |
+| 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
+| 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites, with `<unknown>` so the type argument stops asserting an unchecked shape; both pinned |
+| 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`; ★★★ the first fix broke the ASSIGN control (inert select), so `source` now carries caller INTENT |
+| 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
+| 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
 | 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
 | 85 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the real app double-invokes correctly IN DEV (mount→cleanup→mount observed in `next dev`; React double-invokes in development only, so this says nothing about production), making this a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
 
@@ -3823,6 +3830,185 @@ conclusion never changed; only the numbers offered for it did. Run the commands.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.
+## 77. The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project — open
+
+`use-storage-backend.ts` publishes `workspaceLoaded`, set `true` at the end of `applyWorkspace` and
+**never set back to `false`**. `useSnapshots` gates auto-capture on it (as `workspaceReady`), which
+closes the boot race that made every auto snapshot record an empty project. It does not close the
+same race at a *later* trigger.
+
+`backend` is memoized on `settings.storageConfig`, and the load effect keys on `[backend, hydrated]`.
+So pointing Settings at a different backend mid-session re-runs the load while `workspaceLoaded` is
+still `true` from the previous one. If that switch also makes `tursoConfig` non-null, `trendsActive`
+flips, the capture effect re-fires, and it captures the OLD project's tasks/budgets into the NEW
+project's current bucket — which `hasCurrent` then permanently claims. **Worse than the boot bug it
+sits beside:** the captured numbers are non-null and plausible, so nothing looks broken.
+
+★ **Pre-existing, not a regression.** Before the gate there was no check at all, so this path was
+already wrong; the fix narrowed the bug rather than introducing it.
+
+★★ **The two obvious fixes are both wrong, which is why this is deferred rather than done.**
+(a) `setWorkspaceLoaded(false)` at the top of the load effect strands the flag `false` forever on the
+`suppressNextLoadRef` early-return path — the one project switches take — silently disabling capture
+for the rest of the session. (b) Resetting it anywhere in state loses the race anyway: both effects
+run in the SAME commit, and the capture effect reads the `workspaceReady` of the render it was
+scheduled from, so a reset lands one render too late.
+
+★ What would actually work: a **ref** carrying readiness (mutated synchronously when a load starts,
+so the capture effect reads the fresh value at the moment it runs) *plus* the existing state (to
+re-trigger the effect when it flips true). `useStorageBackend` is registered before `useSnapshots` in
+`task-manager.tsx`, so its effect body runs first and the ref is already `false` by the time capture
+is considered. Not attempted here — it is a storage-layer change and this was a bug-fix pass.
+
+---
+
+## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — open
+
+`use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
+workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§77) is legitimately
+`true` — a workspace *was* applied, there is just nothing in it — so the capture effect re-fires on
+the changed `projectId`, finds `history.length === 0`, and takes the `isFirstEver` branch in
+`use-snapshots.ts`: it writes a row with null `remainingHours`/`remainingCost`/`spi`/`cpi` **and
+`isBaseline: true`**.
+
+`hasCurrent` then claims that cadence bucket permanently. Create a project on Monday, populate it on
+Tuesday, and that week is stuck at the empty capture — and because the empty row is the *baseline*,
+every later variance row compares against nulls forever, not just that one week.
+
+★ Pre-existing, and `workspaceReady` is behaving correctly by its own definition: it answers "has a
+load landed", not "is this project worth snapshotting". Do NOT overload it — that flag's contract is
+what makes §77's reasoning tractable.
+
+★ The fix is on the other side: gate `isFirstEver` (or the auto-capture itself) on the workspace
+having content. Deliberately not done here, because "empty" needs defining — a project with one task
+and no budget legitimately produces null KPIs, so a naive `tasks.length > 0` test would still baseline
+a snapshot with no SPI/CPI. Recorded in the `workspaceReady` doc comment as a known exception.
+
+---
+
+## 79. The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open
+
+`task-kanban.ts` `laneResourceIdOf` resolves an FK-less task to a resource by **name** only.
+`backfillTaskResourceFks` (`resource-foundation.ts`) prefers **email**, then falls back to name. So a
+task carrying an email but no usable name and no FK — the Jira-import shape — gets its own lane until
+the next load stamps its FK, then merges.
+
+★ Narrow and self-healing (a reload fixes it), which is why it is recorded rather than fixed. The
+asymmetry is worth knowing about before someone "aligns" the two: the backfill's email pass exists
+because it is the *definite* identifier, and the lane engine has no email in hand at that point
+without threading one more field through.
+
+---
+
+## 80. Both hide-external toggles trust whatever `readDeviceJson` returns — CLOSED
+
+`resources-panel.tsx` and `resource-directory.tsx` each seed their toggle with
+`readDeviceJson<boolean>(key, false)`, and `device-store.ts` documents explicitly that the parsed
+value is returned **as-is** with shape validation left to the caller. Neither caller validates. A
+stored `"true"`, `1` or `{}` — from a hand-edited localStorage, or a future writer that stores a
+different shape under the same key — becomes a truthy `hideExternal` and lands on `aria-pressed` as a
+non-boolean.
+
+★ Pre-existing in the directory; the resources-panel copy (added when its toggle was made persistent)
+inherited the same shape deliberately, to match precedent rather than diverge from it. `=== true` at
+both read sites closes both.
+
+★ CLOSED in review follow-up: both sites now read `readDeviceJson<unknown>(key, false) === true`. The
+type argument was changed to `unknown` on purpose — leaving `<boolean>` there would keep asserting a
+shape nothing checks, which is what made this survive review in the first place. BOTH sites are
+pinned, by a "treats a non-boolean stored value as off" test apiece (`resources-panel.test.tsx` and
+`resource-directory.test.tsx`) — an earlier close-out fixed both and pinned only one, which is how a
+site silently regresses while the entry reads CLOSED.
+
+---
+
+## 81. The swimlane no-op drop guard no longer holds for a name-resolved task — CLOSED
+
+`use-task-row-handlers.ts` `onSwimlaneDrop` documents "A drop that changes nothing writes nothing and
+records no undo entry", enforced by `sameLane`, which compares `prevRow.resourceId ?? undefined`
+against the lane's `resourceId`. Since the lane engine started resolving a free-string assignee to a
+resource, a task in a name-resolved lane has `prevRow.resourceId === undefined` while the lane carries
+a real id — so `sameLane` is `false` and dropping a card back onto **its own cell** writes, stamps
+`localModifiedAt`, and pushes an undo entry.
+
+★ The write itself is harmless-to-good: it stamps the FK the lane already implies, which is the repair
+`backfillTaskResourceFks` performs at load. The defect is the promise — the comment claims an
+invariant the code no longer has, and a spurious undo entry is a real (if small) cost.
+
+★ Fix is either direction: compare against the RESOLVED id rather than the stored one, or narrow the
+comment to say a lane-repairing drop is a deliberate exception.
+
+★ CLOSED in review follow-up, taking the FIRST direction. `task-kanban.ts` now exports `laneKeyOf`
+(the same resolution `groupByStatusAndPerson` performs) and the guard asks it, so the question is
+"does this card already display in this cell" rather than "does its stored FK match". ★★ The
+harmlessness assessment above was too generous and is why this was nearly left open: the write also
+armed the AUTOSAVE, so an accidental drag that landed where it started cost a network round trip on a
+Turso backend and a spurious undo entry. ★ Deliberate consequence: a self-drop no longer
+opportunistically rewrites a stale `assignee` cache to the live directory spelling — a drag is not a
+rename tool, and the load-time backfill owns that repair. Pinned by
+`use-task-row-handlers.test.ts` "dropping a card back on its own cell", with two controls (status-only
+change, and a real lane change) so the guard cannot pass by swallowing everything; mutation-verified
+against the old comparison.
+
+★★★ THE FIRST ATTEMPT AT THIS FIX BROKE THE ASSIGN CONTROL, and a cold review caught it before commit.
+`onSwimlaneDrop` is not drag-only: `tasks-section.tsx` `onAssignFromCard` routes the per-card assignee
+`<select>` through it with the task's CURRENT status. That select is controlled on `task.resourceId`
+(`task-kanban-card.tsx`), so the very row this whole fix is about — free-string assignee, no FK —
+displays "Unassigned" while its card sits in the person's lane. Picking that person is the repair, and
+a "does it already DISPLAY here" test answers yes, swallows the write, and lets the controlled select
+snap straight back. An inert control, no feedback, forever. ★★ The handler now takes a
+`source: "drag" | "assign"` and picks the no-op test from the CALLER'S INTENT — the same
+inspect-intent-not-state rule `resolveEntitySave` follows for the id-mint race, and for the same
+reason: the two situations are indistinguishable from the row alone. Both paths still fall through to
+ONE write, so keyboard and mouse cannot diverge. ★ The three original tests could not catch this:
+two are controls that pass under both old and new code, and none exercised the assign path.
+
+---
+
+## 82. The task-FK backfill lives in a React hook, outside the numbered migration chain — open
+
+`backfillTaskResourceFks` runs from `applyWorkspace` (`use-storage-backend.ts`) and
+`applyRestoredWorkspace` (`task-manager.tsx`), not from `migrateWorkspaceV*`. That placement is
+correct for *reach* — the chain misses CSV, Markdown and the Turso relational tables entirely, and no
+migration has ever back-filled `Task.resourceId` for a project that already has a directory (v9 covers
+absence/raid/shift only; v5 stamps task FKs but only inside `if (resources.length === 0)`).
+
+The cost is that it is a **permanent normalisation pass**, not a one-shot migration: it re-runs on
+every load. Any path that legitimately produces a name without an FK — a Jira/CSV re-import, an AI
+write, a bulk edit that clears only `resourceId` — is silently re-linked next load, and there is no way
+to express "this task names a person who is deliberately NOT the same-named directory resource".
+
+★ A `migrateWorkspaceV11` invoked from the load funnel would make the one-shot intent explicit while
+keeping the reach. Not done here: the version-stamp plumbing is a bigger change than the fix warranted,
+and the idempotent pass is harmless for every shape encountered so far.
+
+★★ There are now **two** load funnels and a third would silently miss the backfill. They are listed in
+the function's own doc comment — keep that list current.
+
+★★ Both funnels are now pinned, and the second one was NOT until a review audit found it:
+`applyRestoredWorkspace` had zero tests of any kind, so deleting its backfill call — leaving a bare
+`setTasks(w.tasks ?? [])` — kept the whole suite green while a version restore silently reverted a
+project's task FKs to the broken pre-repair shape. Covered by
+`task-manager.restore-backfill.test.tsx` (mutation-verified). A third funnel needs its own file; a
+per-funnel test is the only thing that catches this class, because the engine's own unit tests pass
+either way.
+
+---
+
+## 83. Email/name disagreement in the FK backfill resolves silently to email — open
+
+`backfillTaskResourceFks` poisons an *ambiguous* key (one owned by two resources) to `null` in both
+its email and name indexes, so it refuses to guess between namesakes. It does not treat a
+**disagreement** the same way: when an unambiguous email resolves to resource A and an unambiguous
+name resolves to resource B, email wins with no signal.
+
+★ Defensible — an address is a stronger identifier than a cached display name, which goes stale after
+a rename — and it is the documented precedence. Recorded because the module's stated bar is "never
+guess", and this is the one case where it picks a side rather than declining. Very low frequency: it
+needs a task whose stored email and stored name point at two different live directory rows.
+
+---
+
 
 ---
 

@@ -138,7 +138,8 @@ function ResourceDirectoryInner({
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [hideExternal, setHideExternal] = useState<boolean>(() => readDeviceJson<boolean>(HIDE_EXTERNAL_KEY, false));
+  // ★ `=== true` — `readDeviceJson` does not validate; see resources-panel.tsx.
+  const [hideExternal, setHideExternal] = useState<boolean>(() => readDeviceJson<unknown>(HIDE_EXTERNAL_KEY, false) === true);
   const toggleHideExternal = () => {
     const next = !hideExternal;
     setHideExternal(next);

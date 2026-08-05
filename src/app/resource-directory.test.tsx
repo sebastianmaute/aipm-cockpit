@@ -227,6 +227,24 @@ describe("ResourceDirectory", () => {
     localStorage.removeItem("aipm-cockpit:directory-hide-external");
   });
 
+  // ★ `readDeviceJson` hands back whatever JSON.parse produced — its type
+  // argument is a claim, not a check — and `ToggleButton` renders `aria-pressed`
+  // verbatim, so a stored `"true"` (string) would announce `aria-pressed="true"`
+  // off a value that is not a boolean. Mirrors the resources-panel guard: both
+  // sites read `=== true`, and both need pinning or only one stays fixed.
+  it("treats a non-boolean stored value as off", () => {
+    localStorage.setItem("aipm-cockpit:directory-hide-external", '"true"');
+    const mixed: Resource[] = [
+      { id: 1, firstName: "In", lastName: "Ternal", roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 2, firstName: "Ex", lastName: "Ternal", roleId: null, utilizationMode: "percent", utilization: {}, isExternal: true },
+    ];
+    render(<ResourceDirectory {...common} resources={mixed} />);
+    expect(screen.getByRole("button", { name: t("en-US", "resourceHideExternal") }))
+      .toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Ex Ternal")).toBeInTheDocument();
+    localStorage.removeItem("aipm-cockpit:directory-hide-external");
+  });
+
   it("clears the search box from a labelled button", async () => {
     const user = userEvent.setup();
     render(<ResourceDirectory {...common} resources={rs} />);
