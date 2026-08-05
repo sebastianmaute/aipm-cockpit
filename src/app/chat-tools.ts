@@ -297,6 +297,10 @@ export type ToolDispatcher = {
     enabledModules: FeatureModuleId[];
     currentView: AppView;
     insights?: readonly Insight[];
+    /** Compact text describing what is currently ON the active view, after the
+     *  user's filters. Only 4 views contribute one; absent elsewhere. Lands in
+     *  the VOLATILE prompt suffix — see buildSystemPrompt. */
+    viewDigest?: string;
   };
   getDashboardSnapshot(): DashboardSnapshot;
   listAllocations(): AllocationsSnapshot;

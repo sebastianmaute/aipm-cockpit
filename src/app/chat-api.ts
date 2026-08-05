@@ -9,6 +9,7 @@ import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./o
 import type { AttachmentBlock } from "./chat-attachments";
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
+import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
@@ -119,7 +120,8 @@ export function buildSystemPrompt(
         mode: snapshot.mode, modules: snapshot.enabledModules, view: snapshot.currentView,
       }))
     : "";
-  const stableText = [stableInstructions, guideBlock].filter(Boolean).join("\n\n");
+  const viewScopeBlock = buildViewScopeBlock(snapshot.currentView);
+  const stableText = [stableInstructions, viewScopeBlock, guideBlock].filter(Boolean).join("\n\n");
 
   // VOLATILE suffix (uncached): per-call state + the APP CONTEXT block. Placed
   // AFTER the cached prefix so it never invalidates the cache.
@@ -133,10 +135,15 @@ export function buildSystemPrompt(
   // Active insights are VOLATILE (change as detectors reconcile) → this block
   // MUST stay in the uncached suffix, or it would invalidate the cached prefix.
   const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? []);
+  // The digest (what is on screen right now) is per-call and changes on every
+  // filter/sort tweak — it MUST stay in the uncached suffix too, or it would
+  // silently invalidate the cache on every interaction. See view-ai-scope-block.ts.
+  const viewStateBlock = buildViewStateBlock(snapshot.viewDigest);
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
+    viewStateBlock,
     insightsBlock,
   ]
     .filter(Boolean)
