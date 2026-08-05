@@ -41,6 +41,27 @@
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
   (the sidebar entry IS scanned every view; eye-verify the page).
+  • **Help body `[[label]]` markers:** a body naming a UI control writes it `[[Take the tour]]`, never in bare
+  quotes. Pure `help-body-markup.ts` (`parseHelpBody`/`stripHelpMarkers`/`helpBodyLabels`) splits them;
+  `help-content-pane.tsx` renders label segments `font-medium text-foreground` and feeds the STRIPPED body to
+  `matchesQuery` — TWO call sites, and missing the second gives users search hits on markup they cannot see.
+  ★★ `help-content-gate.test.ts` resolves every marker against all three dictionaries and ratchets nav-view
+  coverage against an explicit `KNOWN_UNCOVERED` id list, asserted by set EQUALITY so a CLOSED gap fails until its
+  id is removed (a subset check would let the baseline rot into a permanent exemption). Coverage is measured over
+  `allNavViews()`, which flattens nested `children` — a walk over `NAV_GROUPS` items alone sees half the sidebar and
+  measured 7 gaps where there are 14.
+  ★★ The DE dictionary is LAZY: without `beforeAll(loadI18n("de"))` the DE lane silently falls back to en-US and
+  passes by testing English twice. Proof it is per-language: injecting the EN value of the `print` key into the DE
+  body as a marker (DE renders "Drucken") fails `de` ALONE while both English lanes pass.
+  ★ Keep every marker WRITTEN IN THESE DOCS multi-word. Tailwind v4 scans `.md` too, and a space-free
+  `[[Something]]` can read as an arbitrary variant — the failure mode that has already broken `globals.css` once.
+  ★★★ IT PROVES STRUCTURE, NOT TRUTH. A body can be entirely false and pass — `helpSecAiBody` claimed the API key
+  lived in localStorage while it is AES-256-GCM sealed in IndexedDB, and no assertion here would catch it. Worse,
+  `[[Take the tour]]` would have RESOLVED (`tourLaunch` exists) while rendering on no control — a green gate on a
+  false sentence. A green run is not evidence that help content is correct.
+  ★ Markers are UI LABELS ONLY; ordinary quoted prose stays quoted, because a false marker fails the build on a
+  true sentence. Near-misses that would fail an exact match: `"Also create in Jira"` (real value carries `({0} — {1})`),
+  `"Version history: keep N versions"` (split across two keys), `"internal/d"` (real: `"Internal /d"`).
   • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
   one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
   (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, ~14 views; `conceptId` in `HELP_ENTRIES`
