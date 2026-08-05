@@ -49,7 +49,11 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "concept-milestone", group: "concepts", titleKey: "helpConceptMilestoneTitle", bodyKey: "helpConceptMilestoneBody", primerKey: "helpConceptMilestonePrimer", relatedViews: ["milestones", "gantt"], relatedConcepts: ["concept-dependency", "concept-baseline"] },
   { id: "concept-raid", group: "concepts", titleKey: "helpConceptRaidTitle", bodyKey: "helpConceptRaidBody", primerKey: "helpConceptRaidPrimer", relatedViews: ["raid"], relatedConcepts: ["concept-change", "concept-stakeholder"] },
   { id: "concept-change", group: "concepts", titleKey: "helpConceptChangeTitle", bodyKey: "helpConceptChangeBody", primerKey: "helpConceptChangePrimer", relatedViews: ["changes"], relatedConcepts: ["concept-raid", "concept-budget"] },
-  { id: "concept-stakeholder", group: "concepts", titleKey: "helpConceptStakeholderTitle", bodyKey: "helpConceptStakeholderBody", primerKey: "helpConceptStakeholderPrimer", relatedViews: ["stakeholders", "raci"], relatedConcepts: ["concept-raci", "concept-steering"] },
+  // ★★ `stakeholder-map` belongs here because the BODY describes the 2×2 grid,
+  // which lives in that view and not in `stakeholders` (a table). Adding the
+  // view is what forced the body's correction: it had claimed an "interest ×
+  // power" matrix in the Stakeholders view, and both halves were false.
+  { id: "concept-stakeholder", group: "concepts", titleKey: "helpConceptStakeholderTitle", bodyKey: "helpConceptStakeholderBody", primerKey: "helpConceptStakeholderPrimer", relatedViews: ["stakeholders", "raci", "stakeholder-map"], relatedConcepts: ["concept-raci", "concept-steering"] },
   { id: "concept-raci", group: "concepts", titleKey: "helpConceptRaciTitle", bodyKey: "helpConceptRaciBody", primerKey: "helpConceptRaciPrimer", relatedViews: ["raci", "stakeholders"], relatedConcepts: ["concept-stakeholder"] },
   { id: "concept-budget", group: "concepts", titleKey: "helpConceptBudgetTitle", bodyKey: "helpConceptBudgetBody", primerKey: "helpConceptBudgetPrimer", relatedViews: ["budget", "budget-report"], relatedConcepts: ["concept-resource"] },
   { id: "concept-resource", group: "concepts", titleKey: "helpConceptResourceTitle", bodyKey: "helpConceptResourceBody", primerKey: "helpConceptResourcePrimer", relatedViews: ["resources", "workload", "planning"], relatedConcepts: ["concept-budget"] },
@@ -83,9 +87,14 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "feature-rich-text", group: "features", titleKey: "helpSecRichTextTitle", bodyKey: "helpSecRichTextBody", relatedViews: ["open-points", "raid", "changes", "milestones"] },
   { id: "feature-gantt", group: "features", titleKey: "helpSecGanttTitle", bodyKey: "helpSecGanttBody" },
   { id: "feature-raid", group: "features", titleKey: "helpSecRaidTitle", bodyKey: "helpSecRaidBody" },
-  { id: "feature-resources", group: "features", titleKey: "helpSecResourcesTitle", bodyKey: "helpSecResourcesBody" },
+  // ★★ All five sub-tabs, because the body names all five. These were not
+  // missing CONTENT — they were missing wiring, and the ratchet cannot tell
+  // the two apart: coverage is `relatedViews` membership, so a complete and
+  // truthful entry that lists no view reads as a gap. Writing a second entry
+  // per sub-tab would have duplicated prose that was already here.
+  { id: "feature-resources", group: "features", titleKey: "helpSecResourcesTitle", bodyKey: "helpSecResourcesBody", relatedViews: ["resources", "directory", "workload", "calendar", "planning", "manage-roles"], relatedConcepts: ["concept-resource"] },
   { id: "feature-steering", group: "features", titleKey: "helpSecSteeringTitle", bodyKey: "helpSecSteeringBody" },
-  { id: "feature-activity", group: "features", titleKey: "helpSecActivityTitle", bodyKey: "helpSecActivityBody" },
+  { id: "feature-activity", group: "features", titleKey: "helpSecActivityTitle", bodyKey: "helpSecActivityBody", relatedViews: ["activity"] },
   { id: "feature-knowledge", group: "features", titleKey: "helpSecKnowledgeTitle", bodyKey: "helpSecKnowledgeBody" },
   { id: "feature-voice", group: "features", titleKey: "helpSecVoiceTitle", bodyKey: "helpSecVoiceBody" },
   { id: "feature-notif", group: "features", titleKey: "helpSecNotifTitle", bodyKey: "helpSecNotifBody" },
@@ -93,7 +102,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "feature-jira", group: "features", titleKey: "helpSecJiraTitle", bodyKey: "helpSecJiraBody" },
   { id: "feature-storage", group: "features", titleKey: "helpSecStorageTitle", bodyKey: "helpSecStorageBody" },
   { id: "feature-setup-wizard", group: "features", titleKey: "helpSecSetupWizardTitle", bodyKey: "helpSecSetupWizardBody" },
-  { id: "feature-version-history", group: "features", titleKey: "helpSecVersionHistoryTitle", bodyKey: "helpSecVersionHistoryBody" },
+  { id: "feature-version-history", group: "features", titleKey: "helpSecVersionHistoryTitle", bodyKey: "helpSecVersionHistoryBody", relatedViews: ["history"], relatedConcepts: ["concept-baseline"] },
   { id: "feature-ai", group: "features", titleKey: "helpSecAiTitle", bodyKey: "helpSecAiBody" },
   { id: "feature-ai-advanced", group: "features", titleKey: "helpSecAiAdvancedTitle", bodyKey: "helpSecAiAdvancedBody" },
   { id: "feature-input-feedback", group: "features", titleKey: "helpSecInputFeedbackTitle", bodyKey: "helpSecInputFeedbackBody" },

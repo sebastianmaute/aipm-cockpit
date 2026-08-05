@@ -29,16 +29,10 @@ const KNOWN_UNCOVERED: readonly AppView[] = [
   "projects",
   "portfolio-health",
   "insights",
-  "directory",
-  "calendar",
-  "manage-roles",
-  "stakeholder-map",
   "timelog",
   "reports",
   "raid-report",
   "change-report",
-  "activity",
-  "history",
   "help",
 ];
 
