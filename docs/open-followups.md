@@ -4172,8 +4172,12 @@ Four drafts, three of them wrong, each refuted by the next:
 | 3 | it is a rule about the mount COMMIT; a fiber is placed only while BRAND NEW | keyed moves — a moved child is placed without being new |
 | 4 | the placement flag (current) | — but its first draft said "moved BACKWARDS", which is the direction that is NOT flagged |
 
-Reproduce with `git log -p --follow -- src/app/strictmode.meta.test.tsx | grep "THE SHAPE RULE\|THE RULE IS"`
-— it emits one `+` line per draft, so the count is checkable rather than remembered. ★ Note #3 is the
+Reproduce with `git log -p --follow -- src/app/strictmode.meta.test.tsx | grep "^+// ★★★ THE SHAPE RULE\|^+// ★★★ THE RULE IS"`
+— four `+` lines, one per draft, so the count is checkable rather than remembered. ★★ The `^+//` anchor
+is load-bearing and the unanchored form was published here first: without it an INDENTED in-test comment
+(`+  // ★★★ THE OTHER HALF OF THE SHAPE RULE…`) matches too and the command answers FIVE, so a reader
+checking "four" is told the table is wrong. A reproduce command that refutes its own claim is worse than
+none — run the command you attach. ★ Note #3 is the
 one an earlier version of this paragraph left out of its own count, while folding #3's error into #2's
 row; that is how a wrong count survives a proofread. That is why every clause above is now a test
 rather than a sentence.
@@ -4181,8 +4185,12 @@ rather than a sentence.
 ★★★ **The standing instrument is `src/app/strictmode.meta.test.tsx`** — a meta-test asserting a
 property of the HARNESS, not of the app. It covers a plain component render, both safe `renderHook`
 forms, the nested-shape negative cases, the later-commit positive with its two controls (no-StrictMode,
-and the same host on its first commit), both moved-keyed-child cases, the sibling and both fragment
-edges, and that the DEVELOPMENT React build is what resolves.
+and the same host on its first commit), all THREE keyed-move shapes (a `<StrictMode>` moved to a LATER
+slot, one moved to an EARLIER slot, and a moved WRAPPER) plus a no-StrictMode reorder control, the
+sibling and both fragment edges, and that the DEVELOPMENT React build is what resolves — 17 `it(` blocks,
+8 of them negatives (`grep -c "^  it(" src/app/strictmode.meta.test.tsx`). ★ This enumeration was stale
+within one commit of being written: the commit that added the earlier-slot case — that round's headline
+finding — left it out of the list right here.
 Read it instead of trusting this paragraph: last time this measurement lived only in prose, the probe
 was deleted and every later reader had to take the prose on faith. ★ If that file ever goes red, the
 three guard tests below have become vacuous — fix it before trusting them.

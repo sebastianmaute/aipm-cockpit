@@ -146,8 +146,9 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # which fiber carries the PLACEMENT flag, which a keyed reorder also sets. Three
                             # successive wordings of it shipped over-general, each measured at one shape and
                             # written as if it held everywhere, so do NOT extend this summary by reasoning:
-                            # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every
-                            # edge. Read it before writing a StrictMode test, and mutation-test the guard.
+                            # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every edge
+                            # but one, which it flags as stated-not-pinned. Read it before writing a
+                            # StrictMode test, and mutation-test the guard.
 npm run test:shuffle        # vitest at the SAME pinned seed CI's unit-tests-shuffled uses (BLOCKING).
                             # ★ Run this before pushing anything that adds or reorders tests — it is
                             # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare

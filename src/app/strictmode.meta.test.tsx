@@ -13,9 +13,12 @@
 // that before trusting them. (A red NEGATIVE case means the opposite: React
 // started double-invoking a shape it used to skip. Also worth knowing, but it
 // cannot make a guard vacuous — see the note on the first negative test.)
-// open-followups §85 has the history: a real observation (a child mounted
-// under a wrapper-nested StrictMode IS single-invoked) was read as
-// "unpinnable", and all three re-sets shipped with nothing pinning them. ★ Of
+// open-followups §85 has the history: some real observation was read as
+// "unpinnable", and all three re-sets shipped with nothing pinning them.
+// ★ WHICH observation is not established — that probe was deleted and never
+// recovered, so "it was a child under a wrapper-nested StrictMode" is the
+// likely shape, not a known one. §85 states that limit; do not harden it
+// here. ★ Of
 // those three, only use-storage-backend was MEASURED deletable-while-green;
 // for the other two it follows from their having had no StrictMode test at
 // all, and was never separately run.
@@ -28,7 +31,9 @@
 //   until it meets a fiber FLAGGED FOR PLACEMENT, double-invokes there if
 //   StrictMode is at or above that fiber, and never recurses past it either
 //   way. (It also descends only while the ancestor's `subtreeFlags` still
-//   carries the bit.)
+//   carries `67117056` — that is the dev-placement bit OR the Visibility bit
+//   `8192`, a WIDER mask than the single-bit `67108864` tested on the fiber
+//   itself, so the two are not the same test.)
 //
 // Two things carry that flag (`placeChild` / `placeSingleChild`): a BRAND-NEW
 // fiber (`alternate === null`), and an existing KEYED child that MOVED — and
@@ -69,9 +74,12 @@
 // boundary's children AND for `<Activity>`'s — `<Activity>` itself is tag 31,
 // so a placed one stops the walk like any other fiber) is special-cased — a
 // PLACED Offscreen does not stop the walk, a HIDDEN one
-// (`memoizedState !== null`) is skipped entirely. Read from source, NOT
-// measured; nothing here renders StrictMode inside Suspense or `<Activity>`.
-// A lead, not a fact.
+// (`memoizedState !== null`) is skipped entirely, and a VISIBLE one carrying
+// the Visibility flag (`8192`) under StrictMode is double-invoked AT the
+// Offscreen and not recursed through. THREE arms, not two — the tag-22 branch
+// never consults the placement bit at all. Read from source, NOT measured;
+// nothing here renders StrictMode inside Suspense or `<Activity>`. A lead,
+// not a fact.
 //
 // ★ Which corollary governs the three guards: all of them mount once and
 // never re-mount or reorder a child, so it is COROLLARY 1.
@@ -294,9 +302,9 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     expect(hookLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
-  // Corollary 1 (see the header for the rule and the mechanism — within this
-  // file that is the only place the walk is described; §85 also carries it in
-  // full). This pins CURRENT React
+  // Corollary 1 (the header is where the rule and the mechanism are DEFINED;
+  // the comments further down refer to the walk but do not define it, and §85
+  // carries the rule in full too). This pins CURRENT React
   // behaviour, not a guarantee React owes us: if a future version
   // double-invokes this shape on the mount commit too, the test goes red, and
   // that is a GOOD failure — it means the rule changed and every guard built
@@ -372,8 +380,9 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
   });
 
   // COROLLARY 3: no new child is needed at all. `<StrictMode>` is a keyed
-  // child here, moved from index 1 to index 2 — i.e. it now sits AFTER `a`,
-  // which it used to precede — so it is flagged for placement despite having
+  // child here, moved from index 1 to index 2 — i.e. it now sits AFTER `c`,
+  // which it used to precede (`a` was ahead of it before and after, so `a` is
+  // NOT the sibling that makes this case) — so it is flagged despite having
   // an alternate, the walk double-invokes AT it, and a pure reorder
   // disconnects and reconnects its whole subtree's effects. This is the case
   // that makes "placed means new" false.
@@ -387,9 +396,11 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
   // ★★ DIRECTION MATTERS, and the obvious word for it is the wrong one. Same
   // list, same key, moved the OTHER way — index 1 to index 0. `sm`'s old
   // index is not below `lastPlacedIndex` (still 0 at its turn), so it is NOT
-  // flagged; `a`, which it jumped over, is. Four drafts of the header called
-  // the flagged case "moved BACKWARDS", which names exactly this shape — the
-  // one that does nothing.
+  // flagged; `a`, which it jumped over, is. ONE draft of the header called
+  // the flagged case "moved BACKWARDS" — three occurrences, all added by
+  // 8b727b20 — and that word names exactly this shape, the one that does
+  // nothing. (Reproduce: `git show <sha>:src/app/strictmode.meta.test.tsx |
+  // grep -ci backwards` across the branch is 0 everywhere else.)
   it("does NOT double-invoke when the keyed StrictMode moves to an EARLIER slot", () => {
     const { rerender } = render(<EarlierStrictList order={["a", "sm", "c"]} />);
     rerender(<EarlierStrictList order={["sm", "a", "c"]} />);
