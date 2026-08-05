@@ -114,7 +114,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
-| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, the same shape survives in `refreshBackendStatus`/`applyWorkspace` (surveyed, left); ★ near-zero production impact, the win is a job that stops lying |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace` alone; ★ near-zero production impact, the win is a job that stops lying |
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
 | 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★ the first pass closed only Fetch + Refresh and left `handleLoadManagedProjects` (a third hand-rolled copy of the contract) while claiming the class closed — found in review, now routed through `canLoadManagedProjects`; ★★ the BUTTON half was unpinned by any test until the same review |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §77 |
@@ -3456,14 +3456,32 @@ site of that contract is migrated, and the entry claimed completion while naming
 author happened to be looking at. Grep for the contract's SHAPE, not the two functions in the ticket.
 
 ★★★ **AND NOTHING PINNED THE BUTTON HALF.** The module's whole reason to exist is one contract, two
-call sites, cannot drift — but no test asserted either button was disabled while TimeLog is
-unconfigured. Every existing test in `timelog-panel.test.tsx` waits for a button to become ENABLED, so
-deleting `isMisconfigured` from a button's argument object (which makes it enable SOONER) stayed green.
-`timelog-panel.test.tsx` now asserts the DISABLED direction for Fetch and Load-managed-projects, with
-Load-managed-projects doubling as a positive control — that action has no precondition beyond the
-shared blockers, so the enabled case proves the disabled case is not vacuous. **Verified by mutation:
-setting `isMisconfigured: false` at both button call sites fails the new test and nothing else in the
-file** — which also confirms the gap was real rather than merely theoretical.
+call sites, cannot drift — but no test asserted any button was disabled while TimeLog is unconfigured.
+Every existing test in `timelog-panel.test.tsx` waits for a button to become ENABLED, so deleting
+`isMisconfigured` from a button's argument object (which makes it enable SOONER) stayed green.
+
+★★★ **ONE of the three button call sites is now pinned, NOT all three — and an earlier revision of this
+paragraph claimed otherwise.** It read "asserts the DISABLED direction for Fetch and
+Load-managed-projects … Verified by mutation: setting `isMisconfigured: false` at both button call
+sites fails the new test and nothing else in the file." That mutation was run and did fail — but it
+mutated BOTH sites at once, so the failure is fully explained by the Load-managed-projects assertion
+alone and says nothing about Fetch. **A mutation that changes two call sites cannot attribute the
+failure to either.** Mutate one site at a time.
+
+- **Load-managed-projects (`timelog-projects-table.tsx`) — genuinely pinned.** That action has no
+  precondition beyond the shared blockers, so the paired enabled-state test is a real positive control.
+- **Fetch (`timelog-panel-toolbar.tsx`) — NOT pinned, and cannot be from the DOM.** `canFetchBookings`
+  also requires a customer and ≥1 selected project, and in the unconfigured state those already hold,
+  so the button is disabled with or without the `isMisconfigured` term. ★★ It is not merely a weak
+  fixture: `timelog-panel.tsx` renders the project picker under `!isPopout && !isMisconfigured`, so
+  `selectedCount > 0` is UNREACHABLE while misconfigured. The term is defence-in-depth against a future
+  non-button caller, exactly like the handler guards, and is covered at the predicate level only.
+- **Refresh — no coverage in either direction.** Its button renders only under `fetchedAt &&`, which
+  neither new test seeds.
+
+★★ So the honest state is: 4 of 4 predicate ARMS are covered by `timelog-guards.test.ts`; 1 of 3
+WIRINGS is covered by the DOM tests. Those are different properties and the distinction is the whole
+point of the module.
 
 ★★ "Untestable by construction" was true of the HANDLER and got generalised to the whole fix. The
 handler path really is unreachable from the UI; the BUTTON path is DOM-reachable and cheap. Watch for
@@ -3491,9 +3509,12 @@ again — verified, not assumed.**
 - Both buttons carry the SAME `isMisconfigured` term the handlers now also carry. So in any scenario
   where `isMisconfigured` is true, the button is disabled, its `onClick` never fires, and the handler is
   never invoked. **The path "handler invoked while misconfigured" is structurally unreachable from this
-  DOM-driven suite** — the 58 passing tests (51 in `timelog-panel.test.tsx` + 7 in
-  `timelog-guards.test.ts`) confirm **no regression**; they pin **nothing** about the new
-  `isMisconfigured` term in either handler.
+  DOM-driven suite** — the passing tests in `timelog-panel.test.tsx` + `timelog-guards.test.ts` confirm
+  **no regression**; they pin **nothing** about the new `isMisconfigured` term in either handler.
+  (Reproduce the totals: `grep -cE '^\s+it\(' src/app/timelog-panel.test.tsx src/app/timelog-guards.test.ts`.
+  ★★ This sentence used to hardcode "58 passing tests (51 + 7)". Both components were stale within the
+  same branch — the commit closing the review findings added tests to BOTH files. A count written into
+  prose here decays faster than anyone re-reads it; the command does not.)
 
 ★★ **This is the same wall as §76 (and as §72's own re-set line):** the guard's only trigger is exactly
 the state that makes it unreachable through the normal surface. A test written today would either be
@@ -3583,18 +3604,36 @@ expected to fail broadly. The shuffle result is the informative one precisely be
 storage fix below drains exactly ONE of the file's six module-level mocks. `mockBackend` is a
 module-level const (`use-storage-backend.test.tsx:103`) that is never rebuilt, and eight further
 describes queue once-values on `mockBackend.load` / `isReady` / `describe` / `save` — 60 `Once(` calls
-across the file against 2 `mockReset()` calls — with no drain anywhere. Every one of them
-re-establishes its default with `.mockResolvedValue(...)`, which by this entry's own argument does not
-out-rank a queued once-value. ★ This is a LATENT hazard, not a known live leak: read statically each
+across the file against 2 `mockReset()` calls — with no drain anywhere. (★ 60 is the FILE-WIDE count;
+38 of those are on `mockBackend`, the other 22 on `createBackendMock`. ★ "one of six" is loose too: six
+is the number of `vi.mock()` factories, `createBackend` is one function inside the `./storage` one, and
+`mockBackend` is not a member of that set at all. The precise statement is: the drain covers
+`createBackend` and nothing else.)
+
+★★ **A first version of this paragraph claimed "Every one of them re-establishes its default with
+`.mockResolvedValue(...)`". That is false for FIVE of the eight** — `load effect`,
+`reloadCurrentProject`, `id-minter`, `Layer 3 wipe guard` and `Layer B` re-arm only `createBackend` in
+their `beforeEach` and otherwise rely on the declaration-time defaults at `use-storage-backend.test.tsx:103`.
+The conclusion survives (a standing default does not out-rank a queued once-value either) but the
+premise was checkable and wrong — and it makes the hazard slightly WORSE than stated, since in those
+five a leaked once-value goes straight into the next test's mount with nothing re-arming over it.
+
+★ This is a LATENT hazard, not a known live leak: read statically each
 queued value looks consumed by a mount or an explicit reload, and the suite passes shuffled at seeds
 1/2/3/7. But nothing structurally prevents the next test added to any of those describes from
 reopening the exact defect this entry closes. ★★ The comment in the test file states the general fact
 ("`clearAllMocks` does NOT drain a `mockReturnValueOnce` queue — only `mockReset` does") beside a
 remedy applied to one mock, which reads as though the general fact had been generally handled.
-★ The cheap structural close, if this ever bites: `mockReset: true` in `vitest.config.ts` — every
-`beforeEach` in the file already re-establishes its own defaults, so nothing depends on values
-surviving a test. Deliberately NOT done here: it changes mock lifetime for all 785 test files to fix a
-hazard that has never fired, which is a far larger blast radius than the defect.
+★★★ **DO NOT reach for `mockReset: true` in `vitest.config.ts` — an earlier revision of this entry
+recommended it as "the cheap structural close" and it is a SUITE-BREAKER.** The justification given
+("every `beforeEach` in the file already re-establishes its own defaults, so nothing depends on values
+surviving a test") is false: `mockBackend`'s methods are built as `vi.fn().mockResolvedValue(...)` at
+DECLARATION (`use-storage-backend.test.tsx:103`), the implementation is not an argument to `vi.fn()`,
+and the five describes named above depend on exactly that surviving. `mockReset` returns such a mock to
+a noop yielding `undefined`, so `load()` / `isReady()` / `describe()` would resolve `undefined`
+suite-wide. Recording an untried remedy as "cheap" is precisely the failure this register exists to
+prevent — a later reader adopts it on the entry's authority. Closing the class properly would first
+require moving those declaration-time defaults into every `beforeEach`.
 ★ Related and separate: the `project flows` describe sets a PERSISTENT `.mockReturnValue(targetBackend)`
 that survives `clearAllMocks` into later describes. Harmless today only because every subsequent
 describe re-arms `createBackend` in its own `beforeEach` — do not let anyone "simplify" one of those
@@ -3669,17 +3708,20 @@ parses as a YAML mapping rather than a plain string and GitLab rejects the job a
 that bug shipped in the first version of the job and was caught only by parsing the file with a YAML
 library and printing the parsed `script` array, not by eye.
 
-★ **Prerequisite met — and RE-MEASURED at the branch tip:** the full suite passes shuffled at seed 1,
-**785/785 files, 8971 tests, exit 0**. Reproduce:
-`npm run test:run -- --sequence.shuffle --sequence.seed=1 --reporter=dot`
+★ **Prerequisite met — and re-measured at the branch tip:** the full suite passes shuffled at seed 1,
+all files, exit 0. **Reproduce with `npm run test:shuffle`** (added in this slice — it pins the same
+seed CI's `unit-tests-shuffled` uses, so a red gate is reproducible locally in one command).
 
-★★★ **This line went stale TWICE on one branch, the second time within a single commit of being
-corrected.** The correction below was written reading `8966`; the very next commit added five tests to
-`timelog-guards.test.ts` and `timelog-panel.test.tsx`, making it `8971`, and it was caught only because
-the final gate sweep printed a number that disagreed with the prose. That is the whole lesson in one
-artifact: **a count in this file has a half-life measured in commits, and no gate reads it.** Put the
-reproduce command beside every count so the next reader can re-take it in one line instead of trusting
-it.
+★★★ **THE TEST TOTAL IS DELIBERATELY NOT WRITTEN HERE, because it went stale THREE TIMES on this one
+branch.** First `8959` (measured at the commit that added the job, invalidated by three later commits).
+Corrected to `8966` — already wrong on arrival, because the preceding commit had added five tests;
+caught only when the gate sweep printed `8971`. Corrected to `8971` — invalidated within the hour by
+the review-response commit that added three more. Each correction was made carefully, by someone who
+had just finished writing a paragraph about stale counts.
+★★ The lesson is NOT "be more careful": three careful attempts failed. It is that **a count of a thing
+the branch is actively changing cannot be maintained in prose at all.** Cite the reproduce command and
+let the reader run it. Where a number genuinely must be written down, it needs the command beside it
+AND a re-check in the final pre-push sweep — the same rule AGENTS.md gives for its own counts.
 
 ★★ The first version of this line read `784/784 files, 8959 tests`, and both numbers were honest when
 written — they were taken at `0a7356e9`, the commit that added the job. The branch then added
@@ -3728,9 +3770,12 @@ useEffect(() => () => { mountedRef.current = false; }, []);   // ← no `mounted
 plus an early return at :57`. Inserting the mount effect pushed 12 lines into one file and 9 into the
 other, above every cited site: `setReady` moved `:62`→`:74`, `setBusy` `:71`/`:80`/`:81`→`:83`/`:92`/
 `:93`, `setJobs` `:76`→`:70`/`:88`, the early return `:57`→`:69`, and guides' `setReady` `:92`→`:101`.
-Only the two `useRef` declarations still resolved. Every stale number pointed at a real line holding
-unrelated code — a comment, a `} catch {`, a `}, []);` — so nothing looked broken. **Cite the SYMBOL,
-not the line, for anything in the file the commit is editing.** This is the third recorded instance of
+Only the two `useRef` declarations still resolved. Most stale numbers pointed at a real line holding
+unrelated code — a comment, a `} catch {`, a `}, []);` — so nothing looked broken. ★★ Two did NOT, and
+they are the more dangerous kind: old `:62` now holds `mountedRef.current = true` (the line the FIX
+added — the most related line in the file, so the citation reads as freshly correct) and old `:81`
+holds `const mutate = useCallback(`. A stale citation that lands on plausible code is unfalsifiable by
+skim. **Cite the SYMBOL, not the line, for anything in the file the commit is editing.** This is the third recorded instance of
 a `file:line` being invalidated by the very commit that wrote it.
 
 ★★ **Consequence is dev-only and TOTAL.** Next 16 defaults `reactStrictMode: true`, so every dev mount
@@ -3850,6 +3895,21 @@ this open: not a broken test, an unguarded fix.
 ★ Do NOT close this by writing a StrictMode test that passes. A test that passes against a suite where
 StrictMode is inert proves nothing — first prove the double-invocation happens (assert an effect body
 runs twice), THEN write the guard test.
+
+★★★ **A HYPOTHESIS RANKED ABOVE "production React", raised in review: a MEASUREMENT ARTEFACT.** If the
+mount/unmount log lived in per-instance state or in a ref created INSIDE the hook, then StrictMode's
+remount hands the observer a FRESH log — so `["mount"]` is what you see whether or not the double
+invocation happened. The log has to be module- or test-scope for the measurement to mean anything.
+This costs nothing to rule out and would invalidate the entire premise, so check it FIRST.
+
+★★ **The instrument is not in the tree.** The only trace of the `["mount"]` measurement is a comment;
+the probe itself was deleted, so the next reader cannot re-take it and has to trust prose — the same
+shape as the stale counts this file keeps correcting. Whoever picks this up should commit the probe
+(or paste it here verbatim) rather than re-deriving it.
+
+★ Also NOT checked, and cheap: assert directly that the DEVELOPMENT React build is what resolves under
+vitest (e.g. that a dev-only `console.error` warning fires). The reasoning above is an inference chain
+from config, not an observation.
 
 ---
 

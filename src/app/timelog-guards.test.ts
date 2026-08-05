@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
+import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
 
 const loadOk = {
   isPopout: false,
@@ -63,6 +63,37 @@ describe("canFetchBookings", () => {
   it("blocks the fetch with no customer or no selected projects", () => {
     expect(canFetchBookings({ ...fetchOk, projectCustomerId: "" })).toBe(false);
     expect(canFetchBookings({ ...fetchOk, selectedCount: 0 })).toBe(false);
+  });
+});
+
+describe("canClearAllFetched", () => {
+  const clearOk = { isPopout: false, syncBusy: false, confirming: false, hasFetched: true };
+
+  it("allows the clear when something has been fetched and nothing blocks it", () => {
+    expect(canClearAllFetched(clearOk)).toBe(true);
+  });
+
+  it("blocks the clear with nothing fetched, in a popout, while busy, and while confirming", () => {
+    expect(canClearAllFetched({ ...clearOk, hasFetched: false })).toBe(false);
+    expect(canClearAllFetched({ ...clearOk, isPopout: true })).toBe(false);
+    expect(canClearAllFetched({ ...clearOk, syncBusy: true })).toBe(false);
+    expect(canClearAllFetched({ ...clearOk, confirming: true })).toBe(false);
+  });
+
+  // ★★★ The deliberate omission. Clearing is the only action that does not
+  //     reach the network — it forgets local data the user already has — so a
+  //     broken TimeLog config must NOT trap the user with stale bookings they
+  //     can neither refresh nor remove. Every other action gains
+  //     `isMisconfigured`; this one must not.
+  //     ★ A `@ts-expect-error` on an extra `isMisconfigured` property was tried
+  //       here and REMOVED as unsound: excess-property checking does not fire
+  //       through a spread, so the directive was unused and `tsc` failed with
+  //       TS2578 — the "type enforces it" claim was false. The real guarantee is
+  //       that `canClearAllFetched` never reads such a field, which this asserts
+  //       behaviourally instead.
+  it("ignores TimeLog config state entirely — a misconfigured TimeLog can still clear", () => {
+    const withExtra = { ...clearOk, isMisconfigured: true } as typeof clearOk;
+    expect(canClearAllFetched(withExtra)).toBe(true);
   });
 });
 

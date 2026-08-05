@@ -10,7 +10,7 @@ import { t, type Lang } from "./i18n";
 import { TimelogCustomerScope } from "./timelog-customer-scope";
 import { INTERACTIVE } from "./interaction-styles";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { canFetchBookings, canRefreshBookings } from "./timelog-guards";
+import { canClearAllFetched, canFetchBookings, canRefreshBookings } from "./timelog-guards";
 
 interface TimelogToolbarProps {
   lang: Lang;
@@ -72,7 +72,7 @@ export function TimelogToolbar({
         />
         <button
           type="button"
-          disabled={syncBusy || isPopout || !fetchedAt || confirming}
+          disabled={!canClearAllFetched({ isPopout, syncBusy, confirming, hasFetched: !!fetchedAt })}
           onClick={onClearAll}
           className={`rounded-md border border-ui-pink/50 bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:opacity-50 ${INTERACTIVE}`}
         >

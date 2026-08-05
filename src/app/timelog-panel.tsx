@@ -35,7 +35,7 @@ import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
-import { canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
+import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -160,9 +160,11 @@ export function TimelogPanel({
   }
 
   async function clearAllFetched() {
-    // `confirming` mirrors the button's disabled state (the disabled+early-return
-    // convention used for isPopout) so an open confirm keeps its snapshot.
-    if (isPopout || confirming) return;
+    // ★★ SAME predicate the Clear-all button's `disabled` evaluates. This guard
+    //    previously mirrored exactly ONE arm of that expression (`confirming`)
+    //    and omitted `syncBusy` and `!fetchedAt` (open-followups §74).
+    //    `isMisconfigured` is deliberately absent here — see timelog-guards.ts.
+    if (!canClearAllFetched({ isPopout, syncBusy: sync.busy, confirming, hasFetched: !!sync.fetchedAt })) return;
     if (!(await confirm({ message: t(lang, "timelogClearAllConfirm") }))) return;
     sync.clearAll();
     sel.clear();
