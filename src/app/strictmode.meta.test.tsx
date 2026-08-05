@@ -9,23 +9,36 @@
 // StrictMode.
 //
 // Those guards are only meaningful while StrictMode actually double-invokes
-// HERE. If this file goes red they have become vacuous — fix it before
-// trusting them. open-followups §85 has the history: a real observation (a
-// child mounted under a wrapper-nested StrictMode IS single-invoked) was read
-// as "unpinnable", and all three re-sets shipped with nothing pinning them.
+// HERE. If the POSITIVE cases below go red they have become vacuous — fix
+// that before trusting them. (A red NEGATIVE case means the opposite: React
+// started double-invoking a shape it used to skip. Also worth knowing, but it
+// cannot make a guard vacuous — see the note on the first negative test.)
+// open-followups §85 has the history: a real observation (a child mounted
+// under a wrapper-nested StrictMode IS single-invoked) was read as
+// "unpinnable", and all three re-sets shipped with nothing pinning them. ★ Of
+// those three, only use-storage-backend was MEASURED deletable-while-green;
+// for the other two it follows from their having had no StrictMode test at
+// all, and was never separately run.
 //
 // ★★★ THE RULE IS ABOUT THE PLACEMENT FLAG. Everything else here is a
-// COROLLARY, and both earlier attempts to state this went wrong by promoting
-// one corollary into the rule.
+// COROLLARY, and all three earlier attempts to state this went wrong by
+// promoting one corollary into the rule.
 //
-//   React's walk descends each branch until it meets a fiber FLAGGED FOR
-//   PLACEMENT, double-invokes there if StrictMode is at or above that fiber,
-//   and never recurses past it either way.
+//   `recursivelyTraverseAndDoubleInvokeEffectsInDEV` descends each branch
+//   until it meets a fiber FLAGGED FOR PLACEMENT, double-invokes there if
+//   StrictMode is at or above that fiber, and never recurses past it either
+//   way. (It also descends only while the ancestor's `subtreeFlags` still
+//   carries the bit.)
 //
 // Two things carry that flag (`placeChild` / `placeSingleChild`): a BRAND-NEW
-// fiber (`alternate === null`), and an existing KEYED child that MOVED
-// BACKWARDS in a list (`alternate.index < lastPlacedIndex`). **"Placed" does
-// not mean "new"** — the sentence both earlier wordings were built on.
+// fiber (`alternate === null`), and an existing KEYED child that MOVED — and
+// "moved" has a direction. The test is `alternate.index < lastPlacedIndex`,
+// where `lastPlacedIndex` is the highest previous index among siblings
+// already kept in place, scanning the new list left to right. So the flagged
+// child is one that now sits AFTER a sibling it used to sit before. ★★ A
+// child moved to an EARLIER slot is NOT flagged — the siblings it jumped over
+// are. Measured both ways; see the reorder tests. **"Placed" does not mean
+// "new"** — the sentence the third wording was built on.
 //
 // COROLLARY 1 — the mount commit. On the commit that FIRST mounts a tree the
 // only placed fibers are the root's direct children, so StrictMode
@@ -53,10 +66,15 @@
 //
 // ★ ONE EXCEPTION IS STATED BUT NOT PINNED, deliberately marked so: an
 // OffscreenComponent (`fiber.tag === 22`, created for a `<Suspense>`
-// boundary's children) is special-cased — a PLACED one does not stop the
-// walk, a HIDDEN one (`memoizedState !== null`) is skipped entirely. Read
-// from source, NOT measured; nothing here renders StrictMode inside Suspense.
+// boundary's children AND for `<Activity>`'s — `<Activity>` itself is tag 31,
+// so a placed one stops the walk like any other fiber) is special-cased — a
+// PLACED Offscreen does not stop the walk, a HIDDEN one
+// (`memoizedState !== null`) is skipped entirely. Read from source, NOT
+// measured; nothing here renders StrictMode inside Suspense or `<Activity>`.
 // A lead, not a fact.
+//
+// ★ Which corollary governs the three guards: all of them mount once and
+// never re-mount or reorder a child, so it is COROLLARY 1.
 //
 // Everything else above is a test below rather than a remembered measurement
 // — prose whose instrument was thrown away is what produced §85. Module-scope
@@ -78,6 +96,8 @@ const firstCommitLog: string[] = [];
 const movedStrictLog: string[] = [];
 const movedWrapperLog: string[] = [];
 const staticWrapperLog: string[] = [];
+const earlierStrictLog: string[] = [];
+const movedPlainLog: string[] = [];
 const siblingLog: string[] = [];
 const loneFragmentLog: string[] = [];
 const nestedFragmentLog: string[] = [];
@@ -123,8 +143,8 @@ function FirstCommitHost() {
   );
 }
 
-// `<StrictMode>` as a KEYED list child. Reordering it backwards makes React
-// flag it for placement even though it is not new.
+// `<StrictMode>` as a KEYED list child. Moving it to sit AFTER a sibling it
+// used to precede makes React flag it for placement even though it is not new.
 function MovedStrictList({ order }: { order: readonly string[] }) {
   return (
     <div>
@@ -133,6 +153,40 @@ function MovedStrictList({ order }: { order: readonly string[] }) {
           <StrictMode key="sm">
             <LogProbe log={movedStrictLog} />
           </StrictMode>
+        ) : (
+          <div key={k}>{k}</div>
+        ),
+      )}
+    </div>
+  );
+}
+
+// The same list moved the OTHER way, to an EARLIER slot.
+function EarlierStrictList({ order }: { order: readonly string[] }) {
+  return (
+    <div>
+      {order.map((k) =>
+        k === "sm" ? (
+          <StrictMode key="sm">
+            <LogProbe log={earlierStrictLog} />
+          </StrictMode>
+        ) : (
+          <div key={k}>{k}</div>
+        ),
+      )}
+    </div>
+  );
+}
+
+// The same move with NO StrictMode anywhere — the reorder test's control.
+function MovedPlainList({ order }: { order: readonly string[] }) {
+  return (
+    <div>
+      {order.map((k) =>
+        k === "p" ? (
+          <div key="p">
+            <LogProbe log={movedPlainLog} />
+          </div>
         ) : (
           <div key={k}>{k}</div>
         ),
@@ -240,8 +294,9 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     expect(hookLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
-  // Corollary 1 (see the header for the rule and the mechanism — this is the
-  // only place the walk is described, deliberately). This pins CURRENT React
+  // Corollary 1 (see the header for the rule and the mechanism — within this
+  // file that is the only place the walk is described; §85 also carries it in
+  // full). This pins CURRENT React
   // behaviour, not a guarantee React owes us: if a future version
   // double-invokes this shape on the mount commit too, the test goes red, and
   // that is a GOOD failure — it means the rule changed and every guard built
@@ -284,8 +339,8 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
     expect(strictOptionLog).toEqual(["mount", "cleanup", "mount"]);
   });
 
-  // ★★★ COROLLARY 2, and the half both earlier wordings of this file's
-  // header got wrong by omission. The nesting in the two negative tests
+  // ★★★ COROLLARY 2, and the half the OUTERMOST and branch-scoped wordings
+  // got wrong by omission (the third, mount-commit wording introduced it). The nesting in the two negative tests
   // above is NOT what makes StrictMode inert — which fiber is FLAGGED FOR
   // PLACEMENT is. Here the wrapper `<div>` and the `<StrictMode>` both
   // already exist when the child mounts, so neither is placed; the walk
@@ -317,15 +372,38 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
   });
 
   // COROLLARY 3: no new child is needed at all. `<StrictMode>` is a keyed
-  // child here; moving it backwards flags it for placement despite having an
-  // alternate, so the walk double-invokes AT it and its subtree's effects are
-  // disconnected and reconnected by a pure reorder. This is the case that
-  // makes "placed means new" false.
+  // child here, moved from index 1 to index 2 — i.e. it now sits AFTER `a`,
+  // which it used to precede — so it is flagged for placement despite having
+  // an alternate, the walk double-invokes AT it, and a pure reorder
+  // disconnects and reconnects its whole subtree's effects. This is the case
+  // that makes "placed means new" false.
   it("double-invokes on a pure REORDER when StrictMode itself is a keyed child that moves", () => {
     const { rerender } = render(<MovedStrictList order={["a", "sm", "c"]} />);
     expect(movedStrictLog).toEqual(["mount"]);
     rerender(<MovedStrictList order={["c", "a", "sm"]} />);
     expect(movedStrictLog).toEqual(["mount", "cleanup", "mount"]);
+  });
+
+  // ★★ DIRECTION MATTERS, and the obvious word for it is the wrong one. Same
+  // list, same key, moved the OTHER way — index 1 to index 0. `sm`'s old
+  // index is not below `lastPlacedIndex` (still 0 at its turn), so it is NOT
+  // flagged; `a`, which it jumped over, is. Four drafts of the header called
+  // the flagged case "moved BACKWARDS", which names exactly this shape — the
+  // one that does nothing.
+  it("does NOT double-invoke when the keyed StrictMode moves to an EARLIER slot", () => {
+    const { rerender } = render(<EarlierStrictList order={["a", "sm", "c"]} />);
+    rerender(<EarlierStrictList order={["sm", "a", "c"]} />);
+    expect(earlierStrictLog).toEqual(["mount"]);
+  });
+
+  // COROLLARY 3's control: the same move, with no StrictMode anywhere. Without
+  // it, the reorder test above cannot rule out "a keyed move re-runs a
+  // subtree's effects regardless of StrictMode" — the same discrimination bar
+  // the pair below is built to clear.
+  it("does NOT double-invoke on that same reorder when no StrictMode is involved", () => {
+    const { rerender } = render(<MovedPlainList order={["a", "p", "c"]} />);
+    rerender(<MovedPlainList order={["c", "a", "p"]} />);
+    expect(movedPlainLog).toEqual(["mount"]);
   });
 
   // The limit of COROLLARY 2, as a PAIR. "A later commit recurses through the
@@ -349,8 +427,8 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
 
   // The rule is per-BRANCH: a sibling occupying the root's first slot does
   // not push StrictMode out of position. Pinned because the header says so,
-  // and because "outermost" — the wording this file carried until
-  // 2026-08-05 — would predict the opposite.
+  // and because "outermost" — the wording this file carried through its first
+  // several commits — would predict the opposite.
   it("double-invokes when StrictMode is the root's SECOND child", () => {
     render(
       <>

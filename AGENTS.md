@@ -142,13 +142,12 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # source of §85's "StrictMode single-invokes here" (the 2026-08-04 run's shape
                             # was never recovered) and was measured vacuous for `use-storage-backend`; the
                             # other two `mountedRef` re-sets simply shipped with no StrictMode test at all.
-                            # ★★ "Placed" is NOT "new" and the rule is NOT about the mount commit: a keyed
-                            # child that MOVES BACKWARDS is placed too, so a pure REORDER double-invokes a
-                            # moved `<StrictMode>`'s whole subtree, while a moved WRAPPER stops the walk
-                            # before a StrictMode nested under it. Two earlier wordings of this rule shipped
-                            # over-general, each measured at one shape and written as if it held at all of
-                            # them. Every edge is pinned in `src/app/strictmode.meta.test.tsx`; read it
-                            # rather than this summary, and mutation-test any new StrictMode guard.
+                            # ★★ That is the MOUNT case only, and it is a corollary — the rule turns on
+                            # which fiber carries the PLACEMENT flag, which a keyed reorder also sets. Three
+                            # successive wordings of it shipped over-general, each measured at one shape and
+                            # written as if it held everywhere, so do NOT extend this summary by reasoning:
+                            # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every
+                            # edge. Read it before writing a StrictMode test, and mutation-test the guard.
 npm run test:shuffle        # vitest at the SAME pinned seed CI's unit-tests-shuffled uses (BLOCKING).
                             # ★ Run this before pushing anything that adds or reorders tests — it is
                             # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare

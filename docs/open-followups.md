@@ -4104,8 +4104,8 @@ full — this one for the reader working out what was retracted and why, the tes
 about to write a StrictMode guard. If they ever disagree, **the meta-test is right**: it is executable
 and this is not. AGENTS.md carries a summary of the same rule and is normative for nothing.
 
-★★★ **THE RULE IS ABOUT THE PLACEMENT FLAG.** Everything else is a COROLLARY, and both earlier attempts
-to state this went wrong by promoting one corollary into the rule. Cited by symbol because a
+★★★ **THE RULE IS ABOUT THE PLACEMENT FLAG.** Everything else is a COROLLARY, and all three earlier
+attempts to state this went wrong by promoting one corollary into the rule. Cited by symbol because a
 `node_modules` line number rots on the next install: `recursivelyTraverseAndDoubleInvokeEffectsInDEV`
 (react-dom development build) descends each branch to the topmost fiber **flagged for placement**,
 double-invokes there only if StrictMode is AT OR ABOVE that fiber — the fiber's own type counts, which
@@ -4113,9 +4113,14 @@ is what makes `wrapper: StrictMode` work — and never recurses PAST it either w
 below is never reached.
 
 **Two things carry that flag** (`placeChild`, and `placeSingleChild` for a single child): a BRAND-NEW
-fiber (`alternate === null`), and an existing KEYED child that MOVED BACKWARDS in a list
-(`alternate.index < lastPlacedIndex`). **"Placed" does not mean "new"** — the sentence both earlier
-wordings were built on.
+fiber (`alternate === null`), and an existing KEYED child that MOVED — with a direction. The test is
+`alternate.index < lastPlacedIndex`, where `lastPlacedIndex` is the highest previous index among
+siblings already kept in place while scanning the new list left to right, so the flagged child is one
+that now sits **AFTER a sibling it used to sit before**. ★★ A child moved to an EARLIER slot is NOT
+flagged — the siblings it jumped over are. Measured both ways (an earlier-slot move of a keyed
+`<StrictMode>` yields `["mount"]`), and "moved backwards" — the obvious phrase, and the one the fourth
+draft used — names exactly the case that does nothing. **"Placed" does not mean "new"** — the sentence
+the THIRD wording was built on.
 
 **Corollary 1 — the mount commit.** On the commit that FIRST mounts a tree the only placed fibers are
 the root's direct children, so StrictMode double-invokes only when nothing — no component, no host
@@ -4151,15 +4156,27 @@ nested inside it does. ★ Every guard in this repo mounts once and never re-mou
 so Corollary 1 is the one that governs them.
 
 ★ **One exception is stated but NOT pinned**, and is marked so deliberately: an OffscreenComponent
-(`fiber.tag === 22`, created for a `<Suspense>` boundary's children) is special-cased — a PLACED one
-does not stop the walk, and a HIDDEN one (`memoizedState !== null`) is skipped entirely. Read from
-source, not measured; nothing in this repo renders StrictMode inside Suspense. A lead, not a fact.
+(`fiber.tag === 22`, created for a `<Suspense>` boundary's children **and for `<Activity>`'s** —
+`<Activity>` itself is tag 31, so a placed one stops the walk like any other fiber) is special-cased —
+a PLACED Offscreen does not stop the walk, and a HIDDEN one (`memoizedState !== null`) is skipped
+entirely. Read from source, not measured; nothing in this repo renders StrictMode inside Suspense or
+`<Activity>`. A lead, not a fact.
 
-★★ Both earlier corrections were measured at ONE shape and written as if they held at all of them —
-`outermost` (wrong: siblings), then branch-scoped-with-no-commit-qualifier (wrong: later commits, and
-wrong again about what "placed" means). Reproduce that history with
-`git log -p --follow -- src/app/strictmode.meta.test.tsx | grep "THE SHAPE RULE\|THE RULE IS"`. That is
-why every clause above is now a test rather than a sentence.
+★★ **Every wording of this rule was measured at ONE shape and written as if it held at all of them.**
+Four drafts, three of them wrong, each refuted by the next:
+
+| # | wording | refuted by |
+|---|---|---|
+| 1 | StrictMode must be the OUTERMOST element under the root | a sibling branch — StrictMode can be the root's second child |
+| 2 | nothing may sit between the root and it on its own branch | later commits — an existing wrapper is not placed, so the walk goes through it |
+| 3 | it is a rule about the mount COMMIT; a fiber is placed only while BRAND NEW | keyed moves — a moved child is placed without being new |
+| 4 | the placement flag (current) | — but its first draft said "moved BACKWARDS", which is the direction that is NOT flagged |
+
+Reproduce with `git log -p --follow -- src/app/strictmode.meta.test.tsx | grep "THE SHAPE RULE\|THE RULE IS"`
+— it emits one `+` line per draft, so the count is checkable rather than remembered. ★ Note #3 is the
+one an earlier version of this paragraph left out of its own count, while folding #3's error into #2's
+row; that is how a wrong count survives a proofread. That is why every clause above is now a test
+rather than a sentence.
 
 ★★★ **The standing instrument is `src/app/strictmode.meta.test.tsx`** — a meta-test asserting a
 property of the HARNESS, not of the app. It covers a plain component render, both safe `renderHook`
