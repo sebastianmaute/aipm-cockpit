@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   runTool,
   TOOL_DEFS,
+  CALENDAR_SUMMARY_KEYS,
   toKnowledgeSummary,
   toCalendarEventSummary,
   toBudgetBucketSummary,
@@ -870,7 +871,7 @@ describe("read-tool summary mappers", () => {
       kind: "file",
       linkKind: "confluence",
       taskIds: [5],
-    } as never);
+    });
     expect(summary).toEqual({
       id: "dl-1",
       name: "Charter",
@@ -886,7 +887,7 @@ describe("read-tool summary mappers", () => {
       name: "Spec",
       url: "https://example.com/spec",
       kind: "file",
-    } as never);
+    });
     expect(summary.linkKind).toBe("document");
     expect(summary.taskIds).toEqual([]);
   });
@@ -899,9 +900,15 @@ describe("read-tool summary mappers", () => {
       startTime: "09:00",
       durationMinutes: 30,
       recurrence: { freq: "weekly", interval: 1 },
-    } as never);
+    });
     expect(summary.recurrence).toEqual({ freq: "weekly", interval: 1 });
-    expect(Array.isArray((summary as Record<string, unknown>).occurrences)).toBe(false);
+    // ★★ Assert NO key outside the summary's own contract, rather than probing
+    // for a field named `occurrences`. `occurrences` has never existed on this
+    // type, so `Array.isArray(summary.occurrences)` was `Array.isArray(undefined)`
+    // — false unconditionally, green even if the mapper expanded the series into
+    // a field called anything else. This catches an expansion under ANY name.
+    const ALLOWED_KEYS = new Set<string>(CALENDAR_SUMMARY_KEYS);
+    expect(Object.keys(summary).filter((k) => !ALLOWED_KEYS.has(k))).toEqual([]);
     expect(summary.attendeeResourceIds).toEqual([]);
     expect(summary.exceptions).toEqual([]);
   });
@@ -918,7 +925,7 @@ describe("read-tool summary mappers", () => {
         { date: "2026-02-09", kind: "skip" },
         { date: "2026-02-16", kind: "move", toDate: "2026-02-17", toTime: "10:00" },
       ],
-    } as never);
+    });
     expect(summary.exceptions).toEqual([
       { date: "2026-02-09", kind: "skip" },
       { date: "2026-02-16", kind: "move", toDate: "2026-02-17", toTime: "10:00" },
@@ -926,16 +933,22 @@ describe("read-tool summary mappers", () => {
   });
 
   it("maps a budget bucket to id, name and its per-role budget hours", () => {
+    // No `as never`: a complete, REAL BudgetBucket. The cast disabled all
+    // structural checking, so a fixture drifting from the type (a renamed key,
+    // a newly-required field) would only surface as a runtime assertion, if at
+    // all. Typed properly, tsc catches the drift.
     const summary = toBudgetBucketSummary({
       id: 3,
       name: "Delivery",
+      type: "tm",
+      currency: "EUR",
       status: "open",
       startDate: "2026-01-01",
       endDate: "2026-12-31",
       allocations: [
         { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} },
       ],
-    } as never);
+    });
     expect(summary.id).toBe(3);
     expect(summary.name).toBe("Delivery");
     expect(summary.allocations).toEqual([{ roleId: 2, budgetHours: { "2026-01": 40 } }]);

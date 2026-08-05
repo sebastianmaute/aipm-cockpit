@@ -10,6 +10,7 @@ import {
   type Resource,
   type TaskDependency,
   type BudgetBucket,
+  type BucketStatus,
 } from "./types";
 import type { Lang } from "./i18n";
 import { type DepRejection } from "./task-dependency-write";
@@ -198,6 +199,16 @@ export type KnowledgeSummary = {
   taskIds: number[];
 };
 
+/** The complete key set of `CalendarEventSummary`, exported so the two tests
+ *  asserting "no key outside the contract" share ONE list instead of a copy
+ *  each. ★ It is still a hand-copy OF THE TYPE — `CALENDAR_SUMMARY_KEYS_MATCH`
+ *  below is what actually binds them, so adding a field to the type without
+ *  adding it here is a tsc error rather than a silently weakened test. */
+export const CALENDAR_SUMMARY_KEYS = [
+  "id", "title", "startDate", "startTime", "durationMinutes",
+  "location", "notes", "attendeeResourceIds", "recurrence", "exceptions",
+] as const;
+
 /** The event's series definition, never expanded into individual occurrences
  *  (`recurrence`/`exceptions` are the model's own rule to compute from — an
  *  `exceptions` entry overrides the rule for its `date`: `kind: "skip"` drops
@@ -217,6 +228,17 @@ export type CalendarEventSummary = {
   exceptions: EventException[];
 };
 
+/** ★★ COMPILE-TIME BINDING between the type above and the key list above it,
+ *  in BOTH directions. Without it the list is prose: add a field to the type
+ *  and the "no key outside the contract" tests keep passing while silently
+ *  ignoring it. The `[T] extends [U]` form is deliberate — a bare
+ *  `T extends U` distributes over the union and collapses to `boolean`, which
+ *  `true` is assignable to, making the whole check vacuous. */
+export const CALENDAR_SUMMARY_KEYS_MATCH: [
+  [keyof CalendarEventSummary] extends [(typeof CALENDAR_SUMMARY_KEYS)[number]] ? true : false,
+  [(typeof CALENDAR_SUMMARY_KEYS)[number]] extends [keyof CalendarEventSummary] ? true : false,
+] = [true, true];
+
 /** One role line's PLANNED (budget) hours by period within a bucket. */
 export type BudgetBucketAllocationSummary = {
   roleId: number;
@@ -230,7 +252,11 @@ export type BudgetBucketAllocationSummary = {
 export type BudgetBucketSummary = {
   id: number;
   name: string;
-  status: string;
+  /** The real union, not a widened `string` — a bucket is open or closed, and
+   *  keeping it exhaustive means a typo is a compile error rather than
+   *  something the model has to interpret. (The older RaidSummary /
+   *  ChangeSummary above widen theirs; that is legacy, not the pattern.) */
+  status: BucketStatus;
   startDate: string;
   endDate: string;
   allocations: BudgetBucketAllocationSummary[];
