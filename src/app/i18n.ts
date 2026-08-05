@@ -2227,6 +2227,12 @@ const enUS = {
   showViewHintsHint: "Show helpful tips: the tip-of-the-day card on the dashboard and a short explainer atop each working view, with a link to the matching Help topic.",
   viewHintsShown: "Shown",
   viewHintsHidden: "Hidden",
+  helpReadingLevelLabel: "Help detail",
+  helpReadingLevelHint:
+    "How much the Help pages explain. Guided adds a plain-language primer to every concept. Expert puts the feature reference first and drops the primers. Standard sits between the two.",
+  helpReadingLevelGuided: "Guided",
+  helpReadingLevelStandard: "Standard",
+  helpReadingLevelExpert: "Expert",
   showFieldConfigLabel: "Field configuration",
   showFieldConfigHint: "Show the Simple/Advanced/Full field switch and the per-field cog in the edit dialogs.",
   showSavedViewsLabel: "Saved views",

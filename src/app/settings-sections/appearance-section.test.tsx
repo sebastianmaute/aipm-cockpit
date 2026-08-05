@@ -65,6 +65,32 @@ describe("AppearanceSection density control", () => {
   });
 });
 
+describe("AppearanceSection help reading level", () => {
+  it("renders all three levels", () => {
+    renderSection();
+    expect(screen.getByRole("radiogroup", { name: t("en-US", "helpReadingLevelLabel") })).toBeInTheDocument();
+    for (const key of ["helpReadingLevelGuided", "helpReadingLevelStandard", "helpReadingLevelExpert"] as const) {
+      expect(screen.getByRole("radio", { name: t("en-US", key) })).toBeInTheDocument();
+    }
+  });
+
+  it("marks Standard selected by default", () => {
+    renderSection();
+    expect(screen.getByRole("radio", { name: t("en-US", "helpReadingLevelStandard") })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("calls onChange with the picked level", () => {
+    const { onChange } = renderSection();
+    fireEvent.click(screen.getByRole("radio", { name: t("en-US", "helpReadingLevelGuided") }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ helpReadingLevel: "guided" }));
+  });
+
+  it("reflects a stored expert preference", () => {
+    renderSection({ helpReadingLevel: "expert" });
+    expect(screen.getByRole("radio", { name: t("en-US", "helpReadingLevelExpert") })).toHaveAttribute("aria-checked", "true");
+  });
+});
+
 describe("AppearanceSection scheme control", () => {
   it("renders the scheme selector with the canonical built-ins (no AIPM/Mockup by default)", () => {
     renderSection();

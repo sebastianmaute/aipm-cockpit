@@ -2212,6 +2212,12 @@ export const de: Record<TranslationKey, string> = {
   showViewHintsHint: "Zeigt hilfreiche Tipps: die Tipp-des-Tages-Karte auf dem Dashboard und über jeder Arbeitsansicht eine kurze Erklärung mit Link zum passenden Hilfethema.",
   viewHintsShown: "Eingeblendet",
   viewHintsHidden: "Ausgeblendet",
+  helpReadingLevelLabel: "Hilfe-Ausführlichkeit",
+  helpReadingLevelHint:
+    "Wie ausführlich die Hilfeseiten erklären. Geführt stellt jedem Fachbegriff eine allgemeinverständliche Einführung voran. Erfahren zeigt zuerst die Funktionsreferenz und lässt die Einführungen weg. Standard liegt dazwischen.",
+  helpReadingLevelGuided: "Geführt",
+  helpReadingLevelStandard: "Standard",
+  helpReadingLevelExpert: "Erfahren",
   showFieldConfigLabel: "Feldkonfiguration",
   showFieldConfigHint: "Zeigt den Umschalter Einfach/Erweitert/Vollständig und das Feld-Zahnrad in den Bearbeitungsdialogen.",
   showSavedViewsLabel: "Gespeicherte Ansichten",

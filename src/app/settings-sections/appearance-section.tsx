@@ -4,6 +4,7 @@ import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { SegmentedControl } from "../segmented-control";
 import type { DashboardDensity } from "../dashboard-density";
+import type { HelpReadingLevel } from "../help-content";
 import { type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN } from "../settings-types";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
@@ -188,6 +189,28 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
             { value: "hidden", label: t(lang, "viewHintsHidden") },
           ]}
           onChange={(v) => onChange({ ...settings, showViewHints: v === "shown" })}
+        />
+      </div>
+
+      {/* ★ Sits beside showViewHints because both govern how much the app
+        * explains itself — but this one is DEVICE-ONLY by design and has no
+        * per-project override, unlike its three neighbours here. See the field
+        * comment in settings-types.ts. */}
+      <div className="mb-4">
+        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "helpReadingLevelLabel")}
+          <InfoTooltip text={t(lang, "helpReadingLevelHint")} />
+        </span>
+        <SegmentedControl<HelpReadingLevel>
+          value={settings.helpReadingLevel ?? "standard"}
+          ariaLabel={t(lang, "helpReadingLevelLabel")}
+          className="w-full"
+          options={[
+            { value: "guided", label: t(lang, "helpReadingLevelGuided") },
+            { value: "standard", label: t(lang, "helpReadingLevelStandard") },
+            { value: "expert", label: t(lang, "helpReadingLevelExpert") },
+          ]}
+          onChange={(v) => onChange({ ...settings, helpReadingLevel: v })}
         />
       </div>
 

@@ -5,6 +5,9 @@ import type { StakeholderQuadrant } from "./stakeholders";
 import type { FeatureModuleId } from "./feature-modules";
 import { ALL_MODULE_IDS } from "./feature-modules";
 import type { Lang } from "./i18n";
+// Type-only: erased at compile time, so this does NOT create a runtime cycle
+// with help-content.ts (which has runtime exports of its own).
+import type { HelpReadingLevel } from "./help-content";
 import type { SnapshotCadence } from "./snapshot";
 import type { ProjectTemplate } from "./templates";
 import {
@@ -595,6 +598,18 @@ export type Settings = {
   /** Per-device: show the contextual per-view Help callouts. Default ON
    *  (read as `!== false`); individual callouts can also be dismissed per-view. */
   showViewHints?: boolean;
+  /** Per-device: how much teaching the Help surfaces do. Guided adds a plain-
+   *  language primer to every concept entry; Expert reorders the groups
+   *  reference-first; Standard (the default) is the historical behaviour.
+   *  ★★ DELIBERATELY device-only, unlike every other field in Settings →
+   *  Appearance (`dashboardDensity`/`showViewHints`/`tasksViewMode`), which are
+   *  all per-project overridable via `ProjectAppearancePref`. Reading level is a
+   *  property of the READER, not the project — the same person wants the same
+   *  depth everywhere. Its absence from `ProjectAppearancePref`, `sanitizePref`,
+   *  `prefsEqual` and `resolveEffectiveSettings` is the design, not an
+   *  oversight; because it is device-only the device value IS the effective
+   *  value and the resolver never has to see it. */
+  helpReadingLevel?: HelpReadingLevel;
   /** Per-device: show the edit-modal field-config controls (the Simple/Advanced/
    *  Full tier switch + the per-field cog). Default ON (read as `!== false`). */
   showFieldConfig?: boolean;
@@ -664,6 +679,7 @@ export const defaultSettings: Settings = {
   digest: { enabled: false, cadenceDays: 7 },
   dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,
+  helpReadingLevel: "standard",
   showFieldConfig: true,
   showSavedViews: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
