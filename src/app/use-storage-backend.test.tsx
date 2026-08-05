@@ -575,11 +575,12 @@ describe("useStorageBackend — save effect", () => {
   //    renderHook had been tried and was VACUOUS, measured 2026-08-04 as
   //    ["mount"] with no cleanup+remount. That observation is REPRODUCIBLE, and
   //    the reason is a shape rule nobody had isolated then: StrictMode only
-  //    double-invokes when it is the OUTERMOST element under the root, so
-  //    composing it inside a wrapper function silences it. (Which shape the
-  //    2026-08-04 run used was never recovered.) The guard below uses RTL's
-  //    `reactStrictMode: true`, which keeps StrictMode outermost, and it dies
-  //    when the re-set is deleted. See strictmode.meta.test.tsx, open-followups §85.
+  //    double-invokes when nothing sits between the root and it on its own
+  //    branch, so composing it inside a wrapper function silences it. (Which
+  //    shape the 2026-08-04 run used was never recovered.) The guard below
+  //    uses RTL's `reactStrictMode: true`, which keeps nothing between the
+  //    root and StrictMode, and it dies when the re-set is deleted. See
+  //    strictmode.meta.test.tsx, open-followups §85.
 });
 
 describe("useStorageBackend — handlers", () => {
@@ -1824,19 +1825,18 @@ describe("useStorageBackend — StrictMode mount re-set (§72)", () => {
     // fails: onStorageOutcome is never called. Verified by running that
     // mutation.
     //
-    // ★★★ THE STRICTMODE ELEMENT MUST BE THE OUTERMOST ONE UNDER THE ROOT, so
+    // ★★★ NOTHING MAY SIT BETWEEN THE ROOT AND STRICTMODE ON ITS OWN BRANCH, so
     //     this passes `reactStrictMode` (RTL renders
     //     `<StrictMode><Wrapper>…</Wrapper></StrictMode>`) instead of composing
     //     `<StrictMode><TestProviders>` inside the wrapper itself. That is not
     //     a style preference. React's double-invoke walk
     //     (`recursivelyTraverseAndDoubleInvokeEffectsInDEV`, read in the
     //     react-dom development build) stops at the topmost fiber carrying the
-    //     placement flag — on an initial mount, the root's only child — and
-    //     double-invokes there only if StrictMode is AT OR ABOVE that fiber
-    //     (the fiber's own type counts, which is what makes `wrapper:
-    //     StrictMode` work), and it never recurses PAST that fiber either
-    //     way — a StrictMode nested BELOW it is never reached. So one extra
-    //     component ABOVE StrictMode — even a
+    //     placement flag on that branch and double-invokes there only if
+    //     StrictMode is AT OR ABOVE that fiber (the fiber's own type counts,
+    //     which is what makes `wrapper: StrictMode` work), and it never
+    //     recurses PAST that fiber either way — a StrictMode nested BELOW it
+    //     is never reached. So one extra component ABOVE StrictMode — even a
     //     bare `({children}) => <StrictMode>{children}</StrictMode>` with no
     //     providers at all — yields ["mount"], no cleanup+remount, and a guard
     //     test written that way is VACUOUS: measured 2026-08-05, that shape

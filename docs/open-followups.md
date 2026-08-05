@@ -127,7 +127,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
 | 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here when StrictMode is the OUTERMOST element under the root; the single-invoke observation is reproducible but belongs to the nested-wrapper shape alone, and the entry's own "measurement artefact" hypothesis is separately false (the fiber is reused, so a per-instance log sees the whole cycle); ★★★ all three mount re-sets are now pinned, and `src/app/strictmode.meta.test.tsx` is the standing instrument |
+| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here whenever nothing sits between the root and it on its own branch; the single-invoke observation is reproducible but belongs to the nested-wrapper shape alone, and the entry's own "measurement artefact" hypothesis is separately false (the fiber is reused, so a per-instance log sees the whole cycle); ★★★ all three mount re-sets are now pinned, and `src/app/strictmode.meta.test.tsx` is the standing instrument |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3212,8 +3212,9 @@ permanently suppressed after that first cycle.
 structurally cannot see it": deleting `mountedRef.current = true` from the effect body left every gate
 green, and a `<StrictMode>`-wrapped `renderHook` written to pin it was **VACUOUS**, on a 2026-08-04
 probe measuring `["mount"]` — one invocation, no cleanup+remount. That measurement reproduces for one
-wrapper shape only. StrictMode double-invokes here when it is the OUTERMOST element under the root;
-§85 (retracted) owns the shape rule, and `src/app/strictmode.meta.test.tsx` is the standing instrument.
+wrapper shape only. StrictMode double-invokes here whenever nothing sits between the root and it on its
+own branch; §85 (retracted) owns the shape rule, and `src/app/strictmode.meta.test.tsx` is the standing
+instrument.
 The guard is `still emits a save outcome after StrictMode's remount`, in the
 `useStorageBackend — StrictMode mount re-set (§72)` describe of `use-storage-backend.test.tsx`;
 deleting the line fails it (`onStorageOutcome` is never called), verified by running that mutation and
@@ -3302,17 +3303,15 @@ and no future call site can reopen it. (`onGrantWriteAccess` is one of the three
 these five.) The table above is kept as the RECORD of what was wrong, not as an open list.
 
 ★★★ **NOTHING IN THE SUITE PINS THESE GUARDS — DELETING ALL THREE LEAVES EVERY GATE GREEN.**
-Measured, not assumed: with the three `if (!mountedRef.current) return;` lines removed,
-`use-storage-backend.test.tsx` passes **64/64**. So a future contributor who sees the four emitters
+Measured: with the three `if (!mountedRef.current) return;` lines removed,
+`use-storage-backend.test.tsx` passes **69/69, EXIT=0** (2026-08-05, after the
+`useStorageBackend — StrictMode mount re-set (§72)` describe was added — that guard pins
+`mountedRef.current = true` in the mount effect body, not these three `refreshBackendStatus` guards, and
+nothing else added since targets them either). So a future contributor who sees the four emitters
 already guarded, decides these are redundant and deletes them, reintroduces §72's unhandled
 rejection with a green suite, a green tsc, a green lint and this row struck through as CLOSED.
-That is the single most likely way this regresses.
-★★ **The StrictMode work did NOT change this, and the `64/64` is now a historical figure.** That file
-has since gained the `useStorageBackend — StrictMode mount re-set (§72)` describe — written to pin
-`mountedRef.current = true` in the effect body (see the mount-re-set note earlier in this entry), not
-these three guards, and nothing else added since targets them either. So the sentence above still
-stands: these three are unpinned. Re-run the deletion rather than trusting the number if you need the
-current one.
+That is the single most likely way this regresses. These three remain unpinned; re-run the deletion
+rather than trusting this number if the file has grown further since.
 
 ★★★ **AND AN EARLIER REVISION OF THIS BULLET CLAIMED THE OPPOSITE — the distinction is between an
 EXPERIMENT and an ARTIFACT.** The guard's purpose (stopping a post-teardown `setStorageReady` from
@@ -3814,8 +3813,8 @@ the bug.
 ★★★ **IT SHIPPED UNTESTED, AND THAT WALL TURNED OUT NOT TO EXIST — BOTH RE-SETS ARE NOW PINNED.**
 This entry previously said a StrictMode-wrapped test was necessarily VACUOUS here, on the strength of
 a measurement of `["mount"]` (no cleanup+remount). That measurement reproduces only for one wrapper
-shape: StrictMode double-invokes when it is the OUTERMOST element under the root, and the entry's
-conclusion is retracted in §85, which owns the shape rule and names
+shape: StrictMode double-invokes whenever nothing sits between the root and it on its own branch, and
+the entry's conclusion is retracted in §85, which owns the shape rule and names
 `src/app/strictmode.meta.test.tsx` as the standing instrument. The two guards:
 
 | re-set | guard test |
@@ -4090,26 +4089,29 @@ being written into the tracked register, rather than left resting on the two pri
 
 ---
 
-## 85. ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ — CLOSED, FALSE PREMISE: it does double-invoke, when StrictMode is the OUTERMOST element under the root
+## 85. ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ — CLOSED, FALSE PREMISE: it does double-invoke whenever nothing sits between the root and StrictMode on its own branch
 
 **The OBSERVATION was real and is reproducible. The CONCLUSION drawn from it was wrong.** `["mount"]`
 — one invocation, no cleanup+remount — is exactly what ONE wrapper shape yields here, and the
 meta-test named below now pins that shape as a negative case. What does not follow is what this entry
-asserted: that nothing in this repo could pin any StrictMode-dependent behaviour. With StrictMode as
-the outermost element under the root it double-invokes normally, and all three mount re-sets this
+asserted: that nothing in this repo could pin any StrictMode-dependent behaviour. With nothing between
+the root and StrictMode on its own branch it double-invokes normally, and all three mount re-sets this
 entry called unpinnable are now pinned.
 
-★★★ **THE SHAPE RULE.** StrictMode double-invokes only when it is the OUTERMOST element under the
-root. `wrapper: StrictMode` (renderHook's wrapper IS the StrictMode component) and
-`reactStrictMode: true` (RTL renders `<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary
-element placed outside the wrapper, not something that reaches `createRoot`) are the two safe forms.
-Composing `<StrictMode>` INSIDE a wrapper function puts a non-StrictMode fiber above it and silently
-turns the double invoke off — even with nothing else nested inside it. Mechanism, cited by symbol
-because a `node_modules` line number rots on the next install:
+★★★ **THE SHAPE RULE.** StrictMode double-invokes only when nothing — no component, no host element —
+sits between the root and it on its OWN branch (a sibling branch elsewhere in the tree does not
+matter: StrictMode can be the root's second child and still double-invoke). `wrapper: StrictMode`
+(renderHook's wrapper IS the StrictMode component) and `reactStrictMode: true` (RTL renders
+`<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary element placed outside the wrapper, not
+something that reaches `createRoot`) both satisfy that. Composing `<StrictMode>` INSIDE a wrapper
+function puts a non-StrictMode fiber on the same branch above it and silently turns the double invoke
+off — even with nothing else nested inside it. (Measured edge: a lone top-level JSX fragment wrapping
+StrictMode is elided and does not break it; a fragment or host element nested one level deeper does.)
+Mechanism, cited by symbol because a `node_modules` line number rots on the next install:
 `recursivelyTraverseAndDoubleInvokeEffectsInDEV` (react-dom development build) stops its walk at the
-topmost fiber carrying the placement flag and double-invokes there only if StrictMode is AT OR ABOVE
-that fiber — the fiber's own type counts, which is what makes `wrapper: StrictMode` work — and it
-never recurses PAST that fiber either way, so a StrictMode nested BELOW it is never reached.
+topmost fiber carrying the placement flag on that branch and double-invokes there only if StrictMode is
+AT OR ABOVE that fiber — the fiber's own type counts, which is what makes `wrapper: StrictMode` work —
+and it never recurses PAST that fiber either way, so a StrictMode nested BELOW it is never reached.
 
 ★★★ **The standing instrument is `src/app/strictmode.meta.test.tsx`** — a meta-test asserting a
 property of the HARNESS, not of the app. It covers a plain component render, both safe `renderHook`

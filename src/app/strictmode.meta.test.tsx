@@ -28,19 +28,24 @@
 // which wrapper shape that 2026-08-04 run actually used was never recovered,
 // so this is the likely cause, not a confirmed one.
 //
-// ★★★ THE SHAPE RULE: StrictMode only double-invokes when it is the OUTERMOST
-// element under the root. `wrapper: StrictMode` (renderHook's wrapper IS the
-// StrictMode component) and `reactStrictMode: true` (RTL renders
+// ★★★ THE SHAPE RULE: StrictMode only double-invokes when nothing — no
+// component, no host element — sits between the root and it on its OWN
+// branch (a sibling branch elsewhere in the tree does not matter: StrictMode
+// can be the root's second child and still double-invoke). `wrapper:
+// StrictMode` (renderHook's wrapper IS the StrictMode component) and
+// `reactStrictMode: true` (RTL renders
 // `<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary element
-// placed outside the wrapper, not something that reaches `createRoot`) are
-// the two safe forms. Composing `<StrictMode>` INSIDE a wrapper function —
+// placed outside the wrapper, not something that reaches `createRoot`) both
+// satisfy that. Composing `<StrictMode>` INSIDE a wrapper function —
 // `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`, or with
-// anything else nested inside that — puts a non-StrictMode fiber above it
-// and silently turns off the double invoke, which makes any guard built on
-// that shape vacuous. The implementation plan's own Task 4 sketch used
-// exactly that nested shape; it was only caught because Task 4 ran the
-// mutation and watched the guard stay green with the guarded line deleted.
-// See the tests below.
+// anything else nested inside that — puts a non-StrictMode fiber on the SAME
+// branch above it and silently turns off the double invoke, which makes any
+// guard built on that shape vacuous. (Measured edge: a lone top-level JSX
+// fragment wrapping StrictMode is elided and does not break it; a fragment
+// or host element nested one level deeper does.) The implementation plan's
+// own Task 4 sketch used exactly that nested shape; it was only caught
+// because Task 4 ran the mutation and watched the guard stay green with the
+// guarded line deleted. See the tests below.
 import { StrictMode, useEffect } from "react";
 import { render, renderHook } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
