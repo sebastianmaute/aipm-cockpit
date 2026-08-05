@@ -117,10 +117,10 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★ near-zero production impact, the win is a job that stops lying |
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
 | 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations (each pinning the ONE arm that was the defect — `isMisconfigured`×3, `hasFetched`×1; `isPopout`/`syncBusy`/`confirming` stay unpinned at every call site), after a revision that wrongly called Fetch untestable |
-| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §77 |
-| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§78 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
-| 77 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 78 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the real app double-invokes correctly IN DEV (mount→cleanup→mount observed in `next dev`; React double-invokes in development only, so this says nothing about production), making this a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
+| 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §84 |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§85 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
+| 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
+| 85 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the real app double-invokes correctly IN DEV (mount→cleanup→mount observed in `next dev`; React double-invokes in development only, so this says nothing about production), making this a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3656,8 +3656,8 @@ re-arms away.
   | `beforeEach` drain only (`55143042`) | **FAIL**, 2 runs of 2 |
   | `beforeEach` + `afterEach` drains (`e0064815` onward) | **PASS**, 3 runs of 3 |
 
-  This was first filed as a separate, mechanism-unknown defect (§77) before being re-measured against
-  the wrong baseline and closed as the same leak. See §77 for the full account and the transferable
+  This was first filed as a separate, mechanism-unknown defect (§84) before being re-measured against
+  the wrong baseline and closed as the same leak. See §84 for the full account and the transferable
   lesson about measuring against a partially-fixed tree.
 
 ★ The measured block above (`1 failed / 62 passed`) is historical: an unrelated §72 test later grew
@@ -3703,7 +3703,7 @@ at some other seed still reaches `main`, and is caught, at best, by the weekly r
 ★★★ **Do NOT read this closure as "these two files are now order-independent" as a general property —
 only as "verified at the seeds tested."** Seeds 1, 2, 3, 7 and the unshuffled control all pass on both
 files today, and seed 7 in particular is now confirmed to be the SAME `use-storage-backend.test.tsx`
-mechanism above rather than a third one (§77, closed, was filed as a separate defect and found to be
+mechanism above rather than a third one (§84, closed, was filed as a separate defect and found to be
 this one, measured on a tree with only the `beforeEach` half of this fix). Nothing was tested beyond that finite set of seeds.
 
 ---
@@ -3826,7 +3826,7 @@ had the same shape — a question worth asking of every guard fix.
 
 ---
 
-## 77. ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ — CLOSED, FALSE: same mechanism, measured on a partially-fixed tree
+## 84. ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ — CLOSED, FALSE: same mechanism, measured on a partially-fixed tree
 
 **This entry was wrong.** It was filed as a third, different-mechanism order dependence with root cause
 unknown, on the strength of two independent observations of seed 7 failing
@@ -3880,7 +3880,7 @@ being written into the tracked register, rather than left resting on the two pri
 
 ---
 
-## 78. StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous
+## 85. StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous
 
 **Status: OPEN — but NARROWED by a direct measurement, and the scope is now known.**
 
