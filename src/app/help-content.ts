@@ -110,11 +110,15 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "feature-keys", group: "features", titleKey: "helpSecKeysTitle", bodyKey: "helpSecKeysBody" },
 
   // ── Views that had no entry at all (slice 3) ──
-  // ★ Three of these name a view a reader may not be able to reach:
-  // `portfolio-health` is in `TURSO_ONLY_VIEWS`, and any module can be
-  // disabled per project. Precedent allows it — `trends` is Turso-only and has
-  // been covered since slice 1 — but each body states what it depends on
-  // rather than implying the view is always present.
+  // ★ TWO of these name a view a reader may not be able to reach:
+  // `portfolio-health` (in `TURSO_ONLY_VIEWS`) and `timelog` (a per-project
+  // module). `reports` and `help` are in `CORE_VIEWS`, and `projects` belongs
+  // to no module and no Turso gate, so `isViewEnabled` returns true for it
+  // unconditionally — none of those three can be pruned. Precedent allows
+  // covering a gateable view: `trends` is Turso-only and has been covered
+  // since slice 1. ★ `helpSecPortfolioHealthBody` states its Turso condition;
+  // `helpSecTimelogBody` does NOT say Time bookings is a module that can be
+  // switched off, which is a gap rather than a falsehood.
   { id: "feature-projects", group: "features", titleKey: "helpSecProjectsTitle", bodyKey: "helpSecProjectsBody", relatedViews: ["projects"] },
   { id: "feature-portfolio-health", group: "features", titleKey: "helpSecPortfolioHealthTitle", bodyKey: "helpSecPortfolioHealthBody", relatedViews: ["portfolio-health"], relatedConcepts: ["concept-baseline"] },
   { id: "feature-timelog", group: "features", titleKey: "helpSecTimelogTitle", bodyKey: "helpSecTimelogBody", relatedViews: ["timelog"], relatedConcepts: ["concept-budget", "concept-resource"] },

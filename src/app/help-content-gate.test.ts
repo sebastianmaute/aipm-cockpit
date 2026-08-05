@@ -69,15 +69,26 @@ describe("help marker resolution", () => {
   // fails this test loudly instead of quietly passing it. That is the opposite
   // polarity from the marker check below, where the same omission would pass by
   // testing English twice.
-  // ★★ The identity half covers BODIES and PRIMERS only, and TITLES are held to
-  // the non-empty half alone. Two titles are legitimately identical —
+  // ★★ TITLES ARE INCLUDED, via a self-draining allow-list rather than a blanket
+  // exemption. Exactly two titles are legitimately identical in both languages —
   // `helpSecTabsTitle` ("Tabs") and `helpConceptStakeholderTitle`
-  // ("Stakeholder") are the same word in German — so a strict check over titles
-  // would need an allow-list, i.e. exactly the kind of baseline that outlives
-  // its reason and turns into a permanent exemption. Scoping the assertion to
-  // where a true match is implausible keeps it true BY CONSTRUCTION with
-  // nothing to maintain. A body is where the content lives anyway.
+  // ("Stakeholder"). An earlier revision excluded ALL titles from the identity
+  // half on the grounds that an allow-list "outlives its reason"; that reasoning
+  // was wrong on its own file's evidence, because `KNOWN_UNCOVERED` thirty lines
+  // above is an allow-list made safe by exactly the mechanism used here — set
+  // EQUALITY, so translating one of these two fails until its key is removed.
+  // The blanket exclusion left a real hole: a title left in English passed,
+  // and titles are the most visible strings in the Help window.
+  const TITLES_IDENTICAL_IN_BOTH_LANGS: readonly string[] = [
+    "helpSecTabsTitle",
+    "helpConceptStakeholderTitle",
+  ];
+
   it("every entry's prose is actually translated, not copied from English", () => {
+    // ★ Floor first: both loops below iterate `HELP_ENTRIES`, so an empty or
+    // mocked backbone would satisfy every assertion by running none of them.
+    expect(HELP_ENTRIES.length).toBeGreaterThan(50);
+
     const identical: string[] = [];
     for (const e of HELP_ENTRIES) {
       for (const key of [e.titleKey, e.bodyKey, e.primerKey]) {
@@ -86,10 +97,10 @@ describe("help marker resolution", () => {
         const deText = t("de", key).trim();
         expect(enText, `${e.id}: ${key} is empty in en-US`).not.toBe("");
         expect(deText, `${e.id}: ${key} is empty in de`).not.toBe("");
-        if (key !== e.titleKey && enText === deText) identical.push(`${e.id}: ${key}`);
+        if (enText === deText) identical.push(key);
       }
     }
-    expect(identical).toEqual([]);
+    expect([...new Set(identical)].sort()).toEqual([...TITLES_IDENTICAL_IN_BOTH_LANGS].sort());
   });
 
   it.each(LANGS)("every [[label]] resolves to a real UI string in %s", (lang) => {

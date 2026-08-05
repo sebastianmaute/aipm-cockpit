@@ -3,14 +3,22 @@
 // Projects management view — a presentational portfolio panel.
 //
 // Lists every registered project and exposes per-project actions:
-//   • non-current row → Switch (loads that project; wired in Task 18).
-//   • current row     → Edit (opens the shared ProjectForm prefilled),
-//                       Export (a small menu of the real export formats),
-//                       Delete (de-registers; the underlying file is kept).
+//   • current row     → Edit (opens the shared ProjectForm prefilled) +
+//                       Export (a small menu of the real export formats).
+//   • non-current row → Switch (loads that project) + the destructive action:
+//                       Delete on a file backend, Archive on Turso.
 //
 // Edit/Export are offered ONLY on the current project because only its
-// workspace is in memory in Phase 1 — non-current rows get Switch instead.
-// This is intentional; see the task spec.
+// workspace is in memory — non-current rows get Switch instead.
+//
+// ★★ THE DESTRUCTIVE ACTION IS ON THE NON-CURRENT ROWS, NOT THE CURRENT ONE
+// (see the guard comment beside the buttons below): you must not be able to
+// delete or archive the project you are working in out from under yourself.
+// This comment claimed the exact opposite — "current row → … Delete" — until
+// 2026-08-06, and a Help entry was written FROM it, telling users to look for
+// Delete on the row that does not have it and describing the rows that do as
+// offering "Switch alone". A stale comment is a source that reads as
+// authoritative; correct it where you disprove it.
 //
 // This component is purely presentational: every side-effect (switch, create,
 // update, delete, export, load-from-file) is delegated to a callback prop. The

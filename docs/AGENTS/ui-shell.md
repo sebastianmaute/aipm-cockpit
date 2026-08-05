@@ -75,12 +75,17 @@
   ★★ **The baseline is now EMPTY** (slice 3): every nav view is named by some entry's `relatedViews`, so the
   assertion reads "nothing is uncovered" and a regression fails on the next run. `HELP_ENTRIES` is 64
   (`grep -c '^  { id: "' src/app/help-content.ts`).
-  ★★★ **SIX of the fourteen gaps were missing WIRING, NOT CONTENT**, and the gate cannot tell those apart —
+  ★★★ **FIVE of the fourteen gaps were missing WIRING, NOT CONTENT**, and the gate cannot tell those apart —
   coverage is `relatedViews` membership, so a complete, truthful entry that lists no view reads as a gap.
   `feature-activity`, `feature-version-history` and `feature-resources` already described `activity`, `history`
-  and all five resources sub-tabs; they simply carried no `relatedViews`. Slice 1's spec called slice 3 "~18 new
-  entries for features that have none today", and acting on that would have written a SECOND entry for each.
-  Read the entry before concluding a view is undocumented.
+  and the `directory`/`calendar`/`manage-roles` sub-tabs; they simply carried no `relatedViews`. Slice 1's spec
+  called slice 3 "~18 new entries for features that have none today", and acting on that would have written a
+  SECOND entry for each. Read the entry before concluding a view is undocumented.
+  ★★ It is FIVE and not six: the sixth baseline id, `stakeholder-map`, DID need content — the body that named
+  it was false (next bullet). This paragraph said "SIX … NOT CONTENT" for a day while the bullet below it
+  described rewriting that very prose — a self-contradiction ten lines apart, which is exactly the defect
+  slice 2 was scoped around. `workload` and `planning` are not in the arithmetic at all: `concept-resource`
+  already covered them, so they were never in the baseline.
   ★★★ **AN EMPTY BASELINE IS NOT "HELP IS COMPLETE."** Coverage is defined over VIEWS, so a feature that is not
   a view can never appear in the list however undocumented it is. Seven had zero prose while the ratchet was
   silent — saved views, install/PWA, undo/redo, inline AI edit, weekly digest, column widths, print — and were
@@ -104,8 +109,12 @@
   `"Version history: keep N versions"` (split across two keys), `"internal/d"` (real: `"Internal /d"`).
   • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
   one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
-  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, **16** views — `grep -c 'conceptId:'
-  src/app/view-callouts.ts`, was documented as "~14" until 2026-08-05; `conceptId` in `HELP_ENTRIES`
+  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, **16** views — `grep -c 'conceptId: "'
+  src/app/view-callouts.ts`, was documented as "~14" until 2026-08-05; ★★ the quote in that pattern is
+  load-bearing — a bare `grep -c 'conceptId:'` returns **17**, counting the interface's own
+  `conceptId: string;` field, and anchoring to `^  ` does not help because that field is indented too. A
+  reproduce command published beside a corrected count and never run re-seeds the rot it was meant to
+  stop; this one shipped wrong for a day. `conceptId` in `HELP_ENTRIES`
   concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`aipm-cockpit:view-hints`, out of
   exports/Turso, cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep). Presentational `view-callout.tsx` is
   PROPS-only (`view`/`lang`/`showHints`/`isPopout`/`onLearnMore`) — NOT context-consuming, because the
