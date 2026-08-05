@@ -46,6 +46,15 @@ something rather than guessing.
 
 - Tool schemas now carry their own prompt-cache breakpoint, so switching views
   no longer re-sends roughly 6.5k tokens of schema definitions.
+- **The assistant's starter chips are now complete briefs.** The chat strip
+  offers a risk review, a weekly status update, a stakeholder update, and
+  "prioritize all tasks" -- each a full instruction that sends on click rather
+  than a few words dropped into the input for you to finish. "Process an
+  attachment" is kept and now sends on click too; it trails the others because
+  it is the only one that needs a file attached first.
+- The header "Ask Claude" menu drops its **Status overview** and **Prioritize**
+  entries, which duplicated the two fuller chips above. It keeps the short
+  questions that suit a menu -- "Explain this" and "What's next?".
 
 ## [0.215.0] - 2026-08-04 "Friedman"
 
