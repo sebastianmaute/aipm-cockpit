@@ -15,8 +15,9 @@ import { helpBodyLabels } from "./help-body-markup";
 // `docs:symbols:check`, which proves a name is real and never that a claim
 // about it holds.
 
-/** Nav views with no Help entry pointing at them. Slice 3 writes those entries
- *  and empties this list.
+/** Nav views with no Help entry pointing at them. Slice 3 emptied this list —
+ *  every nav view is now covered, so the assertion below reads "nothing is
+ *  uncovered" and any regression fails on the next run.
  *
  *  ★★ The assertion below is set EQUALITY, not subset. A new gap fails (the
  *  point of a ratchet) AND a CLOSED gap fails until its id is deleted from
@@ -25,16 +26,7 @@ import { helpBodyLabels } from "./help-body-markup";
  *  defeated gate that reports success.
  *
  *  ★ Ids, never a count: a count lets one gap be swapped for another. */
-const KNOWN_UNCOVERED: readonly AppView[] = [
-  "projects",
-  "portfolio-health",
-  "insights",
-  "timelog",
-  "reports",
-  "raid-report",
-  "change-report",
-  "help",
-];
+const KNOWN_UNCOVERED: readonly AppView[] = [];
 
 describe("help coverage ratchet", () => {
   it("uncovered nav views match the baseline exactly", () => {
