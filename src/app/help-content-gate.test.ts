@@ -76,8 +76,16 @@ describe("help marker resolution", () => {
     const known = valuesFor(lang);
     const unresolved: string[] = [];
     for (const e of HELP_ENTRIES) {
-      for (const label of helpBodyLabels(t(lang, e.bodyKey))) {
-        if (!known.has(label.trim())) unresolved.push(`${e.id}: [[${label}]]`);
+      // ★★ BOTH prose keys, not just the body. A primer is ordinary help prose
+      // that happens to render at one reading level, so it can carry markers
+      // like any body — and walking only `bodyKey` would leave twelve strings
+      // entirely ungated while this file went on reporting success over
+      // content it had never read.
+      for (const key of [e.bodyKey, e.primerKey]) {
+        if (!key) continue;
+        for (const label of helpBodyLabels(t(lang, key))) {
+          if (!known.has(label.trim())) unresolved.push(`${e.id}: [[${label}]]`);
+        }
       }
     }
     expect(unresolved).toEqual([]);
