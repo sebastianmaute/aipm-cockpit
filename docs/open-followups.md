@@ -114,11 +114,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
-| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★ near-zero production impact, the win is a job that stops lying |
+| 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★★ the hook's mount re-set is now PINNED by `still emits a save outcome after StrictMode's remount` (§85 retracts the "untestable" premise), but `refreshBackendStatus`'s three guards are STILL UNPINNED — deleting them leaves every gate green, which is the entry's own most-likely-regression path; ★ near-zero production impact, the win is a job that stops lying |
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
 | 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations (each pinning the ONE arm that was the defect — `isMisconfigured`×3, `hasFetched`×1; `isPopout`/`syncBusy`/`confirming` stay unpinned at every call site), after a revision that wrongly called Fetch untestable |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §84 |
-| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§85 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★★★ it shipped UNTESTED on the belief that vitest could not reproduce StrictMode's remount — that belief is retracted (§85) and BOTH re-sets are now pinned, by `still applies the loaded jobs after StrictMode's remount` and `still applies the loaded guides after StrictMode's remount`; sweep regex corrected after it was found unable to match the pre-fix shape |
 | 77 | The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project | found post-0.214.0 | M | open — ★★ both obvious fixes are WRONG (suppress-path strands it false; a state reset lands a render late, both effects run in one commit); needs ref+state |
 | 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | open — every later variance row then compares against nulls; fix `isFirstEver`, do NOT overload §77's flag |
 | 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
@@ -127,7 +127,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 82 | The task-FK backfill lives in a React hook, outside the numbered migration chain | found post-0.214.0 | M | open — a permanent normalisation pass, not a one-shot migration; ★★ TWO load funnels, both now pinned |
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
 | 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 85 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the real app double-invokes correctly IN DEV (mount→cleanup→mount observed in `next dev`; React double-invokes in development only, so this says nothing about production), making this a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
+| 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; the single-invoke observation is reproducible but belongs to a nested-wrapper shape whose child mounts in the same commit as the wrapper (the rule turns on which fiber is flagged for PLACEMENT — not the tree, not the commit number — and a pure keyed REORDER can double-invoke with nothing mounting), and the entry's own "measurement artefact" hypothesis is separately false (the fiber is reused, so a per-instance log sees the whole cycle); ★★★ all three mount re-sets are now pinned, and `src/app/strictmode.meta.test.tsx` is the standing instrument |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3208,20 +3208,28 @@ alone cannot distinguish the two implementations.
 StrictMode mounts, unmounts and remounts in development; a cleanup-only guard would leave every callback
 permanently suppressed after that first cycle.
 
-★★★ **THAT LINE IS UNTESTED, AND NOT FOR WANT OF TRYING — THE SUITE STRUCTURALLY CANNOT SEE IT.**
-Deleting `mountedRef.current = true` from the effect body leaves **every gate green**: 63/63 in
-`use-storage-backend.test.tsx`, tsc, eslint. A `<StrictMode>`-wrapped `renderHook` was written to pin it
-and is **VACUOUS** — measured 2026-08-04 with a throwaway probe that recorded the effect's own
-mount/cleanup sequence, StrictMode in this environment yields `["mount"]`: **one invocation, no
-cleanup+remount** (react 19.2.4, `NODE_ENV=test`). The probe was deleted; the test was NOT kept, because
-a test that passes against the mutation it names is worse than no test. ★ Do not re-attempt it with
-StrictMode without re-running that probe first — the double-invoke React's docs describe is not
-happening here, and a test written on the assumption that it does will look like coverage and be none.
+★★★ **THAT LINE IS NOW PINNED — AND THE ENTRY PREVIOUSLY SAID IT COULD NEVER BE.** It read "the suite
+structurally cannot see it": deleting `mountedRef.current = true` from the effect body left every gate
+green, and a `<StrictMode>`-wrapped `renderHook` written to pin it was **VACUOUS**, on a 2026-08-04
+probe measuring `["mount"]` — one invocation, no cleanup+remount. That measurement reproduces for one
+wrapper shape only; in the right shape StrictMode double-invokes here normally. §85 (retracted) carries
+the full rule and the retraction narrative — including the part that is easy to over-generalise, that it
+turns on the PLACEMENT FLAG rather than on the tree or the commit number — and
+`src/app/strictmode.meta.test.tsx` is the standing instrument and the normative copy.
+The guard is `still emits a save outcome after StrictMode's remount`, in the
+`useStorageBackend — StrictMode mount re-set (§72)` describe of `use-storage-backend.test.tsx`;
+deleting the line fails it (`onStorageOutcome` is never called), verified by running that mutation and
+recorded in the test's own comment. ★★ Note what this does NOT cover — the three
+`refreshBackendStatus` guards are a different line of defence and remain UNPINNED. The
+"NOTHING IN THE SUITE PINS THESE GUARDS" paragraph further down still stands; do not read this
+mount-re-set guard as having closed it.
 ★ The consequence if the line is ever dropped is **dev-only and total**: after the first StrictMode
 cycle in `npm run dev`, every toast, every storage banner and every `versionNotifyRef` version-history
-checkpoint is silently suppressed for the rest of the session, with a fully green suite. ★ This is the
-same class as the CSS landmines recorded in §68-§71 — a real behaviour the unit suite cannot observe.
-Found by a cold reviewer naming the one-line mutation; verified by running it.
+checkpoint is silently suppressed for the rest of the session. ★ Until the guard above was written
+that happened with a fully green suite, which is why this sat alongside the CSS landmines of §68-§71
+as a real behaviour the unit suite cannot observe. It turned out to be observable, so that comparison
+no longer holds for this line. Found by a cold reviewer naming the one-line mutation; verified by
+running it.
 
 ★★★ **THE CHOKE POINT IS COMPLETE FOR *CALLER CALLBACKS*, NOT FOR THE *MECHANISM* — do not read
 "single choke point" as "post-unmount `setState` is handled in this hook".** It is not. The same
@@ -3296,11 +3304,15 @@ and no future call site can reopen it. (`onGrantWriteAccess` is one of the three
 these five.) The table above is kept as the RECORD of what was wrong, not as an open list.
 
 ★★★ **NOTHING IN THE SUITE PINS THESE GUARDS — DELETING ALL THREE LEAVES EVERY GATE GREEN.**
-Measured, not assumed: with the three `if (!mountedRef.current) return;` lines removed,
-`use-storage-backend.test.tsx` passes **64/64**. So a future contributor who sees the four emitters
+Measured: with the three `if (!mountedRef.current) return;` lines removed,
+`use-storage-backend.test.tsx` passes **69/69, EXIT=0** (2026-08-05, after the
+`useStorageBackend — StrictMode mount re-set (§72)` describe was added — that guard pins
+`mountedRef.current = true` in the mount effect body, not these three `refreshBackendStatus` guards, and
+nothing else added since targets them either). So a future contributor who sees the four emitters
 already guarded, decides these are redundant and deletes them, reintroduces §72's unhandled
 rejection with a green suite, a green tsc, a green lint and this row struck through as CLOSED.
-That is the single most likely way this regresses.
+That is the single most likely way this regresses. These three remain unpinned; re-run the deletion
+rather than trusting this number if the file has grown further since.
 
 ★★★ **AND AN EARLIER REVISION OF THIS BULLET CLAIMED THE OPPOSITE — the distinction is between an
 EXPERIMENT and an ARTIFACT.** The guard's purpose (stopping a post-teardown `setStorageReady` from
@@ -3788,9 +3800,10 @@ hook to a render. **A claim about a symptom is a claim about a consumer — chec
 producer.** ★★★ That sentence was written while checking exactly ONE of the two consumers, and the
 correction asserted "its ONLY consumer". One `grep -rn "useScheduledJobs" src/` would have caught it.
 Stating the lesson is not the same as applying it: when the claim is "the consumers do X", the
-enumeration of consumers IS the claim, so grep it before writing the word "only". Production is unaffected (one mount, no remount) — but so is the entire test suite,
-which is why this has survived: **a fully green suite says nothing about it**, exactly as measured for
-§72's own re-set line, which no test can pin either.
+enumeration of consumers IS the claim, so grep it before writing the word "only". Production is unaffected (one mount, no remount) — and so, for as long as this went unnoticed, was
+the entire test suite, which is why it survived: **a fully green suite said nothing about it**, exactly
+as it said nothing about §72's own re-set line. All three are pinned now — the two guards listed below,
+and §72's own line in its entry; §85 records why the "untestable" premise was wrong.
 
 ★★ **FIXED.** Both effects now re-set the flag as their first statement, identical to
 `use-storage-backend.ts`. ★ Placement matters and is recorded in both files: the guard effect is
@@ -3798,11 +3811,22 @@ declared BEFORE the `refresh` effect that consumes it, so on a StrictMode remoun
 flag before re-running the effect that calls the guarded setters. Reordering them silently reinstates
 the bug.
 
-★★★ **AND IT SHIPS UNTESTED, NECESSARILY — the same wall as §72's own re-set line.** StrictMode
-invokes effects ONCE under this suite (measured: `["mount"]`, no cleanup+remount, react 19.2.4 /
-`NODE_ENV=test`), so a StrictMode-wrapped test is VACUOUS — it passes with the fix reverted. None was
-written; a test that passes against the mutation it names is worse than none. The 15 existing tests
-across the two hooks pass unchanged, which confirms no regression and pins nothing about this fix.
+★★★ **IT SHIPPED UNTESTED, AND THAT WALL TURNED OUT NOT TO EXIST — BOTH RE-SETS ARE NOW PINNED.**
+This entry previously said a StrictMode-wrapped test was necessarily VACUOUS here, on the strength of
+a measurement of `["mount"]` (no cleanup+remount). That measurement reproduces only for one wrapper
+shape; in the right shape StrictMode double-invokes here normally, and the entry's conclusion is
+retracted in §85, which carries the full rule and the retraction narrative (`src/app/strictmode.meta.test.tsx` is the normative copy) and
+names `src/app/strictmode.meta.test.tsx` as the standing instrument. The two guards:
+
+| re-set | guard test |
+|---|---|
+| `use-scheduled-jobs.ts` | `still applies the loaded jobs after StrictMode's remount` (`use-scheduled-jobs.test.tsx`) |
+| `use-operating-guides.ts` | `still applies the loaded guides after StrictMode's remount` (`use-operating-guides.test.tsx`) |
+
+Each was proved by deleting the `mountedRef.current = true` line it pins and confirming that test goes
+red, then restoring; each test's comment records that mutation and the failure it produces. ★ The
+pre-existing tests across the two hooks pass unchanged, which confirms no regression and — as this
+entry correctly said before — pins nothing about this fix on its own.
 ★ Production was never affected (one mount, no remount), so there is no user-facing behaviour change
 and no version bump — this is a dev-experience fix.
 
@@ -4066,73 +4090,151 @@ being written into the tracked register, rather than left resting on the two pri
 
 ---
 
-## 85. StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous
+## 85. ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ — CLOSED, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test
 
-**Status: OPEN — but NARROWED by a direct measurement, and the scope is now known.**
+**The OBSERVATION was real and is reproducible. The CONCLUSION drawn from it was wrong.** `["mount"]`
+— one invocation, no cleanup+remount — is exactly what ONE wrapper shape yields here, and the
+meta-test named below now pins that shape as a negative case. What does not follow is what this entry
+asserted: that nothing in this repo could pin any StrictMode-dependent behaviour. In the right wrapper
+shape it double-invokes normally, and all three mount re-sets this entry called unpinnable are now
+pinned.
 
-★★★ **StrictMode DOES double-invoke effects in the real app. The anomaly is the TEST environment
-alone.** Measured 2026-08-05 in `next dev` (isolated `PORT=3100`) with a probe in
-`use-scheduled-jobs`'s mount effect, driven through Playwright:
+★★ **WHICH COPY IS NORMATIVE:** this entry and `src/app/strictmode.meta.test.tsx` both state the rule in
+full — this one for the reader working out what was retracted and why, the test file for the reader
+about to write a StrictMode guard. If they ever disagree, **the meta-test is right**: it is executable
+and this is not. AGENTS.md carries a summary of the same rule and is normative for nothing.
 
-```
-mount-effect run
-mount-effect cleanup
-mount-effect run
-```
+★★★ **THE RULE IS ABOUT THE PLACEMENT FLAG.** Everything else is a COROLLARY, and all three earlier
+attempts to state this went wrong by promoting one corollary into the rule. Cited by symbol because a
+`node_modules` line number rots on the next install: `recursivelyTraverseAndDoubleInvokeEffectsInDEV`
+(react-dom development build) descends each branch to the topmost fiber **flagged for placement**,
+double-invokes there only if StrictMode is AT OR ABOVE that fiber — the fiber's own type counts, which
+is what makes `wrapper: StrictMode` work — and never recurses PAST it either way, so a StrictMode nested
+below is never reached.
 
-That is the mount→unmount→remount cycle the vitest measurement (`["mount"]`, no cleanup) does not
-reproduce. So this entry is NOT "does StrictMode work here" — it is specifically **"why does vitest not
-reproduce it"**, and everything downstream of that changes: the app's behaviour is correct and
-understood, the untestability is a test-harness problem, and §76/§72's guards are load-bearing in dev
-exactly as claimed (see §76's observed before/after trace).
-★ The hypotheses below are therefore all about the TEST environment. The measurement-artefact one is
-still the cheapest first check, and it now has a companion: the probe that works is a module-scope
-array written from inside the effect, which is exactly the shape a per-instance log would have got
-wrong — so reproduce the vitest measurement with THAT shape before concluding anything from it.
+**Two things carry that flag** (`placeChild`, and `placeSingleChild` for a single child): a BRAND-NEW
+fiber (`alternate === null`), and an existing KEYED child that MOVED — with a direction. The test is
+`alternate.index < lastPlacedIndex`, where `lastPlacedIndex` is the highest previous index among
+siblings already kept in place while scanning the new list left to right, so the flagged child is one
+that now sits **AFTER a sibling it used to sit before**. ★★ A child moved to an EARLIER slot is NOT
+flagged — the siblings it jumped over are. Measured both ways (an earlier-slot move of a keyed
+`<StrictMode>` yields `["mount"]`), and "moved backwards" — the obvious phrase, and the one the fourth
+draft used — names exactly the case that does nothing. **"Placed" does not mean "new"** — the sentence
+the THIRD wording was built on.
 
-§72 and §76 both ship UNTESTED, and both give the same reason: a StrictMode-wrapped `renderHook` was
-tried and found VACUOUS. The measurement is recorded in code at `use-storage-backend.test.tsx` beside
-the §72 guard — StrictMode invoked the effect ONCE (`["mount"]`, no cleanup+remount), so deleting the
-`mountedRef.current = true` re-set kept the whole file green.
+**Corollary 1 — the mount commit.** On the commit that FIRST mounts a tree the only placed fibers are
+the root's direct children, so StrictMode double-invokes only when nothing — no component, no host
+element — sits between the root and it on its OWN branch (a sibling branch elsewhere does not matter:
+StrictMode can be the root's second child and still double-invoke). `wrapper: StrictMode` (renderHook's
+wrapper IS the StrictMode component) and `reactStrictMode: true` (RTL renders
+`<StrictMode><Wrapper>…</Wrapper></StrictMode>` — an ordinary element placed outside the wrapper, not
+something that reaches `createRoot`) both satisfy that. Composing `<StrictMode>` INSIDE a wrapper
+function puts a non-StrictMode fiber on the same branch above it and silently turns the double invoke
+off for that mount — even with nothing else nested inside it.
 
-★★★ **That measurement was treated as a fact about those two tests. It is a fact about the whole
-suite.** A cleanup-only `mountedRef` is dev-only-total precisely BECAUSE React double-invokes effects
-in dev StrictMode. If nothing in this repo's test environment reproduces that, then **no** test here
-can pin **any** StrictMode-dependent behaviour, and any future test that appears to is worth
-distrusting until this is understood.
+**Corollary 2 — later commits, with a limit.** A nested StrictMode is NOT inert in general: once the
+wrapper has an alternate it is no longer placed, the walk recurses THROUGH it, and a child mounting in
+that commit IS double-invoked. ★★ Unless that wrapper is itself a keyed child that moved — then the
+wrapper carries the flag, the walk stops there, and the StrictMode below is never reached.
 
-★★ **What is checked, and what is not.** Checked: React and react-dom are both 19.2.4; `vitest.config.ts`
-sets no `resolve.conditions` override (only the `@` alias and `environment: "jsdom"`). Under vitest
-`NODE_ENV` is `test`, and React's entry dispatches on `NODE_ENV === "production"` — so the DEVELOPMENT
-build should be loading and StrictMode SHOULD double-invoke. **The obvious explanation ("vitest resolves
-production React") is therefore NOT the answer**, which is exactly why this needs a real investigation
-rather than a guess. NOT checked: how RTL's `renderHook` composes the wrapper, whether the specific
-`renderBackend` helper wraps in `StrictMode` at the level assumed, and whether some setup-file or
-transform step is involved.
+**Corollary 3 — no new child needed.** A `<StrictMode>` that is itself a moved keyed child is placed, so
+a pure REORDER disconnects and reconnects its whole subtree's effects with nothing mounting at all.
 
-★ **Why it is worth the effort:** if resolved, it unlocks a class of tests currently declared
-impossible — §72's post-unmount guard and §76's mount re-set become pinnable, and both are shipped
-guards that a contributor can today delete with every gate green. That is the actual cost of leaving
-this open: not a broken test, an unguarded fix.
+Measured 2026-08-05, each one a test in the meta-test rather than a sentence here:
 
-★ Do NOT close this by writing a StrictMode test that passes. A test that passes against a suite where
-StrictMode is inert proves nothing — first prove the double-invocation happens (assert an effect body
-runs twice), THEN write the guard test.
+| shape | result |
+|---|---|
+| nested StrictMode, child mounts on a rerender | `["mount","cleanup","mount"]` |
+| the SAME host, child present from the first commit | `["mount"]` |
+| the same rerender with no StrictMode anywhere | `["mount"]` |
+| `<StrictMode>` is a moved keyed child (pure reorder) | `["mount","cleanup","mount"]` |
+| a moved keyed WRAPPER with StrictMode inside it | `["mount"]` |
 
-★★★ **A HYPOTHESIS RANKED ABOVE "production React", raised in review: a MEASUREMENT ARTEFACT.** If the
-mount/unmount log lived in per-instance state or in a ref created INSIDE the hook, then StrictMode's
-remount hands the observer a FRESH log — so `["mount"]` is what you see whether or not the double
-invocation happened. The log has to be module- or test-scope for the measurement to mean anything.
-This costs nothing to rule out and would invalidate the entire premise, so check it FIRST.
+★ Fragments split the difference and both directions are pinned: the OUTERMOST keyless fragment is
+unwrapped during reconciliation and never becomes a fiber, so it does not break the rule; a second one
+nested inside it does. ★ Every guard in this repo mounts once and never re-mounts or reorders a child,
+so Corollary 1 is the one that governs them.
 
-★★ **The instrument is not in the tree.** The only trace of the `["mount"]` measurement is a comment;
-the probe itself was deleted, so the next reader cannot re-take it and has to trust prose — the same
-shape as the stale counts this file keeps correcting. Whoever picks this up should commit the probe
-(or paste it here verbatim) rather than re-deriving it.
+★ **One exception is stated but NOT pinned**, and is marked so deliberately: an OffscreenComponent
+(`fiber.tag === 22`, created for a `<Suspense>` boundary's children **and for `<Activity>`'s** —
+`<Activity>` itself is tag 31, so a placed one stops the walk like any other fiber) is special-cased —
+a PLACED Offscreen does not stop the walk, and a HIDDEN one (`memoizedState !== null`) is skipped
+entirely. Read from source, not measured; nothing in this repo renders StrictMode inside Suspense or
+`<Activity>`. A lead, not a fact.
 
-★ Also NOT checked, and cheap: assert directly that the DEVELOPMENT React build is what resolves under
-vitest (e.g. that a dev-only `console.error` warning fires). The reasoning above is an inference chain
-from config, not an observation.
+★★ **Every wording of this rule was measured at ONE shape and written as if it held at all of them.**
+Four drafts, three of them wrong, each refuted by the next:
+
+| # | wording | refuted by |
+|---|---|---|
+| 1 | StrictMode must be the OUTERMOST element under the root | a sibling branch — StrictMode can be the root's second child |
+| 2 | nothing may sit between the root and it on its own branch | later commits — an existing wrapper is not placed, so the walk goes through it |
+| 3 | it is a rule about the mount COMMIT; a fiber is placed only while BRAND NEW | keyed moves — a moved child is placed without being new |
+| 4 | the placement flag (current) | — but its first draft said "moved BACKWARDS", which is the direction that is NOT flagged |
+
+Reproduce with `git log -p --follow -- src/app/strictmode.meta.test.tsx | grep "^+// ★★★ THE SHAPE RULE\|^+// ★★★ THE RULE IS"`
+— four `+` lines, one per draft, so the count is checkable rather than remembered. ★★ The `^+//` anchor
+is load-bearing and the unanchored form was published here first: without it an INDENTED in-test comment
+(`+  // ★★★ THE OTHER HALF OF THE SHAPE RULE…`) matches too and the command answers FIVE, so a reader
+checking "four" is told the table is wrong. A reproduce command that refutes its own claim is worse than
+none — run the command you attach. ★ Note #3 is the
+one an earlier version of this paragraph left out of its own count, while folding #3's error into #2's
+row; that is how a wrong count survives a proofread. That is why every clause above is now a test
+rather than a sentence.
+
+★★★ **The standing instrument is `src/app/strictmode.meta.test.tsx`** — a meta-test asserting a
+property of the HARNESS, not of the app. It covers a plain component render, both safe `renderHook`
+forms, the nested-shape negative cases, the later-commit positive with its two controls (no-StrictMode,
+and the same host on its first commit), all THREE keyed-move shapes (a `<StrictMode>` moved to a LATER
+slot, one moved to an EARLIER slot, and a moved WRAPPER) plus a no-StrictMode reorder control, the
+sibling and both fragment edges, and that the DEVELOPMENT React build is what resolves — 17 `it(` blocks,
+8 of them negatives (`grep -c "^  it(" src/app/strictmode.meta.test.tsx`). ★ This enumeration was stale
+within one commit of being written: the commit that added the earlier-slot case — that round's headline
+finding — left it out of the list right here.
+Read it instead of trusting this paragraph: last time this measurement lived only in prose, the probe
+was deleted and every later reader had to take the prose on faith. ★ If that file ever goes red, the
+three guard tests below have become vacuous — fix it before trusting them.
+
+★★★ **THIS ENTRY'S OWN "MEASUREMENT ARTEFACT" HYPOTHESIS IS SEPARATELY FALSE — retracted here too, and
+it had been ranked as the FIRST thing to check.** It held that a log living in per-instance state, or
+in a ref created INSIDE the hook, would be handed a FRESH log by StrictMode's remount, so `["mount"]`
+would appear whether or not the double invocation happened. It would not:
+`doubleInvokeEffectsOnFiber` (react-dom development build) disconnects and reconnects effects on the
+SAME fiber rather than replacing it, so hook state and refs survive and a per-instance log observes
+the full `["mount","cleanup","mount"]` cycle exactly like a module-scope one. ★ It was also measured
+both ways — per-instance refs and state-held logs — while this was being closed, but that probe is
+not committed either, so the MECHANISM above is the part a reader can re-check; the meta-test's header
+comment records it. ★★ Left standing, this would have sent the next reader to instrument the log
+shape, which is not where the difference is.
+
+**Now pinned** — one guard test per mount re-set. Each test's own comment names the single-line
+mutation that fails it:
+
+| re-set | guard test |
+|---|---|
+| `use-scheduled-jobs.ts` | `still applies the loaded jobs after StrictMode's remount` (`use-scheduled-jobs.test.tsx`) |
+| `use-operating-guides.ts` | `still applies the loaded guides after StrictMode's remount` (`use-operating-guides.test.tsx`) |
+| `use-storage-backend.ts` | `still emits a save outcome after StrictMode's remount` (`use-storage-backend.test.tsx`, in the `useStorageBackend — StrictMode mount re-set (§72)` describe) |
+
+★★ **What is NOT established: that the shape rule is what actually happened on 2026-08-04.** That
+probe was deleted and never recovered, so which wrapper shape it used is unknowable. The shape rule
+reproduces the reported symptom exactly and is the likely explanation — it is not a confirmed account
+of that run, and writing it as one would repeat the over-reach that produced this entry.
+
+★ Unchanged and still true: StrictMode double-invokes in the real app in DEVELOPMENT, which is what
+makes §72's and §76's mount re-sets load-bearing at all. §76 carries the observed before/after
+dev-server trace; it is not restated here.
+
+★★★ **The transferable lesson, which is why this entry stays instead of being deleted — this file's
+convention is that a wrong claim stays visible as the instructive artifact.** "I could not reproduce
+it" is not "it cannot happen", and the distance between those two sentences is where a whole class of
+tests gets written off. This entry did not merely record a failed measurement: it concluded that **no**
+test here could pin **any** StrictMode-dependent behaviour, and that conclusion was then written into
+source comments and into §72's and §76's bodies as the reason shipped guards had no coverage. **A
+claim that something is untestable is load-bearing — it licenses shipping code with nothing pinning
+it, so it deserves the same scrutiny as a claim that something works.** ★ And the check that would
+have broken it was cheap and never run: vary the HARNESS, not the subject. The failing ingredient was
+in the wrapper argument, one line away from the thing being measured.
 
 ---
 

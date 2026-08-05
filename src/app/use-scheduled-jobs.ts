@@ -64,8 +64,16 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   //    loading state"; that was false and is recorded in open-followups §76.
   //    Declared BEFORE the refresh effect so the remount restores the flag before
   //    that effect re-runs. Mirrors use-storage-backend.ts (open-followups §72/§76).
-  //    ★ No test can pin this: StrictMode invokes effects ONCE under this suite
-  //    (measured — see §76), so a StrictMode-wrapped test would be vacuous.
+  //    ★ Pinned by "still applies the loaded jobs after StrictMode's remount"
+  //    in use-scheduled-jobs.test.tsx. This previously read "No test can pin
+  //    this: StrictMode invokes effects ONCE under this suite". That
+  //    OBSERVATION is reproducible — a child mounted under a StrictMode that
+  //    is itself nested inside a wrapper is single-invoked — but the
+  //    CONCLUSION was wrong: with `wrapper: StrictMode` it double-invokes and
+  //    this line is pinnable. strictmode.meta.test.tsx pins that shape rule
+  //    and its edges (including that the same nesting DOES double-invoke a
+  //    child mounted on a later commit — the rule turns on which fiber is
+  //    flagged for PLACEMENT, not on the tree or the commit number).
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };

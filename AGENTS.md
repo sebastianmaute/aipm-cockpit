@@ -131,6 +131,24 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # — registered LAST, so it runs FIRST, while mocks and DOM are still live.
                             # `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx` carry that pattern
                             # with a warning comment (open-followups §73).
+                            # ★★★ A StrictMode test is VACUOUS-BUT-GREEN in the obvious shape. React's
+                            # double-invoke walk descends each branch to the topmost fiber FLAGGED FOR
+                            # PLACEMENT and fires there only if StrictMode is at or above it. On a first
+                            # mount the only placed fibers are the root's direct children, so nothing may
+                            # sit between the root and StrictMode on that branch: `wrapper: StrictMode` and
+                            # RTL's `reactStrictMode: true` satisfy that; composing it inside a wrapper
+                            # (`({children}) => <StrictMode>{children}</StrictMode>`) does NOT, and the test
+                            # then passes with the line it claims to pin DELETED — that shape is the likely
+                            # source of §85's "StrictMode single-invokes here" (the 2026-08-04 run's shape
+                            # was never recovered) and was measured vacuous for `use-storage-backend`; the
+                            # other two `mountedRef` re-sets simply shipped with no StrictMode test at all.
+                            # ★★ That is the MOUNT case only, and it is a corollary — the rule turns on
+                            # which fiber carries the PLACEMENT flag, which a keyed reorder also sets. Three
+                            # successive wordings of it shipped over-general, each measured at one shape and
+                            # written as if it held everywhere, so do NOT extend this summary by reasoning:
+                            # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every edge
+                            # but one, which it flags as stated-not-pinned. Read it before writing a
+                            # StrictMode test, and mutation-test the guard.
 npm run test:shuffle        # vitest at the SAME pinned seed CI's unit-tests-shuffled uses (BLOCKING).
                             # ★ Run this before pushing anything that adds or reorders tests — it is
                             # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare

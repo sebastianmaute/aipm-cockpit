@@ -540,7 +540,7 @@ describe("useStorageBackend — save effect", () => {
   // ★★★ READ THIS BEFORE TRUSTING IT. This test pins the `logDiag`-outside-
   //   the-guard decision and NOTHING ELSE. Deleting all three
   //   `if (!mountedRef.current) return;` lines from `refreshBackendStatus`
-  //   leaves it GREEN — verified by running that mutation, 64/64. An earlier
+  //   leaves it GREEN — verified by running that mutation. An earlier
   //   version of this comment claimed the test "demonstrates the guard is live
   //   in this catch path": true of the one-time experiment (moving the logDiag
   //   call below the guard DOES fail it, which can only happen if the guard
@@ -568,11 +568,20 @@ describe("useStorageBackend — save effect", () => {
     );
   });
 
-  // ★★★ `mountedRef.current = true` in the effect BODY (not just the cleanup) is
-  //     load-bearing in dev and CANNOT be pinned here. A StrictMode-wrapped
-  //     renderHook was tried and is VACUOUS: measured 2026-08-04, StrictMode in
-  //     this suite invokes the effect ONCE (["mount"], no cleanup+remount), so
-  //     deleting the re-set keeps all 63 tests green. See open-followups.md §72.
+  // ★★ `mountedRef.current = true` in the effect BODY (not just the cleanup) is
+  //    load-bearing in dev, and it IS pinned — see the "StrictMode mount re-set
+  //    (§72)" describe at the end of this file.
+  //    ★★★ This comment previously said the opposite: that a StrictMode-wrapped
+  //    renderHook had been tried and was VACUOUS, measured 2026-08-04 as
+  //    ["mount"] with no cleanup+remount. That observation is REPRODUCIBLE —
+  //    a StrictMode composed inside a wrapper function does single-invoke a
+  //    child mounted in the same commit — but the CONCLUSION drawn from it
+  //    (that the behaviour could not be pinned) was wrong. (Which shape the
+  //    2026-08-04 run used was never recovered.) The guard below uses RTL's
+  //    `reactStrictMode: true`, which leaves nothing between the root and
+  //    StrictMode, and it dies when the re-set is deleted. The shape rule and
+  //    its edges are pinned in strictmode.meta.test.tsx; see open-followups
+  //    §85.
 });
 
 describe("useStorageBackend — handlers", () => {
@@ -1789,5 +1798,68 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     const { result } = renderBackend();
     await act(async () => { await Promise.resolve(); });
     expect((result.current.tasks[0] as { resourceId?: number }).resourceId).toBe(42);
+  });
+});
+
+describe("useStorageBackend — StrictMode mount re-set (§72)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("still emits a save outcome after StrictMode's remount", async () => {
+    // StrictMode mounts → unmounts → remounts. Without `mountedRef.current =
+    // true` in the mount effect BODY, the flag is false for the rest of the
+    // session and emitOutcome / emitToast / emitRegistryChange /
+    // emitStorageConfig all return early — §72's dev-only total-suppression
+    // failure mode.
+    //
+    // Delete `mountedRef.current = true` from use-storage-backend.ts and this
+    // fails: onStorageOutcome is never called. Verified by running that
+    // mutation.
+    //
+    // ★★★ The `reactStrictMode: true` OPTION is load-bearing here — do not
+    //     "simplify" it to `wrapper: ({children}) => <StrictMode>…`. RTL's
+    //     option renders `<StrictMode><Wrapper>…</Wrapper></StrictMode>`,
+    //     leaving nothing between the root and StrictMode; composing
+    //     StrictMode inside the wrapper instead puts a fiber above it on the
+    //     same branch and, on a mount commit, silences the double invoke
+    //     entirely. Measured 2026-08-05: that shape stayed green with the
+    //     pinned line deleted — i.e. the guard becomes VACUOUS and looks
+    //     identical. The full rule, the React-internals reason and every
+    //     measured edge live in ONE place: `src/app/strictmode.meta.test.tsx`.
+    //     That shape is also the likely source of the 2026-08-04 "StrictMode
+    //     single-invokes here" observation — which reproduces; it is its
+    //     CONCLUSION ("therefore untestable") that this test refutes.
+    const onStorageOutcome = vi.fn();
+    const { result } = renderHook(makeProbe(makeArgs({ onStorageOutcome })), {
+      wrapper: ({ children }) => <TestProviders>{children}</TestProviders>,
+      reactStrictMode: true,
+    });
+
+    // Let the load settle, then burn the first debounce cycle (the load sets
+    // suppressNextSaveRef, which that cycle clears).
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    onStorageOutcome.mockClear();
+
+    await act(async () => {
+      result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // `null` (not merely "called") is what says the save SUCCEEDED — an error
+    // outcome reaches the same callback.
+    expect(onStorageOutcome).toHaveBeenCalledWith(null);
   });
 });
