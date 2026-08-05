@@ -47,6 +47,7 @@ import React from "react";
 const componentLog: string[] = [];
 const hookLog: string[] = [];
 const nestedLog: string[] = [];
+const bareNestedLog: string[] = [];
 const strictOptionLog: string[] = [];
 
 function Shell({ children }: { children?: React.ReactNode }) {
@@ -58,6 +59,15 @@ function useNestedProbe() {
     nestedLog.push("mount");
     return () => {
       nestedLog.push("cleanup");
+    };
+  }, []);
+}
+
+function useBareNestedProbe() {
+  useEffect(() => {
+    bareNestedLog.push("mount");
+    return () => {
+      bareNestedLog.push("cleanup");
     };
   }, []);
 }
@@ -123,6 +133,22 @@ describe("StrictMode double-invocation (meta — guards depend on this)", () => 
       ),
     });
     expect(nestedLog).toEqual(["mount"]);
+  });
+
+  // The Shell variant above could be read as "the extra DOM element between
+  // StrictMode and the hook is what breaks it" — it isn't. Here there is no
+  // element between the wrapper and StrictMode at all: the wrapper FUNCTION
+  // itself is enough to move StrictMode off the outermost position and
+  // silence the double invoke. This is the more surprising half of the shape
+  // rule, and the shape a contributor reaching for "just wrap it in
+  // StrictMode" is likeliest to write. Same current-behaviour caveat as
+  // above: a future red run here means the shape rule changed, not that
+  // something broke.
+  it("does NOT double-invoke with a bare nested StrictMode wrapper (no intermediate component)", () => {
+    renderHook(() => useBareNestedProbe(), {
+      wrapper: ({ children }) => <StrictMode>{children}</StrictMode>,
+    });
+    expect(bareNestedLog).toEqual(["mount"]);
   });
 
   it("double-invokes via renderHook's reactStrictMode option, which keeps StrictMode outermost", () => {

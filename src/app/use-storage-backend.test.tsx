@@ -540,7 +540,7 @@ describe("useStorageBackend — save effect", () => {
   // ★★★ READ THIS BEFORE TRUSTING IT. This test pins the `logDiag`-outside-
   //   the-guard decision and NOTHING ELSE. Deleting all three
   //   `if (!mountedRef.current) return;` lines from `refreshBackendStatus`
-  //   leaves it GREEN — verified by running that mutation, 64/64. An earlier
+  //   leaves it GREEN — verified by running that mutation. An earlier
   //   version of this comment claimed the test "demonstrates the guard is live
   //   in this catch path": true of the one-time experiment (moving the logDiag
   //   call below the guard DOES fail it, which can only happen if the guard
