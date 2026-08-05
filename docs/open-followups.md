@@ -118,9 +118,9 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
 | 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations, after a revision that wrongly called Fetch untestable |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §77 |
-| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★ ships UNTESTED of necessity (StrictMode single-invokes here — **why is now §78, and it is a whole-suite property, not a local one**), sweep re-run on the broad pattern |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — the flag is unread by its only consumer, so the list simply renders EMPTY; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§78 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
 | 77 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 78 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN** — the reason §72 + §76 both ship untested; ★★★ scope is the whole suite, not those two tests; ★ the obvious "production React" explanation is ruled out, so it needs real investigation |
+| 78 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the REAL app double-invokes correctly (mount→cleanup→mount in ), so this is a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3814,8 +3814,35 @@ a `file:line` being invalidated by the very commit that wrote it.
 
 ★★ **Consequence is dev-only and TOTAL.** Next 16 defaults `reactStrictMode: true`, so every dev mount
 is mount→unmount→remount; after that first cycle `mountedRef.current` is permanently `false` and every
-one of those setters is suppressed for the rest of the session. The scheduled-jobs surface never leaves
-its loading state. Production is unaffected (one mount, no remount) — but so is the entire test suite,
+one of those setters is suppressed for the rest of the session.
+
+★★★ **OBSERVED, not reasoned — and the symptom this entry claimed was WRONG.** Measured 2026-08-05 in a
+real `next dev` server (isolated `PORT=3100`), with a temporary probe in the mount effect and in
+`refresh`, driving the Settings → Scheduled jobs section through Playwright. Pre-fix shape (the mount
+re-set deleted, everything else identical):
+
+```
+mount-effect run          ← first mount
+mount-effect cleanup      ← StrictMode unmount: mountedRef = false
+mount-effect run          ← remount; nothing restores the flag
+refresh resolved, mountedRef=false jobs=1     ← the data DID load
+(no "setJobs APPLIED")                        ← the setter is suppressed
+```
+
+With the shipped fix, the same run reads `mountedRef=true` followed by `setJobs APPLIED`. So the defect
+and the fix are now both observed, on the real surface, not inferred from the code.
+
+★★★ **The claimed symptom — "the scheduled-jobs surface never leaves its loading state" — is FALSE, and
+survived three review rounds.** `useScheduledJobs` returns `ready`, but its ONLY consumer
+(`settings-sections/scheduled-jobs-section.tsx`) destructures `{ jobs, busy, createJob, updateJob,
+deleteJob }` and never reads it. There is no loading state driven by that flag. The REAL symptom is the
+one the trace shows: the jobs list loads and is then discarded, so the section renders EMPTY — a user
+sees "no scheduled jobs", not a spinner. ★ `useOperatingGuides` is the opposite case: its `ready` IS
+consumed, reaching `chat-panel.tsx` as `guidesPending = ai.groundInGuides && !guidesReady`, so its
+symptom is in the AI chat panel and only when "ground in guides" is on — a different surface again.
+★★ Why three rounds missed it: every reviewer verified that the SETTERS were guarded, which is a
+question about the hook. Nobody traced the flag OUT of the hook to a render. **A claim about a symptom
+is a claim about a consumer — check the consumer, not the producer.** Production is unaffected (one mount, no remount) — but so is the entire test suite,
 which is why this has survived: **a fully green suite says nothing about it**, exactly as measured for
 §72's own re-set line, which no test can pin either.
 
@@ -3912,7 +3939,27 @@ being written into the tracked register, rather than left resting on the two pri
 
 ## 78. StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous
 
-**Status: OPEN. Filed from the slice-3 branch review, not investigated.**
+**Status: OPEN — but NARROWED by a direct measurement, and the scope is now known.**
+
+★★★ **StrictMode DOES double-invoke effects in the real app. The anomaly is the TEST environment
+alone.** Measured 2026-08-05 in `next dev` (isolated `PORT=3100`) with a probe in
+`use-scheduled-jobs`'s mount effect, driven through Playwright:
+
+```
+mount-effect run
+mount-effect cleanup
+mount-effect run
+```
+
+That is the mount→unmount→remount cycle the vitest measurement (`["mount"]`, no cleanup) does not
+reproduce. So this entry is NOT "does StrictMode work here" — it is specifically **"why does vitest not
+reproduce it"**, and everything downstream of that changes: the app's behaviour is correct and
+understood, the untestability is a test-harness problem, and §76/§72's guards are load-bearing in dev
+exactly as claimed (see §76's observed before/after trace).
+★ The hypotheses below are therefore all about the TEST environment. The measurement-artefact one is
+still the cheapest first check, and it now has a companion: the probe that works is a module-scope
+array written from inside the effect, which is exactly the shape a per-instance log would have got
+wrong — so reproduce the vitest measurement with THAT shape before concluding anything from it.
 
 §72 and §76 both ship UNTESTED, and both give the same reason: a StrictMode-wrapped `renderHook` was
 tried and found VACUOUS. The measurement is recorded in code at `use-storage-backend.test.tsx` beside
