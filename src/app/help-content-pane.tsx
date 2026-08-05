@@ -138,10 +138,19 @@ export function HelpContentPane({
                   </h3>
                   <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
                     {/* ★ Segments, not one string: a label renders emphasised
-                        against the muted body. `Highlighted` runs PER segment,
-                        so a search term spanning a label boundary matches (the
+                        against the body. `Highlighted` runs PER segment, so a
+                        search term spanning a label boundary matches (the
                         search body is stripped) but highlights only within its
-                        own segment. Accepted — see the spec. */}
+                        own segment. Accepted — see the spec.
+                        ★★ `font-medium` IS THE WHOLE EFFECT — do not drop it.
+                        Measured in Chromium: `--foreground` and
+                        `--muted-foreground` are BOTH #15212e in the default
+                        scheme, so `text-foreground` here is a colour no-op and
+                        the label is distinguished by weight (500 vs 400) alone.
+                        Keeping the weight also means the cue is not colour-only,
+                        which is the WCAG-safer outcome — but a "simplification"
+                        that keeps the colour class and drops the weight would
+                        render labels perfectly invisible. */}
                     {parseHelpBody(t(lang, e.bodyKey)).map((seg, i) =>
                       seg.isLabel ? (
                         <span key={i} className="font-medium text-foreground">
