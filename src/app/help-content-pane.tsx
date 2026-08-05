@@ -7,7 +7,7 @@
 // parent owns the search input, tours, relations map, and footer.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
+import { HELP_ENTRIES, HELP_GROUP_LABEL, helpGroupOrder, type HelpReadingLevel } from "./help-content";
 import { matchesQuery, highlightSegments } from "./help-search";
 import { parseHelpBody, stripHelpMarkers } from "./help-body-markup";
 import { navLabelKey, type AppView } from "./nav-config";
@@ -37,10 +37,15 @@ export function HelpContentPane({
   lang,
   query,
   onNavigateView,
+  readingLevel = "standard",
 }: {
   lang: Lang;
   query: string;
   onNavigateView?: (view: AppView) => void;
+  /** How much teaching to do — see `Settings.helpReadingLevel`. Defaults to
+   *  "standard" so a caller that has not wired settings (and every existing
+   *  test) renders exactly today's Help. */
+  readingLevel?: HelpReadingLevel;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -51,11 +56,13 @@ export function HelpContentPane({
       // `[[` markup that is never rendered.
       matchesQuery(t(lang, e.titleKey), stripHelpMarkers(t(lang, e.bodyKey)), query),
     );
-    return HELP_GROUP_ORDER.map((group) => ({
-      group,
-      entries: matched.filter((e) => e.group === group),
-    })).filter((g) => g.entries.length > 0);
-  }, [lang, query]);
+    return helpGroupOrder(readingLevel)
+      .map((group) => ({
+        group,
+        entries: matched.filter((e) => e.group === group),
+      }))
+      .filter((g) => g.entries.length > 0);
+  }, [lang, query, readingLevel]);
 
   // Stable key of the rendered section ids → re-create the observer when the
   // filtered set changes (search). Hoisted scalar avoids the exhaustive-deps

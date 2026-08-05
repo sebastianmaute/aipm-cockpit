@@ -12,6 +12,7 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 import { usePanelInitialFocus } from "./use-panel-focus";
 import { APP_LICENSE_URL } from "./version";
+import { useSettings } from "./use-settings";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
 const STORAGE_KEY_SIZE = "aipm-cockpit:help-size-v3";
@@ -45,6 +46,14 @@ const computeHelpInitialPos: ComputeInitialPos = ({ saved, panelW, panelH, clamp
  *  tabbed tours / relations-map / information-flows surfaces live in the in-pane
  *  Help VIEW, not here. */
 export function HelpMenu({ lang }: { lang: Lang }) {
+  // ★ A LOCAL useSettings(), not a prop threaded through `ActionMenus` (which
+  // mounts this component). That contract is guarded by
+  // `action-menus-sweep.test.ts` and documents a props-not-hooks rule for the
+  // export config; widening it would add three hops for a value one component
+  // needs. The rule's original reason — a second instance not seeing a change
+  // until reload — no longer applies: `use-settings.ts` keeps every live
+  // instance in step through a module-level listener registry.
+  const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const { ref: panelRef, reset: resetHelpSize } = useResizable(STORAGE_KEY_SIZE);
@@ -161,7 +170,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             </ClearableSearchInput>
           </div>
 
-          <HelpContentPane lang={lang} query={query} />
+          <HelpContentPane lang={lang} query={query} readingLevel={settings.helpReadingLevel ?? "standard"} />
 
           <div className="flex shrink-0 items-center justify-end gap-4 border-t border-line px-4 py-2">
             <a

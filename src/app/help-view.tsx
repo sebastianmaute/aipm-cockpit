@@ -13,6 +13,7 @@ import { InformationFlowsSection } from "./settings-sections/information-flows-s
 import type { TourCatalogEntry } from "./app-tour";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
+import { useSettings } from "./use-settings";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useTablistRoving } from "./use-tablist-roving";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
@@ -50,6 +51,10 @@ export function HelpView({
 }) {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<HelpTab>("help");
+  // Device-global reading level. A local hook rather than a prop: the value is
+  // needed by exactly this subtree, and `use-settings.ts` keeps every live
+  // instance in step, so it cannot go stale against the Settings pane.
+  const { settings } = useSettings();
   const { ref, reset } = useResizable("aipm-cockpit:help-view-size");
   const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
 
@@ -155,7 +160,12 @@ export function HelpView({
       >
         {activeTab === "help" && (
           <div className="flex min-h-0 flex-1 overflow-hidden rounded-md border border-line print:block print:overflow-visible">
-            <HelpContentPane lang={lang} query={query} onNavigateView={onNavigateView} />
+            <HelpContentPane
+              lang={lang}
+              query={query}
+              onNavigateView={onNavigateView}
+              readingLevel={settings.helpReadingLevel ?? "standard"}
+            />
           </div>
         )}
         {activeTab === "tours" && (

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, expect, test, vi } from "vitest";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
 import { HELP_ENTRIES } from "./help-content";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { stripHelpMarkers } from "./help-body-markup";
 
 // jsdom has no IntersectionObserver; the scroll-spy effect only needs the
@@ -96,4 +96,38 @@ test("renders a marked label as styled text, never as raw brackets", () => {
   render(<HelpContentPane lang="en-US" query="" />);
   expect(screen.queryByText(/\[\[/)).toBeNull();
   expect(screen.queryByText(/\]\]/)).toBeNull();
+});
+
+// ★ Asserts the rendered SEQUENCE, not mere presence. A presence assertion
+// ("all four groups appear") passes against the unchanged order and proves
+// nothing about the reorder — vacuous by construction.
+function groupHeadingOrder(): string[] {
+  return screen
+    .getAllByRole("heading", { level: 2 })
+    .map((h) => h.textContent ?? "");
+}
+
+test("Standard renders the teaching-first group order", () => {
+  render(<HelpContentPane lang="en-US" query="" readingLevel="standard" />);
+  expect(groupHeadingOrder()).toEqual([
+    t("en-US", "helpGroupConcepts"),
+    t("en-US", "helpGroupWorkflows"),
+    t("en-US", "helpGroupFeatures"),
+    t("en-US", "helpGroupAutomated"),
+  ]);
+});
+
+test("Expert renders the reference-first group order", () => {
+  render(<HelpContentPane lang="en-US" query="" readingLevel="expert" />);
+  expect(groupHeadingOrder()).toEqual([
+    t("en-US", "helpGroupFeatures"),
+    t("en-US", "helpGroupAutomated"),
+    t("en-US", "helpGroupWorkflows"),
+    t("en-US", "helpGroupConcepts"),
+  ]);
+});
+
+test("omitting readingLevel keeps today's order", () => {
+  render(<HelpContentPane lang="en-US" query="" />);
+  expect(groupHeadingOrder()[0]).toBe(t("en-US", "helpGroupConcepts"));
 });
