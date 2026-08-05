@@ -7,6 +7,9 @@ import {
   type PromptDef,
 } from "./ask-claude-prompts";
 import { t, loadI18n } from "./i18n";
+import { VIEW_AI_SCOPE } from "./view-ai-scope";
+import { VIEW_AI_DIGEST } from "./view-ai-digest";
+import type { AppView } from "./nav-config";
 
 describe("ask-claude-prompts", () => {
   beforeAll(async () => {
@@ -36,6 +39,32 @@ describe("ask-claude-prompts", () => {
 
   it("keeps the attachment prompt for the chat surface", () => {
     expect(CHAT_ONLY_PROMPTS.some((p) => p.labelKey === "aiPromptProcessAttachmentLabel")).toBe(true);
+  });
+
+  it("offers on-page prompts for every view that has the tools to answer them", () => {
+    const expected = [
+      "actions", "budget", "budget-report", "calendar", "change-report", "changes",
+      "dashboard", "directory", "gantt", "insights", "knowledge", "manage-roles",
+      "milestones", "open-points", "planning", "portfolio-health", "raci", "raid",
+      "raid-report", "reports", "resources", "stakeholder-map", "stakeholders",
+      "steering-committee", "trends", "workload",
+    ];
+    expect(Object.keys(ASK_CLAUDE_PROMPTS).sort()).toEqual(expected);
+  });
+
+  // Dead prompts are the failure this feature exists to remove: a chip that
+  // asks a question no tool can answer.
+  it("has no chips for the views whose read tools are deferred", () => {
+    expect(ASK_CLAUDE_PROMPTS.timelog).toBeUndefined();
+    expect(ASK_CLAUDE_PROMPTS.activity).toBeUndefined();
+  });
+
+  it("every chipped view has tool hints or a digest behind it", () => {
+    for (const view of Object.keys(ASK_CLAUDE_PROMPTS) as AppView[]) {
+      const hasHints = (VIEW_AI_SCOPE[view].toolHints ?? []).length > 0;
+      const hasDigest = VIEW_AI_DIGEST[view] !== undefined;
+      expect(hasHints || hasDigest, `${view} has chips but no capability`).toBe(true);
+    }
   });
 
   it("every label/body key resolves in EN and DE (no missing keys)", () => {

@@ -88,6 +88,54 @@ export const ASK_CLAUDE_PROMPTS: Partial<Record<AppView, PromptDef[]>> = {
     { labelKey: "aiPromptScUpcomingLabel", bodyKey: "aiPromptScUpcomingBody" },
     { labelKey: "aiPromptScAgendaLabel", bodyKey: "aiPromptScAgendaBody" },
   ],
+  insights: [
+    { labelKey: "aiPromptInsTopLabel", bodyKey: "aiPromptInsTopBody" },
+    { labelKey: "aiPromptInsActLabel", bodyKey: "aiPromptInsActBody" },
+  ],
+  directory: [
+    { labelKey: "aiPromptDirGapsLabel", bodyKey: "aiPromptDirGapsBody" },
+    { labelKey: "aiPromptDirUnlinkedLabel", bodyKey: "aiPromptDirUnlinkedBody" },
+  ],
+  workload: [
+    { labelKey: "aiPromptWlOverloadLabel", bodyKey: "aiPromptWlOverloadBody" },
+    { labelKey: "aiPromptWlRebalanceLabel", bodyKey: "aiPromptWlRebalanceBody" },
+  ],
+  calendar: [
+    { labelKey: "aiPromptCalWeekLabel", bodyKey: "aiPromptCalWeekBody" },
+    { labelKey: "aiPromptCalClashLabel", bodyKey: "aiPromptCalClashBody" },
+  ],
+  planning: [
+    { labelKey: "aiPromptPlanGapsLabel", bodyKey: "aiPromptPlanGapsBody" },
+    { labelKey: "aiPromptPlanRampLabel", bodyKey: "aiPromptPlanRampBody" },
+  ],
+  "manage-roles": [
+    { labelKey: "aiPromptRolesUnassignedLabel", bodyKey: "aiPromptRolesUnassignedBody" },
+    { labelKey: "aiPromptRolesCoverLabel", bodyKey: "aiPromptRolesCoverBody" },
+  ],
+  "budget-report": [
+    { labelKey: "aiPromptBrVarianceLabel", bodyKey: "aiPromptBrVarianceBody" },
+    { labelKey: "aiPromptBrForecastLabel", bodyKey: "aiPromptBrForecastBody" },
+  ],
+  "raid-report": [
+    { labelKey: "aiPromptRrConcentrationLabel", bodyKey: "aiPromptRrConcentrationBody" },
+    { labelKey: "aiPromptRrSeverityLabel", bodyKey: "aiPromptRrSeverityBody" },
+  ],
+  "change-report": [
+    { labelKey: "aiPromptCrPendingLabel", bodyKey: "aiPromptCrPendingBody" },
+    { labelKey: "aiPromptCrImpactLabel", bodyKey: "aiPromptCrImpactBody" },
+  ],
+  raci: [
+    { labelKey: "aiPromptRaciGapsLabel", bodyKey: "aiPromptRaciGapsBody" },
+    { labelKey: "aiPromptRaciOverloadLabel", bodyKey: "aiPromptRaciOverloadBody" },
+  ],
+  "stakeholder-map": [
+    { labelKey: "aiPromptSmapCloseLabel", bodyKey: "aiPromptSmapCloseBody" },
+    { labelKey: "aiPromptSmapNeglectLabel", bodyKey: "aiPromptSmapNeglectBody" },
+  ],
+  "portfolio-health": [
+    { labelKey: "aiPromptPhWorstLabel", bodyKey: "aiPromptPhWorstBody" },
+    { labelKey: "aiPromptPhCompareLabel", bodyKey: "aiPromptPhCompareBody" },
+  ],
 };
 
 /** What the menu/UI shows for a view: on-page suggestions + the always-on general set. */

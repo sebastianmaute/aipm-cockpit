@@ -145,7 +145,8 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     purpose:
       "RACI maps stakeholders to milestones as Responsible, Accountable, Consulted or Informed.",
     toolHints: ["list_stakeholders", "list_milestones"],
-    reading: "Exactly one Accountable per milestone is the norm; more than one is a finding.",
+    reading:
+      "Exactly one Accountable per milestone is the norm; more than one is a finding. But RACI assignments are not tool-readable — list_stakeholders and list_milestones expose neither, so there is no tool to read who is Accountable. Say so rather than presenting a count.",
   },
   "stakeholder-map": {
     purpose:

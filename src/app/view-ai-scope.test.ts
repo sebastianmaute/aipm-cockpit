@@ -41,4 +41,13 @@ describe("VIEW_AI_SCOPE", () => {
       ).toContain("turso");
     }
   });
+
+  // Neither StakeholderSummary nor MilestoneSummary (chat-tools.ts) exposes
+  // Stakeholder.raci, so no tool can tell the model who is Accountable. The
+  // raci view's reading must disclose that gap instead of inviting the model
+  // to present an assignment count it cannot actually read.
+  it("discloses that RACI assignments are not tool-readable", () => {
+    expect(VIEW_AI_SCOPE.raci.reading?.toLowerCase()).toContain("not");
+    expect(VIEW_AI_SCOPE.raci.reading?.toLowerCase()).toContain("readable");
+  });
 });
