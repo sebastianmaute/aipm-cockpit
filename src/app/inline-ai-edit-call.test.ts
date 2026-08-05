@@ -54,4 +54,38 @@ describe("callInlineEdit", () => {
     expect(spy.mock.calls[0][0]).toBe("sk-ant-secret000000000000");
     expect(spy.mock.calls[0][1]).toBe("claude-y");
   });
+
+  // Inline edit reuses the CHAT dispatcher's snapshot, so it inherits whatever
+  // `getSnapshot()` puts on it — including the VIEW STATE digest, which lists
+  // NEIGHBOURING rows of the surface the editor was opened from. Handing those
+  // to a mutation planner contradicts the scope block's "Do NOT update or
+  // delete any OTHER item", so `callInlineEdit` blanks `viewDigest`.
+  it("strips the view digest, so no OTHER item's rows reach the mutation planner", async () => {
+    const response: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+      content: [],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 0, output_tokens: 0 },
+    };
+    const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
+    await callInlineEdit({
+      apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", lang: "en-US",
+      entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
+      snapshot: {
+        ...snapshot,
+        viewDigest:
+          "12 task(s) visible in the table.\nVisible rows: #7 Somebody else's task [To Do]",
+      },
+      guides: [], groundInGuides: false,
+    });
+    const systemText = spy.mock.calls[0][2].map((b) => b.text).join("\n");
+    expect(systemText).not.toContain("VIEW STATE");
+    expect(systemText).not.toContain("Somebody else's task");
+    // CONTROL: the two negatives above would also pass against an EMPTY system
+    // prompt, so assert something only buildSystemPrompt can emit. ★ It must NOT
+    // be `itemLabel` ("Fix login bug"): that comes from scopeBlock(), which
+    // callInlineEdit appends independently of buildSystemPrompt — so it stays
+    // present even if buildSystemPrompt returns [], and controls for nothing.
+    expect(systemText).toContain("VIEW SCOPE");
+    expect(systemText).toContain("Today is 2026-07-03");
+  });
 });
