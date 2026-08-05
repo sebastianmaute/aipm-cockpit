@@ -116,9 +116,8 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   // to no module and no Turso gate, so `isViewEnabled` returns true for it
   // unconditionally — none of those three can be pruned. Precedent allows
   // covering a gateable view: `trends` is Turso-only and has been covered
-  // since slice 1. ★ `helpSecPortfolioHealthBody` states its Turso condition;
-  // `helpSecTimelogBody` does NOT say Time bookings is a module that can be
-  // switched off, which is a gap rather than a falsehood.
+  // since slice 1. ★ Both bodies now state their condition — Turso for
+  // portfolio health, the per-project module for Time bookings.
   { id: "feature-projects", group: "features", titleKey: "helpSecProjectsTitle", bodyKey: "helpSecProjectsBody", relatedViews: ["projects"] },
   { id: "feature-portfolio-health", group: "features", titleKey: "helpSecPortfolioHealthTitle", bodyKey: "helpSecPortfolioHealthBody", relatedViews: ["portfolio-health"], relatedConcepts: ["concept-baseline"] },
   { id: "feature-timelog", group: "features", titleKey: "helpSecTimelogTitle", bodyKey: "helpSecTimelogBody", relatedViews: ["timelog"], relatedConcepts: ["concept-budget", "concept-resource"] },
