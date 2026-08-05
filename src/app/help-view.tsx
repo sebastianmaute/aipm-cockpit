@@ -6,6 +6,8 @@ import { HELP_ENTRIES } from "./help-content";
 import { type AppView } from "./nav-config";
 import { buildRelationsGraph } from "./relations-graph";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
+import { Select } from "./form-controls";
+import type { HelpReadingLevel } from "./help-content";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { RelationsMap } from "./relations-map";
 import { TourCatalog } from "./tour-catalog";
@@ -54,7 +56,7 @@ export function HelpView({
   // Device-global reading level. A local hook rather than a prop: the value is
   // needed by exactly this subtree, and `use-settings.ts` keeps every live
   // instance in step, so it cannot go stale against the Settings pane.
-  const { settings } = useSettings();
+  const { settings, setSettings } = useSettings();
   const { ref, reset } = useResizable("aipm-cockpit:help-view-size");
   const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
 
@@ -145,6 +147,31 @@ export function HelpView({
               className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none ${FOCUS_RING} ${TRANSITION}${query ? " pr-8" : ""}`}
             />
           </ClearableSearchInput>
+        )}
+        {/* Reading level, reachable from Help itself rather than only from
+          * Settings → Appearance — it changes what THIS pane shows, so the
+          * control belongs where the effect is visible. Same value, one source:
+          * it writes the device setting, so switching here moves the Settings
+          * control too (and the floating panel, via the useSettings registry).
+          * ★ Gated on the Help tab like the search box: the level changes
+          * nothing on Tours / Connects / Flows, and a control with no visible
+          * effect is worse than an absent one.
+          * ★ Placed BEFORE the `ml-auto` trailing group, not inside it — the
+          * toolbar convention keeps Print · reset-size contiguous, and this is
+          * neither a member nor a primary action. */}
+        {activeTab === "help" && (
+          <Select
+            size="xs"
+            value={settings.helpReadingLevel ?? "standard"}
+            onChange={(e) => setSettings({ ...settings, helpReadingLevel: e.target.value as HelpReadingLevel })}
+            aria-label={t(lang, "helpReadingLevelLabel")}
+            title={t(lang, "helpReadingLevelLabel")}
+            className="shrink-0 print:hidden"
+          >
+            <option value="guided">{t(lang, "helpReadingLevelGuided")}</option>
+            <option value="standard">{t(lang, "helpReadingLevelStandard")}</option>
+            <option value="expert">{t(lang, "helpReadingLevelExpert")}</option>
+          </Select>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-2 print:hidden">
           <PrintButton lang={lang} />

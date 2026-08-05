@@ -157,7 +157,16 @@ export function HelpContentPane({
                       What / Why / In this app. Inset with existing tokens only
                       — the card is `bg-surface` on a `bg-surface-muted`
                       scroller, so the muted fill reads as a nested block
-                      without a new token, a gradient or a shadow. */}
+                      without a new token, a gradient or a shadow.
+                      ★★ THE FILL + BORDER ARE THE WHOLE CUE — `text-foreground`
+                      here is INERT. `scheme-tokens.ts` derives
+                      `--muted-foreground` FROM `--foreground`, so the two are
+                      identical BY CONSTRUCTION in every built-in scheme, not
+                      just the default (measured in Chromium: both `#15212e`).
+                      The class stays because it states the intent and would
+                      matter in a scheme that broke the derivation — but do not
+                      "simplify" the box away and expect the colour to carry
+                      the distinction, because it never has. */}
                   {primerFor(e) ? (
                     <p className="mb-2 max-w-[64ch] whitespace-pre-line rounded border border-line bg-surface-muted p-2 text-sm leading-relaxed text-foreground">
                       {parseHelpBody(primerFor(e)).map((seg, i) =>
