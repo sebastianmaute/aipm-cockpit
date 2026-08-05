@@ -116,10 +116,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
 | 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only, the same shape survives in `refreshBackendStatus`/`applyWorkspace` (surveyed, left); ★ near-zero production impact, the win is a job that stops lying |
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
-| 74 | ~~The TimeLog refresh handlers omit a guard their button carries~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift (untestable by construction); ★ it is what made §39 possible |
+| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★ the first pass closed only Fetch + Refresh and left `handleLoadManagedProjects` (a third hand-rolled copy of the contract) while claiming the class closed — found in review, now routed through `canLoadManagedProjects`; ★★ the BUTTON half was unpinned by any test until the same review |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §77 |
-| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★ ships UNTESTED of necessity (StrictMode single-invokes here), sweep re-run on the broad pattern |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★ ships UNTESTED of necessity (StrictMode single-invokes here — **why is now §78, and it is a whole-suite property, not a local one**), sweep re-run on the broad pattern |
 | 77 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
+| 78 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN** — the reason §72 + §76 both ship untested; ★★★ scope is the whole suite, not those two tests; ★ the obvious "production React" explanation is ruled out, so it needs real investigation |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3369,8 +3370,10 @@ afterEach((ctx) => {
 });
 ```
 
-Used by the §39 capture (`timelog-panel.test.tsx`) and the §51 capture (`use-tasks-dedup.test.tsx`) on
-this branch.
+Used by the §39 capture (`timelog-panel.test.tsx`) and the §51 capture (`use-tasks-dedup.test.tsx`),
+both merged in the machine-unblocking slice-2 MR (`!346`). ★ An earlier revision said "on this branch",
+which stopped being true the moment that branch merged — a relative reference in a long-lived register
+decays silently. Name the MR or the commit.
 
 **Scope:** this affects **any** test in this repo that would inspect DOM or mock state from
 `onTestFailed` or `onTestFinished`, because the setup file's `cleanup()` always wins the race.
@@ -3380,7 +3383,12 @@ a grep finds today (two in `timelog-panel.test.tsx`, one in `use-tasks-dedup.tes
 comments those files now carry, not calls. (An earlier revision said "these captures are the first use",
 contradicting its own next sentence and this entry's whole conclusion.)
 
-★ Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.
+★ ~~Worth a line in AGENTS.md eventually; **not added there yet**, so this entry is the only record.~~
+**SUPERSEDED by the paragraph directly below — it WAS added.** Struck rather than deleted because two
+independent reviewers flagged this line, both reading it as the file's live answer and taking away the
+opposite of the truth. Elsewhere this file marks a disproven claim explicitly ("**This entry was
+wrong.**"); leaving one unmarked directly above the paragraph that disproves it makes the convention
+look optional.
 
 ★★★ **CLOSED — the landmine now lives in AGENTS.md's `npm run test:run` command block**, so it reaches
 every session automatically rather than requiring a targeted open of this file. It records the same
@@ -3431,8 +3439,35 @@ guard's only trigger is precisely the state in which the button is already disab
 ever reach it. A pure predicate is directly unit-testable regardless of what renders it.
 
 ★ The predicates were verified logically equivalent to the buttons' PREVIOUS `disabled` expressions —
-no button changes behaviour in any state; the handlers gained the `isMisconfigured` check they lacked,
-declared once above both handlers rather than read through a closure over a later-declared const.
+no button changes behaviour in any state; the handlers gained the `isMisconfigured` check they lacked.
+`isMisconfigured` is declared once directly below `cfg`, above every reader. ★★ An earlier revision of
+that comment justified the move as stopping a handler "reading it through a closure over a
+later-declared const", implying a TDZ hazard. There was none — both handlers are hoisted `function`
+declarations invoked from `onClick`, long after the const initialises — and in a repo where rationales
+get copied into later commit messages as justification, a comment asserting a bug that cannot occur is
+worse than no comment. The move is readability only.
+
+★★★ **THE FIRST PASS CLOSED TWO OF THREE ACTIONS AND DECLARED THE CLASS CLOSED.**
+`handleLoadManagedProjects` checked `isPopout || sync.busy` while its button evaluated all four shared
+blockers — that button's `disabled` was literally `isBlocked` spelled out by hand, in a third file.
+Both branch reviewers found it independently. It now routes through `canLoadManagedProjects`. ★ The
+lesson is about the CLOSURE, not the code: "extract a shared predicate" is only done when every call
+site of that contract is migrated, and the entry claimed completion while naming only the two sites the
+author happened to be looking at. Grep for the contract's SHAPE, not the two functions in the ticket.
+
+★★★ **AND NOTHING PINNED THE BUTTON HALF.** The module's whole reason to exist is one contract, two
+call sites, cannot drift — but no test asserted either button was disabled while TimeLog is
+unconfigured. Every existing test in `timelog-panel.test.tsx` waits for a button to become ENABLED, so
+deleting `isMisconfigured` from a button's argument object (which makes it enable SOONER) stayed green.
+`timelog-panel.test.tsx` now asserts the DISABLED direction for Fetch and Load-managed-projects, with
+Load-managed-projects doubling as a positive control — that action has no precondition beyond the
+shared blockers, so the enabled case proves the disabled case is not vacuous. **Verified by mutation:
+setting `isMisconfigured: false` at both button call sites fails the new test and nothing else in the
+file** — which also confirms the gap was real rather than merely theoretical.
+
+★★ "Untestable by construction" was true of the HANDLER and got generalised to the whole fix. The
+handler path really is unreachable from the UI; the BUTTON path is DOM-reachable and cheap. Watch for
+a true statement about one half of a change being carried over to the half it does not cover.
 
 ★ `TimelogFetchState.projectCustomerId` is `number | ""` (matching `use-timelog-picker-scope.ts`'s
 `useState<number | "">("")` and `TimelogToolbar`'s own prop), not `string` — the module's first version
@@ -3544,6 +3579,27 @@ expected to fail broadly. The shuffle result is the informative one precisely be
 
 ★★★ **FIXED — both mechanisms, NAMED, and they are two different bugs.**
 
+★★★ **SCOPE THE SECOND FIX HONESTLY: it closes `createBackend`, NOT the once-queue class.** The
+storage fix below drains exactly ONE of the file's six module-level mocks. `mockBackend` is a
+module-level const (`use-storage-backend.test.tsx:103`) that is never rebuilt, and eight further
+describes queue once-values on `mockBackend.load` / `isReady` / `describe` / `save` — 60 `Once(` calls
+across the file against 2 `mockReset()` calls — with no drain anywhere. Every one of them
+re-establishes its default with `.mockResolvedValue(...)`, which by this entry's own argument does not
+out-rank a queued once-value. ★ This is a LATENT hazard, not a known live leak: read statically each
+queued value looks consumed by a mount or an explicit reload, and the suite passes shuffled at seeds
+1/2/3/7. But nothing structurally prevents the next test added to any of those describes from
+reopening the exact defect this entry closes. ★★ The comment in the test file states the general fact
+("`clearAllMocks` does NOT drain a `mockReturnValueOnce` queue — only `mockReset` does") beside a
+remedy applied to one mock, which reads as though the general fact had been generally handled.
+★ The cheap structural close, if this ever bites: `mockReset: true` in `vitest.config.ts` — every
+`beforeEach` in the file already re-establishes its own defaults, so nothing depends on values
+surviving a test. Deliberately NOT done here: it changes mock lifetime for all 785 test files to fix a
+hazard that has never fired, which is a far larger blast radius than the defect.
+★ Related and separate: the `project flows` describe sets a PERSISTENT `.mockReturnValue(targetBackend)`
+that survives `clearAllMocks` into later describes. Harmless today only because every subsequent
+describe re-arms `createBackend` in its own `beforeEach` — do not let anyone "simplify" one of those
+re-arms away.
+
 - `modern-shell.test.tsx`: `stubViewport` assigned `window.matchMedia` **directly**
   (`window.matchMedia = vi.fn()...`). A plain property write is invisible to `vi.clearAllMocks()` and
   `vi.restoreAllMocks()` (neither touches a non-mock property), and jsdom ships no `matchMedia` for
@@ -3584,7 +3640,7 @@ expected to fail broadly. The shuffle result is the informative one precisely be
   |---|---|
   | no drain at all (`2d7db4e3`) | **FAIL** — `Layer 3 wipe guard … MULTI-collection simultaneous wipe` |
   | `beforeEach` drain only (`55143042`) | **FAIL**, 2 runs of 2 |
-  | `beforeEach` + `afterEach` drains (`e0064815`/HEAD) | **PASS**, 3 runs of 3 |
+  | `beforeEach` + `afterEach` drains (`e0064815` onward) | **PASS**, 3 runs of 3 |
 
   This was first filed as a separate, mechanism-unknown defect (§77) before being re-measured against
   the wrong baseline and closed as the same leak. See §77 for the full account and the transferable
@@ -3613,8 +3669,19 @@ parses as a YAML mapping rather than a plain string and GitLab rejects the job a
 that bug shipped in the first version of the job and was caught only by parsing the file with a YAML
 library and printing the parsed `script` array, not by eye.
 
-★ **Prerequisite met before the blocking job was added:** the full suite passes shuffled at seed 1 —
-784/784 files, 8959 tests, exit 0 — which is why `unit-tests-shuffled` ships without `allow_failure`.
+★ **Prerequisite met — and RE-MEASURED at the branch tip:** the full suite passes shuffled at seed 1,
+**785/785 files, 8966 tests, exit 0**.
+
+★★ The first version of this line read `784/784 files, 8959 tests`, and both numbers were honest when
+written — they were taken at `0a7356e9`, the commit that added the job. The branch then added
+`timelog-guards.test.ts` and edited `timelog-panel.tsx` / `timelog-panel-toolbar.tsx`, which 51 tests
+in `timelog-panel.test.tsx` exercise. So a BLOCKING gate's only green evidence had been taken against
+a tree that was no longer the one it would gate. A cold reviewer caught it by counting test files per
+commit with `git ls-tree`. ★★★ The general rule: **a prerequisite measurement for a blocking gate has
+to be re-taken at the tip, not at the commit that added the gate** — every later commit on the branch
+invalidates it, and nothing in CI notices, because the gate has not run yet. (This same entry three
+paragraphs above meticulously corrects a different stale count, which is how the file demonstrably
+knows to do this and still skipped it here.)
 
 ★★ **Scope, honestly.** This was never a live CI failure — nothing in CI shuffled before this slice.
 From these commits forward it is gated at **seed 1 only**; a new order-dependent test that only fails
@@ -3641,9 +3708,21 @@ const mountedRef = useRef(true);
 useEffect(() => () => { mountedRef.current = false; }, []);   // ← no `mountedRef.current = true;`
 ```
 
-- `use-scheduled-jobs.ts:47,52` — gates `setReady(true)` (`:62`), `setBusy` (`:71`, `:80`, `:81`) and
-  `setJobs(next)` (`:76`), plus an early return at `:57`.
-- `use-operating-guides.ts:74,76` — gates `setReady(true)` (`:92`) and an early return at `:87`.
+- `use-scheduled-jobs.ts` — the ref gates `setReady`, `setBusy` and `setJobs`, plus an early return
+  inside `refresh` and the guarded setters inside `mutate`.
+- `use-operating-guides.ts` — the ref gates `setGuides` and `setReady`, plus an early return inside its
+  refresh path. (`setBusy` there is genuinely unguarded; the asymmetry with the file above is real, not
+  a copy-paste slip.)
+
+★★★ **These were LINE CITATIONS and the fix invalidated every one of them.** The original read
+`use-scheduled-jobs.ts:47,52 — gates setReady (:62), setBusy (:71, :80, :81) and setJobs(next) (:76),
+plus an early return at :57`. Inserting the mount effect pushed 12 lines into one file and 9 into the
+other, above every cited site: `setReady` moved `:62`→`:74`, `setBusy` `:71`/`:80`/`:81`→`:83`/`:92`/
+`:93`, `setJobs` `:76`→`:70`/`:88`, the early return `:57`→`:69`, and guides' `setReady` `:92`→`:101`.
+Only the two `useRef` declarations still resolved. Every stale number pointed at a real line holding
+unrelated code — a comment, a `} catch {`, a `}, []);` — so nothing looked broken. **Cite the SYMBOL,
+not the line, for anything in the file the commit is editing.** This is the third recorded instance of
+a `file:line` being invalidated by the very commit that wrote it.
 
 ★★ **Consequence is dev-only and TOTAL.** Next 16 defaults `reactStrictMode: true`, so every dev mount
 is mount→unmount→remount; after that first cycle `mountedRef.current` is permanently `false` and every
@@ -3692,7 +3771,7 @@ observations were real. Both were taken on a tree that had only §75's `beforeEa
 |---|---|
 | `2d7db4e3` (no drain at all) | **FAIL** — `Layer 3 wipe guard … MULTI-collection simultaneous wipe` |
 | `55143042` (`beforeEach` drain only) | **FAIL**, 2 runs of 2 |
-| `f993e5ae` / HEAD (`beforeEach` + `afterEach` drains) | **PASS**, 3 runs of 3 |
+| `f993e5ae` onward (`beforeEach` + `afterEach` drains) | **PASS**, 3 runs of 3 |
 
 So this was never a third, separate defect. It **is** §75's second mechanism — the undrained
 `mockReturnValueOnce` queue — escaping the `onRequestStorageSwitch` describe's boundary: under
@@ -3727,6 +3806,41 @@ direction (a failing test, not a code read). Both routes converged on the same f
 ★ Filed and closed within the same slice: caught only because the entry's own claim ("verified TWICE and
 independently... not caused by §75's `mockReset()` fix") was checked against the current tree before
 being written into the tracked register, rather than left resting on the two prior observations alone.
+
+---
+
+## 78. StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous
+
+**Status: OPEN. Filed from the slice-3 branch review, not investigated.**
+
+§72 and §76 both ship UNTESTED, and both give the same reason: a StrictMode-wrapped `renderHook` was
+tried and found VACUOUS. The measurement is recorded in code at `use-storage-backend.test.tsx` beside
+the §72 guard — StrictMode invoked the effect ONCE (`["mount"]`, no cleanup+remount), so deleting the
+`mountedRef.current = true` re-set kept the whole file green.
+
+★★★ **That measurement was treated as a fact about those two tests. It is a fact about the whole
+suite.** A cleanup-only `mountedRef` is dev-only-total precisely BECAUSE React double-invokes effects
+in dev StrictMode. If nothing in this repo's test environment reproduces that, then **no** test here
+can pin **any** StrictMode-dependent behaviour, and any future test that appears to is worth
+distrusting until this is understood.
+
+★★ **What is checked, and what is not.** Checked: React and react-dom are both 19.2.4; `vitest.config.ts`
+sets no `resolve.conditions` override (only the `@` alias and `environment: "jsdom"`). Under vitest
+`NODE_ENV` is `test`, and React's entry dispatches on `NODE_ENV === "production"` — so the DEVELOPMENT
+build should be loading and StrictMode SHOULD double-invoke. **The obvious explanation ("vitest resolves
+production React") is therefore NOT the answer**, which is exactly why this needs a real investigation
+rather than a guess. NOT checked: how RTL's `renderHook` composes the wrapper, whether the specific
+`renderBackend` helper wraps in `StrictMode` at the level assumed, and whether some setup-file or
+transform step is involved.
+
+★ **Why it is worth the effort:** if resolved, it unlocks a class of tests currently declared
+impossible — §72's post-unmount guard and §76's mount re-set become pinnable, and both are shipped
+guards that a contributor can today delete with every gate green. That is the actual cost of leaving
+this open: not a broken test, an unguarded fix.
+
+★ Do NOT close this by writing a StrictMode test that passes. A test that passes against a suite where
+StrictMode is inert proves nothing — first prove the double-invocation happens (assert an effect body
+runs twice), THEN write the guard test.
 
 ---
 

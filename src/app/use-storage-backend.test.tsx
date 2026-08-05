@@ -774,6 +774,13 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     //     module-scope `mockBackend.*` implementations (and the TursoBackend
     //     mock methods) that several other describes in this file rely on
     //     without re-establishing. See open-followups §75.
+    // ★★ SCOPE: this drains `createBackend` ONLY. The rule stated above is
+    //     general, but the remedy here is not — `mockBackend` is a
+    //     module-level const that is never rebuilt, and other describes in
+    //     this file queue once-values on `mockBackend.load` / `isReady` /
+    //     `describe` / `save` with no drain at all. Those are latent, not
+    //     known-live (the suite passes shuffled at seeds 1/2/3/7), but do not
+    //     read this block as "the once-queue class is handled file-wide."
     createBackendMock.mockReset();
     vi.useFakeTimers();
     setStorageConfig = vi.fn<(config: StorageConfig) => void>();
