@@ -128,6 +128,31 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   // ★ Absorbs the reading level, so that setting is documented exactly once.
   { id: "feature-help", group: "features", titleKey: "helpSecHelpTitle", bodyKey: "helpSecHelpBody", relatedViews: ["help"] },
 
+  // ── Features the ratchet structurally cannot see (slice 3) ──
+  // ★★ Coverage is defined over VIEWS, so a feature that is not a view can
+  // never appear in `KNOWN_UNCOVERED` however undocumented it is. These seven
+  // had zero help prose and an empty baseline said nothing about them. Adding
+  // one here is a judgement call, not a gate result — which is why the gate is
+  // not the thing to consult when asking whether Help is complete.
+  { id: "feature-saved-views", group: "features", titleKey: "helpSecSavedViewsTitle", bodyKey: "helpSecSavedViewsBody", relatedViews: ["open-points", "raid", "changes", "milestones", "stakeholders", "reports"] },
+  // ★★ TITLED "Installing", NOT "offline" — and the body says so outright.
+  // `sw.js` registers no `fetch` handler and caches nothing by design, so the
+  // app is installable and NOT offline-capable. An entry promising offline use
+  // would have been false on the most load-bearing word in it, and the
+  // reasonable assumption (installable ⇒ works offline) is exactly why the
+  // entry is worth having.
+  { id: "feature-install", group: "features", titleKey: "helpSecInstallTitle", bodyKey: "helpSecInstallBody" },
+  { id: "feature-undo", group: "features", titleKey: "helpSecUndoTitle", bodyKey: "helpSecUndoBody", relatedViews: ["open-points", "raid", "changes", "stakeholders", "resources"] },
+  // ★ Five entities, from `InlineEntity` — not the four the rich-text bullet
+  // in AGENTS.md happens to list; `stakeholder` is inline-editable too.
+  { id: "feature-inline-ai-edit", group: "features", titleKey: "helpSecInlineAiEditTitle", bodyKey: "helpSecInlineAiEditBody", relatedViews: ["open-points", "raid", "changes", "milestones", "stakeholders"] },
+  { id: "feature-digest", group: "features", titleKey: "helpSecDigestTitle", bodyKey: "helpSecDigestBody", relatedViews: ["dashboard"] },
+  // ★ No `relatedViews` on these two: they apply to nearly every table and
+  // view in the app. Listing a handful would imply the rest are exempt, and an
+  // invented relation is a false claim like any other.
+  { id: "feature-table-columns", group: "features", titleKey: "helpSecTableColumnsTitle", bodyKey: "helpSecTableColumnsBody" },
+  { id: "feature-print", group: "features", titleKey: "helpSecPrintTitle", bodyKey: "helpSecPrintBody" },
+
   // ── What's automated ──
   { id: "automated-tracking", group: "automated", titleKey: "helpAutomatedTrackingTitle", bodyKey: "helpAutomatedTrackingBody", relatedViews: ["dashboard", "actions", "open-points"], relatedConcepts: ["concept-task-status"] },
   { id: "automated-health", group: "automated", titleKey: "helpAutomatedHealthTitle", bodyKey: "helpAutomatedHealthBody", relatedViews: ["dashboard", "budget", "trends"], relatedConcepts: ["concept-budget", "concept-baseline"] },
