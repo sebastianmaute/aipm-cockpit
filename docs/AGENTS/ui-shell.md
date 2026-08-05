@@ -72,6 +72,24 @@
   id is removed (a subset check would let the baseline rot into a permanent exemption). Coverage is measured over
   `allNavViews()`, which flattens nested `children` — a walk over `NAV_GROUPS` items alone sees half the sidebar and
   measured 7 gaps where there are 14.
+  ★★ **The baseline is now EMPTY** (slice 3): every nav view is named by some entry's `relatedViews`, so the
+  assertion reads "nothing is uncovered" and a regression fails on the next run. `HELP_ENTRIES` is 64
+  (`grep -c '^  { id: "' src/app/help-content.ts`).
+  ★★★ **SIX of the fourteen gaps were missing WIRING, NOT CONTENT**, and the gate cannot tell those apart —
+  coverage is `relatedViews` membership, so a complete, truthful entry that lists no view reads as a gap.
+  `feature-activity`, `feature-version-history` and `feature-resources` already described `activity`, `history`
+  and all five resources sub-tabs; they simply carried no `relatedViews`. Slice 1's spec called slice 3 "~18 new
+  entries for features that have none today", and acting on that would have written a SECOND entry for each.
+  Read the entry before concluding a view is undocumented.
+  ★★★ **AN EMPTY BASELINE IS NOT "HELP IS COMPLETE."** Coverage is defined over VIEWS, so a feature that is not
+  a view can never appear in the list however undocumented it is. Seven had zero prose while the ratchet was
+  silent — saved views, install/PWA, undo/redo, inline AI edit, weekly digest, column widths, print — and were
+  written in slice 3 by judgement, not by any gate result. Nothing enforces the next one.
+  ★★ Wiring `stakeholder-map` onto `concept-stakeholder` FORCED a truth fix slice 1 had left in its
+  REPORTED-not-verified bucket: the body claimed an "interest × power" matrix in the Stakeholders view, but the
+  axis is Influence (`quadrantAxisInfluence`) and the 2×2 grid is the separate `stakeholder-map` view, whose own
+  `stakeholderMapTitle` reads "Influence / Interest". The cheap structural fix dragged the truth fix with it —
+  an argument for doing both in one slice.
   ★★ The DE dictionary is LAZY: without `beforeAll(loadI18n("de"))` the DE lane silently falls back to en-US and
   passes by testing English twice. Proof it is per-language: injecting the EN value of the `print` key into the DE
   body as a marker (DE renders "Drucken") fails `de` ALONE while both English lanes pass.
@@ -86,7 +104,8 @@
   `"Version history: keep N versions"` (split across two keys), `"internal/d"` (real: `"Internal /d"`).
   • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
   one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
-  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, ~14 views; `conceptId` in `HELP_ENTRIES`
+  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, **16** views — `grep -c 'conceptId:'
+  src/app/view-callouts.ts`, was documented as "~14" until 2026-08-05; `conceptId` in `HELP_ENTRIES`
   concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`aipm-cockpit:view-hints`, out of
   exports/Turso, cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep). Presentational `view-callout.tsx` is
   PROPS-only (`view`/`lang`/`showHints`/`isPopout`/`onLearnMore`) — NOT context-consuming, because the
