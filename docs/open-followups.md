@@ -116,11 +116,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 71 | A budget bucket evaluates `cellBudget` three times per (row, period) | 0.214.0 (Lostetter) | S–M | open — unmeasured; the prize is structural (one matrix, two axes), not speed |
 | 72 | ~~Caller callbacks fire after unmount — the `unit-tests` job exits 1 with every test passing~~ | pre-existing, captured on main #5446 | M | **CLOSED in this slice** — `mountedRef` + four emitters, 33 sites + 3 pass-throughs; ★★ closed for CALLER CALLBACKS only; `refreshBackendStatus` was closed later by `0fa2e9c6` (this row said "surveyed, left" long after the body said "NOW GUARDED"), so the same shape survives in `applyWorkspace`, `onOpenStorageFile`'s raw `setTasks`/`setRaid`, and `args.setActivityLog` — matching the body, which an earlier one-name version of this row did not; ★ near-zero production impact, the win is a job that stops lying |
 | 73 | ~~`onTestFailed` reports post-teardown state, so any capture it makes is a false witness~~ | found post-0.214.0 | S | **CLOSED** — recorded in AGENTS.md's `npm run test:run` block; ★ the gate's only anchor for the name is three warning comments, no call site |
-| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations, after a revision that wrongly called Fetch untestable |
+| 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates, not the cheap two-copy lift; ★ it is what made §39 possible; ★★★ declared CLOSED three times before it was — 2-of-3, then 3-of-3, then a FOURTH instance (`clearAllFetched`) surfaced; each closure covered every site the author had looked at; ★★ all four BUTTON wirings are now DOM-pinned by single-site mutations (each pinning the ONE arm that was the defect — `isMisconfigured`×3, `hasFetched`×1; `isPopout`/`syncBusy`/`confirming` stay unpinned at every call site), after a revision that wrongly called Fetch untestable |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed + a pinned-seed blocking gate (`unit-tests-shuffled`) and a weekly random-seed sweep added; ★★ verified at seeds 1/2/3/7 + unshuffled only, not a general property; the `afterEach` drain's prediction is now proven by §77 |
-| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — the flag is unread by its only consumer, so the list simply renders EMPTY; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§78 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
+| 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; ★★ the defect AND the fix are now OBSERVED in a real dev server (before/after probe traces in the entry); ★★ the symptom this row and the body long claimed (never leaves its loading state) was FALSE — `ready` is unread by BOTH consumers; the Settings job LIST renders empty, and the worse symptom is that `use-ai-orchestration`'s runner sees an empty list so no scheduled job fires in dev; ★ ships UNTESTED because vitest does not reproduce StrictMode's remount (§78 — narrowed to a TEST-environment problem; the real app double-invokes correctly); sweep regex corrected after it was found unable to match the pre-fix shape |
 | 77 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix; ★★★ the transferable lesson: re-measure against current HEAD, not a partially-fixed baseline |
-| 78 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the REAL app double-invokes correctly (mount→cleanup→mount in ), so this is a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
+| 78 | StrictMode does NOT double-invoke effects under vitest — cause unknown | pre-existing, found in the slice-3 review | M | **OPEN, NARROWED** — measured: the real app double-invokes correctly IN DEV (mount→cleanup→mount observed in `next dev`; React double-invokes in development only, so this says nothing about production), making this a TEST-HARNESS problem only; ★★ it is why §72 + §76 ship untested; ★ "production React" ruled out |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3833,16 +3833,29 @@ With the shipped fix, the same run reads `mountedRef=true` followed by `setJobs 
 and the fix are now both observed, on the real surface, not inferred from the code.
 
 ★★★ **The claimed symptom — "the scheduled-jobs surface never leaves its loading state" — is FALSE, and
-survived three review rounds.** `useScheduledJobs` returns `ready`, but its ONLY consumer
-(`settings-sections/scheduled-jobs-section.tsx`) destructures `{ jobs, busy, createJob, updateJob,
-deleteJob }` and never reads it. There is no loading state driven by that flag. The REAL symptom is the
-one the trace shows: the jobs list loads and is then discarded, so the section renders EMPTY — a user
-sees "no scheduled jobs", not a spinner. ★ `useOperatingGuides` is the opposite case: its `ready` IS
-consumed, reaching `chat-panel.tsx` as `guidesPending = ai.groundInGuides && !guidesReady`, so its
-symptom is in the AI chat panel and only when "ground in guides" is on — a different surface again.
-★★ Why three rounds missed it: every reviewer verified that the SETTERS were guarded, which is a
-question about the hook. Nobody traced the flag OUT of the hook to a render. **A claim about a symptom
-is a claim about a consumer — check the consumer, not the producer.** Production is unaffected (one mount, no remount) — but so is the entire test suite,
+survived three review rounds.** `useScheduledJobs` returns `ready`, and NEITHER consumer reads it, so
+no loading state is driven by that flag at all. Reproduce: `grep -rn "useScheduledJobs" src/`.
+
+There are **TWO** consumers, and the more serious symptom is the invisible one:
+
+| consumer | reads | dev symptom pre-fix |
+|---|---|---|
+| `settings-sections/scheduled-jobs-section.tsx` | `jobs, busy, createJob, updateJob, deleteJob` | the job LIST renders empty — a user sees "no scheduled jobs" |
+| `use-ai-orchestration.ts` | `jobs`, `recordRun` → `useScheduledJobRunner` | the runner sees a permanently empty list, so **NO SCHEDULED JOB EVER FIRES**, silently |
+
+★ `useOperatingGuides` is a third case again: its `ready` IS consumed, reaching `chat-panel.tsx` as
+`guidesPending = ai.groundInGuides && !guidesReady`, which blocks send and disables the composer — so
+its symptom is the AI chat composer, and only when "ground in guides" is on.
+★ "The section renders EMPTY" is loose and worth not copying forward: the section still renders its
+title, help text, master toggle and Add button. It is the job LIST that is empty.
+
+★★★ **Why three rounds missed it, and why the FIRST correction still got it wrong.** Every reviewer
+verified that the SETTERS were guarded — a question about the hook. Nobody traced the flag OUT of the
+hook to a render. **A claim about a symptom is a claim about a consumer — check the consumer, not the
+producer.** ★★★ That sentence was written while checking exactly ONE of the two consumers, and the
+correction asserted "its ONLY consumer". One `grep -rn "useScheduledJobs" src/` would have caught it.
+Stating the lesson is not the same as applying it: when the claim is "the consumers do X", the
+enumeration of consumers IS the claim, so grep it before writing the word "only". Production is unaffected (one mount, no remount) — but so is the entire test suite,
 which is why this has survived: **a fully green suite says nothing about it**, exactly as measured for
 §72's own re-set line, which no test can pin either.
 
@@ -3863,20 +3876,30 @@ and no version bump — this is a dev-experience fix.
 ★★★ **THE SWEEP REGEX THIS ENTRY DOCUMENTED CANNOT MATCH THE DEFECT IT SWEPT FOR.** It read
 `grep -rnE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" src/app/` → "exactly three hits". Three
 is the right answer TODAY, which is why it survived review twice — but run it against the pre-fix tree
-and it returns **ZERO**: both defects were written in the concise arrow-returning-arrow form,
+(`git grep -nE "return \(\) => \{ *[a-zA-Z]+Ref\.current = false" 4a81420a -- src/app/`) and it returns
+**ONE**, and that one hit is `use-storage-backend.ts:179` — already in BLOCK form because §72 had fixed
+it earlier, i.e. the only file it finds is the one that was never a §76 defect, and it misses BOTH real
+instances. ★★★ An earlier revision of this very paragraph said "returns ZERO". That number was
+asserted, not measured, inside the paragraph whose entire point is that a sweep must be RUN against the
+tree where the defect lived. Same failure, one level up, in the sentence naming it.
+Both real defects were written in the concise arrow-returning-arrow form,
 `useEffect(() => () => { mountedRef.current = false; }, []);` (`git show 4a81420a:src/app/use-scheduled-jobs.ts`),
 which contains no `return () => {` at all. The regex only matches the BLOCK form the FIX introduced. So
 it validated the fixed state and would structurally miss a NEW instance written the way both real ones
 were. **A sweep pattern must be run against the tree where the defect existed, not the tree where it is
 fixed** — otherwise "the sweep is complete" is a statement about your own diff.
 ★ The form that covers both: `grep -rnE "=> *\{? *[a-zA-Z]+Ref\.current = false" src/app/`. Validated
-in BOTH directions, which is the point: on the base tree it finds the concise form in all three files
-(`use-scheduled-jobs`, `use-operating-guides`, `use-storage-backend`); at HEAD it finds the three block
-forms. ★ It returns FOUR hits at HEAD, not three — the extra is `use-push-to-talk.ts` `pressingRef`, a
-pointer-press flag, not a mount guard. That is the intended cost of a pattern matching a SHAPE rather
-than a name, and it is recorded here so the next reader is not alarmed by a count that disagrees with
+in BOTH directions, which is the point: on the base tree it finds the concise form in the TWO §76 files
+(`use-scheduled-jobs`, `use-operating-guides`) PLUS the pre-existing block form in `use-storage-backend`
+— so it catches both real defects where the old pattern caught neither. At HEAD it finds the three
+block forms. ★ It returns FOUR hits — at HEAD *and* at base — the extra being `use-push-to-talk.ts`
+`pressingRef`, a pointer-press flag rather than a mount guard. That is the intended cost of matching a
+SHAPE rather than a name, recorded so the next reader is not alarmed by a count that disagrees with
 "exactly three `mountedRef`s". Cross-check with `grep -rn "mountedRef = useRef" src/app/` → three, all
-re-set on mount. The CONCLUSION always held; only the evidence for it was invalid.
+re-set on mount.
+★★ A revision of this sentence claimed the concise form in "all three files" and framed the fourth hit
+as HEAD-specific. Both wrong: `use-storage-backend` was block-form at base, and base returns four too.
+The CONCLUSION always held; the evidence offered for it has now been wrong twice.
 
 ★ Found by the cold reviewer of the §72 `refreshBackendStatus` guard, when asked whether any sibling
 had the same shape — a question worth asking of every guard fix.

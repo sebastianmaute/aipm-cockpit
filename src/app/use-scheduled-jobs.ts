@@ -53,7 +53,15 @@ export function useScheduledJobs({ config }: UseScheduledJobsArgs): UseScheduled
   //    unmounts and remounts in development (Next 16 defaults reactStrictMode to
   //    true), so a cleanup-only guard is permanently false after that first cycle
   //    and every setter below it — setJobs, setBusy, setReady — is suppressed for
-  //    the rest of the dev session: the panel never leaves its loading state.
+  //    the rest of the dev session.
+  //    ★★ TWO surfaces, and the worse one is not the visible one. This hook has
+  //    two consumers: `scheduled-jobs-section.tsx` (the Settings list, which
+  //    renders with an empty job list) and `use-ai-orchestration.ts`, which feeds
+  //    `jobs` to `useScheduledJobRunner` — so with setJobs suppressed the runner
+  //    sees an empty list and NO SCHEDULED JOB EVER FIRES in dev, silently.
+  //    ★ Neither consumer reads `ready`, so the symptom is never a stuck spinner.
+  //    An earlier version of this comment said "the panel never leaves its
+  //    loading state"; that was false and is recorded in open-followups §76.
   //    Declared BEFORE the refresh effect so the remount restores the flag before
   //    that effect re-runs. Mirrors use-storage-backend.ts (open-followups §72/§76).
   //    ★ No test can pin this: StrictMode invokes effects ONCE under this suite

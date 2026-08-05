@@ -89,12 +89,15 @@ describe("canClearAllFetched", () => {
   //       here and REMOVED because the directive was unused (`tsc` TS2578).
   //       ★★ The reason first written here — "excess-property checking does not
   //       fire through a spread" — is FALSE, and worth correcting because a
-  //       reader would carry that rule to other files: EPC does fire through a
-  //       spread. The real rule is FRESHNESS. EPC applies to an object literal
-  //       in the argument position and is lost once the literal is bound to a
-  //       `const` first — which is exactly what the line below does. So the
-  //       guarantee is behavioural, not type-level: `canClearAllFetched` never
-  //       reads such a field, which is what this asserts.
+  //       reader would carry that rule to other files. Measured with this repo's
+  //       own tsc: EPC fires on properties WRITTEN in the literal, including
+  //       alongside a spread (`f({ ...base, extra: 1 })` IS an error) — but not
+  //       on properties arriving THROUGH the spread. It is then defeated by
+  //       EITHER an `as` assertion or binding to a const first, and the line
+  //       below does BOTH, so no single one of them is "the" reason.
+  //       Net: the guarantee here is behavioural, not type-level —
+  //       `canClearAllFetched` never reads such a field, which is what this
+  //       asserts.
   it("ignores TimeLog config state entirely — a misconfigured TimeLog can still clear", () => {
     const withExtra = { ...clearOk, isMisconfigured: true } as typeof clearOk;
     expect(canClearAllFetched(withExtra)).toBe(true);

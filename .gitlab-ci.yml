@@ -129,13 +129,18 @@ unit-tests:
 # ★★ It is NOT true that "only a real regression can turn this red", which an
 # earlier version of this comment claimed. The seed pins the PRNG, not the
 # permutation: the shuffle is a permutation of the CURRENT test array, so
-# adding, removing or renaming any test anywhere changes the resulting order.
+# adding or removing any test anywhere changes the resulting order. (Renaming a
+# test does NOT: the permutation is over array POSITIONS, so a renamed test keeps
+# its index. An earlier version of this line said "renaming" too — an over-claim
+# inside the sentence that corrects an over-claim.)
 # An MR that merely adds an unrelated test can therefore expose a PRE-EXISTING
-# latent order dependence and go red without having introduced anything —
-# §75 documents 38 undrained `mockReturnValueOnce` calls on `mockBackend` that
-# are exactly such latents. Read a red run as "an order dependence exists
-# somewhere in the suite", not "this MR caused it", and bisect with
-# `npm run test:shuffle`.
+# latent order dependence and go red without having introduced anything — §75
+# documents 38 undrained `*Once()` queues on `mockBackend` that are exactly such
+# latents. (`*Once()`, the whole family — mostly `mockResolvedValueOnce`. An
+# earlier version said "38 `mockReturnValueOnce` calls"; there are 3 of those on
+# `mockBackend`, so an operator who greps that name concludes the register is
+# stale.) Read a red run as "an order dependence exists somewhere in the suite",
+# not "this MR caused it", and bisect with `npm run test:shuffle`.
 #
 # Seed 1 is the seed that reproduced the two leaks closed in open-followups §75
 # (a leaked `window.matchMedia` stub, an undrained `mockReturnValueOnce` queue).

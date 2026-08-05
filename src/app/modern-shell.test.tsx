@@ -178,8 +178,11 @@ describe("ModernShell mobile drawer (#25)", () => {
   //      because `use-media-query.ts` guards `!window.matchMedia` — but
   //      `use-theme.tsx` calls `window.matchMedia(...)` behind only a
   //      `typeof window` check, so a test added to this file that renders the
-  //      theme provider would THROW after this teardown runs. Stub it in that
-  //      test rather than deleting this afterEach.
+  //      theme provider would THROW. ★ Precisely: the teardown does not CAUSE
+  //      that — jsdom ships no `matchMedia` at all, so such a test throws in this
+  //      file regardless of position; the teardown merely restores that
+  //      pre-existing absence instead of leaving a stub lying around. Stub it in
+  //      that test rather than deleting this afterEach.
   afterEach(() => {
     vi.unstubAllGlobals();
   });

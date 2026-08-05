@@ -304,12 +304,20 @@ describe("TimelogPanel", () => {
       );
 
       // ★ The `(1)` in the accessible name is load-bearing: the Fetch label gains
-      //   ` (N)` only when `selectedCount > 0`, so matching on it PROVES the seed
-      //   took and the picker preconditions are satisfied. Without that proof this
-      //   assertion would pass vacuously off an empty selection — which is exactly
-      //   how the first version of these tests failed to pin Fetch.
-      //   It also means an exact-name query would silently stop resolving here.
-      const fetchBtn = screen.getByRole("button", { name: /\(1\)$/ });
+      //   ` (N)` only when `selectedCount > 0`, so matching on it proves
+      //   `selectedCount > 0`. Without that this assertion would pass vacuously
+      //   off an empty selection — exactly how the first version of these tests
+      //   failed to pin Fetch. It also means a plain exact-name query silently
+      //   stops resolving here.
+      //   ★★ It proves ONE of `canFetchBookings`' two preconditions. The other,
+      //   `projectCustomerId !== ""`, holds because both come from the same
+      //   `links` object via `resolveInitialScope` — true, but by a separate
+      //   argument, not by this query.
+      //   ★ Anchored on the full label, not a bare `/\(1\)$/`: any future counted
+      //   button in this panel would turn a loose match into a multi-match throw.
+      const fetchBtn = screen.getByRole("button", {
+        name: new RegExp(`^${t("en-US", "timelogSync")} \\(1\\)$`),
+      });
       expect(fetchBtn).toBeDisabled();
 
       // Refresh renders whenever `fetchedAt` is set (defaultSyncReturn supplies

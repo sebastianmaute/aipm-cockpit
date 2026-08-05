@@ -76,7 +76,13 @@ export function useOperatingGuides({ config }: UseOperatingGuidesArgs): UseOpera
   // ★★ Re-set on mount, not merely cleared on unmount — see the same guard in
   //    use-scheduled-jobs.ts. StrictMode's dev mount→unmount→remount would
   //    otherwise leave this permanently false, suppressing setGuides/setReady
-  //    for the whole session so the panel never leaves its loading state.
+  //    for the whole session.
+  //    ★★ Unlike use-scheduled-jobs, this hook's `ready` IS consumed: it reaches
+  //    `chat-panel.tsx` as `guidesPending = ai.groundInGuides && !guidesReady`,
+  //    which blocks sending and disables the composer. So the symptom is the AI
+  //    chat composer stuck disabled — and ONLY when "ground in guides" is on.
+  //    An earlier version said "the panel never leaves its loading state", which
+  //    named no real surface; see open-followups §76.
   //    Declared BEFORE the refresh effect so the flag is restored first.
   //    Untestable here (StrictMode single-invokes effects in this suite) — §76.
   useEffect(() => {

@@ -291,8 +291,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   (it is the only other job that does), then a third that fixed those two but under-enumerated the jobs
   carrying nothing. Each sends an operator hunting for a bypass block on whichever gate is actually red.
   The reproduce command was attached in the second revision and REFUTED the sentence it was attached to
-  — attach the command AND run it. ★ "Ratchets" above is loose for two of them: `unit-tests-shuffled`
-  and semgrep's ERROR gate have no baseline to ratchet — they are pass/fail. A weekly `schedule` pipeline also runs
+  — attach the command AND run it. ★ "Ratchets" above is loose: only THREE gates hold a baseline that
+  ratchets — **file-size-ratchet**, **duplication-gate** and **unit-tests**' coverage floors. Everything
+  else is plain pass/fail (`lint` at `--max-warnings=0`, `typecheck`, both dependency audits,
+  `agents-symbol-check`, `unit-tests-shuffled`, semgrep's ERROR gate). An earlier revision named two of
+  the many non-ratchets as if they were the exceptions — under-enumerating, in the paragraph directly
+  below the one correcting an under-enumeration. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
   its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
   otherwise). (Phases 1-4 of the
