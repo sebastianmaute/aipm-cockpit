@@ -9,6 +9,8 @@ import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
+import { sanitizeProjectDocuments } from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
 import { migrateTask } from "./task-status";
@@ -74,6 +76,7 @@ const KV_KNOWLEDGE_ITEMS_KEY = "knowledgeItems";
 const KV_INSIGHTS_KEY = "insights";
 const KV_SETTINGS_OVERRIDES_KEY = "settingsOverrides";
 const KV_CALENDAR_EVENTS_KEY = "calendarEvents";
+const KV_DOCUMENTS_KEY = "documents";
 import {
   type StorageBackend,
   type Workspace,
@@ -144,6 +147,7 @@ export class BrowserBackend implements StorageBackend {
     let insights: Workspace["insights"] | undefined;
     let settingsOverrides: Workspace["settingsOverrides"] | undefined;
     let calendarEvents: Workspace["calendarEvents"] | undefined;
+    let documents: Workspace["documents"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -172,6 +176,7 @@ export class BrowserBackend implements StorageBackend {
         idbInsights,
         idbSettingsOverrides,
         idbCalendarEvents,
+        idbDocuments,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -197,6 +202,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_INSIGHTS_KEY),
         idbGet(KV_SETTINGS_OVERRIDES_KEY),
         idbGet(KV_CALENDAR_EVENTS_KEY),
+        idbGet(KV_DOCUMENTS_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -250,6 +256,15 @@ export class BrowserBackend implements StorageBackend {
           .filter((e): e is CalendarEvent => e !== null);
         calendarEvents = evs.length ? evs : undefined;
       }
+      // Optional list: junk/empty documents sanitize to [] → keep undefined.
+      // TWO passes, in this order: the structural sanitizer is DOM-FREE by
+      // contract, so the paragraph HTML allow-list has to run after it as a
+      // separate map. Structural-only would pass stored `<script>` straight
+      // through to the render sink.
+      {
+        const docs = sanitizeProjectDocuments(idbDocuments).map(sanitizeDocumentRichFields);
+        documents = docs.length ? docs : undefined;
+      }
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -289,6 +304,7 @@ export class BrowserBackend implements StorageBackend {
     if (insights) raw.insights = insights;
     if (settingsOverrides) raw.settingsOverrides = settingsOverrides;
     if (calendarEvents) raw.calendarEvents = calendarEvents;
+    if (documents) raw.documents = documents;
     const ws = migrateWorkspaceV10(raw);
 
     try {
@@ -433,6 +449,10 @@ export class BrowserBackend implements StorageBackend {
       ws.calendarEvents && ws.calendarEvents.length
         ? idbSet(KV_CALENDAR_EVENTS_KEY, ws.calendarEvents)
         : idbDelete(KV_CALENDAR_EVENTS_KEY),
+      // Delete-on-absent so a cleared document list doesn't linger and reload stale.
+      ws.documents && ws.documents.length
+        ? idbSet(KV_DOCUMENTS_KEY, ws.documents)
+        : idbDelete(KV_DOCUMENTS_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's
