@@ -212,6 +212,42 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.fieldVisibility).toBeUndefined();
   });
 
+  it("save → fresh load round-trips documentVersions", async () => {
+    const version = {
+      id: 1,
+      documentId: 4,
+      title: "Prior",
+      blocks: [{ type: "heading" as const, level: 2 as const, text: "Old" }],
+      savedAt: "2026-08-02T08:00:00.000Z",
+      source: "user" as const,
+      op: "rename" as const,
+    };
+    await new BrowserBackend().save({ ...emptyWorkspace(), documentVersions: [version] });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.documentVersions).toEqual([version]);
+  });
+
+  it("clears stored documentVersions when re-saved with none", async () => {
+    const backend = new BrowserBackend();
+    await backend.save({
+      ...emptyWorkspace(),
+      documentVersions: [{
+        id: 1,
+        documentId: 4,
+        title: "x",
+        blocks: [],
+        savedAt: "2026-08-02T08:00:00.000Z",
+        source: "user",
+        op: "rename",
+      }],
+    });
+    await backend.save({ ...emptyWorkspace(), documentVersions: [] });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.documentVersions).toBeUndefined();
+  });
+
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {
     const backend = new BrowserBackend();
     const ws = { ...emptyWorkspace(), tasks: [task], raid: [raidItem] };
