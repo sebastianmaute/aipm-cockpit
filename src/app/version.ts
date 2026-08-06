@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.216.0";
-export const APP_BUILD_DATE = "2026-08-05"; // 0.216.0: view-aware AI prompts (Martine)
+export const APP_BUILD_DATE = "2026-08-06"; // 0.216.0: view-aware AI prompts + Help coverage/reading levels (Martine)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.216.x line is "Martine" (Arkady Martine, science-fiction author). */
 export const APP_MILESTONE = "Martine";

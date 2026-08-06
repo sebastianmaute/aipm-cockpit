@@ -8,10 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.216.0] - 2026-08-05 "Martine"
+## [0.216.0] - 2026-08-06 "Martine"
 
 The assistant now knows which screen you are on, and says so when it cannot see
-something rather than guessing.
+something rather than guessing. Help now covers every view in the app, and can
+be read at the depth you want.
 
 ### Added
 
@@ -55,6 +56,44 @@ something rather than guessing.
 - The header "Ask Claude" menu drops its **Status overview** and **Prioritize**
   entries, which duplicated the two fuller chips above. It keeps the short
   questions that suit a menu -- "Explain this" and "What's next?".
+
+### Added -- Help
+
+- **Reading levels.** Guided, Standard or Expert. Guided puts a plain-language
+  primer above each of the twelve concept entries; Expert moves the reference
+  sections ahead of the explanatory ones; Standard renders exactly as before.
+  The control sits in the Help window itself, beside the search box, and in
+  Settings -> Appearance -- one device-wide setting, so changing it in either
+  place moves the other. A primer is searchable only at the level that renders
+  it, so the same query can match a different number of entries at different
+  levels.
+- **Every view in the app is now covered.** Thirteen new entries: Projects,
+  Portfolio health, Insights, Time bookings, Reports (covering all four report
+  views), Help itself, and seven features that are not views at all -- saved
+  views, installing the app, undo and redo, asking Claude to edit one record,
+  the weekly digest, column widths, and printing.
+- **A gate that DE prose is translated, not pasted English.** `tsc` proves a
+  German key exists; nothing proved anyone translated it. It cannot go vacuous
+  through the lazy-dictionary trap: without the dictionary load every pair
+  becomes identical and the test fails loudly.
+
+### Fixed -- Help and pop-outs
+
+- **A Budget pop-out could edit cells** that every other pop-out treats as
+  read-only. The edit never reached the workspace backend -- pop-outs do not
+  save and do not broadcast -- but it left a divergent mirror and a phantom
+  undo entry.
+- **The stakeholder concept described the wrong view and the wrong axis.** It
+  said stakeholders are tracked in the Stakeholders view on an "interest x
+  power" matrix. The axis is Influence, and the 2x2 grid is the separate
+  Influence / Interest view; the Stakeholders view is a table.
+- **Sixteen further corrections to existing and new Help text**, each checked
+  against the module it describes rather than against how it read -- among
+  them: which project row carries Delete (the other rows, not the current one),
+  that Portfolio health cannot be popped out at all, that the digest mails a
+  copy to the signed-in Microsoft 365 account rather than distributing it, that
+  the dashboard shows up to five insights, and how Timelog actually matches
+  people and projects.
 
 ## [0.215.0] - 2026-08-04 "Friedman"
 
