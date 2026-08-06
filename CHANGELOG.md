@@ -8,6 +8,44 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.217.0] - 2026-08-06 "Piercy"
+
+Cancelled work stops reading as unfinished work. The 0.213.0 batch fixed the
+headline tiles and stopped at the branch boundary; this finishes the surfaces it
+left, and tells the AI what it had been guessing at.
+
+### Fixed
+
+- **The Red / Amber / Green split no longer counts cancelled work as Green.** A
+  project of two cancelled tasks rendered "No active scope / All cancelled (2)"
+  beside "R 0 · A 0 · G 2" inside one card. Cancelled work now leaves the tally
+  and is counted separately next to it, and each Reports group card carries the
+  same clause. A task whose health you set by hand keeps the colour you chose.
+- **Portfolio health shows a dash, not "0%", for a project with no scope left.**
+  That 0 read as "not started yet" on the one screen where projects are compared
+  side by side. Such a project is also left out of the portfolio-wide average
+  instead of dragging it down, and the average tile itself shows no figure when
+  no project contributed one.
+- **A `Done` task with no completion date announces itself as closed**, not
+  completed — matching the cross already shown beside it rather than
+  contradicting it.
+- **The steering-committee draft and the AI snapshot** are told a project has no
+  active scope, instead of being handed a bare 0 they could restate as
+  "0% complete" in generated prose.
+
+### Changed
+
+- Reports group cards rank by in-scope size within a colour band, so a mostly
+  cancelled workstream no longer outranks a smaller active one.
+
+### Internal
+
+- One shared `isTaskOutOfScope` predicate replaces five inlined copies of
+  "closed but never delivered", so the completion denominator and the health
+  tally cannot drift apart.
+- A ratchet fails the suite on any NUL byte committed under `src/` or `docs/`;
+  such a byte makes grep treat the file as binary and silently skip it.
+
 ## [0.216.0] - 2026-08-06 "Martine"
 
 The assistant now knows which screen you are on, and says so when it cannot see

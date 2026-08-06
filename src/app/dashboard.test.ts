@@ -42,7 +42,7 @@ const holidays = new Set<string>();
 
 describe("computeDashboardProgress", () => {
   it("returns 0% and zero counts for an empty workspace", () => {
-    expect(computeDashboardProgress([], today, holidays)).toEqual({ total: 0, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 } });
+    expect(computeDashboardProgress([], today, holidays)).toEqual({ total: 0, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 }, outOfScope: 0 });
   });
   it("computes percent from completedDate and R/A/G counts from health", () => {
     const tasks = [
@@ -56,6 +56,36 @@ describe("computeDashboardProgress", () => {
     expect(p.completed).toBe(1);
     expect(p.percent).toBe(25);
     expect(p.counts).toEqual({ R: 1, A: 1, G: 2 });
+  });
+
+  // ★★ The two engines answer the SCOPE question independently — `scopeCounts`
+  //    for the denominator, `computeGroupHealth` for the tally — and they render
+  //    side by side in ONE card. This pins them agreeing; drift here is what put
+  //    "All cancelled (2)" beside "G 2" (open-followups §66).
+  it("outOfScope equals total - inScope when nothing is hand-pinned", () => {
+    const tasks = [
+      task({ id: 1, status: "Cancelled" }),
+      task({ id: 2, status: "Done" }),
+      task({ id: 3, status: "Done", completedDate: "2026-06-01" }),
+      task({ id: 4, dueDate: "2026-12-01" }),
+    ];
+    const p = computeDashboardProgress(tasks, today, holidays);
+    expect(p.outOfScope).toBe(p.total - p.inScope);
+    expect(p.outOfScope).toBe(2);
+    expect(p.counts.R + p.counts.A + p.counts.G + p.outOfScope).toBe(p.total);
+  });
+
+  // A pinned row is the one case where the two DELIBERATELY diverge: it stays in
+  // `counts` with its manual colour but is still out of the scope denominator.
+  it("a hand-pinned cancelled task stays in counts and out of inScope", () => {
+    const p = computeDashboardProgress(
+      [task({ id: 1, status: "Cancelled", healthOverride: "R" })],
+      today,
+      holidays,
+    );
+    expect(p.counts.R).toBe(1);
+    expect(p.outOfScope).toBe(0);
+    expect(p.inScope).toBe(0);
   });
 });
 
