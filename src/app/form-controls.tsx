@@ -159,3 +159,52 @@ export function Checkbox({ className, size = "md", ...props }: CheckboxProps) {
     />
   );
 }
+
+// ---------------------------------------------------------------------------
+// FieldGroup — a captioned field block that is NOT a <label>
+// ---------------------------------------------------------------------------
+
+/**
+ * A captioned block for a widget that a `<label>` MUST NOT wrap.
+ *
+ * ★★★ A `<label>` with no `for` binds to its FIRST LABELABLE DESCENDANT, and
+ * the labelable set is button · input · meter · output · progress · select ·
+ * textarea. A chip row, a radiogroup `<div>` and a contenteditable are none of
+ * those — so a `<label>` around one silently adopts a BUTTON inside it. Two
+ * consequences, both measured in Chromium: hovering anywhere in the caption
+ * paints that button's `:hover` state, and clicking the caption forwards a
+ * synthetic click to it. On a link picker that UNLINKS an entity; on a
+ * `SegmentedControl` it WRITES the first option. jsdom has no CSS engine, so
+ * only the click half is testable here.
+ *
+ * This renders `<div role="group" aria-label>` instead: the block is still
+ * named for assistive tech, but the caption is not a click target. Use it
+ * wherever the children's first labelable element is a button, or where there
+ * is none at all.
+ *
+ * ★ NOT a general replacement for `<label>`. Where the caption legitimately
+ * names a real `<input>` and a button merely got in front of it, keep the
+ * `<label>` and add an explicit `htmlFor`/`id` — that preserves the name that
+ * `role="group"` would move off the control. See `src/test/label-binding.ts`.
+ */
+export function FieldGroup({
+  name,
+  caption,
+  className,
+  children,
+}: {
+  /** Accessible name for the block. Qualify it when several render on one
+   *  surface (the picker's own `label` prop is the usual source). */
+  name: string;
+  /** Rendered caption — a `<span>`, never a `<label>`. */
+  caption: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div role="group" aria-label={name} className={className}>
+      {caption}
+      {children}
+    </div>
+  );
+}

@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { NextActionsSection } from "./next-actions-section";
 import { defaultSettings, defaultNextActionsConfig } from "../settings-types";
 import { t } from "../i18n";
+import { expectNoLabelBoundToButton } from "../../test/label-binding";
 
 // Mock the AI hook so the AI-suggested column renders without any network call.
 vi.mock("../use-weight-suggestions", () => ({
@@ -156,5 +157,23 @@ describe("NextActionsSection AI weight suggestions", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ nextActions: expect.objectContaining({ clarityBonus: 20 }) }),
     );
+  });
+
+  // ★★ With a suggestion showing, the Accept button is the first labelable
+  // descendant of the weight row's `<label>` — so an implicit binding made the
+  // label name Accept, and clicking the caption ACCEPTED the suggestion. The
+  // explicit `htmlFor` keeps the label on the number input. This is the
+  // suggestion-present case on purpose: without one the row binds correctly
+  // either way, and the test would pass against the unfixed markup.
+  it("binds the weight row label to the input, not the Accept button", () => {
+    render(
+      <NextActionsSection
+        lang="en-US"
+        settings={aiSettings}
+        onChange={vi.fn()}
+        buildWeightSuggestionContext={() => "ctx"}
+      />,
+    );
+    expectNoLabelBoundToButton();
   });
 });

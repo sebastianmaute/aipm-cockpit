@@ -23,14 +23,14 @@ import { useDraggable } from "./use-draggable";
 import { setRaciRole } from "./stakeholders";
 import { ResourcePicker } from "./resource-picker";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
-import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
+import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
-import { Input, Select, Textarea } from "./form-controls";
+import { FieldGroup, Input, Select, Textarea } from "./form-controls";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
@@ -173,13 +173,25 @@ export function StakeholderEditModal({
       sizeKey="aipm-cockpit:modal-size:stakeholder-edit"
     >
           {/* Name */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          {/* ★★ `FieldGroup`, not a `<label>`: the dictation mic is a real
+              `<button>` ahead of the picker, so the label named the MIC. Unlike
+              the plain-input fields below this one cannot be fixed with
+              `htmlFor` — ResourcePicker exposes no id for its inner input — so
+              the picker names itself via `aria-label` instead, and the group
+              names the block. See src/test/label-binding.ts. */}
+          <FieldGroup
+            name={t(lang, "stakeholderFieldName")}
+            className="flex flex-col gap-1 text-sm sm:col-span-2"
+            caption={
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "stakeholderFieldName")} *<InfoTooltip text={t(lang, "stakeholderFieldNameHint")} />
               {nameMic}
             </span>
+            }
+          >
             <div onFocus={nameDictationReg.onFocus}>
               <ResourcePicker
+                aria-label={t(lang, "stakeholderFieldName")}
                 lang={lang}
                 value={{ name: draft.name, email: draft.email ?? "", resourceId: draft.resourceId }}
                 resources={resources}
@@ -201,16 +213,18 @@ export function StakeholderEditModal({
             </div>
             <CharCounter value={draft.name} max={BUDGET_NAME_MAX} id="stakeholder-name-counter" lang={lang} />
             {nameDictationStatus}
-          </label>
+          </FieldGroup>
 
           {/* Organization */}
           {isVisible("organization") && (
-            <label className="flex flex-col gap-1 text-sm">
+            /* `htmlFor` — the mic outranks the input otherwise; see Name above. */
+            <label htmlFor="stakeholder-organization" className="flex flex-col gap-1 text-sm">
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "stakeholderFieldOrganization")}<InfoTooltip text={t(lang, "stakeholderFieldOrganizationHint")} />
                 {orgMic}
               </span>
               <Input
+                id="stakeholder-organization"
                 type="text"
                 value={draft.organization ?? ""}
                 onChange={(e) => update("organization", e.target.value || undefined)}
@@ -230,13 +244,14 @@ export function StakeholderEditModal({
           {/* Title + Email — the `contact` registry field */}
           {isVisible("contact") && (
             <>
-              {/* Title */}
-              <label className="flex flex-col gap-1 text-sm">
+              {/* Title. `htmlFor` — the mic outranks the input; see Name above. */}
+              <label htmlFor="stakeholder-title" className="flex flex-col gap-1 text-sm">
                 <span className="flex items-center gap-1 font-medium text-foreground">
                   {t(lang, "stakeholderFieldTitle")}<InfoTooltip text={t(lang, "stakeholderFieldTitleHint")} />
                   {titleMic}
                 </span>
                 <Input
+                  id="stakeholder-title"
                   type="text"
                   value={draft.title ?? ""}
                   onChange={(e) => update("title", e.target.value || undefined)}
@@ -319,12 +334,14 @@ export function StakeholderEditModal({
 
           {/* Notes */}
           {isVisible("notes") && (
-            <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            /* `htmlFor` — the mic outranks the textarea; see Name above. */
+            <label htmlFor="stakeholder-notes" className="flex flex-col gap-1 text-sm sm:col-span-2">
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "stakeholderFieldNotes")}<InfoTooltip text={t(lang, "stakeholderFieldNotesHint")} />
                 {notesMic}
               </span>
               <Textarea
+                id="stakeholder-notes"
                 autoGrow
                 rows={2}
                 value={draft.notes ?? ""}
@@ -343,14 +360,11 @@ export function StakeholderEditModal({
           )}
 
           {/* Document links */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <KnowledgeLinksFieldGated
-              value={draft.knowledgeLinks ?? []}
-              onChange={(links) => update("knowledgeLinks", links)}
-              lang={lang}
-            />
-          </label>
+          <DocumentLinksGroup
+            value={draft.knowledgeLinks ?? []}
+            onChange={(links) => update("knowledgeLinks", links)}
+            lang={lang}
+          />
 
           {/* RACI by milestone — Full-only registry field */}
           {isVisible("raci") && (

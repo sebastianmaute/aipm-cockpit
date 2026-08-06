@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDraggable } from "./use-draggable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
-import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
+import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { type Lang, t } from "./i18n";
 import {
   defaultStatusForCategory,
@@ -299,7 +299,18 @@ export function RaidEditModal({
     >
           {isVisible("category") && (
           <div className="flex flex-col gap-1 text-sm">
-            <label className="flex flex-col gap-1">
+            {/* ★★ A `<div>`, NOT a `<label>`. Neither a radiogroup nor a
+                contenteditable is a labelable element, so a `<label>` around
+                one binds to the first BUTTON inside it instead — here the
+                "Risk" radio. Hovering the caption then paints that radio's
+                hover state, and clicking the caption SETS the category — ★ but
+                only while the group is enabled (`!isNew && !categoryUnlocked`
+                disables it, and a disabled labeled control receives no
+                forwarded click), so the data-write reached new items and
+                unlocked ones. Status and Severity carry no such guard. The
+                group names itself via `ariaLabel`. See
+                src/test/label-binding.ts. */}
+            <div className="flex flex-col gap-1">
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "raidCategory")}
                 <InfoTooltip text={t(lang, "raidFieldCategoryHint")} />
@@ -347,7 +358,7 @@ export function RaidEditModal({
                   });
                 }}
               />
-            </label>
+            </div>
             {!isNew && !categoryUnlocked && (
               <button
                 type="button"
@@ -365,8 +376,9 @@ export function RaidEditModal({
           </div>
           )}
 
+          {/* `<div>`, not `<label>` — see Category above. */}
           {isVisible("status") && (
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidStatus")}
               <InfoTooltip text={t(lang, "raidFieldStatusHint")} />
@@ -380,16 +392,26 @@ export function RaidEditModal({
               }))}
               onChange={(s) => onApplyStatus(s)}
             />
-          </label>
+          </div>
           )}
 
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          {/* ★★ `htmlFor` is LOAD-BEARING. The dictation mic is a real
+              `<button>` and sits in the caption AHEAD of the input, so an
+              implicit binding made this label name the MIC — demoting the
+              required Title field to its `placeholder`, which HTML-AAM treats
+              as the fallback name (a poor name, not none; the change and
+              milestone rows have no placeholder and were left with NO name at
+              all) in any browser that
+              supports SpeechRecognition (jsdom has none, so no unit test can
+              see it). See src/test/label-binding.ts. */}
+          <label htmlFor="raid-title" className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidTitle")} *
               <InfoTooltip text={t(lang, "raidFieldTitleHint")} />
               {titleMic}
             </span>
             <Input
+              id="raid-title"
               type="text"
               required
               value={draft.title}
@@ -403,8 +425,13 @@ export function RaidEditModal({
             {titleDictationStatus}
           </label>
 
+          {/* `<div>`, not `<label>` — see Category above. Here the adopted
+              button was the dictation mic when dictation is supported, else the
+              editor's Bold control; unlike Category, the forwarded CLICK only
+              bites Bold (the mic has no `onClick`), while the hover bleed
+              applies to either. */}
           {isVisible("description") && (
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidDescription")}
               <InfoTooltip text={t(lang, "raidFieldDescriptionHint")} />
@@ -444,7 +471,7 @@ export function RaidEditModal({
               lang={lang}
             />
             {descriptionDictationStatus}
-          </label>
+          </div>
           )}
 
           {/* Running note log — opens the shared floating notes window. Disabled
@@ -487,7 +514,8 @@ export function RaidEditModal({
             </div>
               )
             : isVisible("scoring") && (
-            <label className="flex flex-col gap-1 text-sm">
+            <div className="flex flex-col gap-1 text-sm">
+              {/* `<div>`, not `<label>` — see Category above. */}
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "raidSeverity")}
                 <InfoTooltip text={t(lang, "raidFieldSeverityHint")} />
@@ -501,7 +529,7 @@ export function RaidEditModal({
                 }))}
                 onChange={(s) => onChange({ ...draft, severity: s })}
               />
-            </label>
+            </div>
               )}
 
           {isVisible("owner") && (
@@ -582,8 +610,9 @@ export function RaidEditModal({
           </label>
           )}
 
+          {/* `<div>`, not `<label>` — see Category above. */}
           {isVisible("mitigation") && (
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidMitigation")}
               <InfoTooltip text={t(lang, "raidFieldMitigationHint")} />
@@ -604,17 +633,14 @@ export function RaidEditModal({
               id="raid-mitigation-counter"
               lang={lang}
             />
-          </label>
+          </div>
           )}
 
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <KnowledgeLinksFieldGated
-              value={draft.knowledgeLinks ?? []}
-              onChange={(knowledgeLinks) => onChange({ ...draft, knowledgeLinks })}
-              lang={lang}
-            />
-          </label>
+          <DocumentLinksGroup
+            value={draft.knowledgeLinks ?? []}
+            onChange={(knowledgeLinks) => onChange({ ...draft, knowledgeLinks })}
+            lang={lang}
+          />
 
           {isVisible("linkedTasks") && (
           <RaidLinkedTasksField
