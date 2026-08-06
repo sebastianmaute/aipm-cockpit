@@ -29,9 +29,20 @@ import type { Lang } from "./i18n";
  * `buildExportSections`, so the columns and row projections are the same ones
  * every other export path uses.
  *
- * Returns `null` when the register is empty — the registry's own builders
- * return null for an empty entity, and a fresh project would otherwise grow a
- * stray heading and an empty table in every generated document.
+ * Returns `null` when there is nothing to show, so a caller can render nothing
+ * rather than a stray heading over an empty table.
+ *
+ * ★★ THE ZERO-ROW CHECK IS LOAD-BEARING, NOT BELT-AND-BRACES — it is reachable
+ * TODAY, and only two of the fifteen builders can reach it. Thirteen gate on
+ * `items.length > 0` and so cannot return an empty section. But `project` gates
+ * on `ws.project` being PRESENT and `status` on its having any KEYS, while
+ * `projectSection` skips every blank/undefined/empty-array field and
+ * `statusSection` drops every empty line — so a project whose metadata is all
+ * blank, or a status object holding only empty strings, yields a real section
+ * with ZERO rows. Measured, not reasoned: `project: {}` → rows 0,
+ * `status: { ragScope: "" }` → rows 0. A freshly created project before anyone
+ * fills in the metadata is exactly that case, so without this check every
+ * generated document grows an empty "Project" table.
  */
 export function resolveDataSection(
   key: ExportSectionKey,
@@ -41,5 +52,6 @@ export function resolveDataSection(
   const cfg = Object.fromEntries(
     EXPORT_SECTION_KEYS.map((k) => [k, k === key]),
   ) as ExportConfig;
-  return buildExportSections(ws, cfg, lang).find((s) => s.key === key) ?? null;
+  const section = buildExportSections(ws, cfg, lang).find((s) => s.key === key);
+  return section && section.rows.length > 0 ? section : null;
 }

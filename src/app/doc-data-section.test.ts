@@ -56,6 +56,32 @@ describe("resolveDataSection", () => {
     expect(JSON.stringify(section!.rows)).not.toContain("A task");
   });
 
+  it("returns null for a section whose builder yields ZERO ROWS", () => {
+    // ★ Not hypothetical. 13 of the 15 builders gate on `items.length > 0` and
+    // cannot produce this. `project` gates on ws.project being PRESENT and
+    // `status` on its having KEYS — but projectSection skips every blank field
+    // and statusSection drops every empty line, so both can hand back a real
+    // section with no rows. A freshly created project whose metadata nobody has
+    // filled in is exactly that case; without the guard every generated
+    // document grows an empty "Project" table.
+    const blankProject = { ...empty, project: {} } as unknown as Workspace;
+    const blankStatus = { ...empty, status: { ragScope: "" } } as unknown as Workspace;
+    expect(resolveDataSection("project", blankProject, "en-US")).toBeNull();
+    expect(resolveDataSection("status", blankStatus, "en-US")).toBeNull();
+  });
+
+  it("still returns the section once it has a single real row", () => {
+    // CONTROL for the test above: if the guard were over-broad — dropping the
+    // section whenever the source object is sparse rather than when it has no
+    // rows — this would fail and the one above would still pass.
+    const realProject = { ...empty, project: { name: "Apollo" } } as unknown as Workspace;
+    const section = resolveDataSection("project", realProject, "en-US");
+    expect(section).not.toBeNull();
+    expect(section!.key).toBe("project");
+    expect(section!.rows).toHaveLength(1);
+    expect(section!.rows.flat()).toContain("Apollo");
+  });
+
   it("is not hardcoded to one key", () => {
     const tasks = resolveDataSection("tasks", populated, "en-US");
     expect(tasks!.key).toBe("tasks");
