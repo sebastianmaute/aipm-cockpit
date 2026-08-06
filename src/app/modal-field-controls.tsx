@@ -1,22 +1,32 @@
 "use client";
 
-// Reusable control cluster for an edit modal's header: a three-way tier switch
-// (Simple / Advanced / Full) plus a cog popover that toggles individual fields.
-// It owns no persistence — every action delegates to `useModalVisibility`, which
-// reads from and writes to the workspace field-visibility config. Closing the cog
-// on outside-click is intentionally not implemented (a click-toggle is enough).
+// The edit modals' field-visibility control: a trigger showing the ACTIVE tier
+// (Simple / Advanced / Full / Custom) which opens a popover holding the tier
+// switch plus a per-field checklist. It owns no persistence — every action
+// delegates to `useModalVisibility`, which reads and writes the workspace
+// field-visibility config.
 //
-// The bordered header strip (`flex justify-end border-b border-line px-4 py-2`)
-// is OWNED here, so when the per-device opt-out hides the controls (return null)
-// the whole strip vanishes — no empty bordered band left behind. Callers render
-// <ModalFieldControls/> directly, never wrapping it in that strip themselves.
+// Mounted through `ModalHeader`'s `headerExtra` slot, so it sits in the header's
+// right-hand cluster and costs NO vertical space. It previously owned a bordered
+// strip below the header; that strip is gone, and with it the reason the strip
+// was owned here (so the per-device opt-out left no empty band behind). The
+// opt-out now simply removes the trigger.
+//
+// The tier switch is the shared `SegmentedControl` (a radiogroup with APG arrow
+// navigation) — do not hand-roll `aria-pressed` buttons back in. Custom mode
+// deliberately has NO option of its own: `SegmentedControl` handles a value
+// matching no option by leaving the group unchecked, and the trigger's own label
+// says "Custom".
 
 import { useCallback, useRef, useState } from "react";
-import type { Lang } from "./i18n";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
+import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
 import { MODAL_FIELDS, type FieldTier, type ModalId } from "./modal-fields";
+import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { PopoverPanel } from "./popover-panel";
+import { SegmentedControl } from "./segmented-control";
 import { useModalVisibility } from "./use-modal-visibility";
 import { useSettings } from "./use-settings";
 
@@ -26,16 +36,12 @@ interface ModalFieldControlsProps {
 }
 
 const TIERS: readonly FieldTier[] = ["simple", "advanced", "full"];
-const TIER_LABEL: Record<FieldTier, "fieldViewSimple" | "fieldViewAdvanced" | "fieldViewFull"> = {
+const TIER_LABEL: Record<FieldTier | "custom", TranslationKey> = {
   simple: "fieldViewSimple",
   advanced: "fieldViewAdvanced",
   full: "fieldViewFull",
+  custom: "fieldViewCustom",
 };
-
-const SEGMENT_BASE =
-  "px-2.5 py-1 text-xs font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-ui-green";
-const SEGMENT_ACTIVE = "bg-[var(--segment-active-bg)] text-[var(--segment-active-fg)]";
-const SEGMENT_INACTIVE = "text-foreground hover:bg-surface-muted";
 
 export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
   const { mode, isVisible, setMode, toggleField, reset } = useModalVisibility(modalId);
@@ -44,85 +50,68 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
   const cogTriggerRef = useRef<HTMLButtonElement>(null);
   const closeCog = useCallback(() => setCogOpen(false), []);
 
-  // Per-device opt-out: hide the field-tier switch + per-field cog entirely.
-  // Returning null removes the bordered header strip too (owned below).
+  // Per-device opt-out: hide the control entirely.
   if (settings.showFieldConfig === false) return null;
 
-  return (
-    <div className="flex justify-end border-b border-line px-4 py-2">
-      <div className="flex items-center gap-2">
-      <div
-        role="group"
-        aria-label={t(lang, "fieldViewLabel")}
-        className="inline-flex overflow-hidden rounded-md border border-line bg-surface text-xs"
-      >
-        {TIERS.map((tier, idx) => (
-          <button
-            key={tier}
-            type="button"
-            aria-pressed={mode === tier}
-            onClick={() => setMode(tier)}
-            className={[
-              SEGMENT_BASE,
-              idx > 0 ? "border-l border-line" : "",
-              mode === tier ? SEGMENT_ACTIVE : SEGMENT_INACTIVE,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {t(lang, TIER_LABEL[tier])}
-          </button>
-        ))}
-        {mode === "custom" && (
-          <span className={`${SEGMENT_BASE} border-l border-line ${SEGMENT_ACTIVE}`} aria-current="true">
-            {t(lang, "fieldViewCustom")}
-          </span>
-        )}
-      </div>
+  const tierLabel = t(lang, TIER_LABEL[mode]);
 
-      <div className="relative">
-        <button
-          ref={cogTriggerRef}
-          type="button"
-          aria-label={t(lang, "configureFields")}
-          aria-expanded={cogOpen}
-          onClick={() => setCogOpen((o) => !o)}
-          className="inline-flex items-center justify-center rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
-        >
-          <span aria-hidden="true">⚙</span>
-        </button>
-        <PopoverPanel
-          open={cogOpen}
-          anchorRef={cogTriggerRef}
-          onClose={closeCog}
-          role="dialog"
-          ariaLabel={t(lang, "configureFields")}
-          className="w-56 p-3 shadow-[var(--shadow-control)]"
-        >
-          <ul className="max-h-64 space-y-1 overflow-auto text-sm">
-            {MODAL_FIELDS[modalId].map((f) => (
-              <li key={f.id}>
-                <label className="flex items-center gap-2 text-foreground">
-                  <Checkbox
-                    checked={isVisible(f.id)}
-                    disabled={f.required}
-                    onChange={() => toggleField(f.id)}
-                  />
-                  <span>{t(lang, f.labelKey)}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={reset}
-            className="mt-3 w-full rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
-          >
-            {t(lang, "resetToDefault")}
-          </button>
-        </PopoverPanel>
-      </div>
-      </div>
+  return (
+    <div className="relative inline-block">
+      <Button
+        ref={cogTriggerRef}
+        variant="secondary"
+        size="xs"
+        // The visible label is the tier, so it LEADS the accessible name (WCAG
+        // 2.5.3 label-in-name); the control's purpose follows it.
+        aria-label={`${tierLabel} – ${t(lang, "configureFields")}`}
+        title={t(lang, "configureFields")}
+        aria-haspopup="dialog"
+        aria-expanded={cogOpen}
+        onClick={() => setCogOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5"
+      >
+        {tierLabel}
+        <Cog6ToothIcon aria-hidden="true" className="h-4 w-4" />
+      </Button>
+      <PopoverPanel
+        open={cogOpen}
+        anchorRef={cogTriggerRef}
+        onClose={closeCog}
+        role="dialog"
+        ariaLabel={t(lang, "configureFields")}
+        // w-72 (not w-56): three German tier labels at the primitive's text-sm
+        // px-3 are wider than 224px. The primitive wraps rather than clipping.
+        className="w-72 p-3 shadow-[var(--shadow-control)]"
+      >
+        <SegmentedControl<FieldTier | "custom">
+          value={mode}
+          ariaLabel={t(lang, "fieldViewLabel")}
+          options={TIERS.map((tier) => ({ value: tier, label: t(lang, TIER_LABEL[tier]) }))}
+          // "custom" is never an option, so this only narrows the primitive's
+          // generic back to what `setMode` accepts — cast-free.
+          onChange={(next) => {
+            if (next !== "custom") setMode(next);
+          }}
+          className="w-full"
+        />
+        <ul className="mt-3 max-h-64 space-y-1 overflow-auto border-t border-line pt-3 text-sm">
+          {MODAL_FIELDS[modalId].map((f) => (
+            <li key={f.id}>
+              <label className="flex items-center gap-2 text-foreground">
+                <Checkbox
+                  checked={isVisible(f.id)}
+                  disabled={f.required}
+                  onChange={() => toggleField(f.id)}
+                />
+                <span>{t(lang, f.labelKey)}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        <Button variant="secondary" size="xs" onClick={reset} className="mt-3 w-full">
+          {t(lang, "resetToDefault")}
+        </Button>
+      </PopoverPanel>
     </div>
   );
 }
