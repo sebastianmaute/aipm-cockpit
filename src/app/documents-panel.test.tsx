@@ -199,6 +199,28 @@ describe("DocumentsPanel", () => {
     expect(screen.getByRole("heading", { name: "Steering deck" })).toBeInTheDocument();
   });
 
+  // ★★★ THE SCROLLABLE PREVIEW MUST BE KEYBOARD-REACHABLE AND NAMED. The pane
+  // scrolls and its content is rendered document HTML with nothing focusable in
+  // it, so without a tabIndex a keyboard-only user cannot scroll it — axe
+  // reported `serious · scrollable-region-focusable` on all five scheme combos
+  // once the e2e seed began delivering real documents. This unit guard exists
+  // because that gate is an e2e job: it fails in seconds, next to the change,
+  // instead of at the end of the slowest pipeline stage.
+  // ★ Queried by ROLE, which is the assertion doing the work: a <section> is
+  // only exposed as a region once it HAS an accessible name, so getByRole
+  // fails if either the name or the element regresses — one query, both halves.
+  it("exposes the preview as a focusable region named after the document", () => {
+    renderPanel([doc(1, "Steering deck")]);
+    const region = screen.getByRole("region", { name: "Steering deck" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    // The name must come from the rendered heading, not a hardcoded literal —
+    // that is what keeps it specific AND correct in German with no new i18n key.
+    expect(region).toHaveAttribute(
+      "aria-labelledby",
+      screen.getByRole("heading", { name: "Steering deck" }).id,
+    );
+  });
+
   it("falls back to the first document when the selection is stale", () => {
     // Selection is resolved at read time, never written back, so a selected
     // document deleted by a concurrent writer self-heals to the first row
