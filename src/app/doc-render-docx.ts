@@ -11,11 +11,11 @@
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import {
-  DOCX_CONTENT_WIDTH_TWIPS,
   type DocxPageLayout,
   buildDocxPackage,
   buildDocxTable,
   docxCellRuns,
+  docxContentWidth,
 } from "./ooxml-docx-primitives";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
@@ -61,10 +61,16 @@ export const DOC_STYLES = `
  *  (prose at full A4 landscape measure reads badly). Without this the SAME
  *  document arrived portrait as HTML/PDF and landscape as .docx.
  *
- *  ★ ONE constant drives BOTH the page and the tables on purpose: the sectPr
- *  and `DOCX_CONTENT_WIDTH_TWIPS` must agree, or a table measured for the
- *  landscape text column overflows the narrower portrait page. */
+ *  ★★ ONE constant drives BOTH the page and the tables on purpose. The sectPr
+ *  and the table width are the SAME decision — a table measured for the
+ *  landscape text column overflows the narrower portrait page, silently, since
+ *  it still renders. `docxContentWidth` derives the width from the very
+ *  geometry that built the sectPr, so passing `PAGE` to both is enough to keep
+ *  them in step; there is no second number to update. */
 const PAGE: DocxPageLayout = "portrait";
+
+/** Every table in the document is laid out to the page the document declares. */
+const CONTENT_WIDTH = docxContentWidth(PAGE);
 
 /** One paragraph. `docxCellRuns` already maps "\n" to <w:br/> and escapes each
  *  line, so text and table cells cannot diverge on either rule. */
@@ -94,14 +100,14 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
     case "table":
       return (
         (block.caption ? para(block.caption, "Caption") : "") +
-        buildDocxTable(block.columns, block.rows, DOCX_CONTENT_WIDTH_TWIPS[PAGE])
+        buildDocxTable(block.columns, block.rows, CONTENT_WIDTH)
       );
     case "dataSection": {
       const section = resolveDataSection(block.key, ws, lang);
       if (!section) return "";
       return (
         para(section.title, "Heading2") +
-        buildDocxTable(section.columns, section.rows, DOCX_CONTENT_WIDTH_TWIPS[PAGE])
+        buildDocxTable(section.columns, section.rows, CONTENT_WIDTH)
       );
     }
     case "pageBreak":

@@ -31,44 +31,73 @@ export function docxCellRuns(value: string | number): string {
  *  documents. */
 export type DocxPageLayout = "landscape" | "portrait";
 
-/** Usable text width in twips (1/1440 inch) for each layout, i.e. the page
- *  width less this layout's own left+right margins. A table is sized against
- *  this, so it MUST be read from the same layout the `<w:sectPr>` uses —
- *  a table measured for landscape overflows the narrower portrait page.
+/** A4 in twips (1/1440 inch). Everything a page needs, in ONE place: the
+ *  `<w:sectPr>` bytes AND the width tables are laid out to are both generated
+ *  from here, so the two cannot drift apart. A table measured for a page it is
+ *  not on runs off the printable area — silently, since it still renders.
  *
- *  ★ `landscape` is the shipped 14520 literal, deliberately NOT re-derived:
- *  it is slightly under the 15398 the landscape margins actually leave, and
- *  recomputing it would change the exporter's bytes. `portrait` IS derived:
- *  11906 − 907 − 907 = 10092. */
-export const DOCX_CONTENT_WIDTH_TWIPS: Record<DocxPageLayout, number> = {
-  landscape: 14520,
-  portrait: 10092,
-};
+ *  `contentWidth` is the page less its own left+right margins. */
+interface DocxPageGeometry {
+  readonly width: number;
+  readonly height: number;
+  /** left AND right (they are always equal here). */
+  readonly marginX: number;
+  /** top AND bottom. */
+  readonly marginY: number;
+  /** ★★★ LANDSCAPE ONLY, and it is a WART, not a design. The exporter has
+   *  always laid its tables out to 14520 while its own page leaves 15398
+   *  (16838 − 720 − 720) — 878 twips ≈ 15.5mm of unused measure. The file's
+   *  original comment called 14520 "the usable width at 0.5-inch margins on A4
+   *  landscape", which is simply WRONG arithmetic; nothing derives it.
+   *  It is preserved ONLY because deriving it would change every column width
+   *  in every workspace export (n=3: 4840 → 5132), and the exporter's output
+   *  is contractually byte-stable. Narrowing the tables can never make them
+   *  overflow, so this is a cosmetic debt, not a correctness one — but do not
+   *  copy it to a new layout, and do not "tidy" it away either. */
+  readonly contentWidthOverride?: number;
+}
 
-/** The `<w:sectPr>` for each layout. Orientation and margins travel TOGETHER
- *  because they are one decision: the exporter's 720-twip (0.5") margins exist
- *  to fit wide tables onto a landscape page, and prose at that measure on
- *  portrait A4 reads badly, so portrait widens to the same 18mm/16mm
- *  `doc-render-html.ts` uses for prose (18mm ≈ 1020 twips, 16mm ≈ 907).
- *
- *  ★ Portrait's dimensions are the landscape ones transposed, and
- *  `w:orient="portrait"` is written EXPLICITLY even though portrait is the
- *  ST_PageOrientation default. Both branches then assert positively — a test
- *  that pinned portrait by the ABSENCE of the attribute would also pass after
- *  a future edit dropped the whole `<w:pgSz>`.
+/** ★★ Portrait is the landscape pair TRANSPOSED, with the wider prose margins
+ *  `doc-render-html.ts` already uses for these same documents (18mm ≈ 1020
+ *  twips, 16mm ≈ 907) — the export's tight 0.5" measure exists to fit wide
+ *  tables on a landscape page and reads badly under prose.
  *
  *  ★★ Do not touch the `landscape` entry: it is the workspace exporter's
- *  shipped bytes, and any edit here re-orients every workspace export. */
-const PAGE_SECT_PR: Record<DocxPageLayout, string> = {
-  landscape: `<w:sectPr>
-      <w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>
-      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="0" w:footer="0" w:gutter="0"/>
-    </w:sectPr>`,
-  portrait: `<w:sectPr>
-      <w:pgSz w:w="11906" w:h="16838" w:orient="portrait"/>
-      <w:pgMar w:top="1020" w:right="907" w:bottom="1020" w:left="907" w:header="0" w:footer="0" w:gutter="0"/>
-    </w:sectPr>`,
+ *  shipped bytes, and an edit here re-orients or re-flows every export. */
+const PAGE_GEOMETRY: Record<DocxPageLayout, DocxPageGeometry> = {
+  landscape: {
+    width: 16838,
+    height: 11906,
+    marginX: 720,
+    marginY: 720,
+    contentWidthOverride: 14520,
+  },
+  portrait: { width: 11906, height: 16838, marginX: 907, marginY: 1020 },
 };
+
+/** The width a table on this layout must be laid out to. DERIVED from the same
+ *  geometry the `<w:sectPr>` is built from — see `contentWidthOverride` for the
+ *  one layout that does not derive, and why it cannot. */
+export function docxContentWidth(page: DocxPageLayout): number {
+  const geometry = PAGE_GEOMETRY[page];
+  return geometry.contentWidthOverride ?? geometry.width - 2 * geometry.marginX;
+}
+
+/** The `<w:sectPr>` for a layout, generated from its geometry.
+ *
+ *  ★ `w:orient` interpolates the layout NAME: `DocxPageLayout`'s two members
+ *  are exactly the ST_PageOrientation values, so the declared orientation
+ *  cannot contradict the declared dimensions. Portrait is written explicitly
+ *  even though it is the schema default — both branches then assert
+ *  positively, where an absence assertion would also pass after a future edit
+ *  dropped the whole `<w:pgSz>`. */
+function pageSectPr(page: DocxPageLayout): string {
+  const { width, height, marginX, marginY } = PAGE_GEOMETRY[page];
+  return `<w:sectPr>
+      <w:pgSz w:w="${width}" w:h="${height}" w:orient="${page}"/>
+      <w:pgMar w:top="${marginY}" w:right="${marginX}" w:bottom="${marginY}" w:left="${marginX}" w:header="0" w:footer="0" w:gutter="0"/>
+    </w:sectPr>`;
+}
 
 /**
  * Render a DOCX `<w:tbl>` from a list of string column labels and plain-
@@ -76,13 +105,14 @@ const PAGE_SECT_PR: Record<DocxPageLayout, string> = {
  *
  * Column widths are distributed evenly across `contentWidthTwips`, which
  * defaults to the landscape measure the workspace exporter has always used.
- * A caller emitting a non-landscape `<w:sectPr>` must pass the matching
- * `DOCX_CONTENT_WIDTH_TWIPS` entry.
+ * A caller emitting a non-landscape `<w:sectPr>` MUST pass
+ * `docxContentWidth(itsLayout)` — a table sized for another page overflows
+ * this one, and still renders while doing it.
  */
 export function buildDocxTable(
   columns: string[],
   rows: (string | number)[][],
-  contentWidthTwips: number = DOCX_CONTENT_WIDTH_TWIPS.landscape,
+  contentWidthTwips: number = docxContentWidth("landscape"),
 ): string {
   // Fallback width when we have no pixel hint: share page width evenly.
   const colWidth = columns.length > 0
@@ -175,7 +205,7 @@ export function buildDocxPackage(
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     ${bodyXml}
-    ${PAGE_SECT_PR[page]}
+    ${pageSectPr(page)}
   </w:body>
 </w:document>`;
 

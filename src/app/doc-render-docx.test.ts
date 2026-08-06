@@ -136,7 +136,12 @@ describe("renderDocumentDocx — page orientation", () => {
       Number(pgMar.getAttribute("w:left")) -
       Number(pgMar.getAttribute("w:right"));
     expect(usable).toBeGreaterThan(0);
+    // Bounded on BOTH sides. `<=` alone passes for a table sized to any
+    // narrower page too, so it would not notice the width being pinned to some
+    // other constant; column widths are floored, so the only legitimate
+    // shortfall is under one twip per column.
     expect(total).toBeLessThanOrEqual(usable);
+    expect(usable - total).toBeLessThan(widths.length);
   });
 });
 
