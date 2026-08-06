@@ -3,7 +3,7 @@
 // surfaces import them" pattern); `reports.tsx` + `reports-tables.tsx` consume.
 import { workdaysUntil } from "./due-dates";
 import { effectivePersonName } from "./resource-foundation";
-import { isTaskClosed, isTaskDelivered } from "./task-closed";
+import { isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import { type Priority, type Resource, type Task } from "./types";
 
 export type GroupOrLabelRow = {
@@ -123,7 +123,7 @@ export function computeStats(
     // delivered, so it counts as neither open nor completed — and, being
     // closed, it is never overdue.
     const isDelivered = isTaskDelivered(task);
-    const isCancelled = !isDelivered && isTaskClosed(task);
+    const isCancelled = isTaskOutOfScope(task);
     if (isDelivered) {
       stats.completed++;
       if (task.dueDate && task.completedDate) {

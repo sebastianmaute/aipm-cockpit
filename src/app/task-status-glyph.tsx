@@ -31,13 +31,13 @@ import type { Task } from "./types";
  * "…: cancelled" for a cancelled one — so this adds the VISUAL channel only.
  * Do not fork `label`.
  *
- * ★★ It does NOT distinguish the THIRD case. A task with status "Done" and no
- * `completedDate` is closed but not delivered, so it takes the ✕ branch while
- * `formatHealthTooltip` still derives its drivers from `status` and announces
- * "completed" — the same thing the ✓ announces. That is the open defect
- * `docs/open-followups.md` §65 records, and its fix belongs in the health
- * engine, not here. Do not read the bullet above as "AT is covered in every
- * branch"; it is covered in two of three.
+ * ★★ The THIRD case — status "Done" with no `completedDate` — is closed but not
+ * delivered, so it takes the ✕ branch. It used to announce "completed" here,
+ * because `formatHealthTooltip` derived its drivers from `status` alone; that
+ * was `docs/open-followups.md` §65, now CLOSED. `computeTaskHealth`'s driver is
+ * three-way (`cancelled` / `completed` / `closed`) and this pair yields
+ * `closed`, so the glyph and the announcement agree. The fix was in the health
+ * engine, not here — this component is unchanged by it.
  */
 export function TaskStatusGlyph({ task, health, label }: {
   task: Task;
