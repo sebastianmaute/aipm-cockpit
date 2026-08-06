@@ -13,12 +13,7 @@ import type { DocBlock, ProjectDocument } from "./document-model";
 import { buildDocxPackage, buildDocxTable, docxCellRuns } from "./ooxml-docx-primitives";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
-import { buildExportSections, type ExportSection } from "./export-sections";
-import {
-  EXPORT_SECTION_KEYS,
-  type ExportConfig,
-  type ExportSectionKey,
-} from "./settings-types";
+import { resolveDataSection } from "./doc-data-section";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 
@@ -60,27 +55,6 @@ export const DOC_STYLES = `
 function para(text: string, style?: string): string {
   const pPr = style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : "";
   return `<w:p>${pPr}<w:r>${docxCellRuns(text)}</w:r></w:p>`;
-}
-
-/**
- * Resolve a `dataSection` key to a live ExportSection, grounded in the real
- * registry so a section can never drift from what the workspace exporter emits.
- *
- * Exported because the HTML and PPTX renderers need exactly this; a second copy
- * would be both a drift risk and a `dup:check` clone.
- *
- * Returns `null` when the register is empty — a fresh project would otherwise
- * grow a stray heading and empty table in every generated document.
- */
-export function resolveDataSection(
-  key: ExportSectionKey,
-  ws: Workspace,
-  lang: Lang,
-): ExportSection | null {
-  const cfg = Object.fromEntries(
-    EXPORT_SECTION_KEYS.map((k) => [k, k === key]),
-  ) as ExportConfig;
-  return buildExportSections(ws, cfg, lang).find((s) => s.key === key) ?? null;
 }
 
 /** Marker text for a list item. Word renders a real bullet only from a

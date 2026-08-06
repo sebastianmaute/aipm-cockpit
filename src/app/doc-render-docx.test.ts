@@ -10,11 +10,8 @@
 // textContent, so they fail on both malformed output AND on double-escaping.
 
 import { describe, it, expect } from "vitest";
-import {
-  renderDocumentDocx,
-  resolveDataSection,
-  DOC_STYLES,
-} from "./doc-render-docx";
+import { renderDocumentDocx, DOC_STYLES } from "./doc-render-docx";
+import { t } from "./i18n";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
@@ -305,7 +302,11 @@ describe("renderDocumentDocx — XML escaping", () => {
   });
 });
 
-describe("resolveDataSection", () => {
+// The resolver's OWN contract (null for an empty register, key selection, lang
+// threading) is unit-tested in doc-data-section.test.ts. What stays here is
+// what only this renderer can be wrong about: that a resolved section reaches
+// document.xml as a real table, escaped.
+describe("renderDocumentDocx — dataSection blocks", () => {
   const wsWithRaid = {
     tasks: [],
     raid: [
@@ -328,28 +329,27 @@ describe("resolveDataSection", () => {
   });
 
   it("heads the resolved section with its localized title", async () => {
-    const section = resolveDataSection("raid", wsWithRaid, "en-US");
-    expect(section).not.toBeNull();
     const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), wsWithRaid);
-    expect(textNodes(xml)).toContain(section!.title);
+    expect(textNodes(xml)).toContain(t("en-US", "tabRaid"));
   });
 
-  it("returns null when the section has no data, and renders nothing", async () => {
+  it("renders nothing for an empty register", async () => {
     // Empty registers are the common case in a fresh project; a stray empty
     // table or heading would appear in every generated document.
-    expect(resolveDataSection("raid", ws, "en-US")).toBeNull();
     const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), ws);
     expect(xml).not.toContain("<w:tbl>");
+    expect(textNodes(xml)).not.toContain(t("en-US", "tabRaid"));
   });
 
-  it("selects only the requested section", async () => {
+  it("does not leak a section the block did not ask for", async () => {
     const both = {
-      tasks: [{ id: 9, title: "A task", status: "To Do" }],
+      // ★ `taskName`, not `title` — see doc-data-section.test.ts. With `title`
+      // this whole assertion passes vacuously.
+      tasks: [{ id: 9, taskName: "A task", status: "To Do" }],
       raid: [{ id: 1, title: "Vendor delay", category: "Risk", status: "Open" }],
     } as unknown as Workspace;
-    const section = resolveDataSection("raid", both, "en-US");
-    expect(section?.key).toBe("raid");
     const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), both);
+    expect(textNodes(xml)).toContain("Vendor delay");
     expect(textNodes(xml).join(" ")).not.toContain("A task");
   });
 });
