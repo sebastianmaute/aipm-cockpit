@@ -61,9 +61,11 @@ interface EditModalShellProps {
  * The draggable modal shell shared by the change + stakeholder edit modals:
  * the centered `Modal`, the fixed-width draggable panel, the `ModalHeader`
  * (carrying the field-visibility control in its right-hand cluster), and the
- * two-column form grid. The caller's
- * fields + `ModalEditFooter` slot in as `children` (inside the `<form>`).
- * Presentational — offset/handlers are props. Emits the exact prior DOM tree.
+ * two-column form grid. The caller's fields + `ModalEditFooter` slot in as
+ * `children` (inside the `<form>`). Presentational — offset/handlers are props.
+ * (It no longer "emits the exact prior DOM tree" as this comment used to claim:
+ * that held while the extraction was DOM-for-DOM, and the field-visibility
+ * control has since moved from a strip below the header into the header.)
  */
 export function EditModalShell({
   lang,

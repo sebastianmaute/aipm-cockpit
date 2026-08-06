@@ -4,9 +4,16 @@
 // is selected. Replaces a native <select> when the option set is small (3–5)
 // and the labels are short. Acts as a radiogroup for assistive tech.
 //
-// Used by:
-//   • task-manager.tsx — Priority in the add/edit task modal
-//   • raid-panel.tsx   — Category, Status, Severity in the RAID edit modal
+// Used by 14 non-test files, 31 invocations (2026-08-06) — the register edit
+// modals (absence · budget-bucket · calendar-event · raid-edit), the field
+// tier switch (modal-field-controls), task Priority (task-form-fields), the
+// view/filter toggles in tasks-section · resources-panel-toolbar ·
+// raid-report-panel · activity-log-panel, roles-editor, and the three
+// settings sections (appearance carries 7 on its own). ★ Both entries this
+// list used to carry were WRONG, not merely stale — Priority had moved out of
+// `task-manager.tsx` into `task-form-fields.tsx`, and the RAID controls out of
+// `raid-panel.tsx` into `raid-edit-modal.tsx` — so reproduce rather than trust:
+//   grep -rln "<SegmentedControl" src/app --include="*.tsx" | grep -v "\.test\."
 
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 
@@ -49,7 +56,20 @@ export function SegmentedControl<T extends string>({
   function handleKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
     if (!NAV_KEYS.includes(e.key)) return;
     e.preventDefault();
-    const cur = options.findIndex((o) => o.value === value);
+    const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+    // ★★ Step from the FOCUSED radio, falling back to the checked one. APG
+    // defines the move relative to focus, and normally the two agree — the
+    // checked radio is the sole Tab-stop, so that is where focus lands. They
+    // come apart inside a portaled auto-focusing panel: `PopoverPanel` focuses
+    // the FIRST control in document order, which for the field-visibility tier
+    // switch is "Simple" while the checked tier is "Advanced". Stepping from
+    // `value` there moved TWO positions per keypress, and in "custom" mode
+    // (`value` matching no option) `findIndex` returns -1 so a single
+    // ArrowRight selected the first option, discarding a hand-picked field set.
+    // ★ `indexOf` over THIS group's radios scopes the check by construction —
+    // focus in another radiogroup, or nowhere, yields -1 and the fallback.
+    const focused = radios.indexOf(document.activeElement as HTMLElement);
+    const cur = focused >= 0 ? focused : options.findIndex((o) => o.value === value);
     const last = options.length - 1;
     const next =
       e.key === "Home"
@@ -64,7 +84,6 @@ export function SegmentedControl<T extends string>({
               ? last
               : cur - 1;
     onChange(options[next].value);
-    const radios = e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]');
     radios[next]?.focus();
   }
   const hasSelection = options.some((o) => o.value === value);

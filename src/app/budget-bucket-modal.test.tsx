@@ -7,7 +7,7 @@ import { BudgetBucketModal } from "./budget-bucket-modal";
 import { applyTier } from "./field-visibility";
 import type { FieldTier } from "./modal-fields";
 import { t } from "./i18n";
-import { selectFieldTier } from "../test/field-tier";
+import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import type { BudgetBucket, Role, Task } from "./types";
 
 // The planning-mode data-loss warning now routes through the branded
@@ -473,9 +473,7 @@ describe("BudgetBucketModal", () => {
 describe("BudgetBucketModal field-visibility control", () => {
   test("mounts the field-visibility trigger inside the modal header", () => {
     setup();
-    const trigger = screen.getByRole("button", {
-      name: new RegExp(t("en-US", "configureFields")),
-    });
+    const trigger = fieldTierTrigger("en-US");
     // PLACEMENT, not presence — see edit-modal-chrome.test.tsx.
     expect(trigger.closest("header")).not.toBeNull();
   });

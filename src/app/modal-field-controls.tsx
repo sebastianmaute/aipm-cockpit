@@ -56,7 +56,11 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
   const tierLabel = t(lang, TIER_LABEL[mode]);
 
   return (
-    <div className="relative inline-block">
+    // No `relative`: `PopoverPanel` portals to document.body and positions
+    // `fixed` from the anchor's rect, so there is nothing here to anchor. The
+    // wrapper and its `inline-block` stay — they set this control's box in the
+    // header's flex cluster, and dropping them would move pixels.
+    <div className="inline-block">
       <Button
         ref={cogTriggerRef}
         variant="secondary"
@@ -64,7 +68,11 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
         // The visible label is the tier, so it LEADS the accessible name (WCAG
         // 2.5.3 label-in-name); the control's purpose follows it.
         aria-label={`${tierLabel} – ${t(lang, "configureFields")}`}
-        title={t(lang, "configureFields")}
+        // NO `title`: with `aria-label` set, `title` becomes the accessible
+        // DESCRIPTION, so AT reads "Advanced – Configure fields … Configure
+        // fields". The old cog-only trigger needed a tooltip because it had no
+        // visible text; this one shows the tier, so the duplication buys
+        // nothing.
         aria-haspopup="dialog"
         aria-expanded={cogOpen}
         onClick={() => setCogOpen((o) => !o)}

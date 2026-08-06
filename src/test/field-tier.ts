@@ -14,16 +14,27 @@ import { t, type Lang } from "../app/i18n";
  *  set), never an option in the group — so it cannot be selected here. */
 export type FieldTierKey = "fieldViewSimple" | "fieldViewAdvanced" | "fieldViewFull";
 
+/** Escape regex metacharacters in a string destined for `new RegExp`. The i18n
+ *  values are prose and none carries a metacharacter today, so this is latent
+ *  rather than live — but an EN/DE string is free to grow a `(` or `?`, and a
+ *  query built from one would then throw or silently match the wrong control. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * The field-visibility trigger in the modal header.
  *
  * ★ Its accessible name is `"<active tier> – Configure fields"` — the visible
  * tier LEADS it (WCAG 2.5.3 label-in-name), so the name CHANGES as the tier
  * changes. A testing-library string `name` is an EXACT match, so it must be
- * queried by regex against the stable tail, not by the whole string.
+ * queried by regex against the stable tail, not by the whole string. Exported
+ * because four other sites (`modal-field-controls.test.tsx` and the three
+ * placement tests) each hand-rolled that regex, so the trap above was explained
+ * at one of the five places that depend on it.
  */
-function fieldTierTrigger(lang: Lang = "en-US"): HTMLElement {
-  return screen.getByRole("button", { name: new RegExp(t(lang, "configureFields")) });
+export function fieldTierTrigger(lang: Lang = "en-US"): HTMLElement {
+  return screen.getByRole("button", { name: new RegExp(escapeRegExp(t(lang, "configureFields"))) });
 }
 
 /**

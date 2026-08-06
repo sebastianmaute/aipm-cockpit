@@ -4,6 +4,7 @@ import { type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { FiltersProvider } from "./filters-context";
 import { ModalFieldControls } from "./modal-field-controls";
+import { fieldTierTrigger } from "../test/field-tier";
 import { t } from "./i18n";
 import { SETTINGS_KEY } from "./use-settings";
 import { WorkspaceProvider } from "./workspace-context";
@@ -22,10 +23,10 @@ function renderControls() {
   return render(<ModalFieldControls modalId="milestone" lang={EN} />, { wrapper });
 }
 
-// The trigger's accessible name is "<tier> – Configure fields", so this needs a
-// SUBSTRING regex: a string `name` is an exact match in testing-library.
+// Shared with the nine modal tests — see `src/test/field-tier.ts` for why the
+// query must be a regex (the accessible name leads with the ACTIVE tier).
 function trigger(): HTMLElement {
-  return screen.getByRole("button", { name: new RegExp(t(EN, "configureFields")) });
+  return fieldTierTrigger(EN);
 }
 
 function openPopover() {
@@ -94,6 +95,28 @@ describe("ModalFieldControls popover", () => {
     for (const key of ["fieldViewSimple", "fieldViewAdvanced", "fieldViewFull"] as const) {
       expect(screen.getByRole("radio", { name: t(EN, key) })).not.toBeChecked();
     }
+  });
+
+  // The popover's third interactive region. It had no coverage before the move
+  // either, so this closes a carried-forward gap rather than a regression —
+  // `reset` writes `undefined`, which drops back to DEFAULT_TIER
+  // (`use-modal-visibility.ts:42`), and nothing pinned that the trigger label
+  // and the radio follow it out of custom mode.
+  it("reset returns a custom set to the default tier, label and radio following", () => {
+    renderControls();
+    openPopover();
+    // Arrange: the same hand-toggle as above puts the modal in custom mode.
+    fireEvent.click(screen.getByRole("checkbox", { name: t(EN, "description") }));
+    expect(trigger()).toHaveTextContent(t(EN, "fieldViewCustom"));
+    expect(screen.getByRole("checkbox", { name: t(EN, "description") })).not.toBeChecked();
+
+    // Act
+    fireEvent.click(screen.getByRole("button", { name: t(EN, "resetToDefault") }));
+
+    // Assert — the tier, the trigger's visible label, and the hidden field.
+    expect(screen.getByRole("radio", { name: t(EN, "fieldViewAdvanced") })).toBeChecked();
+    expect(trigger()).toHaveTextContent(t(EN, "fieldViewAdvanced"));
+    expect(screen.getByRole("checkbox", { name: t(EN, "description") })).toBeChecked();
   });
 });
 

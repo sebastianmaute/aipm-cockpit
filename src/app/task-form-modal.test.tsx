@@ -6,6 +6,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
+import { fieldTierTrigger } from "../test/field-tier";
 import { t } from "./i18n";
 import type { NoteLogPanelProps } from "./note-log-panel";
 import type { BudgetBucket, NoteLogEntry } from "./types";
@@ -175,9 +176,7 @@ describe("TaskFormModal", () => {
 
   test("mounts the field-visibility trigger inside the modal header", () => {
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
-    const trigger = screen.getByRole("button", {
-      name: new RegExp(t(EN, "configureFields")),
-    });
+    const trigger = fieldTierTrigger(EN);
     // PLACEMENT, not presence — see edit-modal-chrome.test.tsx.
     expect(trigger.closest("header")).not.toBeNull();
   });
