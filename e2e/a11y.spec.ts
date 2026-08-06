@@ -15,7 +15,7 @@ import { APP_VERSION } from "../src/app/version";
 // names, labels, landmarks, ARIA) AND `color-contrast`, which now passes after
 // the palette tuning, the status-chip rework (dark-blue text on the hue tint
 // instead of same-hue text), and dropping the opacity-dim on completed rows.
-const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings", "AI Assistant", "Next actions", "Insights"] as const;
+const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings", "AI Assistant", "Next actions", "Insights", "Documents"] as const;
 
 // Views reached by hash (not a top-level sidebar click): Dashboard sub-children
 // whose sidebar entry may be collapsed at scan time. Navigating by hash mirrors

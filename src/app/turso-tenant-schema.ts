@@ -138,6 +138,12 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     if (ws.insights && ws.insights.length) {
       out.push(tenantInsert("meta", ["key", "value"], ["insights", JSON.stringify(ws.insights)], projectId));
     }
+    // Documents ride `meta` here too. BOTH backends need this — the load side is
+    // shared (rowsToWorkspace), so a save added on only one of them drops the
+    // data silently on the other.
+    if (ws.documents && ws.documents.length) {
+      out.push(tenantInsert("meta", ["key", "value"], ["documents", JSON.stringify(ws.documents)], projectId));
+    }
     if (ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)) {
       out.push(tenantInsert("meta", ["key", "value"], ["settings_overrides", JSON.stringify(ws.settingsOverrides)], projectId));
     }

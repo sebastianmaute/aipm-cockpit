@@ -109,3 +109,29 @@ describe("visibleReports", () => {
     expect(visibleReports(["raid-report", "stakeholder-report"], [])).toEqual([]);
   });
 });
+
+// ★★ documents was in nav-config's AppView, NAV_GROUPS and LABEL_KEYS but in
+//    NEITHER a FEATURE_MODULES entry NOR CORE_VIEWS. isViewEnabled returns true
+//    for any view no module claims, so the sidebar kept it — but enabledNavViews
+//    is CORE_VIEWS plus enabled module views, so it DROPPED it. The two
+//    disagreed about the same view. That divergence was inert (no non-test
+//    caller of enabledNavViews yet) and is exactly what bites the next one.
+describe("documents view ownership", () => {
+  it("is core DELIBERATELY, not by isViewEnabled's unclaimed-view fall-through", () => {
+    expect(CORE_VIEWS).toContain("documents");
+  });
+
+  // The real defect: the two predicates must agree. isViewEnabled said yes via
+  // fall-through while enabledNavViews said no via omission.
+  it("is reported consistently by isViewEnabled and enabledNavViews, with no modules on", () => {
+    expect(isViewEnabled("documents", [])).toBe(true);
+    expect(enabledNavViews([])).toContain("documents");
+  });
+
+  // Control: a module-owned view must still be absent when its module is off,
+  // so the assertion above cannot pass by enabledNavViews returning everything.
+  it("still omits a module-owned view when that module is off", () => {
+    expect(isViewEnabled("history", [])).toBe(false);
+    expect(enabledNavViews([])).not.toContain("history");
+  });
+});

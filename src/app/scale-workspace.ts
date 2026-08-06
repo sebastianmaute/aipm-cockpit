@@ -281,5 +281,10 @@ export function scaleWorkspace(ws: Workspace, factor: number): Workspace {
     // --- reference data + singletons: first copy only --------------------
     // resources, roles, disciplines, grades, plan, status, fxRates, project,
     // fieldVisibility, features all carry over unchanged via the spread above.
+    // ★ documents too, and deliberately NOT replicated: a document is authored
+    // narrative about the project as a whole, so 3x/10x copies of the same
+    // "Steering update" would be noise, and its dataSection blocks re-render
+    // against the scaled data anyway. Measured: seeding one document grows
+    // -big and -huge by the SAME 1140 bytes, which is the no-replication proof.
   };
 }

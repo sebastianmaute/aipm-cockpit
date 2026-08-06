@@ -79,7 +79,7 @@ import {
   ActionsPanel,
   InsightsPanel,
   KnowledgePanel,
-  TimelogPanel,
+  TimelogPanel, DocumentsTabPanel,
 } from "./workspace-panels";
 import { baselineMilestoneTargets } from "./snapshot";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -912,6 +912,8 @@ export function WorkspaceSection({
             <KnowledgePanel />
           </div>
         )}
+
+        {activeTab === "documents" && <DocumentsTabPanel className={panelClass} lang={lang} isPopout={isPopout} />}
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>

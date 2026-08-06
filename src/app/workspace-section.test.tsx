@@ -4,7 +4,8 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, expect, it, test, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
-import { WorkspaceTabProvider } from "./workspace-tab-context";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import type { AppView } from "./nav-config";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceSection } from "./workspace-section";
 import type { WorkspaceSectionProps } from "./workspace-section";
@@ -142,6 +143,49 @@ function Wrapper({ children }: { children: React.ReactNode }) {
     </FiltersProvider>
   );
 }
+
+describe("WorkspaceSection — documents tab routing", () => {
+  // ★★ Navigation happens from a CLICK HANDLER, which is the only lint-legal
+  // route here. Both obvious alternatives are fatal under CI's
+  // --max-warnings=0: pushing the tab from a `useEffect` trips the banned
+  // `react-hooks/set-state-in-effect`, and capturing the setter into an outer
+  // variable during render trips `react-hooks/globals`
+  // ("Cannot reassign variables declared outside of the component/hook").
+  // Both were tried; this is what survives the gate.
+  function TabProbe({ view }: { view: AppView }) {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-tab" onClick={() => setActiveTab(view)} />;
+  }
+
+  function renderAtDocuments() {
+    const view = render(
+      <>
+        <TabProbe view="documents" />
+        <WorkspaceSection {...makeProps()} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-tab"));
+    return view;
+  }
+
+  it("routes the documents view to its own tabpanel", () => {
+    // Without this nothing pins that `activeTab === "documents"` reaches a
+    // branch at all — a typo in the string renders an EMPTY view, and the nav
+    // entry, help entry and icon all still exist, so it looks wired.
+    renderAtDocuments();
+    const panel = document.getElementById("panel-documents");
+    expect(panel).not.toBeNull();
+    expect(panel).toHaveAttribute("role", "tabpanel");
+  });
+
+  it("does not render the documents tabpanel on another view", () => {
+    // The control for the test above: if `panel-documents` were rendered
+    // unconditionally, that assertion would pass with the routing broken.
+    render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
+    expect(document.getElementById("panel-documents")).toBeNull();
+  });
+});
 
 describe("WorkspaceSection", () => {
   it("section element renders in the DOM", () => {

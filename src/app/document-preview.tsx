@@ -1,0 +1,86 @@
+"use client";
+
+// src/app/document-preview.tsx — read-only render of the selected document.
+//
+// ★★ PREVIEW MODE RENDERS NO TITLE. `renderDocumentHtml(..., "preview")` returns
+// a FRAGMENT by design — the standalone mode used for print carries the title,
+// the fragment does not. So this chrome renders `doc.title` itself; without it
+// the pane shows an untitled body and reads as broken. That is the
+// fragment/standalone split working as intended, not a renderer bug to patch.
+//
+// ★★ NO SECOND SANITIZE PASS HERE. The renderer's paragraph sink already runs
+// sanitizeTemplateHtml on the one unescaped path — `renderBlock`'s `paragraph`
+// case in doc-render-html.ts. Adding another pass here would imply the sink is
+// optional; removing the sink's would be a stored-XSS hole. Leave both alone.
+// ★★★ CITE THE SYMBOL, NOT A LINE RANGE. This said "doc-render-html.ts:84-86,
+// verified — not taken on trust", and 84-86 is `tableHtml`'s ESCAPING, a
+// different guard on a different path. A reader following it lands on table
+// escaping, finds no sanitize call for paragraphs, and can only conclude the
+// paragraph path is unguarded — worse than an uncited claim, because the note
+// advertises itself as checked. Line numbers rot on the next edit above them.
+
+import { useMemo } from "react";
+import { type Lang } from "./i18n";
+import type { ProjectDocument } from "./document-model";
+import type { Workspace } from "./workspace";
+import { renderDocumentHtml } from "./doc-render-html";
+
+export interface DocumentPreviewProps {
+  lang: Lang;
+  /** Null only when the workspace holds no documents at all — the list shows
+   *  its own empty state in that case, so this renders nothing rather than
+   *  competing with it. */
+  doc: ProjectDocument | null;
+  ws: Workspace;
+}
+
+export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
+  // ★★ MEMOIZED, and the cost it avoids is not theoretical. `renderDocumentHtml`
+  // runs DOMPurify once PER PARAGRAPH block and `resolveDataSection` once per
+  // dataSection block — and that one projects the WHOLE workspace through
+  // buildExportSections. Called inline, it re-ran on every parent render, so
+  // each keystroke in the rename modal (which re-renders the panel) re-projected
+  // the entire workspace to produce byte-identical HTML.
+  // ★★★ IT MUST SIT ABOVE THE `!doc` EARLY RETURN. A hook after a conditional
+  // return is a rules-of-hooks violation and `npm run lint` is `--max-warnings=0`
+  // in CI, so the guard moves INTO the memo body rather than the hook moving
+  // below the guard.
+  const html = useMemo(
+    () => (doc ? renderDocumentHtml(doc, ws, lang, "preview") : ""),
+    [doc, ws, lang],
+  );
+
+  if (!doc) return null;
+
+  const titleId = `document-preview-title-${doc.id}`;
+
+  return (
+    // ★★ tabIndex={0} IS AN ACCESSIBILITY FIX, NOT A STYLE CHOICE. This element
+    // scrolls (`overflow-auto`) and its content is rendered document HTML, which
+    // contains nothing focusable — so a keyboard-only user could not scroll it at
+    // all. axe's scrollable-region-focusable flagged it `serious` on all five
+    // scheme combos the moment the e2e seed started delivering real documents;
+    // before that the pane had nothing to scroll and the gate saw nothing.
+    // ★★ The name rides `aria-labelledby` on the heading THIS PANE ALREADY
+    // RENDERS, so a focusable region is announced as the document it shows
+    // ("Steering update") rather than a generic "Document preview" — and it needs
+    // NO new i18n key, which also keeps it correct in DE for free. A named
+    // <section> is implicitly `role="region"`, so an explicit role would be
+    // redundant. Do not swap this for an aria-label literal: that is both a
+    // hardcoded English string and a less specific name.
+    <section
+      tabIndex={0}
+      aria-labelledby={titleId}
+      className="overflow-auto rounded-md border border-line bg-surface p-4"
+    >
+      <h2 id={titleId} className="mb-3 text-base font-semibold text-foreground">
+        {doc.title}
+      </h2>
+      <div
+        data-document-preview-body
+        className="text-sm text-foreground"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </section>
+  );
+}
