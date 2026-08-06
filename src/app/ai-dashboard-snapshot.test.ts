@@ -80,7 +80,7 @@ describe("buildDashboardSnapshot", () => {
   it("emits the progress shape exactly, without leaking counts into it", () => {
     const snap = buildDashboardSnapshot(model(), report(), "2026-07-25");
 
-    expect(snap.progress).toEqual({ total: 10, inScope: 10, completed: 4, percent: 40 });
+    expect(snap.progress).toEqual({ total: 10, inScope: 10, completed: 4, percent: 40, noActiveScope: false });
   });
 
 
@@ -91,7 +91,7 @@ describe("buildDashboardSnapshot", () => {
     (m as { progress: Record<string, unknown> }).progress = { total: 10, inScope: 5, completed: 5, percent: 100, counts: { R: 0, A: 0, G: 10 } };
     const snap = buildDashboardSnapshot(m, report(), "2026-07-25");
 
-    expect(snap.progress).toEqual({ total: 10, inScope: 5, completed: 5, percent: 100 });
+    expect(snap.progress).toEqual({ total: 10, inScope: 5, completed: 5, percent: 100, noActiveScope: false });
   });
   it("passes real cost figures through when cost is knowable", () => {
     const snap = buildDashboardSnapshot(model(), report(), "2026-07-25");
@@ -153,5 +153,29 @@ describe("buildDashboardSnapshot", () => {
     expect(snap.counts.openRaid).toBe(3);
     expect(snap.counts.changes).toEqual({ pending: 2, approved: 1, implemented: 4, total: 7 });
     expect(JSON.stringify(snap)).not.toContain("topChanges");
+  });
+});
+
+describe("no-active-scope disclosure (open-followups §64)", () => {
+  it("tells the model when a project has tasks but none in scope", () => {
+    const m = model();
+    (m as { progress: Record<string, unknown> }).progress = {
+      total: 2, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 }, outOfScope: 2,
+    };
+    const snap = buildDashboardSnapshot(m, report(), "2026-07-25");
+    // Without this the model gets a bare 0 and can restate it as "0% complete",
+    // which is the misreading the UI already stopped showing.
+    expect(snap.progress.noActiveScope).toBe(true);
+  });
+
+  it("stays false for a brand-new empty project", () => {
+    const m = model();
+    (m as { progress: Record<string, unknown> }).progress = {
+      total: 0, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 }, outOfScope: 0,
+    };
+    const snap = buildDashboardSnapshot(m, report(), "2026-07-25");
+    // `total === 0` is deliberately excluded — an empty project must keep
+    // reading 0%, not "no active scope".
+    expect(snap.progress.noActiveScope).toBe(false);
   });
 });
