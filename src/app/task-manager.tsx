@@ -2271,16 +2271,7 @@ function TaskManagerInner() {
         ? guardEdit(() => { void handleOpenCalendarImport(); })
         : undefined,
     onEditTask: openEditModal,
-    // ★★★ MUST stay guarded. `budget` is in `POPOUT_TABS`, and `budget-panel`
-    // gates its period cells on `mirror` (budget-follows-plan) — NEVER on
-    // `isPopout` — so the cells of a non-mirrored row are editable in a popout.
-    // Unguarded, typing in one committed a real workspace write from a window
-    // that every other tab treats as a read-only mirror. `commitBuckets` also
-    // captures undo and logs activity, so the popout wrote three ways at once.
-    // ★ Safe to wrap because it returns void; see `onCreateResource` above,
-    // which returns the new resource id and therefore CANNOT be wrapped this
-    // way without changing its contract to `number | undefined`.
-    onChangeBudgets: guardEdit(commitBuckets),
+    onChangeBudgets: guardEdit(commitBuckets), // ★★★ keep guarded — why, and why onCreateResource can't be: task-manager.popout-guard.test.tsx
     onRefreshFx: () => { void refreshFx().then((err) => { if (err) reportSilentFailure(showToast, lang, "fx.refreshFailed", new Error(err), "guardFxRefreshFailed"); }); },
     fxLoading,
     trends,

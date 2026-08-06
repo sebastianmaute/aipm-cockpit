@@ -15,6 +15,20 @@
 // buckets reach the panel through `useWorkspace()` rather than a captured prop,
 // so there is no prop to diff. Mocking the hook puts the assertion exactly at
 // the seam that was broken.
+//
+// ★★★ `onChangeBudgets` IS SAFE TO WRAP ONLY BECAUSE `commitBuckets` RETURNS
+// VOID. `onCreateResource`, in the same prop bag, has the identical gap and
+// CANNOT be fixed this way: it returns the new resource id, and `makeEditGuard`
+// returns `undefined` on the read-only path, so wrapping would silently widen
+// its contract to `number | undefined` for every caller. Check the return type
+// before reaching for the guard. That one is still unguarded — a popout can
+// create a resource through the RAID/task resource picker even though saving
+// the item around it is blocked.
+//
+// ★ This rationale lives HERE and not at the call site because
+// `task-manager.tsx` is on the file-size ratchet (baselined at 2972 lines);
+// nine lines of comment there failed `size:check`, and raising the baseline to
+// hold a comment would be widening a gate to make a pipeline pass.
 import { render, screen } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
