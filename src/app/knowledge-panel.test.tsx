@@ -10,8 +10,9 @@ import { KnowledgePanel } from "./knowledge-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
-import type { KnowledgeLink } from "./document-link";
+import type { KnowledgeItem, KnowledgeLink } from "./document-link";
 import type { Task } from "./types";
+import { expectNoLabelBoundToButton } from "../test/label-binding";
 
 afterEach(() => {
   window.localStorage.clear();
@@ -55,6 +56,14 @@ function SeedTasks({ tasks }: { tasks: Task[] }) {
   useEffect(() => {
     setTasks(tasks);
   }, [setTasks, tasks]);
+  return null;
+}
+
+function SeedKnowledgeItems({ items }: { items: KnowledgeItem[] }) {
+  const { setKnowledgeItems } = useWorkspace();
+  useEffect(() => {
+    setKnowledgeItems(items);
+  }, [setKnowledgeItems, items]);
   return null;
 }
 
@@ -236,6 +245,46 @@ describe("KnowledgePanel", () => {
     // The field sits in a `flex flex-wrap items-end` row where every sibling
     // declares a basis; without one it shrinks to content width.
     expect(src).toMatch(/flex flex-1 min-w-\[16rem\] flex-col gap-1 text-xs text-foreground/);
+  });
+
+  // ★★★ Both linked-tasks pickers render CHIPS (each with an unlink ×) ABOVE
+  // their search box, so a `<label>` wrapper adopts the first chip's × as its
+  // labeled control: hovering the caption paints that ×, and clicking the
+  // caption UNLINKS the task. Neither picker is reachable from an axe-scanned
+  // view, so these two tests are the only coverage. See src/test/label-binding.
+  // ★ A picker with nothing linked renders "—" and then the input, so the
+  // defect does not exist yet — both tests must put a chip on screen first or
+  // they pass against the unfixed code.
+  it("does not bind the library card's linked-tasks caption to a chip's unlink button", () => {
+    const item: KnowledgeItem = { ...LINK, id: "ki-1", taskIds: [7] };
+    render(
+      <>
+        <SeedTasks tasks={[seededTask([])]} />
+        <SeedKnowledgeItems items={[item]} />
+        <KnowledgePanel />
+      </>,
+      { wrapper },
+    );
+    // Proves the chip is on screen — without it the assertion is vacuous.
+    expect(
+      screen.getByRole("button", { name: new RegExp(`${t("en-US", "taskUnlink")} #7`) }),
+    ).toBeInTheDocument();
+    expectNoLabelBoundToButton();
+  });
+
+  it("does not bind the standalone add-form's linked-tasks caption to a chip's unlink button", () => {
+    renderWithTasks([seededTask([])]);
+    fireEvent.click(screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0]);
+    // Target defaults to Standalone, so the linked-tasks picker is present.
+    const search = screen.getByRole("combobox", { name: t("en-US", "knowledgeLinkedTasks") });
+    fireEvent.change(search, { target: { value: "Write spec" } });
+    // Scoped to the picker's listbox: the target `<select>` also holds an
+    // `<option>` named "Write spec" (a native option has role="option" too).
+    fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: /Write spec/ }));
+    expect(
+      screen.getByRole("button", { name: new RegExp(`${t("en-US", "taskUnlink")} #7`) }),
+    ).toBeInTheDocument();
+    expectNoLabelBoundToButton();
   });
 
   it("does not pack knowledge-library cards three-up before xl", () => {

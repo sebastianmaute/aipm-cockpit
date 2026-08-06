@@ -13,7 +13,7 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { INTERACTIVE } from "./interaction-styles";
 import { TaskLinkPicker } from "./task-link-picker";
-import { Input, Select } from "./form-controls";
+import { FieldGroup, Input, Select } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
@@ -376,8 +376,14 @@ export function KnowledgePanel() {
                   // ★ Needs its own basis: this sits in a `flex flex-wrap
                   //   items-end` row where every sibling declares one, so
                   //   without it the picker collapses to content width.
-                  <label className="flex flex-1 min-w-[16rem] flex-col gap-1 text-xs text-foreground">
-                    <span>{t(lang, "knowledgeLinkedTasks")}</span>
+                  // ★ `FieldGroup`, not `<label>`: the picker renders unlink
+                  //   chips ABOVE its search box, so a label would adopt the
+                  //   first ✕ and clicking the caption would unlink a task.
+                  <FieldGroup
+                    name={t(lang, "knowledgeLinkedTasks")}
+                    className="flex flex-1 min-w-[16rem] flex-col gap-1 text-xs text-foreground"
+                    caption={<span>{t(lang, "knowledgeLinkedTasks")}</span>}
+                  >
                     <TaskLinkPicker
                       lang={lang}
                       tasks={tasks}
@@ -386,7 +392,7 @@ export function KnowledgePanel() {
                       onRemove={(id) => setLinkTaskIds((p) => p.filter((x) => x !== id))}
                       label={t(lang, "knowledgeLinkedTasks")}
                     />
-                  </label>
+                  </FieldGroup>
                 )}
                 <Button
                   variant="secondary"
@@ -460,8 +466,14 @@ export function KnowledgePanel() {
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">{t(lang, DOC_TYPE_LABEL[ft.labelKey])}</div>
-                      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                        <span>{t(lang, "knowledgeLinkedTasks")}</span>
+                      {/* Same trap as the add-form picker above — chips first,
+                          so this can never be a `<label>`. Named per card so N
+                          cards don't announce N identical groups. */}
+                      <FieldGroup
+                        name={`${t(lang, "knowledgeLinkedTasks")} – ${it.name} (${idx + 1})`}
+                        className="flex flex-col gap-1 text-xs text-muted-foreground"
+                        caption={<span>{t(lang, "knowledgeLinkedTasks")}</span>}
+                      >
                         <TaskLinkPicker
                           lang={lang}
                           tasks={tasks}
@@ -472,7 +484,7 @@ export function KnowledgePanel() {
                           }
                           label={`${t(lang, "knowledgeLinkedTasks")} – ${it.name} (${idx + 1})`}
                         />
-                      </label>
+                      </FieldGroup>
                     </Card>
                   );
                 })}

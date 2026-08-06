@@ -182,7 +182,14 @@ export function ProjectOverridesSection({
         onToggle={toggleAppearance}
       >
         <div className="flex flex-col gap-3">
-          <label className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
+          {/* ★★ These rows are `<div>`s, NOT `<label>`s. A radiogroup is not a
+              labelable element, so a `<label>` around one binds to the first
+              BUTTON inside it — the first radio. Clicking the caption then
+              SELECTED that option (clicking the "View" caption forced Table),
+              and hovering the caption painted its hover state. Each control
+              already named itself via `ariaLabel`, so dropping the `<label>`
+              costs no accessible name. See src/test/label-binding.ts. */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
             {t(lang, "dashboardDensityLabel")}
             <SegmentedControl<"comfortable" | "compact">
               value={effective.dashboardDensity ?? "comfortable"}
@@ -193,8 +200,8 @@ export function ProjectOverridesSection({
               ]}
               onChange={(v) => setAppearance({ dashboardDensity: v })}
             />
-          </label>
-          <label className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
             {t(lang, "showViewHintsLabel")}
             <SegmentedControl<"shown" | "hidden">
               value={effective.showViewHints !== false ? "shown" : "hidden"}
@@ -205,8 +212,8 @@ export function ProjectOverridesSection({
               ]}
               onChange={(v) => setAppearance({ showViewHints: v === "shown" })}
             />
-          </label>
-          <label className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
             {t(lang, "tasksViewModeLabel")}
             <SegmentedControl<"table" | "board" | "swimlane">
               value={effective.tasksViewMode ?? "table"}
@@ -218,7 +225,7 @@ export function ProjectOverridesSection({
               ]}
               onChange={(v) => setAppearance({ tasksViewMode: v })}
             />
-          </label>
+          </div>
         </div>
       </OverrideGroup>
     </div>

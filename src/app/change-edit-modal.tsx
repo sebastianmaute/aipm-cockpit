@@ -29,7 +29,7 @@ import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { filterPickerOptions } from "./picker-filter";
 import { TaskLinkPicker } from "./task-link-picker";
 import { useToastContext } from "./toast-context";
-import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
+import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import {
@@ -272,12 +272,20 @@ export function ChangeEditModal({
       sizeKey="aipm-cockpit:modal-size:change-edit"
     >
           {/* Title */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          {/* ★★ `htmlFor` is LOAD-BEARING — the dictation mic is a real
+              `<button>` sitting in the caption ahead of the input, so an
+              implicit binding named the MIC and left this required field with
+              NO accessible name at all (it has no aria-label and no
+              placeholder). jsdom has no SpeechRecognition, so the mic never
+              renders in unit tests and none can catch this.
+              See src/test/label-binding.ts. */}
+          <label htmlFor="change-title" className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldTitle")} *<InfoTooltip text={t(lang, "changeFieldTitleHint")} />
               {titleMic}
             </span>
             <Input
+              id="change-title"
               type="text"
               required
               value={draft.title}
@@ -331,8 +339,18 @@ export function ChangeEditModal({
           )}
 
           {/* Description */}
+          {/* ★★ The wrapper is a `<div>`, NOT a `<label>`. A contenteditable is
+              not a labelable element, so a `<label>` here does not name the
+              editor (its own `aria-label` does that) — it binds to the first
+              labelable thing inside: the dictation mic when dictation is
+              supported, otherwise the toolbar's Bold button. Hovering the text
+              area paints whichever one it is (`:hover` matches a label's
+              labeled control), and a click on the text area is FORWARDED to it.
+              ★ The click half only bites Bold: the mic listens on
+              pointerdown/keydown and has no `onClick`, so with dictation
+              available the defect is hover-only. See src/test/label-binding.ts. */}
           {isVisible("description") && (
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldDescription")}<InfoTooltip text={t(lang, "changeFieldDescriptionHint")} />
               {descriptionMic}
@@ -374,7 +392,7 @@ export function ChangeEditModal({
               lang={lang}
             />
             {descriptionDictationStatus}
-          </label>
+          </div>
           )}
 
           {/* Impact (level — part of the `impact` field group) */}
@@ -428,8 +446,10 @@ export function ChangeEditModal({
           )}
 
           {/* Impact description (part of the `impact` field group) */}
+          {/* `<div>`, not `<label>` — see Description above, except that this
+              field has NO mic, so the button it adopted was always Bold. */}
           {isVisible("impact") && (
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldImpactDescription")}<InfoTooltip text={t(lang, "changeFieldImpactDescriptionHint")} />
             </span>
@@ -449,7 +469,7 @@ export function ChangeEditModal({
               id="change-impactDescription-counter"
               lang={lang}
             />
-          </label>
+          </div>
           )}
 
           {/* Schedule impact (days — part of the `deltas` field group) */}
@@ -557,7 +577,9 @@ export function ChangeEditModal({
           )}
 
           {/* Resolution / rationale */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+          {/* `<div>`, not `<label>` — see Description above, except that this
+              field has NO mic, so the button it adopted was always Bold. */}
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldResolution")}<InfoTooltip text={t(lang, "changeFieldResolutionHint")} />
             </span>
@@ -576,17 +598,14 @@ export function ChangeEditModal({
               id="change-resolutionNotes-counter"
               lang={lang}
             />
-          </label>
+          </div>
 
           {/* Document links ------------------------------------------ */}
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <KnowledgeLinksFieldGated
-              value={draft.knowledgeLinks ?? []}
-              onChange={(links) => update("knowledgeLinks", links)}
-              lang={lang}
-            />
-          </label>
+          <DocumentLinksGroup
+            value={draft.knowledgeLinks ?? []}
+            onChange={(links) => update("knowledgeLinks", links)}
+            lang={lang}
+          />
 
           {/* Linked tasks (part of the `links` field group) ----------- */}
           {isVisible("links") && <div className="sm:col-span-2">

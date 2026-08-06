@@ -14,7 +14,7 @@
 import { useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
-import { fieldClass } from "./form-controls";
+import { FieldGroup, fieldClass } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { KnowledgeLink } from "./document-link";
@@ -126,12 +126,21 @@ export function FormSection({
 }
 
 // Field wrapper with label + required-asterisk convention (same as task form).
+// ★★★ `group` IS NOT COSMETIC — pass it whenever the children's first labelable
+// element is a BUTTON. A `<label>` with no `for` binds to its first LABELABLE
+// descendant (button · input · meter · output · progress · select · textarea);
+// a chip row, a radiogroup and a contenteditable are none of those, so the
+// caption silently binds to a BUTTON inside instead — hovering the caption
+// paints that button's hover state and clicking it ACTIVATES it. The documents
+// field is the case here: it renders a ✕ per link and no input, so clicking
+// "Documents" deleted a link. See src/test/label-binding.ts.
 export function Field({
   lang,
   label,
   required,
   className,
   tooltip,
+  group,
   children,
 }: {
   lang: Lang;
@@ -139,15 +148,28 @@ export function Field({
   required?: boolean;
   className?: string;
   tooltip?: string;
+  /** Children's first labelable element is a button (or there is none) — render
+   *  a named `role="group"` wrapper rather than a mis-binding `<label>`. */
+  group?: boolean;
   children: React.ReactNode;
 }) {
+  const caption = (
+    <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+      {label}
+      {required && <span className="text-ui-pink-strong">*</span>}
+      {tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />}
+    </span>
+  );
+  if (group) {
+    return (
+      <FieldGroup name={label} caption={caption} className={`block ${className ?? ""}`}>
+        {children}
+      </FieldGroup>
+    );
+  }
   return (
     <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-        {label}
-        {required && <span className="text-ui-pink-strong">*</span>}
-        {tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />}
-      </span>
+      {caption}
       {children}
     </label>
   );
@@ -364,7 +386,10 @@ export function CustomerFields({
         <FieldError id="profitCenter-error">{errorFor("profitCenter")}</FieldError>
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")}>
+      {/* `group`: a grid of checkboxes, each in its own `<label>`. A plain
+          caption would adopt the FIRST checkbox — clicking "Regulatory
+          requirements" ticked it — and would nest a label inside a label. */}
+      <Field lang={lang} label={t(lang,"projectRegulatory")} required className="sm:col-span-2" tooltip={t(lang, "tipRegulatory")} group>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REGULATORY_REQUIREMENTS.map((req) => (
             <label key={req} className="flex items-center gap-1.5 text-sm text-foreground">
@@ -434,7 +459,8 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"projectIdentityTypes")} className="sm:col-span-2">
+      {/* `group`: checkbox grid, same shape as Regulatory above. */}
+      <Field lang={lang} label={t(lang,"projectIdentityTypes")} className="sm:col-span-2" group>
         <div className="flex flex-wrap gap-3">
           {IDENTITY_TYPES.map((type) => (
             <label key={type} className="flex items-center gap-1.5 text-sm text-foreground">
@@ -580,7 +606,7 @@ export function OptionalDetailsFields({
         />
       </Field>
 
-      <Field lang={lang} label={t(lang,"documents")} className="sm:col-span-2">
+      <Field lang={lang} label={t(lang,"documents")} className="sm:col-span-2" group>
         <KnowledgeLinksFieldGated
           value={draft.knowledgeLinks}
           onChange={(knowledgeLinks) => setDraft((p) => ({ ...p, knowledgeLinks }))}

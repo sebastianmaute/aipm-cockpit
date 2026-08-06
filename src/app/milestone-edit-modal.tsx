@@ -13,7 +13,7 @@ import { capHtmlText, descriptionHtml } from "./rich-text-plain";
 import { TEXTAREA_MAX } from "./sanitize";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useDraggable } from "./use-draggable";
-import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
+import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { useModalVisibility } from "./use-modal-visibility";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useDictationMic } from "./dictation-mic";
@@ -144,12 +144,19 @@ export function MilestoneEditModal({
       heightClassName="h-[600px] min-h-[380px] max-h-[95vh]"
       formClassName="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5"
     >
-          <label className="flex flex-col gap-1 text-sm">
+          {/* ★★ `htmlFor` is LOAD-BEARING — the dictation mic is a real
+              `<button>` ahead of the input in the caption, so an implicit
+              binding named the MIC and left this required field with no
+              accessible name (no aria-label, no placeholder). jsdom has no
+              SpeechRecognition, so no unit test renders the mic.
+              See src/test/label-binding.ts. */}
+          <label htmlFor="milestone-name" className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "milestoneName")} *
               {nameMic}
             </span>
             <Input
+              id="milestone-name"
               required
               value={draft.name}
               onChange={(e) => update("name", e.target.value)}
@@ -173,8 +180,16 @@ export function MilestoneEditModal({
           </label>
           )}
 
+          {/* ★★ The wrapper is a `<div>`, NOT a `<label>`. A contenteditable is
+              not a labelable element, so a `<label>` here does not name the
+              editor (its own `aria-label` does that) — it binds to the first
+              labelable thing inside: the dictation mic when dictation is
+              supported, otherwise the toolbar's Bold button. Hovering the text
+              area paints whichever one it is, and a click there is forwarded to
+              it. ★ The click half only bites Bold — the mic has no `onClick`
+              (pointerdown/keydown only). See src/test/label-binding.ts. */}
           {isVisible("description") && (
-          <label className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "milestoneDescription")}
               {descriptionMic}
@@ -197,18 +212,19 @@ export function MilestoneEditModal({
               />
             </div>
             {descriptionDictationStatus}
-          </label>
+          </div>
           )}
 
           {isVisible("documentLinks") && (
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <KnowledgeLinksFieldGated
-              value={draft.knowledgeLinks ?? []}
-              onChange={(links) => update("knowledgeLinks", links)}
-              lang={lang}
-            />
-          </label>
+          <DocumentLinksGroup
+            value={draft.knowledgeLinks ?? []}
+            onChange={(links) => update("knowledgeLinks", links)}
+            lang={lang}
+            // No column span here: this modal overrides `EditModalShell`'s
+            // default two-column grid with a single-column flex flow, so there
+            // is no second column to span.
+            className="flex flex-col gap-1 text-sm"
+          />
           )}
 
           {isVisible("achievedDate") && (

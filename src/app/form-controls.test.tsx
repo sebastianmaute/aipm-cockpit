@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { Input, Select, Textarea, Checkbox, fieldClass } from "./form-controls";
+import { Input, Select, Textarea, Checkbox, FieldGroup, fieldClass } from "./form-controls";
+import { labelsBoundToButtons } from "../test/label-binding";
 
 describe("fieldClass", () => {
   it("carries the canonical shell (radius, border, surface, padding)", () => {
@@ -166,5 +167,56 @@ describe("Checkbox", () => {
     const cls = screen.getByLabelText("M").className;
     expect(cls).toContain("mt-0.5");
     expect(cls.indexOf("accent-ui-dark-blue")).toBeLessThan(cls.indexOf("mt-0.5"));
+  });
+});
+
+describe("FieldGroup", () => {
+  // A widget whose first labelable descendant is a BUTTON — the shape that
+  // makes a `<label>` wrapper adopt the button as its labeled control.
+  function ChipWidget() {
+    return (
+      <div>
+        <button type="button" aria-label="Unlink #7">×</button>
+        <input aria-label="Search" />
+      </div>
+    );
+  }
+
+  it("names the block with role=group instead of a label that would adopt a button", () => {
+    render(
+      <FieldGroup name="Linked tasks" caption={<span>Linked tasks</span>}>
+        <ChipWidget />
+      </FieldGroup>,
+    );
+    expect(screen.getByRole("group", { name: "Linked tasks" })).toBeInTheDocument();
+    // NOT `expectNoLabelBoundToButton` — it guards its own vacuity by throwing
+    // when the tree holds no `<label>` at all, which is exactly this tree. The
+    // control test below is what proves this assertion can fail.
+    expect(labelsBoundToButtons()).toEqual([]);
+  });
+
+  // ★ CONTROL: without it the assertion above could pass because the helper
+  // never detects anything. This pins that the SAME children inside a `<label>`
+  // DO get adopted, so the group wrapper is what makes the difference.
+  it("control — the same children inside a plain label DO bind the caption to the button", () => {
+    render(
+      <label>
+        <span>Linked tasks</span>
+        <ChipWidget />
+      </label>,
+    );
+    expect(labelsBoundToButtons()).toEqual(['"Linked tasks×" -> button "Unlink #7"']);
+  });
+
+  it("renders the caption before the children and passes className through", () => {
+    const { container } = render(
+      <FieldGroup name="N" caption={<span>Cap</span>} className="flex flex-col gap-1">
+        <input aria-label="inner" />
+      </FieldGroup>,
+    );
+    const group = screen.getByRole("group", { name: "N" });
+    expect(group.className).toBe("flex flex-col gap-1");
+    expect(container.querySelector("div > span")?.textContent).toBe("Cap");
+    expect(group.firstElementChild?.textContent).toBe("Cap");
   });
 });

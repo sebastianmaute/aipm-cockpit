@@ -8,6 +8,7 @@ import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import { TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
+import { expectNoLabelBoundToButton } from "../test/label-binding";
 
 // Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
@@ -238,5 +239,34 @@ describe("MilestoneEditModal — rich-text description (slice B)", () => {
     const editor = await screen.findByRole("textbox", { name: DESC_LABEL });
     expect(editor).toHaveTextContent("beta");
     expect(editor).not.toHaveTextContent("alpha");
+  });
+});
+
+describe("MilestoneEditModal — field wrappers", () => {
+  // ★★ See src/test/label-binding.ts: a contenteditable is not labelable, so
+  // the description `<label>` bound to the first BUTTON inside it instead —
+  // the dictation mic in a real browser, Bold here.
+  // ★★★ Two rows are FIXED but invisible to this test, so a REGRESSION in
+  // either would leave it green: the Name row (fixed with `htmlFor`; the mic
+  // outranks the `<Input>`, and jsdom has no SpeechRecognition so none renders)
+  // and the document-links row (now `DocumentLinksGroup`; SharePoint mocked
+  // off ⇒ bare `<p>`). `label-binding.guard.test.ts` reads SOURCE and covers both.
+  it("binds no field label to a button", () => {
+    render(
+      <>
+        <Seed tier="full" />
+        <MilestoneEditModal
+          lang="en-US"
+          milestone={{ id: 1, name: "M", date: "2026-01-01", description: "<p>d</p>", linkedTaskIds: [] }}
+          isNew={false}
+          tasks={[]}
+          onSave={vi.fn()}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </>,
+      { wrapper },
+    );
+    expectNoLabelBoundToButton();
   });
 });
