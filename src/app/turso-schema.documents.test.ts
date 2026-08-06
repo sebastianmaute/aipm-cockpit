@@ -22,6 +22,13 @@ const DOC: ProjectDocument = {
   updatedAt: "2026-08-06T00:00:00.000Z",
 };
 
+/** The stored JSON payload of the `documents` meta row, or undefined if none was
+ *  emitted. Works on BOTH backends: the tenant INSERT appends a project_id arg
+ *  after the same (key, value) pair, so args[0]/args[1] line up either way. */
+function documentsPayload(stmts: { args?: { value?: string }[] }[]): string | undefined {
+  return stmts.find((s) => s.args?.[0]?.value === "documents")?.args?.[1]?.value;
+}
+
 /** Rebuild SELECT results from the INSERTs a save emitted (round-trip). */
 function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
   const byTable: Record<string, { cols: string[]; rows: { value: string }[][] }> = {};
@@ -83,6 +90,30 @@ describe("turso multi-tenant — documents save", () => {
   it("writes no documents meta row when the array is empty", () => {
     expect(JSON.stringify(tenantWorkspaceToStatements({ ...emptyWorkspace(), documents: [] }, "p1"))).not.toContain('"documents"');
   });
+
+  it("skips the documents row when meta is not dirty", () => {
+    const stmts = tenantWorkspaceToStatements({ ...emptyWorkspace(), documents: [DOC] }, "p1", new Set(["tasks"]));
+    expect(documentsPayload(stmts)).toBeUndefined();
+  });
+
+  it("stores BYTE-IDENTICAL payload to the single-DB backend", () => {
+    // ★ Parity is the property that matters here: the load side is SHARED
+    // (rowsToWorkspace), so the tenant backend can only be correct if it stores
+    // exactly what the single-DB backend stores. Nothing else in the suite
+    // compares the two, and golden-workspace pins neither (CSV/MD only).
+    const ws = { ...emptyWorkspace(), documents: [DOC] };
+    const single = documentsPayload(workspaceToStatements(ws));
+    const tenant = documentsPayload(tenantWorkspaceToStatements(ws, "p1"));
+    expect(single).toBeDefined();
+    expect(tenant).toBe(single);
+  });
+
+  it("round-trips the tenant payload through the SHARED load", () => {
+    const ws = { ...emptyWorkspace(), documents: [DOC] };
+    const payload = documentsPayload(tenantWorkspaceToStatements(ws, "p1"));
+    const back = rowsToWorkspace(metaOnlyResults([["documents", payload ?? ""]]));
+    expect(back.documents).toEqual([DOC]);
+  });
 });
 
 describe("turso — documents dirty detection", () => {
@@ -137,18 +168,31 @@ describe("turso — documents load", () => {
   it("runs the HTML allow-list, not only the structural sanitizer", () => {
     // The structural sanitizer is DOM-free and CANNOT strip markup, so a load
     // that called only sanitizeProjectDocuments would store the script verbatim.
+    //
+    // ★★ THREE assertions, and the two positive ones are what give the negative
+    // one meaning. `not.toContain("<script>")` alone is satisfied by html === "",
+    // which is exactly what a destructively-wired sanitizer produces — so it
+    // cannot tell a correct wiring from one that ate the user's prose:
+    //   · "Safe body" surviving rules out the block being dropped or blanked.
+    //   · "Kept heading" surviving rules out KEEP_CONTENT:false (sanitizeNoteHtml
+    //     DELETES the text inside a non-allow-listed tag; sanitizeTemplateHtml
+    //     UNWRAPS the tag and keeps the words). h3 is on neither allow-list, so
+    //     the tag goes either way and only the TEXT distinguishes them.
     const hostile: ProjectDocument = {
       ...DOC,
-      blocks: [{ type: "paragraph", html: "<p>Safe body</p><script>alert(1)</script>" }],
+      blocks: [{
+        type: "paragraph",
+        html: "<p>Safe body</p><h3>Kept heading</h3><script>alert(1)</script>",
+      }],
     };
     const ws = rowsToWorkspace(metaOnlyResults([["documents", JSON.stringify([hostile])]]));
     const block = ws.documents?.[0]?.blocks[0];
-    // Positive assertion first: without it the "no script" check is vacuous
-    // whenever the document is dropped outright.
     expect(block).toBeDefined();
     expect(block?.type).toBe("paragraph");
     const html = block?.type === "paragraph" ? block.html : "";
     expect(html).toContain("Safe body");
+    expect(html).toContain("Kept heading");
     expect(html).not.toContain("<script>");
+    expect(html).not.toContain("alert(1)");
   });
 });
