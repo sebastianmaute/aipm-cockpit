@@ -8,6 +8,47 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.218.0] - 2026-08-06 "Hopkinson"
+
+Field captions stop activating the control beside them.
+
+An HTML `<label>` with no `for` attaches itself to the first *labelable* thing
+inside it — button, input, meter, output, progress, select, textarea. A caption
+wrapping a group of controls therefore adopted whichever one came first, with
+two consequences: hovering the caption painted that control's hover state, and
+clicking the caption forwarded a synthetic click that pressed it.
+
+### Fixed
+
+- **Clicking "Dependencies" in the task editor deleted a dependency.** The chip
+  list renders each dependency's remove button above the type select, so the
+  caption adopted the first chip's ✕. Only reproducible once a task had at least
+  one dependency — with an empty list the select wins and the field looks fine.
+- **Clicking "Regulatory" or "Identity types" in the project form ticked the
+  first checkbox.** Both also nested a `<label>` inside a `<label>`, which is
+  invalid HTML.
+- **Hovering a rich-text caption lit up the Bold button**, and clicking the
+  caption toggled it — the originally reported symptom, in the register modals.
+- Several captions that named a real input a button had got in front of are now
+  bound to that input explicitly, so it has an accessible name again rather than
+  losing it to the adopted button.
+
+### Added
+
+- `FieldGroup`, a shared primitive rendering `<div role="group" aria-label>` for
+  captions that name a whole block rather than one field. It names the group for
+  assistive technology without making the caption a click target.
+- Three guards, each verified able to fail. A source scan
+  (`label-binding.guard.test.ts`) covering button-first widgets and the
+  nested-`<label>` shape, whose self-tests run the real scan over synthetic
+  markup rather than restating its rules; a DOM assertion applied at nine render
+  call sites, covering labels bound to buttons, dangling `htmlFor` and nested
+  labels; and a Chromium probe for the hover behaviour itself.
+
+Neither existing gate can see this class of defect: axe models no
+label-to-control binding, and jsdom has no CSS engine, so hover forwarding is
+invisible to unit tests. That is why the guards are the coverage.
+
 ## [0.217.0] - 2026-08-06 "Piercy"
 
 Cancelled work stops reading as unfinished work. The 0.213.0 batch fixed the
