@@ -139,6 +139,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 94 | PPTX pagination counts logical lines, so a wrapped long line still overflows the slide | AI document authoring S1, unreleased | S–M | open — eye-verify owed; UNBOUNDED overflow is fixed, bounded overflow remains and no test in this repo can see it |
 | 95 | No test exercises a real Turso database on any path — meta-blob coverage is statements → synthetic results | AI document authoring S1, unreleased | M | open — class-wide (`documents` · `insights` · `knowledgeItems`), not a documents-specific gap |
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1, unreleased | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
+| 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1, unreleased | S | open — TRAP, safe today. Measured: with no DOM, CSV/MD/Turso drop documents whole; the JSON path loses the **ENTIRE WORKSPACE**. Contradicts the widely-repeated "you cannot call DOMPurify here" lore — see §36(a) |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -4744,6 +4745,98 @@ code-splits, and nobody has reported the preview as slow. This is recorded becau
 from one conditionally-needed import" fact is non-obvious and expensive to rediscover — NOT because
 there is evidence of a user-visible problem. Measure before scheduling it, and close this as
 "not worth it" if the bytes are small.
+
+---
+
+## 97. The DOM constraint INVERTED for the document load paths — open (TRAP, safe today)
+
+**Nothing here is broken. The danger is that the rule everyone has memorised is now BACKWARDS for
+four specific call sites**, and the failure it produces is silent.
+
+The lore this repo repeats — §36(a), the `templates.ts` guard, the sample-generator landmine — is
+*"you must NOT call DOMPurify here, the generator runs under bare node."* For the document load paths
+it is now the opposite: **you MUST ensure a DOM exists, or documents are lost without a diagnostic.**
+`document-rich-fields.ts` says as much in its own header (the DOM-free rationale is called obsolete
+there), but that is a file you only open once you already know to look. This entry exists because the
+register is what someone reads while PLANNING.
+
+### Measured, with a negative control
+
+Reproduce by installing JSDOM into `globalThis` before a dynamic import of the codec (exactly what
+`scripts/generate-sample-workspace.ts` does in its header), then running the same decode with and
+without it:
+
+```
+WITHOUT JSDOM:  CSV → documents defined: FALSE · html "<missing>"
+                Markdown → documents defined: FALSE · html "<missing>"
+WITH JSDOM:     CSV → documents defined: true · html "<p>keep me</p>"   (and <script> stripped)
+                Markdown → documents defined: true · html "<p>keep me</p>"
+```
+
+With no DOM the DOMPurify call throws, the decoder's own `catch` swallows it, and the documents are
+gone. No error, no log, no partial result.
+
+★★ And it is silent even though a reporting channel EXISTS. `csvToWorkspace` / `markdownToWorkspace`
+both take an `ImportDiag`, which is how other import problems reach the user — but `csvToDocuments`
+and `markdownToDocuments` take no diag, and their caller is a bare `if (docs) ws.documents = docs;`,
+so a falsy result is skipped without a word. A user importing a file therefore gets a diagnostics
+report that says nothing at all about the documents they just lost. Threading `diag` into these two
+is the cheapest partial improvement available.
+
+### ★★★ The blast radius is NOT uniform, and the worst path is the one nobody named
+
+Four load paths compose `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`. Three wrap
+it in a LOCAL `try/catch`, so only the documents are lost. The JSON path does not — the throw reaches
+`jsonToWorkspace`'s outer catch-all, which returns an empty workspace. Measured on a workspace holding
+one task and one document:
+
+| path | on a missing DOM | what is lost |
+|---|---|---|
+| CSV (`csvToDocuments`) | local catch | documents only |
+| Markdown (`markdownToDocuments`) | local catch | documents only |
+| Turso (`rowsToWorkspace`) | local catch | documents only |
+| **JSON (`jsonToWorkspace`)** | **outer catch-all** | **the ENTIRE workspace — tasks survived: 0** |
+
+So a `.json` import decoded anywhere without a DOM does not return a workspace missing its documents.
+It returns an EMPTY one, and every task, RAID item and milestone in the file is gone.
+
+### ★★ The trigger is narrower than "has documents" — measured
+
+The allow-list only runs for a **paragraph** block, so most shapes are unaffected. Without a DOM:
+
+| workspace shape | tasks survived |
+|---|---|
+| no documents at all | 1 — fine |
+| a document with only a heading block | 1 — fine |
+| a document with a PARAGRAPH block | **0 — whole workspace lost** |
+
+That narrowness is why this has not bitten yet, and it is also what makes it treacherous: a bare-node
+script can pass every test against document-free fixtures and fail the first time someone's real
+project contains a paragraph.
+
+### Why it is safe today
+
+Verified by grep, not assumed: no file outside `src/app` imports these codecs directly, the only
+DOM-free importer is `scripts/generate-sample-workspace.ts` (which installs JSDOM into `globalThis`
+BEFORE its `await import("../src/app/storage")` — the dynamic import is load-bearing, a static one
+would hoist above the install), and every runtime decode caller is browser-side.
+
+### What would break it
+
+Removing or reordering the generator's JSDOM install; converting its dynamic import back to a static
+one; a NEW bare-node script or codegen step that imports `storage`, the CSV codec or the Markdown
+codec; or a test that exercises a decode path in a non-jsdom environment.
+
+**Fix options:** (a) leave it and rely on the comments, which is the status quo; (b) make the decoders
+distinguish "no documents" from "could not sanitize" so the failure is loud — the JSON path especially
+should not answer a DOM problem with an empty workspace; (c) have the sanitizer detect the absent DOM
+and throw a NAMED error, so the catch sites can decide rather than guess; (d) a tiny DOM shim so the
+allow-list degrades to a no-op instead of throwing — rejected on sight, because it would silently
+store unfiltered HTML, which is the vulnerability the pass exists to close.
+
+★ Cross-reference: §36(a) records the OTHER direction (a sanitizer that must stay DOM-free because it
+is in the generator's import graph). Both are true at once, of different modules, which is exactly why
+neither should be quoted as a general rule.
 
 ---
 
