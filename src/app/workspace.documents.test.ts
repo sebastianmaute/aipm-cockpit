@@ -1,6 +1,30 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { jsonToWorkspace, workspaceToJson } from "./workspace";
+import { clearDiagLog, readDiagLog } from "./diagnostics";
 import type { ProjectDocument } from "./document-model";
+
+/** ★★ Forces the documents rich-field pass to throw, for the containment tests
+ *  at the bottom of this file. It delegates to the REAL implementation unless
+ *  the flag is set, so every other test in this file still exercises the
+ *  genuine DOMPurify pass — flipping this whole file to the `node` environment
+ *  would have been more faithful to the cause but would break the
+ *  script-stripping tests above, which need a DOM to mean anything.
+ *
+ *  ★ The CAUSE being simulated is real and was measured outside vitest: with no
+ *  DOM, `sanitizeTemplateHtml` calls a DOMPurify that never bound a window and
+ *  throws exactly this TypeError. See open-followups §97 for the measurement
+ *  and for why only a PARAGRAPH block reaches it. */
+let forceRichFieldThrow = false;
+vi.mock("./document-rich-fields", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./document-rich-fields")>();
+  return {
+    ...actual,
+    sanitizeDocumentRichFields: (doc: ProjectDocument) => {
+      if (forceRichFieldThrow) throw new TypeError("DOMPurify.sanitize is not a function");
+      return actual.sanitizeDocumentRichFields(doc);
+    },
+  };
+});
 
 /** ★★ A SENTINEL task rides in every fixture, and every test asserts it survived.
  *  Without it these tests are vacuous: `jsonToWorkspace` SWALLOWS a bad shape and
@@ -116,5 +140,66 @@ describe("workspace JSON — documents", () => {
     workspaceToJson(ws);
     expect(ws.documents).toBe(before);
     expect(ws.documents).toEqual([DOC]);
+  });
+});
+
+describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => {
+  // ★★★ The finding this pins (open-followups §97): the documents rich-field
+  // pass is the only DOM-dependent step in this decoder, and it had no local
+  // catch. A throw therefore reached jsonToWorkspace's outer catch-all, which
+  // answers a non-strict load with `emptyWorkspace()` — so a JSON project file
+  // came back with ZERO tasks. Not "documents missing": EVERYTHING missing,
+  // silently. The other three load paths (CSV, Markdown, Turso) already wrap
+  // this call locally and lose only the documents.
+  const PARAGRAPH_DOC = {
+    ...DOC,
+    blocks: [{ type: "paragraph", html: "<p>reaches DOMPurify</p>" }],
+  };
+  const json = () => JSON.stringify({ ...EMPTY, documents: [PARAGRAPH_DOC] });
+
+  beforeEach(() => {
+    forceRichFieldThrow = false;
+    clearDiagLog();
+  });
+
+  it("keeps the rest of the workspace when the sanitize throws (non-strict)", () => {
+    forceRichFieldThrow = true;
+    const ws = jsonToWorkspace(json());
+    // The whole point. Before the fix this was 0 — the task, and every other
+    // register in the file, was discarded because one document could not be
+    // sanitized.
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.tasks[0].id).toBe(SENTINEL.id);
+    // Documents are the only casualty, and the key stays OFF rather than
+    // becoming an empty array (matching the malformed-document behaviour above).
+    expect(ws.documents).toBeUndefined();
+  });
+
+  it("records the loss in the diagnostics log instead of swallowing it", () => {
+    // ★ A local catch that says nothing just moves the silence. There is no
+    // ImportDiag on this signature, so the app's diagnostics ring is the
+    // channel; logDiag is a no-op when `window` is undefined, which keeps the
+    // bare-node sample generator working.
+    forceRichFieldThrow = true;
+    jsonToWorkspace(json());
+    const codes = readDiagLog().map((e) => e.code);
+    expect(codes).toContain("workspace.documentsDropped");
+  });
+
+  it("STILL throws in strict mode — the loud failure is not weakened", () => {
+    // ★★ Containment must not turn an existing loud failure quiet. The sample
+    // generator decodes with { strict: true } precisely so a bad load fails the
+    // build instead of writing a near-empty artifact.
+    forceRichFieldThrow = true;
+    expect(() => jsonToWorkspace(json(), { strict: true })).toThrow();
+  });
+
+  it("does not contain anything when the sanitize succeeds", () => {
+    // CONTROL: with the flag off the same fixture must load normally, so the
+    // three tests above are measuring the throw and not the fixture.
+    const ws = jsonToWorkspace(json());
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.documents).toHaveLength(1);
+    expect(readDiagLog().map((e) => e.code)).not.toContain("workspace.documentsDropped");
   });
 });
