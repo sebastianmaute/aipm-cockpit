@@ -139,7 +139,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 94 | PPTX pagination counts logical lines, so a wrapped long line still overflows the slide | AI document authoring S1, unreleased | S–M | open — eye-verify owed; UNBOUNDED overflow is fixed, bounded overflow remains and no test in this repo can see it |
 | 95 | No test exercises a real Turso database on any path — meta-blob coverage is statements → synthetic results | AI document authoring S1, unreleased | M | open — class-wide (`documents` · `insights` · `knowledgeItems`), not a documents-specific gap |
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1, unreleased | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
-| 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1, unreleased | S | open — TRAP, safe today. Measured: with no DOM, CSV/MD/Turso drop documents whole; the JSON path loses the **ENTIRE WORKSPACE**. Contradicts the widely-repeated "you cannot call DOMPurify here" lore — see §36(a) |
+| 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1, unreleased | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
+| 99 | The e2e seed writes NONE of BrowserBackend's nine optional kv slices, so any view backed by one is axe-scanned against its EMPTY STATE | AI document authoring S1, unreleased | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -4783,22 +4784,37 @@ so a falsy result is skipped without a word. A user importing a file therefore g
 report that says nothing at all about the documents they just lost. Threading `diag` into these two
 is the cheapest partial improvement available.
 
-### ★★★ The blast radius is NOT uniform, and the worst path is the one nobody named
+### The blast radius is NOT uniform — and the worst path is now CONTAINED
 
-Four load paths compose `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`. Three wrap
-it in a LOCAL `try/catch`, so only the documents are lost. The JSON path does not — the throw reaches
-`jsonToWorkspace`'s outer catch-all, which returns an empty workspace. Measured on a workspace holding
-one task and one document:
+Four load paths compose `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`. All four now
+wrap it in a LOCAL `try/catch`, so a throw costs the documents and nothing else:
 
 | path | on a missing DOM | what is lost |
 |---|---|---|
 | CSV (`csvToDocuments`) | local catch | documents only |
 | Markdown (`markdownToDocuments`) | local catch | documents only |
 | Turso (`rowsToWorkspace`) | local catch | documents only |
-| **JSON (`jsonToWorkspace`)** | **outer catch-all** | **the ENTIRE workspace — tasks survived: 0** |
+| JSON (`jsonToWorkspace`) | local catch **(added)** | documents only |
 
-So a `.json` import decoded anywhere without a DOM does not return a workspace missing its documents.
-It returns an EMPTY one, and every task, RAID item and milestone in the file is gone.
+★★★ **The JSON path used to be categorically worse and this is why the entry exists.** It had no
+local catch, so the throw reached `jsonToWorkspace`'s outer catch-all, which answers a NON-STRICT load
+with `emptyWorkspace()`. A `.json` project file therefore came back not "missing its documents" but
+EMPTY — measured, **tasks survived: 0** — losing every task, RAID item and milestone, silently. JSON is
+also the most likely thing a bare-node script touches, so the worst severity sat on the most reachable
+path. Fixed: the sanitize is wrapped locally, non-strict degrades to documents-dropped and records
+`workspace.documentsDropped` in the diagnostics ring, and **`strict: true` still throws** so the sample
+generator keeps failing loudly rather than writing a near-empty artifact. Pinned by four tests in
+`workspace.documents.test.ts`, one of which was run RED against the old code and reported the
+`tasks: 0` above.
+
+★ The containment is deliberately narrow — it wraps those two calls, never the whole decode, because a
+broader catch would make real file corruption survivable, which is exactly what `strict` exists to
+prevent. Degrading a throw to "documents dropped" also matches what the field already does with
+garbage input, so it introduces no new failure mode.
+
+★★ **The underlying DOM dependency is UNCHANGED and this entry stays open for it.** Containment limits
+the damage; it does not make the decoders work without a DOM. A bare-node importer still silently
+loses every document — it just keeps the rest of the workspace now.
 
 ### ★★ The trigger is narrower than "has documents" — measured
 
@@ -4837,6 +4853,67 @@ store unfiltered HTML, which is the vulnerability the pass exists to close.
 ★ Cross-reference: §36(a) records the OTHER direction (a sanitizer that must stay DOM-free because it
 is in the generator's import graph). Both are true at once, of different modules, which is exactly why
 neither should be quoted as a general rule.
+
+---
+
+## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
+
+**Nothing is broken today and this is NOT a regression the documents slice introduced.** It is a
+pre-existing boundary that the documents feature makes newly consequential, and it is recorded
+separately because the reason it now matters did not exist before this slice.
+
+`nonEmptyCollectionCount` and `workspaceRecordCount` (both in `workspace.ts`) each enumerate the same
+THIRTEEN entity collections. `documents` is in neither — and neither are `knowledgeItems`, `insights`,
+`timelogLinks` or `settingsOverrides`. **State that scoping whenever this entry is quoted:** four
+sibling slices are equally invisible, so anyone reading it as "the documents slice forgot a counter"
+will go looking for a bug that is not there.
+
+### Measured, with a positive control
+
+```bash
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.tasks"           # 1
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.calendarEvents"  # 1
+```
+
+Run 2026-08-06; the `ws.tasks` / `ws.calendarEvents` lines are the control, so a zero from a broken
+pattern cannot masquerade as a finding. `knowledgeItems` and `insights` also return 0 from the first
+command, which is how the scoping above was established rather than assumed.
+
+### What it defeats, by name
+
+Both counters feed the save-effect choke point in `use-storage-backend.ts`, which computes
+`curCollections` / `curRecords` from the outgoing workspace and enforces two invariants:
+
+- **L3, the full wipe** — `curCollections === 0` while the previous save had `>= 2`.
+- **Layer B, the unexplained mass deletion** — `isMassDeletion(prevRecords, curRecords)`.
+
+A save that dropped every document while leaving the other slices untouched produces IDENTICAL
+`curCollections` and `curRecords`, so neither invariant fires and the destructive write proceeds with
+no refusal, no `recordDataLossEvent` entry, and no toast. `allowDestructiveRef` is never even
+consulted, because nothing looked destructive.
+
+### Why it matters more than the four siblings it shares the gap with
+
+Documents are user-AUTHORED long-form content: one record can represent hours of work, which is not
+true of `insights` (machine-derived) or `settingsOverrides` (reconstructible). And a project holding
+ONLY documents counts as **zero** non-empty collections — a completely plausible state for this
+feature, since a user can create a project and write a document before entering a single task. That
+combination is what is new.
+
+### Why widening the counters is NOT free, and was deliberately not done here
+
+Adding `documents` to both functions is two lines each, but the counters are the INPUT to a
+destructive-save guard: raising `curCollections` and `curRecords` shifts the L3 and Layer-B thresholds
+for every existing project, changing when saves are REFUSED. That is a behaviour change to the
+data-loss machinery and belongs in its own slice with its own tests — not as a trailing edit to the
+slice that noticed it. The failure mode of getting it wrong is a guard that refuses legitimate saves,
+which users experience as data loss of a different kind.
+
+★ If it is picked up: decide deliberately whether the other four join at the same time. Adding only
+`documents` leaves the register's own scoping stale, and a half-widened counter is harder to reason
+about than either end state.
 
 ---
 
@@ -4887,6 +4964,41 @@ believing a severity label.
 **Dropped:** audit **#38** browser-Back — stale, popstate already handled (`561615ce`).
 
 ---
+
+## 99. The e2e seed silently drops nine optional slices, so some axe scans run on an empty state — open
+
+`e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
+list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
+persists nine optional slices as kv entries — `fieldVisibility`, `features`, `steeringCommittee`,
+`timelogLinks`, `knowledgeItems`, `insights`, `settingsOverrides`, `calendarEvents`, `documents` —
+and until this slice the seed's kv map carried NONE of them.
+
+★★ The consequence is a gate that reads far stronger than it is. A view whose data never arrives
+renders its EMPTY STATE, so axe scans a panel with no rows, no per-row controls and nothing that
+could collide. The run is green and proves close to nothing. **`Insights` is in `A11Y_VIEWS` and is
+in exactly this position today.**
+
+★★★ This is not theoretical, and the evidence is the reason the entry exists. `documents` had the
+identical defect; adding `documents: "documents"` to the kv map and seeding a second row turned up a
+REAL `serious` violation on the first run — `scrollable-region-focusable` on the preview pane,
+across all five scheme combos. That violation had been invisible because the pane had nothing to
+scroll. Reproduce the shape of the check with:
+
+```bash
+npx playwright test e2e/a11y.spec.ts --project=chromium -g "Insights"
+```
+
+★★ HONEST CAVEAT, and the reason this was NOT folded into the documents commit: seeding a slice for
+the first time can turn a currently-green scan RED, because it exposes markup the gate has never
+actually examined. That is the gate working, but it is a finding that deserves its own change with
+its own fix, not a surprise inside an unrelated commit.
+
+★ The fix per slice is one line in the kv map, and the key name is the same on both sides (the
+workspace field name equals the kv key). The cost is entirely in whatever the scan then finds.
+
+★ Related trap, same file: the seed hardcodes its `indexedDB.open` version while the app derives it
+from `IDB_VERSION`. They agree today; a future store addition that bumps one and not the other seeds
+the wrong shape silently. A comment now sits at that line.
 
 ## Provenance — where these items came from, and what already closed
 

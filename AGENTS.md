@@ -171,7 +171,7 @@ npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts 
                             # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
                             # pure engine, or an extracted `use*` hook that wasn't added to
                             # coverage.exclude) can be green locally and fail the unit job.
-npm run e2e                 # playwright (incl. the 16-view axe a11y gate)
+npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
 npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
                             # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
 npm run dup:check           # jscpd duplication GATE (--threshold set in package.json dup:check, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
@@ -275,17 +275,27 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **16** named views — Dashboard · Open Points · Gantt ·
+  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **17** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 scheme COMBOS × 16
-  + 5 Kanban-board variants = **85** axe scans, plus ONE non-scan guard test (asserts the served app's
-  `data-app-version` matches this checkout, open-followups §58) — **86** tests total in the spec file.
+  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 5 scheme
+  COMBOS × 17 + 5 Kanban-board variants = **90** axe scans, plus ONE non-scan guard test (asserts the
+  served app's `data-app-version` matches this checkout, open-followups §58) — **91** tests total in the
+  spec file. ★ Don't derive these three numbers, MEASURE them, in the same commit that changes the list:
+  `npx playwright test e2e/a11y.spec.ts --list` prints the total (no browsers needed, and it also proves
+  `e2e/seed.ts`'s module-level sample read still resolves), and `grep -c "a11y:"` over that output splits
+  scans from the guard.
+  ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
+  put in IndexedDB, and `e2e/seed.ts` seeds from two HARDCODED lists. A slice absent from them renders
+  its EMPTY STATE at scan time, so the run is green over a panel with no rows, no per-row controls and
+  nothing to collide. Seeding `documents` for the first time immediately turned up a real serious
+  violation the empty state had been hiding. Most of BrowserBackend's optional kv slices are still
+  unseeded — Insights is in this list and affected today (`docs/open-followups.md`).
   It does NOT include Projects, Knowledge, or the
   Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
   surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).
   ★★ Calendar being unscanned has already cost real bugs: 0.202.0 shipped an AA contrast failure
-  there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a full 85/85 axe pass said nothing
-  about. Check contrast BY HAND for anything styled on that surface.
+  there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a fully green axe run said nothing
+  about (the count at the time was lower than today's, which is why this sentence no longer quotes one). Check contrast BY HAND for anything styled on that surface.
   Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
@@ -1009,6 +1019,24 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ Gantt's **View** menu (`GanttViewMenu`, 0.213.0) sits AFTER the reset-filters button and BEFORE the
   trailing Print · reset-columns · reset-size group (`gantt-chrome.tsx`) — it collects display toggles, so
   it is neither a primary action nor a member of the trailing group.
+- **Documents (AI document authoring):** a `ProjectDocument` is `{id, title, blocks, createdAt, updatedAt}`
+  over a typed `DocBlock` union — **JSON at rest; bytes are rendered ON DEMAND and never stored**, so no blob
+  lives anywhere in the workspace. Three renderers: `doc-render-html.ts` (canonical), `doc-render-docx.ts`,
+  `doc-render-pptx.ts`. ★ **PDF is not a fourth renderer** — it is the HTML renderer's `standalone` mode
+  driven through the browser print dialog, so there is no PDF writer and no PDF dependency; keep it that way.
+  Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
+  `documents-toolbar.tsx`.
+  ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
+  `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
+  because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a
+  future slice talks itself into adding it to the per-table DELETE set. The dirty check is reference
+  equality (`prev.documents !== next.documents`), so an in-place mutation silently skips the save.
+  ★★ `document-model.ts` is DOM-FREE BY CONTRACT (a comment-stripped source scan in its test enforces it, so
+  comments may name DOMPurify and code may not) — but the CSV/MD/JSON/Turso LOAD paths are the OPPOSITE and
+  REQUIRE a DOM. Do not generalise either direction: `docs/open-followups.md` §97 holds the measurement and
+  the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle.
+  ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
+  `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
 
 ## Subsystem reference — deeper detail, loaded on demand
 
