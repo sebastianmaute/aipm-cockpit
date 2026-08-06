@@ -84,11 +84,18 @@ describe("help marker resolution", () => {
     "helpConceptStakeholderTitle",
   ];
 
-  it("every entry's prose is actually translated, not copied from English", () => {
-    // ★ Floor first: both loops below iterate `HELP_ENTRIES`, so an empty or
-    // mocked backbone would satisfy every assertion by running none of them.
+  // ★★ A FLOOR FOR THE WHOLE DESCRIBE, NOT ONE TEST. Every assertion in this
+  // block is inside a `for` over `HELP_ENTRIES`, so an empty or mocked backbone
+  // would satisfy all of them by running none. An earlier revision put this
+  // inside the translated-prose test and claimed it covered "both loops below"
+  // — it did not: the marker test underneath has its own walk and would still
+  // have passed vacuously. A guard against vacuity that is itself scoped wrong
+  // is the same bug it exists to catch.
+  it("has a backbone to walk at all", () => {
     expect(HELP_ENTRIES.length).toBeGreaterThan(50);
+  });
 
+  it("every entry's prose is actually translated, not copied from English", () => {
     const identical: string[] = [];
     for (const e of HELP_ENTRIES) {
       for (const key of [e.titleKey, e.bodyKey, e.primerKey]) {

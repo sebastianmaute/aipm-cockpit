@@ -82,7 +82,9 @@
   called slice 3 "~18 new entries for features that have none today", and acting on that would have written a
   SECOND entry for each. Read the entry before concluding a view is undocumented.
   ★★ It is FIVE and not six: the sixth baseline id, `stakeholder-map`, DID need content — the body that named
-  it was false (next bullet). This paragraph said "SIX … NOT CONTENT" for a day while the bullet below it
+  it was false (see the `stakeholder-map`/`concept-stakeholder` bullet further down; it is not the next one,
+  and a positional pointer in a doc whose thesis is that stale references rot was a poor choice). This
+  paragraph said "SIX … NOT CONTENT" for a day while that bullet
   described rewriting that very prose — a self-contradiction ten lines apart, which is exactly the defect
   slice 2 was scoped around. `workload` and `planning` are not in the arithmetic at all: `concept-resource`
   already covered them, so they were never in the baseline.

@@ -369,10 +369,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useEffect(() => {
     if (!args.hydrated) return;
     // Single-writer rule: the main window owns persistence. A popout is a
-    // mirror — it already shows the main window's state and forwards its own
-    // edits over BroadcastChannel, which the main window persists. Letting the
-    // popout also call backend.save() would mean two windows writing the same
-    // backend (a race), and popup-window storage is frequently blocked by the
+    // mirror: it does NOT save, and ★★★ it does NOT forward its edits either —
+    // `canSend = !args.isPopout` below disables every outbound broadcast, and
+    // postMessage is the only way out. So an edit escaping the read-only guards
+    // mutates popout-LOCAL state alone (divergent mirror + phantom undo), never
+    // storage. This comment asserted the opposite until 2026-08-06 and that
+    // falsehood reached a commit message; `canSend` is the authority.
+    // Letting the popout also call backend.save() would mean two windows
+    // writing the same backend (a race), and popup storage is often blocked by the
     // browser's security policy — the blocked IndexedDB write surfaces as
     // "AbortError: Aborted due to security policy". Skipping it here removes
     // both problems.

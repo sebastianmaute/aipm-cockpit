@@ -1,15 +1,26 @@
 // Pins that a popout window cannot commit BUDGET edits.
 //
-// ★★★ WHY THIS EXISTS AS A BEHAVIOURAL TEST AND NOT A SOURCE SCAN. Every other
+// ★★★ WHY THIS EXISTS AS A BEHAVIOURAL TEST AND NOT A SOURCE SCAN. Nearly every
 // mutating handler task-manager threads to WorkspaceSection is routed through
-// `guardEdit` (`makeEditGuard(isPopout, …)`), which no-ops the call and toasts.
-// `onChangeBudgets` was NOT, while `budget` sits in `POPOUT_TABS` and
+// `guardEdit` (`makeEditGuard(isPopout, …)`), which no-ops the call and toasts;
+// the AI dispatcher instead guards itself with its own `isReadOnly` throws.
+// `onChangeBudgets` did NEITHER, while `budget` sits in `POPOUT_TABS` and
 // `budget-panel.tsx` gates its period cells on `mirror` (budget-follows-plan)
-// and never on `isPopout` — so the cells of a non-mirrored row were editable in
-// a popout and typing in one committed a real workspace write, plus an undo
-// entry and an activity-log line, from a window every other tab treats as a
-// read-only mirror. `read-only-guard.test.ts` proves the guard WORKS; nothing
-// proved which handlers are WIRED through it, which is where the defect lived.
+// and never on `isPopout` — so the cells were editable in a popout.
+// `read-only-guard.test.ts` proves the guard WORKS; nothing proved which
+// handlers are WIRED through it, which is where the defect lived.
+//
+// ★★★ SEVERITY, STATED ACCURATELY, BECAUSE THE FIRST VERSION OF THIS COMMENT
+// GOT IT WRONG. It said the popout "committed a real workspace write". It did
+// not: `use-storage-backend.ts` returns early from the save effect when
+// `isPopout`, and `canSend = !args.isPopout` disables every outbound
+// `useBroadcastSync`, which is the only path out of the window. The edit
+// mutated popout-LOCAL state — a silently divergent mirror plus a phantom undo
+// entry and activity line, all discarded on close. A real defect (the
+// read-only-mirror contract is broken and the user is misled), not data loss.
+// ★★ That overstatement came from a stale comment in `use-storage-backend.ts`
+// asserting popout→main forwarding that `canSend` has always disabled; it is
+// corrected there now. A wrong comment does not stay in its own file.
 //
 // ★★ The observable is the UNDERLYING `commitBuckets`, not the workspace state:
 // buckets reach the panel through `useWorkspace()` rather than a captured prop,
@@ -25,12 +36,23 @@
 // create a resource through the RAID/task resource picker even though saving
 // the item around it is blocked.
 //
+// ★★ A THIRD unguarded path, same class, also still open: `onCaptureRaidBulk` /
+// `onCaptureUndo` / `onCaptureFieldEdit` are unwrapped and `useUndoHotkey` is
+// mounted unconditionally, while only the visible undo BUTTON is popout-gated.
+// So a RAID popout can bulk-apply (capturing a real undo entry while every
+// per-row save is guarded away), then Ctrl+Z restores it — an unguarded write
+// reachable through an affordance that is invisible. Same popout-local blast
+// radius as the above. Not fixed here; a gate on the hotkey is the likely fix.
+//
 // ★ This rationale lives HERE and not at the call site because
 // `task-manager.tsx` is on the file-size ratchet (baselined at 2972 lines);
 // nine lines of comment there failed `size:check`, and raising the baseline to
 // hold a comment would be widening a gate to make a pipeline pass.
-import { render, screen } from "@testing-library/react";
-import { act } from "react";
+// ★ `act` from testing-library, NOT from react: the bare react export logs
+// "The current testing environment is not configured to support act(...)" to
+// stderr on every call, which is exactly the noise that teaches people to stop
+// reading stderr.
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 
