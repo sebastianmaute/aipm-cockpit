@@ -43,6 +43,8 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
+import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
@@ -126,6 +128,14 @@ export type Workspace = {
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
    *  Sanitized by sanitizeInsights. */
   insights?: readonly Insight[];
+  /** AI- and user-authored project documents (canonical block model; the
+   *  .docx/.pptx/.html/.pdf bytes are rendered on demand and never stored).
+   *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
+   *  Sanitized in TWO passes — `sanitizeProjectDocuments` for structure, then
+   *  `sanitizeDocumentRichFields` for the paragraph HTML allow-list. They are
+   *  separate because the first is DOM-FREE by contract (it runs under bare
+   *  node in the sample generator) and therefore cannot call DOMPurify. */
+  documents?: readonly ProjectDocument[];
   /** Per-project policy overrides (next-actions weights, notification cadence,
    *  timezone) that travel WITH the project. Optional & additive: undefined
    *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
@@ -462,6 +472,10 @@ export function workspaceToJson(ws: Workspace): string {
       // of an `insights` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
       ...(ws.insights && ws.insights.length ? { insights: ws.insights } : {}),
+      // Additive: only present when documents exist, so legacy files stay free
+      // of a `documents` key. JSON is the complete round-trip, so this is
+      // always emitted (storage AND export) when present.
+      ...(ws.documents && ws.documents.length ? { documents: ws.documents } : {}),
       // Additive: only present when the project carries policy overrides, so
       // override-less files stay free of a `settingsOverrides` key.
       ...(hasAnyOverride(ws.settingsOverrides) ? { settingsOverrides: ws.settingsOverrides } : {}),
@@ -596,6 +610,16 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     if (p.insights !== undefined) {
       const ins = sanitizeInsights(p.insights);
       if (ins.length) raw.insights = ins;
+    }
+    // Additive: sanitize incoming documents when present. TWO passes, in this
+    // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free
+    // by contract, so it cannot run an HTML allow-list), then the rich-field
+    // pass applies DOMPurify to the paragraph HTML. Running only the first
+    // would persist `<script>` from a crafted .json verbatim. An all-garbage or
+    // empty list stays off the key rather than emitting [].
+    if (p.documents !== undefined) {
+      const docs = sanitizeProjectDocuments(p.documents).map(sanitizeDocumentRichFields);
+      if (docs.length) raw.documents = docs;
     }
     // Additive: sanitize incoming per-project policy overrides when present;
     // an all-junk override sanitizes to {} (no valid sub-key) and the key stays off.
