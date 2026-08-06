@@ -282,3 +282,50 @@ describe("entity persistence registry — bucket task links + manual completion 
     expect(b?.percentComplete).toBe(40);
   });
 });
+
+// Project documents (AI document authoring, S1).
+//
+// ★★ THIS BLOCK COVERS TWO BACKENDS, NOT THREE — do not copy the sibling
+// comment above. Every other entry here guards a COLUMN, so asserting the name
+// is in `*_CSV_COLUMNS` also covers Turso single+tenant (their DDL and inserts
+// derive from that list). A document is not a column: it rides as ONE
+// `config,<json>` row under `# DOCUMENTS` (CSV) and one fenced JSON block
+// (Markdown), so there is no column list to assert and the CSV assertion buys
+// nothing on Turso. The other four write paths are covered elsewhere — Turso
+// single + tenant persist documents as a `meta` row keyed "documents"
+// (`turso-schema.documents.test.ts`), and JSON + IndexedDB pass the whole
+// object through (`workspace.documents.test.ts`, `browser-backend.ts`).
+//
+// ★ The assertion is a deep-equal on the WHOLE array rather than one field:
+// a document is nested, so a codec that dropped a single block TYPE (the
+// `table` rows, say, or the `dataSection` key) would still return a document
+// with the right title and pass a shallower check.
+describe("entity persistence registry — documents survive every text backend", () => {
+  const seedDocs = (): Workspace => ({
+    ...emptyWorkspace(),
+    documents: [{
+      id: 1,
+      title: "Steering update",
+      blocks: [
+        { type: "heading", level: 1, text: "Steering update" },
+        { type: "paragraph", html: "<p>Delivery is on track.</p>" },
+        { type: "bullets", items: ["API integration complete"] },
+        { type: "table", columns: ["Risk", "Owner"], rows: [["Vendor delay", "Ann"]] },
+        { type: "dataSection", key: "raid" },
+        { type: "pageBreak" },
+      ],
+      createdAt: "2026-08-01T09:00:00.000Z",
+      updatedAt: "2026-08-01T09:00:00.000Z",
+    }],
+  });
+
+  it("documents survive the CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(seedDocs()));
+    expect(back.documents).toEqual(seedDocs().documents);
+  });
+
+  it("documents survive the Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(seedDocs()));
+    expect(back.documents).toEqual(seedDocs().documents);
+  });
+});
