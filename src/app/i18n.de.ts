@@ -1087,6 +1087,7 @@ export const de: Record<TranslationKey, string> = {
   healthDriverDueToday: "heute fällig",
   healthDriverDueSoon: "bald fällig",
   healthDriverCompleted: "erledigt",
+  healthDriverClosed: "geschlossen",
   healthDriverCancelled: "abgebrochen",
   healthDriverOnTrack: "im Plan",
   healthTooltip: "{0}: {1}",

@@ -867,3 +867,25 @@ describe("filterTasksByHealth", () => {
     expect(result.map((t) => t.id)).toEqual([3]);
   });
 });
+
+describe("closed-but-not-delivered drivers (open-followups §65)", () => {
+  const today = "2026-05-26";
+
+  it("a Done task with no completedDate says 'closed', not 'completed'", () => {
+    const h = computeTaskHealth(createTask({ status: "Done" }), today);
+    expect(h.drivers).toEqual(["closed"]);
+  });
+
+  it("a delivered task still says 'completed'", () => {
+    const h = computeTaskHealth(
+      createTask({ status: "Done", completedDate: "2026-05-01" }),
+      today,
+    );
+    expect(h.drivers).toEqual(["completed"]);
+  });
+
+  it("a cancelled task still says 'cancelled'", () => {
+    const h = computeTaskHealth(createTask({ status: "Cancelled" }), today);
+    expect(h.drivers).toEqual(["cancelled"]);
+  });
+});

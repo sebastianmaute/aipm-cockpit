@@ -18,6 +18,7 @@
 
 import { workdaysUntil } from "./due-dates";
 import { type Lang, t } from "./i18n";
+import { isTaskDelivered } from "./task-closed";
 import { isTaskFinished } from "./task-status";
 import type { Task } from "./types";
 
@@ -35,6 +36,10 @@ export type HealthDriver =
   | "dueToday"
   | "dueSoon"
   | "completed"
+  /** Closed, but nothing was delivered and it was not cancelled either — a
+   *  `Done` task carrying no `completedDate`. Announcing that as "completed"
+   *  contradicted the ✕ glyph beside it (open-followups §65). */
+  | "closed"
   | "cancelled"
   | "onTrack";
 
@@ -59,10 +64,20 @@ export function computeTaskHealth(
   // A finished task is non-active: it must not be flagged red/amber/overdue.
   // Done carries completedDate; Cancelled is terminal with no completedDate, so
   // also guard on isTaskFinished so Cancelled takes the same Green path.
+  // ★ THREE-WAY, not two. `isTaskDelivered` alone would label a Done-with-no-
+  //   date row "cancelled", which is a different false statement from the one
+  //   being fixed (open-followups §65). Cancelled is a STATUS; delivered is a
+  //   DATE; the third case is neither.
   if (task.completedDate || isTaskFinished(task)) {
     return {
       color: "G",
-      drivers: [task.status === "Cancelled" ? "cancelled" : "completed"],
+      drivers: [
+        task.status === "Cancelled"
+          ? "cancelled"
+          : isTaskDelivered(task)
+            ? "completed"
+            : "closed",
+      ],
     };
   }
 
@@ -199,6 +214,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     | "healthDriverDueToday"
     | "healthDriverDueSoon"
     | "healthDriverCompleted"
+    | "healthDriverClosed"
     | "healthDriverCancelled"
     | "healthDriverOnTrack"> = {
     manual: "healthDriverManual",
@@ -207,6 +223,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     dueToday: "healthDriverDueToday",
     dueSoon: "healthDriverDueSoon",
     completed: "healthDriverCompleted",
+    closed: "healthDriverClosed",
     cancelled: "healthDriverCancelled",
     onTrack: "healthDriverOnTrack",
   };

@@ -1098,6 +1098,7 @@ const enUS = {
   healthDriverDueToday: "due today",
   healthDriverDueSoon: "due soon",
   healthDriverCompleted: "completed",
+  healthDriverClosed: "closed",
   healthDriverCancelled: "cancelled",
   healthDriverOnTrack: "on track",
   healthTooltip: "{0}: {1}",
