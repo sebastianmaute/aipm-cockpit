@@ -2538,6 +2538,7 @@ const enUS = {
   documentsBlockCount: "Blocks",
   documentsUpdated: "Updated",
   documentsTitleLabel: "Title",
+  documentsFormat: "Download format",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
   // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
   dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",

@@ -238,7 +238,7 @@ describe("DocumentsPanel", () => {
     );
   });
 
-  it("honours an explicit format prop", () => {
+  it("honours an explicit initialFormat", () => {
     render(
       <ConfirmProvider lang="en-US">
         <DocumentsPanel
@@ -246,21 +246,99 @@ describe("DocumentsPanel", () => {
           documents={[doc(1, "Alpha")]}
           setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
           ws={emptyWorkspace()}
-          format="pdf"
+          initialFormat="pdf"
         />
       </ConfirmProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(downloadDocument).toHaveBeenCalledWith(
-      expect.anything(),
-      "pdf",
-      expect.anything(),
-      "en-US",
-    );
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pdf", expect.anything(), "en-US");
+  });
+
+  // ★★ EVERY format must actually REACH downloadDocument. A test that only
+  // proved the select changed state would pass with the wiring dropped
+  // entirely — the picker would look alive and always download docx. The user's
+  // original ask was all four formats, so all four are asserted.
+  it.each(["docx", "pptx", "pdf", "html"] as const)(
+    "downloads in %s when that format is picked",
+    (format) => {
+      renderPanel([doc(1, "Alpha")]);
+      fireEvent.change(screen.getByRole("combobox", { name: "Download format" }), {
+        target: { value: format },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Download" }));
+      expect(downloadDocument).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 1 }),
+        format,
+        expect.anything(),
+        "en-US",
+      );
+    },
+  );
+
+  it("passes the picked format to a ROW download too", () => {
+    // The row controls share the toolbar's format; without this a picker that
+    // only reached the toolbar path would look correct.
+    renderPanel([doc(1, "Alpha")]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Download format" }), {
+      target: { value: "html" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Download – Alpha" }));
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "html", expect.anything(), "en-US");
   });
 
   it("disables the toolbar download when there is nothing to download", () => {
     renderPanel([]);
     expect(screen.getByRole("button", { name: "Download" })).toBeDisabled();
+  });
+});
+
+describe("DocumentsPanel — read-only (popout guard)", () => {
+  function renderReadOnly() {
+    vi.mocked(downloadDocument).mockClear();
+    return render(
+      <ConfirmProvider lang="en-US">
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha"), doc(2, "Beta")]}
+          setDocuments={(() => {
+            throw new Error("setDocuments must never be called in a read-only pane");
+          }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
+          ws={emptyWorkspace()}
+          isReadOnly
+        />
+      </ConfirmProvider>,
+    );
+  }
+
+  it("disables every MUTATING control", () => {
+    renderReadOnly();
+    expect(screen.getByRole("button", { name: "New document" })).toBeDisabled();
+    for (const title of ["Alpha", "Beta"]) {
+      for (const verb of ["Rename", "Duplicate", "Delete"]) {
+        expect(screen.getByRole("button", { name: `${verb} – ${title}` })).toBeDisabled();
+      }
+    }
+  });
+
+  it("leaves the NON-mutating controls live", () => {
+    // ★ The other half of the guard. Disabling everything would be a trivially
+    // "passing" read-only mode that makes a popout useless — this pins that
+    // reading and downloading still work.
+    renderReadOnly();
+    expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Download – Alpha" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "Download format" })).toBeEnabled();
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
+  });
+
+  it("cannot mutate: clicking a disabled control reaches no setter", () => {
+    // The setter THROWS if called, so this fails loudly rather than silently if
+    // a control is ever left live. A real `disabled` attribute is what makes
+    // this hold — an `aria-disabled` lookalike still fires onClick.
+    renderReadOnly();
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename – Alpha" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

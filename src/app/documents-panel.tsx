@@ -95,14 +95,14 @@ export interface DocumentsPanelProps {
   setDocuments: Dispatch<SetStateAction<readonly ProjectDocument[]>>;
   /** Needed by the preview: dataSection blocks render live workspace data. */
   ws: Workspace;
-  /** Output format for both the toolbar and the per-row Download controls.
-   *
-   *  ★ THERE IS NO FORMAT PICKER YET and the plan specifies none — `downloadDocument`
-   *  supports four formats, so three are currently unreachable from the UI. Defaulting
-   *  here (rather than hard-coding at the call site) keeps the seam in one place for
-   *  whoever adds the picker; it needs one new i18n key for the control's accessible
-   *  name, which is why it is not invented here. Raised with the slice owner. */
-  format?: DocFormat;
+  /** Initial output format. The toolbar picker owns it from then on; this only
+   *  seeds it, so a caller can preselect one. All four of `DocFormat` are
+   *  reachable from the picker — the original ask was ".pptx, .docx, .pdf, or
+   *  html", so shipping one would not have met it. */
+  initialFormat?: DocFormat;
+  /** Popout mirrors are read-only: create/rename/duplicate/delete go inert.
+   *  Every other pane guards this; without it a popout could mutate documents. */
+  isReadOnly?: boolean;
   onResetSize?: () => void;
 }
 
@@ -113,9 +113,11 @@ export function DocumentsPanel({
   documents,
   setDocuments,
   ws,
-  format = "docx",
+  initialFormat = "docx",
+  isReadOnly,
   onResetSize,
 }: DocumentsPanelProps) {
+  const [format, setFormat] = useState<DocFormat>(initialFormat);
   const [sort, setSort] = useState<{ key: DocumentSortKey; dir: SortDir }>({ key: "title", dir: "off" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [renaming, setRenaming] = useState<{ id: number; draft: string } | null>(null);
@@ -180,8 +182,11 @@ export function DocumentsPanel({
         onNew={handleCreate}
         onDownload={() => { if (selected) downloadDocument(selected, format, ws, lang); }}
         canDownload={selected !== null}
+        format={format}
+        onFormatChange={setFormat}
         onResetColumns={resetColWidths}
         onResetSize={onResetSize ?? (() => {})}
+        isReadOnly={isReadOnly}
       />
       <div className="flex min-h-0 flex-col gap-3">
         <DocumentsList
@@ -198,6 +203,7 @@ export function DocumentsPanel({
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
           onDownload={(doc) => downloadDocument(doc, format, ws, lang)}
+          isReadOnly={isReadOnly}
         />
         <DocumentPreview lang={lang} doc={selected} ws={ws} />
       </div>

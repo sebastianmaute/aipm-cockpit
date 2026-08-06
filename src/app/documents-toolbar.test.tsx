@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { DocumentsToolbar } from "./documents-toolbar";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { expectButtonOrder, buttonNames } from "../test/toolbar-order";
 
 const noop = () => {};
@@ -12,6 +12,8 @@ function setup(overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {}) 
       onNew={noop}
       onDownload={noop}
       canDownload
+      format="docx"
+      onFormatChange={noop}
       onResetColumns={noop}
       onResetSize={noop}
       {...overrides}
@@ -52,6 +54,55 @@ describe("DocumentsToolbar", () => {
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
     const download = screen.getByRole("button", { name: "Download" });
     expect(download).toBeDisabled();
+  });
+
+  it("gives the format picker its OWN accessible name, distinct from Download", () => {
+    setup();
+    // ★★ Reusing "Download" here would put two adjacent controls under one name
+    // — a WCAG 2.4.6 failure axe will NOT flag, since they are different roles
+    // and each has *a* name. And a bare <select> beside a visible <span> is not
+    // labelled at all, which IS axe-critical. So: its own aria-label.
+    const picker = screen.getByRole("combobox", { name: "Download format" });
+    expect(picker).toBeInTheDocument();
+    expect(picker.getAttribute("aria-label")).not.toBe("Download");
+  });
+
+  it("offers every format downloadDocument supports", () => {
+    // ★ Derived from DOC_FORMATS rather than a hardcoded list, so adding a
+    // format to the module without adding an option fails here.
+    setup();
+    const picker = screen.getByRole("combobox", { name: "Download format" });
+    const values = [...picker.querySelectorAll("option")].map((o) => o.getAttribute("value"));
+    expect(values.sort()).toEqual(["docx", "html", "pdf", "pptx"]);
+    expect(values).toHaveLength(DOC_FORMATS.length);
+  });
+
+  it("reports the chosen format to its parent", () => {
+    const onFormatChange = vi.fn();
+    setup({ onFormatChange });
+    fireEvent.change(screen.getByRole("combobox", { name: "Download format" }), {
+      target: { value: "pptx" },
+    });
+    expect(onFormatChange).toHaveBeenCalledWith("pptx");
+  });
+
+  it("sits ahead of the trailing group and does not break its contiguity", () => {
+    // ★ The shared helper reads BUTTONS only, so the combobox is invisible to
+    // it — this position check has to be hand-rolled against the DOM.
+    setup();
+    const picker = screen.getByRole("combobox", { name: "Download format" });
+    const print = screen.getByRole("button", { name: /print/i });
+    expect(picker.compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+  });
+
+  it("disables ONLY the create action when read-only", () => {
+    setup({ isReadOnly: true });
+    expect(screen.getByRole("button", { name: "New document" })).toBeDisabled();
+    // Download, print and the view controls mutate nothing — they stay live, or
+    // a popout becomes useless rather than merely read-only.
+    expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "Download format" })).toBeEnabled();
   });
 
   it("renders exactly one button per control — no duplicate accessible names", () => {
