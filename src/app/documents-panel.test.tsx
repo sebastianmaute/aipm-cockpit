@@ -13,6 +13,12 @@ import { ConfirmProvider } from "./confirm-dialog";
 import type { ProjectDocument } from "./document-model";
 import { emptyWorkspace } from "./workspace";
 import { buttonNames } from "../test/toolbar-order";
+import { downloadDocument } from "./document-download";
+
+// The real one opens tabs and triggers blob downloads — neither works in jsdom,
+// and the module has its own suite. Here we only pin that the panel calls it
+// with the right document and format.
+vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
 
 const NOW = "2026-08-06T00:00:00.000Z";
 
@@ -35,7 +41,7 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
   const setDocuments = ((updater: SetStateAction<readonly ProjectDocument[]>) => {
     box.docs = typeof updater === "function" ? updater(box.docs) : updater;
   }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>;
-  const onDownload = vi.fn();
+  vi.mocked(downloadDocument).mockClear();
   const utils = render(
     <ConfirmProvider lang="en-US">
       <DocumentsPanel
@@ -43,11 +49,10 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
         documents={initial}
         setDocuments={setDocuments}
         ws={emptyWorkspace()}
-        onDownload={onDownload}
       />
     </ConfirmProvider>,
   );
-  return { box, onDownload, ...utils };
+  return { box, ...utils };
 }
 
 describe("documents-panel pure transforms", () => {
@@ -205,13 +210,35 @@ describe("DocumentsPanel", () => {
     expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
   });
 
-  it("downloads the selected document from the toolbar", () => {
-    const { onDownload } = renderPanel([doc(1, "Alpha"), doc(2, "Beta")]);
+  it("downloads the SELECTED document from the toolbar, in the default format", () => {
+    renderPanel([doc(1, "Alpha"), doc(2, "Beta")]);
+    fireEvent.click(screen.getByRole("button", { name: "Beta" }));
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(onDownload).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+    // ★ Seeding TWO documents and selecting the second is what makes this
+    // meaningful: with one document, or without the select, a handler that
+    // always downloaded documents[0] would pass.
+    expect(downloadDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 2 }),
+      "docx",
+      expect.anything(),
+      "en-US",
+    );
   });
 
-  it("disables the toolbar download when no download handler is wired", () => {
+  it("downloads the ROW's document, not the selected one, from a row control", () => {
+    renderPanel([doc(1, "Alpha"), doc(2, "Beta")]);
+    // Selection stays on Alpha (the read-time fallback); the row control must
+    // still act on Beta.
+    fireEvent.click(screen.getByRole("button", { name: "Download – Beta" }));
+    expect(downloadDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 2 }),
+      "docx",
+      expect.anything(),
+      "en-US",
+    );
+  });
+
+  it("honours an explicit format prop", () => {
     render(
       <ConfirmProvider lang="en-US">
         <DocumentsPanel
@@ -219,9 +246,21 @@ describe("DocumentsPanel", () => {
           documents={[doc(1, "Alpha")]}
           setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
           ws={emptyWorkspace()}
+          format="pdf"
         />
       </ConfirmProvider>,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(downloadDocument).toHaveBeenCalledWith(
+      expect.anything(),
+      "pdf",
+      expect.anything(),
+      "en-US",
+    );
+  });
+
+  it("disables the toolbar download when there is nothing to download", () => {
+    renderPanel([]);
     expect(screen.getByRole("button", { name: "Download" })).toBeDisabled();
   });
 });
