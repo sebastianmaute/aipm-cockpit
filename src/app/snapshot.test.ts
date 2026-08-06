@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, milestoneForecast, withoutCompletionVariance } from "./snapshot";
-import type { Milestone } from "./types";
+import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate, hasCapturableContent, milestoneForecast, withoutCompletionVariance } from "./snapshot";
+import type { Milestone, Task } from "./types";
 import type { SnapshotMilestone, SnapshotRecord } from "./snapshot";
 import type { DashboardModel } from "./dashboard";
 
@@ -255,5 +255,32 @@ describe("baselineMilestoneTargets", () => {
     expect(map.get(1)).toBe("2026-07-01");
     expect(map.get(2)).toBe("2026-08-01");
     expect(map.size).toBe(2);
+  });
+});
+
+describe("hasCapturableContent", () => {
+  const empty = {
+    tasks: [] as readonly Task[],
+    milestones: [] as readonly Milestone[],
+    model: { burndown: null } as unknown as DashboardModel,
+  };
+
+  it("is false for a project with no tasks, no milestones and no burndown", () => {
+    expect(hasCapturableContent(empty)).toBe(false);
+  });
+
+  it("is true when the project has at least one task", () => {
+    const task = { id: 1, taskName: "T1" } as unknown as Task;
+    expect(hasCapturableContent({ ...empty, tasks: [task] })).toBe(true);
+  });
+
+  it("is true when the project has at least one milestone", () => {
+    const ms = { id: 1, name: "M1", date: "2026-07-31" } as unknown as Milestone;
+    expect(hasCapturableContent({ ...empty, milestones: [ms] })).toBe(true);
+  });
+
+  it("is true when a burndown exists even with no tasks or milestones", () => {
+    const model = { burndown: { periods: [] } } as unknown as DashboardModel;
+    expect(hasCapturableContent({ ...empty, model })).toBe(true);
   });
 });

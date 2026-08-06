@@ -225,6 +225,46 @@ export function buildSnapshot(input: BuildSnapshotInput): SnapshotRecord {
   };
 }
 
+/** Is there anything in this project worth recording a snapshot of?
+ *
+ *  ★★★ THIS GUARDS A PERMANENT WRITE — but only ONE of the three that make it.
+ *  The auto-capture effect claims a cadence bucket by writing to it, and
+ *  `hasCurrent` never revisits a claimed bucket — so a capture taken over an
+ *  empty project is not merely useless, it costs that period its real numbers
+ *  forever. Worse, being the first ever row it is also flagged `isBaseline`,
+ *  and every later variance row then compares against nulls. (§78.)
+ *  ★★ `captureNow` and `rebaselineNow` make the IDENTICAL permanent claim and
+ *  are deliberately NOT gated on this — a manual capture is an explicit user
+ *  act, and §78 is scoped to the automatic one. So do not read "this guards a
+ *  permanent write" as "the write is guarded": a reader who did would wrongly
+ *  conclude an empty manual capture is impossible. It is reachable and allowed.
+ *
+ *  ★★ Do NOT "simplify" this to a check on the built record's KPIs. A real
+ *  project that has scope but no budget yet legitimately reports null
+ *  `remainingHours`/`remainingCost` (both derive from `model.burndown`, which
+ *  is non-null iff `budgets.length > 0`), so an output-shaped test would refuse
+ *  to snapshot a project that genuinely should be snapshotted. Scope is the
+ *  question, so ask it of the INPUT.
+ *  ★ `spi`/`cpi` are NOT part of that argument — `computeEvm` reads task
+ *  `originalEstimateMinutes`/`timeSpentMinutes` and never touches budgets, so a
+ *  budget-less project can report a non-null SPI. An earlier revision blamed
+ *  the missing budget bucket for all four KPIs; it accounts for two.
+ *  ★★ KNOWN GAP (open-followups §78): this admits a project with one task and
+ *  no budget, whose capture is then baselined with partial KPIs — the exact
+ *  case §78 named when it warned that "a naive `tasks.length > 0` test would
+ *  still baseline a snapshot with no SPI/CPI". What is closed is the ALL-null
+ *  empty-project case. Do not read this predicate as answering that objection.
+ */
+export function hasCapturableContent(
+  input: Pick<BuildSnapshotInput, "tasks" | "milestones" | "model">,
+): boolean {
+  return (
+    input.tasks.length > 0 ||
+    input.milestones.length > 0 ||
+    input.model.burndown !== null
+  );
+}
+
 export type VarianceKey =
   | "remainingHours" | "remainingCost" | "pctComplete" | "forecastEndDate" | "spi" | "cpi";
 
