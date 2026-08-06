@@ -68,6 +68,10 @@ export type DashboardProgress = {
   completed: number;
   percent: number;
   counts: Record<Health, number>;
+  /** Closed-but-never-delivered tasks, EXCLUDED from `counts`. Equals
+   *  `total - inScope` whenever no task carries a `healthOverride` — a pinned
+   *  one keeps its manual colour in `counts` and is not counted here. */
+  outOfScope: number;
 };
 
 /** Total tasks and the in-scope denominator, in one place.
@@ -97,22 +101,31 @@ export function tasksHaveNoActiveScope(tasks: readonly Task[]): boolean {
 }
 
 /** % complete (delivered-based) + R/A/G health counts from computeGroupHealth.
- *  Note: completed tasks are counted in BOTH `completed` and `counts.G`
- *  (computeGroupHealth colors a completed task Green), so `counts.G` includes
- *  done items, not just active on-track ones. */
+ *  Note: DELIVERED tasks are counted in BOTH `completed` and `counts.G`
+ *  (computeGroupHealth colors a delivered task Green), so `counts.G` includes
+ *  done items, not just active on-track ones.
+ *  ★ Never-delivered closed work is in `outOfScope` instead — it is in neither
+ *  `completed` nor `counts` (open-followups §66). */
 export function computeDashboardProgress(
   tasks: readonly Task[],
   todayISO: string,
   holidaySet: ReadonlySet<string>,
 ): DashboardProgress {
-  const counts = computeGroupHealth(tasks, todayISO, holidaySet).counts;
+  const group = computeGroupHealth(tasks, todayISO, holidaySet);
   const { total, inScope: denominator } = scopeCounts(tasks);
   const completed = tasks.filter((t) => isTaskDelivered(t)).length;
   const percent = denominator === 0 ? 0 : Math.round((completed / denominator) * 100);
   // `total` keeps its original meaning (every task) for genuine inventory
   // counts; `inScope` publishes the denominator so a caller rendering a pair
   // beside `percent` can describe the SAME set the percentage does.
-  return { total, inScope: denominator, completed, percent, counts };
+  return {
+    total,
+    inScope: denominator,
+    completed,
+    percent,
+    counts: group.counts,
+    outOfScope: group.outOfScope,
+  };
 }
 
 /** True when a project HAS tasks but none of them are still in scope — i.e.

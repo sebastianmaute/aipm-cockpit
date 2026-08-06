@@ -889,3 +889,57 @@ describe("closed-but-not-delivered drivers (open-followups §65)", () => {
     expect(h.drivers).toEqual(["cancelled"]);
   });
 });
+
+describe("out-of-scope work in the group tally (open-followups §66)", () => {
+  const today = "2026-05-26";
+
+  it("excludes cancelled work from R/A/G and counts it separately", () => {
+    const g = computeGroupHealth(
+      [createTask({ id: 1, status: "Cancelled" }), createTask({ id: 2, status: "Cancelled" })],
+      today,
+    );
+    expect(g.counts).toEqual({ R: 0, A: 0, G: 0 });
+    expect(g.outOfScope).toBe(2);
+  });
+
+  // ★★ `dashboardProgressCaption`'s "unless its health was set by hand" clause
+  //    has always described this. Do not simplify it away.
+  it("keeps a HAND-PINNED cancelled task in the tally", () => {
+    const g = computeGroupHealth(
+      [createTask({ status: "Cancelled", healthOverride: "R" })],
+      today,
+    );
+    expect(g.counts.R).toBe(1);
+    expect(g.outOfScope).toBe(0);
+    expect(g.color).toBe("R");
+  });
+
+  it("keeps delivered work Green — only never-delivered work leaves", () => {
+    const g = computeGroupHealth(
+      [createTask({ status: "Done", completedDate: "2026-05-01" })],
+      today,
+    );
+    expect(g.counts.G).toBe(1);
+    expect(g.outOfScope).toBe(0);
+  });
+
+  it("holds R + A + G + outOfScope === total", () => {
+    const tasks = [
+      createTask({ id: 1, status: "Cancelled" }),
+      createTask({ id: 2, status: "Done" }),
+      createTask({ id: 3, status: "Done", completedDate: "2026-05-01" }),
+      createTask({ id: 4, status: "In Progress", dueDate: "2026-01-01" }),
+      createTask({ id: 5, status: "In Progress", dueDate: "2026-12-01" }),
+    ];
+    const g = computeGroupHealth(tasks, today);
+    expect(g.counts.R + g.counts.A + g.counts.G + g.outOfScope).toBe(tasks.length);
+    expect(g.outOfScope).toBe(2);
+  });
+
+  // The register claimed this fix "ripples well past the dashboard" via
+  // `overallComputed`. It cannot: out-of-scope tasks only ever added to
+  // `counts.G`, and G is the fallback colour.
+  it("leaves the overall colour unchanged", () => {
+    expect(computeGroupHealth([createTask({ status: "Cancelled" })], today).color).toBe("G");
+  });
+});
