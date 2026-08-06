@@ -113,7 +113,7 @@ function collectBudgetBuckets(budgets: Workspace["budgets"]): readonly HasId[] {
 }
 
 /**
- * Seed all 15 mint kinds from a workspace (guarding every array with `?? []`),
+ * Seed every mint kind from a workspace (guarding every array with `?? []`),
  * plus `budgetBucket` from the (optionally nested) budget buckets.
  */
 export function seedMintFromWorkspace(
