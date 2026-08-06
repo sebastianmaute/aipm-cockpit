@@ -122,6 +122,100 @@ unit-tests:
     paths: [coverage/]
     expire_in: 1 week
 
+# Order-dependence gate. Runs the unit suite with vitest's shuffle at a PINNED
+# seed, so a red run is REPRODUCIBLE — the same commit shuffles the same way
+# every time, and `npm run test:shuffle` reproduces it locally.
+#
+# ★★ It is NOT true that "only a real regression can turn this red", which an
+# earlier version of this comment claimed. The seed pins the PRNG, not the
+# permutation: the shuffle is a permutation of the CURRENT test array, so
+# adding or removing any test anywhere changes the resulting order. (Renaming a
+# test does NOT: the permutation is over array POSITIONS, so a renamed test keeps
+# its index. An earlier version of this line said "renaming" too — an over-claim
+# inside the sentence that corrects an over-claim.)
+# An MR that merely adds an unrelated test can therefore expose a PRE-EXISTING
+# latent order dependence and go red without having introduced anything — §75
+# documents 38 undrained `*Once()` queues on `mockBackend` that are exactly such
+# latents. (`*Once()`, the whole family — mostly `mockResolvedValueOnce`. An
+# earlier version said "38 `mockReturnValueOnce` calls"; there are 3 of those on
+# `mockBackend`, so an operator who greps that name concludes the register is
+# stale.) Read a red run as "an order dependence exists somewhere in the suite",
+# not "this MR caused it", and bisect with `npm run test:shuffle`.
+#
+# Seed 1 is the seed that reproduced the two leaks closed in open-followups §75
+# (a leaked `window.matchMedia` stub, an undrained `mockReturnValueOnce` queue).
+#
+# ★★ `needs` includes `unit-tests` ON PURPOSE. No other quality-stage job lists
+# `unit-tests` in its own `needs` — most need at most `install` (lint,
+# typecheck, dependency-audit, dependency-audit-full, duplication-gate) or
+# nothing at all (semgrep, file-size-ratchet, agents-symbol-check), and
+# `unit-tests-shuffled-random` chains behind THIS job rather than `install`
+# (see its own comment below) — so absent this dependency GitLab would run
+# this job concurrently with `unit-tests`, meaning two full vitest processes
+# contending for the runner's CPU at once. That is the same class of resource
+# contention as the full-suite parallel-load worker starvation (see AGENTS.md's
+# `npm run test:run` note, and open-followups §51's amplification note).
+#
+# ★ What the edge buys is BOUNDED, and overstating it is how the next person
+# talks themselves into deleting it. It removes the worst single contender,
+# not all of them: `build` and `duplication-gate` both need only `install`, so
+# a full `next build` and a jscpd run still overlap this job — and jscpd
+# running concurrently with a vitest run is the documented cause of a
+# `test:coverage` exit 1 with every test passing. Serialising the two full
+# vitest runs costs pipeline wall-clock (each MR now pays two unit runs that
+# cannot overlap) and removes the largest source of contention. It does not
+# make the stage contention-free.
+#
+# ★ Because `needs` requires success, a red `unit-tests` SKIPS this job
+# entirely — the order-dependence gate goes quiet exactly when the suite is
+# already unstable. Accepted: a shuffled run against a suite that is failing
+# unshuffled would not be readable anyway.
+#
+# ★ No coverage here: `unit-tests` owns the floors, and instrumenting a second
+# full run doubles the cost of the runs we just argued must not contend.
+# ★ `--reporter=basic` does NOT exist in vitest 4.1.8 (errors at startup).
+unit-tests-shuffled:
+  stage: quality
+  needs:
+    - install
+    - job: unit-tests
+      artifacts: false
+  script:
+    # Calls the npm script rather than repeating the flags, so the gate and its
+    # documented local reproduction cannot drift apart. Nothing would have caught
+    # a mismatch: they were identical strings in two files with no gate over the
+    # pair, while AGENTS.md told contributors `test:shuffle` reproduces this job.
+    - npm run test:shuffle
+
+# Weekly random-seed sweep via a GitLab pipeline schedule. The pinned job above
+# proves seed 1 stays green; this one samples the class instead of pinning one
+# point of it. Warn-only: informational, not a merge gate.
+#
+# ★★ The seed is `$CI_PIPELINE_ID` and is echoed with its reproduce command. A
+# random-seed failure whose seed was not recorded is unreproducible, which costs
+# the reader's attention and returns nothing. `$RANDOM` was the obvious choice
+# and is WRONG: it is a bash builtin, the runner shell on node:24-bookworm-slim
+# is not guaranteed to be bash, and under sh it expands to empty — yielding a
+# malformed `--sequence.seed=` on the one job whose entire value is a recorded
+# seed. `$CI_PIPELINE_ID` is always present, needs no shell features, and is
+# unique per pipeline.
+unit-tests-shuffled-random:
+  stage: quality
+  # Chained behind unit-tests-shuffled (not just install) so a schedule
+  # pipeline — the one place all three vitest jobs are live — never runs two
+  # of them concurrently. unit-tests-shuffled has no rules: of its own, so it
+  # is present on every pipeline and this dependency always resolves.
+  needs:
+    - install
+    - job: unit-tests-shuffled
+      artifacts: false
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true
+  script:
+    - 'echo "shuffle seed=$CI_PIPELINE_ID  (reproduce: npx vitest run --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID)"'
+    - npm run test:run -- --sequence.shuffle --sequence.seed=$CI_PIPELINE_ID --reporter=dot
+
 # File-size ratchet — BLOCKING as of Phase 4 (was warn-only allow_failure).
 # Freezes the oversized files at their current size and blocks new oversized
 # files (>800 lines, i18n dictionaries exempt). Regenerate the baseline with

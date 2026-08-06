@@ -12,7 +12,7 @@
 // `fetch` rejects with a same-realm DOMException, so the `instanceof
 // DOMException` gate this replaced did match, at all four call sites. No
 // reachable user-facing failure was demonstrated. This is hardening plus one
-// shape for five call sites — do not describe it as a shipped bug fix.
+// shape for four call sites — do not describe it as a shipped bug fix.
 //
 // ★ No `instanceof Error` branch: `name` is an ordinary property on
 // `Error.prototype`, so the optional read below covers an Error identically

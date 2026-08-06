@@ -251,6 +251,125 @@ describe("TimelogPanel", () => {
     });
   });
 
+  // ★★★ §74's module exists so ONE contract serves both the handler and the
+  // button — but until these tests nothing pinned the BUTTON half. Deleting
+  // `isMisconfigured` from a toolbar/table argument object makes the button
+  // enable SOONER, and every other test in this file still passed, because
+  // they all `waitFor` the button to become ENABLED. The disabled direction is
+  // the one that regresses silently, so it needs its own assertions.
+  // ★ Load-managed-projects is the sharpest pair: that action has no
+  //   precondition beyond the shared blockers, so the second test is a real
+  //   positive control — it proves the first is not passing vacuously off some
+  //   unrelated condition that disables the button anyway.
+  describe("action buttons while TimeLog is unconfigured (§74)", () => {
+    it("disables Fetch and Load-managed-projects with no TimeLog config", () => {
+      // Deliberately NO enableTimelog() — this is the misconfigured state.
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByText(t("en-US", "timelogEnable"))).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogSync") }),
+      ).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeDisabled();
+    });
+
+    // ★★★ This is the test an earlier revision of §74 declared IMPOSSIBLE, on the
+    // reasoning that the project picker renders under `!isMisconfigured` so a
+    // selection can never exist in the unconfigured state. That was wrong: the
+    // picker's RENDERING is gated, its STATE is not. `useTimelogPickerScope` runs
+    // unconditionally and seeds `projectCustomerId` + `selectedProjectIds` from the
+    // persisted picker scope or the workspace's `timelogLinks`, neither of which
+    // reads `isMisconfigured` — so a device that once configured TimeLog and later
+    // lost its token mounts in exactly this state. Ordinary, not contrived.
+    // ★★ That matters more than the test: the false claim was being used as the
+    // justification for NOT writing it, on the very entry whose finding was that
+    // the button half went unpinned. "Impossible" is a much more expensive thing
+    // to write down than "not done".
+    it("keeps Fetch and Refresh disabled while unconfigured even with a full selection seeded (§74)", () => {
+      // Deliberately NO enableTimelog(); links seed a customer + one project.
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // ★ The `(1)` in the accessible name is load-bearing: the Fetch label gains
+      //   ` (N)` only when `selectedCount > 0`, so matching on it proves
+      //   `selectedCount > 0`. Without that this assertion would pass vacuously
+      //   off an empty selection — exactly how the first version of these tests
+      //   failed to pin Fetch. It also means a plain exact-name query silently
+      //   stops resolving here.
+      //   ★★ It proves ONE of `canFetchBookings`' two preconditions. The other,
+      //   `projectCustomerId !== ""`, holds because both come from the same
+      //   `links` object via `resolveInitialScope` — true, but by a separate
+      //   argument, not by this query.
+      //   ★ Anchored on the full label, not a bare `/\(1\)$/`: any future counted
+      //   button in this panel would turn a loose match into a multi-match throw.
+      const fetchBtn = screen.getByRole("button", {
+        name: new RegExp(`^${t("en-US", "timelogSync")} \\(1\\)$`),
+      });
+      expect(fetchBtn).toBeDisabled();
+
+      // Refresh renders whenever `fetchedAt` is set (defaultSyncReturn supplies
+      // one), independently of config — so its disabled direction is pinnable too.
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogRefresh") }),
+      ).toBeDisabled();
+    });
+
+    // Clear-all is the FOURTH wiring. It deliberately does NOT take
+    // `isMisconfigured` (clearing local cache must stay available when the
+    // config is broken), so the arm pinned here is `hasFetched` — the one its
+    // handler was missing before `canClearAllFetched` existed.
+    it("disables Clear-all when nothing has been fetched", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchedAt: null } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByRole("button", { name: t("en-US", "clearAll") })).toBeDisabled();
+    });
+
+    it("enables Load-managed-projects once TimeLog is configured", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Settings hydrate async (secret migration), so the button is disabled at
+      // t=0 even when configured — `isMisconfigured` is true against the
+      // pre-hydration defaults. Waiting is what makes this a positive control
+      // rather than a second copy of the test above.
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+        ).toBeEnabled(),
+      );
+    });
+  });
+
   describe("Refresh bookings", () => {
     // §39 failure capture — read-only, failure path only. Eight CI failures have
     // produced only frequency data; this makes the ninth readable.

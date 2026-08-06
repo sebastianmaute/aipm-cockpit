@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ModernShell } from "./modern-shell";
 
 function setup(over: Partial<React.ComponentProps<typeof ModernShell>> = {}) {
@@ -133,18 +133,59 @@ describe("ModernShell cross-view focus (#48)", () => {
 });
 
 describe("ModernShell mobile drawer (#25)", () => {
+  // ★★★ MUST be restorable. This used to be a bare `window.matchMedia = vi.fn()`
+  //     assignment, which no mock-lifecycle call can undo: `clearAllMocks` and
+  //     `restoreAllMocks` do nothing to a plain property write, and jsdom ships
+  //     no `matchMedia` for anything to restore it to. So after the first test
+  //     here ran, EVERY later test in the file saw a narrow viewport, ModernShell
+  //     rendered the mobile drawer instead of the in-flow sidebar, and the
+  //     sidebar's buttons ("RAID", "Collapse sidebar", "Expand sidebar") were
+  //     simply absent. It stayed invisible in DECLARATION order only by
+  //     coincidence, not because this describe is last (it isn't — "settings
+  //     slot" and "banners slot" both follow it): the last `it` in this
+  //     describe stubs `matches: false`, the wide/desktop value the two
+  //     trailing describes happen to need anyway. Adding a test here, or
+  //     reordering the ones already here, would have broken them with no
+  //     shuffle flag involved. It reproduces reliably under
+  //     `--sequence.shuffle --sequence.seed=1`, which runs this describe
+  //     first. See open-followups §75.
   function stubViewport(matches: boolean) {
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((query: string) => ({
+        matches,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
   }
+
+  // Restores `matchMedia` to its pre-stub state (absent, under jsdom), so the
+  // viewport cannot leak into another test. Do NOT replace this with a manual
+  // re-assignment — `window.matchMedia = undefined` is a type error and leaves
+  // the property defined-but-undefined rather than absent.
+  // ★★ TWO caveats for whoever edits this file next:
+  //   1. `vi.unstubAllGlobals()` is FILE-WIDE, not describe-scoped. It is safe
+  //      today only because this describe is the file's sole stubber; a future
+  //      file-level `beforeAll(() => vi.stubGlobal(...))` would be torn down by
+  //      the first test here and stay gone for the rest of the run.
+  //   2. Restoring matchMedia to ABSENT is safe for the current consumers
+  //      because `use-media-query.ts` guards `!window.matchMedia` — but
+  //      `use-theme.tsx` calls `window.matchMedia(...)` behind only a
+  //      `typeof window` check, so a test added to this file that renders the
+  //      theme provider would THROW. ★ Precisely: the teardown does not CAUSE
+  //      that — jsdom ships no `matchMedia` at all, so such a test throws in this
+  //      file regardless of position; the teardown merely restores that
+  //      pre-existing absence instead of leaving a stub lying around. Stub it in
+  //      that test rather than deleting this afterEach.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it("opens an off-canvas dialog drawer from the hamburger on a narrow viewport", () => {
     stubViewport(true); // matches SIDEBAR_NARROW_QUERY → mobile

@@ -1,4 +1,5 @@
 // src/app/use-scheduled-jobs.test.tsx — localStorage-backed hook tests.
+import { StrictMode } from "react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useScheduledJobs } from "./use-scheduled-jobs";
@@ -116,5 +117,47 @@ describe("useScheduledJobs (localStorage backend)", () => {
     const second = renderHook(() => useScheduledJobs({ config: null }));
     await waitFor(() => expect(second.result.current.jobs.length).toBe(1));
     expect(second.result.current.jobs[0].name).toBe("Persisted");
+  });
+});
+
+describe("useScheduledJobs — StrictMode mount re-set (§76)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("still applies the loaded jobs after StrictMode's remount", async () => {
+    // Seed one job through the public API so the second render has something
+    // to load. localStorage persists between the two renderHook calls.
+    const seed = renderHook(() => useScheduledJobs({ config: null }));
+    await waitFor(() => expect(seed.result.current.ready).toBe(true));
+    await act(async () => {
+      await seed.result.current.createJob({ name: "Daily", cadence: dailyCadence, enabled: true });
+    });
+    seed.unmount();
+
+    // StrictMode mounts → unmounts → remounts. `refresh()`'s promise resolves
+    // AFTER that cycle, so `mountedRef.current = true` in the mount effect body
+    // is what lets setJobs/setReady land at all.
+    //
+    // Delete that line from use-scheduled-jobs.ts and this fails: `ready` never
+    // becomes true, so the `waitFor` below times out — `setReady(true)` is
+    // gated on the same `mountedRef.current` check as `setJobs`, so both are
+    // suppressed together. That matters because in dev it means
+    // useScheduledJobRunner sees an empty list and no scheduled job ever fires.
+    //
+    // ★★★ `wrapper: StrictMode` is load-bearing — do NOT "simplify" it to
+    //     `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`. Passing
+    //     the component itself leaves nothing between the root and StrictMode;
+    //     composing it inside a wrapper function puts a fiber above it on the
+    //     same branch, and on a mount commit that silences the double invoke —
+    //     the test then passes with the pinned line DELETED and looks identical.
+    //     Measured for the sibling guard in use-storage-backend.test.tsx. The
+    //     rule, the React-internals reason and every measured edge live in ONE
+    //     place: `src/app/strictmode.meta.test.tsx`.
+    const { result } = renderHook(() => useScheduledJobs({ config: null }), {
+      wrapper: StrictMode,
+    });
+
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.jobs).toHaveLength(1);
+    expect(result.current.jobs[0].name).toBe("Daily");
   });
 });

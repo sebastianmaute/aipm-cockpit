@@ -37,6 +37,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |
 | `npm run test:coverage` | Vitest + v8 coverage report (BLOCKING floors: lines 92 / statements 89 / functions 91 / branches 80, plus per-engine globs in vitest.config.ts) |
+| `npm run test:shuffle` | Vitest at the SAME pinned seed as CI unit-tests-shuffled (BLOCKING) — reproduces an order-dependence failure locally |
 | `npm run e2e` | Playwright functional E2E (smoke + app nav + a11y), headless — the CI suite |
 | `npm run e2e:ui` | Playwright interactive UI mode |
 | `npm run e2e:smoke` | Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server |

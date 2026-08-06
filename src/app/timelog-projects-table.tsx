@@ -8,6 +8,7 @@ import { t, type Lang } from "./i18n";
 import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { INTERACTIVE } from "./interaction-styles";
+import { canLoadManagedProjects } from "./timelog-guards";
 import type { TimelogProjectRef } from "./timelog-match";
 import type { BudgetBucket } from "./types";
 
@@ -67,7 +68,7 @@ export function TimelogProjectsTable({
           </label>
           <button
             type="button"
-            disabled={syncBusy || isPopout || isMisconfigured || confirming}
+            disabled={!canLoadManagedProjects({ isPopout, syncBusy, confirming, isMisconfigured })}
             onClick={onLoadManagedProjects}
             className={`rounded-md border border-line px-2.5 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
           >

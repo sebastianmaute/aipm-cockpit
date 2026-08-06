@@ -1,4 +1,5 @@
 // src/app/use-operating-guides.test.tsx
+import { StrictMode } from "react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useOperatingGuides, builtinSeeds, reconcileBuiltins } from "./use-operating-guides";
@@ -96,5 +97,35 @@ describe("useOperatingGuides (localStorage backend)", () => {
     });
     expect(result.current.guides.some((g) => g.id === BUILTIN_GUIDE_ID)).toBe(true);
     expect(result.current.guides.some((g) => g.id === featureId)).toBe(true);
+  });
+});
+
+describe("useOperatingGuides — StrictMode mount re-set (§76)", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("still applies the loaded guides after StrictMode's remount", async () => {
+    // StrictMode mounts → unmounts → remounts. The mount effect's
+    // `mountedRef.current = true` is what makes the flag true again by the time
+    // `refresh()`'s promise resolves; with only the cleanup, every setGuides /
+    // setReady below it is suppressed for good.
+    //
+    // Delete `mountedRef.current = true` from use-operating-guides.ts and this
+    // test fails: `guides` stays [] and `ready` stays false.
+    //
+    // ★★★ `wrapper: StrictMode` is load-bearing — do NOT "simplify" it to
+    //     `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`. Passing
+    //     the component itself leaves nothing between the root and StrictMode;
+    //     composing it inside a wrapper function puts a fiber above it on the
+    //     same branch, and on a mount commit that silences the double invoke —
+    //     the test then passes with the pinned line DELETED and looks identical.
+    //     Measured for the sibling guard in use-storage-backend.test.tsx. The
+    //     rule, the React-internals reason and every measured edge live in ONE
+    //     place: `src/app/strictmode.meta.test.tsx`.
+    const { result } = renderHook(() => useOperatingGuides({ config: null }), {
+      wrapper: StrictMode,
+    });
+
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.guides.length).toBe(SEED_COUNT);
   });
 });

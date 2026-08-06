@@ -128,6 +128,44 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.8 — it fails to load a
                             # reporter module and errors at startup, which reads like a broken test run.
                             # Use `--reporter=dot`.
+                            # ★★ `onTestFailed` runs AFTER every `afterEach`, and `afterEach` is LIFO — by
+                            # the time it fires, vitest.setup.ts's RTL cleanup() and the test file's own
+                            # vi.clearAllMocks() have both already run, so the capture reads zeroed mocks
+                            # and an empty document.body. Measured, not theorised: a capture written the
+                            # obvious way printed `{"fetchCalls":0,"toastCalls":[],…}` on a run where the
+                            # fetch HAD fired and the toast HAD rendered — which would have falsely
+                            # CONFIRMED the already-suspected hypothesis with fabricated evidence. That is
+                            # worse than no capture: one that agrees with your prior is the one you stop
+                            # checking. The working pattern is a describe-scoped afterEach holding a
+                            # closure the test body assigns, guarded on ctx.task.result?.state === "fail"
+                            # — registered LAST, so it runs FIRST, while mocks and DOM are still live.
+                            # `timelog-panel.test.tsx` and `use-tasks-dedup.test.tsx` carry that pattern
+                            # with a warning comment (open-followups §73).
+                            # ★★★ A StrictMode test is VACUOUS-BUT-GREEN in the obvious shape. React's
+                            # double-invoke walk descends each branch to the topmost fiber FLAGGED FOR
+                            # PLACEMENT and fires there only if StrictMode is at or above it. On a first
+                            # mount the only placed fibers are the root's direct children, so nothing may
+                            # sit between the root and StrictMode on that branch: `wrapper: StrictMode` and
+                            # RTL's `reactStrictMode: true` satisfy that; composing it inside a wrapper
+                            # (`({children}) => <StrictMode>{children}</StrictMode>`) does NOT, and the test
+                            # then passes with the line it claims to pin DELETED — that shape is the likely
+                            # source of §85's "StrictMode single-invokes here" (the 2026-08-04 run's shape
+                            # was never recovered) and was measured vacuous for `use-storage-backend`; the
+                            # other two `mountedRef` re-sets simply shipped with no StrictMode test at all.
+                            # ★★ That is the MOUNT case only, and it is a corollary — the rule turns on
+                            # which fiber carries the PLACEMENT flag, which a keyed reorder also sets. Three
+                            # successive wordings of it shipped over-general, each measured at one shape and
+                            # written as if it held everywhere, so do NOT extend this summary by reasoning:
+                            # `src/app/strictmode.meta.test.tsx` states the rule in full and pins every edge
+                            # but one, which it flags as stated-not-pinned. Read it before writing a
+                            # StrictMode test, and mutation-test the guard.
+npm run test:shuffle        # vitest at the SAME pinned seed CI's unit-tests-shuffled uses (BLOCKING).
+                            # ★ Run this before pushing anything that adds or reorders tests — it is
+                            # the ONLY local reproduction of that gate. `--sequence.shuffle` as a bare
+                            # boolean shuffles BOTH file order and test order WITHIN a file, so it
+                            # catches intra-file order dependence (open-followups §75), not just
+                            # cross-file leakage. A red run here is deterministic and re-runnable;
+                            # the weekly random-seed job echoes its own seed for the same purpose.
 npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
                             # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
                             # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
@@ -264,9 +302,27 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
   BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
-  80/stmts 89 + per-engine globs in `vitest.config.ts`]) → build → e2e. All quality gates are ratchets and
-  carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
-  `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
+  80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
+  unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
+  false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
+  machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
+  dependence, open-followups §75]) → build → e2e. All quality gates are ratchets. ★★ The
+  `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
+  `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
+  **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
+  in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
+  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `unit-tests`,
+  `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
+  `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
+  sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
+  bypass block on whichever gate is actually red. One of them ATTACHED the reproduce command above
+  without running it, and the command refutes the sentence it was attached to. **Attach the command and
+  run it.** ★ "Ratchets" is loose too: only **file-size-ratchet**, **duplication-gate** and
+  **unit-tests**' coverage floors hold a baseline; every other quality gate is plain pass/fail.
+  A weekly `schedule` pipeline also runs
+  `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
+  its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
+  otherwise). (Phases 1-4 of the
   tech-debt roadmap are complete — gates flipped to blocking in Phase 4, MR !174.)
   New CI gate → also update this line.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
