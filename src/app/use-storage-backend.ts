@@ -88,8 +88,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setSteeringCommittee,
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
-    insights, setInsights,
-    documents, setDocuments,
+    insights, setInsights, documents, setDocuments,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents,
   } = useWorkspace();
@@ -247,8 +246,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
-    setInsights(workspace.insights);
-    setDocuments(workspace.documents ?? []);
+    setInsights(workspace.insights); setDocuments(workspace.documents ?? []);
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents);
     // Seed the session id-minter's high-water from the loaded set so the next

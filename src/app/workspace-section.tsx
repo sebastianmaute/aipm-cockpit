@@ -79,8 +79,7 @@ import {
   ActionsPanel,
   InsightsPanel,
   KnowledgePanel,
-  TimelogPanel,
-  DocumentsPanel,
+  TimelogPanel, DocumentsTabPanel,
 } from "./workspace-panels";
 import { baselineMilestoneTargets } from "./snapshot";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -222,15 +221,7 @@ export function WorkspaceSection({
     () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
     [setSettings],
   );
-  // ★ The whole context value is captured, not just the destructured slices:
-  // it is structurally a SUPERSET of `Workspace`, so it can be handed to the
-  // Documents preview as `ws` directly. That matters — the preview resolves
-  // `dataSection` blocks against every key in `EXPORT_SECTION_KEYS`, and a
-  // hand-assembled object would be a SECOND place to remember a new slice,
-  // whose failure mode is a section rendering silently EMPTY. Passing the
-  // context means a slice added to the provider is carried here for free.
-  const workspaceCtx = useWorkspace();
-  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights, documents, setDocuments } = workspaceCtx;
+  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights } = useWorkspace();
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
@@ -922,16 +913,7 @@ export function WorkspaceSection({
           </div>
         )}
 
-        {activeTab === "documents" && (
-          <div id="panel-documents" role="tabpanel" className={panelClass}>
-            <DocumentsPanel
-              lang={lang}
-              documents={documents}
-              setDocuments={setDocuments}
-              ws={workspaceCtx}
-            />
-          </div>
-        )}
+        {activeTab === "documents" && <DocumentsTabPanel className={panelClass} lang={lang} isPopout={isPopout} />}
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>

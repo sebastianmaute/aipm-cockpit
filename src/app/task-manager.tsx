@@ -291,8 +291,7 @@ function TaskManagerInner() {
     setTimelogLinks,
     setKnowledgeItems,
     insights,
-    setInsights,
-    setDocuments,
+    setInsights, setDocuments,
     settingsOverrides,
     setSettingsOverrides,
     setCalendarEvents,
@@ -1043,8 +1042,7 @@ function TaskManagerInner() {
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
-    setInsights(w.insights);
-    setDocuments(w.documents ?? []);
+    setInsights(w.insights); setDocuments(w.documents ?? []);
     setSettingsOverrides(w.settingsOverrides);
     setCalendarEvents(w.calendarEvents);
     // Version restore replaces the SAME project's data — RAISE the id-minter
