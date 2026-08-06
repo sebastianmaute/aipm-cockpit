@@ -242,6 +242,23 @@ describe("the workspace exporter's page is untouched", () => {
     expect([g.top, g.right, g.bottom, g.left]).toEqual(["720", "720", "720", "720"]);
   });
 
+  it("emits its <w:sectPr> byte-for-byte as it always has", async () => {
+    // ★★★ THE BYTE CONTRACT, stated as bytes. Every other assertion in this
+    // file reads PARSED attributes, which is right for meaning but blind to
+    // serialization: attribute order, indentation and whitespace could all
+    // change while every parsed test stayed green. The sectPr is now
+    // GENERATED from PAGE_GEOMETRY rather than written out as a literal, and
+    // this is what proves the generator reproduces the original literal
+    // exactly. Both source files are LF-only (verified), so "\n" is the real
+    // separator — on a CRLF checkout this would need "\r\n".
+    const expected =
+      `    <w:sectPr>\n` +
+      `      <w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>\n` +
+      `      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="0" w:footer="0" w:gutter="0"/>\n` +
+      `    </w:sectPr>`;
+    expect(await documentXml(buildDocx([]))).toContain(expected);
+  });
+
   it("still lays its tables out to 14520, inside its own page", async () => {
     // The exporter's OWN coupling: its tables must keep the widths they have
     // always had AND must sit inside the page it declares. The first assertion
