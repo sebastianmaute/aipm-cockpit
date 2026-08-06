@@ -119,8 +119,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates; all four button wirings DOM-pinned |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed, plus the pinned-seed blocking gate `unit-tests-shuffled` and a weekly random-seed sweep |
 | 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; both pinned |
-| 77 | The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project | found post-0.214.0 | M | open — ★★ both obvious fixes are WRONG (suppress-path strands it false; a state reset lands a render late, both effects run in one commit); needs ref+state |
-| 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | open — every later variance row then compares against nulls; fix `isFirstEver`, do NOT overload §77's flag |
+| 77 | ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ | found post-0.214.0 | M | **CLOSED** — identity (`loadedBackend === backend`) derived in RENDER, not a latch; ★★ needs the re-stamp in the suppress branch or it strands closed at all seven arm sites |
+| 78 | ~~A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — gates the CAPTURE, not `isFirstEver`; ★★ gating the flag would NOT have worked (`pickBaseline` falls back to the earliest row) |
 | 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
 | 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites; both pinned |
 | 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`, and `source` carries caller INTENT |
@@ -3795,7 +3795,7 @@ had the same shape — a question worth asking of every guard fix.
 
 ---
 
-## 77. The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project — open
+## 77. ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ — CLOSED
 
 `use-storage-backend.ts` publishes `workspaceLoaded`, set `true` at the end of `applyWorkspace` and
 **never set back to `false`**. `useSnapshots` gates auto-capture on it (as `workspaceReady`), which
@@ -3812,22 +3812,74 @@ sits beside:** the captured numbers are non-null and plausible, so nothing looks
 ★ **Pre-existing, not a regression.** Before the gate there was no check at all, so this path was
 already wrong; the fix narrowed the bug rather than introducing it.
 
-★★ **The two obvious fixes are both wrong, which is why this is deferred rather than done.**
+★★ **The two obvious fixes are both wrong**, which is why this stayed deferred for a release.
 (a) `setWorkspaceLoaded(false)` at the top of the load effect strands the flag `false` forever on the
 `suppressNextLoadRef` early-return path — the one project switches take — silently disabling capture
 for the rest of the session. (b) Resetting it anywhere in state loses the race anyway: both effects
 run in the SAME commit, and the capture effect reads the `workspaceReady` of the render it was
 scheduled from, so a reset lands one render too late.
 
-★ What would actually work: a **ref** carrying readiness (mutated synchronously when a load starts,
-so the capture effect reads the fresh value at the moment it runs) *plus* the existing state (to
-re-trigger the effect when it flips true). `useStorageBackend` is registered before `useSnapshots` in
-`task-manager.tsx`, so its effect body runs first and the ref is already `false` by the time capture
-is considered. Not attempted here — it is a storage-layer change and this was a bug-fix pass.
+### What closed it
+
+The flag is no longer a flag. State `loadedBackend` holds the backend the applied workspace came
+from, and the published boolean is **derived in render**: `loadedBackend !== null && loadedBackend
+=== backend`. Staleness became an inequality nobody has to remember to clear. The returned key is
+unchanged, so no consumer moved.
+
+★★ **This beats objection (b) rather than dodging it.** A state *reset* lands a render late; a
+render-*derived* value does not exist a render late — the same render that produces the new `backend`
+produces `workspaceLoaded === false`, and `useStorageBackend` is registered before `useSnapshots`, so
+capture never sees the stale value. The ref+state design this entry originally prescribed was not
+needed. Deriving in render was also forced by `react-hooks/set-state-in-effect` being fatal here.
+
+★★★ **Objection (a) is REAL and nearly shipped, reached by a different route.** The plain identity
+change reproduces it exactly. `applyWorkspace` is a plain render-scope function, so it stamps
+`loadedBackend` with the backend in the CURRENT render's closure — then the op flips
+`storageConfig`/`tursoProjectId`, the memo rebuilds, and the load effect early-returns on the suppress
+branch **without ever calling `applyWorkspace` again**. Gate stranded closed for the session. The
+close therefore also **re-stamps `setLoadedBackend(backend)` inside the suppress branch**. Reproduce
+the arm sites with `grep -rn "suppressNextLoadRef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+— **seven**, not six: six ops call `applyWorkspace` shortly BEFORE their set (five of the six on the
+immediately preceding line; `switchToProject` has two comment lines between, so do not grep for
+adjacency), and `onRequestStorageSwitch` instead SAVES the live workspace to the target.
+
+★★ So the invariant is **"render scope holds the workspace that BELONGS to this backend"**, not "a
+workspace from this backend was loaded" — `onRequestStorageSwitch` never loads anything, yet scope
+holds exactly the right data. The narrower wording reads as a lie on that route and invites someone
+to delete the re-stamp.
+
+★★ **Two tests, pinning opposite halves; neither alone covers BOTH.** Test 1 (a bare backend change
+CLOSES the gate) does catch this entry's original defect on its own — under the old latch it fails.
+Test 2 (a *suppressed* change RE-OPENS it) catches the regression the fix nearly introduced.
+Mutation-checked: deleting the re-stamp kills only test 2.
+★ Test 2 drives `onRequestStorageSwitch`, because `suppressNextLoadRef` is passed to the ops hooks as
+a dep and is NOT on the hook's return object — a test cannot arm it directly. ★★ Note what that does
+NOT cover: `onRequestStorageSwitch` is the one arm site of seven that never calls `applyWorkspace`,
+i.e. the one where the stale-stamp mechanism does not literally occur. The six ops that DO have that
+mechanism have no test. The paths converge observationally, so the fix generalises — but do not read
+test 2 as covering the six.
+
+★★ **The gate now depends on the `backend` memo being identity-stable across renders**, which nothing
+enforces. It holds today (`acquireToken` is `useCallback(…, [])`; `storageConfig` identity must
+already be stable or the load effect would loop). ★ The hazard is a fresh **`settings.storageConfig`**
+per render — NOT a fresh `settings`, which is harmless, since the memo keys on the nested field and an
+ordinary `{...settings}` carries the same reference. An earlier revision named the harmless one.
+
+★ **Deliberately NOT re-stamped:** the load effect's other two early-returns (the empty-load
+data-loss guard and the `catch`). A cold review read the guard as a regression; it is not. If the
+backend did not change the gate never closed, and if it did, the workspace the guard kept belongs to
+the PREVIOUS backend — so a shut gate is exactly right.
+
+★ **Residual, unreached:** the re-stamp is unconditional, so a *stale armed* ref would now open the
+gate rather than leaving it shut. ★ That is fail-open versus the **un-re-stamped intermediate version**
+(which never shipped), NOT versus the old code — the old one-way latch failed open too, which is this
+entry's whole subject. An earlier revision said "where the old code failed closed", contradicting the
+opening paragraph. All seven arm sites are followed by a memo-invalidating change, so it was not
+reachable on inspection.
 
 ---
 
-## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — open
+## 78. ~~A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE~~ — CLOSED
 
 `use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
 workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§77) is legitimately
@@ -3841,13 +3893,58 @@ Tuesday, and that week is stuck at the empty capture — and because the empty r
 every later variance row compares against nulls forever, not just that one week.
 
 ★ Pre-existing, and `workspaceReady` is behaving correctly by its own definition: it answers "has a
-load landed", not "is this project worth snapshotting". Do NOT overload it — that flag's contract is
-what makes §77's reasoning tractable.
+load landed", not "is this project worth snapshotting". It was NOT overloaded to close this — that
+flag's contract is what makes §77's reasoning tractable.
 
-★ The fix is on the other side: gate `isFirstEver` (or the auto-capture itself) on the workspace
-having content. Deliberately not done here, because "empty" needs defining — a project with one task
-and no budget legitimately produces null KPIs, so a naive `tasks.length > 0` test would still baseline
-a snapshot with no SPI/CPI. Recorded in the `workspaceReady` doc comment as a known exception.
+### What closed it
+
+Pure `hasCapturableContent(input)` in `snapshot.ts` — true when the project has at least one task, at
+least one milestone, or a non-null `model.burndown` — consulted by the auto-capture effect, which
+declines the write entirely.
+
+★★★ **Gating `isFirstEver` would NOT have closed this — the gate has to be on the CAPTURE.**
+`pickBaseline` falls back to the EARLIEST row when none carries `isBaseline`, so the empty capture
+would still have been the baseline, and `hasCurrent` would still have claimed the bucket, costing that
+period its real numbers regardless of the flag.
+★★ **This entry offered BOTH options and the second one was right** — the deleted text read *"gate
+`isFirstEver` (or the auto-capture itself) on the workspace having content"*. The wrong half is what
+got copied into the `use-snapshots.ts` doc comment, which named ONLY `isFirstEver`; that comment has
+been corrected. A draft of this closure claimed "the entry's own prescription was wrong" — it was not,
+and that sentence was itself a new falsehood written inside a correction. Check what the entry
+actually said before crediting it with an error.
+
+★★ It asks the question of the **INPUT**, not the built record, because an output-shaped test would
+refuse to snapshot a project with real scope but no budget yet.
+★ Be precise about which KPIs and why: `remainingHours`/`remainingCost` derive from `model.burndown`,
+which is non-null iff `budgets.length > 0` (`dashboard.ts`). `spi`/`cpi` do NOT — `computeEvm` reads
+task `originalEstimateMinutes`/`timeSpentMinutes`, no budget involved. An earlier revision attributed
+all four to the missing budget bucket; that is true of two.
+
+★ `captureNow` / `rebaselineNow` stay **ungated** — a manual capture is an explicit user act, and this
+entry is about the automatic one. They make the identical bucket claim, so an empty manual capture is
+reachable and allowed by design.
+
+★★★ **STILL OPEN, and this entry named it first: a project with one task and no budget still
+auto-captures a partial-KPI row, and that row still becomes the baseline.** The deleted text warned
+that *"a naive `tasks.length > 0` test would still baseline a snapshot with no SPI/CPI"* —
+`hasCapturableContent` IS that naive test. What closed is the ALL-null empty-project case (the
+`createTursoProject` shape); the partial-KPI case is unchanged. A draft of this closure recast the
+original objection as a different one and declared it answered — it is not. Whether it SHOULD be
+closed is a real question, not an oversight: a project with scope but no budget genuinely is in that
+state, so baselining it may be correct. Decide deliberately; do not assume §78 covered it.
+
+★★ **Residual, accepted:** nothing re-arms the declined bucket. The effect's deps are `[active,
+workspaceReady, cadence, currentBucket, args.projectId]` and adding the project's first task changes none
+of them, so a project created Monday and populated Tuesday has no auto row for that first period
+until a reload, a project switch, or a bucket rollover (which captures the NEW bucket, not the missed
+one). Strictly better than the bug — the bucket is not CLAIMED, so nothing is poisoned and the first
+real capture correctly becomes the baseline. Adding `tasks.length` as a dep would close it at the cost
+of re-running the effect on every task edit.
+
+★ **"Permanently" throughout this entry means "until a user deletes the row".** `useSnapshots` exports
+`deleteSnapshot`/`deleteSnapshots`, so a claimed bucket IS recoverable — the harm is that nothing
+prompts anyone to look, and a poisoned baseline silently skews every variance row until they do. The
+absolute wording is inherited from the original entry; it overstates by one step.
 
 ---
 
@@ -4234,6 +4331,52 @@ believing a severity label.
 Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
 it is, and because several entries are **negative results** — work already done that returned nothing,
 which is exactly the kind of thing that gets re-run.
+
+### post-0.215.0 — the snapshot baseline-poisoning slice (§77 · §78 closed)
+
+Triage slice 1 of the harm-ranked pass over this register. No version bump — no user-visible surface
+changed, only what the Trends auto-capture is willing to write.
+
+| was | what closed it |
+|---|---|
+| §78 empty project auto-captures, and that row is the BASELINE | pure `hasCapturableContent` in `snapshot.ts`; the auto-capture effect declines. Gates the CAPTURE, not `isFirstEver` — `pickBaseline`'s earliest-row fallback defeats gating the flag. ★ Only the ALL-null case closed; §78's partial-KPI case is still open, see its body |
+| §77 the capture gate is a one-way latch | `loadedBackend === backend` derived in RENDER, plus a re-stamp in the load effect's suppress branch |
+
+★★ **An entry's suggested fix is a hypothesis from the day it was written, not a finding** — this
+file has no gate over it. §77 prescribed ref+state; deriving in render is strictly stronger and
+simpler, and was forced anyway by fatal `react-hooks/set-state-in-effect`.
+★★★ **But CHECK what an entry actually said before crediting it with an error.** A draft of this
+block led with "both entries' own prescriptions were wrong". §78's did not: it read *"gate
+`isFirstEver` (or the auto-capture itself) on the workspace having content"* — the parenthesis is
+exactly what shipped. Only the IN-CODE comment derived from it named just the wrong half. **That
+sentence was a new falsehood written inside a correction of an old one**, in the block whose own
+lesson is that corrections are where falsehoods breed. A cold fact-check caught it; nothing else
+would have.
+
+★★★ **§77's own objection (a) came true against the fix that was supposed to avoid it.** The plain
+identity change strands the gate closed on the `suppressNextLoadRef` path — exactly the failure the
+entry named as disqualifying — because `applyWorkspace` is a plain render-scope function and stamps
+the PREVIOUS backend. It was caught by re-reading the entry's warning against the new code, *after*
+the change had been reported green. **A green suite is not a disproof of a documented hazard** when no
+test drives the hazardous path — and none did, which is why test 2 in §77 exists. When an entry names
+a failure mode as disqualifying, re-run that argument against whatever you replace it with.
+
+★★ The measured arm-site count is **seven**, not the six the plan assumed — `onRequestStorageSwitch`
+arms the ref without calling `applyWorkspace` at all. Reproduce with the grep in §77's body. The extra
+site strengthened the fix: it forced the invariant to be stated as "render scope holds the workspace
+that BELONGS to this backend" rather than the narrower "was loaded from it".
+
+★★ **TWO cold passes were needed, and they found disjoint things.** One over the CODE found no
+correctness defect but several inaccurate comments — including a ★★ rationale that was exactly
+backwards (it claimed a shared mock would make a test pass either way; it makes it FAIL either way)
+and a `file:line` citation **broken by the very hunk that wrote it**. Cite the SYMBOL. A second pass
+over the PROSE ALONE, run because this slice had just rewritten a lot of it, then found three false
+claims the code reviewer had read straight past — including the one retracted above. **Reviewing code
+and fact-checking prose are different jobs; a reviewer doing the first will not do the second.**
+
+★ In both passes, roughly one finding in six was itself wrong on analysis (the code reviewer read the
+empty-load guard's shut gate as a regression; a shut gate is correct there). That is the expected
+yield from a cold read — take the findings, re-derive each one, and say which you rejected.
 
 ### post-0.212.0 — the machine-unblocking slice (§2 closed · §58 half · §51 hardened)
 
