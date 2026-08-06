@@ -19,7 +19,17 @@
 // document-model.test.ts CANNOT FAIL, because that file imports the model
 // directly — the one path where the bug does not reproduce. That is exactly how
 // this shipped past 28 green tests. The bare `import "./storage"` below
-// establishes the cycle the way production does, and MUST come first.
+// establishes the cycle the way production does.
+//
+// ★★★ IT MUST STAY FIRST, AND HERE IS WHAT BREAKS IF IT MOVES — this is not a
+// tidiness preference. Imports evaluate in source order. With `./storage` first,
+// settings-types is still mid-evaluation when document-model's body runs (stack:
+// settings-types -> workspace -> document-model), which is the bug condition, so
+// a reverted module-level Set FAILS these tests. Move `./document-model` above
+// it and settings-types completes FIRST, the snapshot is correct, and every test
+// below PASSES WITH THE BUG FULLY REINTRODUCED — silently vacuous, the exact
+// failure mode this file exists to prevent. Both orders were measured, not
+// reasoned. Do not let an "organize imports" pass touch this line.
 import "./storage";
 
 import { describe, it, expect } from "vitest";
@@ -34,9 +44,23 @@ const BASE = {
 };
 
 describe("sanitizeProjectDocuments — under the storage import cycle", () => {
-  it("CONTROL: the section registry is populated on this import path", () => {
-    // If this fails, the test below proves nothing about the sanitizer — the
-    // registry itself never loaded and every key would fail for a second reason.
+  it("the section registry itself loaded (not a vacuity guard — see comment)", () => {
+    // What this PROVES: the registry module loaded and exports a populated array,
+    // so a failure below is about the sanitizer rather than a registry that never
+    // arrived at all.
+    //
+    // ★★★ WHAT IT DOES NOT PROVE, and do not read it as: it is NOT a vacuity
+    // guard for this file. It reads EXPORT_SECTION_KEYS at TEST-RUN time, long
+    // after every module has finished evaluating, so it is true regardless of
+    // evaluation ORDER — which is the only thing that decides whether the tests
+    // below can fail. It therefore detects NEITHER way this file can go silently
+    // vacuous: (a) the `import "./storage"` above being reordered, and (b) the
+    // settings-types -> workspace cycle being removed later. Nothing in this file
+    // can detect either; the order-independent guard is the source scan in
+    // document-model.test.ts ("never snapshots EXPORT_SECTION_KEYS at
+    // module-eval"). An earlier version of this comment called it a control and
+    // implied broader coverage than it has — a mislabelled guard is worse than no
+    // guard, because it stops the next person looking.
     expect(EXPORT_SECTION_KEYS.length).toBeGreaterThan(0);
     expect(EXPORT_SECTION_KEYS).toContain("tasks");
   });

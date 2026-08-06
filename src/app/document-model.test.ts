@@ -287,6 +287,31 @@ describe("sanitizeProjectDocuments", () => {
     const codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
     expect(codeOnly).not.toMatch(/DOMPurify|dompurify|\bwindow\b|\bdocument\b\s*\./);
   });
+
+  it("never snapshots EXPORT_SECTION_KEYS at module-eval", () => {
+    // ★★★ The section registry MUST be read at CALL time. A module-level
+    // `new Set(EXPORT_SECTION_KEYS)` captures an uninitialized binding when this
+    // module is reached through the settings-types -> workspace -> document-model
+    // import cycle, yielding an empty set frozen for the process lifetime — every
+    // dataSection block then silently dropped. That shipped once already.
+    //
+    // ★★ This scan and document-model.storage-cycle.test.ts are NOT redundant,
+    // and neither replaces the other:
+    //   - the storage-cycle test pins the CONSEQUENCE (a dataSection survives),
+    //     but only while its `import "./storage"` stays first and the cycle exists;
+    //   - this scan pins the SHAPE, and is order- and cycle-INDEPENDENT, so it
+    //     bites deterministically — including here, in the file whose direct-import
+    //     path can never reproduce the behaviour.
+    // ★ The scan alone would NOT catch a DIFFERENT way of snapshotting early
+    // (a lazily-memoized Set, an eval-time `.map`, a derived frozen array), which
+    // is why the behavioural test stays.
+    //
+    // Comments are stripped first, so the prose in document-model.ts that names
+    // this very pattern cannot false-positive. Measured, not assumed.
+    const src = readFileSync("src/app/document-model.ts", "utf8");
+    const codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(codeOnly).not.toMatch(/new Set\s*\(\s*EXPORT_SECTION_KEYS/);
+  });
 });
 
 describe("nextDocumentId", () => {
