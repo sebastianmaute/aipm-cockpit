@@ -15,6 +15,7 @@ import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
@@ -205,7 +206,23 @@ export function markdownToDocuments(md: string): ProjectDocument[] | undefined {
   const m = /## Documents\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
   try {
-    const docs = sanitizeProjectDocuments(JSON.parse(m[1]));
+    // ★★★ TWO PASSES, and the second one is not optional. sanitizeProjectDocuments
+    // is DOM-FREE BY CONTRACT, so it enforces STRUCTURE and cannot strip markup;
+    // sanitizeDocumentRichFields applies the paragraph HTML allow-list. Markdown
+    // and CSV were the only two of the six load paths missing this, which left
+    // the same document decoding to different in-memory HTML depending on the
+    // backend it came from — and a Markdown→JSON migration then WROTE the
+    // unfiltered markup into a backend that would have cleaned it.
+    // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
+    // SILENT. Measured both ways with the generator's exact arrangement: with
+    // JSDOM installed first, documents decode and come back sanitized; with no
+    // DOM the DOMPurify call throws, the catch below swallows it, and documents
+    // decode to UNDEFINED — dropped whole, no error, no diagnostic. Today the
+    // only DOM-free importer is scripts/generate-sample-workspace.ts, which
+    // installs JSDOM into globalThis BEFORE it dynamically imports
+    // src/app/storage (see its header). A NEW bare-node importer of this module
+    // must do the same or it will silently lose every document.
+    const docs = sanitizeProjectDocuments(JSON.parse(m[1])).map(sanitizeDocumentRichFields);
     return docs.length ? docs : undefined;
   } catch {
     return undefined;

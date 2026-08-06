@@ -118,6 +118,30 @@ describe("CSV codec — documents", () => {
     expect(roundTrip(tricky)?.blocks).toEqual(tricky.blocks);
   });
 
+  // ★★★ THE RICH-FIELD PASS. sanitizeProjectDocuments is DOM-FREE BY CONTRACT
+  // and therefore CANNOT strip markup — it enforces STRUCTURE only. CSV and
+  // Markdown were the only two of the six load paths that never chained
+  // sanitizeDocumentRichFields, so paragraph HTML came back unfiltered here
+  // while the same document loaded from JSON/IDB/Turso came back clean. Not a
+  // live XSS (the render sinks re-sanitize), but a real content divergence: a
+  // CSV→JSON migration would WRITE the unfiltered markup into a backend that
+  // would have cleaned it, and any future consumer reading `paragraph.html`
+  // directly turns it live.
+  it("runs the rich-field allow-list on load, not just the structural pass", () => {
+    const hostile: ProjectDocument = {
+      ...DOC,
+      blocks: [{ type: "paragraph", html: "<p>keep me</p><script>x()</script>" }],
+    };
+    const block = roundTrip(hostile)?.blocks[0];
+    expect(block?.type).toBe("paragraph");
+    const html = block?.type === "paragraph" ? block.html : "";
+    // ★ BOTH halves are required. `not.toMatch(/script/i)` alone is satisfied
+    // by html === "", which is exactly what a wrongly-wired sanitizeNoteHtml
+    // (KEEP_CONTENT:false) produces — a passing test over deleted prose.
+    expect(html).not.toMatch(/script/i);
+    expect(html).toContain("keep me");
+  });
+
   it("round-trips through the codec pair with the default neutralize flag", () => {
     // The assembler always passes `neutralize` explicitly, so the default
     // parameter is only reachable from a direct call.

@@ -58,7 +58,16 @@ describe("Markdown codec — documents", () => {
   // settingsOverrides/timelogLinks/steeringCommittee. Without this test the
   // `config === undefined` gate could be deleted and the suite stay green.
   it("emits nothing on the export path, even with documents present", () => {
-    expect(workspaceToMarkdown(wsWith([DOC]), defaultExportConfig)).not.toContain("## Documents");
+    const md = workspaceToMarkdown(wsWith([DOC]), defaultExportConfig);
+    expect(md).not.toContain("## Documents");
+    // Not just the heading: a partial break could suppress the marker and still
+    // emit the blob, which would leak document content into a file the user
+    // believes holds their task table.
+    expect(md).not.toContain("Deck");
+    // ★ The REAL gate is byte equality — an empty section or a stray separator
+    // passes both assertions above and still fails golden-workspace.test.
+    expect(md).toBe(workspaceToMarkdown(emptyWs(), defaultExportConfig));
+    expect(markdownToWorkspace(md).documents).toBeUndefined();
   });
 
   it("emits no Documents block when there are none", () => {
@@ -113,6 +122,31 @@ describe("Markdown codec — documents", () => {
     const md = workspaceToMarkdown(wsWith([tricky]));
     expect(fenceLines(md)).toBe(2);
     expect(markdownToWorkspace(md).documents?.[0].title).toBe("line one\n``` line two");
+  });
+
+  // ★★★ THE RICH-FIELD PASS. sanitizeProjectDocuments is DOM-FREE BY CONTRACT
+  // and therefore CANNOT strip markup — it enforces STRUCTURE only. Markdown
+  // and CSV were the only two of the six load paths that never chained
+  // sanitizeDocumentRichFields, so paragraph HTML came back unfiltered here
+  // while the same document loaded from JSON/IDB/Turso came back clean. Not a
+  // live XSS (the render sinks re-sanitize), but a real content divergence: a
+  // Markdown→JSON migration would WRITE the unfiltered markup into a backend
+  // that would have cleaned it, and any future consumer reading
+  // `paragraph.html` directly turns it live.
+  it("runs the rich-field allow-list on load, not just the structural pass", () => {
+    const hostile: ProjectDocument = {
+      ...DOC,
+      blocks: [{ type: "paragraph", html: "<p>keep me</p><script>x()</script>" }],
+    };
+    const md = workspaceToMarkdown(wsWith([hostile]));
+    const block = markdownToWorkspace(md).documents?.[0].blocks[0];
+    expect(block?.type).toBe("paragraph");
+    const html = block?.type === "paragraph" ? block.html : "";
+    // ★ BOTH halves are required. `not.toMatch(/script/i)` alone is satisfied
+    // by html === "", which is exactly what a wrongly-wired sanitizeNoteHtml
+    // (KEEP_CONTENT:false) produces — a passing test over deleted prose.
+    expect(html).not.toMatch(/script/i);
+    expect(html).toContain("keep me");
   });
 
   it("sanitizes on the way in — a corrupt entry is dropped", () => {
