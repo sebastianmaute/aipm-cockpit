@@ -14,6 +14,7 @@ import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
+import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
@@ -178,6 +179,34 @@ export function markdownToKnowledgeItems(md: string): KnowledgeItem[] | undefine
   try {
     const items = sanitizeKnowledgeItems(JSON.parse(m[1]));
     return items.length ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Documents persist as a fenced json blob, the knowledgeItems/insights
+ *  precedent — NOT a table. A document holds a nested block array, which
+ *  cannot survive a pipe-delimited row, and noteLog (the only JSON-in-cell
+ *  precedent in this repo) is deliberately absent from the markdown columns
+ *  entirely, so there is no table pattern to copy.
+ *
+ *  ★★ FENCE COLLISION is harmless BY CONSTRUCTION, not by luck. JSON.stringify
+ *  does not escape a backtick, so a user's title or paragraph HTML can carry a
+ *  literal triple-backtick — but {@link markdownToDocuments} only recognises a
+ *  closing fence at the START OF A LINE, and JSON.stringify escapes U+000A
+ *  inside a string as the two characters \ and n. No character a user can type
+ *  therefore puts a fence at column 0. Pinned by markdown-codecs.documents.test.ts,
+ *  which counts the column-0 fence lines rather than trusting the argument. */
+export function documentsToMarkdown(docs: readonly ProjectDocument[]): string {
+  return ["## Documents", "", "```json", JSON.stringify(docs, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToDocuments(md: string): ProjectDocument[] | undefined {
+  const m = /## Documents\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    const docs = sanitizeProjectDocuments(JSON.parse(m[1]));
+    return docs.length ? docs : undefined;
   } catch {
     return undefined;
   }
@@ -519,6 +548,14 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // so insight-less workspaces round-trip byte-identically.
   if (enabled("insights") && ws.insights && ws.insights.length)
     mdParts.push(insightsToMarkdown(ws.insights));
+  // Documents — STORAGE-ONLY, like settingsOverrides/timelogLinks/steering
+  // above: this function serves both the markdown storage backend and the
+  // user-facing markdown EXPORT, and a raw JSON blob fenced into the middle of
+  // a document someone means to read is not an export. Emitted only when
+  // present, so a document-less workspace serializes byte-for-byte as it did
+  // before the field existed (the golden fixtures pin those bytes).
+  if (config === undefined && ws.documents && ws.documents.length)
+    mdParts.push(documentsToMarkdown(ws.documents));
   const out = mdParts.join("\n");
   return out;
 }
