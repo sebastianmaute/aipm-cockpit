@@ -2503,6 +2503,9 @@ export const de: Record<TranslationKey, string> = {
   documentsUpdated: "Aktualisiert",
   documentsTitleLabel: "Titel",
   documentsFormat: "Dateiformat",
+  documentsActions: "Aktionen",
+  documentsCopySuffix: "{0} (Kopie)",
+  documentsNewTitle: "Unbenanntes Dokument",
   knowledgeModuleDesc: "Ein zentraler Ort, um alle Wissenslinks – Dokumente, Confluence-Seiten und Web-URLs – im Projekt zu sehen und zu verwalten.",
   // --- Feature-module descriptions (Settings -> Functions) ---
   dashboardModuleDesc: "Landing-Cockpit mit Zusammenfassung von Status, Fortschritt und dem, was Ihre Aufmerksamkeit braucht - aktivieren Sie es für einen schnellen Überblick bei jedem Öffnen des Projekts.",

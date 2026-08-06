@@ -2539,6 +2539,9 @@ const enUS = {
   documentsUpdated: "Updated",
   documentsTitleLabel: "Title",
   documentsFormat: "Download format",
+  documentsActions: "Actions",
+  documentsCopySuffix: "{0} (copy)",
+  documentsNewTitle: "Untitled document",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
   // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
   dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",

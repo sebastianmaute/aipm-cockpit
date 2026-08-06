@@ -37,6 +37,11 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
+/** ★ The pane's own key. NOT `aipm-cockpit:documents-size-full`, which belongs
+ *  to knowledge-panel.tsx — that feature was called "Documents" before the
+ *  Knowledge rename, so the near-miss is easy to write and impossible to see. */
+const SIZE_KEY = "aipm-cockpit:documents-pane-size";
+
 const seen: Record<string, unknown>[] = [];
 vi.mock("./documents-panel", () => ({
   DocumentsPanel: (props: Record<string, unknown>) => {
@@ -51,6 +56,9 @@ import { FiltersProvider } from "./filters-context";
 
 function renderTab(isPopout: boolean) {
   seen.length = 0;
+  // `test:shuffle` reorders tests within a file, so the size key one case
+  // seeds must not leak into the next.
+  window.localStorage.removeItem(SIZE_KEY);
   return render(
     <FiltersProvider>
       <WorkspaceProvider>
@@ -81,6 +89,41 @@ describe("DocumentsTabPanel — call-site wiring", () => {
     renderTab(false);
     await screen.findByTestId("documents-panel-stub");
     expect(seen.at(-1)).toMatchObject({ isReadOnly: false });
+  });
+
+  it("passes a REAL onResetSize — the reset-size control is not a false affordance", async () => {
+    // ★★ The toolbar has always drawn a reset-size button. The prop was
+    // optional, the panel fell back to `onResetSize ?? (() => {})`, and this
+    // call site never passed it — so the control was inert twice over. Nothing
+    // in documents-panel.test.tsx can catch that: it supplies the prop itself.
+    //
+    // ★★★ ASSERT WHAT IT DOES, NOT ITS TYPE. The prop is required now, so tsc
+    // already rejects an omission — and `typeof … === "function"` adds nothing
+    // beyond tsc, because the cheapest way to satisfy a required prop is the
+    // very `() => {}` placeholder this defect consisted of. Driving the handler
+    // and checking the persisted size is gone is the only assertion a
+    // placeholder fails.
+    renderTab(false);
+    await screen.findByTestId("documents-panel-stub");
+    // Seeded AFTER the render: `renderTab` clears the key so no case leaks into
+    // another under `test:shuffle`, and the handler's contract is to clear the
+    // persisted size whenever it is called — not only at mount.
+    window.localStorage.setItem(SIZE_KEY, JSON.stringify({ width: 900, height: 400 }));
+    (seen.at(-1)!.onResetSize as () => void)();
+    expect(window.localStorage.getItem(SIZE_KEY)).toBeNull();
+  });
+
+  it("renders the resizable pane the reset control resets", async () => {
+    // ★ The other half. A handler with nothing resizable behind it still does
+    // nothing — `useResizable`'s reset clears inline width/height on the
+    // element its ref is attached to, so that element has to exist and carry
+    // the `resize` affordance. Asserted on the rendered class rather than the
+    // constant's full text so it survives an unrelated token being added.
+    renderTab(false);
+    await screen.findByTestId("documents-panel-stub");
+    const pane = document.getElementById("panel-documents")!.firstElementChild;
+    expect(pane).not.toBeNull();
+    expect(pane!.className).toContain("resize");
   });
 
   it("passes the live workspace as `ws` and threads documents + setDocuments", async () => {

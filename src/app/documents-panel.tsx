@@ -15,7 +15,7 @@
 
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type Lang, t } from "./i18n";
-import { type ProjectDocument, nextDocumentId } from "./document-model";
+import { type ProjectDocument, nextDocumentId, MAX_TITLE_CHARS } from "./document-model";
 import type { Workspace } from "./workspace";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
@@ -33,18 +33,73 @@ import { INTERACTIVE } from "./interaction-styles";
 // i18n-free and side-effect-free, so they can be unit-tested directly and
 // composed to reproduce a same-tick collision without React in the loop.
 
+/** ★★★ TITLES CARRY AN ACCESSIBILITY INVARIANT, so this is not cosmetic.
+ *  `documents-list.tsx` builds every per-row control's accessible name as
+ *  `<verb> – <title>`, and the row-title selection button IS the bare title —
+ *  so two documents sharing a title give FIVE pairs of identical control names
+ *  (title · Download · Rename · Duplicate · Delete), the WCAG 2.4.6 failure
+ *  this repo qualifies row labels to avoid. Duplicate and create are the two
+ *  operations that produced one by construction: a copy inherited its source's
+ *  title, and every create used the same default.
+ *
+ *  ★★ Documents IS in the axe `A11Y_VIEWS` list, and the gate still cannot
+ *  reach this: it scans a STATICALLY SEEDED app and never clicks Duplicate or
+ *  New, so the collision does not exist at scan time. The unit tests below are
+ *  the only coverage — do not read a green axe run as covering it.
+ *
+ *  So the minting lives INSIDE the two transforms rather than at their call
+ *  sites. A call site that "declines to use the title parameter" is precisely
+ *  how the defect shipped — the parameter existed to allow a distinguishing
+ *  title and neither caller passed one. Here it cannot be forgotten.
+ *
+ *  Returns `base` when free, else `base 2`, `base 3`, … Comparison is EXACT
+ *  string equality, mirroring how the accessible names actually collide — a
+ *  looser (case-insensitive, trimmed) match would rename titles that never
+ *  collided in the a11y tree.
+ *
+ *  ★ Truncation to `MAX_TITLE_CHARS` happens on the BASE, not the result, so a
+ *  200-character title's copy cannot be cut back down to its source's exact
+ *  bytes by `sanitizeProjectDocuments` on the next load — which would restore
+ *  the very collision this removes.
+ *
+ *  ★ The loop terminates: every candidate has its suffix's single space at a
+ *  known distance from the end (the digit count of `n`), so two candidates for
+ *  different `n` always differ — either in that space's position or in the
+ *  digits themselves — and `prev` is finite. */
+export function uniqueDocumentTitle(prev: readonly ProjectDocument[], base: string): string {
+  const taken = new Set(prev.map((d) => d.title));
+  let candidate = base.slice(0, MAX_TITLE_CHARS);
+  for (let n = 2; taken.has(candidate); n++) {
+    const suffix = ` ${n}`;
+    candidate = base.slice(0, MAX_TITLE_CHARS - suffix.length) + suffix;
+  }
+  return candidate;
+}
+
 /** Append a new empty document. `title` and `now` are injected — no clock read
- *  here, so the result is a deterministic function of its inputs. */
+ *  here, so the result is a deterministic function of its inputs. `title` is a
+ *  BASE: it is uniquified against `prev` (see `uniqueDocumentTitle`). */
 export function appendDocument(
   prev: readonly ProjectDocument[],
   title: string,
   now: string,
 ): ProjectDocument[] {
-  return [...prev, { id: nextDocumentId(prev), title, blocks: [], createdAt: now, updatedAt: now }];
+  return [
+    ...prev,
+    {
+      id: nextDocumentId(prev),
+      title: uniqueDocumentTitle(prev, title),
+      blocks: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
 }
 
 /** Copy `id`'s document under a new id. A no-op when `id` is absent — the row
- *  may have been deleted by a concurrent writer between click and commit. */
+ *  may have been deleted by a concurrent writer between click and commit.
+ *  `title` is a BASE, uniquified against `prev` — the copy must never inherit
+ *  its source's exact title (see `uniqueDocumentTitle`). */
 export function duplicateDocument(
   prev: readonly ProjectDocument[],
   id: number,
@@ -53,7 +108,16 @@ export function duplicateDocument(
 ): ProjectDocument[] {
   const src = prev.find((d) => d.id === id);
   if (!src) return [...prev];
-  return [...prev, { ...src, id: nextDocumentId(prev), title, createdAt: now, updatedAt: now }];
+  return [
+    ...prev,
+    {
+      ...src,
+      id: nextDocumentId(prev),
+      title: uniqueDocumentTitle(prev, title),
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
 }
 
 /** Retitle exactly one document, stamping `updatedAt`. */
@@ -129,7 +193,14 @@ export interface DocumentsPanelProps {
   /** Popout mirrors are read-only: create/rename/duplicate/delete go inert.
    *  Every other pane guards this; without it a popout could mutate documents. */
   isReadOnly?: boolean;
-  onResetSize?: () => void;
+  /** ★★ REQUIRED, and deliberately so. It was optional with an
+   *  `onResetSize ?? (() => {})` fallback, and the one production call site
+   *  never passed it — so the toolbar drew a reset-size control that was inert
+   *  twice over: a no-op handler AND nothing resizable behind it. That is the
+   *  false affordance `SortResizeTh.onResize` is documented to avoid ("never
+   *  pass a no-op — it draws a grip that looks draggable and does nothing").
+   *  Required means tsc, not a reviewer, catches the next dropped call site. */
+  onResetSize: () => void;
 }
 
 const RENAME_TITLE_ID = "documents-rename-title";
@@ -185,12 +256,21 @@ export function DocumentsPanel({
 
   function handleCreate() {
     const now = new Date().toISOString();
-    setDocuments((prev) => appendDocument(prev, t(lang, "documentsNew"), now));
+    // ★★ `documentsNewTitle`, NOT `documentsNew`. The latter is the toolbar
+    // BUTTON's label; reusing it as the default title meant a freshly created
+    // document rendered a row-title button with that same accessible name, so
+    // the pane held two buttons called "New document". It also coupled two
+    // unrelated strings — retitling the button silently renamed new documents.
+    setDocuments((prev) => appendDocument(prev, t(lang, "documentsNewTitle"), now));
   }
 
   function handleDuplicate(doc: ProjectDocument) {
     const now = new Date().toISOString();
-    setDocuments((prev) => duplicateDocument(prev, doc.id, doc.title, now));
+    // ★ A distinguishing BASE, not the source's own title: the copy would
+    // otherwise be indistinguishable in every per-row control's accessible
+    // name. `uniqueDocumentTitle` resolves a repeat copy to "… (copy) 2".
+    const base = t(lang, "documentsCopySuffix", doc.title);
+    setDocuments((prev) => duplicateDocument(prev, doc.id, base, now));
   }
 
   function commitRename() {
@@ -218,7 +298,10 @@ export function DocumentsPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-col">
+    // `flex-1` so the pane the tabpanel wrapper now owns (the resizable card)
+    // is actually filled — without it the content sits at its natural height
+    // and the preview never gets a scroll box of its own.
+    <div className="flex min-h-0 flex-1 flex-col">
       <DocumentsToolbar
         lang={lang}
         onNew={handleCreate}
@@ -227,10 +310,10 @@ export function DocumentsPanel({
         format={format}
         onFormatChange={chooseFormat}
         onResetColumns={resetColWidths}
-        onResetSize={onResetSize ?? (() => {})}
+        onResetSize={onResetSize}
         isReadOnly={isReadOnly}
       />
-      <div className="flex min-h-0 flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         <DocumentsList
           lang={lang}
           documents={rows}

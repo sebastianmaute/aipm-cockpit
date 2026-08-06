@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import {
   DocumentsPanel,
   appendDocument,
@@ -8,7 +8,10 @@ import {
   renameDocument,
   removeDocument,
   sortDocuments,
+  uniqueDocumentTitle,
 } from "./documents-panel";
+import { MAX_TITLE_CHARS } from "./document-model";
+import { FOCUS_RING } from "./interaction-styles";
 import { ConfirmProvider } from "./confirm-dialog";
 import type { ProjectDocument } from "./document-model";
 import { emptyWorkspace } from "./workspace";
@@ -51,6 +54,7 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
     box.docs = typeof updater === "function" ? updater(box.docs) : updater;
   }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>;
   vi.mocked(downloadDocument).mockClear();
+  const onResetSize = vi.fn();
   const utils = render(
     <ConfirmProvider lang="en-US">
       <DocumentsPanel
@@ -58,10 +62,37 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
         documents={initial}
         setDocuments={setDocuments}
         ws={emptyWorkspace()}
+        onResetSize={onResetSize}
       />
     </ConfirmProvider>,
   );
-  return { box, ...utils };
+  return { box, onResetSize, ...utils };
+}
+
+/** ★★ The OTHER harness, and it is not interchangeable with `renderPanel`.
+ *  That one deliberately does NOT re-render, which is what makes the same-tick
+ *  collision reproducible — but it also means the DOM never shows the row a
+ *  create/duplicate just added. Every assertion about the RENDERED set of
+ *  accessible names therefore needs real state behind the setter. */
+function StatefulPanel({ initial }: { initial: readonly ProjectDocument[] }) {
+  const [docs, setDocs] = useState<readonly ProjectDocument[]>(initial);
+  return (
+    <ConfirmProvider lang="en-US">
+      <DocumentsPanel
+        lang="en-US"
+        documents={docs}
+        setDocuments={setDocs}
+        ws={emptyWorkspace()}
+        onResetSize={() => {}}
+      />
+    </ConfirmProvider>
+  );
+}
+
+/** Every button name currently rendered, asserted to be collision-free. */
+function expectNoDuplicateButtonNames() {
+  const names = buttonNames();
+  expect(new Set(names).size).toBe(names.length);
 }
 
 describe("documents-panel pure transforms", () => {
@@ -82,6 +113,55 @@ describe("documents-panel pure transforms", () => {
   it("duplicateDocument is a no-op for an id a concurrent writer removed", () => {
     const prev = [doc(1, "A")];
     expect(duplicateDocument(prev, 99, "x", NOW)).toEqual(prev);
+  });
+
+  // ★★★ TITLE UNIQUENESS. Every per-row control's accessible name is
+  // `<verb> – <title>`, so two equal titles are a WCAG 2.4.6 failure the axe
+  // gate structurally cannot see (it scans a single-row app). The UI cases
+  // further down drive this through real clicks; these pin the arithmetic.
+  it("uniqueDocumentTitle returns the base untouched when it is free", () => {
+    // ★ The control. Without it, a minter that ALWAYS appended " 2" would
+    // satisfy every collision assertion below while renaming innocent titles.
+    expect(uniqueDocumentTitle([doc(1, "A")], "B")).toBe("B");
+  });
+
+  it("uniqueDocumentTitle walks past every taken suffix, not just the first", () => {
+    const prev = [doc(1, "A"), doc(2, "A 2"), doc(3, "A 3")];
+    // A minter that only checked the base and stopped at " 2" returns "A 2",
+    // which is itself taken — the collision merely moves.
+    expect(uniqueDocumentTitle(prev, "A")).toBe("A 4");
+  });
+
+  it("uniqueDocumentTitle compares titles EXACTLY, not loosely", () => {
+    // Case and surrounding space are part of the accessible name, so "a" and
+    // "A " do not collide with "A" and must not be renamed.
+    const prev = [doc(1, "A")];
+    expect(uniqueDocumentTitle(prev, "a")).toBe("a");
+    expect(uniqueDocumentTitle(prev, "A ")).toBe("A ");
+  });
+
+  it("uniqueDocumentTitle keeps the result inside MAX_TITLE_CHARS", () => {
+    // ★ Otherwise sanitizeProjectDocuments truncates on the NEXT load and can
+    // cut the copy back to its source's exact bytes — restoring the collision
+    // this exists to remove. Truncation must bite the BASE, not the suffix.
+    const long = "x".repeat(MAX_TITLE_CHARS);
+    const out = uniqueDocumentTitle([doc(1, long)], long);
+    expect(out.length).toBeLessThanOrEqual(MAX_TITLE_CHARS);
+    expect(out).not.toBe(long);
+    expect(out.endsWith(" 2")).toBe(true);
+  });
+
+  it("appendDocument mints a title that does not collide with an existing one", () => {
+    const next = appendDocument([doc(1, "New document")], "New document", NOW);
+    expect(next[1].title).toBe("New document 2");
+  });
+
+  it("duplicateDocument never gives the copy its source's exact title", () => {
+    // ★ THE SHAPE THE OLD TEST COULD NOT REACH: it passed "A copy", a value
+    // the application never produced — the call site handed over `doc.title`.
+    const next = duplicateDocument([doc(1, "A", 3)], 1, "A", NOW);
+    expect(next[1].title).not.toBe("A");
+    expect(next[1].blocks).toHaveLength(3); // still a real copy
   });
 
   it("renameDocument retitles ONLY the targeted document", () => {
@@ -188,8 +268,76 @@ describe("DocumentsPanel", () => {
       expect(screen.getByRole("button", { name: `${verb} – Alpha` })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: `${verb} – Beta` })).toBeInTheDocument();
     }
-    const names = buttonNames();
-    expect(new Set(names).size).toBe(names.length);
+    expectNoDuplicateButtonNames();
+  });
+
+  // ★★★ THE CASE THE FIXTURE ABOVE STRUCTURALLY CANNOT REACH. Seeding
+  // Alpha/Beta pins that the names are QUALIFIED, never that anything keeps
+  // titles distinct — and nothing did: `handleDuplicate` passed the source's
+  // own `doc.title`, so one click produced two rows named "Steering update"
+  // and five pairs of identical control names (the four verbs plus the
+  // row-title selection button). Measured RED against the pre-fix code: the
+  // `getByRole` below threw "Found multiple elements with the role button and
+  // name Duplicate – Steering update" — i.e. it fails on the query, before it
+  // ever reaches the uniqueness assertion.
+  it("keeps every control name unique after DUPLICATING a row", () => {
+    render(<StatefulPanel initial={[doc(1, "Steering update"), doc(2, "Beta")]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate – Steering update" }));
+    expect(screen.getByRole("button", { name: "Duplicate – Steering update (copy)" })).toBeInTheDocument();
+    expectNoDuplicateButtonNames();
+  });
+
+  it("keeps every control name unique after duplicating the SAME row twice", () => {
+    // ★ The second click's base ("… (copy)") is itself taken by then, so a
+    // minter that only appended a fixed suffix collides on the second copy —
+    // the exact "the collision merely moves" failure.
+    render(<StatefulPanel initial={[doc(1, "Steering update")]} />);
+    const dup = () => screen.getByRole("button", { name: "Duplicate – Steering update" });
+    fireEvent.click(dup());
+    fireEvent.click(dup());
+    expect(screen.getByRole("button", { name: "Duplicate – Steering update (copy) 2" })).toBeInTheDocument();
+    expectNoDuplicateButtonNames();
+  });
+
+  it("keeps every control name unique after two CREATES", () => {
+    // Same defect on the other call site: every new document was titled with
+    // the same string, so two clicks collided.
+    render(<StatefulPanel initial={[]} />);
+    const create = screen.getByRole("button", { name: "New document" });
+    fireEvent.click(create);
+    fireEvent.click(create);
+    expect(screen.getByRole("button", { name: "Rename – Untitled document" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rename – Untitled document 2" })).toBeInTheDocument();
+    expectNoDuplicateButtonNames();
+  });
+
+  it("does not name a new document after the toolbar button that creates it", () => {
+    // ★ The row-title button's accessible name IS the title, so a default title
+    // equal to the toolbar's label puts two buttons called "New document" in
+    // one pane. `create` is re-queried by an EXACT name after the click, which
+    // is the assertion doing the work: a second match throws.
+    render(<StatefulPanel initial={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    expect(screen.getByRole("button", { name: "New document" })).toBeInTheDocument();
+    expectNoDuplicateButtonNames();
+  });
+
+  it("names the actions column header for what that column holds", () => {
+    // ★ It reused `documentsNew`, so a screen reader announced the
+    // Download/Rename/Duplicate/Delete column as "New document". axe passes
+    // that (a name exists); the name was simply wrong, which is why the
+    // NEGATIVE half below is the assertion that would have caught it.
+    renderPanel([doc(1, "Alpha")]);
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "New document" })).toBeNull();
+  });
+
+  it("gives the row-title button the house focus ring", () => {
+    // Asserted against the exported constant, not a class literal: the ring is
+    // the app-wide standard and there is no global :focus-visible rule, so a
+    // raw button without it is invisible to keyboard users.
+    renderPanel([doc(1, "Alpha")]);
+    expect(screen.getByRole("button", { name: "Alpha" }).className).toContain(FOCUS_RING);
   });
 
   it("shows the selected document's title above the preview", () => {
@@ -235,6 +383,7 @@ describe("DocumentsPanel", () => {
           documents={[doc(1, "Alpha")]}
           setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
           ws={emptyWorkspace()}
+          onResetSize={() => {}}
         />
       </ConfirmProvider>,
     );
@@ -278,6 +427,7 @@ describe("DocumentsPanel", () => {
           setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
           ws={emptyWorkspace()}
           initialFormat="pdf"
+          onResetSize={() => {}}
         />
       </ConfirmProvider>,
     );
@@ -357,6 +507,16 @@ describe("DocumentsPanel", () => {
     renderPanel([]);
     expect(screen.getByRole("button", { name: "Download" })).toBeDisabled();
   });
+
+  it("reaches onResetSize from the toolbar's reset-size control", () => {
+    // ★ The prop is REQUIRED now, but a required prop only guarantees a value
+    // is passed — not that the button is wired to it. It was previously
+    // optional with an `onResetSize ?? (() => {})` fallback, which would
+    // satisfy tsc and swallow every click.
+    const { onResetSize } = renderPanel([doc(1, "Alpha")]);
+    fireEvent.click(screen.getByRole("button", { name: "Reset back to the default size." }));
+    expect(onResetSize).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("DocumentsPanel — read-only (popout guard)", () => {
@@ -372,6 +532,7 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
           }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
           ws={emptyWorkspace()}
           isReadOnly
+          onResetSize={() => {}}
         />
       </ConfirmProvider>,
     );

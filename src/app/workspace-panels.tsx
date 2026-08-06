@@ -6,6 +6,8 @@
 import dynamic from "next/dynamic";
 import { PanelSkeleton } from "./skeleton";
 import { useWorkspace } from "./workspace-context";
+import { useResizable } from "./use-resizable";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import type { Lang } from "./i18n";
 
 const loading = () => <PanelSkeleton />;
@@ -130,21 +132,36 @@ export function DocumentsTabPanel({
   isPopout: boolean;
 }) {
   const ws = useWorkspace();
+  // ★★ The RESIZABLE PANE, and the reason the reset-size control is not a lie.
+  // The toolbar has always drawn one, but `onResetSize` was optional, the panel
+  // fell back to a no-op, and this call site never passed it — so the button
+  // was inert AND there was nothing resizable behind it. The pane lives HERE
+  // rather than inside the lazy panel so the storage key and the reset handler
+  // are minted at the same level as every other view's (Knowledge, Insights,
+  // History all render this exact `print-root + VIEW_PANE_RESIZABLE_CLASS` div
+  // inside their tabpanel wrapper). ★ The key is `documents-pane-size`, NOT
+  // `documents-size-full` — that one is already taken by knowledge-panel.tsx,
+  // whose feature was called "Documents" before the Knowledge rename.
+  const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:documents-pane-size");
   return (
     <div id="panel-documents" role="tabpanel" className={className}>
-      {/* ★★ `isReadOnly` is what makes the popout guard live. The panel's own
-          tests cannot catch it being dropped here — they render the component
-          directly and supply the prop themselves, so an unpassed prop is
-          invisible to every one of them. Pinned instead by the WIRING-level
-          test in workspace-panels.documents.test.tsx (mutation-proved: drop
-          this line and two of its four cases go red). */}
-      <DocumentsPanelLazy
-        lang={lang}
-        documents={ws.documents}
-        setDocuments={ws.setDocuments}
-        ws={ws}
-        isReadOnly={isPopout}
-      />
+      <div ref={paneRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
+        {/* ★★ `isReadOnly` is what makes the popout guard live, and
+            `onResetSize` is what makes the reset control live. The panel's own
+            tests cannot catch either being dropped here — they render the
+            component directly and supply the props themselves, so an unpassed
+            prop is invisible to every one of them. Pinned instead by the
+            WIRING-level test in workspace-panels.documents.test.tsx
+            (mutation-proved: drop a line and its cases go red). */}
+        <DocumentsPanelLazy
+          lang={lang}
+          documents={ws.documents}
+          setDocuments={ws.setDocuments}
+          ws={ws}
+          isReadOnly={isPopout}
+          onResetSize={resetPaneSize}
+        />
+      </div>
     </div>
   );
 }

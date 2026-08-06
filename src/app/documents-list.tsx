@@ -11,6 +11,7 @@ import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { type SortDir, SortResizeTh } from "./report-table";
+import { INTERACTIVE } from "./interaction-styles";
 
 /** Only these three carry an order a user could act on. The actions column
  *  holds controls — sorting it would be an affordance promising nothing. */
@@ -102,9 +103,15 @@ export function DocumentsList({
             {/* Non-sortable, non-resizable — a raw <th> with no handle, per the
                 convention for header cells with nothing to sort. The label is
                 sr-only because the column shows only icon-free action buttons
-                whose own names already say what they do. */}
+                whose own names already say what they do.
+                ★ Its OWN key. It read `documentsNew` ("New document"), so a
+                screen-reader user heard the column of Download/Rename/
+                Duplicate/Delete controls announced as "New document" — axe
+                passes it (a name exists), the name was simply wrong. That key
+                also doubles as the default document TITLE, so sharing it here
+                coupled two unrelated strings. */}
             <th className="px-3 py-2 font-medium">
-              <span className="sr-only">{t(lang, "documentsNew")}</span>
+              <span className="sr-only">{t(lang, "documentsActions")}</span>
             </th>
           </tr>
         }
@@ -121,7 +128,7 @@ export function DocumentsList({
                 type="button"
                 onClick={() => onSelect(doc.id)}
                 aria-current={doc.id === selectedId ? "true" : undefined}
-                className="text-left underline-offset-2 hover:underline"
+                className={`text-left underline-offset-2 hover:underline ${INTERACTIVE}`}
               >
                 {doc.title}
               </button>
