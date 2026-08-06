@@ -19,16 +19,39 @@
 // authored by a model that legitimately emits headings and tables and its prose
 // would vanish. sanitizeTemplateHtml keeps DOMPurify's default and unwraps the
 // tag, so the words survive. (It lives in ./sanitize-html — NOT ./note-log.)
+//
+// ★★ dataSection resolution is IMPORTED from ./doc-data-section, not written
+// here and not taken from ./doc-render-docx. This module backs the in-app
+// preview panel and the print path, so pulling the resolver out of the DOCX
+// renderer would drag the OOXML builders and the ZIP writer into a graph that
+// loads before anyone has clicked Download. doc-data-section imports only
+// export-sections, settings-types, workspace and i18n.
 
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { buildExportSections, type ExportSection } from "./export-sections";
+import { resolveDataSection } from "./doc-data-section";
 import { sanitizeTemplateHtml } from "./sanitize-html";
 import { htmlEscape, htmlCellWithBreaks, PRINT_STYLES } from "./download";
-import { defaultExportConfig, EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 
 export type DocHtmlMode = "preview" | "standalone";
+
+/** Standalone-only page styles, emitted AFTER PRINT_STYLES.
+ *
+ *  ★★★ THE ORDER IS LOAD-BEARING. `@page` declarations cascade like any others,
+ *  so for the same page context the LAST `size` wins. PRINT_STYLES is SHARED
+ *  with export.ts's workspace export, which legitimately wants A4 **landscape**
+ *  for its wide tables; a prose document wants portrait, so it is overridden
+ *  here rather than by editing the shared constant (which would silently
+ *  re-orient every workspace export). Interpolate this BEFORE PRINT_STYLES and
+ *  the document quietly prints landscape again — no test of mere string
+ *  presence would notice, which is why the suite asserts relative POSITION.
+ *
+ *  ★ Margins widen from the export's 10mm/8mm: prose set to the full A4 width
+ *  reads badly. No colours here — the palette stays entirely PRINT_STYLES'. */
+const DOCUMENT_PAGE_STYLES = `
+    @page { size: A4 portrait; margin: 18mm 16mm; }
+    .page-break { break-after: page; page-break-after: always; height: 0; }`;
 
 /** ONE table renderer for both the `table` block and a resolved dataSection.
  *
@@ -53,16 +76,6 @@ function tableHtml(
   return `<table>${cap}<thead><tr>${head}</tr></thead><tbody>\n${body}\n</tbody></table>`;
 }
 
-/** Resolve one dataSection key against the live workspace. Returns null when
- *  the section is empty — an empty section renders as nothing, not as a bare
- *  header with no rows under it. */
-function resolveSection(key: ExportSectionKey, ws: Workspace, lang: Lang): ExportSection | null {
-  const cfg = { ...defaultExportConfig };
-  for (const k of EXPORT_SECTION_KEYS) cfg[k] = k === key;
-  const found = buildExportSections(ws, cfg, lang).find((s) => s.key === key);
-  return found && found.rows.length > 0 ? found : null;
-}
-
 function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
   switch (block.type) {
     case "heading":
@@ -82,7 +95,11 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
       return tableHtml(block.columns, block.rows, block.caption);
 
     case "dataSection": {
-      const section = resolveSection(block.key, ws, lang);
+      // ★ null means the register is EMPTY, which is the normal state of a
+      // fresh project — render nothing at all. Emitting the <h2> and an empty
+      // table would make a new project sprout a stray "RAID" heading over
+      // nothing.
+      const section = resolveDataSection(block.key, ws, lang);
       if (!section) return "";
       return `<h2>${htmlEscape(section.title)}</h2>${tableHtml(section.columns, section.rows)}`;
     }
@@ -118,8 +135,7 @@ export function renderDocumentHtml(
 <head>
   <meta charset="utf-8"/>
   <title>${htmlEscape(doc.title)}</title>
-  <style>${PRINT_STYLES}
-    .page-break { break-after: page; page-break-after: always; height: 0; }
+  <style>${PRINT_STYLES}${DOCUMENT_PAGE_STYLES}
   </style>
 </head>
 <body>

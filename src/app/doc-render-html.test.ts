@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderDocumentHtml } from "./doc-render-html";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import { PRINT_STYLES } from "./download";
 
 // A Workspace has ~30 required slices and this renderer reads only the ones the
 // section builders touch, so one narrow cast beats constructing the whole shape.
@@ -161,8 +162,40 @@ describe("renderDocumentHtml — modes", () => {
     const html = renderDocumentHtml(doc([]), ws, "en-US", "standalone");
     expect(html).toContain("@page");
     expect(html).toMatch(/\.page-break\s*\{/);
-    // preview is a fragment: no document chrome at all.
-    expect(preview([])).not.toContain("@page");
+  });
+
+  it("preview is a bare fragment with no <style> block at all", () => {
+    // The absence that matters is the whole stylesheet, not just one rule: a
+    // fragment is injected into a page that already has its own styles.
+    const html = preview([{ type: "heading", level: 1, text: "x" }]);
+    expect(html).not.toContain("<style");
+    expect(html).not.toContain("@page");
+    expect(html).not.toContain("portrait");
+  });
+
+  it("standalone overrides the shared landscape @page with portrait", () => {
+    const html = renderDocumentHtml(doc([]), ws, "en-US", "standalone");
+    expect(html).toContain("size: A4 portrait");
+  });
+
+  // ★★★ The override works ONLY because it comes later in the cascade, so
+  // asserting that both strings are present would pass with the rules in the
+  // wrong order and the document silently printing landscape. Both checks below
+  // are guarded against the vacuous case where the anchor is missing entirely
+  // (indexOf returning -1 would make a naive `>` comparison trivially true).
+  it("emits the portrait override AFTER PRINT_STYLES, or the cascade loses", () => {
+    const html = renderDocumentHtml(doc([]), ws, "en-US", "standalone");
+
+    // Anchor 1: the shared constant, verbatim. Robust to its content changing.
+    const stylesAt = html.indexOf(PRINT_STYLES);
+    expect(stylesAt).toBeGreaterThan(-1);
+    expect(html.indexOf("size: A4 portrait")).toBeGreaterThan(stylesAt + PRINT_STYLES.length - 1);
+
+    // Anchor 2: the declaration actually being overridden. This is the one that
+    // states the cascade outcome — the last `size` for the page context wins.
+    const landscapeAt = html.indexOf("landscape");
+    expect(landscapeAt).toBeGreaterThan(-1);
+    expect(html.indexOf("portrait")).toBeGreaterThan(landscapeAt);
   });
 
   it("standalone shows the title in <title> and <h1>, escaped in both", () => {
