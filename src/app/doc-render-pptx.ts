@@ -89,6 +89,29 @@ function bulletMarker(ordered: boolean | undefined, index: number): string {
   return ordered ? `${index + 1}.` : "•";
 }
 
+/**
+ * Flatten one table cell onto a single line.
+ *
+ * ★★★ REQUIRED, and the reason is the degrade-to-text decision above. Cells
+ * are NOT newline-free: `export-sections` routes every rich column through
+ * `descriptionTextWithBreaks` (`richCell`), so a two-paragraph RAID
+ * description arrives here as a cell containing "\n". `pptxTextBox` splits its
+ * text on "\n" to emit one `<a:p>` per line — so an unflattened cell breaks
+ * its row in half and the trailing columns start a new line with no headers
+ * above them, silently destroying the column alignment that is the ONLY thing
+ * making a text-laid-out table readable.
+ *
+ * ★★ Collapsing to a space is normally the WRONG projection for an export a
+ * human reads — that is why `descriptionTextWithBreaks` exists at all. It is
+ * right HERE and only here, because the boundary cannot survive in a row that
+ * must stay one line; there is no cell to put a second line inside until a
+ * real DrawingML `<a:tbl>` primitive exists (the follow-up slice). Paragraph
+ * blocks are unaffected and still keep every boundary.
+ */
+function flattenCell(cell: string | number): string {
+  return String(cell).replace(/\s*[\r\n]+\s*/g, " ");
+}
+
 /** ONE table layout for both the `table` block and a resolved dataSection —
  *  kept shared rather than written twice, which is both the shape the BLOCKING
  *  jscpd gate flags and how the two drift apart on a later fix. */
@@ -98,9 +121,9 @@ function tableLines(
   caption?: string,
 ): string[] {
   const lines: string[] = [];
-  if (caption) lines.push(caption);
-  lines.push(columns.join(CELL_SEP));
-  for (const row of rows) lines.push(row.map((cell) => String(cell)).join(CELL_SEP));
+  if (caption) lines.push(flattenCell(caption));
+  lines.push(columns.map(flattenCell).join(CELL_SEP));
+  for (const row of rows) lines.push(row.map(flattenCell).join(CELL_SEP));
   return lines;
 }
 

@@ -350,6 +350,52 @@ describe("renderDocumentPptx — blocks", () => {
     expect(text.join("\n")).toContain("Top risks");
   });
 
+  it("keeps a row on ONE line when a cell contains a newline", async () => {
+    // ★★ REACHABLE, not theoretical: export-sections routes every rich column
+    // through descriptionTextWithBreaks (`richCell`), which emits "\n" at a
+    // block boundary — so a two-paragraph RAID description arrives as a cell
+    // with a newline in it. pptxTextBox splits its text on "\n" to make one
+    // <a:p> per line, so an unhandled cell newline breaks the row in half and
+    // the trailing columns start a new line with no headers above them. In a
+    // table laid out as TEXT, that silently destroys column alignment.
+    const text = await bodyText(
+      doc([
+        {
+          type: "table",
+          columns: ["Risk", "Owner"],
+          rows: [["line one\nline two", "Ana"]],
+        },
+      ]),
+    );
+    const row = text.find((l) => l.includes("line one"));
+    expect(row).toBeDefined();
+    expect(row).toContain("line two");
+    expect(row).toContain("Ana");
+    // No fragment may be left stranded on its own line.
+    expect(text).not.toContain("line two  |  Ana");
+    expect(text.some((l) => l.trim() === "line two")).toBe(false);
+  });
+
+  it("keeps a dataSection row on one line when a rich cell spans blocks", async () => {
+    const wsMultiline = {
+      tasks: [],
+      raid: [
+        {
+          id: 1,
+          title: "Vendor delay",
+          category: "Risk",
+          status: "Open",
+          description: "<p>first para</p><p>second para</p>",
+        },
+      ],
+    } as unknown as Workspace;
+    const text = await bodyText(doc([{ type: "dataSection", key: "raid" }]), wsMultiline);
+    const row = text.find((l) => l.includes("first para"));
+    expect(row).toBeDefined();
+    expect(row).toContain("second para");
+    expect(text.some((l) => l.trim() === "second para")).toBe(false);
+  });
+
   it("renders a table with no rows without emitting a stray blank line", async () => {
     const text = await bodyText(doc([{ type: "table", columns: ["Risk"], rows: [] }]));
     expect(text.join("\n")).toContain("Risk");
