@@ -490,10 +490,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("milestones", milestones, setMilestones, canSend);
   useBroadcastSync("changes", changes, setChanges, canSend);
   useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend);
+  useBroadcastSync("documents", documents, setDocuments, canSend);
   useBroadcastSync("activityLog", args.activityLog, args.setActivityLog, canSend);
-  // `project` (ProjectMeta | undefined) so a main-window project switch live-
-  // updates the read-only project header in popout windows. The generic handles
-  // the undefined case.
+  // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
+  // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, canSend);
 
   async function onPickStorageFile() {

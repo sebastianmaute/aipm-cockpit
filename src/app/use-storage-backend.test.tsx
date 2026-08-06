@@ -4,6 +4,7 @@ import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-types";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
+import type { ProjectDocument } from "./document-model";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
@@ -815,6 +816,40 @@ describe("useStorageBackend — Change Log persistence", () => {
     renderBackend();
     const kinds = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
     expect(kinds).toContain("changes");
+  });
+});
+
+// ── Documents broadcast sync (cross-tab data loss) ───────────────────────────
+// The save effect writes the WHOLE workspace on any slice change. A tab that
+// never hears about another tab's document create keeps its own stale (empty)
+// `documents` and writes it back over the other tab's work on its next save.
+// Registering the channel is what stops that, so the assertion below is that an
+// incoming `documents` message actually LANDS IN STATE — not merely that some
+// channel was registered.
+describe("useStorageBackend — documents broadcast sync", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("applies an incoming `documents` broadcast into workspace state", () => {
+    const { result } = renderBackend();
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.documents).toHaveLength(0);
+
+    const call = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls
+      .find((c) => c[0] === "documents");
+    if (!call) throw new Error("no `documents` channel is registered with useBroadcastSync");
+
+    // c[2] is `applyIncoming` — the setter the real hook calls on a message from
+    // another tab. Driving it directly proves the registered setter is wired to
+    // the live `documents` state and not, say, a stub or the wrong slice.
+    const applyIncoming = call[2] as (next: readonly ProjectDocument[]) => void;
+    act(() => {
+      applyIncoming([{ id: 5, title: "Kickoff deck" } as ProjectDocument]);
+    });
+
+    expect(result.current.documents.map((d) => d.title)).toEqual(["Kickoff deck"]);
   });
 });
 
