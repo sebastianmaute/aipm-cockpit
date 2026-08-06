@@ -13,11 +13,11 @@
 // `Dispatch<SetStateAction<…>>`), so `documents-panel.test.tsx` pins it by
 // driving two creates through one setter with no intervening render.
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type Lang, t } from "./i18n";
 import { type ProjectDocument, nextDocumentId } from "./document-model";
 import type { Workspace } from "./workspace";
-import { DocumentsToolbar } from "./documents-toolbar";
+import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { DocumentPreview } from "./document-preview";
 import { downloadDocument, type DocFormat } from "./document-download";
@@ -87,6 +87,32 @@ export function sortDocuments(
   return dir === "desc" ? sorted.reverse() : sorted;
 }
 
+// --- per-device download format -------------------------------------------
+//
+// ★★ The pane is CONDITIONALLY RENDERED by the shell (`workspace-section`
+// renders only the active tabpanel), so it unmounts on every view switch and
+// all of its useState resets. Column widths already survive that via
+// localStorage; an explicitly-CHOSEN download format has to as well, or the
+// user picks PPTX, visits another view, comes back to a select still reading
+// "DOCX", and downloads the wrong file type with nothing to indicate it. This
+// deliberately reuses the same mechanism (`aipm-cockpit:`-namespaced
+// localStorage) rather than introducing a second one — and the key is inside
+// the app namespace so `clearAppConfig` sweeps it.
+const FORMAT_KEY = "aipm-cockpit:documents-format";
+
+/** ★ The stored payload is UNTRUSTED — validated against `DOC_FORMATS`, not
+ *  cast. An unvalidated value would flow straight into `downloadDocument` as a
+ *  `DocFormat` and select whatever its fallback branch happens to be. */
+function readStoredFormat(fallback: DocFormat): DocFormat {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(FORMAT_KEY);
+    return DOC_FORMATS.some((f) => f.value === raw) ? (raw as DocFormat) : fallback;
+  } catch {
+    return fallback; // private mode / storage disabled — never fatal
+  }
+}
+
 // --- component ------------------------------------------------------------
 
 export interface DocumentsPanelProps {
@@ -117,7 +143,23 @@ export function DocumentsPanel({
   isReadOnly,
   onResetSize,
 }: DocumentsPanelProps) {
-  const [format, setFormat] = useState<DocFormat>(initialFormat);
+  // Lazy initialiser: reads storage ONCE at mount, never during a render body
+  // (the react-hooks purity rule) and never in an effect (`set-state-in-effect`
+  // is banned).
+  const [format, setFormat] = useState<DocFormat>(() => readStoredFormat(initialFormat));
+
+  // ★ Persist on CHOICE, in the handler — never from an effect. An effect would
+  // fire on mount too and write back a value the user never picked, which is
+  // exactly how the column-width v1 blob ended up storing a defaults snapshot
+  // for every table anyone merely LOOKED AT (see use-column-resize's note).
+  const chooseFormat = useCallback((next: DocFormat) => {
+    setFormat(next);
+    try {
+      window.localStorage.setItem(FORMAT_KEY, next);
+    } catch {
+      // Storage unavailable — the choice still applies for this session.
+    }
+  }, []);
   const [sort, setSort] = useState<{ key: DocumentSortKey; dir: SortDir }>({ key: "title", dir: "off" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [renaming, setRenaming] = useState<{ id: number; draft: string } | null>(null);
@@ -183,7 +225,7 @@ export function DocumentsPanel({
         onDownload={() => { if (selected) downloadDocument(selected, format, ws, lang); }}
         canDownload={selected !== null}
         format={format}
-        onFormatChange={setFormat}
+        onFormatChange={chooseFormat}
         onResetColumns={resetColWidths}
         onResetSize={onResetSize ?? (() => {})}
         isReadOnly={isReadOnly}

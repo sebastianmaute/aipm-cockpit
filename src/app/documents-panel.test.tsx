@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { Dispatch, SetStateAction } from "react";
 import {
@@ -19,6 +19,15 @@ import { downloadDocument } from "./document-download";
 // and the module has its own suite. Here we only pin that the panel calls it
 // with the right document and format.
 vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
+
+// ★★ REQUIRED, not hygiene: the panel now PERSISTS the chosen format to
+// localStorage, so without this the format test leaks "pptx" into every later
+// test that asserts the docx default — and `test:shuffle` reorders tests WITHIN
+// a file, so the failure would be intermittent and seed-dependent rather than
+// reproducible.
+beforeEach(() => {
+  window.localStorage.clear();
+});
 
 const NOW = "2026-08-06T00:00:00.000Z";
 
@@ -274,6 +283,42 @@ describe("DocumentsPanel", () => {
       );
     },
   );
+
+  it("KEEPS the chosen format across a view switch (unmount + remount)", () => {
+    // ★★★ THE ASSERTION WHOSE ABSENCE SHIPPED THE BUG. The shell renders only
+    // the active tabpanel, so leaving the view UNMOUNTS this pane and every
+    // useState resets. Nothing else in the suite unmounts, so every other test
+    // passes with the format reverting to docx on each visit — the user picks
+    // PPTX, goes to Gantt, comes back, and silently downloads a .docx.
+    const first = renderPanel([doc(1, "Alpha")]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Download format" }), {
+      target: { value: "pptx" },
+    });
+    first.unmount();
+
+    renderPanel([doc(1, "Alpha")]);
+    expect(screen.getByRole("combobox", { name: "Download format" })).toHaveValue("pptx");
+    // And it must reach the DOWNLOAD, not merely repaint the control: a restore
+    // that fixed the select but not the state would look identical here.
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pptx", expect.anything(), "en-US");
+  });
+
+  it("ignores a corrupt stored format rather than passing it through", () => {
+    // ★ The stored payload is untrusted. Without validation the raw string is
+    // cast to DocFormat and reaches downloadDocument.
+    //
+    // ★★★ ASSERT AT THE DOWNLOAD, NOT THE SELECT. Measured: with validation
+    // REMOVED, `expect(combobox).toHaveValue("docx")` still PASSED — a <select>
+    // whose value matches no <option> falls back to option 0 in the DOM, so the
+    // control reads "DOCX" while "exe" sits in state and goes on to the
+    // renderer. The select's own fallback masks exactly the bug this test
+    // exists to catch, so the only honest assertion is what reaches the module.
+    window.localStorage.setItem("aipm-cockpit:documents-format", "exe");
+    renderPanel([doc(1, "Alpha")]);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "docx", expect.anything(), "en-US");
+  });
 
   it("passes the picked format to a ROW download too", () => {
     // The row controls share the toolbar's format; without this a picker that

@@ -40,6 +40,9 @@ export interface DocumentsListProps {
   onDuplicate: (doc: ProjectDocument) => void;
   onDelete: (doc: ProjectDocument) => void;
   onDownload: (doc: ProjectDocument) => void;
+  /** Popout mirrors are read-only: rename/duplicate/delete go inert. Download
+   *  and selection stay live — neither mutates the workspace. */
+  isReadOnly?: boolean;
 }
 
 export function DocumentsList({
@@ -56,6 +59,7 @@ export function DocumentsList({
   onDuplicate,
   onDelete,
   onDownload,
+  isReadOnly,
 }: DocumentsListProps) {
   if (documents.length === 0) {
     return <EmptyState title={t(lang, "documentsNoneYet")} />;
@@ -148,6 +152,7 @@ export function DocumentsList({
                   variant="secondary"
                   size="xs"
                   onClick={() => onRename(doc)}
+                  disabled={isReadOnly}
                   aria-label={`${t(lang, "documentsRename")} – ${doc.title}`}
                 >
                   {t(lang, "documentsRename")}
@@ -156,6 +161,7 @@ export function DocumentsList({
                   variant="secondary"
                   size="xs"
                   onClick={() => onDuplicate(doc)}
+                  disabled={isReadOnly}
                   aria-label={`${t(lang, "documentsDuplicate")} – ${doc.title}`}
                 >
                   {t(lang, "documentsDuplicate")}
@@ -164,6 +170,7 @@ export function DocumentsList({
                   variant="destructive"
                   size="xs"
                   onClick={() => onDelete(doc)}
+                  disabled={isReadOnly}
                   aria-label={`${t(lang, "documentsDelete")} – ${doc.title}`}
                 >
                   {t(lang, "documentsDelete")}
