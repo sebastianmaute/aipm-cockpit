@@ -127,14 +127,35 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
   ]);
 
+  // ★★★ IDENTITY, NOT A LATCH (open-followups §77). This holds the BACKEND the
+  // applied workspace came from, and the published boolean is derived from it
+  // below. A boolean flag had to be RESET by whoever started the next load, and
+  // nobody did — so a mid-session backend switch re-ran the load with the gate
+  // still open over the PREVIOUS project's data, and snapshot capture could
+  // write it into the new project's bucket. An inequality cannot be forgotten.
+  // ★ Derived in RENDER, not an effect: `react-hooks/set-state-in-effect` is a
+  // fatal lint error in this repo, and there is nothing to store anyway.
+  // ★ Typed, not `unknown`: the only meaningful comparison is against `backend`,
+  // and `unknown` would let a future `loadedBackend === someString` typo compile.
+  const [loadedBackend, setLoadedBackend] = useState<ReturnType<typeof createBackend> | null>(null);
+  // ★ NOT the same question as `storageReady`. That one is `backend.isReady()`
+  // — "can this backend be talked to" — and it is set even on the load-error
+  // path, where render scope holds no workspace for this backend at all. This
+  // one is about render scope, which is what a consumer reading live entity
+  // state actually needs.
+  //
+  // ★★ The invariant is "render scope holds the workspace that BELONGS to this
+  // backend" — deliberately NOT the narrower "a workspace from this backend has
+  // been loaded". `onRequestStorageSwitch` SAVES the live workspace to the
+  // target and never reads from it, so nothing was ever loaded, yet scope holds
+  // exactly the right data. Wording this as "loaded" reads as a lie on that
+  // route and invites someone to "correct" the suppress-path re-stamp below.
+  // ★ The `backend` memo's deps include `tursoProjectId`, so this also closes
+  // across a project switch — the same hazard seen from the other side.
+  const workspaceLoaded = loadedBackend !== null && loadedBackend === backend;
+
   // Storage status
   const [storageReady, setStorageReady] = useState(false);
-  // ★ NOT the same question as `storageReady`. That one is `backend.isReady()`
-  // — "can this backend be talked to" — and it is also set on the load-error
-  // and suppressed-load paths, where no workspace was applied at all. This one
-  // means "a workspace has been applied to render scope", which is what a
-  // consumer reading live entity state actually needs.
-  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [storageDescription, setStorageDescription] = useState<string | null>(null);
 
   // Suppresses the save effect that fires immediately after a load
@@ -259,9 +280,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Side-effecting (mutates module state) — safe here inside the load callback,
     // never a render body.
     seedMintFromWorkspace(workspace, seedMode);
-    // Publishes "render scope now holds real project data". Snapshot capture
-    // gates on this: it is the ONLY thing separating a KPI capture from the
-    // boot race against this very load (see useSnapshots `workspaceReady`).
+    // Records WHICH backend this workspace came from; the published
+    // `workspaceLoaded` above is derived from it. Snapshot capture gates on
+    // that: it is the ONLY thing separating a KPI capture from the boot race
+    // against this very load (see useSnapshots `workspaceReady`).
     // ★★ Set LAST. Today no consumer can observe it true beside an empty slice
     // whatever the position, because React auto-batches this whole callback into
     // ONE commit — so under the CURRENT code no test can distinguish last from
@@ -275,7 +297,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // capture writes a null-KPI row that permanently claims its bucket.
     // ★ An earlier revision of this comment asserted the opposite (that a
     // flushSync would defeat the ordering) and invited the first-line move.
-    setWorkspaceLoaded(true);
+    setLoadedBackend(backend);
   };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
@@ -318,6 +340,38 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     (async () => {
       if (suppressNextLoadRef.current) {
         suppressNextLoadRef.current = false;
+        // ★★★ open-followups §77. The op that set this ref ALREADY put the right
+        // workspace in render scope for what is now the current backend — the
+        // six ops call `applyWorkspace` shortly before their set, and
+        // `onRequestStorageSwitch` instead SAVES the live workspace to the
+        // target. But all seven do that BEFORE flipping `storageConfig` /
+        // `tursoProjectId`, and `applyWorkspace` is a plain render-scope
+        // function (cite the SYMBOL — a line number here was already broken by
+        // the commit that wrote it), so it stamped `loadedBackend` with the
+        // PREVIOUS backend identity and the derived gate reads false. Re-stamp
+        // here or the gate strands CLOSED for the rest of the session, silently
+        // disabling snapshot capture. ★ Enumerate the arm sites rather than
+        // trusting a prose list — they are `switchToProject`, `createProject`,
+        // `loadProjectFromFile`, `createDemoProject`, `switchToTursoProject`,
+        // `createTursoProject` and `onRequestStorageSwitch`, i.e. every project
+        // switch and create, opening from file, the demo seed AND the
+        // storage-KIND conversion. That is the exact failure mode that
+        // disqualified the obvious `setWorkspaceLoaded(false)` fix, reached by
+        // another route.
+        // ★ Only this deliberate "already applied" path re-opens the gate. A
+        // backend change with NO suppress flag still leaves it shut until the
+        // real load lands and calls `applyWorkspace`, which is the property §77
+        // needs.
+        // ★★ The load effect's OTHER two early-returns — the empty-load
+        // data-loss guard and the `catch` — deliberately do NOT re-stamp, and a
+        // cold review read the guard's case as a regression. It is not. If the
+        // backend did not change, `loadedBackend === backend` already holds and
+        // the gate never closed. If it DID change, the workspace the guard just
+        // kept belongs to the PREVIOUS backend, so a shut gate is exactly right
+        // — capturing there would write the old project's numbers into the new
+        // one, which is the whole bug §77 describes. Do not "fix" this by
+        // re-stamping there.
+        setLoadedBackend(backend);
         await refreshBackendStatus();
         return;
       }
