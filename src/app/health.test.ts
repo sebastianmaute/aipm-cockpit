@@ -747,9 +747,10 @@ describe("formatHealthTooltip", () => {
   //    it until a mutation pass found the hole. `HealthDriver` gaining "closed"
   //    forces a `Record` entry, so tsc catches a MISSING key — it cannot catch a
   //    WRONG one. Setting `closed: "healthDriverCancelled"` in health.ts left
-  //    106 tests green while restoring §65's exact defect (the ✕ glyph beside an
-  //    announcement that names a different state). `formatHealthTooltip` is what
-  //    the user actually reads, via task-row.tsx and task-kanban-card.tsx.
+  //    THIS FILE AND ITS SIBLINGS ENTIRELY GREEN while restoring §65's exact
+  //    defect (the ✕ glyph beside an announcement naming a different state).
+  //    `formatHealthTooltip` is what the user actually reads, via task-row.tsx
+  //    and task-kanban-card.tsx.
   //    ★ `./i18n` is mocked in this file so `t()` returns the KEY — assert on
   //      keys here, never on English.
   it("announces a closed-but-undelivered task as closed, not completed or cancelled", () => {

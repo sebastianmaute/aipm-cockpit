@@ -38,8 +38,9 @@ const stub = vi.hoisted(() => ({
 // ★★ importOriginal, NOT a bare factory. This module also exports
 // `hasNoActiveScope`, which the hook calls to decide whether a project has a
 // completion figure at all; a bare factory listing only the two heavy functions
-// leaves it undefined, and the two tests that build rows from a successful load
-// die with "not a function" (the other two never reach it). Keep the REAL
+// leaves it undefined, and every test that builds a row from a successful load
+// dies with "not a function" — four of the six here (reproduce: the tests that
+// set a project to "ok"); the other two never reach it. Keep the REAL
 // predicate — a hand-written stub of it is a second copy of the very expression
 // `task-closed.ts` exists to stop people copying.
 vi.mock("./dashboard", async (orig) => ({
