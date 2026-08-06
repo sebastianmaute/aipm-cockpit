@@ -86,6 +86,14 @@ describe("BrowserBackend — documents", () => {
     expect(await idbGet(KV_DOCUMENTS_KEY)).toBeUndefined();
   });
 
+  it("never writes the KV key for a workspace that never had documents", async () => {
+    // Distinct from the case above: that one proves a WRITTEN key is removed,
+    // this one proves a save on a virgin DB does not create the slot at all.
+    await new BrowserBackend().save(wsWith());
+
+    expect(await idbGet(KV_DOCUMENTS_KEY)).toBeUndefined();
+  });
+
   it("runs BOTH sanitizers on load — structural first, then the HTML allow-list", async () => {
     // A hostile/corrupt blob written straight into the KV slot, as an import or
     // a second tab could leave behind. Each defect is caught by exactly ONE of
@@ -97,8 +105,14 @@ describe("BrowserBackend — documents", () => {
         blocks: [
           // Only sanitizeProjectDocuments drops an unknown block type.
           { type: "totallyBogus", payload: "keep me" },
-          // Only sanitizeDocumentRichFields (DOMPurify) strips the script.
-          { type: "paragraph", html: "<p>Hello</p><script>alert(1)</script>" },
+          // Only sanitizeDocumentRichFields (DOMPurify) strips the script. The
+          // surrounding prose and its markup must SURVIVE — asserting merely
+          // that "script" is gone would be satisfied by html === "", which is
+          // what a wrongly-wired KEEP_CONTENT:false sanitizer produces.
+          {
+            type: "paragraph",
+            html: "<p>Hello <strong>world</strong></p><script>alert(1)</script>",
+          },
         ],
         createdAt: "2026-08-06T00:00:00.000Z",
         updatedAt: "2026-08-06T00:00:00.000Z",
@@ -113,7 +127,7 @@ describe("BrowserBackend — documents", () => {
       {
         id: 3,
         title: "Injected",
-        blocks: [{ type: "paragraph", html: "<p>Hello</p>" }],
+        blocks: [{ type: "paragraph", html: "<p>Hello <strong>world</strong></p>" }],
         createdAt: "2026-08-06T00:00:00.000Z",
         updatedAt: "2026-08-06T00:00:00.000Z",
       },
