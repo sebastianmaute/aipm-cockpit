@@ -370,11 +370,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!args.hydrated) return;
     // Single-writer rule: the main window owns persistence. A popout is a
     // mirror: it does NOT save, and ★★★ it does NOT forward its edits either —
-    // `canSend = !args.isPopout` below disables every outbound broadcast, and
-    // postMessage is the only way out. So an edit escaping the read-only guards
-    // mutates popout-LOCAL state alone (divergent mirror + phantom undo), never
-    // storage. This comment asserted the opposite until 2026-08-06 and that
-    // falsehood reached a commit message; `canSend` is the authority.
+    // `canSend = !args.isPopout` below disables every outbound broadcast. So an
+    // edit escaping the read-only guards mutates popout-LOCAL state, never the
+    // workspace BACKEND. ★★ NOT "never storage": `use-activity-log` writes to
+    // localStorage unguarded, so a popout Ctrl+Z persists a line that outlives
+    // the window. Both wrong versions of this comment reached a commit message.
     // Letting the popout also call backend.save() would mean two windows
     // writing the same backend (a race), and popup storage is often blocked by the
     // browser's security policy — the blocked IndexedDB write surfaces as

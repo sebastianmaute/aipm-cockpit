@@ -84,9 +84,10 @@ describe("help marker resolution", () => {
     "helpConceptStakeholderTitle",
   ];
 
-  // ★★ A FLOOR FOR THE WHOLE DESCRIBE, NOT ONE TEST. Every assertion in this
-  // block is inside a `for` over `HELP_ENTRIES`, so an empty or mocked backbone
-  // would satisfy all of them by running none. An earlier revision put this
+  // ★★ A FLOOR FOR THE WHOLE DESCRIBE, NOT ONE TEST. Every OTHER assertion in
+  // this block is inside a `for` over `HELP_ENTRIES`, so an empty or mocked
+  // backbone would satisfy all of them by running none. (The exception is this
+  // floor itself — which is the point of it.) An earlier revision put this
   // inside the translated-prose test and claimed it covered "both loops below"
   // — it did not: the marker test underneath has its own walk and would still
   // have passed vacuously. A guard against vacuity that is itself scoped wrong

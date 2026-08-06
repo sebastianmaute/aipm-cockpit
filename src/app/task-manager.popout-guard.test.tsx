@@ -6,21 +6,27 @@
 // the AI dispatcher instead guards itself with its own `isReadOnly` throws.
 // `onChangeBudgets` did NEITHER, while `budget` sits in `POPOUT_TABS` and
 // `budget-panel.tsx` gates its period cells on `mirror` (budget-follows-plan)
-// and never on `isPopout` — so the cells were editable in a popout.
+// and never on `isPopout` — so the cells OF A NON-MIRRORED ROW were editable in
+// a popout. ★ That four-word qualifier is load-bearing and a previous revision
+// dropped it: with budget-follows-plan on and a resourced row, the cells are
+// read-only and the bug is unreachable.
 // `read-only-guard.test.ts` proves the guard WORKS; nothing proved which
 // handlers are WIRED through it, which is where the defect lived.
 //
-// ★★★ SEVERITY, STATED ACCURATELY, BECAUSE THE FIRST VERSION OF THIS COMMENT
-// GOT IT WRONG. It said the popout "committed a real workspace write". It did
-// not: `use-storage-backend.ts` returns early from the save effect when
+// ★★★ SEVERITY — AND THIS PARAGRAPH HAS NOW BEEN WRONG IN BOTH DIRECTIONS, SO
+// READ THE QUALIFIERS. v1 said the popout "committed a real workspace write":
+// false — `use-storage-backend.ts` returns early from the save effect when
 // `isPopout`, and `canSend = !args.isPopout` disables every outbound
-// `useBroadcastSync`, which is the only path out of the window. The edit
-// mutated popout-LOCAL state — a silently divergent mirror plus a phantom undo
-// entry and activity line, all discarded on close. A real defect (the
-// read-only-mirror contract is broken and the user is misled), not data loss.
-// ★★ That overstatement came from a stale comment in `use-storage-backend.ts`
-// asserting popout→main forwarding that `canSend` has always disabled; it is
-// corrected there now. A wrong comment does not stay in its own file.
+// `useBroadcastSync`. v2 then over-corrected to "never storage … all discarded
+// on close": also false — BroadcastChannel is NOT the only way out. The
+// activity log is per-device `localStorage` and `use-activity-log` writes it
+// with no `isPopout` check, so a popout Ctrl+Z (the hotkey is unconditional,
+// see below) calls `logActivity("undo")` and PERSISTS a line that outlives the
+// window, and can clobber entries the main window added since the popout
+// mounted. Accurate statement: no workspace BACKEND write escapes a popout; the
+// activity log does. ★★ v1's error came from a stale comment in
+// `use-storage-backend.ts`, v2's from trusting the corrected version of that
+// same comment too broadly. Scope a claim to the store it is true of.
 //
 // ★★ The observable is the UNDERLYING `commitBuckets`, not the workspace state:
 // buckets reach the panel through `useWorkspace()` rather than a captured prop,
