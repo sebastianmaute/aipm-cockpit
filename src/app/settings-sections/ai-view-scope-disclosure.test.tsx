@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AiViewScopeDisclosure } from "./ai-view-scope-disclosure";
+import { VIEW_AI_SCOPE } from "../view-ai-scope";
 import { loadI18n, t } from "../i18n";
 
 /** The "aiViewScopeDigest" line is identical text across all four digest
@@ -19,9 +20,17 @@ describe("AiViewScopeDisclosure", () => {
     await loadI18n("de");
   });
 
+  // ★ Derived from VIEW_AI_SCOPE, not hardcoded. A literal count here is a
+  //   claim that rots: it went stale the moment a view was added, failing as
+  //   "expected 35 to be 34" — which names no view and reads like a defect in
+  //   the component rather than an out-of-date number. Deriving it still bites,
+  //   because the component filtering or dropping a view makes the rendered
+  //   count diverge from the registry it renders from.
   it("lists every view", () => {
     render(<AiViewScopeDisclosure lang="en-US" />);
-    expect(screen.getAllByRole("button", { name: /show/i }).length).toBe(34);
+    expect(screen.getAllByRole("button", { name: /show/i }).length).toBe(
+      Object.keys(VIEW_AI_SCOPE).length,
+    );
   });
 
   // N identical "Show" buttons is a WCAG 2.4.6 failure that axe can pass when
