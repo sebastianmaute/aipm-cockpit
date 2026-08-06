@@ -6,6 +6,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { expectNoLabelBoundToButton } from "../test/label-binding";
 import type { Stakeholder, Milestone, Resource } from "./types";
 
 // Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
@@ -205,6 +206,24 @@ describe("StakeholderEditModal — field visibility", () => {
     expect(screen.getByText(/Influence: High/)).toBeInTheDocument();
     // Full-only RACI block hidden at the Advanced default.
     expect(screen.queryByText(RACI_LABEL)).not.toBeInTheDocument();
+  });
+
+  // ★★ This modal got FIVE label conversions (Name → `FieldGroup`; Organization,
+  // Title and Notes → `htmlFor`; Documents → `DocumentLinksGroup` — Email and the
+  // category `<Select>` were already correct) and, until this test, no render
+  // guard at all. The other three MODALS have one each; the remaining call
+  // sites are not modals. Counting them here has now been wrong twice, so the
+  // command is the answer rather than the number —
+  // `grep -rn "expectNoLabelBoundToButton()" src | grep -v src/test/label-binding`. Its reach is limited
+  // in the SAME two ways as theirs, and both limits are invisible here rather
+  // than absent: under jsdom the dictation mic renders `null` (`voice.ts`
+  // `getCtor()` has no SpeechRecognition), and `KnowledgeLinksFieldGated`
+  // returns a bare `<p>` because SharePoint is mocked off above. So this pins
+  // the four plain-input rows and the Name group; the mic and document-links
+  // classes are covered by `label-binding.guard.test.ts`, which reads SOURCE.
+  it("binds no field label to a button, and no htmlFor dangles", () => {
+    setupFull();
+    expectNoLabelBoundToButton();
   });
 
   it("clicking Simple hides the advanced field while the required Name input remains", () => {

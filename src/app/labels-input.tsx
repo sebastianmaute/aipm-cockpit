@@ -137,6 +137,13 @@ export function LabelsInput({
           }}
           onFocus={() => !disabled && setOpen(true)}
           onKeyDown={onKeyDown}
+          // ★★ Self-naming, not decoration. The chip ✕ buttons render BEFORE
+          // this input, so a wrapping `<label>` bound to the first chip rather
+          // than here — and the placeholder collapses to "" as soon as one chip
+          // exists, so with any label applied this input had NO accessible name
+          // at all. The caller's wrapper is now a `role="group"`, which names
+          // the block but never the control.
+          aria-label={t(lang, "labels")}
           aria-invalid={stripNotice ? true : undefined}
           aria-describedby={stripNotice ? stripNoticeId : undefined}
           placeholder={

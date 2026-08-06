@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.217.0 "Piercy" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 | App 0.218.0 "Hopkinson" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
 
 # Architecture
 

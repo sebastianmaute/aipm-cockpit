@@ -244,6 +244,61 @@
   task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch (no existing workspace to
   migrate in create-project / empty-state).
 
+  • **★★★ A `<label>` MUST NOT WRAP A WIDGET WHOSE FIRST LABELABLE DESCENDANT IS A BUTTON.** A `<label>`
+  with no `for` binds to its first LABELABLE descendant — button · input · meter · output · progress ·
+  select · textarea, among the elements this app uses. (The full HTML set also counts a form-associated
+  custom element and excludes `<input type="hidden">`; this repo has neither, so the seven above are the
+  working set rather than the complete one.) A chip row, a `role="radiogroup"` div and a contenteditable are
+  none of those, so the caption silently adopts a BUTTON inside instead. Two consequences, both measured
+  in Chromium: `:hover` on the label paints that button's hover state (reported as "hovering the text
+  field highlights Bold"), and clicking anywhere non-interactive in the label forwards a synthetic click
+  to it. Whether the click DOES anything depends on that button's own handlers, so the two halves diverge
+  — the dictation mic binds pointerdown/keydown with no `onClick` (hover bleed only), while
+  `SegmentedControl`'s radios carry a real DOM `onClick` (`segmented-control.tsx:99`; its `onChange` is
+  the COMPONENT's prop, not the DOM handler — naming `onChange` here reverses the point), so clicking the
+  caption WROTE data. Shipped instances: clicking "Priority" set Low, "Labels" DELETED the first chip,
+  "Documents" removed a link, RAID "Status"/"Severity" changed the record, and the Knowledge linked-tasks
+  caption UNLINKED a task. ★ RAID "Category" only on a NEW or explicitly unlocked item — it is
+  `disabled={!isNew && !categoryUnlocked}`, and a DISABLED labeled control receives no forwarded click
+  (measured in Chromium). ★★ Every one of those assumes a NON-EMPTY collection: with no chips or links the
+  first button is a different one, so "Documents" with nothing linked opens the picker (the Add button) and
+  an empty chip row lets the input win and merely focuses it. A test that forgets to seed a row passes
+  against the unfixed code.
+  ★★ TWO sanctioned fixes, and picking the wrong one strips an accessible name. The deciding question is
+  **what the caption is FOR**, not whether the widget self-names. (a) If the block has no single input the
+  caption could name — a chip row, a radiogroup, a contenteditable, or several controls — use
+  **`FieldGroup`** (`form-controls.tsx`): `<div role="group" aria-label>` + a `<span>` caption, so the block
+  is still named but the caption is not a click target. Both form `Field` helpers (`task-form-layout.tsx`,
+  `project-form-fields.tsx`) take a `group` prop that delegates to it, and `DocumentLinksGroup` wraps the
+  Documents case the four entity editors share. (b) If the caption legitimately names a real `<input>` and a
+  button merely got IN FRONT of it (the mic before a title/name field), keep the `<label>` and add an
+  explicit `htmlFor`/`id`.
+  ★★ Self-naming is NOT the criterion, and an earlier revision of this bullet said it was. FOUR converted
+  widgets do not name themselves — Documents, the Health chip row, Labels, and the stakeholder Name row.
+  The last two both needed a new `aria-label` in the same change: Labels because its placeholder collapses
+  to `""` once a chip exists, and stakeholder Name because its `ResourcePicker` carried neither
+  `aria-label` nor `placeholder` on HEAD (`git show HEAD:src/app/stakeholder-edit-modal.tsx`). Naming the block is precisely what `FieldGroup` is for; a bare `<div>` there would lose the name
+  outright. ★ Where the widget DOES self-name and a visible caption sits beside it (the Settings appearance
+  rows, the rich-text editors) a plain `<div>` is enough and the app uses one — either is correct, but only
+  after asking (a) vs (b).
+  ★ Fix (b) has a failure mode of its own: `htmlFor` and `id` are written by hand in two places, and a TYPO
+  leaves the field with no accessible name while looking fixed. `expectNoLabelBoundToButton` fails on a
+  dangling `htmlFor` for that reason — the source scan can only see that the attribute is PRESENT.
+  ★★ THE ORDER IS THE RULE — a mic AFTER its `<Input>` is harmless, because the input already won the
+  association (task-form-fields' title field).
+  ★★★ NEITHER GATE SEES THIS BY DEFAULT. No axe rule models label→control binding — enumerating axe
+  4.12.1 under the four tags the gate uses returns 69 rules and none of them do; axe's own name computation
+  takes the nearest ANCESTOR `<label>`, so it credits that text to the input regardless of the real binding.
+  (Do NOT write "a name exists, just on the wrong element" — the change title and milestone name had no
+  accessible name at all in a real browser. ★ But do not flatten the class either: the RAID title carries a
+  placeholder, which HTML-AAM makes its fallback name — a POOR name, not none. `src/test/label-binding.ts`
+  keeps the same distinction; an earlier revision of this parenthetical erased it.) Modals are not in `A11Y_VIEWS` anyway; under jsdom the mic never renders (`voice.ts`
+  `getCtor()` returns null) and `KnowledgeLinksFieldGated` renders a bare `<p>` with SharePoint off, so a
+  unit render is blind to both classes. Coverage is `src/app/label-binding.guard.test.ts` (a positional
+  SOURCE scan over every `.tsx` — a named-widget list, so a NEW button-first component is invisible to it
+  until added there) plus per-suite render guards using `src/test/label-binding.ts`
+  (`expectNoLabelBoundToButton`, which asks the browser's own `HTMLLabelElement.control`).
+
 ### UI shell — dismissal: Escape & Tab ownership
 
   • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** Per-instance Symbol tokens in

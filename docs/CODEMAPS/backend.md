@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.217.0 "Piercy" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
+<!-- Generated: 2026-07-30 | App 0.218.0 "Hopkinson" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
 
 # Backend
 
