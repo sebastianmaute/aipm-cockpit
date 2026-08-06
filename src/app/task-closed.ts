@@ -20,3 +20,16 @@ export function isTaskClosed(task: Pick<Task, "status">): boolean {
 export function isTaskDelivered(task: Pick<Task, "completedDate">): boolean {
   return !!task.completedDate;
 }
+
+/** CLOSED but never DELIVERED — cancelled work, plus the `Done`-with-no-date
+ *  rows. This is the "not part of the scope any more" question, the one that
+ *  decides both the completion denominator and the R/A/G tally.
+ *
+ *  ★★ Shared rather than re-derived, and that is the whole point: `scopeCounts`
+ *  (dashboard.ts) and `computeGroupHealth` (health.ts) render side by side in
+ *  ONE card, so a second copy of `isTaskClosed(t) && !isTaskDelivered(t)` that
+ *  drifts puts two tiles on one screen disagreeing about the same tasks. That
+ *  has already happened once with `hasNoActiveScope`. */
+export function isTaskOutOfScope(task: Pick<Task, "status" | "completedDate">): boolean {
+  return isTaskClosed(task) && !isTaskDelivered(task);
+}

@@ -10,7 +10,7 @@ import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
-import { isTaskClosed, isTaskDelivered } from "./task-closed";
+import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import type {
   Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
@@ -76,14 +76,17 @@ export type DashboardProgress = {
  *  denominator means a project with cancelled scope can never read 100%.
  *
  *  ★★ Extracted so a caller that needs only the SCOPE question does not have to
- *  re-derive `isTaskClosed(t) && !isTaskDelivered(t)` — re-deriving that pair is
- *  how two dashboard cards came to disagree in the first place. Callers outside
+ *  re-derive the pair `isTaskOutOfScope` answers — re-deriving it is how two
+ *  dashboard cards came to disagree in the first place. Callers outside
  *  `computeDashboardProgress` want `tasksHaveNoActiveScope` below, not this.
+ *
+ *  ★ `computeGroupHealth` asks the SAME predicate to decide what to leave out of
+ *  the R/A/G tally, which is why it lives in `task-closed.ts` and not here.
  */
 export function scopeCounts(tasks: readonly Task[]): { total: number; inScope: number } {
   const total = tasks.length;
-  const cancelled = tasks.filter((t) => isTaskClosed(t) && !isTaskDelivered(t)).length;
-  return { total, inScope: Math.max(0, total - cancelled) };
+  const outOfScope = tasks.filter(isTaskOutOfScope).length;
+  return { total, inScope: Math.max(0, total - outOfScope) };
 }
 
 /** `hasNoActiveScope` for a caller that holds tasks but no `DashboardProgress`
