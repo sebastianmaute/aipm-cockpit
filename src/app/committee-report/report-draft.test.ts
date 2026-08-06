@@ -85,21 +85,25 @@ describe("buildMeetingReportPrompt", () => {
 });
 
 describe("no-active-scope completion line (open-followups §64)", () => {
-  const cancelledModel = () => {
-    const m = { ...MODEL } as unknown as { progress: Record<string, unknown> };
-    m.progress = { total: 3, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 }, outOfScope: 3 };
-    return m as unknown as DashboardModel;
-  };
+  // Distinct from the partial-cancellation test above: there `inScope` is 5, so
+  // there is still a real percentage to state. Here it is 0, and "0% complete"
+  // reads as "not started yet" — a misreading the model can restate in prose a
+  // steering committee then reads.
+  const noScopeModel = {
+    ...MODEL,
+    progress: { total: 3, inScope: 0, completed: 0, percent: 0, counts: { R: 0, A: 0, G: 0 }, outOfScope: 3 },
+  } as unknown as DashboardModel;
 
   it("does not tell the model an all-cancelled project is 0% complete", () => {
-    const prompt = buildMeetingReportPrompt(cancelledModel(), "en-US");
-    expect(prompt).not.toContain("0% complete");
-    expect(prompt).toContain("no active scope");
+    const p = buildMeetingReportPrompt(noScopeModel, "Budget review", "en-US");
+    expect(p).not.toContain("0% complete");
+    expect(p).toContain("no active scope");
+    expect(p).toContain("all 3 tasks are cancelled");
   });
 
   it("still reports the percentage for a project with scope", () => {
-    const prompt = buildMeetingReportPrompt(MODEL, "en-US");
-    expect(prompt).toContain("40% complete");
-    expect(prompt).not.toContain("no active scope");
+    const p = buildMeetingReportPrompt(MODEL, "Budget review", "en-US");
+    expect(p).toContain("40% complete");
+    expect(p).not.toContain("no active scope");
   });
 });
