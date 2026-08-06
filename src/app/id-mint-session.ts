@@ -113,7 +113,7 @@ function collectBudgetBuckets(budgets: Workspace["budgets"]): readonly HasId[] {
 }
 
 /**
- * Seed all 12 mint kinds from a workspace (guarding every array with `?? []`),
+ * Seed all 15 mint kinds from a workspace (guarding every array with `?? []`),
  * plus `budgetBucket` from the (optionally nested) budget buckets.
  */
 export function seedMintFromWorkspace(
@@ -134,7 +134,7 @@ export function seedMintFromWorkspace(
   seedMintKind("budgetBucket", collectBudgetBuckets(ws.budgets), mode);
   seedMintKind("calendarEvent", ws.calendarEvents ?? [], mode);
   seedMintKind("document", ws.documents ?? [], mode);
-  // "documentVersion" is seeded once `Workspace.documentVersions` exists (Task 3).
+  seedMintKind("documentVersion", ws.documentVersions ?? [], mode);
 }
 
 /**

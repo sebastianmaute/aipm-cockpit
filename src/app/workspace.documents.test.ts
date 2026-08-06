@@ -233,3 +233,42 @@ describe("isWorkspaceEmpty — documents", () => {
     expect(isWorkspaceEmpty(bare)).toBe(true);
   });
 });
+
+const VERSION = {
+  id: 1,
+  documentId: 7,
+  title: "Old title",
+  blocks: [{ type: "paragraph" as const, html: "<p>before</p>" }],
+  savedAt: "2026-08-01T09:00:00.000Z",
+  source: "ai" as const,
+  op: "update" as const,
+};
+
+describe("workspace JSON — documentVersions", () => {
+  it("round-trips a version", () => {
+    const ws = load({ documentVersions: [VERSION] });
+    expect(ws.documentVersions).toEqual([VERSION]);
+
+    const json = workspaceToJson(ws);
+    expect(json).toMatch(/"documentVersions"/);
+    const back = jsonToWorkspace(json, { strict: true });
+    expect(back.documentVersions).toEqual([VERSION]);
+  });
+
+  it("emits no key at all when empty", () => {
+    const ws = load({ documentVersions: [] });
+    expect(ws.documentVersions).toBeUndefined();
+    expect(workspaceToJson(ws)).not.toMatch(/"documentVersions"/);
+  });
+
+  it("emits NO documentVersions key when absent", () => {
+    const ws = load();
+    expect(ws.documentVersions).toBeUndefined();
+    expect(workspaceToJson(ws)).not.toMatch(/"documentVersions"/);
+  });
+
+  it("drops junk rather than failing the whole load", () => {
+    const ws = load({ documentVersions: [{ nope: true }] });
+    expect(ws.documentVersions).toBeUndefined();
+  });
+});

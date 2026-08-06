@@ -45,6 +45,7 @@ import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
 // so importing it here cannot break the bare-node sample generator.
 import { logDiag } from "./diagnostics";
@@ -139,6 +140,14 @@ export type Workspace = {
    *  separate because the first is DOM-FREE by contract (it runs under bare
    *  node in the sample generator) and therefore cannot call DOMPurify. */
   documents?: readonly ProjectDocument[];
+  /** Before-image snapshots of document mutations (AI and user) — the safety
+   *  net that makes direct AI document writes acceptable, since chat tool
+   *  writes have no undo capture. Restoring writes a version back verbatim;
+   *  there is no inversion logic. Optional & additive: undefined/empty
+   *  serializes to nothing (byte-stable). Sanitized by
+   *  `sanitizeDocumentVersions` (DOM-free, structure only) then the paragraph
+   *  HTML allow-list, same two-pass split as `documents`. */
+  documentVersions?: readonly DocVersion[];
   /** Per-project policy overrides (next-actions weights, notification cadence,
    *  timezone) that travel WITH the project. Optional & additive: undefined
    *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
@@ -180,7 +189,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //    workspaceRecordCount: those feed the SAVE-time mass-deletion
     //    thresholds, so widening them changes when saves are REFUSED for every
     //    existing project. See docs/open-followups.md §98.
-    && (ws.documents?.length ?? 0) === 0;
+    && (ws.documents?.length ?? 0) === 0
+    && (ws.documentVersions?.length ?? 0) === 0;
 }
 
 /** Number of user collections that hold at least one record. Used by the
@@ -490,6 +500,11 @@ export function workspaceToJson(ws: Workspace): string {
       // of a `documents` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
       ...(ws.documents && ws.documents.length ? { documents: ws.documents } : {}),
+      // Additive: only present when version history exists, so files without
+      // it stay free of a `documentVersions` key. Mirrors `documents` above.
+      ...(ws.documentVersions && ws.documentVersions.length
+        ? { documentVersions: ws.documentVersions }
+        : {}),
       // Additive: only present when the project carries policy overrides, so
       // override-less files stay free of a `settingsOverrides` key.
       ...(hasAnyOverride(ws.settingsOverrides) ? { settingsOverrides: ws.settingsOverrides } : {}),
@@ -658,6 +673,36 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
         // diagnostics ring is the channel. Names what was lost, so a user who
         // opens a file and finds no documents has something to find.
         logDiag("error", "workspace.documentsDropped", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    // Additive: sanitize incoming document version history when present. Same
+    // two-pass shape as documents just above — sanitizeDocumentVersions
+    // enforces structure (DOM-free), then each version's blocks get the
+    // paragraph HTML allow-list via sanitizeDocumentRichFields. A version has
+    // no independent createdAt/updatedAt, so it is passed through a synthetic
+    // ProjectDocument-shaped wrapper with savedAt standing in for both. An
+    // all-garbage or empty list stays off the key rather than emitting [].
+    // ★ Same containment as documents: the rich-field pass is the only
+    // DOM-dependent step, scoped to its own catch so one bad version cannot
+    // discard the whole workspace on a non-strict load.
+    if (p.documentVersions !== undefined) {
+      try {
+        const versions = sanitizeDocumentVersions(p.documentVersions).map((v) => ({
+          ...v,
+          blocks: sanitizeDocumentRichFields({
+            id: v.documentId,
+            title: v.title,
+            blocks: v.blocks,
+            createdAt: v.savedAt,
+            updatedAt: v.savedAt,
+          }).blocks,
+        }));
+        if (versions.length) raw.documentVersions = versions;
+      } catch (err) {
+        if (strict) throw err;
+        logDiag("error", "workspace.documentVersionsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
       }
