@@ -134,6 +134,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 89 | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open — buildable (absences are in `Workspace`, unlike §86's live external calls); out of scope for that slice. ★ Had a detail section but NO table row until 2026-08-06 |
 | 90 | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — it returns the new resource id, which the guard would widen to `number \| undefined` | found in the help-coverage slice-3 review, unreleased | S | open — a popout can create a resource via the RAID/task picker while the save around it is blocked |
 | 91 | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | open — `onCaptureRaidBulk` is unguarded and `useUndoHotkey` is unconditional, so bulk-apply + Ctrl+Z writes `setRaid` and `logActivity("undo")`; the activity log is localStorage with no `isPopout` check, so that line outlives the window. Gating the hotkey closes both |
+| 92 | The `settings-types` ⇄ `workspace` ⇄ `document-model` value-import cycle is a standing trap for any eval-time snapshot | AI document authoring S1, unreleased | S per instance | open — a TRAP, not a defect; the one known instance is fixed and pinned, but the cycle remains and a direct-import test structurally cannot fail |
+| 93 | The PPTX truncation notice is a hardcoded English frame wrapped around a LOCALIZED section title | AI document authoring S1, unreleased | S | open — i18n; affects BOTH PPTX paths, and only the newer one carries a code comment saying so |
+| 94 | PPTX pagination counts logical lines, so a wrapped long line still overflows the slide | AI document authoring S1, unreleased | S–M | open — eye-verify owed; UNBOUNDED overflow is fixed, bounded overflow remains and no test in this repo can see it |
+| 95 | No test exercises a real Turso database on any path — meta-blob coverage is statements → synthetic results | AI document authoring S1, unreleased | M | open — class-wide (`documents` · `insights` · `knowledgeItems`), not a documents-specific gap |
+| 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1, unreleased | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -4474,6 +4479,191 @@ mounted. Every other popout write is discarded on close; this one is not.
 
 ★ Gating `useUndoHotkey` on `isPopout` closes both the `setRaid` and the persisted activity line in one
 edit, and is the reason this is filed as one item rather than two.
+
+---
+
+## 92. The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open
+
+**This is a TRAP, not a defect.** The one instance that bit is fixed and regression-pinned. The
+CYCLE it exploited is still there, and the next module-eval snapshot taken anywhere in that graph
+fails the same silent way.
+
+The cycle, all three edges VALUE imports (reproduce — each returns one line):
+
+```bash
+grep -n "defaultStorageConfig" src/app/settings-types.ts | head -1      # :15  settings-types → workspace
+grep -n "sanitizeProjectDocuments" src/app/workspace.ts | head -1       # :46  workspace → document-model
+grep -n "EXPORT_SECTION_KEYS" src/app/document-model.ts | head -1       # :14  document-model → settings-types
+```
+
+Entered through `./storage` — how the app actually loads — `document-model` evaluates while
+`settings-types` is still mid-evaluation, so anything it snapshots at module scope captures the
+**partially-initialised** value. `document-model` had `const SECTION_KEYS = new Set(EXPORT_SECTION_KEYS)`,
+which captured an EMPTY set and froze it for the process, silently rejecting every `dataSection`
+block — the one block type that embeds live project data. Fixed by reading the array at call time
+(`isSectionKey`, `document-model.ts:66` — cite the SYMBOL, the line moves).
+
+★★★ **Why this needs a register entry rather than just the code comment: the failing shape is
+invisible to the obvious test.** Imported DIRECTLY, `settings-types` finishes evaluating first and
+the snapshot is fine — so the module's own suite stayed green while the app was broken. Only an
+import-order test reproduces it, which is why `document-model.storage-cycle.test.ts` exists and why
+its first line says the import ORDER is the test. A future snapshot elsewhere in this graph gets no
+such test for free.
+
+**The trap:** any `new Set(...)`, `new Map(...)`, `Object.freeze(...)`, `.map()`/`.filter()` result,
+or derived constant computed at MODULE SCOPE from an imported value, in any module reachable in this
+cycle. A lazily-memoized version has the same failure moved to first call. The safe pattern is to
+read the imported value inside the function that needs it.
+
+**Fix options**, in ascending order of ambition: (a) leave it and rely on the call-time convention,
+(b) break the cycle by moving `defaultStorageConfig` out of `workspace.ts` into a leaf module so
+`settings-types` no longer imports a value from it, (c) a lint rule or a guard test that fails on a
+module-scope derived constant in this graph. (b) is the only one that removes the trap rather than
+documenting it.
+
+★ A sweep for other live instances was in progress when this was written; its outcome is NOT recorded
+here. Check with whoever owns that sweep before re-running it.
+
+---
+
+## 93. The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open
+
+Both PPTX paths build the same sentence from a hardcoded English frame and a section title that the
+registry has ALREADY translated, so a German deck gets a mixed-language sentence:
+
+> "Showing the first 100 of 125 **Aufgaben** rows."
+
+Reproduce:
+
+```bash
+grep -nE '`Showing the first' src/app/export-pptx.ts src/app/doc-render-pptx.ts   # 2 call sites
+grep -n  "Showing the first" src/app/export-pptx.ts src/app/doc-render-pptx.ts    # 3 lines — one is a comment
+```
+
+★ Use the first form. The plain-substring search returns THREE lines, not two: the extra one is prose
+inside the `doc-render-pptx.ts` comment that describes this very problem, and reading it as a third
+call site sends you looking for a site that does not exist.
+
+The two sites are NOT equally documented: `doc-render-pptx.ts` carries a ★★ comment above its
+copy explaining the mixed-language problem and why it was deferred; `export-pptx.ts` — the older
+workspace-export path, which has shipped this for far longer — has no comment at all. Anyone fixing
+this from the code alone will likely find one and miss the other.
+
+The second line, "Export to XLSX for the full list.", is hardcoded English in both places too, but
+it is at least monolingual.
+
+**Fix:** an i18n key taking the two counts and the title as positional placeholders — shaped like
+`t(lang, "<newKey>", cap, total, title)`, applied at BOTH sites. ★ No such key exists yet and this
+entry deliberately does not invent a name for it: a plausible identifier written down in prose gets
+grepped for, not found, and then re-created slightly differently by the next person. Name it when you
+add it. Deferred because it
+means editing `i18n.de.ts`, which has its own handling rules (CRLF, real umlauts, no ASCII
+substitutes — see AGENTS.md), and an awkward sentence is much less bad than silently dropping rows.
+
+★ Related but already solved, and worth copying rather than re-deriving: the continuation marker in
+the same renderer uses a NUMERIC `(2/3)` instead of a word like "(cont.)" precisely to dodge this
+problem for free. Prefer that trick wherever a marker can carry no prose.
+
+---
+
+## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
+
+**Half of this is already fixed — do not re-open the fixed half.** `doc-render-pptx.ts` now derives
+`BODY_LINES_PER_SLIDE` from the body box and font size (`:247`) and chunks each slide's lines through
+`paginateLines`, so overflow went from UNBOUNDED to BOUNDED.
+
+What remains: the budget counts lines in the array, not lines as RENDERED. `bodyPr` emits
+`wrap="square"` with no `normAutofit`/`spAutoFit`, so PowerPoint's no-autofit default lets text run
+past the shape rather than scaling it — and one long line wraps to two or three rendered lines while
+counting as one. The budget is therefore sound for short lines and optimistic for long ones. A
+`dataSection` row rendered as `"Col: value · Col: value · …"` is exactly the long-line case.
+
+★★★ **No test in this repo can catch it, and that is the reason it is filed here rather than left to
+CI.** jsdom has no layout, the box is never rendered, and the overflow is invisible in the XML — it
+shows up only when a human opens the deck. The module's own comment states this limit honestly; this
+entry exists so the OWED EYE VERIFICATION is tracked somewhere a release checklist will see it.
+
+**Verify by hand:** export a document containing a `dataSection` over a register with wide rows (RAID
+with long titles is the worst case), open the deck in real PowerPoint, and look for body text
+crossing the bottom of the content area.
+
+**Fix options:** (a) emit `normAutofit` and let PowerPoint shrink text to fit — one attribute, but it
+makes font size vary per slide; (b) estimate rendered height from a character-per-line budget derived
+from the box width and an average glyph width, which is still an estimate but a much closer one;
+(c) hard-wrap long lines at a character count before pagination, so the count and the render agree.
+
+---
+
+## 95. No test exercises a real Turso database on ANY path — open
+
+Framing matters here: this is **not** a `documents` gap. It is a known limit of the whole meta-blob
+class and of the Turso layer generally, and `documents` merely inherits it.
+
+There is no `@libsql/client` dependency at all — the app reaches Turso over the HTTP pipeline API
+(`turso-pipeline.ts`), and tests mock `fetch`. So no test in the repo opens a database, real or
+in-memory:
+
+```bash
+grep -rn ":memory:" src/app/*.test.ts        # no hits
+grep -n "libsql" package.json                # no hits — HTTP pipeline, not a driver
+```
+
+`turso-schema.documents.test.ts` (16 tests — `grep -cE "^\s*it\(" src/app/turso-schema.documents.test.ts`;
+★ the naive `grep -c "it("` answers 17 because it also matches `.split(`) is a good test of the layer it covers, and it is explicit
+about what it does: its `resultsFromStatements` helper REBUILDS the SELECT results by parsing the
+INSERT statements the save just emitted. That proves the encode and decode halves agree with each
+other. It cannot prove either agrees with SQLite — malformed SQL, a column-type surprise, a quoting
+bug, or a driver/endpoint quirk all pass.
+
+The same is true of the other meta-blob fields (`insights`, `knowledgeItems`) and of the entity tables.
+
+**Fix options:** (a) accept it and say so in the test files, which is nearly the status quo;
+(b) one integration test against a real SQLite file through the same statement builders, catching the
+"is this valid SQL" class without needing a network; (c) a recorded-fixture test replaying a real
+pipeline response captured once by hand. (b) is the cheapest real improvement, and it would cover
+every entity at once rather than per-field.
+
+★ Do not size this as a documents task. The work is the harness; once it exists, adding a field to it
+is minutes.
+
+---
+
+## 96. The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN
+
+`doc-render-html.ts` backs the in-app document PREVIEW and the print-to-PDF path, so its module graph
+loads whenever a user opens a document — not only when they click Download. Extracting
+`doc-data-section.ts` removed the OOXML builders and the ZIP writer from that graph (that part is
+done and is why the extraction happened). What remains is the section registry itself.
+
+Measured, and the type/value split matters:
+
+| entry | modules reachable | runtime (value imports only) | type-only, erased at build |
+|---|---|---|---|
+| `doc-data-section.ts` | 84 | **60** | 24 |
+| `export-sections.ts` | 83 | 59 | 24 |
+
+★★ So `doc-data-section` adds exactly ONE runtime module on top of `export-sections`, and
+`export-sections` alone accounts for 59 of the 60 — it pulls the csv-codecs column definitions, i18n
+and the entity types. There is nothing to trim inside `doc-data-section`; the whole cost is the
+registry, which the preview needs **only when the document actually contains a `dataSection` block**.
+
+★★★ **An earlier report of this said "84 modules" without separating type-only imports, which
+overstates the runtime cost by 24 modules. If you have seen that number quoted, 60 is the one that
+means anything.** To reproduce: walk the transitive `./`-relative import graph from the entry file,
+resolving each specifier `.ts` then `.tsx`, and count the modules reached — once following EVERY
+`from "…"` edge, and once skipping edges whose whole clause is `import type` / `export type` (and
+brace lists where every specifier is `type X`). The gap between the two counts is the type-only
+tail, which is erased at build and costs nothing at runtime.
+
+**Fix:** make the registry a dynamic `import()` inside `resolveDataSection`, so a document with no
+`dataSection` block never loads it. That changes the function to async, which ripples into all three
+renderers — so it is a real change, not a one-liner.
+
+★ **Honest state: no bundle measurement has been taken.** Module COUNT is not bytes, Next.js
+code-splits, and nobody has reported the preview as slow. This is recorded because the "59 of 60 come
+from one conditionally-needed import" fact is non-obvious and expensive to rediscover — NOT because
+there is evidence of a user-visible problem. Measure before scheduling it, and close this as
+"not worth it" if the bytes are small.
 
 ---
 
