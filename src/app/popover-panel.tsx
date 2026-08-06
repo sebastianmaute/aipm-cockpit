@@ -109,11 +109,30 @@ export function PopoverPanel({
     }
   }, [open, pos]);
 
-  // Focus the first control once mounted+positioned. preventScroll so the
+  // Focus the first TAB-STOP once mounted+positioned. preventScroll so the
   // programmatic focus can't scroll an ancestor and fire close-on-scroll.
+  //
+  // ★★ The `:not([tabindex="-1"])` on each arm is load-bearing, not tidying. A
+  // roving-tabindex widget (`SegmentedControl`) renders every UNCHECKED radio at
+  // -1, and the bare `input,button,[tabindex]` selector matched those — so the
+  // field-visibility popover opened with focus on the FIRST radio ("Simple")
+  // while a different one was checked ("Advanced"). The radios are real
+  // `<button>`s carrying their own `onClick`, so Enter or Space on that
+  // mis-focused radio SELECTED it, silently changing the tier; in custom mode
+  // that discarded a hand-picked field set. AT announced the wrong state too.
+  // ★ `querySelector` with a comma list returns the first match in DOCUMENT
+  // order (not selector order), so this lands on the checked radio wherever it
+  // sits among its siblings. Inert for every panel whose first control is
+  // already tabbable — which is all of them but this one.
+  // ★ When a roving group has NOTHING checked, its first radio IS the tab-stop
+  // (SegmentedControl's `hasSelection` fallback), so focus correctly stays put.
   useEffect(() => {
     if (autoFocus && open && pos) {
-      panelRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus({ preventScroll: true });
+      panelRef.current
+        ?.querySelector<HTMLElement>(
+          'input:not([tabindex="-1"]),button:not([tabindex="-1"]),[tabindex]:not([tabindex="-1"])',
+        )
+        ?.focus({ preventScroll: true });
     }
   }, [autoFocus, open, pos]);
 

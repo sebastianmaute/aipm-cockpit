@@ -63,9 +63,18 @@ export function SegmentedControl<T extends string>({
     // come apart inside a portaled auto-focusing panel: `PopoverPanel` focuses
     // the FIRST control in document order, which for the field-visibility tier
     // switch is "Simple" while the checked tier is "Advanced". Stepping from
-    // `value` there moved TWO positions per keypress, and in "custom" mode
-    // (`value` matching no option) `findIndex` returns -1 so a single
-    // ArrowRight selected the first option, discarding a hand-picked field set.
+    // `value` there moved TWO positions per keypress. In "custom" mode (`value`
+    // matching no option) `findIndex` returns -1, so the step started from the
+    // wrong end of the group as well.
+    // ★★ THE TWO-POSITION JUMP WAS THE BUG — the custom-mode DISCARD IS NOT
+    // FIXED AND IS NOT A DEFECT. An arrow in a radiogroup IS a selection, so
+    // arrowing out of "custom" necessarily replaces the hand-picked set; only
+    // WHICH tier it lands on changed. Measured on the field-visibility popover
+    // after this fix: opening fresh while already custom focuses "Simple" (the
+    // tab-stop, since nothing is checked) and ArrowRight lands on "Advanced";
+    // hand-toggling into custom with the popover already open leaves focus on
+    // the old radio and ArrowRight lands on "Full". Both discard the set. Do
+    // not read this comment as closing that path.
     // ★ `indexOf` over THIS group's radios scopes the check by construction —
     // focus in another radiogroup, or nowhere, yields -1 and the fallback.
     const focused = radios.indexOf(document.activeElement as HTMLElement);

@@ -97,6 +97,59 @@ describe("ModalFieldControls popover", () => {
     }
   });
 
+  // ★★★ The integration these two fixes exist for, pinned at APP level. Both
+  // were previously covered only by `popover-panel`/`segmented-control` guards
+  // built from synthetic markup — measured: `modal-field-controls.test.tsx`
+  // passed with the arrow fix fully reverted. Nothing noticed that the real
+  // precondition (this popover autofocuses a radio in a roving group) held, so
+  // inserting a control ahead of the SegmentedControl, or changing the panel's
+  // focus selector, would silently un-couple the primitives from the defect.
+  it("autofocuses the CHECKED tier radio, not the first one", () => {
+    renderControls();
+    openPopover();
+    // `PopoverPanel` autofocuses the first TAB-STOP. In a roving group that is
+    // the checked radio — landing on the first radio instead put focus on
+    // "Simple" in an Advanced modal, where Enter/Space would select it.
+    expect(document.activeElement).toHaveAttribute("role", "radio");
+    expect(document.activeElement).toBe(
+      screen.getByRole("radio", { name: t(EN, "fieldViewAdvanced") }),
+    );
+  });
+
+  it("an arrow steps from the FOCUSED radio, so a mis-focused Simple lands on Advanced", () => {
+    renderControls();
+    openPopover();
+    // Force focus onto the NON-checked first radio — the exact state the panel
+    // used to open in. Deriving the step from `value` moved TWO positions from
+    // here, landing on "Full".
+    const simple = screen.getByRole("radio", { name: t(EN, "fieldViewSimple") });
+    simple.focus();
+
+    fireEvent.keyDown(simple, { key: "ArrowRight" });
+
+    // ★ The control assertion, and it is not optional: the trigger ALREADY read
+    // "Advanced" before the keypress, so "reads Advanced" alone would pass
+    // against a handler that did nothing at all. Focus moving proves it ran.
+    expect(document.activeElement).toBe(
+      screen.getByRole("radio", { name: t(EN, "fieldViewAdvanced") }),
+    );
+    expect(trigger()).toHaveTextContent(t(EN, "fieldViewAdvanced"));
+    expect(trigger()).not.toHaveTextContent(t(EN, "fieldViewFull"));
+  });
+
+  it("ArrowLeft from a mis-focused Simple wraps to Full", () => {
+    // The positive-signal half: this one CHANGES the tier, so it cannot pass
+    // against an inert handler the way the assertion above could.
+    renderControls();
+    openPopover();
+    const simple = screen.getByRole("radio", { name: t(EN, "fieldViewSimple") });
+    simple.focus();
+
+    fireEvent.keyDown(simple, { key: "ArrowLeft" });
+
+    expect(trigger()).toHaveTextContent(t(EN, "fieldViewFull")); // focused Simple − 1, wrapped
+  });
+
   // The popover's third interactive region. It had no coverage before the move
   // either, so this closes a carried-forward gap rather than a regression —
   // `reset` writes `undefined`, which drops back to DEFAULT_TIER

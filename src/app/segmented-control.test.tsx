@@ -128,10 +128,12 @@ describe("SegmentedControl", () => {
   // ★★★ APG says an arrow key moves relative to the FOCUSED radio. Normally that
   // is the same radio as `value` — only the checked one is tabbable, so focus
   // arrives there — but a portaled auto-focusing panel breaks the tie:
-  // `PopoverPanel` focuses the FIRST control it finds (`popover-panel.tsx:116`,
-  // document order), which for the field-visibility tier switch is "Simple"
-  // while the checked tier is "Advanced". Deriving the step from `value` then
-  // moves TWO positions per keypress, silently changing the tier.
+  // `PopoverPanel`'s autofocus effect (`popover-panel.tsx`, cited by SYMBOL —
+  // the line moved twice while this comment was being written) picks the first
+  // match in DOCUMENT order. It now skips `tabindex="-1"`, so it lands on the
+  // checked radio; before that it landed on "Simple" while "Advanced" was
+  // checked. Deriving the step from `value` moved TWO positions per keypress
+  // from there, silently changing the tier.
   test("ArrowRight moves ONE position from the FOCUSED radio, not from `value`", () => {
     const onChange = vi.fn();
     render(

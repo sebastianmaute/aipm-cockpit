@@ -111,6 +111,51 @@ describe("PopoverPanel", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  // ★★★ Autofocus must SKIP a non-tab-stop. The selector used to be
+  // `input,button,[tabindex]`, which matches a `tabindex="-1"` element — and a
+  // roving-tabindex radiogroup (`SegmentedControl`) renders every unchecked
+  // radio at -1. So opening the field-visibility popover at the default
+  // Advanced tier landed focus on the FIRST radio, "Simple", while "Advanced"
+  // was checked. The radios are real `<button>`s with their own `onClick`, so
+  // Enter or Space there SELECTED Simple — silently changing the tier, and in
+  // custom mode discarding a hand-picked field set. A screen reader also
+  // announced "Simple, radio, not checked" for an Advanced modal.
+  // ★ `querySelector` with a comma list returns the first match in DOCUMENT
+  // order, not selector order, so this lands on the checked radio wherever it
+  // sits. When NOTHING is checked the first radio IS the tab-stop
+  // (`hasSelection` fallback), so focus correctly stays there.
+  it("focuses the first TAB-STOP, skipping a roving tabindex=-1 control", () => {
+    function RovingHarness() {
+      const [open, setOpen] = useState(false);
+      const btnRef = useRef<HTMLButtonElement>(null);
+      const close = useCallback(() => setOpen(false), []);
+      return (
+        <div>
+          <button ref={btnRef} type="button" onClick={() => setOpen(true)}>trigger</button>
+          <PopoverPanel open={open} anchorRef={btnRef} onClose={close} role="dialog" ariaLabel="Panel">
+            {/* Mirrors SegmentedControl's roving tabindex: only the checked
+                radio is a tab-stop, and it is NOT first in document order. */}
+            <div role="radiogroup" aria-label="Tier">
+              <button type="button" role="radio" aria-checked={false} tabIndex={-1}>Simple</button>
+              <button type="button" role="radio" aria-checked tabIndex={0}>Advanced</button>
+              <button type="button" role="radio" aria-checked={false} tabIndex={-1}>Full</button>
+            </div>
+          </PopoverPanel>
+        </div>
+      );
+    }
+    render(<RovingHarness />);
+    fireEvent.click(screen.getByText("trigger"));
+    expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Advanced" }));
+  });
+
+  it("still focuses the first control when it IS a tab-stop", () => {
+    // The no-op half: every ordinary panel is unaffected.
+    render(<Harness />);
+    fireEvent.click(screen.getByText("trigger"));
+    expect(document.activeElement).toBe(screen.getByLabelText("field"));
+  });
+
   it("renders nothing while closed", () => {
     render(<Harness />);
     expect(screen.queryByRole("dialog")).toBeNull();

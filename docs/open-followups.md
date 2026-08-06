@@ -97,7 +97,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
 | 53 | ESLint 10 is blocked upstream by `eslint-plugin-react` | 0.211.2 | — | open — **not actionable today**; a dated MEASUREMENT, re-measure before acting |
 | 54 | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | open — **user-visible in production**, no gate sees it |
-| 55 | Fourteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 14 are NOT colour-only |
+| 55 | Thirteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 13 are NOT colour-only; was 14, tier selector resolved |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
 | 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half CLOSED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
@@ -2341,13 +2341,23 @@ unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to po
 
 ---
 
-## 55. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
+## 55. Thirteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
-Fourteen controls do NOT use that primitive and were left as they were. For MOST of them the only
+Thirteen controls do NOT use that primitive and were left as they were. For MOST of them the only
 visual signal that they are active is a fill or tint change — WCAG 1.4.1.
 
-★★ TWO OF THE FOURTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
+★ THIS READ **fourteen** UNTIL 2026-08-06. The field-visibility tier selector
+(`modal-field-controls.tsx`) was the fourteenth, and it is RESOLVED — the control moved into the
+modal header and its hand-rolled `aria-pressed` buttons were replaced by the shared
+`SegmentedControl`, i.e. by `role="radio"`, which is exactly the answer this entry's own closing
+paragraph proposed for the radio-like cases. Re-measure rather than trust the number:
+
+```bash
+grep -rn "aria-pressed={" src/app --include="*.tsx" | grep -v "\.test\." | grep -v "toggle-button.tsx" | wc -l   # 13
+```
+
+★★ TWO OF THE THIRTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
 all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
 flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
 `status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
@@ -2369,8 +2379,8 @@ destructuring it.
 `rich-text-editor.tsx:83-84` is the clearest and the most used: `BTN` and `BTN_ON` differ by
 `bg-ui-dark-blue` + `text-white` and nothing else, on the bold/italic/list buttons every task
 description and note passes through. The others: `task-form-fields.tsx:545,559` (health-override
-chips) · `create-project-wizard.tsx:308,337` (template picker) · `modal-field-controls.tsx:63` (tier
-selector) · `raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
+chips) · `create-project-wizard.tsx:308,337` (template picker) ·
+`raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
 `settings-sections/comm-templates-section.tsx:335,357` (version compare) · `step0-import-panel.tsx:304`
 · `influence-interest-matrix.tsx:80` · `dictation-mic.tsx:73` · `voice-button.tsx:101`.
 
@@ -2381,10 +2391,11 @@ the hosts sit on axe-scanned views and pass today. The count above is the whole 
 `aria-pressed` JSX attribute outside the primitive, counted, not estimated.
 
 ★ The fix is not uniformly "migrate to `ToggleButton`". Some are radio-like single-select groups
-(template picker, tier selector, RACI role, import method, quadrant) where the primitive's chip
-styling and pinned-label rule may not fit, and where `role="radio"` might be the better answer than
-`aria-pressed` at all. The editor toolbar and the two mic buttons are genuine binary toggles and are
-the natural first migration.
+(template picker, RACI role, import method, quadrant) where the primitive's chip styling and
+pinned-label rule may not fit, and where `role="radio"` might be the better answer than
+`aria-pressed` at all. That is no longer a hypothesis: the tier selector took exactly that route in
+0.218.0 and left this list. The editor toolbar and the two mic buttons are genuine binary toggles
+and are the natural first migration.
 
 ---
 
