@@ -39,7 +39,9 @@ export function isTaskDelivered(task: Pick<Task, "completedDate">): boolean {
  *  pair — and `reports-stats.ts` is the one that mattered, since `stats.cancelled`
  *  and `GroupHealth.outOfScope` are the same bucket rendered on ONE screen.
  *  Reproduce before trusting this sentence:
- *  `grep -rn "isTaskClosed(.*) && !isTaskDelivered" src/app --include="*.ts" --include="*.tsx"` */
+ *  `grep -rn "isTaskClosed(.*) && !isTaskDelivered" src --include="*.ts" --include="*.tsx" | grep -v "task-closed.ts"`
+ *  — expect ZERO hits. Without the exclusion it self-matches on this file's own
+ *  body below, so a reader sees a hit and has to know to discount it. */
 export function isTaskOutOfScope(task: Pick<Task, "status" | "completedDate">): boolean {
   return isTaskClosed(task) && !isTaskDelivered(task);
 }

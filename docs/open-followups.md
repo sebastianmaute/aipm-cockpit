@@ -2886,7 +2886,16 @@ announces "closed" and no longer contradicts the ✕ beside it.
 "cancelled", which is a different false statement, not a fix. Cancelled is a STATUS; delivered is a
 DATE; this pair is neither, so it needed its own driver and its own i18n key.
 
-★★★ **THIS ENTRY'S PRESCRIPTION WAS RIGHT AND A DRAFT OF THIS CLOSURE SAID IT WAS WRONG.** It reads
+★★★ **THIS ENTRY HAS TWO PRESCRIPTIVE CLAUSES FOUR LINES APART, AND THREE SUCCESSIVE DRAFTS OF THIS
+CLOSURE EACH READ ONLY ONE OF THEM.** The verdict below concerns the FIRST. The SECOND — "Fixing the
+drivers fixes both" — is **WRONG**, and this slice proved it: the second symptom is gated on
+`hasNoActiveScope` → `scopeCounts` → `isTaskOutOfScope`, which never consults a health driver, so no
+driver change could ever have reached it. A draft that had just finished retracting an over-claim
+about clause one then declared the whole entry "sound", never having read clause two. **Over-correction
+is the same error as over-claiming: deciding the answer's shape, then reading only far enough to
+confirm it.**
+
+★★★ **CLAUSE ONE WAS RIGHT AND A DRAFT OF THIS CLOSURE SAID IT WAS WRONG.** It reads
 "drivers should consult `completedDate`, **not `status` alone**" — that is *consult BOTH*, which is
 exactly what the three-way does. The draft paraphrased it as "consult `completedDate` INSTEAD OF
 `status`" and then refuted the paraphrase, in a closure block whose theme was other entries' faulty
@@ -2899,7 +2908,8 @@ is the true one. **Quote an entry before criticising it; a paraphrase you wrote 
 ★★ The second symptom this entry names is verified and **STILL OPEN**. The entry's complaint is about
 the WORD: `dashboardAllCancelled` — "All cancelled ({0})" — is rendered about rows whose status says
 Done. The COUNT is right (that work will not be delivered, so it is out of scope), but "cancelled" is
-still the wrong word for a Done row, and `dashboard-panel.tsx` still renders it.
+still the wrong word for a Done row, and BOTH `dashboard-panel.tsx` and
+`dashboard-kpi-strip.tsx` still render it.
 ★★★ A draft of this bullet said "Only the tooltip was lying", having answered a complaint about the
 count that the entry never made — while calling the symptom "verified" two clauses earlier, which
 contradicts it. Same paraphrase-then-refute shape as the §66 block above. The tooltip was the half
@@ -2973,8 +2983,8 @@ all-cancelled fixture returns "G" both before and after, so no fixture of that s
 ★★★ **A DRAFT OF THIS BLOCK SAID "THE STATED BLAST RADIUS WAS WRONG" AND ATTACHED THAT
 `overallComputed` CLAUSE TO THE ENTRY AS IF THE ENTRY HAD WRITTEN IT.** The entry never mentions
 `overallComputed` — reproduce with
-`git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**; both occurrences in
-this file today are text the closure added. So the draft invented a claim, refuted it, and credited
+`git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**; every occurrence in
+this file today is text the closure added. So the draft invented a claim, refuted it, and credited
 the error to the entry. **§65 in this same file was corrected for the identical misquote-then-refute
 in the identical commit that published the rule "quote the entry inline before criticising it."** The
 retraction pass caught one instance and walked past the other, because it was looking for the §65
@@ -4539,32 +4549,46 @@ and `computeGroupHealth` now both call. Those two render side by side in ONE das
 second copy of `isTaskClosed(t) && !isTaskDelivered(t)` is the drift `hasNoActiveScope`'s own doc
 comment records having already caused once.
 
-★ **ONE of the four entries carried a faulty prescription: §67.** It weighed `|` and a space, noted
-both were merely UNLIKELY to collide rather than unable to, and accepted that instead of looking for
-the option with no drawback. Separately, §64's DIAGNOSIS was incomplete — its surface list missed
-`aggregatePortfolio`. §65 and §66 were both sound and are recorded as such in their entries.
+★ **TWO of the four entries carried a faulty prescription.** §67 weighed `|` and a space, noted both
+were merely UNLIKELY to collide rather than unable to, and accepted that instead of looking for the
+option with no drawback. §65 wrote "**Fixing the drivers fixes both**" — and it does not: the second
+symptom is gated on `hasNoActiveScope` → `scopeCounts` → `isTaskOutOfScope`, which never consults a
+health driver, so no driver change could reach it. (§65's OTHER prescription, "not `status` alone",
+was right but UNDERSPECIFIED — it does not say the split is three-way.) §66 was sound. §64's
+DIAGNOSIS was incomplete — its surface list missed `aggregatePortfolio`.
 
-★★★ **GETTING TO "ONE" TOOK THREE PASSES, AND THE FIRST TWO WERE WRONG IN THE SAME WAY.** The
-original said "all three entries had faulty prescriptions"; a retraction cut it to "TWO of the four"
-and then listed three items under that number. Both versions were reached by finding one real
-instance (§67) and pressing the others to fit:
+★★★ **THAT NUMBER HAS NOW BEEN WRONG IN BOTH DIRECTIONS, BY THE SAME MECHANISM.** Draft 1 said
+"all three". Draft 2 — a correction — said "TWO of the four" and listed three items under it. Draft 3
+— a correction of the correction — said "ONE", and got there by stopping at the §65 clause it had
+already argued about ("not `status` alone") without reading the entry's OTHER prescriptive clause
+four lines below it. Over-count and under-count are the same failure: **deciding the shape of the
+answer first, then reading only far enough to confirm it.** Draft 3 also asserted §65 was "recorded
+as sound in its entry" while §65's own text said "UNDERSPECIFIED" — flattening a concession the same
+author had written.
 
-- **§65** — its prescription reads "consult `completedDate`, **not `status` alone**", i.e. consult
-  BOTH, which is exactly the three-way that shipped. The draft paraphrased it "INSTEAD OF `status`"
-  and refuted the paraphrase.
-- **§66** — the draft attributed an `overallComputed` clause to the entry. The entry never mentions
-  it: `git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**.
+Each wrong draft is worth keeping, because the two DIRECTIONS of error had different causes.
+Over-counting came from misquoting; under-counting came from stopping early.
 
-Same error, same document, same commit — and the commit that fixed §65 published the rule
-("quote the entry inline before criticising it") while leaving §66 standing, because it searched for
-the §65 WORDING instead of the SHAPE. **Slice 1 (§77/§78) made this identical mistake a week
-earlier.** Three times now, every time while writing about someone else's error.
+- **§65, over-counted** — draft 1 paraphrased "consult `completedDate`, **not `status` alone**" as
+  "INSTEAD OF `status`" and refuted the paraphrase. The clause means consult BOTH, which is what
+  shipped. But draft 3 then over-corrected to "sound": the entry's OTHER prescriptive clause,
+  "Fixing the drivers fixes both", IS wrong. Both drafts read one clause and stopped.
+- **§66, over-counted** — draft 1 attributed an `overallComputed` clause to the entry. The entry
+  never mentions it: `git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**.
+  That one was a clean over-count; §66 really was sound.
+
+Same error, same document, same commit — and the commit that fixed §65's misquote published the rule
+("quote the entry inline before criticising it") while leaving §66's standing, because it searched
+for the §65 WORDING instead of the SHAPE. **Slice 1 (§77/§78) made this identical mistake a week
+earlier.** Four drafts, three of them wrong, every one written while criticising someone else's text.
 
 ★★ The durable lessons, in order of how much they cost here: **(1)** a pattern you are pleased to
 have found is the one to re-check — a category claim ("all three", "every X") invites pressing
-non-instances into it; **(2)** when you retract one instance of an error, grep for its SHAPE, not its
-words; **(3)** quote inline, because every claim in this block that survived scrutiny is one where
-the quote is present and every one that did not is one where it was paraphrased.
+non-instances into it, and then over-correcting invites pressing real instances OUT; **(2)** when you
+retract one instance of an error, grep for its SHAPE, not its words; **(3)** quote inline, because
+every claim in this block that survived scrutiny is one where the quote is present; **(4)** read the
+WHOLE entry before judging its prescription — §65 has two prescriptive clauses four lines apart and
+three drafts in a row read only one of them.
 
 ★ Opened by nothing. The one new surface found (`avgCompletionPercent`) was folded into §64 rather
 than numbered, because it is the same defect on the same value, one call frame up.
