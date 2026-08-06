@@ -334,6 +334,9 @@ export function ReportsPanel({
                     row.health.counts.A,
                     row.health.counts.G,
                   )}
+                  {row.health.outOfScope > 0
+                    ? ` · ${t(lang, "reportsGroupOutOfScope", String(row.health.outOfScope))}`
+                    : null}
                 </div>
                 {row.health.drivers.length > 0 && (
                   <div className="mt-1 text-[11px] text-foreground">

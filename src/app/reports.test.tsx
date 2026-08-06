@@ -345,3 +345,22 @@ describe("ReportsPanel — Total tile names the cancelled count", () => {
     expect(container.querySelector("[data-tile-sub]")).toBeNull();
   });
 });
+
+describe("ReportsPanel — a group card does not count cancelled work Green", () => {
+  it("names the cancelled count and leaves Green at zero (open-followups §66)", () => {
+    renderReports([
+      makeTask({ id: 1, assignee: "Alex", group: "Alpha", status: "To Do" }),
+      makeTask({ id: 2, assignee: "Bea", group: "Alpha", status: "Cancelled" }),
+    ]);
+    // TWO, and the count is the point: the Total tile's sub line already said
+    // "1 cancelled" before this change, so a bare getByText finds that one and
+    // passes with the group card left unfixed. (It does not merely pass — it
+    // THROWS on the second match, which is how this was caught.)
+    expect(screen.getAllByText(/1 cancelled/)).toHaveLength(2);
+    // The point of §66: before this, the cancelled row was tallied Green, so
+    // the same fixture read "… · 1 green". Asserting the absence is what fails
+    // on the unfixed code — the presence assertion above would pass either way
+    // once the clause exists.
+    expect(screen.queryByText(/1 green/)).toBeNull();
+  });
+});
