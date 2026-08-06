@@ -41,6 +41,7 @@ import {
 import type { TimelogLinks } from "./timelog-types";
 import type { KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
+import type { ProjectDocument } from "./document-model";
 import type { SettingsOverrides } from "./settings-types";
 import type { CalendarEvent } from "./calendar-event";
 
@@ -117,6 +118,16 @@ interface WorkspaceValue {
   insights: readonly Insight[] | undefined;
   setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
 
+  /** ★ NON-optional (`[]` when empty), unlike `insights`/`knowledgeItems` and
+   *  unlike `Workspace.documents?` itself — it follows the
+   *  milestones/changes/stakeholders precedent instead. The Documents panel
+   *  spreads `prev` inside a functional setter, so an `undefined` state would
+   *  make `setDocuments(prev => [...prev, x])` throw. Byte-stability is
+   *  unaffected: `workspaceToJson` emits the key only when `length > 0`, so an
+   *  empty `[]` still serializes to nothing. */
+  documents: readonly ProjectDocument[];
+  setDocuments: Dispatch<SetStateAction<readonly ProjectDocument[]>>;
+
   settingsOverrides: Readonly<SettingsOverrides> | undefined;
   setSettingsOverrides: Dispatch<SetStateAction<Readonly<SettingsOverrides> | undefined>>;
 
@@ -149,6 +160,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [timelogLinks, setTimelogLinks] = useState<TimelogLinks | undefined>(undefined);
   const [knowledgeItems, setKnowledgeItems] = useState<readonly KnowledgeItem[] | undefined>(undefined);
   const [insights, setInsights] = useState<readonly Insight[] | undefined>(undefined);
+  const [documents, setDocuments] = useState<readonly ProjectDocument[]>([]);
   const [settingsOverrides, setSettingsOverrides] = useState<Readonly<SettingsOverrides> | undefined>(undefined);
   const [calendarEvents, setCalendarEvents] = useState<readonly CalendarEvent[] | undefined>(undefined);
   const {
@@ -369,6 +381,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       timelogLinks, setTimelogLinks,
       knowledgeItems, setKnowledgeItems,
       insights, setInsights,
+      documents, setDocuments,
       settingsOverrides, setSettingsOverrides,
       calendarEvents, setCalendarEvents,
     }),
@@ -402,6 +415,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       timelogLinks,
       knowledgeItems,
       insights,
+      documents,
       settingsOverrides,
       calendarEvents,
     ],

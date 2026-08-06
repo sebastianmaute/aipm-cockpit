@@ -130,8 +130,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments };
   };
 }
 
@@ -278,6 +278,78 @@ describe("useStorageBackend — save effect", () => {
     expect(mockBackend.save).toHaveBeenCalledWith(
       expect.objectContaining({ tasks: expect.any(Array), raid: expect.any(Array) }),
     );
+  });
+
+  it("persists a DOCUMENTS-ONLY change — the autosave deps-array guard", async () => {
+    // ★★★ This is the `documents`-in-the-deps-array regression, and the ONLY
+    // shape that catches it: the save effect's dependency array is what decides
+    // whether a change re-triggers a save. Omit `documents` there and saves
+    // still fire for every other slice, so a test that also touches tasks
+    // passes while a documents-only edit is silently LOST on reload.
+    // Nothing but `documents` may be mutated below — that is the whole point.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => {
+      result.current.setDocuments([
+        {
+          id: 1,
+          title: "Status report",
+          blocks: [],
+          createdAt: "2026-08-06T00:00:00.000Z",
+          updatedAt: "2026-08-06T00:00:00.000Z",
+        },
+      ]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documents: [expect.objectContaining({ id: 1, title: "Status report" })],
+      }),
+    );
+  });
+
+  it("restores documents from a loaded workspace", async () => {
+    // The other half of the round trip: a document present in the backend's
+    // workspace has to reach React state, or the pane renders its empty state
+    // over a project that does have documents.
+    mockBackend.load.mockResolvedValue({
+      tasks: [], raid: [], absences: [], shifts: [],
+      documents: [
+        {
+          id: 7,
+          title: "Loaded doc",
+          blocks: [],
+          createdAt: "2026-08-06T00:00:00.000Z",
+          updatedAt: "2026-08-06T00:00:00.000Z",
+        },
+      ],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documents).toEqual([
+      expect.objectContaining({ id: 7, title: "Loaded doc" }),
+    ]);
+  });
+
+  it("defaults documents to [] when the loaded workspace has none", async () => {
+    // ★ The context state is NON-optional so the panel's functional setter can
+    // spread `prev`. A load path that passed `undefined` through would make
+    // `setDocuments(prev => [...prev, x])` throw on the first create.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documents).toEqual([]);
   });
 
   it("localizes the cross-tab lock-timeout save failure instead of toasting the raw English error", async () => {

@@ -89,6 +89,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
     insights, setInsights,
+    documents, setDocuments,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents,
   } = useWorkspace();
@@ -247,6 +248,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
     setInsights(workspace.insights);
+    setDocuments(workspace.documents ?? []);
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -381,7 +383,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
-    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents } as Workspace;
+    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents } as Workspace;
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -421,7 +423,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents }).then(() => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents }).then(() => {
         emitOutcome(null);
       }).catch((err) => {
         emitOutcome(err);
@@ -475,7 +477,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       window.removeEventListener("pagehide", flush);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -501,7 +503,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents });
+      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents });
       await refreshBackendStatus();
       emitToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -589,7 +591,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents });
+      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents });
       suppressNextLoadRef.current = true;
       emitStorageConfig(newConfig);
       emitToast("info", t(langRef.current, "storageConvertedToast", label));
@@ -620,7 +622,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the file handlers above. Must NOT be memoized or it would capture stale
   // state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents };
   }
 
   // Persist the registry AND surface the change to the caller so its observable
