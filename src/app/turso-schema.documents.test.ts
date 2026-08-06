@@ -9,6 +9,7 @@ import {
 import { tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import { emptyWorkspace } from "./workspace";
 import type { ProjectDocument } from "./document-model";
+import type { DocVersion } from "./document-versions";
 
 const DOC: ProjectDocument = {
   id: 1,
@@ -22,11 +23,30 @@ const DOC: ProjectDocument = {
   updatedAt: "2026-08-06T00:00:00.000Z",
 };
 
+const VERSION: DocVersion = {
+  id: 1,
+  documentId: 2,
+  title: "Prior deck",
+  blocks: [
+    { type: "heading", level: 1, text: "Status" },
+    { type: "paragraph", html: "<p>Safe body</p>" },
+    { type: "pageBreak" },
+  ],
+  savedAt: "2026-08-03T07:00:00.000Z",
+  source: "ai",
+  op: "update",
+};
+
 /** The stored JSON payload of the `documents` meta row, or undefined if none was
  *  emitted. Works on BOTH backends: the tenant INSERT appends a project_id arg
  *  after the same (key, value) pair, so args[0]/args[1] line up either way. */
 function documentsPayload(stmts: { args?: { value?: string }[] }[]): string | undefined {
   return stmts.find((s) => s.args?.[0]?.value === "documents")?.args?.[1]?.value;
+}
+
+/** Same trick as documentsPayload, for the documentVersions meta row. */
+function versionsPayload(stmts: { args?: { value?: string }[] }[]): string | undefined {
+  return stmts.find((s) => s.args?.[0]?.value === "documentVersions")?.args?.[1]?.value;
 }
 
 /** Rebuild SELECT results from the INSERTs a save emitted (round-trip). */
@@ -187,6 +207,136 @@ describe("turso — documents load", () => {
     };
     const ws = rowsToWorkspace(metaOnlyResults([["documents", JSON.stringify([hostile])]]));
     const block = ws.documents?.[0]?.blocks[0];
+    expect(block).toBeDefined();
+    expect(block?.type).toBe("paragraph");
+    const html = block?.type === "paragraph" ? block.html : "";
+    expect(html).toContain("Safe body");
+    expect(html).toContain("Kept heading");
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain("alert(1)");
+  });
+});
+
+describe("turso single-DB — documentVersions save", () => {
+  it("writes a documentVersions meta row when versions exist", () => {
+    const json = JSON.stringify(workspaceToStatements({ ...emptyWorkspace(), documentVersions: [VERSION] }));
+    expect(json).toContain('"documentVersions"');
+    expect(json).toContain("INSERT INTO meta");
+    expect(json).toContain("Prior deck");
+  });
+
+  it("writes no documentVersions meta row when the array is empty", () => {
+    expect(JSON.stringify(workspaceToStatements({ ...emptyWorkspace(), documentVersions: [] }))).not.toContain('"documentVersions"');
+  });
+
+  it("writes no documentVersions meta row when the field is absent", () => {
+    expect(JSON.stringify(workspaceToStatements(emptyWorkspace()))).not.toContain('"documentVersions"');
+  });
+
+  it("skips the documentVersions row when meta is not dirty", () => {
+    const stmts = workspaceToStatements({ ...emptyWorkspace(), documentVersions: [VERSION] }, new Set(["tasks"]));
+    expect(JSON.stringify(stmts)).not.toContain('"documentVersions"');
+  });
+});
+
+describe("turso multi-tenant — documentVersions save", () => {
+  it("writes a documentVersions meta row when versions exist", () => {
+    const json = JSON.stringify(tenantWorkspaceToStatements({ ...emptyWorkspace(), documentVersions: [VERSION] }, "p1"));
+    expect(json).toContain('"documentVersions"');
+    expect(json).toContain("Prior deck");
+  });
+
+  it("writes no documentVersions meta row when the array is empty", () => {
+    expect(JSON.stringify(tenantWorkspaceToStatements({ ...emptyWorkspace(), documentVersions: [] }, "p1"))).not.toContain('"documentVersions"');
+  });
+
+  it("skips the documentVersions row when meta is not dirty", () => {
+    const stmts = tenantWorkspaceToStatements({ ...emptyWorkspace(), documentVersions: [VERSION] }, "p1", new Set(["tasks"]));
+    expect(versionsPayload(stmts)).toBeUndefined();
+  });
+
+  it("stores BYTE-IDENTICAL payload to the single-DB backend", () => {
+    // ★ Same parity property as documents: the load side is SHARED
+    // (rowsToWorkspace), so the tenant backend can only be correct if it
+    // stores exactly what the single-DB backend stores.
+    const ws = { ...emptyWorkspace(), documentVersions: [VERSION] };
+    const single = versionsPayload(workspaceToStatements(ws));
+    const tenant = versionsPayload(tenantWorkspaceToStatements(ws, "p1"));
+    expect(single).toBeDefined();
+    expect(tenant).toBe(single);
+  });
+
+  it("round-trips the tenant payload through the SHARED load", () => {
+    const ws = { ...emptyWorkspace(), documentVersions: [VERSION] };
+    const payload = versionsPayload(tenantWorkspaceToStatements(ws, "p1"));
+    const back = rowsToWorkspace(metaOnlyResults([["documentVersions", payload ?? ""]]));
+    expect(back.documentVersions).toEqual([VERSION]);
+  });
+});
+
+describe("turso — documentVersions dirty detection", () => {
+  it("marks meta dirty when the documentVersions reference changes", () => {
+    // ★ Same trap as the documents suite: two separate emptyWorkspace() calls
+    // would pass this even with the documentVersions line deleted, because
+    // every other field also goes dirty. ONE base, spread into both.
+    const base = emptyWorkspace();
+    const prev = { ...base, documentVersions: [VERSION] };
+    const next = { ...base, documentVersions: [{ ...VERSION, title: "Renamed" }] };
+    expect([...dirtyWorkspaceTables(prev, next)]).toContain("meta");
+  });
+
+  it("does NOT mark meta dirty when the documentVersions reference is identical", () => {
+    const versions = [VERSION];
+    const base = emptyWorkspace();
+    const prev = { ...base, documentVersions: versions };
+    const next = { ...base, documentVersions: versions };
+    expect([...dirtyWorkspaceTables(prev, next)]).not.toContain("meta");
+  });
+
+  it("adds no table other than meta for a documentVersions-only change", () => {
+    // documentVersions has NO table of its own — it rides `meta`.
+    const base = emptyWorkspace();
+    const dirty = [...dirtyWorkspaceTables(
+      { ...base, documentVersions: [VERSION] },
+      { ...base, documentVersions: [{ ...VERSION, title: "x" }] },
+    )];
+    expect(dirty).toEqual(["meta"]);
+    expect(TABLE_NAMES).not.toContain("documentVersions");
+    expect(TABLE_NAMES).not.toContain("document_versions");
+  });
+});
+
+describe("turso — documentVersions load", () => {
+  it("round-trips documentVersions through save → load", () => {
+    const ws = { ...emptyWorkspace(), documentVersions: [VERSION] };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.documentVersions).toEqual([VERSION]);
+  });
+
+  it("leaves documentVersions undefined when none were stored", () => {
+    expect(rowsToWorkspace(metaOnlyResults([])).documentVersions).toBeUndefined();
+  });
+
+  it("leaves documentVersions undefined on a malformed blob instead of throwing", () => {
+    let out: ReturnType<typeof rowsToWorkspace> | undefined;
+    expect(() => { out = rowsToWorkspace(metaOnlyResults([["documentVersions", "{not json"]])); }).not.toThrow();
+    expect(out?.documentVersions).toBeUndefined();
+  });
+
+  it("runs the HTML allow-list on version blocks, not only the structural sanitizer", () => {
+    // Same three-assertion shape as the documents equivalent above — the
+    // negative assertion alone would be satisfied by an over-eager sanitizer
+    // that blanks the whole block, so the two positive ones prove the prose
+    // survived and only the hostile markup was stripped.
+    const hostile: DocVersion = {
+      ...VERSION,
+      blocks: [{
+        type: "paragraph",
+        html: "<p>Safe body</p><h3>Kept heading</h3><script>alert(1)</script>",
+      }],
+    };
+    const ws = rowsToWorkspace(metaOnlyResults([["documentVersions", JSON.stringify([hostile])]]));
+    const block = ws.documentVersions?.[0]?.blocks[0];
     expect(block).toBeDefined();
     expect(block?.type).toBe("paragraph");
     const html = block?.type === "paragraph" ? block.html : "";

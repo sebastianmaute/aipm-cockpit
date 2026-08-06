@@ -31,6 +31,7 @@ import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeProjectDocuments } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
@@ -213,6 +214,29 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave undefined
     }
   }
+  // documentVersions ride `meta` too — same two-pass shape as documents just
+  // above. A version has no independent createdAt/updatedAt, so it is passed
+  // through a synthetic ProjectDocument-shaped wrapper with savedAt standing
+  // in for both (mirrors workspace.ts's JSON path and browser-backend.ts's
+  // IndexedDB path).
+  const verRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documentVersions");
+  if (verRow?.value) {
+    try {
+      const versions = sanitizeDocumentVersions(JSON.parse(verRow.value)).map((v) => ({
+        ...v,
+        blocks: sanitizeDocumentRichFields({
+          id: v.documentId,
+          title: v.title,
+          blocks: v.blocks,
+          createdAt: v.savedAt,
+          updatedAt: v.savedAt,
+        }).blocks,
+      }));
+      if (versions.length) ws.documentVersions = versions;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   const soRow = rowObjects(byTable.get("meta")).find((r) => r.key === "settings_overrides");
   if (soRow?.value) {
     try {
@@ -267,6 +291,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.knowledgeItems !== next.knowledgeItems) dirty.add("meta");
   if (prev.insights !== next.insights) dirty.add("meta");
   if (prev.documents !== next.documents) dirty.add("meta");
+  if (prev.documentVersions !== next.documentVersions) dirty.add("meta");
   if (prev.settingsOverrides !== next.settingsOverrides) dirty.add("meta");
   return dirty;
 }
@@ -371,6 +396,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "documents" },
           { type: "text", value: JSON.stringify(ws.documents) },
+        ],
+      });
+    }
+    if (ws.documentVersions && ws.documentVersions.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "documentVersions" },
+          { type: "text", value: JSON.stringify(ws.documentVersions) },
         ],
       });
     }
