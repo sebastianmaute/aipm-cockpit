@@ -6,6 +6,7 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import type { TaskBudgetLink } from "./use-task-budget-link";
 import type { BudgetBucket } from "./types";
 
@@ -159,12 +160,14 @@ describe("TaskFormFields", () => {
       expect(screen.queryByText("Email")).toBeNull();
     });
 
-    it("hides advanced fields like Priority when switched to Simple, keeping Task name", async () => {
-      const user = userEvent.setup();
+    it("hides advanced fields like Priority when switched to Simple, keeping Task name", () => {
       render(<VisHarness />, { wrapper: TestProviders });
       expect(screen.getByText("Priority")).toBeTruthy();
 
-      await user.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+      // `selectFieldTier` drives the popover with `fireEvent`, not `userEvent`
+      // like the rest of this file — the three-step open/pick/close sequence and
+      // its close assertion live in one shared helper, and it is synchronous.
+      selectFieldTier("fieldViewSimple");
 
       expect(screen.queryByText("Priority")).toBeNull();
       expect(screen.getByText("Task name")).toBeTruthy();

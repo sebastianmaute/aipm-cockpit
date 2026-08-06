@@ -52,7 +52,8 @@ describe("PopoverPanel", () => {
   });
 
   // ★★ Popovers render INSIDE edit modals — ModalFieldControls puts one behind
-  // the ⚙ button of every one — and the shared Modal closes on a document-level
+  // the tier-labelled trigger (a cog icon beside the active tier) in every edit
+  // modal's header — and the shared Modal closes on a document-level
   // Escape unless a descendant marked the event handled. Both halves of that
   // protocol are pinned here: without the preventDefault, Escape closed the
   // popover AND the modal and the user's draft went with it.

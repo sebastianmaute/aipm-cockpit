@@ -6,6 +6,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
 import type { Stakeholder, Milestone, Resource } from "./types";
 
@@ -192,7 +193,6 @@ describe("StakeholderEditModal — field visibility", () => {
   // Advanced field shown by default; the RACI block is Full-only and hidden at
   // the Advanced default. The cog popover is closed, so body labels are safe.
   const RACI_LABEL = t("en-US", "raciSectionTitle");
-  const SIMPLE_LABEL = t("en-US", "fieldViewSimple");
 
   it("shows the advanced influence/interest field and hides Full-only RACI at the Advanced default", () => {
     setup();
@@ -228,7 +228,7 @@ describe("StakeholderEditModal — field visibility", () => {
 
   it("clicking Simple hides the advanced field while the required Name input remains", () => {
     setup();
-    fireEvent.click(screen.getByRole("button", { name: SIMPLE_LABEL }));
+    selectFieldTier("fieldViewSimple");
     // Advanced influence/interest descriptor is now hidden.
     expect(screen.queryByText(/Influence: High/)).not.toBeInTheDocument();
     // Required Name picker remains.

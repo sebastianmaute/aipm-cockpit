@@ -172,6 +172,15 @@ describe("TaskFormModal", () => {
       .find((b) => b.getAttribute("aria-label") === "Close");
     expect(closeButton).toBeDefined();
   });
+
+  test("mounts the field-visibility trigger inside the modal header", () => {
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    const trigger = screen.getByRole("button", {
+      name: new RegExp(t(EN, "configureFields")),
+    });
+    // PLACEMENT, not presence — see edit-modal-chrome.test.tsx.
+    expect(trigger.closest("header")).not.toBeNull();
+  });
 });
 
 describe("TaskFormModal — cancel in create mode", () => {

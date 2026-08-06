@@ -6,6 +6,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { expectNoLabelBoundToButton } from "../test/label-binding";
@@ -129,7 +130,6 @@ describe("MilestoneEditModal — field visibility", () => {
   // an Advanced field shown by default; documentLinks is Full-only and hidden
   // at the Advanced default. The cog popover is closed, so body labels are safe.
   const ACHIEVED_LABEL = t("en-US", "milestoneAchieved");
-  const SIMPLE_LABEL = t("en-US", "fieldViewSimple");
 
   function renderModal() {
     return render(
@@ -160,7 +160,7 @@ describe("MilestoneEditModal — field visibility", () => {
     renderModal();
     expect(screen.getByText(ACHIEVED_LABEL)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: SIMPLE_LABEL }));
+    selectFieldTier("fieldViewSimple");
 
     // Advanced field gone, required Name input remains.
     expect(screen.queryByText(ACHIEVED_LABEL)).not.toBeInTheDocument();

@@ -5,6 +5,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { AbsenceEditModal } from "./absence-edit-modal";
 import { applyTier } from "./field-visibility";
+import { selectFieldTier } from "../test/field-tier";
 import { t } from "./i18n";
 import type { Absence } from "./types";
 
@@ -147,11 +148,11 @@ describe("AbsenceEditModal", () => {
       ).toBeInTheDocument();
 
       // Switch to Full via the modal-header control cluster → Email appears.
-      fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewFull") }));
+      selectFieldTier("fieldViewFull");
       expect(screen.getByText(t("en-US", "absenceAssigneeEmail"))).toBeInTheDocument();
 
       // Switch to Simple → Type and Email are hidden, Assignee still present.
-      fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+      selectFieldTier("fieldViewSimple");
       expect(screen.queryByText(t("en-US", "absenceType"))).toBeNull();
       expect(screen.queryByText(t("en-US", "absenceAssigneeEmail"))).toBeNull();
       expect(

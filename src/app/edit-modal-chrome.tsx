@@ -59,8 +59,9 @@ interface EditModalShellProps {
 
 /**
  * The draggable modal shell shared by the change + stakeholder edit modals:
- * the centered `Modal`, the fixed-width draggable panel, the `ModalHeader`, the
- * field-visibility controls bar, and the two-column form grid. The caller's
+ * the centered `Modal`, the fixed-width draggable panel, the `ModalHeader`
+ * (carrying the field-visibility control in its right-hand cluster), and the
+ * two-column form grid. The caller's
  * fields + `ModalEditFooter` slot in as `children` (inside the `<form>`).
  * Presentational — offset/handlers are props. Emits the exact prior DOM tree.
  */
@@ -104,13 +105,12 @@ export function EditModalShell({
           title={title}
           onClose={onClose}
           dragHandleProps={dragHandleProps}
+          headerExtra={<ModalFieldControls modalId={modalId} lang={lang} />}
           onResetLayout={() => {
             onDragReset();
             sizeReset();
           }}
         />
-
-        <ModalFieldControls modalId={modalId} lang={lang} />
 
         <form onSubmit={onSubmit} className={formClassName}>
           {children}
