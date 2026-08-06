@@ -11,7 +11,7 @@ import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
-import { type SettingsUpdateInput } from "./chat-tools";
+import { CALENDAR_SUMMARY_KEYS, type SettingsUpdateInput } from "./chat-tools";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
@@ -141,6 +141,7 @@ function renderRaidProbe() {
         setSettings: vi.fn(),
         isReadOnly: false,
         currentView: "raid",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -171,6 +172,7 @@ function renderDispatcher(
         setSettings,
         isReadOnly,
         currentView,
+        settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -639,6 +641,7 @@ describe("useChatDispatcher", () => {
           setSettings,
           isReadOnly: false,
           currentView: "milestones",
+          settingsProjectId: "default", holidaySet: new Set<string>(),
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
           getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -649,6 +652,41 @@ describe("useChatDispatcher", () => {
     expect(snap.enabledModules).toEqual(["raid"]);
     expect(snap.mode).toBe(deriveMode(["raid"]));
     expect(snap.currentView).toBe("milestones");
+  });
+
+  it("includes a viewDigest on a digest view and omits it elsewhere", () => {
+    const { result: onWorkload } = renderDispatcher(seedTasks(), false, "workload");
+    expect(onWorkload.current.getSnapshot().viewDigest).toBeTruthy();
+
+    const { result: onRaid } = renderDispatcher(seedTasks(), false, "raid");
+    expect(onRaid.current.getSnapshot().viewDigest).toBeUndefined();
+  });
+
+  it("open-points viewDigest reflects the live task count", () => {
+    const { result } = renderDispatcher(seedTasks(), false, "open-points");
+    expect(result.current.getSnapshot().viewDigest).toContain("3");
+  });
+
+  // Pins the seam the bug actually lived at: getSnapshot must build the
+  // open-points digest from `filteredSortedTasks` (what the table renders),
+  // never the raw workspace-wide `tasks`. view-ai-digest.ts never sees the
+  // raw list, so a unit test of the digest alone can't catch a dispatcher
+  // that wires the wrong ref back in — this has to assert against the
+  // dispatcher's own getSnapshot().
+  it("open-points viewDigest reports the FILTERED count, not the workspace-wide one", () => {
+    const { result } = renderDispatcher(seedTasks(), false, "open-points");
+    // Unfiltered: 3 tasks (Alice/Bob/Carol).
+    expect(result.current.getSnapshot().viewDigest).toContain("3 task(s)");
+
+    act(() => {
+      result.current.setFilters({ assignee: "Alice" });
+    });
+
+    const digest = result.current.getSnapshot().viewDigest;
+    // Filtered to Alice's one task: the digest must report 1, not 3.
+    expect(digest).toContain("1 task(s)");
+    expect(digest).not.toContain("3 task(s)");
+    expect(digest).toContain("Alice");
   });
 
   it("dispatcher identity is stable across editingId-change re-renders", () => {
@@ -662,6 +700,7 @@ describe("useChatDispatcher", () => {
         setSettings: vi.fn(),
         isReadOnly: false,
         currentView: "open-points",
+        settingsProjectId: "default", holidaySet: new Set<string>(),
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
@@ -1105,5 +1144,108 @@ describe("useChatDispatcher – resource directory", () => {
     const { result } = renderDispatcher(seedTasks(), true);
     expect(() => result.current.updateResource(1, { title: "X" })).toThrow();
     expect(() => result.current.deleteResource(1)).toThrow();
+  });
+});
+
+// Knowledge items / calendar events / budget buckets are read-only tools with
+// no matching create* tool, so the fixtures are seeded directly into the
+// workspace (via renderRaidProbe's `ws`, the same pattern the RAID-write
+// tests above use to read what was actually stored) rather than round-tripped
+// through the dispatcher.
+describe("useChatDispatcher – knowledge, calendar and budget read tools", () => {
+  it("lists knowledge items with real name/url/linkKind/taskIds fields", () => {
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.ws.setKnowledgeItems([
+        {
+          id: "dl-1",
+          name: "Charter",
+          url: "https://example.com/charter",
+          kind: "file",
+          linkKind: "confluence",
+          taskIds: [1],
+        },
+      ]);
+    });
+    expect(result.current.d.listKnowledgeItems()).toEqual([
+      {
+        id: "dl-1",
+        name: "Charter",
+        url: "https://example.com/charter",
+        linkKind: "confluence",
+        taskIds: [1],
+      },
+    ]);
+  });
+
+  it("returns an empty list when the workspace has no knowledge items", () => {
+    const { result } = renderRaidProbe();
+    expect(result.current.d.listKnowledgeItems()).toEqual([]);
+  });
+
+  it("returns a calendar event's series definition, not an expansion", () => {
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.ws.setCalendarEvents([
+        {
+          id: 7,
+          title: "Weekly sync",
+          startDate: "2026-02-02",
+          startTime: "09:00",
+          durationMinutes: 30,
+          attendeeResourceIds: [1, 2],
+          recurrence: { freq: "weekly", interval: 1 },
+        },
+      ]);
+    });
+    const events = result.current.d.listCalendarEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0].recurrence).toEqual({ freq: "weekly", interval: 1 });
+    // ★★ No key outside the contract, rather than probing for `occurrences` —
+    // that field has never existed, so `Array.isArray(undefined)` was false
+    // unconditionally and would stay green against an expansion named anything
+    // else (e.g. `dates: string[]`). See chat-tools.test.ts for the same guard.
+    const ALLOWED_KEYS = new Set<string>(CALENDAR_SUMMARY_KEYS);
+    expect(Object.keys(events[0]).filter((k) => !ALLOWED_KEYS.has(k))).toEqual([]);
+  });
+
+  it("returns an empty list when the workspace has no calendar events", () => {
+    const { result } = renderRaidProbe();
+    expect(result.current.d.listCalendarEvents()).toEqual([]);
+  });
+
+  it("lists budget buckets with id, name, status and per-role budget hours", () => {
+    const { result } = renderRaidProbe();
+    act(() => {
+      result.current.ws.setBudgets([
+        {
+          id: 3,
+          name: "Delivery",
+          type: "tm",
+          currency: "EUR",
+          startDate: "2026-01-01",
+          endDate: "2026-12-31",
+          status: "open",
+          allocations: [
+            { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} },
+          ],
+        },
+      ]);
+    });
+    expect(result.current.d.listBudgetBuckets()).toEqual([
+      {
+        id: 3,
+        name: "Delivery",
+        status: "open",
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        allocations: [{ roleId: 2, budgetHours: { "2026-01": 40 } }],
+      },
+    ]);
+  });
+
+  it("returns an empty list when the workspace has no budget buckets", () => {
+    const { result } = renderRaidProbe();
+    expect(result.current.d.listBudgetBuckets()).toEqual([]);
   });
 });

@@ -9,9 +9,13 @@ import {
   type Stakeholder,
   type Resource,
   type TaskDependency,
+  type BudgetBucket,
+  type BucketStatus,
 } from "./types";
 import type { Lang } from "./i18n";
 import { type DepRejection } from "./task-dependency-write";
+import { type KnowledgeItem, type KnowledgeLinkKind, linkKindOf } from "./document-link";
+import { type CalendarEvent, type RecurrenceRule, type EventException } from "./calendar-event";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
@@ -185,6 +189,79 @@ export type ResourceSummary = {
   roleId?: number | null;
 };
 
+/** A standalone Knowledge-library item is just a link (name/url/kind) — it
+ *  carries NO description field (rich or plain) to project here. */
+export type KnowledgeSummary = {
+  id: string;
+  name: string;
+  url: string;
+  linkKind: KnowledgeLinkKind;
+  taskIds: number[];
+};
+
+/** The complete key set of `CalendarEventSummary`, exported so the two tests
+ *  asserting "no key outside the contract" share ONE list instead of a copy
+ *  each. ★ It is still a hand-copy OF THE TYPE — `CALENDAR_SUMMARY_KEYS_MATCH`
+ *  below is what actually binds them, so adding a field to the type without
+ *  adding it here is a tsc error rather than a silently weakened test. */
+export const CALENDAR_SUMMARY_KEYS = [
+  "id", "title", "startDate", "startTime", "durationMinutes",
+  "location", "notes", "attendeeResourceIds", "recurrence", "exceptions",
+] as const;
+
+/** The event's series definition, never expanded into individual occurrences
+ *  (`recurrence`/`exceptions` are the model's own rule to compute from — an
+ *  `exceptions` entry overrides the rule for its `date`: `kind: "skip"` drops
+ *  that occurrence entirely, `kind: "move"` relocates it to `toDate`/`toTime`).
+ *  `notes` is a plain free-text field on CalendarEvent (sanitizeMultiline at
+ *  the boundary) — NOT one of the six rich-HTML fields, so no projection. */
+export type CalendarEventSummary = {
+  id: number;
+  title: string;
+  startDate: string;
+  startTime: string;
+  durationMinutes: number;
+  location?: string;
+  notes?: string;
+  attendeeResourceIds: number[];
+  recurrence?: RecurrenceRule;
+  exceptions: EventException[];
+};
+
+/** ★★ COMPILE-TIME BINDING between the type above and the key list above it,
+ *  in BOTH directions. Without it the list is prose: add a field to the type
+ *  and the "no key outside the contract" tests keep passing while silently
+ *  ignoring it. The `[T] extends [U]` form is deliberate — a bare
+ *  `T extends U` distributes over the union and collapses to `boolean`, which
+ *  `true` is assignable to, making the whole check vacuous. */
+export const CALENDAR_SUMMARY_KEYS_MATCH: [
+  [keyof CalendarEventSummary] extends [(typeof CALENDAR_SUMMARY_KEYS)[number]] ? true : false,
+  [(typeof CALENDAR_SUMMARY_KEYS)[number]] extends [keyof CalendarEventSummary] ? true : false,
+] = [true, true];
+
+/** One role line's PLANNED (budget) hours by period within a bucket. */
+export type BudgetBucketAllocationSummary = {
+  roleId: number;
+  budgetHours: Record<string, number>;
+};
+
+/** Per-bucket detail: id/name/status/window plus each role line's PLANNED
+ *  (budget) hours by period. Deliberately omits actualHours, disciplineAllocations
+ *  and rate overrides — this is what a "what's planned in this bucket" question
+ *  needs, not the full budget-planner row shape. */
+export type BudgetBucketSummary = {
+  id: number;
+  name: string;
+  /** The real union, not a widened `string` — a bucket is open or closed, and
+   *  keeping it exhaustive means a typo is a compile error rather than
+   *  something the model has to interpret. (The older RaidSummary /
+   *  ChangeSummary above widen theirs; that is legacy, not the pattern.) */
+  status: BucketStatus;
+  startDate: string;
+  endDate: string;
+  allocations: BudgetBucketAllocationSummary[];
+};
+
 export type ToolDispatcher = {
   listTasks(): readonly Task[];
   getTask(id: number): Task | null;
@@ -246,9 +323,16 @@ export type ToolDispatcher = {
     enabledModules: FeatureModuleId[];
     currentView: AppView;
     insights?: readonly Insight[];
+    /** Compact text describing what is currently ON the active view, after the
+     *  user's filters. Only 4 views contribute one; absent elsewhere. Lands in
+     *  the VOLATILE prompt suffix — see buildSystemPrompt. */
+    viewDigest?: string;
   };
   getDashboardSnapshot(): DashboardSnapshot;
   listAllocations(): AllocationsSnapshot;
+  listKnowledgeItems(): KnowledgeSummary[];
+  listCalendarEvents(): CalendarEventSummary[];
+  listBudgetBuckets(): BudgetBucketSummary[];
 };
 
 function asString(v: unknown): string | undefined {
@@ -369,6 +453,45 @@ export function toResourceSummary(item: Resource): ResourceSummary {
     department: item.department,
     isExternal: item.isExternal,
     roleId: item.roleId,
+  };
+}
+
+export function toKnowledgeSummary(item: KnowledgeItem): KnowledgeSummary {
+  return {
+    id: item.id,
+    name: item.name,
+    url: item.url,
+    linkKind: linkKindOf(item),
+    taskIds: item.taskIds ?? [],
+  };
+}
+
+export function toCalendarEventSummary(event: CalendarEvent): CalendarEventSummary {
+  return {
+    id: event.id,
+    title: event.title,
+    startDate: event.startDate,
+    startTime: event.startTime,
+    durationMinutes: event.durationMinutes,
+    location: event.location,
+    notes: event.notes,
+    attendeeResourceIds: event.attendeeResourceIds ?? [],
+    recurrence: event.recurrence,
+    exceptions: event.exceptions ?? [],
+  };
+}
+
+export function toBudgetBucketSummary(bucket: BudgetBucket): BudgetBucketSummary {
+  return {
+    id: bucket.id,
+    name: bucket.name,
+    status: bucket.status,
+    startDate: bucket.startDate,
+    endDate: bucket.endDate,
+    allocations: bucket.allocations.map((a) => ({
+      roleId: a.roleId,
+      budgetHours: a.budgetHours,
+    })),
   };
 }
 
@@ -514,6 +637,15 @@ export async function runTool(
 
     case "list_allocations":
       return d.listAllocations();
+
+    case "list_knowledge_items":
+      return d.listKnowledgeItems();
+
+    case "list_calendar_events":
+      return d.listCalendarEvents();
+
+    case "list_budget_buckets":
+      return d.listBudgetBuckets();
 
     case "create_raid_item":
       return d.createRaid(input as RaidInput);

@@ -12,12 +12,18 @@ export interface PromptDef {
   bodyKey: TranslationKey;
 }
 
-/** The universal foundational prompts. Always offered (chat chips + menu "General"). */
+/** The universal short questions, offered as the header Ask-Claude menu's
+ *  "General" group. ★ NO LONGER chat chips — the chat strip serves
+ *  `CHAT_STARTER_PROMPTS` instead (0.216.0), so `promptsForView` is the only
+ *  consumer. Do not delete this on the assumption it is dead. */
 export const FOUNDATIONAL_PROMPTS: PromptDef[] = [
   { labelKey: "aiPromptExplainLabel", bodyKey: "aiPromptExplainBody" },
   { labelKey: "aiPromptWhatsNextLabel", bodyKey: "aiPromptWhatsNextBody" },
-  { labelKey: "aiPromptStatusLabel", bodyKey: "aiPromptStatusBody" },
-  { labelKey: "aiPromptPrioritizeLabel", bodyKey: "aiPromptPrioritizeBody" },
+  // ★ "Status overview" and "Prioritize" were REMOVED here (0.216.0). They
+  // duplicated the fuller `CHAT_STARTER_PROMPTS` chips ("Weekly status",
+  // "Prioritize tasks"), so the header menu and the chat strip offered two
+  // competing versions of the same request. Do NOT reinstate them without
+  // deciding which surface owns the question.
 ];
 
 /** Prompts that only make sense on the CHAT surface, appended after the
@@ -26,6 +32,21 @@ export const FOUNDATIONAL_PROMPTS: PromptDef[] = [
  *  not, so offering it there is a dead prompt. */
 export const CHAT_ONLY_PROMPTS: PromptDef[] = [
   { labelKey: "aiPromptProcessAttachmentLabel", bodyKey: "aiPromptProcessAttachmentBody" },
+];
+
+/** The one-tap starters shown as chips on the CHAT surface. Complete,
+ *  self-contained briefs — unlike `FOUNDATIONAL_PROMPTS`, which are short
+ *  questions the header Ask-Claude menu also serves. Kept separate for exactly
+ *  that reason: the menu has no attach control and little room, so it keeps the
+ *  terse set while the chat strip carries these. ★ Each is answerable from
+ *  existing read tools (tasks, RAID, milestones, stakeholders) — do not add a
+ *  starter whose question no tool can reach, or it becomes a dead chip that
+ *  invites the model to guess. */
+export const CHAT_STARTER_PROMPTS: PromptDef[] = [
+  { labelKey: "aiPromptRiskReviewLabel", bodyKey: "aiPromptRiskReviewBody" },
+  { labelKey: "aiPromptWeeklyStatusLabel", bodyKey: "aiPromptWeeklyStatusBody" },
+  { labelKey: "aiPromptStakeholderUpdateLabel", bodyKey: "aiPromptStakeholderUpdateBody" },
+  { labelKey: "aiPromptPrioritizeTasksLabel", bodyKey: "aiPromptPrioritizeTasksBody" },
 ];
 
 /** View-specific suggestions. A view absent here has no "on this page" set;
@@ -87,6 +108,54 @@ export const ASK_CLAUDE_PROMPTS: Partial<Record<AppView, PromptDef[]>> = {
   "steering-committee": [
     { labelKey: "aiPromptScUpcomingLabel", bodyKey: "aiPromptScUpcomingBody" },
     { labelKey: "aiPromptScAgendaLabel", bodyKey: "aiPromptScAgendaBody" },
+  ],
+  insights: [
+    { labelKey: "aiPromptInsTopLabel", bodyKey: "aiPromptInsTopBody" },
+    { labelKey: "aiPromptInsActLabel", bodyKey: "aiPromptInsActBody" },
+  ],
+  directory: [
+    { labelKey: "aiPromptDirGapsLabel", bodyKey: "aiPromptDirGapsBody" },
+    { labelKey: "aiPromptDirUnlinkedLabel", bodyKey: "aiPromptDirUnlinkedBody" },
+  ],
+  workload: [
+    { labelKey: "aiPromptWlOverloadLabel", bodyKey: "aiPromptWlOverloadBody" },
+    { labelKey: "aiPromptWlRebalanceLabel", bodyKey: "aiPromptWlRebalanceBody" },
+  ],
+  calendar: [
+    { labelKey: "aiPromptCalWeekLabel", bodyKey: "aiPromptCalWeekBody" },
+    { labelKey: "aiPromptCalClashLabel", bodyKey: "aiPromptCalClashBody" },
+  ],
+  planning: [
+    { labelKey: "aiPromptPlanGapsLabel", bodyKey: "aiPromptPlanGapsBody" },
+    { labelKey: "aiPromptPlanRampLabel", bodyKey: "aiPromptPlanRampBody" },
+  ],
+  "manage-roles": [
+    { labelKey: "aiPromptRolesUnassignedLabel", bodyKey: "aiPromptRolesUnassignedBody" },
+    { labelKey: "aiPromptRolesCoverLabel", bodyKey: "aiPromptRolesCoverBody" },
+  ],
+  "budget-report": [
+    { labelKey: "aiPromptBrVarianceLabel", bodyKey: "aiPromptBrVarianceBody" },
+    { labelKey: "aiPromptBrForecastLabel", bodyKey: "aiPromptBrForecastBody" },
+  ],
+  "raid-report": [
+    { labelKey: "aiPromptRrConcentrationLabel", bodyKey: "aiPromptRrConcentrationBody" },
+    { labelKey: "aiPromptRrSeverityLabel", bodyKey: "aiPromptRrSeverityBody" },
+  ],
+  "change-report": [
+    { labelKey: "aiPromptCrPendingLabel", bodyKey: "aiPromptCrPendingBody" },
+    { labelKey: "aiPromptCrImpactLabel", bodyKey: "aiPromptCrImpactBody" },
+  ],
+  raci: [
+    { labelKey: "aiPromptRaciGapsLabel", bodyKey: "aiPromptRaciGapsBody" },
+    { labelKey: "aiPromptRaciOverloadLabel", bodyKey: "aiPromptRaciOverloadBody" },
+  ],
+  "stakeholder-map": [
+    { labelKey: "aiPromptSmapCloseLabel", bodyKey: "aiPromptSmapCloseBody" },
+    { labelKey: "aiPromptSmapNeglectLabel", bodyKey: "aiPromptSmapNeglectBody" },
+  ],
+  "portfolio-health": [
+    { labelKey: "aiPromptPhWorstLabel", bodyKey: "aiPromptPhWorstBody" },
+    { labelKey: "aiPromptPhCompareLabel", bodyKey: "aiPromptPhCompareBody" },
   ],
 };
 

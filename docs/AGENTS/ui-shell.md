@@ -18,8 +18,30 @@
   `dynamic()` strips function props under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
   HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
   SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
-  "Related:" links. The floating top-bar Help panel stays features-only via the
-  derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`).
+  "Related:" links. (`help-sections.ts` was renamed to `help-content.ts`.)
+  ★★★ BOTH surfaces render EVERY group — the floating panel is NOT features-only. It was, via a
+  derived `HELP_SECTIONS` slice, and this file said so long after that stopped being true while
+  CONTRADICTING ITSELF six lines below ("FLOATING panel is CONTENT-PANE ONLY"). The export outlived
+  its last caller; its only surviving reference was a test asserting it equalled its own definition,
+  which would have kept passing however few surfaces used it. Cost: slice 2 of the help roadmap was
+  scoped around "split the surfaces", work that already existed. Both the export and that test are
+  now REMOVED — do not reintroduce a group filter without a caller. `docs:symbols:check` passed the
+  whole time, because `HELP_SECTIONS` was a real NAME; the gate proves names, never claims.
+  ★★ **Reading level** (`Settings.helpReadingLevel`, `SegmentedControl` in Settings → Appearance):
+  `guided` | `standard` | `expert`, per-DEVICE, default `standard` (= today's rendering, byte-identical).
+  `helpGroupOrder(level)` (`help-content.ts`) gives Expert a reference-first order (features →
+  automated → workflows → concepts); Guided/Standard keep teaching-first. `HelpContentPane` takes an
+  optional `readingLevel` (defaults `"standard"`, so every un-wired caller and test is unaffected);
+  `help-menu.tsx` + `help-view.tsx` each read it via a LOCAL `useSettings()`. ★ Do NOT thread it
+  through `ActionMenus` — that contract is guarded by `action-menus-sweep.test.ts`, and the
+  props-not-hooks rule it documents was motivated by staleness that `use-settings.ts`'s listener
+  registry has since fixed. ★ DELIBERATELY device-only: it is the ONLY Appearance field with no
+  `ProjectAppearancePref` entry, because reading level belongs to the reader, not the project.
+  ★★ Guided adds a `primerKey` primer above the body on the 12 `concepts` entries (a test pins that
+  no other group has one). Primers name NO control, path or setting — conceptual prose cannot rot,
+  and twelve paragraphs of behavioural claims would hand the next slice slice 1's job over again.
+  A primer is SEARCHABLE only at the level that renders it, same rule as marker-stripping: never
+  match text the user cannot see. Consequence, pinned by test: one query, different hit counts per level.
   ★★ `help-content-pane.tsx` (shared by the in-pane view AND the floating panel) renders each concept
   as a CARD (`border-l-ui-dark-blue` stripe, no shadow) on a `bg-surface-muted` scroller, with a wider `w-56`
   TOC driven by an `IntersectionObserver` SCROLL-SPY (effect dep = a hoisted scalar `sectionIdsKey` join, NOT an
@@ -41,9 +63,60 @@
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
   (the sidebar entry IS scanned every view; eye-verify the page).
+  • **Help body `[[label]]` markers:** a body naming a UI control writes it `[[Take the tour]]`, never in bare
+  quotes. Pure `help-body-markup.ts` (`parseHelpBody`/`stripHelpMarkers`/`helpBodyLabels`) splits them;
+  `help-content-pane.tsx` renders label segments `font-medium text-foreground` and feeds the STRIPPED body to
+  `matchesQuery` — TWO call sites, and missing the second gives users search hits on markup they cannot see.
+  ★★ `help-content-gate.test.ts` resolves every marker against all three dictionaries and ratchets nav-view
+  coverage against an explicit `KNOWN_UNCOVERED` id list, asserted by set EQUALITY so a CLOSED gap fails until its
+  id is removed (a subset check would let the baseline rot into a permanent exemption). Coverage is measured over
+  `allNavViews()`, which flattens nested `children` — a walk over `NAV_GROUPS` items alone sees half the sidebar and
+  measured 7 gaps where there are 14.
+  ★★ **The baseline is now EMPTY** (slice 3): every nav view is named by some entry's `relatedViews`, so the
+  assertion reads "nothing is uncovered" and a regression fails on the next run. `HELP_ENTRIES` is 64
+  (`grep -c '^  { id: "' src/app/help-content.ts`).
+  ★★★ **FIVE of the fourteen gaps were missing WIRING, NOT CONTENT**, and the gate cannot tell those apart —
+  coverage is `relatedViews` membership, so a complete, truthful entry that lists no view reads as a gap.
+  `feature-activity`, `feature-version-history` and `feature-resources` already described `activity`, `history`
+  and the `directory`/`calendar`/`manage-roles` sub-tabs; they simply carried no `relatedViews`. Slice 1's spec
+  called slice 3 "~18 new entries for features that have none today", and acting on that would have written a
+  SECOND entry for each. Read the entry before concluding a view is undocumented.
+  ★★ It is FIVE and not six: the sixth baseline id, `stakeholder-map`, DID need content — the body that named
+  it was false (see the `stakeholder-map`/`concept-stakeholder` bullet further down; it is not the next one,
+  and a positional pointer in a doc whose thesis is that stale references rot was a poor choice). This
+  paragraph said "SIX … NOT CONTENT" for a day while that bullet
+  described rewriting that very prose — a self-contradiction ten lines apart, which is exactly the defect
+  slice 2 was scoped around. `workload` and `planning` are not in the arithmetic at all: `concept-resource`
+  already covered them, so they were never in the baseline.
+  ★★★ **AN EMPTY BASELINE IS NOT "HELP IS COMPLETE."** Coverage is defined over VIEWS, so a feature that is not
+  a view can never appear in the list however undocumented it is. Seven had zero prose while the ratchet was
+  silent — saved views, install/PWA, undo/redo, inline AI edit, weekly digest, column widths, print — and were
+  written in slice 3 by judgement, not by any gate result. Nothing enforces the next one.
+  ★★ Wiring `stakeholder-map` onto `concept-stakeholder` FORCED a truth fix slice 1 had left in its
+  REPORTED-not-verified bucket: the body claimed an "interest × power" matrix in the Stakeholders view, but the
+  axis is Influence (`quadrantAxisInfluence`) and the 2×2 grid is the separate `stakeholder-map` view, whose own
+  `stakeholderMapTitle` reads "Influence / Interest". The cheap structural fix dragged the truth fix with it —
+  an argument for doing both in one slice.
+  ★★ The DE dictionary is LAZY: without `beforeAll(loadI18n("de"))` the DE lane silently falls back to en-US and
+  passes by testing English twice. Proof it is per-language: injecting the EN value of the `print` key into the DE
+  body as a marker (DE renders "Drucken") fails `de` ALONE while both English lanes pass.
+  ★ Keep every marker WRITTEN IN THESE DOCS multi-word. Tailwind v4 scans `.md` too, and a space-free
+  `[[Something]]` can read as an arbitrary variant — the failure mode that has already broken `globals.css` once.
+  ★★★ IT PROVES STRUCTURE, NOT TRUTH. A body can be entirely false and pass — `helpSecAiBody` claimed the API key
+  lived in localStorage while it is AES-256-GCM sealed in IndexedDB, and no assertion here would catch it. Worse,
+  `[[Take the tour]]` would have RESOLVED (`tourLaunch` exists) while rendering on no control — a green gate on a
+  false sentence. A green run is not evidence that help content is correct.
+  ★ Markers are UI LABELS ONLY; ordinary quoted prose stays quoted, because a false marker fails the build on a
+  true sentence. Near-misses that would fail an exact match: `"Also create in Jira"` (real value carries `({0} — {1})`),
+  `"Version history: keep N versions"` (split across two keys), `"internal/d"` (real: `"Internal /d"`).
   • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
   one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
-  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, ~14 views; `conceptId` in `HELP_ENTRIES`
+  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, **16** views — `grep -c 'conceptId: "'
+  src/app/view-callouts.ts`, was documented as "~14" until 2026-08-05; ★★ the quote in that pattern is
+  load-bearing — a bare `grep -c 'conceptId:'` returns **17**, counting the interface's own
+  `conceptId: string;` field, and anchoring to `^  ` does not help because that field is indented too. A
+  reproduce command published beside a corrected count and never run re-seeds the rot it was meant to
+  stop; this one shipped wrong for a day. `conceptId` in `HELP_ENTRIES`
   concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`aipm-cockpit:view-hints`, out of
   exports/Turso, cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep). Presentational `view-callout.tsx` is
   PROPS-only (`view`/`lang`/`showHints`/`isPopout`/`onLearnMore`) — NOT context-consuming, because the

@@ -1663,7 +1663,7 @@ function TaskManagerInner() {
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout,
-    currentView: activeTab,
+    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
@@ -2271,7 +2271,7 @@ function TaskManagerInner() {
         ? guardEdit(() => { void handleOpenCalendarImport(); })
         : undefined,
     onEditTask: openEditModal,
-    onChangeBudgets: commitBuckets,
+    onChangeBudgets: guardEdit(commitBuckets), // ★★★ keep guarded — why, and why onCreateResource can't be: task-manager.popout-guard.test.tsx
     onRefreshFx: () => { void refreshFx().then((err) => { if (err) reportSilentFailure(showToast, lang, "fx.refreshFailed", new Error(err), "guardFxRefreshFailed"); }); },
     fxLoading,
     trends,

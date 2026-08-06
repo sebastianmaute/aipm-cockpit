@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { t } from "./i18n";
 import { HelpView } from "./help-view";
 
 describe("HelpView (grouped)", () => {
@@ -87,5 +89,41 @@ describe("HelpView search clear", () => {
     expect(field.value).toBe("milestone");
     fireEvent.click(screen.getByRole("button", { name: "Clear – Search help" }));
     expect(field.value).toBe("");
+  });
+});
+
+describe("HelpView reading-level dropdown", () => {
+  it("offers all three levels on the Help tab", () => {
+    render(<HelpView lang="en-US" />);
+    const select = screen.getByLabelText(t("en-US", "helpReadingLevelLabel"));
+    expect(select).toBeInTheDocument();
+    expect([...select.querySelectorAll("option")].map((o) => o.value)).toEqual([
+      "guided",
+      "standard",
+      "expert",
+    ]);
+  });
+
+  // ★ Position, not just presence: the user asked for it between the search box
+  // and Print, and the toolbar convention keeps Print · reset-size contiguous —
+  // so it must sit OUTSIDE that trailing group, not as its first member.
+  it("sits after the search box and before the Print group", () => {
+    render(<HelpView lang="en-US" />);
+    const select = screen.getByLabelText(t("en-US", "helpReadingLevelLabel"));
+    const search = screen.getByLabelText(t("en-US", "helpSearchPlaceholder"));
+    const print = screen.getByRole("button", { name: t("en-US", "printHint") });
+    const after = (a: Element, b: Element) =>
+      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(after(search, select)).toBe(true);
+    expect(after(select, print)).toBe(true);
+    expect(select.closest("div.ml-auto")).toBeNull();
+  });
+
+  // The level changes nothing outside the Help tab, and a control with no
+  // visible effect is worse than an absent one.
+  it("is absent on another tab", async () => {
+    render(<HelpView lang="en-US" />);
+    await userEvent.click(screen.getByRole("tab", { name: t("en-US", "helpRelationsTitle") }));
+    expect(screen.queryByLabelText(t("en-US", "helpReadingLevelLabel"))).toBeNull();
   });
 });

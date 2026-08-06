@@ -40,7 +40,17 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 `agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file or in
 any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
-or not that path calls it. ★★ It cannot see a COUNT either — "the 20 lazy panels" passed every run
+or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
+backticked `SCREAMING_CASE` constant in all nine files is completely ungated.** The scan requires
+both a lowercase and an upper/underscore character (`check-agents-symbols.mjs`, the "mixed case only"
+guard), so `HELP_ENTRIES`, `TABLE_NAMES`, `CONFIG_KEYS`, `A11Y_VIEWS` and every peer are skipped
+outright — a deleted one goes on being documented as current forever. Verified 2026-08-05 by probe,
+not by reading: injecting two backticked names that never existed — one SCREAMING_CASE, one camelCase
+— into a doc failed the gate on the camelCase one ALONE. (Deliberately un-backticked here: quoting a
+fake identifier in backticks makes the gate flag THIS file, which is the gate working.) It cost real work — a `HELP_SECTIONS` export deleted from the
+code stayed described as live here and in `docs/AGENTS/ui-shell.md`, and a whole slice was scoped
+around the behaviour that prose implied. Do not read a green run as covering a constant.
+★★ It cannot see a COUNT either — "the 20 lazy panels" passed every run
 while the number was 23, and two of five counts sampled on 2026-08-04 were wrong. A count is the
 easiest claim to check and the easiest to leave rotting: put the reproduce command beside it.
 
@@ -409,7 +419,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ These three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
   same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
-  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. The
+  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. ★ A THIRD option, and the better one when the hook holds real logic rather than glue: TEST it. `use-view-digest.ts` (0.216.0) is a deps-object hook that assembles the AI view digest from live pane state; it is coverage-GATED and stays above the floors on its own tests, so it is deliberately NOT in `coverage.exclude`. Exclude glue, not logic. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`

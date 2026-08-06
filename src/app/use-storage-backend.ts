@@ -46,10 +46,9 @@ export interface UseStorageBackendArgs {
   settings: Settings;
   lang: Lang;
   hydrated: boolean;
-  /** True when this window was opened as a popout (`?popout=<tab>`). Popout
-   *  windows are mirror views — they receive live state and forward their own
-   *  edits via BroadcastChannel, but they must NOT persist. See the save
-   *  effect below. */
+  /** True when this window was opened as a popout (`?popout=<tab>`). A popout is
+   *  a mirror: it receives live state, forwards nothing, and must NOT persist.
+   *  ★ Claimed popouts "forward their own edits via BroadcastChannel" until 2026-08-06. */
   isPopout: boolean;
   activityLog: ActivityEntry[];
   setActivityLog: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
@@ -372,14 +371,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Save workspace to backend on change (debounced 500ms)
   useEffect(() => {
     if (!args.hydrated) return;
-    // Single-writer rule: the main window owns persistence. A popout is a
-    // mirror — it already shows the main window's state and forwards its own
-    // edits over BroadcastChannel, which the main window persists. Letting the
-    // popout also call backend.save() would mean two windows writing the same
-    // backend (a race), and popup-window storage is frequently blocked by the
-    // browser's security policy — the blocked IndexedDB write surfaces as
-    // "AbortError: Aborted due to security policy". Skipping it here removes
-    // both problems.
+    // Single-writer rule: the main window owns persistence. ★★★ A popout does
+    // NOT save and does NOT forward edits — `canSend = !args.isPopout` below
+    // disables every outbound broadcast, so an edit escaping the read-only
+    // guards stays popout-LOCAL, EXCEPT the activity log (`use-activity-log`
+    // writes localStorage with no isPopout check — §91). `canSend` is the
+    // authority, not this prose: two earlier versions of it were wrong in
+    // opposite directions and both reached a commit message. Saving from both
+    // windows would also race, and popup storage is often blocked
+    // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
     const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents } as Workspace;
     const curCollections = nonEmptyCollectionCount(outgoing);
