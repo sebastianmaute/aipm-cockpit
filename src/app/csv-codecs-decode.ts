@@ -72,6 +72,7 @@ import {
   CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
   CSV_SECTION_DOCUMENTS,
+  CSV_SECTION_DOCUMENT_VERSIONS,
   buildCalendarEventFromObj,
   buildChangeFromObj,
   buildMilestoneFromObj,
@@ -91,6 +92,7 @@ import {
   csvToInsights,
   csvToSettingsOverrides,
   csvToDocuments,
+  csvToDocumentVersions,
 } from "./csv-codecs-config";
 
 
@@ -135,9 +137,10 @@ function splitCsvSections(csv: string): {
   insightsText: string;
   settingsOverridesText: string;
   documentsText: string;
+  documentVersionsText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -163,6 +166,7 @@ function splitCsvSections(csv: string): {
   const insightsLines: string[] = [];
   const settingsOverridesLines: string[] = [];
   const documentsLines: string[] = [];
+  const documentVersionsLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -185,6 +189,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_INSIGHTS)) { mode = "insights"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SETTINGS_OVERRIDES)) { mode = "settingsOverrides"; continue; }
     if (trimmed.startsWith(CSV_SECTION_DOCUMENTS)) { mode = "documents"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_DOCUMENT_VERSIONS)) { mode = "documentVersions"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -215,6 +220,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "insights") insightsLines.push(line);
     else if (mode === "settingsOverrides") settingsOverridesLines.push(line);
     else if (mode === "documents") documentsLines.push(line);
+    else if (mode === "documentVersions") documentVersionsLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -246,6 +252,7 @@ function splitCsvSections(csv: string): {
     // split above accepts both — so the join must restore "\r\n" or a quoted
     // multi-line cell would come back with its breaks rewritten.
     documentsText: documentsLines.join("\r\n"),
+    documentVersionsText: documentVersionsLines.join("\r\n"),
   };
 }
 
@@ -464,6 +471,10 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   if (s.documentsText.trim()) {
     const docs = csvToDocuments(s.documentsText);
     if (docs) ws.documents = docs;
+  }
+  if (s.documentVersionsText.trim()) {
+    const versions = csvToDocumentVersions(s.documentVersionsText);
+    if (versions) ws.documentVersions = versions;
   }
   return migrateWorkspaceV10(ws);
 }

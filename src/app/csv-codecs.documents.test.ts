@@ -17,10 +17,18 @@
 //      section splitter re-joins its lines with "\r\n".
 
 import { describe, it, expect } from "vitest";
-import { workspaceToCsv, csvToWorkspace, documentsToCsv, csvToDocuments } from "./csv-codecs";
+import {
+  workspaceToCsv,
+  csvToWorkspace,
+  documentsToCsv,
+  csvToDocuments,
+  documentVersionsToCsv,
+  csvToDocumentVersions,
+} from "./csv-codecs";
 import { defaultExportConfig } from "./settings-types";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
+import type { DocVersion } from "./document-versions";
 import type { Workspace } from "./workspace";
 
 const DOC: ProjectDocument = {
@@ -48,6 +56,20 @@ function emptyWs(): Workspace {
 function withDocs(docs: readonly ProjectDocument[]): Workspace {
   return { ...emptyWs(), documents: docs };
 }
+
+function withVersions(versions: readonly DocVersion[]): Workspace {
+  return { ...emptyWs(), documentVersions: versions };
+}
+
+const VERSION: DocVersion = {
+  id: 1,
+  documentId: 3,
+  title: "Prior, with comma",
+  blocks: [{ type: "paragraph", html: "<p>a</p>" }],
+  savedAt: "2026-08-04T07:00:00.000Z",
+  source: "ai",
+  op: "update",
+};
 
 /** Round-trips a single document through the STORAGE path and returns it. */
 function roundTrip(doc: ProjectDocument): ProjectDocument | undefined {
@@ -172,5 +194,96 @@ describe("CSV codec — documents", () => {
     expect(ws.tasks).toEqual([]);
     expect(ws.knowledgeItems).toBeUndefined();
     expect(ws.insights).toBeUndefined();
+  });
+});
+
+// documentVersions rides the CSV backend exactly like documents (same
+// `# DOCUMENT VERSIONS` config-blob shape, same storage-only gate) — see the
+// header comment above for why the three properties (storage-only,
+// byte-stability, cell escaping) matter here too.
+describe("CSV codec — documentVersions", () => {
+  it("round-trips a version through the storage path", () => {
+    const csv = workspaceToCsv(withVersions([VERSION]));
+    expect(csv).toContain("# DOCUMENT VERSIONS");
+    expect(csvToWorkspace(csv).documentVersions).toEqual([VERSION]);
+  });
+
+  // ★★ THE TEST THAT PINS THE STORAGE-ONLY GATE — mirrors the documents test
+  // of the same name. Without this, the `config === undefined` gate can be
+  // deleted and every other test in this block stays green: version history
+  // is a before-image trail for AI tool writes, not user-facing export content.
+  it("never emits documentVersions on the export path, even when present", () => {
+    const csv = workspaceToCsv(withVersions([VERSION]), defaultExportConfig);
+    expect(csv).not.toContain("# DOCUMENT VERSIONS");
+    expect(csv).not.toContain("Prior, with comma");
+    // Byte-identical to the same export with no version history at all.
+    expect(csv).toBe(workspaceToCsv(emptyWs(), defaultExportConfig));
+    expect(csvToWorkspace(csv).documentVersions).toBeUndefined();
+  });
+
+  it("emits no DOCUMENT VERSIONS section when there is none", () => {
+    expect(workspaceToCsv(emptyWs())).not.toContain("# DOCUMENT VERSIONS");
+    expect(workspaceToCsv(emptyWs(), defaultExportConfig)).not.toContain("# DOCUMENT VERSIONS");
+  });
+
+  // ★ The real gate is byte equality, not just marker absence — an empty
+  // section or stray separator would still fail golden-workspace.test.
+  it("is a byte-level no-op when versions are absent or empty", () => {
+    const baseline = workspaceToCsv(emptyWs());
+    expect(workspaceToCsv(withVersions([]))).toBe(baseline);
+  });
+
+  it("round-trips a title containing a comma and a quote", () => {
+    const tricky: DocVersion = { ...VERSION, title: 'Q1 "review", final' };
+    const csv = workspaceToCsv(withVersions([tricky]));
+    expect(csvToWorkspace(csv).documentVersions?.[0].title).toBe('Q1 "review", final');
+  });
+
+  // ★★★ THE RICH-FIELD PASS, mirroring the documents test of the same name.
+  // sanitizeDocumentVersions is DOM-FREE BY CONTRACT and enforces STRUCTURE
+  // only — the paragraph HTML allow-list is a separate pass this codec must
+  // chain, or a version's markup comes back unfiltered from CSV while the
+  // same version loaded from JSON/IDB/Turso comes back clean.
+  it("runs the rich-field allow-list on load, not just the structural pass", () => {
+    const hostile: DocVersion = {
+      ...VERSION,
+      blocks: [{ type: "paragraph", html: "<p>keep me</p><script>x()</script>" }],
+    };
+    const csv = workspaceToCsv(withVersions([hostile]));
+    const block = csvToWorkspace(csv).documentVersions?.[0].blocks[0];
+    expect(block?.type).toBe("paragraph");
+    const html = block?.type === "paragraph" ? block.html : "";
+    expect(html).not.toMatch(/script/i);
+    expect(html).toContain("keep me");
+  });
+
+  it("round-trips through the codec pair with the default neutralize flag", () => {
+    const line = documentVersionsToCsv([VERSION]);
+    expect(line.startsWith("config,")).toBe(true);
+    expect(csvToDocumentVersions(line)).toEqual([VERSION]);
+  });
+
+  it("drops a section whose blob is not valid JSON", () => {
+    expect(csvToWorkspace("# DOCUMENT VERSIONS\r\nconfig,not-json").documentVersions).toBeUndefined();
+  });
+
+  it("drops a section whose blob sanitizes to nothing", () => {
+    expect(csvToWorkspace("# DOCUMENT VERSIONS\r\nconfig,[]").documentVersions).toBeUndefined();
+  });
+
+  it("drops a section with no config row", () => {
+    expect(csvToWorkspace("# DOCUMENT VERSIONS\r\nfield,value").documentVersions).toBeUndefined();
+  });
+
+  it("keeps the DOCUMENT VERSIONS section out of the other sections, including DOCUMENTS", () => {
+    // The splitter is a mode machine: a mis-ordered marker check would fold
+    // this section's blob into whichever one precedes it — DOCUMENTS is the
+    // adjacent, name-overlapping risk ("# DOCUMENT VERSIONS" is not a prefix
+    // match for "# DOCUMENTS" or vice versa, but assert the outcome, not the
+    // string comparison).
+    const ws = csvToWorkspace(workspaceToCsv({ ...withDocs([DOC]), documentVersions: [VERSION] }));
+    expect(ws.documentVersions).toEqual([VERSION]);
+    expect(ws.documents).toEqual([DOC]);
+    expect(ws.tasks).toEqual([]);
   });
 });

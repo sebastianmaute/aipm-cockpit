@@ -44,6 +44,7 @@ import {
   CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
   CSV_SECTION_DOCUMENTS,
+  CSV_SECTION_DOCUMENT_VERSIONS,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -65,6 +66,7 @@ import {
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 
@@ -273,6 +275,52 @@ export function csvToDocuments(text: string): ProjectDocument[] | undefined {
     // must do the same or it will silently lose every document.
     const docs = sanitizeProjectDocuments(JSON.parse(rows[0][1])).map(sanitizeDocumentRichFields);
     return docs.length ? docs : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Document version history encoder / decoder ------------------------------
+//
+// Same single `config,<json>` row shape as documents just above, and the same
+// STORAGE-ONLY gate: version history exists to give AI chat tool writes an
+// undo path, not to appear in a file the user opens in Excel — there is no
+// `documentVersions` export key, so emission is gated purely on the array
+// being non-empty.
+
+export function documentVersionsToCsv(versions: readonly DocVersion[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(versions), neutralize)].join(",");
+}
+
+export function csvToDocumentVersions(text: string): DocVersion[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    // ★★★ TWO PASSES, same shape as csvToDocuments above: sanitizeDocumentVersions
+    // is DOM-FREE BY CONTRACT (enforces structure only, delegating block/title
+    // shape to sanitizeProjectDocuments), so sanitizeDocumentRichFields still has
+    // to run separately to apply the paragraph HTML allow-list. A version has no
+    // independent createdAt/updatedAt, so it is passed through a synthetic
+    // ProjectDocument-shaped wrapper with savedAt standing in for both — mirrors
+    // the JSON path's load boundary (workspace.ts).
+    // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
+    // SILENT, exactly like csvToDocuments: without a DOM the rich-field pass
+    // throws, the catch below swallows it, and history decodes to UNDEFINED —
+    // dropped whole, no error, no diagnostic. The only DOM-free importer today is
+    // scripts/generate-sample-workspace.ts, which installs JSDOM into globalThis
+    // BEFORE it dynamically imports src/app/storage; a new bare-node importer of
+    // this module must do the same or it will silently lose every version.
+    const versions = sanitizeDocumentVersions(JSON.parse(rows[0][1])).map((v) => ({
+      ...v,
+      blocks: sanitizeDocumentRichFields({
+        id: v.documentId,
+        title: v.title,
+        blocks: v.blocks,
+        createdAt: v.savedAt,
+        updatedAt: v.savedAt,
+      }).blocks,
+    }));
+    return versions.length ? versions : undefined;
   } catch {
     return undefined;
   }
@@ -612,5 +660,11 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // golden-workspace.test pins them.
   if (config === undefined && ws.documents && ws.documents.length)
     csvPush(CSV_SECTION_DOCUMENTS, documentsToCsv(ws.documents, neutralize));
+  // Document version history — STORAGE-ONLY, same `config === undefined` gate
+  // as documents just above: it is a before-image trail for AI tool writes,
+  // not user-facing content. Emitted last so a history-less workspace's bytes
+  // are unchanged — golden-workspace.test pins them.
+  if (config === undefined && ws.documentVersions && ws.documentVersions.length)
+    csvPush(CSV_SECTION_DOCUMENT_VERSIONS, documentVersionsToCsv(ws.documentVersions, neutralize));
   return parts.join("\r\n");
 }
