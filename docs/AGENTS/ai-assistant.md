@@ -97,7 +97,8 @@
   runTool case + `ToolDispatcher` method, then implement in the dispatcher `useMemo` — guard
   `if (args.isReadOnly) throw readOnlyError()` FIRST (popouts must not mutate), build the raw object and run
   it through the entity's `sanitizeX` (the SINGLE validator — `sanitizeRaidItem` enforces enums/dates/caps +
-  per-category RAID-status defaulting), id = `nextEntityId(ref.current)` (max+1), then update BOTH the ref AND
+  per-category RAID-status defaulting), id = `mintId(kind, ref.current)` (session-scoped high-water mint, never
+  reused), then update BOTH the ref AND
   call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
   `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip the
   no-unused-vars rule).

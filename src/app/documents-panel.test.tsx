@@ -17,6 +17,7 @@ import type { ProjectDocument } from "./document-model";
 import { emptyWorkspace } from "./workspace";
 import { buttonNames } from "../test/toolbar-order";
 import { downloadDocument } from "./document-download";
+import { __resetMintStateForTests } from "./id-mint-session";
 
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
@@ -30,6 +31,7 @@ vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
 // reproducible.
 beforeEach(() => {
   window.localStorage.clear();
+  __resetMintStateForTests();
 });
 
 const NOW = "2026-08-06T00:00:00.000Z";

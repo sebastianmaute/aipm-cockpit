@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   sanitizeProjectDocuments,
-  nextDocumentId,
   MAX_DOCUMENTS,
   MAX_BLOCKS_PER_DOC,
   MAX_TABLE_ROWS,
@@ -311,15 +310,5 @@ describe("sanitizeProjectDocuments", () => {
     const src = readFileSync("src/app/document-model.ts", "utf8");
     const codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
     expect(codeOnly).not.toMatch(/new Set\s*\(\s*EXPORT_SECTION_KEYS/);
-  });
-});
-
-describe("nextDocumentId", () => {
-  it("mints 1 for an empty list", () => {
-    expect(nextDocumentId([])).toBe(1);
-  });
-
-  it("mints max+1, not length+1", () => {
-    expect(nextDocumentId([doc({ id: 3 }), doc({ id: 11 }), doc({ id: 7 })])).toBe(12);
   });
 });

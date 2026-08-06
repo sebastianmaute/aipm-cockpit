@@ -15,7 +15,8 @@
 
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type Lang, t } from "./i18n";
-import { type ProjectDocument, nextDocumentId, MAX_TITLE_CHARS } from "./document-model";
+import { type ProjectDocument, MAX_TITLE_CHARS } from "./document-model";
+import { mintId } from "./id-mint-session";
 import type { Workspace } from "./workspace";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
@@ -104,7 +105,7 @@ export function appendDocument(
   return [
     ...prev,
     {
-      id: nextDocumentId(prev),
+      id: mintId("document", prev),
       title: uniqueDocumentTitle(prev, title),
       blocks: [],
       createdAt: now,
@@ -130,7 +131,7 @@ export function duplicateDocument(
     ...prev,
     {
       ...src,
-      id: nextDocumentId(prev),
+      id: mintId("document", prev),
       title: uniqueDocumentTitle(prev, title),
       createdAt: now,
       updatedAt: now,

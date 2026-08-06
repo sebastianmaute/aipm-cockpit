@@ -203,8 +203,3 @@ export function sanitizeProjectDocuments(raw: unknown): ProjectDocument[] {
   }
   return out;
 }
-
-/** max+1 mint, matching every other entity. */
-export function nextDocumentId(docs: readonly ProjectDocument[]): number {
-  return docs.reduce((max, d) => Math.max(max, d.id), 0) + 1;
-}
