@@ -6,11 +6,23 @@
 // `window`, so this file must never be pulled into
 // scripts/generate-sample-workspace.ts's import graph. Keep it a render sink.
 //
-// ★★ The paragraph sink re-sanitizes. document-rich-fields.ts already cleans
-// paragraph HTML at the whole-object load boundaries (jsonToWorkspace + the
-// IndexedDB load), but the CSV/MD/Turso decoders hand-build entities and never
-// call a sanitizer, and document-model.ts is DOM-free and cannot — so on those
-// three backends THIS is the only layer that holds against stored markup.
+// ★★★ THE PARAGRAPH SINK RE-SANITIZES, AND IT IS THE LAYER THAT ACTUALLY HOLDS.
+// Deliberately stated as a ROLE, not as a list of which backends are currently
+// unprotected: that list has already been wrong once (it named Turso, which has
+// always sanitized — see `turso-schema.ts`), and it changes whenever a decoder
+// is fixed, so any enumeration here rots into a false claim.
+//
+// The rule that does not rot: load-boundary sanitizing is defence in DEPTH, and
+// this sink is the load-bearing layer. `paragraph.html` reaches
+// `dangerouslySetInnerHTML`, and the value may come from ANY backend, an
+// import, a second tab, or a model — so this call must never be removed on the
+// grounds that "the decoders already sanitize". Sanitizing is idempotent, so
+// the redundancy costs nothing; assuming it is redundant costs stored XSS the
+// moment one path stops sanitizing or a new one arrives without it.
+//
+// ★ If you are here to ADD sanitizing to a decoder that lacks it: do it, and do
+// not weaken this sink in exchange. Compose it at the caller as
+// `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`.
 //
 // ★★★ sanitizeTemplateHtml, never sanitizeNoteHtml. Neither allow-list contains
 // h3/div/table, so both DELETE those tags; what differs is the TEXT inside them.

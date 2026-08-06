@@ -3,12 +3,17 @@
 // (jsonToWorkspace and the IndexedDB load).
 //
 // ★★★ It is a SEPARATE module from document-model.ts on purpose: that module is
-// DOM-FREE BY CONTRACT (it sits in scripts/generate-sample-workspace.ts's import
-// graph and runs under bare node, where DOMPurify's module-eval `window` binding
-// makes a sanitize call throw, jsonToWorkspace's catch-all swallows the throw
-// into an EMPTY workspace, and the generator then "successfully" writes
-// near-empty sample files). Same split, same reason, as ai-rich-text.ts vs
-// rich-text-plain.ts.
+// the DOM-FREE structural validator every load path runs, and structural
+// validation is a different job from HTML sanitization. Splitting them lets a
+// caller run the structure check anywhere and add the allow-list wherever a DOM
+// exists. Same split, same reason, as ai-rich-text.ts vs rich-text-plain.ts.
+//
+// ★★ The split is NOT because a DOMPurify call would throw for want of a DOM.
+// That was the old rationale and it is obsolete — the sample generator installs
+// JSDOM before its dynamic imports and decodes with `{ strict: true }`. Adding
+// this pass to a load path that lacks it is therefore a normal change, not a
+// contract violation: compose it at the CALLER, as
+// `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`.
 //
 // ★★★ `sanitizeTemplateHtml`, NOT `sanitizeNoteHtml`, and the difference is DATA
 // LOSS rather than reach. NEITHER list allows `h3`/`div`/`table` — both delete

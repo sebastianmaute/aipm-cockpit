@@ -3,13 +3,28 @@
 // Canonical model for a project document. A document is JSON at rest; bytes
 // (.docx/.pptx/.html/.pdf) are rendered on demand and never stored.
 //
-// ★★★ DOM-FREE BY CONTRACT. This module is in the import graph of
-// scripts/generate-sample-workspace.ts, which runs under bare node. DOMPurify
-// binds `window` at module-eval, so a call here throws, jsonToWorkspace's
-// catch-all swallows it into an EMPTY workspace, and the generator then
-// "successfully" writes near-empty sample files. The HTML allow-list runs at
-// the render sink and at the whole-object load boundaries instead. A source
-// scan in the test enforces this: comments may name the library, code may not.
+// ★★★ DOM-FREE BY CONTRACT, and the reason is SEPARATION OF CONCERNS, not a
+// missing DOM. This is the ONE structural validator every load path routes
+// through — six backends plus the sample generator — so it must be runnable in
+// any environment and must never depend on one. Structural validation (shape,
+// bounds, dedupe) and HTML sanitization are two jobs; this module owns the
+// first, `document-rich-fields.ts` owns the second, and callers compose them.
+// A source scan in the test enforces it: comments may name DOMPurify, code
+// may not.
+//
+// ★★★ DO NOT CITE THIS CONTRACT TO REFUSE ADDING SANITIZATION TO A LOAD PATH.
+// The old rationale here said the sample generator "runs under bare node", so a
+// DOMPurify call would throw and jsonToWorkspace's catch-all would silently
+// write near-empty sample files. BOTH HALVES ARE CLOSED: the generator installs
+// JSDOM before its dynamic imports (`generate-sample-workspace.ts`, the
+// `new JSDOM(...)` + `Object.assign(globalThis, ...)` pair above the
+// `await import("../src/app/storage")`), and it now decodes with
+// `{ strict: true }` plus an explicit empty-workspace throw, so a silent
+// degrade is no longer reachable. That stale reason is exactly what someone
+// would quote to argue a decoder CANNOT be made to sanitize. It can: the fix is
+// never to make this module DOM-bound, but for the CALLER to compose the two
+// passes — `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`,
+// which is what `turso-schema.ts` and the IndexedDB load already do.
 
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { capHtmlText, htmlTextLength } from "./rich-text-plain";
