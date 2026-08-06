@@ -12,11 +12,14 @@ import {
   markdownToWorkspace,
   documentsToMarkdown,
   markdownToDocuments,
+  documentVersionsToMarkdown,
+  markdownToDocumentVersions,
 } from "./markdown-codecs";
 import { defaultExportConfig } from "./settings-types";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { Workspace } from "./workspace";
 import type { ProjectDocument } from "./document-model";
+import type { DocVersion } from "./document-versions";
 
 const DOC: ProjectDocument = {
   id: 1,
@@ -161,5 +164,62 @@ describe("Markdown codec — documents", () => {
     expect(markdownToDocuments("# AIPM Tasks\n")).toBeUndefined();
     expect(markdownToDocuments("## Documents\n\n```json\n{ nope\n```\n")).toBeUndefined();
     expect(markdownToDocuments("## Documents\n\n```json\n[{}]\n```\n")).toBeUndefined();
+  });
+});
+
+describe("Markdown codec — document versions", () => {
+  const VERSION: DocVersion = {
+    id: 1,
+    documentId: 3,
+    title: "Snapshot",
+    blocks: [],
+    savedAt: "2026-08-05T07:00:00.000Z",
+    source: "user",
+    op: "delete",
+  };
+
+  it("round-trips", () => {
+    const md = documentVersionsToMarkdown([VERSION]);
+    expect(markdownToDocumentVersions(md)).toEqual([VERSION]);
+  });
+
+  // Same fence-collision argument and test shape as the documents suite above.
+  it("puts no fence at column 0 inside the payload", () => {
+    const nasty: DocVersion = { ...VERSION, title: "``` not a fence" };
+    const md = documentVersionsToMarkdown([nasty]);
+    const fenceLines = md.split("\n").filter((l) => l.startsWith("```"));
+    expect(fenceLines).toHaveLength(2);
+    expect(markdownToDocumentVersions(md)).toEqual([nasty]);
+  });
+
+  // ★★ STORAGE-ONLY, mirrors the documents export-gate test above. Without
+  // this test the `config === undefined` gate on the emit site could be
+  // deleted and the suite would stay green — version history would then leak
+  // into every user-facing markdown export.
+  it("emits nothing on the export path, even with document versions present", () => {
+    const ws = { ...emptyWs(), documentVersions: [VERSION] };
+    const md = workspaceToMarkdown(ws, defaultExportConfig);
+    expect(md).not.toContain("## Document versions");
+    expect(md).not.toContain("Snapshot");
+    expect(md).toBe(workspaceToMarkdown(emptyWs(), defaultExportConfig));
+    expect(markdownToWorkspace(md).documentVersions).toBeUndefined();
+  });
+
+  it("an absent or empty documentVersions array is a byte-level no-op", () => {
+    const base = workspaceToMarkdown(emptyWs());
+    expect(workspaceToMarkdown({ ...emptyWs(), documentVersions: [] })).toBe(base);
+  });
+
+  it("decodes documents and document versions from the same file", () => {
+    const ws = { ...emptyWs(), documents: [DOC], documentVersions: [VERSION] };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.documents).toHaveLength(1);
+    expect(back.documentVersions).toHaveLength(1);
+  });
+
+  it("returns undefined for a missing block, malformed JSON, or an all-invalid array", () => {
+    expect(markdownToDocumentVersions("# AIPM Tasks\n")).toBeUndefined();
+    expect(markdownToDocumentVersions("## Document versions\n\n```json\n{ nope\n```\n")).toBeUndefined();
+    expect(markdownToDocumentVersions("## Document versions\n\n```json\n[{}]\n```\n")).toBeUndefined();
   });
 });

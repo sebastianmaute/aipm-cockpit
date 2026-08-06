@@ -63,6 +63,7 @@ import {
   markdownToTimelogLinks,
   markdownToKnowledgeItems,
   markdownToDocuments,
+  markdownToDocumentVersions,
   markdownToInsights,
   markdownToSettingsOverrides,
   mdUnescape,
@@ -346,6 +347,12 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   // its lines never look like a table row.
   const docs = markdownToDocuments(md);
   if (docs) ws.documents = docs;
+  // Whole-md scan, same shape as documents just above: "## Document versions"
+  // is not a heading splitMarkdownSections knows, so its lines stay wherever
+  // they landed — harmless, since the block is emitted last and its lines
+  // never look like a table row.
+  const docVersions = markdownToDocumentVersions(md);
+  if (docVersions) ws.documentVersions = docVersions;
   const so = markdownToSettingsOverrides(md);
   if (so) ws.settingsOverrides = so;
   return migrateWorkspaceV10(ws);
