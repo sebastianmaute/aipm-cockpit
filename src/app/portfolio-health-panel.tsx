@@ -121,16 +121,28 @@ export function PortfolioHealthPanel({
       {/* Aggregate KPI strip */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "portfolioKpiProjects")} value={aggregate.projectCount} />
-        {/* ★ Same treatment as the row cells: no project contributed a figure,
-            so there is nothing to average. A "0%" tile above a table of "—"
-            rows is §64's misreading reappearing at the aggregate, and the
-            gradient bar would draw an empty progress track to match. */}
+        {/* ★ No project contributed a figure, so there is nothing to average.
+            A "0%" tile above a table of "—" rows is §64's misreading
+            reappearing at the aggregate, and the gradient bar would draw an
+            empty progress track to match.
+            ★★ Rendered as the ROW CELLS do it — aria-hidden glyph plus an
+            sr-only name — NOT as `dashboard-kpi-strip` does it (which swaps the
+            LABEL to "No active scope" and puts a count in the value). A draft
+            put the full phrase in this value slot: that is a third presentation
+            of one state, and the value is styled `text-xl font-semibold
+            tabular-nums` in a 4-column grid, so it wraps where every sibling
+            tile shows a short number. jsdom cannot see that. */}
         <Tile
           label={t(lang, "portfolioKpiAvgComplete")}
           value={
-            aggregate.avgCompletionPercent === null
-              ? t(lang, "dashboardNoActiveScope")
-              : `${aggregate.avgCompletionPercent}%`
+            aggregate.avgCompletionPercent === null ? (
+              <span title={t(lang, "dashboardNoActiveScope")}>
+                <span aria-hidden="true">—</span>
+                <span className="sr-only">{t(lang, "dashboardNoActiveScope")}</span>
+              </span>
+            ) : (
+              `${aggregate.avgCompletionPercent}%`
+            )
           }
           bar={
             aggregate.avgCompletionPercent === null ? undefined : (

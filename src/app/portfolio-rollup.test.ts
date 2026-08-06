@@ -127,7 +127,7 @@ describe("avgCompletionPercent with no-scope projects (open-followups §64)", ()
     expect(agg.projectCount).toBe(2);
   });
 
-  it("returns 0 when every project has no active scope", () => {
+  it("returns null when every project has no active scope", () => {
     expect(aggregatePortfolio([baseRow({ completionPercent: null })]).avgCompletionPercent).toBeNull();
   });
 });
