@@ -110,9 +110,36 @@ describe("documents-panel pure transforms", () => {
     expect(next[1].blocks).toHaveLength(3);
   });
 
-  it("duplicateDocument is a no-op for an id a concurrent writer removed", () => {
+  // ★★★ `toBe`, NOT `toEqual`. Turso's dirty-table detection is by REFERENCE
+  // equality, so a value-equal NEW array is still "changed" and costs a full
+  // meta DELETE + re-INSERT for a write that changed nothing. `toEqual` cannot
+  // see the difference — it compares contents, so it passed against
+  // `return [...prev]` for the whole life of this test. Mutation-proved: put
+  // the spread back and each of these three goes red.
+  it("duplicateDocument returns prev BY REFERENCE for an id a concurrent writer removed", () => {
     const prev = [doc(1, "A")];
-    expect(duplicateDocument(prev, 99, "x", NOW)).toEqual(prev);
+    expect(duplicateDocument(prev, 99, "x", NOW)).toBe(prev);
+  });
+
+  it("renameDocument returns prev BY REFERENCE when no document carries the id", () => {
+    const prev = [doc(1, "A"), doc(2, "B")];
+    expect(renameDocument(prev, 99, "x", NOW)).toBe(prev);
+  });
+
+  it("removeDocument returns prev BY REFERENCE when the id is absent", () => {
+    const prev = [doc(1, "A"), doc(2, "B")];
+    expect(removeDocument(prev, 99)).toBe(prev);
+  });
+
+  it("still returns a NEW array when the transform actually changes something", () => {
+    // ★ The control for all three above. Without it, `return prev` on EVERY
+    // path — mutating in place or ignoring the request outright — would satisfy
+    // them, which is a far worse bug than the one they pin.
+    const prev = [doc(1, "A")];
+    expect(duplicateDocument(prev, 1, "A (copy)", NOW)).not.toBe(prev);
+    expect(renameDocument(prev, 1, "Renamed", NOW)).not.toBe(prev);
+    expect(removeDocument(prev, 1)).not.toBe(prev);
+    expect(prev).toHaveLength(1); // and none of them mutated the input
   });
 
   // ★★★ TITLE UNIQUENESS. Every per-row control's accessible name is

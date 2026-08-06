@@ -9,10 +9,17 @@
 // fragment/standalone split working as intended, not a renderer bug to patch.
 //
 // ★★ NO SECOND SANITIZE PASS HERE. The renderer's paragraph sink already runs
-// sanitizeTemplateHtml on the one unescaped path (doc-render-html.ts:84-86,
-// verified — not taken on trust). Adding another pass here would imply the sink
-// is optional; removing the sink's would be a stored-XSS hole. Leave both alone.
+// sanitizeTemplateHtml on the one unescaped path — `renderBlock`'s `paragraph`
+// case in doc-render-html.ts. Adding another pass here would imply the sink is
+// optional; removing the sink's would be a stored-XSS hole. Leave both alone.
+// ★★★ CITE THE SYMBOL, NOT A LINE RANGE. This said "doc-render-html.ts:84-86,
+// verified — not taken on trust", and 84-86 is `tableHtml`'s ESCAPING, a
+// different guard on a different path. A reader following it lands on table
+// escaping, finds no sanitize call for paragraphs, and can only conclude the
+// paragraph path is unguarded — worse than an uncited claim, because the note
+// advertises itself as checked. Line numbers rot on the next edit above them.
 
+import { useMemo } from "react";
 import { type Lang } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
@@ -28,6 +35,21 @@ export interface DocumentPreviewProps {
 }
 
 export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
+  // ★★ MEMOIZED, and the cost it avoids is not theoretical. `renderDocumentHtml`
+  // runs DOMPurify once PER PARAGRAPH block and `resolveDataSection` once per
+  // dataSection block — and that one projects the WHOLE workspace through
+  // buildExportSections. Called inline, it re-ran on every parent render, so
+  // each keystroke in the rename modal (which re-renders the panel) re-projected
+  // the entire workspace to produce byte-identical HTML.
+  // ★★★ IT MUST SIT ABOVE THE `!doc` EARLY RETURN. A hook after a conditional
+  // return is a rules-of-hooks violation and `npm run lint` is `--max-warnings=0`
+  // in CI, so the guard moves INTO the memo body rather than the hook moving
+  // below the guard.
+  const html = useMemo(
+    () => (doc ? renderDocumentHtml(doc, ws, lang, "preview") : ""),
+    [doc, ws, lang],
+  );
+
   if (!doc) return null;
 
   const titleId = `document-preview-title-${doc.id}`;
@@ -57,7 +79,7 @@ export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
       <div
         data-document-preview-body
         className="text-sm text-foreground"
-        dangerouslySetInnerHTML={{ __html: renderDocumentHtml(doc, ws, lang, "preview") }}
+        dangerouslySetInnerHTML={{ __html: html }}
       />
     </section>
   );

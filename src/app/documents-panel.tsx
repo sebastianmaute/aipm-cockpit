@@ -32,6 +32,23 @@ import { INTERACTIVE } from "./interaction-styles";
 // --- pure transforms ------------------------------------------------------
 // i18n-free and side-effect-free, so they can be unit-tested directly and
 // composed to reproduce a same-tick collision without React in the loop.
+//
+// ★★★ A NO-OP MUST PRESERVE IDENTITY — return `prev`, never `[...prev]` or a
+// fresh `.map()`/`.filter()` that happens to produce equal contents. Turso's
+// dirty-table detection is by REFERENCE equality, so a value-equal new array is
+// still "changed": it marks the table dirty and triggers a full DELETE +
+// re-INSERT for a write that changed nothing. `duplicateDocument` (absent id),
+// `renameDocument` (no match) and `removeDocument` (no match) all had that
+// shape.
+// ★★ THIS IS WHY THE THREE RETURN `readonly ProjectDocument[]` while
+// `appendDocument` returns `ProjectDocument[]`. The mixed signatures are not
+// sloppiness — `prev` IS readonly, so returning it is a type error under the
+// mutable signature, and widening is exactly what makes the identity return
+// expressible. Narrow one back and the `[...prev]` bug is the only way to
+// compile. `appendDocument` always appends, so it can never be a no-op.
+// ★★ `toEqual` CANNOT SEE ANY OF THIS — it compares contents. The existing
+// "no-op for an id a concurrent writer removed" test asserted `toEqual(prev)`
+// and passed against the bug for its whole life. Assert `toBe`.
 
 /** ★★★ TITLES CARRY AN ACCESSIBILITY INVARIANT, so this is not cosmetic.
  *  `documents-list.tsx` builds every per-row control's accessible name as
@@ -105,9 +122,10 @@ export function duplicateDocument(
   id: number,
   title: string,
   now: string,
-): ProjectDocument[] {
+): readonly ProjectDocument[] {
   const src = prev.find((d) => d.id === id);
-  if (!src) return [...prev];
+  // ★★ `prev` ITSELF, not `[...prev]` — see "A no-op must preserve IDENTITY".
+  if (!src) return prev;
   return [
     ...prev,
     {
@@ -120,21 +138,28 @@ export function duplicateDocument(
   ];
 }
 
-/** Retitle exactly one document, stamping `updatedAt`. */
+/** Retitle exactly one document, stamping `updatedAt`. Returns `prev` UNCHANGED
+ *  — the same reference — when no document carries `id`. */
 export function renameDocument(
   prev: readonly ProjectDocument[],
   id: number,
   title: string,
   now: string,
-): ProjectDocument[] {
+): readonly ProjectDocument[] {
+  if (!prev.some((d) => d.id === id)) return prev;
   return prev.map((d) => (d.id === id ? { ...d, title, updatedAt: now } : d));
 }
 
+/** Drop `id`'s document. Returns `prev` UNCHANGED — the same reference — when
+ *  `id` is absent. */
 export function removeDocument(
   prev: readonly ProjectDocument[],
   id: number,
-): ProjectDocument[] {
-  return prev.filter((d) => d.id !== id);
+): readonly ProjectDocument[] {
+  const next = prev.filter((d) => d.id !== id);
+  // Length is a complete test here: `filter` can only shrink, so an equal
+  // length means nothing matched.
+  return next.length === prev.length ? prev : next;
 }
 
 /** Sort a copy. `dir === "off"` returns workspace order — the order the user's
