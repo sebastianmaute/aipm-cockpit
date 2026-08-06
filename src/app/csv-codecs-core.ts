@@ -216,6 +216,7 @@ export const CSV_SECTION_TIMELOG_LINKS = "# TIMELOG LINKS";
 export const CSV_SECTION_KNOWLEDGE_ITEMS = "# KNOWLEDGE ITEMS";
 export const CSV_SECTION_INSIGHTS = "# INSIGHTS";
 export const CSV_SECTION_SETTINGS_OVERRIDES = "# SETTINGS OVERRIDES";
+export const CSV_SECTION_DOCUMENTS = "# DOCUMENTS";
 
 export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {

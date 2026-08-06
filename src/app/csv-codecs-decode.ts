@@ -71,6 +71,7 @@ import {
   CSV_SECTION_KNOWLEDGE_ITEMS,
   CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
+  CSV_SECTION_DOCUMENTS,
   buildCalendarEventFromObj,
   buildChangeFromObj,
   buildMilestoneFromObj,
@@ -89,6 +90,7 @@ import {
   csvToKnowledgeItems,
   csvToInsights,
   csvToSettingsOverrides,
+  csvToDocuments,
 } from "./csv-codecs-config";
 
 
@@ -132,9 +134,10 @@ function splitCsvSections(csv: string): {
   knowledgeItemsText: string;
   insightsText: string;
   settingsOverridesText: string;
+  documentsText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -159,6 +162,7 @@ function splitCsvSections(csv: string): {
   const knowledgeItemsLines: string[] = [];
   const insightsLines: string[] = [];
   const settingsOverridesLines: string[] = [];
+  const documentsLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -180,6 +184,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_KNOWLEDGE_ITEMS)) { mode = "knowledgeItems"; continue; }
     if (trimmed.startsWith(CSV_SECTION_INSIGHTS)) { mode = "insights"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SETTINGS_OVERRIDES)) { mode = "settingsOverrides"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_DOCUMENTS)) { mode = "documents"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -209,6 +214,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "knowledgeItems") knowledgeItemsLines.push(line);
     else if (mode === "insights") insightsLines.push(line);
     else if (mode === "settingsOverrides") settingsOverridesLines.push(line);
+    else if (mode === "documents") documentsLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -236,6 +242,10 @@ function splitCsvSections(csv: string): {
     knowledgeItemsText: knowledgeItemsLines.join("\r\n"),
     insightsText: insightsLines.join("\r\n"),
     settingsOverridesText: settingsOverridesLines.join("\r\n"),
+    // ★ CRLF: CSV is CRLF-delimited in this repo (markdown is LF), and the
+    // split above accepts both — so the join must restore "\r\n" or a quoted
+    // multi-line cell would come back with its breaks rewritten.
+    documentsText: documentsLines.join("\r\n"),
   };
 }
 
@@ -450,6 +460,10 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   if (s.settingsOverridesText.trim()) {
     const so = csvToSettingsOverrides(s.settingsOverridesText);
     if (so) ws.settingsOverrides = so;
+  }
+  if (s.documentsText.trim()) {
+    const docs = csvToDocuments(s.documentsText);
+    if (docs) ws.documents = docs;
   }
   return migrateWorkspaceV10(ws);
 }

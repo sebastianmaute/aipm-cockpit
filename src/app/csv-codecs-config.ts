@@ -43,6 +43,7 @@ import {
   CSV_SECTION_KNOWLEDGE_ITEMS,
   CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
+  CSV_SECTION_DOCUMENTS,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -62,6 +63,7 @@ import {
   tasksToCsv,
 } from "./csv-codecs-core";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
+import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 
@@ -228,6 +230,32 @@ export function csvToInsights(text: string): Insight[] | undefined {
   try {
     const ins = sanitizeInsights(JSON.parse(rows[0][1]));
     return ins.length ? ins : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Documents encoder / decoder ---------------------------------------------
+//
+// Same single `config,<json>` row shape as the knowledge items, but — unlike
+// them — documents are STORAGE-ONLY: there is no `documents` key in
+// EXPORT_SECTION_KEYS, so emission is gated purely on the array being non-empty
+// rather than routed through the export `enabled(...)` allowlist.
+//
+// ★ The whole blob rides in ONE cell, so a title carrying a comma, a quote or a
+// newline depends on `csvCellEscape` quoting it (and on JSON.stringify having
+// already escaped the break, so the cell never spans two CSV lines).
+
+export function documentsToCsv(docs: readonly ProjectDocument[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(docs), neutralize)].join(",");
+}
+
+export function csvToDocuments(text: string): ProjectDocument[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    const docs = sanitizeProjectDocuments(JSON.parse(rows[0][1]));
+    return docs.length ? docs : undefined;
   } catch {
     return undefined;
   }
@@ -558,5 +586,14 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // so insight-less files stay byte-stable.
   if (enabled("insights") && ws.insights && ws.insights.length)
     csvPush(CSV_SECTION_INSIGHTS, insightsToCsv(ws.insights, neutralize));
+  // Documents — STORAGE-ONLY, same `config === undefined` gate as steering /
+  // timelog / settings-overrides: `workspaceToCsv` serves BOTH the CSV storage
+  // backend and the user-facing CSV export, and a raw JSON document blob has no
+  // business in a file the user opens in Excel. There is no `documents` export
+  // key, so this is a gate rather than an `enabled(...)` call. Emitted LAST and
+  // only when populated, so a document-less workspace's bytes are unchanged —
+  // golden-workspace.test pins them.
+  if (config === undefined && ws.documents && ws.documents.length)
+    csvPush(CSV_SECTION_DOCUMENTS, documentsToCsv(ws.documents, neutralize));
   return parts.join("\r\n");
 }
