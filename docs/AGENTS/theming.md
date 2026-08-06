@@ -303,10 +303,14 @@
   `document-links-field`→`knowledge-links-field`; user strings read "Knowledge" / "Wissen"). ★★ The persisted
   per-entity **`documentLinks`** field + its CSV/MD/Turso COLUMNS are INTENTIONALLY LEFT on the wire — the
   rename is view/feature-only, NO serialization change, golden fixtures unchanged. Do NOT "fix" `documentLinks`
-  to `knowledgeLinks` (that's a six-write-path + golden-regen migration for zero benefit). ★ Two back-compat
-  migrations preserve existing users: `sanitizeFeatures` maps a stored `documents` module id → `knowledge`,
-  and `slugToView` maps the legacy `documents` hash slug → `knowledge` (canonical slug is now `knowledge`;
-  `#documents/<id>` deep-links still resolve). ★ The shared TS type is `KnowledgeLink` (was `DocumentLink`),
+  to `knowledgeLinks` (that's a six-write-path + golden-regen migration for zero benefit). ★ ONE back-compat
+  migration preserves existing users: `sanitizeFeatures` maps a stored `documents` module id → `knowledge`.
+  ★★ THE SECOND ONE IS GONE AND THE BREAK IS DELIBERATE. A `documents` → `knowledge` slug alias used to sit
+  at the top of `slugToView`; it was REMOVED when the new Documents view was added, because it runs BEFORE
+  the `allNavViews()` lookup and would have permanently shadowed that view's own hash route. The canonical
+  Knowledge slug is `knowledge`; `#documents/<id>` now resolves to **Documents**, so a pre-v0.190 bookmark
+  lands on the wrong view rather than being redirected. Do NOT "restore" the alias — `nav-config.test.ts`
+  pins the current behaviour. ★ The shared TS type is `KnowledgeLink` (was `DocumentLink`),
   with an OPTIONAL `linkKind: "document" | "confluence" | "url"` emitted ONLY for confluence/url (a document
   link — the default + every legacy link — omits it, so serialization stays byte-identical); `linkKindOf(link)`
   resolves the effective kind (absent ⇒ "document"). NOTE the pre-existing `kind` field already means the
