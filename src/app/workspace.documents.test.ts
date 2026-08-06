@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isWorkspaceEmpty, jsonToWorkspace, workspaceToJson } from "./workspace";
+import { isWorkspaceEmpty, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import type { ProjectDocument } from "./document-model";
 
@@ -255,15 +255,23 @@ describe("workspace JSON — documentVersions", () => {
     expect(back.documentVersions).toEqual([VERSION]);
   });
 
-  it("emits no key at all when empty", () => {
-    const ws = load({ documentVersions: [] });
+  it("emits NO documentVersions key when absent", () => {
+    const ws = load();
     expect(ws.documentVersions).toBeUndefined();
     expect(workspaceToJson(ws)).not.toMatch(/"documentVersions"/);
   });
 
-  it("emits NO documentVersions key when absent", () => {
-    const ws = load();
-    expect(ws.documentVersions).toBeUndefined();
+  // ★★ The test above (and "drops junk" below) route through load(), which
+  //    decodes via jsonToWorkspace FIRST — and that path already collapses a
+  //    present-but-empty array to `undefined` before workspaceToJson ever
+  //    runs. So nothing in this file called workspaceToJson with a genuinely
+  //    PRESENT empty array: a mutant that dropped workspaceToJson's OWN
+  //    `.length` check (keeping only the truthiness check) still passed every
+  //    test here, because it would only misfire on an input this file never
+  //    produced. Build the Workspace object directly — bypassing
+  //    jsonToWorkspace — to put a real empty array in front of the guard.
+  it("workspaceToJson itself omits the key for a directly-constructed empty array", () => {
+    const ws: Workspace = { ...load(), documentVersions: [] };
     expect(workspaceToJson(ws)).not.toMatch(/"documentVersions"/);
   });
 

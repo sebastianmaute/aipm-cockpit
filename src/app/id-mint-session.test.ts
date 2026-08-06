@@ -109,6 +109,9 @@ describe("seedMintFromWorkspace", () => {
     budgets: [{ id: 20 }, { id: 25 }],
     calendarEvents: [{ id: 27 }],
     documents: [{ id: 29, title: "d", blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-01" }],
+    documentVersions: [
+      { id: 32, documentId: 29, title: "v", blocks: [], savedAt: "2026-01-01", source: "user", op: "update" },
+    ],
   } as unknown as Parameters<typeof seedMintFromWorkspace>[0];
 
   it("seeds every kind so a subsequent mint exceeds the loaded max", () => {
@@ -128,9 +131,7 @@ describe("seedMintFromWorkspace", () => {
       budgetBucket: 26,
       calendarEvent: 28,
       document: 30,
-      // "documentVersion" is not seeded by seedMintFromWorkspace yet (Task 3
-      // adds it once `Workspace.documentVersions` exists), so it mints fresh.
-      documentVersion: 1,
+      documentVersion: 33,
     };
     for (const [kind, next] of Object.entries(expected) as [MintKind, number][]) {
       expect(mintId(kind, [])).toBe(next);
@@ -256,6 +257,19 @@ describe("document id reuse", () => {
       "reset",
     );
     expect(mintId("document", [])).toBe(10);
+  });
+
+  it("seeds the documentVersion high-water mark from a workspace", () => {
+    __resetMintStateForTests();
+    seedMintFromWorkspace(
+      {
+        documentVersions: [
+          { id: 9, documentId: 1, title: "v", blocks: [], savedAt: "2026-01-01", source: "user", op: "update" },
+        ],
+      },
+      "reset",
+    );
+    expect(mintId("documentVersion", [])).toBe(10);
   });
 
   it("mints version ids independently of document ids", () => {
