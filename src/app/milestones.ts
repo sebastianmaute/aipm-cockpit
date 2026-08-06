@@ -1,6 +1,6 @@
 // Pure milestone-domain logic. No React, no I/O — testable core.
 import { workdaysUntil } from "./due-dates";
-import { isTaskClosed, isTaskDelivered } from "./task-closed";
+import { isTaskOutOfScope } from "./task-closed";
 import type { Milestone, Task } from "./types";
 
 export type MilestoneStatus = "achieved" | "overdue" | "at-risk" | "due-soon" | "on-track";
@@ -21,7 +21,7 @@ export function isAtRisk(m: Milestone, tasksById: ReadonlyMap<number, Task>): bo
   for (const id of m.linkedTaskIds) {
     const t = tasksById.get(id);
     if (!t) continue;
-    if (isTaskClosed(t) && !isTaskDelivered(t)) continue;
+    if (isTaskOutOfScope(t)) continue;
     const end = t.completedDate || t.dueDate;
     if (end && end > m.date) return true;
   }

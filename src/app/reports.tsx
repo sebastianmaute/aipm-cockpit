@@ -121,6 +121,13 @@ export function ReportsPanel({
       if (dr !== 0) return dr;
       // Within a color bucket, larger group first so the headline rows are
       // the workstreams that move the needle.
+      // ★★ This sums `counts` only, which since the §66 change EXCLUDES
+      //    out-of-scope work — so the rank is IN-SCOPE size, not group size, and
+      //    a mostly-cancelled group sorts below a smaller active one. That is
+      //    deliberate and matches the sentence above (cancelled work does not
+      //    move the needle), but it IS a silent behaviour change from before
+      //    that release. Add `+ a.health.outOfScope` if raw group size is ever
+      //    wanted back; `reports.test.tsx` pins the current order.
       const aTotal = a.health.counts.R + a.health.counts.A + a.health.counts.G;
       const bTotal = b.health.counts.R + b.health.counts.A + b.health.counts.G;
       if (bTotal !== aTotal) return bTotal - aTotal;
@@ -205,6 +212,7 @@ export function ReportsPanel({
     | "healthDriverDueToday"
     | "healthDriverDueSoon"
     | "healthDriverCompleted"
+    | "healthDriverClosed"
     | "healthDriverCancelled"
     | "healthDriverOnTrack"> = {
     manual: "healthDriverManual",
@@ -213,6 +221,7 @@ export function ReportsPanel({
     dueToday: "healthDriverDueToday",
     dueSoon: "healthDriverDueSoon",
     completed: "healthDriverCompleted",
+    closed: "healthDriverClosed",
     cancelled: "healthDriverCancelled",
     onTrack: "healthDriverOnTrack",
   };
@@ -332,6 +341,9 @@ export function ReportsPanel({
                     row.health.counts.A,
                     row.health.counts.G,
                   )}
+                  {row.health.outOfScope > 0
+                    ? ` · ${t(lang, "reportsGroupOutOfScope", String(row.health.outOfScope))}`
+                    : null}
                 </div>
                 {row.health.drivers.length > 0 && (
                   <div className="mt-1 text-[11px] text-foreground">

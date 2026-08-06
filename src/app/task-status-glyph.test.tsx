@@ -80,10 +80,13 @@ describe("TaskStatusGlyph", () => {
   // renders the CROSS where it used to render the check.
   //
   // Pinned as correct rather than "fixed": completedDate is the field that
-  // answers "was this delivered?", and there is no date to show. The stale half
-  // is the TOOLTIP — computeTaskHealth reads `status`, so it still says
-  // "completed" while the glyph says otherwise. That contradiction lives in the
-  // health engine, not here; recorded as an open follow-up.
+  // answers "was this delivered?", and there is no date to show.
+  //
+  // ★ The tooltip half USED to contradict it — `computeTaskHealth` derived its
+  // drivers from `status` and announced "completed" while the glyph said
+  // otherwise (open-followups §65). Fixed in the health engine, not here: the
+  // driver is now the three-way `cancelled` / `completed` / `closed`, and this
+  // pair yields `closed`. The glyph branch below is unchanged either way.
   test("a Done task with NO completedDate renders the cross — it was never delivered", () => {
     const { container } = render(
       <TaskStatusGlyph

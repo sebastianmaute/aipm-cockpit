@@ -18,6 +18,7 @@
 
 import { workdaysUntil } from "./due-dates";
 import { type Lang, t } from "./i18n";
+import { isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import { isTaskFinished } from "./task-status";
 import type { Task } from "./types";
 
@@ -35,6 +36,10 @@ export type HealthDriver =
   | "dueToday"
   | "dueSoon"
   | "completed"
+  /** Closed, but nothing was delivered and it was not cancelled either — a
+   *  `Done` task carrying no `completedDate`. Announcing that as "completed"
+   *  contradicted the ✕ glyph beside it (open-followups §65). */
+  | "closed"
   | "cancelled"
   | "onTrack";
 
@@ -59,10 +64,20 @@ export function computeTaskHealth(
   // A finished task is non-active: it must not be flagged red/amber/overdue.
   // Done carries completedDate; Cancelled is terminal with no completedDate, so
   // also guard on isTaskFinished so Cancelled takes the same Green path.
+  // ★ THREE-WAY, not two. `isTaskDelivered` alone would label a Done-with-no-
+  //   date row "cancelled", which is a different false statement from the one
+  //   being fixed (open-followups §65). Cancelled is a STATUS; delivered is a
+  //   DATE; the third case is neither.
   if (task.completedDate || isTaskFinished(task)) {
     return {
       color: "G",
-      drivers: [task.status === "Cancelled" ? "cancelled" : "completed"],
+      drivers: [
+        task.status === "Cancelled"
+          ? "cancelled"
+          : isTaskDelivered(task)
+            ? "completed"
+            : "closed",
+      ],
     };
   }
 
@@ -134,6 +149,11 @@ export function filterTasksByHealth<T extends Task>(
 export type GroupHealth = {
   color: Health;
   counts: Record<Health, number>;
+  /** Closed-but-never-delivered tasks, EXCLUDED from `counts` — cancelled work
+   *  and the `Done`-with-no-date rows. A HAND-PINNED one is not counted here; it
+   *  keeps its manual colour inside `counts` (open-followups §66). So the
+   *  invariant is `R + A + G + outOfScope === total`, NOT `=== inScope`. */
+  outOfScope: number;
   /** Aggregated reasons across the group, deduped. E.g.
    *  `["overdue", "blocked"]` if at least one task is overdue and at least
    *  one (possibly the same) is blocked. */
@@ -143,9 +163,14 @@ export type GroupHealth = {
 /**
  * Worst-case aggregation: any Red → Red; else any Amber → Amber; else Green.
  *
- * The driver list collects per-task drivers but excludes the noisy ones
- * ("onTrack", "completed", "cancelled") so the steering view doesn't show "Group is
- * Red — also 12 tasks are on track".
+ * The driver list collects per-task drivers but excludes every Green one
+ * ("onTrack", "completed", "closed", "cancelled") so the steering view doesn't
+ * show "Group is Red — also 12 tasks are on track".
+ *
+ * ★★ Cancelled work does NOT count Green here. Counting it Green rendered
+ * "No active scope / All cancelled (2)" beside "R 0 · A 0 · G 2" inside ONE
+ * dashboard card — the cancelled-work batch's own premise, violated one tile
+ * from where it was applied (open-followups §66).
  */
 export function computeGroupHealth(
   tasks: readonly Task[],
@@ -154,8 +179,17 @@ export function computeGroupHealth(
 ): GroupHealth {
   const counts: Record<Health, number> = { R: 0, A: 0, G: 0 };
   const seenDrivers = new Set<HealthDriver>();
+  let outOfScope = 0;
 
   for (const t of tasks) {
+    // ★★ `healthOverride` is checked FIRST, before the exclusion — a hand-pinned
+    //    cancelled row keeps the colour its user chose, which is exactly what
+    //    `dashboardProgressCaption`'s "unless its health was set by hand" clause
+    //    has always described. Do not simplify that away.
+    if (!t.healthOverride && isTaskOutOfScope(t)) {
+      outOfScope += 1;
+      continue;
+    }
     const h = computeTaskHealth(t, todayISO, holidays);
     counts[h.color] += 1;
     if (h.color !== "G") {
@@ -178,7 +212,7 @@ export function computeGroupHealth(
   ];
   const drivers = order.filter((d) => seenDrivers.has(d));
 
-  return { color, counts, drivers };
+  return { color, counts, outOfScope, drivers };
 }
 
 /** Translated short name for a RAG color ("Red" / "Amber" / "Green"). */
@@ -199,6 +233,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     | "healthDriverDueToday"
     | "healthDriverDueSoon"
     | "healthDriverCompleted"
+    | "healthDriverClosed"
     | "healthDriverCancelled"
     | "healthDriverOnTrack"> = {
     manual: "healthDriverManual",
@@ -207,6 +242,7 @@ export function formatHealthTooltip(health: TaskHealth, lang: Lang): string {
     dueToday: "healthDriverDueToday",
     dueSoon: "healthDriverDueSoon",
     completed: "healthDriverCompleted",
+    closed: "healthDriverClosed",
     cancelled: "healthDriverCancelled",
     onTrack: "healthDriverOnTrack",
   };

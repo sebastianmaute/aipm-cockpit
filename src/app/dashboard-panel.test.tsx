@@ -894,6 +894,42 @@ describe("DashboardPanel completion tile", () => {
     expect(screen.queryByText("0%")).toBeNull();
   });
 
+  // open-followups §66: the R/A/G tile counted a cancelled task GREEN, so this
+  // very fixture rendered "All cancelled (2)" beside "R 0 · A 0 · G 2" inside
+  // ONE card. Asserting the WHOLE value string pins both halves at once — that
+  // G is now 0, and that the cancelled count is disclosed rather than dropped.
+  // A `toContain("2")` would pass on the unfixed code, where G was 2.
+  it("shows cancelled work as its own count, not as Green", () => {
+    renderDashboardWithTasks([
+      {
+        id: 1, taskName: "Cancelled 1", assignee: "A", assigneeEmail: "a@x.io",
+        dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+        priority: "Medium", blockers: "", description: "",
+      },
+      {
+        id: 2, taskName: "Cancelled 2", assignee: "A", assigneeEmail: "a@x.io",
+        dueDate: "2026-05-01", lastUpdateDate: "2026-05-01", status: "Cancelled",
+        priority: "Medium", blockers: "", description: "",
+      },
+    ]);
+    const label = t("en-US", "dashboardOutOfScopeCount");
+    const marker = screen.getByText(label);
+    // sr-only span → its ✕ group → the tile's value span holding all four counts.
+    const value = marker.parentElement?.parentElement;
+    expect(value?.textContent).toBe(`000✕${label}2`);
+  });
+
+  it("renders no cancelled count when there is none", () => {
+    renderDashboardWithTasks([
+      {
+        id: 1, taskName: "Open", assignee: "A", assigneeEmail: "a@x.io",
+        dueDate: "2026-12-01", lastUpdateDate: "2026-05-01", status: "In Progress",
+        priority: "Medium", blockers: "", description: "",
+      },
+    ]);
+    expect(screen.queryByText(t("en-US", "dashboardOutOfScopeCount"))).toBeNull();
+  });
+
   it("leaves an empty project on 0% complete", () => {
     renderDashboardWithTasks([]);
     expect(screen.getByText(t("en-US", "dashboardPercentComplete", "0"))).toBeInTheDocument();

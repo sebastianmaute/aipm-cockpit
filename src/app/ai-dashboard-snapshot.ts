@@ -10,7 +10,7 @@
 // cost basis is unsound (costIsKnowable === false) the money figures are null
 // and the reason rides costUnknownReason — never 0, which reads as "free" and
 // makes margin look perfect.
-import { type DashboardModel, type SubStatus } from "./dashboard";
+import { type DashboardModel, type SubStatus, hasNoActiveScope } from "./dashboard";
 import { type CostUnknownReason, type ProjectReport, costIsKnowable } from "./budget-report";
 import { type Health } from "./health";
 
@@ -42,8 +42,10 @@ export interface DashboardSnapshot {
   /** `total` is every task; `inScope` is the denominator `percent` divides by
    *  (total minus cancelled). BOTH are emitted: a model asked "how many tasks
    *  are there" wants `total`, and without `inScope` the triple can look like an
-   *  arithmetic error (5 done of 10 total, 100% complete). */
-  progress: { total: number; inScope: number; completed: number; percent: number };
+   *  arithmetic error (5 done of 10 total, 100% complete).
+   *  `noActiveScope` is true when the project HAS tasks but none are in scope,
+   *  so the model is not handed a bare 0 that reads as "not started yet". */
+  progress: { total: number; inScope: number; completed: number; percent: number; noActiveScope: boolean };
   evm: {
     pv: number;
     ev: number;
@@ -90,6 +92,11 @@ export function buildDashboardSnapshot(
       inScope: model.progress.inScope,
       completed: model.progress.completed,
       percent: model.progress.percent,
+      // ★ Without this the model is handed a bare 0 for an all-cancelled
+      //   project and can restate it as "0% complete" — the misreading the UI
+      //   already stopped showing (open-followups §64). `inScope: 0` alone does
+      //   not carry it: an empty project has that too and must stay at 0%.
+      noActiveScope: hasNoActiveScope(model.progress),
     },
     evm: {
       pv: model.evm.pv,

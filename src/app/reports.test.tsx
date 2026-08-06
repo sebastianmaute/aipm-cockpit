@@ -345,3 +345,42 @@ describe("ReportsPanel — Total tile names the cancelled count", () => {
     expect(container.querySelector("[data-tile-sub]")).toBeNull();
   });
 });
+
+// ★★ The §66 change altered this sort SILENTLY: the within-colour tiebreak sums
+//    `counts`, which now excludes out-of-scope work, so the rank is IN-SCOPE
+//    size rather than group size. Deliberate (cancelled work does not "move the
+//    needle"), but it shipped with no test until a mutation pass flagged it.
+describe("ReportsPanel — group cards rank by in-scope size, not raw size", () => {
+  it("puts a smaller active group above a larger mostly-cancelled one", () => {
+    renderReports([
+      makeTask({ id: 1, assignee: "A", group: "Mostly cancelled", status: "To Do" }),
+      makeTask({ id: 2, assignee: "B", group: "Mostly cancelled", status: "Cancelled" }),
+      makeTask({ id: 3, assignee: "C", group: "Mostly cancelled", status: "Cancelled" }),
+      makeTask({ id: 4, assignee: "D", group: "Active", status: "To Do" }),
+      makeTask({ id: 5, assignee: "E", group: "Active", status: "To Do" }),
+    ]);
+    const names = screen.getAllByTitle(/^(Active|Mostly cancelled)$/).map((el) => el.textContent);
+    // By raw size "Mostly cancelled" (3) would lead; by in-scope size "Active"
+    // (2 vs 1) does. Both groups share a colour bucket, so the tiebreak decides.
+    expect(names).toEqual(["Active", "Mostly cancelled"]);
+  });
+});
+
+describe("ReportsPanel — a group card does not count cancelled work Green", () => {
+  it("names the cancelled count and leaves Green at zero (open-followups §66)", () => {
+    renderReports([
+      makeTask({ id: 1, assignee: "Alex", group: "Alpha", status: "To Do" }),
+      makeTask({ id: 2, assignee: "Bea", group: "Alpha", status: "Cancelled" }),
+    ]);
+    // TWO, and the count is the point: the Total tile's sub line already said
+    // "1 cancelled" before this change, so a bare getByText finds that one and
+    // passes with the group card left unfixed. (It does not merely pass — it
+    // THROWS on the second match, which is how this was caught.)
+    expect(screen.getAllByText(/1 cancelled/)).toHaveLength(2);
+    // The point of §66: before this, the cancelled row was tallied Green, so
+    // the same fixture read "… · 1 green". Asserting the absence is what fails
+    // on the unfixed code — the presence assertion above would pass either way
+    // once the clause exists.
+    expect(screen.queryByText(/1 green/)).toBeNull();
+  });
+});
