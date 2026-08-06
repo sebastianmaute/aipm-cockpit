@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { jsonToWorkspace, workspaceToJson } from "./workspace";
+import { isWorkspaceEmpty, jsonToWorkspace, workspaceToJson } from "./workspace";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
 import type { ProjectDocument } from "./document-model";
 
@@ -201,5 +201,35 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
     expect(ws.tasks).toHaveLength(1);
     expect(ws.documents).toHaveLength(1);
     expect(readDiagLog().map((e) => e.code)).not.toContain("workspace.documentsDropped");
+  });
+});
+
+// ★★ The LOAD guard refuses an incoming empty workspace only when the CURRENT
+//    one is non-empty. Before documents joined isWorkspaceEmpty, a project whose
+//    only content was documents read as empty, so the guard did not fire: a
+//    transient empty read applied, wiped them, and autosave persisted it.
+//    "Only documents" is an ordinary state — drafting a charter before any task
+//    exists — which is why this belongs here even though the sibling JSON-blob
+//    slices (insights, knowledgeItems, timelogLinks) are deliberately absent.
+//
+//    ★ These call isWorkspaceEmpty DIRECTLY rather than through jsonToWorkspace:
+//      the loader seeds reference data, so no JSON input produces a workspace
+//      that is empty by this predicate, and routing through it would measure the
+//      loader instead of the guard.
+describe("isWorkspaceEmpty — documents", () => {
+  const bare = {
+    tasks: [], raid: [], absences: [], shifts: [], resources: [],
+    roles: [], disciplines: [], grades: [], budgets: [], milestones: [],
+    changes: [], stakeholders: [], calendarEvents: [],
+  } as unknown as Parameters<typeof isWorkspaceEmpty>[0];
+
+  it("does NOT treat a documents-only workspace as empty", () => {
+    expect(isWorkspaceEmpty({ ...bare, documents: [DOC] } as typeof bare)).toBe(false);
+  });
+
+  // Control: a predicate that simply returned false would satisfy the assertion
+  // above while destroying the guard entirely.
+  it("still treats a workspace with no content at all as empty", () => {
+    expect(isWorkspaceEmpty(bare)).toBe(true);
   });
 });

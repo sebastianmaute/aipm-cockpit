@@ -169,7 +169,18 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     && (ws.milestones?.length ?? 0) === 0
     && (ws.changes?.length ?? 0) === 0
     && (ws.stakeholders?.length ?? 0) === 0
-    && (ws.calendarEvents?.length ?? 0) === 0;
+    && (ws.calendarEvents?.length ?? 0) === 0
+    // ★★ documents belongs here even though the other JSON-blob slices
+    //    (insights, knowledgeItems, timelogLinks) do NOT. This feeds the LOAD
+    //    guard, which refuses an incoming empty workspace only when the current
+    //    one is non-empty. "Only documents" is an ordinary state — someone
+    //    drafting a charter before entering any task — and without this a
+    //    transient empty read applies, wipes them, and autosave persists it.
+    //    ★ Deliberately NOT added to nonEmptyCollectionCount /
+    //    workspaceRecordCount: those feed the SAVE-time mass-deletion
+    //    thresholds, so widening them changes when saves are REFUSED for every
+    //    existing project. See docs/open-followups.md §98.
+    && (ws.documents?.length ?? 0) === 0;
 }
 
 /** Number of user collections that hold at least one record. Used by the

@@ -63,6 +63,17 @@ export const CORE_VIEWS: readonly AppView[] = [
   "activity",
   "settings",
   "help",
+  // ★★ documents is core DELIBERATELY, not by fall-through. `isViewEnabled`
+  //    returns true for any view no module claims, so omitting it here still
+  //    showed the entry — but `enabledNavViews()` is CORE_VIEWS plus enabled
+  //    module views, so the two disagreed about the same view. That divergence
+  //    is inert today (no non-test caller of enabledNavViews) and is exactly
+  //    what bites the next one.
+  //    ★ NOT given its own FEATURE_MODULES entry: `sanitizeFeatures` migrates a
+  //    stored module id "documents" → "knowledge" (the v0.190 rename), so a
+  //    module by that name would be rewritten on load. A hideable Documents
+  //    module is possible later under a different id.
+  "documents",
 ] as const;
 
 export const ALL_MODULE_IDS: readonly FeatureModuleId[] = FEATURE_MODULES.map((m) => m.id);
