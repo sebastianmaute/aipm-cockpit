@@ -106,10 +106,10 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
 | 63 | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED in 0.213.0** — split after all; `gantt.tsx` is 715 lines and its baseline entry is gone |
-| 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
-| 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
-| 66 | The R/A/G tile counts a cancelled task GREEN, one tile from the fix | cancelled-work presentation | M | open — `computeGroupHealth` is per-task and Green-for-finished; not presentation-only |
-| 67 | A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps | pre-existing (`909118b2`) | XS | open — benign at runtime, silently skips the file in every grep |
+| 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **half closed post-0.216.0** — presentation + model feeds done; the persisted `pctComplete` and landing-state `complete:` remain, deliberately |
+| 65 | ~~A `Done` task with no `completedDate` shows the cross while its tooltip says "completed"~~ | cancelled-work presentation | S | **CLOSED post-0.216.0** — three-way health driver |
+| 66 | ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ | cancelled-work presentation | M | **CLOSED post-0.216.0** — out-of-scope work leaves the tally and is counted separately |
+| 67 | ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ | pre-existing (`909118b2`) | XS | **CLOSED post-0.216.0** — source escape, plus a ratchet |
 | 68 | Allocation rows' `border-t` sits on the `<tr>`, where it has never painted | 0.214.0 (Lostetter) | S–M | open — **VISUAL change across six panels, needs sign-off**; 6 of the 8 sites unconfirmed |
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
@@ -2726,7 +2726,30 @@ currently over the limit.
 
 ---
 
-## 64. Other surfaces still read "0% complete" for an all-cancelled project — open
+## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF CLOSED post-0.216.0
+
+★ **HALF CLOSED post-0.216.0.** Everything a user or a model READS is done; every PERSISTED figure
+is deliberately untouched.
+
+| surface | state |
+|---|---|
+| Portfolio health table (`use-portfolio-health.ts` → `portfolio-health-panel.tsx`) | CLOSED — `completionPercent` is now nullable, gated on the same `hasNoActiveScope` the tiles use; the cell renders an aria-hidden "—" with an sr-only "No active scope" |
+| `portfolio-rollup.ts` `avgCompletionPercent` | CLOSED — **this entry never named it** (see below) |
+| `committee-report/report-draft.ts` | CLOSED — emits "no active scope" instead of "0% complete" |
+| `ai-dashboard-snapshot.ts` | CLOSED — the payload carries an explicit `noActiveScope` |
+| `snapshot.ts` `pctComplete` | **OPEN, deliberately** — persisted |
+| `dashboard-panel.tsx` landing-state `complete:` | **OPEN, deliberately** — persisted |
+
+★★ **THE SURFACE LIST WAS INCOMPLETE, in exactly the way this entry warns about.** It names the
+portfolio ROW and the CELL but not `aggregatePortfolio`, which summed those zeroes and divided by
+`rows.length` — so one no-scope project pulled the portfolio-WIDE average down with a value meaning
+"nothing left", not "nothing done". Found by grepping every reader of `completionPercent` rather
+than reading this list, which is the habit the ★★★ below already prescribes. The divisor is now the
+count of projects that contributed a figure.
+
+★ The persisted pair stays open for the reason recorded below and not because it was missed: giving
+a stored figure a null state is a data-shape change that Trends charts over time and version history
+diffs. It is worth its own decision, not a pattern-match onto the presentation fix.
 
 The cancelled-work presentation batch fixed the Reports headline tiles, the Dashboard completion
 tile, the Dashboard at-a-glance KPI card, the Dashboard completion-trend sparkline, and the Open
@@ -2843,7 +2866,21 @@ this warning exists to record — and reported the entry's correct cite as a def
 
 ---
 
-## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — open
+## 65. ~~A `Done` task with no `completedDate` shows the cross while its tooltip says "completed"~~ — CLOSED post-0.216.0
+
+★ **CLOSED post-0.216.0.** `computeTaskHealth`'s finished-task driver is now three-way —
+`cancelled` (by status) / `completed` (by `isTaskDelivered`) / `closed` (neither) — so this pair
+announces "closed" and no longer contradicts the ✕ beside it.
+
+★★ **`isTaskDelivered` ALONE would not have fixed it**, and the entry's prescription ("drivers
+should consult `completedDate`, not `status` alone") reads as though it would. A two-way split on
+delivery labels this row "cancelled", which is a different false statement, not a fix. Cancelled is a
+STATUS; delivered is a DATE; this pair is neither, so it needed its own driver and its own i18n key.
+
+★ The second symptom this entry names — `scopeCounts` subtracting closed-but-not-delivered rows, so
+a project of them renders `dashboardAllCancelled` about rows whose status says Done — is verified
+and DELIBERATELY unchanged. That count is a SCOPE question and the answer is right: the work will
+not be delivered. Only the tooltip was lying.
 
 `isTaskDelivered` is `!!task.completedDate`, so a task whose status is `"Done"` but which carries no
 completion date is CLOSED but not DELIVERED, and `TaskStatusGlyph` renders the muted ✕ where it used
@@ -2882,7 +2919,25 @@ answers "was it delivered?", and collapsing them is the defect 0.213.0 existed t
 
 ---
 
-## 66. The R/A/G tile counts a cancelled task GREEN, one tile from the fix — open
+## 66. ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ — CLOSED post-0.216.0
+
+★ **CLOSED post-0.216.0** by the second of the three options this entry listed: closed-but-never-
+delivered work leaves the R/A/G tally and is counted in a sibling `GroupHealth.outOfScope`, rendered
+as a fourth group on the dashboard tile and a trailing clause on each reports group card.
+
+★★ **THE STATED BLAST RADIUS WAS WRONG, and it is what made this look bigger than it is.** The entry
+says the options "each ripple well past the dashboard" because `computeGroupHealth` also feeds
+`overallComputed` (`dashboard.ts`) and the reports group cards. For `overallComputed` that is
+provably false: an out-of-scope task only ever incremented `counts.G`, and the colour is
+`R > 0 ? "R" : A > 0 ? "A" : "G"` with G as the FALLBACK — so removing G-only entries cannot change
+the result in any case, and a test now pins that. Only the reports tiles actually moved.
+
+★ The `healthOverride` clause this entry insisted on is preserved and is now load-bearing in a way
+it was not before: the exclusion is guarded on `!task.healthOverride`, so a hand-pinned cancelled
+row keeps its manual colour inside `counts`. The consequence is that the invariant is
+`R + A + G + outOfScope === total`, NOT `=== inScope` — the two diverge by exactly the pinned rows.
+Both halves are pinned by tests; `dashboardProgressCaption` was reworded, since it asserted the
+opposite ("covers every task; closed work counts Green").
 
 `computeGroupHealth` (`health.ts`) tallies `computeTaskHealth` per TASK, and that returns `"G"` for
 anything `isTaskFinished` — Cancelled included. So the Dashboard's Progress `<Section>` renders, side
@@ -2913,7 +2968,33 @@ hand" for exactly that reason — do not simplify that clause away.
 
 ---
 
-## 67. A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps — open
+## 67. ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ — CLOSED post-0.216.0
+
+★ **CLOSED post-0.216.0.** The raw `0x00` is now the source escape `\u0000`, so the runtime
+character is byte-identical — still the one separator that cannot occur in a URL or a token — and
+the file is text again (`grep -c completionPercent` returned "Binary file … matches" before and a
+count after).
+
+★★ **This entry proposed the wrong fix and the reasoning it gave is why.** It weighed `|` and a space
+and noted both are merely UNLIKELY to collide rather than unable to — then treated that as an
+acceptable cost instead of a reason to look for a third option. The escape has neither cost. When an
+entry records a drawback and accepts it anyway, check whether the drawback was avoidable.
+
+★ A ratchet now guards recurrence: `src/app/no-nul-bytes.test.ts` walks the `.ts`/`.tsx` files under
+`src` AND the `.md` files under `docs`, failing on any NUL and naming file and offset. It was written BEFORE the fix and
+verified red against `use-portfolio-health.ts @ byte 2940` — a guard that has never been red is not
+known to work. It filters by EXTENSION for the reason this entry already records
+(`src/app/favicon.ico`, and `docs/assets/*.png`), and skips gitignored trees, because this guard is
+about what gets COMMITTED.
+
+★★★ **THE DOCS HALF EXISTS BECAUSE CLOSING THIS ENTRY PRODUCED TWO MORE NUL BYTES — IN THIS FILE.**
+The scan started at `.ts`/`.tsx`, matching the sweep recorded above. Then writing the closure prose
+put a raw `0x00` into `open-followups.md` twice: *the escape sequence, written as prose about the
+escape sequence, collapsed into the byte it names.* Nothing would have caught it — the sweep this
+entry declares DONE was source-only, and this register is the file in the repo most likely to be
+grepped, so it is the worst one to silently read as binary. **A guard scoped to where a bug was last
+seen is blind to where it is next written.** The scope was widened only because the failure recurred
+during the fix; had it not, the narrow guard would have shipped looking complete.
 
 Byte offset 2940 is a raw `0x00` inside a template literal — `` `${tursoConfig.httpUrl}\0${tursoConfig.authToken}` ``
 — almost certainly the recorded Edit-tool corruption (see the memory note on NUL corruption). It is
@@ -4369,6 +4450,35 @@ Absorbed from three now-unreachable documents. Kept because it explains why an i
 it is, and because several entries are **negative results** — work already done that returned nothing,
 which is exactly the kind of thing that gets re-run.
 
+### post-0.216.0 — the cancelled-work leftovers (§65 · §66 · §67 closed · §64 half)
+
+Branch `fix/cancelled-work-leftovers`; no version bump decided at time of writing. Slice 2 of the
+harm-ranked triage of this register, taken because 0.213.0 fixed the Reports and Dashboard headline
+surfaces and then stopped at the branch boundary.
+
+| was | what closed it |
+|---|---|
+| §65 tooltip says "completed" under a ✕ | a THREE-way health driver — `cancelled` / `completed` / `closed` — plus the `healthDriverClosed` key |
+| §66 R/A/G counts a cancelled task Green | out-of-scope work leaves the tally into `GroupHealth.outOfScope`, surfaced on the tile and the reports cards |
+| §67 committed NUL byte | the source escape `\u0000`, plus `no-nul-bytes.test.ts` as a ratchet |
+| §64 (half) presentation + model feeds | portfolio table + `avgCompletionPercent` + steering draft + AI snapshot; the two PERSISTED figures stay open by decision |
+
+★ One shared predicate underpins all of it: `isTaskOutOfScope` (`task-closed.ts`), which `scopeCounts`
+and `computeGroupHealth` now both call. Those two render side by side in ONE dashboard card, and a
+second copy of `isTaskClosed(t) && !isTaskDelivered(t)` is the drift `hasNoActiveScope`'s own doc
+comment records having already caused once.
+
+★★ **Each of the three closed entries had something wrong in it, and all three errors were in the
+PRESCRIPTION rather than the diagnosis.** §65 said drivers should consult `completedDate` instead of
+`status`, which two-ways a three-way problem and would have labelled the row "cancelled". §66 said
+the fix ripples through `overallComputed`, which is provably impossible because G is the fallback
+colour. §67 weighed two printable separators, noted both could collide, and accepted that instead of
+looking for the option with no drawback. **An entry's diagnosis is a measurement; its prescription
+is a hypothesis from the day it was written.** The same split was recorded one slice earlier, in the
+§77/§78 work — twice now.
+
+★ Opened by nothing. The one new surface found (`avgCompletionPercent`) was folded into §64 rather
+than numbered, because it is the same defect on the same value, one call frame up.
 ### post-0.212.0 — the machine-unblocking slice (§2 closed · §58 half · §51 hardened)
 
 Branch `chore/machine-unblocking-slice-1`; no version bump (nothing user-facing shipped).
