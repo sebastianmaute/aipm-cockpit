@@ -1255,6 +1255,9 @@ const enUS = {
   helpSecKnowledgeTitle: "Knowledge",
   helpSecKnowledgeBody:
     "The Knowledge tab gathers every linked item across the whole project — tasks, RAID items, changes, milestones, stakeholders, and the project header — into one grid. Each card shows the link (a document, Confluence page, or URL, opening in a new tab) and its source item; click the source to jump to that item's editor, or the ✕ to remove the link. \"+ Add link\" picks any item as the target and attaches a new SharePoint document, Confluence page, or URL there. Links live on their source items, so removing one here is the same as removing it from that item's editor.",
+  helpSecDocumentsTitle: "Documents",
+  helpSecDocumentsBody:
+    "Documents holds project documents built from structured blocks — headings, text, bullets, tables and live data sections that pull from the project. Create one, then download it as a web page, a Word document, a PowerPoint deck, or print it to PDF.",
   helpSecVoiceTitle: "Voice commands",
   helpSecVoiceBody:
     "Click the microphone in the header and try:\n• \"add task review the deck\"\n• \"edit task 2\"\n• \"delete task 3\"\n• \"send inquiry for task 5\"\n• \"search blockers\" / \"clear search\"\n• \"switch to German\"\nIndividual text fields also have an inline microphone for dictation.",
@@ -2525,6 +2528,16 @@ const enUS = {
   versionHighlightUiBatch: "Resizable Trends columns; action chips explain why and open the item; clearer Manage-Roles tooltips; a compact RACI picker",
   // --- Documents tab (0.81.0) ---
   navKnowledge: "Knowledge",
+  navDocuments: "Documents",
+  documentsNew: "New document",
+  documentsDownload: "Download",
+  documentsRename: "Rename",
+  documentsDuplicate: "Duplicate",
+  documentsDelete: "Delete",
+  documentsNoneYet: "No documents yet.",
+  documentsBlockCount: "Blocks",
+  documentsUpdated: "Updated",
+  documentsTitleLabel: "Title",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
   // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
   dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",

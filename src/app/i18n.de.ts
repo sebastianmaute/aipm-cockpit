@@ -1244,6 +1244,9 @@ export const de: Record<TranslationKey, string> = {
   helpSecKnowledgeTitle: "Wissen",
   helpSecKnowledgeBody:
     "Der Wissen-Tab sammelt jeden verknüpften Eintrag des gesamten Projekts – Aufgaben, RAID-Einträge, Änderungen, Meilensteine, Stakeholder und den Projektkopf – in einem Raster. Jede Karte zeigt den Link (ein Dokument, eine Confluence-Seite oder eine URL, öffnet in neuem Tab) und sein Quell-Element; ein Klick auf die Quelle springt zum Editor dieses Elements, das ✕ entfernt die Verknüpfung. \"+ Link hinzufügen\" wählt ein beliebiges Element als Ziel und hängt dort ein neues SharePoint-Dokument, eine Confluence-Seite oder eine URL an. Verknüpfungen liegen auf ihren Quell-Elementen – sie hier zu entfernen ist dasselbe wie das Entfernen im Editor des Elements.",
+  helpSecDocumentsTitle: "Dokumente",
+  helpSecDocumentsBody:
+    "Dokumente enthält Projektdokumente aus strukturierten Blöcken – Überschriften, Text, Aufzählungen, Tabellen und Datenabschnitte, die live aus dem Projekt lesen. Erstellen Sie eines und laden Sie es als Webseite, Word-Dokument oder PowerPoint-Präsentation herunter oder drucken Sie es als PDF.",
   helpSecVoiceTitle: "Sprachbefehle",
   helpSecVoiceBody:
     "Auf das Mikrofon im Header klicken und z. B. sagen:\n• \"neue Aufgabe Deck prüfen\"\n• \"Aufgabe 2 bearbeiten\"\n• \"Aufgabe 3 löschen\"\n• \"Anfrage für Aufgabe 5 senden\"\n• \"Suche Blocker\" / \"Suche zurücksetzen\"\n• \"Sprache Englisch\"\nEinzelne Textfelder haben zusätzlich ein Mikrofon-Symbol für Diktate.",
@@ -2489,6 +2492,16 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightUiBatch: "Größenveränderbare Trends-Spalten; Aktionschips erklären den Grund und öffnen den Eintrag; klarere Manage-Roles-Tooltips; eine kompakte RACI-Auswahl",
   // --- Dokumente-Tab (0.81.0) ---
   navKnowledge: "Wissen",
+  navDocuments: "Dokumente",
+  documentsNew: "Neues Dokument",
+  documentsDownload: "Herunterladen",
+  documentsRename: "Umbenennen",
+  documentsDuplicate: "Duplizieren",
+  documentsDelete: "Löschen",
+  documentsNoneYet: "Noch keine Dokumente.",
+  documentsBlockCount: "Blöcke",
+  documentsUpdated: "Aktualisiert",
+  documentsTitleLabel: "Titel",
   knowledgeModuleDesc: "Ein zentraler Ort, um alle Wissenslinks – Dokumente, Confluence-Seiten und Web-URLs – im Projekt zu sehen und zu verwalten.",
   // --- Feature-module descriptions (Settings -> Functions) ---
   dashboardModuleDesc: "Landing-Cockpit mit Zusammenfassung von Status, Fortschritt und dem, was Ihre Aufmerksamkeit braucht - aktivieren Sie es für einen schnellen Überblick bei jedem Öffnen des Projekts.",
