@@ -49,19 +49,38 @@ function isPositiveInt(value: unknown): value is number {
  *  never passed through. Block AND title validation are delegated to
  *  sanitizeProjectDocuments (it already trims/caps the title and drops
  *  unknown block types) so a shape can never be legal in a version and
- *  illegal in a document — one implementation, not two that can drift. */
+ *  illegal in a document — one implementation, not two that can drift.
+ *
+ *  ★★★ `savedAt` is validated HERE, not borrowed from that delegation.
+ *  sanitizeProjectDocuments does run `r.savedAt` through its own
+ *  `Date.parse`-based check (via `createdAt`/`updatedAt`), but this function
+ *  discards `asDoc.createdAt`/`updatedAt` and keeps the caller's raw
+ *  `r.savedAt` on the returned DocVersion — so that validation would have
+ *  been thrown away. A garbage `savedAt` is not cosmetic: `byNewest` does a
+ *  raw string compare, and `trimVersions` picks `sorted[0]` as the tombstone,
+ *  so a corrupted timestamp can crown the WRONG version as the one that
+ *  survives a delete. Mirrors document-model.ts's private `isoOr`
+ *  (Date.parse + Number.isFinite) rather than importing it — that function
+ *  isn't exported, and this is the repo's one convention for "is this string
+ *  a real timestamp", not a second one invented here. */
 export function sanitizeDocumentVersions(raw: unknown): DocVersion[] {
   if (!Array.isArray(raw)) return [];
+  const seen = new Set<number>();
   const out: DocVersion[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
     const r = item as Record<string, unknown>;
     if (!isPositiveInt(r.id) || !isPositiveInt(r.documentId)) continue;
     if (typeof r.savedAt !== "string" || !r.savedAt) continue;
+    if (!Number.isFinite(Date.parse(r.savedAt))) continue;
     const [asDoc] = sanitizeProjectDocuments([
       { id: r.documentId, title: r.title, blocks: r.blocks, createdAt: r.savedAt, updatedAt: r.savedAt },
     ]);
-    if (!asDoc) continue;
+    // ★ Dedup mirrors sanitizeProjectDocuments's own `seen` guard
+    // (document-model.ts) — same asymmetry risk, same fix, kept in step with
+    // its sibling rather than drifting. First occurrence wins.
+    if (!asDoc || seen.has(r.id)) continue;
+    seen.add(r.id);
     out.push({
       id: r.id,
       documentId: r.documentId,
@@ -82,12 +101,30 @@ function byNewest(a: DocVersion, b: DocVersion): number {
 
 /**
  * Retention. Newest-first within a document, then newest-first globally —
- * WITH ONE EXCEPTION that carries the whole delete-restore feature:
+ * for LIVE documents only.
  *
- * ★★★ the newest version of a documentId absent from `liveIds` is NEVER
- * trimmed. That entry IS the tombstone, and "deleted documents" is derived
- * from its existence (see deletedDocumentVersions below). Trim it and the
- * document becomes unrecoverable while every other test still passes.
+ * ★★★ A DELETED document (its documentId absent from `liveIds`) is NOT
+ * "not yet trimmed" — it is trimmed immediately and hard, the first time
+ * trimVersions runs after the delete, regardless of either cap: only its
+ * single newest version (the tombstone) is kept AT ALL, every older version
+ * is dropped in the same pass. That entry IS the tombstone, and "deleted
+ * documents" is derived from its existence (see deletedDocumentVersions
+ * below). Drop IT too and the document becomes unrecoverable while every
+ * other test still passes.
+ *
+ * ★ Tombstones are excluded from `keepable` entirely, so they never count
+ * against MAX_TOTAL_VERSIONS — and since document ids are never reused
+ * (Task 1), every historical delete leaves one permanent row with no cap on
+ * how many accumulate. Accepted trade-off, not an oversight.
+ *
+ * ★ The global cap has no per-document floor: a live document that is rarely
+ * touched can, in principle, be starved to zero history if enough OTHER
+ * documents are edited more often and fill the 500-row global pool first.
+ * Accepted trade-off — at MAX_VERSIONS_PER_DOC=20 it takes 25+ actively-edited
+ * documents before this can bite, and reserving a per-document floor inside
+ * the global cap would trade a rare edge case for real complexity (the
+ * "newest-first globally" ordering would have to become a fairness-
+ * constrained allocation instead of a plain sort+slice).
  *
  * Returns the SAME reference when nothing needs dropping — the dirty check
  * on Turso and IndexedDB is reference equality.

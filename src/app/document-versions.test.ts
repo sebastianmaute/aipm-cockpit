@@ -69,6 +69,19 @@ describe("sanitizeDocumentVersions", () => {
   it("drops a version whose title is blank after trimming", () => {
     expect(sanitizeDocumentVersions([v({ title: "   " })])).toEqual([]);
   });
+
+  it("drops a version whose savedAt does not parse as a real timestamp", () => {
+    expect(sanitizeDocumentVersions([v({ savedAt: "not-a-date-at-all" })])).toEqual([]);
+  });
+
+  it("drops a later duplicate id, keeping the first occurrence", () => {
+    const first = v({ id: 1, documentId: 1, title: "First" });
+    const second = v({ id: 1, documentId: 2, title: "Second", savedAt: "2026-08-02T09:00:00.000Z" });
+    const out = sanitizeDocumentVersions([first, second]);
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toBe("First");
+    expect(out[0].documentId).toBe(1);
+  });
 });
 
 describe("trimVersions", () => {
