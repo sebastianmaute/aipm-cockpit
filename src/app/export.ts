@@ -88,8 +88,14 @@ export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang): stri
     ? `<p style="color:#939598;font-style:italic">No sections to export.</p>`
     : sections.map(renderSectionHtml).join("\n");
 
+  // ★★ lang comes from the ARGUMENT, never a hardcoded "en". Every member of
+  // Lang ("en-US" | "en-GB" | "de") is already a valid BCP-47 tag. A German
+  // document declaring lang="en" is a WCAG 3.1.1 (Language of Page) failure and
+  // makes a screen reader read it with an English voice; it also mislabels the
+  // language metadata of the printed PDF. Same rule, same wording, as
+  // `renderDocumentHtml` in doc-render-html.ts — keep the two paths in step.
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${htmlEscape(lang)}">
 <head>
   <meta charset="utf-8"/>
   <title>AI PM Cockpit — ${htmlEscape(today)}</title>
