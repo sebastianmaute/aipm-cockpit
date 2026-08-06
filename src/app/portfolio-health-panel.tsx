@@ -121,10 +121,22 @@ export function PortfolioHealthPanel({
       {/* Aggregate KPI strip */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "portfolioKpiProjects")} value={aggregate.projectCount} />
+        {/* ★ Same treatment as the row cells: no project contributed a figure,
+            so there is nothing to average. A "0%" tile above a table of "—"
+            rows is §64's misreading reappearing at the aggregate, and the
+            gradient bar would draw an empty progress track to match. */}
         <Tile
           label={t(lang, "portfolioKpiAvgComplete")}
-          value={`${aggregate.avgCompletionPercent}%`}
-          bar={<KpiGradientBar percent={aggregate.avgCompletionPercent} label={t(lang, "portfolioKpiAvgComplete")} />}
+          value={
+            aggregate.avgCompletionPercent === null
+              ? t(lang, "dashboardNoActiveScope")
+              : `${aggregate.avgCompletionPercent}%`
+          }
+          bar={
+            aggregate.avgCompletionPercent === null ? undefined : (
+              <KpiGradientBar percent={aggregate.avgCompletionPercent} label={t(lang, "portfolioKpiAvgComplete")} />
+            )
+          }
         />
         <Tile label={t(lang, "portfolioKpiAtRisk")} value={aggregate.overallR + aggregate.overallA} />
         <Tile label={t(lang, "portfolioKpiOpenRaid")} value={aggregate.totalOpenRaid} />

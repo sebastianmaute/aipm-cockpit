@@ -53,7 +53,7 @@ describe("aggregatePortfolio", () => {
       overallA: 0,
       overallG: 0,
       totalOpenRaid: 0,
-      avgCompletionPercent: 0,
+      avgCompletionPercent: null,
     });
   });
 
@@ -128,6 +128,6 @@ describe("avgCompletionPercent with no-scope projects (open-followups §64)", ()
   });
 
   it("returns 0 when every project has no active scope", () => {
-    expect(aggregatePortfolio([baseRow({ completionPercent: null })]).avgCompletionPercent).toBe(0);
+    expect(aggregatePortfolio([baseRow({ completionPercent: null })]).avgCompletionPercent).toBeNull();
   });
 });

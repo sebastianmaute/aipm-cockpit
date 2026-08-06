@@ -42,8 +42,12 @@ export type PortfolioAggregate = {
   totalOpenRaid: number;
   /** Average completion % across the projects that HAVE a completion figure —
    *  a no-active-scope project is excluded from both sides of the average, not
-   *  counted as 0. Falls back to 0 when none of them do. */
-  avgCompletionPercent: number;
+   *  counted as 0.
+   *  ★ null when NO project contributes one (an empty portfolio, or one where
+   *  every project has no scope left). A 0 here would be §64's own misreading
+   *  reappearing at the aggregate: "Avg. complete: 0%" above a table whose every
+   *  row reads "—". */
+  avgCompletionPercent: number | null;
 };
 
 /**
@@ -75,7 +79,7 @@ export function aggregatePortfolio(rows: readonly PortfolioRow[]): PortfolioAggr
       overallA: 0,
       overallG: 0,
       totalOpenRaid: 0,
-      avgCompletionPercent: 0,
+      avgCompletionPercent: null,
     };
   }
   let overallR = 0;
@@ -104,6 +108,6 @@ export function aggregatePortfolio(rows: readonly PortfolioRow[]): PortfolioAggr
     overallG,
     totalOpenRaid,
     avgCompletionPercent:
-      completionCount === 0 ? 0 : Math.round(totalCompletion / completionCount),
+      completionCount === 0 ? null : Math.round(totalCompletion / completionCount),
   };
 }
