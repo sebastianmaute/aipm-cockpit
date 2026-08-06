@@ -112,3 +112,22 @@ describe("aggregatePortfolio", () => {
     expect(result.avgCompletionPercent).toBe(45);
   });
 });
+
+describe("avgCompletionPercent with no-scope projects (open-followups §64)", () => {
+  it("excludes a null-completion project instead of counting it as 0", () => {
+    const agg = aggregatePortfolio([
+      baseRow({ id: "a", completionPercent: 80 }),
+      baseRow({ id: "b", completionPercent: null }),
+    ]);
+    // 80, not 40. A project with no scope left has no completion figure to
+    // average; counting it as 0 drags the portfolio number down with a value
+    // that means "nothing left", not "nothing done".
+    expect(agg.avgCompletionPercent).toBe(80);
+    // It is still a project — only the completion average excludes it.
+    expect(agg.projectCount).toBe(2);
+  });
+
+  it("returns 0 when every project has no active scope", () => {
+    expect(aggregatePortfolio([baseRow({ completionPercent: null })]).avgCompletionPercent).toBe(0);
+  });
+});

@@ -24,7 +24,11 @@ export type PortfolioRow = {
   schedule: Health;
   /** Budget RAG — null when no budgets are configured. */
   budget: SubStatus;
-  completionPercent: number;
+  /** Completion %, or null when the project HAS tasks but none in scope. An
+   *  all-cancelled project's literal 0 reads as "not started yet" in a table
+   *  scanned across projects, which is the misreading the dashboard already
+   *  stopped showing (open-followups §64). */
+  completionPercent: number | null;
   openRaidCount: number;
   milestoneHealth: MilestoneHealthBucket;
 };
@@ -36,7 +40,9 @@ export type PortfolioAggregate = {
   overallA: number;
   overallG: number;
   totalOpenRaid: number;
-  /** Average completion % across all projects (0 when projectCount === 0). */
+  /** Average completion % across the projects that HAVE a completion figure —
+   *  a no-active-scope project is excluded from both sides of the average, not
+   *  counted as 0. Falls back to 0 when none of them do. */
   avgCompletionPercent: number;
 };
 
@@ -77,12 +83,19 @@ export function aggregatePortfolio(rows: readonly PortfolioRow[]): PortfolioAggr
   let overallG = 0;
   let totalOpenRaid = 0;
   let totalCompletion = 0;
+  // ★ Counted separately from `rows.length` — the divisor must be the number of
+  //   projects that actually contributed a figure, or a no-scope project pulls
+  //   the average toward zero while contributing nothing to the numerator.
+  let completionCount = 0;
   for (const row of rows) {
     if (row.overall === "R") overallR++;
     else if (row.overall === "A") overallA++;
     else overallG++;
     totalOpenRaid += row.openRaidCount;
-    totalCompletion += row.completionPercent;
+    if (row.completionPercent !== null) {
+      totalCompletion += row.completionPercent;
+      completionCount += 1;
+    }
   }
   return {
     projectCount: rows.length,
@@ -90,6 +103,7 @@ export function aggregatePortfolio(rows: readonly PortfolioRow[]): PortfolioAggr
     overallA,
     overallG,
     totalOpenRaid,
-    avgCompletionPercent: Math.round(totalCompletion / rows.length),
+    avgCompletionPercent:
+      completionCount === 0 ? 0 : Math.round(totalCompletion / completionCount),
   };
 }

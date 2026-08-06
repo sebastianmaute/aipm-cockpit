@@ -161,7 +161,19 @@ export function PortfolioHealthPanel({
               <td className="py-2 pr-3"><RagCell lang={lang} value={row.overall as Health} /></td>
               <td className="py-2 pr-3"><RagCell lang={lang} value={row.schedule as Health} /></td>
               <td className="py-2 pr-3"><RagCell lang={lang} value={row.budget} /></td>
-              <td className="py-2 pr-3 tabular-nums">{row.completionPercent}%</td>
+              {/* ★ The sr-only text is the real disclosure, not the title:
+                  `title` is hover-only — no keyboard focus, unreachable on
+                  touch — so a bare em dash would be no value at all to AT. */}
+              <td className="py-2 pr-3 tabular-nums">
+                {row.completionPercent === null ? (
+                  <span title={t(lang, "dashboardNoActiveScope")}>
+                    <span aria-hidden="true">—</span>
+                    <span className="sr-only">{t(lang, "dashboardNoActiveScope")}</span>
+                  </span>
+                ) : (
+                  `${row.completionPercent}%`
+                )}
+              </td>
               <td className="py-2 pr-3 tabular-nums">{row.openRaidCount}</td>
               <td className="py-2 pr-3">{t(lang, MS_LABEL_KEYS[row.milestoneHealth])}</td>
             </tr>
