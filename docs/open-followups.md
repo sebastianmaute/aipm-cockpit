@@ -2872,10 +2872,19 @@ this warning exists to record — and reported the entry's correct cite as a def
 `cancelled` (by status) / `completed` (by `isTaskDelivered`) / `closed` (neither) — so this pair
 announces "closed" and no longer contradicts the ✕ beside it.
 
-★★ **`isTaskDelivered` ALONE would not have fixed it**, and the entry's prescription ("drivers
-should consult `completedDate`, not `status` alone") reads as though it would. A two-way split on
-delivery labels this row "cancelled", which is a different false statement, not a fix. Cancelled is a
-STATUS; delivered is a DATE; this pair is neither, so it needed its own driver and its own i18n key.
+★★ **`isTaskDelivered` ALONE would not have fixed it.** A two-way split on delivery labels this row
+"cancelled", which is a different false statement, not a fix. Cancelled is a STATUS; delivered is a
+DATE; this pair is neither, so it needed its own driver and its own i18n key.
+
+★★★ **THIS ENTRY'S PRESCRIPTION WAS RIGHT AND A DRAFT OF THIS CLOSURE SAID IT WAS WRONG.** It reads
+"drivers should consult `completedDate`, **not `status` alone**" — that is *consult BOTH*, which is
+exactly what the three-way does. The draft paraphrased it as "consult `completedDate` INSTEAD OF
+`status`" and then refuted the paraphrase, in a closure block whose theme was other entries' faulty
+prescriptions. **Slice 1 made this identical mistake one week earlier and had to retract it**
+(see the §77/§78 provenance). Twice now: hunting for a pattern makes you find it where it is not.
+What is fair to say is that the prescription is UNDERSPECIFIED — it does not say the split is
+three-way, and the careless two-way reading of it is the trap. That is a much weaker claim, and it
+is the true one. **Quote an entry before criticising it; a paraphrase you wrote is not evidence.**
 
 ★ The second symptom this entry names — `scopeCounts` subtracting closed-but-not-delivered rows, so
 a project of them renders `dashboardAllCancelled` about rows whose status says Done — is verified
@@ -4468,14 +4477,21 @@ and `computeGroupHealth` now both call. Those two render side by side in ONE das
 second copy of `isTaskClosed(t) && !isTaskDelivered(t)` is the drift `hasNoActiveScope`'s own doc
 comment records having already caused once.
 
-★★ **Each of the three closed entries had something wrong in it, and all three errors were in the
-PRESCRIPTION rather than the diagnosis.** §65 said drivers should consult `completedDate` instead of
-`status`, which two-ways a three-way problem and would have labelled the row "cancelled". §66 said
-the fix ripples through `overallComputed`, which is provably impossible because G is the fallback
-colour. §67 weighed two printable separators, noted both could collide, and accepted that instead of
-looking for the option with no drawback. **An entry's diagnosis is a measurement; its prescription
-is a hypothesis from the day it was written.** The same split was recorded one slice earlier, in the
-§77/§78 work — twice now.
+★★ **TWO of the four entries carried a faulty PRESCRIPTION while diagnosing correctly.** §66 said the
+fix ripples through `overallComputed`, which is provably impossible because G is the fallback colour.
+§67 weighed two printable separators, noted both could collide, and accepted that rather than looking
+for the option with no drawback. §64's list of surfaces was incomplete. **An entry's diagnosis is a
+measurement; its prescription is a hypothesis from the day it was written** — the same split the
+§77/§78 slice recorded.
+
+★★★ **THE FIRST VERSION OF THAT PARAGRAPH SAID "all three", AND MAKING §65 FIT REQUIRED MISQUOTING
+IT.** Its prescription reads "consult `completedDate`, **not `status` alone**" — consult BOTH, which
+is what shipped. The draft paraphrased that as "INSTEAD OF `status`" and refuted the paraphrase.
+**Slice 1 made the identical mistake and retracted it a week earlier**, in a paragraph whose own
+lesson was that corrections breed falsehoods. Twice now, both times while writing *about* other
+entries being wrong. A pattern you are pleased to have found is the one to re-check, and the check is
+mechanical: **quote the entry inline before criticising it.** Every claim here that survived is one
+where the quote is present.
 
 ★ Opened by nothing. The one new surface found (`avgCompletionPercent`) was folded into §64 rather
 than numbered, because it is the same defect on the same value, one call frame up.
