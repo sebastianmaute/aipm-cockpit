@@ -743,6 +743,29 @@ describe("formatHealthTooltip", () => {
     vi.clearAllMocks();
   });
 
+  // ★★ THIS IS THE USER-VISIBLE HALF OF open-followups §65, and nothing pinned
+  //    it until a mutation pass found the hole. `HealthDriver` gaining "closed"
+  //    forces a `Record` entry, so tsc catches a MISSING key — it cannot catch a
+  //    WRONG one. Setting `closed: "healthDriverCancelled"` in health.ts left
+  //    106 tests green while restoring §65's exact defect (the ✕ glyph beside an
+  //    announcement that names a different state). `formatHealthTooltip` is what
+  //    the user actually reads, via task-row.tsx and task-kanban-card.tsx.
+  //    ★ `./i18n` is mocked in this file so `t()` returns the KEY — assert on
+  //      keys here, never on English.
+  it("announces a closed-but-undelivered task as closed, not completed or cancelled", () => {
+    const tooltip = formatHealthTooltip({ color: "G", drivers: ["closed"] }, "en-US");
+    expect(tooltip).toContain("healthDriverClosed");
+    expect(tooltip).not.toContain("healthDriverCompleted");
+    expect(tooltip).not.toContain("healthDriverCancelled");
+  });
+
+  it("keeps the other two finished drivers on their own keys", () => {
+    expect(formatHealthTooltip({ color: "G", drivers: ["completed"] }, "en-US"))
+      .toContain("healthDriverCompleted");
+    expect(formatHealthTooltip({ color: "G", drivers: ["cancelled"] }, "en-US"))
+      .toContain("healthDriverCancelled");
+  });
+
   it("formats tooltip with color name and single driver", () => {
     const health: TaskHealth = {
       color: "R",
@@ -936,10 +959,33 @@ describe("out-of-scope work in the group tally (open-followups §66)", () => {
     expect(g.outOfScope).toBe(2);
   });
 
-  // The register claimed this fix "ripples well past the dashboard" via
-  // `overallComputed`. It cannot: out-of-scope tasks only ever added to
-  // `counts.G`, and G is the fallback colour.
-  it("leaves the overall colour unchanged", () => {
-    expect(computeGroupHealth([createTask({ status: "Cancelled" })], today).color).toBe("G");
+  // ★★ The all-cancelled case CANNOT fail from this change and is not the pin:
+  //    before, one cancelled task gave `counts.G = 1` → colour G; after, empty
+  //    counts → colour G by the fallback. Identical either way. An earlier
+  //    version of this test asserted only that, called itself a regression
+  //    guard, and pinned nothing (found by mutation testing).
+  //    What CAN fail is a group whose colour is decided by in-scope work while
+  //    out-of-scope work is present: if the exclusion ever leaked into R or A,
+  //    or if `color` were derived from the tally size, these move.
+  it("derives the colour from in-scope work only, with cancelled work present", () => {
+    const g = computeGroupHealth(
+      [
+        createTask({ id: 1, status: "Cancelled" }),
+        createTask({ id: 2, status: "Cancelled" }),
+        createTask({ id: 3, status: "In Progress", dueDate: "2026-05-01" }), // overdue → R
+      ],
+      today,
+    );
+    expect(g.color).toBe("R");
+    expect(g.counts).toEqual({ R: 1, A: 0, G: 0 });
+    expect(g.outOfScope).toBe(2);
+  });
+
+  it("falls back to G when every task is out of scope", () => {
+    const g = computeGroupHealth([createTask({ status: "Cancelled" })], today);
+    expect(g.color).toBe("G");
+    // The colour is the FALLBACK here, not a tallied Green — that distinction is
+    // the whole of §66 and is invisible from `color` alone.
+    expect(g.counts).toEqual({ R: 0, A: 0, G: 0 });
   });
 });

@@ -346,6 +346,26 @@ describe("ReportsPanel — Total tile names the cancelled count", () => {
   });
 });
 
+// ★★ The §66 change altered this sort SILENTLY: the within-colour tiebreak sums
+//    `counts`, which now excludes out-of-scope work, so the rank is IN-SCOPE
+//    size rather than group size. Deliberate (cancelled work does not "move the
+//    needle"), but it shipped with no test until a mutation pass flagged it.
+describe("ReportsPanel — group cards rank by in-scope size, not raw size", () => {
+  it("puts a smaller active group above a larger mostly-cancelled one", () => {
+    renderReports([
+      makeTask({ id: 1, assignee: "A", group: "Mostly cancelled", status: "To Do" }),
+      makeTask({ id: 2, assignee: "B", group: "Mostly cancelled", status: "Cancelled" }),
+      makeTask({ id: 3, assignee: "C", group: "Mostly cancelled", status: "Cancelled" }),
+      makeTask({ id: 4, assignee: "D", group: "Active", status: "To Do" }),
+      makeTask({ id: 5, assignee: "E", group: "Active", status: "To Do" }),
+    ]);
+    const names = screen.getAllByTitle(/^(Active|Mostly cancelled)$/).map((el) => el.textContent);
+    // By raw size "Mostly cancelled" (3) would lead; by in-scope size "Active"
+    // (2 vs 1) does. Both groups share a colour bucket, so the tiebreak decides.
+    expect(names).toEqual(["Active", "Mostly cancelled"]);
+  });
+});
+
 describe("ReportsPanel — a group card does not count cancelled work Green", () => {
   it("names the cancelled count and leaves Green at zero (open-followups §66)", () => {
     renderReports([

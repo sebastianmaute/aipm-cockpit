@@ -1,62 +1,61 @@
 // src/app/no-nul-bytes.test.ts
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-/** ★★ Filter by EXTENSION, never "everything under this directory" —
- *  `src/app/favicon.ico` is a tracked binary that holds NUL bytes legitimately,
- *  and `docs/assets/` is full of PNGs. `docs/open-followups.md` §67 records that
- *  the looser phrasing was written for one command and then disproved by the
- *  very sweep meant to confirm it.
+/** Tracked files only, straight from the index — this guard is about what gets
+ *  COMMITTED, so `git ls-files` IS the definition rather than an approximation
+ *  of it.
  *
- *  ★★ `docs/**\/*.md` is covered because a NUL landed in `open-followups.md`
- *  while that entry was being CLOSED — same corruption, and the register is the
- *  file most likely to be grepped. Scoping this to source would have shipped a
- *  guard blind to the case that had just occurred. */
-const ROOTS: readonly { dir: string; ext: RegExp }[] = [
-  { dir: "src", ext: /\.tsx?$/ },
-  { dir: "docs", ext: /\.md$/ },
-];
-
-/** Gitignored scratch trees. This guard is about what gets COMMITTED — an
- *  untracked working file that grep skips costs nobody but its author. ★ It is
- *  also not hypothetical: `docs/superpowers/` held two at the time this was
- *  written, and without the skip the guard would have been red on arrival and
- *  gone straight into the "just delete the assertion" bucket. */
-const SKIP_DIRS: readonly string[] = ["superpowers"];
-
-function filesUnder(dir: string, ext: RegExp): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      if (SKIP_DIRS.includes(entry)) continue;
-      out.push(...filesUnder(full, ext));
-      continue;
-    }
-    if (ext.test(entry)) out.push(full);
-  }
-  return out;
-}
-
+ *  ★★ An earlier version walked the filesystem and skipped one hardcoded
+ *  directory name while its comment claimed it "skips gitignored trees". It did
+ *  not: `docs/patterns/` is also gitignored and was scanned, so a scratch file
+ *  dropped there could turn the suite red for a reason unrelated to any commit
+ *  — the exact failure the skip existed to prevent. Asking git removes the
+ *  category/instance gap instead of widening the list.
+ *
+ *  ★ Filter by EXTENSION as well: `src/app/favicon.ico` and
+ *  `docs/assets/dashboard.png` are TRACKED binaries holding NULs legitimately
+ *  (verified: offsets 0 and 8). `docs/open-followups.md` §67 records that the
+ *  looser "everything under src" phrasing was written for one command and then
+ *  disproved by the very sweep meant to confirm it. */
 function scannedFiles(): string[] {
-  return ROOTS.flatMap((root) =>
-    filesUnder(join(process.cwd(), root.dir), root.ext),
-  );
+  const out = execFileSync("git", ["ls-files", "-z", "src", "docs"], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  return out
+    .split("\0")
+    .filter((p) => /\.(tsx?|md)$/.test(p))
+    .map((p) => join(process.cwd(), p));
 }
 
 describe("committed source files are text", () => {
   // A NUL byte is BENIGN at runtime — as a cache-key separator it works exactly
-  // as a space would, which is why nothing ever caught the one in
-  // `use-portfolio-health.ts`. The cost is to tooling: ripgrep and grep classify
-  // the file as BINARY and print "Binary file … matches" with no line content,
-  // so every content sweep over src/ silently SKIPS it. That already cost a
+  // as a space would, which is why nothing caught the one in
+  // `use-portfolio-health.ts` for months. The cost is to tooling: ripgrep and
+  // grep classify the file as BINARY and print "Binary file … matches" with no
+  // line content, so every content sweep silently SKIPS it. That already cost a
   // reviewer once, on a file holding `completionPercent` (open-followups §67).
   //
-  // The Edit tool is a known source of these (it can turn a space into a NUL),
-  // so this is a ratchet against recurrence, not a one-time cleanup.
-  it("no scanned source or doc file contains a NUL byte", () => {
-    const offenders = scannedFiles()
+  // The Edit tool is a known source of these, and writing the escape sequence as
+  // PROSE about the escape sequence is another — that is how two landed in
+  // `open-followups.md` while §67 was being closed. This is a ratchet against
+  // recurrence, not a one-time cleanup.
+  it("no tracked .ts/.tsx/.md file under src/ or docs/ contains a NUL byte", () => {
+    const files = scannedFiles();
+
+    // ★★ POSITIVE CONTROL, and it is load-bearing: the real assertion below is
+    //    `toEqual([])`, which passes trivially if `scannedFiles()` ever returns
+    //    nothing — a bad extension regex, a cwd that is not the repo root, a
+    //    refactor to some glob helper. Without these two lines the guard can
+    //    scan zero files and report success.
+    expect(files.length).toBeGreaterThan(500);
+    expect(files.some((f) => f.endsWith("use-portfolio-health.ts"))).toBe(true);
+
+    const offenders = files
       .map((file) => ({ file, at: readFileSync(file).indexOf(0) }))
       .filter((hit) => hit.at !== -1)
       .map((hit) => `${hit.file} @ byte ${hit.at}`);
