@@ -4,6 +4,9 @@
 // ExportSection — these are about the PresentationML format only. Shared ZIP
 // writer + palette live in export-ooxml-shared.ts.
 import { type ZipEntry, buildZip } from "./zip";
+// Type-only, so this stays a format module at runtime — no i18n code is pulled
+// into the OOXML graph, only the union of valid BCP-47 tags the app can produce.
+import type { Lang } from "./i18n";
 import {
   COLOR_DARK_BLUE,
   COLOR_GREEN,
@@ -23,6 +26,15 @@ import {
 export function pptxTextBox(opts: {
   id: number;
   name: string;
+  /** ★★ REQUIRED, deliberately not defaulted. Every run this helper emits
+   *  carries `a:rPr lang`, and it was hardcoded "en-US" for every caller —
+   *  so a German deck asserted American English on all of its prose, which
+   *  makes PowerPoint spell-check it against an English dictionary and makes
+   *  an accessibility checker read the wrong language. A default would let a
+   *  new call site reintroduce that silently, which is exactly how it survived
+   *  this long; required means tsc names every site. Every member of Lang is
+   *  already a valid BCP-47 tag. */
+  lang: Lang;
   xEmu: number;
   yEmu: number;
   cxEmu: number;
@@ -31,7 +43,13 @@ export function pptxTextBox(opts: {
     text: string;
     bold?: boolean;
     italic?: boolean;
-    sizeHundredths?: number; // Half-points; 1800 = 18pt, 4400 = 44pt
+    // ★ HUNDREDTHS of a point, which is what DrawingML `a:rPr sz` takes:
+    //   1800 = 18pt, 4400 = 44pt. NOT half-points — that is the
+    //   WordprocessingML convention (`w:sz`, where 36 = 18pt), and the two
+    //   differ by 50x. This comment said "half-points" while every value in
+    //   the file was already correct hundredths, so a reader trusting it would
+    //   write 5600 meaning 28pt and ship 56pt text.
+    sizeHundredths?: number;
     colorRgb?: string;
   }>;
 }): string {
@@ -51,7 +69,7 @@ export function pptxTextBox(opts: {
       return p.text.split("\n").map(
         (line) => `<a:p>
   <a:r>
-    <a:rPr lang="en-US" ${rPr} dirty="0">${color}</a:rPr>
+    <a:rPr lang="${xmlEscape(opts.lang)}" ${rPr} dirty="0">${color}</a:rPr>
     <a:t>${xmlEscape(line)}</a:t>
   </a:r>
 </a:p>`,
@@ -129,11 +147,16 @@ export function pptxAccentBar(colorRgb: string): string {
  * two text strings differ. Returns the concatenated shape XML, byte-identical
  * to the prior inline pair.
  */
-export function pptxTitleSubtitleShapes(titleText: string, subtitleText: string): string {
+export function pptxTitleSubtitleShapes(
+  titleText: string,
+  subtitleText: string,
+  lang: Lang,
+): string {
   return (
     pptxTextBox({
       id: 2,
       name: "Title",
+      lang,
       xEmu: 685800,
       yEmu: 1700000,
       cxEmu: 7772400,
@@ -150,6 +173,7 @@ export function pptxTitleSubtitleShapes(titleText: string, subtitleText: string)
     pptxTextBox({
       id: 3,
       name: "Subtitle",
+      lang,
       xEmu: 685800,
       yEmu: 2700000,
       cxEmu: 7772400,

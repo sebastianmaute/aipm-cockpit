@@ -12,7 +12,7 @@
 // a `toContain("&amp;")` assertion would happily pass double-escaped text.
 
 import { describe, it, expect } from "vitest";
-import { renderDocumentPptx, segmentIntoSlides } from "./doc-render-pptx";
+import { renderDocumentPptx, segmentIntoSlides, paginateLines } from "./doc-render-pptx";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
 import {
@@ -171,6 +171,44 @@ describe("segmentIntoSlides", () => {
 });
 
 // ---------------------------------------------------------------------------
+// paginateLines — the overflow rule
+// ---------------------------------------------------------------------------
+
+describe("paginateLines", () => {
+  it("keeps content that fits on a single chunk", () => {
+    expect(paginateLines(["a", "b"], 5)).toEqual([["a", "b"]]);
+  });
+
+  it("continues overflow onto further chunks instead of clipping it", () => {
+    // ★ The whole point: nothing may be DROPPED. A renderer that truncated
+    // would pass a "first chunk is right" assertion, so this checks the
+    // round-trip of every line.
+    const lines = ["1", "2", "3", "4", "5"];
+    const chunks = paginateLines(lines, 2);
+    expect(chunks).toEqual([["1", "2"], ["3", "4"], ["5"]]);
+    expect(chunks.flat()).toEqual(lines);
+  });
+
+  it("returns one empty chunk for no lines, so a titled slide still renders", () => {
+    expect(paginateLines([], 5)).toEqual([[]]);
+  });
+
+  it("drops a blank line left leading by a chunk boundary", () => {
+    // A gap between blocks is typography mid-slide and dead space at the top
+    // of a continuation slide.
+    const chunks = paginateLines(["a", "b", "", "c"], 2);
+    expect(chunks[1][0]).not.toBe("");
+    expect(chunks.flat().filter((l) => l === "")).toEqual([]);
+  });
+
+  it("keeps a blank line that falls INSIDE a chunk", () => {
+    // CONTROL for the test above — otherwise a renderer that stripped every
+    // blank line would pass it, defeating the block-gap behaviour.
+    expect(paginateLines(["a", "", "b"], 5)).toEqual([["a", "", "b"]]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Package integrity
 // ---------------------------------------------------------------------------
 
@@ -223,6 +261,57 @@ describe("renderDocumentPptx — package integrity", () => {
     expect([...types.matchAll(/PartName="\/ppt\/slides\/slide\d+\.xml"/g)]).toHaveLength(2);
     expect([...rels.matchAll(/Target="slides\/slide\d+\.xml"/g)]).toHaveLength(2);
     expect([...presentation.matchAll(/<p:sldId /g)]).toHaveLength(2);
+  });
+
+  it("continues an over-long slide onto further slides, losing no content", async () => {
+    // ★★ 40 bullets against a 16-line budget. The failure this prevents is
+    // INVISIBLE in the XML — bodyPr carries no autofit, so PowerPoint lets the
+    // text run off the slide rather than shrinking it, and only opening the
+    // deck would show it. Assert on what IS observable: the line count per
+    // slide, and that every bullet survives somewhere.
+    const items = Array.from({ length: 40 }, (_, i) => `item ${i + 1}`);
+    const all = await slides(doc([{ type: "heading", level: 1, text: "Long" }, { type: "bullets", items }]));
+    // 1 title slide + ceil(40 / 16) = 3 content slides.
+    expect(all).toHaveLength(4);
+    const perSlide = all.slice(1).map((xml) => textNodes(xml));
+    for (const lines of perSlide) {
+      // Each content slide holds its title plus at most the body budget.
+      expect(lines.length).toBeLessThanOrEqual(16 + 1);
+    }
+    const joined = perSlide.flat();
+    for (const item of items) expect(joined).toContain(`• ${item}`);
+  });
+
+  it("marks continuation slides numerically and titles the first one plainly", async () => {
+    const items = Array.from({ length: 40 }, (_, i) => `item ${i + 1}`);
+    const all = await slides(doc([{ type: "heading", level: 1, text: "Long" }, { type: "bullets", items }]));
+    const titles = all.slice(1).map((xml) => textNodes(xml)[0]);
+    expect(titles).toEqual(["Long (1/3)", "Long (2/3)", "Long (3/3)"]);
+  });
+
+  it("adds no marker when the content fits on one slide", async () => {
+    // CONTROL: without this, a renderer that ALWAYS appended "(1/1)" would
+    // pass the marker test above while disfiguring every ordinary slide.
+    const all = await slides(doc([{ type: "heading", level: 1, text: "Short" }, { type: "bullets", items: ["a"] }]));
+    expect(all).toHaveLength(2);
+    expect(textNodes(all[1])[0]).toBe("Short");
+  });
+
+  it("keeps the three package counts in agreement WITH pagination in play", async () => {
+    // ★ This trio is what catches a PowerPoint repair prompt, and pagination
+    // makes it do more work: the slide count is no longer the segment count.
+    const items = Array.from({ length: 40 }, (_, i) => `item ${i + 1}`);
+    const all = await parts(doc([{ type: "heading", level: 1, text: "Long" }, { type: "bullets", items }]));
+    const slideCount = [...all.keys()].filter((p) => SLIDE_RE.test(p)).length;
+    expect(slideCount).toBe(4);
+    expect([...all.get("[Content_Types].xml")!.matchAll(/PartName="\/ppt\/slides\/slide\d+\.xml"/g)])
+      .toHaveLength(slideCount);
+    expect([...all.get("ppt/_rels/presentation.xml.rels")!.matchAll(/Target="slides\/slide\d+\.xml"/g)])
+      .toHaveLength(slideCount);
+    expect([...all.get("ppt/presentation.xml")!.matchAll(/<p:sldId /g)]).toHaveLength(slideCount);
+    // …and one _rels part per slide.
+    expect([...all.keys()].filter((p) => /^ppt\/slides\/_rels\/slide\d+\.xml\.rels$/.test(p)))
+      .toHaveLength(slideCount);
   });
 
   it("emits well-formed XML for every block type at once", async () => {
@@ -410,6 +499,24 @@ describe("renderDocumentPptx — blocks", () => {
     const text = await bodyText(doc([{ type: "bullets", items: ["a"] }]));
     expect(text).toContain("• a");
     expect(text.every((t) => t.trim() !== "")).toBe(true);
+  });
+
+  it("separates two blocks with exactly one blank line", async () => {
+    // ★ A blanket `filter(l => l.trim() !== "")` used to strip every empty
+    // line, so consecutive paragraphs abutted and read as one. The gap BETWEEN
+    // blocks is typography; blanks INSIDE a block are artifacts and still go.
+    const text = await bodyText(
+      doc([
+        { type: "paragraph", html: "<p>one</p>" },
+        { type: "paragraph", html: "<p>two</p>" },
+      ]),
+    );
+    expect(text).toEqual(["one", "", "two"]);
+  });
+
+  it("does not put a blank line before the first block or after the last", async () => {
+    const text = await bodyText(doc([{ type: "paragraph", html: "<p>only</p>" }]));
+    expect(text).toEqual(["only"]);
   });
 
   it("keeps body blocks in author order", async () => {

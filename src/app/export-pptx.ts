@@ -3,6 +3,7 @@
 // assembly) live in ooxml-pptx-primitives.ts; this file is only about turning
 // ExportSections into slides.
 import type { ExportSection } from "./export-sections";
+import type { Lang } from "./i18n";
 import {
   COLOR_DARK_BLUE,
   COLOR_GREEN,
@@ -31,22 +32,22 @@ import {
  *
  * Slide dimensions are 16:9 widescreen (9144000 × 5143500 EMUs = standard).
  */
-export function buildPptx(sections: ExportSection[]): Blob {
+export function buildPptx(sections: ExportSection[], lang: Lang): Blob {
   const slideXmls: string[] = [];
 
   // Title slide (always first).
-  slideXmls.push(buildPptxTitleSlide());
+  slideXmls.push(buildPptxTitleSlide(lang));
 
   for (const section of sections) {
     const truncated = section.rows.length > PPTX_MAX_ROWS_PER_SECTION;
     const usedRows = section.rows.slice(0, PPTX_MAX_ROWS_PER_SECTION);
 
     // Section divider slide.
-    slideXmls.push(buildPptxDividerSlide(section.title, section.rows.length));
+    slideXmls.push(buildPptxDividerSlide(section.title, section.rows.length, lang));
 
     // One item slide per row.
     for (const row of usedRows) {
-      slideXmls.push(buildPptxRowSlide(section.title, section.columns, row));
+      slideXmls.push(buildPptxRowSlide(section.title, section.columns, row, lang));
     }
 
     // Truncation notice when section exceeds the cap.
@@ -55,6 +56,7 @@ export function buildPptx(sections: ExportSection[]): Blob {
         buildPptxNoticeSlide(
           `Showing the first ${PPTX_MAX_ROWS_PER_SECTION} of ${section.rows.length} ${section.title} rows.`,
           "Export to XLSX for the full list.",
+          lang,
         ),
       );
     }
@@ -65,19 +67,19 @@ export function buildPptx(sections: ExportSection[]): Blob {
 
 // ---- PPTX sub-builders ----------------------------------------------------
 
-function buildPptxTitleSlide(): string {
+function buildPptxTitleSlide(lang: Lang): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
-    pptxTitleSubtitleShapes("AI PM Cockpit", `Exported ${todayHuman()}`);
+    pptxTitleSubtitleShapes("AI PM Cockpit", `Exported ${todayHuman()}`, lang);
 
   return wrapPptxSlide(shapes);
 }
 
 /** Section-divider slide: full-bleed Dark Blue with the section title. */
-function buildPptxDividerSlide(title: string, rowCount: number): string {
+function buildPptxDividerSlide(title: string, rowCount: number, lang: Lang): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
-    pptxTitleSubtitleShapes(title, `${rowCount} row${rowCount === 1 ? "" : "s"}`);
+    pptxTitleSubtitleShapes(title, `${rowCount} row${rowCount === 1 ? "" : "s"}`, lang);
 
   return wrapPptxSlide(shapes);
 }
@@ -91,6 +93,7 @@ function buildPptxRowSlide(
   sectionTitle: string,
   columns: string[],
   row: (string | number)[],
+  lang: Lang,
 ): string {
   const firstValue = String(row[0] ?? "");
   const secondValue = columns.length > 1 ? String(row[1] ?? "") : "";
@@ -109,6 +112,7 @@ function buildPptxRowSlide(
     pptxTextBox({
       id: 2,
       name: "RowMeta",
+      lang,
       xEmu: 457200,
       yEmu: 380000,
       cxEmu: 8229600,
@@ -125,6 +129,7 @@ function buildPptxRowSlide(
     pptxTextBox({
       id: 3,
       name: "RowTitle",
+      lang,
       xEmu: 457200,
       yEmu: 750000,
       cxEmu: 8229600,
@@ -142,6 +147,7 @@ function buildPptxRowSlide(
       ? pptxTextBox({
           id: 4,
           name: "RowFields",
+          lang,
           xEmu: 457200,
           yEmu: 1850000,
           cxEmu: 8229600,
@@ -153,12 +159,13 @@ function buildPptxRowSlide(
   return wrapPptxSlide(shapes);
 }
 
-function buildPptxNoticeSlide(line1: string, line2: string): string {
+function buildPptxNoticeSlide(line1: string, line2: string, lang: Lang): string {
   const shapes =
     pptxAccentBar(COLOR_PINK) +
     pptxTextBox({
       id: 2,
       name: "Notice1",
+      lang,
       xEmu: 685800,
       yEmu: 2000000,
       cxEmu: 7772400,
@@ -175,6 +182,7 @@ function buildPptxNoticeSlide(line1: string, line2: string): string {
     pptxTextBox({
       id: 3,
       name: "Notice2",
+      lang,
       xEmu: 685800,
       yEmu: 2900000,
       cxEmu: 7772400,

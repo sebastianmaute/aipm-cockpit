@@ -1,9 +1,22 @@
 // src/app/doc-render-pptx.ts — blocks → PresentationML (.pptx).
 //
-// Segmentation: a new slide starts at every pageBreak and at every level-1
-// heading, which becomes that slide's title. Level 2/3 headings stay in the
-// body — splitting on every heading would shred a document into one-line
-// slides.
+// SEGMENTATION (which blocks share a slide): a new slide starts at every
+// pageBreak and at every level-1 heading, which becomes that slide's title.
+// Level 2/3 headings stay in the body — splitting on every heading would
+// shred a document into one-line slides. A segment left with neither a title
+// nor a body is dropped rather than emitted as a blank slide.
+//
+// PAGINATION (what happens when one slide's content does not fit): body lines
+// beyond a derived per-slide budget CONTINUE on further slides, each carrying
+// the same title plus a numeric `(2/3)` marker. Content is never clipped and
+// never silently dropped. The budget and its honest limits are documented at
+// BODY_LINES_PER_SLIDE; the short version is that PowerPoint does not shrink
+// this text to fit, so unbounded content runs off the slide invisibly.
+//
+// ★ Both rules are stated here on purpose. They are decisions, not properties
+// of the format, and each is pinned by its own tests — segmentation through
+// `segmentIntoSlides`, pagination through `paginateLines` and the slide-count
+// assertions.
 //
 // ★★ A slide is TEXT ONLY. PowerPoint's real table (`a:tbl`) is a graphicFrame
 // with its own grid model, and the primitives module deliberately carries no
@@ -127,58 +140,73 @@ function tableLines(
   return lines;
 }
 
-/** Body blocks → the plain lines a slide shows. */
-function slideLines(slide: DocSlide, ws: Workspace, lang: Lang): string[] {
-  const lines: string[] = [];
+/** The lines ONE block contributes. Blank lines inside a block's own output
+ *  are artifacts — a trailing newline from the projection, an empty table row
+ *  — and the caller strips them; the deliberate gap BETWEEN blocks is added by
+ *  the caller too. */
+function blockLines(block: DocBlock, ws: Workspace, lang: Lang): string[] {
+  switch (block.type) {
+    case "heading":
+      return [block.text];
 
-  for (const block of slide.body) {
-    switch (block.type) {
-      case "heading":
-        lines.push(block.text);
-        break;
+    case "paragraph":
+      // The projection keeps a block boundary as "\n"; splitting here is what
+      // stops three paragraphs arriving as one run-on line.
+      return descriptionTextWithBreaks(block.html).split("\n");
 
-      case "paragraph":
-        // The projection keeps a block boundary as "\n"; splitting here is what
-        // stops three paragraphs arriving as one run-on line.
-        lines.push(...descriptionTextWithBreaks(block.html).split("\n"));
-        break;
+    case "bullets":
+      return block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`);
 
-      case "bullets":
-        lines.push(...block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`));
-        break;
+    case "table":
+      return tableLines(block.columns, block.rows, block.caption);
 
-      case "table":
-        lines.push(...tableLines(block.columns, block.rows, block.caption));
-        break;
-
-      case "dataSection": {
-        const section = resolveDataSection(block.key, ws, lang);
-        // An empty register renders as nothing, not as a bare heading with no
-        // rows under it — a fresh project would otherwise grow one per deck.
-        if (!section) break;
-        const total = section.rows.length;
-        const truncated = total > PPTX_MAX_ROWS_PER_SECTION;
-        const rows = truncated ? section.rows.slice(0, PPTX_MAX_ROWS_PER_SECTION) : section.rows;
-        lines.push(...tableLines(section.columns, rows, section.title));
-        if (truncated) {
-          // ★ Wording and cap mirror export-pptx.ts, which faces the same
-          // problem; English like its sibling, since a slide notice has no
-          // i18n key yet. Silently dropping rows would be worse.
-          lines.push(
-            `Showing the first ${PPTX_MAX_ROWS_PER_SECTION} of ${total} ${section.title} rows.`,
-          );
-        }
-        break;
+    case "dataSection": {
+      const section = resolveDataSection(block.key, ws, lang);
+      // An empty register renders as nothing, not as a bare heading with no
+      // rows under it — a fresh project would otherwise grow one per deck.
+      if (!section) return [];
+      const total = section.rows.length;
+      const truncated = total > PPTX_MAX_ROWS_PER_SECTION;
+      const rows = truncated ? section.rows.slice(0, PPTX_MAX_ROWS_PER_SECTION) : section.rows;
+      const lines = tableLines(section.columns, rows, section.title);
+      if (truncated) {
+        // ★ Cap and wording mirror export-pptx.ts, which faces the same
+        // problem. This notice bounds the PACKAGE; pagination below bounds
+        // what fits on a slide — two different jobs, both needed.
+        // ★★ It is a MIXED-LANGUAGE sentence in a non-English deck: the frame
+        // is hardcoded English like its sibling's, but `section.title` is
+        // already LOCALIZED by the registry, so a German deck reads
+        // "Showing the first 100 of 125 RAID rows." with a German title
+        // spliced in. Wanted: an i18n key. Not done here because that means
+        // opening i18n.de.ts, and silently dropping rows is worse than an
+        // awkward sentence.
+        lines.push(
+          `Showing the first ${PPTX_MAX_ROWS_PER_SECTION} of ${total} ${section.title} rows.`,
+        );
       }
-
-      case "pageBreak":
-        // Consumed by segmentation; unreachable in practice, and if one ever
-        // did land here it must contribute nothing rather than a blank line.
-        break;
+      return lines;
     }
-  }
 
-  return lines.filter((line) => line.trim() !== "");
+    case "pageBreak":
+      // Consumed by segmentation; unreachable in practice, and if one ever
+      // did land here it must contribute nothing rather than a blank line.
+      return [];
+  }
+}
+
+/** Body blocks → the plain lines a slide shows, with one blank line between
+ *  blocks.
+ *
+ *  ★★ That blank line is the point. A blanket trailing
+ *  `filter(l => l.trim() !== "")` used to strip EVERY empty line, so two
+ *  consecutive paragraphs abutted with no visual gap and read as one. The
+ *  distinction that makes stripping safe here: a blank INSIDE one block's
+ *  output is an artifact, a blank BETWEEN two blocks is typography. */
+function slideLines(slide: DocSlide, ws: Workspace, lang: Lang): string[] {
+  const blocks = slide.body
+    .map((block) => blockLines(block, ws, lang).filter((line) => line.trim() !== ""))
+    .filter((lines) => lines.length > 0);
+  return blocks.flatMap((lines, i) => (i === 0 ? lines : ["", ...lines]));
 }
 
 // Slide geometry in EMUs (914400 per inch); slides are 9144000 × 5143500.
@@ -189,14 +217,79 @@ const BODY_BOX = { xEmu: 457200, yEmu: 1188720, cxEmu: 8229600, cyEmu: 3474720 }
 const TITLE_SIZE = 2800;
 const BODY_SIZE = 1400;
 
-function buildContentSlide(slide: DocSlide, lines: string[]): string {
-  const title = slide.title
+const EMU_PER_POINT = 12700;
+/** Typical PowerPoint single-line spacing as a multiple of the font size. */
+const LINE_SPACING = 1.2;
+
+/**
+ * How many body lines fit on one slide, DERIVED from the box and the font size
+ * so that changing either moves the budget with it:
+ *
+ *   BODY_BOX.cyEmu 3474720 / EMU_PER_POINT 12700 = 273.6pt of height
+ *   BODY_SIZE 1400 hundredths = 14pt, × 1.2 spacing  = 16.8pt per line
+ *   floor(273.6 / 16.8)                             = 16 lines
+ *
+ * ★★★ WHY THIS IS NEEDED AT ALL: the body text does not shrink to fit.
+ * `bodyPr` emits `wrap="square"` with NO `normAutofit`/`spAutoFit`, so
+ * PowerPoint's no-autofit default lets text run straight past the shape
+ * instead of scaling it. Overflow is therefore INVISIBLE in the XML and shows
+ * up only when a human opens the deck — which is exactly the class of defect
+ * no test in this repo can catch, so the renderer has to bound it.
+ *
+ * ★★ HONEST LIMIT: this counts LINES, not RENDERED lines. `wrap="square"`
+ * means one long line wraps and consumes more than one line of height, and
+ * nothing here can measure text — jsdom has no layout and the box is never
+ * rendered. So the budget is sound for short lines and optimistic for long
+ * ones. It converts UNBOUNDED overflow into BOUNDED overflow; it is not a
+ * promise that every slide fits, and only opening a real deck can confirm
+ * that.
+ */
+const BODY_LINES_PER_SLIDE = Math.floor(
+  BODY_BOX.cyEmu / EMU_PER_POINT / ((BODY_SIZE / 100) * LINE_SPACING),
+);
+
+/**
+ * Split a slide's lines into per-slide chunks.
+ *
+ * Returns `[[]]` for an empty list so a titled slide with no body still yields
+ * exactly one slide (a section divider); the caller drops the untitled case.
+ */
+export function paginateLines(lines: readonly string[], perSlide: number): string[][] {
+  if (lines.length === 0) return [[]];
+  const chunks: string[][] = [];
+  for (let i = 0; i < lines.length; i += perSlide) {
+    const chunk = lines.slice(i, i + perSlide);
+    // A gap between blocks is typography mid-slide and dead space at the top
+    // of a continuation, so drop any blank a chunk boundary left leading.
+    while (chunk.length > 0 && chunk[0].trim() === "") chunk.shift();
+    if (chunk.length > 0) chunks.push(chunk);
+  }
+  return chunks.length > 0 ? chunks : [[]];
+}
+
+/**
+ * Title for chunk `index` of `total`.
+ *
+ * ★ The continuation marker is NUMERIC (`(2/3)`), not a word like "(cont.)".
+ * Every other string this renderer adds is hardcoded English — see the
+ * truncation notice — and a digit pair needs no translation, so this is the
+ * one place the mixed-language problem was avoidable for free. It also says
+ * more: a reader sees how much is left, not just that something preceded.
+ */
+function slideTitleFor(title: string, index: number, total: number): string {
+  if (title === "" || total <= 1) return title;
+  return `${title} (${index + 1}/${total})`;
+}
+
+function buildContentSlide(title: string, lines: string[], lang: Lang): string {
+  const titleShape = title
     ? pptxTextBox({
         id: 2,
         name: "Title",
+        lang,
         ...TITLE_BOX,
         paragraphs: [
-          { text: slide.title, bold: true, sizeHundredths: TITLE_SIZE, colorRgb: COLOR_DARK_BLUE },
+          { text: title, bold: true, sizeHundredths: TITLE_SIZE, colorRgb: COLOR_DARK_BLUE },
         ],
       })
     : "";
@@ -207,6 +300,7 @@ function buildContentSlide(slide: DocSlide, lines: string[]): string {
     ? pptxTextBox({
         id: 3,
         name: "Body",
+        lang,
         ...BODY_BOX,
         // One <a:p> per line: pptxTextBox splits `text` on "\n" itself.
         paragraphs: [{ text: lines.join("\n"), sizeHundredths: BODY_SIZE }],
@@ -214,7 +308,7 @@ function buildContentSlide(slide: DocSlide, lines: string[]): string {
     : "";
 
   return wrapPptxSlide(
-    pptxBackgroundRect(COLOR_WHITE) + pptxAccentBar(COLOR_DARK_BLUE) + title + body,
+    pptxBackgroundRect(COLOR_WHITE) + pptxAccentBar(COLOR_DARK_BLUE) + titleShape + body,
   );
 }
 
@@ -223,7 +317,9 @@ function buildContentSlide(slide: DocSlide, lines: string[]): string {
  *  has no blocks. */
 export function renderDocumentPptx(doc: ProjectDocument, ws: Workspace, lang: Lang): Blob {
   const slideXmls: string[] = [
-    wrapPptxSlide(pptxBackgroundRect(COLOR_DARK_BLUE) + pptxTitleSubtitleShapes(doc.title, "")),
+    wrapPptxSlide(
+      pptxBackgroundRect(COLOR_DARK_BLUE) + pptxTitleSubtitleShapes(doc.title, "", lang),
+    ),
   ];
 
   for (const slide of segmentIntoSlides(doc.blocks)) {
@@ -232,7 +328,10 @@ export function renderDocumentPptx(doc: ProjectDocument, ws: Workspace, lang: La
     // no title and no lines left — the same blank-slide defect segmentation
     // drops, caught one stage later because resolution needs the workspace.
     if (!slide.title && lines.length === 0) continue;
-    slideXmls.push(buildContentSlide(slide, lines));
+    const chunks = paginateLines(lines, BODY_LINES_PER_SLIDE);
+    for (const [i, chunk] of chunks.entries()) {
+      slideXmls.push(buildContentSlide(slideTitleFor(slide.title, i, chunks.length), chunk, lang));
+    }
   }
 
   return buildPptxPackage(slideXmls);
