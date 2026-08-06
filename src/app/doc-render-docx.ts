@@ -10,7 +10,13 @@
 // reaches the reader as one run-on line.
 
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { buildDocxPackage, buildDocxTable, docxCellRuns } from "./ooxml-docx-primitives";
+import {
+  DOCX_CONTENT_WIDTH_TWIPS,
+  type DocxPageLayout,
+  buildDocxPackage,
+  buildDocxTable,
+  docxCellRuns,
+} from "./ooxml-docx-primitives";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
 import { descriptionTextWithBreaks } from "./rich-text-projection";
 import { resolveDataSection } from "./doc-data-section";
@@ -50,6 +56,16 @@ export const DOC_STYLES = `
     <w:rPr><w:i/><w:sz w:val="18"/><w:color w:val="${COLOR_MEDIUM_GREY}"/></w:rPr>
   </w:style>`;
 
+/** ★★ A project document is PROSE, so it is PORTRAIT — `doc-render-html.ts`
+ *  overrides `@page` to portrait for these same documents and explains why
+ *  (prose at full A4 landscape measure reads badly). Without this the SAME
+ *  document arrived portrait as HTML/PDF and landscape as .docx.
+ *
+ *  ★ ONE constant drives BOTH the page and the tables on purpose: the sectPr
+ *  and `DOCX_CONTENT_WIDTH_TWIPS` must agree, or a table measured for the
+ *  landscape text column overflows the narrower portrait page. */
+const PAGE: DocxPageLayout = "portrait";
+
 /** One paragraph. `docxCellRuns` already maps "\n" to <w:br/> and escapes each
  *  line, so text and table cells cannot diverge on either rule. */
 function para(text: string, style?: string): string {
@@ -78,12 +94,15 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
     case "table":
       return (
         (block.caption ? para(block.caption, "Caption") : "") +
-        buildDocxTable(block.columns, block.rows)
+        buildDocxTable(block.columns, block.rows, DOCX_CONTENT_WIDTH_TWIPS[PAGE])
       );
     case "dataSection": {
       const section = resolveDataSection(block.key, ws, lang);
       if (!section) return "";
-      return para(section.title, "Heading2") + buildDocxTable(section.columns, section.rows);
+      return (
+        para(section.title, "Heading2") +
+        buildDocxTable(section.columns, section.rows, DOCX_CONTENT_WIDTH_TWIPS[PAGE])
+      );
     }
     case "pageBreak":
       return `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
@@ -99,5 +118,5 @@ export function renderDocumentDocx(
   const body =
     para(doc.title, "Title") +
     doc.blocks.map((b) => renderBlock(b, ws, lang)).join("");
-  return buildDocxPackage(body, DOC_STYLES);
+  return buildDocxPackage(body, DOC_STYLES, PAGE);
 }

@@ -97,6 +97,49 @@ describe("renderDocumentDocx — package integrity", () => {
   });
 });
 
+describe("renderDocumentDocx — page orientation", () => {
+  // ★★ A project document is PROSE. doc-render-html.ts deliberately overrides
+  // @page to A4 portrait for these documents; the .docx path inherited the
+  // workspace exporter's landscape sectPr, so the SAME document was portrait as
+  // a PDF and landscape as a .docx. The primitive's own default stays landscape
+  // — ooxml-docx-primitives.test.ts pins that side.
+  const pgSz = async (d: ProjectDocument): Promise<Element> => {
+    const parsed = parseXml(await documentXml(d));
+    const el = parsed.getElementsByTagName("w:pgSz")[0];
+    if (!el) throw new Error("<w:pgSz> missing from document.xml");
+    return el;
+  };
+
+  it("puts prose on A4 portrait, not the exporter's landscape", async () => {
+    const el = await pgSz(doc([{ type: "paragraph", html: "<p>prose</p>" }]));
+    expect(el.getAttribute("w:w")).toBe("11906");
+    expect(el.getAttribute("w:h")).toBe("16838");
+    expect(el.getAttribute("w:orient")).toBe("portrait");
+  });
+
+  it("measures its tables against the portrait text column, not the landscape one", async () => {
+    // A table sized for the landscape text column overflows the narrower
+    // portrait page — orientation and column widths are ONE decision. Compared
+    // against the page LESS ITS OWN MARGINS, read from the same document, so
+    // the assertion cannot drift from whatever geometry is emitted.
+    const d = doc([{ type: "table", columns: ["A", "B"], rows: [["1", "2"]] }]);
+    const xml = await documentXml(d);
+    const widths = [...xml.matchAll(/<w:gridCol w:w="(\d+)"\/>/g)].map((m) => Number(m[1]));
+    expect(widths.length).toBeGreaterThan(0);
+    const total = widths.reduce((a, b) => a + b, 0);
+
+    const parsed = parseXml(xml);
+    const pgMar = parsed.getElementsByTagName("w:pgMar")[0];
+    if (!pgMar) throw new Error("<w:pgMar> missing from document.xml");
+    const usable =
+      Number((await pgSz(d)).getAttribute("w:w")) -
+      Number(pgMar.getAttribute("w:left")) -
+      Number(pgMar.getAttribute("w:right"));
+    expect(usable).toBeGreaterThan(0);
+    expect(total).toBeLessThanOrEqual(usable);
+  });
+});
+
 describe("renderDocumentDocx — declared styles", () => {
   it("puts DOC_STYLES inside <w:styles>, not after it", async () => {
     const styles = await part(doc([]), "word/styles.xml");
