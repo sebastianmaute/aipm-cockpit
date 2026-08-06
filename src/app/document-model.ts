@@ -42,7 +42,30 @@ export type ProjectDocument = {
   updatedAt: string;
 };
 
-const SECTION_KEYS: ReadonlySet<string> = new Set(EXPORT_SECTION_KEYS);
+/** ★★★ READ THE REGISTRY AT CALL TIME, NEVER AT MODULE-EVAL — and do not
+ *  "optimize" this back into a module-level `new Set(EXPORT_SECTION_KEYS)`.
+ *
+ *  There is a runtime import cycle around this module: settings-types.ts imports
+ *  the VALUE `defaultStorageConfig` from ./workspace, workspace.ts imports this
+ *  file, and this file imports EXPORT_SECTION_KEYS back from ./settings-types.
+ *  Entered through ./storage (i.e. how the app actually loads), this module
+ *  evaluates while settings-types is still mid-evaluation, so an eval-time
+ *  snapshot captured an EMPTY set and froze it for the life of the process —
+ *  silently dropping every dataSection block, the one block type that embeds
+ *  live project data. Entered directly, settings-types finishes first and the
+ *  snapshot was fine, which is why the model's own 28-test suite stayed green.
+ *
+ *  ★★ A lazily-memoized Set has the SAME failure mode moved to first call: one
+ *  early call during module evaluation would memoize an empty set permanently.
+ *  Testing the array directly keeps no snapshot to poison, so the bug is
+ *  structurally impossible rather than merely unlikely. The list is 15 entries
+ *  and this runs only for a dataSection block, so O(n) here is free.
+ *
+ *  ★ Regression-pinned by document-model.storage-cycle.test.ts, which must
+ *  import ./storage FIRST — an assertion in document-model.test.ts cannot fail. */
+function isSectionKey(key: string): key is ExportSectionKey {
+  return (EXPORT_SECTION_KEYS as readonly string[]).includes(key);
+}
 
 function str(v: unknown, max: number): string {
   return typeof v === "string" ? v.slice(0, max) : "";
@@ -114,9 +137,10 @@ function sanitizeBlock(raw: unknown): DocBlock | null {
     case "dataSection": {
       const key = typeof b.key === "string" ? b.key : "";
       // Ground the key against the real registry — a hallucinated or stale key
-      // must never reach buildExportSections.
-      if (!SECTION_KEYS.has(key)) return null;
-      return { type: "dataSection", key: key as ExportSectionKey };
+      // must never reach buildExportSections. `isSectionKey` narrows, so the
+      // return needs no cast (a cast here would survive the registry going empty).
+      if (!isSectionKey(key)) return null;
+      return { type: "dataSection", key };
     }
 
     default:
