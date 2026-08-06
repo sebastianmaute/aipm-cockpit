@@ -134,7 +134,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 89 | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open — buildable (absences are in `Workspace`, unlike §86's live external calls); out of scope for that slice. ★ Had a detail section but NO table row until 2026-08-06 |
 | 90 | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — it returns the new resource id, which the guard would widen to `number \| undefined` | found in the help-coverage slice-3 review, unreleased | S | open — a popout can create a resource via the RAID/task picker while the save around it is blocked |
 | 91 | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | open — `onCaptureRaidBulk` is unguarded and `useUndoHotkey` is unconditional, so bulk-apply + Ctrl+Z writes `setRaid` and `logActivity("undo")`; the activity log is localStorage with no `isPopout` check, so that line outlives the window. Gating the hotkey closes both |
-| 92 | The `settings-types` ⇄ `workspace` ⇄ `document-model` value-import cycle is a standing trap for any eval-time snapshot | AI document authoring S1, unreleased | S per instance | open — a TRAP, not a defect; the one known instance is fixed and pinned, but the cycle remains and a direct-import test structurally cannot fail |
+| 92 | The `settings-types` ⇄ `workspace` ⇄ `document-model` value-import cycle is a standing trap for any eval-time snapshot | AI document authoring S1, unreleased | S per instance | open — a TRAP, not a defect. **Sweep 2026-08-06 CLEAN**, no unfixed instances; carries a verified structural triage rule (exporter must transitively import the snapshotter) so the next candidate is decidable, not guesswork |
 | 93 | The PPTX truncation notice is a hardcoded English frame wrapped around a LOCALIZED section title | AI document authoring S1, unreleased | S | open — i18n; affects BOTH PPTX paths, and only the newer one carries a code comment saying so |
 | 94 | PPTX pagination counts logical lines, so a wrapped long line still overflows the slide | AI document authoring S1, unreleased | S–M | open — eye-verify owed; UNBOUNDED overflow is fixed, bounded overflow remains and no test in this repo can see it |
 | 95 | No test exercises a real Turso database on any path — meta-blob coverage is statements → synthetic results | AI document authoring S1, unreleased | M | open — class-wide (`documents` · `insights` · `knowledgeItems`), not a documents-specific gap |
@@ -4488,20 +4488,21 @@ edit, and is the reason this is filed as one item rather than two.
 CYCLE it exploited is still there, and the next module-eval snapshot taken anywhere in that graph
 fails the same silent way.
 
-The cycle, all three edges VALUE imports (reproduce — each returns one line):
+The cycle, all three edges VALUE imports (reproduce — each returns one line; ★ deliberately no line
+numbers written down here, see the note at the end of this entry):
 
 ```bash
-grep -n "defaultStorageConfig" src/app/settings-types.ts | head -1      # :15  settings-types → workspace
-grep -n "sanitizeProjectDocuments" src/app/workspace.ts | head -1       # :46  workspace → document-model
-grep -n "EXPORT_SECTION_KEYS" src/app/document-model.ts | head -1       # :14  document-model → settings-types
+grep -n "defaultStorageConfig"     src/app/settings-types.ts | head -1   # settings-types → workspace
+grep -n "sanitizeProjectDocuments" src/app/workspace.ts      | head -1   # workspace → document-model
+grep -n "EXPORT_SECTION_KEYS"      src/app/document-model.ts | head -1   # document-model → settings-types
 ```
 
 Entered through `./storage` — how the app actually loads — `document-model` evaluates while
 `settings-types` is still mid-evaluation, so anything it snapshots at module scope captures the
 **partially-initialised** value. `document-model` had `const SECTION_KEYS = new Set(EXPORT_SECTION_KEYS)`,
 which captured an EMPTY set and froze it for the process, silently rejecting every `dataSection`
-block — the one block type that embeds live project data. Fixed by reading the array at call time
-(`isSectionKey`, `document-model.ts:66` — cite the SYMBOL, the line moves).
+block — the one block type that embeds live project data. Fixed by reading the array at call time —
+see `isSectionKey` in `document-model.ts`.
 
 ★★★ **Why this needs a register entry rather than just the code comment: the failing shape is
 invisible to the obvious test.** Imported DIRECTLY, `settings-types` finishes evaluating first and
@@ -4510,10 +4511,45 @@ import-order test reproduces it, which is why `document-model.storage-cycle.test
 its first line says the import ORDER is the test. A future snapshot elsewhere in this graph gets no
 such test for free.
 
-**The trap:** any `new Set(...)`, `new Map(...)`, `Object.freeze(...)`, `.map()`/`.filter()` result,
-or derived constant computed at MODULE SCOPE from an imported value, in any module reachable in this
-cycle. A lazily-memoized version has the same failure moved to first call. The safe pattern is to
-read the imported value inside the function that needs it.
+**How to triage a candidate — a structural test, decidable from the import graph.** The bug requires
+the EXPORTER of the snapshotted value to transitively import the SNAPSHOTTER. Import declarations are
+hoisted and evaluated before any statement in a module body, so where `exporter →* snapshotter`, the
+snapshotter can evaluate before the exporter has run a single line and the binding is guaranteed
+uninitialized. Where that edge does not exist, the exporter always completes first. Necessary AND
+sufficient — no need to reason about entry points case by case.
+
+Verified here rather than taken on faith, with one positive control and one real candidate:
+
+| exporter → snapshotter | reaches? | verdict |
+|---|---|---|
+| `settings-types.ts` → `document-model.ts` (the known bug) | YES, via `workspace.ts` | at risk — the rule predicts the defect |
+| `types.ts` → `sanitize-entities.ts` (`ABSENCE_TYPE_SET`) | no | safe |
+
+★★ **The risk marker is NOT "snapshots an imported value"** — that is common and almost always fine.
+It is **a CONSTANTS or TYPES module that imports a VALUE.** `types.ts` and `scheme-apply.ts` are
+LEAVES (`types.ts` has exactly one import and it is `import type`; `scheme-apply.ts` has none), which
+is why every candidate in the sweep came back safe. `settings-types.ts` is the anomaly: it imports the
+VALUE `defaultStorageConfig` from `./workspace`, and that single edge creates the only real cycle
+here. So the live-candidate set is: anything snapshotting a value exported from `settings-types.ts`,
+or from any module `settings-types` transitively reaches.
+
+**The trap shape:** any `new Set(...)`, `new Map(...)`, `Object.freeze(...)`, `.map()`/`.filter()`
+result, or derived constant computed at MODULE SCOPE from an imported value. A lazily-memoized version
+has the same failure moved to first call. Read the imported value inside the function that needs it.
+
+★★★ **The `new Set(...)` form is the DANGEROUS one, and that inverts the obvious intuition.**
+`new Set(undefined)` is a silently EMPTY set — verified, size 0, and `new Set(null)` likewise — so the
+snapshot "succeeds" and every later membership test quietly answers false. Calling a method on the
+same uninitialized binding (`X.map(...)`) throws at import time instead (`TypeError`; an untransformed
+ESM read of a `const` still in TDZ throws `ReferenceError`). **The LOUD failure is the SAFE one.** A
+crash at startup is fixed in minutes; an empty Set ships. So "calling a function at module-eval is
+more fragile" is true and beside the point — it is more fragile and LESS dangerous.
+
+★ Counterfactual severity is easy to overstate, so state it precisely. Had `ABSENCE_TYPE_SET` been
+reachable, the consequence would NOT have been dropped absences: `sanitizeAbsenceType`
+(in `sanitize-entities.ts`) falls back to `"other"` and never returns null, so every
+vacation/sick/training row would have been silently REWRITTEN to "other". Type corruption, not data
+loss — both bad, but they need different detection and different recovery.
 
 **Fix options**, in ascending order of ambition: (a) leave it and rely on the call-time convention,
 (b) break the cycle by moving `defaultStorageConfig` out of `workspace.ts` into a leaf module so
@@ -4521,8 +4557,52 @@ read the imported value inside the function that needs it.
 module-scope derived constant in this graph. (b) is the only one that removes the trap rather than
 documenting it.
 
-★ A sweep for other live instances was in progress when this was written; its outcome is NOT recorded
-here. Check with whoever owns that sweep before re-running it.
+★★ **Taking option (b) silently RETIRES the behavioural guard, and that is an accepted DECISION, not
+an oversight.** `document-model.storage-cycle.test.ts` can only fail while this cycle exists — it
+works by importing `./storage` first so `document-model` evaluates while `settings-types` is
+mid-evaluation. Remove the cycle and that condition is gone: the test passes for a new reason, and
+nothing announces that it stopped protecting anything. Deliberately NOT guarded against, because the
+only way to guard it is to assert the cycle EXISTS — which pins the current architecture as a
+requirement, so whoever takes option (b), the one fix that removes the trap rather than documenting
+it, would be met with a failing test demanding they put the cycle back. A guard that quietly retires
+once its hazard is gone is the right shape.
+
+★ The SHAPE half survives (b). The source scan added in `4fd23a7b` reads document-model's SOURCE
+TEXT, so it is order- AND cycle-independent and keeps biting no matter what happens to the graph;
+it is also the only guard that can fire from inside `document-model.test.ts`, whose direct-import
+path can never reproduce the behaviour. The two are complements: the behavioural test pins the
+CONSEQUENCE, the scan pins the SHAPE — and the scan alone would NOT catch a different way of
+snapshotting early (a lazy memo, an eval-time `.map`, a derived frozen array), which is why both
+stay. Reproduce:
+
+```bash
+npx vitest run src/app/document-model.test.ts -t "never snapshots"   # 1 passed | 28 skipped
+```
+
+★ **Sweep result, 2026-08-06: CLEAN.** All five candidates were checked and none is reachable, so this
+entry has NO unfixed instances behind it — it is purely a trap for future work. Do not re-run the
+sweep expecting to find something; re-run the check only when a new VALUE import is added to a
+constants or types module, which is the event that can create a new cycle.
+
+★★ **If you write the graph check, handle `export … from`.** The sweep's first parser read `import`
+statements only and ignored re-exports. Those are real runtime edges, and a barrel is built entirely
+from them — `sanitize.ts` is nothing but `export * from …` lines, one of them `"./sanitize-entities"`
+— so the gap made it report that
+`sanitize.ts` does not reach `sanitize-entities.ts`, which is false. Any reachability answer produced
+without re-export edges is untrustworthy in both directions.
+
+★★ **Cite SYMBOLS here, not line numbers — this entry proved its own point.** Its first draft pinned
+the three cycle edges and `isSectionKey` to specific lines. Within the SAME session another agent
+edited `document-model.ts`, moving the import from :14 to :29 and `isSectionKey` from :66 to :81, so
+two of four citations were stale before the entry was ever committed. The greps above are written to
+PRINT the current line instead. A `file:line` in this register is wrong the moment anyone touches the
+file, and nothing gates it.
+
+★ **No durable script exists.** The walker behind the table above lives in a scratchpad outside the
+repo, so those two rows are reproducible today only by rewriting it. Whether a checked-in version
+belongs in `scripts/` is an OPEN DECISION nobody has taken: it would be gate-shaped, and a gate that
+scans the import graph needs its own justification, allowlist and failure policy. Until then, treat
+the rule as a manual check and the table as a worked example of applying it.
 
 ---
 
