@@ -5210,6 +5210,113 @@ above.
 
 ---
 
+## 103. Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet
+
+The full audit is [`docs/tooltip-inventory.md`](tooltip-inventory.md), taken 2026-08-07 on
+`2d31abe5`. This entry exists so the register points at it, and so the **unapplied** half does not
+have to be rediscovered.
+
+**Scale, so nobody re-derives it.** Element-level, over non-test `src/app/*.tsx` (the inventory
+carries the parser that produces these — an opening tag spans lines and a `className` can contain a
+`>`, so `grep` cannot do it): **573** button-family elements, **142** carrying a `title`; **87** are
+icon- or glyph-only, of which **49** already have a `title` and **38** do not. Of those 38, **13 are
+the word `<button` inside a comment** and 2 are a primitive's own element, leaving **23 real
+controls**: **19 Class A**, **3 Class B**, **1 blocked on i18n**.
+
+**What slice 2's Task 14 applies, and what it does not.** Task 14 takes the **Class A** rows only —
+add `title={<the expression already in the accessible name>}`, zero new strings, no approval needed.
+Everything below is what remains open after it:
+
+- ★★ **Class B — 14 rows / 16 sites, each needing new EN+DE copy and row-level approval.** These are
+  the ones where the mechanical fix is *worse than nothing*: copying a bare noun into a `title`
+  produces the appearance of coverage and nobody re-opens the row. The clearest are the insights
+  verbs "Acknowledge" / "Act", where the label actively misleads — `onActInsight`
+  (`task-manager.tsx:832`) applies `metricAtActionPatch` on first act, a one-shot side effect the
+  word "Act" gives no hint of.
+  ★★ **RESOLVED 2026-08-07 except one row.** The user approved **13 of the 14** at row level and
+  slice 2 implements them: B2–B14. **B1 (the settings cog, `settings-menu.tsx:59`) is HELD** and is
+  the only Class B row still open. It was held for a reason worth keeping: that cog renders in the
+  **classic** `AppHeader` only — `grep -rn "SettingsMenu" src/app --include=*.tsx` returns just
+  `app-header.tsx` and the file itself, and it mounts at `app-header.tsx:149`, OUTSIDE the
+  `ActionMenus` element that `buildShellChrome` feeds to the modern shell's `topBarMenus` slot. The
+  modern shell is the DEFAULT layout, so most users never see this control at all. Before wording
+  its tooltip, establish the modern shell's own route to Settings — the answer may be that the
+  tooltip is not the finding here. (An earlier revision of this bullet called it "the top-bar cog",
+  which is exactly the assumption the measurement disproved.)
+- ★ **Five of the Gantt View menu's eight `ToggleButton`s carry no hint** while three do
+  (`ganttCriticalPathHint` · `ganttBaselineHint` · `ganttMilestonesInlineHint`). The split is by
+  author, not by importance. Cheapest coherence win in the set.
+- ★★ **One name defect: `workspace-section-chrome.tsx:165`.** A collapse/expand chevron with
+  `title`, `aria-expanded`, `aria-controls` and an `aria-hidden` icon — and **no `aria-label`**. Its
+  accessible name therefore comes only from `title`, the accname algorithm's last resort. **axe
+  passes it** (a name exists), so no gate will ever report it. Fix is `aria-label`, not `title`;
+  `title` is hover-only — no keyboard focus, unreachable on touch — and is never the fix for a
+  missing name. It is the only such control in the app.
+- ★★ **Fifteen hardcoded-English accessible names across nine files**, found while quoting the
+  "existing name" column (two greps, both in the inventory; the `task-editor-raid-mini.tsx` pair is
+  only half-literal and is arguably fine — "RAID" is a proper noun in the DE UI too).
+  `npx tsc --noEmit` enforces EN/DE **key parity** and structurally cannot see a string that never
+  became a key. Worst two: `create-project-wizard.tsx:389`/`:397` and
+  `settings-sections/mode-section.tsx:80`/`:88` pair a *translated* visible label with an
+  *untranslated* `aria-label`, so a German user sees "Einfach" and hears "Apply Simple preset"; and
+  `budget-panel-totals.tsx:94`/`:111` use a machine-readable test hook
+  (``aria-label={`budget-${ariaPrefix}`}``) as what a screen reader announces for every budget cell.
+  ★ `stakeholder-recipient-input.tsx:160` is Class A in every respect **except** that its name is a
+  hardcoded ``` `Remove ${name}` ```; translate it first, then it is a plain Class A row.
+
+★★ **Two sites were reported into this audit as inventory misses. Both are already `title`-complete,
+and only one of the two reports was correct** — recorded because the *mechanism* of the real miss
+will recur. `modal-header.tsx` `:77`/`:88` are genuinely absent from §102's offender tally, and not
+because a grep missed them: the file is listed in `docs/handrolled-ui-inventory.md`'s "Distribution"
+block among the thirteen whose `<button` occurrences are **subtracted as primitive internals**. Two
+hand-rolled buttons hid inside a shared component. By contrast `knowledge-panel.tsx` `:451`/`:517`
+**is** already inventoried — `handrolled-ui-inventory.md:396` lists it in the Part 2 `replace` row —
+it is merely absent from Task 12's narrower thirteen-file list. Check the wider table before calling
+anything missing.
+
+★ Nothing here is gated either. axe has no rule for a missing `title`, and the one name defect above
+is a control axe passes. The counts are reproducible with the script embedded in the inventory; the
+A/B judgement is not automatable and the inventory records every borderline call it made.
+
+---
+
+## 104. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open
+
+Found 2026-08-07 while converting the close-button family in slice 2 (§102's programme). User
+decided it is its own slice rather than something to force inside a conversion task.
+
+`raci-chip-picker.tsx` holds the case. That ✕ is the **fifth of five sibling chips** — R / A / C / I
+plus clear — all sharing `CHIP_BASE` (`raci-chip-picker.tsx:32`, used at `:87` and `:112`), which is
+`flex h-5 w-5 … rounded-full border text-[11px]`: a 20px circle. `IconButton` hard-codes `rounded-md`
+in `BASE_CLASS` and `p-1`/`p-1.5` in `SIZE_CLASS`.
+
+★★★ **A caller `className` cannot reliably override either, and this is the part that makes it a
+primitive problem rather than a call-site one.** Tailwind resolves conflicting utilities by
+**stylesheet source order**, not by the order they appear in the class attribute — and `p-1` sorts
+AFTER `p-0`, so a caller passing `p-0` loses outright. Converting therefore yields a square,
+differently-padded chip beside four round ones.
+
+★★ **No unit test could catch that regression** — jsdom has no layout, so nothing in the suite can
+see shape or padding. It is eye-verify-only, which is precisely why the primitive should express it
+rather than each call site improvising.
+
+**Current state:** the glyph was swapped to `XMarkIcon` (that part is safe and shipped); the wrapper
+stays hand-rolled, with the reason recorded in code beside it. So this is a KNOWN, DELIBERATE
+hand-roll, not an oversight — do not "finish the conversion" without first giving the primitive a
+shape/size escape hatch.
+
+**Shape of the fix, not yet decided:** a `shape?: "square" | "circle"` and/or a `size` that can opt
+out of `SIZE_CLASS`, so `CHIP_BASE`-style controls become expressible. Whatever the API, it must keep
+`disabled` a real attribute (§the `aria-disabled` lookalike trap) and must not weaken the required
+`label`.
+
+★ A related but SEPARATE item: `knowledge-panel.tsx` `:451`/`:517` are already-`IconButton` controls
+still passing a bare `✕` child — glyph-only work in the family `roles-editor` got folded into slice
+2's Task 12. Already inventoried at `handrolled-ui-inventory.md:396`; merely outside that task's
+thirteen-file list.
+
+---
+
 ## Provenance — where these items came from, and what already closed
 
 Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
