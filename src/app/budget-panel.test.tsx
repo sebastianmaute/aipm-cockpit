@@ -808,3 +808,22 @@ describe("BudgetPanel — Total column + total row", () => {
     expect(cells[2].className).toContain("bg-surface");
   });
 });
+
+test("bucket actions render as bordered secondary buttons", () => {
+  render(<BudgetPanel {...props} />);
+  for (const key of ["budgetEditBucket", "budgetClose", "budgetRemoveBucket"] as const) {
+    const btn = screen.getByRole("button", { name: t("en-US", key) });
+    // ★★ WORD-BOUNDED, never `toContain`. Every variant in `button.tsx` — ghost
+    //    included — ends in `hover:bg-surface-muted`, which CONTAINS the
+    //    substring `bg-surface`, so `toContain("bg-surface")` passes against
+    //    the very markup this test exists to reject. Same shape for the border.
+    expect(btn.className).toMatch(/(^|\s)border-line(\s|$)/);
+    expect(btn.className).toMatch(/(^|\s)bg-surface(\s|$)/);
+    // ★ These two positives are what separate `secondary` from `ghost` (ghost
+    //   carries neither as a standalone class). The negative below separates it
+    //   from the pre-0.221.0 hand-rolled markup, which was
+    //   `border border-transparent` + a hover-only `hover:border-ui-dark-blue` —
+    //   so a revert to EITHER shape fails here.
+    expect(btn.className).not.toContain("border-transparent");
+  }
+});
