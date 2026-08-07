@@ -68,6 +68,19 @@ function isPositiveInt(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
+/** ★ `new Date(x).toISOString()` THROWS on an unparseable string rather than
+ *  returning something comparable, so the round trip is wrapped rather than
+ *  guarded by a second `Date.parse` call. See `sanitizeDocumentVersions` below
+ *  for why the round trip — and not parseability — is the property that
+ *  matters. */
+function isCanonicalIso(value: string): boolean {
+  try {
+    return new Date(value).toISOString() === value;
+  } catch {
+    return false;
+  }
+}
+
 /** Single entry point. Per-field validation; unknown shapes are DROPPED,
  *  never passed through. Block AND title validation are delegated to
  *  sanitizeProjectDocuments (it already trims/caps the title and drops
@@ -75,17 +88,28 @@ function isPositiveInt(value: unknown): value is number {
  *  illegal in a document — one implementation, not two that can drift.
  *
  *  ★★★ `savedAt` is validated HERE, not borrowed from that delegation.
- *  sanitizeProjectDocuments does run `r.savedAt` through its own
- *  `Date.parse`-based check (via `createdAt`/`updatedAt`), but this function
- *  discards `asDoc.createdAt`/`updatedAt` and keeps the caller's raw
- *  `r.savedAt` on the returned DocVersion — so that validation would have
- *  been thrown away. A garbage `savedAt` is not cosmetic: `byNewest` does a
- *  raw string compare, and `trimVersions` picks `sorted[0]` as the tombstone,
- *  so a corrupted timestamp can crown the WRONG version as the one that
- *  survives a delete. Mirrors document-model.ts's private `isoOr`
- *  (Date.parse + Number.isFinite) rather than importing it — that function
- *  isn't exported, and this is the repo's one convention for "is this string
- *  a real timestamp", not a second one invented here. */
+ *  sanitizeProjectDocuments does run `r.savedAt` through its own check (via
+ *  `createdAt`/`updatedAt`), but this function discards
+ *  `asDoc.createdAt`/`updatedAt` and keeps the caller's raw `r.savedAt` on the
+ *  returned DocVersion — so that validation would have been thrown away.
+ *
+ *  ★★★ AND IT CHECKS THE SHAPE, NOT MERELY THAT `Date.parse` ACCEPTS IT.
+ *  An earlier revision of this comment claimed a `Date.parse` +
+ *  `Number.isFinite` pair prevented a corrupted timestamp from crowning the
+ *  wrong survivor. It did not, and the gap was measured: `Date.parse` happily
+ *  accepts `"12/25/2026"`, this function then kept it VERBATIM, and every
+ *  consumer compares `savedAt` as a RAW STRING — so a December date sorted as
+ *  the OLDEST entry in the list. `deletedDocumentVersions` named the wrong
+ *  version as the tombstone and `trimVersions` DROPPED the genuinely newest
+ *  one, irreversibly. Parseability was never the property the consumers need;
+ *  "lexicographic order equals chronological order" is, and only the canonical
+ *  ISO form has it.
+ *
+ *  ★★ So the check is a ROUND TRIP, and mismatches are DROPPED rather than
+ *  normalised. Normalising would rewrite stored bytes and put this on the
+ *  byte-stability goldens' critical path for no gain; dropping touches nothing
+ *  that was already well-formed. Every in-app write is `new Date().toISOString()`,
+ *  so only hand-edited files, imports and third-party workspaces can fail it. */
 export function sanitizeDocumentVersions(raw: unknown): DocVersion[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<number>();
@@ -94,8 +118,7 @@ export function sanitizeDocumentVersions(raw: unknown): DocVersion[] {
     if (!item || typeof item !== "object") continue;
     const r = item as Record<string, unknown>;
     if (!isPositiveInt(r.id) || !isPositiveInt(r.documentId)) continue;
-    if (typeof r.savedAt !== "string" || !r.savedAt) continue;
-    if (!Number.isFinite(Date.parse(r.savedAt))) continue;
+    if (typeof r.savedAt !== "string" || !isCanonicalIso(r.savedAt)) continue;
     const [asDoc] = sanitizeProjectDocuments([
       { id: r.documentId, title: r.title, blocks: r.blocks, createdAt: r.savedAt, updatedAt: r.savedAt },
     ]);
@@ -141,8 +164,19 @@ function byNewest(a: DocVersion, b: DocVersion): number {
  * document has been recovered, the group is no longer a tombstone, and it
  * re-enters ordinary retention so it can age out. Without that, every
  * delete-restore cycle would leak one permanently unreclaimable row.
- * An id that is deleted and never restored does keep one row forever —
- * accepted trade-off, and the only remaining unbounded case.
+ *
+ * ★★ AN ID DELETED AND NEVER RESTORED KEEPS ITS TOMBSTONE FOREVER, and an
+ * earlier revision of this note called that "one row" — which understates it
+ * on both axes and is why it read as a smaller trade-off than it is. It is one
+ * row PER DELETED DOCUMENT WITH NO CEILING (tombstones never enter `keepable`,
+ * so `MAX_TOTAL_VERSIONS` does not bound them — they accumulate ON TOP of the
+ * 500), and each row carries the document's FULL BLOCKS. Measured: 400
+ * create-and-delete cycles left 400 tombstones serialising to 4.38 MB, and on
+ * the CSV and Markdown paths that whole array is a SINGLE cell
+ * (`csv-codecs-config.ts` parses `rows[0][1]`). Still the accepted trade-off —
+ * the alternative is discarding the only surviving copy of deleted content —
+ * but bounding it is a real data-retention decision, deliberately left to its
+ * own scope rather than smuggled in here.
  *
  * ★ The global cap has no per-document floor: a live document that is rarely
  * touched can, in principle, be starved to zero history if enough OTHER
@@ -191,16 +225,51 @@ export function trimVersions(
   return next.length === versions.length ? versions : next;
 }
 
-/** Versions whose document no longer exists — the "deleted documents" list.
- *  DERIVED, never a stored flag: a flag would have to be cleared on restore
- *  and can desync from the documents array.
+/** Documents that were DELETED — the "deleted documents" list. DERIVED, never
+ *  a stored flag: a flag would have to be cleared on restore and can desync
+ *  from the documents array.
  *
- *  ★★★ An id whose NEWEST version is `RESTORED_MARKER_OP` is excluded: that
- *  document was recovered under a new id, so listing it would show a phantom
- *  the user has already restored, and restoring it again would mint yet
- *  another copy each time. The check is on the newest entry ONLY, so an id
- *  that was restored and then deleted again correctly reappears — the marker
- *  records a moment, it does not permanently exempt an id. */
+ *  ★★★ "ABSENT FROM `documents`" IS NOT THE SAME QUESTION AS "WAS DELETED",
+ *  and this function used to ask the first one. Every version whose
+ *  `documentId` had no live document was reported, whatever it recorded — so
+ *  any asymmetry between how the two arrays load surfaced as a phantom
+ *  deletion. The reachable one is a cap asymmetry: `sanitizeProjectDocuments`
+ *  `break`s at `MAX_DOCUMENTS`, while `sanitizeDocumentVersions` has no count
+ *  cap and structurally cannot acquire one (it delegates ONE version at a time,
+ *  so the sanitizer's own `out.length >= MAX_DOCUMENTS` is never true there).
+ *  Measured on all six write paths: a 205-document file loads as 200 documents
+ *  and 205 versions, and five documents that still exist in the file were
+ *  listed as deleted — with a Restore button that would mint a duplicate of
+ *  each.
+ *
+ *  ★★★ So the derivation now requires `op === "delete"`, which is what it
+ *  always meant. That is sound BY CONSTRUCTION, not by luck: the delete case
+ *  writes `snapshot(target, "delete", ctx)` with `savedAt = ctx.now` and a
+ *  version id minted last, so it wins both the timestamp comparison and
+ *  `byNewest`'s descending-id tie-break; and `trimVersions` keeps exactly that
+ *  one entry for a deleted document. Verified against five real mutation
+ *  sequences including duplicate-then-delete-the-copy, where the copy's own
+ *  `"duplicate"` version sits in the same group and correctly loses to the
+ *  later delete. A truncation artifact's newest op is whatever the last real
+ *  edit was — `update`, `rename` or `duplicate` — so it drops out.
+ *
+ *  ★★ THIS SUBSUMES THE OLD `RESTORED_MARKER_OP` EXCLUSION, which is why that
+ *  filter is gone rather than merely reordered: a marker is not `"delete"`, so
+ *  a restored id fails the new check for the same reason it failed the old one.
+ *  The behaviour it protected is unchanged and still tested — an id restored
+ *  and then deleted AGAIN reappears, because the check reads only the newest
+ *  entry and that entry is once more a delete.
+ *
+ *  ★ ITS LIMIT: a hand-edited file could still carry `op:"delete"` on a
+ *  document the load truncated away, and that would still show as a phantom.
+ *  Far narrower than the cap asymmetry, which needed no editing at all.
+ *
+ *  ★ FIXED HERE rather than deeper on purpose. Not in the six load paths (six
+ *  places, and the tenant one is the file this slice's plan already missed
+ *  once). Not in `sanitizeDocumentVersions` — it never receives `documents`,
+ *  and teaching it to drop versions for truncated documents would destroy the
+ *  ONLY surviving copy of that content. The consuming end is one place, and it
+ *  makes the function say what it means. */
 export function deletedDocumentVersions(
   versions: readonly DocVersion[],
   documents: readonly ProjectDocument[],
@@ -212,7 +281,5 @@ export function deletedDocumentVersions(
     const current = newestByDoc.get(version.documentId);
     if (!current || byNewest(version, current) < 0) newestByDoc.set(version.documentId, version);
   }
-  return [...newestByDoc.values()]
-    .filter((version) => version.op !== RESTORED_MARKER_OP)
-    .sort(byNewest);
+  return [...newestByDoc.values()].filter((version) => version.op === "delete").sort(byNewest);
 }

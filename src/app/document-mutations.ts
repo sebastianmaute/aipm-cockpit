@@ -88,6 +88,49 @@ function capTitle(title: string): string {
   return title.slice(0, MAX_TITLE_CHARS).trim();
 }
 
+/** ★★★ TITLE UNIQUENESS IS A PROPERTY OF THE DOCUMENT SET, so it is enforced
+ *  where the set is — here — and not at each surface that writes one.
+ *  `documents-list.tsx` builds every per-row control's accessible name as
+ *  `<verb> – <title>` and the row-title button IS the bare title, so two equal
+ *  titles give FIVE pairs of identical control names: WCAG 2.4.6, and invisible
+ *  to the axe gate, which scans a statically seeded app and never clicks New,
+ *  Duplicate or Restore.
+ *
+ *  ★★ It used to live in `documents-panel.tsx` alone, which meant one of at
+ *  least four write surfaces enforced it. The other three did not, and it
+ *  showed: `restore` recreates a deleted document with the stored title
+ *  VERBATIM, so restoring four times produced four documents all called
+ *  "Charter" — and even a single restore collides whenever the user has since
+ *  created a replacement under the same name.
+ *
+ *  ★★★ IDEMPOTENT BY CONSTRUCTION, which is what makes it safe to compose with
+ *  the pane's own call (`documents-panel.tsx` computes a title against its
+ *  `freshRef` view and passes it in). An already-free title is returned
+ *  UNCHANGED, so the normal path cannot double-suffix. When the engine's set is
+ *  genuinely fresher and the passed title IS taken, it suffixes again — which
+ *  is the correct outcome, because that is a real collision the pane could not
+ *  see. Both cases are pinned in document-mutations.test.ts.
+ *
+ *  ★ RENAME AND THE `ops` TITLE ARE DELIBERATELY EXCLUDED. Those carry a title
+ *  the user or model typed for THIS document; silently returning something
+ *  other than what was asked for is a worse failure than the collision, and it
+ *  would make a rename non-idempotent against itself. That leaves a collision
+ *  path open by choice, not by oversight — flagged for the reviewer rather than
+ *  closed unilaterally.
+ *
+ *  Exact string equality, mirroring how the accessible names actually collide;
+ *  truncation bites the BASE so `sanitizeProjectDocuments` cannot cut a suffixed
+ *  title back to its source's bytes on the next load. */
+function uniqueTitle(documents: readonly ProjectDocument[], base: string): string {
+  const taken = new Set(documents.map((d) => d.title));
+  let candidate = base.slice(0, MAX_TITLE_CHARS);
+  for (let n = 2; taken.has(candidate); n++) {
+    const suffix = ` ${n}`;
+    candidate = base.slice(0, MAX_TITLE_CHARS - suffix.length) + suffix;
+  }
+  return candidate;
+}
+
 /** ★★★ THE ENGINE ENFORCES THE COUNT CAPS, because `sanitizeProjectDocuments`
  *  enforces them only on the way back IN. This module already refuses a title
  *  the sanitizer would reject (see `capTitle`) for exactly one reason: so
@@ -121,7 +164,15 @@ function snapshot(doc: ProjectDocument, op: DocVersionOp, ctx: DocContext): DocV
     id: ctx.mintVersionId(),
     documentId: doc.id,
     title: doc.title,
-    blocks: doc.blocks,
+    // ★★ A COPY, not the live array. The contract of this module is immutable
+    //    rearrangement, and that held only SHALLOWLY: measured, a duplicate left
+    //    copy.blocks === source.blocks === version.blocks, one array with three
+    //    owners. Nothing mutates blocks in place today (applyOps builds
+    //    `[...blocks]`), so this was a structural risk rather than a live bug —
+    //    but `toEqual` cannot see aliasing, so a single in-place push added
+    //    later would rewrite a document AND its own history together, with no
+    //    test able to notice.
+    blocks: [...doc.blocks],
     savedAt: ctx.now,
     source: ctx.source,
     op,
@@ -283,7 +334,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       if (blocks.length > MAX_BLOCKS_PER_DOC) return unchanged(state, [blockLimitReason(blocks.length)]);
       const doc: ProjectDocument = {
         id: ctx.mintDocId(),
-        title,
+        title: uniqueTitle(state.documents, title),
         blocks,
         createdAt: ctx.now,
         updatedAt: ctx.now,
@@ -312,7 +363,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         // Restore IN PLACE, snapshotting what it replaced — the restore is
         // itself revertible.
         const before = snapshot(liveDoc, "update", ctx);
-        const restoredDoc: ProjectDocument = { ...liveDoc, title: version.title, blocks: version.blocks, updatedAt: ctx.now };
+        const restoredDoc: ProjectDocument = { ...liveDoc, title: version.title, blocks: [...version.blocks], updatedAt: ctx.now };
         const nextDocuments = state.documents.map((d) => (d.id === liveDoc.id ? restoredDoc : d));
         return {
           documents: nextDocuments,
@@ -354,8 +405,8 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       // — and the version row that was restored is deliberately NOT consumed.
       const recreated: ProjectDocument = {
         id: ctx.mintDocId(),
-        title: version.title,
-        blocks: version.blocks,
+        title: uniqueTitle(state.documents, version.title),
+        blocks: [...version.blocks],
         createdAt: ctx.now,
         updatedAt: ctx.now,
       };
@@ -373,7 +424,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         id: ctx.mintVersionId(),
         documentId: version.documentId,
         title: version.title,
-        blocks: version.blocks,
+        blocks: [...version.blocks],
         savedAt: ctx.now,
         source: ctx.source,
         op: RESTORED_MARKER_OP,
@@ -412,7 +463,15 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       const title = capTitle(m.title);
       if (!title) return unchanged(state, ["title must not be empty"]);
       if (state.documents.length >= MAX_DOCUMENTS) return unchanged(state, [documentLimitReason()]);
-      const copy: ProjectDocument = { id: ctx.mintDocId(), title, blocks: target.blocks, createdAt: ctx.now, updatedAt: ctx.now };
+      const copy: ProjectDocument = {
+        id: ctx.mintDocId(),
+        title: uniqueTitle(state.documents, title),
+        // ★ Its OWN array. See snapshot()'s note — the copy, its source and the
+        //   version below otherwise shared one array between three owners.
+        blocks: [...target.blocks],
+        createdAt: ctx.now,
+        updatedAt: ctx.now,
+      };
       // The version is written AGAINST THE COPY (documentId = the copy's new
       // id), holding the SOURCE's title/blocks. So a revert right after
       // duplicating undoes just the copy's divergence from its source (the
@@ -423,7 +482,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         id: ctx.mintVersionId(),
         documentId: copy.id,
         title: target.title,
-        blocks: target.blocks,
+        blocks: [...target.blocks],
         savedAt: ctx.now,
         source: ctx.source,
         op: "duplicate",

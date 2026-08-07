@@ -179,8 +179,12 @@ describe("deletedDocumentVersions", () => {
   });
 
   it("returns one tombstone per deleted document, newest first", () => {
-    const a = v({ id: 1, documentId: 10, savedAt: "2026-03-01T00:00:00.000Z" });
-    const b = v({ id: 2, documentId: 20, savedAt: "2026-01-01T00:00:00.000Z" });
+    // ★★ `op: "delete"` is LOAD-BEARING in this fixture, not decoration: the
+    // derivation now reports only genuine tombstones, so the default
+    // `op: "update"` would make this return [] and the test would be asserting
+    // against the wrong thing.
+    const a = v({ id: 1, documentId: 10, savedAt: "2026-03-01T00:00:00.000Z", op: "delete" });
+    const b = v({ id: 2, documentId: 20, savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
     const out = deletedDocumentVersions([a, b], []);
     expect(out.map((d) => d.id)).toEqual([1, 2]);
   });
@@ -190,8 +194,8 @@ describe("deletedDocumentVersions", () => {
   });
 
   it("does not let an older version displace an already-found newer one", () => {
-    const newer = v({ id: 2, documentId: 99, savedAt: "2026-02-01T00:00:00.000Z" });
-    const older = v({ id: 1, documentId: 99, savedAt: "2026-01-01T00:00:00.000Z" });
+    const newer = v({ id: 2, documentId: 99, savedAt: "2026-02-01T00:00:00.000Z", op: "delete" });
+    const older = v({ id: 1, documentId: 99, savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
     // Deliberately processed newer-first so the update branch is exercised
     // with an already-set `current` that must NOT be replaced.
     const out = deletedDocumentVersions([newer, older], []);
@@ -247,5 +251,96 @@ describe("restored marker", () => {
 
   it("sanitizes restored through as a real op rather than falling back to update", () => {
     expect(sanitizeDocumentVersions([v({ op: "restored" })])[0].op).toBe("restored");
+  });
+});
+
+describe("savedAt must be CANONICAL ISO, not merely parseable", () => {
+  // ★★★ THE GAP A `Date.parse` CHECK LEFT OPEN, and the comment that claimed
+  // otherwise was the dangerous half. Every consumer compares `savedAt` as a
+  // RAW STRING, so the property they need is "lexicographic order equals
+  // chronological order" — which only the canonical form has. Measured against
+  // the old check: `"12/25/2026"` passed, was stored verbatim, and sorted as
+  // the OLDEST entry, so `deletedDocumentVersions` named the wrong version as
+  // the tombstone and `trimVersions` DROPPED the genuinely newest one.
+  it("drops a US-format date that Date.parse happily accepts", () => {
+    expect(Number.isFinite(Date.parse("12/25/2026"))).toBe(true); // the old check passed it
+    expect(sanitizeDocumentVersions([v({ savedAt: "12/25/2026" })])).toEqual([]);
+  });
+
+  it.each([
+    "2026-08-01T09:00:00Z", // no milliseconds
+    "2026-08-01T09:00:00.000+02:00", // offset rather than Z
+    "2026-08-01", // date only
+    "2026-08-01 09:00:00", // space instead of T
+  ])("drops the non-canonical form %s", (savedAt) => {
+    expect(sanitizeDocumentVersions([v({ savedAt })])).toEqual([]);
+  });
+
+  it("keeps the canonical form every in-app write produces", () => {
+    // ★★ THE CONTROL, and it is the one that matters most here: this check is
+    // strict enough to be dangerous, so a regression that dropped EVERYTHING
+    // would satisfy every case above while silently destroying all history.
+    // `new Date().toISOString()` is what applyDocMutation writes.
+    const savedAt = new Date().toISOString();
+    const [out] = sanitizeDocumentVersions([v({ savedAt })]);
+    expect(out?.savedAt).toBe(savedAt);
+  });
+
+  it("still keeps the fixture's own canonical timestamp", () => {
+    expect(sanitizeDocumentVersions([v()])).toEqual([v()]);
+  });
+
+  // ★ The ordering this protects, asserted end to end rather than by proxy.
+  it("leaves the surviving tombstone as the genuinely newest version", () => {
+    const older = v({ id: 1, documentId: 7, title: "Older", savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
+    const newest = v({ id: 2, documentId: 7, title: "Newest", savedAt: "2026-12-25T00:00:00.000Z", op: "delete" });
+    const loaded = sanitizeDocumentVersions([older, newest]);
+    expect(trimVersions(loaded, []).map((k) => k.title)).toEqual(["Newest"]);
+  });
+});
+
+describe("deletedDocumentVersions reports DELETIONS, not merely absences", () => {
+  // ★★★ THE CAP ASYMMETRY THIS CLOSES. `sanitizeProjectDocuments` breaks at
+  // MAX_DOCUMENTS; `sanitizeDocumentVersions` has no count cap and structurally
+  // cannot acquire one, because it delegates ONE version at a time. So a
+  // 205-document file loads as 200 documents and 205 versions on every write
+  // path, and the five orphans used to be reported as DELETED — each with a
+  // Restore button that would mint a duplicate of a document still in the file.
+  it("ignores an orphan whose newest version is an ordinary edit", () => {
+    const orphan = v({ id: 1, documentId: 900, title: "Truncated away", op: "update" });
+    expect(deletedDocumentVersions([orphan], [])).toEqual([]);
+  });
+
+  it.each(["update", "rename", "duplicate"] as const)(
+    "ignores an orphan whose newest op is %s",
+    (op) => {
+      expect(deletedDocumentVersions([v({ id: 1, documentId: 900, op })], [])).toEqual([]);
+    },
+  );
+
+  it("still reports a genuine tombstone alongside the orphans", () => {
+    // ★★ THE CONTROL, and the fixture is doing the work: mixing a real delete
+    // with three artifacts is what separates "requires op delete" from "returns
+    // nothing at all", which would satisfy every exclusion case above while
+    // removing the feature.
+    const real = v({ id: 1, documentId: 900, title: "Really deleted", savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
+    const artifacts = [
+      v({ id: 2, documentId: 901, title: "Artifact A", savedAt: "2026-01-02T00:00:00.000Z", op: "update" }),
+      v({ id: 3, documentId: 902, title: "Artifact B", savedAt: "2026-01-03T00:00:00.000Z", op: "rename" }),
+      v({ id: 4, documentId: 903, title: "Artifact C", savedAt: "2026-01-04T00:00:00.000Z", op: "duplicate" }),
+    ];
+    const out = deletedDocumentVersions([real, ...artifacts], []);
+    expect(out.map((k) => k.title)).toEqual(["Really deleted"]);
+  });
+
+  it("reads only the NEWEST entry, so an older delete under a later edit is not a tombstone", () => {
+    // ★ A document deleted, restored under a new id, and then edited through
+    // that new id leaves an old delete buried under newer entries. Reading the
+    // whole group instead of its newest entry would resurrect it.
+    const deleted = v({ id: 1, documentId: 99, savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
+    const later = v({ id: 2, documentId: 99, savedAt: "2026-02-01T00:00:00.000Z", op: "update" });
+    expect(deletedDocumentVersions([deleted, later], [])).toEqual([]);
+    // ...and the same group with nothing newer IS a tombstone.
+    expect(deletedDocumentVersions([deleted], []).map((k) => k.id)).toEqual([1]);
   });
 });

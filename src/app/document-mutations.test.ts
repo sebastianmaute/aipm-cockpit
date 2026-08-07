@@ -255,10 +255,19 @@ describe("restoring a deleted document closes its tombstone", () => {
     expect(restored.documents[0].id).not.toBe(1);
   });
 
-  // ★★★ THE POINT OF THE MARKER. Without it the old id is absent from
-  // `documents` forever, so the deleted-documents list shows a phantom entry
-  // for a document the user has already restored — and each further Restore
-  // mints another copy.
+  // ★★★ THE POINT OF THE MARKER — AND ONLY THIS POINT. Without it the old id
+  // is absent from `documents` forever, so the deleted-documents list shows a
+  // phantom entry for a document the user has already restored.
+  //
+  // ★★★ AN EARLIER VERSION OF THIS COMMENT ALSO CLAIMED THE MARKER STOPPED
+  // "each further Restore minting another copy". IT DOES NOT, AND THAT
+  // SENTENCE WAS THE DANGEROUS HALF: the marker hides the ROW, it does nothing
+  // to the OPERATION. Measured against the code as it stood: restoring the same
+  // tombstone versionId four times produced four identical documents,
+  // `changed:true` and `rejected:[]` every time. What actually makes restore
+  // idempotent is the pair of engine guards pinned in "restore is idempotent"
+  // below, added later. Anyone building a surface on top of these version rows
+  // would reasonably have trusted the old wording and shipped the duplicate.
   it("no longer reports the document as deleted", () => {
     const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
     expect(deletedDocumentVersions(deleted.versions, deleted.documents)).toHaveLength(1);
@@ -538,5 +547,117 @@ describe("restore is idempotent", () => {
     const out = applyDocMutation(renamed, { kind: "restore", versionId: renamed.versions[0].id }, ctx());
     expect(out.changed).toBe(true);
     expect(out.documents[0].title).toBe("Status report");
+  });
+});
+
+describe("title uniqueness is enforced by the ENGINE, not by one surface", () => {
+  // ★★★ WCAG 2.4.6. `documents-list.tsx` names every per-row control
+  // `<verb> – <title>` and the row-title button IS the title, so two equal
+  // titles are five pairs of identical accessible names. The axe gate cannot
+  // see it — it scans a statically seeded app and never clicks anything.
+  it("suffixes a create that would collide with an existing title", () => {
+    const out = applyDocMutation(state(), { kind: "create", title: "Status report" }, ctx());
+    expect(out.documents.map((d) => d.title)).toEqual(["Status report", "Status report 2"]);
+  });
+
+  it("suffixes a duplicate rather than letting the copy inherit the exact title", () => {
+    const out = applyDocMutation(state(), { kind: "duplicate", id: 1, title: "Status report" }, ctx());
+    expect(out.documents[1].title).toBe("Status report 2");
+    expect(out.documents[1].blocks).toEqual(DOC.blocks); // still a real copy
+  });
+
+  // ★★★ THE RESTORE CASE, which no surface guarded. It recreates a deleted
+  // document with the STORED title verbatim, so restoring collides whenever the
+  // user has since created a replacement under the same name — and repeated
+  // restores used to produce N documents all sharing one title.
+  it("suffixes a restore whose stored title is live again", () => {
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
+    const replaced = applyDocMutation(deleted, { kind: "create", title: "Status report" }, ctx());
+    const out = applyDocMutation(replaced, { kind: "restore", versionId: deleted.versions[0].id }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents.map((d) => d.title)).toEqual(["Status report", "Status report 2"]);
+  });
+
+  it("leaves a title that does not collide completely alone", () => {
+    // ★ The control. A minter that always appended " 2" would satisfy every
+    // case above while renaming innocent titles on every write.
+    const out = applyDocMutation(state(), { kind: "create", title: "Something else" }, ctx());
+    expect(out.documents[1].title).toBe("Something else");
+  });
+
+  // ★★★ THE SEAM WITH THE PANE. documents-panel.tsx already uniquifies against
+  // its own `freshRef` view and passes the RESULT in, so the engine sees an
+  // already-suffixed title and must not suffix it again. Idempotence is what
+  // makes the two safe to compose — without it the pane's "Status report 2"
+  // would come back as "Status report 2 2" on every create into a populated
+  // pane, which is the normal path, not an edge case.
+  it("is IDEMPOTENT — an already-unique title passes through unchanged", () => {
+    const first = applyDocMutation(state(), { kind: "create", title: "Status report" }, ctx());
+    expect(first.documents[1].title).toBe("Status report 2");
+    // Exactly what the pane would compute and hand over next.
+    const second = applyDocMutation(first, { kind: "create", title: "Status report 3" }, ctx());
+    expect(second.documents[2].title).toBe("Status report 3");
+  });
+
+  it("suffixes again ONLY when the passed title is genuinely taken", () => {
+    // ★ The other half of the seam: when the engine's set is fresher than the
+    // pane's, the pane's answer really is stale and a second suffix is correct.
+    // Ugly ("… 2 2") and deliberately so — it is a real collision, not a
+    // double-application.
+    const first = applyDocMutation(state(), { kind: "create", title: "Status report" }, ctx());
+    const out = applyDocMutation(first, { kind: "create", title: "Status report 2" }, ctx());
+    expect(out.documents[2].title).toBe("Status report 2 2");
+  });
+
+  it("walks past every taken suffix, not just the first", () => {
+    const seeded: DocState = {
+      documents: [DOC, { ...DOC, id: 2, title: "Status report 2" }, { ...DOC, id: 3, title: "Status report 3" }],
+      versions: [],
+    };
+    const out = applyDocMutation(seeded, { kind: "create", title: "Status report" }, ctx());
+    expect(out.documents[3].title).toBe("Status report 4");
+  });
+
+  it("does NOT touch a rename or an ops title", () => {
+    // ★★ DELIBERATE EXCLUSION, pinned so it cannot be "fixed" by accident.
+    // Those titles are what a user or model typed FOR THIS DOCUMENT; silently
+    // returning something else is worse than the collision, and it would make a
+    // rename non-idempotent against itself.
+    const seeded: DocState = { documents: [DOC, { ...DOC, id: 2, title: "Other" }], versions: [] };
+    const renamed = applyDocMutation(seeded, { kind: "rename", id: 2, title: "Status report" }, ctx());
+    expect(renamed.documents[1].title).toBe("Status report");
+    const viaOps = applyDocMutation(seeded, { kind: "ops", id: 2, ops: [], title: "Status report" }, ctx());
+    expect(viaOps.documents[1].title).toBe("Status report");
+  });
+});
+
+describe("blocks arrays are not shared between owners", () => {
+  // ★★ The module's contract is immutable rearrangement, and it held only
+  // SHALLOWLY: measured, a duplicate left `copy.blocks === source.blocks ===
+  // version.blocks` — one array with three owners. Nothing mutates blocks in
+  // place today, so this was structural risk rather than a live bug, but
+  // `toEqual` cannot see aliasing, so a single in-place push added later would
+  // rewrite a document AND its own history with no test able to notice.
+  it("gives a duplicate its own array, distinct from the source and the version", () => {
+    const out = applyDocMutation(state(), { kind: "duplicate", id: 1, title: "Copy" }, ctx());
+    const source = out.documents[0];
+    const copy = out.documents[1];
+    expect(copy.blocks).not.toBe(source.blocks);
+    expect(out.versions[0].blocks).not.toBe(source.blocks);
+    expect(out.versions[0].blocks).not.toBe(copy.blocks);
+    expect(copy.blocks).toEqual(source.blocks); // still equal, just not the same object
+  });
+
+  it("gives every before-image snapshot its own array", () => {
+    const out = applyDocMutation(state(), { kind: "rename", id: 1, title: "Renamed" }, ctx());
+    expect(out.versions[0].blocks).not.toBe(DOC.blocks);
+    expect(out.versions[0].blocks).toEqual(DOC.blocks);
+  });
+
+  it("gives a restored document its own array", () => {
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
+    const out = applyDocMutation(deleted, { kind: "restore", versionId: deleted.versions[0].id }, ctx());
+    expect(out.documents[0].blocks).not.toBe(deleted.versions[0].blocks);
+    expect(out.documents[0].blocks).toEqual(DOC.blocks);
   });
 });
