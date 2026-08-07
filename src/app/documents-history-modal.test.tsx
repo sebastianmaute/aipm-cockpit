@@ -2,8 +2,11 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DocumentsHistoryModal } from "./documents-history-modal";
-import type { DocVersion } from "./document-versions";
-import type { ProjectDocument } from "./document-model";
+import type { DocVersion, DocVersionOp } from "./document-versions";
+import type { DocBlock, ProjectDocument } from "./document-model";
+
+const PARAGRAPH: DocBlock = { type: "paragraph", html: "<p>Hello preview</p>" };
+const HEADING: DocBlock = { type: "heading", level: 2, text: "Section A" };
 
 const VERSIONS: readonly DocVersion[] = [
   {
@@ -211,6 +214,140 @@ describe("DocumentsHistoryModal", () => {
     // primitive's, not hand-rolled here.
     await user.click(screen.getByRole("button", { name: /close/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // ★ Every op EXCEPT "restored", which `restorable` filters out before a row
+  // is ever built — asserting it renders would pin a path this component cannot
+  // reach. Its entry in the label map is there for exhaustiveness (a sixth op
+  // must be a compile error), which the type system checks, not a test.
+  // ★★ Each row also gets a NEGATIVE assertion against a different op's label:
+  // without one, an implementation that rendered the SAME label on every row
+  // would still satisfy four independent `toHaveTextContent` checks as long as
+  // that label happened to be the one the row expected — and with four rows,
+  // "always Edited" passes the first assertion outright.
+  it("renders the op label for each op that can reach a row", () => {
+    const ops: readonly DocVersionOp[] = ["update", "rename", "delete", "duplicate"];
+    renderModal({
+      versions: ops.map((op, i) => ({ ...VERSIONS[0], id: 20 + i, op })),
+    });
+    const rows = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(rows).toHaveLength(ops.length);
+    expect(rows[0]).toHaveTextContent("Edited");
+    expect(rows[0]).not.toHaveTextContent("Renamed");
+    expect(rows[1]).toHaveTextContent("Renamed");
+    expect(rows[1]).not.toHaveTextContent("Edited");
+    expect(rows[2]).toHaveTextContent("Deleted");
+    expect(rows[2]).not.toHaveTextContent("Duplicated");
+    expect(rows[3]).toHaveTextContent("Duplicated");
+    expect(rows[3]).not.toHaveTextContent("Deleted");
+  });
+
+  // ★★★ MUTATION-PROVED — see the report. The `not.toHaveTextContent("1 blocks")`
+  // line is the whole test: "1 blocks" CONTAINS "1 block", so an implementation
+  // that always picked the plural key would satisfy the positive assertion and
+  // ship the exact broken string ("1 blocks") the two-key split exists to
+  // prevent. The positive line alone is vacuous here.
+  it("uses the singular block-count label for one block and the plural otherwise", () => {
+    renderModal({
+      versions: [
+        { ...VERSIONS[0], id: 11, blocks: [PARAGRAPH] },
+        { ...VERSIONS[1], id: 12, blocks: [PARAGRAPH, HEADING] },
+      ],
+    });
+    const rows = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("1 block");
+    expect(rows[0]).not.toHaveTextContent("1 blocks");
+    expect(rows[1]).toHaveTextContent("2 blocks");
+  });
+
+  it("counts zero blocks with the plural label", () => {
+    renderModal({ versions: [{ ...VERSIONS[0], id: 13, blocks: [] }] });
+    expect(within(screen.getByRole("list")).getByRole("listitem")).toHaveTextContent("0 blocks");
+  });
+
+  // ★★★ MUTATION-PROVED — see the report. The count assertion comes FIRST and
+  // deliberately: `new Set(names).size === names.length` is `0 === 0` when
+  // getAllByRole found nothing, so a Set check on its own passes hardest
+  // against a component that rendered no Preview buttons at all.
+  // ★★ The fixture is the REAL collision, not two arbitrary rows: same title,
+  // same timestamp to the minute. Anything built from those two fields alone
+  // collides here, which is what a same-tick pair of mutations produces.
+  it("gives each Preview button a version-unique accessible name when title and timestamp collide", () => {
+    const collide: readonly DocVersion[] = [
+      { ...VERSIONS[0], id: 8, title: "Same", savedAt: "2026-08-05T10:00:00.000Z" },
+      { ...VERSIONS[1], id: 9, title: "Same", savedAt: "2026-08-05T10:00:00.000Z" },
+    ];
+    renderModal({ versions: collide });
+
+    const buttons = screen.getAllByRole("button", { name: /Preview/ });
+    expect(buttons).toHaveLength(2);
+    const names = buttons.map((b) => b.getAttribute("aria-label"));
+    expect(names.every((n) => typeof n === "string" && n.trim().length > 0)).toBe(true);
+    expect(new Set(names).size).toBe(2);
+    // The distinguishing part, not merely "different somehow": the version id.
+    expect(names[0]).toContain("#8");
+    expect(names[1]).toContain("#9");
+  });
+
+  // ★★ The aria-controls TARGET must exist while collapsed — that is the state
+  // a screen reader meets first, and it is why the panel is `hidden`-toggled
+  // rather than conditionally rendered. Asserted BEFORE the click.
+  it("keeps the Preview panel mounted while collapsed and reveals content on toggle", async () => {
+    const user = userEvent.setup();
+    renderModal({
+      versions: [{ ...VERSIONS[0], id: 30, blocks: [HEADING, PARAGRAPH] }],
+    });
+
+    const trigger = screen.getByRole("button", { name: /Preview/ });
+    const panelId = trigger.getAttribute("aria-controls");
+    expect(panelId).toBe("documents-history-preview-30");
+    const panel = document.getElementById(panelId as string);
+    expect(panel).not.toBeNull();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(panel).not.toBeVisible();
+    // Content is computed only while open, so the collapsed panel is genuinely
+    // empty — a stronger observable than `hidden` alone, which a CSS-only
+    // implementation could fake.
+    expect(panel?.textContent).toBe("");
+
+    await user.click(trigger);
+
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(panel).toBeVisible();
+    expect(panel?.textContent).toContain("Hello preview");
+    // Rendered as real structure by the shared renderer, not as escaped text.
+    expect(panel?.querySelector("h2")?.textContent).toBe("Section A");
+
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(panel).not.toBeVisible();
+  });
+
+  // ★★★ The Preview is the one place in this component where a stored value
+  // reaches `dangerouslySetInnerHTML`. It renders through `doc-render-html`'s
+  // preview mode precisely because that module's `paragraph` case is the sink
+  // that re-sanitizes; this pins that the reuse is real rather than a comment.
+  it("strips script markup from a version's paragraph block", async () => {
+    const user = userEvent.setup();
+    renderModal({
+      versions: [
+        {
+          ...VERSIONS[0],
+          id: 31,
+          blocks: [{ type: "paragraph", html: "<p>safe text</p><script>alert(1)</script>" }],
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+
+    const panel = document.getElementById("documents-history-preview-31");
+    // Positive control: the benign part DID render, so the absence below is not
+    // "nothing rendered at all".
+    expect(panel?.textContent).toContain("safe text");
+    expect(panel?.querySelector("script")).toBeNull();
+    expect(panel?.innerHTML ?? "").not.toContain("alert(1)");
   });
 
   it("labels an assistant-written version differently from a user-written one", () => {
