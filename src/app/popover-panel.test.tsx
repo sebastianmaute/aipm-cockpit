@@ -52,7 +52,8 @@ describe("PopoverPanel", () => {
   });
 
   // ★★ Popovers render INSIDE edit modals — ModalFieldControls puts one behind
-  // the ⚙ button of every one — and the shared Modal closes on a document-level
+  // the tier-labelled trigger (a cog icon beside the active tier) in every edit
+  // modal's header — and the shared Modal closes on a document-level
   // Escape unless a descendant marked the event handled. Both halves of that
   // protocol are pinned here: without the preventDefault, Escape closed the
   // popover AND the modal and the user's draft went with it.
@@ -108,6 +109,84 @@ describe("PopoverPanel", () => {
     document.dispatchEvent(consumed);
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  // ★★★ Autofocus must SKIP a non-tab-stop. The selector used to be
+  // `input,button,[tabindex]`, which matches a `tabindex="-1"` element — and a
+  // roving-tabindex radiogroup (`SegmentedControl`) renders every unchecked
+  // radio at -1. So opening the field-visibility popover at the default
+  // Advanced tier landed focus on the FIRST radio, "Simple", while "Advanced"
+  // was checked. The radios are real `<button>`s with their own `onClick`, so
+  // Enter or Space there SELECTED Simple — silently changing the tier, and in
+  // custom mode discarding a hand-picked field set. A screen reader also
+  // announced "Simple, radio, not checked" for an Advanced modal.
+  // ★ `querySelector` with a comma list returns the first match in DOCUMENT
+  // order, not selector order, so this lands on the checked radio wherever it
+  // sits. When NOTHING is checked the first radio IS the tab-stop
+  // (`hasSelection` fallback), so focus correctly stays there.
+  it("focuses the first TAB-STOP, skipping a roving tabindex=-1 control", () => {
+    function RovingHarness() {
+      const [open, setOpen] = useState(false);
+      const btnRef = useRef<HTMLButtonElement>(null);
+      const close = useCallback(() => setOpen(false), []);
+      return (
+        <div>
+          <button ref={btnRef} type="button" onClick={() => setOpen(true)}>trigger</button>
+          <PopoverPanel open={open} anchorRef={btnRef} onClose={close} role="dialog" ariaLabel="Panel">
+            {/* Mirrors SegmentedControl's roving tabindex: only the checked
+                radio is a tab-stop, and it is NOT first in document order. */}
+            <div role="radiogroup" aria-label="Tier">
+              <button type="button" role="radio" aria-checked={false} tabIndex={-1}>Simple</button>
+              <button type="button" role="radio" aria-checked tabIndex={0}>Advanced</button>
+              <button type="button" role="radio" aria-checked={false} tabIndex={-1}>Full</button>
+            </div>
+          </PopoverPanel>
+        </div>
+      );
+    }
+    render(<RovingHarness />);
+    fireEvent.click(screen.getByText("trigger"));
+    expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Advanced" }));
+  });
+
+  it("still focuses the first control when it IS a tab-stop", () => {
+    // The no-op half: every ordinary panel is unaffected.
+    render(<Harness />);
+    fireEvent.click(screen.getByText("trigger"));
+    expect(document.activeElement).toBe(screen.getByLabelText("field"));
+  });
+
+  // ★★ The fallback branch. A panel whose EVERY candidate is a roving -1 matches
+  // the narrow selector nowhere; without the `??` the focus call silently
+  // no-ops, and because the panel is PORTALED the next Tab leaves it entirely —
+  // the exact failure autoFocus exists to prevent. No shipped consumer has this
+  // shape yet (`project-switcher.tsx` renders it but does not use PopoverPanel),
+  // so this test is the only thing standing between a future all-menuitem panel
+  // and a silent regression.
+  it("falls back to a tabindex=-1 control when the panel has NO tab-stop", () => {
+    function AllRovingHarness() {
+      const [open, setOpen] = useState(false);
+      const btnRef = useRef<HTMLButtonElement>(null);
+      const close = useCallback(() => setOpen(false), []);
+      return (
+        <div>
+          <button ref={btnRef} type="button" onClick={() => setOpen(true)}>trigger</button>
+          <PopoverPanel open={open} anchorRef={btnRef} onClose={close} role="dialog" ariaLabel="Panel">
+            {/* An all-`tabIndex={-1}` menu, the shape project-switcher renders. */}
+            <div role="menu">
+              <button type="button" role="menuitem" tabIndex={-1}>First</button>
+              <button type="button" role="menuitem" tabIndex={-1}>Second</button>
+            </div>
+          </PopoverPanel>
+        </div>
+      );
+    }
+    render(<AllRovingHarness />);
+    fireEvent.click(screen.getByText("trigger"));
+    // Focus must land INSIDE the panel — programmatic .focus() works on a -1
+    // element. Asserting "not the trigger" alone would pass if focus went to
+    // document.body, which is the very bug.
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "First" }));
   });
 
   it("renders nothing while closed", () => {

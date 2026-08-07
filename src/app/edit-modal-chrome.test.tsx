@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 import type { ReactNode } from "react";
 import { EditModalShell } from "./edit-modal-chrome";
+import { fieldTierTrigger } from "../test/field-tier";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 
@@ -117,5 +118,16 @@ describe("narrow EditModalShell consumers pin their own height", () => {
     if (px !== undefined) expect(Number(px)).toBeLessThan(720);
     expect(declared).toContain("max-h-[95vh]");
     expect(declared, `${name} height override has no min-h- floor`).toMatch(/min-h-\[\d+px\]/);
+  });
+});
+
+describe("EditModalShell field-visibility control", () => {
+  test("mounts the field-visibility trigger inside the modal header", () => {
+    renderShell();
+    const trigger = fieldTierTrigger("en-US");
+    // PLACEMENT, not presence: the control used to sit in its own bordered
+    // strip BELOW the header, and a presence-only assertion passes against
+    // that layout too.
+    expect(trigger.closest("header")).not.toBeNull();
   });
 });

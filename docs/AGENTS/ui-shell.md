@@ -254,7 +254,9 @@
   field highlights Bold"), and clicking anywhere non-interactive in the label forwards a synthetic click
   to it. Whether the click DOES anything depends on that button's own handlers, so the two halves diverge
   — the dictation mic binds pointerdown/keydown with no `onClick` (hover bleed only), while
-  `SegmentedControl`'s radios carry a real DOM `onClick` (`segmented-control.tsx:99`; its `onChange` is
+  `SegmentedControl`'s radios carry a real DOM `onClick` (the `onClick` on the `role="radio"` button in
+`segmented-control.tsx` — cited by SYMBOL, not line: this read `:99` and was falsified twice by
+commits that merely added comments above it; its `onChange` is
   the COMPONENT's prop, not the DOM handler — naming `onChange` here reverses the point), so clicking the
   caption WROTE data. Shipped instances: clicking "Priority" set Low, "Labels" DELETED the first chip,
   "Documents" removed a link, RAID "Status"/"Severity" changed the record, and the Knowledge linked-tasks

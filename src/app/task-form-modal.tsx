@@ -126,12 +126,12 @@ export function TaskFormModal({
           title={isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
           onClose={onCancel}
           dragHandleProps={handleProps}
+          headerExtra={<ModalFieldControls modalId="task" lang={lang} />}
           onResetLayout={() => {
             dragReset();
             sizeReset();
           }}
         />
-        <ModalFieldControls modalId="task" lang={lang} />
         <form
           onSubmit={onSubmit}
           className="min-h-0 flex-1 overflow-y-auto space-y-6 p-6"

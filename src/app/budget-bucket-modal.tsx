@@ -254,13 +254,12 @@ export function BudgetBucketModal({
           title={t(lang, "budgetEditBucket")}
           onClose={onClose}
           dragHandleProps={handleProps}
+          headerExtra={<ModalFieldControls modalId="budget" lang={lang} />}
           onResetLayout={() => {
             dragReset();
             sizeReset();
           }}
         />
-
-        <ModalFieldControls modalId="budget" lang={lang} />
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
           {/* Bucket name */}

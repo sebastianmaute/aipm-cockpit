@@ -8,6 +8,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ResourceEditModal } from "./resource-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import type { Resource } from "./types";
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
@@ -173,12 +174,12 @@ describe("ResourceEditModal", () => {
       expect(screen.getByText(t("en-US", "resourceFirstName"))).toBeInTheDocument();
 
       // Switch to Full via the modal-header control cluster → birthday appears.
-      fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewFull") }));
+      selectFieldTier("fieldViewFull");
       expect(screen.getByLabelText("Birthday")).toBeInTheDocument();
       expect(screen.getByText(t("en-US", "resourceFirstName"))).toBeInTheDocument();
 
       // Switch to Simple → jobTitle and birthday are hidden, Name still present.
-      fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+      selectFieldTier("fieldViewSimple");
       expect(screen.queryByText(t("en-US", "resourceJobTitle"))).toBeNull();
       expect(screen.queryByLabelText("Birthday")).toBeNull();
       expect(screen.getByText(t("en-US", "resourceFirstName"))).toBeInTheDocument();

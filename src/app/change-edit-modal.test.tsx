@@ -7,6 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangeEditModal } from "./change-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
@@ -166,14 +167,11 @@ describe("ChangeEditModal — field visibility", () => {
     expect(screen.getByDisplayValue("Widen scope")).toBeTruthy();
   });
 
-  it("hides advanced fields like Requested-by when switched to Simple, keeping Title", async () => {
-    const user = userEvent.setup();
+  it("hides advanced fields like Requested-by when switched to Simple, keeping Title", () => {
     renderModal();
     expect(screen.getByText(REQUESTOR_LABEL)).toBeTruthy();
 
-    await user.click(
-      screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }),
-    );
+    selectFieldTier("fieldViewSimple");
 
     expect(screen.queryByText(REQUESTOR_LABEL)).toBeNull();
     expect(screen.getByDisplayValue("Widen scope")).toBeTruthy();
