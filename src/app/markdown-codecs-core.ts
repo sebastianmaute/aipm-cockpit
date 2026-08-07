@@ -14,7 +14,7 @@ import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
-import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
+import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
@@ -203,7 +203,10 @@ export function documentsToMarkdown(docs: readonly ProjectDocument[]): string {
   return ["## Documents", "", "```json", JSON.stringify(docs, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToDocuments(md: string): ProjectDocument[] | undefined {
+export function markdownToDocuments(
+  md: string,
+  diag?: DocTruncationDiag,
+): ProjectDocument[] | undefined {
   const m = /## Documents\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
   try {
@@ -223,7 +226,7 @@ export function markdownToDocuments(md: string): ProjectDocument[] | undefined {
     // installs JSDOM into globalThis BEFORE it dynamically imports
     // src/app/storage (see its header). A NEW bare-node importer of this module
     // must do the same or it will silently lose every document.
-    const docs = sanitizeProjectDocuments(JSON.parse(m[1])).map(sanitizeDocumentRichFields);
+    const docs = sanitizeProjectDocuments(JSON.parse(m[1]), diag).map(sanitizeDocumentRichFields);
     return docs.length ? docs : undefined;
   } catch {
     return undefined;
@@ -246,7 +249,10 @@ export function documentVersionsToMarkdown(versions: readonly DocVersion[]): str
   return ["## Document versions", "", "```json", JSON.stringify(versions, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToDocumentVersions(md: string): DocVersion[] | undefined {
+export function markdownToDocumentVersions(
+  md: string,
+  diag?: DocTruncationDiag,
+): DocVersion[] | undefined {
   const m = /## Document versions\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
   try {
@@ -255,7 +261,7 @@ export function markdownToDocumentVersions(md: string): DocVersion[] | undefined
     // HTML allow-list via sanitizeDocumentRichFields. A version has no independent
     // createdAt/updatedAt, so it is passed through a synthetic ProjectDocument-shaped
     // wrapper with savedAt standing in for both.
-    const versions = sanitizeDocumentVersions(JSON.parse(m[1])).map((v) => ({
+    const versions = sanitizeDocumentVersions(JSON.parse(m[1]), diag).map((v) => ({
       ...v,
       blocks: sanitizeDocumentRichFields({
         id: v.documentId,

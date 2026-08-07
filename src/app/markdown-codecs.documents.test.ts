@@ -18,7 +18,15 @@ import {
 import { defaultExportConfig } from "./settings-types";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { Workspace } from "./workspace";
-import type { ProjectDocument } from "./document-model";
+// `ImportDiag` is declared in the CSV decode module and re-exported by its
+// barrel; the Markdown decoders take the same accumulator, so this is the
+// canonical spelling rather than a cross-backend borrow.
+import type { ImportDiag } from "./csv-codecs";
+import {
+  MAX_BLOCKS_PER_DOC,
+  MAX_DOCUMENTS,
+  type ProjectDocument,
+} from "./document-model";
 import type { DocVersion } from "./document-versions";
 
 const DOC: ProjectDocument = {
@@ -165,6 +173,30 @@ describe("Markdown codec — documents", () => {
     expect(markdownToDocuments("## Documents\n\n```json\n{ nope\n```\n")).toBeUndefined();
     expect(markdownToDocuments("## Documents\n\n```json\n[{}]\n```\n")).toBeUndefined();
   });
+
+  // ★★ open-followups §100. The cap silently truncated and recorded NOTHING, so
+  // the next autosave committed the loss permanently. The counter has to reach
+  // the WORKSPACE-level accumulator — a diag threaded only as far as
+  // markdownToDocuments would leave markdownToWorkspace (the load path the app
+  // actually calls) reporting a clean import over 3 dropped entries.
+  it("reports cap truncation through the workspace-level ImportDiag", () => {
+    const docs: ProjectDocument[] = Array.from({ length: MAX_DOCUMENTS + 3 }, (_, i) => ({
+      id: i + 1,
+      title: `Doc ${i + 1}`,
+      blocks: [],
+      createdAt: DOC.createdAt,
+      updatedAt: DOC.updatedAt,
+    }));
+    const md = workspaceToMarkdown(wsWith(docs));
+    const diag: ImportDiag = { droppedRows: 0 };
+    const ws = markdownToWorkspace(md, diag);
+    expect(diag.truncatedEntries).toBe(3);
+    // ★ The control half: without it the assertion above would still pass if
+    // the decode had failed outright and something else had done the counting.
+    expect(ws.documents).toHaveLength(MAX_DOCUMENTS);
+    // A capped entry is a valid document that went unread, not a malformed row.
+    expect(diag.droppedRows).toBe(0);
+  });
 });
 
 describe("Markdown codec — document versions", () => {
@@ -215,6 +247,29 @@ describe("Markdown codec — document versions", () => {
     const back = markdownToWorkspace(workspaceToMarkdown(ws));
     expect(back.documents).toHaveLength(1);
     expect(back.documentVersions).toHaveLength(1);
+  });
+
+  // The versions decoder is the SECOND call the workspace-level accumulator has
+  // to reach, and it counts a different loss: blocks capped off a single
+  // version, not entries capped off the array. Threading only the documents
+  // call would leave this one silent.
+  it("reports per-version block truncation through the workspace-level ImportDiag", () => {
+    const over: DocVersion = {
+      ...VERSION,
+      blocks: Array.from({ length: MAX_BLOCKS_PER_DOC + 2 }, (_, i) => ({
+        type: "paragraph" as const,
+        html: `<p>block ${i}</p>`,
+      })),
+    };
+    const md = workspaceToMarkdown({ ...emptyWs(), documentVersions: [over] });
+    const diag: ImportDiag = { droppedRows: 0 };
+    const ws = markdownToWorkspace(md, diag);
+    expect(diag.truncatedBlocks).toBe(2);
+    // ★ Control: a decode that failed whole would leave documentVersions
+    // undefined and prove nothing about the counter above.
+    expect(ws.documentVersions?.[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+    // The DOCUMENT cap is untouched — a single version can never trip it.
+    expect(diag.truncatedEntries).toBeUndefined();
   });
 
   it("returns undefined for a missing block, malformed JSON, or an all-invalid array", () => {
