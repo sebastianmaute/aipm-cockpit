@@ -103,6 +103,51 @@ describe("sanitizeDocumentVersions", () => {
     sanitizeDocumentVersions([v()], diag);
     expect(diag.truncatedBlocks).toBeUndefined();
   });
+
+  // ★★★ THE COUNT IS MEASURED AGAINST THE CAP, NOT AGAINST THE SURVIVING
+  // LENGTH. The difference-of-lengths form also counted every block the
+  // validator dropped as INVALID, and because any non-zero count raises the
+  // sticky §102 save guard, ONE unloadable block anywhere in version history
+  // paused ALL saving for the whole workspace until the user clicked through
+  // the banner. Refusing to save cannot recover such a block — every future
+  // load drops it too — so it must not arm the guard.
+  it("does not count blocks the validator dropped as invalid", () => {
+    const diag: DocTruncationDiag = {};
+    const out = sanitizeDocumentVersions(
+      [
+        v({
+          blocks: [
+            { type: "heading", level: 1, text: "Kept" },
+            // Reachable without a hostile file: the load-boundary allow-list
+            // (document-rich-fields.ts) runs AFTER the structural pass, so a
+            // paragraph it empties is persisted as `html: ""` and dropped by the
+            // load after that.
+            { type: "paragraph", html: "" },
+            { type: "dataSection", key: "notARegisteredSectionKey" },
+          ] as unknown as DocVersion["blocks"],
+        }),
+      ],
+      diag,
+    );
+    // Control: the two really were dropped, so the assertion below is not
+    // satisfied by a version that failed validation as a whole.
+    expect(out[0].blocks).toHaveLength(1);
+    expect(diag.truncatedBlocks).toBeUndefined();
+  });
+
+  it("counts cap overflow even when invalid blocks sit alongside it", () => {
+    // ★ The two causes must not cancel or compound: 3 entries past the cap plus
+    // 2 unloadable ones is still 3. A difference-of-lengths count reports 5.
+    const blocks = [
+      ...Array.from({ length: MAX_BLOCKS_PER_DOC + 3 }, () => ({ type: "paragraph" as const, html: "<p>x</p>" })),
+    ];
+    blocks[0] = { type: "paragraph", html: "" };
+    blocks[1] = { type: "paragraph", html: "" };
+    const diag: DocTruncationDiag = {};
+    const out = sanitizeDocumentVersions([v({ blocks })], diag);
+    expect(out[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC - 2);
+    expect(diag.truncatedBlocks).toBe(3);
+  });
 });
 
 describe("trimVersions", () => {

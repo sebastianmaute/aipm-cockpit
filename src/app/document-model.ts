@@ -169,7 +169,7 @@ function sanitizeBlock(raw: unknown): DocBlock | null {
   }
 }
 
-function sanitizeDocument(raw: unknown): ProjectDocument | null {
+function sanitizeDocument(raw: unknown, diag?: DocTruncationDiag): ProjectDocument | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
 
@@ -179,7 +179,21 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
   const title = str(d.title, MAX_TITLE_CHARS).trim();
   if (!title) return null;
 
-  const blocks = (Array.isArray(d.blocks) ? d.blocks : [])
+  const rawBlocks = Array.isArray(d.blocks) ? d.blocks : [];
+  // ★★★ A LIVE DOCUMENT'S BLOCK LOSS USED TO BE COMPLETELY SILENT. Versions
+  // reported theirs (document-versions.ts) but the documents they are versions
+  // OF did not, so a 600-block document loaded as 500, the next save wrote 500
+  // back over all six write paths, and the 100 were gone with no count, no
+  // toast and nothing raised for the §102 save guard to refuse.
+  // ★★ Same UPPER-BOUND contract as `truncatedEntries` and the same reason:
+  // this counts RAW ENTRIES past the cap, not blocks proven valid. Blocks the
+  // validator drops as INVALID are deliberately NOT counted — see the
+  // measurement in document-versions.ts; a count that includes them arms the
+  // sticky guard over a loss refusing to save cannot recover.
+  if (diag && rawBlocks.length > MAX_BLOCKS_PER_DOC) {
+    diag.truncatedBlocks = (diag.truncatedBlocks ?? 0) + (rawBlocks.length - MAX_BLOCKS_PER_DOC);
+  }
+  const blocks = rawBlocks
     .slice(0, MAX_BLOCKS_PER_DOC)
     .map(sanitizeBlock)
     .filter((b): b is DocBlock => b !== null);
@@ -203,7 +217,16 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
  *  documents. Counting real documents would mean sanitizing the whole tail,
  *  which reintroduces the denial-of-service the cap exists to prevent. It is
  *  therefore an UPPER BOUND — never an undercount — and every user-facing
- *  string says "entries" for that reason. */
+ *  string says "entries" for that reason.
+ *  ★ `truncatedBlocks` is the same shape one level down: raw block entries past
+ *  `MAX_BLOCKS_PER_DOC`, written by `sanitizeDocument` here for LIVE documents
+ *  and by `sanitizeDocumentVersions` for versions, into ONE accumulator. Blocks
+ *  the validator drops as INVALID are deliberately excluded — the count arms a
+ *  sticky save guard, and refusing to save cannot recover a block no load will
+ *  ever accept (document-versions.ts holds the measurement).
+ *  ★ `truncatedBlocks` is written BEFORE the document is known to survive the
+ *  dedup below, so a duplicate-id entry contributes its block overflow even
+ *  though the document itself is dropped. Upper bound, as declared. */
 export interface DocTruncationDiag {
   truncatedEntries?: number;
   truncatedBlocks?: number;
@@ -226,7 +249,7 @@ export function sanitizeProjectDocuments(
       if (diag) diag.truncatedEntries = (diag.truncatedEntries ?? 0) + (raw.length - i);
       break;
     }
-    const doc = sanitizeDocument(raw[i]);
+    const doc = sanitizeDocument(raw[i], diag);
     if (!doc || seen.has(doc.id)) continue;
     seen.add(doc.id);
     out.push(doc);

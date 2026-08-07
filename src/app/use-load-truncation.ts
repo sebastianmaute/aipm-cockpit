@@ -54,8 +54,14 @@ export interface TruncationOps {
 }
 
 export interface LoadTruncationGuard {
-  /** True while a truncated load is unresolved. Drives the persistent banner —
-   *  see the lockout note on `allowTruncatedSave`. */
+  /** The counts behind an unresolved truncation, or `null` when there is none.
+   *  The banner names the magnitude from this — a count that lives only in a
+   *  7s single-slot toast is gone by the time the user reads the banner, and
+   *  "some data" is not enough to decide whether to accept the loss. */
+  truncation: { entries: number; blocks: number } | null;
+  /** True while a truncated load is unresolved. Derived from `truncation` (one
+   *  source of truth) — drives the persistent banner and the save-effect dep.
+   *  See the lockout note on `allowTruncatedSave`. */
   loadWasTruncated: boolean;
   /** Lower the flag so saving resumes and the truncated set may be committed.
    *  ★★★ THIS IS THE ONLY WAY OUT AND IT MUST STAY REACHABLE FROM THE UI. The
@@ -87,12 +93,33 @@ export interface LoadTruncationGuard {
  *   • `entries` counts RAW ARRAY ENTRIES past the cap, not validated documents
  *     (counting real documents would mean sanitizing the whole tail, which is
  *     the denial-of-service the cap exists to refuse).
- *   • `blocks` is `raw.blocks.length - sanitized.blocks.length`, and
- *     `sanitizeDocument` both caps blocks AND drops invalid ones — so a version
- *     with malformed blocks reports them as truncation with nothing capped.
- * So the copy says "could not be opened" (accurate for both causes) and never
- * "were cut off by the limit"; and it says "entries"/"blocks", never
- * "documents".
+ *   • `blocks` counts RAW BLOCK ENTRIES past `MAX_BLOCKS_PER_DOC`, on the same
+ *     terms and for the same reason — some of them may be entries the validator
+ *     would have rejected anyway.
+ * So the copy says "could not be opened" (accurate for both) and never "were
+ * cut off by the limit"; and it says "entries"/"blocks", never "documents".
+ *
+ * ★★★ `blocks` USED TO BE `raw.blocks.length - sanitized.blocks.length`, WHICH
+ * ALSO COUNTED EVERY BLOCK THE VALIDATOR DROPPED AS INVALID — and because any
+ * non-zero count raises this sticky flag, ONE unloadable block anywhere in a
+ * project's stored documents or version history paused ALL saving for the whole
+ * workspace until the user clicked through the banner. Two reachable shapes,
+ * and the second needs no foreign input at all: (1) a paragraph whose HTML the
+ * load-boundary allow-list empties — `document-rich-fields.ts` runs AFTER the
+ * structural pass, so `<script>x</script>` survives `sanitizeBlock` (measured:
+ * `htmlTextLength` reads 1) and is rewritten to `html: ""`, which the next save
+ * persists and the load after that drops; that one still needs the `<script>`
+ * to arrive in an imported or hand-edited file, since every in-app writer
+ * sanitizes first. (2) a `dataSection` block whose key leaves
+ * `EXPORT_SECTION_KEYS` — an ordinary refactor — is dropped by every load from
+ * then on, forever, with no foreign file anywhere. Refusing to save
+ * cannot recover any of those: they are unloadable by construction, so the only
+ * outcome the guard can reach is the user clicking "Save anyway". Counting only
+ * cap overflow keeps the guard on the loss it CAN protect — data the source
+ * still holds — and off the loss it cannot.
+ *
+ * ★★ Only `blocks` moved. `entries` still counts unsanitized tail entries, so
+ * the "upper bound" wording above is load-bearing for both.
  *
  * Lives in its own module because `use-storage-backend.ts` sits AT the
  * 800-line ratchet.
@@ -105,7 +132,11 @@ export function useLoadTruncation(
    *  a stale workspace or hit a superseded backend. */
   saveCurrentWorkspace: () => Promise<void>,
 ): LoadTruncationGuard {
-  const [loadWasTruncated, setLoadWasTruncated] = useState(false);
+  // ★ The COUNTS are the state, not a boolean — the banner has to name a
+  // magnitude, and a second `useState` for it would be a second source of truth
+  // that can drift from the flag. `loadWasTruncated` is derived below.
+  const [truncation, setTruncation] = useState<{ entries: number; blocks: number } | null>(null);
+  const loadWasTruncated = truncation !== null;
   // ★★★ DEFENSIVE-ONLY, AND DO NOT DESCRIBE IT AS "THE ONE-SHOT BYPASS" — that
   // wording claims it is what re-opens saving, and it is not. What re-opens
   // saving is the STATE going false: `loadWasTruncated` is a dep of the save
@@ -126,7 +157,7 @@ export function useLoadTruncation(
   const allowTruncatedSave = () => {
     allowTruncatedSaveRef.current = true;
     lastTruncationRef.current = null;
-    setLoadWasTruncated(false);
+    setTruncation(null);
   };
 
   /** The user-facing sentence for a truncation. ★ Entries dominate when both are
@@ -151,13 +182,14 @@ export function useLoadTruncation(
       // React bails on a no-op `false` → `false`, so the common case costs no
       // render.
       lastTruncationRef.current = null;
-      setLoadWasTruncated(false);
+      setTruncation(null);
       return;
     }
     logDiag("error", "workspace.documentsTruncated", { entries, blocks });
-    lastTruncationRef.current = { entries, blocks };
+    const counts = { entries, blocks };
+    lastTruncationRef.current = counts;
     showToast("error", truncationText(entries, blocks));
-    setLoadWasTruncated(true);
+    setTruncation(counts);
   };
 
   // ★★ Deliberately does NOT touch the caller's L3/B baselines
@@ -171,6 +203,30 @@ export function useLoadTruncation(
   // on different grounds: a refusal persisted nothing, so re-baselining would
   // silently disarm the mass-deletion guard for the eventual "save anyway",
   // which is the exact moment the data is most at risk.
+  //
+  // ★★★ IT DOES, HOWEVER, OBLIGE THE CALLER TO SPEND ITS OWN ONE-SHOT SAVE
+  // AUTHORISATION, and that obligation exists BECAUSE this guard is sticky.
+  // `allowDestructiveRef` (`use-storage-backend.ts`) is armed by an explicit
+  // bulk op — clear-all, bulk delete — to let the NEXT save through the Layer-B
+  // mass-deletion guard. Every other early return in that effect is one-shot
+  // bounded, so a bypass survives at most one cycle; this one is not, so a
+  // bypass armed while the banner is up stays armed across an UNBOUNDED number
+  // of edits. Measured shape: truncated load → "Clear all tasks" arms the
+  // bypass → the save is refused here → an hour of work later an accidental
+  // bulk delete removes 90% of the records → "Save anyway" lowers the flag →
+  // `massDelete` is true but the hour-old bypass is still up, so Layer B waves
+  // the mass deletion through and it is persisted. The save effect therefore
+  // spends the bypass on THIS refusal: a refused save is still the "next save"
+  // the authorisation was for.
+  // ★★ The cost is deliberate and is the safe direction. After "Save anyway"
+  // the legitimate bulk delete is re-evaluated by Layer B and may be refused —
+  // but that refusal is VISIBLE (the `storageRefusedWipe` toast), persists
+  // nothing, and is recoverable by reloading or by redoing the bulk op, whereas
+  // the leak it replaces is a silent, unrecoverable mass deletion.
+  // ★ `flushCurrent`/`guardedWrite` below deliberately do NOT spend it: an
+  // explicit bulk op always mutates the workspace, so the save effect runs and
+  // the branch above catches every armed bypass. Spending it from a background
+  // flush would refuse a deletion the user did authorise, for no added safety.
   const mayCommitAfterTruncation = (): boolean => {
     if (loadWasTruncated && !allowTruncatedSaveRef.current) return false;
     allowTruncatedSaveRef.current = false;
@@ -204,5 +260,5 @@ export function useLoadTruncation(
     },
   };
 
-  return { loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps };
+  return { truncation, loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps };
 }

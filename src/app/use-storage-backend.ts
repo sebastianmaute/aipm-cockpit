@@ -158,7 +158,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
   // ★★ §102 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
+  const { truncation, loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -403,7 +403,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //        keeps the data; a reload restores it.
     // ★★ §102: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
-    if (!mayCommitAfterTruncation()) return;
+    if (!mayCommitAfterTruncation()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
     const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
     const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
     if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
@@ -789,7 +789,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, loadWasTruncated, allowTruncatedSave,
+    reloadCurrentProject, allowDestructiveSave, truncation, loadWasTruncated, allowTruncatedSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,

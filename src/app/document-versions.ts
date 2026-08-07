@@ -19,6 +19,7 @@
 // real reason is that sanitizeProjectDocuments is DOM-free, and folding a
 // DOM-bound pass into a module that composes it would let the two drift.
 import {
+  MAX_BLOCKS_PER_DOC,
   sanitizeProjectDocuments,
   type DocBlock,
   type DocTruncationDiag,
@@ -130,14 +131,24 @@ export function sanitizeDocumentVersions(
     const [asDoc] = sanitizeProjectDocuments([
       { id: r.documentId, title: r.title, blocks: r.blocks, createdAt: r.savedAt, updatedAt: r.savedAt },
     ]);
-    // ★ The block count is taken HERE, not inside sanitizeProjectDocuments:
-    // that function caps blocks inside sanitizeDocument, by which point the
-    // original length is gone. A single-element array can never trip the
-    // DOCUMENT cap, so no diag is passed to the delegate — passing one would
-    // let a version's own truncation be miscounted as a document truncation.
-    if (diag && asDoc && Array.isArray(r.blocks) && r.blocks.length > asDoc.blocks.length) {
+    // ★ The block count is taken HERE, not inside sanitizeProjectDocuments: no
+    // diag is passed to the delegate, because that would count this version's
+    // block overflow a SECOND time (`sanitizeDocument` now records its own) and
+    // the two would land in one accumulator.
+    //
+    // ★★★ MEASURE AGAINST THE CAP, NEVER AGAINST `asDoc.blocks.length`. The
+    // difference-of-lengths form also counted every block the validator dropped
+    // as INVALID, and since any non-zero count raises the sticky save guard
+    // (`use-load-truncation.ts`), one unloadable block anywhere in version
+    // history paused ALL saving for the whole workspace. Measured: a version
+    // with two blocks, one of them an empty paragraph, reported
+    // `truncatedBlocks: 1` with nothing capped. An invalid block cannot be
+    // recovered by refusing to save — it will be dropped by every future load
+    // too — so the guard must not fire for it. Cap overflow CAN be recovered:
+    // the source still holds those blocks.
+    if (diag && asDoc && Array.isArray(r.blocks) && r.blocks.length > MAX_BLOCKS_PER_DOC) {
       diag.truncatedBlocks =
-        (diag.truncatedBlocks ?? 0) + (r.blocks.length - asDoc.blocks.length);
+        (diag.truncatedBlocks ?? 0) + (r.blocks.length - MAX_BLOCKS_PER_DOC);
     }
     // ★ Dedup mirrors sanitizeProjectDocuments's own `seen` guard
     // (document-model.ts) — same asymmetry risk, same fix, kept in step with

@@ -2012,7 +2012,10 @@ describe("useStorageBackend — §102 truncated-load guard", () => {
     const { result } = renderBackend();
     await act(async () => { await Promise.resolve(); });
 
-    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("7 blocks in stored document versions could not be opened"));
+    // ★ "stored documents", not "stored document versions": live documents feed
+    // this same counter now (a >MAX_BLOCKS_PER_DOC document loaded truncated
+    // with nothing recorded until §102's fix), so the old wording was false.
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("7 blocks in stored documents could not be opened"));
     expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("document entries"));
     expect(result.current.loadWasTruncated).toBe(true);
   });
@@ -2060,6 +2063,91 @@ describe("useStorageBackend — §102 truncated-load guard", () => {
       expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T1" })] }),
     );
     expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  // ── the one-shot destructive bypass must not outlive a truncation refusal ──
+  // ★★★ EVERY OTHER EARLY RETURN IN THE SAVE EFFECT IS ONE-SHOT BOUNDED; THIS
+  // ONE IS NOT. `allowDestructiveRef` is armed by an explicit bulk op to let the
+  // NEXT save past the Layer-B mass-deletion guard, and the consume sits BELOW
+  // the truncation return — so a bypass armed while the banner is up is never
+  // spent and stays armed across an unbounded number of later edits. The
+  // scenario: truncated load → clear-all arms the bypass → save refused → work
+  // continues → an accidental bulk delete → "Save anyway" → the hour-old bypass
+  // waves the unrelated mass deletion straight through.
+  const manyTasks = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, taskName: "T" })) as unknown as Task[];
+
+  function useLoadedTruncBackend() {
+    const b = {
+      load: vi.fn(async () => {
+        b.lastLoadTruncation = { entries: 5, blocks: 0 };
+        return { tasks: manyTasks, raid: [], absences: [], shifts: [] };
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(b);
+    return b;
+  }
+
+  it("does not carry a destructive bypass armed during the refusal into the eventual 'save anyway'", async () => {
+    const backend = useLoadedTruncBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });   // 20 records → baseline 20
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // The explicit bulk op: arm the bypass, then delete 19 of 20. The save is
+    // refused by the truncation guard, so nothing is persisted and the Layer-B
+    // baseline stays at 20.
+    await act(async () => {
+      result.current.allowDestructiveSave();
+      result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled(); // control: the refusal really engaged
+
+    // Later, the user resolves the banner. The pending state is still a 19-of-20
+    // deletion, and Layer B must now judge it on its own merits.
+    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+
+  it("still honours a bypass armed AFTER the truncation is resolved", async () => {
+    // ★★★ THE CONTROL THAT MAKES THE TEST ABOVE MEAN SOMETHING. Without it,
+    // "save was not called" is equally satisfied by a guard that refuses every
+    // mass deletion unconditionally — which would break the confirmed clear-all
+    // this bypass exists for. Same fixture, same deletion; only the ORDER of
+    // arming differs, and that alone must flip the outcome.
+    const backend = useLoadedTruncBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.allowTruncatedSave();
+      result.current.allowDestructiveSave();
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
+    );
   });
 });
 
