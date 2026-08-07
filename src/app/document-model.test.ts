@@ -343,7 +343,7 @@ describe("sanitizeProjectDocuments", () => {
   // ★★★ VERSIONS DISCLOSED THEIR BLOCK LOSS AND THE DOCUMENTS THEY ARE VERSIONS
   // OF DID NOT. A 600-block document loaded as 500, the next save wrote those
   // 500 back across all six write paths, and the other 100 were gone — with no
-  // count, no toast, and nothing for the §102 save guard to refuse. Measured
+  // count, no toast, and nothing for the §103 save guard to refuse. Measured
   // before the fix: `diag` came back `{}`.
   const overCapBlocks = (n: number) =>
     Array.from({ length: n }, (_, i) => ({ type: "heading" as const, level: 1 as const, text: `H${i}` }));
@@ -387,7 +387,7 @@ describe("sanitizeProjectDocuments", () => {
 
   // ★★★ INVALID BLOCKS ARE NOT TRUNCATION, and the distinction is what keeps
   // this counter from becoming a workspace-wide save lockout: any non-zero
-  // count raises the sticky §102 flag, so counting dropped-as-invalid blocks
+  // count raises the sticky §103 flag, so counting dropped-as-invalid blocks
   // meant ONE unloadable block anywhere paused ALL saving. It is not a hostile
   // input either — a `dataSection` whose key leaves EXPORT_SECTION_KEYS in an
   // ordinary refactor is dropped by every load from then on, and refusing to

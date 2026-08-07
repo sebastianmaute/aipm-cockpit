@@ -107,7 +107,7 @@ describe("sanitizeDocumentVersions", () => {
   // ★★★ THE COUNT IS MEASURED AGAINST THE CAP, NOT AGAINST THE SURVIVING
   // LENGTH. The difference-of-lengths form also counted every block the
   // validator dropped as INVALID, and because any non-zero count raises the
-  // sticky §102 save guard, ONE unloadable block anywhere in version history
+  // sticky §103 save guard, ONE unloadable block anywhere in version history
   // paused ALL saving for the whole workspace until the user clicked through
   // the banner. Refusing to save cannot recover such a block — every future
   // load drops it too — so it must not arm the guard.

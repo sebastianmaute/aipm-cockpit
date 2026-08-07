@@ -5,7 +5,7 @@
 // failure was swallowed by a bare `catch { /* best-effort */ }`, silently
 // losing unsaved edits.
 //
-// Also pins the §102 half this file owns: a Turso project switch is a LOAD
+// Also pins the §103 half this file owns: a Turso project switch is a LOAD
 // path, so the target's `lastLoadTruncation` must be reported. The deps object
 // carries a REAL `useLoadTruncation` guard here, not a stub — the flush skip
 // and the reporting are two faces of one state machine, and a stub would let
@@ -125,7 +125,7 @@ describe("useTursoProjectOps — outgoing flush failure", () => {
   });
 });
 
-describe("useTursoProjectOps — §102 truncation", () => {
+describe("useTursoProjectOps — §103 truncation", () => {
   it("switchToTursoProject REPORTS the target's truncation", async () => {
     tursoTruncation.current = { entries: 6, blocks: 0 };
     const { result } = renderWithRealGuard(async () => {});
@@ -187,7 +187,7 @@ describe("useTursoProjectOps — §102 truncation", () => {
   // ★★★ THE KILL LINE FOR MIGRATE'S PRE-CHECK. Removing it left this whole file
   // green: the census below only proves this FILE has one `.save(`, which says
   // nothing about whether migrate calls `guardedWrite`, honours its return, or
-  // declines before its irreversible step. Without this test the §102 loss was
+  // declines before its irreversible step. Without this test the §103 loss was
   // one deleted line away, on a green board.
   //
   // The assertion is on `portfolioCreate` specifically, because that is the

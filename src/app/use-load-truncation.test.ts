@@ -1,12 +1,12 @@
 // src/app/use-load-truncation.test.ts
 //
-// The §102 truncated-load guard, tested at the unit it actually is: a
+// The §103 truncated-load guard, tested at the unit it actually is: a
 // small state machine plus the TWO choke points (`reportFor` / `flushCurrent`)
 // that every storage load and every best-effort flush routes through.
 //
 // The end-to-end wiring — that each of the six load paths and seven write paths
 // really calls them — is pinned in `use-storage-backend.test.tsx`
-// ("§102 truncation reaches every load/flush path") and
+// ("§103 truncation reaches every load/flush path") and
 // `use-storage-turso-ops.test.ts`. Those are the tests that fail if a call site
 // is missed; these are the ones that fail if the machine itself is wrong.
 import { readFileSync } from "node:fs";

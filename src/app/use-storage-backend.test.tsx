@@ -1948,13 +1948,13 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
   });
 });
 
-// ── §102: the truncated-load save guard ──────────────────────────────────────
+// ── §103: the truncated-load save guard ──────────────────────────────────────
 // An over-cap load truncates the documents array; the next AUTOMATIC save then
 // commits that loss permanently on all six write paths, because the excess
 // documents are still in the source file. The guard pauses saving until the user
 // resolves it, and `allowTruncatedSave` is the only way out — the user cannot get
 // under the cap by editing, since the excess entries were never loaded.
-describe("useStorageBackend — §102 truncated-load guard", () => {
+describe("useStorageBackend — §103 truncated-load guard", () => {
   // A LOCAL backend per test: `lastLoadTruncation` is a plain PROPERTY, so
   // vi.clearAllMocks() would not reset it on the shared `mockBackend` and a
   // truncating fixture would leak into every later test — which the shuffled-seed
@@ -2014,7 +2014,7 @@ describe("useStorageBackend — §102 truncated-load guard", () => {
 
     // ★ "stored documents", not "stored document versions": live documents feed
     // this same counter now (a >MAX_BLOCKS_PER_DOC document loaded truncated
-    // with nothing recorded until §102's fix), so the old wording was false.
+    // with nothing recorded until §103's fix), so the old wording was false.
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("7 blocks in stored documents could not be opened"));
     expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("document entries"));
     expect(result.current.loadWasTruncated).toBe(true);
@@ -2151,14 +2151,14 @@ describe("useStorageBackend — §102 truncated-load guard", () => {
   });
 });
 
-// ── §102: the guard must reach EVERY load and EVERY flush ────────────────────
+// ── §103: the guard must reach EVERY load and EVERY flush ────────────────────
 // ★★★ THE SEAM IS THE WHOLE POINT OF THIS BLOCK. The guard shipped correct in
 // itself and wired into ONE of six loads and ONE of seven writes, so a user who
 // switched project both missed the warning AND committed the loss the banner
 // says is paused. Every test here drives the REAL `useStorageBackend`, so it
 // pins the deps-object wiring into `useFileProjectOps` / `useTursoProjectOps`
 // that a test against either ops hook alone cannot see.
-describe("useStorageBackend — §102 truncation reaches every load/flush path", () => {
+describe("useStorageBackend — §103 truncation reaches every load/flush path", () => {
   const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
   let setStorageConfig: ReturnType<typeof vi.fn<(config: StorageConfig) => void>>;
 

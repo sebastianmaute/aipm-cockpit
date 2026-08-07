@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InsightsPanel } from "./insights-panel";
 import { insightTitle } from "./insights/insight-text";
+import { expectSecondaryButton } from "../test/button-variant";
 import type { Insight, InsightStatus } from "./insights/insight";
 
 const TODAY = "2026-06-10";
@@ -381,6 +382,78 @@ describe("InsightsPanel", () => {
     it("renders no digest when there are no insights at all", () => {
       render(<InsightsPanel insights={[]} lang="en-US" today={TODAY} />);
       expect(screen.queryByText(/last 7 days/i)).toBeNull();
+    });
+  });
+
+  // ★★ These pin the ghost→secondary conversion at call sites that would
+  //    otherwise revert silently. `expectSecondaryButton` is word-bounded
+  //    because the obvious substring form passes against `ghost` — see
+  //    `src/test/button-variant.ts`. The killing mutation for each assertion is
+  //    flipping that one call site back to `variant="ghost"`.
+  describe("row action button variant", () => {
+    const ACTIONS = {
+      onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+      onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+    };
+    const TITLE = titleOf("milestoneSlip");
+
+    it("renders the panel's own row actions as bordered secondary buttons, not ghost", () => {
+      render(
+        <InsightsPanel
+          insights={[makeInsight({ id: 11, type: "milestoneSlip", status: "active" })]}
+          lang="en-US" today={TODAY}
+          onOpen={vi.fn()}
+          actions={ACTIONS}
+        />,
+      );
+      // All four of `insights-panel.tsx`'s converted Buttons. Open needs an
+      // `entityRef` (the fixture default) AND `onOpen`; Acknowledge needs the
+      // status to still be "active".
+      for (const name of ["Open", "Acknowledge", "Act", "Dismiss"]) {
+        expectSecondaryButton(screen.getByRole("button", { name: `${name} – ${TITLE}` }));
+      }
+      // Ghost's defining trait. Redundant with the helper's two positives, but
+      // it names the failure mode this conversion is guarding against.
+      expect(screen.getByRole("button", { name: `Dismiss – ${TITLE}` }).className).not.toContain("bg-transparent");
+    });
+
+    // `insight-recommendation-controls.tsx` is a SHARED component (this panel +
+    // the dashboard InsightsCard) and has no test file of its own, so its three
+    // converted Buttons are pinned through the panel that renders it. They are
+    // gated on recommendation state, which is why this takes two fixtures.
+    it("renders the Generate CTA as a bordered secondary button when there is no recommendation", () => {
+      render(
+        <InsightsPanel
+          insights={[makeInsight({ id: 12, type: "milestoneSlip", status: "active" })]}
+          lang="en-US" today={TODAY}
+          actions={ACTIONS}
+        />,
+      );
+      // `aiEnabled` is deliberately omitted: undefined means "unknown" and the
+      // component treats it as enabled, which is what renders this CTA at all.
+      expectSecondaryButton(screen.getByRole("button", { name: `Generate recommendation – ${TITLE}` }));
+    });
+
+    it("renders the Apply/Reject controls as bordered secondary buttons when one is proposed", () => {
+      render(
+        <InsightsPanel
+          insights={[makeInsight({
+            id: 13, type: "milestoneSlip", status: "active",
+            recommendation: {
+              summary: "Reassign the overdue task",
+              proposedCalls: [],
+              generatedAt: "2026-06-10T00:00:00.000Z",
+              status: "proposed",
+            },
+          })]}
+          lang="en-US" today={TODAY}
+          actions={ACTIONS}
+        />,
+      );
+      // A "proposed" recommendation REPLACES the Generate CTA with these two,
+      // so the fixture above cannot reach them.
+      expectSecondaryButton(screen.getByRole("button", { name: `Apply recommendation – ${TITLE}` }));
+      expectSecondaryButton(screen.getByRole("button", { name: `Reject – ${TITLE}` }));
     });
   });
 });

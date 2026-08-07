@@ -9,7 +9,7 @@ const SRC = readFileSync("src/app/use-storage-backend.ts", "utf8");
 describe("calendarEvents is wired into every save path", () => {
   it("appears in each whole-workspace write literal and in currentWorkspace", () => {
     // ★★ MATCH THE LITERAL, NOT THE CALLEE. This scan first read `save({…})`,
-    // which silently stopped seeing two of the three the moment §102 routed the
+    // which silently stopped seeing two of the three the moment §103 routed the
     // explicit-action writes through `truncationOps.guardedWrite(backend, {…})`
     // — the workspace literals were unchanged and still correct, but the count
     // assertion caught it (1 < 3) rather than the scan quietly covering less.

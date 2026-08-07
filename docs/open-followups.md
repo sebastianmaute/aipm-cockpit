@@ -144,8 +144,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 99 | The e2e seed writes only two of BrowserBackend's ten optional kv slices, so any view backed by one of the other eight is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
 | 100 | Tab ejects focus from a portaled popover opened inside a modal, leaving it open and its contents keyboard-unreachable | field controls → modal header, unreleased | M | open — WCAG 2.1.1, **measured in Chromium** from both a radio and a checkbox. PRE-EXISTING and architectural (`Modal`'s trap guards on `container.contains`, false for every element in a portal); the move only made it prominent. Invisible to jsdom (the control's tests never mount inside `Modal`) and to axe |
 | 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
-| 102 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
-| 103 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
+| 103 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
+| 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -5104,261 +5104,116 @@ touching every segmented control in the app wants its own slice and its own eye-
 ★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
 evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
 
-## 102. An over-cap load silently and permanently destroyed the excess documents — CLOSED
+## 102. Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet
 
-**This is NOT a regression the S2 slice introduced, and it is not theoretical — it destroys
-user-authored content today.** `MAX_DOCUMENTS` and its `break` arrived with the document model in
-`90199c26` ("feat: canonical project document model and sanitizer"), which is an ancestor of `main`
-and **shipped in 0.219.0 "Elgin"**. S2 introduced only the phantom-deleted-documents *consequence*
-(see below), not the loss. Establish that before quoting this entry — reading it as an S2 regression
-sends someone hunting through this slice's diff for a cause that is not there.
+The full audit is [`docs/handrolled-ui-inventory.md`](handrolled-ui-inventory.md), taken 2026-08-07 on
+`63e4d768`. It is the work-list for **both** parts; this entry exists so the register points at it.
 
-```bash
-git log --oneline -S "out.length >= MAX_DOCUMENTS" -- src/app/document-model.ts   # 90199c26 only
-git merge-base --is-ancestor 90199c26 main && echo "already shipped"              # already shipped
-```
+**What 0.221.0 actually converted** — 17 call sites across six files (four panes — Insights,
+Dashboard, Budget, Milestones — plus the milestone modal), and nothing else:
+`insights-panel.tsx` (4) · `insight-recommendation-controls.tsx` (3) ·
+`dashboard-sections/insights-card.tsx` (4) all moved `Button` from `variant="ghost"` to
+`"secondary"`; `budget-panel.tsx` converted 4 hand-rolled `<button>` to `Button variant="secondary"`;
+`milestones-panel.tsx` and `milestone-edit-modal.tsx` each moved the achieved checkbox to
+`ToggleButton`. **The remainder is a ratchet, not a scheduled slice** — acting on the inventory and
+producing it are separate jobs, and converting 311 elements in one sweep is unreviewable.
 
-### What was measured
+The scale, so nobody re-derives it: **341** `<button>` sites in non-test `.tsx` across **152** files;
+18 are the primitives' own internals; of the remaining 323, **12 are the word `<button>` in a
+comment** and **311 are elements** — 134 correctly hand-rolled, **141 convertible** to `Button`,
+**36** to `IconButton`.
 
-`sanitizeProjectDocuments` (`document-model.ts`) stops at `MAX_DOCUMENTS` (**200 at the time of this
-measurement**; the fix raised it to 1000 — everything below records the defect as found) with a bare `break`.
-Nothing records that it truncated. Load an over-cap file, let autosave fire, and the excess documents
-are gone from storage:
+★★ **The glyph baseline in the slice plan is not reproducible under the filter that plan's own
+command states, and the difference is not drift.** **11 of the 13** quoted figures (`•` 21 · `✓`
+17 · `▲`/`▼` 17 · `↑` 12 · `⚠`/`⋮`/`↓` 9 · `▸` 4 · `▾` 3 · `🗒` 2) match `src/app` scanned with the
+`--include=*.tsx --exclude="*.test.tsx"` filters **not in effect** — `.ts` files and test files
+included. Under the stated filter the same glyphs measure 7 · 10 · 14 · 5 · 8/2/4 · 4 · 3 · **0**.
+★ The two that do NOT match are the two the sweep is sized from: `✕` measures **42** (not 47) and
+`×` measures **73** (not 75); under the stated filter they are **19** and **20**, not 24 and 22.
+Two things follow. The `🗒` count is not UI at all — both hits are in the generated
+`operating-guide-builtin.generated.ts`, and there is **no `🗒` glyph anywhere in the app's markup**
+(the notes badge renders an icon at `notes-badge-button.tsx:32`). And `×` inflates 20 → 73 mostly
+because test comments are full of arithmetic, so the multiplication-vs-close-glyph triage the plan
+calls "the main manual work" is about a third the size it looks: of **20** real `×` lines, **6** are
+multiplication or prose and 14 are close glyphs.
 
-```
---- RE-SAVE ---
-original file: 205 docs / 205 versions
-after load:    200 docs / 205 versions
-after re-save: 200 docs / 205 versions
-documents PERMANENTLY LOST by load->save: 5 ["Doc 201","Doc 202","Doc 203","Doc 204","Doc 205"]
-```
+★★★ **DO NOT VERIFY `🗒` WITH `grep` — it fails silently, in both directions.** `🗒` is U+1F5D2,
+outside the BMP, and this environment's grep mishandles it: `grep -rlF '🗒' .` finds **nothing**
+though the glyph is really in nine files, while a bracket expression containing it matches **every**
+non-BMP emoji (`printf 'a 📎\nb 🚀\nc 🗒\n' | grep -c '[✓🗒★]'` → **3**). The `🗒` = 2 figure above
+was confirmed with node, not grep, and is correct. Any glyph count attached to a reproduce command
+must keep non-BMP characters out of the pattern.
 
-**All six write paths, identically** — the cap is not per-path, so JSON · IndexedDB · Turso single ·
-Turso tenant · CSV · Markdown all inherit it:
+★★★ **Six source sites have their glyph pinned by a test assertion, not the two the plan names.**
+`report-table.tsx:148` (`report-table.test.tsx`, and again via `SortResizeTh` in
+`calendar-series-list.test.tsx`) were known. The four that were not: `task-status-glyph.tsx` 54/56 ·
+`dashboard-panel.tsx:364` · `entity-link-picker.tsx:222` · `milestone-horizon-strip.tsx:46`.
+Distinguish them from the ~10 test files that merely mention a glyph in an `it(...)` title — the
+inventory lists both sets so the distinction is not re-derived.
 
-```
---- OVER CAP n=205 (MAX_DOCUMENTS=200) ---
-json          in 205d/205v -> out 200d/205v | phantoms 5 | discriminator(ai+delete) kept 205
-csv           in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
-markdown      in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
-turso-single  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
-turso-tenant  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
-indexeddb     in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
-```
+★★★ **A fifth was listed here as pinned and is NOT: `raid-panel-rows.tsx`.** `raid-panel.test.tsx`
+115/122/131 match it with `getByRole("button", { name: /^Severity( [▲▼])?$/ })` — the glyph sits in
+an **optional** group, so the name `"Severity"` matches just as well and blanking the glyph does not
+fail the test. It is a locator written to *tolerate* the glyph, not an assertion that requires it.
+★★ **A `getByRole` name regex containing a glyph looks identical to one asserting it** — check for a
+`?`/`*` around the glyph before calling anything pinned. Nothing else in that file reads `▲`/`▼`.
 
-★★ **Reproduce**: a temp vitest file (jsdom + `fake-indexeddb` come from `vitest.setup.ts`, so no
-manual JSDOM install is needed) that builds a 205-document workspace and round-trips it through
-`workspaceToJson`/`jsonToWorkspace`, `workspaceToCsv`/`csvToWorkspace`,
-`workspaceToMarkdown`/`markdownToWorkspace`, `workspaceToStatements`/`rowsToWorkspace`,
-`tenantWorkspaceToStatements`/`rowsToWorkspace`, and `BrowserBackend.save`/`load`. **Keep it out of
-`src/app`** — a `*.test.ts` there is picked up by the lint gate and the full-suite glob while it
-exists, which cost another agent a red `eslint --max-warnings=0 src/app` run when this was measured.
+★★★ **THE `raid-panel-rows` a11y CONCLUSION PREVIOUSLY RECORDED HERE WAS FALSE, AND IT INVERTS.**
+This entry claimed its seven `<th>` were "raw `<th>`s with no `aria-sort` (unlike `SortResizeTh`)",
+so blanking the glyph "would leave sort direction with **no** channel to assistive tech at all".
+**All seven set `aria-sort`** — `raid-panel-rows.tsx` 107, 115, 123, 131, 140, 148, 156;
+`grep -c aria-sort src/app/raid-panel-rows.tsx` → **7**. `AGENTS.md:965` already said so
+("`change-panel.tsx` + `raid-panel-rows.tsx` + `stakeholders-panel.tsx` set aria-sort AND keep a
+▲/▼ inside the button's name"), so a correct line of the always-loaded file was contradicted here
+for a whole release. What is actually true is the opposite: RAID sets `aria-sort` **and** repeats
+that state in the accessible name — the same **double announcement** `SortResizeTh` was changed to
+eliminate. Blanking the glyph removes a redundancy and leaves `aria-sort` standing, so **RAID is an
+argument for the sweep, not a hazard against it**. ★ Six of the seven headers carry the glyph in
+their name; the seventh (`id`, button at `:108`) has `aria-label={t(lang,"id")}`, which overrides
+content, so its glyph is in `textContent` only.
 
-★★ **The control is what makes the numbers mean anything.** A probe where the structural sanitizer
-silently dropped *every* version would print `phantoms 0` and read as a clean result. Two controls
-rule that out: at n=195 every path returns `195d/195v` with **0** phantoms, and the
-`discriminator(ai+delete) kept 205` column counts versions carrying `source:"ai"` + `op:"delete"` —
-neither is a sanitizer fallback (`"user"` / `"update"` are), so 205 proves real data crossed all six.
-The fixture also deliberately avoids `op:"restored"`, which the tombstone derivation excludes and
-which would have hidden the very artifact being measured.
+★★★ **The "no channel at all" warning is real and belongs to three OTHER files** —
+`activity-log-panel.tsx`, `resource-directory.tsx` and `roles-editor.tsx`, whose `aria-sort` count is
+**0** each. There the glyph IS the only sort-state channel and an `aria-hidden` SVG would delete the
+information. **Any glyph sweep must `grep -c aria-sort` the file before touching the indicator** —
+that one command distinguishes the two groups, and it is cheaper than the review round that missed it.
 
-### It is independent of `documentVersions`, and the engine cap does not touch it
+★★ **`Button` is step one; the variant is step two.** The insights panes in this very release already
+had `Button` — what changed was the variant, because ghost renders no border. Converting a
+bordered-surface `<button>` to `Button variant="ghost"` deletes its border silently, and jsdom cannot
+see it. Match the variant to the current look and eye-verify.
 
-`document-mutations.ts` now refuses creates past the cap — verified: 205 `create` calls through
-`applyDocMutation` yield `200 docs`. That stops the app **building** an over-cap state; it does
-nothing about **loading** one. The exposure is any workspace not produced by the current engine: a
-hand-edited JSON, a third-party or imported file, or data written before that guard existed.
+★★★ **AND THIS RELEASE'S OWN BUDGET CONVERSION BROKE THAT RULE IN THE OTHER DIRECTION — eye-verify
+it.** Three of the four `budget-panel.tsx` sites (now `<Button>` at 668, 675, 684) read
+`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground
+hover:border-ui-dark-blue hover:bg-surface-muted` at `4dd13660` (`git show
+4dd13660:src/app/budget-panel.tsx`) — a **ghost**-looking control that only grows a border on hover.
+Moving them to `secondary` gives them a permanent border they never had. Only the fourth (`:380`,
+`border-ui-dark-blue bg-surface px-2.5 py-1.5`) was a genuine bordered-surface button. So the
+worked example the inventory offered for this rule was in fact a counter-example, and it was
+described as having carried the bordered class string "verbatim", which none of the four did.
+★ The rule stands; the release may need a follow-up to `ghost` on those three if the new border is
+unwanted. That is a look decision, so it needs eyes, not a test.
 
-### Related, same delegation: silent per-version block truncation
+★★ `ButtonVariant` is `"primary" | "secondary" | "ghost" | "destructive"` (`button.tsx:15`). There is
+**no `danger` variant on `Button`** — `danger` belongs to `IconButtonVariant` (`icon-button.tsx:14`),
+and the inventory named it twice for `Button`, where it would not compile.
 
-A version carrying more than `MAX_BLOCKS_PER_DOC` (500) blocks loads truncated, because
-`sanitizeDocumentVersions` delegates per item to `sanitizeProjectDocuments`, which slices:
+★ Two deliberate non-conversions, recorded so they are not re-litigated: the budget bucket drag
+handle (`budget-panel.tsx:455`) carries `draggable`, the drag lifecycle **and** arrow-key reordering,
+none of which `Button` forwards; and `milestone-edit-modal.tsx`'s `linkedTasks` checkboxes stay real
+checkboxes, because a multi-select list is not a binary toggle and `aria-pressed` would announce each
+row as a button rather than a checked item in a set.
 
-```
---- REVERSE (block cap 500) ---
-blocks per version: in 525, out 500
-version COUNT cap probe: in 1200 versions -> out 1200
-```
+★ The largest single conversion family is ~26 close/remove/clear controls spelling the same idea
+three ways (`×` U+00D7, `✕` U+2715, `&times;`), all already carrying an `aria-label`. `XMarkIcon` is
+imported in 13 files already, so converging them adds no dependency — and since each is also an
+`IconButton` candidate, the element and the glyph are one edit, not two.
 
-So restoring such a version hands back a **truncated document body with no indication**. History
-corruption rather than loss, and lower severity — but silent by the same mechanism, which is why it
-belongs in this entry rather than its own. ★ Note the second line: there is **no count cap on
-versions at all**, so history is never truncated while documents survive. That direction was checked
-and is clean.
-
-### The decision that was taken — CLOSED
-
-All three candidate ends were on the table (surface it · refuse the load · raise the cap). **The
-third was chosen and combined with the first**, because neither alone is sufficient: raising the cap
-alone still destroys data for whoever exceeds the new number, and surfacing alone leaves the data
-dying with a warning attached. Refusing the load was rejected outright — it locks a user out of
-their own legitimate project with no in-app route to get back under the cap.
-
-What shipped:
-
-1. **`MAX_DOCUMENTS` 200 → 1000**, and deliberately still **ONE constant serving TWO doors** — the
-   load-time truncation *and* the engine's create/duplicate/restore refusals. A separate
-   `MAX_DOCUMENTS_LOAD` was considered and rejected: a load cap above the create cap means a
-   legitimately-loaded project cannot be edited, which is the "one door of two" shape that produced
-   six defects in S2.
-2. **The truncation is counted**, via an optional `DocTruncationDiag` threaded into
-   `sanitizeProjectDocuments` and `sanitizeDocumentVersions`. It counts **raw array entries** past
-   the cap, not validated documents — an exact count means sanitizing the whole tail, which is the
-   unbounded work the cap exists to refuse. It is an UPPER BOUND, never an undercount, which is why
-   every user-facing string says "entries".
-3. **Every backend publishes `lastLoadTruncation`**, netted by
-   `backend-truncation-registry.test.ts` — a vitest unit test (NOT a build step) scanning a
-   hardcoded list of the four backend files. The cautionary precedent is `lastImportDroppedRows`,
-   which reached two of the FOUR backends for its whole life without anything noticing — Turso and
-   IndexedDB silent throughout — because its consumer sits in `use-storage-file-ops`.
-   ★★★ THAT NET GUARDS THE PRODUCER SIDE ONLY, AND THE FIRST VERSION OF THIS ENTRY DID NOT SAY SO.
-   It shipped calling itself "the one-door-of-N guard" while the CONSUMER reached one load path of
-   seven — the six others (project switch, file open, Turso switch, reload) suppress that effect via
-   `suppressNextLoadRef` — so the register recorded this as closed while the original data loss was
-   still fully live on every route except first mount. Fixed by routing all of them through
-   `truncationOps.reportFor`, with a behavioural test per path. **A source scan proving a name
-   exists is not a claim that anything reads it.**
-4. **One consumer**, reached from every load path that applies a workspace — diagnostics-ring entry,
-   toast, and a STICKY flag. Sticky is load-bearing: `suppressNextSaveRef` beside it is one-shot AND
-   is set by every load, so it clears on the first debounce cycle and the loss lands on the *next*
-   save. Reusing it would have bought nothing. ★ Two loads deliberately do NOT report and say why at
-   the call site: the empty-load refusal applies nothing, and `onOpenStorageFile` applies tasks+raid
-   only and never the loaded documents. ★★ A CLEAN load must LOWER the flag — it did not at first,
-   so one over-cap project blocked saves in every project opened after it while the banner asserted
-   the innocent project's documents could not be opened.
-5. **Saves are paused** until the user decides, so the stored project keeps what was never loaded.
-   Neither existing invariant would have caught this: dropping 205 of 1205 leaves 83%, nowhere near
-   guard B's ≤10% threshold, and documents are not counted by those guards at all (§98).
-   ★★★ "AUTOMATIC saves are paused" is what this entry said first, and it was FALSE — the refusal
-   sat only in the debounced effect, while SEVEN other sites wrote the live workspace directly
-   (four project-switch flushes, the Turso flush, `onPickStorageFile`, `onRequestStorageSwitch`).
-   The pre-switch flush was the cruellest: the banner told the user saving was paused, and switching
-   project — a reasonable response — committed the loss. All writes now go through `flushCurrent` /
-   `guardedWrite`; the two explicit user actions refuse LOUDLY and skip their success toast, because
-   a save the user asked for must never appear to have happened.
-   ★ The truncation refusal also CONSUMES `allowDestructiveRef`. It did not at first, so a one-shot
-   destructive bypass armed during a paused period stayed armed indefinitely and could authorise an
-   unrelated mass deletion later.
-6. **A persistent banner with an explicit "Save anyway"**, not merely a toast. ★★★ This is not
-   polish — it is what stops the guard being a LOCKOUT. **The user cannot get under the cap by
-   editing**: the excess documents were never loaded, so the rows that would have to go are exactly
-   the ones that are not there. A sticky flag with no escape would be a permanent block on saving,
-   a worse defect than the one being fixed.
-   ★★★ DISMISSING IT WAS THAT LOCKOUT FOR ONE REVISION. `truncationBannerDismissed` was never reset
-   and the refusal was a bare `return` with no toast, so a single ✕ silently dropped every later
-   edit to every entity for the session while the storage indicator read healthy. The sidebar footer
-   now carries a "saving paused" state that is CLICKABLE to bring the banner back, so dismiss means
-   "stop shouting", never "stop telling me". ★ `loadWasTruncated` is deliberately NOT folded into
-   `storageOk`: two of that value's three consumers read it as "configured", so folding it in made
-   `storage-config` print three FALSE diagnoses on a healthy file (write-permission-needed, a
-   Grant-access button, Turso-needs-configuration). The term is applied at the footer call site only.
-
-★ The fix landed at the load boundary and **not** in `sanitizeDocumentVersions`, as this entry
-originally warned it must: making that function drop versions for truncated documents would delete
-the only surviving copy of that content, turning a display defect into a second data-loss bug.
-
-★★ Block truncation is counted by the same diag and surfaces through the same banner, with its OWN
-string. Three traps for whoever edits that wording, all of them shipped-and-fixed rather than
-theoretical:
-  · The toast originally interpolated only the ENTRIES count while triggering on
-    `entries + blocks > 0`, so a blocks-only truncation announced "0 document entries could not be
-    opened". A test pins that case now.
-  · The count originally compared `raw.blocks.length` against the POST-FILTER length, and
-    `sanitizeDocument` both caps blocks AND drops invalid ones — so a single malformed block
-    reported as truncation and, because any non-zero count arms the sticky guard, paused saving for
-    the whole workspace. Reachable with no hostile file at all: a `dataSection` block whose key
-    leaves `EXPORT_SECTION_KEYS` is dropped on every load thereafter, forever, after an ordinary
-    refactor. It now counts against `MAX_BLOCKS_PER_DOC`.
-  · LIVE documents were not counted at all — only stored versions. A 600-block document loaded as
-    500 with an empty diag, on the same write-back path. Both are counted now, which is why the
-    string says "stored documents" and not "stored document versions".
-★ **No string may say the cap did the cutting.** The reason has CHANGED and the old one is stale:
-it used to be that the counter included blocks dropped as invalid. It no longer does. The rule
-survives because the count is raw entries past the cap, some of which the validator would have
-rejected anyway — so it still over-claims rather than under-claims.
-
-### How many rounds this took, and why that is the useful part
-
-Two cold review rounds after the fix was "done", **seven CRITICALs total**, every one on a fully
-green gate board — `tsc` · `eslint --max-warnings=0` · size · dup · docs-symbols · coverage (10k+
-tests, floors met) · shuffle · build · axe. **The gates never once disagreed with a broken tree.**
-
-Round 1 (4 reviewers) found the disclosure reached 1 load path of 7 and the refusal 1 write path of
-8, the dismissal lockout, and the flag that never lowered. Round 2 (2 reviewers), against the FIX,
-found three more:
-  · `migrateCurrentProjectToTurso` — the same "abandon the original" shape, unguarded, then
-    repointing the app at the short copy and reloading, after which the flag never re-raises.
-  · **The classic layout still had the dismissal lockout.** `SidebarFooter` has ONE mount and it is
-    inside `modernTree`. This was flagged during the fix as a "residual gap" and accepted as one; it
-    was the same silent, permanent, session-wide save lockout, live in one of two layouts.
-  · Two of round 1's own fixes had NO KILL LINE — deleting them left every gate green, because the
-    `guardedWrite` backstop refuses through the SAME implementation and the states are
-    indistinguishable to the existing assertions.
-
-★★★ **THE GUARDS AIMED AT THE WRONG SIDE OF THE BOUNDARY, TWICE.** The registry test proved every
-backend ASSIGNS the field and said nothing about anything READING it. Its replacement, a `.save(`
-census, COUNTED rather than enumerated — so every added `guardedWrite(` bought back one ungated
-write, a `guardedWrite(` inside a COMMENT counted the same, and the measured slack was 1. Both were
-written specifically to catch this class of defect and both certified coverage that did not exist,
-each while carrying a header asserting the broader reach. **A scan proving a NAME exists is not a
-claim that anything reads it, and a scalar cannot express a per-site property.** The census now
-enumerates by file and callee.
-
-★ Owed and NOT closed by any of this: nothing has rendered the banner or the paused indicator in a
-real browser. jsdom has no layout and the axe seed is nowhere near the cap, so the green axe run
-never drew either surface.
-
-### What is NOT in this entry
-
-The **phantom deleted-documents** consequence — a truncated document's surviving version has no
-matching document, which is exactly the tombstone shape, so `deletedDocumentVersions` reports it as a
-deleted document. That is being closed separately by requiring `op === "delete"` in the derivation
-(a real engine delete always leaves that op newest; measured 6 phantom rows → 1, the genuinely
-deleted one). Do not read this entry as covering it, and do not re-open it here.
-
-★ The two interact in a way worth knowing if the phantom fix lands first: after a truncating load the
-document count sits at **exactly** `MAX_DOCUMENTS`, so the engine's own
-`state.documents.length >= MAX_DOCUMENTS` guard refuses every restore —
-`rejected=["document limit reached (<MAX_DOCUMENTS>)"]`. Any surface built on the deleted-documents
-list will show rows whose Restore button always fails, with a message that makes no sense to a user
-trying to recover a document. ★★ Do not quote a literal there: the number moved 200 → 1000 in this
-fix, and two `documents-panel` tests broke because a FIXTURE encoded the old value implicitly — it
-generated ids `10..MAX_DOCUMENTS+9` and pointed a tombstone at a hardcoded `999`, which sat outside
-that range at 200 and inside it at 1000, so the restore resolved against an existing document and
-the cap never refused.
-
----
-
-## 103. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
-
-`d7f1e0b9` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
-AI create / update / delete that actually CHANGED something. Before it, the kind was registered in
-four places and emitted from none.
-
-★★★ **That did NOT make the deep-link work, and the reason is not the one the S2 review first
-assumed.** The review recorded the deep-link as "unreachable for want of rows". Measured — wrong
-mechanism:
-
-```bash
-grep -rn "activityViewOf|dashboard-activity-nav" src/ e2e/
-#  -> src/app/dashboard-activity-nav.ts        (the definition)
-#  -> src/app/dashboard-activity-nav.test.ts   (its unit test)
-#  and nothing else
-```
-
-So `activityViewOf` has never been called from production code, for ANY activity kind — not just
-this one. Rows now exist and carry `(id, title)` args; nothing routes a click on one anywhere.
-
-★ The only consumer of `ActivityEntry.args` anywhere is `activity-log-panel.tsx`, which renders
-`t(lang, ACTIVITY_KIND_TO_KEY[e.kind], ...e.args)`. And `activityAiDocumentWrite` has **zero**
-placeholders in both EN and DE, so the id and title are stored on the entry and rendered by nothing
-today. That is deliberate and matches `ai.inlineEdit`, whose string is also placeholder-free while
-it passes `(id, title)` — the args are there for a future surface, not for the current label.
-
-★★ Do NOT "fix" this by adding placeholders to the string. The open question is where a click on an
-activity row should GO and which surfaces own that routing — a decision, not a one-liner. Wiring
-`activityViewOf` for one kind while every other kind stays unrouted would be the same
-one-door-of-two shape this slice hit six times.
+★ Nothing here is gated. `npm run docs:symbols:check` proves only that a backticked mixed-case name
+exists somewhere in the tree, and skips every `SCREAMING_CASE` name outright; axe has no rule for a
+hand-rolled control that a primitive would have done better. Re-measure before quoting any count
+above.
 
 ---
 
@@ -5624,3 +5479,261 @@ MR → poll the MR-ref pipeline to `status:success` yourself → plain
 `glab mr merge <iid> --remove-source-branch --yes` → sync main → confirm the post-merge MAIN pipeline
 green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `npm run test:run` ·
 `npm run dup:check` · palette guards · axe. Internal a11y/refactor work = **no version bump**.
+
+## 103. An over-cap load silently and permanently destroyed the excess documents — CLOSED
+
+**This is NOT a regression the S2 slice introduced, and it is not theoretical — it destroys
+user-authored content today.** `MAX_DOCUMENTS` and its `break` arrived with the document model in
+`90199c26` ("feat: canonical project document model and sanitizer"), which is an ancestor of `main`
+and **shipped in 0.219.0 "Elgin"**. S2 introduced only the phantom-deleted-documents *consequence*
+(see below), not the loss. Establish that before quoting this entry — reading it as an S2 regression
+sends someone hunting through this slice's diff for a cause that is not there.
+
+```bash
+git log --oneline -S "out.length >= MAX_DOCUMENTS" -- src/app/document-model.ts   # 90199c26 only
+git merge-base --is-ancestor 90199c26 main && echo "already shipped"              # already shipped
+```
+
+### What was measured
+
+`sanitizeProjectDocuments` (`document-model.ts`) stops at `MAX_DOCUMENTS` (**200 at the time of this
+measurement**; the fix raised it to 1000 — everything below records the defect as found) with a bare `break`.
+Nothing records that it truncated. Load an over-cap file, let autosave fire, and the excess documents
+are gone from storage:
+
+```
+--- RE-SAVE ---
+original file: 205 docs / 205 versions
+after load:    200 docs / 205 versions
+after re-save: 200 docs / 205 versions
+documents PERMANENTLY LOST by load->save: 5 ["Doc 201","Doc 202","Doc 203","Doc 204","Doc 205"]
+```
+
+**All six write paths, identically** — the cap is not per-path, so JSON · IndexedDB · Turso single ·
+Turso tenant · CSV · Markdown all inherit it:
+
+```
+--- OVER CAP n=205 (MAX_DOCUMENTS=200) ---
+json          in 205d/205v -> out 200d/205v | phantoms 5 | discriminator(ai+delete) kept 205
+csv           in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+markdown      in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+turso-single  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+turso-tenant  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+indexeddb     in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+```
+
+★★ **Reproduce**: a temp vitest file (jsdom + `fake-indexeddb` come from `vitest.setup.ts`, so no
+manual JSDOM install is needed) that builds a 205-document workspace and round-trips it through
+`workspaceToJson`/`jsonToWorkspace`, `workspaceToCsv`/`csvToWorkspace`,
+`workspaceToMarkdown`/`markdownToWorkspace`, `workspaceToStatements`/`rowsToWorkspace`,
+`tenantWorkspaceToStatements`/`rowsToWorkspace`, and `BrowserBackend.save`/`load`. **Keep it out of
+`src/app`** — a `*.test.ts` there is picked up by the lint gate and the full-suite glob while it
+exists, which cost another agent a red `eslint --max-warnings=0 src/app` run when this was measured.
+
+★★ **The control is what makes the numbers mean anything.** A probe where the structural sanitizer
+silently dropped *every* version would print `phantoms 0` and read as a clean result. Two controls
+rule that out: at n=195 every path returns `195d/195v` with **0** phantoms, and the
+`discriminator(ai+delete) kept 205` column counts versions carrying `source:"ai"` + `op:"delete"` —
+neither is a sanitizer fallback (`"user"` / `"update"` are), so 205 proves real data crossed all six.
+The fixture also deliberately avoids `op:"restored"`, which the tombstone derivation excludes and
+which would have hidden the very artifact being measured.
+
+### It is independent of `documentVersions`, and the engine cap does not touch it
+
+`document-mutations.ts` now refuses creates past the cap — verified: 205 `create` calls through
+`applyDocMutation` yield `200 docs`. That stops the app **building** an over-cap state; it does
+nothing about **loading** one. The exposure is any workspace not produced by the current engine: a
+hand-edited JSON, a third-party or imported file, or data written before that guard existed.
+
+### Related, same delegation: silent per-version block truncation
+
+A version carrying more than `MAX_BLOCKS_PER_DOC` (500) blocks loads truncated, because
+`sanitizeDocumentVersions` delegates per item to `sanitizeProjectDocuments`, which slices:
+
+```
+--- REVERSE (block cap 500) ---
+blocks per version: in 525, out 500
+version COUNT cap probe: in 1200 versions -> out 1200
+```
+
+So restoring such a version hands back a **truncated document body with no indication**. History
+corruption rather than loss, and lower severity — but silent by the same mechanism, which is why it
+belongs in this entry rather than its own. ★ Note the second line: there is **no count cap on
+versions at all**, so history is never truncated while documents survive. That direction was checked
+and is clean.
+
+### The decision that was taken — CLOSED
+
+All three candidate ends were on the table (surface it · refuse the load · raise the cap). **The
+third was chosen and combined with the first**, because neither alone is sufficient: raising the cap
+alone still destroys data for whoever exceeds the new number, and surfacing alone leaves the data
+dying with a warning attached. Refusing the load was rejected outright — it locks a user out of
+their own legitimate project with no in-app route to get back under the cap.
+
+What shipped:
+
+1. **`MAX_DOCUMENTS` 200 → 1000**, and deliberately still **ONE constant serving TWO doors** — the
+   load-time truncation *and* the engine's create/duplicate/restore refusals. A separate
+   `MAX_DOCUMENTS_LOAD` was considered and rejected: a load cap above the create cap means a
+   legitimately-loaded project cannot be edited, which is the "one door of two" shape that produced
+   six defects in S2.
+2. **The truncation is counted**, via an optional `DocTruncationDiag` threaded into
+   `sanitizeProjectDocuments` and `sanitizeDocumentVersions`. It counts **raw array entries** past
+   the cap, not validated documents — an exact count means sanitizing the whole tail, which is the
+   unbounded work the cap exists to refuse. It is an UPPER BOUND, never an undercount, which is why
+   every user-facing string says "entries".
+3. **Every backend publishes `lastLoadTruncation`**, netted by
+   `backend-truncation-registry.test.ts` — a vitest unit test (NOT a build step) scanning a
+   hardcoded list of the four backend files. The cautionary precedent is `lastImportDroppedRows`,
+   which reached two of the FOUR backends for its whole life without anything noticing — Turso and
+   IndexedDB silent throughout — because its consumer sits in `use-storage-file-ops`.
+   ★★★ THAT NET GUARDS THE PRODUCER SIDE ONLY, AND THE FIRST VERSION OF THIS ENTRY DID NOT SAY SO.
+   It shipped calling itself "the one-door-of-N guard" while the CONSUMER reached one load path of
+   seven — the six others (project switch, file open, Turso switch, reload) suppress that effect via
+   `suppressNextLoadRef` — so the register recorded this as closed while the original data loss was
+   still fully live on every route except first mount. Fixed by routing all of them through
+   `truncationOps.reportFor`, with a behavioural test per path. **A source scan proving a name
+   exists is not a claim that anything reads it.**
+4. **One consumer**, reached from every load path that applies a workspace — diagnostics-ring entry,
+   toast, and a STICKY flag. Sticky is load-bearing: `suppressNextSaveRef` beside it is one-shot AND
+   is set by every load, so it clears on the first debounce cycle and the loss lands on the *next*
+   save. Reusing it would have bought nothing. ★ Two loads deliberately do NOT report and say why at
+   the call site: the empty-load refusal applies nothing, and `onOpenStorageFile` applies tasks+raid
+   only and never the loaded documents. ★★ A CLEAN load must LOWER the flag — it did not at first,
+   so one over-cap project blocked saves in every project opened after it while the banner asserted
+   the innocent project's documents could not be opened.
+5. **Saves are paused** until the user decides, so the stored project keeps what was never loaded.
+   Neither existing invariant would have caught this: dropping 205 of 1205 leaves 83%, nowhere near
+   guard B's ≤10% threshold, and documents are not counted by those guards at all (§98).
+   ★★★ "AUTOMATIC saves are paused" is what this entry said first, and it was FALSE — the refusal
+   sat only in the debounced effect, while SEVEN other sites wrote the live workspace directly
+   (four project-switch flushes, the Turso flush, `onPickStorageFile`, `onRequestStorageSwitch`).
+   The pre-switch flush was the cruellest: the banner told the user saving was paused, and switching
+   project — a reasonable response — committed the loss. All writes now go through `flushCurrent` /
+   `guardedWrite`; the two explicit user actions refuse LOUDLY and skip their success toast, because
+   a save the user asked for must never appear to have happened.
+   ★ The truncation refusal also CONSUMES `allowDestructiveRef`. It did not at first, so a one-shot
+   destructive bypass armed during a paused period stayed armed indefinitely and could authorise an
+   unrelated mass deletion later.
+6. **A persistent banner with an explicit "Save anyway"**, not merely a toast. ★★★ This is not
+   polish — it is what stops the guard being a LOCKOUT. **The user cannot get under the cap by
+   editing**: the excess documents were never loaded, so the rows that would have to go are exactly
+   the ones that are not there. A sticky flag with no escape would be a permanent block on saving,
+   a worse defect than the one being fixed.
+   ★★★ DISMISSING IT WAS THAT LOCKOUT FOR ONE REVISION. `truncationBannerDismissed` was never reset
+   and the refusal was a bare `return` with no toast, so a single ✕ silently dropped every later
+   edit to every entity for the session while the storage indicator read healthy. The sidebar footer
+   now carries a "saving paused" state that is CLICKABLE to bring the banner back, so dismiss means
+   "stop shouting", never "stop telling me". ★ `loadWasTruncated` is deliberately NOT folded into
+   `storageOk`: two of that value's three consumers read it as "configured", so folding it in made
+   `storage-config` print three FALSE diagnoses on a healthy file (write-permission-needed, a
+   Grant-access button, Turso-needs-configuration). The term is applied at the footer call site only.
+
+★ The fix landed at the load boundary and **not** in `sanitizeDocumentVersions`, as this entry
+originally warned it must: making that function drop versions for truncated documents would delete
+the only surviving copy of that content, turning a display defect into a second data-loss bug.
+
+★★ Block truncation is counted by the same diag and surfaces through the same banner, with its OWN
+string. Three traps for whoever edits that wording, all of them shipped-and-fixed rather than
+theoretical:
+  · The toast originally interpolated only the ENTRIES count while triggering on
+    `entries + blocks > 0`, so a blocks-only truncation announced "0 document entries could not be
+    opened". A test pins that case now.
+  · The count originally compared `raw.blocks.length` against the POST-FILTER length, and
+    `sanitizeDocument` both caps blocks AND drops invalid ones — so a single malformed block
+    reported as truncation and, because any non-zero count arms the sticky guard, paused saving for
+    the whole workspace. Reachable with no hostile file at all: a `dataSection` block whose key
+    leaves `EXPORT_SECTION_KEYS` is dropped on every load thereafter, forever, after an ordinary
+    refactor. It now counts against `MAX_BLOCKS_PER_DOC`.
+  · LIVE documents were not counted at all — only stored versions. A 600-block document loaded as
+    500 with an empty diag, on the same write-back path. Both are counted now, which is why the
+    string says "stored documents" and not "stored document versions".
+★ **No string may say the cap did the cutting.** The reason has CHANGED and the old one is stale:
+it used to be that the counter included blocks dropped as invalid. It no longer does. The rule
+survives because the count is raw entries past the cap, some of which the validator would have
+rejected anyway — so it still over-claims rather than under-claims.
+
+### How many rounds this took, and why that is the useful part
+
+Two cold review rounds after the fix was "done", **seven CRITICALs total**, every one on a fully
+green gate board — `tsc` · `eslint --max-warnings=0` · size · dup · docs-symbols · coverage (10k+
+tests, floors met) · shuffle · build · axe. **The gates never once disagreed with a broken tree.**
+
+Round 1 (4 reviewers) found the disclosure reached 1 load path of 7 and the refusal 1 write path of
+8, the dismissal lockout, and the flag that never lowered. Round 2 (2 reviewers), against the FIX,
+found three more:
+  · `migrateCurrentProjectToTurso` — the same "abandon the original" shape, unguarded, then
+    repointing the app at the short copy and reloading, after which the flag never re-raises.
+  · **The classic layout still had the dismissal lockout.** `SidebarFooter` has ONE mount and it is
+    inside `modernTree`. This was flagged during the fix as a "residual gap" and accepted as one; it
+    was the same silent, permanent, session-wide save lockout, live in one of two layouts.
+  · Two of round 1's own fixes had NO KILL LINE — deleting them left every gate green, because the
+    `guardedWrite` backstop refuses through the SAME implementation and the states are
+    indistinguishable to the existing assertions.
+
+★★★ **THE GUARDS AIMED AT THE WRONG SIDE OF THE BOUNDARY, TWICE.** The registry test proved every
+backend ASSIGNS the field and said nothing about anything READING it. Its replacement, a `.save(`
+census, COUNTED rather than enumerated — so every added `guardedWrite(` bought back one ungated
+write, a `guardedWrite(` inside a COMMENT counted the same, and the measured slack was 1. Both were
+written specifically to catch this class of defect and both certified coverage that did not exist,
+each while carrying a header asserting the broader reach. **A scan proving a NAME exists is not a
+claim that anything reads it, and a scalar cannot express a per-site property.** The census now
+enumerates by file and callee.
+
+★ Owed and NOT closed by any of this: nothing has rendered the banner or the paused indicator in a
+real browser. jsdom has no layout and the axe seed is nowhere near the cap, so the green axe run
+never drew either surface.
+
+### What is NOT in this entry
+
+The **phantom deleted-documents** consequence — a truncated document's surviving version has no
+matching document, which is exactly the tombstone shape, so `deletedDocumentVersions` reports it as a
+deleted document. That is being closed separately by requiring `op === "delete"` in the derivation
+(a real engine delete always leaves that op newest; measured 6 phantom rows → 1, the genuinely
+deleted one). Do not read this entry as covering it, and do not re-open it here.
+
+★ The two interact in a way worth knowing if the phantom fix lands first: after a truncating load the
+document count sits at **exactly** `MAX_DOCUMENTS`, so the engine's own
+`state.documents.length >= MAX_DOCUMENTS` guard refuses every restore —
+`rejected=["document limit reached (<MAX_DOCUMENTS>)"]`. Any surface built on the deleted-documents
+list will show rows whose Restore button always fails, with a message that makes no sense to a user
+trying to recover a document. ★★ Do not quote a literal there: the number moved 200 → 1000 in this
+fix, and two `documents-panel` tests broke because a FIXTURE encoded the old value implicitly — it
+generated ids `10..MAX_DOCUMENTS+9` and pointed a tombstone at a hardcoded `999`, which sat outside
+that range at 200 and inside it at 1000, so the restore resolved against an existing document and
+the cap never refused.
+
+---
+
+## 104. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
+
+`d7f1e0b9` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
+AI create / update / delete that actually CHANGED something. Before it, the kind was registered in
+four places and emitted from none.
+
+★★★ **That did NOT make the deep-link work, and the reason is not the one the S2 review first
+assumed.** The review recorded the deep-link as "unreachable for want of rows". Measured — wrong
+mechanism:
+
+```bash
+grep -rn "activityViewOf|dashboard-activity-nav" src/ e2e/
+#  -> src/app/dashboard-activity-nav.ts        (the definition)
+#  -> src/app/dashboard-activity-nav.test.ts   (its unit test)
+#  and nothing else
+```
+
+So `activityViewOf` has never been called from production code, for ANY activity kind — not just
+this one. Rows now exist and carry `(id, title)` args; nothing routes a click on one anywhere.
+
+★ The only consumer of `ActivityEntry.args` anywhere is `activity-log-panel.tsx`, which renders
+`t(lang, ACTIVITY_KIND_TO_KEY[e.kind], ...e.args)`. And `activityAiDocumentWrite` has **zero**
+placeholders in both EN and DE, so the id and title are stored on the entry and rendered by nothing
+today. That is deliberate and matches `ai.inlineEdit`, whose string is also placeholder-free while
+it passes `(id, title)` — the args are there for a future surface, not for the current label.
+
+★★ Do NOT "fix" this by adding placeholders to the string. The open question is where a click on an
+activity row should GO and which surfaces own that routing — a decision, not a one-liner. Wiring
+`activityViewOf` for one kind while every other kind stays unrouted would be the same
+one-door-of-two shape this slice hit six times.
+
+---

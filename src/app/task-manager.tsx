@@ -393,7 +393,7 @@ function TaskManagerInner() {
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
-  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §102's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
+  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
   const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.

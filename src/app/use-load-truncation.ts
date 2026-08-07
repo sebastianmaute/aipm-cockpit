@@ -100,7 +100,7 @@ export interface LoadTruncationGuard {
    *  user CANNOT get under the cap by editing: the excess entries were never
    *  loaded, so the rows that would have to go are precisely the ones that are
    *  not there. Without a visible escape the sticky flag below is a permanent
-   *  save lockout — a worse defect than the one §102 is about. */
+   *  save lockout — a worse defect than the one §103 is about. */
   allowTruncatedSave: () => void;
   /** True when a save may proceed. */
   mayCommitAfterTruncation: () => boolean;
@@ -109,7 +109,7 @@ export interface LoadTruncationGuard {
 }
 
 /**
- * The §102 guard: an over-cap load truncates the documents array, and the next
+ * The §103 guard: an over-cap load truncates the documents array, and the next
  * AUTOMATIC save commits that loss permanently across all six write paths — the
  * excess documents are still in the source file, and writing the truncated set
  * over it destroys them.

@@ -295,7 +295,7 @@ export function DocumentsPanel({
   // documents but keeps ALL its versions, because `sanitizeProjectDocuments`
   // caps the count while `sanitizeDocumentVersions` structurally cannot. (The
   // cap was raised to 1000 and a truncating load now warns and pauses saving
-  // — open-followups §102 — so this is rarer than it was, but a file built
+  // — open-followups §103 — so this is rarer than it was, but a file built
   // against the old limit can still arrive in this shape.) And (b) ORPHANS from
   // a partial import, or a text-backend load where the `documents` blob failed
   // to parse and the `documentVersions` blob succeeded (they have independent

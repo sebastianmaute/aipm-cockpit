@@ -41,7 +41,7 @@ export interface FileProjectOpsDeps {
   setStorageConfig: (config: StorageConfig) => void;
   langRef: React.MutableRefObject<Lang>;
   settingsRef: React.MutableRefObject<Settings>;
-  /** ★★ The §102 choke points, and the ONLY way this file reaches the
+  /** ★★ The §103 choke points, and the ONLY way this file reaches the
    *  ACTIVE backend. There is deliberately no `backend` dep: every flush here
    *  is a best-effort pre-switch write of the LIVE workspace, which is exactly
    *  the write that must not commit a truncated load. Removing the raw handle
@@ -159,7 +159,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.commitRegistry(registry);
       // Apply the new (empty + meta) workspace and point the active backend at it.
       deps.applyWorkspace(ws);
-      deps.truncationOps.clearForFreshWorkspace(); // ★★★ §102: createProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
+      deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
@@ -316,7 +316,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       // Default (file/local) mode: apply in place, no reload.
       deps.commitRegistry(registry);
       deps.applyWorkspace(ws);
-      deps.truncationOps.clearForFreshWorkspace(); // ★★★ §102: createDemoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
+      deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createDemoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);

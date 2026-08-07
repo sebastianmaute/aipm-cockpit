@@ -30,7 +30,7 @@ import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { capHtmlText, htmlTextLength } from "./rich-text-plain";
 
 /** Bounds on what a hostile or corrupt import can force. */
-// ★★ Raised 200 -> 1000 in the §102 fix. ONE constant serves TWO doors: the
+// ★★ Raised 200 -> 1000 in the §103 fix. ONE constant serves TWO doors: the
 // load-time truncation in sanitizeProjectDocuments AND the engine's
 // create/duplicate/restore refusals in document-mutations.ts. Splitting it into
 // separate load/create limits was considered and rejected -- a load cap higher
@@ -243,7 +243,7 @@ export function sanitizeProjectDocuments(
     // reported theirs (document-versions.ts) but the documents they are versions
     // OF did not, so a 600-block document loaded as 500, the next save wrote 500
     // back over all six write paths, and the 100 were gone with no count, no
-    // toast and nothing raised for the §102 save guard to refuse.
+    // toast and nothing raised for the §103 save guard to refuse.
     // ★★ Same UPPER-BOUND contract as `truncatedEntries`: RAW entries past the
     // cap, not blocks proven valid. Blocks the validator drops as INVALID are
     // deliberately NOT counted — a count including them arms the sticky guard

@@ -39,7 +39,7 @@ export interface TursoProjectOpsDeps {
   tursoConfigNow: () => TursoConfig | null;
   tursoProjectId: string | null;
   setTursoProjectId: (id: string | null) => void;
-  /** ★★ The §102 choke points, and the ONLY way this file reaches the
+  /** ★★ The §103 choke points, and the ONLY way this file reaches the
    *  ACTIVE backend — see the note on `FileProjectOpsDeps.truncationOps`. */
   truncationOps: TruncationOps;
   currentWorkspace: () => Workspace;
@@ -125,7 +125,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       // user edit. The file path saves explicitly too (targetBackend.save).
       await new TursoBackend(cfg, id).save(ws);
       deps.applyWorkspace(ws);
-      deps.truncationOps.clearForFreshWorkspace(); // ★★★ §102: createTursoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
+      deps.truncationOps.clearForFreshWorkspace(); // ★★★ §103: createTursoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setTursoProjectId(id);
@@ -153,7 +153,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       deps.showToast("error", t(deps.langRef.current, "projectMigrateNoProject"));
       return;
     }
-    // ★★★ §102: DECLINE BEFORE `portfolioCreate`, not after it. That call inserts
+    // ★★★ §103: DECLINE BEFORE `portfolioCreate`, not after it. That call inserts
     // a live, non-archived row into the shared portfolio DB — an irreversible
     // side effect — so refusing only at the write left a PHANTOM project named
     // after the user's, sitting in their Turso list and opening empty forever,
@@ -166,7 +166,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     const id = crypto.randomUUID();
     try {
       await portfolioCreate(cfg, meta, id);
-      // ★★★ §102 BACKSTOP. Unlike `createTursoProject` above — which writes a
+      // ★★★ §103 BACKSTOP. Unlike `createTursoProject` above — which writes a
       // freshly-built workspace, so a truncated load is irrelevant to it — THIS
       // one copies the LIVE workspace verbatim (see the note above the
       // function). Untruncated it would write the SHORT copy, repoint the app at

@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.221.0] - 2026-08-07 "Charnas"
+## [0.222.0] - 2026-08-07 "Charnas"
 
 A project holding more documents than the app could open used to lose them.
 Opening such a file kept the first batch and discarded the rest with no
@@ -49,6 +49,48 @@ you decide.
 
 - Restoring a document into a full project still refuses, and the refusal now
   quotes the raised limit.
+
+## [0.221.0] - 2026-08-07 "Kavan"
+
+### Added
+
+- **Gantt day axis shows the weekday.** Each day column now stacks the short
+  weekday under the day-of-month number ("15" over "Mon"), via a new pure
+  `fmtWeekdayShort` helper. The formatter reads the date in UTC to match the
+  rest of the Gantt engine, which is UTC-built throughout — formatting in the
+  host zone would shift the label by a day in any negative-offset zone and
+  disagree with the bar placement. The day band grew from 22px to 30px to fit
+  the second line, so the header total is now a sum of two differing row
+  heights rather than a doubled constant.
+- **Hand-rolled UI inventory** (`docs/handrolled-ui-inventory.md`) — a repo-wide
+  audit of markup that reimplements a shared primitive, and of Unicode glyphs
+  used where a heroicon exists. Audit only; the remainder is a ratchet, filed
+  as open-followups 102.
+
+### Changed
+
+- **Milestone "achieved" is a toggle button**, in both the milestones table and
+  the milestone editor, replacing a hand-rolled label-and-checkbox. The table
+  control carries a row-unique accessible name, since N identical "Achieved"
+  labels would be a WCAG 2.4.6 failure that the axe gate passes whenever the
+  seed renders a single milestone.
+- **Insights row actions use the bordered button variant.** Eleven buttons
+  across the Insights pane, the shared recommendation controls and the
+  dashboard insights card move from `ghost` to `secondary`, giving them the
+  bordered-chip look of the Open Points "Hide finished" control. The dashboard
+  card is included because its buttons are siblings of the shared controls in
+  one flex row — converting only the shared component would have mixed two
+  looks in a single row.
+- **Budget bucket actions use the shared button primitive.** The three
+  per-bucket actions and the FX refresh control become `Button`, replacing
+  hand-rolled markup. **Remove bucket takes the `destructive` variant** rather
+  than matching Edit and Close — it is the only irreversible action in that row
+  and previously looked identical to the other two. It remains `confirm()`-gated;
+  the variant is the affordance, not the safeguard. The FX refresh control
+  consequently loses its dark-blue accent and now reads as neutral, matching the
+  reset controls beside it, which already used the same bordered recipe. The
+  bucket drag handle stays hand-rolled: it carries the drag lifecycle and
+  arrow-key reordering, which the primitive does not forward.
 
 ## [0.220.0] - 2026-08-07 "Kuttner"
 
