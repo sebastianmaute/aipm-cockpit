@@ -5,7 +5,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
-import { expectSecondaryButton } from "../test/button-variant";
+import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -810,9 +810,12 @@ describe("BudgetPanel — Total column + total row", () => {
   });
 });
 
-test("bucket actions render as bordered secondary buttons", () => {
+test("the non-destructive bucket actions render as bordered secondary buttons", () => {
   render(<BudgetPanel {...props} />);
-  for (const key of ["budgetEditBucket", "budgetClose", "budgetRemoveBucket"] as const) {
+  // ★★ Edit and Close ONLY. Remove is deliberately NOT in this loop — it renders
+  //    `destructive` and is asserted in the test below. Adding it back here would
+  //    fail, which is the point: the two variants must not silently converge.
+  for (const key of ["budgetEditBucket", "budgetClose"] as const) {
     const btn = screen.getByRole("button", { name: t("en-US", key) });
     // ★★ Word-bounded, never `toContain` — see `src/test/button-variant.ts` for
     //    why the substring form is vacuous. NOT because "every variant ends in
@@ -832,6 +835,20 @@ test("bucket actions render as bordered secondary buttons", () => {
     //   shared helper (the FX button below had DIFFERENT old markup).
     expect(btn.className).not.toContain("border-transparent");
   }
+});
+
+test("remove bucket renders as the destructive variant, not secondary", () => {
+  render(<BudgetPanel {...props} />);
+  const btn = screen.getByRole("button", { name: t("en-US", "budgetRemoveBucket") });
+  // ★★ Removing a bucket is the only irreversible action in that row. Rendering
+  //    it identically to Edit and Close is what this pins against — the killing
+  //    mutation is flipping it back to `variant="secondary"`, which loses both
+  //    tokens below.
+  expectDestructiveButton(btn);
+  // ★ The control assertion: `secondary`'s defining border must be ABSENT.
+  //   Without this the test would still pass if some future variant carried the
+  //   pink tokens AND `border-line`, i.e. if the two looks reconverged.
+  expect(btn.className).not.toMatch(/(^|\s)border-line(\s|$)/);
 });
 
 test("the FX refresh control renders as a bordered secondary button", () => {

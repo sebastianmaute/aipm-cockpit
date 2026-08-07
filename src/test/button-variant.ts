@@ -37,7 +37,14 @@
 // so this one token would survive an unbounded check too — it is bounded for the
 // same reason as the others, so a future `hover:cursor-pointer`-shaped utility
 // cannot silently satisfy it.)
-const BOUNDED_TOKENS = ["border-line", "bg-surface", "cursor-pointer"] as const;
+const SECONDARY_TOKENS = ["border-line", "bg-surface", "cursor-pointer"] as const;
+
+// ★★ `destructive` is `border border-ui-pink/40 bg-surface text-ui-pink-strong
+// hover:bg-ui-pink/10 dark:border-ui-pink/50`. Note what CANNOT be used to
+// identify it: `bg-surface` is shared with `secondary`, and a bare
+// `border-ui-pink` would also match the `dark:border-ui-pink/50` beside it. The
+// two tokens below are unique to this variant, and the `/40` is load-bearing.
+const DESTRUCTIVE_TOKENS = ["border-ui-pink/40", "text-ui-pink-strong", "cursor-pointer"] as const;
 
 /** Best-effort name for a failure message (matches `toolbar-order`'s rule:
  *  `||`, not `??`, so an `aria-label=""` cannot shadow the text fallback). */
@@ -56,17 +63,40 @@ function describeButton(el: HTMLElement): string {
  * renders the secondary variant's classes".
  */
 export function expectSecondaryButton(el: HTMLElement): void {
+  assertVariant(el, "secondary", SECONDARY_TOKENS);
+}
+
+/**
+ * Asserts `el` carries the `destructive` variant's colour/border classes.
+ *
+ * ★ Same caveat as above: this proves which CLASSES are rendered, not that the
+ * caller resolved a `Button`. `cursor-pointer` is what rules out a hand-rolled
+ * control or a `ToggleButton`.
+ */
+export function expectDestructiveButton(el: HTMLElement): void {
+  assertVariant(el, "destructive", DESTRUCTIVE_TOKENS);
+}
+
+function assertVariant(
+  el: HTMLElement,
+  variant: string,
+  tokens: readonly string[],
+): void {
+  const fn = `expect${variant[0].toUpperCase()}${variant.slice(1)}Button`;
   if (el.tagName !== "BUTTON") {
     throw new Error(
-      `expectSecondaryButton: expected a <button> (the Button primitive always renders one), got <${el.tagName.toLowerCase()}>`,
+      `${fn}: expected a <button> (the Button primitive always renders one), got <${el.tagName.toLowerCase()}>`,
     );
   }
   const cls = el.className;
-  for (const token of BOUNDED_TOKENS) {
-    if (!new RegExp(`(^|\\s)${token}(\\s|$)`).test(cls)) {
+  for (const token of tokens) {
+    // ★ `token` may contain regex metacharacters — `border-ui-pink/40` does.
+    //   Escape before interpolating, or the pattern silently means something else.
+    const safe = token.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+    if (!new RegExp(`(^|\\s)${safe}(\\s|$)`).test(cls)) {
       throw new Error(
-        `expectSecondaryButton: "${describeButton(el)}" is missing a standalone "${token}" — ` +
-          `not the secondary variant. className was "${cls}"`,
+        `${fn}: "${describeButton(el)}" is missing a standalone "${token}" — ` +
+          `not the ${variant} variant. className was "${cls}"`,
       );
     }
   }

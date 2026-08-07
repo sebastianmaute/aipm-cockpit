@@ -681,8 +681,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 >
                   {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
                 </Button>
+                {/* ★ `destructive`, not `secondary`: this is the only action in
+                    the row that destroys data, and rendering it identically to
+                    Edit and Close made the row's one irreversible control
+                    indistinguishable. It stays `confirm()`-gated either way —
+                    the variant is the affordance, not the safeguard. */}
                 <Button
-                  variant="secondary"
+                  variant="destructive"
                   size="xs"
                   onClick={() => removeBucket(bucket.id)}
                   title={t(lang, "budgetRemoveBucket")}

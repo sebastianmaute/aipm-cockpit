@@ -41,10 +41,14 @@ longer carries its own changelog comment.
   looks in a single row.
 - **Budget bucket actions use the shared button primitive.** The three
   per-bucket actions and the FX refresh control become `Button`, replacing
-  hand-rolled markup. The FX refresh control consequently loses its dark-blue
-  accent and now reads as neutral. The bucket drag handle stays hand-rolled: it
-  carries the drag lifecycle and arrow-key reordering, which the primitive does
-  not forward.
+  hand-rolled markup. **Remove bucket takes the `destructive` variant** rather
+  than matching Edit and Close — it is the only irreversible action in that row
+  and previously looked identical to the other two. It remains `confirm()`-gated;
+  the variant is the affordance, not the safeguard. The FX refresh control
+  consequently loses its dark-blue accent and now reads as neutral, matching the
+  reset controls beside it, which already used the same bordered recipe. The
+  bucket drag handle stays hand-rolled: it carries the drag lifecycle and
+  arrow-key reordering, which the primitive does not forward.
 
 ## [0.220.0] - 2026-08-07 "Kuttner"
 
