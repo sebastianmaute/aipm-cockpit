@@ -2551,6 +2551,7 @@ const enUS = {
   documentsRestore: "Restore",
   documentsRestored: "Restored “{0}”",
   documentsShowDeleted: "Deleted documents",
+  documentsDeletedImplausible: "More documents look deleted than exist. Your project file may not have loaded correctly.",
   documentsNoVersions: "No history yet",
   documentsVersionSourceAi: "Assistant",
   documentsVersionSourceUser: "You",

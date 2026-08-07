@@ -936,3 +936,68 @@ describe("DocumentsPanel — deleted documents", () => {
   });
 
 });
+
+describe("DocumentsPanel — the implausible-deleted-list guard", () => {
+  function tombstone(id: number, documentId: number, title: string): DocVersion {
+    return {
+      id,
+      documentId,
+      title,
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+  }
+
+  /** Renders with an explicit version list, so the derivation can be handed the
+   *  shapes a corrupted load produces without having to corrupt a load. */
+  function renderWith(documents: readonly ProjectDocument[], versions: readonly DocVersion[]) {
+    return render(
+      <ConfirmProvider lang="en-US">
+        <DocumentsPanel
+          lang="en-US"
+          documents={documents}
+          mutateDocuments={inertMutate}
+          documentVersions={versions}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </ConfirmProvider>,
+    );
+  }
+
+  // ★★★ MUTATION-PROVED. The signature of a `documents` blob that failed to
+  // parse beside a versions blob that did not: every version reads as deleted.
+  it("cautions when more documents look deleted than exist", async () => {
+    const user = userEvent.setup();
+    renderWith([], [tombstone(1, 10, "Gone A"), tombstone(2, 11, "Gone B")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.getByRole("status").textContent).toMatch(/may not have loaded correctly/i);
+    // ★ It CAUTIONS, it does not hide or disable: a user who really did delete
+    // most of their documents must still be able to restore them.
+    expect(screen.getAllByRole("button", { name: /^Restore –/ })).toHaveLength(2);
+  });
+
+  it("stays quiet when the deleted list is a plausible size", async () => {
+    const user = userEvent.setup();
+    // ★ A POSITIVE observable in the same test, so this cannot pass against a
+    // caution that never renders under any conditions: the section IS shown and
+    // its row IS there, only the caution is absent.
+    renderWith([doc(1, "Alpha"), doc(2, "Beta")], [tombstone(1, 99, "Gone")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.getByRole("button", { name: /^Restore –/ })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("cautions on the boundary only when deleted strictly exceeds live", async () => {
+    const user = userEvent.setup();
+    // Equal counts is the boundary: one deleted, one live is an ordinary
+    // project, not a failed load.
+    renderWith([doc(1, "Alpha")], [tombstone(1, 99, "Gone")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});

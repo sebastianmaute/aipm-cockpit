@@ -2515,6 +2515,7 @@ export const de: Record<TranslationKey, string> = {
   documentsRestore: "Wiederherstellen",
   documentsRestored: "„{0}“ wiederhergestellt",
   documentsShowDeleted: "Gelöschte Dokumente",
+  documentsDeletedImplausible: "Mehr Dokumente scheinen gelöscht zu sein, als vorhanden sind. Ihre Projektdatei wurde möglicherweise nicht korrekt geladen.",
   documentsNoVersions: "Noch kein Verlauf",
   documentsVersionSourceAi: "Assistent",
   documentsVersionSourceUser: "Sie",
