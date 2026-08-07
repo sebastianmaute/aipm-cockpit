@@ -1,8 +1,32 @@
 # Tooltip inventory
 
 Snapshot taken 2026-08-07, on `2d31abe5` (branch `feat/ui-batch-slice-2`, Tasks 1–12 committed).
-**Audit only — Class A is scheduled as Task 14 of this slice; Class B is not scheduled and needs
-row-level approval.**
+
+## Status — updated 2026-08-07, after implementation
+
+| Bucket | State |
+|---|---|
+| **Class A** — 19 rows | ✅ **ALL 19 IMPLEMENTED** (`1414b1c0`). 3 of 19 pinned by a test; the other 16 carry no assertion. |
+| **Class B** — 14 rows | ✅ **13 IMPLEMENTED** (`4ea09b7c`), user-approved at row level. ⏸ **B1 HELD** — see below. |
+| **keep** | unchanged, by design |
+| **name defect** — 1 row | ❌ **OPEN** — `workspace-section-chrome.tsx`, needs `aria-label`, not a `title`. |
+| **blocked on i18n** — 1 row | ❌ **OPEN** — `stakeholder-recipient-input.tsx`; translate first. |
+| 15 hardcoded-English names | ❌ **OPEN** — adjacent finding, tracked in `docs/open-followups.md` §103. |
+
+★★ **B1 (settings cog) is the ONE Class B row still open**, held deliberately: that control renders
+in the **classic** header only, outside the `ActionMenus` element `buildShellChrome` feeds the modern
+shell's `topBarMenus` slot — and modern is the default layout. Establish the modern shell's own route
+to Settings before wording its copy; the answer may be that a tooltip is not the finding there.
+
+★★ **Implementation found something this document did not, and it changes how B5–B9 must be tested.**
+`ToggleButton` **composes** the title: `[title, stateText].join(" · ")`. So those five render
+`"<hint> · Currently on — click to turn off"`, **not** the bare hint. An equality assertion on them
+fails; use `toContain`. The five also now announce hint *and* state on focus — existing primitive
+behaviour, but five more controls joined it.
+
+★ Line numbers below were accurate for the **expressions** but drifted for the **positions**: twelve
+of the nineteen Class A lines were low by 2–6 when applied, and `removable-chip-row`'s pointed at the
+component signature rather than the `aria-label`. Cite the symbol, not the line.
 
 Scope: all of `src/app`, `*.tsx`, excluding `*.test.tsx`. The classification surface is the
 **icon-only and glyph-only** controls — the ones a hover tooltip is actually for. A control with a
