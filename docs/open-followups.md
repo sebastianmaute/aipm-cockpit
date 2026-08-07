@@ -5097,6 +5097,74 @@ evaluate CSS custom-property colour maths. The numbers above are the only covera
 
 ---
 
+## 102. Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet
+
+The full audit is [`docs/handrolled-ui-inventory.md`](handrolled-ui-inventory.md), taken 2026-08-07 on
+`63e4d768`. It is the work-list for **both** parts; this entry exists so the register points at it.
+
+**What 0.221.0 actually converted** — five panes, 17 call sites across six files, and nothing else:
+`insights-panel.tsx` (4) · `insight-recommendation-controls.tsx` (3) ·
+`dashboard-sections/insights-card.tsx` (4) all moved `Button` from `variant="ghost"` to
+`"secondary"`; `budget-panel.tsx` converted 4 hand-rolled `<button>` to `Button variant="secondary"`;
+`milestones-panel.tsx` and `milestone-edit-modal.tsx` each moved the achieved checkbox to
+`ToggleButton`. **The remainder is a ratchet, not a scheduled slice** — acting on the inventory and
+producing it are separate jobs, and converting 310 elements in one sweep is unreviewable.
+
+The scale, so nobody re-derives it: **341** `<button>` sites in non-test `.tsx` across **152** files;
+18 are the primitives' own internals; of the remaining 323, **12 are the word `<button>` in a
+comment** and **311 are elements** — 134 correctly hand-rolled, **141 convertible** to `Button`,
+**36** to `IconButton`.
+
+★★ **The glyph baseline in the slice plan is not reproducible under the filter that plan's own
+command states, and the difference is not drift.** Every quoted figure (`✕` 47 · `×` 75 · `•` 21 · `✓`
+17 · `▲`/`▼` 17 · `↑` 12 · `⚠`/`⋮`/`↓` 9 · `▸` 4 · `▾` 3 · `🗒` 2) matches `src/app` scanned with the
+`--include=*.tsx --exclude="*.test.tsx"` filters **not in effect** — `.ts` files and test files
+included. Under the stated filter the same glyphs measure 24 · 22 · 7 · 10 · 14 · 5 · 8/2/4 · 4 · 3 ·
+**0**. Two things follow. The `🗒` count is not UI at all — both hits are in the generated
+`operating-guide-builtin.generated.ts`, and there is **no `🗒` glyph anywhere in the app's markup**
+(the notes badge renders an icon). And `×` inflates 22 → 75 mostly because test comments are full of
+arithmetic, so the multiplication-vs-close-glyph triage the plan calls "the main manual work" is
+about a third the size it looks: of 22 real `×` lines, 8 are multiplication or prose and 14 are close
+glyphs.
+
+★★★ **Seven source sites have their glyph pinned by a test assertion, not the two the plan names.**
+`report-table.tsx:148` (`report-table.test.tsx`, and again via `SortResizeTh` in
+`calendar-series-list.test.tsx`) were known. The five that were not: `raid-panel-rows.tsx` 109-158 ·
+`task-status-glyph.tsx` 54/56 · `dashboard-panel.tsx:364` · `entity-link-picker.tsx:222` ·
+`milestone-horizon-strip.tsx:46`. Distinguish them from the ~10 test files that merely mention a
+glyph in an `it(...)` title — the inventory lists both sets so the distinction is not re-derived.
+
+★★★ **`raid-panel-rows.tsx` is the dangerous one and it is a WCAG 2.4.6 case, not a test case.** Its
+seven sortable headers concatenate `▲`/`▼` into the header's own text, so the glyph sits inside the
+button's **accessible name** — `raid-panel.test.tsx` matches it with a `getByRole` name regex, which
+is what makes that visible. These are raw `<th>`s with no `aria-sort` (unlike `SortResizeTh`), so
+replacing the glyph with an `aria-hidden` SVG would leave sort direction with **no** channel to
+assistive tech at all. The same holds for `activity-log-panel.tsx:160`, `resource-directory.tsx:196`
+and `roles-editor.tsx` 197-221. Any glyph sweep must read the `<th>` before touching the indicator.
+
+★★ **`Button` is step one; the variant is step two.** The insights panes in this very release already
+had `Button` — what changed was the variant, because ghost renders no border. Converting a
+bordered-surface `<button>` to `Button variant="ghost"` deletes its border silently, and jsdom cannot
+see it. Match the variant to the current look and eye-verify.
+
+★ Two deliberate non-conversions, recorded so they are not re-litigated: the budget bucket drag
+handle (`budget-panel.tsx:455`) carries `draggable`, the drag lifecycle **and** arrow-key reordering,
+none of which `Button` forwards; and `milestone-edit-modal.tsx`'s `linkedTasks` checkboxes stay real
+checkboxes, because a multi-select list is not a binary toggle and `aria-pressed` would announce each
+row as a button rather than a checked item in a set.
+
+★ The largest single conversion family is ~26 close/remove/clear controls spelling the same idea
+three ways (`×` U+00D7, `✕` U+2715, `&times;`), all already carrying an `aria-label`. `XMarkIcon` is
+imported in eight files already, so converging them adds no dependency — and since each is also an
+`IconButton` candidate, the element and the glyph are one edit, not two.
+
+★ Nothing here is gated. `npm run docs:symbols:check` proves only that a backticked mixed-case name
+exists somewhere in the tree, and skips every `SCREAMING_CASE` name outright; axe has no rule for a
+hand-rolled control that a primitive would have done better. Re-measure before quoting any count
+above.
+
+---
+
 ## Provenance — where these items came from, and what already closed
 
 Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
