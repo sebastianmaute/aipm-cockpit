@@ -16,6 +16,7 @@ import { useDraggable } from "./use-draggable";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { useModalVisibility } from "./use-modal-visibility";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { ToggleButton } from "./toggle-button";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
@@ -228,24 +229,22 @@ export function MilestoneEditModal({
           )}
 
           {isVisible("achievedDate") && (
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={!!draft.achievedDate}
-              onChange={(e) =>
-                update(
-                  "achievedDate",
-                  e.target.checked
-                    ? new Date().toISOString().slice(0, 10)
-                    : undefined,
-                )
-              }
-              className={`${FOCUS_RING} ${TRANSITION}`}
-            />
-            <span className="font-medium text-foreground">
-              {t(lang, "milestoneAchieved")}
-            </span>
-          </label>
+          // ★ The date is stamped inside the handler, not in the render body —
+          //   `new Date()` in a component render body is a fatal `react-hooks`
+          //   purity error under this repo's lint.
+          <ToggleButton
+            lang={lang}
+            pressed={!!draft.achievedDate}
+            onToggle={() =>
+              update(
+                "achievedDate",
+                draft.achievedDate ? undefined : new Date().toISOString().slice(0, 10),
+              )
+            }
+            className="w-fit"
+          >
+            {t(lang, "milestoneAchieved")}
+          </ToggleButton>
           )}
 
           {isVisible("linkedTasks") && (

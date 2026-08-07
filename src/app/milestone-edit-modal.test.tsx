@@ -168,26 +168,34 @@ describe("MilestoneEditModal — field visibility", () => {
   });
 });
 
+/** Shared single-milestone render. Hoisted to module scope so the achieved-toggle
+ *  block below reuses it rather than growing a second copy. */
+function renderWith(milestone: {
+  id: number;
+  name: string;
+  date: string;
+  description?: string;
+  achievedDate?: string;
+}) {
+  return render(
+    <MilestoneEditModal
+      lang="en-US"
+      milestone={{ ...milestone, linkedTaskIds: [] }}
+      isNew={false}
+      tasks={[]}
+      onSave={vi.fn()}
+      onDelete={vi.fn()}
+      onClose={vi.fn()}
+    />,
+    { wrapper },
+  );
+}
+
 describe("MilestoneEditModal — rich-text description (slice B)", () => {
   // The lean editor names its contenteditable surface with its `label` prop
   // (editorProps.attributes sets role="textbox" + aria-label), so the query is
   // by the same i18n key the visible field label uses.
   const DESC_LABEL = t("en-US", "milestoneDescription");
-
-  function renderWith(milestone: { id: number; name: string; date: string; description?: string }) {
-    return render(
-      <MilestoneEditModal
-        lang="en-US"
-        milestone={{ ...milestone, linkedTaskIds: [] }}
-        isNew={false}
-        tasks={[]}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
-        onClose={vi.fn()}
-      />,
-      { wrapper },
-    );
-  }
 
   it("renders the description in a rich-text editor, not a textarea", async () => {
     renderWith({ id: 1, name: "M", date: "2026-01-01", description: "<p>cutover</p>" });
@@ -239,6 +247,26 @@ describe("MilestoneEditModal — rich-text description (slice B)", () => {
     const editor = await screen.findByRole("textbox", { name: DESC_LABEL });
     expect(editor).toHaveTextContent("beta");
     expect(editor).not.toHaveTextContent("alpha");
+  });
+});
+
+describe("achieved toggle", () => {
+  const NAME = t("en-US", "milestoneAchieved");
+
+  it("renders achieved as a toggle button reflecting the draft", () => {
+    renderWith({ id: 1, name: "Go live", date: "2026-06-30" });
+    expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
+    // ★ Scoped by the achieved label on purpose — the linked-tasks list below is
+    //   also checkboxes, and an unscoped checkbox query would grab one of those
+    //   and pass no matter what this field renders.
+    expect(screen.queryByRole("checkbox", { name: NAME })).toBeNull();
+  });
+
+  it("clears the date when an achieved milestone is unpressed", () => {
+    renderWith({ id: 1, name: "Go live", date: "2026-06-30", achievedDate: "2026-06-28" });
+    expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: NAME }));
+    expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
   });
 });
 
