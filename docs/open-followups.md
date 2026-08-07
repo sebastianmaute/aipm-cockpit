@@ -97,7 +97,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
 | 53 | ESLint 10 is blocked upstream by `eslint-plugin-react` | 0.211.2 | — | open — **not actionable today**; a dated MEASUREMENT, re-measure before acting |
 | 54 | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | open — **user-visible in production**, no gate sees it |
-| 55 | Fourteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 14 are NOT colour-only |
+| 55 | Thirteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 13 are NOT colour-only; was 14, tier selector resolved |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
 | 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half CLOSED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
@@ -141,9 +141,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
 | 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
 | 98 | `documents` is in NEITHER save-time data-loss counter, so a documents-only wipe trips no guard | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open — MISSING NET, **no known live path**, and NOT a regression the documents slice introduced. `knowledgeItems`, `insights`, `timelogLinks` and `settingsOverrides` share the gap — **state that scoping whenever this row is quoted**, or a reader goes hunting for a documents bug that is not there. Widening `nonEmptyCollectionCount` / `workspaceRecordCount` shifts the L3 and Layer-B thresholds for EVERY existing project, so it needs its own slice, its own tests, and a deliberate decision on whether the other four join |
-| 99 | The e2e seed writes only a minority of BrowserBackend's optional kv slices, so any view backed by an unseeded one is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
-| 100 | Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M — needs a decision first | open — **measured on ALL SIX write paths**; 205 documents load as 200 and re-save as 200, with no diagnostic, toast or banner anywhere. NOT fixed by the engine-side cap (that stops the state being BUILT, not LOADED). The fork — surface it, or refuse the load — is undecided and is the whole point of the entry |
-| 101 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
+| 99 | The e2e seed writes only two of BrowserBackend's ten optional kv slices, so any view backed by one of the other eight is axe-scanned against its EMPTY STATE | The e2e seed writes only a minority of BrowserBackend's optional kv slices, so any view backed by an unseeded one is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
+| 100 | Tab ejects focus from a portaled popover opened inside a modal, leaving it open and its contents keyboard-unreachable | field controls → modal header, unreleased | M | open — WCAG 2.1.1, **measured in Chromium** from both a radio and a checkbox. PRE-EXISTING and architectural (`Modal`'s trap guards on `container.contains`, false for every element in a portal); the move only made it prominent. Invisible to jsdom (the control's tests never mount inside `Modal`) and to axe |
+| 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
+| 102 | Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M — needs a decision first | open — **measured on ALL SIX write paths**; 205 documents load as 200 and re-save as 200, with no diagnostic, toast or banner anywhere. NOT fixed by the engine-side cap (that stops the state being BUILT, not LOADED). The fork — surface it, or refuse the load — is undecided and is the whole point of the entry |
+| 103 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -2351,13 +2353,23 @@ unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to po
 
 ---
 
-## 55. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
+## 55. Thirteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
-Fourteen controls do NOT use that primitive and were left as they were. For MOST of them the only
+Thirteen controls do NOT use that primitive and were left as they were. For MOST of them the only
 visual signal that they are active is a fill or tint change — WCAG 1.4.1.
 
-★★ TWO OF THE FOURTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
+★ THIS READ **fourteen** UNTIL 2026-08-06. The field-visibility tier selector
+(`modal-field-controls.tsx`) was the fourteenth, and it is RESOLVED — the control moved into the
+modal header and its hand-rolled `aria-pressed` buttons were replaced by the shared
+`SegmentedControl`, i.e. by `role="radio"`, which is exactly the answer this entry's own closing
+paragraph proposed for the radio-like cases. Re-measure rather than trust the number:
+
+```bash
+grep -rn "aria-pressed={" src/app --include="*.tsx" | grep -v "\.test\." | grep -v "toggle-button.tsx" | wc -l   # 13
+```
+
+★★ TWO OF THE THIRTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
 all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
 flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
 `status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
@@ -2379,8 +2391,8 @@ destructuring it.
 `rich-text-editor.tsx:83-84` is the clearest and the most used: `BTN` and `BTN_ON` differ by
 `bg-ui-dark-blue` + `text-white` and nothing else, on the bold/italic/list buttons every task
 description and note passes through. The others: `task-form-fields.tsx:545,559` (health-override
-chips) · `create-project-wizard.tsx:308,337` (template picker) · `modal-field-controls.tsx:63` (tier
-selector) · `raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
+chips) · `create-project-wizard.tsx:308,337` (template picker) ·
+`raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
 `settings-sections/comm-templates-section.tsx:335,357` (version compare) · `step0-import-panel.tsx:304`
 · `influence-interest-matrix.tsx:80` · `dictation-mic.tsx:73` · `voice-button.tsx:101`.
 
@@ -2391,10 +2403,15 @@ the hosts sit on axe-scanned views and pass today. The count above is the whole 
 `aria-pressed` JSX attribute outside the primitive, counted, not estimated.
 
 ★ The fix is not uniformly "migrate to `ToggleButton`". Some are radio-like single-select groups
-(template picker, tier selector, RACI role, import method, quadrant) where the primitive's chip
-styling and pinned-label rule may not fit, and where `role="radio"` might be the better answer than
-`aria-pressed` at all. The editor toolbar and the two mic buttons are genuine binary toggles and are
-the natural first migration.
+(template picker, RACI role, import method, quadrant) where the primitive's chip styling and
+pinned-label rule may not fit, and where `role="radio"` might be the better answer than
+`aria-pressed` at all. That is no longer a hypothesis: the tier selector took exactly that route
+(adopting `SegmentedControl`, i.e. `role="radio"`) and left this list. ★ Deliberately NO version
+here — the change is committed but UNRELEASED, and an earlier draft of this sentence said "in
+0.218.0", which is the commit this work sits ON TOP of; that release shipped a different a11y fix
+and a reader chasing the resolution would find nothing. Write the real version at release time or
+leave it to the date above. The editor toolbar and the two mic buttons are genuine binary toggles
+and are the natural first migration.
 
 ---
 
@@ -4968,7 +4985,7 @@ believing a severity label.
 
 ---
 
-## 99. The e2e seed silently drops most of BrowserBackend's optional slices, so some axe scans run on an empty state — open
+## 99. The e2e seed writes only two of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open
 
 `e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
 list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
@@ -5008,7 +5025,85 @@ workspace field name equals the kv key). The cost is entirely in whatever the sc
 from `IDB_VERSION`. They agree today; a future store addition that bumps one and not the other seeds
 the wrong shape silently. A comment now sits at that line.
 
-## 100. An over-cap load silently and permanently destroys the excess documents — open (REAL DATA LOSS, decision owed)
+## 100. Tab ejects focus from a portaled popover opened inside a modal — open, a11y
+
+**Measured in Chromium 2026-08-06, not inferred.** Open any edit modal → open the field-visibility
+popover in its header → press Tab ONCE. Focus lands back on the trigger button **while the popover
+stays open**, and the same happens from a checkbox inside the popover. So the checkbox list and the
+Reset button have NO keyboard path at all (WCAG 2.1.1). Both probes below were run; the second is
+what proves the cause is the portal rather than the radiogroup:
+
+| start | Tab → | popover |
+|---|---|---|
+| checked tier radio | the trigger | still open |
+| a field checkbox | the trigger | still open |
+
+**Cause.** `Modal`'s Tab trap collects focusables from `dialogRef.current` and guards on
+`container.contains(active)`. `PopoverPanel` renders through `createPortal` into `document.body`, so
+its content is NOT a descendant of that container and `contains` is false for EVERY element inside
+it — not merely at the boundary. The first Tab therefore satisfies the "focus escaped" branch
+unconditionally and re-focuses the modal's own first/last focusable. The dismissal stack is working
+as designed and is not the bug: a popover pushes kind `"layer"`, which deliberately traps nothing so
+the modal keeps Tab. The gap is that the modal's trap cannot SEE portaled layer content, so it does
+not deliver on that stated intent.
+
+★★ **Pre-existing, and NOT introduced by the field-controls-into-header change.** The old cog
+popover held the same checkbox list in the same `PopoverPanel` inside the same `Modal` — the second
+probe above is exactly that path. What the move changed is prominence: the whole field-visibility
+surface now lives behind the popover, so every keyboard user meets this on their first Tab. The tier
+switch itself stays operable, because focus lands on the checked radio and arrows work.
+
+★ **Invisible to every gate.** `modal-field-controls.test.tsx` renders the control STANDALONE, never
+inside `Modal`, so no unit test can see it; axe scans views, not interaction-opened modals, and does
+not evaluate cross-widget Tab order in any case. A test for this must mount the control inside a real
+`Modal` — that mounting, not the assertion, is the load-bearing part.
+
+★ Two directions, neither prescribed: give `PopoverPanel` its own Tab cycle over `panelRef` while
+open (Escape and outside-click stay the exit), or teach the modal's trap to include the DOM of any
+open `"layer"` above it. The first is contained; the second fixes the class. Either needs a sweep of
+all `PopoverPanel` consumers — three of them (`action-cta-controls`, `action-popover-trigger`,
+`version-menu`) have no test file at all.
+
+★ Related and separate: nothing restores focus to the trigger when a popover closes. That is a
+repo-wide `PopoverPanel` gap — no consumer does it — and worth folding into the same visit.
+
+---
+
+## 101. `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y
+
+The checked segment is distinguished from its siblings by fill alone (`--segment-active-bg` against
+`--segment-track-bg`). AGENTS.md's own rule for `ToggleButton` treats a lightness difference of
+**≥3:1** as the additional non-colour distinction WCAG 1.4.1 requires. Computed from
+`builtin-schemes.ts` (reproduce with the WCAG relative-luminance formula on the two tokens):
+
+| scheme | track vs active | |
+|---|---|---|
+| harbor-light | 10.42:1 | pass |
+| meridian-light | 8.73:1 | pass |
+| umber-light | 10.54:1 | pass |
+| harbor-dark | **2.38:1** | fail |
+| meridian-dark | **2.43:1** | fail |
+| umber-dark | **2.25:1** | fail |
+
+★★ There is no second cue to fall back on. The selected segment carries
+`shadow-[var(--shadow-control)]`, but `--shadow-control` is `none` in `globals.css` and **no scheme
+overrides it** (`grep -c "shadow-control" src/app/builtin-schemes.ts` → 0), so that class paints
+nothing in any scheme. The light schemes pass on lightness alone; the dark ones have neither.
+
+★ The screen-reader side is NOT affected and needs no fix: this is a real `radiogroup`, so
+`aria-checked` carries the state regardless of colour. That is the difference from the `aria-pressed`
+family in §55 — the gap here is purely visual, for sighted low-vision and CVD users.
+
+★★ **Pre-existing and repo-wide — not introduced by moving the field tier switch into the primitive.**
+The tier switch's previous hand-rolled buttons used the very same two tokens, and the primitive has
+**31 invocations across 14 files** (see the reproduce command in `segmented-control.tsx`'s header), so
+a fix lands everywhere at once. Deliberately not fixed in the field-controls slice: a token change
+touching every segmented control in the app wants its own slice and its own eye-verify.
+
+★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
+evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
+
+## 102. An over-cap load silently and permanently destroys the excess documents — open (REAL DATA LOSS, decision owed)
 
 **This is NOT a regression the S2 slice introduced, and it is not theoretical — it destroys
 user-authored content today.** `MAX_DOCUMENTS` and its `break` arrived with the document model in
@@ -5126,7 +5221,7 @@ recover a document.
 
 ---
 
-## 101. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
+## 103. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
 
 `d7f1e0b9` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
 AI create / update / delete that actually CHANGED something. Before it, the kind was registered in

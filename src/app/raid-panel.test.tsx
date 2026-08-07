@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, it, expect, vi, test } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
 import type { RaidItem, Resource, Stakeholder } from "./types";
@@ -261,7 +262,7 @@ describe("RaidPanel — stakeholders", () => {
     fireEvent.click(screen.getByText("Risk one"));
     // Linked stakeholders is a Full-only field; the modal defaults to Advanced,
     // so switch the tier control to Full to reveal the stakeholder picker.
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewFull") }));
+    selectFieldTier("fieldViewFull");
     fireEvent.click(screen.getByLabelText("Dana"));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ stakeholderIds: [3] }), false);

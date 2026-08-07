@@ -7,6 +7,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { ASSIGNEE_MAX, TASK_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
@@ -127,14 +128,11 @@ describe("RaidEditModal field visibility", () => {
     expect(screen.getByText(/Title/)).toBeTruthy();
   });
 
-  it("hides advanced fields like Mitigation when switched to Simple, keeping Title", async () => {
-    const user = userEvent.setup();
+  it("hides advanced fields like Mitigation when switched to Simple, keeping Title", () => {
     render(modalEl({ category: "I" }), { wrapper });
     expect(screen.getByText(MITIGATION_LABEL)).toBeTruthy();
 
-    await user.click(
-      screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }),
-    );
+    selectFieldTier("fieldViewSimple");
 
     expect(screen.queryByText(MITIGATION_LABEL)).toBeNull();
     expect(screen.getByText(/Title/)).toBeTruthy();

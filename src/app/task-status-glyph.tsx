@@ -20,9 +20,12 @@ import type { Task } from "./types";
  * off, this glyph and the row's strikethrough are the entire signal. A muted ✓
  * was the smaller change and was rejected: it would distinguish the two by
  * colour alone, which is the WCAG 1.4.1 pattern `docs/open-followups.md` §55
- * tracks. ★ §55's HEADLINE count is fourteen and its body retracts it — two of
- * the fourteen toggles carry a non-colour cue, so twelve are instances of this
- * pattern. Do not copy the headline number. (§56 is a NEIGHBOURING but
+ * tracks. ★ Deliberately NO number here. §55's HEADLINE count over-counts for
+ * this purpose — its own body retracts two of the toggles as carrying a
+ * non-colour cue — and that count has already moved once (fourteen → thirteen,
+ * when the field-visibility tier switch adopted `role="radio"`) while this
+ * comment went on asserting the old one. Read §55 and run its reproduce
+ * command rather than copying a figure from here. (§56 is a NEIGHBOURING but
  * different SC — 1.4.11 contrast — so do not read this as "the §56 problem".)
  *
  * ★ `label` is the caller's already-derived accessible name and is passed

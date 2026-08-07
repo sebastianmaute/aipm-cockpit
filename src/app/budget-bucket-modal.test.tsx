@@ -7,6 +7,7 @@ import { BudgetBucketModal } from "./budget-bucket-modal";
 import { applyTier } from "./field-visibility";
 import type { FieldTier } from "./modal-fields";
 import { t } from "./i18n";
+import { fieldTierTrigger, selectFieldTier } from "../test/field-tier";
 import type { BudgetBucket, Role, Task } from "./types";
 
 // The planning-mode data-loss warning now routes through the branded
@@ -342,7 +343,7 @@ describe("BudgetBucketModal", () => {
     expect(screen.queryByText(rateLabel)).not.toBeInTheDocument();
 
     // Switch to Simple: the advanced FX field disappears, required fields remain.
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }));
+    selectFieldTier("fieldViewSimple");
     expect(screen.queryByText(fxLabel)).not.toBeInTheDocument();
     expect(screen.getByText(nameLabel)).toBeInTheDocument();
     expect(screen.getByText(startLabel)).toBeInTheDocument();
@@ -466,5 +467,14 @@ describe("BudgetBucketModal", () => {
     expect(panel.className).toContain("h-[640px]");
     expect(panel.className).toContain("min-h-[400px]");
     expect(panel.className).toContain("max-h-[95vh]");
+  });
+});
+
+describe("BudgetBucketModal field-visibility control", () => {
+  test("mounts the field-visibility trigger inside the modal header", () => {
+    setup();
+    const trigger = fieldTierTrigger("en-US");
+    // PLACEMENT, not presence — see edit-modal-chrome.test.tsx.
+    expect(trigger.closest("header")).not.toBeNull();
   });
 });
