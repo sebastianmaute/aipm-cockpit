@@ -186,4 +186,34 @@ describe("ops files — no unguarded backend access (source scan)", () => {
     expect(loads).toBeGreaterThan(0); // control: the scan is looking at the right file
     expect(reports).toBe(loads);
   });
+
+  // ★★★ THIS CENSUS EXISTS BECAUSE THE SCAN ABOVE MISSED A REAL DEFECT.
+  // The reads were guarded and the WRITES were not counted at all, and
+  // `use-storage-backend.ts` — which holds both `guardedWrite` call sites — was
+  // outside OPS_FILES entirely. `migrateCurrentProjectToTurso` shipped writing
+  // the LIVE (possibly truncated) workspace via `new TursoBackend(cfg, id).save(ws)`,
+  // then repointed the app at that short copy and reloaded, after which the flag
+  // never re-raised and nothing told the user. `deps.backend.` did not match it,
+  // because the backend was constructed inline.
+  //
+  // So: every `.save(` in the three storage files is enumerated here and must be
+  // either a choke point, behind one, or on this allowlist WITH a reason.
+  const WRITE_FILES = [
+    "src/app/use-storage-backend.ts",
+    "src/app/use-storage-file-ops.ts",
+    "src/app/use-storage-turso-ops.ts",
+  ];
+  /** Writes of a workspace that did NOT come from a load. A truncated CURRENT
+   *  workspace is irrelevant to them, so they are correctly ungated. */
+  const ALLOWED_UNGATED = 3; // createProject · createDemoProject · createTursoProject
+
+  it("every whole-workspace write is a choke point, behind one, or allowlisted", () => {
+    const src = WRITE_FILES.map((f) => readFileSync(f, "utf8")).join("\n");
+    const saves = src.match(/\.save\(/g)?.length ?? 0;
+    const choked = src.match(/guardedWrite\(|saveCurrentWorkspace\(\)/g)?.length ?? 0;
+    expect(saves).toBeGreaterThan(0); // control: the scan is looking at real files
+    // Each guarded write still contains a `.save(` inside the choke point, so the
+    // arithmetic is: total saves - the ones the choke points own - the allowlist.
+    expect(saves - choked).toBeLessThanOrEqual(ALLOWED_UNGATED);
+  });
 });

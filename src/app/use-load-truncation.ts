@@ -51,6 +51,31 @@ export interface TruncationOps {
    *  abandoned one. So the refusal re-toasts the truncation counts and the
    *  caller must not report success. */
   guardedWrite: (backend: Pick<StorageBackend, "save">, ws: Workspace) => Promise<boolean>;
+  /** The refusal WITHOUT the write — for a caller that must decline BEFORE its
+   *  own irreversible side effect rather than after it.
+   *
+   *  ★★★ `onPickStorageFile` is why this exists. Its picker runs on the ACTIVE
+   *  backend and creates the file on disk AND persists the new handle before any
+   *  write is attempted, so guarding only the write left the app pointed at a
+   *  new EMPTY file with the original unreferenced — and the next reload loaded
+   *  that empty workspace cleanly, LOWERED the flag, and resumed autosaving over
+   *  it. Guarding a write is not the same as guarding an ACTION; when the action
+   *  has side effects of its own, check first and call this. */
+  refuseWrite: () => void;
+  /** A workspace that did NOT come from a load is now live (create project,
+   *  create demo, create Turso project) — so nothing about it is truncated.
+   *
+   *  ★★★ Without this a brand-new project INHERITS the previous one's pause.
+   *  These paths build their workspace rather than loading it, so `reportFor`
+   *  never runs, and they set `suppressNextLoadRef`, so the load their
+   *  storageConfig change triggers takes the suppress branch and reports nothing
+   *  either — leaving `loadWasTruncated` raised over a project that has no
+   *  documents at all. Every edit to it is then silently refused, and the banner
+   *  reports the OLD project's counts against it. It is the same invariant
+   *  `reportLoadTruncation` holds for a clean load ("scoped to the workspace
+   *  that is live RIGHT NOW"), applied to the one family of paths that has no
+   *  load to hang it on. */
+  clearForFreshWorkspace: () => void;
 }
 
 export interface LoadTruncationGuard {
@@ -245,14 +270,24 @@ export function useLoadTruncation(
       }
       await saveCurrentWorkspace();
     },
+    clearForFreshWorkspace: () => {
+      lastTruncationRef.current = null;
+      setTruncation(null);
+    },
+    refuseWrite: () => {
+      const last = lastTruncationRef.current;
+      logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}) });
+      // Say it out loud. The caller returns, so no success toast and no config
+      // repoint follow — the user is not left believing a store they just chose
+      // holds a project it does not.
+      if (last) showToast("error", truncationText(last.entries, last.blocks));
+    },
     guardedWrite: async (backend, ws) => {
+      // ★ ONE implementation of the refusal, shared with `refuseWrite` above, so
+      // a caller that declines early and one that declines at the write cannot
+      // report the loss differently.
       if (!mayCommitAfterTruncation()) {
-        const last = lastTruncationRef.current;
-        logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}) });
-        // Say it out loud. The caller returns on `false`, so no success toast
-        // and no config repoint follow — the user is not left believing a store
-        // they just chose holds a project it does not.
-        if (last) showToast("error", truncationText(last.entries, last.blocks));
+        truncationOps.refuseWrite();
         return false;
       }
       await backend.save(ws);

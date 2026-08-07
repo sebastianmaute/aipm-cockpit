@@ -507,11 +507,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("project", project, setProject, canSend);
 
   async function onPickStorageFile() {
+    if (!mayCommitAfterTruncation()) { truncationOps.refuseWrite(); return; } // ★★★ §102: refuse BEFORE the picker — it creates the file and persists the handle on the ACTIVE backend, so a write-only guard stranded the app on an empty file. See `refuseWrite` (use-load-truncation.ts).
     const promise = pickFileForBackend(backend);
     if (!promise) return;
     await promise;
     try {
-      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★★ §102: an explicit "store the project HERE" must not commit a truncated load into the file the user just picked — `guardedWrite` REFUSES LOUDLY and we skip the success toast below rather than reporting a save that never happened.
+      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       await refreshBackendStatus();
       emitToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {

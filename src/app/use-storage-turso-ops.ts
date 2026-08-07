@@ -125,6 +125,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       // user edit. The file path saves explicitly too (targetBackend.save).
       await new TursoBackend(cfg, id).save(ws);
       deps.applyWorkspace(ws);
+      deps.truncationOps.clearForFreshWorkspace(); // ★★★ §102: createTursoProject BUILDS its workspace, so no load ever reports for it — without this a fresh project inherits the previous one's pause and every edit to it is silently refused.
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setTursoProjectId(id);
@@ -157,7 +158,17 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     const id = crypto.randomUUID();
     try {
       await portfolioCreate(cfg, meta, id);
-      await new TursoBackend(cfg, id).save(ws);
+      // ★★★ §102: GUARDED, unlike `createTursoProject` above. That one writes a
+      // freshly-built workspace, so a truncated load is irrelevant to it; THIS
+      // one copies the LIVE workspace verbatim (see the note above the
+      // function), so on a truncated load it would write the SHORT copy, repoint
+      // the app at it, and reload — after which the Turso project loads cleanly
+      // (it is under the cap now), the flag is never re-raised, and the missing
+      // documents survive only in a file whose project is no longer in the
+      // visible list. Nothing would ever tell the user. This is the same
+      // "abandon the original" shape `guardedWrite` was written for, and it was
+      // the one instance of it the first sweep missed.
+      if (!(await deps.truncationOps.guardedWrite(new TursoBackend(cfg, id), ws))) return;
       // Make the migrated project the active Turso project and switch the
       // portfolio to Turso. The reload re-initialises the app in Turso mode.
       saveCurrentTursoProjectId(id);
