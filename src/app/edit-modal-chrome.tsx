@@ -60,7 +60,9 @@ interface EditModalShellProps {
 /**
  * The draggable modal shell shared by SEVEN edit modals — absence,
  * calendar-event, change, milestone, raid, resource and stakeholder (reproduce:
- * `grep -rln EditModalShell src/app --include="*.tsx" | grep -v "\.test\."`):
+ * `grep -rln EditModalShell src/app --include="*.tsx" | grep -v "\.test\." |
+ * grep -v edit-modal-chrome` — the trailing filter drops THIS file, which
+ * defines the component; without it the command prints 8, not 7):
  * the centered `Modal`, the fixed-width draggable panel, the `ModalHeader`
  * (carrying the field-visibility control in its right-hand cluster), and the
  * two-column form grid. The caller's fields + `ModalEditFooter` slot in as
