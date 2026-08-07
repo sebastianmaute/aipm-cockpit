@@ -5,6 +5,7 @@ import type { Settings } from "./settings-types";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
 import type { ProjectDocument } from "./document-model";
+import type { DocVersion } from "./document-versions";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
@@ -131,8 +132,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions };
   };
 }
 
@@ -351,6 +352,79 @@ describe("useStorageBackend — save effect", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(result.current.documents).toEqual([]);
+  });
+
+  // ── documentVersions ───────────────────────────────────────────────────────
+  // `documentVersions` is a meta-blob slice like `documents`, implemented in the
+  // model and all six write paths but — until this wiring — never loaded or
+  // saved, so a reload silently dropped every document's version history.
+  //
+  // ★★ Every fixture below carries `source: "ai"` and `op: "restored"`. The
+  // sanitizer's fallbacks are "user" and "update" and the context state
+  // initialises to `[]`, so neither value can be invented downstream: an
+  // assertion that sees them proves real data crossed the wiring rather than
+  // passing against a default.
+  const AI_RESTORED_VERSION: DocVersion = {
+    id: 11,
+    documentId: 7,
+    title: "Loaded doc — before image",
+    blocks: [],
+    savedAt: "2026-08-06T00:00:00.000Z",
+    source: "ai",
+    op: "restored",
+  };
+
+  it("persists a DOCUMENT-VERSIONS-ONLY change — the autosave deps-array guard", async () => {
+    // Same shape (and same reason) as the documents-only test above: the deps
+    // array is what decides whether a change re-triggers a save, so nothing but
+    // `documentVersions` may be mutated here. This one assertion covers BOTH
+    // failure modes — omitted from the deps array, no save fires at all;
+    // omitted from the save literal, the payload lacks the key.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => { result.current.setDocumentVersions([AI_RESTORED_VERSION]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentVersions: [expect.objectContaining({ id: 11, documentId: 7, source: "ai", op: "restored" })],
+      }),
+    );
+  });
+
+  it("restores documentVersions from a loaded workspace", async () => {
+    // The other half of the round trip. Without it a reload keeps the documents
+    // but drops their history — and because `deletedDocumentVersions` derives
+    // tombstones from the two slices together, a half-loaded pair also renders a
+    // wrong deleted-documents list.
+    mockBackend.load.mockResolvedValue({
+      tasks: [], raid: [], absences: [], shifts: [],
+      documentVersions: [AI_RESTORED_VERSION],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documentVersions).toEqual([
+      expect.objectContaining({ id: 11, documentId: 7, source: "ai", op: "restored" }),
+    ]);
+  });
+
+  it("defaults documentVersions to [] when the loaded workspace has none", async () => {
+    // ★ Non-optional in context for the same reason `documents` is: the mutation
+    // engine spreads `prev`, which would throw on `undefined`.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documentVersions).toEqual([]);
   });
 
   it("localizes the cross-tab lock-timeout save failure instead of toasting the raw English error", async () => {
@@ -850,6 +924,30 @@ describe("useStorageBackend — documents broadcast sync", () => {
     });
 
     expect(result.current.documents.map((d) => d.title)).toEqual(["Kickoff deck"]);
+  });
+
+  it("applies an incoming `documentVersions` broadcast into workspace state", () => {
+    // ★★ The two slices MUST share the cross-tab channel set. `documents` alone
+    // is not enough: `deletedDocumentVersions(versions, documents)` reports a
+    // version whose documentId is absent from `documents` as a DELETED document,
+    // so a tab that heard about a document delete but not the matching version
+    // (or the reverse) renders a wrong deleted-documents list.
+    const { result } = renderBackend();
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.documentVersions).toHaveLength(0);
+
+    const call = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls
+      .find((c) => c[0] === "documentVersions");
+    if (!call) throw new Error("no `documentVersions` channel is registered with useBroadcastSync");
+
+    // c[2] is `applyIncoming` — driving it directly proves the registered setter
+    // is wired to the live `documentVersions` state, not a stub or the wrong slice.
+    const applyIncoming = call[2] as (next: readonly DocVersion[]) => void;
+    act(() => {
+      applyIncoming([{ id: 11, documentId: 7, title: "Kickoff deck v1", blocks: [], savedAt: "2026-08-06T00:00:00.000Z", source: "ai", op: "restored" }]);
+    });
+
+    expect(result.current.documentVersions.map((v) => v.title)).toEqual(["Kickoff deck v1"]);
   });
 });
 

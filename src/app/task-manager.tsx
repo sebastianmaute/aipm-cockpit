@@ -291,7 +291,7 @@ function TaskManagerInner() {
     setTimelogLinks,
     setKnowledgeItems,
     insights,
-    setInsights, setDocuments,
+    setInsights, setDocuments, setDocumentVersions,
     settingsOverrides,
     setSettingsOverrides,
     setCalendarEvents,
@@ -1042,7 +1042,7 @@ function TaskManagerInner() {
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
-    setInsights(w.insights); setDocuments(w.documents ?? []);
+    setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []);
     setSettingsOverrides(w.settingsOverrides);
     setCalendarEvents(w.calendarEvents);
     // Version restore replaces the SAME project's data — RAISE the id-minter
@@ -1050,7 +1050,7 @@ function TaskManagerInner() {
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setSettingsOverrides, setCalendarEvents]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
