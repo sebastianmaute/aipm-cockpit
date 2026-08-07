@@ -460,11 +460,15 @@ export interface StorageBackend {
   /**
    * Optional: what the LAST {@link load} silently discarded to stay inside the
    * document caps. `entries` counts raw array entries past MAX_DOCUMENTS (an
-   * upper bound — see DocTruncationDiag); `blocks` counts per-version blocks
-   * past MAX_BLOCKS_PER_DOC.
+   * upper bound — see DocTruncationDiag); `blocks` counts blocks past
+   * MAX_BLOCKS_PER_DOC, in stored versions AND in live documents.
    * ★ Every backend must set this. A backend that leaves it undefined reports
-   * no truncation and its users lose documents in silence —
-   * `backend-truncation-registry.test.ts` fails the build if one is missed.
+   * no truncation and its users lose documents in silence.
+   * ★★ The net is a VITEST UNIT TEST (`backend-truncation-registry.test.ts`),
+   * NOT a build step — `next build` never runs it — and it scans a HARDCODED
+   * list of four files for an assignment, so a fifth backend is not caught
+   * until someone adds it there. An earlier wording here said it "fails the
+   * build", which overstates both what runs it and what it checks.
    */
   lastLoadTruncation?: { entries: number; blocks: number };
 }

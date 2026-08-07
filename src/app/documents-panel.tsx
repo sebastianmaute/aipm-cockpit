@@ -232,7 +232,7 @@ export function DocumentsPanel({
   //  · every MUTATION — folded into `mutate` below, so a future call site
   //    cannot forget it and `handleRestore` re-sets it in the same handler
   //    (later write wins). A delete in particular FALSIFIES the commonest
-  //    reason: `document limit reached (<MAX_DOCUMENTS>)` no longer binds once a row is
+  //    reason: `document limit reached (${MAX_DOCUMENTS})` no longer binds once a row is
   //    gone, so leaving it up reads as a live blocker that is not one.
   //  · SELECTION — the region renders immediately above `DocumentPreview`, i.e.
   //    directly above the selected document's content, so a reason left behind
@@ -295,7 +295,7 @@ export function DocumentsPanel({
   // documents but keeps ALL its versions, because `sanitizeProjectDocuments`
   // caps the count while `sanitizeDocumentVersions` structurally cannot. (The
   // cap was raised to 1000 and a truncating load now warns and pauses saving
-  // — open-followups §100 — so this is rarer than it was, but a file built
+  // — open-followups §102 — so this is rarer than it was, but a file built
   // against the old limit can still arrive in this shape.) And (b) ORPHANS from
   // a partial import, or a text-backend load where the `documents` blob failed
   // to parse and the `documentVersions` blob succeeded (they have independent
@@ -448,7 +448,7 @@ export function DocumentsPanel({
   // ★★★ A RESTORE CAN BE REFUSED, and at the cap it always is. After a
   // truncating load the document count sits EXACTLY at MAX_DOCUMENTS, so the
   // engine's cap guard rejects every restore with
-  // `["document limit reached (<MAX_DOCUMENTS>)"]` — and a genuine tombstone restored into
+  // `["document limit reached (${MAX_DOCUMENTS})"]` — and a genuine tombstone restored into
   // a full document set hits the same wall. `mutateDocuments` hands back
   // `rejected` synchronously, so the only way to get this wrong is to discard
   // it. Rendered below the list, not swallowed.
@@ -577,10 +577,11 @@ export function DocumentsPanel({
                 are parsed with INDEPENDENT try/catch on every backend, so a
                 corrupted `documents` blob beside a valid versions blob makes
                 EVERY version read as a deleted document — the pane then shows
-                "all 200 of your documents are deleted", which is a load failure
+                "all N of your documents are deleted", which is a load failure
                 wearing the costume of an ordinary list. Truncation artifacts
-                (a 205-document file capped to 200 while all 205 versions
-                survive) produce a milder version of the same thing.
+                (a file of `MAX_DOCUMENTS + 5` documents capped to
+                `MAX_DOCUMENTS` while ALL its versions survive) produce a milder
+                version of the same thing.
                 ★★ `deleted.length > documents.length` is the test because it is
                 the shape a genuine workflow does not have: deleting more
                 documents than you currently hold is normal over a long

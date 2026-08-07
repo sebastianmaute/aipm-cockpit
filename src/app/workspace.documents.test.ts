@@ -164,7 +164,7 @@ describe("workspace JSON — documents", () => {
   });
 
   it("reports cap truncation through an optional diag", () => {
-    // ★★ open-followups §100: the cap truncated and recorded NOTHING, so the
+    // ★★ open-followups §102: the cap truncated and recorded NOTHING, so the
     // next autosave committed the loss on all six write paths. The count is the
     // RAW TAIL past the cap (an upper bound), not a count of valid documents.
     const documents = Array.from({ length: MAX_DOCUMENTS + 4 }, (_, i) => ({

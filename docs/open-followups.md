@@ -5206,34 +5206,76 @@ What shipped:
    the cap, not validated documents — an exact count means sanitizing the whole tail, which is the
    unbounded work the cap exists to refuse. It is an UPPER BOUND, never an undercount, which is why
    every user-facing string says "entries".
-3. **Every backend publishes `lastLoadTruncation`**, and `backend-truncation-registry.test.ts` fails
-   the build if one does not. This is the part that matters most: the cautionary precedent is
-   `lastImportDroppedRows`, which reached two backends out of six for its whole life without
-   anything noticing, because its consumer sits in `use-storage-file-ops`.
-4. **One consumer, at the generic load effect** every backend passes through — diagnostics-ring
-   entry, toast, and a STICKY flag. Sticky is load-bearing: `suppressNextSaveRef` beside it is
-   one-shot AND is set by every load, so it clears on the first debounce cycle and the loss lands on
-   the *next* save. Reusing it would have bought nothing.
-5. **Automatic saves are paused** until the user decides, so the source file keeps what was never
-   loaded. Neither existing invariant would have caught this: dropping 205 of 1205 leaves 83%,
-   nowhere near guard B's ≤10% threshold, and documents are not counted by those guards at all (§98).
+3. **Every backend publishes `lastLoadTruncation`**, netted by
+   `backend-truncation-registry.test.ts` — a vitest unit test (NOT a build step) scanning a
+   hardcoded list of the four backend files. The cautionary precedent is `lastImportDroppedRows`,
+   which reached two of the FOUR backends for its whole life without anything noticing — Turso and
+   IndexedDB silent throughout — because its consumer sits in `use-storage-file-ops`.
+   ★★★ THAT NET GUARDS THE PRODUCER SIDE ONLY, AND THE FIRST VERSION OF THIS ENTRY DID NOT SAY SO.
+   It shipped calling itself "the one-door-of-N guard" while the CONSUMER reached one load path of
+   seven — the six others (project switch, file open, Turso switch, reload) suppress that effect via
+   `suppressNextLoadRef` — so the register recorded this as closed while the original data loss was
+   still fully live on every route except first mount. Fixed by routing all of them through
+   `truncationOps.reportFor`, with a behavioural test per path. **A source scan proving a name
+   exists is not a claim that anything reads it.**
+4. **One consumer**, reached from every load path that applies a workspace — diagnostics-ring entry,
+   toast, and a STICKY flag. Sticky is load-bearing: `suppressNextSaveRef` beside it is one-shot AND
+   is set by every load, so it clears on the first debounce cycle and the loss lands on the *next*
+   save. Reusing it would have bought nothing. ★ Two loads deliberately do NOT report and say why at
+   the call site: the empty-load refusal applies nothing, and `onOpenStorageFile` applies tasks+raid
+   only and never the loaded documents. ★★ A CLEAN load must LOWER the flag — it did not at first,
+   so one over-cap project blocked saves in every project opened after it while the banner asserted
+   the innocent project's documents could not be opened.
+5. **Saves are paused** until the user decides, so the stored project keeps what was never loaded.
+   Neither existing invariant would have caught this: dropping 205 of 1205 leaves 83%, nowhere near
+   guard B's ≤10% threshold, and documents are not counted by those guards at all (§98).
+   ★★★ "AUTOMATIC saves are paused" is what this entry said first, and it was FALSE — the refusal
+   sat only in the debounced effect, while SEVEN other sites wrote the live workspace directly
+   (four project-switch flushes, the Turso flush, `onPickStorageFile`, `onRequestStorageSwitch`).
+   The pre-switch flush was the cruellest: the banner told the user saving was paused, and switching
+   project — a reasonable response — committed the loss. All writes now go through `flushCurrent` /
+   `guardedWrite`; the two explicit user actions refuse LOUDLY and skip their success toast, because
+   a save the user asked for must never appear to have happened.
+   ★ The truncation refusal also CONSUMES `allowDestructiveRef`. It did not at first, so a one-shot
+   destructive bypass armed during a paused period stayed armed indefinitely and could authorise an
+   unrelated mass deletion later.
 6. **A persistent banner with an explicit "Save anyway"**, not merely a toast. ★★★ This is not
    polish — it is what stops the guard being a LOCKOUT. **The user cannot get under the cap by
    editing**: the excess documents were never loaded, so the rows that would have to go are exactly
    the ones that are not there. A sticky flag with no escape would be a permanent block on saving,
-   a worse defect than the one being fixed. Dismissing hides the banner and leaves the guard armed.
+   a worse defect than the one being fixed.
+   ★★★ DISMISSING IT WAS THAT LOCKOUT FOR ONE REVISION. `truncationBannerDismissed` was never reset
+   and the refusal was a bare `return` with no toast, so a single ✕ silently dropped every later
+   edit to every entity for the session while the storage indicator read healthy. The sidebar footer
+   now carries a "saving paused" state that is CLICKABLE to bring the banner back, so dismiss means
+   "stop shouting", never "stop telling me". ★ `loadWasTruncated` is deliberately NOT folded into
+   `storageOk`: two of that value's three consumers read it as "configured", so folding it in made
+   `storage-config` print three FALSE diagnoses on a healthy file (write-permission-needed, a
+   Grant-access button, Turso-needs-configuration). The term is applied at the footer call site only.
 
 ★ The fix landed at the load boundary and **not** in `sanitizeDocumentVersions`, as this entry
 originally warned it must: making that function drop versions for truncated documents would delete
 the only surviving copy of that content, turning a display defect into a second data-loss bug.
 
-★★ The per-version block truncation below is counted by the same diag and surfaces through the same
-banner, but with its OWN string. Two reasons, and both are traps for whoever edits the wording:
-the count is `raw.blocks.length - sanitized.blocks.length` and `sanitizeDocument` **both** caps
-blocks and drops invalid ones, so **no string may say the cap did the cutting**; and the toast
-originally interpolated only the entries count while triggering on `entries + blocks > 0`, which
-would have announced "0 document entries could not be opened" for a blocks-only truncation. A test
-pins that case.
+★★ Block truncation is counted by the same diag and surfaces through the same banner, with its OWN
+string. Three traps for whoever edits that wording, all of them shipped-and-fixed rather than
+theoretical:
+  · The toast originally interpolated only the ENTRIES count while triggering on
+    `entries + blocks > 0`, so a blocks-only truncation announced "0 document entries could not be
+    opened". A test pins that case now.
+  · The count originally compared `raw.blocks.length` against the POST-FILTER length, and
+    `sanitizeDocument` both caps blocks AND drops invalid ones — so a single malformed block
+    reported as truncation and, because any non-zero count arms the sticky guard, paused saving for
+    the whole workspace. Reachable with no hostile file at all: a `dataSection` block whose key
+    leaves `EXPORT_SECTION_KEYS` is dropped on every load thereafter, forever, after an ordinary
+    refactor. It now counts against `MAX_BLOCKS_PER_DOC`.
+  · LIVE documents were not counted at all — only stored versions. A 600-block document loaded as
+    500 with an empty diag, on the same write-back path. Both are counted now, which is why the
+    string says "stored documents" and not "stored document versions".
+★ **No string may say the cap did the cutting.** The reason has CHANGED and the old one is stale:
+it used to be that the counter included blocks dropped as invalid. It no longer does. The rule
+survives because the count is raw entries past the cap, some of which the validator would have
+rejected anyway — so it still over-claims rather than under-claims.
 
 ### What is NOT in this entry
 

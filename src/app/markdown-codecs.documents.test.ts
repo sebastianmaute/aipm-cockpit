@@ -174,7 +174,7 @@ describe("Markdown codec — documents", () => {
     expect(markdownToDocuments("## Documents\n\n```json\n[{}]\n```\n")).toBeUndefined();
   });
 
-  // ★★ open-followups §100. The cap silently truncated and recorded NOTHING, so
+  // ★★ open-followups §102. The cap silently truncated and recorded NOTHING, so
   // the next autosave committed the loss permanently. The counter has to reach
   // the WORKSPACE-level accumulator — a diag threaded only as far as
   // markdownToDocuments would leave markdownToWorkspace (the load path the app

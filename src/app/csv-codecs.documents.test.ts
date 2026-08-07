@@ -197,7 +197,7 @@ describe("CSV codec — documents", () => {
   // ★★ THE CAP MUST BE AUDIBLE. sanitizeProjectDocuments stops at
   // MAX_DOCUMENTS and returns the head silently; the next autosave then writes
   // that truncated array back over all six paths and the tail is gone for good
-  // (open-followups §100). The counter only helps if it survives BOTH hops —
+  // (open-followups §102). The counter only helps if it survives BOTH hops —
   // codec → sanitizer and codec → the workspace-level accumulator — so assert
   // it on the ImportDiag every CSV caller already builds, not on a diag handed
   // straight to csvToDocuments (which would pass with the decode call unwired).

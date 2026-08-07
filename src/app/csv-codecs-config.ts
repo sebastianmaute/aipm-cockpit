@@ -282,7 +282,7 @@ export function csvToDocuments(
     // must do the same or it will silently lose every document.
     // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
     // over-cap file can tell the user before the next autosave writes the
-    // truncation back (open-followups §100).
+    // truncation back (open-followups §102).
     const docs = sanitizeProjectDocuments(JSON.parse(rows[0][1]), diag).map(
       sanitizeDocumentRichFields,
     );

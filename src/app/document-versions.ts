@@ -318,10 +318,14 @@ export function trimVersions(
  *  `break`s at `MAX_DOCUMENTS`, while `sanitizeDocumentVersions` has no count
  *  cap and structurally cannot acquire one (it delegates ONE version at a time,
  *  so the sanitizer's own `out.length >= MAX_DOCUMENTS` is never true there).
- *  Measured on all six write paths: a 205-document file loads as 200 documents
- *  and 205 versions, and five documents that still exist in the file were
- *  listed as deleted — with a Restore button that would mint a duplicate of
- *  each.
+ *  Measured on all six write paths, when `MAX_DOCUMENTS` was 200: a
+ *  205-document file loaded as 200 documents and 205 versions, and five
+ *  documents that still existed in the file were listed as deleted — with a
+ *  Restore button that would mint a duplicate of each.
+ *  ★ Stated against the cap, not the old literal: a file of
+ *  `MAX_DOCUMENTS + 5` documents loads as `MAX_DOCUMENTS` and keeps ALL its
+ *  versions. The cap is 1000 now, so the specific 205 figure no longer
+ *  reproduces — the SHAPE is what this note is about, and it is unchanged.
  *
  *  ★★★ So the derivation now requires `op === "delete"`, which is what it
  *  always meant. That is sound BY CONSTRUCTION, not by luck: the delete case

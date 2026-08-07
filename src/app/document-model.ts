@@ -30,7 +30,7 @@ import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { capHtmlText, htmlTextLength } from "./rich-text-plain";
 
 /** Bounds on what a hostile or corrupt import can force. */
-// ★★ Raised 200 -> 1000 in the §100 fix. ONE constant serves TWO doors: the
+// ★★ Raised 200 -> 1000 in the §102 fix. ONE constant serves TWO doors: the
 // load-time truncation in sanitizeProjectDocuments AND the engine's
 // create/duplicate/restore refusals in document-mutations.ts. Splitting it into
 // separate load/create limits was considered and rejected -- a load cap higher

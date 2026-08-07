@@ -1,6 +1,6 @@
 // src/app/use-load-truncation.test.ts
 //
-// The §100/§102 truncated-load guard, tested at the unit it actually is: a
+// The §102 truncated-load guard, tested at the unit it actually is: a
 // small state machine plus the TWO choke points (`reportFor` / `flushCurrent`)
 // that every storage load and every best-effort flush routes through.
 //

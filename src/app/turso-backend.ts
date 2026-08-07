@@ -134,9 +134,9 @@ export class TursoBackend implements StorageBackend {
   }
 
   async load(): Promise<Workspace> {
-    // ★★ ONE accumulator, ONE publish point. Both private loaders have several
-    // exits (the empty short-circuit, the legacy-blob import, the relational
-    // decode) and a path that returned without publishing would leave a STALE
+    // ★★ ONE accumulator, ONE publish point. `loadSingleTenant` has three exits
+    // (the empty short-circuit, the legacy-blob import, the relational decode)
+    // and `loadTenant` one; a path that returned without publishing would leave a STALE
     // count from the PREVIOUS load — worse than zero, because it would raise a
     // data-loss warning about a DB that is fine. The `finally` covers every
     // exit including the throwing one.

@@ -24,21 +24,26 @@ you decide.
   It remains a single limit governing both opening a file and creating
   documents in the app: a higher opening limit would let a project load that
   could then never be edited.
-- **A truncating load is disclosed on every backend.** JSON, IndexedDB, Turso
-  (single and multi-tenant), CSV and Markdown all report what they could not
-  open. A build-time guard fails if a storage backend does not report it — the
-  existing malformed-row warning had reached only two backends out of six for
-  its whole life, and a warning that covers some backends is worse than none,
-  because the ones it misses look safe.
-- **Automatic saving pauses after a truncating load**, so the source file keeps
-  everything that could not be opened. A banner offers the only two routes out:
-  repair the file outside the app, or accept the loss deliberately. The
-  explicit escape is required rather than optional — the documents that would
-  have to be deleted to get under the limit are precisely the ones that were
-  never loaded, so without it the pause would be a permanent block on saving.
-- **Cut-off document version history is reported too.** A stored version
-  carrying more blocks than the app keeps used to be restored as a silently
-  shortened document.
+- **A truncating load is disclosed however the project was opened.** JSON,
+  IndexedDB, Turso (single and multi-tenant), CSV and Markdown all report what
+  they could not open, and so does every route in — first load, switching
+  project, opening a file, reloading. A test fails if a storage backend stops
+  reporting. The precedent is the existing malformed-row warning, which reached
+  only two of the four backends for its whole life, leaving Turso and IndexedDB
+  silent: a warning that covers some backends is worse than none, because the
+  ones it misses look safe.
+- **Saving pauses after a truncating load**, so your saved project keeps
+  everything that could not be opened — not only the automatic save, but the
+  explicit ones too (picking a storage file, converting storage, switching
+  project). A banner offers the only two routes out: repair the project outside
+  the app, or accept the loss deliberately. The explicit escape is required
+  rather than optional — the documents that would have to be deleted to get
+  under the limit are precisely the ones that were never loaded, so without it
+  the pause would be a permanent block on saving. Dismissing the banner leaves
+  a "saving paused" indicator you can click to bring it back.
+- **Cut-off document content is reported too**, in stored version history and
+  in live documents alike. A document or version carrying more blocks than the
+  app keeps was previously shortened with no indication at all.
 
 ### Changed
 
