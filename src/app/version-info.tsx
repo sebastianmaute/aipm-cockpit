@@ -5,8 +5,8 @@
 // line and the Settings footer). Single source of truth for the "about" panel.
 
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
 import { Modal } from "./modal";
 import {
   APP_BUILD_DATE,
@@ -34,14 +34,9 @@ export function VersionInfoModal({
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "version")}
           </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t(lang, "alertModalClose")}
-            className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
-          >
+          <IconButton onClick={onClose} label={t(lang, "alertModalClose")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
+          </IconButton>
         </div>
         <VersionInfo lang={lang} />
       </div>

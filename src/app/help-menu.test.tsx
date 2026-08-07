@@ -25,6 +25,19 @@ describe("HelpMenu floating panel", () => {
     expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
   });
 
+  // The title-bar close goes through the shared IconButton primitive. The
+  // hand-rolled button it replaced already composed INTERACTIVE, so the focus
+  // ring and `active:translate-y-px` are VACUOUS here — they matched before the
+  // conversion too. `cursor-pointer` (IconButton's BASE_CLASS) and `rounded-md`
+  // (the bespoke button used bare `rounded`) are the two that discriminate.
+  it("renders the panel close through the IconButton primitive", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    const close = screen.getByRole("button", { name: t("en-US", "close") });
+    expect(close.className).toMatch(/(^|\s)cursor-pointer(\s|$)/);
+    expect(close.className).toMatch(/(^|\s)rounded-md(\s|$)/);
+  });
+
   it("opens a content-pane panel with a search box and grouped help content", () => {
     render(<HelpMenu lang="en-US" />);
     openPanel();
