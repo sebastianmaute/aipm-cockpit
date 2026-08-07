@@ -223,7 +223,7 @@ export function InsightsPanel({
                     <div className="mt-1 flex flex-wrap items-center gap-1 print:hidden">
                       {insight.entityRef && onOpen ? (
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="xs"
                           aria-label={`${t(lang, "insightOpen")} – ${title}`}
                           onClick={() => onOpen(insight.entityRef!)}
@@ -235,7 +235,7 @@ export function InsightsPanel({
                         <>
                           {showAck ? (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
                               onClick={() => actions!.onAcknowledge(insight.id)}
@@ -245,7 +245,7 @@ export function InsightsPanel({
                           ) : null}
                           {showAct ? (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightAct")} – ${title}`}
                               onClick={() => actions!.onAct(insight.id)}
@@ -255,7 +255,7 @@ export function InsightsPanel({
                           ) : null}
                           {showDismiss ? (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightDismiss")} – ${title}`}
                               onClick={() => actions!.onDismiss(insight.id)}

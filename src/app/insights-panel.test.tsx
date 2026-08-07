@@ -383,4 +383,26 @@ describe("InsightsPanel", () => {
       expect(screen.queryByText(/last 7 days/i)).toBeNull();
     });
   });
+
+  it("renders row actions as bordered secondary buttons, not ghost", () => {
+    render(
+      <InsightsPanel
+        insights={[makeInsight({ id: 11, type: "milestoneSlip", status: "active" })]}
+        lang="en-US" today={TODAY}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
+      />,
+    );
+    const dismiss = screen.getByRole("button", { name: `Dismiss – ${titleOf("milestoneSlip")}` });
+    expect(dismiss.className).toContain("border-line");
+    // ★ Word-bounded on purpose. A bare `toContain("bg-surface")` is VACUOUS here:
+    //   the ghost variant is `bg-transparent … hover:bg-surface-muted`, which
+    //   contains that substring, so the assertion would pass against the exact
+    //   markup it exists to reject.
+    expect(dismiss.className).toMatch(/(^|\s)bg-surface(\s|$)/);
+    // Ghost's defining trait — assert its absence so a revert fails.
+    expect(dismiss.className).not.toContain("bg-transparent");
+  });
 });
