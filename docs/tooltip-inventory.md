@@ -1,6 +1,12 @@
 # Tooltip inventory
 
-Snapshot taken 2026-08-07, on `2d31abe5` (branch `feat/ui-batch-slice-2`, Tasks 1–12 committed).
+Snapshot taken 2026-08-07, on `176b823a` (branch `feat/ui-batch-slice-2`, Tasks 1–12 committed).
+
+★★ An earlier revision cited `2d31abe5` here. **That object is NOT in the branch** — `git merge-base
+--is-ancestor 2d31abe5 HEAD` exits 1. It is a dangling pre-amend duplicate of `176b823a` (identical
+tree `908e56cf3d2a…`, identical parent) left behind when that commit's message was rewritten; it
+resolves in the authoring clone until gc and nowhere else. Amending a commit invalidates every sha
+already written into prose — check the citations after any amend.
 
 ## Status — updated 2026-08-07, after implementation
 
@@ -19,14 +25,28 @@ shell's `topBarMenus` slot — and modern is the default layout. Establish the m
 to Settings before wording its copy; the answer may be that a tooltip is not the finding there.
 
 ★★ **Implementation found something this document did not, and it changes how B5–B9 must be tested.**
-`ToggleButton` **composes** the title: `[title, stateText].join(" · ")`. So those five render
+`ToggleButton` **composes** the title: `[title, stateText].filter(Boolean).join(" · ") || undefined`. So those five render
 `"<hint> · Currently on — click to turn off"`, **not** the bare hint. An equality assertion on them
 fails; use `toContain`. The five also now announce hint *and* state on focus — existing primitive
 behaviour, but five more controls joined it.
 
-★ Line numbers below were accurate for the **expressions** but drifted for the **positions**: twelve
-of the nineteen Class A lines were low by 2–6 when applied, and `removable-chip-row`'s pointed at the
-component signature rather than the `aria-label`. Cite the symbol, not the line.
+★★★ **RETRACTED — an earlier revision of this line was false, and it invented a defect.** It claimed
+"twelve of the nineteen Class A lines were low by 2–6" and that `removable-chip-row`'s "pointed at the
+component signature rather than the `aria-label`". Measured against `176b823a`: **all nineteen Class A
+line numbers point exactly at their control's opening tag, and none drifted.** `removable-chip-row.tsx`
+`:21` is the signature, `:25` is the `<button`, `:28` is the `aria-label` — the cited `:25` is correct
+and ordinary. The "low by 2–6" figure was measuring the distance from the opening tag *down to the name
+prop*, i.e. a different anchor convention, not an error. Seven of the nineteen have the name on the tag
+line itself, which is why they looked exact.
+
+★★ The retraction matters more than the numbers: the false version was then used to draw a standing
+lesson ("cite the symbol, not the line") from a defect that did not exist. A rule justified by a
+fabricated example is worse than no rule — the next reader distrusts nineteen correct citations. Cite
+the symbol where a line genuinely rots; do not cite this as the reason.
+
+★ Two lines HAVE since drifted, by +1, because an earlier row in the same file gained a `title`:
+`history-panel.tsx:364` and `roles-editor.tsx:416`. That is real, small, and the opposite direction
+from what the retracted claim described.
 
 Scope: all of `src/app`, `*.tsx`, excluding `*.test.tsx`. The classification surface is the
 **icon-only and glyph-only** controls — the ones a hover tooltip is actually for. A control with a
@@ -49,7 +69,7 @@ grep -rho "<InfoTooltip" src/app --include=*.tsx --exclude="*.test.tsx" | wc -l 
 grep -rl "aria-label" src/app --include=*.tsx | grep -v "\.test\.tsx" | wc -l      # 190
 ```
 
-| measure | this run (2026-08-07, `2d31abe5`) |
+| measure | this run (2026-08-07, `176b823a`) |
 |---|---|
 | `title=` occurrences, non-test `.tsx` | **388** |
 | `<InfoTooltip` mounts, non-test `.tsx` | **147** |
@@ -186,7 +206,7 @@ Proposed EN is a **proposal**. DE is written at approval time, via the node utf8
 | B4 | RACI chip trigger | `raci-chip-picker.tsx:77` | Stakeholders → RACI grid | ``aria-label={`${ariaPrefix} — ${triggerLabel}`}`` | "<milestone> · <stakeholder> — Set RACI" / "— Responsible" | "Set this stakeholder's RACI role for this milestone" | The name is a **location plus current state**, never the consequence. `raciSetLabel` = "Set RACI" is the closest it gets and only in the empty state. |
 
 ★ **B1's surface is narrower than "the top bar", and the difference was measured, not assumed.**
-`grep -rn "SettingsMenu" src/app --include=*.tsx` returns `app-header.tsx` and the file itself and
+`grep -rn "SettingsMenu" src/app --include=*.tsx | grep -v test` returns `app-header.tsx` and the file itself and
 nothing else. It renders at `app-header.tsx:149`, **outside** the `ActionMenus` element at `:142` —
 and `ActionMenus` is what `buildShellChrome` puts in the modern shell's `topBarMenus` slot
 (`shell-chrome.tsx:107`). So this cog is in the **classic** header only, while the modern shell is
@@ -198,7 +218,7 @@ shell's own route to Settings before wording B1's copy.
 
 Scoped, not exhaustive. Filter: the visible label is a **bare noun, adjective, or a verb with no
 object**, on a control whose effect is not derivable from its surroundings. Drawn by hand from the
-197 untitled buttons whose visible label is ≤2 words (command under "Reproduce"); modal-footer verbs
+198 untitled buttons whose visible label is ≤2 words (command under "Reproduce"); modal-footer verbs
 ("Save", "Cancel", "Back") are excluded as a family — see "keep".
 
 | # | Control | File:line | Surface | Visible label | Proposed EN | Why |
@@ -233,7 +253,7 @@ the five without. ★ The menu's own trigger already carries `ganttViewMenuHint`
 | `TextButton`'s own `<button>` | `text-button.tsx:44` | keep | Same. |
 | `IconButton`'s own `<button>` | `icon-button.tsx:70` | keep | Same, and it is the target of every Class A fix — the whole batch works *through* this element, never on it. |
 | Detailed-planning toggle | `budget-bucket-modal.tsx:514` | keep | Visible label `budgetModeDetailed` = "Detailed" is a bare adjective, but the group heading two lines up already renders `<InfoTooltip text={t(lang, "budgetDetailedPlanningHint")} />`. A second tooltip on the control would duplicate it. |
-| Modal-footer verbs — "Save" · "Cancel" · "Back" · "Close" · "Add" | the bulk of the 197 short-label sites | keep | A verb inside a labelled dialog takes its object from the dialog. "Cancel" in a modal titled "Edit RAID item" is unambiguous, and a tooltip repeating the dialog title on every footer button is noise. ★ This is a **family** keep — if a specific footer sits in a dialog with no visible title, it leaves the family and becomes B. ★★ "the bulk" is deliberately **not a number**: nobody counted them, and an invented count is the most-rotted claim shape in this repo's docs. The 197 total is measured (command under "Reproduce"); this subset is not. |
+| Modal-footer verbs — "Save" · "Cancel" · "Back" · "Close" · "Add" | the bulk of the 198 short-label sites | keep | A verb inside a labelled dialog takes its object from the dialog. "Cancel" in a modal titled "Edit RAID item" is unambiguous, and a tooltip repeating the dialog title on every footer button is noise. ★ This is a **family** keep — if a specific footer sits in a dialog with no visible title, it leaves the family and becomes B. ★★ "the bulk" is deliberately **not a number**: nobody counted them, and an invented count is the most-rotted claim shape in this repo's docs. The 198 total is measured (command under "Reproduce"); this subset is not. |
 
 ### Two sites reported to this audit as gaps — both are tooltip-complete, and only one is a real gap
 
@@ -494,7 +514,7 @@ emoji, and a literal search can return nothing though the glyph is present. Ever
 `residue()` regex uses (`× ✕ ⋮ ▸ ▾ ▼ ▲ ↑ ↓ + •`) is BMP and safe. Anything outside it must be checked
 with node: `fs.readFileSync(f, "utf8").includes("\u{1F5D2}")`.
 
-The Class B(ii) shortlist (197 untitled buttons with a ≤2-word visible label) comes from the same
+The Class B(ii) shortlist (198 untitled buttons with a ≤2-word visible label) comes from the same
 scan, joined against the EN dictionary:
 
 ```js
@@ -524,7 +544,7 @@ Stated plainly, because an audit's silence reads as "checked and clean":
   `title` that repeats a useless name is exactly the failure this document warns about in Class A,
   and there may be some already shipped.
 - **`InfoTooltip` text quality.** 147 mounts, none read.
-- **Class B(ii) exhaustiveness.** Ten sites were drawn by hand from a 197-row shortlist under a
+- **Class B(ii) exhaustiveness.** Ten sites were drawn by hand from a 198-row shortlist under a
   stated filter. A different filter — three-word labels, or labels on `<select>`/`<input>` — would
   find more. The shortlist command is above; the judgement is not automatable.
 - **Anything gated — including by `docs:symbols:check`, which does not read this file.** Verified

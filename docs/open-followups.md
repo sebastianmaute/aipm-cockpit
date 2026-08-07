@@ -5213,7 +5213,8 @@ above.
 ## 103. Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet
 
 The full audit is [`docs/tooltip-inventory.md`](tooltip-inventory.md), taken 2026-08-07 on
-`2d31abe5`. This entry exists so the register points at it, and so the **unapplied** half does not
+`176b823a` (an earlier revision said `2d31abe5`, which is a dangling pre-amend duplicate NOT in the
+branch — `git merge-base --is-ancestor` exits 1). This entry exists so the register points at it, and so the **unapplied** half does not
 have to be rediscovered.
 
 **Scale, so nobody re-derives it.** Element-level, over non-test `src/app/*.tsx` (the inventory
@@ -5222,6 +5223,13 @@ carries the parser that produces these — an opening tag spans lines and a `cla
 icon- or glyph-only, of which **49** already have a `title` and **38** do not. Of those 38, **13 are
 the word `<button` inside a comment** and 2 are a primitive's own element, leaving **23 real
 controls**: **19 Class A**, **3 Class B**, **1 blocked on i18n**.
+
+★★ **Those are SNAPSHOT numbers and the fixes have since landed — do not read 38 as today's open
+surface.** At the snapshot the split was 573 / 142 titled / 87 icon-only / 49 titled / 38 untitled;
+after Tasks 14 and 16 it is 573 / 176 / 87 / 70 / **17**. The attribute-level `grep -rho 'title='`
+moved 388 → 422. "So nobody re-derives it" is about the METHOD being expensive, not about the numbers
+being current — re-run the parser in the inventory before quoting any of them as a present-tense
+count.
 
 **What slice 2's Task 14 applies, and what it does not.** Task 14 takes the **Class A** rows only —
 add `title={<the expression already in the accessible name>}`, zero new strings, no approval needed.
@@ -5236,7 +5244,7 @@ Everything below is what remains open after it:
   ★★ **RESOLVED 2026-08-07 except one row.** The user approved **13 of the 14** at row level and
   slice 2 implements them: B2–B14. **B1 (the settings cog, `settings-menu.tsx:59`) is HELD** and is
   the only Class B row still open. It was held for a reason worth keeping: that cog renders in the
-  **classic** `AppHeader` only — `grep -rn "SettingsMenu" src/app --include=*.tsx` returns just
+  **classic** `AppHeader` only — `grep -rn "SettingsMenu" src/app --include=*.tsx | grep -v test` returns just
   `app-header.tsx` and the file itself, and it mounts at `app-header.tsx:149`, OUTSIDE the
   `ActionMenus` element that `buildShellChrome` feeds to the modern shell's `topBarMenus` slot. The
   modern shell is the DEFAULT layout, so most users never see this control at all. Before wording
