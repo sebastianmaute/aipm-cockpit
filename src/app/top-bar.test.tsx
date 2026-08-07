@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { t } from "./i18n";
 import { TopBar } from "./top-bar";
 
 describe("TopBar", () => {
@@ -77,6 +78,33 @@ describe("TopBar", () => {
   it("omits the AI Assistant button when onOpenAiAssistant is not provided", () => {
     render(<TopBar {...base} />);
     expect(screen.queryByRole("button", { name: "AI Assistant" })).toBeNull();
+  });
+
+  // The three icon-only header actions go through the shared IconButton
+  // primitive. `cursor-pointer` + `active:translate-y-px` come from
+  // IconButton's BASE_CLASS + INTERACTIVE and appear on NO hand-rolled
+  // `p-2` button in this file, so they discriminate primitive from bespoke.
+  // (The focus ring does NOT discriminate — the hand-rolled ring was already
+  // byte-identical to FOCUS_RING.)
+  it.each(["sidebarMenuButton", "openAiAssistant", "showDueAlerts"] as const)(
+    "renders the %s header action through the IconButton primitive",
+    (key) => {
+      render(<TopBar {...base} onToggleSidebar={vi.fn()} onOpenAiAssistant={vi.fn()} />);
+      const btn = screen.getByRole("button", { name: t("en-US", key) });
+      expect(btn.className).toMatch(/(^|\s)cursor-pointer(\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)active:translate-y-px(\s|$)/);
+      // The accessible name and the hover title both survive the conversion.
+      expect(btn).toHaveAttribute("title", t("en-US", key));
+    },
+  );
+
+  // The badge is absolutely positioned against the alerts button, so that
+  // button must keep its own positioning context through the conversion.
+  it("keeps the alerts button as the count badge's positioning context", () => {
+    render(<TopBar {...base} bannerCount={3} />);
+    const alerts = screen.getByRole("button", { name: t("en-US", "showDueAlerts") });
+    expect(alerts.className).toMatch(/(^|\s)relative(\s|$)/);
+    expect(alerts).toContainElement(screen.getByText("3"));
   });
 
   it("renders AI Assistant button before the alerts button in DOM order", () => {

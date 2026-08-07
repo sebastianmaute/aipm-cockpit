@@ -3,6 +3,7 @@ import { Bars3Icon, BellIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/2
 import { type Lang, t } from "./i18n";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 import { CountBadge } from "./count-badge";
+import { IconButton } from "./icon-button";
 
 interface TopBarProps {
   lang: Lang;
@@ -33,15 +34,14 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
     <header className="flex items-center justify-between gap-4 border-b border-line bg-surface px-6 py-3">
       <div className="flex min-w-0 items-center gap-3">
         {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            aria-label={t(lang, "sidebarMenuButton")}
+          <IconButton
+            size="md"
+            label={t(lang, "sidebarMenuButton")}
             title={t(lang, "sidebarMenuButton")}
-            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
+            onClick={onToggleSidebar}
           >
             <Bars3Icon aria-hidden="true" className="h-5 w-5" />
-          </button>
+          </IconButton>
         )}
         <h1 className="truncate text-xl font-semibold tracking-tight text-ui-dark-blue dark:text-ui-light-grey">
           {title}
@@ -52,23 +52,24 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
       <div className="flex items-center gap-1">
         {search}
         {onOpenAiAssistant && (
-          <button
-            type="button"
-            onClick={onOpenAiAssistant}
-            aria-label={t(lang, "openAiAssistant")}
+          <IconButton
+            size="md"
+            label={t(lang, "openAiAssistant")}
             title={t(lang, "openAiAssistant")}
-            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
+            onClick={onOpenAiAssistant}
           >
             <ChatBubbleLeftRightIcon aria-hidden="true" className="h-5 w-5" />
-          </button>
+          </IconButton>
         )}
         {primaryAction}
-        <button
-          type="button"
-          onClick={onShowAlerts}
-          aria-label={t(lang, "showDueAlerts")}
+        {/* `relative` is load-bearing: the CountBadge below is absolutely
+            positioned against THIS button, so it must stay the containing block. */}
+        <IconButton
+          size="md"
+          className="relative"
+          label={t(lang, "showDueAlerts")}
           title={t(lang, "showDueAlerts")}
-          className="relative rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
+          onClick={onShowAlerts}
         >
           <BellIcon aria-hidden="true" className="h-5 w-5" />
           {bannerCount > 0 && (
@@ -76,7 +77,7 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
               {bannerCount}
             </CountBadge>
           )}
-        </button>
+        </IconButton>
         {children}
       </div>
     </header>

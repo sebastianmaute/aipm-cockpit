@@ -5,6 +5,7 @@ import { type Lang, t } from "./i18n";
 import { type Command } from "./voice";
 import { type StorageKind } from "./storage";
 import { CountBadge } from "./count-badge";
+import { IconButton } from "./icon-button";
 import { SettingsMenu } from "./settings-menu";
 import { ActionMenus } from "./action-menus";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
@@ -102,34 +103,34 @@ export function AppHeader({
         />
         <div className="flex items-center gap-1">
           {onOpenAiAssistant && (
-            <button
-              type="button"
-              onClick={onOpenAiAssistant}
-              aria-label={t(lang, "openAiAssistant")}
+            <IconButton
+              size="md"
+              label={t(lang, "openAiAssistant")}
               title={t(lang, "openAiAssistant")}
-              className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
+              onClick={onOpenAiAssistant}
             >
               <ChatBubbleLeftRightIcon aria-hidden="true" className="h-5 w-5" />
-            </button>
+            </IconButton>
           )}
-          <button
-            type="button"
+          <IconButton
+            size="md"
+            label={t(lang, "addTaskButton")}
+            title={t(lang, "addTaskButton")}
             onClick={() => {
               handleCancelEdit();
               setTaskModalOpen(true);
             }}
-            aria-label={t(lang, "addTaskButton")}
-            title={t(lang, "addTaskButton")}
-            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
           >
             <PlusIcon aria-hidden="true" className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={onShowAlerts}
-            aria-label={t(lang, "showDueAlerts")}
+          </IconButton>
+          {/* `relative` is load-bearing: the CountBadge below is absolutely
+              positioned against THIS button, so it must stay the containing block. */}
+          <IconButton
+            size="md"
+            className="relative"
+            label={t(lang, "showDueAlerts")}
             title={t(lang, "showDueAlerts")}
-            className="relative rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
+            onClick={onShowAlerts}
           >
             <BellIcon aria-hidden="true" className="h-5 w-5" />
             {bannerCount > 0 && (
@@ -137,7 +138,7 @@ export function AppHeader({
                 {bannerCount}
               </CountBadge>
             )}
-          </button>
+          </IconButton>
           <ActionMenus
             lang={lang}
             onCommand={handleCommand}
