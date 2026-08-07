@@ -661,3 +661,110 @@ describe("blocks arrays are not shared between owners", () => {
     expect(out.documents[0].blocks).toEqual(DOC.blocks);
   });
 });
+
+describe("the block cap reaches BOTH restore paths", () => {
+  const blocks = (n: number) => Array.from({ length: n }, () => ({ type: "pageBreak" as const }));
+  const over = blocks(MAX_BLOCKS_PER_DOC + 10);
+  const version = (over1: Partial<DocState["versions"][number]> = {}) => ({
+    id: 5,
+    documentId: 1,
+    title: "Fat",
+    blocks: over,
+    savedAt: "2026-08-01T09:00:00.000Z",
+    source: "user" as const,
+    op: "update" as const,
+    ...over1,
+  });
+
+  // ★★★ THE THIRD "ONE DOOR OF TWO" IN THIS FILE. MAX_DOCUMENTS reached create,
+  // duplicate AND restore-recreate; MAX_BLOCKS_PER_DOC reached create and ops
+  // and stopped, so both restore paths wrote an uncapped document — measured at
+  // 510 blocks with `changed:true, rejected:[]`. Latent, because every load
+  // path caps blocks so no STORED version can exceed it today; live the moment
+  // any path yields one.
+  it("refuses a restore IN PLACE whose version exceeds the cap", () => {
+    const start: DocState = { documents: [{ ...DOC, blocks: [] }], versions: [version()] };
+    const out = applyDocMutation(start, { kind: "restore", versionId: 5 }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.documents[0].blocks).toEqual([]);
+    expect(out.rejected).toEqual([`block limit exceeded (${MAX_BLOCKS_PER_DOC + 10} > ${MAX_BLOCKS_PER_DOC})`]);
+  });
+
+  it("refuses a restore that RECREATES a deleted document over the cap", () => {
+    const start: DocState = { documents: [], versions: [version({ documentId: 77, op: "delete" })] };
+    const out = applyDocMutation(start, { kind: "restore", versionId: 5 }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.documents).toEqual([]);
+    expect(out.rejected).toEqual([`block limit exceeded (${MAX_BLOCKS_PER_DOC + 10} > ${MAX_BLOCKS_PER_DOC})`]);
+  });
+
+  it("still restores a version that fits, on both paths", () => {
+    // ★★ THE CONTROL. Both guards refuse; a cap applied unconditionally would
+    // satisfy the two cases above and break restore outright — which is the
+    // recovery path, so breaking it silently is the worst outcome here.
+    const fits = version({ blocks: blocks(3) });
+    const inPlace = applyDocMutation(
+      { documents: [{ ...DOC, blocks: [] }], versions: [fits] },
+      { kind: "restore", versionId: 5 },
+      ctx(),
+    );
+    expect(inPlace.changed).toBe(true);
+    expect(inPlace.documents[0].blocks).toHaveLength(3);
+
+    const recreated = applyDocMutation(
+      { documents: [], versions: [version({ blocks: blocks(3), documentId: 77, op: "delete" })] },
+      { kind: "restore", versionId: 5 },
+      ctx(),
+    );
+    expect(recreated.changed).toBe(true);
+    expect(recreated.documents[0].blocks).toHaveLength(3);
+  });
+
+  it("still lets an over-cap document be restored to something SMALLER", () => {
+    // ★ The shrink escape applies here too: a live document already past the
+    // cap must not be frozen out of a restore that improves it.
+    const start: DocState = {
+      documents: [{ ...DOC, blocks: blocks(MAX_BLOCKS_PER_DOC + 100) }],
+      versions: [version({ blocks: blocks(MAX_BLOCKS_PER_DOC + 5) })],
+    };
+    const out = applyDocMutation(start, { kind: "restore", versionId: 5 }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC + 5);
+  });
+});
+
+describe("a block must be SHAPED like a block, not merely be an object", () => {
+  // ★★★ `typeof x === "object"` IS NOT A BLOCK TEST. The first guard refused
+  // `42`, `"str"` and `null` but ADMITTED `[]` and `{}` — both stored verbatim
+  // and reported as success (measured), then dropped by `sanitizeBlock` on the
+  // next load. Same silent-success class as the missing-field case, reached
+  // with a differently-malformed value instead of an absent one.
+  it.each([
+    ["an empty array", []],
+    ["an empty object", {}],
+    ["an array of blocks", [{ type: "pageBreak" }]],
+    ["an object with a non-string type", { type: 7 }],
+  ])("refuses %s as a block", (_label, block) => {
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "append", block } as never] }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.documents[0].blocks).toEqual(DOC.blocks);
+    expect(out.rejected).toEqual(["op 0: append requires a block"]);
+  });
+
+  it("still accepts every real block shape", () => {
+    // ★★ THE CONTROL, and it must cover more than one block type: a guard that
+    // hard-coded `type === "pageBreak"` would pass a single-shape control while
+    // refusing most of the model's legitimate output. This deliberately does NOT
+    // validate the type against the known set — that is sanitizeBlock's job, and
+    // a second copy of the block registry here is one that can drift.
+    for (const block of [
+      { type: "pageBreak" },
+      { type: "heading", level: 1, text: "H" },
+      { type: "paragraph", html: "<p>x</p>" },
+    ]) {
+      const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "append", block } as never] }, ctx());
+      expect(out.changed).toBe(true);
+      expect(out.documents[0].blocks.at(-1)).toEqual(block);
+    }
+  });
+});

@@ -221,7 +221,26 @@ export function trimVersions(
 
   const globallyKept = keepable.sort(byNewest).slice(0, MAX_TOTAL_VERSIONS);
   const keptIds = new Set(globallyKept.map((version) => version.id));
-  const next = versions.filter((version) => keptIds.has(version.id) || protectedIds.has(version.id));
+  // ★★ DEDUP BY ID, closing an asymmetry with `sanitizeDocumentVersions`, which
+  // already drops a repeated id (first occurrence wins). Without it this filter
+  // keeps BOTH copies — `keptIds.has` is true for each — so trim was not
+  // idempotent over an array that already carried a duplicate, while its
+  // sibling in the same file was.
+  // ★ UNREACHABLE THROUGH THE ENGINE: version ids are minted monotonically
+  // (id-mint-session) and every load path routes through
+  // `sanitizeDocumentVersions`, so only a caller constructing DocState by hand
+  // can produce one. Taken anyway because it is provably free on well-formed
+  // input — every id is unique, so `emitted` never fires and the array is
+  // returned BY REFERENCE exactly as before — and because it costs strictly
+  // less than the sort two lines above. Same first-occurrence-wins rule as the
+  // sibling, so the two cannot disagree about which copy survives.
+  const emitted = new Set<number>();
+  const next = versions.filter((version) => {
+    if (!keptIds.has(version.id) && !protectedIds.has(version.id)) return false;
+    if (emitted.has(version.id)) return false;
+    emitted.add(version.id);
+    return true;
+  });
   return next.length === versions.length ? versions : next;
 }
 

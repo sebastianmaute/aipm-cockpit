@@ -346,6 +346,63 @@ describe("per-op payload guards", () => {
     expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined);
   });
 
+  // ★★★ `typeof x === "object"` IS NOT A BLOCK TEST, and this guard shared the
+  // weak version with `applyOps`: `42`, `"str"` and `null` were refused, but
+  // `[]` and `{}` sailed through, were stored verbatim, reported as success and
+  // dropped on the next load.
+  it.each([
+    ["an empty array", []],
+    ["an empty object", {}],
+    ["an object with a non-string type", { type: 7 }],
+  ])("refuses %s as a block", async (_label, block) => {
+    await expect(update([{ op: "append", block }])).rejects.toThrow(/append requires a block/i);
+  });
+
+  it("still accepts every real block shape, through to the dispatcher", async () => {
+    // ★ The control, across more than one block type — a guard hard-coding a
+    // single `type` would pass a one-shape control while refusing most real
+    // model output.
+    const d = makeDispatcher();
+    const ops = [
+      { op: "append", block: { type: "pageBreak" } },
+      { op: "append", block: { type: "heading", level: 1, text: "H" } },
+      { op: "append", block: { type: "paragraph", html: "<p>x</p>" } },
+    ];
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops })).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined);
+  });
+
+  // ★★ THE TRIM ASYMMETRY. `create_document` trimmed its title; this route did
+  // not, so `"   "` reached the engine, which caps+trims it to empty, refuses
+  // the rename and pushes a rejection belonging to NO op — and a caller
+  // deriving applied-count from `ops.length - rejected.length` could report a
+  // NEGATIVE number. Trimming here means a whitespace-only title is simply
+  // absent, which is what the caller meant.
+  it("treats a whitespace-only title as absent, like create_document does", async () => {
+    const d = makeDispatcher();
+    await expect(
+      runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "delete", index: 0 }], title: "   " }),
+    ).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "delete", index: 0 }], undefined);
+  });
+
+  it("refuses a whitespace-only title with NO ops, rather than passing an empty rename down", async () => {
+    // ★ Without ops there is nothing left to do, so this is the "supply ops, a
+    // title, or both" case — a clearer refusal than letting the engine reject a
+    // blank rename one layer down.
+    await expect(runDocumentTool(makeDispatcher(), "update_document", { id: 1, title: "   " })).rejects.toThrow(
+      /supply ops, a title, or both/i,
+    );
+  });
+
+  it("still passes a REAL title through, trimmed", async () => {
+    // ★ The control: a fix that dropped every title would satisfy both cases
+    // above while silently disabling rename-via-update entirely.
+    const d = makeDispatcher();
+    await expect(runDocumentTool(d, "update_document", { id: 1, title: "  Renamed  " })).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, [], "Renamed");
+  });
+
   it("refuses BEFORE reaching the dispatcher, so nothing is written", async () => {
     // ★★ The assertion that makes the refusals above meaningful: a guard that
     // threw AFTER the write would satisfy every `rejects.toThrow` here while

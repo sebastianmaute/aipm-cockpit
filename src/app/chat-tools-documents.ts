@@ -151,8 +151,21 @@ function requirePayload(op: unknown, i: number): void {
     );
   }
   if (kind === "append" || kind === "insert" || kind === "replace") {
+    // ★★★ `typeof x === "object"` IS NOT A BLOCK TEST, and this guard shared the
+    // weak version with applyOps: it refuses `42`, `"str"` and `null` but
+    // ADMITS `[]` and `{}`, which were stored verbatim, reported as success and
+    // dropped on the next load. Every real DocBlock is discriminated by a string
+    // `type`, so that is the cheapest test admitting all of them and neither of
+    // those. It deliberately does NOT check the type against the known set —
+    // that is document-model.ts's `sanitizeBlock`, and a second copy of the
+    // block registry here is one that can drift.
     const block = (op as { block?: unknown }).block;
-    if (!block || typeof block !== "object") {
+    if (
+      typeof block !== "object" ||
+      block === null ||
+      Array.isArray(block) ||
+      typeof (block as { type?: unknown }).type !== "string"
+    ) {
       throw new Error(`op ${i}: ${kind} requires a block`);
     }
   }
@@ -185,7 +198,16 @@ export async function runDocumentTool(
     case "update_document": {
       const id = requireDocId(input);
       const ops = requireOps(input);
-      const title = typeof input.title === "string" ? input.title : undefined;
+      // ★★ TRIMMED, matching create_document one case above. The asymmetry was
+      // not cosmetic: an untrimmed `"   "` reached the engine, which caps+trims
+      // it to empty, refuses the rename and pushes a rejection — so a caller
+      // deriving "how many ops applied" from `ops.length - rejected.length`
+      // counted a rejection that belongs to no op and could report a NEGATIVE
+      // applied count. Trimming here means a whitespace-only title is simply
+      // absent, which is what the model meant, and the two routes now read the
+      // title the same way.
+      const trimmed = typeof input.title === "string" ? input.title.trim() : "";
+      const title = trimmed === "" ? undefined : trimmed;
       if (ops.length === 0 && title === undefined) {
         throw new Error("supply ops, a title, or both");
       }

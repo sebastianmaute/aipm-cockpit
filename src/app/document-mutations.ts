@@ -158,6 +158,32 @@ function blockLimitReason(count: number): string {
   return `block limit exceeded (${count} > ${MAX_BLOCKS_PER_DOC})`;
 }
 
+/** Would writing `next` blocks over a document that currently has `current`
+ *  break the cap?
+ *
+ *  ★★★ THE SECOND CLAUSE IS LOAD-BEARING and a plain `next > cap` is wrong: it
+ *  would refuse the very `delete` op that brings an over-cap document back
+ *  under, so the cap would become a state with no way out. Mutation-proved —
+ *  dropping it turns "an ALREADY over-cap document can still shrink" red.
+ *
+ *  ★★★ ITS JUSTIFICATION USED TO BE WRONG, which is worth more than the clause
+ *  itself: the comment said an over-cap document arrives "loaded from a file
+ *  that carried more". It cannot. `sanitizeDocument` does
+ *  `.slice(0, MAX_BLOCKS_PER_DOC)`, so every load path truncates, and
+ *  `sanitizeDocumentVersions` delegates to it, so no loaded VERSION exceeds the
+ *  cap either. With the guards below covering create / ops / both restores,
+ *  nothing in the app can now produce one at all. The clause is DEFENSIVE — it
+ *  keeps a future path that yields an uncapped document recoverable instead of
+ *  frozen — not a response to a reachable case.
+ *
+ *  ★ Related correction, so it does not get carried forward: documents are
+ *  dropped by a `break` at MAX_DOCUMENTS (so the NEWEST go), but blocks are
+ *  `slice`d (so the TAIL goes). Two different cap mechanics; do not describe
+ *  one with the other's wording. */
+function exceedsBlockCap(next: number, current: number): boolean {
+  return next > MAX_BLOCKS_PER_DOC && next > current;
+}
+
 /** The before-image of `doc`, as it stands right now. */
 function snapshot(doc: ProjectDocument, op: DocVersionOp, ctx: DocContext): DocVersion {
   return {
@@ -224,8 +250,30 @@ function findTarget(documents: readonly ProjectDocument[], id: number): ProjectD
  *  which is exactly why these read the field as `unknown` and test its SHAPE,
  *  rather than testing it for truthiness. */
 function opBlockIsMissing(op: DocOp): boolean {
-  const block = (op as { block?: unknown }).block;
-  return !block || typeof block !== "object";
+  return !isBlockShaped((op as { block?: unknown }).block);
+}
+
+/** ★★★ `typeof x === "object"` IS NOT A BLOCK TEST. The first version of this
+ *  guard was `!block || typeof block !== "object"`, which refuses `42`,
+ *  `"str"` and `null` but ADMITS `[]` and `{}` — both stored verbatim and
+ *  reported as success (measured), then dropped by `sanitizeBlock` on the next
+ *  load. That is the same silent-success class the missing-field guard exists
+ *  to close, reached with a differently-malformed value instead of an absent
+ *  one.
+ *
+ *  ★★ Every real `DocBlock` is discriminated by a string `type`, so that is the
+ *  cheapest test that admits all of them and neither of those two. It
+ *  deliberately does NOT check the type against the known set — that is
+ *  document-model.ts's `sanitizeBlock`, and duplicating the block registry here
+ *  is a second copy that can drift. This only has to establish "shaped like a
+ *  block at all". */
+function isBlockShaped(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as { type?: unknown }).type === "string"
+  );
 }
 
 function opBlocksIsNotAnArray(op: DocOp): boolean {
@@ -362,6 +410,15 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       if (liveDoc) {
         // Restore IN PLACE, snapshotting what it replaced — the restore is
         // itself revertible.
+        // ★★★ THE THIRD "ONE DOOR OF TWO". MAX_DOCUMENTS reached create,
+        // duplicate AND restore-recreate; MAX_BLOCKS_PER_DOC reached create and
+        // ops and stopped there, so BOTH restore paths wrote an uncapped
+        // document (measured: 510 blocks, changed:true, rejected:[]). Latent
+        // only because every load path caps blocks, so no stored version can
+        // currently exceed it — it goes live the moment any path yields one.
+        if (exceedsBlockCap(version.blocks.length, liveDoc.blocks.length)) {
+          return unchanged(state, [blockLimitReason(version.blocks.length)]);
+        }
         const before = snapshot(liveDoc, "update", ctx);
         const restoredDoc: ProjectDocument = { ...liveDoc, title: version.title, blocks: [...version.blocks], updatedAt: ctx.now };
         const nextDocuments = state.documents.map((d) => (d.id === liveDoc.id ? restoredDoc : d));
@@ -400,6 +457,11 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       // is the kinder failure: allowing a 201st document means the next load
       // drops one silently, and it drops the newest — which would be this one.
       if (state.documents.length >= MAX_DOCUMENTS) return unchanged(state, [documentLimitReason()]);
+      // ★ The recreate half of the same gap. Nothing is there to shrink, so the
+      // "current" side is 0 and any over-cap version is refused outright.
+      if (exceedsBlockCap(version.blocks.length, 0)) {
+        return unchanged(state, [blockLimitReason(version.blocks.length)]);
+      }
       // The document is gone: recreate under a NEW id (ids are never
       // reused). This is a create, not a replace, so it writes no BEFORE-IMAGE
       // — and the version row that was restored is deliberately NOT consumed.
@@ -521,12 +583,8 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       // index, and what `runDocumentTool`'s "rename plus one bad op is not a
       // refusal" clause expects. Rejecting the whole mutation here would turn
       // every over-cap edit that also renamed into a hard failure.
-      // ★★★ THE SECOND CLAUSE IS NOT REDUNDANT: a document already over the cap
-      // (loaded from a file that carried more) must still be shrinkable, or the
-      // cap becomes a trap with no way out — every op on it, including the
-      // `delete` that would bring it back under, would be refused forever. So
-      // only GROWTH past the cap is refused.
-      if (nextBlocks !== null && nextBlocks.length > MAX_BLOCKS_PER_DOC && nextBlocks.length > target.blocks.length) {
+      // ★ Only GROWTH past the cap is refused — see exceedsBlockCap.
+      if (nextBlocks !== null && exceedsBlockCap(nextBlocks.length, target.blocks.length)) {
         rejected.push(blockLimitReason(nextBlocks.length));
         nextBlocks = null;
       }

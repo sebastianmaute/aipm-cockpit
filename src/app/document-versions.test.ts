@@ -159,6 +159,35 @@ describe("trimVersions", () => {
     expect(kept.map((k) => k.id)).toEqual([2]);
   });
 
+  // ★★ DEDUP, closing an asymmetry with sanitizeDocumentVersions, which already
+  // drops a repeated id. Unreachable through the engine (ids are minted
+  // monotonically and every load path sanitizes), so this is a corrupted-input
+  // property: trim must be idempotent over an array its sibling would have
+  // cleaned. First occurrence wins, same rule as the sibling.
+  it("drops a duplicate id rather than keeping both copies", () => {
+    const first = v({ id: 1, title: "First" });
+    const clone = v({ id: 1, title: "Second" });
+    const out = trimVersions([first, clone], [1]);
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toBe("First");
+  });
+
+  it("is IDEMPOTENT over an array carrying a duplicate", () => {
+    // ★ The property the dedup buys: trimming twice must equal trimming once.
+    const dup = [v({ id: 1 }), v({ id: 1 })];
+    const once = trimVersions(dup, [1]);
+    expect(trimVersions(once, [1])).toBe(once); // second pass is a no-op, by reference
+  });
+
+  it("still returns the SAME REFERENCE when every id is unique", () => {
+    // ★★★ THE CONTROL THAT MATTERS MOST HERE. The dedup must be free on
+    // well-formed input: Turso's dirty-table detection is reference equality, so
+    // a rebuilt-but-equal array marks the table dirty and costs a full DELETE +
+    // re-INSERT for a write that changed nothing.
+    const clean = [v({ id: 1 }), v({ id: 2 }), v({ id: 3 })];
+    expect(trimVersions(clean, [1])).toBe(clean);
+  });
+
   it("returns the same reference when nothing needs trimming", () => {
     const list = [v()];
     expect(trimVersions(list, [1])).toBe(list);
