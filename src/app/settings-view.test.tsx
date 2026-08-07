@@ -182,4 +182,66 @@ describe("SettingsView", () => {
     // a later normal re-open).
     expect(onSectionConsumed).toHaveBeenCalled();
   });
+
+  it("hides the AI children until the AI branch is active", () => {
+    render(<SettingsView {...makeProps()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiGuidesHeading") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "aiViewsTitle") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "scheduledJobsTitle") })).toBeNull();
+  });
+
+  it("reveals the three AI children when AI Assistant is selected", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    expect(screen.getByRole("button", { name: t("en-US", "aiGuidesHeading") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsTitle") })).toBeInTheDocument();
+  });
+
+  it("keeps the branch open while a child is the active section", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") }));
+    // Siblings stay visible, and the child is the one marked current.
+    expect(screen.getByRole("button", { name: t("en-US", "aiGuidesHeading") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("renders each AI child exactly once", () => {
+    // The main rail group is defined by EXCLUSION, so a child missing its
+    // `!r.parent` filter renders BOTH in the alphabetical main group and under
+    // its parent. That is a duplicate, not an absence — an existence assertion
+    // cannot catch it, so this counts.
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    for (const key of ["aiGuidesHeading", "aiViewsTitle", "scheduledJobsTitle"] as const) {
+      expect(screen.getAllByRole("button", { name: t("en-US", key) })).toHaveLength(1);
+    }
+  });
+
+  it("marks the AI parent expanded only while its branch is active", () => {
+    render(<SettingsView {...makeProps()} />);
+    const ai = () => screen.getByRole("button", { name: t("en-US", "settingsSectionAi") });
+    expect(ai()).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(ai());
+    expect(ai()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("honours a deep-link straight to a child section", () => {
+    render(
+      <SettingsView {...makeProps({ requestSection: { id: "scheduledJobs", nonce: 1 } })} />,
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsTitle") })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // The branch opened around it, so the siblings are reachable.
+    expect(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") })).toBeInTheDocument();
+  });
 });
