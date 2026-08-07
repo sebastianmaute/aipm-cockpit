@@ -134,6 +134,13 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 89 | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open — buildable (absences are in `Workspace`, unlike §86's live external calls); out of scope for that slice. ★ Had a detail section but NO table row until 2026-08-06 |
 | 90 | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — it returns the new resource id, which the guard would widen to `number \| undefined` | found in the help-coverage slice-3 review, unreleased | S | open — a popout can create a resource via the RAID/task picker while the save around it is blocked |
 | 91 | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | open — `onCaptureRaidBulk` is unguarded and `useUndoHotkey` is unconditional, so bulk-apply + Ctrl+Z writes `setRaid` and `logActivity("undo")`; the activity log is localStorage with no `isPopout` check, so that line outlives the window. Gating the hotkey closes both |
+| 92 | The `settings-types` ⇄ `workspace` ⇄ `document-model` value-import cycle is a standing trap for any eval-time snapshot | AI document authoring S1, unreleased | S per instance | open — a TRAP, not a defect. **Sweep 2026-08-06 CLEAN**, no unfixed instances; carries a verified structural triage rule (exporter must transitively import the snapshotter) so the next candidate is decidable, not guesswork |
+| 93 | The PPTX truncation notice is a hardcoded English frame wrapped around a LOCALIZED section title | AI document authoring S1, unreleased | S | open — i18n; affects BOTH PPTX paths, and only the newer one carries a code comment saying so |
+| 94 | PPTX pagination counts logical lines, so a wrapped long line still overflows the slide | AI document authoring S1, unreleased | S–M | open — eye-verify owed; UNBOUNDED overflow is fixed, bounded overflow remains and no test in this repo can see it |
+| 95 | No test exercises a real Turso database on any path — meta-blob coverage is statements → synthetic results | AI document authoring S1, unreleased | M | open — class-wide (`documents` · `insights` · `knowledgeItems`), not a documents-specific gap |
+| 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1, unreleased | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
+| 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1, unreleased | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
+| 99 | The e2e seed writes NONE of BrowserBackend's nine optional kv slices, so any view backed by one is axe-scanned against its EMPTY STATE | AI document authoring S1, unreleased | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -4492,84 +4499,436 @@ edit, and is the reason this is filed as one item rather than two.
 
 ---
 
-## 92. Tab ejects focus from a portaled popover opened inside a modal — open, a11y
+## 92. The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open
 
-**Measured in Chromium 2026-08-06, not inferred.** Open any edit modal → open the field-visibility
-popover in its header → press Tab ONCE. Focus lands back on the trigger button **while the popover
-stays open**, and the same happens from a checkbox inside the popover. So the checkbox list and the
-Reset button have NO keyboard path at all (WCAG 2.1.1). Both probes below were run; the second is
-what proves the cause is the portal rather than the radiogroup:
+**This is a TRAP, not a defect.** The one instance that bit is fixed and regression-pinned. The
+CYCLE it exploited is still there, and the next module-eval snapshot taken anywhere in that graph
+fails the same silent way.
 
-| start | Tab → | popover |
+The cycle, all three edges VALUE imports (reproduce — each returns one line; ★ deliberately no line
+numbers written down here, see the note at the end of this entry):
+
+```bash
+grep -n "defaultStorageConfig"     src/app/settings-types.ts | head -1   # settings-types → workspace
+grep -n "sanitizeProjectDocuments" src/app/workspace.ts      | head -1   # workspace → document-model
+grep -n "EXPORT_SECTION_KEYS"      src/app/document-model.ts | head -1   # document-model → settings-types
+```
+
+Entered through `./storage` — how the app actually loads — `document-model` evaluates while
+`settings-types` is still mid-evaluation, so anything it snapshots at module scope captures the
+**partially-initialised** value. `document-model` had `const SECTION_KEYS = new Set(EXPORT_SECTION_KEYS)`,
+which captured an EMPTY set and froze it for the process, silently rejecting every `dataSection`
+block — the one block type that embeds live project data. Fixed by reading the array at call time —
+see `isSectionKey` in `document-model.ts`.
+
+★★★ **Why this needs a register entry rather than just the code comment: the failing shape is
+invisible to the obvious test.** Imported DIRECTLY, `settings-types` finishes evaluating first and
+the snapshot is fine — so the module's own suite stayed green while the app was broken. Only an
+import-order test reproduces it, which is why `document-model.storage-cycle.test.ts` exists and why
+its first line says the import ORDER is the test. A future snapshot elsewhere in this graph gets no
+such test for free.
+
+**How to triage a candidate — a structural test, decidable from the import graph.** The bug requires
+the EXPORTER of the snapshotted value to transitively import the SNAPSHOTTER. Import declarations are
+hoisted and evaluated before any statement in a module body, so where `exporter →* snapshotter`, the
+snapshotter can evaluate before the exporter has run a single line and the binding is guaranteed
+uninitialized. Where that edge does not exist, the exporter always completes first. Necessary AND
+sufficient — no need to reason about entry points case by case.
+
+Verified here rather than taken on faith, with one positive control and one real candidate:
+
+| exporter → snapshotter | reaches? | verdict |
 |---|---|---|
-| checked tier radio | the trigger | still open |
-| a field checkbox | the trigger | still open |
+| `settings-types.ts` → `document-model.ts` (the known bug) | YES, via `workspace.ts` | at risk — the rule predicts the defect |
+| `types.ts` → `sanitize-entities.ts` (`ABSENCE_TYPE_SET`) | no | safe |
 
-**Cause.** `Modal`'s Tab trap collects focusables from `dialogRef.current` and guards on
-`container.contains(active)`. `PopoverPanel` renders through `createPortal` into `document.body`, so
-its content is NOT a descendant of that container and `contains` is false for EVERY element inside
-it — not merely at the boundary. The first Tab therefore satisfies the "focus escaped" branch
-unconditionally and re-focuses the modal's own first/last focusable. The dismissal stack is working
-as designed and is not the bug: a popover pushes kind `"layer"`, which deliberately traps nothing so
-the modal keeps Tab. The gap is that the modal's trap cannot SEE portaled layer content, so it does
-not deliver on that stated intent.
+★★ **The risk marker is NOT "snapshots an imported value"** — that is common and almost always fine.
+It is **a CONSTANTS or TYPES module that imports a VALUE.** `types.ts` and `scheme-apply.ts` are
+LEAVES (`types.ts` has exactly one import and it is `import type`; `scheme-apply.ts` has none), which
+is why every candidate in the sweep came back safe. `settings-types.ts` is the anomaly: it imports the
+VALUE `defaultStorageConfig` from `./workspace`, and that single edge creates the only real cycle
+here. So the live-candidate set is: anything snapshotting a value exported from `settings-types.ts`,
+or from any module `settings-types` transitively reaches.
 
-★★ **Pre-existing, and NOT introduced by the field-controls-into-header change.** The old cog
-popover held the same checkbox list in the same `PopoverPanel` inside the same `Modal` — the second
-probe above is exactly that path. What the move changed is prominence: the whole field-visibility
-surface now lives behind the popover, so every keyboard user meets this on their first Tab. The tier
-switch itself stays operable, because focus lands on the checked radio and arrows work.
+**The trap shape:** any `new Set(...)`, `new Map(...)`, `Object.freeze(...)`, `.map()`/`.filter()`
+result, or derived constant computed at MODULE SCOPE from an imported value. A lazily-memoized version
+has the same failure moved to first call. Read the imported value inside the function that needs it.
 
-★ **Invisible to every gate.** `modal-field-controls.test.tsx` renders the control STANDALONE, never
-inside `Modal`, so no unit test can see it; axe scans views, not interaction-opened modals, and does
-not evaluate cross-widget Tab order in any case. A test for this must mount the control inside a real
-`Modal` — that mounting, not the assertion, is the load-bearing part.
+★★★ **The `new Set(...)` form is the DANGEROUS one, and that inverts the obvious intuition.**
+`new Set(undefined)` is a silently EMPTY set — verified, size 0, and `new Set(null)` likewise — so the
+snapshot "succeeds" and every later membership test quietly answers false. Calling a method on the
+same uninitialized binding (`X.map(...)`) throws at import time instead (`TypeError`; an untransformed
+ESM read of a `const` still in TDZ throws `ReferenceError`). **The LOUD failure is the SAFE one.** A
+crash at startup is fixed in minutes; an empty Set ships. So "calling a function at module-eval is
+more fragile" is true and beside the point — it is more fragile and LESS dangerous.
 
-★ Two directions, neither prescribed: give `PopoverPanel` its own Tab cycle over `panelRef` while
-open (Escape and outside-click stay the exit), or teach the modal's trap to include the DOM of any
-open `"layer"` above it. The first is contained; the second fixes the class. Either needs a sweep of
-all `PopoverPanel` consumers — three of them (`action-cta-controls`, `action-popover-trigger`,
-`version-menu`) have no test file at all.
+★ Counterfactual severity is easy to overstate, so state it precisely. Had `ABSENCE_TYPE_SET` been
+reachable, the consequence would NOT have been dropped absences: `sanitizeAbsenceType`
+(in `sanitize-entities.ts`) falls back to `"other"` and never returns null, so every
+vacation/sick/training row would have been silently REWRITTEN to "other". Type corruption, not data
+loss — both bad, but they need different detection and different recovery.
 
-★ Related and separate: nothing restores focus to the trigger when a popover closes. That is a
-repo-wide `PopoverPanel` gap — no consumer does it — and worth folding into the same visit.
+**Fix options**, in ascending order of ambition: (a) leave it and rely on the call-time convention,
+(b) break the cycle by moving `defaultStorageConfig` out of `workspace.ts` into a leaf module so
+`settings-types` no longer imports a value from it, (c) a lint rule or a guard test that fails on a
+module-scope derived constant in this graph. (b) is the only one that removes the trap rather than
+documenting it.
+
+★★ **Taking option (b) silently RETIRES the behavioural guard, and that is an accepted DECISION, not
+an oversight.** `document-model.storage-cycle.test.ts` can only fail while this cycle exists — it
+works by importing `./storage` first so `document-model` evaluates while `settings-types` is
+mid-evaluation. Remove the cycle and that condition is gone: the test passes for a new reason, and
+nothing announces that it stopped protecting anything. Deliberately NOT guarded against, because the
+only way to guard it is to assert the cycle EXISTS — which pins the current architecture as a
+requirement, so whoever takes option (b), the one fix that removes the trap rather than documenting
+it, would be met with a failing test demanding they put the cycle back. A guard that quietly retires
+once its hazard is gone is the right shape.
+
+★ The SHAPE half survives (b). The source scan added in `4fd23a7b` reads document-model's SOURCE
+TEXT, so it is order- AND cycle-independent and keeps biting no matter what happens to the graph;
+it is also the only guard that can fire from inside `document-model.test.ts`, whose direct-import
+path can never reproduce the behaviour. The two are complements: the behavioural test pins the
+CONSEQUENCE, the scan pins the SHAPE — and the scan alone would NOT catch a different way of
+snapshotting early (a lazy memo, an eval-time `.map`, a derived frozen array), which is why both
+stay. Reproduce:
+
+```bash
+npx vitest run src/app/document-model.test.ts -t "never snapshots"   # 1 passed | 28 skipped
+```
+
+★ **Sweep result, 2026-08-06: CLEAN.** All five candidates were checked and none is reachable, so this
+entry has NO unfixed instances behind it — it is purely a trap for future work. Do not re-run the
+sweep expecting to find something; re-run the check only when a new VALUE import is added to a
+constants or types module, which is the event that can create a new cycle.
+
+★★ **If you write the graph check, handle `export … from`.** The sweep's first parser read `import`
+statements only and ignored re-exports. Those are real runtime edges, and a barrel is built entirely
+from them — `sanitize.ts` is nothing but `export * from …` lines, one of them `"./sanitize-entities"`
+— so the gap made it report that
+`sanitize.ts` does not reach `sanitize-entities.ts`, which is false. Any reachability answer produced
+without re-export edges is untrustworthy in both directions.
+
+★★ **Cite SYMBOLS here, not line numbers — this entry proved its own point.** Its first draft pinned
+the three cycle edges and `isSectionKey` to specific lines. Within the SAME session another agent
+edited `document-model.ts`, moving the import from :14 to :29 and `isSectionKey` from :66 to :81, so
+two of four citations were stale before the entry was ever committed. The greps above are written to
+PRINT the current line instead. A `file:line` in this register is wrong the moment anyone touches the
+file, and nothing gates it.
+
+★ **No durable script exists.** The walker behind the table above lives in a scratchpad outside the
+repo, so those two rows are reproducible today only by rewriting it. Whether a checked-in version
+belongs in `scripts/` is an OPEN DECISION nobody has taken: it would be gate-shaped, and a gate that
+scans the import graph needs its own justification, allowlist and failure policy. Until then, treat
+the rule as a manual check and the table as a worked example of applying it.
 
 ---
 
-## 93. `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y
+## 93. The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open
 
-The checked segment is distinguished from its siblings by fill alone (`--segment-active-bg` against
-`--segment-track-bg`). AGENTS.md's own rule for `ToggleButton` treats a lightness difference of
-**≥3:1** as the additional non-colour distinction WCAG 1.4.1 requires. Computed from
-`builtin-schemes.ts` (reproduce with the WCAG relative-luminance formula on the two tokens):
+Both PPTX paths build the same sentence from a hardcoded English frame and a section title that the
+registry has ALREADY translated, so a German deck gets a mixed-language sentence:
 
-| scheme | track vs active | |
+> "Showing the first 100 of 125 **Aufgaben** rows."
+
+Reproduce:
+
+```bash
+grep -nE '`Showing the first' src/app/export-pptx.ts src/app/doc-render-pptx.ts   # 2 call sites
+grep -n  "Showing the first" src/app/export-pptx.ts src/app/doc-render-pptx.ts    # 3 lines — one is a comment
+```
+
+★ Use the first form. The plain-substring search returns THREE lines, not two: the extra one is prose
+inside the `doc-render-pptx.ts` comment that describes this very problem, and reading it as a third
+call site sends you looking for a site that does not exist.
+
+The two sites are NOT equally documented: `doc-render-pptx.ts` carries a ★★ comment above its
+copy explaining the mixed-language problem and why it was deferred; `export-pptx.ts` — the older
+workspace-export path, which has shipped this for far longer — has no comment at all. Anyone fixing
+this from the code alone will likely find one and miss the other.
+
+The second line, "Export to XLSX for the full list.", is hardcoded English in both places too, but
+it is at least monolingual.
+
+**Fix:** an i18n key taking the two counts and the title as positional placeholders — shaped like
+`t(lang, "<newKey>", cap, total, title)`, applied at BOTH sites. ★ No such key exists yet and this
+entry deliberately does not invent a name for it: a plausible identifier written down in prose gets
+grepped for, not found, and then re-created slightly differently by the next person. Name it when you
+add it. Deferred because it
+means editing `i18n.de.ts`, which has its own handling rules (CRLF, real umlauts, no ASCII
+substitutes — see AGENTS.md), and an awkward sentence is much less bad than silently dropping rows.
+
+★ Related but already solved, and worth copying rather than re-deriving: the continuation marker in
+the same renderer uses a NUMERIC `(2/3)` instead of a word like "(cont.)" precisely to dodge this
+problem for free. Prefer that trick wherever a marker can carry no prose.
+
+---
+
+## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
+
+**Half of this is already fixed — do not re-open the fixed half.** `doc-render-pptx.ts` now derives
+`BODY_LINES_PER_SLIDE` from the body box and font size (`:247`) and chunks each slide's lines through
+`paginateLines`, so overflow went from UNBOUNDED to BOUNDED.
+
+What remains: the budget counts lines in the array, not lines as RENDERED. `bodyPr` emits
+`wrap="square"` with no `normAutofit`/`spAutoFit`, so PowerPoint's no-autofit default lets text run
+past the shape rather than scaling it — and one long line wraps to two or three rendered lines while
+counting as one. The budget is therefore sound for short lines and optimistic for long ones. A
+`dataSection` row rendered as `"Col: value · Col: value · …"` is exactly the long-line case.
+
+★★★ **No test in this repo can catch it, and that is the reason it is filed here rather than left to
+CI.** jsdom has no layout, the box is never rendered, and the overflow is invisible in the XML — it
+shows up only when a human opens the deck. The module's own comment states this limit honestly; this
+entry exists so the OWED EYE VERIFICATION is tracked somewhere a release checklist will see it.
+
+**Verify by hand:** export a document containing a `dataSection` over a register with wide rows (RAID
+with long titles is the worst case), open the deck in real PowerPoint, and look for body text
+crossing the bottom of the content area.
+
+**Fix options:** (a) emit `normAutofit` and let PowerPoint shrink text to fit — one attribute, but it
+makes font size vary per slide; (b) estimate rendered height from a character-per-line budget derived
+from the box width and an average glyph width, which is still an estimate but a much closer one;
+(c) hard-wrap long lines at a character count before pagination, so the count and the render agree.
+
+---
+
+## 95. No test exercises a real Turso database on ANY path — open
+
+Framing matters here: this is **not** a `documents` gap. It is a known limit of the whole meta-blob
+class and of the Turso layer generally, and `documents` merely inherits it.
+
+There is no `@libsql/client` dependency at all — the app reaches Turso over the HTTP pipeline API
+(`turso-pipeline.ts`), and tests mock `fetch`. So no test in the repo opens a database, real or
+in-memory:
+
+```bash
+grep -rn ":memory:" src/app/*.test.ts        # no hits
+grep -n "libsql" package.json                # no hits — HTTP pipeline, not a driver
+```
+
+`turso-schema.documents.test.ts` (16 tests — `grep -cE "^\s*it\(" src/app/turso-schema.documents.test.ts`;
+★ the naive `grep -c "it("` answers 17 because it also matches `.split(`) is a good test of the layer it covers, and it is explicit
+about what it does: its `resultsFromStatements` helper REBUILDS the SELECT results by parsing the
+INSERT statements the save just emitted. That proves the encode and decode halves agree with each
+other. It cannot prove either agrees with SQLite — malformed SQL, a column-type surprise, a quoting
+bug, or a driver/endpoint quirk all pass.
+
+The same is true of the other meta-blob fields (`insights`, `knowledgeItems`) and of the entity tables.
+
+**Fix options:** (a) accept it and say so in the test files, which is nearly the status quo;
+(b) one integration test against a real SQLite file through the same statement builders, catching the
+"is this valid SQL" class without needing a network; (c) a recorded-fixture test replaying a real
+pipeline response captured once by hand. (b) is the cheapest real improvement, and it would cover
+every entity at once rather than per-field.
+
+★ Do not size this as a documents task. The work is the harness; once it exists, adding a field to it
+is minutes.
+
+---
+
+## 96. The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN
+
+`doc-render-html.ts` backs the in-app document PREVIEW and the print-to-PDF path, so its module graph
+loads whenever a user opens a document — not only when they click Download. Extracting
+`doc-data-section.ts` removed the OOXML builders and the ZIP writer from that graph (that part is
+done and is why the extraction happened). What remains is the section registry itself.
+
+Measured, and the type/value split matters:
+
+| entry | modules reachable | runtime (value imports only) | type-only, erased at build |
+|---|---|---|---|
+| `doc-data-section.ts` | 84 | **60** | 24 |
+| `export-sections.ts` | 83 | 59 | 24 |
+
+★★ So `doc-data-section` adds exactly ONE runtime module on top of `export-sections`, and
+`export-sections` alone accounts for 59 of the 60 — it pulls the csv-codecs column definitions, i18n
+and the entity types. There is nothing to trim inside `doc-data-section`; the whole cost is the
+registry, which the preview needs **only when the document actually contains a `dataSection` block**.
+
+★★★ **An earlier report of this said "84 modules" without separating type-only imports, which
+overstates the runtime cost by 24 modules. If you have seen that number quoted, 60 is the one that
+means anything.** To reproduce: walk the transitive `./`-relative import graph from the entry file,
+resolving each specifier `.ts` then `.tsx`, and count the modules reached — once following EVERY
+`from "…"` edge, and once skipping edges whose whole clause is `import type` / `export type` (and
+brace lists where every specifier is `type X`). The gap between the two counts is the type-only
+tail, which is erased at build and costs nothing at runtime.
+
+**Fix:** make the registry a dynamic `import()` inside `resolveDataSection`, so a document with no
+`dataSection` block never loads it. That changes the function to async, which ripples into all three
+renderers — so it is a real change, not a one-liner.
+
+★ **Honest state: no bundle measurement has been taken.** Module COUNT is not bytes, Next.js
+code-splits, and nobody has reported the preview as slow. This is recorded because the "59 of 60 come
+from one conditionally-needed import" fact is non-obvious and expensive to rediscover — NOT because
+there is evidence of a user-visible problem. Measure before scheduling it, and close this as
+"not worth it" if the bytes are small.
+
+---
+
+## 97. The DOM constraint INVERTED for the document load paths — open (TRAP, safe today)
+
+**Nothing here is broken. The danger is that the rule everyone has memorised is now BACKWARDS for
+four specific call sites**, and the failure it produces is silent.
+
+The lore this repo repeats — §36(a), the `templates.ts` guard, the sample-generator landmine — is
+*"you must NOT call DOMPurify here, the generator runs under bare node."* For the document load paths
+it is now the opposite: **you MUST ensure a DOM exists, or documents are lost without a diagnostic.**
+`document-rich-fields.ts` says as much in its own header (the DOM-free rationale is called obsolete
+there), but that is a file you only open once you already know to look. This entry exists because the
+register is what someone reads while PLANNING.
+
+### Measured, with a negative control
+
+Reproduce by installing JSDOM into `globalThis` before a dynamic import of the codec (exactly what
+`scripts/generate-sample-workspace.ts` does in its header), then running the same decode with and
+without it:
+
+```
+WITHOUT JSDOM:  CSV → documents defined: FALSE · html "<missing>"
+                Markdown → documents defined: FALSE · html "<missing>"
+WITH JSDOM:     CSV → documents defined: true · html "<p>keep me</p>"   (and <script> stripped)
+                Markdown → documents defined: true · html "<p>keep me</p>"
+```
+
+With no DOM the DOMPurify call throws, the decoder's own `catch` swallows it, and the documents are
+gone. No error, no log, no partial result.
+
+★★ And it is silent even though a reporting channel EXISTS. `csvToWorkspace` / `markdownToWorkspace`
+both take an `ImportDiag`, which is how other import problems reach the user — but `csvToDocuments`
+and `markdownToDocuments` take no diag, and their caller is a bare `if (docs) ws.documents = docs;`,
+so a falsy result is skipped without a word. A user importing a file therefore gets a diagnostics
+report that says nothing at all about the documents they just lost. Threading `diag` into these two
+is the cheapest partial improvement available.
+
+### The blast radius is NOT uniform — and the worst path is now CONTAINED
+
+Four load paths compose `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`. All four now
+wrap it in a LOCAL `try/catch`, so a throw costs the documents and nothing else:
+
+| path | on a missing DOM | what is lost |
 |---|---|---|
-| harbor-light | 10.42:1 | pass |
-| meridian-light | 8.73:1 | pass |
-| umber-light | 10.54:1 | pass |
-| harbor-dark | **2.38:1** | fail |
-| meridian-dark | **2.43:1** | fail |
-| umber-dark | **2.25:1** | fail |
+| CSV (`csvToDocuments`) | local catch | documents only |
+| Markdown (`markdownToDocuments`) | local catch | documents only |
+| Turso (`rowsToWorkspace`) | local catch | documents only |
+| JSON (`jsonToWorkspace`) | local catch **(added)** | documents only |
 
-★★ There is no second cue to fall back on. The selected segment carries
-`shadow-[var(--shadow-control)]`, but `--shadow-control` is `none` in `globals.css` and **no scheme
-overrides it** (`grep -c "shadow-control" src/app/builtin-schemes.ts` → 0), so that class paints
-nothing in any scheme. The light schemes pass on lightness alone; the dark ones have neither.
+★★★ **The JSON path used to be categorically worse and this is why the entry exists.** It had no
+local catch, so the throw reached `jsonToWorkspace`'s outer catch-all, which answers a NON-STRICT load
+with `emptyWorkspace()`. A `.json` project file therefore came back not "missing its documents" but
+EMPTY — measured, **tasks survived: 0** — losing every task, RAID item and milestone, silently. JSON is
+also the most likely thing a bare-node script touches, so the worst severity sat on the most reachable
+path. Fixed: the sanitize is wrapped locally, non-strict degrades to documents-dropped and records
+`workspace.documentsDropped` in the diagnostics ring, and **`strict: true` still throws** so the sample
+generator keeps failing loudly rather than writing a near-empty artifact. Pinned by four tests in
+`workspace.documents.test.ts`, one of which was run RED against the old code and reported the
+`tasks: 0` above.
 
-★ The screen-reader side is NOT affected and needs no fix: this is a real `radiogroup`, so
-`aria-checked` carries the state regardless of colour. That is the difference from the `aria-pressed`
-family in §55 — the gap here is purely visual, for sighted low-vision and CVD users.
+★ The containment is deliberately narrow — it wraps those two calls, never the whole decode, because a
+broader catch would make real file corruption survivable, which is exactly what `strict` exists to
+prevent. Degrading a throw to "documents dropped" also matches what the field already does with
+garbage input, so it introduces no new failure mode.
 
-★★ **Pre-existing and repo-wide — not introduced by moving the field tier switch into the primitive.**
-The tier switch's previous hand-rolled buttons used the very same two tokens, and the primitive has
-**31 invocations across 14 files** (see the reproduce command in `segmented-control.tsx`'s header), so
-a fix lands everywhere at once. Deliberately not fixed in the field-controls slice: a token change
-touching every segmented control in the app wants its own slice and its own eye-verify.
+★★ **The underlying DOM dependency is UNCHANGED and this entry stays open for it.** Containment limits
+the damage; it does not make the decoders work without a DOM. A bare-node importer still silently
+loses every document — it just keeps the rest of the workspace now.
 
-★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
-evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
+### ★★ The trigger is narrower than "has documents" — measured
 
+The allow-list only runs for a **paragraph** block, so most shapes are unaffected. Without a DOM:
+
+| workspace shape | tasks survived |
+|---|---|
+| no documents at all | 1 — fine |
+| a document with only a heading block | 1 — fine |
+| a document with a PARAGRAPH block | **0 — whole workspace lost** |
+
+That narrowness is why this has not bitten yet, and it is also what makes it treacherous: a bare-node
+script can pass every test against document-free fixtures and fail the first time someone's real
+project contains a paragraph.
+
+### Why it is safe today
+
+Verified by grep, not assumed: no file outside `src/app` imports these codecs directly, the only
+DOM-free importer is `scripts/generate-sample-workspace.ts` (which installs JSDOM into `globalThis`
+BEFORE its `await import("../src/app/storage")` — the dynamic import is load-bearing, a static one
+would hoist above the install), and every runtime decode caller is browser-side.
+
+### What would break it
+
+Removing or reordering the generator's JSDOM install; converting its dynamic import back to a static
+one; a NEW bare-node script or codegen step that imports `storage`, the CSV codec or the Markdown
+codec; or a test that exercises a decode path in a non-jsdom environment.
+
+**Fix options:** (a) leave it and rely on the comments, which is the status quo; (b) make the decoders
+distinguish "no documents" from "could not sanitize" so the failure is loud — the JSON path especially
+should not answer a DOM problem with an empty workspace; (c) have the sanitizer detect the absent DOM
+and throw a NAMED error, so the catch sites can decide rather than guess; (d) a tiny DOM shim so the
+allow-list degrades to a no-op instead of throwing — rejected on sight, because it would silently
+store unfiltered HTML, which is the vulnerability the pass exists to close.
+
+★ Cross-reference: §36(a) records the OTHER direction (a sanitizer that must stay DOM-free because it
+is in the generator's import graph). Both are true at once, of different modules, which is exactly why
+neither should be quoted as a general rule.
+
+---
+
+## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
+
+**Nothing is broken today and this is NOT a regression the documents slice introduced.** It is a
+pre-existing boundary that the documents feature makes newly consequential, and it is recorded
+separately because the reason it now matters did not exist before this slice.
+
+`nonEmptyCollectionCount` and `workspaceRecordCount` (both in `workspace.ts`) each enumerate the same
+THIRTEEN entity collections. `documents` is in neither — and neither are `knowledgeItems`, `insights`,
+`timelogLinks` or `settingsOverrides`. **State that scoping whenever this entry is quoted:** four
+sibling slices are equally invisible, so anyone reading it as "the documents slice forgot a counter"
+will go looking for a bug that is not there.
+
+### Measured, with a positive control
+
+```bash
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.tasks"           # 1
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.calendarEvents"  # 1
+```
+
+Run 2026-08-06; the `ws.tasks` / `ws.calendarEvents` lines are the control, so a zero from a broken
+pattern cannot masquerade as a finding. `knowledgeItems` and `insights` also return 0 from the first
+command, which is how the scoping above was established rather than assumed.
+
+### What it defeats, by name
+
+Both counters feed the save-effect choke point in `use-storage-backend.ts`, which computes
+`curCollections` / `curRecords` from the outgoing workspace and enforces two invariants:
+
+- **L3, the full wipe** — `curCollections === 0` while the previous save had `>= 2`.
+- **Layer B, the unexplained mass deletion** — `isMassDeletion(prevRecords, curRecords)`.
+
+A save that dropped every document while leaving the other slices untouched produces IDENTICAL
+`curCollections` and `curRecords`, so neither invariant fires and the destructive write proceeds with
+no refusal, no `recordDataLossEvent` entry, and no toast. `allowDestructiveRef` is never even
+consulted, because nothing looked destructive.
+
+### Why it matters more than the four siblings it shares the gap with
+
+Documents are user-AUTHORED long-form content: one record can represent hours of work, which is not
+true of `insights` (machine-derived) or `settingsOverrides` (reconstructible). And a project holding
+ONLY documents counts as **zero** non-empty collections — a completely plausible state for this
+feature, since a user can create a project and write a document before entering a single task. That
+combination is what is new.
+
+### Why widening the counters is NOT free, and was deliberately not done here
+
+Adding `documents` to both functions is two lines each, but the counters are the INPUT to a
+destructive-save guard: raising `curCollections` and `curRecords` shifts the L3 and Layer-B thresholds
+for every existing project, changing when saves are REFUSED. That is a behaviour change to the
+data-loss machinery and belongs in its own slice with its own tests — not as a trailing edit to the
+slice that noticed it. The failure mode of getting it wrong is a guard that refuses legitimate saves,
+which users experience as data loss of a different kind.
+
+★ If it is picked up: decide deliberately whether the other four join at the same time. Adding only
+`documents` leaves the register's own scoping stale, and a half-widened counter is harder to reason
+about than either end state.
 ---
 
 ## Decided — do not re-litigate
@@ -4617,6 +4976,121 @@ violation** — any finding claiming one is a false positive by construction. Ch
 believing a severity label.
 
 **Dropped:** audit **#38** browser-Back — stale, popstate already handled (`561615ce`).
+
+---
+
+## 99. The e2e seed silently drops nine optional slices, so some axe scans run on an empty state — open
+
+`e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
+list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
+persists nine optional slices as kv entries — `fieldVisibility`, `features`, `steeringCommittee`,
+`timelogLinks`, `knowledgeItems`, `insights`, `settingsOverrides`, `calendarEvents`, `documents` —
+and until this slice the seed's kv map carried NONE of them.
+
+★★ The consequence is a gate that reads far stronger than it is. A view whose data never arrives
+renders its EMPTY STATE, so axe scans a panel with no rows, no per-row controls and nothing that
+could collide. The run is green and proves close to nothing. **`Insights` is in `A11Y_VIEWS` and is
+in exactly this position today.**
+
+★★★ This is not theoretical, and the evidence is the reason the entry exists. `documents` had the
+identical defect; adding `documents: "documents"` to the kv map and seeding a second row turned up a
+REAL `serious` violation on the first run — `scrollable-region-focusable` on the preview pane,
+across all five scheme combos. That violation had been invisible because the pane had nothing to
+scroll. Reproduce the shape of the check with:
+
+```bash
+npx playwright test e2e/a11y.spec.ts --project=chromium -g "Insights"
+```
+
+★★ HONEST CAVEAT, and the reason this was NOT folded into the documents commit: seeding a slice for
+the first time can turn a currently-green scan RED, because it exposes markup the gate has never
+actually examined. That is the gate working, but it is a finding that deserves its own change with
+its own fix, not a surprise inside an unrelated commit.
+
+★ The fix per slice is one line in the kv map, and the key name is the same on both sides (the
+workspace field name equals the kv key). The cost is entirely in whatever the scan then finds.
+
+★ Related trap, same file: the seed hardcodes its `indexedDB.open` version while the app derives it
+from `IDB_VERSION`. They agree today; a future store addition that bumps one and not the other seeds
+the wrong shape silently. A comment now sits at that line.
+
+## 100. Tab ejects focus from a portaled popover opened inside a modal — open, a11y
+
+**Measured in Chromium 2026-08-06, not inferred.** Open any edit modal → open the field-visibility
+popover in its header → press Tab ONCE. Focus lands back on the trigger button **while the popover
+stays open**, and the same happens from a checkbox inside the popover. So the checkbox list and the
+Reset button have NO keyboard path at all (WCAG 2.1.1). Both probes below were run; the second is
+what proves the cause is the portal rather than the radiogroup:
+
+| start | Tab → | popover |
+|---|---|---|
+| checked tier radio | the trigger | still open |
+| a field checkbox | the trigger | still open |
+
+**Cause.** `Modal`'s Tab trap collects focusables from `dialogRef.current` and guards on
+`container.contains(active)`. `PopoverPanel` renders through `createPortal` into `document.body`, so
+its content is NOT a descendant of that container and `contains` is false for EVERY element inside
+it — not merely at the boundary. The first Tab therefore satisfies the "focus escaped" branch
+unconditionally and re-focuses the modal's own first/last focusable. The dismissal stack is working
+as designed and is not the bug: a popover pushes kind `"layer"`, which deliberately traps nothing so
+the modal keeps Tab. The gap is that the modal's trap cannot SEE portaled layer content, so it does
+not deliver on that stated intent.
+
+★★ **Pre-existing, and NOT introduced by the field-controls-into-header change.** The old cog
+popover held the same checkbox list in the same `PopoverPanel` inside the same `Modal` — the second
+probe above is exactly that path. What the move changed is prominence: the whole field-visibility
+surface now lives behind the popover, so every keyboard user meets this on their first Tab. The tier
+switch itself stays operable, because focus lands on the checked radio and arrows work.
+
+★ **Invisible to every gate.** `modal-field-controls.test.tsx` renders the control STANDALONE, never
+inside `Modal`, so no unit test can see it; axe scans views, not interaction-opened modals, and does
+not evaluate cross-widget Tab order in any case. A test for this must mount the control inside a real
+`Modal` — that mounting, not the assertion, is the load-bearing part.
+
+★ Two directions, neither prescribed: give `PopoverPanel` its own Tab cycle over `panelRef` while
+open (Escape and outside-click stay the exit), or teach the modal's trap to include the DOM of any
+open `"layer"` above it. The first is contained; the second fixes the class. Either needs a sweep of
+all `PopoverPanel` consumers — three of them (`action-cta-controls`, `action-popover-trigger`,
+`version-menu`) have no test file at all.
+
+★ Related and separate: nothing restores focus to the trigger when a popover closes. That is a
+repo-wide `PopoverPanel` gap — no consumer does it — and worth folding into the same visit.
+
+---
+
+## 101. `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y
+
+The checked segment is distinguished from its siblings by fill alone (`--segment-active-bg` against
+`--segment-track-bg`). AGENTS.md's own rule for `ToggleButton` treats a lightness difference of
+**≥3:1** as the additional non-colour distinction WCAG 1.4.1 requires. Computed from
+`builtin-schemes.ts` (reproduce with the WCAG relative-luminance formula on the two tokens):
+
+| scheme | track vs active | |
+|---|---|---|
+| harbor-light | 10.42:1 | pass |
+| meridian-light | 8.73:1 | pass |
+| umber-light | 10.54:1 | pass |
+| harbor-dark | **2.38:1** | fail |
+| meridian-dark | **2.43:1** | fail |
+| umber-dark | **2.25:1** | fail |
+
+★★ There is no second cue to fall back on. The selected segment carries
+`shadow-[var(--shadow-control)]`, but `--shadow-control` is `none` in `globals.css` and **no scheme
+overrides it** (`grep -c "shadow-control" src/app/builtin-schemes.ts` → 0), so that class paints
+nothing in any scheme. The light schemes pass on lightness alone; the dark ones have neither.
+
+★ The screen-reader side is NOT affected and needs no fix: this is a real `radiogroup`, so
+`aria-checked` carries the state regardless of colour. That is the difference from the `aria-pressed`
+family in §55 — the gap here is purely visual, for sighted low-vision and CVD users.
+
+★★ **Pre-existing and repo-wide — not introduced by moving the field tier switch into the primitive.**
+The tier switch's previous hand-rolled buttons used the very same two tokens, and the primitive has
+**31 invocations across 14 files** (see the reproduce command in `segmented-control.tsx`'s header), so
+a fix lands everywhere at once. Deliberately not fixed in the field-controls slice: a token change
+touching every segmented control in the app wants its own slice and its own eye-verify.
+
+★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
+evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
 
 ---
 

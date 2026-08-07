@@ -183,10 +183,34 @@ describe("buildPdfHtml", () => {
     const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
 
     expect(html).toContain("<!DOCTYPE html>");
-    expect(html).toContain("<html");
+    // Full opening tag, not a bare "<html": the loose form passed while the
+    // attribute was hardcoded to "en" regardless of the lang argument.
+    expect(html).toContain('<html lang="en-US">');
     expect(html).toContain("<head>");
     expect(html).toContain("</body>");
     expect(html).toContain("window.print()");
+  });
+
+  it("declares the REQUESTED language on <html>, never a hardcoded en (WCAG 3.1.1)", () => {
+    // Mirrors doc-render-html.ts, which emits its lang argument for the same
+    // reason. Every member of Lang is already a valid BCP-47 tag. A German
+    // export declaring lang="en" makes a screen reader read the whole document
+    // in an English voice and mislabels the printed PDF's language metadata.
+    //
+    // ★ Assert the CONCRETE attribute per language. "contains lang=" — or the
+    // bare "<html" this file used to assert — passes against the hardcoded
+    // value and pins nothing.
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1)],
+      raid: [],
+    };
+
+    expect(buildPdfHtml(ws, defaultExportConfig, "de")).toContain('<html lang="de">');
+    expect(buildPdfHtml(ws, defaultExportConfig, "en-GB")).toContain('<html lang="en-GB">');
+    expect(buildPdfHtml(ws, defaultExportConfig, "en-US")).toContain('<html lang="en-US">');
+    // The specific regression: the German export must not carry the old value.
+    expect(buildPdfHtml(ws, defaultExportConfig, "de")).not.toContain('<html lang="en">');
   });
 
   it("empty workspace — outputs 'No tasks to export' style message, no crash", () => {

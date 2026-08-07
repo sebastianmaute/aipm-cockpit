@@ -8,6 +8,34 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.219.0] - 2026-08-06 "Elgin"
+
+Project documents. The written deliverables of a project — a status report, a
+charter, a steering pack — now live with the project instead of beside it. This
+release is the foundation: documents are stored with the project, previewed in a
+new Documents view, and exported as a web page, a Word file, a PowerPoint deck or
+a PDF. Writing them with Claude comes next, and the in-app editor after that — so
+a newly created document still starts empty, and the sample project now seeds an
+example status report to show the shape.
+
+### Added
+
+- **A Documents view.** It lists every document in the project with the date it
+  last changed, and shows the selected one as it will print. Create, rename,
+  duplicate and delete from the toolbar; sort and resize the columns as in any
+  other table. In a pop-out window the view is read-only, matching every other
+  pop-out.
+- **Four export formats from one document.** Choose a web page, Word (.docx),
+  PowerPoint (.pptx) or PDF, and the choice is remembered for next time. The PDF
+  goes through your browser's own print dialog, so it needs no extra software and
+  the document never leaves your machine.
+- **Documents travel with the project.** Every storage backend saves them — JSON
+  file, CSV, Markdown, Turso and in-browser storage — and two open tabs stay in
+  step with each other.
+- **A document can embed live project data.** An embedded section renders the
+  same table the workspace exporter produces, so it cannot drift from the numbers
+  shown everywhere else in the app.
+
 ## [0.218.0] - 2026-08-06 "Hopkinson"
 
 Field captions stop activating the control beside them.

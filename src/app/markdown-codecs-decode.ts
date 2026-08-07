@@ -62,6 +62,7 @@ import {
   markdownToSteeringCommittee,
   markdownToTimelogLinks,
   markdownToKnowledgeItems,
+  markdownToDocuments,
   markdownToInsights,
   markdownToSettingsOverrides,
   mdUnescape,
@@ -339,6 +340,12 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   if (ki) ws.knowledgeItems = ki;
   const ins = markdownToInsights(md);
   if (ins) ws.insights = ins;
+  // Whole-md scan like the other fenced-json sections: the "## Documents"
+  // heading is not one splitMarkdownSections knows, so its lines stay in
+  // whichever section was open — harmless, since the block is emitted last and
+  // its lines never look like a table row.
+  const docs = markdownToDocuments(md);
+  if (docs) ws.documents = docs;
   const so = markdownToSettingsOverrides(md);
   if (so) ws.settingsOverrides = so;
   return migrateWorkspaceV10(ws);

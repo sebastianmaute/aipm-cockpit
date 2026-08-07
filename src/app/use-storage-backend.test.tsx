@@ -4,6 +4,7 @@ import type { ActivityEntry } from "./activity-log";
 import type { Settings } from "./settings-types";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
+import type { ProjectDocument } from "./document-model";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
@@ -130,8 +131,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments };
   };
 }
 
@@ -278,6 +279,78 @@ describe("useStorageBackend — save effect", () => {
     expect(mockBackend.save).toHaveBeenCalledWith(
       expect.objectContaining({ tasks: expect.any(Array), raid: expect.any(Array) }),
     );
+  });
+
+  it("persists a DOCUMENTS-ONLY change — the autosave deps-array guard", async () => {
+    // ★★★ This is the `documents`-in-the-deps-array regression, and the ONLY
+    // shape that catches it: the save effect's dependency array is what decides
+    // whether a change re-triggers a save. Omit `documents` there and saves
+    // still fire for every other slice, so a test that also touches tasks
+    // passes while a documents-only edit is silently LOST on reload.
+    // Nothing but `documents` may be mutated below — that is the whole point.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => {
+      result.current.setDocuments([
+        {
+          id: 1,
+          title: "Status report",
+          blocks: [],
+          createdAt: "2026-08-06T00:00:00.000Z",
+          updatedAt: "2026-08-06T00:00:00.000Z",
+        },
+      ]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documents: [expect.objectContaining({ id: 1, title: "Status report" })],
+      }),
+    );
+  });
+
+  it("restores documents from a loaded workspace", async () => {
+    // The other half of the round trip: a document present in the backend's
+    // workspace has to reach React state, or the pane renders its empty state
+    // over a project that does have documents.
+    mockBackend.load.mockResolvedValue({
+      tasks: [], raid: [], absences: [], shifts: [],
+      documents: [
+        {
+          id: 7,
+          title: "Loaded doc",
+          blocks: [],
+          createdAt: "2026-08-06T00:00:00.000Z",
+          updatedAt: "2026-08-06T00:00:00.000Z",
+        },
+      ],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documents).toEqual([
+      expect.objectContaining({ id: 7, title: "Loaded doc" }),
+    ]);
+  });
+
+  it("defaults documents to [] when the loaded workspace has none", async () => {
+    // ★ The context state is NON-optional so the panel's functional setter can
+    // spread `prev`. A load path that passed `undefined` through would make
+    // `setDocuments(prev => [...prev, x])` throw on the first create.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documents).toEqual([]);
   });
 
   it("localizes the cross-tab lock-timeout save failure instead of toasting the raw English error", async () => {
@@ -743,6 +816,40 @@ describe("useStorageBackend — Change Log persistence", () => {
     renderBackend();
     const kinds = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
     expect(kinds).toContain("changes");
+  });
+});
+
+// ── Documents broadcast sync (cross-tab data loss) ───────────────────────────
+// The save effect writes the WHOLE workspace on any slice change. A tab that
+// never hears about another tab's document create keeps its own stale (empty)
+// `documents` and writes it back over the other tab's work on its next save.
+// Registering the channel is what stops that, so the assertion below is that an
+// incoming `documents` message actually LANDS IN STATE — not merely that some
+// channel was registered.
+describe("useStorageBackend — documents broadcast sync", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("applies an incoming `documents` broadcast into workspace state", () => {
+    const { result } = renderBackend();
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.documents).toHaveLength(0);
+
+    const call = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls
+      .find((c) => c[0] === "documents");
+    if (!call) throw new Error("no `documents` channel is registered with useBroadcastSync");
+
+    // c[2] is `applyIncoming` — the setter the real hook calls on a message from
+    // another tab. Driving it directly proves the registered setter is wired to
+    // the live `documents` state and not, say, a stub or the wrong slice.
+    const applyIncoming = call[2] as (next: readonly ProjectDocument[]) => void;
+    act(() => {
+      applyIncoming([{ id: 5, title: "Kickoff deck" } as ProjectDocument]);
+    });
+
+    expect(result.current.documents.map((d) => d.title)).toEqual(["Kickoff deck"]);
   });
 });
 

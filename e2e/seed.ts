@@ -9,6 +9,37 @@ const SAMPLE_WORKSPACE = JSON.parse(
   readFileSync(join(process.cwd(), "sample-workspace-small.json"), "utf8"),
 ) as Record<string, unknown>;
 
+// ★★ A SECOND document, added HERE and deliberately NOT in the sample master.
+// The documents list gives every per-row control a row-qualified accessible
+// name ("Delete – <title>"), and N identical names can only COLLIDE when N > 1
+// — with a single seeded row the axe gate cannot see a duplicate-name failure
+// at all, which is a blind spot this repo has already shipped once. The two
+// titles differ on purpose: identical ones would assert the pathological case
+// instead of proving that the qualification works.
+// ★ Kept out of sample-workspace-small.json because that file is the
+// hand-curated master and the CSV/Markdown goldens are generated FROM it, so a
+// test-only row would force regenerating -big, -huge and every golden fixture.
+// ★ The id is far above the master's range so a document added to the sample
+// later cannot collide — sanitizeProjectDocuments dedupes by id and would
+// silently drop whichever came second.
+const SEED_WORKSPACE: Record<string, unknown> = {
+  ...SAMPLE_WORKSPACE,
+  documents: [
+    ...((SAMPLE_WORKSPACE.documents as unknown[]) ?? []),
+    {
+      id: 9001,
+      title: "Kickoff pack",
+      blocks: [
+        { type: "heading", level: 1, text: "Kickoff" },
+        { type: "paragraph", html: "<p>Agenda and owners for the kickoff session.</p>" },
+        { type: "bullets", items: ["Scope walkthrough", "Risk review"] },
+      ],
+      createdAt: "2026-06-01T00:00:00.000Z",
+      updatedAt: "2026-06-01T00:00:00.000Z",
+    },
+  ],
+};
+
 // Registry + File System Access stub. Runs in the browser before app code on
 // every navigation. A `kind:"browser"` project loads from IndexedDB (no
 // save-picker, which headless Chromium can't satisfy); the FSA pickers are
@@ -43,11 +74,25 @@ function seedRegistryAndFsa(): void {
 // it completes BEFORE the app loads (addInitScript can't block on async IDB).
 function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
   const ENTITY = ["tasks", "raid", "absences", "shifts", "resources", "roles", "disciplines", "grades", "budgets"];
+  // ★★ THIS MAP IS THE SEED'S BLIND SPOT. BrowserBackend persists NINE
+  // optional slices as kv entries — fieldVisibility, features,
+  // steeringCommittee, timelogLinks, knowledgeItems, insights,
+  // settingsOverrides, calendarEvents, documents — and anything absent here is
+  // silently dropped, so the matching view is scanned against its EMPTY STATE
+  // and a green axe run proves nothing about its rows or controls. `documents`
+  // is seeded for exactly that reason. The others are still missing (Insights
+  // is in A11Y_VIEWS and therefore affected today) — see docs/open-followups.md.
   const KV: Record<string, string> = {
     plan: "resource-plan", fxRates: "fx-rates", status: "project-status",
     milestones: "milestones", changes: "changes", stakeholders: "stakeholders", project: "project",
+    documents: "documents",
   };
   return new Promise((resolve, reject) => {
+    // ★ The version is hardcoded here but derived from IDB_VERSION in idb.ts.
+    // They agree today (both 6). If a later slice adds an object store and
+    // bumps IDB_VERSION, this open runs at the OLDER version and seeds the
+    // wrong shape — silently, since the app's own open would then upgrade over
+    // it. Bump both together.
     const open = indexedDB.open("aipm-cockpit", 6);
     open.onupgradeneeded = () => {
       const db = open.result;
@@ -79,7 +124,7 @@ export const test = base.extend({
     // Same-origin lightweight document so IndexedDB (per-origin) is reachable
     // and seeded before any app navigation.
     await page.goto("/favicon.ico");
-    await page.evaluate(seedIndexedDb, SAMPLE_WORKSPACE);
+    await page.evaluate(seedIndexedDb, SEED_WORKSPACE);
     await run(page);
   },
 });

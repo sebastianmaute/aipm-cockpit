@@ -43,6 +43,11 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
+import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
+// ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
+// so importing it here cannot break the bare-node sample generator.
+import { logDiag } from "./diagnostics";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
@@ -126,6 +131,14 @@ export type Workspace = {
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
    *  Sanitized by sanitizeInsights. */
   insights?: readonly Insight[];
+  /** AI- and user-authored project documents (canonical block model; the
+   *  .docx/.pptx/.html/.pdf bytes are rendered on demand and never stored).
+   *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
+   *  Sanitized in TWO passes — `sanitizeProjectDocuments` for structure, then
+   *  `sanitizeDocumentRichFields` for the paragraph HTML allow-list. They are
+   *  separate because the first is DOM-FREE by contract (it runs under bare
+   *  node in the sample generator) and therefore cannot call DOMPurify. */
+  documents?: readonly ProjectDocument[];
   /** Per-project policy overrides (next-actions weights, notification cadence,
    *  timezone) that travel WITH the project. Optional & additive: undefined
    *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
@@ -156,7 +169,18 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     && (ws.milestones?.length ?? 0) === 0
     && (ws.changes?.length ?? 0) === 0
     && (ws.stakeholders?.length ?? 0) === 0
-    && (ws.calendarEvents?.length ?? 0) === 0;
+    && (ws.calendarEvents?.length ?? 0) === 0
+    // ★★ documents belongs here even though the other JSON-blob slices
+    //    (insights, knowledgeItems, timelogLinks) do NOT. This feeds the LOAD
+    //    guard, which refuses an incoming empty workspace only when the current
+    //    one is non-empty. "Only documents" is an ordinary state — someone
+    //    drafting a charter before entering any task — and without this a
+    //    transient empty read applies, wipes them, and autosave persists it.
+    //    ★ Deliberately NOT added to nonEmptyCollectionCount /
+    //    workspaceRecordCount: those feed the SAVE-time mass-deletion
+    //    thresholds, so widening them changes when saves are REFUSED for every
+    //    existing project. See docs/open-followups.md §98.
+    && (ws.documents?.length ?? 0) === 0;
 }
 
 /** Number of user collections that hold at least one record. Used by the
@@ -462,6 +486,10 @@ export function workspaceToJson(ws: Workspace): string {
       // of an `insights` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
       ...(ws.insights && ws.insights.length ? { insights: ws.insights } : {}),
+      // Additive: only present when documents exist, so legacy files stay free
+      // of a `documents` key. JSON is the complete round-trip, so this is
+      // always emitted (storage AND export) when present.
+      ...(ws.documents && ws.documents.length ? { documents: ws.documents } : {}),
       // Additive: only present when the project carries policy overrides, so
       // override-less files stay free of a `settingsOverrides` key.
       ...(hasAnyOverride(ws.settingsOverrides) ? { settingsOverrides: ws.settingsOverrides } : {}),
@@ -596,6 +624,43 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     if (p.insights !== undefined) {
       const ins = sanitizeInsights(p.insights);
       if (ins.length) raw.insights = ins;
+    }
+    // Additive: sanitize incoming documents when present. TWO passes, in this
+    // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free
+    // by contract, so it cannot run an HTML allow-list), then the rich-field
+    // pass applies DOMPurify to the paragraph HTML. Running only the first
+    // would persist `<script>` from a crafted .json verbatim. An all-garbage or
+    // empty list stays off the key rather than emitting [].
+    // ★★★ The rich-field pass is the ONLY DOM-dependent step in this decoder, and
+    // it needs its OWN catch. Without one, a throw here reaches the outer
+    // catch-all below, which answers a non-strict load with `emptyWorkspace()` —
+    // so one unsanitizable document discarded every task, RAID item and
+    // milestone in the file, silently. Measured: tasks 0. CSV, Markdown and
+    // Turso already scope this call locally and lose only the documents; this
+    // brings JSON into line. See open-followups §97.
+    // ★★ Scoped to these two calls ONLY, never widened to the whole decode: a
+    // broader catch would make real file corruption survivable, which is what
+    // `strict` exists to prevent.
+    // ★ Degrading a THROW to "documents dropped" matches what this field already
+    // does with garbage — `sanitizeProjectDocuments` returns [] and the key stays
+    // off — so containment does not invent a new failure mode for it.
+    if (p.documents !== undefined) {
+      try {
+        const docs = sanitizeProjectDocuments(p.documents).map(sanitizeDocumentRichFields);
+        if (docs.length) raw.documents = docs;
+      } catch (err) {
+        // ★★ strict must stay LOUD. The sample generator decodes with
+        // { strict: true } so a bad load fails the build rather than writing a
+        // near-empty artifact; rethrowing lets the outer catch raise the same
+        // WorkspaceParseError("shape") it always did.
+        if (strict) throw err;
+        // ★ Not silent: there is no ImportDiag on this signature, so the
+        // diagnostics ring is the channel. Names what was lost, so a user who
+        // opens a file and finds no documents has something to find.
+        logDiag("error", "workspace.documentsDropped", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     // Additive: sanitize incoming per-project policy overrides when present;
     // an all-junk override sanitizes to {} (no valid sub-key) and the key stays off.

@@ -30,6 +30,7 @@ export type AppView =
   | "raci"
   | "stakeholder-map"
   | "knowledge"
+  | "documents"
   | "reports"
   | "activity"
   | "settings"
@@ -89,6 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: "steering-committee" },
       { view: "timelog" },
       { view: "knowledge" },
+      { view: "documents" },
       { view: "reports", children: [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }] },
     ],
   },
@@ -126,6 +128,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "learning-insights">, TranslationKey> 
   raci: "stakeholderRaciTitle",
   "stakeholder-map": "stakeholderMapTitle",
   knowledge: "navKnowledge",
+  documents: "navDocuments",
   reports: "tabReports",
   activity: "tabActivity",
   settings: "settings",
@@ -215,9 +218,12 @@ export function viewToSlug(view: AppView): string {
 export function slugToView(slug: string): AppView {
   if (slug === "address-book") return "directory";
   if (slug === "resource-report") return "resources";
-  // Back-compat: the Documents view was renamed to Knowledge (v0.190). Old
-  // `#documents/...` bookmarks still resolve to the Knowledge view.
-  if (slug === "documents") return "knowledge";
+  // ★ A `documents` -> `knowledge` alias used to sit here (the v0.190 rename's
+  // bookmark back-compat). It was removed when the Documents view was added:
+  // running before the allNavViews() lookup, it would have permanently
+  // shadowed the new view's own hash route. `#documents/...` bookmarks
+  // predating v0.190 now land on Documents rather than Knowledge — a
+  // deliberate break, pinned by nav-config.test.ts.
   const found = allNavViews().find((v) => viewToSlug(v) === slug);
   return found ?? "open-points";
 }

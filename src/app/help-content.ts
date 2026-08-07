@@ -96,6 +96,11 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "feature-steering", group: "features", titleKey: "helpSecSteeringTitle", bodyKey: "helpSecSteeringBody" },
   { id: "feature-activity", group: "features", titleKey: "helpSecActivityTitle", bodyKey: "helpSecActivityBody", relatedViews: ["activity"] },
   { id: "feature-knowledge", group: "features", titleKey: "helpSecKnowledgeTitle", bodyKey: "helpSecKnowledgeBody" },
+  // ★ `features`, not a group of its own, and NO primer: `HelpGroup` has four
+  // members and `help-content.test.ts` pins primers to `concepts` both ways.
+  // Every other view-coverage entry (feature-projects, feature-timelog,
+  // feature-reports, feature-help) sits here too.
+  { id: "feature-documents", group: "features", titleKey: "helpSecDocumentsTitle", bodyKey: "helpSecDocumentsBody", relatedViews: ["documents"], relatedConcepts: ["concept-knowledge"] },
   { id: "feature-voice", group: "features", titleKey: "helpSecVoiceTitle", bodyKey: "helpSecVoiceBody" },
   { id: "feature-notif", group: "features", titleKey: "helpSecNotifTitle", bodyKey: "helpSecNotifBody" },
   { id: "feature-timezones", group: "features", titleKey: "helpSecTimezonesTitle", bodyKey: "helpSecTimezonesBody" },

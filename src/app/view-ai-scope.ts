@@ -167,6 +167,15 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
       "Knowledge is the library of standalone documents, Confluence pages and URLs, optionally cross-linked to tasks.",
     toolHints: ["list_knowledge_items"],
   },
+  documents: {
+    purpose:
+      "Documents holds project documents the user or the assistant authored — status reports, decks and charters — stored as structured blocks and downloadable as HTML, Word, PowerPoint or PDF.",
+    // ★ No toolHints: there is no document tool yet. Without this the model
+    // answers from the purpose line alone and describes a document it has not
+    // read — the same failure the activity / timelog / raci entries disclose.
+    reading:
+      "There is no tool for reading or writing documents yet. Say so rather than describing a document you cannot see.",
+  },
   reports: {
     purpose: "Reports summarizes tasks by group, label and assignee with completion statistics.",
     toolHints: ["list_tasks", "get_dashboard_snapshot"],
