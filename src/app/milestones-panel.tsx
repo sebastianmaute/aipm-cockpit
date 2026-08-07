@@ -40,6 +40,7 @@ import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { DataTable } from "./data-table";
 import { Button } from "./button";
+import { ToggleButton } from "./toggle-button";
 import { INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
@@ -500,14 +501,17 @@ function MilestonesPanelBody({
                   )}
                   {!hiddenSet.has("achieved") && (
                     <td className="px-3 py-2">
-                      <label className="flex items-center gap-1 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={!!m.achievedDate}
-                          onChange={() => toggleAchieved(m)}
-                        />
-                        {t(lang, "milestonesMarkAchieved")}
-                      </label>
+                      {/* ★ Row-UNIQUE accessible name. N identical "Achieved"
+                          labels is a WCAG 2.4.6 failure the axe gate passes
+                          whenever the e2e seed renders a single milestone. */}
+                      <ToggleButton
+                        lang={lang}
+                        pressed={!!m.achievedDate}
+                        onToggle={() => toggleAchieved(m)}
+                        ariaLabel={`${t(lang, "milestoneAchieved")} – ${m.name}`}
+                      >
+                        {t(lang, "milestoneAchieved")}
+                      </ToggleButton>
                     </td>
                   )}
                 </tr>

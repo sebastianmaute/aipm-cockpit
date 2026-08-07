@@ -400,3 +400,39 @@ describe("Milestones bulk edit", () => {
     expect(screen.queryByText("2026-06-10")).not.toBeInTheDocument();
   });
 });
+
+describe("achieved toggle", () => {
+  // ★★ Two milestones in the first test, not one. A single-row fixture cannot
+  //    tell a row-unique name from a generic one — that is precisely the WCAG
+  //    2.4.6 case the axe gate also passes when the e2e seed renders one row.
+  it("renders a toggle button with a row-unique name", () => {
+    renderMilestones({
+      milestones: [
+        m("Kickoff", "2026-01-15"),
+        m("Go live", "2026-06-30", { achievedDate: "2026-06-28" }),
+      ],
+    });
+
+    const kickoff = screen.getByRole("button", {
+      name: `${t("en-US", "milestoneAchieved")} – Kickoff`,
+    });
+    const golive = screen.getByRole("button", {
+      name: `${t("en-US", "milestoneAchieved")} – Go live`,
+    });
+
+    expect(kickoff).toHaveAttribute("aria-pressed", "false");
+    expect(golive).toHaveAttribute("aria-pressed", "true");
+    // ★ The old markup was a checkbox; assert that role is gone so a revert fails.
+    expect(screen.queryByRole("checkbox", { name: /achieved/i })).toBeNull();
+  });
+
+  // ★ Asserts the RENDERED state flips, not that a setter was called.
+  //   `renderMilestones` seeds through the workspace provider, so a spy on the
+  //   setter would pin the wiring rather than the behaviour.
+  it("flips to pressed when clicked", () => {
+    renderMilestones({ milestones: [m("Kickoff", "2026-01-15")] });
+    const name = `${t("en-US", "milestoneAchieved")} – Kickoff`;
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+  });
+});
