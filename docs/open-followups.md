@@ -5157,6 +5157,8 @@ activity row should GO and which surfaces own that routing — a decision, not a
 `activityViewOf` for one kind while every other kind stays unrouted would be the same
 one-door-of-two shape this slice hit six times.
 
+---
+
 ## Provenance — where these items came from, and what already closed
 
 Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way

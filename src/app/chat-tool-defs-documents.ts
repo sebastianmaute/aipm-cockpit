@@ -3,11 +3,21 @@
 // the impl in use-document-tools.ts (Task 18).
 //
 // Split out of chat-tool-defs.ts for COHESION, not for the ratchet. Measured
-// 2026-08-07: that file is 596 lines against the 800-line limit and the schema
-// literal here is ~74 lines (line 44 of a 117-line file), so 596 + 74 = 670 and
-// it would have fit inline. (chat-tools.ts, at 763, is the one genuinely forced
-// by the ratchet.) An earlier revision of this header claimed the split was
-// required; it was not.
+// 2026-08-07 with the gate's own counter (`split("\n").length`, i.e. wc -l + 1):
+// chat-tool-defs.ts is 596 lines against the 800-line limit, and the
+// DOCUMENT_TOOL_DEFS block below is 74 lines, so 596 + 74 = 670 and it would
+// have fit inline. (chat-tools.ts, at 763, is the one genuinely forced by the
+// ratchet.) An earlier revision of this header claimed the split was required;
+// it was not.
+//
+// ★★ NO SELF-REFERENTIAL LINE NUMBER HERE, DELIBERATELY. That revision sized
+// this file as "line 44 of a 117-line file" — true when the number was composed,
+// FALSE by the time it was saved, because the very edit carrying it grew the
+// file by four lines and pushed both figures to 48/121. It invalidated its own
+// measurement by the act of writing it down, in a commit whose whole purpose
+// was correcting false counts. The figures kept above cannot rot that way:
+// each measures either ANOTHER file or this block's LENGTH, and no edit to the
+// header above it can move either one.
 
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 
