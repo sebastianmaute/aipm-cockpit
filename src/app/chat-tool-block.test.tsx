@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -8,6 +8,7 @@ import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { FiltersProvider } from "./filters-context";
 import type { ProjectDocument } from "./document-model";
 import { downloadDocument } from "./document-download";
+import { loadI18n, type Lang } from "./i18n";
 
 // The real one opens tabs / triggers Blob downloads — neither is meaningful in
 // jsdom, and the module has its own suite (mirrors documents-panel.test.tsx's
@@ -78,10 +79,11 @@ function renderTool(
   result: string,
   error: boolean,
   documents: ProjectDocument[] = [],
+  lang: Lang = "en-US",
 ) {
   return renderTree(
     documents,
-    <ToolBlock name={name} input={{}} result={result} error={error} lang="en-US" />,
+    <ToolBlock name={name} input={{}} result={result} error={error} lang={lang} />,
   );
 }
 
@@ -376,13 +378,17 @@ describe("ToolBlock — document card discloses rejections and removals", () => 
    *  (`stringifyResult` = JSON.stringify(v, null, 2)). `extras` is typed
    *  loosely on purpose — the malformed cases below feed it values the real
    *  type forbids, which is exactly the input this guard exists for. */
-  function renderUpdate(extras: Record<string, unknown>, documents = LIVE) {
+  function renderUpdate(
+    extras: Record<string, unknown>,
+    documents = LIVE,
+    lang: Lang = "en-US",
+  ) {
     const result = JSON.stringify(
       { id: 4, title: "Steering deck", blockCount: 12, applied: 1, ...extras },
       null,
       2,
     );
-    return renderTool("update_document", result, false, documents);
+    return renderTool("update_document", result, false, documents, lang);
   }
 
   /** The card itself — asserted alongside every notices assertion so neither
@@ -544,7 +550,19 @@ describe("ToolBlock — document card discloses rejections and removals", () => 
   describe("caps the attacker-influenceable reason text it renders", () => {
     const MAX_LEN = 120;
     const MAX_COUNT = 12;
+    // The LENGTH cut only. The overflow bullet is no longer a bare marker — it
+    // is the translated `documentsCardMoreReasons`, spelled out literally at
+    // each assertion below for the same reason the cap values are: a test that
+    // builds its expectation from `t(...)` proves the key is wired, never that
+    // it says anything true.
     const ELLIPSIS = "…";
+
+    // The DE dict is LAZY. Without this, `t("de", …)` silently falls back to
+    // the EN string and the German assertion below would pass against ENGLISH
+    // text — green, and proving nothing about the DE key.
+    beforeAll(async () => {
+      await loadI18n("de");
+    });
 
     /** N distinct, realistically-shaped reasons — distinct so an assertion on
      *  the array cannot be satisfied by the wrong slice of it. */
@@ -614,27 +632,76 @@ describe("ToolBlock — document card discloses rejections and removals", () => 
       expect(/[\ud800-\udbff](?![\udc00-\udfff])/.test(shown[0])).toBe(false);
     });
 
-    it("leaves a list exactly at the count cap whole, with no marker", () => {
+    it("leaves a list exactly at the count cap whole, with no overflow bullet", () => {
+      // THE BOUNDARY: 12 kept, 12 shown, 0 dropped. A bullet drawn
+      // unconditionally would claim "…and 0 not shown" about a COMPLETE list —
+      // a statement that is not merely noise but false.
       const twelve = reasons(MAX_COUNT);
       renderUpdate({ rejected: twelve, removed: 0 });
 
       expectCard();
       // Exact array equality: no extra element, nothing reordered, nothing cut.
       expect(reasonTexts()).toEqual(twelve);
+      // Said again against the TEXT, because the array form above reddens for
+      // any 13th bullet whatever it says — this names the specific falsehood.
+      expect(screen.queryByText(/not shown/)).not.toBeInTheDocument();
     });
 
-    it("caps an over-long list and marks that it continues", () => {
+    it("caps an over-long list and says HOW MANY it dropped", () => {
       const thirty = reasons(30);
       renderUpdate({ rejected: thirty, removed: 0 });
 
       expectCard();
       const shown = reasonTexts();
-      // 12 real reasons PLUS the marker bullet.
+      // 12 real reasons PLUS the counted overflow bullet.
       expect(shown).toHaveLength(MAX_COUNT + 1);
-      expect(shown).toEqual([...thirty.slice(0, MAX_COUNT), ELLIPSIS]);
+      // ★ EXACT, and the count is spelled out — the vacuity trap at the head of
+      // this describe applies to the NUMBER too: `toHaveTextContent("…and 18
+      // not shown")` would pass on "…and 180 not shown", and a `/\d+ not
+      // shown/` regex would pass on any count at all, including a wrong one.
+      expect(shown).toEqual([...thirty.slice(0, MAX_COUNT), "…and 18 not shown"]);
       // The dropped ones are genuinely gone, not merely pushed down the list.
       expect(shown).not.toContain(thirty[MAX_COUNT]);
       expect(shown).not.toContain(thirty[29]);
+    });
+
+    it("counts a single dropped reason", () => {
+      // 13 kept, 12 shown: the smallest overflow that exists, and the one an
+      // off-by-one in the subtraction gets wrong in either direction — 0 (no
+      // bullet at all) or 2.
+      const thirteen = reasons(13);
+      renderUpdate({ rejected: thirteen, removed: 0 });
+
+      expectCard();
+      expect(reasonTexts()).toEqual([...thirteen.slice(0, MAX_COUNT), "…and 1 not shown"]);
+    });
+
+    it("counts the dropped REAL reasons, never the junk entries", () => {
+      // 20 blanks + 14 real. Filtering runs FIRST, so exactly 2 real reasons
+      // were dropped. A count taken from the RAW 34-entry array would claim 22
+      // — telling the user about 22 refusals that never happened, which is a
+      // worse failure than the silence this whole bullet replaced.
+      const real = reasons(14);
+      renderUpdate({ rejected: [...Array.from({ length: 20 }, () => "   "), ...real], removed: 0 });
+
+      expectCard();
+      expect(reasonTexts()).toEqual([...real.slice(0, MAX_COUNT), "…and 2 not shown"]);
+      // The wrong-source count named explicitly: this is the exact mutation the
+      // test exists to redden, and it is worth failing on its own line.
+      expect(screen.queryByText("…and 22 not shown")).not.toBeInTheDocument();
+    });
+
+    it("renders the counted bullet in German", () => {
+      // The dropped count is the card's OWN text, so it localizes; the reasons
+      // themselves stay in the engine's untranslated English (the trade-off
+      // DocumentCardNotices documents). Both halves are asserted at once here.
+      const thirty = reasons(30);
+      renderUpdate({ rejected: thirty, removed: 0 }, LIVE, "de");
+
+      // Language-neutral positive control — `expectCard()` reads the ENGLISH
+      // accessible name, so it cannot serve here.
+      expect(screen.getByText("Steering deck")).toBeInTheDocument();
+      expect(reasonTexts()).toEqual([...thirty.slice(0, MAX_COUNT), "…und 18 nicht angezeigt"]);
     });
 
     it("bounds the measured 5000-reason flood", () => {
@@ -651,8 +718,10 @@ describe("ToolBlock — document card discloses rejections and removals", () => 
       for (const line of shown.slice(0, MAX_COUNT)) {
         expect(line).toHaveLength(MAX_LEN + 1);
       }
-      expect(shown[MAX_COUNT]).toBe(ELLIPSIS);
-      // Measured uncapped at 133 890 characters.
+      expect(shown[MAX_COUNT]).toBe("…and 4988 not shown");
+      // Measured uncapped at 133 890 characters. ★ The counted bullet cannot
+      // reopen the flood it discloses: it renders ONE short number however
+      // large the drop, which is why this bound is unchanged from the marker.
       expect(noticesStrip()!.textContent!.length).toBeLessThan(2000);
     });
 

@@ -72,8 +72,18 @@ type DocumentCardData = {
    *  — a successful edit reports `rejected: []` and must look exactly like one
    *  that reports nothing at all. ★ Already CAPPED and truncated by
    *  `readRejected` — this is what will be RENDERED, not what the engine
-   *  returned, and it may carry a trailing `REASON_ELLIPSIS` bullet. */
+   *  returned. It holds REAL reasons only: the "…and N not shown" bullet is
+   *  rendered from `droppedReasons`, not carried as an element in here. */
   rejected: readonly string[];
+  /** How many kept reasons the COUNT cap dropped; 0 when none were. Measured on
+   *  the same filtered list `rejected` comes from, so junk entries cannot
+   *  inflate it any more than they can consume the display budget.
+   *
+   *  ★ Non-zero IMPLIES `rejected.length === MAX_REJECTED_REASONS` — a reason
+   *  can only be dropped once the shown list is full — so a card can never
+   *  claim "N not shown" while showing none. `DocumentCardNotices`' early
+   *  return leans on that invariant; see the comment there. */
+  droppedReasons: number;
   /** Blocks the write dropped; `number`, non-zero only for replaceAll. 0 when
    *  absent or malformed, and 0 renders nothing — "0 removed" is noise. */
   removed: number;
@@ -103,20 +113,22 @@ type DocumentCardData = {
 const MAX_REJECTED_REASONS = 12;
 const MAX_REJECTED_REASON_LEN = 120;
 
-/** Marks a cut: the suffix on an over-long reason, and the whole content of the
- *  final bullet when reasons were dropped.
+/** Marks a cut inside ONE over-long reason. ★ It is no longer the whole content
+ *  of the overflow bullet — that is the translated `documentsCardMoreReasons`
+ *  ("…and {0} not shown"), rendered from a count by DocumentCardNotices.
  *
  *  ★★ NOT AN i18n GAP. It is language-neutral punctuation, sitting among the
  *  engine's own UNTRANSLATED English reason strings (DocumentCardNotices
  *  documents that trade-off), and activity-log.ts already marks a clipped value
  *  with this same character.
  *
- *  ★ KNOWN LIMITATION, deliberately taken: it does NOT say HOW MANY reasons were
- *  dropped. "+N more" would need a new i18n key, and no existing key fits —
- *  the nearest, `actionMoreReasons` ("+{0} more reasons"), labels an EXPANDER
- *  and so promises more on click, which this bullet cannot deliver. Reusing it
- *  would render a false affordance; a foreign domain-named key would also rot
- *  silently the next time the Action Center rewords its own string. */
+ *  ★ Should the overflow bullet ever need rewording, do NOT reach for
+ *  `actionMoreReasons` ("+{0} more reasons"). It reads perfectly but labels an
+ *  EXPANDER in the Action Center, so rendering it here would promise a click
+ *  this static bullet cannot deliver; `actionChipsMore` / `insightDigestMore` /
+ *  `milestoneHorizonMore` are domain-named for unrelated panels and would rot
+ *  silently the next time those panels reword. That is why the card owns a key
+ *  of its own. */
 const REASON_ELLIPSIS = "…";
 
 /** Truncates one reason to MAX_REJECTED_REASON_LEN, marking the cut.
@@ -144,20 +156,29 @@ function capReasonLength(reason: string): string {
  *  ★ THE COUNT CAP APPLIES TO THE KEPT LIST, NOT THE RAW ARRAY, so 20 blanks
  *  beside 5 real reasons still shows all 5 — junk must not consume the budget
  *  that real disclosure needs. The length cap runs only over the survivors, so
- *  a 5000-entry flood costs 12 truncations rather than 5000.
+ *  a 5000-entry flood costs 12 truncations rather than 5000. `droppedReasons`
+ *  is measured on that SAME kept list, so junk cannot inflate the number the
+ *  card discloses either — 5000 non-strings drop nothing, because nothing was
+ *  ever kept to drop.
  *
- *  ★ The marker rides IN the array as a final element rather than as a separate
- *  flag: DocumentCardNotices renders this list verbatim, and a `<li>` is already
- *  the right shape for "the list continues". It can never be the ONLY element —
- *  it is appended only when the kept list overflowed, which means real reasons
- *  precede it — so `rejected.length > 0` still means "something was refused". */
-function readRejected(value: unknown): readonly string[] {
-  if (!Array.isArray(value)) return [];
+ *  ★★ THE OVERFLOW IS A COUNT BESIDE THE LIST, NOT A MARKER ELEMENT INSIDE IT.
+ *  The bullet is TRANSLATED now, and this function has no `lang` — nor should
+ *  it: it runs once at parse time while the card re-renders per language, so a
+ *  string baked in here would be frozen at whatever language parsed it.
+ *  DocumentCardNotices appends the bullet. `rejected.length > 0` therefore now
+ *  means "at least one REAL reason", which is strictly stronger than before. */
+function readRejected(value: unknown): {
+  reasons: readonly string[];
+  droppedReasons: number;
+} {
+  if (!Array.isArray(value)) return { reasons: [], droppedReasons: 0 };
   const kept = value.filter(
     (entry): entry is string => typeof entry === "string" && entry.trim() !== "",
   );
-  const shown = kept.slice(0, MAX_REJECTED_REASONS).map(capReasonLength);
-  return kept.length > MAX_REJECTED_REASONS ? [...shown, REASON_ELLIPSIS] : shown;
+  return {
+    reasons: kept.slice(0, MAX_REJECTED_REASONS).map(capReasonLength),
+    droppedReasons: Math.max(0, kept.length - MAX_REJECTED_REASONS),
+  };
 }
 
 /** A positive integer count, or 0 for "nothing to disclose". Non-numbers, NaN,
@@ -193,11 +214,13 @@ function parseDocumentResult(result: string): DocumentCardData | null {
   if (typeof r.blockCount !== "number" || !Number.isInteger(r.blockCount) || r.blockCount < 0) return null;
   // Only AFTER the three required fields are known good — the extras can never
   // turn a valid card into a fallback.
+  const rejected = readRejected(r.rejected);
   return {
     id: r.id,
     title: r.title,
     blockCount: r.blockCount,
-    rejected: readRejected(r.rejected),
+    rejected: rejected.reasons,
+    droppedReasons: rejected.droppedReasons,
     removed: readRemoved(r.removed),
   };
 }
@@ -231,13 +254,19 @@ const CARD_DOWNLOAD_FORMAT: DocFormat = DOC_FORMATS[0].value;
  *  call; a document deleted afterwards does not un-refuse it. */
 function DocumentCardNotices({
   rejected,
+  droppedReasons,
   removed,
   lang,
 }: {
   rejected: readonly string[];
+  droppedReasons: number;
   removed: number;
   lang: Lang;
 }) {
+  // ★ `droppedReasons` is deliberately absent from this guard, not forgotten:
+  // it is non-zero only when `rejected` is FULL (readRejected's invariant), so
+  // testing it here would add a branch that cannot be reached — and one that,
+  // if it ever were, would render "…and N not shown" with nothing shown.
   if (removed === 0 && rejected.length === 0) return null;
   return (
     // ★ `data-doc-notices` is a TEST HANDLE for the CONTAINER, and it is not
@@ -268,6 +297,14 @@ function DocumentCardNotices({
               // and never reorders.
               <li key={i}>{reason}</li>
             ))}
+            {droppedReasons > 0 && (
+              // ★ Rendered FROM the count, so "the list continues" and "by how
+              // much" cannot drift apart — the bare "…" this replaces said the
+              // first and left the second to guesswork. Nothing at all at zero:
+              // "…and 0 not shown" on a list that happens to sit exactly at the
+              // cap would be a falsehood about a complete list.
+              <li>{t(lang, "documentsCardMoreReasons", droppedReasons)}</li>
+            )}
           </ul>
         </>
       )}
@@ -280,6 +317,7 @@ function DocumentCard({
   title,
   blockCount,
   rejected,
+  droppedReasons,
   removed,
   lang,
 }: {
@@ -287,6 +325,7 @@ function DocumentCard({
   title: string;
   blockCount: number;
   rejected: readonly string[];
+  droppedReasons: number;
   removed: number;
   lang: Lang;
 }) {
@@ -360,7 +399,12 @@ function DocumentCard({
             </Button>
           </div>
         </div>
-        <DocumentCardNotices rejected={rejected} removed={removed} lang={lang} />
+        <DocumentCardNotices
+          rejected={rejected}
+          droppedReasons={droppedReasons}
+          removed={removed}
+          lang={lang}
+        />
       </div>
     </div>
   );
@@ -391,6 +435,7 @@ export function ToolBlock({
         title={card.title}
         blockCount={card.blockCount}
         rejected={card.rejected}
+        droppedReasons={card.droppedReasons}
         removed={card.removed}
         lang={lang}
       />
