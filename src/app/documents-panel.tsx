@@ -210,8 +210,44 @@ export function DocumentsPanel({
   // ★ The reasons the LAST restore was refused. `mutateDocuments` returns them
   // synchronously, so the surface has them without re-reading state — and a
   // Restore button that silently does nothing is the worst outcome available
-  // here. Cleared on the next attempt so a stale reason cannot outlive the
-  // click that produced it.
+  // here.
+  //
+  // ★★★ IT IS A STATEMENT ABOUT ONE CLICK, AND NOTHING ABOUT THE PANE KEEPS IT
+  // TRUE. The region used to render INSIDE the `showDeleted` block, where
+  // closing that section unmounted the message — an accidental clear, but a
+  // clear. Hoisting it into the always-visible pane body (so a refusal raised
+  // from the history modal could draw at all, which is the other half of the
+  // same fix) removed that and nothing replaced it: the reason then sat above
+  // the preview through document switches, renames, deletes and modal
+  // open/close until the next restore attempt happened to overwrite it.
+  //
+  // ★★ CLEARED IN THE HANDLERS, never from an effect. `set-state-in-effect` is
+  // fatal in CI, and the render-time reconcile that usually answers it does not
+  // apply — that pattern syncs state to a CHANGED PROP against a last-seen key,
+  // and this value is derived from no prop at all. The user action that
+  // invalidates the message is the action that should clear it.
+  //
+  // Four clearing contexts, each one the reason cannot outlive:
+  //  · every MUTATION — folded into `mutate` below, so a future call site
+  //    cannot forget it and `handleRestore` re-sets it in the same handler
+  //    (later write wins). A delete in particular FALSIFIES the commonest
+  //    reason: `document limit reached (200)` no longer binds once a row is
+  //    gone, so leaving it up reads as a live blocker that is not one.
+  //  · SELECTION — the region renders immediately above `DocumentPreview`, i.e.
+  //    directly above the selected document's content, so a reason left behind
+  //    re-parents a refusal about one document onto another.
+  //  · HISTORY MODAL OPEN — one of the two restore surfaces. A reason from the
+  //    last session would still be there when this one closes, indistinguishable
+  //    from a fresh refusal.
+  //  · the DELETED-DOCUMENTS TOGGLE — the other restore surface. Hiding the
+  //    Restore buttons that produced the reason leaves it with no visible cause.
+  //
+  // ★ ONE selection change deliberately does NOT clear it: the deep-link effect
+  // below. Adding `setRestoreRejected([])` there needs a SECOND
+  // `set-state-in-effect` suppression, and the cost is not worth the case — it
+  // requires a refused restore followed by a chat-card deep link, and the
+  // outcome is a stale line of text, not a wrong action. Stated rather than
+  // silently skipped.
   const [restoreRejected, setRestoreRejected] = useState<readonly string[]>([]);
   const confirm = useConfirm();
   // Ambient, exactly like every other panel's — `useToastContext` defaults to a
@@ -351,9 +387,36 @@ export function DocumentsPanel({
    *  history modal) came to drop its refusal entirely: the shape that reads
    *  like "a mutation returns nothing" invites a call site to discard one. */
   function mutate(m: DocMutation): DocResult {
+    // ★ Every mutation clears the last refusal (see `restoreRejected`'s note).
+    // Here rather than in the four callers so a fifth cannot forget it.
+    // `handleRestore` calls this FIRST and writes the new value after — both
+    // land in one event handler, so the later write wins and a FRESH refusal
+    // survives. The refused-restore cases pin that ordering.
+    clearRestoreRejected();
     const result = mutateDocuments(m, "user");
     freshRef.current = { from: documents, latest: result.documents };
     return result;
+  }
+
+  /** See `restoreRejected`'s note: the message describes one click, so every
+   *  later user action that is not itself a restore takes it down. */
+  function clearRestoreRejected() {
+    setRestoreRejected([]);
+  }
+
+  function handleSelect(id: number) {
+    clearRestoreRejected();
+    setSelectedId(id);
+  }
+
+  function handleOpenHistory(doc: ProjectDocument) {
+    clearRestoreRejected();
+    setHistoryFor(doc.id);
+  }
+
+  function handleShowDeletedChange(next: boolean) {
+    clearRestoreRejected();
+    setShowDeleted(next);
   }
 
   // ★★★ A RESTORE CAN BE REFUSED, and at the cap it always is. After a
@@ -458,7 +521,7 @@ export function DocumentsPanel({
         onResetColumns={resetColWidths}
         onResetSize={onResetSize}
         showDeleted={showDeleted}
-        onShowDeletedChange={setShowDeleted}
+        onShowDeletedChange={handleShowDeletedChange}
         deletedCount={deleted.length}
         isReadOnly={isReadOnly}
       />
@@ -467,7 +530,7 @@ export function DocumentsPanel({
           lang={lang}
           documents={rows}
           selectedId={selected?.id ?? null}
-          onSelect={setSelectedId}
+          onSelect={handleSelect}
           sortKey={sort.key}
           sortDir={sort.dir}
           onSort={handleSort}
@@ -477,7 +540,7 @@ export function DocumentsPanel({
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
           onDownload={(doc) => downloadDocument(doc, format, ws, lang)}
-          onOpenHistory={(doc) => setHistoryFor(doc.id)}
+          onOpenHistory={handleOpenHistory}
           isReadOnly={isReadOnly}
         />
         {showDeleted && (
@@ -552,7 +615,11 @@ export function DocumentsPanel({
             ★ `role="status"` so the refusal is ANNOUNCED rather than only
             drawn. The reasons are the engine's own strings and are not
             translated — an i18n key for this was not available to add; see the
-            report. An untranslated reason beats a silent no-op. */}
+            report. An untranslated reason beats a silent no-op.
+            ★★ AND THAT HOIST IS WHY THE CLEARING IS EXPLICIT. Inside the
+            section, closing it took the message down; out here nothing does,
+            so the four clearing contexts listed on `restoreRejected` are what
+            keep this from becoming a line of permanent furniture. */}
         {restoreRejected.length > 0 && (
           <p role="status" className="text-sm text-ui-pink">
             {restoreRejected.join("; ")}

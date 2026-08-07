@@ -1111,6 +1111,140 @@ describe("DocumentsPanel — the history modal's Restore", () => {
   });
 });
 
+// ★★★ THE REFUSAL IS A STATEMENT ABOUT ONE CLICK. Hoisting the region OUT of
+// the `showDeleted` block (so a refusal raised in the history modal could draw
+// at all) removed the accidental clear that closing the section used to give it,
+// and nothing replaced it — the reason then sat above the preview through every
+// later action until the next restore overwrote it.
+//
+// ★★★ EVERY CASE HERE ASSERTS AN ABSENCE, which is exactly what a pane that
+// never rendered the message would also produce. `renderWithRefusal` therefore
+// asserts the message IS there before handing back, and each case adds a second
+// positive observable for the action itself (the selection moved, the modal
+// opened, the engine really mutated, the section really closed) so "the message
+// went away" is distinguishable from "the click did nothing".
+describe("DocumentsPanel — a refusal does not outlive the click that raised it", () => {
+  /** A before-image for the LIVE document #1 that the ENGINE does not hold, so
+   *  the modal's Restore is refused with `version #500 not found`. That is the
+   *  cheapest reliable refusal available — the other one, the document cap,
+   *  needs a MAX_DOCUMENTS engine fixture. Its `documentId` is a live document,
+   *  so it never reaches the deleted list and the pane holds exactly ONE
+   *  `role="status"` node: an ambiguous query here would be far harder to read
+   *  than a wrong one. */
+  const stale: DocVersion = {
+    id: 500,
+    documentId: 1,
+    title: "Older title",
+    blocks: [],
+    savedAt: "2026-08-05T10:00:00.000Z",
+    source: "user",
+    op: "rename",
+  };
+
+  /** TWO documents, so a case can move the selection to a row that is not the
+   *  read-time fallback. */
+  const rows = [doc(1, "Alpha"), doc(2, "Beta")];
+
+  function renderPane(documentVersions: readonly DocVersion[]) {
+    const box: Box = { docs: rows, versions: [] };
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={rows}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={documentVersions}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    return box;
+  }
+
+  /** Raises the refusal through the history modal and PROVES it rendered. */
+  function renderWithRefusal() {
+    const box = renderPane([stale]);
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+    // The positive control every case below rests on. The SPECIFIC reason, not
+    // merely that some status node exists — an unqualified match would also be
+    // satisfied by the implausible-deleted-list caution.
+    expect(screen.getByRole("status").textContent).toMatch(/#500/);
+    // …and the engine really refused, so the message is not being rendered over
+    // a write that actually landed.
+    expect(box.docs).toHaveLength(2);
+    expect(box.docs[0].title).toBe("Alpha");
+    return box;
+  }
+
+  it("clears it when the user selects a different document", () => {
+    renderWithRefusal();
+
+    fireEvent.click(screen.getByRole("button", { name: "Beta" }));
+
+    // The selection really moved: the message renders directly above the
+    // preview, so a reason left standing here reads as being about Beta.
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("clears it when the history modal is opened again", () => {
+    renderWithRefusal();
+
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+
+    // The modal really opened — a new restore session, which the previous
+    // session's reason would otherwise still be sitting under when it closes.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  // ★★ Any mutation, pinned through the cheapest one-click path. The clear
+  // lives in `mutate`, not in the four handlers, so this case covers create /
+  // duplicate / rename / delete at once — and reddens if a future call site
+  // bypasses that funnel.
+  it("clears it when a mutation lands", () => {
+    const box = renderWithRefusal();
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate – Alpha" }));
+
+    // The mutation really landed. (The rendered prop is static in this harness,
+    // so the engine box — not the DOM — is where a create is observable.)
+    expect(box.docs).toHaveLength(3);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  // ★ The other restore surface, and the only case whose refusal is raised from
+  // the deleted list rather than the modal — so it needs its own tombstone.
+  it("clears it when the deleted-documents section is closed", () => {
+    const tomb: DocVersion = {
+      id: 501,
+      documentId: 999,
+      title: "Doomed",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+    const box = renderPane([tomb]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+    // Positive control: the reason is up, and the engine (which holds no
+    // version) really refused rather than restoring anything.
+    expect(screen.getByRole("status").textContent).toMatch(/#501/);
+    expect(box.docs).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    // The section really closed, taking the Restore buttons that produced the
+    // reason with it.
+    expect(screen.queryByRole("region", { name: "Deleted documents" })).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
 describe("DocumentsPanel — the implausible-deleted-list guard", () => {
   function tombstone(id: number, documentId: number, title: string): DocVersion {
     return {
