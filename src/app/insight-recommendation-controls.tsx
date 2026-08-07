@@ -39,7 +39,7 @@ function GenerateRecommendationCta({
   const labelKey = isGenerating ? "insightRecommendationGenerating" : "insightGenerateRecommendation";
   return (
     <Button
-      variant="ghost"
+      variant="secondary"
       size="xs"
       disabled={isGenerating}
       aria-label={`${t(lang, labelKey)} – ${title}`}
@@ -74,7 +74,7 @@ export function InsightRecommendationControls(props: InsightRecommendationContro
         {t(lang, "insightRecommendationSuggests", rec.summary)}
       </p>
       <Button
-        variant="ghost"
+        variant="secondary"
         size="xs"
         aria-label={`${t(lang, "insightApplyRecommendation")} – ${title}`}
         onClick={() => actions.onApplyRecommendation(insight.id)}
@@ -82,7 +82,7 @@ export function InsightRecommendationControls(props: InsightRecommendationContro
         {t(lang, "insightApplyRecommendation")}
       </Button>
       <Button
-        variant="ghost"
+        variant="secondary"
         size="xs"
         aria-label={`${t(lang, "insightRejectRecommendation")} – ${title}`}
         onClick={() => actions.onRejectRecommendation(insight.id)}

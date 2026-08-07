@@ -88,7 +88,7 @@ export function InsightsCard({
                 <div className="mt-1 flex flex-wrap items-center gap-1">
                   {insight.entityRef && onOpen ? (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="xs"
                       aria-label={`${t(lang, "insightOpen")} – ${title}`}
                       onClick={() => onOpen(insight.entityRef!)}
@@ -100,7 +100,7 @@ export function InsightsCard({
                     <>
                       {insight.status === "active" ? (
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="xs"
                           aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
                           onClick={() => actions.onAcknowledge(insight.id)}
@@ -109,7 +109,7 @@ export function InsightsCard({
                         </Button>
                       ) : null}
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="xs"
                         aria-label={`${t(lang, "insightAct")} – ${title}`}
                         onClick={() => actions.onAct(insight.id)}
@@ -117,7 +117,7 @@ export function InsightsCard({
                         {t(lang, "insightAct")}
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="xs"
                         aria-label={`${t(lang, "insightDismiss")} – ${title}`}
                         onClick={() => actions.onDismiss(insight.id)}

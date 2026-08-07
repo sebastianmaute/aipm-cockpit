@@ -28,7 +28,8 @@ import {
 } from "./budget-health";
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
@@ -373,15 +374,19 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <AddButton onClick={addBucket}>
             + {t(lang, "budgetAddBucket")}
           </AddButton>
-          <button
-            type="button"
+          {/* ★ `Button` already supplies `disabled:cursor-not-allowed
+              disabled:opacity-50` in its base class — do not re-declare them
+              here. The className is layout only, appended after the variant. */}
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={props.onRefreshFx}
             disabled={props.fxLoading}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-foreground ${INTERACTIVE}`}
+            className="inline-flex items-center gap-1.5"
           >
             <ArrowPathIcon aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`} />
             {t(lang, "budgetFxRefresh")}
-          </button>
+          </Button>
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <ResetSizeButton onClick={resetBudgetSize} lang={lang} />
         </div>
@@ -660,30 +665,35 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 </DataTable>
               </div>
               <div className="mt-2 flex items-center gap-4">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="xs"
                   onClick={() => setEditingBucketId(bucket.id)}
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "budgetEditBucket")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="xs"
                   onClick={() => updateBucket(bucket.id, bucket.status === "open"
                     ? { status: "closed", closedDate: props.today }
                     : { status: "open", closedDate: undefined })}
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                {/* ★ `destructive`, not `secondary`: this is the only action in
+                    the row that destroys data, and rendering it identically to
+                    Edit and Close made the row's one irreversible control
+                    indistinguishable. It stays `confirm()`-gated either way —
+                    the variant is the affordance, not the safeguard. */}
+                <Button
+                  variant="destructive"
+                  size="xs"
                   onClick={() => removeBucket(bucket.id)}
                   title={t(lang, "budgetRemoveBucket")}
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "budgetRemoveBucket")}
-                </button>
+                </Button>
               </div>
             </div>
           );

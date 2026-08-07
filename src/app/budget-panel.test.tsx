@@ -5,6 +5,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
+import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -807,4 +808,62 @@ describe("BudgetPanel — Total column + total row", () => {
     expect(cells[1].className).toContain("bg-surface");
     expect(cells[2].className).toContain("bg-surface");
   });
+});
+
+test("the non-destructive bucket actions render as bordered secondary buttons", () => {
+  render(<BudgetPanel {...props} />);
+  // ★★ Edit and Close ONLY. Remove is deliberately NOT in this loop — it renders
+  //    `destructive` and is asserted in the test below. Adding it back here would
+  //    fail, which is the point: the two variants must not silently converge.
+  for (const key of ["budgetEditBucket", "budgetClose"] as const) {
+    const btn = screen.getByRole("button", { name: t("en-US", key) });
+    // ★★ Word-bounded, never `toContain` — see `src/test/button-variant.ts` for
+    //    why the substring form is vacuous. NOT because "every variant ends in
+    //    `hover:bg-surface-muted`" (an earlier revision of this comment claimed
+    //    that and it is false — `primary` ends in `hover:opacity-90`,
+    //    `destructive` in `dark:border-ui-pink/50`). Only `secondary` and
+    //    `ghost` carry that hover class, which is enough: `ghost` is precisely
+    //    what this test rejects, so the substring check would pass against it.
+    // ★ `border-line` is the discriminating check — it kills BOTH a flip to
+    //   `ghost` and a flip to `destructive` (which carries its own standalone
+    //   `bg-surface`, so the `bg-surface` half does no work against that one).
+    expectSecondaryButton(btn);
+    // ★ Separately kills a revert to the pre-0.221.0 hand-rolled markup, which
+    //   was `border border-transparent` + a hover-only `hover:border-ui-dark-blue`.
+    //   Verified against the removed classes, so it is falsifiable rather than
+    //   decorative — but it is site-specific, which is why it is not in the
+    //   shared helper (the FX button below had DIFFERENT old markup).
+    expect(btn.className).not.toContain("border-transparent");
+  }
+});
+
+test("remove bucket renders as the destructive variant, not secondary", () => {
+  render(<BudgetPanel {...props} />);
+  const btn = screen.getByRole("button", { name: t("en-US", "budgetRemoveBucket") });
+  // ★★ Removing a bucket is the only irreversible action in that row. Rendering
+  //    it identically to Edit and Close is what this pins against — the killing
+  //    mutation is flipping it back to `variant="secondary"`, which loses both
+  //    tokens below.
+  expectDestructiveButton(btn);
+  // ★ The control assertion: `secondary`'s defining border must be ABSENT.
+  //   Without this the test would still pass if some future variant carried the
+  //   pink tokens AND `border-line`, i.e. if the two looks reconverged.
+  expect(btn.className).not.toMatch(/(^|\s)border-line(\s|$)/);
+});
+
+test("the FX refresh control renders as a bordered secondary button", () => {
+  render(<BudgetPanel {...props} />);
+  // Accessible name comes from the label text — the ArrowPathIcon beside it is
+  // `aria-hidden`, so it contributes nothing.
+  const btn = screen.getByRole("button", { name: t("en-US", "budgetFxRefresh") });
+  expectSecondaryButton(btn);
+  // ★ This site's old markup was `border border-ui-dark-blue bg-surface …
+  //   text-ui-dark-blue`, NOT the bucket actions' `border-transparent` — so
+  //   copying their negative here would be UNFALSIFIABLE (the removed markup
+  //   never contained that class). The two checks that actually discriminate
+  //   against the revert are the helper's `border-line` and the accent negative
+  //   below; note the helper's `bg-surface` half does NOT, because the old
+  //   hand-rolled classes carried a standalone `bg-surface` too.
+  expect(btn.className).not.toContain("border-ui-dark-blue");
+  expect(btn.className).not.toContain("text-ui-dark-blue");
 });
