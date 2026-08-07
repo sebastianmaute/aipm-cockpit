@@ -163,7 +163,7 @@ describe("TruncatedLoadBanner", () => {
     // so a user who is never told saving stopped goes on editing into a paused
     // session. `banner.tsx` already defaults error → "alert" for exactly this
     // reason; AlertBanner's "region" default was overriding it.
-    render(<TruncatedLoadBanner lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("alert", { name: "Document data could not be opened" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /document/i })).toBeNull();
   });
@@ -182,14 +182,14 @@ describe("TruncatedLoadBanner", () => {
     // "Document limit warning" — the exact claim this rule forbids. An earlier
     // version of this test only checked for /cut off/i and sailed straight past
     // the word "limit" two lines above it.
-    render(<TruncatedLoadBanner lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").not.toMatch(/cut off|over the limit/i);
     expect(alert.getAttribute("aria-label") ?? "").not.toMatch(/limit/i);
   });
 
   it("names the magnitude — the count is not left to a 7s toast", () => {
-    render(<TruncatedLoadBanner lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/5 document entries could not be opened/i)).toBeInTheDocument();
   });
 
@@ -197,7 +197,7 @@ describe("TruncatedLoadBanner", () => {
     // ★ "stored documents", NOT "stored document versions": since 0.221.0 a LIVE
     // document over `MAX_BLOCKS_PER_DOC` feeds the same counter, so naming
     // versions would assert something the count no longer implies.
-    render(<TruncatedLoadBanner lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/7 blocks in stored documents could not be opened/i)).toBeInTheDocument();
     expect(screen.queryByText(/versions/i)).toBeNull();
     expect(screen.queryByText(/document entries/i)).toBeNull();
@@ -207,14 +207,14 @@ describe("TruncatedLoadBanner", () => {
     // ★ "Save anyway" permanently discards whatever could not be opened, and it
     // is the first tabbable control in <main>. Wearing StorageBanner's benign
     // primary blue made a data-destroying action read as the recommended one.
-    render(<TruncatedLoadBanner lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Save anyway" }).className).toMatch(/ui-pink/);
   });
 
   it("gates Save anyway behind the confirm dialog and fires on accept", async () => {
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(onSaveAnyway).toHaveBeenCalledTimes(1));
@@ -227,7 +227,7 @@ describe("TruncatedLoadBanner", () => {
     // ignored would pass the accept test above and still destroy data on cancel.
     confirmState.result = false;
     const onSaveAnyway = vi.fn();
-    render(<TruncatedLoadBanner lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.calls).toBe(1));
@@ -235,7 +235,7 @@ describe("TruncatedLoadBanner", () => {
   });
 
   it("carries the count INTO the confirm dialog, so the decision is made on a number", async () => {
-    render(<TruncatedLoadBanner lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.lastOpts).not.toBeNull());
     expect(String(confirmState.lastOpts?.message ?? "")).toMatch(/5 document entries/i);
@@ -246,11 +246,38 @@ describe("TruncatedLoadBanner", () => {
     // callbacks are distinct so the save guard stays armed after a dismiss.
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onSaveAnyway).not.toHaveBeenCalled();
     expect(confirmState.calls).toBe(0);
+  });
+
+  // ★★★ THE CLASSIC LAYOUT HAS NO SIDEBAR FOOTER. `SidebarFooter` has exactly one
+  // mount in the app and it is inside `modernTree`, so a classic user who dismissed
+  // this banner lost the only "Save anyway" surface for the session while saving
+  // stayed paused and nothing on screen said so — the very lockout the banner
+  // exists to prevent, still live in one of the two layouts. These two cases are
+  // the kill line for that: without the `dismissed` branch the first renders
+  // nothing and the second renders the full banner.
+  it("leaves a re-open control when dismissed with no footer indicator (classic layout)", () => {
+    const onReopen = vi.fn();
+    render(<TruncatedLoadBanner dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+
+    // Not the full banner — dismissing must still quieten it.
+    expect(screen.queryByRole("button", { name: "Save anyway" })).toBeNull();
+    // But the door back is present, and clicking it re-opens rather than saving.
+    fireEvent.click(screen.getByRole("button", { name: /show how to resolve/i }));
+    expect(onReopen).toHaveBeenCalledTimes(1);
+    expect(confirmState.calls).toBe(0);
+  });
+
+  it("renders nothing when dismissed and the footer already carries the indicator (modern layout)", () => {
+    const { container } = render(<TruncatedLoadBanner dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    // Control: the SAME props with hasFooterIndicator=false DO render something
+    // (the case above), so an empty container here is the branch, not a broken
+    // fixture.
+    expect(container).toBeEmptyDOMElement();
   });
 });

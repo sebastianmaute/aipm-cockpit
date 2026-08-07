@@ -2337,6 +2337,14 @@ describe("useStorageBackend — §102 truncation reaches every load/flush path",
     // from scratch to a DIFFERENT backend and cannot overwrite the source the
     // truncated documents are still sitting in.
     expect(created.save).toHaveBeenCalled();
+    // ★★★ THE KILL LINE FOR `clearForFreshWorkspace`. The flag was TRUE a moment
+    // ago (the outgoing flush above was skipped because of it), and the new
+    // project is built rather than loaded — so no `reportFor` ever runs for it,
+    // and `suppressNextLoadRef` swallows the load its storageConfig change
+    // triggers. Without the clear, this brand-new project inherits the OLD one's
+    // pause: every edit to it is silently refused and the banner reports the old
+    // project's counts against a project with no documents at all.
+    expect(result.current.loadWasTruncated).toBe(false);
   });
 
   it("createDemoProject SKIPS its flush of the outgoing project", async () => {
@@ -2392,8 +2400,16 @@ describe("useStorageBackend — §102 truncation reaches every load/flush path",
 
     await act(async () => { await result.current.switchToTursoProject("turso-p3"); });
 
+    // ★★★ ASSERT THE REAL STRING. This read `stringContaining("could not be
+    // saved")` and could not fail: no string in `i18n.ts` contains that phrase
+    // (`storageSwitchFlushFailed` is "Recent changes may not have been saved
+    // before switching projects", and `storageSaveFailedBanner` uses the
+    // contraction "couldn't"). It sat exactly where a reader assumes coverage.
     // The skip is deliberate, not an error: the source still holds the documents.
-    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("could not be saved"));
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("may not have been saved"));
+    // ★ POSITIVE CONTROL — without it "no error toast" is equally satisfied by a
+    // switch that never ran at all.
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
   });
 
   // ── EXPLICIT user writes: REFUSE LOUDLY, never skip silently ───────────────
@@ -2419,6 +2435,15 @@ describe("useStorageBackend — §102 truncation reaches every load/flush path",
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("8 document entries could not be opened"));
     // …and NOTHING claims the store was switched.
     expect(showToast).not.toHaveBeenCalledWith("info", expect.any(String));
+    // ★★★ THE KILL LINE FOR THE PRE-CHECK, and without it this test cannot tell
+    // the fix from the bug. `pickFileForBackend` runs on the ACTIVE backend and
+    // its side effects are irreversible — it creates the file on disk and
+    // persists the new handle — so refusing only at the write left the app
+    // pointed at a new EMPTY file with the original unreferenced. Delete the
+    // `refuseWrite` pre-check and the `guardedWrite` backstop still refuses,
+    // through the SAME implementation, so every assertion above stays green and
+    // the toast is byte-identical. Only this one changes.
+    expect(storageMod.pickFileForBackend).not.toHaveBeenCalled();
   });
 
   it("onRequestStorageSwitch REFUSES, and critically does NOT repoint the app at the short copy", async () => {

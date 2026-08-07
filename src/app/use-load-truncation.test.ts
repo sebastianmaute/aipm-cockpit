@@ -203,17 +203,58 @@ describe("ops files — no unguarded backend access (source scan)", () => {
     "src/app/use-storage-file-ops.ts",
     "src/app/use-storage-turso-ops.ts",
   ];
-  /** Writes of a workspace that did NOT come from a load. A truncated CURRENT
-   *  workspace is irrelevant to them, so they are correctly ungated. */
-  const ALLOWED_UNGATED = 3; // createProject · createDemoProject · createTursoProject
 
-  it("every whole-workspace write is a choke point, behind one, or allowlisted", () => {
-    const src = WRITE_FILES.map((f) => readFileSync(f, "utf8")).join("\n");
-    const saves = src.match(/\.save\(/g)?.length ?? 0;
-    const choked = src.match(/guardedWrite\(|saveCurrentWorkspace\(\)/g)?.length ?? 0;
-    expect(saves).toBeGreaterThan(0); // control: the scan is looking at real files
-    // Each guarded write still contains a `.save(` inside the choke point, so the
-    // arithmetic is: total saves - the ones the choke points own - the allowlist.
-    expect(saves - choked).toBeLessThanOrEqual(ALLOWED_UNGATED);
+  // ★★★ ENUMERATE, DO NOT COUNT. The first version of this scan compared two
+  // regex COUNTS against an allowance of 3, and a cold review measured it: the
+  // slack was 1, so one new unguarded `new X().save(liveWs)` would have landed
+  // at the limit and stayed green. Worse, every added `guardedWrite(` increments
+  // the subtrahend and BUYS BACK another ungated write, a `guardedWrite(` inside
+  // a COMMENT counts the same, and the arithmetic the comment described was not
+  // even the arithmetic being performed — `guardedWrite`'s own `backend.save(ws)`
+  // lives in `use-load-truncation.ts`, which is not in this list, so the
+  // subtraction was removing tokens that are not `.save(` occurrences at all.
+  // It landed on the right answer by coincidence.
+  //
+  // A scalar cannot express a per-site property. This lists every write instead:
+  // a new, moved or reworded one fails loudly and NAMES ITSELF in the diff, and
+  // no offsetting change anywhere can hide it.
+  /** `file:line — callee` for every `.save(` outside a comment. The CALLEE is the
+   *  identity that matters (what is being written to); full-line matching broke on
+   *  a 200-character destructure that merely happens to contain the binder. */
+  const EXPECTED_WRITES = [
+    // The choke point itself — the binder handed to useLoadTruncation, which
+    // `flushCurrent` calls only after `mayCommitAfterTruncation()`.
+    "use-storage-backend.ts — backend",
+    // The debounced save effect, gated at the top of the same effect.
+    "use-storage-backend.ts — backend",
+    // createProject — a workspace built from scratch, to a NEW backend.
+    "use-storage-file-ops.ts — targetBackend",
+    // createDemoProject — the demo sample, likewise not the live workspace.
+    // ★ NOT "a new backend" in the strict sense: BrowserBackend's stores are
+    // module-level and unscoped, so this is a new INSTANCE over the SAME store.
+    // Correctly ungated (the user asked for the demo), but do not reason about
+    // it as isolated.
+    "use-storage-file-ops.ts — targetBackend",
+    // createTursoProject — a built workspace, to a brand-new project id.
+    // ★ `migrateCurrentProjectToTurso` looks identical and is NOT here: it copies
+    // the LIVE workspace, so it goes through `guardedWrite` and its `.save(` lives
+    // in use-load-truncation.ts. That difference is the whole defect this catches.
+    "use-storage-turso-ops.ts — new TursoBackend(cfg, id)",
+  ];
+
+  it("every whole-workspace write is enumerated — no new one slips in unnoticed", () => {
+    const found = WRITE_FILES.flatMap((f) =>
+      readFileSync(f, "utf8")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => !l.startsWith("//") && /\.save\(/.test(l))
+        .map((l) => {
+          const callee = /([A-Za-z0-9_$]+(?:\([^)]*\))?|new\s+[A-Za-z0-9_$]+\([^)]*\))\.save\(/.exec(l);
+          return `${f.split("/").pop()} — ${callee?.[1] ?? "UNPARSED"}`;
+        }),
+    );
+    expect(found).toHaveLength(EXPECTED_WRITES.length); // control: the scan sees real writes
+    expect(found).not.toContain(expect.stringContaining("UNPARSED")); // the regex still understands every site
+    expect([...found].sort()).toEqual([...EXPECTED_WRITES].sort());
   });
 });

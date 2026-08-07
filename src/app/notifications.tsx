@@ -139,12 +139,18 @@ export function StorageBanner({
  *  ★ `truncation` may be `null` (counts unknown) — the decision is then made on
  *  a screen showing no magnitude, so pass them whenever the guard has them. */
 export function TruncatedLoadBanner({
-  lang, truncation, onSaveAnyway, onDismiss,
+  lang, truncation, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
 }: {
   lang: Lang;
   truncation: { entries: number; blocks: number } | null;
+  /** Hidden by the user. The save guard stays armed either way. */
+  dismissed: boolean;
+  /** The layout shows a persistent "saving paused" control elsewhere (the modern
+   *  shell's sidebar footer). FALSE in the classic layout, which has none. */
+  hasFooterIndicator: boolean;
   onSaveAnyway: () => void;
   onDismiss: () => void;
+  onReopen: () => void;
 }) {
   const confirm = useConfirm();
   // ★ Entries dominate when both are present, mirroring `useLoadTruncation`'s own
@@ -168,6 +174,30 @@ export function TruncatedLoadBanner({
     });
     if (ok) onSaveAnyway();
   };
+  // ★★★ THE CLASSIC LAYOUT HAS NO SIDEBAR FOOTER, so dismissal there used to be
+  // the very lockout this banner exists to prevent: `SidebarFooter` has ONE mount
+  // in the app and it is inside `modernTree`, so a classic user who clicked ✕ lost
+  // the only "Save anyway" surface for the session while saving stayed paused and
+  // nothing on screen said so. Leaving a compact re-open chip is the minimum that
+  // keeps dismissal honest — "stop shouting", never "stop telling me".
+  // ★ NOT solved by refusing to dismiss in classic: a banner whose only exit is
+  // the irreversible button makes destroying data the fastest way to clear your
+  // screen. The chip keeps the escape reachable without the coercion.
+  if (dismissed) {
+    if (hasFooterIndicator) return null;
+    return (
+      <AlertBanner severity="warn" role="status" ariaLabel={t(lang, "storageSavingPaused")} icon="⏸"
+        actions={
+          <Button variant="secondary" size="xs" onClick={onReopen}>
+            {t(lang, "storageSavingPausedAction")}
+          </Button>
+        }>
+        <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+          {t(lang, "storageSavingPaused")}
+        </p>
+      </AlertBanner>
+    );
+  }
   return (
     <AlertBanner severity="error" role="alert" ariaLabel={t(lang, "documentsTruncatedBannerAria")} icon="⚠"
       actions={<>

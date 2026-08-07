@@ -2620,8 +2620,8 @@ function TaskManagerInner() {
       {!isPopout && storageError && !storageErrorDismissed && (
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
-      {!isPopout && loadWasTruncated && !truncationBannerDismissed && (
-        <TruncatedLoadBanner lang={lang} truncation={truncation} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} />
+      {!isPopout && loadWasTruncated && (
+        <TruncatedLoadBanner lang={lang} truncation={truncation} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
       )}
     </>
   );
