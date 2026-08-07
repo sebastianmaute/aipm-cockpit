@@ -2393,8 +2393,12 @@ the hosts sit on axe-scanned views and pass today. The count above is the whole 
 ★ The fix is not uniformly "migrate to `ToggleButton`". Some are radio-like single-select groups
 (template picker, RACI role, import method, quadrant) where the primitive's chip styling and
 pinned-label rule may not fit, and where `role="radio"` might be the better answer than
-`aria-pressed` at all. That is no longer a hypothesis: the tier selector took exactly that route in
-0.218.0 and left this list. The editor toolbar and the two mic buttons are genuine binary toggles
+`aria-pressed` at all. That is no longer a hypothesis: the tier selector took exactly that route
+(adopting `SegmentedControl`, i.e. `role="radio"`) and left this list. ★ Deliberately NO version
+here — the change is committed but UNRELEASED, and an earlier draft of this sentence said "in
+0.218.0", which is the commit this work sits ON TOP of; that release shipped a different a11y fix
+and a reader chasing the resolution would find nothing. Write the real version at release time or
+leave it to the date above. The editor toolbar and the two mic buttons are genuine binary toggles
 and are the natural first migration.
 
 ---
@@ -4485,6 +4489,50 @@ mounted. Every other popout write is discarded on close; this one is not.
 
 ★ Gating `useUndoHotkey` on `isPopout` closes both the `setRaid` and the persisted activity line in one
 edit, and is the reason this is filed as one item rather than two.
+
+---
+
+## 92. Tab ejects focus from a portaled popover opened inside a modal — open, a11y
+
+**Measured in Chromium 2026-08-06, not inferred.** Open any edit modal → open the field-visibility
+popover in its header → press Tab ONCE. Focus lands back on the trigger button **while the popover
+stays open**, and the same happens from a checkbox inside the popover. So the checkbox list and the
+Reset button have NO keyboard path at all (WCAG 2.1.1). Both probes below were run; the second is
+what proves the cause is the portal rather than the radiogroup:
+
+| start | Tab → | popover |
+|---|---|---|
+| checked tier radio | the trigger | still open |
+| a field checkbox | the trigger | still open |
+
+**Cause.** `Modal`'s Tab trap collects focusables from `dialogRef.current` and guards on
+`container.contains(active)`. `PopoverPanel` renders through `createPortal` into `document.body`, so
+its content is NOT a descendant of that container and `contains` is false for EVERY element inside
+it — not merely at the boundary. The first Tab therefore satisfies the "focus escaped" branch
+unconditionally and re-focuses the modal's own first/last focusable. The dismissal stack is working
+as designed and is not the bug: a popover pushes kind `"layer"`, which deliberately traps nothing so
+the modal keeps Tab. The gap is that the modal's trap cannot SEE portaled layer content, so it does
+not deliver on that stated intent.
+
+★★ **Pre-existing, and NOT introduced by the field-controls-into-header change.** The old cog
+popover held the same checkbox list in the same `PopoverPanel` inside the same `Modal` — the second
+probe above is exactly that path. What the move changed is prominence: the whole field-visibility
+surface now lives behind the popover, so every keyboard user meets this on their first Tab. The tier
+switch itself stays operable, because focus lands on the checked radio and arrows work.
+
+★ **Invisible to every gate.** `modal-field-controls.test.tsx` renders the control STANDALONE, never
+inside `Modal`, so no unit test can see it; axe scans views, not interaction-opened modals, and does
+not evaluate cross-widget Tab order in any case. A test for this must mount the control inside a real
+`Modal` — that mounting, not the assertion, is the load-bearing part.
+
+★ Two directions, neither prescribed: give `PopoverPanel` its own Tab cycle over `panelRef` while
+open (Escape and outside-click stay the exit), or teach the modal's trap to include the DOM of any
+open `"layer"` above it. The first is contained; the second fixes the class. Either needs a sweep of
+all `PopoverPanel` consumers — three of them (`action-cta-controls`, `action-popover-trigger`,
+`version-menu`) have no test file at all.
+
+★ Related and separate: nothing restores focus to the trigger when a popover closes. That is a
+repo-wide `PopoverPanel` gap — no consumer does it — and worth folding into the same visit.
 
 ---
 

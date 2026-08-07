@@ -156,6 +156,39 @@ describe("PopoverPanel", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("field"));
   });
 
+  // ★★ The fallback branch. A panel whose EVERY candidate is a roving -1 matches
+  // the narrow selector nowhere; without the `??` the focus call silently
+  // no-ops, and because the panel is PORTALED the next Tab leaves it entirely —
+  // the exact failure autoFocus exists to prevent. No shipped consumer has this
+  // shape yet (`project-switcher.tsx` renders it but does not use PopoverPanel),
+  // so this test is the only thing standing between a future all-menuitem panel
+  // and a silent regression.
+  it("falls back to a tabindex=-1 control when the panel has NO tab-stop", () => {
+    function AllRovingHarness() {
+      const [open, setOpen] = useState(false);
+      const btnRef = useRef<HTMLButtonElement>(null);
+      const close = useCallback(() => setOpen(false), []);
+      return (
+        <div>
+          <button ref={btnRef} type="button" onClick={() => setOpen(true)}>trigger</button>
+          <PopoverPanel open={open} anchorRef={btnRef} onClose={close} role="dialog" ariaLabel="Panel">
+            {/* An all-`tabIndex={-1}` menu, the shape project-switcher renders. */}
+            <div role="menu">
+              <button type="button" role="menuitem" tabIndex={-1}>First</button>
+              <button type="button" role="menuitem" tabIndex={-1}>Second</button>
+            </div>
+          </PopoverPanel>
+        </div>
+      );
+    }
+    render(<AllRovingHarness />);
+    fireEvent.click(screen.getByText("trigger"));
+    // Focus must land INSIDE the panel — programmatic .focus() works on a -1
+    // element. Asserting "not the trigger" alone would pass if focus went to
+    // document.body, which is the very bug.
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "First" }));
+  });
+
   it("renders nothing while closed", () => {
     render(<Harness />);
     expect(screen.queryByRole("dialog")).toBeNull();

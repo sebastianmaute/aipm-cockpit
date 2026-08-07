@@ -126,13 +126,23 @@ export function PopoverPanel({
   // already tabbable — which is all of them but this one.
   // ★ When a roving group has NOTHING checked, its first radio IS the tab-stop
   // (SegmentedControl's `hasSelection` fallback), so focus correctly stays put.
+  // ★★ The `??` fallback is NOT redundant: a panel whose every candidate is a
+  // roving -1 (an all-`tabIndex={-1}` menu — `project-switcher.tsx` renders
+  // exactly that shape today) matches the narrow selector NOWHERE, and a bare
+  // `?.focus()` would then silently no-op. That is the one outcome this effect
+  // must never produce: the panel is PORTALED, so with nothing focused the
+  // user's next Tab leaves it entirely — the very failure `autoFocus` exists to
+  // prevent. Programmatic `.focus()` works on a -1 element, so the fallback is
+  // functional, not cosmetic. No current consumer needs it; it is here so the
+  // next one cannot regress silently.
   useEffect(() => {
     if (autoFocus && open && pos) {
-      panelRef.current
-        ?.querySelector<HTMLElement>(
+      const panel = panelRef.current;
+      (
+        panel?.querySelector<HTMLElement>(
           'input:not([tabindex="-1"]),button:not([tabindex="-1"]),[tabindex]:not([tabindex="-1"])',
-        )
-        ?.focus({ preventScroll: true });
+        ) ?? panel?.querySelector<HTMLElement>("input,button,[tabindex]")
+      )?.focus({ preventScroll: true });
     }
   }, [autoFocus, open, pos]);
 

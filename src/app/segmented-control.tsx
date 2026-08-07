@@ -13,7 +13,13 @@
 // list used to carry were WRONG, not merely stale — Priority had moved out of
 // `task-manager.tsx` into `task-form-fields.tsx`, and the RAID controls out of
 // `raid-panel.tsx` into `raid-edit-modal.tsx` — so reproduce rather than trust:
-//   grep -rln "<SegmentedControl" src/app --include="*.tsx" | grep -v "\.test\."
+//   grep -rln "<SegmentedControl" src/app --include="*.tsx" | grep -v "\.test\." \
+//     | grep -v "segmented-control.tsx"
+// ★ That trailing filter is required: WITHOUT it this very comment matches and
+// the command prints 15, so a reader "corrects" a right number to a wrong one.
+// For the 31 invocations, count occurrences rather than files:
+//   grep -ro "<SegmentedControl" src/app --include="*.tsx" | grep -v "\.test\." \
+//     | grep -v "segmented-control.tsx" | wc -l
 
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 
@@ -77,6 +83,12 @@ export function SegmentedControl<T extends string>({
     // not read this comment as closing that path.
     // ★ `indexOf` over THIS group's radios scopes the check by construction —
     // focus in another radiogroup, or nowhere, yields -1 and the fallback.
+    // ★ Behaviour change for ALL consumers, not just the popover: where an
+    // `onChange` does NOT update `value` (a guarded, rejected or async change),
+    // focus now advances while `value` stays, and the next arrow steps from
+    // focus rather than re-deriving from the stale `value`. That is the APG
+    // behaviour and it fixes rapid arrowing, which previously stuck whenever
+    // `value` had not re-rendered yet. No consumer guards `onChange` today.
     const focused = radios.indexOf(document.activeElement as HTMLElement);
     const cur = focused >= 0 ? focused : options.findIndex((o) => o.value === value);
     const last = options.length - 1;
