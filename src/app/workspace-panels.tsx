@@ -163,6 +163,7 @@ export function DocumentsTabPanel({
           lang={lang}
           documents={ws.documents}
           mutateDocuments={ws.mutateDocuments}
+          documentVersions={ws.documentVersions}
           ws={ws}
           isReadOnly={isPopout}
           onResetSize={resetPaneSize}

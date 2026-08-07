@@ -17,7 +17,7 @@ import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
 import { type Lang, t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
-import type { DocVersion } from "./document-versions";
+import { RESTORED_MARKER_OP, type DocVersion } from "./document-versions";
 
 const HISTORY_TITLE_ID = "documents-history-title";
 
@@ -40,7 +40,8 @@ export interface DocumentsHistoryModalProps {
    *  to a ProjectDocument. */
   doc: ProjectDocument | null;
   /** Already sorted newest-first by the orchestrator — same contract as
-   *  `DocumentsList.documents`. This component does not reorder. */
+   *  `DocumentsList.documents`. This component does not reorder. It DOES drop
+   *  restored markers; see RESTORED_MARKER_OP below. */
   versions: readonly DocVersion[];
   onClose: () => void;
   onRestore: (versionId: number) => void;
@@ -66,6 +67,26 @@ export function DocumentsHistoryModal({
 }: DocumentsHistoryModalProps) {
   if (!open || !doc) return null;
 
+  // ★★★ A RESTORED MARKER IS NEVER A RESTORABLE ROW. It is not a before-image
+  // at all — it is the bookkeeping entry that closes a tombstone, carrying a
+  // DEAD document id (see document-versions.ts's RESTORED_MARKER_OP). Restoring
+  // one mints ANOTHER copy of an already-restored document and writes a SECOND
+  // marker; measured directly against the engine, not inferred.
+  //
+  // ★★ TODAY THIS FILTER CANNOT FIRE, and it is here anyway. A marker's
+  // `documentId` is the id the document had before it was deleted, and this
+  // modal only ever opens for a LIVE document, so the orchestrator's
+  // `documentId === historyFor` filter already excludes every marker. The
+  // filter exists because that reasoning is a property of the CALLER, not of
+  // this component: a deleted-documents surface listing a dead id's group
+  // would hand us `[tombstone, marker]`, and the marker would render a Restore
+  // button that duplicates. Guarding at the surface that draws the button is
+  // the only placement that cannot be bypassed by a new caller.
+  // ★ An engine-side rejection is landing separately. This is not a duplicate
+  // of it: that one stops the mutation, this one stops OFFERING it, and a
+  // button whose only outcome is an error is a defect on its own.
+  const restorable = versions.filter((v) => v.op !== RESTORED_MARKER_OP);
+
   return (
     // `Modal` owns dismissal: it registers with the shared `dismissal-stack`
     // and carries a real Tab trap, so Escape/backdrop/focus-restore all come
@@ -85,11 +106,11 @@ export function DocumentsHistoryModal({
           onClose={onClose}
         />
         <div className="flex max-h-[60vh] flex-col gap-3 overflow-auto p-6">
-          {versions.length === 0 ? (
+          {restorable.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t(lang, "documentsNoVersions")}</p>
           ) : (
             <ul className="flex flex-col gap-2">
-              {versions.map((v) => (
+              {restorable.map((v) => (
                 <li
                   key={v.id}
                   className="flex items-center justify-between gap-3 rounded-md border border-line px-3 py-2"

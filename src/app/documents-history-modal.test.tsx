@@ -149,6 +149,52 @@ describe("DocumentsHistoryModal", () => {
     expect(screen.queryByRole("button", { name: /Restore/ })).not.toBeInTheDocument();
   });
 
+  // ★★★ A restored MARKER is not a before-image — it is the bookkeeping entry
+  // that closes a tombstone, and restoring one mints another copy of an
+  // already-restored document plus a SECOND marker (measured against the
+  // engine). It must never be offered.
+  it("never offers a restored marker as a restorable version", () => {
+    const withMarker: readonly DocVersion[] = [
+      { ...VERSIONS[0], id: 5, title: "Marker", op: "restored" },
+      ...VERSIONS,
+    ];
+    renderModal({ versions: withMarker });
+
+    const buttons = screen.getAllByRole("button", { name: /Restore/ });
+    expect(buttons).toHaveLength(2); // the two real versions, not three
+    const names = buttons.map((b) => b.getAttribute("aria-label") ?? "");
+    expect(names.some((n) => n.includes("#5"))).toBe(false);
+    // Positive control: the real versions ARE still offered, so this is not
+    // passing because the list failed to render at all.
+    expect(names.some((n) => n.includes("#2"))).toBe(true);
+    expect(names.some((n) => n.includes("#1"))).toBe(true);
+  });
+
+  // The empty state is driven by what is RESTORABLE, not by the raw input: a
+  // group holding nothing but a marker has no history a user can act on.
+  it("shows the empty state when the only version is a marker", () => {
+    renderModal({ versions: [{ ...VERSIONS[0], id: 5, op: "restored" }] });
+    expect(screen.getByRole("dialog", { name: /History – Status/ })).toBeInTheDocument();
+    expect(screen.getByText(/No history yet/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Restore/ })).not.toBeInTheDocument();
+  });
+
+  // ★★ A popout must not hold a live Restore — it is the most destructive
+  // control here (a restore replaces the whole document) and every other
+  // control in this pane honours the guard. A real `disabled` attribute, not
+  // an `aria-disabled` lookalike, which would still fire onClick.
+  it("disables Restore in a read-only popout while still showing the history", async () => {
+    const user = userEvent.setup();
+    const { onRestore } = renderModal({ isReadOnly: true });
+
+    const buttons = screen.getAllByRole("button", { name: /Restore/ });
+    expect(buttons).toHaveLength(2); // history is still readable
+    expect(buttons[0]).toBeDisabled();
+
+    await user.click(buttons[0]);
+    expect(onRestore).not.toHaveBeenCalled();
+  });
+
   it("renders nothing when closed or when there is no document", () => {
     const { unmount } = renderModal({ open: false });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

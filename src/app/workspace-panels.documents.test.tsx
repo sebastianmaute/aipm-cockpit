@@ -167,4 +167,48 @@ describe("DocumentsTabPanel — call-site wiring", () => {
       expect(seen.at(-1)!.documents).toEqual([expect.objectContaining({ title: "Wired" })]),
     );
   });
+
+  it("threads LIVE documentVersions, not a placeholder", async () => {
+    // ★★★ SAME BAR AS THE CASE ABOVE — drive it, don't type-check it. The
+    // history modal is fed entirely by this prop, and the two cheapest wrong
+    // answers both satisfy tsc and any shape assertion: a literal `[]`, or
+    // `ws.documents`-shaped stand-in. Both would render an empty history
+    // forever while every other test stayed green, which is precisely the
+    // failure mode that made this a prop rather than a read off `ws` (the
+    // pane's own live harness passes a static `emptyWorkspace()` as `ws`).
+    //
+    // So: mutate twice through the seam and watch the BEFORE-IMAGE arrive. A
+    // create writes no version (nothing was replaced); the rename that follows
+    // writes exactly one, carrying the PRE-rename title.
+    renderTab(false);
+    await screen.findByTestId("documents-panel-stub");
+    const mutate = seen.at(-1)!.mutateDocuments as (
+      m: DocMutation,
+      s: DocVersionSource,
+    ) => DocResult;
+
+    expect(seen.at(-1)!.documentVersions).toEqual([]);
+
+    const captured: { result?: DocResult } = {};
+    act(() => {
+      captured.result = mutate({ kind: "create", title: "Before" }, "user");
+    });
+    const id = captured.result?.documentId;
+    expect(typeof id).toBe("number");
+    // Still empty: a create replaces nothing, so it snapshots nothing. This
+    // also proves the assertion below is not passing on a prop that simply
+    // mirrors `documents`.
+    await waitFor(() => expect(seen.at(-1)!.documents).toHaveLength(1));
+    expect(seen.at(-1)!.documentVersions).toEqual([]);
+
+    act(() => {
+      mutate({ kind: "rename", id: id as number, title: "After" }, "user");
+    });
+
+    await waitFor(() =>
+      expect(seen.at(-1)!.documentVersions).toEqual([
+        expect.objectContaining({ title: "Before", op: "rename", source: "user" }),
+      ]),
+    );
+  });
 });
