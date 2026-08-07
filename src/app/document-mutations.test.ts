@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { applyDocMutation, type DocState } from "./document-mutations";
 import { deletedDocumentVersions } from "./document-versions";
-import { MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS, type ProjectDocument } from "./document-model";
+import { MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS, type DocBlock, type ProjectDocument } from "./document-model";
 
 const DOC: ProjectDocument = {
   id: 1,
@@ -73,6 +73,50 @@ describe("applyDocMutation — ops", () => {
     }, ctx());
     expect(out.documents[0].blocks.map((b) => b.type)).toEqual(["heading", "heading", "paragraph", "pageBreak"]);
     expect(out.documents[0].blocks[1]).toEqual({ type: "heading", level: 3, text: "Week 13" });
+  });
+
+  // ★★★ POSITION IS THE ASSERTION, NOT COUNT — and until these two landed
+  // NOTHING in the repo pinned it. Every in-range `insert` and `delete` fixture
+  // in this file used `index: 0`, and the property test asserted block COUNT,
+  // which cannot separate "inserted at N" from "inserted at 0". Measured:
+  // `next.splice(op.index, 0, op.block)` → `splice(0, 0, …)` and
+  // `next.splice(op.index, 1)` → `splice(0, 1)` BOTH shipped green across all
+  // 26 document test files. (`replace` was caught only because line 71's
+  // fixture happened to use a non-zero index — the sole one on the branch.)
+  //
+  // ★★ It is the AI's `update_document` write path: the model addresses blocks
+  // positionally against a document it was told to read first, so a misapplied
+  // index silently corrupts a user's document AND the before-image records the
+  // corruption as a legitimate edit. Seeded with three DISTINCT block types so
+  // the resulting ORDER is decidable — an all-pageBreak fixture would pass
+  // either way.
+  it("inserts at a NON-ZERO index rather than at the front", () => {
+    const start: DocState = {
+      documents: [{ ...DOC, blocks: [
+        { type: "heading", level: 1, text: "A" },
+        { type: "paragraph", html: "<p>b</p>" },
+        { type: "pageBreak" },
+      ] }],
+      versions: [],
+    };
+    const mark: DocBlock = { type: "heading", level: 2, text: "MARK" };
+    const out = applyDocMutation(start, { kind: "ops", id: 1, ops: [{ op: "insert", index: 2, block: mark }] }, ctx());
+    expect(out.documents[0].blocks.map((b) => b.type)).toEqual(["heading", "paragraph", "heading", "pageBreak"]);
+    expect(out.documents[0].blocks[2]).toEqual(mark);
+  });
+
+  it("deletes at a NON-ZERO index rather than at the front", () => {
+    const start: DocState = {
+      documents: [{ ...DOC, blocks: [
+        { type: "heading", level: 1, text: "A" },
+        { type: "paragraph", html: "<p>b</p>" },
+        { type: "pageBreak" },
+      ] }],
+      versions: [],
+    };
+    const out = applyDocMutation(start, { kind: "ops", id: 1, ops: [{ op: "delete", index: 1 }] }, ctx());
+    expect(out.documents[0].blocks.map((b) => b.type)).toEqual(["heading", "pageBreak"]);
+    expect(out.documents[0].blocks[0]).toEqual({ type: "heading", level: 1, text: "A" });
   });
 
   it("rejects an out-of-range index and reports it", () => {
@@ -578,6 +622,44 @@ describe("title uniqueness is enforced by the ENGINE, not by one surface", () =>
     expect(out.documents.map((d) => d.title)).toEqual(["Status report", "Status report 2"]);
   });
 
+  // ★★★ THE OTHER RESTORE PATH, and it stayed verbatim for a release after the
+  // recreate half was fixed — "one door of two" again. Measured before the fix:
+  // rename "Charter"→"Charter v2", create a replacement "Charter", restore the
+  // rename IN PLACE, and the set came back `["Charter","Charter"]` with
+  // `changed:true, rejected:[]`. Two live documents sharing a title is five
+  // pairs of identical per-row accessible names (WCAG 2.4.6), and the axe gate
+  // structurally cannot see it — it never clicks Restore.
+  it("suffixes an IN-PLACE restore whose stored title is live on another document", () => {
+    const renamed = applyDocMutation(state(), { kind: "rename", id: 1, title: "Status report v2" }, ctx());
+    const replaced = applyDocMutation(renamed, { kind: "create", title: "Status report" }, ctx());
+    const out = applyDocMutation(replaced, { kind: "restore", versionId: renamed.versions[0].id }, ctx());
+    expect(out.changed).toBe(true);
+    // Document 1 is restored in place — same id, suffixed title.
+    expect(out.documents.find((d) => d.id === 1)?.title).toBe("Status report 2");
+    expect(out.documents.map((d) => d.title)).toEqual(["Status report 2", "Status report"]);
+  });
+
+  // ★★★ THE SELF-EXCLUSION, and it is NOT a nicety. Most versions differ from
+  // the live document only in BLOCKS, so the ordinary restore restores a title
+  // the document already holds. Checked against the unfiltered set it collides
+  // with its own row, and a restore that changed no title at all renames the
+  // document to "Status report 2" — a corruption introduced by the fix above
+  // rather than by the bug it closes. Deliberately seeded with a SECOND
+  // document so an implementation that simply skipped uniquification on the
+  // in-place path cannot pass this and the collision case together.
+  it("does NOT suffix an in-place restore against the document's OWN title", () => {
+    const seeded: DocState = { documents: [DOC, { ...DOC, id: 2, title: "Other" }], versions: [] };
+    // A blocks-only edit: the title is untouched, so the before-image carries
+    // the document's current title.
+    const edited = applyDocMutation(seeded, { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }, ctx());
+    expect(edited.versions[0].title).toBe("Status report");
+
+    const out = applyDocMutation(edited, { kind: "restore", versionId: edited.versions[0].id }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents.find((d) => d.id === 1)?.title).toBe("Status report");
+    expect(out.documents.find((d) => d.id === 1)?.blocks).toEqual(DOC.blocks);
+  });
+
   it("leaves a title that does not collide completely alone", () => {
     // ★ The control. A minter that always appended " 2" would satisfy every
     // case above while renaming innocent titles on every write.
@@ -646,6 +728,21 @@ describe("blocks arrays are not shared between owners", () => {
     expect(out.versions[0].blocks).not.toBe(source.blocks);
     expect(out.versions[0].blocks).not.toBe(copy.blocks);
     expect(copy.blocks).toEqual(source.blocks); // still equal, just not the same object
+  });
+
+  // ★★ `create` WAS THE LAST OWNER-SHARING HOLE. duplicate, both restores and
+  // every snapshot copy their input; create stored `m.blocks` verbatim, so the
+  // caller kept a live handle on a stored document's block list and one later
+  // in-place push would rewrite the workspace from outside the engine. Assert
+  // the EFFECT of the copy (a caller-side mutation does not reach the store),
+  // not just `not.toBe` — reference inequality alone would also be satisfied by
+  // a rebuild that shared the elements' owner semantics for the wrong reason.
+  it("gives a create its own array, so the caller cannot mutate the stored document", () => {
+    const callerBlocks: DocBlock[] = [{ type: "pageBreak" }];
+    const out = applyDocMutation({ documents: [], versions: [] }, { kind: "create", title: "New", blocks: callerBlocks }, ctx());
+    expect(out.documents[0].blocks).not.toBe(callerBlocks);
+    callerBlocks.push({ type: "heading", level: 1, text: "added after the create" });
+    expect(out.documents[0].blocks).toEqual([{ type: "pageBreak" }]);
   });
 
   it("gives every before-image snapshot its own array", () => {

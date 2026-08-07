@@ -103,6 +103,20 @@ function capTitle(title: string): string {
  *  "Charter" — and even a single restore collides whenever the user has since
  *  created a replacement under the same name.
  *
+ *  ★★★ RESTORE IS TWO PATHS AND ONLY THE RECREATE HALF WAS COVERED — the same
+ *  "one door of two" this file keeps producing. The IN-PLACE half went on
+ *  writing `version.title` verbatim, measured: rename "Charter"→"Charter v2",
+ *  create a new "Charter", restore the rename in place, and the set is
+ *  `["Charter","Charter"]` — two live documents, five pairs of identical
+ *  per-row accessible names. Both halves call this now.
+ *
+ *  ★★★ …but the in-place half must EXCLUDE ITS OWN DOCUMENT from the set it
+ *  checks against. Most versions differ from the live document only in blocks,
+ *  so restoring one usually restores a title the document ALREADY holds; run
+ *  against the unfiltered set it collides with itself and a no-op-title restore
+ *  comes back as "Charter 2". The recreate half needs no filter — the old id is
+ *  gone from `documents`, so there is nothing of its own left to collide with.
+ *
  *  ★★★ IDEMPOTENT BY CONSTRUCTION, which is what makes it safe to compose with
  *  the pane's own call (`documents-panel.tsx` computes a title against its
  *  `freshRef` view and passes it in). An already-free title is returned
@@ -383,7 +397,11 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       const doc: ProjectDocument = {
         id: ctx.mintDocId(),
         title: uniqueTitle(state.documents, title),
-        blocks,
+        // ★ Its OWN array — see snapshot()'s note. This was the last owner-
+        //   sharing hole: `duplicate`, both restores and every snapshot copy,
+        //   but `create` stored the CALLER's array, so the caller kept a live
+        //   handle on a stored document's block list.
+        blocks: [...blocks],
         createdAt: ctx.now,
         updatedAt: ctx.now,
       };
@@ -420,7 +438,17 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
           return unchanged(state, [blockLimitReason(version.blocks.length)]);
         }
         const before = snapshot(liveDoc, "update", ctx);
-        const restoredDoc: ProjectDocument = { ...liveDoc, title: version.title, blocks: [...version.blocks], updatedAt: ctx.now };
+        // ★★★ SELF-EXCLUDED — see uniqueTitle's header. The set this title has
+        // to be unique WITHIN is the OTHER live documents; the row being
+        // restored is about to stop holding its current title, so counting it
+        // would suffix a restore that changed no title at all.
+        const others = state.documents.filter((d) => d.id !== liveDoc.id);
+        const restoredDoc: ProjectDocument = {
+          ...liveDoc,
+          title: uniqueTitle(others, version.title),
+          blocks: [...version.blocks],
+          updatedAt: ctx.now,
+        };
         const nextDocuments = state.documents.map((d) => (d.id === liveDoc.id ? restoredDoc : d));
         return {
           documents: nextDocuments,
