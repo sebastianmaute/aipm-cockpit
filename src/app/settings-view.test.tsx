@@ -244,4 +244,39 @@ describe("SettingsView", () => {
     // The branch opened around it, so the siblings are reachable.
     expect(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") })).toBeInTheDocument();
   });
+
+  it("renders the guides section when its rail entry is selected", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuidesHeading") }));
+    // The shared <h2> supplies the heading, so it appears as a heading, not
+    // just as the rail button label.
+    expect(
+      screen.getByRole("heading", { name: t("en-US", "aiGuidesHeading") }),
+    ).toBeInTheDocument();
+    // DECISION A: the default settings have AI off, so the section shows the
+    // enable hint rather than the guides CRUD. Pins that the gate moved with
+    // the content instead of the section rendering unconditionally.
+    expect(screen.getByText(t("en-US", "aiEnableHelp"))).toBeInTheDocument();
+  });
+
+  it("renders the views section when its rail entry is selected", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") }));
+    expect(screen.getByRole("heading", { name: t("en-US", "aiViewsTitle") })).toBeInTheDocument();
+  });
+
+  it("shows the per-view AI scope list once AI is enabled", () => {
+    // The gate-off case above would pass against a section that renders
+    // nothing at all, so drive the enabled branch too.
+    render(
+      <SettingsView
+        {...makeProps({ settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true } } })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") }));
+    expect(screen.getByText(t("en-US", "aiViewScopeIntro"))).toBeInTheDocument();
+  });
 });

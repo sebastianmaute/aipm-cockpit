@@ -17,7 +17,6 @@ import {
 // (default OFF). These tests exercise the expanded config, so flip it on.
 const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
-import type { UseOperatingGuidesResult } from "../use-operating-guides";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
 import { ToastProvider } from "../toast-context";
 
@@ -111,97 +110,6 @@ describe("AiSection", () => {
     expect(screen.queryByTestId("ai-usage-panel")).not.toBeInTheDocument();
   });
 
-  // --- operating-guide library UI ---
-
-  function stubGuides(over: Partial<UseOperatingGuidesResult> = {}): UseOperatingGuidesResult {
-    return {
-      guides: [
-        {
-          id: "builtin-leadership",
-          name: "Project Leadership Operating Guide",
-          content: "x",
-          enabled: true,
-          priority: 1,
-          scope: {},
-          builtIn: true,
-        },
-        {
-          id: "g2",
-          name: "My Guide",
-          content: "y",
-          enabled: true,
-          priority: 2,
-          scope: {},
-          builtIn: false,
-        },
-      ],
-      busy: false,
-      ready: true,
-      create: vi.fn(),
-      update: vi.fn(),
-      remove: vi.fn(),
-      refresh: vi.fn(),
-      ...over,
-    };
-  }
-
-  it("renders guides heading, description, and a labelled master toggle", () => {
-    render(
-      <AiSection
-        lang="en-US"
-        settings={defaultSettings}
-        onChange={vi.fn()}
-        operatingGuides={stubGuides()}
-      />,
-    );
-    expect(screen.getByText(t("en-US", "aiGuidesHeading"))).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "aiGuidesDesc"))).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(t("en-US", "aiGroundInGuides")),
-    ).toBeInTheDocument();
-  });
-
-  it("lists both guides; built-in shows badge and no Delete button; user guide has Delete", () => {
-    render(
-      <AiSection
-        lang="en-US"
-        settings={defaultSettings}
-        onChange={vi.fn()}
-        operatingGuides={stubGuides()}
-      />,
-    );
-    expect(screen.getByText("Project Leadership Operating Guide")).toBeInTheDocument();
-    expect(screen.getByText("My Guide")).toBeInTheDocument();
-    expect(screen.getByText(t("en-US", "aiGuideBuiltInBadge"))).toBeInTheDocument();
-    // Delete buttons: only user guide has one. The accessible name is
-    // qualified per-row with the guide name, so match by prefix.
-    const deleteBtns = screen.getAllByRole("button", {
-      name: new RegExp(`^${t("en-US", "aiGuideDelete")}`),
-    });
-    expect(deleteBtns).toHaveLength(1);
-    expect(deleteBtns[0]).toHaveAccessibleName(`${t("en-US", "aiGuideDelete")} – My Guide`);
-  });
-
-  it("toggling master toggle calls onChange with groundInGuides flipped", () => {
-    const onChange = vi.fn();
-    const settingsWithGrounding = {
-      ...defaultSettings,
-      ai: { ...defaultSettings.ai, groundInGuides: true },
-    };
-    render(
-      <AiSection
-        lang="en-US"
-        settings={settingsWithGrounding}
-        onChange={onChange}
-        operatingGuides={stubGuides()}
-      />,
-    );
-    const toggle = screen.getByLabelText(t("en-US", "aiGroundInGuides"));
-    fireEvent.click(toggle);
-    const last = onChange.mock.calls.at(-1)?.[0];
-    expect(last.ai.groundInGuides).toBe(false);
-  });
-
   it("action suggestions toggle is checked by default (undefined = on)", () => {
     const settingsDefaultOn = {
       ...defaultSettings,
@@ -212,7 +120,6 @@ describe("AiSection", () => {
         lang="en-US"
         settings={settingsDefaultOn}
         onChange={vi.fn()}
-        operatingGuides={stubGuides()}
       />,
     );
     const toggle = screen.getByLabelText(t("en-US", "settingsAiActionSuggestions"));
@@ -230,7 +137,6 @@ describe("AiSection", () => {
         lang="en-US"
         settings={settingsDefaultOn}
         onChange={onChange}
-        operatingGuides={stubGuides()}
       />,
     );
     const toggle = screen.getByLabelText(t("en-US", "settingsAiActionSuggestions"));
@@ -257,7 +163,6 @@ describe("AiSection", () => {
           ai: { ...defaultSettings.ai, insightRecommendations: false },
         }}
         onChange={vi.fn()}
-        operatingGuides={stubGuides()}
       />,
     );
     expect(screen.queryByLabelText(t("en-US", "aiInsightRecInterval"))).toBeNull();
@@ -269,7 +174,6 @@ describe("AiSection", () => {
         lang="en-US"
         settings={withRecs({ insightRecommendationIntervalMinutes: 120 })}
         onChange={vi.fn()}
-        operatingGuides={stubGuides()}
       />,
     );
     const input = screen.getByLabelText(
@@ -284,7 +188,6 @@ describe("AiSection", () => {
         lang="en-US"
         settings={withRecs({ insightRecommendationIntervalMinutes: undefined })}
         onChange={vi.fn()}
-        operatingGuides={stubGuides()}
       />,
     );
     const input = screen.getByLabelText(
@@ -300,7 +203,6 @@ describe("AiSection", () => {
         lang="en-US"
         settings={withRecs({ insightRecommendationIntervalMinutes: 60 })}
         onChange={onChange}
-        operatingGuides={stubGuides()}
       />,
     );
     const input = screen.getByLabelText(t("en-US", "aiInsightRecInterval"));

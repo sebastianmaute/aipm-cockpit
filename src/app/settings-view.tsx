@@ -21,6 +21,8 @@ import { NextActionsSection } from "./settings-sections/next-actions-section";
 import { ProjectOverridesSection } from "./settings-sections/project-overrides-section";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { AiSection } from "./settings-sections/ai-section";
+import { AiGuidesSection } from "./settings-sections/ai-guides-section";
+import { AiViewsSection } from "./settings-sections/ai-views-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { ModeSection } from "./settings-sections/mode-section";
 import { TemplatesSection } from "./settings-sections/templates-section";
@@ -387,8 +389,17 @@ export function SettingsView(props: SettingsViewProps) {
           />
         )}
         {active === "ai" && (
-          <AiSection lang={lang} settings={settings} onChange={onChange} operatingGuides={props.operatingGuides} />
+          <AiSection lang={lang} settings={settings} onChange={onChange} />
         )}
+        {active === "aiGuides" && (
+          <AiGuidesSection
+            lang={lang}
+            settings={settings}
+            onChange={onChange}
+            operatingGuides={props.operatingGuides}
+          />
+        )}
+        {active === "aiViews" && <AiViewsSection lang={lang} settings={settings} />}
         {active === "scheduledJobs" && (
           <ScheduledJobsSection
             lang={lang}

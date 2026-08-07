@@ -2030,7 +2030,6 @@ const enUS = {
   aiGuideScopeModules: "Modules",
   aiGuideScopeViews: "Views",
   aiGuideScopeAny: "Always on",
-  aiViewScopeTitle: "What Claude knows about each view",
   aiViewsTitle: "Views",
   aiViewScopeIntro:
     "Claude is told what the view you are on is for. This text is sent in English regardless of your interface language.",

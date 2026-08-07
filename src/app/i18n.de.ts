@@ -2022,7 +2022,6 @@ export const de: Record<TranslationKey, string> = {
   aiGuideScopeModules: "Module",
   aiGuideScopeViews: "Ansichten",
   aiGuideScopeAny: "Immer aktiv",
-  aiViewScopeTitle: "Was Claude über die einzelnen Ansichten weiß",
   aiViewsTitle: "Ansichten",
   aiViewScopeIntro: "Claude erfährt, wofür die aktuelle Ansicht da ist. Dieser Text wird unabhängig von der Oberflächensprache auf Englisch gesendet.",
   aiViewScopeDigest: "Erhält zusätzlich eine Zusammenfassung des aktuell Sichtbaren.",
