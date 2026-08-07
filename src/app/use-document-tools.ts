@@ -89,13 +89,37 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
         // model's INPUT only, never to the merged/stored document (re-running
         // the allow-list over already-stored bytes would rewrite content the
         // call never asked to touch).
-        const cleanOps: DocOp[] = ops.map((op) => {
-          if (op.op === "replaceAll") return { ...op, blocks: sanitizeAiDocBlocks(op.blocks) };
+        //
+        // ★★★ A block the allow-list DROPPED must REJECT its op, never fall
+        // back to the original. sanitizeAiDocBlocks([op.block]) drops a block
+        // for two reasons — an unknown/invalid block type, or a paragraph
+        // whose html sanitizes down to nothing (e.g. its ENTIRE content was a
+        // disallowed element, so nothing survives) — and applyOps
+        // (document-mutations.ts) has NO block-content validation of its own:
+        // append/insert/replace apply whatever `op.block` they are given
+        // unconditionally. Falling back to the unsanitized `op` here would
+        // therefore store the model's RAW block verbatim — for the paragraph
+        // case, the raw unsanitized HTML — reported as a successful write,
+        // silently dropped only on the next load (sanitizeProjectDocuments
+        // rejects it then, too late). Collecting a rejection here instead
+        // means the op never reaches mutateDocuments at all.
+        const selfRejected: string[] = [];
+        const cleanOps: DocOp[] = [];
+        ops.forEach((op, i) => {
+          if (op.op === "replaceAll") {
+            cleanOps.push({ ...op, blocks: sanitizeAiDocBlocks(op.blocks) });
+            return;
+          }
           if ("block" in op && op.block) {
             const [block] = sanitizeAiDocBlocks([op.block]);
-            return block ? { ...op, block } : op;
+            if (!block) {
+              selfRejected.push(`op ${i}: block failed the model-input allow-list`);
+              return;
+            }
+            cleanOps.push({ ...op, block });
+            return;
           }
-          return op;
+          cleanOps.push(op);
         });
         const result = mutateDocuments({ kind: "ops", id, ops: cleanOps, title }, "ai");
         documentsRef.current = result.documents;
@@ -106,8 +130,12 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
           id,
           title: after?.title ?? before.title,
           blockCount: after?.blocks.length ?? before.blocks.length,
-          applied: result.changed ? ops.length - result.rejected.length : 0,
-          rejected: result.rejected,
+          // Derived from what was actually SENT (cleanOps) and what the
+          // engine itself reported as rejected among those — never from the
+          // caller's raw `ops.length`, which over-counts by exactly the ops
+          // this function rejected before the engine ever saw them.
+          applied: cleanOps.length - result.rejected.length,
+          rejected: [...selfRejected, ...result.rejected],
           removed: usedReplaceAll ? Math.max(0, before.blocks.length - (after?.blocks.length ?? 0)) : 0,
         };
       },

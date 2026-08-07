@@ -13,6 +13,7 @@ import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
 import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
 import { type DocumentUpdateResult } from "./chat-tools-documents";
+import { type DocOp } from "./document-mutations";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
@@ -1427,6 +1428,128 @@ describe("useChatDispatcher – document tools", () => {
     expect(stored.blocks).toHaveLength(2);
     expect(JSON.stringify(stored.blocks)).not.toContain("script");
     expect(JSON.stringify(stored.blocks)).toContain("before");
+  });
+
+  // ★★★ HIGH finding, cold review: an op whose block the allow-list DROPS
+  // must be REJECTED, never forwarded unsanitized. applyOps has no
+  // block-content validation of its own — append/insert/replace apply
+  // whatever `op.block` they receive unconditionally — so a fallback to the
+  // original op here would store the model's raw block, reported as a
+  // success, and only drop it (silently) on the NEXT load. `as unknown as
+  // DocOp[]` mirrors how the model's real JSON arrives at this boundary:
+  // chat-tools-documents.ts's requireOps only checks array-ness, never
+  // per-op shape.
+  it("rejects an op whose block fails the allow-list, never storing it unsanitized", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    const badOps = [
+      { op: "insert", index: 0, block: { type: "bogus" } },
+    ] as unknown as DocOp[];
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(id, badOps, undefined);
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.rejected).toHaveLength(1);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(JSON.stringify(stored.blocks)).not.toContain("bogus");
+  });
+
+  // ★★★ The SUSPECTED case from the cold review, constructed and confirmed —
+  // but NOT with a bare "<script>...": that string does not start with a
+  // recognized HTML tag (rich-text-plain.ts's HTML_START set is p/br/strong/
+  // em/ul/ol/li/a), so layer 1 (sanitizeRichText) treats it as PLAIN TEXT and
+  // ESCAPES it into "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>" — safe,
+  // non-empty, and it survives (verified directly: sanitizeAiDocBlocks kept
+  // that block). The actual empty-after-sanitize case needs the payload
+  // WRAPPED in a recognized tag so layer 1 hands it to DOMPurify as real
+  // markup: "<p><script>...</script></p>" starts with <p>, so DOMPurify
+  // strips the <script> (tag AND its content — script content is not kept)
+  // leaving "<p></p>", which the second sanitizeRichText pass's empty rule
+  // collapses to "" — confirmed by direct call. An empty paragraph then
+  // fails document-model.ts's structural validation (htmlTextLength must be
+  // > 0), so sanitizeAiDocBlocks drops the block, same as an unknown type.
+  // Before the fix, this hit the exact same unsanitized-fallback bug: the
+  // RAW "<p><script>alert(1)</script></p>" would have reached storage
+  // verbatim (a stored-XSS payload, not just a data-integrity gap) rather
+  // than being rejected. Confirmed fixed: the op is rejected and no script
+  // tag reaches storage.
+  it("rejects a paragraph op whose entire content is a disallowed element (script-only html)", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "append", block: { type: "paragraph", html: "<p><script>alert(1)</script></p>" } }],
+        undefined,
+      );
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.rejected).toHaveLength(1);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(JSON.stringify(stored.blocks)).not.toContain("script");
+  });
+
+  // ★★★ MEDIUM finding, cold review: `applied` must come from what was
+  // actually SENT to the engine and what it reported rejected, not from the
+  // caller's raw `ops.length` — otherwise an op this function itself
+  // rejects (never reaching the engine) still counts as "applied".
+  it("does not count a self-rejected op (bad block) toward `applied`, even mixed with a real success", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [{ type: "paragraph", html: "<p>a</p>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "append", block: { type: "paragraph", html: "<p>good</p>" } },
+          { op: "insert", index: 0, block: { type: "bogus" } } as unknown as DocOp,
+        ],
+        undefined,
+      );
+    });
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toHaveLength(1);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(JSON.stringify(stored.blocks)).not.toContain("bogus");
+    expect(JSON.stringify(stored.blocks)).toContain("good");
+  });
+
+  // Through the FULL tool boundary: every op self-rejected, none reach the
+  // engine, so chat-tools-documents.ts's "nothing applied" guard must throw
+  // rather than resolve with a hollow success.
+  it("throws through the tool when every op is rejected by the allow-list before reaching the engine", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [{ type: "paragraph", html: "<p>keep me</p>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    await expect(
+      runTool(result.current, "update_document", {
+        id,
+        ops: [{ op: "insert", index: 0, block: { type: "bogus" } }],
+      }),
+    ).rejects.toThrow();
+    expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
   });
 
   it("deleteDocument returns deleted:false and no restorableVersionId for an unknown id", () => {
