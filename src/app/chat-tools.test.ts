@@ -974,3 +974,44 @@ describe("runTool — knowledge/calendar/budget read tools", () => {
     await expect(runTool(d, "list_budget_buckets", {})).resolves.toBe(buckets);
   });
 });
+
+describe("document tool defs", () => {
+  it("registers all five document tools", () => {
+    const names = TOOL_DEFS.map((d) => d.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "list_documents",
+        "get_document",
+        "create_document",
+        "update_document",
+        "delete_document",
+      ]),
+    );
+  });
+
+  // ★★★ An ops array, NEVER a bare `blocks` replacement array. A
+  // replace-the-whole-thing write is the set_task_dependencies failure class:
+  // omission reads as deletion, and chat tool writes have NO undo capture.
+  it("gives update_document an ops array, not a bare blocks array", () => {
+    const def = TOOL_DEFS.find((d) => d.name === "update_document")!;
+    const props = def.input_schema.properties as Record<string, unknown>;
+    expect(props.ops).toBeDefined();
+    expect(props.blocks).toBeUndefined();
+  });
+
+  // The six variants must match the real DocBlock union in document-model.ts —
+  // this description is the model's ONLY source of truth for the shape, and a
+  // block it invents is silently dropped by the sanitizer.
+  it("describes exactly the six real block types", () => {
+    const def = TOOL_DEFS.find((d) => d.name === "create_document")!;
+    const props = def.input_schema.properties as Record<string, { items?: { properties?: Record<string, { enum?: string[] }> } }>;
+    expect(props.blocks?.items?.properties?.type?.enum).toEqual([
+      "heading",
+      "paragraph",
+      "bullets",
+      "table",
+      "dataSection",
+      "pageBreak",
+    ]);
+  });
+});
