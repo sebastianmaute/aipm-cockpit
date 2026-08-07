@@ -1,23 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { useState, type Dispatch, type SetStateAction } from "react";
-import {
-  DocumentsPanel,
-  appendDocument,
-  duplicateDocument,
-  renameDocument,
-  removeDocument,
-  sortDocuments,
-  uniqueDocumentTitle,
-} from "./documents-panel";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { useEffect, type ReactNode } from "react";
+import { DocumentsPanel, sortDocuments, uniqueDocumentTitle } from "./documents-panel";
 import { MAX_TITLE_CHARS } from "./document-model";
 import { FOCUS_RING } from "./interaction-styles";
 import { ConfirmProvider } from "./confirm-dialog";
 import type { ProjectDocument } from "./document-model";
+import { applyDocMutation, type DocMutation, type DocResult } from "./document-mutations";
+import type { DocVersion, DocVersionSource } from "./document-versions";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { emptyWorkspace } from "./workspace";
 import { buttonNames } from "../test/toolbar-order";
 import { downloadDocument } from "./document-download";
-import { __resetMintStateForTests } from "./id-mint-session";
+import { __resetMintStateForTests, mintId } from "./id-mint-session";
 
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
@@ -46,15 +42,46 @@ function doc(id: number, title: string, blocks = 0): ProjectDocument {
   };
 }
 
-/** Renders the panel against a setter that does NOT trigger a re-render, so the
- *  `documents` PROP stays at its initial value for the whole test. That is what
- *  makes the same-tick collision reproducible: a closure-reading setter would
- *  compute from the stale prop every time. Returns a live handle to the array. */
+/** Renders the panel against a mutation entry point that does NOT trigger a
+ *  re-render, so the `documents` PROP stays at its initial value for the whole
+ *  test while the underlying state really advances. That is what makes the
+ *  same-tick shape reproducible — the pane sees a world one mutation behind.
+ *
+ *  ★★ It drives the REAL `applyDocMutation`, not a hand-written stand-in, so
+ *  the state it advances to is the state production would reach. What it does
+ *  NOT reproduce is workspace-context's ref mirroring; `renderLive` below is
+ *  the harness for anything that depends on that. Returns a live handle to
+ *  both slices. */
+/** For cases that never mutate. A real no-op `DocResult`, not a cast — the old
+ *  harnesses cast `() => {}` to a setter type, which meant a signature change
+ *  landed as a silent lie rather than a type error. */
+const inertMutate = (): DocResult => ({
+  documents: [],
+  versions: [],
+  changed: false,
+  rejected: [],
+  documentId: null,
+});
+
+type Box = { docs: readonly ProjectDocument[]; versions: readonly DocVersion[] };
+
+function boxMutator(box: Box) {
+  return (m: DocMutation, source: DocVersionSource): DocResult => {
+    const result = applyDocMutation({ documents: box.docs, versions: box.versions }, m, {
+      now: NOW,
+      source,
+      mintDocId: () => mintId("document", box.docs),
+      mintVersionId: () => mintId("documentVersion", box.versions),
+    });
+    box.docs = result.documents;
+    box.versions = result.versions;
+    return result;
+  };
+}
+
 function renderPanel(initial: readonly ProjectDocument[] = []) {
-  const box = { docs: initial };
-  const setDocuments = ((updater: SetStateAction<readonly ProjectDocument[]>) => {
-    box.docs = typeof updater === "function" ? updater(box.docs) : updater;
-  }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>;
+  const box: Box = { docs: initial, versions: [] };
+  const mutateDocuments = boxMutator(box);
   vi.mocked(downloadDocument).mockClear();
   const onResetSize = vi.fn();
   const utils = render(
@@ -62,33 +89,92 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
       <DocumentsPanel
         lang="en-US"
         documents={initial}
-        setDocuments={setDocuments}
+        mutateDocuments={mutateDocuments}
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
       />
     </ConfirmProvider>,
   );
-  return { box, onResetSize, ...utils };
+  return { box, mutateDocuments, onResetSize, ...utils };
 }
 
-/** ★★ The OTHER harness, and it is not interchangeable with `renderPanel`.
- *  That one deliberately does NOT re-render, which is what makes the same-tick
- *  collision reproducible — but it also means the DOM never shows the row a
- *  create/duplicate just added. Every assertion about the RENDERED set of
- *  accessible names therefore needs real state behind the setter. */
-function StatefulPanel({ initial }: { initial: readonly ProjectDocument[] }) {
-  const [docs, setDocs] = useState<readonly ProjectDocument[]>(initial);
+/** ★★★ THE OTHER HARNESS, AND IT IS THE REAL `WorkspaceProvider` ON PURPOSE.
+ *  `renderPanel` deliberately does not re-render, so the DOM never shows the
+ *  row a create/duplicate just added — every assertion about the RENDERED set
+ *  of accessible names needs real state behind the entry point.
+ *
+ *  But the bigger reason is fidelity. What this task moved into the pane is the
+ *  claim "a user mutation records a version", and the code that makes that true
+ *  lives in workspace-context: it composes `documents` and `documentVersions`
+ *  from two refs it advances itself. A harness that re-implemented that would
+ *  be a SECOND implementation of the thing under test — it could stay green
+ *  while production silently dropped every version. So these cases mount the
+ *  provider and read `documentVersions` back out of it, rendered as a list. */
+function VersionTrail() {
+  const { documentVersions } = useWorkspace();
   return (
-    <ConfirmProvider lang="en-US">
+    <ul data-testid="version-trail">
+      {documentVersions.map((v) => (
+        <li key={v.id}>{`${v.op}|${v.documentId}|${v.title}|${v.source}`}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** Seeds `documents` through the plain setter, NOT through `mutateDocuments` —
+ *  seeding must not itself write versions, or every trail assertion below would
+ *  start from a polluted baseline. */
+function Seed({ documents }: { documents: readonly ProjectDocument[] }) {
+  const { setDocuments } = useWorkspace();
+  useEffect(() => {
+    if (documents.length) setDocuments(documents);
+  }, [documents, setDocuments]);
+  return null;
+}
+
+function LivePanel({ initial }: { initial: readonly ProjectDocument[] }) {
+  const { documents, mutateDocuments } = useWorkspace();
+  return (
+    <>
+      <Seed documents={initial} />
       <DocumentsPanel
         lang="en-US"
-        documents={docs}
-        setDocuments={setDocs}
+        documents={documents}
+        mutateDocuments={mutateDocuments}
         ws={emptyWorkspace()}
         onResetSize={() => {}}
       />
-    </ConfirmProvider>
+      <VersionTrail />
+    </>
   );
+}
+
+function providers({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>
+        <ConfirmProvider lang="en-US">{children}</ConfirmProvider>
+      </WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+function renderLive(initial: readonly ProjectDocument[] = []) {
+  vi.mocked(downloadDocument).mockClear();
+  return render(<LivePanel initial={initial} />, { wrapper: providers });
+}
+
+/** The live version trail, as `op|documentId|title|source` strings. */
+function versionTrail(): string[] {
+  return within(screen.getByTestId("version-trail"))
+    .queryAllByRole("listitem")
+    .map((li) => li.textContent ?? "");
+}
+
+/** Row-title buttons currently rendered, in DOM order — the pane's documents as
+ *  a user can actually see them. */
+function renderedTitles(): string[] {
+  return buttonNames().filter((n) => n.startsWith("Rename – ")).map((n) => n.slice("Rename – ".length));
 }
 
 /** Every button name currently rendered, asserted to be collision-free. */
@@ -97,52 +183,13 @@ function expectNoDuplicateButtonNames() {
   expect(new Set(names).size).toBe(names.length);
 }
 
-describe("documents-panel pure transforms", () => {
-  it("appendDocument mints the next free id and leaves prev untouched", () => {
-    const prev = [doc(1, "A"), doc(7, "B")];
-    const next = appendDocument(prev, "New", NOW);
-    expect(next.map((d) => d.id)).toEqual([1, 7, 8]);
-    expect(prev).toHaveLength(2); // immutability
-  });
-
-  it("duplicateDocument copies blocks under a fresh id", () => {
-    const next = duplicateDocument([doc(1, "A", 3)], 1, "A copy", NOW);
-    expect(next).toHaveLength(2);
-    expect(next[1].id).toBe(2);
-    expect(next[1].blocks).toHaveLength(3);
-  });
-
-  // ★★★ `toBe`, NOT `toEqual`. Turso's dirty-table detection is by REFERENCE
-  // equality, so a value-equal NEW array is still "changed" and costs a full
-  // meta DELETE + re-INSERT for a write that changed nothing. `toEqual` cannot
-  // see the difference — it compares contents, so it passed against
-  // `return [...prev]` for the whole life of this test. Mutation-proved: put
-  // the spread back and each of these three goes red.
-  it("duplicateDocument returns prev BY REFERENCE for an id a concurrent writer removed", () => {
-    const prev = [doc(1, "A")];
-    expect(duplicateDocument(prev, 99, "x", NOW)).toBe(prev);
-  });
-
-  it("renameDocument returns prev BY REFERENCE when no document carries the id", () => {
-    const prev = [doc(1, "A"), doc(2, "B")];
-    expect(renameDocument(prev, 99, "x", NOW)).toBe(prev);
-  });
-
-  it("removeDocument returns prev BY REFERENCE when the id is absent", () => {
-    const prev = [doc(1, "A"), doc(2, "B")];
-    expect(removeDocument(prev, 99)).toBe(prev);
-  });
-
-  it("still returns a NEW array when the transform actually changes something", () => {
-    // ★ The control for all three above. Without it, `return prev` on EVERY
-    // path — mutating in place or ignoring the request outright — would satisfy
-    // them, which is a far worse bug than the one they pin.
-    const prev = [doc(1, "A")];
-    expect(duplicateDocument(prev, 1, "A (copy)", NOW)).not.toBe(prev);
-    expect(renameDocument(prev, 1, "Renamed", NOW)).not.toBe(prev);
-    expect(removeDocument(prev, 1)).not.toBe(prev);
-    expect(prev).toHaveLength(1); // and none of them mutated the input
-  });
+describe("documents-panel pure helpers", () => {
+  // ★ The four mutation transforms that used to live here — appendDocument,
+  // duplicateDocument, renameDocument, removeDocument — are GONE, along with
+  // the identity/no-op cases that pinned them. Do NOT reintroduce them: the
+  // pane mutates through `mutateDocuments` now, and `document-mutations.test.ts`
+  // owns those rules (including "a no-op returns the caller's OWN reference").
+  // What is left here is naming and ordering, which are this file's own.
 
   // ★★★ TITLE UNIQUENESS. Every per-row control's accessible name is
   // `<verb> – <title>`, so two equal titles are a WCAG 2.4.6 failure the axe
@@ -180,29 +227,6 @@ describe("documents-panel pure transforms", () => {
     expect(out.endsWith(" 2")).toBe(true);
   });
 
-  it("appendDocument mints a title that does not collide with an existing one", () => {
-    const next = appendDocument([doc(1, "New document")], "New document", NOW);
-    expect(next[1].title).toBe("New document 2");
-  });
-
-  it("duplicateDocument never gives the copy its source's exact title", () => {
-    // ★ THE SHAPE THE OLD TEST COULD NOT REACH: it passed "A copy", a value
-    // the application never produced — the call site handed over `doc.title`.
-    const next = duplicateDocument([doc(1, "A", 3)], 1, "A", NOW);
-    expect(next[1].title).not.toBe("A");
-    expect(next[1].blocks).toHaveLength(3); // still a real copy
-  });
-
-  it("renameDocument retitles ONLY the targeted document", () => {
-    const next = renameDocument([doc(1, "A"), doc(2, "B")], 2, "Renamed", NOW);
-    expect(next.map((d) => d.title)).toEqual(["A", "Renamed"]);
-  });
-
-  it("removeDocument removes ONLY the targeted document", () => {
-    const next = removeDocument([doc(1, "A"), doc(2, "B"), doc(3, "C")], 2);
-    expect(next.map((d) => d.id)).toEqual([1, 3]);
-  });
-
   it("sortDocuments returns workspace order when the direction is off", () => {
     // ★ Control for the two sort assertions below: without it, a sort that
     // ignored `dir` entirely would still satisfy an ascending-only test.
@@ -237,19 +261,70 @@ describe("DocumentsPanel", () => {
   });
 
   it("keeps BOTH documents when two creates land in one tick", () => {
-    // ★★★ THE FUNCTIONAL-SETTER GUARD. `renderPanel`'s setter does not
-    // re-render, so the `documents` prop is stale for the second click — which
-    // is exactly the concurrent-write shape. A non-functional
-    // `setDocuments([...documents, x])` computes from the stale prop both times
-    // and ends at length 1; only `setDocuments(prev => …)` reaches 2. Every
-    // single-create test above passes either way, so this is the only assertion
-    // that can tell them apart.
+    // ★★★ THE STALE-PROP GUARD, and it MOVED when the pane stopped owning a
+    // setter. It used to pin `setDocuments(prev => …)` against
+    // `setDocuments([...documents, x])`. There is no updater here any more, so
+    // what it pins now is that the pane hands `mutateDocuments` an INTENT and
+    // lets it compute — never a list, an id or a next-state it derived from its
+    // own `documents` prop, which `renderPanel` deliberately keeps one mutation
+    // behind. A pane that minted the id itself ends at ONE distinct id.
+    // ★ The same-tick correctness of the entry point itself is workspace-
+    // context's (its refs advance synchronously); pinned there, not here.
     const { box } = renderPanel([]);
     const create = screen.getByRole("button", { name: "New document" });
     fireEvent.click(create);
     fireEvent.click(create);
     expect(box.docs).toHaveLength(2);
     expect(new Set(box.docs.map((d) => d.id)).size).toBe(2);
+  });
+
+  it("keeps both TITLES distinct when two creates land in one tick", () => {
+    // ★★★ THE HALF THE ID ASSERTION ABOVE CANNOT SEE, and the one this task
+    // nearly broke. `uniqueDocumentTitle` used to run INSIDE the append
+    // transform, which a functional setter handed React's latest queued state;
+    // it runs at the CALL SITE now, and the only list a call site has is the
+    // `documents` prop — one mutation behind, exactly as `renderPanel` models
+    // it. Both creates would then uniquify against the empty pre-mutation list
+    // and mint "Untitled document" TWICE: five pairs of identical per-row
+    // control names, the WCAG 2.4.6 failure the minting exists to remove.
+    // `freshDocuments()` is what closes it. Mutation-proved: point either call
+    // site back at `documents` and this goes red while every other case here
+    // stays green.
+    const { box } = renderPanel([]);
+    const create = screen.getByRole("button", { name: "New document" });
+    fireEvent.click(create);
+    fireEvent.click(create);
+    expect(box.docs.map((d) => d.title)).toEqual(["Untitled document", "Untitled document 2"]);
+  });
+
+  it("prefers the PROP over its own record once the prop has moved on", () => {
+    // ★★★ THE CONTROL for `freshDocuments`, and the fixture is doing the work.
+    // Remembering the last mutation's result is only safe while nothing ELSE
+    // has written — a load, or an AI tool going through the same entry point,
+    // replaces `documents` wholesale. Without the `from === documents` key the
+    // pane would go on uniquifying against a world that no longer exists.
+    //
+    // ★★ The obvious fixture (replace the prop with a list that ALSO holds
+    // "Untitled document") cannot tell the two apart: both the record and the
+    // prop then contain the title, so both answer "Untitled document 2". The
+    // replacement world here holds NO colliding title, so the correct answer is
+    // the bare base and the stale-record answer is the suffixed one.
+    const { box, mutateDocuments, rerender } = renderPanel([]);
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    expect(box.docs.map((d) => d.title)).toEqual(["Untitled document"]);
+    rerender(
+      <ConfirmProvider lang="en-US">
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(9, "Something else")]}
+          mutateDocuments={mutateDocuments}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    expect(box.docs.at(-1)!.title).toBe("Untitled document");
   });
 
   it("renames only the targeted document through the rename dialog", () => {
@@ -310,7 +385,7 @@ describe("DocumentsPanel", () => {
   // name Duplicate – Steering update" — i.e. it fails on the query, before it
   // ever reaches the uniqueness assertion.
   it("keeps every control name unique after DUPLICATING a row", () => {
-    render(<StatefulPanel initial={[doc(1, "Steering update"), doc(2, "Beta")]} />);
+    renderLive([doc(1, "Steering update"), doc(2, "Beta")]);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate – Steering update" }));
     expect(screen.getByRole("button", { name: "Duplicate – Steering update (copy)" })).toBeInTheDocument();
     expectNoDuplicateButtonNames();
@@ -320,7 +395,7 @@ describe("DocumentsPanel", () => {
     // ★ The second click's base ("… (copy)") is itself taken by then, so a
     // minter that only appended a fixed suffix collides on the second copy —
     // the exact "the collision merely moves" failure.
-    render(<StatefulPanel initial={[doc(1, "Steering update")]} />);
+    renderLive([doc(1, "Steering update")]);
     const dup = () => screen.getByRole("button", { name: "Duplicate – Steering update" });
     fireEvent.click(dup());
     fireEvent.click(dup());
@@ -331,7 +406,7 @@ describe("DocumentsPanel", () => {
   it("keeps every control name unique after two CREATES", () => {
     // Same defect on the other call site: every new document was titled with
     // the same string, so two clicks collided.
-    render(<StatefulPanel initial={[]} />);
+    renderLive([]);
     const create = screen.getByRole("button", { name: "New document" });
     fireEvent.click(create);
     fireEvent.click(create);
@@ -345,7 +420,7 @@ describe("DocumentsPanel", () => {
     // equal to the toolbar's label puts two buttons called "New document" in
     // one pane. `create` is re-queried by an EXACT name after the click, which
     // is the assertion doing the work: a second match throws.
-    render(<StatefulPanel initial={[]} />);
+    renderLive([]);
     fireEvent.click(screen.getByRole("button", { name: "New document" }));
     expect(screen.getByRole("button", { name: "New document" })).toBeInTheDocument();
     expectNoDuplicateButtonNames();
@@ -410,7 +485,7 @@ describe("DocumentsPanel", () => {
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
-          setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
+          mutateDocuments={inertMutate}
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
@@ -453,7 +528,7 @@ describe("DocumentsPanel", () => {
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
-          setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
+          mutateDocuments={inertMutate}
           ws={emptyWorkspace()}
           initialFormat="pdf"
           onResetSize={() => {}}
@@ -548,6 +623,111 @@ describe("DocumentsPanel", () => {
   });
 });
 
+// ★★★ THE POINT OF THE WHOLE TASK. Before this, the pane wrote `documents`
+// with a setter of its own: a user rename recorded no history at all while an
+// AI rename — going through `mutateDocuments` — recorded one. "Every mutation
+// snapshots its before-image" cannot be half-true, because that snapshot is the
+// only history the AI writes have (they bypass the undo stack entirely).
+//
+// ★★ These assert the RESULTING `documentVersions`, read back out of the real
+// provider, not that `mutateDocuments` was called. A spy proves the wiring
+// exists; it cannot prove the wiring works, and in the previous slice a
+// flagship guard passed against a deliberately broken implementation.
+describe("DocumentsPanel — every user mutation records a version", () => {
+  function create() {
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+  }
+
+  it("records NO version for a create — a create replaces nothing", () => {
+    // ★ The control, and the reason the counts below are meaningful. Without
+    // it, an implementation that snapshotted on EVERY mutation would satisfy
+    // all three cases below while filling the trail with entries that restore
+    // to an empty document. Paired with a positive observable so the empty
+    // trail cannot be the empty trail of a pane that never rendered.
+    renderLive([]);
+    create();
+    expect(renderedTitles()).toEqual(["Untitled document"]);
+    expect(versionTrail()).toEqual([]);
+  });
+
+  it("records exactly ONE version for a rename, holding the PRE-rename title", () => {
+    // ★★★ THE HEADLINE CASE. A version is a BEFORE-image: restoring it must
+    // undo the rename, so it has to carry the title the rename REPLACED. An
+    // implementation that snapshotted the post-rename state would produce a
+    // version that restores to itself — a history entry that does nothing,
+    // which reads as working right up until someone uses it.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Rename – Untitled document" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Steering deck" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+
+    expect(renderedTitles()).toEqual(["Steering deck"]);
+    // ★ The whole trail, EXACTLY — so "one version" and "the right version" are
+    // one assertion. The id is deterministic (`__resetMintStateForTests` runs in
+    // `beforeEach`), which is the same convention the id cases above use.
+    expect(versionTrail()).toEqual(["rename|1|Untitled document|user"]);
+  });
+
+  it("records the pane's mutations as `user`, never `ai`", () => {
+    // ★ The source is what separates a user's own edit from an AI write in the
+    // version history UI, and it is a literal the pane passes — nothing else in
+    // the suite would notice it flipping. Asserted on the same live trail, so a
+    // wrong literal cannot hide behind a stubbed argument.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Rename – Untitled document" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Renamed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    expect(versionTrail().map((e) => e.split("|")[3])).toEqual(["user"]);
+  });
+
+  it("records a tombstone version for a delete rather than losing the document", async () => {
+    // ★★ A delete is the one mutation whose before-image is the ONLY surviving
+    // copy of the document — it is what the deleted-documents list and Restore
+    // read. A pane that deleted without it destroys the document irrecoverably,
+    // and the pane would look identical either way.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Untitled document" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(renderedTitles()).toEqual([]));
+    expect(versionTrail()).toEqual(["delete|1|Untitled document|user"]);
+  });
+
+  it("does NOT record a version when the delete confirm is cancelled", async () => {
+    // ★ The other half: a pane that mutated BEFORE awaiting the confirm would
+    // satisfy the tombstone case above. The surviving row is the positive
+    // observable that keeps the empty-trail assertion from being vacuous.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Untitled document" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(renderedTitles()).toEqual(["Untitled document"]);
+    expect(versionTrail()).toEqual([]);
+  });
+
+  it("duplicating corrupts neither slice", () => {
+    // Both documents survive under distinct titles, and exactly one version is
+    // written, holding the SOURCE's title.
+    // ★★ `2` is the COPY's id — the source minted 1. That is the half the
+    // rendered rows cannot show: a version filed under the SOURCE would read
+    // `duplicate|1|…`, which makes an untouched document look edited and leaves
+    // the copy with no history at all. The rule itself is
+    // document-mutations.ts's, but the trail exposes it here for free, so
+    // asserting the whole string costs nothing and catches a real regression.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate – Untitled document" }));
+
+    expect(renderedTitles()).toEqual(["Untitled document", "Untitled document (copy)"]);
+    expectNoDuplicateButtonNames();
+    expect(versionTrail()).toEqual(["duplicate|2|Untitled document|user"]);
+  });
+});
+
 describe("DocumentsPanel — read-only (popout guard)", () => {
   function renderReadOnly() {
     vi.mocked(downloadDocument).mockClear();
@@ -556,9 +736,9 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha"), doc(2, "Beta")]}
-          setDocuments={(() => {
-            throw new Error("setDocuments must never be called in a read-only pane");
-          }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
+          mutateDocuments={() => {
+            throw new Error("mutateDocuments must never be called in a read-only pane");
+          }}
           ws={emptyWorkspace()}
           isReadOnly
           onResetSize={() => {}}
@@ -588,8 +768,9 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
     expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
   });
 
-  it("cannot mutate: clicking a disabled control reaches no setter", () => {
-    // The setter THROWS if called, so this fails loudly rather than silently if
+  it("cannot mutate: clicking a disabled control reaches no mutation", () => {
+    // `mutateDocuments` THROWS if called, so this fails loudly rather than
+    // silently if
     // a control is ever left live. A real `disabled` attribute is what makes
     // this hold — an `aria-disabled` lookalike still fires onClick.
     renderReadOnly();

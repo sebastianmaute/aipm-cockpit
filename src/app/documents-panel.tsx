@@ -6,17 +6,21 @@
 // delete handlers. The list, preview and toolbar are pure presentational
 // siblings (the gantt split).
 //
-// ★★★ EVERY MUTATION IS A FUNCTIONAL SETTER — `setDocuments(prev => …)`, never
-// `setDocuments([...documents, x])`. A closure-read setter drops a concurrent
-// write landing in the SAME tick, which is the bulk-edit landmine this codebase
-// has already shipped once. The type cannot catch it (both spellings satisfy
-// `Dispatch<SetStateAction<…>>`), so `documents-panel.test.tsx` pins it by
-// driving two creates through one setter with no intervening render.
+// ★★★ EVERY MUTATION GOES THROUGH `mutateDocuments`, never through a setter of
+// this pane's own. That entry point is the ONLY place a before-image version is
+// snapshotted, so a pane that wrote `documents` directly would make "every
+// mutation snapshots" half-true: a user rename would record no history while an
+// AI rename did, and the AI path has no undo stack behind it. It also owns the
+// same-tick correctness the functional setter used to buy — it mutates against
+// its own refs, which it advances synchronously, so two mutations landing
+// before React re-renders both see the first one (see workspace-context.tsx).
+// `documents-panel.test.tsx` pins both halves against the REAL provider.
 
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type ProjectDocument, MAX_TITLE_CHARS } from "./document-model";
-import { mintId } from "./id-mint-session";
+import type { DocMutation, DocResult } from "./document-mutations";
+import type { DocVersionSource } from "./document-versions";
 import type { Workspace } from "./workspace";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
@@ -30,26 +34,13 @@ import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
 import { INTERACTIVE } from "./interaction-styles";
 
-// --- pure transforms ------------------------------------------------------
-// i18n-free and side-effect-free, so they can be unit-tested directly and
-// composed to reproduce a same-tick collision without React in the loop.
-//
-// ★★★ A NO-OP MUST PRESERVE IDENTITY — return `prev`, never `[...prev]` or a
-// fresh `.map()`/`.filter()` that happens to produce equal contents. Turso's
-// dirty-table detection is by REFERENCE equality, so a value-equal new array is
-// still "changed": it marks the table dirty and triggers a full DELETE +
-// re-INSERT for a write that changed nothing. `duplicateDocument` (absent id),
-// `renameDocument` (no match) and `removeDocument` (no match) all had that
-// shape.
-// ★★ THIS IS WHY THE THREE RETURN `readonly ProjectDocument[]` while
-// `appendDocument` returns `ProjectDocument[]`. The mixed signatures are not
-// sloppiness — `prev` IS readonly, so returning it is a type error under the
-// mutable signature, and widening is exactly what makes the identity return
-// expressible. Narrow one back and the `[...prev]` bug is the only way to
-// compile. `appendDocument` always appends, so it can never be a no-op.
-// ★★ `toEqual` CANNOT SEE ANY OF THIS — it compares contents. The existing
-// "no-op for an id a concurrent writer removed" test asserted `toEqual(prev)`
-// and passed against the bug for its whole life. Assert `toBe`.
+// --- pure presentation helpers --------------------------------------------
+// i18n-free and side-effect-free. These are NAMING and ORDERING, not mutation:
+// the four transforms that used to sit here (append/duplicate/rename/remove)
+// were deleted when the pane moved onto `mutateDocuments`, and their rules —
+// including "a no-op must return the caller's OWN array reference, never a
+// rebuilt-but-equal one, because Turso's dirty-table detection is by REFERENCE
+// equality" — now live in `document-mutations.ts` with their own tests.
 
 /** ★★★ TITLES CARRY AN ACCESSIBILITY INVARIANT, so this is not cosmetic.
  *  `documents-list.tsx` builds every per-row control's accessible name as
@@ -65,10 +56,13 @@ import { INTERACTIVE } from "./interaction-styles";
  *  New, so the collision does not exist at scan time. The unit tests below are
  *  the only coverage — do not read a green axe run as covering it.
  *
- *  So the minting lives INSIDE the two transforms rather than at their call
- *  sites. A call site that "declines to use the title parameter" is precisely
- *  how the defect shipped — the parameter existed to allow a distinguishing
- *  title and neither caller passed one. Here it cannot be forgotten.
+ *  ★★★ IT USED TO LIVE INSIDE THE APPEND/DUPLICATE TRANSFORMS, where a call
+ *  site could not forget it. Those transforms are gone — `mutateDocuments`
+ *  stores the title it is handed verbatim (only capped and trimmed) and has no
+ *  business knowing about accessible names — so the two call sites now apply
+ *  this themselves, against `freshDocuments()` rather than the raw `documents`
+ *  prop. That is the whole reason `freshDocuments` exists; read its note before
+ *  simplifying either call site back to `documents`.
  *
  *  Returns `base` when free, else `base 2`, `base 3`, … Comparison is EXACT
  *  string equality, mirroring how the accessible names actually collide — a
@@ -92,75 +86,6 @@ export function uniqueDocumentTitle(prev: readonly ProjectDocument[], base: stri
     candidate = base.slice(0, MAX_TITLE_CHARS - suffix.length) + suffix;
   }
   return candidate;
-}
-
-/** Append a new empty document. `title` and `now` are injected — no clock read
- *  here, so the result is a deterministic function of its inputs. `title` is a
- *  BASE: it is uniquified against `prev` (see `uniqueDocumentTitle`). */
-export function appendDocument(
-  prev: readonly ProjectDocument[],
-  title: string,
-  now: string,
-): ProjectDocument[] {
-  return [
-    ...prev,
-    {
-      id: mintId("document", prev),
-      title: uniqueDocumentTitle(prev, title),
-      blocks: [],
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-}
-
-/** Copy `id`'s document under a new id. A no-op when `id` is absent — the row
- *  may have been deleted by a concurrent writer between click and commit.
- *  `title` is a BASE, uniquified against `prev` — the copy must never inherit
- *  its source's exact title (see `uniqueDocumentTitle`). */
-export function duplicateDocument(
-  prev: readonly ProjectDocument[],
-  id: number,
-  title: string,
-  now: string,
-): readonly ProjectDocument[] {
-  const src = prev.find((d) => d.id === id);
-  // ★★ `prev` ITSELF, not `[...prev]` — see "A no-op must preserve IDENTITY".
-  if (!src) return prev;
-  return [
-    ...prev,
-    {
-      ...src,
-      id: mintId("document", prev),
-      title: uniqueDocumentTitle(prev, title),
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-}
-
-/** Retitle exactly one document, stamping `updatedAt`. Returns `prev` UNCHANGED
- *  — the same reference — when no document carries `id`. */
-export function renameDocument(
-  prev: readonly ProjectDocument[],
-  id: number,
-  title: string,
-  now: string,
-): readonly ProjectDocument[] {
-  if (!prev.some((d) => d.id === id)) return prev;
-  return prev.map((d) => (d.id === id ? { ...d, title, updatedAt: now } : d));
-}
-
-/** Drop `id`'s document. Returns `prev` UNCHANGED — the same reference — when
- *  `id` is absent. */
-export function removeDocument(
-  prev: readonly ProjectDocument[],
-  id: number,
-): readonly ProjectDocument[] {
-  const next = prev.filter((d) => d.id !== id);
-  // Length is a complete test here: `filter` can only shrink, so an equal
-  // length means nothing matched.
-  return next.length === prev.length ? prev : next;
 }
 
 /** Sort a copy. `dir === "off"` returns workspace order — the order the user's
@@ -208,7 +133,14 @@ function readStoredFormat(fallback: DocFormat): DocFormat {
 export interface DocumentsPanelProps {
   lang: Lang;
   documents: readonly ProjectDocument[];
-  setDocuments: Dispatch<SetStateAction<readonly ProjectDocument[]>>;
+  /** ★★★ THE ONLY WRITE PATH. Deliberately NOT `setDocuments` — a setter would
+   *  let this pane rewrite `documents` without touching `documentVersions`, and
+   *  the before-image snapshot every mutation records is the entire safety net
+   *  for the AI tools that share this entry point (their writes have no undo
+   *  capture at all). The signature matches `WorkspaceValue.mutateDocuments`
+   *  exactly so the call site passes it through with no wrapper; this pane
+   *  always passes `"user"` as the source. */
+  mutateDocuments: (m: DocMutation, source: DocVersionSource) => DocResult;
   /** Needed by the preview: dataSection blocks render live workspace data. */
   ws: Workspace;
   /** Initial output format. The toolbar picker owns it from then on; this only
@@ -234,7 +166,7 @@ const RENAME_TITLE_ID = "documents-rename-title";
 export function DocumentsPanel({
   lang,
   documents,
-  setDocuments,
+  mutateDocuments,
   ws,
   initialFormat = "docx",
   isReadOnly,
@@ -276,27 +208,58 @@ export function DocumentsPanel({
   // shape as `resolveEffectiveFilters` for orphaned list filters.
   const selected = documents.find((d) => d.id === selectedId) ?? documents[0] ?? null;
 
+  // ★★★ WHAT THE FUNCTIONAL SETTER USED TO BUY, FOR TITLES ONLY.
+  // `mutateDocuments` reads its own refs and advances them synchronously, so
+  // IDS and the version trail are already same-tick correct without any help
+  // from here. Titles are not: `uniqueDocumentTitle` runs at the CALL SITE now
+  // (see its note), and the only list a render body can hand a call site is the
+  // `documents` PROP — which is one render behind any mutation React has not
+  // flushed yet. Two creates in one tick would then both uniquify against the
+  // pre-mutation list and mint the SAME title, which is five pairs of identical
+  // control names (WCAG 2.4.6) and precisely the defect the minting exists to
+  // remove.
+  //
+  // So every mutation records the list it produced, KEYED BY the prop reference
+  // it was computed from. A later handler trusts that record only while the
+  // prop is still that same reference; once the prop changes — a load, or an AI
+  // tool writing through the same entry point — the PROP wins again, so the
+  // memo can never pin the pane to a stale world.
+  //
+  // ★ Both halves run in EVENT HANDLERS only: no ref is read or written during
+  // render (the purity rule) and there is no effect (`set-state-in-effect` is
+  // banned). A `useState` here would be worse, not better — it would re-render
+  // on every mutation for a value nothing renders.
+  const freshRef = useRef<{ from: readonly ProjectDocument[]; latest: readonly ProjectDocument[] } | null>(null);
+
+  function freshDocuments(): readonly ProjectDocument[] {
+    const seen = freshRef.current;
+    return seen && seen.from === documents ? seen.latest : documents;
+  }
+
+  function mutate(m: DocMutation) {
+    const result = mutateDocuments(m, "user");
+    freshRef.current = { from: documents, latest: result.documents };
+  }
+
   function handleSort(key: DocumentSortKey) {
     setSort((prev) => (prev.key === key ? { key, dir: nextSortDir(prev.dir) } : { key, dir: "asc" }));
   }
 
   function handleCreate() {
-    const now = new Date().toISOString();
     // ★★ `documentsNewTitle`, NOT `documentsNew`. The latter is the toolbar
     // BUTTON's label; reusing it as the default title meant a freshly created
     // document rendered a row-title button with that same accessible name, so
     // the pane held two buttons called "New document". It also coupled two
     // unrelated strings — retitling the button silently renamed new documents.
-    setDocuments((prev) => appendDocument(prev, t(lang, "documentsNewTitle"), now));
+    mutate({ kind: "create", title: uniqueDocumentTitle(freshDocuments(), t(lang, "documentsNewTitle")) });
   }
 
   function handleDuplicate(doc: ProjectDocument) {
-    const now = new Date().toISOString();
     // ★ A distinguishing BASE, not the source's own title: the copy would
     // otherwise be indistinguishable in every per-row control's accessible
     // name. `uniqueDocumentTitle` resolves a repeat copy to "… (copy) 2".
     const base = t(lang, "documentsCopySuffix", doc.title);
-    setDocuments((prev) => duplicateDocument(prev, doc.id, base, now));
+    mutate({ kind: "duplicate", id: doc.id, title: uniqueDocumentTitle(freshDocuments(), base) });
   }
 
   function commitRename() {
@@ -305,10 +268,11 @@ export function DocumentsPanel({
     const id = renaming.id;
     setRenaming(null);
     // An empty title would render an unclickable, unnameable row — drop the
-    // edit rather than store one.
+    // edit rather than store one. `mutateDocuments` would reject it too, but
+    // dropping it here keeps a whitespace-only rename out of the `rejected`
+    // channel entirely — it is not a failure, it is a cancelled edit.
     if (!title) return;
-    const now = new Date().toISOString();
-    setDocuments((prev) => renameDocument(prev, id, title, now));
+    mutate({ kind: "rename", id, title });
   }
 
   async function handleDelete(doc: ProjectDocument) {
@@ -320,7 +284,10 @@ export function DocumentsPanel({
       confirmLabel: t(lang, "documentsDelete"),
     });
     if (!ok) return;
-    setDocuments((prev) => removeDocument(prev, doc.id));
+    // ★ A delete is the one mutation whose before-image is the ONLY surviving
+    // copy of the document — `mutateDocuments` writes that tombstone version,
+    // which is what makes the deleted-documents list and Restore possible.
+    mutate({ kind: "delete", id: doc.id });
   }
 
   return (
