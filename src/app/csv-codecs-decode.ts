@@ -7,6 +7,7 @@
 // Re-exported via the ./csv-codecs barrel.
 
 import { decodeKnowledgeLinks } from "./document-link";
+import type { DocTruncationDiag } from "./document-model";
 import { decodeNoteLog } from "./note-log";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
@@ -102,8 +103,18 @@ import {
  * rejects can be counted and surfaced to the user, instead of silently dropped.
  * Only rows a decoder actively REJECTS (returns null) are counted — blank rows,
  * dangling-dependency pruning, and config-blob decoders are not.
+ *
+ * ★ It also carries the DOCUMENT CAP counters via {@link DocTruncationDiag}.
+ * Those are a different kind of loss from `droppedRows` — a rejected row was
+ * malformed, whereas a capped document was perfectly valid and simply went
+ * unread — but they travel the same path, so extending this interface lets the
+ * accumulator every CSV/Markdown caller already builds carry both with no new
+ * plumbing at those call sites. The import is TYPE-ONLY and therefore erased:
+ * `document-model.ts` must gain no runtime dependency on a codec module (see
+ * the import cycle recorded in open-followups §92), which is also why the
+ * counters are DECLARED there and merely re-exposed here.
  */
-export interface ImportDiag {
+export interface ImportDiag extends DocTruncationDiag {
   droppedRows: number;
 }
 
@@ -482,11 +493,11 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
     if (so) ws.settingsOverrides = so;
   }
   if (s.documentsText.trim()) {
-    const docs = csvToDocuments(s.documentsText);
+    const docs = csvToDocuments(s.documentsText, diag);
     if (docs) ws.documents = docs;
   }
   if (s.documentVersionsText.trim()) {
-    const versions = csvToDocumentVersions(s.documentVersionsText);
+    const versions = csvToDocumentVersions(s.documentVersionsText, diag);
     if (versions) ws.documentVersions = versions;
   }
   return migrateWorkspaceV10(ws);

@@ -64,7 +64,11 @@ import {
   tasksToCsv,
 } from "./csv-codecs-core";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
-import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
+import {
+  sanitizeProjectDocuments,
+  type DocTruncationDiag,
+  type ProjectDocument,
+} from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
@@ -253,7 +257,10 @@ export function documentsToCsv(docs: readonly ProjectDocument[], neutralize = fa
   return ["config", csvCellEscape(JSON.stringify(docs), neutralize)].join(",");
 }
 
-export function csvToDocuments(text: string): ProjectDocument[] | undefined {
+export function csvToDocuments(
+  text: string,
+  diag?: DocTruncationDiag,
+): ProjectDocument[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
   try {
@@ -273,7 +280,12 @@ export function csvToDocuments(text: string): ProjectDocument[] | undefined {
     // installs JSDOM into globalThis BEFORE it dynamically imports
     // src/app/storage (see its header). A NEW bare-node importer of this module
     // must do the same or it will silently lose every document.
-    const docs = sanitizeProjectDocuments(JSON.parse(rows[0][1])).map(sanitizeDocumentRichFields);
+    // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
+    // over-cap file can tell the user before the next autosave writes the
+    // truncation back (open-followups §100).
+    const docs = sanitizeProjectDocuments(JSON.parse(rows[0][1]), diag).map(
+      sanitizeDocumentRichFields,
+    );
     return docs.length ? docs : undefined;
   } catch {
     return undefined;
@@ -292,7 +304,10 @@ export function documentVersionsToCsv(versions: readonly DocVersion[], neutraliz
   return ["config", csvCellEscape(JSON.stringify(versions), neutralize)].join(",");
 }
 
-export function csvToDocumentVersions(text: string): DocVersion[] | undefined {
+export function csvToDocumentVersions(
+  text: string,
+  diag?: DocTruncationDiag,
+): DocVersion[] | undefined {
   const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
   if (rows.length === 0) return undefined;
   try {
@@ -310,7 +325,10 @@ export function csvToDocumentVersions(text: string): DocVersion[] | undefined {
     // scripts/generate-sample-workspace.ts, which installs JSDOM into globalThis
     // BEFORE it dynamically imports src/app/storage; a new bare-node importer of
     // this module must do the same or it will silently lose every version.
-    const versions = sanitizeDocumentVersions(JSON.parse(rows[0][1])).map((v) => ({
+    // ★ Same accumulator as csvToDocuments above, but here it fills
+    // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
+    // sanitizeDocumentVersions sanitizes one version at a time.
+    const versions = sanitizeDocumentVersions(JSON.parse(rows[0][1]), diag).map((v) => ({
       ...v,
       blocks: sanitizeDocumentRichFields({
         id: v.documentId,

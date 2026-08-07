@@ -24,13 +24,18 @@ import {
   csvToDocuments,
   documentVersionsToCsv,
   csvToDocumentVersions,
+  type ImportDiag,
 } from "./csv-codecs";
 // Namespace import on purpose — the prefix-collision test below enumerates the
 // markers reflectively so a newly added one is covered without editing it.
 import * as SECTIONS from "./csv-codecs-sections";
 import { defaultExportConfig } from "./settings-types";
 import { defaultResourcePlan } from "./resource-foundation";
-import type { ProjectDocument } from "./document-model";
+import {
+  MAX_BLOCKS_PER_DOC,
+  MAX_DOCUMENTS,
+  type ProjectDocument,
+} from "./document-model";
 import type { DocVersion } from "./document-versions";
 import type { Workspace } from "./workspace";
 
@@ -189,6 +194,33 @@ describe("CSV codec — documents", () => {
     expect(csvToWorkspace("# DOCUMENTS\r\nfield,value").documents).toBeUndefined();
   });
 
+  // ★★ THE CAP MUST BE AUDIBLE. sanitizeProjectDocuments stops at
+  // MAX_DOCUMENTS and returns the head silently; the next autosave then writes
+  // that truncated array back over all six paths and the tail is gone for good
+  // (open-followups §100). The counter only helps if it survives BOTH hops —
+  // codec → sanitizer and codec → the workspace-level accumulator — so assert
+  // it on the ImportDiag every CSV caller already builds, not on a diag handed
+  // straight to csvToDocuments (which would pass with the decode call unwired).
+  it("reports cap truncation through the workspace-level ImportDiag", () => {
+    const docs: ProjectDocument[] = Array.from({ length: MAX_DOCUMENTS + 3 }, (_, i) => ({
+      id: i + 1,
+      title: `Doc ${i + 1}`,
+      blocks: [],
+      createdAt: DOC.createdAt,
+      updatedAt: DOC.updatedAt,
+    }));
+    const csv = workspaceToCsv(withDocs(docs));
+    const diag: ImportDiag = { droppedRows: 0 };
+    const ws = csvToWorkspace(csv, diag);
+    // ★ The control half: without it a codec that dropped the section whole
+    // would leave truncatedEntries undefined and only the negative assertion
+    // below would fire.
+    expect(ws.documents).toHaveLength(MAX_DOCUMENTS);
+    expect(diag.truncatedEntries).toBe(3);
+    // A capped document is not a REJECTED row — the two counters are separate.
+    expect(diag.droppedRows).toBe(0);
+  });
+
   it("keeps the DOCUMENTS section out of the other sections", () => {
     // The splitter is a mode machine: a mis-ordered marker check would fold
     // the blob into whichever section precedes it.
@@ -276,6 +308,26 @@ describe("CSV codec — documentVersions", () => {
 
   it("drops a section with no config row", () => {
     expect(csvToWorkspace("# DOCUMENT VERSIONS\r\nfield,value").documentVersions).toBeUndefined();
+  });
+
+  // ★★ Mirrors the documents cap test, but the counter is a DIFFERENT one: a
+  // version is sanitized one at a time, so it can never trip the DOCUMENT cap
+  // — its loss is per-version BLOCK truncation, and it has to reach the same
+  // workspace-level accumulator.
+  it("reports block truncation through the workspace-level ImportDiag", () => {
+    const fat: DocVersion = {
+      ...VERSION,
+      blocks: Array.from({ length: MAX_BLOCKS_PER_DOC + 3 }, (_, i) => ({
+        type: "paragraph" as const,
+        html: `<p>b${i}</p>`,
+      })),
+    };
+    const csv = workspaceToCsv(withVersions([fat]));
+    const diag: ImportDiag = { droppedRows: 0 };
+    const ws = csvToWorkspace(csv, diag);
+    expect(ws.documentVersions?.[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+    expect(diag.truncatedBlocks).toBe(3);
+    expect(diag.droppedRows).toBe(0);
   });
 
   it("keeps the DOCUMENT VERSIONS section out of the other sections, including DOCUMENTS", () => {
