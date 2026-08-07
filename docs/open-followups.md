@@ -5102,13 +5102,14 @@ evaluate CSS custom-property colour maths. The numbers above are the only covera
 The full audit is [`docs/handrolled-ui-inventory.md`](handrolled-ui-inventory.md), taken 2026-08-07 on
 `63e4d768`. It is the work-list for **both** parts; this entry exists so the register points at it.
 
-**What 0.221.0 actually converted** — five panes, 17 call sites across six files, and nothing else:
+**What 0.221.0 actually converted** — 17 call sites across six files (four panes — Insights,
+Dashboard, Budget, Milestones — plus the milestone modal), and nothing else:
 `insights-panel.tsx` (4) · `insight-recommendation-controls.tsx` (3) ·
 `dashboard-sections/insights-card.tsx` (4) all moved `Button` from `variant="ghost"` to
 `"secondary"`; `budget-panel.tsx` converted 4 hand-rolled `<button>` to `Button variant="secondary"`;
 `milestones-panel.tsx` and `milestone-edit-modal.tsx` each moved the achieved checkbox to
 `ToggleButton`. **The remainder is a ratchet, not a scheduled slice** — acting on the inventory and
-producing it are separate jobs, and converting 310 elements in one sweep is unreviewable.
+producing it are separate jobs, and converting 311 elements in one sweep is unreviewable.
 
 The scale, so nobody re-derives it: **341** `<button>` sites in non-test `.tsx` across **152** files;
 18 are the primitives' own internals; of the remaining 323, **12 are the word `<button>` in a
@@ -5116,36 +5117,80 @@ comment** and **311 are elements** — 134 correctly hand-rolled, **141 converti
 **36** to `IconButton`.
 
 ★★ **The glyph baseline in the slice plan is not reproducible under the filter that plan's own
-command states, and the difference is not drift.** Every quoted figure (`✕` 47 · `×` 75 · `•` 21 · `✓`
-17 · `▲`/`▼` 17 · `↑` 12 · `⚠`/`⋮`/`↓` 9 · `▸` 4 · `▾` 3 · `🗒` 2) matches `src/app` scanned with the
+command states, and the difference is not drift.** **11 of the 13** quoted figures (`•` 21 · `✓`
+17 · `▲`/`▼` 17 · `↑` 12 · `⚠`/`⋮`/`↓` 9 · `▸` 4 · `▾` 3 · `🗒` 2) match `src/app` scanned with the
 `--include=*.tsx --exclude="*.test.tsx"` filters **not in effect** — `.ts` files and test files
-included. Under the stated filter the same glyphs measure 24 · 22 · 7 · 10 · 14 · 5 · 8/2/4 · 4 · 3 ·
-**0**. Two things follow. The `🗒` count is not UI at all — both hits are in the generated
+included. Under the stated filter the same glyphs measure 7 · 10 · 14 · 5 · 8/2/4 · 4 · 3 · **0**.
+★ The two that do NOT match are the two the sweep is sized from: `✕` measures **42** (not 47) and
+`×` measures **73** (not 75); under the stated filter they are **19** and **20**, not 24 and 22.
+Two things follow. The `🗒` count is not UI at all — both hits are in the generated
 `operating-guide-builtin.generated.ts`, and there is **no `🗒` glyph anywhere in the app's markup**
-(the notes badge renders an icon). And `×` inflates 22 → 75 mostly because test comments are full of
-arithmetic, so the multiplication-vs-close-glyph triage the plan calls "the main manual work" is
-about a third the size it looks: of 22 real `×` lines, 8 are multiplication or prose and 14 are close
-glyphs.
+(the notes badge renders an icon at `notes-badge-button.tsx:32`). And `×` inflates 20 → 73 mostly
+because test comments are full of arithmetic, so the multiplication-vs-close-glyph triage the plan
+calls "the main manual work" is about a third the size it looks: of **20** real `×` lines, **6** are
+multiplication or prose and 14 are close glyphs.
 
-★★★ **Seven source sites have their glyph pinned by a test assertion, not the two the plan names.**
+★★★ **DO NOT VERIFY `🗒` WITH `grep` — it fails silently, in both directions.** `🗒` is U+1F5D2,
+outside the BMP, and this environment's grep mishandles it: `grep -rlF '🗒' .` finds **nothing**
+though the glyph is really in nine files, while a bracket expression containing it matches **every**
+non-BMP emoji (`printf 'a 📎\nb 🚀\nc 🗒\n' | grep -c '[✓🗒★]'` → **3**). The `🗒` = 2 figure above
+was confirmed with node, not grep, and is correct. Any glyph count attached to a reproduce command
+must keep non-BMP characters out of the pattern.
+
+★★★ **Six source sites have their glyph pinned by a test assertion, not the two the plan names.**
 `report-table.tsx:148` (`report-table.test.tsx`, and again via `SortResizeTh` in
-`calendar-series-list.test.tsx`) were known. The five that were not: `raid-panel-rows.tsx` 109-158 ·
-`task-status-glyph.tsx` 54/56 · `dashboard-panel.tsx:364` · `entity-link-picker.tsx:222` ·
-`milestone-horizon-strip.tsx:46`. Distinguish them from the ~10 test files that merely mention a
-glyph in an `it(...)` title — the inventory lists both sets so the distinction is not re-derived.
+`calendar-series-list.test.tsx`) were known. The four that were not: `task-status-glyph.tsx` 54/56 ·
+`dashboard-panel.tsx:364` · `entity-link-picker.tsx:222` · `milestone-horizon-strip.tsx:46`.
+Distinguish them from the ~10 test files that merely mention a glyph in an `it(...)` title — the
+inventory lists both sets so the distinction is not re-derived.
 
-★★★ **`raid-panel-rows.tsx` is the dangerous one and it is a WCAG 2.4.6 case, not a test case.** Its
-seven sortable headers concatenate `▲`/`▼` into the header's own text, so the glyph sits inside the
-button's **accessible name** — `raid-panel.test.tsx` matches it with a `getByRole` name regex, which
-is what makes that visible. These are raw `<th>`s with no `aria-sort` (unlike `SortResizeTh`), so
-replacing the glyph with an `aria-hidden` SVG would leave sort direction with **no** channel to
-assistive tech at all. The same holds for `activity-log-panel.tsx:160`, `resource-directory.tsx:196`
-and `roles-editor.tsx` 197-221. Any glyph sweep must read the `<th>` before touching the indicator.
+★★★ **A fifth was listed here as pinned and is NOT: `raid-panel-rows.tsx`.** `raid-panel.test.tsx`
+115/122/131 match it with `getByRole("button", { name: /^Severity( [▲▼])?$/ })` — the glyph sits in
+an **optional** group, so the name `"Severity"` matches just as well and blanking the glyph does not
+fail the test. It is a locator written to *tolerate* the glyph, not an assertion that requires it.
+★★ **A `getByRole` name regex containing a glyph looks identical to one asserting it** — check for a
+`?`/`*` around the glyph before calling anything pinned. Nothing else in that file reads `▲`/`▼`.
+
+★★★ **THE `raid-panel-rows` a11y CONCLUSION PREVIOUSLY RECORDED HERE WAS FALSE, AND IT INVERTS.**
+This entry claimed its seven `<th>` were "raw `<th>`s with no `aria-sort` (unlike `SortResizeTh`)",
+so blanking the glyph "would leave sort direction with **no** channel to assistive tech at all".
+**All seven set `aria-sort`** — `raid-panel-rows.tsx` 107, 115, 123, 131, 140, 148, 156;
+`grep -c aria-sort src/app/raid-panel-rows.tsx` → **7**. `AGENTS.md:965` already said so
+("`change-panel.tsx` + `raid-panel-rows.tsx` + `stakeholders-panel.tsx` set aria-sort AND keep a
+▲/▼ inside the button's name"), so a correct line of the always-loaded file was contradicted here
+for a whole release. What is actually true is the opposite: RAID sets `aria-sort` **and** repeats
+that state in the accessible name — the same **double announcement** `SortResizeTh` was changed to
+eliminate. Blanking the glyph removes a redundancy and leaves `aria-sort` standing, so **RAID is an
+argument for the sweep, not a hazard against it**. ★ Six of the seven headers carry the glyph in
+their name; the seventh (`id`, button at `:108`) has `aria-label={t(lang,"id")}`, which overrides
+content, so its glyph is in `textContent` only.
+
+★★★ **The "no channel at all" warning is real and belongs to three OTHER files** —
+`activity-log-panel.tsx`, `resource-directory.tsx` and `roles-editor.tsx`, whose `aria-sort` count is
+**0** each. There the glyph IS the only sort-state channel and an `aria-hidden` SVG would delete the
+information. **Any glyph sweep must `grep -c aria-sort` the file before touching the indicator** —
+that one command distinguishes the two groups, and it is cheaper than the review round that missed it.
 
 ★★ **`Button` is step one; the variant is step two.** The insights panes in this very release already
 had `Button` — what changed was the variant, because ghost renders no border. Converting a
 bordered-surface `<button>` to `Button variant="ghost"` deletes its border silently, and jsdom cannot
 see it. Match the variant to the current look and eye-verify.
+
+★★★ **AND THIS RELEASE'S OWN BUDGET CONVERSION BROKE THAT RULE IN THE OTHER DIRECTION — eye-verify
+it.** Three of the four `budget-panel.tsx` sites (now `<Button>` at 668, 675, 684) read
+`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground
+hover:border-ui-dark-blue hover:bg-surface-muted` at `4dd13660` (`git show
+4dd13660:src/app/budget-panel.tsx`) — a **ghost**-looking control that only grows a border on hover.
+Moving them to `secondary` gives them a permanent border they never had. Only the fourth (`:380`,
+`border-ui-dark-blue bg-surface px-2.5 py-1.5`) was a genuine bordered-surface button. So the
+worked example the inventory offered for this rule was in fact a counter-example, and it was
+described as having carried the bordered class string "verbatim", which none of the four did.
+★ The rule stands; the release may need a follow-up to `ghost` on those three if the new border is
+unwanted. That is a look decision, so it needs eyes, not a test.
+
+★★ `ButtonVariant` is `"primary" | "secondary" | "ghost" | "destructive"` (`button.tsx:15`). There is
+**no `danger` variant on `Button`** — `danger` belongs to `IconButtonVariant` (`icon-button.tsx:14`),
+and the inventory named it twice for `Button`, where it would not compile.
 
 ★ Two deliberate non-conversions, recorded so they are not re-litigated: the budget bucket drag
 handle (`budget-panel.tsx:455`) carries `draggable`, the drag lifecycle **and** arrow-key reordering,
@@ -5155,7 +5200,7 @@ row as a button rather than a checked item in a set.
 
 ★ The largest single conversion family is ~26 close/remove/clear controls spelling the same idea
 three ways (`×` U+00D7, `✕` U+2715, `&times;`), all already carrying an `aria-label`. `XMarkIcon` is
-imported in eight files already, so converging them adds no dependency — and since each is also an
+imported in 13 files already, so converging them adds no dependency — and since each is also an
 `IconButton` candidate, the element and the glyph are one edit, not two.
 
 ★ Nothing here is gated. `npm run docs:symbols:check` proves only that a backticked mixed-case name
