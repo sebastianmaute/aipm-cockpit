@@ -2571,6 +2571,11 @@ const enUS = {
   documentsCardRemovedOne: "1 block removed",
   documentsCardNotApplied: "Not applied:",
   documentsCardMoreReasons: "…and {0} not shown",
+  documentsTruncatedWarning: "{0} document entries could not be opened - this project is over the limit. Saving is paused so nothing is overwritten.",
+  documentsTruncatedBlocksWarning: "{0} blocks in stored document versions could not be opened. Saving is paused so nothing is overwritten.",
+  documentsTruncatedBanner: "Some of this project's document data could not be opened. Saving is paused to protect the file - the original still holds everything.",
+  documentsTruncatedSaveAnyway: "Save anyway",
+  documentsTruncatedBannerAria: "Document limit warning",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
   // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
   dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",

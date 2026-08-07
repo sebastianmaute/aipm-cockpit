@@ -30,6 +30,7 @@ import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps } from "./use-storage-file-ops";
+import { useLoadTruncation } from "./use-load-truncation";
 
 // Hoisted to module scope — static map, no per-render allocation
 const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
@@ -156,6 +157,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  clear-all / bulk delete). Without this an unexplained mass deletion is
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
+  // ★★ §100 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
+  const { loadWasTruncated, allowTruncatedSave, reportLoadTruncation, mayCommitAfterTruncation } = useLoadTruncation();
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -338,6 +341,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         applyWorkspace(workspace);
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
+        reportLoadTruncation(backend.lastLoadTruncation, langRef.current, emitToast);
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
         emitOutcome(null);
@@ -397,6 +401,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //        loss L3 misses). An explicit user bulk-op (clear-all / bulk delete)
     //        sets allowDestructiveRef one-shot to bypass. On refusal the backend
     //        keeps the data; a reload restores it.
+    // ★★ §100: an AUTOMATIC save must never commit a truncated load — the excess documents
+    // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
+    if (!mayCommitAfterTruncation()) return;
     const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
     const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
     if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
@@ -474,8 +481,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", flush);
     };
+    // ★ `loadWasTruncated` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
+    // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
+    // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend, loadWasTruncated]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -774,26 +784,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   };
 
+  // Grouped one line per concern — a plain re-export list, and the cheapest block
+  // to compress in a file that sits AT the 800-line ratchet.
   return {
-    storageDescription,
-    storageReady,
-    workspaceLoaded,
-    onPickStorageFile,
-    onGrantWriteAccess,
-    onOpenStorageFile,
-    onRequestStorageSwitch,
-    reloadCurrentProject,
-    allowDestructiveSave,
-    switchToProject,
-    createProject,
-    createDemoProject,
-    loadProjectFromFile,
-    switchToTursoProject,
-    createTursoProject,
-    migrateCurrentProjectToTurso,
-    archiveTursoProject,
-    restoreTursoProject,
-    hardDeleteTursoProject,
+    storageDescription, storageReady, workspaceLoaded,
+    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
+    reloadCurrentProject, allowDestructiveSave, loadWasTruncated, allowTruncatedSave,
+    switchToProject, createProject, createDemoProject, loadProjectFromFile,
+    switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
+    archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
   };
 }

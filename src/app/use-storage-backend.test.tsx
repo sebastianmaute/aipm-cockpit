@@ -1948,6 +1948,121 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
   });
 });
 
+// ── §100: the truncated-load save guard ──────────────────────────────────────
+// An over-cap load truncates the documents array; the next AUTOMATIC save then
+// commits that loss permanently on all six write paths, because the excess
+// documents are still in the source file. The guard pauses saving until the user
+// resolves it, and `allowTruncatedSave` is the only way out — the user cannot get
+// under the cap by editing, since the excess entries were never loaded.
+describe("useStorageBackend — §100 truncated-load guard", () => {
+  // A LOCAL backend per test: `lastLoadTruncation` is a plain PROPERTY, so
+  // vi.clearAllMocks() would not reset it on the shared `mockBackend` and a
+  // truncating fixture would leak into every later test — which the shuffled-seed
+  // gate would surface as an unrelated failure somewhere else in the file.
+  // Assigned inside `load()` so the read order (load, then report) is real.
+  function makeTruncBackend(truncation?: { entries: number; blocks: number }) {
+    const b = {
+      load: vi.fn(async () => {
+        b.lastLoadTruncation = truncation;
+        return { tasks: [], raid: [], absences: [], shifts: [] };
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    return b;
+  }
+
+  function useTruncBackend(truncation?: { entries: number; blocks: number }) {
+    const b = makeTruncBackend(truncation);
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(b);
+    return b;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("toasts and raises the flag when the load truncated ENTRIES", async () => {
+    useTruncBackend({ entries: 5, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("5 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("does neither when the load reported no truncation", async () => {
+    useTruncBackend({ entries: 0, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("a BLOCKS-only truncation toasts the blocks string, never '0 document entries'", async () => {
+    // ★★★ The shape this design was corrected for. `entries` and `blocks` are
+    // independent counts; interpolating the entries count unconditionally reports
+    // "0 document entries could not be opened" over a real blocks-only loss.
+    useTruncBackend({ entries: 0, blocks: 7 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("7 blocks in stored document versions could not be opened"));
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("document entries"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("refuses an AUTOMATIC save while the load is unresolved", async () => {
+    const backend = useTruncBackend({ entries: 5, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).not.toHaveBeenCalled();
+    // Sticky: the refusal does not consume the flag, so every later autosave is
+    // refused too until the user acts.
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("allowTruncatedSave() lets the pending edit through — the escape, not just an unlock", async () => {
+    // ★★★ This is the test separating a guard from a permanent save LOCKOUT.
+    // The refusal above is only correct if this path actually WRITES.
+    const backend = useTruncBackend({ entries: 5, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    // Control — without this the assertion below could pass on a guard that
+    // never engaged at all.
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T1" })] }),
+    );
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+});
+
 // ★★★ THE SEAM, NOT THE UNITS. `useSnapshots` has its own test proving it honours
 // a `workspaceReady` prop it is handed directly — but that test would keep
 // passing if this hook never published the flag, or published it too early.

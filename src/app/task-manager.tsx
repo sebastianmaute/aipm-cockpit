@@ -62,7 +62,7 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
+import { BirthdayBanner, JiraTokenBanner, StorageBanner, TruncatedLoadBanner } from "./notifications";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
@@ -393,7 +393,8 @@ function TaskManagerInner() {
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
-  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false);
+  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §100's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
+  const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.
   const versionNotifyRef = useRef<() => void>(() => {});
@@ -454,6 +455,7 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
+    loadWasTruncated, allowTruncatedSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
@@ -2615,12 +2617,10 @@ function TaskManagerInner() {
         />
       )}
       {!isPopout && storageError && !storageErrorDismissed && (
-        <StorageBanner
-          kind={storageError.kind}
-          lang={lang}
-          onOpenSettings={() => setActiveTab("settings")}
-          onDismiss={() => setStorageErrorDismissed(true)}
-        />
+        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
+      )}
+      {!isPopout && loadWasTruncated && !truncationBannerDismissed && (
+        <TruncatedLoadBanner lang={lang} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} />
       )}
     </>
   );

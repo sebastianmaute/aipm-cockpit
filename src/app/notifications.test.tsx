@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { BirthdayBanner, JiraTokenBanner } from "./notifications";
+import { BirthdayBanner, JiraTokenBanner, TruncatedLoadBanner } from "./notifications";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import type { Resource } from "./types";
@@ -126,5 +126,39 @@ describe("JiraTokenBanner", () => {
       />,
     );
     expect(screen.getByText(/expires in 4 day/i)).toBeInTheDocument();
+  });
+});
+
+describe("TruncatedLoadBanner", () => {
+  it("renders the generic message and is exposed as a labelled region", () => {
+    render(<TruncatedLoadBanner lang="en-US" onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(/could not be opened/i)).toBeInTheDocument();
+    // ★ The copy must never claim the CAP did the cutting — both counts are
+    // upper bounds (a version with malformed blocks reports them as truncation
+    // with nothing capped), so "could not be opened" is the only accurate wording.
+    expect(screen.queryByText(/cut off/i)).toBeNull();
+    expect(screen.getByRole("region", { name: "Document limit warning" })).toBeInTheDocument();
+  });
+
+  it("fires onSaveAnyway from the primary action — the only escape from the save lockout", () => {
+    const onSaveAnyway = vi.fn();
+    const onDismiss = vi.fn();
+    render(<TruncatedLoadBanner lang="en-US" onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
+    expect(onSaveAnyway).toHaveBeenCalledTimes(1);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it("fires onDismiss from the dismiss action, and NOT onSaveAnyway", () => {
+    // Dismissing hides the banner but must not resolve the truncation — the two
+    // callbacks are distinct so the save guard stays armed after a dismiss.
+    const onSaveAnyway = vi.fn();
+    const onDismiss = vi.fn();
+    render(<TruncatedLoadBanner lang="en-US" onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onSaveAnyway).not.toHaveBeenCalled();
   });
 });

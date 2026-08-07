@@ -2535,6 +2535,11 @@ export const de: Record<TranslationKey, string> = {
   documentsCardRemovedOne: "1 Block entfernt",
   documentsCardNotApplied: "Nicht übernommen:",
   documentsCardMoreReasons: "…und {0} nicht angezeigt",
+  documentsTruncatedWarning: "{0} Dokumenteinträge konnten nicht geöffnet werden - dieses Projekt überschreitet das Limit. Das Speichern ist pausiert, damit nichts überschrieben wird.",
+  documentsTruncatedBlocksWarning: "{0} Blöcke in gespeicherten Dokumentversionen konnten nicht geöffnet werden. Das Speichern ist pausiert, damit nichts überschrieben wird.",
+  documentsTruncatedBanner: "Ein Teil der Dokumentdaten dieses Projekts konnte nicht geöffnet werden. Das Speichern ist pausiert, um die Datei zu schützen - das Original enthält weiterhin alles.",
+  documentsTruncatedSaveAnyway: "Trotzdem speichern",
+  documentsTruncatedBannerAria: "Warnung zum Dokumentenlimit",
   knowledgeModuleDesc: "Ein zentraler Ort, um alle Wissenslinks – Dokumente, Confluence-Seiten und Web-URLs – im Projekt zu sehen und zu verwalten.",
   // --- Feature-module descriptions (Settings -> Functions) ---
   dashboardModuleDesc: "Landing-Cockpit mit Zusammenfassung von Status, Fortschritt und dem, was Ihre Aufmerksamkeit braucht - aktivieren Sie es für einen schnellen Überblick bei jedem Öffnen des Projekts.",

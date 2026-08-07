@@ -108,3 +108,26 @@ export function StorageBanner({
     </AlertBanner>
   );
 }
+
+/** §100 — a load that truncated the documents array pauses autosave (see
+ *  `use-load-truncation.ts`). This banner is the ONLY route out: the user cannot
+ *  get under the cap by editing, because the excess entries were never loaded.
+ *  ★★ Dismissing hides the banner but must NOT clear `loadWasTruncated` — the
+ *  save guard stays armed. Only "Save anyway" resolves it. */
+export function TruncatedLoadBanner({
+  lang, onSaveAnyway, onDismiss,
+}: { lang: Lang; onSaveAnyway: () => void; onDismiss: () => void }) {
+  return (
+    <AlertBanner severity="error" ariaLabel={t(lang, "documentsTruncatedBannerAria")} icon="⚠"
+      actions={<>
+        <Button variant="primary" size="xs" onClick={onSaveAnyway}>
+          {t(lang, "documentsTruncatedSaveAnyway")}
+        </Button>
+        <DismissButton lang={lang} onClick={onDismiss} />
+      </>}>
+      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+        {t(lang, "documentsTruncatedBanner")}
+      </p>
+    </AlertBanner>
+  );
+}
