@@ -26,6 +26,7 @@ import {
 } from "./workspace";
 import { LOAD_TIMEOUT_MS, runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import type { DocTruncationDiag } from "./document-model";
 import type { TursoConfig } from "./turso-config";
 
 const OLD_BLOB_DDL = "CREATE TABLE IF NOT EXISTS workspace (id INTEGER PRIMARY KEY, data TEXT NOT NULL)";
@@ -111,6 +112,9 @@ export class TursoBackend implements StorageBackend {
    */
   private columnsEnsured: Promise<void> | null = null;
 
+  /** What the most recent load() discarded to stay inside the document caps. */
+  lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
+
   constructor(
     private config: TursoConfig | null,
     private projectId?: string,
@@ -130,9 +134,26 @@ export class TursoBackend implements StorageBackend {
   }
 
   async load(): Promise<Workspace> {
-    return this.projectId === undefined
-      ? this.loadSingleTenant()
-      : this.loadTenant(this.projectId);
+    // ★★ ONE accumulator, ONE publish point. Both private loaders have several
+    // exits (the empty short-circuit, the legacy-blob import, the relational
+    // decode) and a path that returned without publishing would leave a STALE
+    // count from the PREVIOUS load — worse than zero, because it would raise a
+    // data-loss warning about a DB that is fine. The `finally` covers every
+    // exit including the throwing one.
+    // ★ The `await`s are load-bearing: without them the returned promise
+    // escapes the try block and `finally` publishes zeros before either loader
+    // has decoded anything.
+    const diag: DocTruncationDiag = {};
+    try {
+      return this.projectId === undefined
+        ? await this.loadSingleTenant(diag)
+        : await this.loadTenant(this.projectId, diag);
+    } finally {
+      this.lastLoadTruncation = {
+        entries: diag.truncatedEntries ?? 0,
+        blocks: diag.truncatedBlocks ?? 0,
+      };
+    }
   }
 
   async save(workspace: Workspace): Promise<void> {
@@ -237,7 +258,7 @@ export class TursoBackend implements StorageBackend {
     await runTursoPipeline(this.config, [{ sql: "BEGIN" }, ...alters, { sql: "COMMIT" }]);
   }
 
-  private async loadSingleTenant(): Promise<Workspace> {
+  private async loadSingleTenant(diag: DocTruncationDiag): Promise<Workspace> {
     // Dynamic import breaks the storage → turso-backend → turso-schema → storage cycle.
     const { SCHEMA_DDL, TABLE_NAMES, selectStatements, rowsToWorkspace } =
       await import("./turso-schema");
@@ -256,16 +277,16 @@ export class TursoBackend implements StorageBackend {
     const isEmpty = relationalReadIsEmpty(relational, selectCount);
     if (isEmpty) {
       const blob = firstRowText([blobResult], 0);
-      if (typeof blob === "string" && blob.length > 0) return jsonToWorkspace(blob);
+      if (typeof blob === "string" && blob.length > 0) return jsonToWorkspace(blob, { diag });
       return emptyWorkspace();
     }
-    return rowsToWorkspace(relational);
+    return rowsToWorkspace(relational, diag);
   }
 
   // NOTE: rowsToWorkspace does not populate ws.project (ProjectMeta is not in the
   // workspace tables under Turso), so tenant load() additionally fetches the
   // projects-table row for this id and sets ws.project from it.
-  private async loadTenant(projectId: string): Promise<Workspace> {
+  private async loadTenant(projectId: string, diag: DocTruncationDiag): Promise<Workspace> {
     const { TABLE_NAMES, rowsToWorkspace } = await import("./turso-schema");
     const { tenantSchemaDdl, tenantSelectStatements, selectProjectStatement, rowsToProjectList } =
       await import("./turso-tenant-schema");
@@ -279,7 +300,7 @@ export class TursoBackend implements StorageBackend {
     const relational = results.slice(ddl.length, ddl.length + TABLE_NAMES.length);
     const projectsResult = results[ddl.length + TABLE_NAMES.length];
     const isEmpty = relationalReadIsEmpty(relational, TABLE_NAMES.length);
-    const ws = isEmpty ? emptyWorkspace() : rowsToWorkspace(relational);
+    const ws = isEmpty ? emptyWorkspace() : rowsToWorkspace(relational, diag);
     const meta = rowsToProjectList(projectsResult)[0]?.meta;
     return meta ? { ...ws, project: meta } : ws;
   }

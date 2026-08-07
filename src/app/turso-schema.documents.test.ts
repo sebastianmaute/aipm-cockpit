@@ -8,7 +8,10 @@ import {
 } from "./turso-schema";
 import { tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import { emptyWorkspace } from "./workspace";
-import type { ProjectDocument } from "./document-model";
+import {
+  MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS,
+  type DocTruncationDiag, type ProjectDocument,
+} from "./document-model";
 import type { DocVersion } from "./document-versions";
 
 const DOC: ProjectDocument = {
@@ -223,6 +226,33 @@ describe("turso — documents load", () => {
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("alert(1)");
   });
+
+  it("reports cap truncation through an optional diag", () => {
+    // ★ The decoder is SHARED by both Turso modes, so this one assertion covers
+    // the single-DB and the multi-tenant load alike.
+    // ★ Sized off MAX_DOCUMENTS rather than a literal — the cap is a tunable
+    // constant, and a hardcoded 200 here would silently stop testing the cap
+    // the moment it moves. `blocks: []` keeps 200+ documents cheap through the
+    // DOMPurify rich-field pass; the cap counts ENTRIES, not blocks.
+    const docs = Array.from({ length: MAX_DOCUMENTS + 2 }, (_, i) => ({
+      ...DOC, id: i + 1, title: `Doc ${i + 1}`, blocks: [],
+    }));
+    const diag: DocTruncationDiag = {};
+    const ws = rowsToWorkspace(metaOnlyResults([["documents", JSON.stringify(docs)]]), diag);
+    expect(ws.documents).toHaveLength(MAX_DOCUMENTS);
+    expect(diag.truncatedEntries).toBe(2);
+  });
+
+  it("leaves the diag untouched for an under-cap load", () => {
+    // ★ CONTROL. Without it the assertion above passes against a decoder that
+    // reports truncation unconditionally — which would raise a data-loss
+    // warning about every healthy DB, the exact failure this feature exists to
+    // avoid making.
+    const diag: DocTruncationDiag = {};
+    const ws = rowsToWorkspace(metaOnlyResults([["documents", JSON.stringify([DOC])]]), diag);
+    expect(ws.documents).toEqual([DOC]);
+    expect(diag.truncatedEntries).toBeUndefined();
+  });
 });
 
 describe("turso single-DB — documentVersions save", () => {
@@ -352,5 +382,30 @@ describe("turso — documentVersions load", () => {
     expect(html).toContain("Kept heading");
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("alert(1)");
+  });
+
+  it("reports per-version block truncation through the SAME diag", () => {
+    // ★ A SECOND call site. The documents suite above proves the
+    // sanitizeProjectDocuments call is threaded; only this one proves the
+    // sanitizeDocumentVersions call is — they are separate arguments and a
+    // missed one loses blocks in silence on both Turso modes.
+    const blocks = Array.from({ length: MAX_BLOCKS_PER_DOC + 7 }, () => ({
+      type: "paragraph" as const, html: "<p>x</p>",
+    }));
+    const diag: DocTruncationDiag = {};
+    const ws = rowsToWorkspace(
+      metaOnlyResults([["documentVersions", JSON.stringify([{ ...VERSION, blocks }])]]),
+      diag,
+    );
+    expect(ws.documentVersions?.[0]?.blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+    expect(diag.truncatedBlocks).toBe(7);
+  });
+
+  it("leaves truncatedBlocks untouched for an under-cap version", () => {
+    // ★ CONTROL, same reason as the documents one.
+    const diag: DocTruncationDiag = {};
+    const ws = rowsToWorkspace(metaOnlyResults([["documentVersions", JSON.stringify([VERSION])]]), diag);
+    expect(ws.documentVersions).toEqual([VERSION]);
+    expect(diag.truncatedBlocks).toBeUndefined();
   });
 });

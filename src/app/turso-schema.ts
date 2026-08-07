@@ -29,7 +29,7 @@ import {
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
-import { sanitizeProjectDocuments } from "./document-model";
+import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
@@ -117,8 +117,19 @@ export function rowObjects(res: PipelineResultLike | undefined): Record<string, 
   });
 }
 
-/** Assemble a Workspace from selectStatements() results (TABLE_NAMES order). */
-export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
+/** Assemble a Workspace from selectStatements() results (TABLE_NAMES order).
+ *
+ *  ★★ This decoder serves BOTH Turso modes — single-tenant and multi-tenant
+ *  (turso-tenant-schema only builds the project-scoped SELECTs) — so the
+ *  optional `diag` covers two of the six write paths at once. It is an
+ *  accumulator the caller owns: the document and document-version sanitizers
+ *  record into it what a load-time CAP silently discarded, so the backend can
+ *  report the loss instead of truncating in silence. Omitting it decodes
+ *  exactly as before. */
+export function rowsToWorkspace(
+  results: PipelineResultLike[],
+  diag?: DocTruncationDiag,
+): Workspace {
   if (results.length < TABLE_NAMES.length) {
     throw new Error(`rowsToWorkspace: expected at least ${TABLE_NAMES.length} results, got ${results.length}`);
   }
@@ -208,7 +219,7 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
   const docRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documents");
   if (docRow?.value) {
     try {
-      const docs = sanitizeProjectDocuments(JSON.parse(docRow.value)).map(sanitizeDocumentRichFields);
+      const docs = sanitizeProjectDocuments(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
       if (docs.length) ws.documents = docs;
     } catch {
       // malformed — leave undefined
@@ -222,7 +233,7 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
   const verRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documentVersions");
   if (verRow?.value) {
     try {
-      const versions = sanitizeDocumentVersions(JSON.parse(verRow.value)).map((v) => ({
+      const versions = sanitizeDocumentVersions(JSON.parse(verRow.value), diag).map((v) => ({
         ...v,
         blocks: sanitizeDocumentRichFields({
           id: v.documentId,
