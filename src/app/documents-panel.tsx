@@ -299,21 +299,35 @@ export function DocumentsPanel({
     return seen && seen.from === documents ? seen.latest : documents;
   }
 
-  function mutate(m: DocMutation) {
+  /** ★ RETURNS the result. It used to swallow it, and the one caller that
+   *  needed it (`handleRestore`) worked around that by calling
+   *  `mutateDocuments` directly — which is how the OTHER restore surface (the
+   *  history modal) came to drop its refusal entirely: the shape that reads
+   *  like "a mutation returns nothing" invites a call site to discard one. */
+  function mutate(m: DocMutation): DocResult {
     const result = mutateDocuments(m, "user");
     freshRef.current = { from: documents, latest: result.documents };
+    return result;
   }
 
-  // ★★ A RESTORE CAN BE REFUSED, and at the cap it always is. After a
+  // ★★★ A RESTORE CAN BE REFUSED, and at the cap it always is. After a
   // truncating load the document count sits EXACTLY at MAX_DOCUMENTS, so the
   // engine's cap guard rejects every restore with
   // `["document limit reached (200)"]` — and a genuine tombstone restored into
   // a full document set hits the same wall. `mutateDocuments` hands back
   // `rejected` synchronously, so the only way to get this wrong is to discard
   // it. Rendered below the list, not swallowed.
+  //
+  // ★★★ BOTH RESTORE SURFACES GO THROUGH HERE — the deleted-documents list AND
+  // the history modal. The modal used to inline `mutate({kind:"restore"…})` and
+  // throw the result away, then CLOSE, so a refusal read as a successful
+  // dismissal: nothing changed and nothing said so. Two refusals reach it
+  // today — a version trimmed away by a concurrent AI write between render and
+  // click (`version #N not found`), and the block cap on the restore-in-place
+  // path. Do not re-inline a second call site; there is exactly one for a
+  // reason.
   function handleRestore(versionId: number) {
-    const result = mutateDocuments({ kind: "restore", versionId }, "user");
-    freshRef.current = { from: documents, latest: result.documents };
+    const result = mutate({ kind: "restore", versionId });
     setRestoreRejected(result.changed ? [] : result.rejected);
   }
 
@@ -460,16 +474,26 @@ export function DocumentsPanel({
                 ))}
               </ul>
             )}
-            {restoreRejected.length > 0 && (
-              // `role="status"` so the refusal is announced rather than only
-              // drawn. The reasons are the engine's own strings and are not
-              // translated — an i18n key for this was not available to add;
-              // see the report. An untranslated reason beats a silent no-op.
-              <p role="status" className="mt-2 text-sm text-ui-pink">
-                {restoreRejected.join("; ")}
-              </p>
-            )}
           </section>
+        )}
+        {/* ★★★ OUTSIDE the `showDeleted` block, and that placement is the whole
+            fix on this half. It used to live INSIDE the section above, which
+            made it unreachable from the OTHER restore surface: the history
+            modal is opened from a row control and is completely independent of
+            the show-deleted toggle, which is OFF by default — so a refusal
+            raised there set state nothing rendered, and the modal closed on
+            top of it. A reason that cannot draw is the same silent no-op as a
+            discarded result, one layer down. Mutation-proved in
+            `documents-panel.test.tsx`: moving this back inside the section
+            reddens the modal-refusal case on its own.
+            ★ `role="status"` so the refusal is ANNOUNCED rather than only
+            drawn. The reasons are the engine's own strings and are not
+            translated — an i18n key for this was not available to add; see the
+            report. An untranslated reason beats a silent no-op. */}
+        {restoreRejected.length > 0 && (
+          <p role="status" className="text-sm text-ui-pink">
+            {restoreRejected.join("; ")}
+          </p>
         )}
         <DocumentPreview lang={lang} doc={selected} ws={ws} />
       </div>
@@ -479,12 +503,16 @@ export function DocumentsPanel({
         doc={historyDoc}
         versions={historyVersions}
         onClose={() => setHistoryFor(null)}
-        // ★ A restore is a mutation like any other, so it goes through the same
-        // single entry point — and through `mutate`, not `mutateDocuments`
-        // directly, so the same-tick title record stays in step with every
-        // other handler here.
+        // ★★ A restore is a mutation like any other, so it goes through the
+        // same single entry point — and through `handleRestore`, not a
+        // hand-rolled `mutate({kind:"restore"…})`, so the refusal reaches the
+        // surface exactly as it does from the deleted-documents list. The
+        // inline form discarded it.
+        // ★ The modal closes either way, INCLUDING on a refusal, which is why
+        // the reason renders in the pane body rather than in here: a reason
+        // drawn inside a dialog that is closing is a reason nobody reads.
         onRestore={(versionId) => {
-          mutate({ kind: "restore", versionId });
+          handleRestore(versionId);
           setHistoryFor(null);
         }}
         lang={lang}

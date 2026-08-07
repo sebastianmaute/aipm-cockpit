@@ -976,6 +976,90 @@ describe("DocumentsPanel — deleted documents", () => {
 
 });
 
+// ★★★ THE SECOND RESTORE SURFACE. The history modal's Restore threw its
+// `DocResult` away and closed, so a refusal read as a successful dismissal:
+// the modal vanished, nothing changed, and nothing said so — the exact "a
+// Restore button that silently does nothing" outcome the pane's own comment
+// calls the worst available.
+//
+// ★★★ AND THE HALF THAT WOULD HAVE LEFT THE FIX INERT: the refusal region used
+// to render only inside the `showDeleted` block. That toggle is OFF by default
+// and is completely independent of this modal, so surfacing the reason without
+// hoisting the region would have set state that nothing drew. Every case here
+// therefore NEVER touches the show-deleted toggle, and asserts that it is off.
+describe("DocumentsPanel — the history modal's Restore", () => {
+  /** A before-image for the LIVE document #1, so the modal's own
+   *  `documentId === historyFor` filter lists it and its Restore takes the
+   *  restore-IN-PLACE branch (the modal only ever opens for a live document). */
+  const stale: DocVersion = {
+    id: 500,
+    documentId: 1,
+    title: "Older title",
+    blocks: [],
+    savedAt: "2026-08-05T10:00:00.000Z",
+    source: "user",
+    op: "rename",
+  };
+
+  /** ★ The engine's version list is passed SEPARATELY from the panel's
+   *  `documentVersions` prop, which is what lets the two disagree — and that
+   *  disagreement IS the bug's first trigger: a concurrent AI write trims the
+   *  version away between the render that drew the button and the click. Pass
+   *  `[]` for the engine to model the trim, `[stale]` for the success control. */
+  function renderModalHarness(engineVersions: readonly DocVersion[]) {
+    const box: Box = { docs: [doc(1, "Alpha")], versions: engineVersions };
+    render(
+      <ConfirmProvider lang="en-US">
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={[stale]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+    return box;
+  }
+
+  it("renders the refusal when the MODAL's Restore is refused, with showDeleted OFF", async () => {
+    const box = renderModalHarness([]);
+
+    // ★ The show-deleted section was never opened, so the region the reason
+    // used to live inside is not in the DOM at all. Asserted directly: this is
+    // the half a fix that only stopped discarding the result would fail.
+    expect(screen.queryByRole("region", { name: "Deleted documents" })).toBeNull();
+    // The modal closed on the click, exactly as before — which is why a
+    // swallowed refusal looked like a successful dismissal.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const status = screen.getByRole("status");
+    // The SPECIFIC reason, not merely that some status node exists.
+    expect(status.textContent).toMatch(/not found/i);
+    expect(status.textContent).toContain("#500");
+    // ★ And the engine really did refuse. Without this the case could pass
+    // against a pane that announced a refusal for a write that succeeded.
+    expect(box.docs).toHaveLength(1);
+    expect(box.docs[0].title).toBe("Alpha");
+  });
+
+  it("announces nothing when the MODAL's Restore SUCCEEDS", async () => {
+    // ★ The control. Without it, a pane that rendered the reason region
+    // unconditionally — or a handler that ignored `result.changed` — would
+    // satisfy the case above while crying refusal on every restore.
+    const box = renderModalHarness([stale]);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("status")).toBeNull();
+    // The positive observable: the restore really landed, so the empty status
+    // is the empty status of a SUCCESS, not of a click that did nothing.
+    expect(box.docs[0].title).toBe("Older title");
+  });
+});
+
 describe("DocumentsPanel — the implausible-deleted-list guard", () => {
   function tombstone(id: number, documentId: number, title: string): DocVersion {
     return {
