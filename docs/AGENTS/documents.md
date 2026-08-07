@@ -75,18 +75,57 @@ without which the command returns the definition line and reads as if there were
 ## Tombstones and the `"restored"` marker
 
 ★★★ **"Deleted documents" is DERIVED, never a stored flag** — `deletedDocumentVersions`
-returns the newest version of every `documentId` absent from `documents`. A boolean flag was
-rejected for the usual reason: it must be cleared on restore and can desync.
+returns the newest version of every `documentId` absent from `documents` **whose `op` is
+`"delete"`**. A boolean flag was rejected for the usual reason: it must be cleared on restore
+and can desync.
+
+★★★ **THE `op === "delete"` REQUIREMENT IS THE WHOLE CORRECTNESS ARGUMENT — do not
+"simplify" it away.** The function used to ask "is this `documentId` absent from
+`documents`?", which is a different question from "was this deleted", so ANY load-side
+asymmetry between the two arrays surfaced as a phantom deletion. The reachable one is a cap
+asymmetry: `sanitizeProjectDocuments` `break`s at `MAX_DOCUMENTS` while
+`sanitizeDocumentVersions` has no count cap and structurally cannot acquire one. Measured on
+all six write paths — a 205-document file loads as 200 documents and 205 versions, and five
+documents that still existed in the file were listed as deleted, each with a Restore button
+that would mint a duplicate.
+
+★★ It is sound **by construction, not by luck**: the delete case writes
+`snapshot(target, "delete", ctx)` with `savedAt = ctx.now` and a version id minted last, so it
+wins both the timestamp comparison and `byNewest`'s descending-id tie-break, and `trimVersions`
+keeps exactly that entry as the tombstone.
+
+★★ **RESIDUAL LIMIT, state it rather than implying the case is closed:** a hand-edited or
+foreign file carrying `op:"delete"` on a version whose document is absent is **byte-identical**
+to a genuine deletion. No filter can separate them, because the two are the same data. The
+filter narrows the failure from "any load asymmetry" to "a file that lies"; it does not
+eliminate it.
+
+★★★ **THE MARKER NO LONGER GATES THE DERIVATION — but it is still live in `trimVersions`,
+so do not delete it.** `deletedDocumentVersions` once carried a second filter excluding
+`RESTORED_MARKER_OP`; that was **removed** because `op === "delete"` subsumes it (a marker's op
+is `"restored"`, which the new filter already rejects). `trimVersions` still reads the marker at
+its tombstone branch, and that use is unchanged. Reproduce the split:
+`grep -n "RESTORED_MARKER_OP" src/app/document-versions.ts` → **5** lines, of which only **2 are
+code**: the `export const` declaration and the `trimVersions` comparison. The other three are
+prose in doc-comments. The derivation is not among either group. ★ Quoting "2" without that
+split would look wrong to anyone who runs the command — the same mismatch this file already
+warns about twice.
+
+★★★ **A MARKER IS NOT A SNAPSHOT, and `restore` now refuses one.** It records that an id was
+recovered — it is the one op that is explicitly not a before-image — so restoring one measured as
+minting a second copy of the document *and* a second marker. `applyDocMutation`'s `restore` case
+rejects it up front (`"is a restore marker, not a snapshot"`). ★ The derivation already filters
+markers out, so no surface offers one today; the guard exists because the version-history and
+deleted-documents surfaces are built directly against these version rows and either could hand
+one back.
+
+★★ **The marker is checked on the NEWEST entry only** in `trimVersions`. So an id that was
+deleted → restored → deleted again correctly reappears as deleted: the marker records a moment,
+it does not permanently exempt an id.
 
 ★★★ **Restoring a deleted document mints a NEW id** (ids are never reused) and writes a
-`RESTORED_MARKER_OP` version against the **OLD** id. Without that marker the old id stays
-absent from `documents` forever, so the derivation would keep reporting it as deleted after
-the user had already restored it — a phantom row whose Restore button mints yet another copy
-on every click.
-
-★★ **The marker is checked on the NEWEST entry only**, in both `trimVersions` and
-`deletedDocumentVersions`. So an id that was deleted → restored → deleted again correctly
-reappears as deleted: the marker records a moment, it does not permanently exempt an id.
+`RESTORED_MARKER_OP` version against the **OLD** id — which is what stops the tombstone becoming
+permanent in retention.
 
 ★★ **The marker also releases the group from tombstone protection**, which is what stops each
 delete-restore cycle leaking one permanently unreclaimable row. Once it is newest, the group
@@ -95,11 +134,20 @@ re-enters ordinary retention and ages out.
 ★ The marker carries the recovered title/blocks rather than an empty snapshot, so the row
 still reads as a meaningful history entry.
 
-★ **`deletedDocumentVersions` has no production caller today** — only tests. It is a correct,
-tested derivation waiting for a surface. Verify before assuming otherwise:
-`grep -rn "deletedDocumentVersions(" src/app | grep -v "\.test\." | grep -v "document-versions.ts"`
-→ **no output**. ★ The final `grep -v` is load-bearing: without it the command returns the
-function's own definition line, which reads as a caller and inverts the answer.
+★★ **`deletedDocumentVersions` has exactly TWO production callers, and both are deliberate.**
+Reproduce:
+`grep -rn "deletedDocumentVersions(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -v "document-versions.ts"`
+→ **2** lines. ★ The final `grep -v` is load-bearing: without it the command also returns the
+function's own definition, which reads as an extra caller.
+
+- **`document-mutations.ts`** — the restore-idempotence guard **reuses** the derivation rather
+  than re-deriving "the newest version for this id" itself. ★★ That is a design decision, not an
+  incidental import: it makes it impossible for the guard and the list the user is looking at to
+  disagree. "Simplifying" it into its own walk re-opens exactly that gap.
+- **`documents-panel.tsx`** — the deleted-documents section calls it directly and adds **no
+  narrowing of its own**, so it inherits the derivation's rules instead of duplicating them.
+  ★★ That is why the pane needed no change when the `op === "delete"` filter landed, and why a
+  future change to the rules must be made in the derivation, never in the pane.
 
 ## The mutation engine (`document-mutations.ts`)
 
@@ -156,10 +204,14 @@ on the very next load while this module reported success.
 `documentVersions` is a top-level optional `Workspace` field carried by all six write paths.
 
 ★ **Do not try to enumerate them with a bare grep.**
-`grep -rln "documentVersions" src/app --include="*.ts" | grep -v "\.test\."` returns **11**
+`grep -rln "documentVersions" src/app --include="*.ts" | grep -v "\.test\."` returns **12**
 files, not 6 — the CSV and Markdown *decode* halves are separate files, and `id-mint-session.ts`,
-`use-storage-backend.ts` and `use-document-tools.ts` are consumers, not write paths. The table
-below is the authority; the grep is only a starting set to read through.
+`scale-workspace.ts`, `use-storage-backend.ts` and `use-document-tools.ts` are consumers, not
+write paths. The table below is the authority; the grep is only a starting set to read through.
+★★ That number is VOLATILE and has already rotted once: it was a true **11** when written, and
+became 12 when a comment mentioning `documentVersions` was added to `scale-workspace.ts` — a
+file whose author never touched this doc. **Re-run the command before quoting the number**; do
+not assume the count still matches just because the write-path table does.
 
 | path | file |
 |---|---|
