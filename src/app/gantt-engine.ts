@@ -261,8 +261,11 @@ export function savePrefs(p: GanttPrefs): void {
 const DAY_MS = 86_400_000;
 export const DAY_WIDTH_PX = 28; // ~one day per column
 export const ROW_HEIGHT_PX = 32;
-export const HEADER_ROW_HEIGHT_PX = 22; // each of the two header rows
-export const HEADER_HEIGHT_PX = HEADER_ROW_HEIGHT_PX * 2;
+export const HEADER_ROW_HEIGHT_PX = 22; // the month band
+/** The day band. Taller than the month band because it stacks the day-of-month
+ *  number over the short weekday. */
+export const DAY_ROW_HEIGHT_PX = 30;
+export const HEADER_HEIGHT_PX = HEADER_ROW_HEIGHT_PX + DAY_ROW_HEIGHT_PX;
 export const LEFT_GUTTER_PX = 240; // task-name column width (runtime default)
 export const GANTT_NAME_COL_MIN = 140;
 export const GANTT_NAME_COL_MAX = 560;
@@ -336,6 +339,21 @@ export function fmtMonth(d: Date, lang: Lang): string {
 
 export function fmtDay(d: Date): string {
   return String(d.getUTCDate());
+}
+
+/** Short weekday label for a day column ("Mon" / "Mo").
+ *
+ *  ★ `timeZone: "UTC"` is load-bearing: every date in this module is UTC-built
+ *  and read with `getUTCDay()`/`getUTCDate()`. Without the option the host zone
+ *  is used, so UTC midnight formats as the PREVIOUS day for any negative-offset
+ *  zone and the axis label disagrees with the bar placement.
+ *
+ *  Locale selection mirrors `fmtMonth`: en-GB collapses to en-US. */
+export function fmtWeekdayShort(d: Date, lang: Lang): string {
+  return d.toLocaleString(lang === "de" ? "de-DE" : "en-US", {
+    weekday: "short",
+    timeZone: "UTC",
+  });
 }
 
 /** YYYY-MM-DD (UTC) for a Date — pure, no mutation of the input. */

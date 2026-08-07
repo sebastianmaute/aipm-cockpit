@@ -2,9 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildGanttRows,
   clampNameColWidth,
+  DAY_ROW_HEIGHT_PX,
   DEFAULT_PREFS,
+  fmtWeekdayShort,
   GANTT_NAME_COL_MAX,
   GANTT_NAME_COL_MIN,
+  HEADER_HEIGHT_PX,
+  HEADER_ROW_HEIGHT_PX,
   LEFT_GUTTER_PX,
   loadPrefs,
   milestoneSlipDays,
@@ -222,5 +226,47 @@ describe("prefs v2 migration", () => {
       "open",
       "overdue",
     ]);
+  });
+});
+
+describe("fmtWeekdayShort", () => {
+  // 2026-08-07 is a Friday in UTC.
+  const friday = new Date(Date.UTC(2026, 7, 7));
+
+  it("formats the short weekday in English", () => {
+    expect(fmtWeekdayShort(friday, "en-US")).toBe("Fri");
+  });
+
+  it("treats en-GB as English, mirroring fmtMonth", () => {
+    expect(fmtWeekdayShort(friday, "en-GB")).toBe("Fri");
+  });
+
+  it("formats the short weekday in German", () => {
+    expect(fmtWeekdayShort(friday, "de")).toBe("Fr");
+  });
+
+  // ★ The guard that matters. Every date in this module is UTC-built and read
+  //   with getUTCDay(); formatting in the host zone shifts the label by a day
+  //   for any negative-offset zone. This assertion is only load-bearing when
+  //   the run's TZ is not UTC — see the TZ verification step below.
+  it("reads the date in UTC, not the host zone", () => {
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.UTC(2026, 7, 3 + i)); // Mon 3rd .. Sun 9th
+      const expected = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1];
+      expect(fmtWeekdayShort(d, "en-US")).toBe(expected);
+    }
+  });
+});
+
+describe("gantt header layout constants", () => {
+  it("gives the day row more height than the month row, for the two-line label", () => {
+    expect(DAY_ROW_HEIGHT_PX).toBeGreaterThan(HEADER_ROW_HEIGHT_PX);
+  });
+
+  // ★ HEADER_HEIGHT_PX used to be HEADER_ROW_HEIGHT_PX * 2. Once the rows differ
+  //   that product is wrong; this pins the sum so a future height edit to either
+  //   row cannot leave the total stale.
+  it("totals the two header rows exactly", () => {
+    expect(HEADER_HEIGHT_PX).toBe(HEADER_ROW_HEIGHT_PX + DAY_ROW_HEIGHT_PX);
   });
 });
