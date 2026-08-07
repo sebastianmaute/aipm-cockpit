@@ -224,37 +224,70 @@ describe("ops files — no unguarded backend access (source scan)", () => {
   const EXPECTED_WRITES = [
     // The choke point itself — the binder handed to useLoadTruncation, which
     // `flushCurrent` calls only after `mayCommitAfterTruncation()`.
-    "use-storage-backend.ts — backend",
+    "use-storage-backend.ts useStorageBackend — backend",
     // The debounced save effect, gated at the top of the same effect.
-    "use-storage-backend.ts — backend",
+    "use-storage-backend.ts emitStorageConfig — backend",
     // createProject — a workspace built from scratch, to a NEW backend.
-    "use-storage-file-ops.ts — targetBackend",
+    "use-storage-file-ops.ts createProject — targetBackend",
     // createDemoProject — the demo sample, likewise not the live workspace.
     // ★ NOT "a new backend" in the strict sense: BrowserBackend's stores are
     // module-level and unscoped, so this is a new INSTANCE over the SAME store.
     // Correctly ungated (the user asked for the demo), but do not reason about
     // it as isolated.
-    "use-storage-file-ops.ts — targetBackend",
+    "use-storage-file-ops.ts createDemoProject — targetBackend",
     // createTursoProject — a built workspace, to a brand-new project id.
     // ★ `migrateCurrentProjectToTurso` looks identical and is NOT here: it copies
     // the LIVE workspace, so it goes through `guardedWrite` and its `.save(` lives
     // in use-load-truncation.ts. That difference is the whole defect this catches.
-    "use-storage-turso-ops.ts — new TursoBackend(cfg, id)",
+    "use-storage-turso-ops.ts createTursoProject — new TursoBackend(cfg, id)",
   ];
 
+  // ★★★ THE CALLEE ALONE IS NOT AN IDENTITY, and an earlier header here claimed
+  // it was ("no offsetting change anywhere can hide it"). Two pairs COLLIDE on
+  // callee — `use-storage-backend.ts — backend` twice and
+  // `use-storage-file-ops.ts — targetBackend` twice — so a delete-plus-add
+  // within one file at the same callee leaves the sorted multiset UNCHANGED.
+  // Concretely: route `createDemoProject`'s write through `guardedWrite` while
+  // adding `await targetBackend.save(liveWs)` to `loadProjectFromFile`, and a
+  // new unguarded whole-workspace write ships on a green board.
+  //
+  // ★ Keyed on the ENCLOSING FUNCTION, not `file:line`. Line numbers are unique
+  // but churn on every unrelated edit above them, and a test that goes red for
+  // unrelated reasons gets its numbers bumped mechanically — which is how a real
+  // move slips through. The function name is stable AND unique here.
+  // ★ Function DECLARATIONS only. Including `const X =` picked up local
+  // variables (`pick`, `ws`), which are unique but read as if they were the
+  // handler — a key that misleads is worse than a coarse one. The two
+  // `use-storage-backend.ts` entries are approximations (their writes sit inside
+  // effects/closures, so the nearest declaration is whatever precedes); they are
+  // stable and distinct, which is all the identity has to be.
+  const enclosingFn = (lines: string[], i: number): string => {
+    for (let j = i; j >= 0; j--) {
+      const m = /^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)/.exec(lines[j]);
+      if (m) return m[1];
+    }
+    return "(top level)";
+  };
+
   it("every whole-workspace write is enumerated — no new one slips in unnoticed", () => {
-    const found = WRITE_FILES.flatMap((f) =>
-      readFileSync(f, "utf8")
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => !l.startsWith("//") && /\.save\(/.test(l))
-        .map((l) => {
-          const callee = /([A-Za-z0-9_$]+(?:\([^)]*\))?|new\s+[A-Za-z0-9_$]+\([^)]*\))\.save\(/.exec(l);
-          return `${f.split("/").pop()} — ${callee?.[1] ?? "UNPARSED"}`;
-        }),
-    );
+    const found = WRITE_FILES.flatMap((f) => {
+      const lines = readFileSync(f, "utf8").split("\n");
+      return lines.flatMap((raw, i) => {
+        const line = raw.trim();
+        // ★ Skips `//` AND block-comment continuation lines (`*`). Without the
+        // second, a `.save(` named inside a doc comment counts as a write, and
+        // the tempting repair is to add it to the expected list — which then
+        // permanently allows a REAL write at that spot.
+        if (line.startsWith("//") || line.startsWith("*") || !/\.save\(/.test(line)) return [];
+        const callee = /([A-Za-z0-9_$]+(?:\([^)]*\))?|new\s+[A-Za-z0-9_$]+\([^)]*\))\.save\(/.exec(line);
+        return [`${f.split("/").pop()} ${enclosingFn(lines, i)} — ${callee?.[1] ?? "UNPARSED"}`];
+      });
+    });
     expect(found).toHaveLength(EXPECTED_WRITES.length); // control: the scan sees real writes
-    expect(found).not.toContain(expect.stringContaining("UNPARSED")); // the regex still understands every site
+    // ★ `toContainEqual`, NOT `toContain`: only the former runs asymmetric
+    // matchers. With `toContain` this compared a matcher OBJECT by strict
+    // equality and was vacuously true, so its own comment described nothing.
+    expect(found).not.toContainEqual(expect.stringContaining("UNPARSED"));
     expect([...found].sort()).toEqual([...EXPECTED_WRITES].sort());
   });
 });

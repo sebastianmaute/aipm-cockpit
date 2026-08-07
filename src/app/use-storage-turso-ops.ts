@@ -153,21 +153,26 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       deps.showToast("error", t(deps.langRef.current, "projectMigrateNoProject"));
       return;
     }
+    // ★★★ §102: DECLINE BEFORE `portfolioCreate`, not after it. That call inserts
+    // a live, non-archived row into the shared portfolio DB — an irreversible
+    // side effect — so refusing only at the write left a PHANTOM project named
+    // after the user's, sitting in their Turso list and opening empty forever,
+    // while the toast they saw said "nothing is overwritten". This is exactly the
+    // case `refuseWrite` exists for, and migrate was the one caller with such a
+    // side effect that did not use it.
+    if (deps.truncationOps.wouldRefuseWrite()) { deps.truncationOps.refuseWrite(); return; }
     // Flush the current file project before copying it.
     await flushOutgoing();
     const id = crypto.randomUUID();
     try {
       await portfolioCreate(cfg, meta, id);
-      // ★★★ §102: GUARDED, unlike `createTursoProject` above. That one writes a
-      // freshly-built workspace, so a truncated load is irrelevant to it; THIS
+      // ★★★ §102 BACKSTOP. Unlike `createTursoProject` above — which writes a
+      // freshly-built workspace, so a truncated load is irrelevant to it — THIS
       // one copies the LIVE workspace verbatim (see the note above the
-      // function), so on a truncated load it would write the SHORT copy, repoint
-      // the app at it, and reload — after which the Turso project loads cleanly
-      // (it is under the cap now), the flag is never re-raised, and the missing
-      // documents survive only in a file whose project is no longer in the
-      // visible list. Nothing would ever tell the user. This is the same
-      // "abandon the original" shape `guardedWrite` was written for, and it was
-      // the one instance of it the first sweep missed.
+      // function). Untruncated it would write the SHORT copy, repoint the app at
+      // it, and reload; after which the Turso project loads cleanly (it is under
+      // the cap now), the flag never re-raises, and the missing documents survive
+      // only in a file whose project has left the visible list.
       if (!(await deps.truncationOps.guardedWrite(new TursoBackend(cfg, id), ws))) return;
       // Make the migrated project the active Turso project and switch the
       // portfolio to Turso. The reload re-initialises the app in Turso mode.

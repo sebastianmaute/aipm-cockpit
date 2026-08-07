@@ -507,7 +507,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("project", project, setProject, canSend);
 
   async function onPickStorageFile() {
-    if (!mayCommitAfterTruncation()) { truncationOps.refuseWrite(); return; } // ★★★ §102: refuse BEFORE the picker — it creates the file and persists the handle on the ACTIVE backend, so a write-only guard stranded the app on an empty file. See `refuseWrite` (use-load-truncation.ts).
+    if (truncationOps.wouldRefuseWrite()) { truncationOps.refuseWrite(); return; } // ★★★ §102: refuse BEFORE the picker — it creates the file and persists the handle on the ACTIVE backend, so a write-only guard stranded the app on an empty file. See `refuseWrite` (use-load-truncation.ts).
     const promise = pickFileForBackend(backend);
     if (!promise) return;
     await promise;

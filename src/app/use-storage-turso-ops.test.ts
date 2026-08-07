@@ -38,6 +38,18 @@ vi.mock("./portfolio-mode", () => ({
   savePortfolioMode: vi.fn(),
 }));
 
+// ★ `migrateCurrentProjectToTurso` reaches the shared portfolio DB and the
+// settings writer before it ever touches a backend; both are mocked so the
+// refusal can be observed as an ABSENCE of those calls.
+import { createProject as portfolioCreate } from "./turso-portfolio";
+vi.mock("./turso-portfolio", () => ({
+  createProject: vi.fn(async () => {}),
+  archiveProject: vi.fn(async () => {}),
+  restoreProject: vi.fn(async () => {}),
+  hardDeleteProject: vi.fn(async () => {}),
+}));
+vi.mock("./use-settings", () => ({ writeSettings: vi.fn() }));
+
 import { logDiag } from "./diagnostics";
 vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
@@ -52,7 +64,7 @@ function makeDeps(overrides: Partial<TursoProjectOpsDeps> = {}): TursoProjectOps
     tursoConfigNow: () => ({ httpUrl: "https://db.example", authToken: "tok" }) as never,
     tursoProjectId: "p-1",
     setTursoProjectId: vi.fn(),
-    truncationOps: { reportFor: vi.fn(), flushCurrent: vi.fn(async () => {}), guardedWrite: vi.fn(async () => true), refuseWrite: vi.fn(), clearForFreshWorkspace: vi.fn() },
+    truncationOps: { reportFor: vi.fn(), flushCurrent: vi.fn(async () => {}), guardedWrite: vi.fn(async () => true), wouldRefuseWrite: vi.fn(() => false), refuseWrite: vi.fn(), clearForFreshWorkspace: vi.fn() },
     currentWorkspace: () => emptyWorkspace(),
     applyWorkspace: vi.fn(),
     suppressNextLoadRef: { current: false },
@@ -67,6 +79,8 @@ function makeDeps(overrides: Partial<TursoProjectOpsDeps> = {}): TursoProjectOps
  * `flushCurrent` writes through `saveCurrentWorkspace`, exactly as
  * `useStorageBackend` binds it.
  */
+const wsWithProject = () => ({ ...emptyWorkspace(), project: { id: "p-1", name: "Migratable", code: "MIG" } }) as never;
+
 function renderWithRealGuard(
   saveCurrentWorkspace: () => Promise<void>,
   overrides: Partial<TursoProjectOpsDeps> = {},
@@ -151,5 +165,53 @@ describe("useTursoProjectOps — §102 truncation", () => {
     // A skip is not a failure — it must not raise the flush-failed toast.
     expect(logDiag).not.toHaveBeenCalledWith("warn", "storage.switchFlushFailed", expect.anything());
     expect(logDiag).toHaveBeenCalledWith("warn", "storage.flushSkippedAfterTruncation", expect.anything());
+  });
+
+  // ★★★ THE KILL LINE FOR MIGRATE'S PRE-CHECK. Removing it left this whole file
+  // green: the census below only proves this FILE has one `.save(`, which says
+  // nothing about whether migrate calls `guardedWrite`, honours its return, or
+  // declines before its irreversible step. Without this test the §102 loss was
+  // one deleted line away, on a green board.
+  //
+  // The assertion is on `portfolioCreate` specifically, because that is the
+  // irreversible part: it inserts a live, non-archived row into the SHARED
+  // portfolio DB. Refusing after it leaves a phantom project named after the
+  // user's, opening empty forever, while the toast says "nothing is
+  // overwritten".
+  it("migrate declines BEFORE creating the portfolio row, leaving no phantom project", async () => {
+    const saveCurrent = vi.fn(async () => {});
+    tursoTruncation.current = { entries: 4, blocks: 0 };
+    // ★★★ `wsWithProject` IS LOAD-BEARING, not scenery. Without it the workspace
+    // has no `project` meta, migrate returns at its "no project" check BEFORE
+    // reaching either the guard or `portfolioCreate`, and this test passes
+    // identically with the guard DELETED. It did exactly that when first
+    // written — a vacuous test, in the commit that exists to add a kill line.
+    const { result } = renderWithRealGuard(saveCurrent, { currentWorkspace: wsWithProject });
+
+    // Raise the flag through a real load, then clear the call record.
+    await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
+    expect(result.current.guard.loadWasTruncated).toBe(true); // control: really raised
+    vi.mocked(portfolioCreate).mockClear();
+    saveMock.mockClear();
+
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+
+    expect(portfolioCreate).not.toHaveBeenCalled(); // no phantom row
+    expect(saveMock).not.toHaveBeenCalled();        // and nothing written
+  });
+
+  it("migrate proceeds normally when nothing is truncated", async () => {
+    // ★ The control. Without it, "not called" above is equally satisfied by a
+    // migrate that never works at all.
+    const saveCurrent = vi.fn(async () => {});
+    tursoTruncation.current = { entries: 0, blocks: 0 };
+    const { result } = renderWithRealGuard(saveCurrent, { currentWorkspace: wsWithProject });
+    vi.mocked(portfolioCreate).mockClear();
+    saveMock.mockClear();
+
+    await act(async () => { await result.current.ops.migrateCurrentProjectToTurso(); });
+
+    expect(portfolioCreate).toHaveBeenCalledTimes(1);
+    expect(saveMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -61,6 +61,13 @@ export interface TruncationOps {
    *  that empty workspace cleanly, LOWERED the flag, and resumed autosaving over
    *  it. Guarding a write is not the same as guarding an ACTION; when the action
    *  has side effects of its own, check first and call this. */
+  /** Would a write be refused right now? NON-MUTATING, unlike
+   *  `mayCommitAfterTruncation`, which SPENDS the one-shot bypass when it
+   *  answers. A caller that must decline before its own irreversible side effect
+   *  has to ask without consuming anything — otherwise merely *checking* burns
+   *  the authorisation the user just gave, and the write that follows is refused
+   *  for having asked. Pair it with {@link refuseWrite}. */
+  wouldRefuseWrite: () => boolean;
   refuseWrite: () => void;
   /** A workspace that did NOT come from a load is now live (create project,
    *  create demo, create Turso project) — so nothing about it is truncated.
@@ -274,6 +281,7 @@ export function useLoadTruncation(
       lastTruncationRef.current = null;
       setTruncation(null);
     },
+    wouldRefuseWrite: () => loadWasTruncated && !allowTruncatedSaveRef.current,
     refuseWrite: () => {
       const last = lastTruncationRef.current;
       logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}) });
