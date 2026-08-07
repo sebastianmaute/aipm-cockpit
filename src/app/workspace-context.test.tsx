@@ -5,6 +5,7 @@ import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
+import { __resetMintStateForTests } from "./id-mint-session";
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -515,6 +516,97 @@ describe("WorkspaceProvider", () => {
       act(() => result.current.filters.setAssigneeFilter("Ext Ernal"));
 
       expect(result.current.ws.effectiveFilters.assignee).toBe("All");
+    });
+  });
+
+  // `mutateDocuments` is the single entry point both the Documents pane and the
+  // AI tools write through, and the whole point of routing them through ONE
+  // callback is that the before-image snapshot and the document write cannot
+  // come apart. These two tests pin the two ways they could.
+  describe("mutateDocuments", () => {
+    beforeEach(() => {
+      // Ids are session-global and monotonic, so without this a later test in
+      // this file would see ids carried over from an earlier one.
+      __resetMintStateForTests();
+    });
+
+    // Mutation-proved: moving the version append into the `setDocuments`
+    // functional updater makes this go red with 2 versions.
+    // ★★★ STRICTMODE IS REQUIRED HERE, BUT ITS SHAPE IS NOT — and the second
+    // half is the surprise, so do not "harden" this into the mount-commit rule.
+    // Measured against the double-appending implementation, all three ways:
+    // `reactStrictMode: true` RED (2), a wrapper-nested `<StrictMode>` also RED
+    // (2), no StrictMode at all GREEN (1). The placement/mount-commit rule in
+    // src/app/strictmode.meta.test.tsx governs EFFECT double-invocation; what
+    // catches this defect is the double-invocation of a state UPDATER during
+    // render, which applies to any component under StrictMode on any commit —
+    // so the vacuity trap that rule warns about cannot bite this test.
+    // `reactStrictMode: true` is kept anyway: it is the shape that is correct
+    // for both mechanisms, so a future assertion here about effects is safe.
+    test("writes exactly one version per mutation under StrictMode", () => {
+      const { result } = renderHook(() => useWorkspace(), { wrapper, reactStrictMode: true });
+
+      let docId = 0;
+      act(() => {
+        docId = result.current.mutateDocuments({ kind: "create", title: "A" }, "user").documentId ?? 0;
+      });
+      // A create replaces nothing, so it snapshots nothing.
+      expect(result.current.documentVersions).toEqual([]);
+
+      act(() => {
+        result.current.mutateDocuments({ kind: "rename", id: docId, title: "B" }, "user");
+      });
+
+      expect(result.current.documents.map((d) => d.title)).toEqual(["B"]);
+      expect(result.current.documentVersions).toHaveLength(1);
+      // The version is the BEFORE-image, so it carries the pre-rename title.
+      expect(result.current.documentVersions[0].title).toBe("A");
+      expect(result.current.documentVersions[0].op).toBe("rename");
+      expect(result.current.documentVersions[0].source).toBe("user");
+    });
+
+    // React has not re-rendered when the second call runs, so a callback that
+    // read state instead of the refs it just wrote would snapshot the same
+    // stale before-image twice AND build its version list from one missing the
+    // first mutation's entry — dropping it outright.
+    // Mutation-proved: deleting the two ref writes from the callback (leaving
+    // the mirroring effects as the only writers) makes this go red with ["A"].
+    // ★ NOT proved by moving those writes to after the two setters — the
+    // setters are batched, so that swap leaves the test green. Ordering within
+    // the callback is not what this pins; writing the refs at all is.
+    test("snapshots the CURRENT document on a second mutation in the same tick", () => {
+      const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+      let docId = 0;
+      act(() => {
+        docId = result.current.mutateDocuments({ kind: "create", title: "A" }, "user").documentId ?? 0;
+      });
+
+      act(() => {
+        result.current.mutateDocuments({ kind: "rename", id: docId, title: "B" }, "user");
+        result.current.mutateDocuments({ kind: "rename", id: docId, title: "C" }, "user");
+      });
+
+      expect(result.current.documents.map((d) => d.title)).toEqual(["C"]);
+      expect(result.current.documentVersions.map((v) => v.title)).toEqual(["A", "B"]);
+    });
+
+    // A refused mutation must leave both slices alone — including their array
+    // identities, which the Turso/IndexedDB dirty checks read.
+    test("a rejected mutation writes neither slice", () => {
+      const { result } = renderHook(() => useWorkspace(), { wrapper });
+
+      const before = result.current.documents;
+      let rejected: readonly string[] = [];
+      act(() => {
+        const res = result.current.mutateDocuments({ kind: "rename", id: 999, title: "X" }, "ai");
+        rejected = res.rejected;
+        expect(res.changed).toBe(false);
+      });
+
+      expect(rejected).toEqual(["document #999 not found"]);
+      expect(result.current.documents).toBe(before);
+      expect(result.current.documentVersions).toEqual([]);
     });
   });
 });
