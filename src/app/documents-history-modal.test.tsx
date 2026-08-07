@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { DocumentsHistoryModal } from "./documents-history-modal";
 import type { DocVersion, DocVersionOp } from "./document-versions";
 import type { DocBlock, ProjectDocument } from "./document-model";
+import { emptyWorkspace, type Workspace } from "./workspace";
 
 const PARAGRAPH: DocBlock = { type: "paragraph", html: "<p>Hello preview</p>" };
 const HEADING: DocBlock = { type: "heading", level: 2, text: "Section A" };
@@ -355,5 +356,87 @@ describe("DocumentsHistoryModal", () => {
     const rows = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(rows[0]).not.toHaveTextContent("You");
     expect(rows[1]).not.toHaveTextContent("Assistant");
+  });
+});
+
+// ★★★ `dataSection` IS THE ONE BLOCK TYPE THAT READS THE WORKSPACE, AND ITS
+// ABSENCE IS SILENT. `ws` is optional here and falls back to `emptyWorkspace()`,
+// against which `resolveDataSection` returns null and the renderer emits the
+// empty string — so the section vanishes with no throw, no broken markup and no
+// layout change. Every other case in this file passes with `ws` dropped, which
+// is exactly why this pair asserts the RESOLVED SECTION'S OWN CONTENT rather
+// than that the panel has some text in it.
+//
+// ★★ These two pin the COMPONENT'S CONTRACT in both directions, directly. That
+// the PANE actually hands it a workspace is a different claim and is pinned
+// end-to-end in `documents-panel.test.tsx` ("the history modal's Preview") —
+// neither file can stand in for the other: this one renders the modal itself
+// and so can never observe a missing `ws={ws}` on the mount, and that one
+// cannot exercise the no-workspace branch at all, because the pane always has
+// one to pass.
+describe("DocumentsHistoryModal — a version's dataSection in the Preview", () => {
+  /** ★ Deliberately level 3, so `h2` inside the panel belongs to the data
+   *  section ALONE. With a level-2 control the section's own `<h2>` title could
+   *  only be checked by filtering a list of headings, and the negative case's
+   *  "no section heading" would stop being a plain `querySelector(...)` null. */
+  const CONTROL_HEADING: DocBlock = { type: "heading", level: 3, text: "Control heading" };
+  const MILESTONES: DocBlock = { type: "dataSection", key: "milestones" };
+
+  /** ★ `milestones` gates on `items.length > 0` in the export registry, so a
+   *  single row is the whole requirement — and the name is a real
+   *  `MILESTONES_CSV_COLUMNS` column, so it reaches a `<td>` verbatim. */
+  const wsWithMilestone: Workspace = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 7, name: "Charter countersigned", date: "2026-09-01", linkedTaskIds: [] }],
+  };
+
+  /** ONE version for both cases: a heading the renderer resolves with no
+   *  workspace whatsoever, followed by the section that needs one. The heading
+   *  is the positive observable the negative case needs — without it, "the
+   *  milestone is absent" is indistinguishable from "the Preview never opened",
+   *  which is the state this exact fixture would otherwise be asserting. */
+  const version: DocVersion = { ...VERSIONS[0], id: 40, blocks: [CONTROL_HEADING, MILESTONES] };
+
+  /** `ws: undefined` is precisely the unwired mount: the prop is optional, so
+   *  omitting it and passing `undefined` both land on the component's own
+   *  `ws ?? emptyWorkspace()` fallback. */
+  async function openPreview(ws?: Workspace): Promise<HTMLElement> {
+    const user = userEvent.setup();
+    renderModal({ versions: [version], ws });
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+    const panel = document.getElementById("documents-history-preview-40");
+    expect(panel).not.toBeNull();
+    return panel as HTMLElement;
+  }
+
+  it("resolves the section against the workspace it is given", async () => {
+    const panel = await openPreview(wsWithMilestone);
+
+    // The control block rendered, so the disclosure really did open.
+    expect(panel.textContent).toContain("Control heading");
+
+    // The section resolved through the real export registry: its own title, a
+    // real table, and the milestone's own name in a cell. Exact equality on
+    // both — "Milestones" as a substring would also match a heading that merely
+    // mentioned it, and the point here is that this IS the section's title.
+    expect(panel.querySelector("h2")?.textContent).toBe("Milestones");
+    expect(panel.querySelector("table")).not.toBeNull();
+    const cells = [...panel.querySelectorAll("td")].map((c) => c.textContent);
+    expect(cells).toContain("Charter countersigned");
+  });
+
+  it("renders the section as nothing when it is given no workspace", async () => {
+    const panel = await openPreview();
+
+    // ★★ THE POSITIVE OBSERVABLE, and the reason the three negatives below are
+    // not vacuous: the same version's heading DID render, so the Preview opened
+    // and the renderer ran. Only the workspace-dependent block is missing.
+    expect(panel.textContent).toContain("Control heading");
+
+    expect(panel.textContent).not.toContain("Charter countersigned");
+    expect(panel.querySelector("table")).toBeNull();
+    // Not a bare heading over an empty table either — the section is absent
+    // whole, which is what makes the failure invisible in the running app.
+    expect(panel.querySelector("h2")).toBeNull();
   });
 });
