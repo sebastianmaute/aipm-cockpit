@@ -373,6 +373,33 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           but have nothing to do with guides — the guides extraction surfaced
           the mis-grouping rather than carrying it along. */}
       <div className="mt-4 border-t border-line pt-4">
+        {/* ★★ Ground-in-guides is DELIBERATELY rendered here AND in
+            ai-guides-section.tsx. The guides section is only reachable from the
+            settings rail, but THREE surfaces mount AiSection outside it —
+            settings-menu.tsx, backend-setup-wizard.tsx's AI step and
+            project-empty-state.tsx — and none of them has any other route to
+            this setting. It silently vanished from all three when the guides
+            block was extracted (0.222.0), because nothing pinned it.
+            Duplication is safe rather than merely tolerable: settings-view
+            mounts exactly ONE `active` section, so the two copies are never in
+            the DOM together (no duplicate-accessible-name collision), and both
+            bind the same `settings.ai.groundInGuides` through the same
+            `onChange`, so they cannot drift. Keep BOTH copies pinned by a
+            test — deleting either one is invisible otherwise. */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "aiGroundInGuides")}
+            checked={settings.ai.groundInGuides}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: { ...settings.ai, groundInGuides: !settings.ai.groundInGuides },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">{t(lang, "aiGroundInGuides")}</span>
+        </label>
+
         {/* Action Center AI suggestions toggle (default ON; undefined = on) */}
         <label className="mt-3 flex items-center gap-2">
           <Checkbox

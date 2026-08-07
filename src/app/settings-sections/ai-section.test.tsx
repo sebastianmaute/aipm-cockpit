@@ -110,6 +110,45 @@ describe("AiSection", () => {
     expect(screen.queryByTestId("ai-usage-panel")).not.toBeInTheDocument();
   });
 
+  // --- ground-in-guides toggle ---
+  //
+  // ★★ This control ALSO lives in ai-guides-section.tsx, and these two cases
+  // are the only thing standing between that duplication and a silent loss.
+  // The toggle disappeared from AiSection entirely when the guides block was
+  // extracted, and every suite stayed green — settings-menu.tsx, the setup
+  // wizard's AI step and project-empty-state.tsx all mount AiSection and have
+  // no other route to this setting. Do not delete these because
+  // ai-guides-section.test.tsx "already covers it"; it covers the OTHER copy.
+
+  it("renders the labelled ground-in-guides toggle once AI is enabled", () => {
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    const toggle = screen.getByLabelText(t("en-US", "aiGroundInGuides"));
+    expect(toggle).toBeInTheDocument();
+    // defaultAiConfig.groundInGuides is true, so the control must reflect that
+    // rather than merely existing.
+    expect(toggle).toBeChecked();
+  });
+
+  it("toggling ground-in-guides calls onChange with the flag flipped", () => {
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, groundInGuides: true } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiGroundInGuides")));
+    expect(onChange.mock.calls.at(-1)?.[0].ai.groundInGuides).toBe(false);
+  });
+
+  it("hides the ground-in-guides toggle while the AI master switch is off", () => {
+    // It sits inside the `settings.ai.enabled === true` fragment; a copy placed
+    // outside it would leak a guides setting onto a collapsed AI panel.
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={vi.fn()} />);
+    expect(screen.queryByLabelText(t("en-US", "aiGroundInGuides"))).toBeNull();
+  });
+
   it("action suggestions toggle is checked by default (undefined = on)", () => {
     const settingsDefaultOn = {
       ...defaultSettings,
