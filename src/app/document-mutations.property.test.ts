@@ -47,8 +47,17 @@ const blockArb: fc.Arbitrary<DocBlock> = fc.oneof(
  *  back to `append` — the one op that is always valid. */
 type OpKind = "append" | "insert" | "replace" | "delete" | "replaceAll";
 
+/** ★★★ THE OP'S BLOCK MUST BE UNREACHABLE BY `blockArb`, or the positional
+ *  assertion below decides nothing. It used to be `{type:"pageBreak"}` — the
+ *  arbitrary emits those too, so inserting one into a run of them produces the
+ *  same array whichever index it landed at, and `splice(0, 0, block)` reads as
+ *  correct. `bullets` is the cheapest provably-disjoint shape: `blockArb`
+ *  generates heading / paragraph / pageBreak and nothing else, so no generated
+ *  block can equal this one, whatever its text. */
+const MARK: DocBlock = { type: "bullets", items: ["MARK"] };
+
 function validOp(kind: OpKind, blockCount: number, rawIndex: number): DocOp {
-  const block: DocBlock = { type: "pageBreak" };
+  const block: DocBlock = MARK;
   if (kind === "replaceAll") return { op: "replaceAll", blocks: [block] };
   if (kind === "append") return { op: "append", block };
   if (kind === "insert") return { op: "insert", index: rawIndex % (blockCount + 1), block };
@@ -117,17 +126,29 @@ describe("mutate then restore returns the prior document state", () => {
           // GREEN. Only making `insert` throw turned it red, which proves the
           // generated ops are reached but says nothing about their effect.
           //
-          // So assert the FORWARD effect too. Block count is the cheapest
-          // observable that separates the five ops from each other, and it is
-          // what every one of those corruptions changes.
+          // So assert the FORWARD effect too.
+          //
+          // ★★★ AND ASSERT IT AS AN ARRAY, NOT A COUNT. This used to compare
+          // `toHaveLength(expected)`, and cardinality cannot separate "inserted
+          // at index N" from "inserted at index 0" — measured, BOTH
+          // `next.splice(op.index, 0, op.block)` → `splice(0, 0, …)` and
+          // `next.splice(op.index, 1)` → `splice(0, 1)` shipped green across
+          // every document test file in the repo, because this was the only
+          // property covering them and every in-range example fixture used
+          // index 0. Building the expected array here pins the POSITION, which
+          // is what `applyOps` is for: it is the AI's `update_document` write
+          // path, the model addresses blocks positionally, and a misapplied
+          // index corrupts the document while the before-image records the
+          // corruption as a legitimate edit.
           if (kind === "ops") {
             const op = validOp(opKind, blocks.length, rawIndex);
-            const expected =
-              op.op === "replaceAll" ? 1
-              : op.op === "delete" ? blocks.length - 1
-              : op.op === "replace" ? blocks.length
-              : blocks.length + 1;
-            expect(after.documents[0].blocks).toHaveLength(expected);
+            const expected = [...blocks];
+            if (op.op === "replaceAll") expected.splice(0, expected.length, ...op.blocks);
+            else if (op.op === "append") expected.push(op.block);
+            else if (op.op === "insert") expected.splice(op.index, 0, op.block);
+            else if (op.op === "replace") expected[op.index] = op.block;
+            else expected.splice(op.index, 1);
+            expect(after.documents[0].blocks).toEqual(expected);
           }
 
           // `before.versions` started empty and exactly one mutation ran, so
