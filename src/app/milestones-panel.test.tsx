@@ -402,9 +402,12 @@ describe("Milestones bulk edit", () => {
 });
 
 describe("achieved toggle", () => {
-  // ★★ Two milestones in the first test, not one. A single-row fixture cannot
-  //    tell a row-unique name from a generic one — that is precisely the WCAG
-  //    2.4.6 case the axe gate also passes when the e2e seed renders one row.
+  // ★★ Two milestones in the first test, not one — but NOT because a generic
+  //    label would be ambiguous: `getByRole` with a STRING name is an exact
+  //    full-name match, so a generic `aria-label="Achieved"` already fails at
+  //    one row. What the second row buys is killing a HARDCODED suffix — an
+  //    `aria-label={`${t(lang,"milestoneAchieved")} – Kickoff`}` baked into the
+  //    cell passes a one-row fixture and fails here on "Go live".
   it("renders a toggle button with a row-unique name", () => {
     renderMilestones({
       milestones: [
@@ -434,5 +437,19 @@ describe("achieved toggle", () => {
     const name = `${t("en-US", "milestoneAchieved")} – Kickoff`;
     fireEvent.click(screen.getByRole("button", { name }));
     expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  // ★★ The other direction. Without this, `toggleAchieved` (milestones-panel.tsx)
+  //    setting `achievedDate: today` UNCONDITIONALLY — i.e. dropping the
+  //    `x.achievedDate ? undefined :` branch — survives the whole suite, so
+  //    "un-achieve a milestone" could be entirely broken and the gate green.
+  it("flips back to unpressed when an achieved milestone is clicked", () => {
+    renderMilestones({
+      milestones: [m("Go live", "2026-06-30", { achievedDate: "2026-06-28" })],
+    });
+    const name = `${t("en-US", "milestoneAchieved")} – Go live`;
+    expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name }));
+    expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
   });
 });

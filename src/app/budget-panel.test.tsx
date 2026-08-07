@@ -5,6 +5,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
+import { expectSecondaryButton } from "../test/button-variant";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -813,17 +814,39 @@ test("bucket actions render as bordered secondary buttons", () => {
   render(<BudgetPanel {...props} />);
   for (const key of ["budgetEditBucket", "budgetClose", "budgetRemoveBucket"] as const) {
     const btn = screen.getByRole("button", { name: t("en-US", key) });
-    // ★★ WORD-BOUNDED, never `toContain`. Every variant in `button.tsx` — ghost
-    //    included — ends in `hover:bg-surface-muted`, which CONTAINS the
-    //    substring `bg-surface`, so `toContain("bg-surface")` passes against
-    //    the very markup this test exists to reject. Same shape for the border.
-    expect(btn.className).toMatch(/(^|\s)border-line(\s|$)/);
-    expect(btn.className).toMatch(/(^|\s)bg-surface(\s|$)/);
-    // ★ These two positives are what separate `secondary` from `ghost` (ghost
-    //   carries neither as a standalone class). The negative below separates it
-    //   from the pre-0.221.0 hand-rolled markup, which was
-    //   `border border-transparent` + a hover-only `hover:border-ui-dark-blue` —
-    //   so a revert to EITHER shape fails here.
+    // ★★ Word-bounded, never `toContain` — see `src/test/button-variant.ts` for
+    //    why the substring form is vacuous. NOT because "every variant ends in
+    //    `hover:bg-surface-muted`" (an earlier revision of this comment claimed
+    //    that and it is false — `primary` ends in `hover:opacity-90`,
+    //    `destructive` in `dark:border-ui-pink/50`). Only `secondary` and
+    //    `ghost` carry that hover class, which is enough: `ghost` is precisely
+    //    what this test rejects, so the substring check would pass against it.
+    // ★ `border-line` is the discriminating check — it kills BOTH a flip to
+    //   `ghost` and a flip to `destructive` (which carries its own standalone
+    //   `bg-surface`, so the `bg-surface` half does no work against that one).
+    expectSecondaryButton(btn);
+    // ★ Separately kills a revert to the pre-0.221.0 hand-rolled markup, which
+    //   was `border border-transparent` + a hover-only `hover:border-ui-dark-blue`.
+    //   Verified against the removed classes, so it is falsifiable rather than
+    //   decorative — but it is site-specific, which is why it is not in the
+    //   shared helper (the FX button below had DIFFERENT old markup).
     expect(btn.className).not.toContain("border-transparent");
   }
+});
+
+test("the FX refresh control renders as a bordered secondary button", () => {
+  render(<BudgetPanel {...props} />);
+  // Accessible name comes from the label text — the ArrowPathIcon beside it is
+  // `aria-hidden`, so it contributes nothing.
+  const btn = screen.getByRole("button", { name: t("en-US", "budgetFxRefresh") });
+  expectSecondaryButton(btn);
+  // ★ This site's old markup was `border border-ui-dark-blue bg-surface …
+  //   text-ui-dark-blue`, NOT the bucket actions' `border-transparent` — so
+  //   copying their negative here would be UNFALSIFIABLE (the removed markup
+  //   never contained that class). The two checks that actually discriminate
+  //   against the revert are the helper's `border-line` and the accent negative
+  //   below; note the helper's `bg-surface` half does NOT, because the old
+  //   hand-rolled classes carried a standalone `bg-surface` too.
+  expect(btn.className).not.toContain("border-ui-dark-blue");
+  expect(btn.className).not.toContain("text-ui-dark-blue");
 });

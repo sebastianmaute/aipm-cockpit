@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { InsightsCard } from "./insights-card";
 import { densityClasses } from "../dashboard-density";
 import { insightTitle } from "../insights/insight-text";
+import { expectSecondaryButton } from "../../test/button-variant";
 import type { Insight, InsightStatus } from "../insights/insight";
 
 const dc = densityClasses("comfortable");
@@ -290,5 +291,42 @@ describe("InsightsCard", () => {
       expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
       expect(screen.queryByText("AI suggests: Reassign the overdue task")).not.toBeInTheDocument();
     });
+  });
+
+  // ★★ Pins the ghost→secondary conversion of THIS file's four row-action
+  //    Buttons. Without it, reverting `insights-card.tsx` to `variant="ghost"`
+  //    left the whole suite green: the only CALL-SITE variant assertion was in
+  //    `insights-panel.test.tsx`, over a different component. (`button.test.tsx`
+  //    asserts the variants too, but on the primitive — it pins what each
+  //    variant EMITS, never which variant a given call site asks for.)
+  //    Killing mutation: flip any one of the four `variant="secondary"` props in
+  //    `insights-card.tsx` back to `variant="ghost"`.
+  // ★ `expectSecondaryButton` is word-bounded because the obvious
+  //   `toContain("bg-surface")` form matches ghost's `hover:bg-surface-muted`
+  //   and passes against the exact markup it exists to reject. See
+  //   `src/test/button-variant.ts`.
+  it("renders its row actions as bordered secondary buttons, not ghost", () => {
+    const insight = makeInsight({ id: 8 });
+    const title = insightTitle(insight, "en-US");
+    render(
+      <InsightsCard
+        insights={[insight]}
+        lang="en-US"
+        dc={dc}
+        onOpen={vi.fn()}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
+      />,
+    );
+    // Open needs `entityRef` (the fixture default) AND `onOpen`; Acknowledge
+    // needs status "active" (also the default) — so all four render together.
+    for (const name of ["Open", "Acknowledge", "Act", "Dismiss"]) {
+      expectSecondaryButton(screen.getByRole("button", { name: `${name} – ${title}` }));
+    }
+    // Ghost's defining trait. Redundant with the helper's positives, but names
+    // the failure mode explicitly.
+    expect(screen.getByRole("button", { name: `Act – ${title}` }).className).not.toContain("bg-transparent");
   });
 });

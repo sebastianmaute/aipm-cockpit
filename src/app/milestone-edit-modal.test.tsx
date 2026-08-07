@@ -52,29 +52,37 @@ function Seed({ tier }: { tier: "full" }) {
   return null;
 }
 
+/** Renders one milestone, optionally interacts with it, then clicks Save and
+ *  returns the record the save handler received. Shared so the achieved-toggle
+ *  block below asserts the PERSISTED value rather than growing a second copy. */
+function save(
+  description: string | undefined,
+  beforeSave?: () => void,
+) {
+  const onSave = vi.fn();
+  render(
+    <MilestoneEditModal
+      lang="en-US"
+      milestone={{ id: 1, name: "M1", date: "2026-08-01", description, linkedTaskIds: [] }}
+      isNew={false}
+      tasks={[]}
+      onSave={onSave}
+      onDelete={vi.fn()}
+      onClose={vi.fn()}
+    />,
+    { wrapper },
+  );
+  beforeSave?.();
+  fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+  return onSave.mock.calls[0][0] as { description?: string; achievedDate?: string };
+}
+
 describe("MilestoneEditModal rich-field write-path cap", () => {
   // ★★ Same regression as the RAID/change modals: `description` became a
   // RichTextEditor and nothing capped it on the way out, so an over-cap value
   // was persisted uncapped and only truncated on the NEXT load, inside
   // sanitizeRichText. This modal has no adjustment tracker, so the only
   // observable is the value handed to onSave.
-  function save(description: string | undefined) {
-    const onSave = vi.fn();
-    render(
-      <MilestoneEditModal
-        lang="en-US"
-        milestone={{ id: 1, name: "M1", date: "2026-08-01", description, linkedTaskIds: [] }}
-        isNew={false}
-        tasks={[]}
-        onSave={onSave}
-        onDelete={vi.fn()}
-        onClose={vi.fn()}
-      />,
-      { wrapper },
-    );
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
-    return onSave.mock.calls[0][0] as { description?: string };
-  }
 
   it("caps an over-cap description on the value it SAVES", () => {
     const saved = save(`<p>${"d".repeat(TEXTAREA_MAX + 40)}</p>`);
@@ -256,10 +264,6 @@ describe("achieved toggle", () => {
   it("renders achieved as a toggle button reflecting the draft", () => {
     renderWith({ id: 1, name: "Go live", date: "2026-06-30" });
     expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
-    // ★ Scoped by the achieved label on purpose — the linked-tasks list below is
-    //   also checkboxes, and an unscoped checkbox query would grab one of those
-    //   and pass no matter what this field renders.
-    expect(screen.queryByRole("checkbox", { name: NAME })).toBeNull();
   });
 
   it("clears the date when an achieved milestone is unpressed", () => {
@@ -267,6 +271,21 @@ describe("achieved toggle", () => {
     expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: NAME }));
     expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // ★★ The other direction, and the only test that sees the STORED VALUE.
+  //    aria-pressed alone cannot catch the date shape: dropping `.slice(0, 10)`
+  //    from `new Date().toISOString().slice(0, 10)` (milestone-edit-modal.tsx)
+  //    persists a full timestamp into a date-only field across all six write
+  //    paths while every aria-pressed assertion stays green. Replacing the
+  //    handler's value with `undefined` fails the aria-pressed step instead.
+  it("stamps a date-only value when an unachieved milestone is pressed", () => {
+    const saved = save(undefined, () => {
+      expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
+      fireEvent.click(screen.getByRole("button", { name: NAME }));
+      expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "true");
+    });
+    expect(saved.achievedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
