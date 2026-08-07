@@ -34,7 +34,15 @@ const VERSION: DocVersion = {
   ],
   savedAt: "2026-08-03T07:00:00.000Z",
   source: "ai",
-  op: "update",
+  // ★ "restored" ON PURPOSE, not "update". `sanitizeDocumentVersions` falls
+  // back to "update" for any op outside its OPS list, so an "update" fixture
+  // cannot tell a preserved op from a normalised one — it passes either way.
+  // "restored" is also the op that carries the most weight: it is the marker
+  // `deletedDocumentVersions` reads to distinguish "still deleted" from
+  // "already restored", so a backend that lost it would resurrect a phantom
+  // deleted document on that backend alone. Every assertion in this file
+  // (save, shared load, tenant-vs-single payload equality) now rides it.
+  op: "restored",
 };
 
 /** The stored JSON payload of the `documents` meta row, or undefined if none was

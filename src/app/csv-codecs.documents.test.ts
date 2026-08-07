@@ -25,6 +25,9 @@ import {
   documentVersionsToCsv,
   csvToDocumentVersions,
 } from "./csv-codecs";
+// Namespace import on purpose — the prefix-collision test below enumerates the
+// markers reflectively so a newly added one is covered without editing it.
+import * as SECTIONS from "./csv-codecs-sections";
 import { defaultExportConfig } from "./settings-types";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
@@ -285,5 +288,32 @@ describe("CSV codec — documentVersions", () => {
     expect(ws.documentVersions).toEqual([VERSION]);
     expect(ws.documents).toEqual([DOC]);
     expect(ws.tasks).toEqual([]);
+  });
+
+  // ★★ The GENERAL form of the test above. That one pins the one pair we
+  // happen to have thought of; this pins the property that makes the whole
+  // splitter safe, for every marker, including ones added after this was
+  // written. `splitCsvSections` dispatches with `startsWith`, so a marker that
+  // is a strict PREFIX of another is swallowed by whichever is checked first —
+  // and the symptom is a silently ABSENT slice, not an error.
+  // ★ Read reflectively from the module rather than from a hand-listed array:
+  // a literal list only ever asserts against itself, so a 27th marker added to
+  // csv-codecs-sections.ts would skip this check — which is the single case it
+  // exists to catch.
+  it("no CSV section marker is a prefix of another", () => {
+    const markers = Object.entries(SECTIONS)
+      .filter(([name, value]) => name.startsWith("CSV_SECTION_") && typeof value === "string")
+      .map(([name, value]) => ({ name, value: value as string }));
+    // Control: prove the reflective read actually found the markers. Without
+    // this an empty/renamed export makes the sweep below vacuously green.
+    expect(markers.length).toBeGreaterThan(20);
+    expect(markers.map((m) => m.name)).toContain("CSV_SECTION_DOCUMENT_VERSIONS");
+
+    const collisions = markers.flatMap((a) =>
+      markers
+        .filter((b) => b.name !== a.name && b.value.startsWith(a.value))
+        .map((b) => `${b.name} ("${b.value}") is swallowed by ${a.name} ("${a.value}")`),
+    );
+    expect(collisions).toEqual([]);
   });
 });

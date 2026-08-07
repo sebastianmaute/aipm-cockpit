@@ -169,6 +169,19 @@ function splitCsvSections(csv: string): {
   const documentVersionsLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
+    // ★★ ORDER IS LOAD-BEARING because these are `startsWith` tests, not
+    // equality tests: if one marker were a strict PREFIX of another, whichever
+    // is checked FIRST would swallow the other's section into its own buffer —
+    // silently, since the loser's lines simply land under the wrong mode and
+    // its slice decodes as absent. `# DOCUMENTS` / `# DOCUMENT VERSIONS` are
+    // the near miss (they diverge at index 10, "S" vs " "), and today NO marker
+    // is a prefix of any other. Do NOT rely on reading this chain to keep it
+    // that way — a rename to `# DOCUMENT` would reintroduce the hazard with no
+    // test failure from the outcome tests alone. The invariant is pinned in
+    // csv-codecs.documents.test.ts ("no section marker is a prefix of another"),
+    // which reads the marker list reflectively, so a NEW marker is covered
+    // without touching the test. Add a longer marker AFTER its shorter
+    // namesake, or make them non-overlapping.
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FXRATES)) { mode = "fxrates"; continue; }
     if (trimmed.startsWith(CSV_SECTION_RESOURCES)) { mode = "resources"; continue; }

@@ -220,7 +220,14 @@ describe("BrowserBackend parallel IDB save/load", () => {
       blocks: [{ type: "heading" as const, level: 2 as const, text: "Old" }],
       savedAt: "2026-08-02T08:00:00.000Z",
       source: "user" as const,
-      op: "rename" as const,
+      // ★ "restored" is the op worth pinning here: it is the marker
+      // `deletedDocumentVersions` reads to tell "still deleted" from "already
+      // restored", so an IDB round-trip that lost it would resurrect a phantom
+      // deleted document on this backend alone. ("rename" would also survive
+      // `sanitizeDocumentVersions`' normalise-to-"update" fallback, so this is
+      // a change of WHICH op is pinned, not a fix — the sibling delete-on-absent
+      // test below keeps "rename" because it never asserts the op at all.)
+      op: "restored" as const,
     };
     await new BrowserBackend().save({ ...emptyWorkspace(), documentVersions: [version] });
 
