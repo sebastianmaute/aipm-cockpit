@@ -117,9 +117,17 @@ describe("ResourceEditModal", () => {
     const onSave = vi.fn();
     setupFull({ onSave });
     fireEvent.click(screen.getByRole("button", { name: /add email/i }));
-    // ★ The per-row remove keeps IconButton's `danger` variant — the hand-rolled
-    // original already carried this exact hover recipe, and the conversion plan's
-    // stated `ghost` default would have silently dropped it.
+    // ★★ This assertion DISCRIMINATES — it fails on both the `ghost` default the
+    // conversion plan stated AND on the pre-change markup. The hand-rolled original
+    // did NOT carry this recipe: `git show f6e85d55:src/app/resource-edit-modal.tsx`
+    // shows `rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink`
+    // — `hover:text-ui-pink`, not `hover:text-ui-pink-strong`.
+    // ★ So the conversion CHANGED the hover token: `--ui-pink` (#c24a76) →
+    // `--ui-pink-strong` (#a53f64), darker and AA-safer. An improvement, but a real
+    // change, not a like-for-like port — four controls in this batch moved the same
+    // way (reproduce: `git diff f6e85d55..HEAD -- src/app | grep -E
+    // "^-.*hover:text-ui-pink\b" | grep -v pink-strong`). Do not describe any of them
+    // as "already carried this recipe".
     expect(screen.getByRole("button", { name: /remove email 1/i }).className).toMatch(
       /\bhover:text-ui-pink-strong\b/,
     );

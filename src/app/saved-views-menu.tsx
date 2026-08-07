@@ -117,8 +117,15 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
         </button>
       )}
 
+      {/* ★ `md`, not the `sm` default: this sits in one `items-center` row beside the
+          BTN_CLASS buttons (`border` + `py-1` + `text-sm`/20px line-height = 30px), and
+          it replaced a button that used BTN_CLASS itself. `sm` (`p-1` + a 16px icon +
+          `border` = 26px) shrank it below its neighbours; `md` (`p-1.5` → 30px) restores
+          the pre-change height exactly. Derived from the class recipes — jsdom has no
+          layout, so no unit test can see this. */}
       <IconButton
         variant="bordered"
+        size="md"
         label={t(lang, "savedViewsDelete")}
         title={t(lang, "savedViewsDelete")}
         disabled={!selectionValid}
