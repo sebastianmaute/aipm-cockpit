@@ -184,6 +184,26 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     listBudgetBuckets: vi.fn(() => {
       throw new Error("listBudgetBuckets not stubbed");
     }),
+    // The five document methods. Same "throw a named error" convention as the
+    // four above for the ones no test here drives; the routing tests below
+    // override the two they exercise. Their guards live in
+    // chat-tools-documents.test.ts — these exist so runTool's dispatcher type
+    // is satisfied and so the routing seam itself can be pinned.
+    listDocuments: vi.fn(() => {
+      throw new Error("listDocuments not stubbed");
+    }),
+    getDocument: vi.fn(() => {
+      throw new Error("getDocument not stubbed");
+    }),
+    createDocument: vi.fn(() => {
+      throw new Error("createDocument not stubbed");
+    }),
+    updateDocument: vi.fn(() => {
+      throw new Error("updateDocument not stubbed");
+    }),
+    deleteDocument: vi.fn(() => {
+      throw new Error("deleteDocument not stubbed");
+    }),
     ...over,
   };
 }
@@ -1013,5 +1033,47 @@ describe("document tool defs", () => {
       "dataSection",
       "pageBreak",
     ]);
+  });
+});
+
+// The routing SEAM only. The five tools' boundary guards are pinned in
+// chat-tools-documents.test.ts; what cannot be tested there is that runTool
+// reaches that module at all — the document names fall through runTool's switch
+// to its `default` arm, which used to throw `unknown tool` for anything it did
+// not recognise.
+describe("runTool — document tool routing", () => {
+  it("routes a document tool to the document module's dispatcher", async () => {
+    const listDocuments = vi.fn(() => [
+      { id: 1, title: "Status", blockCount: 2, updatedAt: "2026-08-01T08:00:00.000Z" },
+    ]);
+    const d = makeDispatcher({ listDocuments });
+    await expect(runTool(d, "list_documents", {})).resolves.toEqual([
+      { id: 1, title: "Status", blockCount: 2, updatedAt: "2026-08-01T08:00:00.000Z" },
+    ]);
+    expect(listDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★ The guard has to be reachable THROUGH runTool, not merely present in the
+  // module: routing that skipped it would still resolve this call, and a
+  // non-array ops would then read as "no ops" at the dispatcher.
+  it("applies the document module's guards on the way through", async () => {
+    const updateDocument = vi.fn(() => ({ id: 1, blockCount: 1, applied: 1, rejected: [], removed: 0 }));
+    const d = makeDispatcher({ updateDocument });
+
+    await expect(runTool(d, "update_document", { id: 1, ops: "wipe it" })).rejects.toThrow(/ops/i);
+    expect(updateDocument).not.toHaveBeenCalled();
+
+    // Paired positive: the same dispatcher IS reachable through runTool, so the
+    // absence assertion above is about the guard and not about dead routing.
+    await expect(
+      runTool(d, "update_document", { id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }),
+    ).resolves.toMatchObject({ applied: 1 });
+    expect(updateDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("still throws unknown tool for a name nothing routes", async () => {
+    await expect(runTool(makeDispatcher(), "burn_everything", {})).rejects.toThrow(
+      /unknown tool: burn_everything/,
+    );
   });
 });

@@ -22,6 +22,11 @@ import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+import {
+  isDocumentTool,
+  runDocumentTool,
+  type DocumentToolDispatcher,
+} from "./chat-tools-documents";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -333,7 +338,12 @@ export type ToolDispatcher = {
   listKnowledgeItems(): KnowledgeSummary[];
   listCalendarEvents(): CalendarEventSummary[];
   listBudgetBuckets(): BudgetBucketSummary[];
-};
+  // ★ The five document methods are INTERSECTED in rather than restated, so
+  // there is one declaration of each and the routing module (which owns the
+  // guards in front of them) cannot drift from this type. Their routing lives
+  // in chat-tools-documents.ts because this file sits close to the 800-line
+  // ratchet.
+} & DocumentToolDispatcher;
 
 function asString(v: unknown): string | undefined {
   return typeof v === "string" ? v : undefined;
@@ -743,6 +753,10 @@ export async function runTool(
     }
 
     default:
+      // Document tools route to their own module (which carries their boundary
+      // guards) BEFORE the unknown-tool throw, so an unrouted document name
+      // still surfaces as "unknown tool" rather than resolving silently.
+      if (isDocumentTool(name)) return runDocumentTool(d, name, input);
       throw new Error(`unknown tool: ${name}`);
   }
 }
