@@ -192,8 +192,13 @@ export function TruncatedLoadBanner({
             {t(lang, "storageSavingPausedAction")}
           </Button>
         }>
+        {/* ★ The COUNT, not a second "Saving paused" — the region is already
+            labelled that and the button says it again, so repeating it a third
+            time spent the one line a classic user gets on nothing. Verified in a
+            browser; the duplication is invisible to jsdom. Falls back to the
+            status text only when the counts are unknown. */}
         <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-          {t(lang, "storageSavingPaused")}
+          {countText ?? t(lang, "storageSavingPaused")}
         </p>
       </AlertBanner>
     );

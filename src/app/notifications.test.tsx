@@ -267,6 +267,10 @@ describe("TruncatedLoadBanner", () => {
 
     // Not the full banner — dismissing must still quieten it.
     expect(screen.queryByRole("button", { name: "Save anyway" })).toBeNull();
+    // ★ It carries the COUNT, not a third repetition of "Saving paused" (the
+    // region is labelled that and the button says it too). Caught by looking at
+    // it in a browser — jsdom cannot see that a line was wasted.
+    expect(screen.getByText(/5 document entries could not be opened/i)).toBeInTheDocument();
     // But the door back is present, and clicking it re-opens rather than saving.
     fireEvent.click(screen.getByRole("button", { name: /show how to resolve/i }));
     expect(onReopen).toHaveBeenCalledTimes(1);
