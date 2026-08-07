@@ -66,8 +66,30 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
         // contract and cannot strip markup, so a <script> the model wrote
         // would otherwise reach storage verbatim. Applied to the model's
         // INPUT here, before it ever reaches mutateDocuments.
+        const cleanBlocks = sanitizeAiDocBlocks(blocks);
+        // ★★★ A DROPPED BLOCK MUST NOT BE SILENT, and create has NO channel to
+        // say so: its result is `{id, title, blockCount}` (chat-tools-
+        // documents.ts's DocumentToolDispatcher) with no `rejected` field, so a
+        // shorter array after sanitizing simply produced a document missing a
+        // section while the tool resolved and the model told the user it had
+        // written the whole thing. Chat tool writes take no undo capture, so
+        // "reported success, content gone" is the one outcome this path must
+        // not have. THROW BEFORE THE WRITE instead: nothing is created, no
+        // version row is minted, and the model gets a reason it can retry
+        // against — the same shape as create_document's own "title is required"
+        // refusal one layer up. Refusing the whole create is the right trade
+        // here and NOT in updateDocument's replaceAll arm below, because every
+        // block of a create is model-authored in this same call (there is no
+        // pre-existing content to preserve by applying the survivors).
+        const sentBlocks = Array.isArray(blocks) ? blocks.length : 0;
+        const droppedBlocks = sentBlocks - cleanBlocks.length;
+        if (droppedBlocks > 0) {
+          throw new Error(
+            `${droppedBlocks} of ${sentBlocks} block(s) failed the model-input allow-list; no document was created`,
+          );
+        }
         const result = mutateDocuments(
-          { kind: "create", title, blocks: sanitizeAiDocBlocks(blocks) },
+          { kind: "create", title, blocks: cleanBlocks },
           "ai",
         );
         documentsRef.current = result.documents;
@@ -103,11 +125,78 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
         // silently dropped only on the next load (sanitizeProjectDocuments
         // rejects it then, too late). Collecting a rejection here instead
         // means the op never reaches mutateDocuments at all.
+        //
+        // ★★ THE SECOND OF THOSE TWO REASONS NEEDS A WRAPPED PAYLOAD TO
+        // REPRODUCE, and a test written the obvious way never reaches the
+        // branch it claims to cover. A BARE "<script>alert(1)</script>" does
+        // not start with a tag in rich-text-plain.ts's HTML_START set, so
+        // layer 1 treats it as PLAIN TEXT and ESCAPES it — the block is safe,
+        // non-empty, and SURVIVES. "<p><script>alert(1)</script></p>" starts
+        // with <p>, so DOMPurify sees real markup and strips the tag AND its
+        // content, leaving "<p></p>", which the next sanitizeRichText pass's
+        // empty rule collapses to "" — and an empty paragraph then fails
+        // document-model.ts's structural check. That is the input that
+        // actually gets dropped.
         const selfRejected: string[] = [];
         const cleanOps: DocOp[] = [];
         ops.forEach((op, i) => {
           if (op.op === "replaceAll") {
-            cleanOps.push({ ...op, blocks: sanitizeAiDocBlocks(op.blocks) });
+            // ★★★ A NON-ARRAY `blocks` MUST NOT BECOME AN EMPTY ONE.
+            // applyOps has its own `replaceAll requires a blocks array` guard,
+            // but it CANNOT fire on this path: sanitizeAiDocBlocks always
+            // hands it an array, so a `{op:"replaceAll"}` with no blocks
+            // arrived as a well-formed "replace everything with nothing" and
+            // wiped the document. chat-tools-documents.ts's requirePayload
+            // refuses that at the TOOL boundary, so the model cannot reach it
+            // today — this closes the same door for a direct dispatcher
+            // caller, which is the only reason the engine's guard exists.
+            if (!Array.isArray(op.blocks)) {
+              selfRejected.push(`op ${i}: replaceAll requires a blocks array`);
+              return;
+            }
+            // ★★★ THE SAME RULE AS THE SINGLE-BLOCK ARM BELOW, one container
+            // deeper — and this arm did not have it. sanitizeAiDocBlocks
+            // returns a SHORTER array when it drops blocks, nothing compared
+            // the lengths, so a 4-block replaceAll carrying one bad block
+            // wrote 3 and reported `changed:true, rejected:[]` (measured). The
+            // tool resolved, the model said "I've rewritten the document", and
+            // a section was simply absent. The before-image can still restore
+            // it — but nothing told the user there was anything to restore,
+            // which is what makes this the reported-success-lost-the-content
+            // class rather than a cosmetic miscount.
+            const sent = op.blocks.length;
+            const kept = sanitizeAiDocBlocks(op.blocks);
+            // ★★★ AN EXPLICIT EMPTY LIST IS LEGAL AND STAYS LEGAL — `blocks:
+            // []` is a real "clear this document" request (document-mutations
+            // .ts says so at length) and the before-image preserves what it
+            // replaced. But `sent > 0 && kept === 0` is NOT that request: it
+            // is a replace whose every block the allow-list voided, and
+            // applying it would wipe the document on the strength of content
+            // that never survived validation. Reject the op instead, exactly
+            // as the single-block arm does. The distinction is `sent`, the
+            // length of what the model SUPPLIED — a guard keying on `kept`
+            // alone cannot tell the two apart and would break the legitimate
+            // clear.
+            if (sent > 0 && kept.length === 0) {
+              selfRejected.push(
+                `op ${i}: all ${sent} block(s) failed the model-input allow-list`,
+              );
+              return;
+            }
+            // A PARTIAL drop still applies — the survivors are what the model
+            // asked for, minus what it may not store — but it must be named.
+            // ★ This message is OP-SCOPED and so must match the `/^op \d+:/`
+            // shape the `applied` arithmetic below keys on. It rides
+            // `selfRejected`, which that filter never reads, so it cannot move
+            // the count either way; the pattern is kept for the reader's sake
+            // and for anything downstream that partitions the two kinds.
+            const dropped = sent - kept.length;
+            if (dropped > 0) {
+              selfRejected.push(
+                `op ${i}: ${dropped} block(s) failed the model-input allow-list`,
+              );
+            }
+            cleanOps.push({ ...op, blocks: kept });
             return;
           }
           if ("block" in op && op.block) {
