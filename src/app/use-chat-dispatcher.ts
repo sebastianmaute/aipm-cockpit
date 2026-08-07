@@ -234,7 +234,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const readOnlyError = () =>
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
-  const documentTools = useDocumentTools(args.isReadOnly);
+  const documentTools = useDocumentTools(args.isReadOnly, args.logActivity);
 
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({

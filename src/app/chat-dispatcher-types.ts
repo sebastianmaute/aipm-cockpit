@@ -2,6 +2,7 @@
 // use-chat-dispatcher.ts to keep that file under the file-size ratchet.
 
 import type { Dispatch, SetStateAction } from "react";
+import type { ActivityKind } from "./activity-log";
 import type { AppView } from "./nav-config";
 import { type Settings } from "./settings-types";
 import { type DashboardModel } from "./dashboard";
@@ -37,4 +38,12 @@ export interface ChatDispatcherArgs {
   /** Live resource-planning grid snapshot for `list_allocations`. Deliberately
    *  NOT memoized upstream — same reasoning as `getBudgetRollup`. */
   getAllocationsSnapshot: () => AllocationsSnapshot;
+  /** Threaded from task-manager's `useActivityLog()`, NOT minted here — a second
+   *  `useActivityLog()` call would be an independent state instance, so its rows
+   *  would be written and never appear in the Activity panel (which renders
+   *  task-manager's copy). Optional + called with `?.`, matching every other
+   *  `ai.*` emitter (use-alloc-plan, use-raci-suggest, use-inline-entity-edit),
+   *  so a test harness or a future caller can omit it. Consumed by
+   *  `useDocumentTools` for the `ai.documentWrite` row. */
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }

@@ -22,12 +22,42 @@
 // own per-tool `isReadOnly` guards) — chat tool writes have no undo capture,
 // so a popout mirror must never be able to reach mutateDocuments at all.
 import { useMemo, useRef, useEffect } from "react";
+import type { ActivityKind } from "./activity-log";
 import { sanitizeAiDocBlocks } from "./ai-document-blocks";
 import type { DocOp } from "./document-mutations";
 import type { DocumentToolDispatcher } from "./chat-tools-documents";
 import { useWorkspace } from "./workspace-context";
 
-export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
+/** ★★★ `logActivity` is THREADED (ChatDispatcherArgs → useChatDispatcher →
+ *  here), never obtained by calling `useActivityLog()` in this file: that hook
+ *  owns its own `useState`, so a second call would build an independent log
+ *  that the Activity panel — which renders task-manager's instance — never
+ *  reads. Rows would be written and silently never appear.
+ *
+ *  ★★ ONE ROW PER WRITE, AND ONLY WHEN SOMETHING ACTUALLY CHANGED. A create, a
+ *  rename, an ops edit and a delete are each "the assistant wrote a document" —
+ *  not one row per block or per op. A refused write (read-only popout, a create
+ *  whose blocks failed the allow-list, an update whose every op was rejected, a
+ *  delete of a missing id) must emit NOTHING: the row is a record of what
+ *  happened, and `applyDocMutation` reports exactly that as `changed`. Chat tool
+ *  writes take no undo capture, so an activity row claiming an edit that never
+ *  landed is the same false-success class the refusal paths below exist to
+ *  prevent. Every write therefore gates on `result.changed` (create reaches its
+ *  log only past the `if (!doc) throw`, which is the same condition).
+ *
+ *  ★ `activityAiDocumentWrite` is "Assistant edited a document" — ZERO `{0}`
+ *  placeholders in BOTH locales (verified in i18n.ts:3853 / i18n.de.ts:3824), so
+ *  `t()` renders neither arg today. They are carried anyway, exactly as
+ *  `ai.inlineEdit` carries `(id, title)` against its own placeholder-free
+ *  string: the entry is the audit record, and the id is what a deep-link would
+ *  need. ★ `dashboard-activity-nav.ts`'s `activityViewOf("ai.documentWrite") ->
+ *  "documents"` has NO production caller at all (only its own test), so the
+ *  deep-link stays unreachable until something renders it — writing the row does
+ *  not by itself light that path up. */
+export function useDocumentTools(
+  isReadOnly: boolean,
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void,
+): DocumentToolDispatcher {
   const { documents, documentVersions, mutateDocuments } = useWorkspace();
 
   // Refs, so the dispatcher identity stays stable (useMemo below never
@@ -100,6 +130,7 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
         // trimmed title before calling this, so this is a defensive invariant
         // check, not an expected path.
         if (!doc) throw new Error("title is required");
+        logActivity?.("ai.documentWrite", doc.id, doc.title);
         return { id: doc.id, title: doc.title, blockCount: doc.blocks.length };
       },
 
@@ -225,6 +256,13 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
         // ones: every op in `cleanOps` contributes at most one such entry, so
         // this can never exceed `cleanOps.length` and needs no clamp.
         const opRejectedCount = result.rejected.filter((r) => /^op \d+:/.test(r)).length;
+        // ★★ Gated on `changed`, NOT on "the document exists" or "some op was
+        // sent". An update whose every op the engine rejected — or a rename to
+        // the title it already has — returns `changed:false` and mutates
+        // nothing, so a row here would assert an edit that did not occur.
+        if (result.changed) {
+          logActivity?.("ai.documentWrite", id, after?.title ?? before.title);
+        }
         return {
           id,
           title: after?.title ?? before.title,
@@ -241,9 +279,17 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
 
       deleteDocument: (id) => {
         if (isReadOnly) throw readOnlyError();
+        // Read the title BEFORE the mutation — after it the row is gone from
+        // `result.documents`, and the activity entry names what was deleted.
+        const before = documentsRef.current.find((d) => d.id === id);
         const result = mutateDocuments({ kind: "delete", id }, "ai");
         documentsRef.current = result.documents;
         versionsRef.current = result.versions;
+        // `changed:false` here means the id did not exist — nothing was
+        // deleted, so nothing is logged.
+        if (result.changed) {
+          logActivity?.("ai.documentWrite", id, before?.title ?? "");
+        }
         const newest = result.versions[result.versions.length - 1];
         return {
           deleted: result.changed,
@@ -251,6 +297,6 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
         };
       },
     }),
-    [isReadOnly, mutateDocuments],
+    [isReadOnly, mutateDocuments, logActivity],
   );
 }

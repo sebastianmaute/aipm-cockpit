@@ -11,6 +11,7 @@ import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
+import { type ActivityKind } from "./activity-log";
 import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
 import { type DocumentUpdateResult } from "./chat-tools-documents";
 import { type DocOp } from "./document-mutations";
@@ -158,6 +159,12 @@ function renderDispatcher(
   initial: Task[] = seedTasks(),
   isReadOnly = false,
   currentView: AppView = "open-points",
+  // ★ Deliberately OPTIONAL and left undefined by every other call in this
+  // file: `logActivity` is an optional prop on ChatDispatcherArgs, so the ~60
+  // callers below are the standing proof that omitting it does not throw
+  // (the document-tool tests among them exercise every write path with it
+  // absent). Only the ai.documentWrite suite passes a spy.
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void,
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
@@ -178,6 +185,7 @@ function renderDispatcher(
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
+        logActivity,
       }),
     { wrapper },
   );
@@ -1862,6 +1870,208 @@ describe("useChatDispatcher – document tools", () => {
     });
     expect(out.deleted).toBe(true);
     expect(out.restorableVersionId).not.toBeNull();
+    expect(result.current.getDocument(id)).toBeNull();
+  });
+});
+
+// ★★ The `ai.documentWrite` activity row. The kind was registered everywhere
+// (the ActivityKind union, ACTIVITY_KIND_TO_KEY, dashboard-activity-nav's
+// documents deep-link, EN/DE strings) and emitted NOWHERE, so no AI document
+// write ever appeared in the Activity panel.
+//
+// ★★★ EVERY "no row" TEST HERE CARRIES ITS OWN POSITIVE CONTROL IN THE SAME
+// `it`. A bare `expect(spy).not.toHaveBeenCalled()` is vacuous by construction:
+// it passes just as happily when the spy was never wired, when the write threw
+// before reaching any interesting branch, or when the whole emitter was
+// deleted. Each of these does the refused write, asserts nothing was logged,
+// then MUTATES THE FIXTURE into a write that should log and asserts it did —
+// so the assertion can only be green while the spy is live and the gate is the
+// thing making the difference.
+describe("useChatDispatcher – ai.documentWrite activity rows", () => {
+  /** The exact input measured (in use-document-tools.ts's own comment) to be
+   *  DROPPED by the model-input allow-list: a bare "<script>…</script>" does not
+   *  start with a tag in HTML_START, so layer 1 escapes it as plain text and the
+   *  block survives. Wrapped in <p>, DOMPurify strips tag AND content, the
+   *  paragraph empties, and the block fails the structural check. */
+  const DROPPED_BLOCK = { type: "paragraph" as const, html: "<p><script>alert(1)</script></p>" };
+  const GOOD_BLOCK = { type: "paragraph" as const, html: "<p>keep me</p>" };
+
+  function renderWithLog(isReadOnly = false) {
+    const logActivity = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), isReadOnly, "open-points", logActivity);
+    return { result, logActivity };
+  }
+
+  it("logs one ai.documentWrite row when the assistant creates a document", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  // ★ ONE row per WRITE, not per op — three ops in a single update_document
+  // call are one thing the assistant did. A per-op emitter would report 3.
+  it("logs exactly one row for a multi-op update", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    logActivity.mockClear();
+    const ops: DocOp[] = [
+      { op: "append", block: GOOD_BLOCK },
+      { op: "append", block: GOOD_BLOCK },
+      { op: "append", block: GOOD_BLOCK },
+    ];
+    act(() => {
+      result.current.updateDocument(id, ops, undefined);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  it("logs a row for a title-only rename, carrying the NEW title", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Old title", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.updateDocument(id, [], "New title");
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "New title");
+  });
+
+  // The title is read BEFORE the mutation — afterwards the row is gone from
+  // result.documents, so a naive lookup would log an empty name.
+  it("logs a row naming the document it deleted", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doomed", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.deleteDocument(id);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Doomed");
+  });
+
+  it("logs NO row when a create is refused because a block failed the allow-list", () => {
+    const { result, logActivity } = renderWithLog();
+    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK, DROPPED_BLOCK])).toThrow(
+      /allow-list/,
+    );
+    expect(logActivity).not.toHaveBeenCalled();
+    // Nothing was created either — the refusal is total.
+    expect(result.current.listDocuments()).toEqual([]);
+    // POSITIVE CONTROL: the ONLY change is dropping the bad block. Same spy,
+    // same dispatcher, same call — and now it logs. Without this, the assertion
+    // above would survive an unwired spy or a deleted emitter.
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  it("logs NO row when every op of an update was rejected", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.updateDocument(id, [{ op: "delete", index: 42 }], undefined);
+    });
+    expect(logActivity).not.toHaveBeenCalled();
+    // The document really is untouched — the write was refused, not silently
+    // applied with a missing row.
+    expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
+    // POSITIVE CONTROL: same document, same dispatcher, an in-range op.
+    act(() => {
+      result.current.updateDocument(id, [{ op: "delete", index: 0 }], undefined);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  it("logs NO row when a rename is a no-op (same title, no ops)", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.updateDocument(id, [], "Charter");
+    });
+    expect(logActivity).not.toHaveBeenCalled();
+    // POSITIVE CONTROL: a title that actually differs logs.
+    act(() => {
+      result.current.updateDocument(id, [], "Charter v2");
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter v2");
+  });
+
+  it("logs NO row when deleting an id that does not exist", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.deleteDocument(999);
+    });
+    expect(logActivity).not.toHaveBeenCalled();
+    // POSITIVE CONTROL: the id that DOES exist logs.
+    act(() => {
+      result.current.deleteDocument(id);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  // A popout refuses before mutateDocuments is reached, so there is nothing to
+  // record. Positive control is the non-popout dispatcher in the same test.
+  it("logs NO row for a write refused in a read-only popout", () => {
+    const { result, logActivity } = renderWithLog(true);
+    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK])).toThrow(/read-only/);
+    expect(() => result.current.updateDocument(1, [], "New title")).toThrow(/read-only/);
+    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
+    expect(logActivity).not.toHaveBeenCalled();
+    // POSITIVE CONTROL: identical create against a WRITABLE dispatcher.
+    const { result: writable, logActivity: writableLog } = renderWithLog(false);
+    act(() => {
+      writable.current.createDocument("Charter", [GOOD_BLOCK]);
+    });
+    expect(writableLog).toHaveBeenCalledTimes(1);
+  });
+
+  // logActivity is OPTIONAL on ChatDispatcherArgs (every other ai.* emitter is
+  // too, and a required prop would break task-manager.characterization's prop
+  // contract). Omitting it must no-op, not throw.
+  it("does not throw when logActivity is omitted", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    expect(() => {
+      act(() => {
+        id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+        result.current.updateDocument(id, [], "Renamed");
+        result.current.deleteDocument(id);
+      });
+    }).not.toThrow();
+    // Positive observable: the writes really ran on the no-logger path.
     expect(result.current.getDocument(id)).toBeNull();
   });
 });
