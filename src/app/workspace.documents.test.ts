@@ -26,6 +26,22 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
   };
 });
 
+// ★★★ FILE-SCOPED, not describe-scoped. `forceRichFieldThrow` is module state,
+// and the containment describe below sets it to `true` inside three test
+// bodies. Its own `beforeEach` reset only covers ITS tests, so in source order
+// — containment last — nothing else ever sees the flag left on. Under
+// `npm run test:shuffle` (the local reproduction of CI's BLOCKING
+// unit-tests-shuffled job, which shuffles tests WITHIN a file, not just file
+// order) a containment test can run first, and every later `load()` then
+// throws `WorkspaceParseError: shape`. Measured: 6 failures in this file at
+// the pinned seed while the unshuffled suite was fully green.
+// ★ Reset here rather than in an `afterEach` beside each setter: a test that
+// throws before its own cleanup would still leak, and this way a new describe
+// added later inherits the reset without anyone remembering to.
+beforeEach(() => {
+  forceRichFieldThrow = false;
+});
+
 /** ★★ A SENTINEL task rides in every fixture, and every test asserts it survived.
  *  Without it these tests are vacuous: `jsonToWorkspace` SWALLOWS a bad shape and
  *  returns `emptyWorkspace()`, whose `documents` is undefined — so "drops a
