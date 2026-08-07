@@ -169,7 +169,7 @@ function sanitizeBlock(raw: unknown): DocBlock | null {
   }
 }
 
-function sanitizeDocument(raw: unknown, diag?: DocTruncationDiag): ProjectDocument | null {
+function sanitizeDocument(raw: unknown): ProjectDocument | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
 
@@ -180,19 +180,6 @@ function sanitizeDocument(raw: unknown, diag?: DocTruncationDiag): ProjectDocume
   if (!title) return null;
 
   const rawBlocks = Array.isArray(d.blocks) ? d.blocks : [];
-  // ★★★ A LIVE DOCUMENT'S BLOCK LOSS USED TO BE COMPLETELY SILENT. Versions
-  // reported theirs (document-versions.ts) but the documents they are versions
-  // OF did not, so a 600-block document loaded as 500, the next save wrote 500
-  // back over all six write paths, and the 100 were gone with no count, no
-  // toast and nothing raised for the §102 save guard to refuse.
-  // ★★ Same UPPER-BOUND contract as `truncatedEntries` and the same reason:
-  // this counts RAW ENTRIES past the cap, not blocks proven valid. Blocks the
-  // validator drops as INVALID are deliberately NOT counted — see the
-  // measurement in document-versions.ts; a count that includes them arms the
-  // sticky guard over a loss refusing to save cannot recover.
-  if (diag && rawBlocks.length > MAX_BLOCKS_PER_DOC) {
-    diag.truncatedBlocks = (diag.truncatedBlocks ?? 0) + (rawBlocks.length - MAX_BLOCKS_PER_DOC);
-  }
   const blocks = rawBlocks
     .slice(0, MAX_BLOCKS_PER_DOC)
     .map(sanitizeBlock)
@@ -249,9 +236,32 @@ export function sanitizeProjectDocuments(
       if (diag) diag.truncatedEntries = (diag.truncatedEntries ?? 0) + (raw.length - i);
       break;
     }
-    const doc = sanitizeDocument(raw[i], diag);
+    const doc = sanitizeDocument(raw[i]);
     if (!doc || seen.has(doc.id)) continue;
     seen.add(doc.id);
+    // ★★★ A LIVE DOCUMENT'S BLOCK LOSS USED TO BE COMPLETELY SILENT. Versions
+    // reported theirs (document-versions.ts) but the documents they are versions
+    // OF did not, so a 600-block document loaded as 500, the next save wrote 500
+    // back over all six write paths, and the 100 were gone with no count, no
+    // toast and nothing raised for the §102 save guard to refuse.
+    // ★★ Same UPPER-BOUND contract as `truncatedEntries`: RAW entries past the
+    // cap, not blocks proven valid. Blocks the validator drops as INVALID are
+    // deliberately NOT counted — a count including them arms the sticky guard
+    // over a loss that refusing to save cannot recover.
+    // ★★★ COUNTED HERE, AFTER THE KEEP DECISION, NOT INSIDE `sanitizeDocument`.
+    // It used to sit in there, which ran BEFORE this dedup check — so a
+    // duplicate-id document contributed its block overflow while the document
+    // itself was discarded, pausing saving over blocks belonging to a document
+    // that never loaded. That was the same inconsistency the invalid-block
+    // exclusion above exists to avoid: a duplicate is dropped by every future
+    // load too, so refusing to save cannot recover it either.
+    if (diag) {
+      const rawBlocks = (raw[i] as { blocks?: unknown }).blocks;
+      const n = Array.isArray(rawBlocks) ? rawBlocks.length : 0;
+      if (n > MAX_BLOCKS_PER_DOC) {
+        diag.truncatedBlocks = (diag.truncatedBlocks ?? 0) + (n - MAX_BLOCKS_PER_DOC);
+      }
+    }
     out.push(doc);
   }
   return out;

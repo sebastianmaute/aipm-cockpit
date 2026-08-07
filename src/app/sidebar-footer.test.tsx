@@ -64,6 +64,16 @@ describe("SidebarFooter", () => {
       expect(onRestoreSavingNotice).toHaveBeenCalledTimes(1);
     });
 
+    it("carries a SHAPE, not just a colour, when collapsed", () => {
+      // ★★ Collapsed there is no text, so without a glyph the only cue is an
+      // amber dot. `title` does not rescue that — hover-only, no keyboard focus,
+      // unreachable on touch (this repo records the same conclusion for
+      // ResourcePicker) — and the dot's contrast on the dark sidebar is a
+      // question jsdom cannot answer. A glyph survives both.
+      render(<SidebarFooter {...base} collapsed savingPaused onRestoreSavingNotice={vi.fn()} />);
+      expect(screen.getByRole("button", { name: /saving paused/i }).textContent).toContain("⏸");
+    });
+
     it("renders no dead control when there is nowhere to go back to", () => {
       // A button with no handler would draw a false affordance.
       render(<SidebarFooter {...base} savingPaused />);

@@ -357,6 +357,25 @@ describe("sanitizeProjectDocuments", () => {
     expect(diag.truncatedEntries).toBeUndefined();
   });
 
+  it("does NOT count blocks from a document the dedup check discards", () => {
+    // ★★★ The count used to sit inside `sanitizeDocument`, which runs BEFORE the
+    // caller's `seen.has(doc.id)` check — so a duplicate-id document contributed
+    // its block overflow while the document itself was thrown away, pausing
+    // saving over blocks belonging to a document that never loaded. A duplicate
+    // is dropped by every future load, so refusing to save cannot recover it:
+    // exactly the reasoning that excludes invalid blocks two lines above.
+    const diag: DocTruncationDiag = {};
+    const out = sanitizeProjectDocuments(
+      [
+        doc({ id: 7, blocks: overCapBlocks(3) }),
+        doc({ id: 7, blocks: overCapBlocks(MAX_BLOCKS_PER_DOC + 250) }),
+      ],
+      diag,
+    );
+    expect(out).toHaveLength(1);            // control: the duplicate really was dropped
+    expect(diag.truncatedBlocks).toBeUndefined();
+  });
+
   it("leaves truncatedBlocks undefined for an under-cap document", () => {
     // ★ CONTROL: without it, an implementation that never writes the key at all
     // would satisfy nothing, but one that writes 0 unconditionally would still

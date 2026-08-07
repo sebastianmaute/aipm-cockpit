@@ -46,8 +46,19 @@ function SavingPausedButton({ lang, collapsed, onClick }: { lang: Lang; collapse
       title={t(lang, "storageSavingPausedAction")}
       className="flex items-center rounded-md px-2 py-1 text-left text-ui-light-grey hover:bg-ui-white/10 hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green"
     >
-      <span aria-hidden className="mr-1 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--rag-amber)]" />
-      {!collapsed && t(lang, "storageSavingPaused")}
+      {/* ★★ COLLAPSED, THE DOT WAS THE ONLY CUE, and colour alone is not one:
+          `title` is hover-only (no keyboard focus, unreachable on touch) — this
+          repo already records that as not closing WCAG 1.4.1 for ResourcePicker
+          — and `--rag-amber` on the dark sidebar is a ~3:1 non-text contrast
+          question jsdom cannot answer either way. The ⏸ glyph is a SHAPE, so it
+          survives both. Expanded, the dot stays as the colour channel beside the
+          text and the glyph would be redundant. */}
+      {collapsed
+        ? <span aria-hidden className="text-xs leading-none">⏸</span>
+        : <>
+            <span aria-hidden className="mr-1 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--rag-amber)]" />
+            {t(lang, "storageSavingPaused")}
+          </>}
     </button>
   );
 }

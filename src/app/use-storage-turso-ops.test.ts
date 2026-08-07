@@ -167,6 +167,23 @@ describe("useTursoProjectOps — §102 truncation", () => {
     expect(logDiag).toHaveBeenCalledWith("warn", "storage.flushSkippedAfterTruncation", expect.anything());
   });
 
+  it("createTursoProject CLEARS the flag — a fresh project does not inherit the pause", async () => {
+    // ★ The third `clearForFreshWorkspace` site. It builds its workspace rather
+    // than loading one, and sets suppressNextLoadRef, so nothing else would ever
+    // lower the flag: without the clear, every edit to a brand-new project is
+    // silently refused and the banner reports the OLD project's counts.
+    tursoTruncation.current = { entries: 5, blocks: 0 };
+    const { result } = renderWithRealGuard(async () => {});
+    await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
+    expect(result.current.guard.loadWasTruncated).toBe(true); // control: really raised
+
+    await act(async () => {
+      await result.current.ops.createTursoProject({ id: "n-1", name: "New", code: "N" } as never);
+    });
+
+    expect(result.current.guard.loadWasTruncated).toBe(false);
+  });
+
   // ★★★ THE KILL LINE FOR MIGRATE'S PRE-CHECK. Removing it left this whole file
   // green: the census below only proves this FILE has one `.save(`, which says
   // nothing about whether migrate calls `guardedWrite`, honours its return, or

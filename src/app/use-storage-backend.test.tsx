@@ -2360,6 +2360,10 @@ describe("useStorageBackend — §102 truncation reaches every load/flush path",
 
     expect(main.save).not.toHaveBeenCalled();
     expect(demo.save).toHaveBeenCalled();
+    // ★ Kill line for THIS path's `clearForFreshWorkspace`. Three mechanically
+    // identical one-liners is not a reason to pin only one of them — that is how
+    // two of the three end up deletable on a green board.
+    expect(result.current.loadWasTruncated).toBe(false);
   });
 
   it("switchToTursoProject SKIPS its flush, and the clean target load lowers the flag", async () => {
