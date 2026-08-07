@@ -43,7 +43,7 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
-import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
+import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 // ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
@@ -457,6 +457,16 @@ export interface StorageBackend {
    * backends). Lets the import UI warn the user instead of showing only success.
    */
   lastImportDroppedRows?: number;
+  /**
+   * Optional: what the LAST {@link load} silently discarded to stay inside the
+   * document caps. `entries` counts raw array entries past MAX_DOCUMENTS (an
+   * upper bound — see DocTruncationDiag); `blocks` counts per-version blocks
+   * past MAX_BLOCKS_PER_DOC.
+   * ★ Every backend must set this. A backend that leaves it undefined reports
+   * no truncation and its users lose documents in silence —
+   * `backend-truncation-registry.test.ts` fails the build if one is missed.
+   */
+  lastLoadTruncation?: { entries: number; blocks: number };
 }
 
 /** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */
@@ -560,8 +570,16 @@ export class WorkspaceParseError extends Error {
  *  failure or a non-workspace shape. Used by the disk/SharePoint load paths so
  *  a corrupt file becomes a controlled load error, never a silent empty that
  *  the next autosave overwrites. (Empty/blank text is guarded upstream by the
- *  backends before reaching here, so strict only ever sees non-blank content.) */
-export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Workspace {
+ *  backends before reaching here, so strict only ever sees non-blank content.)
+ *
+ *  `opts.diag`: an optional accumulator the caller owns. The document and
+ *  document-version sanitizers write into it what a load-time CAP silently
+ *  discarded, so a backend can report the loss instead of truncating in
+ *  silence. Purely additive — omitting it decodes exactly as before. */
+export function jsonToWorkspace(
+  text: string,
+  opts?: { strict?: boolean; diag?: DocTruncationDiag },
+): Workspace {
   const strict = opts?.strict === true;
   let parsed: unknown;
   try {
@@ -661,7 +679,7 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     // off — so containment does not invent a new failure mode for it.
     if (p.documents !== undefined) {
       try {
-        const docs = sanitizeProjectDocuments(p.documents).map(sanitizeDocumentRichFields);
+        const docs = sanitizeProjectDocuments(p.documents, opts?.diag).map(sanitizeDocumentRichFields);
         if (docs.length) raw.documents = docs;
       } catch (err) {
         // ★★ strict must stay LOUD. The sample generator decodes with
@@ -669,9 +687,12 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
         // near-empty artifact; rethrowing lets the outer catch raise the same
         // WorkspaceParseError("shape") it always did.
         if (strict) throw err;
-        // ★ Not silent: there is no ImportDiag on this signature, so the
-        // diagnostics ring is the channel. Names what was lost, so a user who
-        // opens a file and finds no documents has something to find.
+        // ★ Not silent: the diagnostics ring is the channel for THIS loss. The
+        // signature does carry an optional `DocTruncationDiag`, but that
+        // accumulator counts only what the CAPS discarded — it has no field for
+        // a sanitize THROW, and a caller reading it after this branch sees
+        // nothing. So the ring stays the channel here. Names what was lost, so
+        // a user who opens a file and finds no documents has something to find.
         logDiag("error", "workspace.documentsDropped", {
           message: err instanceof Error ? err.message : String(err),
         });
@@ -689,7 +710,7 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     // discard the whole workspace on a non-strict load.
     if (p.documentVersions !== undefined) {
       try {
-        const versions = sanitizeDocumentVersions(p.documentVersions).map((v) => ({
+        const versions = sanitizeDocumentVersions(p.documentVersions, opts?.diag).map((v) => ({
           ...v,
           blocks: sanitizeDocumentRichFields({
             id: v.documentId,
