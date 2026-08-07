@@ -15,7 +15,7 @@ function makeDispatcher(over: Partial<DocumentToolDispatcher> = {}): DocumentToo
     listDocuments: vi.fn(() => [{ id: 1, title: "Status", blockCount: 1, updatedAt: doc.updatedAt }]),
     getDocument: vi.fn(() => doc),
     createDocument: vi.fn(() => ({ id: 2, title: "New", blockCount: 0 })),
-    updateDocument: vi.fn(() => ({ id: 1, blockCount: 1, applied: 1, rejected: [], removed: 0 })),
+    updateDocument: vi.fn(() => ({ id: 1, title: "Status", blockCount: 1, applied: 1, rejected: [], removed: 0 })),
     deleteDocument: vi.fn(() => ({ deleted: true, restorableVersionId: 7 })),
     ...over,
   };
@@ -49,13 +49,15 @@ describe("isDocumentTool", () => {
 });
 
 describe("boundary guards", () => {
-  // ★★★ THE set_task_dependencies CLASS (chat-tools.ts's own guard on
-  // `dependencies` is the precedent). A non-array must never be read as "no
-  // ops" and become a clear — a stray string from a sloppy model would erase
-  // the document, and chat tool writes have NO undo capture.
-  // Mutation-proved: relaxing the guard to `if (input.ops !== undefined &&
-  // !Array.isArray(input.ops))` — i.e. letting a non-array through as `[]` —
-  // makes this go red.
+  // ★★★ THE set_task_dependencies SHAPE (chat-tools.ts's own guard on
+  // `dependencies` is the precedent): a non-array must be refused, never
+  // reinterpreted. ★★ Its CONSEQUENCE differs from that precedent and from
+  // what the plan claimed — a missing check here does NOT erase the document
+  // (see requireOps in chat-tools-documents.ts for the measurement), it
+  // silently DISCARDS the model's ops while reporting success. Refusal-reading-
+  // as-success either way, which is what makes it worth guarding.
+  // Mutation-proved: weakening requireOps to `return []` for a non-array makes
+  // this and the test below go red.
   it("throws on a non-array ops rather than treating it as a clear", async () => {
     const d = makeDispatcher();
 
@@ -112,6 +114,7 @@ describe("boundary guards", () => {
     const d = makeDispatcher({
       updateDocument: vi.fn(() => ({
         id: 1,
+        title: "Status",
         blockCount: 2,
         applied: 1,
         rejected: ["op 1: delete index 9 out of range"],
@@ -130,6 +133,7 @@ describe("boundary guards", () => {
   it("throws when nothing could be applied, so a refusal never reads as success", async () => {
     const refusing = vi.fn(() => ({
       id: 1,
+      title: "Status",
       blockCount: 1,
       applied: 0,
       rejected: ["op 0: delete index 9 out of range"],
@@ -153,6 +157,7 @@ describe("boundary guards", () => {
     const d = makeDispatcher({
       updateDocument: vi.fn(() => ({
         id: 1,
+        title: "Status",
         blockCount: 1,
         applied: 0,
         rejected: ["op 0: delete index 9 out of range"],
@@ -168,7 +173,7 @@ describe("boundary guards", () => {
   });
 
   it("renames with no ops at all", async () => {
-    const update = vi.fn(() => ({ id: 1, blockCount: 1, applied: 0, rejected: [], removed: 0 }));
+    const update = vi.fn(() => ({ id: 1, title: "Status", blockCount: 1, applied: 0, rejected: [], removed: 0 }));
     const d = makeDispatcher({ updateDocument: update });
     await expect(runDocumentTool(d, "update_document", { id: 1, title: "Renamed" })).resolves.toMatchObject({
       id: 1,
@@ -190,9 +195,28 @@ describe("boundary guards", () => {
     await expect(runDocumentTool(d, "update_document", { id: 9, title: "T" })).rejects.toThrow(/not found/i);
   });
 
+  // ★★★ THE CHAT FILE CARD'S PARSE CONTRACT, pinned at the seam rather than
+  // trusted across it. chat-tool-block.tsx renders a card only for
+  // `{id: integer > 0, title: non-empty after trim, blockCount: integer >= 0}`
+  // and falls back to the plain tool block on ANY deviation — so a missing or
+  // blank `title` here does not fail loudly, it just stops offering the user
+  // the document they were watching get edited. `update_document` shipped
+  // without `title` in the original contract, which would have meant no card
+  // after any successful edit; this test is what stops that recurring.
+  it("returns the three fields the chat file card requires", async () => {
+    const out = (await runDocumentTool(makeDispatcher(), "update_document", {
+      id: 1,
+      ops: [{ op: "append", block: { type: "pageBreak" } }],
+    })) as { id: number; title: string; blockCount: number };
+
+    expect(Number.isInteger(out.id) && out.id > 0).toBe(true);
+    expect(typeof out.title === "string" && out.title.trim().length > 0).toBe(true);
+    expect(Number.isInteger(out.blockCount) && out.blockCount >= 0).toBe(true);
+  });
+
   it("reports what replaceAll removed", async () => {
     const d = makeDispatcher({
-      updateDocument: vi.fn(() => ({ id: 1, blockCount: 1, applied: 1, rejected: [], removed: 4 })),
+      updateDocument: vi.fn(() => ({ id: 1, title: "Status", blockCount: 1, applied: 1, rejected: [], removed: 4 })),
     });
     const out = await runDocumentTool(d, "update_document", {
       id: 1,

@@ -27,6 +27,23 @@ export type DocumentSummary = {
 
 export type DocumentUpdateResult = {
   id: number;
+  /** ★★★ REQUIRED BY THE CHAT FILE CARD, and required non-blank. The card
+   *  (chat-tool-block.tsx) renders only for a tool result shaped
+   *  `{id: integer > 0, title: non-empty after trim, blockCount: integer >= 0}`;
+   *  ANY deviation — a missing field, a wrong type, an id-as-string, a blank
+   *  title — silently falls back to the plain tool block. So a successful
+   *  update with a blank title does not error, it just stops offering the user
+   *  the document they were just shown editing. This is the document's title
+   *  AFTER the write.
+   *  ★ It is REQUIRED here rather than optional on purpose: that makes the
+   *  dispatcher's obligation a compile error instead of a rendering
+   *  disappointment nobody traces back. The routing layer deliberately does NOT
+   *  runtime-guard it — failing an applied write over a cosmetic card would be
+   *  the worse trade. ★ The card also prefers the LIVE document (looked up by
+   *  id through useWorkspace) for everything it displays, so this value is the
+   *  fallback for when that document is gone — it need not be perfect, but it
+   *  must be there. */
+  title: string;
   blockCount: number;
   applied: number;
   /** Human-readable reasons, one per refused op. */

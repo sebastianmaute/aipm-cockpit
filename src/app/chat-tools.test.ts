@@ -1057,7 +1057,7 @@ describe("runTool — document tool routing", () => {
   // module: routing that skipped it would still resolve this call, and a
   // non-array ops would then read as "no ops" at the dispatcher.
   it("applies the document module's guards on the way through", async () => {
-    const updateDocument = vi.fn(() => ({ id: 1, blockCount: 1, applied: 1, rejected: [], removed: 0 }));
+    const updateDocument = vi.fn(() => ({ id: 1, title: "Status", blockCount: 1, applied: 1, rejected: [], removed: 0 }));
     const d = makeDispatcher({ updateDocument });
 
     await expect(runTool(d, "update_document", { id: 1, ops: "wipe it" })).rejects.toThrow(/ops/i);
