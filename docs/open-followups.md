@@ -4536,6 +4536,42 @@ repo-wide `PopoverPanel` gap — no consumer does it — and worth folding into 
 
 ---
 
+## 93. `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y
+
+The checked segment is distinguished from its siblings by fill alone (`--segment-active-bg` against
+`--segment-track-bg`). AGENTS.md's own rule for `ToggleButton` treats a lightness difference of
+**≥3:1** as the additional non-colour distinction WCAG 1.4.1 requires. Computed from
+`builtin-schemes.ts` (reproduce with the WCAG relative-luminance formula on the two tokens):
+
+| scheme | track vs active | |
+|---|---|---|
+| harbor-light | 10.42:1 | pass |
+| meridian-light | 8.73:1 | pass |
+| umber-light | 10.54:1 | pass |
+| harbor-dark | **2.38:1** | fail |
+| meridian-dark | **2.43:1** | fail |
+| umber-dark | **2.25:1** | fail |
+
+★★ There is no second cue to fall back on. The selected segment carries
+`shadow-[var(--shadow-control)]`, but `--shadow-control` is `none` in `globals.css` and **no scheme
+overrides it** (`grep -c "shadow-control" src/app/builtin-schemes.ts` → 0), so that class paints
+nothing in any scheme. The light schemes pass on lightness alone; the dark ones have neither.
+
+★ The screen-reader side is NOT affected and needs no fix: this is a real `radiogroup`, so
+`aria-checked` carries the state regardless of colour. That is the difference from the `aria-pressed`
+family in §55 — the gap here is purely visual, for sighted low-vision and CVD users.
+
+★★ **Pre-existing and repo-wide — not introduced by moving the field tier switch into the primitive.**
+The tier switch's previous hand-rolled buttons used the very same two tokens, and the primitive has
+**31 invocations across 14 files** (see the reproduce command in `segmented-control.tsx`'s header), so
+a fix lands everywhere at once. Deliberately not fixed in the field-controls slice: a token change
+touching every segmented control in the app wants its own slice and its own eye-verify.
+
+★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
+evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
