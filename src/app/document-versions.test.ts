@@ -8,7 +8,11 @@ import {
   deletedDocumentVersions,
   type DocVersion,
 } from "./document-versions";
-import type { ProjectDocument } from "./document-model";
+import {
+  MAX_BLOCKS_PER_DOC,
+  type DocTruncationDiag,
+  type ProjectDocument,
+} from "./document-model";
 
 const v = (over: Partial<DocVersion> = {}): DocVersion => ({
   id: 1,
@@ -81,6 +85,23 @@ describe("sanitizeDocumentVersions", () => {
     expect(out).toHaveLength(1);
     expect(out[0].title).toBe("First");
     expect(out[0].documentId).toBe(1);
+  });
+
+  it("counts blocks the per-version cap dropped into an optional diag", () => {
+    const blocks = Array.from({ length: MAX_BLOCKS_PER_DOC + 25 }, () => ({
+      type: "paragraph" as const,
+      html: "<p>x</p>",
+    }));
+    const diag: DocTruncationDiag = {};
+    const out = sanitizeDocumentVersions([v({ blocks })], diag);
+    expect(out[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+    expect(diag.truncatedBlocks).toBe(25);
+  });
+
+  it("leaves truncatedBlocks undefined for an under-cap version", () => {
+    const diag: DocTruncationDiag = {};
+    sanitizeDocumentVersions([v()], diag);
+    expect(diag.truncatedBlocks).toBeUndefined();
   });
 });
 

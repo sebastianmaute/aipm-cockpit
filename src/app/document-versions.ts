@@ -18,7 +18,12 @@
 // document-rich-fields.ts's own header calls it "obsolete" outright). The
 // real reason is that sanitizeProjectDocuments is DOM-free, and folding a
 // DOM-bound pass into a module that composes it would let the two drift.
-import { sanitizeProjectDocuments, type DocBlock, type ProjectDocument } from "./document-model";
+import {
+  sanitizeProjectDocuments,
+  type DocBlock,
+  type DocTruncationDiag,
+  type ProjectDocument,
+} from "./document-model";
 
 export const MAX_VERSIONS_PER_DOC = 20;
 export const MAX_TOTAL_VERSIONS = 500;
@@ -110,7 +115,10 @@ function isCanonicalIso(value: string): boolean {
  *  byte-stability goldens' critical path for no gain; dropping touches nothing
  *  that was already well-formed. Every in-app write is `new Date().toISOString()`,
  *  so only hand-edited files, imports and third-party workspaces can fail it. */
-export function sanitizeDocumentVersions(raw: unknown): DocVersion[] {
+export function sanitizeDocumentVersions(
+  raw: unknown,
+  diag?: DocTruncationDiag,
+): DocVersion[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<number>();
   const out: DocVersion[] = [];
@@ -122,6 +130,15 @@ export function sanitizeDocumentVersions(raw: unknown): DocVersion[] {
     const [asDoc] = sanitizeProjectDocuments([
       { id: r.documentId, title: r.title, blocks: r.blocks, createdAt: r.savedAt, updatedAt: r.savedAt },
     ]);
+    // ★ The block count is taken HERE, not inside sanitizeProjectDocuments:
+    // that function caps blocks inside sanitizeDocument, by which point the
+    // original length is gone. A single-element array can never trip the
+    // DOCUMENT cap, so no diag is passed to the delegate — passing one would
+    // let a version's own truncation be miscounted as a document truncation.
+    if (diag && asDoc && Array.isArray(r.blocks) && r.blocks.length > asDoc.blocks.length) {
+      diag.truncatedBlocks =
+        (diag.truncatedBlocks ?? 0) + (r.blocks.length - asDoc.blocks.length);
+    }
     // ★ Dedup mirrors sanitizeProjectDocuments's own `seen` guard
     // (document-model.ts) — same asymmetry risk, same fix, kept in step with
     // its sibling rather than drifting. First occurrence wins.
