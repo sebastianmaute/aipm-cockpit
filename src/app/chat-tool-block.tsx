@@ -5,9 +5,10 @@
 // room for the document-tool file card below without growing that file.
 
 import { useState } from "react";
-import { ArrowDownTrayIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, ArrowRightIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { useWorkspace } from "./workspace-context";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import { downloadDocument, type DocFormat } from "./document-download";
 import { DOC_FORMATS } from "./documents-toolbar";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
@@ -17,17 +18,38 @@ import { Button } from "./button";
 // Document file card. A document tool call that succeeded and returned the
 // shape below renders as a card instead of a raw JSON blob.
 //
-// ★★★ THIS RESULT SHAPE IS A CONTRACT THIS TASK IS DEFINING, NOT READING BACK.
-// The document tool IMPLEMENTATION (use-document-tools.ts) has not landed —
-// nobody has decided what create_document/update_document/get_document
-// actually return yet. `parseDocumentResult` below is therefore strictly
-// defensive: anything that is not EXACTLY `{ id: number; title: string;
-// blockCount: number }` (missing/renamed field, non-object, bare array, a
-// numeric id arriving as a string, …) falls back to the plain tool block —
-// never a half-populated card, never a throw. `list_documents` (an array) and
-// `delete_document` (nothing left worth a card) are EXPECTED to miss this
-// shape and fall back; that is intentional, not a gap this should "fix" by
-// widening the parser.
+// THE RESULT SHAPES, AS THE TOOLS NOW ACTUALLY IMPLEMENT THEM. (An earlier
+// revision of this header said the implementation had not landed and that this
+// card was DEFINING the contract; use-document-tools.ts and
+// chat-tools-documents.ts both landed in this same branch, so it is read back
+// from them now. `result` is `stringifyResult` output — chat-api.ts —
+// i.e. `JSON.stringify(value, null, 2)` of the dispatcher's return value.)
+//
+//   create_document → `{id, title, blockCount}` — an EXACT match for
+//                     DocumentCardData; cards.
+//   update_document → `DocumentUpdateResult` = `{id, title, blockCount,
+//                     applied, rejected, removed}` — a SUPERSET; cards,
+//                     because the parser validates the three fields it needs
+//                     and ignores unknown keys rather than demanding an exact
+//                     key set. `title` is REQUIRED and non-blank on that type
+//                     specifically so this card cannot silently vanish after a
+//                     successful edit (chat-tools-documents.ts documents it at
+//                     the field).
+//   list_documents  → `DocumentSummary[]` — an ARRAY; falls back.
+//   get_document    → the whole `ProjectDocument` `{id, title, blocks, …}` —
+//                     carries `blocks`, never a `blockCount`; falls back.
+//   delete_document → `{deleted, restorableVersionId}` — no id/title; falls
+//                     back.
+//
+// ★★ `parseDocumentResult` is deliberately STRICT: anything that is not
+// EXACTLY `{ id: number; title: string; blockCount: number }` in those three
+// fields (missing/renamed field, non-object, bare array, a numeric id arriving
+// as a string, …) falls back to the plain tool block — never a half-populated
+// card, never a throw. The three misses above are EXPECTED and intentional,
+// not a gap this should "fix" by widening the parser: an array names no single
+// document to card, a deleted one has nothing left to open or download, and
+// get_document's payload is the block list the MODEL reads, not a summary for
+// a card.
 // ---------------------------------------------------------------------------
 
 type DocumentCardData = { id: number; title: string; blockCount: number };
@@ -78,15 +100,33 @@ function DocumentCard({
   lang: Lang;
 }) {
   const ws = useWorkspace();
+  // Navigation is the shell's, not this card's: requestOpen sets the active
+  // tab AND writes the deep-link hash that useHashView turns into a
+  // `pendingOpen` for the target panel — the same call global-search-box and
+  // knowledge-panel make straight from render scope. This card owns only HALF
+  // the "Open" feature; selecting the row on arrival is documents-panel's job,
+  // driven by that `pendingOpen`.
+  const { requestOpen } = useWorkspaceTab();
   // The tool result is a snapshot from the moment the call ran. The LIVE
   // document is authoritative when it still exists — a later edit in this
   // same conversation, or a concurrent write, can leave the snapshot stale.
   // Falling back to the tool's own numbers keeps the card USEFUL rather than
-  // blank when the document has since been deleted; Download is disabled in
-  // that case, since there is nothing left to render into bytes.
+  // blank when the document has since been deleted; both actions are disabled
+  // in that case — there is nothing left to render into bytes, and nothing for
+  // the Documents view to select on arrival, so a live-looking Open would be a
+  // false affordance.
   const liveDoc = ws.documents.find((d) => d.id === docId);
   const displayTitle = liveDoc?.title ?? title;
   const displayBlockCount = liveDoc?.blocks.length ?? blockCount;
+  // ★★ ROW-UNIQUE ACCESSIBLE NAMES. One transcript can hold many of these
+  // cards, so a bare "Download"/"Open in Documents" repeats verbatim N times
+  // (WCAG 2.4.6). The id is the only qualifier that CANNOT collide — two cards
+  // can carry the same title, either because the same document was touched
+  // twice in one conversation or because two documents are genuinely named
+  // alike. Same shape as documents-history-modal.tsx's per-version Restore
+  // label. Each name still STARTS with the button's visible text, so
+  // Label-in-Name (WCAG 2.5.3) holds for speech input.
+  const nameQualifier = ` – ${displayTitle} · #${docId}`;
 
   return (
     <div className="flex justify-start">
@@ -98,18 +138,32 @@ function DocumentCard({
             {displayBlockCount} {t(lang, "documentsBlockCount")}
           </div>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={!liveDoc}
-          onClick={() => {
-            if (liveDoc) downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang);
-          }}
-          className="ml-auto inline-flex shrink-0 items-center gap-1.5"
-        >
-          <ArrowDownTrayIcon aria-hidden="true" className="h-4 w-4" />
-          {t(lang, "documentsDownload")}
-        </Button>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!liveDoc}
+            onClick={() => requestOpen("documents", docId)}
+            aria-label={`${t(lang, "documentsGoToDocument")}${nameQualifier}`}
+            className="inline-flex items-center gap-1.5"
+          >
+            <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
+            {t(lang, "documentsGoToDocument")}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!liveDoc}
+            onClick={() => {
+              if (liveDoc) downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang);
+            }}
+            aria-label={`${t(lang, "documentsDownload")}${nameQualifier}`}
+            className="inline-flex items-center gap-1.5"
+          >
+            <ArrowDownTrayIcon aria-hidden="true" className="h-4 w-4" />
+            {t(lang, "documentsDownload")}
+          </Button>
+        </div>
       </div>
     </div>
   );
