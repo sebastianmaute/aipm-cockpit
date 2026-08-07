@@ -1757,5 +1757,26 @@
       "createdAt": "2026-08-01T09:00:00.000Z",
       "updatedAt": "2026-08-01T09:00:00.000Z"
     }
+  ],
+  "documentVersions": [
+    {
+      "id": 1,
+      "documentId": 1,
+      "title": "Steering update",
+      "blocks": [
+        {
+          "type": "heading",
+          "level": 1,
+          "text": "Steering update"
+        },
+        {
+          "type": "paragraph",
+          "html": "<p>First draft, before the March gate date was confirmed.</p>"
+        }
+      ],
+      "savedAt": "2026-08-01T08:30:00.000Z",
+      "source": "ai",
+      "op": "update"
+    }
   ]
 }
