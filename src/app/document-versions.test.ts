@@ -362,6 +362,74 @@ describe("deletedDocumentVersions reports DELETIONS, not merely absences", () =>
     expect(out.map((k) => k.title)).toEqual(["Really deleted"]);
   });
 
+  // ★★★ THE TWO FUNCTIONS MUST AGREE, and they had already drifted. Once the
+  // derivation started requiring `op === "delete"`, retention still asked the
+  // OLD question, so a truncation artifact was HIDDEN by one and PROTECTED
+  // FOREVER by the other — measured at 50 of 50 artifacts surviving a run
+  // already 50 rows past MAX_TOTAL_VERSIONS, because tombstones never enter
+  // `keepable` and the global cap therefore does not bound them. Rows no
+  // surface could reach and no mechanism could reclaim.
+  it("does not PROTECT an artifact that it also refuses to LIST", () => {
+    const artifact = v({ id: 2, documentId: 900, title: "Truncated away", op: "update" });
+    expect(deletedDocumentVersions([artifact], [])).toEqual([]);
+    // Retention must reach the same verdict: not a tombstone, so ordinary
+    // retention applies and it is not pinned by the protection branch.
+    const noise = Array.from({ length: MAX_TOTAL_VERSIONS }, (_, i) =>
+      v({
+        id: 1000 + i,
+        documentId: 1 + Math.floor(i / MAX_VERSIONS_PER_DOC),
+        savedAt: new Date(Date.parse("2026-06-01T00:00:00.000Z") + i * 60_000).toISOString(),
+      }),
+    );
+    const liveIds = [...new Set(noise.map((n) => n.documentId))];
+    // The artifact is the globally OLDEST entry, so an unprotected group loses
+    // it to the global cap and a protected one keeps it past the cap.
+    const kept = trimVersions([{ ...artifact, savedAt: "2020-01-01T00:00:00.000Z" }, ...noise], liveIds);
+    expect(kept.some((k) => k.id === 2)).toBe(false);
+    expect(kept).toHaveLength(MAX_TOTAL_VERSIONS);
+  });
+
+  it("STILL protects a real tombstone past both caps", () => {
+    // ★★★ THE CONTROL, and without it "artifact dropped" and "everything
+    // dropped" are indistinguishable — dropping real tombstones would make
+    // deleted documents unrecoverable while satisfying the case above.
+    const tombstone = v({ id: 2, documentId: 900, title: "Really deleted", savedAt: "2020-01-01T00:00:00.000Z", op: "delete" });
+    const noise = Array.from({ length: MAX_TOTAL_VERSIONS }, (_, i) =>
+      v({
+        id: 1000 + i,
+        documentId: 1 + Math.floor(i / MAX_VERSIONS_PER_DOC),
+        savedAt: new Date(Date.parse("2026-06-01T00:00:00.000Z") + i * 60_000).toISOString(),
+      }),
+    );
+    const liveIds = [...new Set(noise.map((n) => n.documentId))];
+    const kept = trimVersions([tombstone, ...noise], liveIds);
+    expect(kept.some((k) => k.id === 2)).toBe(true);
+    expect(kept).toHaveLength(MAX_TOTAL_VERSIONS + 1);
+    // And the derivation agrees it is a deletion.
+    expect(deletedDocumentVersions([tombstone], liveIds.map((id) => doc({ id }))).map((k) => k.id)).toEqual([2]);
+  });
+
+  it("does not treat a LIVE document as deleted, even if its newest version is a delete", () => {
+    // ★★★ THE OTHER HALF OF THE PREDICATE, and it needed its own case: dropping
+    // the `!live.has(...)` check left every other test in this file GREEN
+    // (mutation-measured). "Tombstone" means not-live AND deleted, and only a
+    // fixture holding a live document whose newest version is a `delete` can
+    // tell the two halves apart.
+    //
+    // ★★ Unreachable through the engine — a delete removes the document, and
+    // ids are never reused, so a live id cannot inherit a deleted group. Same
+    // class as the dedup above: a corrupted-state property, worth pinning
+    // because the failure is silent HISTORY LOSS. Treated as a tombstone, this
+    // group would be hard-trimmed to its single newest entry and every earlier
+    // version of a document the user still has would be discarded.
+    const older = v({ id: 1, documentId: 1, savedAt: "2026-01-01T00:00:00.000Z", op: "update" });
+    const strayDelete = v({ id: 2, documentId: 1, savedAt: "2026-02-01T00:00:00.000Z", op: "delete" });
+    const kept = trimVersions([older, strayDelete], [1]);
+    expect(kept.map((k) => k.id)).toEqual([1, 2]); // ordinary retention, nothing discarded
+    // And the derivation agrees the document is not deleted.
+    expect(deletedDocumentVersions([older, strayDelete], [doc({ id: 1 })])).toEqual([]);
+  });
+
   it("reads only the NEWEST entry, so an older delete under a later edit is not a tombstone", () => {
     // ★ A document deleted, restored under a new id, and then edited through
     // that new id leaves an old delete buried under newer entries. Reading the

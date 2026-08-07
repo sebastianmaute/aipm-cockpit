@@ -140,6 +140,35 @@ export function sanitizeDocumentVersions(raw: unknown): DocVersion[] {
   return out;
 }
 
+/** ★★★ THE ONE DEFINITION OF "TOMBSTONE", consumed by BOTH `trimVersions` and
+ *  `deletedDocumentVersions`. They used to ask two different questions and had
+ *  already drifted: after the derivation started requiring `op === "delete"`,
+ *  retention still asked the OLD one (`!live && newest.op !== RESTORED_MARKER_OP`),
+ *  so a truncation artifact — a documentId absent because the load capped it
+ *  away, newest op an ordinary edit — became HIDDEN by the derivation while
+ *  still PROTECTED forever by retention. Measured: 50 of 50 artifacts survived
+ *  a run that was already 50 rows past MAX_TOTAL_VERSIONS, because tombstones
+ *  never enter `keepable` and so the global cap does not bound them; each
+ *  carries the document's full blocks, and on CSV/Markdown the whole array is
+ *  one cell. Rows that no surface can reach and no mechanism can reclaim.
+ *
+ *  ★★ Not a retention regression — that protection predates the change. What
+ *  changed is that the rows became UNREACHABLE: before, they at least showed up
+ *  as the phantoms the derivation fix removed.
+ *
+ *  ★ Deliberately ONE predicate rather than two matched checks. Patching
+ *  retention alone would leave exactly the two-question structure that produced
+ *  this, and it is the fourth defect in this slice of the same shape — a rule
+ *  enforced at one of two places. Now they cannot disagree, because there is
+ *  nothing to disagree with.
+ *
+ *  ★ It SUBSUMES the old `RESTORED_MARKER_OP` test in both callers and changes
+ *  nothing for a restored group: a marker is not `"delete"`, so the group still
+ *  fails the check and still re-enters ordinary retention exactly as before. */
+function isTombstone(newest: DocVersion, live: ReadonlySet<number>): boolean {
+  return !live.has(newest.documentId) && newest.op === "delete";
+}
+
 /** Newest first by savedAt, id as the tie-break so the order is total. */
 function byNewest(a: DocVersion, b: DocVersion): number {
   return a.savedAt === b.savedAt ? b.id - a.id : a.savedAt < b.savedAt ? 1 : -1;
@@ -204,14 +233,19 @@ export function trimVersions(
 
   const protectedIds = new Set<number>();
   const keepable: DocVersion[] = [];
-  for (const [documentId, list] of byDoc) {
+  // ★ `.values()`, not the entry pair — the key became unused when the
+  // tombstone test moved into `isTombstone`, which reads `documentId` off the
+  // version itself. CI runs eslint at `--max-warnings=0`, so a leftover
+  // destructured key is a FATAL build failure, not a tidiness note.
+  for (const list of byDoc.values()) {
     const sorted = [...list].sort(byNewest);
-    // ★ A restored marker as the NEWEST entry means this id was recovered
-    // under a new document id, so the group is no longer a tombstone: it gets
-    // ordinary retention and can age out, instead of one row surviving both
-    // caps forever. Only the newest entry decides — an older marker under a
-    // later delete means the id was deleted AGAIN and is a tombstone once more.
-    if (!live.has(documentId) && sorted[0].op !== RESTORED_MARKER_OP) {
+    // ★ Only the NEWEST entry decides. A restored marker there means the id was
+    // recovered under a new document id, so the group is no longer a tombstone,
+    // gets ordinary retention and can age out instead of surviving both caps
+    // forever — and an older marker under a later delete means the id was
+    // deleted AGAIN and is a tombstone once more. Same rule the deleted-list
+    // derivation applies, because it is literally the same function.
+    if (isTombstone(sorted[0], live)) {
       // Deleted: the newest entry is the tombstone and survives everything.
       protectedIds.add(sorted[0].id);
       continue;
@@ -300,5 +334,5 @@ export function deletedDocumentVersions(
     const current = newestByDoc.get(version.documentId);
     if (!current || byNewest(version, current) < 0) newestByDoc.set(version.documentId, version);
   }
-  return [...newestByDoc.values()].filter((version) => version.op === "delete").sort(byNewest);
+  return [...newestByDoc.values()].filter((version) => isTombstone(version, live)).sort(byNewest);
 }
