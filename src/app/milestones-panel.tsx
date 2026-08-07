@@ -450,6 +450,7 @@ function MilestonesPanelBody({
                   className="relative px-3 py-2 font-medium"
                   style={{ width: colWidths.achieved, minWidth: colWidths.achieved }}
                 >
+                  {t(lang, "milestonesColAchieved")}
                   <ColumnResizeHandle col="achieved" onMouseDown={startResize} />
                 </th>
               )}
