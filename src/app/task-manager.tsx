@@ -2815,7 +2815,7 @@ function TaskManagerInner() {
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
             storageReady={storageOk && !loadWasTruncated}
-            savingPaused={loadWasTruncated} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
+            savingPaused={!isPopout && loadWasTruncated} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
