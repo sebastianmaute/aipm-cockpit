@@ -1403,6 +1403,59 @@ describe("useChatDispatcher – document tools", () => {
     expect(result.current.getDocument(id)!.blocks).toHaveLength(2);
   });
 
+  // ★★★ Regression, cold review of 005ede2c: `result.rejected` mixes
+  // OP-SCOPED entries ("op N: …") with MUTATION-SCOPED ones (a blank title)
+  // that describe the write as a whole, not any single op. Subtracting the
+  // WHOLE array from an op count goes negative the moment both land in the
+  // same call — this is the boundary that was untested (a blank title
+  // beside ops) and the arithmetic bug hid behind that gap.
+  it("does not report a negative `applied` when an out-of-range op meets a blank title", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [
+        { type: "paragraph", html: "<p>a</p>" },
+        { type: "paragraph", html: "<p>b</p>" },
+        { type: "paragraph", html: "<p>c</p>" },
+      ]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(id, [{ op: "delete", index: 99 }], "   ");
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.applied).not.toBeLessThan(0);
+    expect(out!.rejected).toHaveLength(2);
+    // Neither half of the write landed: the blocks AND the title survive.
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(3);
+    expect(result.current.getDocument(id)!.title).toBe("Doc");
+  });
+
+  // The other direction of the same bug: a REAL op succeeds while a blank
+  // title is rejected alongside it. The old formula also gave `applied: 0`
+  // here (0 op-rejections but 1 title-rejection subtracted from 1 op sent),
+  // telling the model nothing landed when a block genuinely did.
+  it("reports applied:1 when a valid op lands and only the accompanying title is rejected", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "append", block: { type: "paragraph", html: "<p>b</p>" } }],
+        "  ",
+      );
+    });
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual(["title must not be empty"]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(stored.title).toBe("Doc");
+  });
+
   it("updateDocument sanitizes an insert op's block before applying it", () => {
     const { result } = renderDispatcher();
     let id!: number;

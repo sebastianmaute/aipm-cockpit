@@ -126,15 +126,25 @@ export function useDocumentTools(isReadOnly: boolean): DocumentToolDispatcher {
         versionsRef.current = result.versions;
         const after = result.documents.find((d) => d.id === id);
         const usedReplaceAll = ops.some((o) => o.op === "replaceAll");
+        // ★★★ `result.rejected` mixes OP-SCOPED entries ("op N: …", one per
+        // rejected op — applyOps prefixes every one, document-mutations.ts)
+        // with MUTATION-SCOPED ones (a blank title; a future block-count cap)
+        // that describe the WRITE, not any single op. Subtracting the whole
+        // array from an op count conflates two different denominators and can
+        // go negative the moment both kinds land together — e.g. an
+        // out-of-range op alongside a blank title. Count only the op-scoped
+        // ones: every op in `cleanOps` contributes at most one such entry, so
+        // this can never exceed `cleanOps.length` and needs no clamp.
+        const opRejectedCount = result.rejected.filter((r) => /^op \d+:/.test(r)).length;
         return {
           id,
           title: after?.title ?? before.title,
           blockCount: after?.blocks.length ?? before.blocks.length,
           // Derived from what was actually SENT (cleanOps) and what the
-          // engine itself reported as rejected among those — never from the
+          // engine itself reported as rejected AMONG THOSE — never from the
           // caller's raw `ops.length`, which over-counts by exactly the ops
           // this function rejected before the engine ever saw them.
-          applied: cleanOps.length - result.rejected.length,
+          applied: cleanOps.length - opRejectedCount,
           rejected: [...selfRejected, ...result.rejected],
           removed: usedReplaceAll ? Math.max(0, before.blocks.length - (after?.blocks.length ?? 0)) : 0,
         };
