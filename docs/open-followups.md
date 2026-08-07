@@ -143,6 +143,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 98 | `documents` is in NEITHER save-time data-loss counter, so a documents-only wipe trips no guard | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open — MISSING NET, **no known live path**, and NOT a regression the documents slice introduced. `knowledgeItems`, `insights`, `timelogLinks` and `settingsOverrides` share the gap — **state that scoping whenever this row is quoted**, or a reader goes hunting for a documents bug that is not there. Widening `nonEmptyCollectionCount` / `workspaceRecordCount` shifts the L3 and Layer-B thresholds for EVERY existing project, so it needs its own slice, its own tests, and a deliberate decision on whether the other four join |
 | 99 | The e2e seed writes only a minority of BrowserBackend's optional kv slices, so any view backed by an unseeded one is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
 | 100 | Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M — needs a decision first | open — **measured on ALL SIX write paths**; 205 documents load as 200 and re-save as 200, with no diagnostic, toast or banner anywhere. NOT fixed by the engine-side cap (that stops the state being BUILT, not LOADED). The fork — surface it, or refuse the load — is undecided and is the whole point of the entry |
+| 101 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -5124,6 +5125,37 @@ show rows whose Restore button always fails, with a message that makes no sense 
 recover a document.
 
 ---
+
+## 101. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
+
+`d7f1e0b9` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
+AI create / update / delete that actually CHANGED something. Before it, the kind was registered in
+four places and emitted from none.
+
+★★★ **That did NOT make the deep-link work, and the reason is not the one the S2 review first
+assumed.** The review recorded the deep-link as "unreachable for want of rows". Measured — wrong
+mechanism:
+
+```bash
+grep -rn "activityViewOf|dashboard-activity-nav" src/ e2e/
+#  -> src/app/dashboard-activity-nav.ts        (the definition)
+#  -> src/app/dashboard-activity-nav.test.ts   (its unit test)
+#  and nothing else
+```
+
+So `activityViewOf` has never been called from production code, for ANY activity kind — not just
+this one. Rows now exist and carry `(id, title)` args; nothing routes a click on one anywhere.
+
+★ The only consumer of `ActivityEntry.args` anywhere is `activity-log-panel.tsx`, which renders
+`t(lang, ACTIVITY_KIND_TO_KEY[e.kind], ...e.args)`. And `activityAiDocumentWrite` has **zero**
+placeholders in both EN and DE, so the id and title are stored on the entry and rendered by nothing
+today. That is deliberate and matches `ai.inlineEdit`, whose string is also placeholder-free while
+it passes `(id, title)` — the args are there for a future surface, not for the current label.
+
+★★ Do NOT "fix" this by adding placeholders to the string. The open question is where a click on an
+activity row should GO and which surfaces own that routing — a decision, not a one-liner. Wiring
+`activityViewOf` for one kind while every other kind stays unrouted would be the same
+one-door-of-two shape this slice hit six times.
 
 ## Provenance — where these items came from, and what already closed
 
