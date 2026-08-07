@@ -20,11 +20,12 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type ProjectDocument, MAX_TITLE_CHARS } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
-import type { DocVersionSource } from "./document-versions";
+import type { DocVersion, DocVersionSource } from "./document-versions";
 import type { Workspace } from "./workspace";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { DocumentPreview } from "./document-preview";
+import { DocumentsHistoryModal } from "./documents-history-modal";
 import { downloadDocument, type DocFormat } from "./document-download";
 import { useColumnResize } from "./use-column-resize";
 import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
@@ -141,6 +142,15 @@ export interface DocumentsPanelProps {
    *  exactly so the call site passes it through with no wrapper; this pane
    *  always passes `"user"` as the source. */
   mutateDocuments: (m: DocMutation, source: DocVersionSource) => DocResult;
+  /** ★★ A PROP, not `ws.documentVersions`. The field does exist on `Workspace`,
+   *  so reading it off `ws` would compile and would even work in production —
+   *  but `ws` is here for the PREVIEW's live data, and overloading it is the
+   *  implicit coupling that decays into a wrong claim later. It is also
+   *  untestable: the pane's live harness passes a static `emptyWorkspace()` as
+   *  `ws` while driving the real provider for everything else, so a modal fed
+   *  from `ws` would render an empty history in every test while production
+   *  worked. Threaded explicitly, exactly like `mutateDocuments`. */
+  documentVersions: readonly DocVersion[];
   /** Needed by the preview: dataSection blocks render live workspace data. */
   ws: Workspace;
   /** Initial output format. The toolbar picker owns it from then on; this only
@@ -167,6 +177,7 @@ export function DocumentsPanel({
   lang,
   documents,
   mutateDocuments,
+  documentVersions,
   ws,
   initialFormat = "docx",
   isReadOnly,
@@ -192,6 +203,7 @@ export function DocumentsPanel({
   const [sort, setSort] = useState<{ key: DocumentSortKey; dir: SortDir }>({ key: "title", dir: "off" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [renaming, setRenaming] = useState<{ id: number; draft: string } | null>(null);
+  const [historyFor, setHistoryFor] = useState<number | null>(null);
   const confirm = useConfirm();
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<DocumentsCol>(
@@ -200,6 +212,28 @@ export function DocumentsPanel({
   );
 
   const rows = useMemo(() => sortDocuments(documents, sort.key, sort.dir), [documents, sort]);
+
+  // ★ Resolved at read time like `selected` below, never written back: a
+  // concurrent delete (an AI tool writing through the same entry point) would
+  // otherwise leave the modal open over a document that no longer exists.
+  const historyDoc = documents.find((d) => d.id === historyFor) ?? null;
+
+  // ★★ NEWEST FIRST, and the tie-break is not decoration. Two mutations in the
+  // same tick carry an IDENTICAL `savedAt` — `mutateDocuments` stamps one
+  // `new Date()` per call and React has not re-rendered between them — so a
+  // sort on `savedAt` alone leaves their relative order to `Array.prototype
+  // .sort`'s stability, i.e. to insertion order, which is oldest-first and
+  // therefore backwards. Descending `id` breaks it correctly because ids are
+  // minted monotonically. This mirrors `byNewest` in document-versions.ts,
+  // which is private to that module.
+  const historyVersions = useMemo(
+    () =>
+      documentVersions
+        .filter((v) => v.documentId === historyFor)
+        .slice()
+        .sort((a, b) => (a.savedAt === b.savedAt ? b.id - a.id : a.savedAt < b.savedAt ? 1 : -1)),
+    [documentVersions, historyFor],
+  );
 
   // ★ Selection is RESOLVED at read time, never written back. A selected
   // document that a concurrent writer deletes would otherwise leave the pane
@@ -321,10 +355,28 @@ export function DocumentsPanel({
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
           onDownload={(doc) => downloadDocument(doc, format, ws, lang)}
+          onOpenHistory={(doc) => setHistoryFor(doc.id)}
           isReadOnly={isReadOnly}
         />
         <DocumentPreview lang={lang} doc={selected} ws={ws} />
       </div>
+
+      <DocumentsHistoryModal
+        open={historyFor !== null}
+        doc={historyDoc}
+        versions={historyVersions}
+        onClose={() => setHistoryFor(null)}
+        // ★ A restore is a mutation like any other, so it goes through the same
+        // single entry point — and through `mutate`, not `mutateDocuments`
+        // directly, so the same-tick title record stays in step with every
+        // other handler here.
+        onRestore={(versionId) => {
+          mutate({ kind: "restore", versionId });
+          setHistoryFor(null);
+        }}
+        lang={lang}
+        isReadOnly={isReadOnly}
+      />
 
       {renaming && (
         <Modal open onClose={() => setRenaming(null)} ariaLabelledby={RENAME_TITLE_ID} align="center">

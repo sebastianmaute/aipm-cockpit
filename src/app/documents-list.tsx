@@ -41,6 +41,9 @@ export interface DocumentsListProps {
   onDuplicate: (doc: ProjectDocument) => void;
   onDelete: (doc: ProjectDocument) => void;
   onDownload: (doc: ProjectDocument) => void;
+  /** ★ NOT gated by `isReadOnly`: opening history only READS. The Restore
+   *  buttons inside the modal are what carry the guard. */
+  onOpenHistory: (doc: ProjectDocument) => void;
   /** Popout mirrors are read-only: rename/duplicate/delete go inert. Download
    *  and selection stay live — neither mutates the workspace. */
   isReadOnly?: boolean;
@@ -60,6 +63,7 @@ export function DocumentsList({
   onDuplicate,
   onDelete,
   onDownload,
+  onOpenHistory,
   isReadOnly,
 }: DocumentsListProps) {
   if (documents.length === 0) {
@@ -154,6 +158,14 @@ export function DocumentsList({
                   aria-label={`${t(lang, "documentsDownload")} – ${doc.title}`}
                 >
                   {t(lang, "documentsDownload")}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => onOpenHistory(doc)}
+                  aria-label={`${t(lang, "documentsHistory")} – ${doc.title}`}
+                >
+                  {t(lang, "documentsHistory")}
                 </Button>
                 <Button
                   variant="secondary"

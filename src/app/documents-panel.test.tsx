@@ -90,6 +90,7 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
         lang="en-US"
         documents={initial}
         mutateDocuments={mutateDocuments}
+        documentVersions={[]}
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
       />
@@ -133,7 +134,12 @@ function Seed({ documents }: { documents: readonly ProjectDocument[] }) {
 }
 
 function LivePanel({ initial }: { initial: readonly ProjectDocument[] }) {
-  const { documents, mutateDocuments } = useWorkspace();
+  // ★ `documentVersions` comes from the PROVIDER here, not a fixture — the
+  // history modal is fed by it, so a static `[]` would make every live history
+  // assertion below vacuous while production worked. This is the whole reason
+  // the panel takes it as a prop rather than reading `ws.documentVersions`:
+  // `ws` is a static `emptyWorkspace()` in this harness.
+  const { documents, mutateDocuments, documentVersions } = useWorkspace();
   return (
     <>
       <Seed documents={initial} />
@@ -141,6 +147,7 @@ function LivePanel({ initial }: { initial: readonly ProjectDocument[] }) {
         lang="en-US"
         documents={documents}
         mutateDocuments={mutateDocuments}
+        documentVersions={documentVersions}
         ws={emptyWorkspace()}
         onResetSize={() => {}}
       />
@@ -318,6 +325,7 @@ describe("DocumentsPanel", () => {
           lang="en-US"
           documents={[doc(9, "Something else")]}
           mutateDocuments={mutateDocuments}
+          documentVersions={[]}
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
@@ -486,6 +494,7 @@ describe("DocumentsPanel", () => {
           lang="en-US"
           documents={[doc(1, "Alpha")]}
           mutateDocuments={inertMutate}
+          documentVersions={[]}
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
@@ -529,6 +538,7 @@ describe("DocumentsPanel", () => {
           lang="en-US"
           documents={[doc(1, "Alpha")]}
           mutateDocuments={inertMutate}
+          documentVersions={[]}
           ws={emptyWorkspace()}
           initialFormat="pdf"
           onResetSize={() => {}}
@@ -739,6 +749,17 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
           mutateDocuments={() => {
             throw new Error("mutateDocuments must never be called in a read-only pane");
           }}
+          documentVersions={[
+            {
+              id: 1,
+              documentId: 1,
+              title: "Alpha",
+              blocks: [],
+              savedAt: "2026-08-05T10:00:00.000Z",
+              source: "user",
+              op: "rename",
+            },
+          ]}
           ws={emptyWorkspace()}
           isReadOnly
           onResetSize={() => {}}
