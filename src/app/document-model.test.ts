@@ -7,6 +7,7 @@ import {
   MAX_TABLE_ROWS,
   MAX_TABLE_COLUMNS,
   MAX_BULLET_ITEMS,
+  type DocTruncationDiag,
   type ProjectDocument,
 } from "./document-model";
 
@@ -310,5 +311,31 @@ describe("sanitizeProjectDocuments", () => {
     const src = readFileSync("src/app/document-model.ts", "utf8");
     const codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
     expect(codeOnly).not.toMatch(/new Set\s*\(\s*EXPORT_SECTION_KEYS/);
+  });
+
+  it("counts entries the cap dropped into an optional diag", () => {
+    const many = Array.from({ length: MAX_DOCUMENTS + 5 }, (_, i) => doc({ id: i + 1 }));
+    const diag: DocTruncationDiag = {};
+    expect(sanitizeProjectDocuments(many, diag)).toHaveLength(MAX_DOCUMENTS);
+    expect(diag.truncatedEntries).toBe(5);
+  });
+
+  it("leaves the diag untouched when nothing is truncated", () => {
+    const diag: DocTruncationDiag = {};
+    sanitizeProjectDocuments([doc()], diag);
+    expect(diag.truncatedEntries).toBeUndefined();
+  });
+
+  it("still truncates when no diag is passed", () => {
+    const many = Array.from({ length: MAX_DOCUMENTS + 5 }, (_, i) => doc({ id: i + 1 }));
+    expect(sanitizeProjectDocuments(many)).toHaveLength(MAX_DOCUMENTS);
+  });
+
+  it("accumulates rather than overwriting, so one diag can span several calls", () => {
+    const many = Array.from({ length: MAX_DOCUMENTS + 2 }, (_, i) => doc({ id: i + 1 }));
+    const diag: DocTruncationDiag = {};
+    sanitizeProjectDocuments(many, diag);
+    sanitizeProjectDocuments(many, diag);
+    expect(diag.truncatedEntries).toBe(4);
   });
 });

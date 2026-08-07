@@ -188,15 +188,39 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
   };
 }
 
+/** Optional accumulator recording what a LOAD-TIME cap silently discarded.
+ *  Structurally compatible with `ImportDiag` (csv-codecs-decode.ts) so the
+ *  existing CSV/Markdown threading carries it with no extra plumbing, and
+ *  declared HERE so this module needs no runtime import of a codec — that
+ *  would risk the import cycle recorded in open-followups §92.
+ *  ★ `truncatedEntries` counts RAW ARRAY ENTRIES past the cap, not validated
+ *  documents. Counting real documents would mean sanitizing the whole tail,
+ *  which reintroduces the denial-of-service the cap exists to prevent. It is
+ *  therefore an UPPER BOUND — never an undercount — and every user-facing
+ *  string says "entries" for that reason. */
+export interface DocTruncationDiag {
+  truncatedEntries?: number;
+  truncatedBlocks?: number;
+}
+
 /** The SINGLE validator for the persisted documents array. Every load path
  *  routes through this. */
-export function sanitizeProjectDocuments(raw: unknown): ProjectDocument[] {
+export function sanitizeProjectDocuments(
+  raw: unknown,
+  diag?: DocTruncationDiag,
+): ProjectDocument[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<number>();
   const out: ProjectDocument[] = [];
-  for (const entry of raw) {
-    if (out.length >= MAX_DOCUMENTS) break;
-    const doc = sanitizeDocument(entry);
+  for (let i = 0; i < raw.length; i++) {
+    if (out.length >= MAX_DOCUMENTS) {
+      // Count the untouched tail and stop. `raw.length - i` is O(1) and never
+      // understates the loss; sanitizing the tail to get an exact figure is
+      // exactly the unbounded work the cap is here to refuse.
+      if (diag) diag.truncatedEntries = (diag.truncatedEntries ?? 0) + (raw.length - i);
+      break;
+    }
+    const doc = sanitizeDocument(raw[i]);
     if (!doc || seen.has(doc.id)) continue;
     seen.add(doc.id);
     out.push(doc);
