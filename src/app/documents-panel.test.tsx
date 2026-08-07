@@ -1282,6 +1282,67 @@ describe("DocumentsPanel — the restore toast", () => {
   });
 });
 
+// ★★★ THE HISTORY MODAL'S PREVIEW NEEDS THE LIVE WORKSPACE. Each history row
+// renders its version's blocks through `renderDocumentHtml`, which resolves a
+// `dataSection` block against a `Workspace`. The modal's `ws` is OPTIONAL and
+// falls back to `emptyWorkspace()`, and that fallback fails SILENTLY: an empty
+// register makes `resolveDataSection` return null, so the section renders as
+// NOTHING rather than as broken markup. Every test that merely opens the modal
+// — all of them, before this one — passes with the prop dropped.
+describe("DocumentsPanel — the history modal's Preview", () => {
+  /** One milestone, because `dataSection` is the ONLY block type that reads
+   *  the workspace at all, and `buildExportSections` returns null for a
+   *  register with zero rows. */
+  const wsWithData = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 7, name: "Phase gate 1", date: "2026-09-01", linkedTaskIds: [] }],
+  };
+
+  const dataVersion: DocVersion = {
+    id: 500,
+    documentId: 1,
+    title: "Older title",
+    blocks: [{ type: "dataSection", key: "milestones" }],
+    savedAt: "2026-08-05T10:00:00.000Z",
+    source: "user",
+    op: "update",
+  };
+
+  // ★★★ MUTATION-PROVED: dropping `ws={ws}` from the `<DocumentsHistoryModal>`
+  // mount reddens this case and nothing else in the file.
+  it("renders a version's dataSection against the LIVE workspace, not an empty one", () => {
+    const { container } = render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={inertMutate}
+          documentVersions={[dataVersion]}
+          ws={wsWithData}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+
+    // ★ The panel is ALWAYS mounted and `hidden`-toggled, and its CONTENT is
+    // computed only while open — so an empty panel here is the positive
+    // control: the text asserted below cannot have been there all along.
+    const panel = () => container.querySelector("[data-documents-history-preview]");
+    expect(panel()).not.toBeNull();
+    expect(panel()!.textContent).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Preview –/ }));
+
+    // ★★ The milestone name can ONLY have come from the workspace this pane
+    // threaded through. `emptyWorkspace()` holds no milestones, so the
+    // fallback resolves this very block to null and renders nothing — which is
+    // why asserting the SECTION'S CONTENT, and not merely that the panel has
+    // some text, is what gives this teeth.
+    expect(panel()!.textContent).toContain("Phase gate 1");
+  });
+});
+
 // ★★★ DEEP-LINK SELECTION. The chat transcript's document card calls
 // `requestOpen("documents", id)`; with no consumer here that landed on the
 // Documents view with nothing selected — half a feature that looks whole.

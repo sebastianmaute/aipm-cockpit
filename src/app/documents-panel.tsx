@@ -573,6 +573,7 @@ export function DocumentsPanel({
         // section rather than broken markup, so no test that merely opens the
         // modal would notice. Deliberately NOT `ws.documentVersions` for the
         // `versions` prop above — see that prop's own note.
+        ws={ws}
         onClose={() => setHistoryFor(null)}
         // ★★ A restore is a mutation like any other, so it goes through the
         // same single entry point — and through `handleRestore`, not a
