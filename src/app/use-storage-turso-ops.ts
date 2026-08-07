@@ -28,6 +28,7 @@ import {
 } from "./turso-portfolio";
 import { writeSettings } from "./use-settings";
 import { logDiag } from "./diagnostics";
+import type { TruncationOps } from "./use-load-truncation";
 
 /** Live closure values the Turso project flows read each render. */
 export interface TursoProjectOpsDeps {
@@ -38,7 +39,9 @@ export interface TursoProjectOpsDeps {
   tursoConfigNow: () => TursoConfig | null;
   tursoProjectId: string | null;
   setTursoProjectId: (id: string | null) => void;
-  backend: { save: (ws: Workspace) => Promise<void> };
+  /** ★★ The §102 choke points, and the ONLY way this file reaches the
+   *  ACTIVE backend — see the note on `FileProjectOpsDeps.truncationOps`. */
+  truncationOps: TruncationOps;
   currentWorkspace: () => Workspace;
   applyWorkspace: (ws: Workspace) => void;
   suppressNextLoadRef: React.MutableRefObject<boolean>;
@@ -51,9 +54,13 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // failed flush (network blip, auth expiry, lock timeout) was previously
   // discarded silently, losing unsaved edits with no trace. Surface it (warn
   // toast + diagnostics) and proceed — the switch is non-blocking.
-  async function flushOutgoing(ws: Workspace): Promise<void> {
+  // ★★ Takes no workspace: `flushCurrent` reads the LIVE one and skips entirely
+  // while a truncated load is unresolved (see `TruncationOps`). A SKIP is not a
+  // failure and must not raise the toast below — the source still holds the
+  // documents, which is the whole point of pausing the write.
+  async function flushOutgoing(): Promise<void> {
     try {
-      await deps.backend.save(ws);
+      await deps.truncationOps.flushCurrent();
     } catch (err) {
       logDiag("warn", "storage.switchFlushFailed", { message: err instanceof Error ? err.message : String(err) });
       deps.showToast("error", t(deps.langRef.current, "storageSwitchFlushFailed"));
@@ -79,10 +86,11 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     if (deps.tursoProjectId === id) return;
     try {
       // Flush the outgoing project to the active backend before switching.
-      await flushOutgoing(deps.currentWorkspace());
+      await flushOutgoing();
       const target = new TursoBackend(cfg, id);
       const loaded = await target.load();
       deps.applyWorkspace(loaded);
+      deps.truncationOps.reportFor(target);
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setTursoProjectId(id);
@@ -98,7 +106,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     if (!cfg) return;
     // Flush the outgoing project first (setting suppressNextSaveRef below cancels
     // the pending debounced save). Mirrors the file createProject flush.
-    await flushOutgoing(deps.currentWorkspace());
+    await flushOutgoing();
     const id = crypto.randomUUID();
     // Fresh id space for a new project — clear the session minter so seed ids
     // start at #1, not continuing the previously open project's high-water.
@@ -145,7 +153,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       return;
     }
     // Flush the current file project before copying it.
-    await flushOutgoing(ws);
+    await flushOutgoing();
     const id = crypto.randomUUID();
     try {
       await portfolioCreate(cfg, meta, id);

@@ -32,6 +32,7 @@ import { resetMintState, snapshotMintState, restoreMintState } from "./id-mint-s
 import type { ProjectMeta } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
 import { writeSettings } from "./use-settings";
+import type { TruncationOps } from "./use-load-truncation";
 
 /** Live closure values the file/local project flows read each render. */
 export interface FileProjectOpsDeps {
@@ -40,8 +41,16 @@ export interface FileProjectOpsDeps {
   setStorageConfig: (config: StorageConfig) => void;
   langRef: React.MutableRefObject<Lang>;
   settingsRef: React.MutableRefObject<Settings>;
-  backend: { save: (ws: Workspace) => Promise<void> };
-  currentWorkspace: () => Workspace;
+  /** ★★ The §102 choke points, and the ONLY way this file reaches the
+   *  ACTIVE backend. There is deliberately no `backend` dep: every flush here
+   *  is a best-effort pre-switch write of the LIVE workspace, which is exactly
+   *  the write that must not commit a truncated load. Removing the raw handle
+   *  makes the bypass unspellable rather than merely discouraged. Loads still
+   *  use their own TARGET backend (a fresh project's data, never the live
+   *  workspace) and report through `reportFor`. */
+  truncationOps: TruncationOps;
+  /** ★ No `currentWorkspace` either — the live workspace only ever left this
+   *  file through the four flushes above, and `flushCurrent` now reads it. */
   applyWorkspace: (ws: Workspace) => void;
   backendFor: (config: StorageConfig) => StorageBackend;
   commitRegistry: (next: ReturnType<typeof loadRegistry>) => void;
@@ -64,8 +73,12 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     try {
       // 1. Persist the outgoing project's data to its own backend (best-effort:
       //    a failing save must not strand the user on the old project).
+      //    ★★ Guarded: this is the flush that used to commit the truncated load
+      //    the banner had just told the user was paused — the user switches
+      //    project to get away from the problem and the switch itself destroys
+      //    the documents. `flushCurrent` skips instead.
       try {
-        await deps.backend.save(deps.currentWorkspace());
+        await deps.truncationOps.flushCurrent();
       } catch {
         // Swallow — the outgoing backend may be unconfigured (e.g. no file
         // permission). The switch itself is the user's intent.
@@ -89,6 +102,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       // 3. Load the target's existing data and apply it.
       const loaded = await targetBackend.load();
       deps.applyWorkspace(loaded);
+      deps.truncationOps.reportFor(targetBackend);
       // 4. Suppress the auto-load the storageConfig change triggers (we just
       //    loaded), then point the active backend + registry at the target.
       deps.suppressNextLoadRef.current = true;
@@ -112,7 +126,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     // within the 500ms window before creating another project would otherwise be
     // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
     try {
-      await deps.backend.save(deps.currentWorkspace());
+      await deps.truncationOps.flushCurrent();
     } catch {
       // Swallow — the outgoing backend may be unconfigured (e.g. no file
       // permission). Creating the new project is the user's intent.
@@ -177,7 +191,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     // within the 500ms window before opening another project would otherwise be
     // lost. Mirrors switchToProject's flush; must use the CURRENT active backend.
     try {
-      await deps.backend.save(deps.currentWorkspace());
+      await deps.truncationOps.flushCurrent();
     } catch {
       // Swallow — the outgoing backend may be unconfigured (e.g. no file
       // permission). Opening the new project is the user's intent.
@@ -216,6 +230,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       });
       deps.commitRegistry(addProject(loadRegistry(), entry, true));
       deps.applyWorkspace(loaded);
+      deps.truncationOps.reportFor(targetBackend);
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
@@ -255,7 +270,7 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     // Flush the outgoing project first (best-effort) — mirrors createProject.
     // suppressNextSaveRef below cancels the pending debounced save.
     try {
-      await deps.backend.save(deps.currentWorkspace());
+      await deps.truncationOps.flushCurrent();
     } catch {
       // Swallow — the outgoing backend may be unconfigured. The demo is the intent.
     }

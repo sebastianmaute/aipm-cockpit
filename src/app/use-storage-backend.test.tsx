@@ -1948,13 +1948,13 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
   });
 });
 
-// ── §100: the truncated-load save guard ──────────────────────────────────────
+// ── §102: the truncated-load save guard ──────────────────────────────────────
 // An over-cap load truncates the documents array; the next AUTOMATIC save then
 // commits that loss permanently on all six write paths, because the excess
 // documents are still in the source file. The guard pauses saving until the user
 // resolves it, and `allowTruncatedSave` is the only way out — the user cannot get
 // under the cap by editing, since the excess entries were never loaded.
-describe("useStorageBackend — §100 truncated-load guard", () => {
+describe("useStorageBackend — §102 truncated-load guard", () => {
   // A LOCAL backend per test: `lastLoadTruncation` is a plain PROPERTY, so
   // vi.clearAllMocks() would not reset it on the shared `mockBackend` and a
   // truncating fixture would leak into every later test — which the shuffled-seed
@@ -2060,6 +2060,335 @@ describe("useStorageBackend — §100 truncated-load guard", () => {
       expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T1" })] }),
     );
     expect(result.current.loadWasTruncated).toBe(false);
+  });
+});
+
+// ── §102: the guard must reach EVERY load and EVERY flush ────────────────────
+// ★★★ THE SEAM IS THE WHOLE POINT OF THIS BLOCK. The guard shipped correct in
+// itself and wired into ONE of six loads and ONE of seven writes, so a user who
+// switched project both missed the warning AND committed the loss the banner
+// says is paused. Every test here drives the REAL `useStorageBackend`, so it
+// pins the deps-object wiring into `useFileProjectOps` / `useTursoProjectOps`
+// that a test against either ops hook alone cannot see.
+describe("useStorageBackend — §102 truncation reaches every load/flush path", () => {
+  const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+  let setStorageConfig: ReturnType<typeof vi.fn<(config: StorageConfig) => void>>;
+
+  // A backend that publishes `lastLoadTruncation` from INSIDE load(), so the
+  // read order (load, then report) is the real one. Local per test —
+  // `lastLoadTruncation` is a plain property that vi.clearAllMocks() would not
+  // reset on a shared object, and a truncating fixture leaking into a later test
+  // surfaces under the shuffled-seed gate as an unrelated failure.
+  function makeBackend(truncation?: { entries: number; blocks: number }, ws?: object) {
+    const b = {
+      kind: "browser",
+      load: vi.fn(async () => { b.lastLoadTruncation = truncation; return ws ?? emptyWorkspace(); }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("f.json"),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    return b;
+  }
+
+  /** Register a switch TARGET in the registry (browser-kind → no file handle). */
+  function registerTarget(id: string): void {
+    saveRegistry(addProject(loadRegistry(), { id, name: "Target", code: "T", storageConfig: { kind: "browser" } }, false));
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setStorageConfig = vi.fn<(config: StorageConfig) => void>();
+    saveRegistry(emptyRegistry());
+    saveCurrentTursoProjectId(null);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.requestWriteAccessForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.setBackendFileHandle as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (handlesMod.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (handlesMod.saveHandle as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+  });
+
+  // ── LOAD PATHS: each one must REPORT ───────────────────────────────────────
+
+  it("switchToProject reports the TARGET's truncation", async () => {
+    const main = makeBackend();            // clean mount — the flag starts down
+    const target = makeBackend({ entries: 4, blocks: 0 });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("t-1");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(false); // control: not already raised
+
+    await act(async () => { await result.current.switchToProject("t-1"); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("4 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("loadProjectFromFile reports the opened file's truncation", async () => {
+    const main = makeBackend();
+    const opened = makeBackend({ entries: 9, blocks: 0 });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(opened);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(false);
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("9 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("reloadCurrentProject reports the re-read's truncation", async () => {
+    // Clean first read, truncated on the RE-read — so the flag can only come
+    // from the reload, not from the mount.
+    const b = makeBackend();
+    createBackendMock.mockReturnValue(b);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(false);
+
+    b.load.mockImplementationOnce(async () => { b.lastLoadTruncation = { entries: 3, blocks: 0 }; return emptyWorkspace(); });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("3 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  // ── CRITICAL 3: a CLEAN load must LOWER the flag ───────────────────────────
+
+  it("a clean load LOWERS the flag — one over-cap project must not poison the session", async () => {
+    // The backends already hold this invariant (`browser-backend.ts` resets
+    // `lastLoadTruncation` before any early return, because a stale value is
+    // worse than zero); the consumer used to keep the raised flag forever, so a
+    // healthy project's saves stayed blocked under a banner asserting ITS
+    // documents could not be opened.
+    const truncated = makeBackend({ entries: 12, blocks: 0 });
+    const clean = makeBackend();
+    createBackendMock.mockReturnValueOnce(truncated).mockReturnValue(clean);
+    registerTarget("healthy");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(true); // control: really raised
+
+    await act(async () => { await result.current.switchToProject("healthy"); });
+
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("reloadCurrentProject also lowers it — the recovery click a user would actually try", async () => {
+    const b = makeBackend({ entries: 12, blocks: 0 });
+    createBackendMock.mockReturnValue(b);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(true);
+
+    b.load.mockImplementationOnce(async () => { b.lastLoadTruncation = { entries: 0, blocks: 0 }; return emptyWorkspace(); });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  // ── WRITE PATHS: each best-effort flush must SKIP while unresolved ─────────
+
+  it("switchToProject SKIPS the pre-switch flush while the load is unresolved", async () => {
+    // ★★★ The worst case in the report: the banner says saving is paused, the
+    // user switches project to get away from it, and the switch's own flush
+    // commits the exact loss.
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const target = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("t-2");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.switchToProject("t-2"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    // …and the switch still completed (a skip must not strand the user).
+    expect(target.load).toHaveBeenCalled();
+    expect(setStorageConfig).toHaveBeenCalled();
+  });
+
+  it("loadProjectFromFile SKIPS its flush while the load is unresolved", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const opened = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(opened);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    expect(opened.load).toHaveBeenCalled();
+  });
+
+  it("createProject SKIPS its flush of the outgoing project", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const created = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(created);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.createProject({ name: "New", code: "N" } as never, "json"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    // The NEW project's own write is untouched: it persists a workspace built
+    // from scratch to a DIFFERENT backend and cannot overwrite the source the
+    // truncated documents are still sitting in.
+    expect(created.save).toHaveBeenCalled();
+  });
+
+  it("createDemoProject SKIPS its flush of the outgoing project", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const demo = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(demo);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.createDemoProject(emptyWorkspace() as never); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    expect(demo.save).toHaveBeenCalled();
+  });
+
+  it("switchToTursoProject SKIPS its flush, and the clean target load lowers the flag", async () => {
+    // Covers the OTHER deps object: `truncationOps` reaching `useTursoProjectOps`
+    // at all. Both halves ride the same object, so a missing dep fails here.
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    createBackendMock.mockReturnValue(main);
+    const { result } = renderBackend(makeArgs({
+      setStorageConfig,
+      settings: {
+        storageConfig: { kind: "turso" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(true);
+    main.save.mockClear();
+
+    await act(async () => { await result.current.switchToTursoProject("turso-p2"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    // The mocked TursoBackend publishes no truncation → a clean load → flag down.
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("a skipped flush is NOT reported as a flush FAILURE (Turso surfaces those with a toast)", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    createBackendMock.mockReturnValue(main);
+    const { result } = renderBackend(makeArgs({
+      setStorageConfig,
+      settings: {
+        storageConfig: { kind: "turso" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    showToast.mockClear();
+
+    await act(async () => { await result.current.switchToTursoProject("turso-p3"); });
+
+    // The skip is deliberate, not an error: the source still holds the documents.
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("could not be saved"));
+  });
+
+  // ── EXPLICIT user writes: REFUSE LOUDLY, never skip silently ───────────────
+
+  it("onPickStorageFile REFUSES the write, says why, and does NOT report success", async () => {
+    // ★★ The asymmetry with the flushes above is deliberate. A pre-switch flush
+    // is housekeeping nobody asked for, so a silent skip costs the user nothing
+    // they can see. THIS is a click: silence would leave them believing the file
+    // they just picked holds their project.
+    const b = makeBackend({ entries: 8, blocks: 0 });
+    createBackendMock.mockReturnValue(b);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    b.save.mockClear();
+    showToast.mockClear();
+
+    await act(async () => { await result.current.onPickStorageFile(); });
+
+    expect(b.save).not.toHaveBeenCalled();
+    // Loud: the refusal restates the counts…
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("8 document entries could not be opened"));
+    // …and NOTHING claims the store was switched.
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("onRequestStorageSwitch REFUSES, and critically does NOT repoint the app at the short copy", async () => {
+    // The conversion writes to a DIFFERENT backend, so the source survives —
+    // but `setStorageConfig` would then make the truncated copy the live store
+    // and orphan the intact original. The early return is the load-bearing part.
+    const main = makeBackend({ entries: 8, blocks: 0 });
+    const target = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    try {
+      const { result } = renderBackend(makeArgs({ setStorageConfig }));
+      await act(async () => { await Promise.resolve(); });
+      setStorageConfig.mockClear();
+      showToast.mockClear();
+
+      await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+
+      expect(target.save).not.toHaveBeenCalled();
+      expect(setStorageConfig).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("8 document entries could not be opened"));
+      expect(showToast).not.toHaveBeenCalledWith("info", expect.any(String));
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("both explicit writes go through once the user has resolved it", async () => {
+    // Control for the two refusals: they must be a pause, not a dead end.
+    const b = makeBackend({ entries: 8, blocks: 0 });
+    createBackendMock.mockReturnValue(b);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    b.save.mockClear();
+    await act(async () => { result.current.allowTruncatedSave(); });
+
+    await act(async () => { await result.current.onPickStorageFile(); });
+
+    expect(b.save).toHaveBeenCalled();
+  });
+
+  it("after allowTruncatedSave() the flush is no longer skipped", async () => {
+    // The mirror of every skip above: a guard that never re-opens is a lockout.
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const target = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("t-3");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+    await act(async () => { result.current.allowTruncatedSave(); });
+
+    await act(async () => { await result.current.switchToProject("t-3"); });
+
+    expect(main.save).toHaveBeenCalled();
   });
 });
 

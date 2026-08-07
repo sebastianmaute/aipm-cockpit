@@ -157,8 +157,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  clear-all / bulk delete). Without this an unexplained mass deletion is
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
-  // ★★ §100 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { loadWasTruncated, allowTruncatedSave, reportLoadTruncation, mayCommitAfterTruncation } = useLoadTruncation();
+  // ★★ §102 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
+  const { loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -341,7 +341,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         applyWorkspace(workspace);
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
-        reportLoadTruncation(backend.lastLoadTruncation, langRef.current, emitToast);
+        truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the flag would describe the workspace that is actually live.
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
         emitOutcome(null);
@@ -401,7 +401,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //        loss L3 misses). An explicit user bulk-op (clear-all / bulk delete)
     //        sets allowDestructiveRef one-shot to bypass. On refusal the backend
     //        keeps the data; a reload restores it.
-    // ★★ §100: an AUTOMATIC save must never commit a truncated load — the excess documents
+    // ★★ §102: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
     if (!mayCommitAfterTruncation()) return;
     const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
@@ -511,7 +511,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents });
+      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★★ §102: an explicit "store the project HERE" must not commit a truncated load into the file the user just picked — `guardedWrite` REFUSES LOUDLY and we skip the success toast below rather than reporting a save that never happened.
       await refreshBackendStatus();
       emitToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -536,7 +536,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      const loaded = await backend.load();
+      const loaded = await backend.load(); // ★ NO reportFor: this path applies tasks+raid ONLY, never the loaded documents — raising the flag would warn about documents the user still has, lowering it would clear a warning that is still true of the live ones.
       if (
         tasks.length > 0 &&
         !window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))
@@ -599,7 +599,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents });
+      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★★ §102: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
       suppressNextLoadRef.current = true;
       emitStorageConfig(newConfig);
       emitToast("info", t(langRef.current, "storageConvertedToast", label));
@@ -710,7 +710,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoConfigNow,
     tursoProjectId,
     setTursoProjectId,
-    backend,
+    truncationOps,
     currentWorkspace,
     applyWorkspace,
     suppressNextLoadRef,
@@ -729,8 +729,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setStorageConfig: emitStorageConfig,
     langRef,
     settingsRef,
-    backend,
-    currentWorkspace,
+    truncationOps,
     applyWorkspace,
     backendFor,
     commitRegistry,
@@ -768,6 +767,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
       applyWorkspace(workspace, "raise");
+      truncationOps.reportFor(backend);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
       emitOutcome(null);
