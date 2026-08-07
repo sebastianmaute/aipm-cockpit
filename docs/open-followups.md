@@ -144,7 +144,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 99 | The e2e seed writes only two of BrowserBackend's ten optional kv slices, so any view backed by one of the other eight is axe-scanned against its EMPTY STATE | The e2e seed writes only a minority of BrowserBackend's optional kv slices, so any view backed by an unseeded one is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
 | 100 | Tab ejects focus from a portaled popover opened inside a modal, leaving it open and its contents keyboard-unreachable | field controls → modal header, unreleased | M | open — WCAG 2.1.1, **measured in Chromium** from both a radio and a checkbox. PRE-EXISTING and architectural (`Modal`'s trap guards on `container.contains`, false for every element in a portal); the move only made it prominent. Invisible to jsdom (the control's tests never mount inside `Modal`) and to axe |
 | 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
-| 102 | Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M — needs a decision first | open — **measured on ALL SIX write paths**; 205 documents load as 200 and re-save as 200, with no diagnostic, toast or banner anywhere. NOT fixed by the engine-side cap (that stops the state being BUILT, not LOADED). The fork — surface it, or refuse the load — is undecided and is the whole point of the entry |
+| 102 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
 | 103 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
@@ -5103,7 +5103,7 @@ touching every segmented control in the app wants its own slice and its own eye-
 ★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
 evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
 
-## 102. An over-cap load silently and permanently destroys the excess documents — open (REAL DATA LOSS, decision owed)
+## 102. An over-cap load silently and permanently destroyed the excess documents — CLOSED
 
 **This is NOT a regression the S2 slice introduced, and it is not theoretical — it destroys
 user-authored content today.** `MAX_DOCUMENTS` and its `break` arrived with the document model in
@@ -5119,7 +5119,8 @@ git merge-base --is-ancestor 90199c26 main && echo "already shipped"            
 
 ### What was measured
 
-`sanitizeProjectDocuments` (`document-model.ts`) stops at `MAX_DOCUMENTS` (200) with a bare `break`.
+`sanitizeProjectDocuments` (`document-model.ts`) stops at `MAX_DOCUMENTS` (**200 at the time of this
+measurement**; the fix raised it to 1000 — everything below records the defect as found) with a bare `break`.
 Nothing records that it truncated. Load an over-cap file, let autosave fire, and the excess documents
 are gone from storage:
 
@@ -5184,25 +5185,54 @@ belongs in this entry rather than its own. ★ Note the second line: there is **
 versions at all**, so history is never truncated while documents survive. That direction was checked
 and is clean.
 
-### The decision this entry exists to force — deliberately NOT made here
+### The decision that was taken — CLOSED
 
-Two defensible ends, and picking one is a scoped piece of work, not a trailing edit:
+All three candidate ends were on the table (surface it · refuse the load · raise the cap). **The
+third was chosen and combined with the first**, because neither alone is sufficient: raising the cap
+alone still destroys data for whoever exceeds the new number, and surfacing alone leaves the data
+dying with a warning attached. Refusing the load was rejected outright — it locks a user out of
+their own legitimate project with no in-app route to get back under the cap.
 
-- **Surface it.** Keep truncating, but emit a diagnostic and tell the user (the JSON path already has
-  the shape — it logs `workspace.documentVersionsDropped` when the rich-field pass throws). Preserves
-  today's "always opens" behaviour; the user learns *after* the data is already at risk.
-- **Refuse the load.** The cap's entire purpose is bounding what a corrupt or hostile file can do to
-  the app, so declining an over-cap workspace is arguably the correct reading of it. It is also a
-  footgun: a user whose legitimate project crossed 200 documents can no longer open their own file,
-  and has no in-app route to get under the cap.
+What shipped:
 
-★ A third option exists and should be considered explicitly rather than by default: **raise or remove
-the load-side cap** now that the engine enforces it at creation. The load cap's job was to bound
-foreign input, which is a different question from bounding what the app itself writes.
+1. **`MAX_DOCUMENTS` 200 → 1000**, and deliberately still **ONE constant serving TWO doors** — the
+   load-time truncation *and* the engine's create/duplicate/restore refusals. A separate
+   `MAX_DOCUMENTS_LOAD` was considered and rejected: a load cap above the create cap means a
+   legitimately-loaded project cannot be edited, which is the "one door of two" shape that produced
+   six defects in S2.
+2. **The truncation is counted**, via an optional `DocTruncationDiag` threaded into
+   `sanitizeProjectDocuments` and `sanitizeDocumentVersions`. It counts **raw array entries** past
+   the cap, not validated documents — an exact count means sanitizing the whole tail, which is the
+   unbounded work the cap exists to refuse. It is an UPPER BOUND, never an undercount, which is why
+   every user-facing string says "entries".
+3. **Every backend publishes `lastLoadTruncation`**, and `backend-truncation-registry.test.ts` fails
+   the build if one does not. This is the part that matters most: the cautionary precedent is
+   `lastImportDroppedRows`, which reached two backends out of six for its whole life without
+   anything noticing, because its consumer sits in `use-storage-file-ops`.
+4. **One consumer, at the generic load effect** every backend passes through — diagnostics-ring
+   entry, toast, and a STICKY flag. Sticky is load-bearing: `suppressNextSaveRef` beside it is
+   one-shot AND is set by every load, so it clears on the first debounce cycle and the loss lands on
+   the *next* save. Reusing it would have bought nothing.
+5. **Automatic saves are paused** until the user decides, so the source file keeps what was never
+   loaded. Neither existing invariant would have caught this: dropping 205 of 1205 leaves 83%,
+   nowhere near guard B's ≤10% threshold, and documents are not counted by those guards at all (§98).
+6. **A persistent banner with an explicit "Save anyway"**, not merely a toast. ★★★ This is not
+   polish — it is what stops the guard being a LOCKOUT. **The user cannot get under the cap by
+   editing**: the excess documents were never loaded, so the rows that would have to go are exactly
+   the ones that are not there. A sticky flag with no escape would be a permanent block on saving,
+   a worse defect than the one being fixed. Dismissing hides the banner and leaves the guard armed.
 
-★ Whichever is chosen, the fix belongs at the load boundary — **not** in `sanitizeDocumentVersions`.
-Making that function drop versions for truncated documents would delete the only surviving copy of
-that content, turning a display defect into a second data-loss bug.
+★ The fix landed at the load boundary and **not** in `sanitizeDocumentVersions`, as this entry
+originally warned it must: making that function drop versions for truncated documents would delete
+the only surviving copy of that content, turning a display defect into a second data-loss bug.
+
+★★ The per-version block truncation below is counted by the same diag and surfaces through the same
+banner, but with its OWN string. Two reasons, and both are traps for whoever edits the wording:
+the count is `raw.blocks.length - sanitized.blocks.length` and `sanitizeDocument` **both** caps
+blocks and drops invalid ones, so **no string may say the cap did the cutting**; and the toast
+originally interpolated only the entries count while triggering on `entries + blocks > 0`, which
+would have announced "0 document entries could not be opened" for a blocks-only truncation. A test
+pins that case.
 
 ### What is NOT in this entry
 
@@ -5215,9 +5245,13 @@ deleted one). Do not read this entry as covering it, and do not re-open it here.
 ★ The two interact in a way worth knowing if the phantom fix lands first: after a truncating load the
 document count sits at **exactly** `MAX_DOCUMENTS`, so the engine's own
 `state.documents.length >= MAX_DOCUMENTS` guard refuses every restore —
-`rejected=["document limit reached (200)"]`. Any surface built on the deleted-documents list will
-show rows whose Restore button always fails, with a message that makes no sense to a user trying to
-recover a document.
+`rejected=["document limit reached (<MAX_DOCUMENTS>)"]`. Any surface built on the deleted-documents
+list will show rows whose Restore button always fails, with a message that makes no sense to a user
+trying to recover a document. ★★ Do not quote a literal there: the number moved 200 → 1000 in this
+fix, and two `documents-panel` tests broke because a FIXTURE encoded the old value implicitly — it
+generated ids `10..MAX_DOCUMENTS+9` and pointed a tombstone at a hardcoded `999`, which sat outside
+that range at 200 and inside it at 1000, so the restore resolved against an existing document and
+the cap never refused.
 
 ---
 
