@@ -24,9 +24,88 @@
 import { useMemo, useRef, useEffect } from "react";
 import type { ActivityKind } from "./activity-log";
 import { sanitizeAiDocBlocks } from "./ai-document-blocks";
+import { MAX_BLOCKS_PER_DOC } from "./document-model";
 import type { DocOp } from "./document-mutations";
 import type { DocumentToolDispatcher } from "./chat-tools-documents";
 import { useWorkspace } from "./workspace-context";
+
+/** The engine's block-cap reason, reproduced byte-for-byte.
+ *
+ *  ★★ `blockLimitReason` (document-mutations.ts) is NOT exported, so this
+ *  cannot import it — the wording is duplicated deliberately rather than
+ *  widening that module's surface. Both spellings derive from the SAME
+ *  `MAX_BLOCKS_PER_DOC`, so a cap change moves them together; a test pins this
+ *  string against the constant so a reworded engine reason surfaces here as a
+ *  diff rather than as two subtly different messages for one condition. */
+function blockCapReason(count: number): string {
+  return `block limit exceeded (${count} > ${MAX_BLOCKS_PER_DOC})`;
+}
+
+/** ★★★ TWO DIFFERENT REASONS A BLOCK DOES NOT SURVIVE `sanitizeAiDocBlocks`,
+ *  and reporting one as the other sends the model down the wrong retry.
+ *
+ *  `sanitizeAiDocBlocks` routes through `sanitizeProjectDocuments`, whose
+ *  `sanitizeDocument` does `.slice(0, MAX_BLOCKS_PER_DOC)` BEFORE
+ *  `.map(sanitizeBlock).filter(...)` (document-model.ts) — so a long payload is
+ *  TRUNCATED first and only the survivors of that truncation are ever validated.
+ *  A 503-block create therefore came back three blocks shorter and was reported
+ *  as "3 of 503 block(s) failed the model-input allow-list" (measured). Nothing
+ *  failed an allow-list; the document exceeded a 500-block cap. A model told its
+ *  blocks failed VALIDATION rewrites them; a model told it hit a CAP splits the
+ *  document.
+ *
+ *  ★★ The slice-before-filter order is what makes this exact arithmetic rather
+ *  than an estimate: `examined` blocks were the only ones the allow-list ever
+ *  saw, so `examined - kept` is precisely the allow-list's drop and the rest is
+ *  the cap's. Measured on both edges — 503 sent with 2 invalid inside the first
+ *  500 decomposes to 3 + 2, and 503 sent with all 3 invalid blocks in the TAIL
+ *  decomposes to 3 + 0, because the cap removed them before validation could. */
+type BlockDrop = {
+  /** How many of `sent` the allow-list actually got to look at. */
+  examined: number;
+  /** Blocks the block cap removed before validation ran. */
+  overCap: number;
+  /** Blocks the allow-list rejected among those it examined. */
+  failedAllowList: number;
+};
+
+function classifyBlockDrop(sent: number, kept: number): BlockDrop {
+  const examined = Math.min(sent, MAX_BLOCKS_PER_DOC);
+  return { examined, overCap: sent - examined, failedAllowList: examined - kept };
+}
+
+/** ★★★ TWO OP-INDEX SPACES MET IN ONE `rejected` ARRAY AND NEITHER WAS LABELLED.
+ *
+ *  `selfRejected` below is built in `ops.forEach((op, i) => …)` — the CALLER's
+ *  index. `applyOps` (document-mutations.ts) indexes `ops.entries()` of the
+ *  array it RECEIVES, which is `cleanOps` — shorter by every op this function
+ *  rejected before it. So every engine index was shifted down by the number of
+ *  self-rejections preceding it. Measured: `[badBlock, {op:"delete",index:42}]`
+ *  produced `["op 0: block failed the model-input allow-list", "op 0: delete
+ *  index 42 out of range 0..0"]` — two contradictory "op 0" lines, and the model
+ *  told to retry the wrong op. Since e27fc155 the chat transcript's document
+ *  card renders these, so the user reads the contradiction too.
+ *
+ *  Remapping restores ONE space (the caller's), which is the only one either
+ *  audience can act on: the model sent `ops`, and the card shows `ops`.
+ *
+ *  ★★ IT PRESERVES THE `/^op \d+:/` SHAPE BY CONSTRUCTION — an entry that
+ *  matched still matches, and one that did not still does not. That is what
+ *  keeps the `applied` arithmetic below correct: its filter counts op-scoped
+ *  entries to separate them from MUTATION-scoped ones (a blank title, a block
+ *  cap), and renumbering must not move that count in either direction. */
+const OP_INDEX_PREFIX = /^op (\d+):/;
+
+function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
+  const match = OP_INDEX_PREFIX.exec(entry);
+  if (!match) return entry;
+  const callerIndex = callerIndexOf[Number(match[1])];
+  // Defensive: applyOps only ever indexes the array it was handed, so every
+  // engine index is in range. A miss leaves the entry verbatim rather than
+  // inventing a number.
+  if (callerIndex === undefined) return entry;
+  return `op ${callerIndex}:${entry.slice(match[0].length)}`;
+}
 
 /** ★★★ `logActivity` is THREADED (ChatDispatcherArgs → useChatDispatcher →
  *  here), never obtained by calling `useActivityLog()` in this file: that hook
@@ -111,12 +190,27 @@ export function useDocumentTools(
         // here and NOT in updateDocument's replaceAll arm below, because every
         // block of a create is model-authored in this same call (there is no
         // pre-existing content to preserve by applying the survivors).
+        //
+        // ★★★ AND IT MUST NAME THE RIGHT REASON. A create longer than
+        // MAX_BLOCKS_PER_DOC came back shorter for a reason that has nothing to
+        // do with the allow-list (see `classifyBlockDrop`), and the whole point
+        // of throwing is that "the model gets a reason it can retry against".
+        // The two compose — a 503-block payload with 2 invalid blocks is BOTH —
+        // so they are collected rather than allowed to mask one another.
         const sentBlocks = Array.isArray(blocks) ? blocks.length : 0;
-        const droppedBlocks = sentBlocks - cleanBlocks.length;
-        if (droppedBlocks > 0) {
-          throw new Error(
-            `${droppedBlocks} of ${sentBlocks} block(s) failed the model-input allow-list; no document was created`,
+        const drop = classifyBlockDrop(sentBlocks, cleanBlocks.length);
+        const reasons: string[] = [];
+        if (drop.overCap > 0) reasons.push(blockCapReason(sentBlocks));
+        if (drop.failedAllowList > 0) {
+          // ★ The denominator is `examined`, NOT `sentBlocks`: blocks past the
+          // cap were never shown to the allow-list, so counting them here would
+          // claim a rate over a population that was never tested.
+          reasons.push(
+            `${drop.failedAllowList} of ${drop.examined} block(s) failed the model-input allow-list`,
           );
+        }
+        if (reasons.length > 0) {
+          throw new Error(`${reasons.join("; ")}; no document was created`);
         }
         const result = mutateDocuments(
           { kind: "create", title, blocks: cleanBlocks },
@@ -170,6 +264,15 @@ export function useDocumentTools(
         // actually gets dropped.
         const selfRejected: string[] = [];
         const cleanOps: DocOp[] = [];
+        // ★★ Parallel to `cleanOps`: `callerIndexOf[engineIndex]` is the index
+        // that op had in the CALLER's `ops`. Every push goes through `keepOp` so
+        // the two arrays cannot drift — a bare `cleanOps.push` at one of the
+        // three sites would silently shift every later remap by one.
+        const callerIndexOf: number[] = [];
+        const keepOp = (op: DocOp, callerIndex: number) => {
+          cleanOps.push(op);
+          callerIndexOf.push(callerIndex);
+        };
         ops.forEach((op, i) => {
           if (op.op === "replaceAll") {
             // ★★★ A NON-ARRAY `blocks` MUST NOT BECOME AN EMPTY ONE.
@@ -197,6 +300,15 @@ export function useDocumentTools(
             // class rather than a cosmetic miscount.
             const sent = op.blocks.length;
             const kept = sanitizeAiDocBlocks(op.blocks);
+            // ★★★ SAME MISATTRIBUTION AS create's, one container deeper: a
+            // 503-block replaceAll reported "3 block(s) failed the model-input
+            // allow-list" while APPLYING the 500 survivors (measured). The cap
+            // reason is emitted alongside — never instead of — the allow-list
+            // one, since a payload can hit both.
+            const drop = classifyBlockDrop(sent, kept.length);
+            if (drop.overCap > 0) {
+              selfRejected.push(`op ${i}: ${blockCapReason(sent)}`);
+            }
             // ★★★ AN EXPLICIT EMPTY LIST IS LEGAL AND STAYS LEGAL — `blocks:
             // []` is a real "clear this document" request (document-mutations
             // .ts says so at length) and the before-image preserves what it
@@ -209,8 +321,12 @@ export function useDocumentTools(
             // alone cannot tell the two apart and would break the legitimate
             // clear.
             if (sent > 0 && kept.length === 0) {
+              // ★ `examined`, not `sent`: with an over-cap payload the blocks
+              // past the cap were never validated, so "all N failed" would name
+              // a population the allow-list never saw. The cap entry pushed
+              // above already accounts for those.
               selfRejected.push(
-                `op ${i}: all ${sent} block(s) failed the model-input allow-list`,
+                `op ${i}: all ${drop.examined} block(s) failed the model-input allow-list`,
               );
               return;
             }
@@ -221,13 +337,12 @@ export function useDocumentTools(
             // `selfRejected`, which that filter never reads, so it cannot move
             // the count either way; the pattern is kept for the reader's sake
             // and for anything downstream that partitions the two kinds.
-            const dropped = sent - kept.length;
-            if (dropped > 0) {
+            if (drop.failedAllowList > 0) {
               selfRejected.push(
-                `op ${i}: ${dropped} block(s) failed the model-input allow-list`,
+                `op ${i}: ${drop.failedAllowList} block(s) failed the model-input allow-list`,
               );
             }
-            cleanOps.push({ ...op, blocks: kept });
+            keepOp({ ...op, blocks: kept }, i);
             return;
           }
           if ("block" in op && op.block) {
@@ -236,16 +351,27 @@ export function useDocumentTools(
               selfRejected.push(`op ${i}: block failed the model-input allow-list`);
               return;
             }
-            cleanOps.push({ ...op, block });
+            keepOp({ ...op, block }, i);
             return;
           }
-          cleanOps.push(op);
+          keepOp(op, i);
         });
         const result = mutateDocuments({ kind: "ops", id, ops: cleanOps, title }, "ai");
         documentsRef.current = result.documents;
         versionsRef.current = result.versions;
         const after = result.documents.find((d) => d.id === id);
-        const usedReplaceAll = ops.some((o) => o.op === "replaceAll");
+        // ★★★ Renumbered into the CALLER's op space before anything reads them
+        // — see `remapOpIndex`. Everything downstream (the `applied` filter, the
+        // `rejected` array the model and the chat card both see) works off THIS
+        // array, never `result.rejected`, so there is one index space left.
+        const engineRejected = result.rejected.map((r) => remapOpIndex(r, callerIndexOf));
+        // ★★★ READS `cleanOps`, NOT `ops`. A replaceAll that `selfRejected`
+        // removed never reached the engine, so it removed nothing — but the flag
+        // still fired, and `removed` (a plain before/after block-count delta)
+        // then attributed ANOTHER op's deletions to it. Measured: a self-
+        // rejected replaceAll beside a `{op:"delete", index:0}` reported
+        // `removed: 1` for a replaceAll that never ran.
+        const usedReplaceAll = cleanOps.some((o) => o.op === "replaceAll");
         // ★★★ `result.rejected` mixes OP-SCOPED entries ("op N: …", one per
         // rejected op — applyOps prefixes every one, document-mutations.ts)
         // with MUTATION-SCOPED ones (a blank title; a future block-count cap)
@@ -255,7 +381,13 @@ export function useDocumentTools(
         // out-of-range op alongside a blank title. Count only the op-scoped
         // ones: every op in `cleanOps` contributes at most one such entry, so
         // this can never exceed `cleanOps.length` and needs no clamp.
-        const opRejectedCount = result.rejected.filter((r) => /^op \d+:/.test(r)).length;
+        // ★★ Counted on the REMAPPED array, which is safe precisely because
+        // `remapOpIndex` cannot change whether an entry matches: renumbering
+        // "op 0:" to "op 1:" leaves it op-scoped, and a mutation-scoped entry is
+        // returned untouched. Counting the pre-remap array would give the same
+        // number today — reading the array everything else reads keeps it that
+        // way if the remap ever grows a case.
+        const opRejectedCount = engineRejected.filter((r) => OP_INDEX_PREFIX.test(r)).length;
         // ★★ Gated on `changed`, NOT on "the document exists" or "some op was
         // sent". An update whose every op the engine rejected — or a rename to
         // the title it already has — returns `changed:false` and mutates
@@ -272,7 +404,7 @@ export function useDocumentTools(
           // caller's raw `ops.length`, which over-counts by exactly the ops
           // this function rejected before the engine ever saw them.
           applied: cleanOps.length - opRejectedCount,
-          rejected: [...selfRejected, ...result.rejected],
+          rejected: [...selfRejected, ...engineRejected],
           removed: usedReplaceAll ? Math.max(0, before.blocks.length - (after?.blocks.length ?? 0)) : 0,
         };
       },

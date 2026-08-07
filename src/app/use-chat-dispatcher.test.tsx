@@ -15,6 +15,7 @@ import { type ActivityKind } from "./activity-log";
 import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
 import { type DocumentUpdateResult } from "./chat-tools-documents";
 import { type DocOp } from "./document-mutations";
+import { MAX_BLOCKS_PER_DOC } from "./document-model";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
@@ -2073,5 +2074,272 @@ describe("useChatDispatcher – ai.documentWrite activity rows", () => {
     }).not.toThrow();
     // Positive observable: the writes really ran on the no-logger path.
     expect(result.current.getDocument(id)).toBeNull();
+  });
+});
+
+// ★★★ THE OP-INDEX SPACES, THE BLOCK CAP, AND `removed`.
+//
+// Three defects that only became user-visible with e27fc155 (the chat
+// transcript's document card renders `rejected`). Every assertion here is an
+// EXACT array or an anchored pattern: `toContain("op 1")` passes on "op 10",
+// and a loose `/failed/` matches whichever of the two reasons happens to fire —
+// which is precisely the confusion these fix.
+describe("useChatDispatcher – document tool rejection reporting", () => {
+  const P = (n: number) => ({ type: "paragraph" as const, html: `<p>p${n}</p>` });
+  const BAD = { type: "bogus" } as unknown as ReturnType<typeof P>;
+  const OVER_CAP = MAX_BLOCKS_PER_DOC + 3;
+  const CAP_REASON = `block limit exceeded (${OVER_CAP} > ${MAX_BLOCKS_PER_DOC})`;
+
+  function docWith(result: { current: { createDocument: (t: string, b: unknown[]) => { id: number } } }, blocks: unknown[]) {
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", blocks).id;
+    });
+    return id;
+  }
+
+  // ★★★ `selfRejected` is indexed against the CALLER's `ops`; applyOps indexes
+  // the `cleanOps` it RECEIVES, which is shorter by every preceding
+  // self-rejection. Measured before the fix: this exact input produced TWO
+  // entries both reading "op 0:", so the model was told to retry the wrong op
+  // and the user read a contradiction.
+  it("renumbers an engine rejection into the caller's op space when an earlier op was self-rejected", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "insert", index: 0, block: BAD },
+          { op: "delete", index: 42 },
+        ] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    // EXACT array: the second entry is "op 1", the caller's index for the
+    // delete, and there is no longer a second "op 0".
+    expect(out!.rejected).toEqual([
+      "op 0: block failed the model-input allow-list",
+      "op 1: delete index 42 out of range 0..0",
+    ]);
+    // Positive control: the write really ran and really refused both ops.
+    expect(out!.applied).toBe(0);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(1);
+  });
+
+  // ★★ The shift is not a hardcoded 1, and it is not a global offset by the
+  // TOTAL self-rejection count either: here TWO ops are self-rejected but only
+  // ONE of them precedes the engine-rejected op, so the correct caller index is
+  // 1 — a "+2" would say "op 2", a "+0" would say "op 0".
+  it("shifts each engine rejection by the self-rejections that PRECEDE it, not by the total", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1), P(2), P(3)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "insert", index: 0, block: BAD },
+          { op: "delete", index: 99 },
+          { op: "append", block: BAD },
+        ] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    expect(out!.rejected).toEqual([
+      "op 0: block failed the model-input allow-list",
+      "op 2: block failed the model-input allow-list",
+      "op 1: delete index 99 out of range 0..2",
+    ]);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(3);
+  });
+
+  // ★★★ THE `applied` FILTER, WITH ALL THREE KINDS IN ONE CALL. It counts only
+  // `/^op \d+:/` entries because `result.rejected` mixes op-scoped ones with
+  // MUTATION-scoped ones (a blank title), and it has gone negative once.
+  // Renumbering must not move that count in either direction — it cannot,
+  // because remapping preserves the prefix shape, and this pins it.
+  it("keeps `applied` non-negative when a self-rejection, an engine rejection and a blank title all land", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "insert", index: 0, block: BAD },
+          { op: "delete", index: 42 },
+        ] as unknown as DocOp[],
+        "   ",
+      );
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.applied).not.toBeLessThan(0);
+    // The mutation-scoped entry is NOT renumbered and NOT counted as an op.
+    expect(out!.rejected).toEqual([
+      "op 0: block failed the model-input allow-list",
+      "op 1: delete index 42 out of range 0..0",
+      "title must not be empty",
+    ]);
+    // Positive control: neither half of the write landed.
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(stored.title).toBe("Doc");
+  });
+
+  // ★★★ FIX 2. sanitizeAiDocBlocks routes through sanitizeProjectDocuments,
+  // which `.slice(0, MAX_BLOCKS_PER_DOC)`s BEFORE validating — so an over-cap
+  // create came back shorter and was reported as an ALLOW-LIST failure
+  // (measured: "3 of 503 block(s) failed the model-input allow-list"). Nothing
+  // failed validation. A model told its blocks are invalid rewrites them; a
+  // model told it hit a cap splits the document.
+  it("names the block CAP, not the allow-list, when a create exceeds MAX_BLOCKS_PER_DOC", () => {
+    const { result } = renderDispatcher();
+    let message = "";
+    try {
+      result.current.createDocument("Big", Array.from({ length: OVER_CAP }, (_, i) => P(i)));
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(`${CAP_REASON}; no document was created`);
+    // The wrong reason must be ABSENT, not merely outranked — a substring
+    // assertion would pass on a message carrying both.
+    expect(message).not.toMatch(/failed the model-input allow-list/);
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  // The other side of the same guard: an allow-list drop UNDER the cap must not
+  // acquire a cap reason. Without this, "always mention the cap" passes above.
+  it("names only the allow-list when blocks fail validation under the cap", () => {
+    const { result } = renderDispatcher();
+    let message = "";
+    try {
+      result.current.createDocument("Charter", [P(1), BAD, P(2)]);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(
+      "1 of 3 block(s) failed the model-input allow-list; no document was created",
+    );
+    expect(message).not.toMatch(/block limit exceeded/);
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  // ★★★ A payload can hit BOTH, and neither reason may mask the other. The
+  // decomposition is exact because truncation runs BEFORE validation: the two
+  // invalid blocks sit inside the first MAX_BLOCKS_PER_DOC, so the allow-list
+  // did see them, and the denominator is what it examined — never the full
+  // send, which would claim a rate over blocks nothing ever tested.
+  it("reports the cap AND the allow-list when an over-cap create also carries invalid blocks", () => {
+    const { result } = renderDispatcher();
+    const blocks = Array.from({ length: OVER_CAP }, (_, i) => (i === 3 || i === 7 ? BAD : P(i)));
+    let message = "";
+    try {
+      result.current.createDocument("Big", blocks);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(
+      `${CAP_REASON}; 2 of ${MAX_BLOCKS_PER_DOC} block(s) failed the model-input allow-list; no document was created`,
+    );
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  // ★★ Invalid blocks PAST the cap are attributed to the cap alone: the slice
+  // removed them before the allow-list could look. Reporting them as validation
+  // failures would be the original bug wearing the new message.
+  it("attributes over-cap blocks to the cap even when they are themselves invalid", () => {
+    const { result } = renderDispatcher();
+    const blocks = Array.from({ length: OVER_CAP }, (_, i) => (i >= MAX_BLOCKS_PER_DOC ? BAD : P(i)));
+    let message = "";
+    try {
+      result.current.createDocument("Big", blocks);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(`${CAP_REASON}; no document was created`);
+  });
+
+  // Threshold control: exactly MAX_BLOCKS_PER_DOC is legal, so the guard is the
+  // cap and not "a large array looks suspicious".
+  it("still creates a document of exactly MAX_BLOCKS_PER_DOC blocks", () => {
+    const { result } = renderDispatcher();
+    act(() => {
+      result.current.createDocument(
+        "Exactly at the cap",
+        Array.from({ length: MAX_BLOCKS_PER_DOC }, (_, i) => P(i)),
+      );
+    });
+    expect(result.current.listDocuments()).toHaveLength(1);
+    expect(result.current.listDocuments()[0].blockCount).toBe(MAX_BLOCKS_PER_DOC);
+  });
+
+  // ★★★ The replaceAll arm carried the same wrong reason while APPLYING the
+  // survivors — the worse half, since the write lands and the model is told the
+  // wrong thing about it.
+  it("names the block CAP on an over-cap replaceAll, and still applies the survivors", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(0)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "replaceAll", blocks: Array.from({ length: OVER_CAP }, (_, i) => P(i)) }],
+        undefined,
+      );
+    });
+    expect(out!.rejected).toEqual([`op 0: ${CAP_REASON}`]);
+    expect(out!.applied).toBe(1);
+    // Positive control: the survivors really landed, so this is a reporting fix
+    // and not a new refusal.
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+  });
+
+  // ★★★ FIX 3. `removed` is a before/after block-count delta and is documented
+  // "non-zero only for replaceAll" — so the flag must read the CLEANED ops. A
+  // replaceAll that `selfRejected` removed never ran, and measured before the
+  // fix this reported `removed: 1` for the DELETE's block.
+  it("reports removed:0 when the only replaceAll was self-rejected and another op did the removing", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1), P(2), P(3)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "replaceAll", blocks: [BAD, BAD] },
+          { op: "delete", index: 0 },
+        ] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    expect(out!.removed).toBe(0);
+    // Positive controls: the delete DID apply, so a block genuinely went away —
+    // `removed: 0` is an attribution statement, not "nothing happened".
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual(["op 0: all 2 block(s) failed the model-input allow-list"]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(JSON.stringify(stored.blocks)).not.toContain("p1");
+  });
+
+  // The second self-rejection route into the same flag: a replaceAll with a
+  // non-array `blocks` is refused before the engine sees it.
+  it("reports removed:0 when a replaceAll with no blocks array is self-rejected", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1), P(2)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "replaceAll" }, { op: "delete", index: 0 }] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    expect(out!.removed).toBe(0);
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual(["op 0: replaceAll requires a blocks array"]);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(1);
   });
 });
