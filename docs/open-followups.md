@@ -141,7 +141,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
 | 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
 | 98 | `documents` is in NEITHER save-time data-loss counter, so a documents-only wipe trips no guard | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open — MISSING NET, **no known live path**, and NOT a regression the documents slice introduced. `knowledgeItems`, `insights`, `timelogLinks` and `settingsOverrides` share the gap — **state that scoping whenever this row is quoted**, or a reader goes hunting for a documents bug that is not there. Widening `nonEmptyCollectionCount` / `workspaceRecordCount` shifts the L3 and Layer-B thresholds for EVERY existing project, so it needs its own slice, its own tests, and a deliberate decision on whether the other four join |
-| 99 | The e2e seed writes NONE of BrowserBackend's nine optional kv slices, so any view backed by one is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
+| 99 | The e2e seed writes only a minority of BrowserBackend's optional kv slices, so any view backed by an unseeded one is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
 | 100 | Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M — needs a decision first | open — **measured on ALL SIX write paths**; 205 documents load as 200 and re-save as 200, with no diagnostic, toast or banner anywhere. NOT fixed by the engine-side cap (that stops the state being BUILT, not LOADED). The fork — surface it, or refuse the load — is undecided and is the whole point of the entry |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
@@ -4967,13 +4967,18 @@ believing a severity label.
 
 ---
 
-## 99. The e2e seed silently drops nine optional slices, so some axe scans run on an empty state — open
+## 99. The e2e seed silently drops most of BrowserBackend's optional slices, so some axe scans run on an empty state — open
 
 `e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
 list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
-persists nine optional slices as kv entries — `fieldVisibility`, `features`, `steeringCommittee`,
-`timelogLinks`, `knowledgeItems`, `insights`, `settingsOverrides`, `calendarEvents`, `documents` —
-and until this slice the seed's kv map carried NONE of them.
+persists its optional slices as kv entries — `fieldVisibility`, `features`, `steeringCommittee`,
+`timelogLinks`, `knowledgeItems`, `insights`, `settingsOverrides`, `calendarEvents`, `documents`,
+`documentVersions` — and the seed's kv map carries only `documents` (added in S1) and
+`documentVersions` (added in S2). Everything else on that list is still dropped. ★ The counts here
+are deliberately left as a phrase rather than a number, because the numeric form had already rotted
+twice — re-derive them instead:
+`grep -n "^const KV_" src/app/browser-backend.ts` (measured 2026-08-07 → **10** lines) against
+`e2e/seed.ts`'s own `KV` map (→ **2** of the ten, so **8** dropped).
 
 ★★ The consequence is a gate that reads far stronger than it is. A view whose data never arrives
 renders its EMPTY STATE, so axe scans a panel with no rows, no per-row controls and nothing that

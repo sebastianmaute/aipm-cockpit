@@ -2,8 +2,12 @@
 // documents. Pure data; routing lives in chat-tools-documents.ts (Task 17) and
 // the impl in use-document-tools.ts (Task 18).
 //
-// Split out of chat-tool-defs.ts because that file sits at ~593 lines against
-// the 800-line ratchet and five more inline schemas would push it over.
+// Split out of chat-tool-defs.ts for COHESION, not for the ratchet. Measured
+// 2026-08-07: that file is 596 lines against the 800-line limit and the schema
+// literal here is ~74 lines (line 44 of a 117-line file), so 596 + 74 = 670 and
+// it would have fit inline. (chat-tools.ts, at 763, is the one genuinely forced
+// by the ratchet.) An earlier revision of this header claimed the split was
+// required; it was not.
 
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 

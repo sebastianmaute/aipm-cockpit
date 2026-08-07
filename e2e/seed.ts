@@ -93,8 +93,11 @@ function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
   //   for (const k of ["fieldVisibility","features","steeringCommittee","timelogLinks",
   //   "knowledgeItems","insights","settingsOverrides","calendarEvents","documents",
   //   "documentVersions"]) console.log(k, m[k] != null)'
-  // — `steeringCommittee` and `calendarEvents` are case (a) and STILL DROPPED;
-  // the other five absentees are case (b). Insights is case (b) AND in
+  // — the map below carries only `documents` + `documentVersions`, so EIGHT of
+  // the ten are absentees: `steeringCommittee` and `calendarEvents` are case (a)
+  // and STILL DROPPED; the other SIX are case (b) — `fieldVisibility`,
+  // `features`, `timelogLinks`, `knowledgeItems`, `insights`,
+  // `settingsOverrides`. Insights is case (b) AND in
   // A11Y_VIEWS, so it is scanned empty today — see docs/open-followups.md.
   // `documents` and `documentVersions` are seeded for exactly these reasons.
   const KV: Record<string, string> = {

@@ -8,10 +8,12 @@ Does NOT own the renderers, the `DocBlock` union, the PDF-is-not-a-renderer rule
 pane file split — those stay in `AGENTS.md`'s "Documents (AI document authoring)" bullet.
 One fact, one doc: this file links there rather than restating it.
 
-★ The **surfaces** for version history and deleted-documents did not exist when this file
-was written. Everything below describes the model and the storage, never a screen. If you
-are looking for how a user reaches version history, it is not documented here because it
-is not built here.
+★ The **surfaces** for version history and deleted-documents ARE built and live in this slice:
+a per-row "History" button (`documents-list.tsx`) opens `DocumentsHistoryModal`, and the
+deleted-documents section with its Restore button sits behind the toolbar's show-deleted toggle
+(`documents-panel.tsx`). Everything below still describes only the model and the storage — the
+panes are `AGENTS.md`'s Documents bullet. An earlier revision of this paragraph said those
+surfaces did not exist; they landed later in the same branch and the paragraph was not updated.
 
 ## The version model (`document-versions.ts`)
 
@@ -100,16 +102,19 @@ to a genuine deletion. No filter can separate them, because the two are the same
 filter narrows the failure from "any load asymmetry" to "a file that lies"; it does not
 eliminate it.
 
-★★★ **THE MARKER NO LONGER GATES THE DERIVATION — but it is still live in `trimVersions`,
-so do not delete it.** `deletedDocumentVersions` once carried a second filter excluding
-`RESTORED_MARKER_OP`; that was **removed** because `op === "delete"` subsumes it (a marker's op
-is `"restored"`, which the new filter already rejects). `trimVersions` still reads the marker at
-its tombstone branch, and that use is unchanged. Reproduce the split:
-`grep -n "RESTORED_MARKER_OP" src/app/document-versions.ts` → **5** lines, of which only **2 are
-code**: the `export const` declaration and the `trimVersions` comparison. The other three are
-prose in doc-comments. The derivation is not among either group. ★ Quoting "2" without that
-split would look wrong to anyone who runs the command — the same mismatch this file already
-warns about twice.
+★★★ **THE MARKER NO LONGER GATES ANYTHING IN `document-versions.ts` — but it is still live in
+two OTHER files, so do not delete it.** `deletedDocumentVersions` once carried a second filter
+excluding `RESTORED_MARKER_OP`; that was **removed** because `op === "delete"` subsumes it (a
+marker's op is `"restored"`, which the new filter already rejects). `trimVersions` does not read
+the constant either — it delegates to `isTombstone`, which compares the string literal
+`"delete"`. Reproduce: `grep -n "RESTORED_MARKER_OP" src/app/document-versions.ts` → **6** lines,
+of which exactly **1 is code**, the `export const` declaration; the other five are prose in
+doc-comments. Its live readers are in files this paragraph used to omit — `document-mutations.ts`
+(the restore-refuses-a-marker guard and the marker write) and `documents-history-modal.tsx`
+(filters markers out of the restorable list). Sweep for them with
+`grep -rn "RESTORED_MARKER_OP" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."`.
+★ An earlier revision here claimed 5 lines / 2 code lines and named a `trimVersions` comparison
+that does not exist — refuted by its own attached command, which nobody ran.
 
 ★★★ **A MARKER IS NOT A SNAPSHOT, and `restore` now refuses one.** It records that an id was
 recovered — it is the one op that is explicitly not a before-image — so restoring one measured as
@@ -205,9 +210,10 @@ on the very next load while this module reported success.
 
 ★ **Do not try to enumerate them with a bare grep.**
 `grep -rln "documentVersions" src/app --include="*.ts" | grep -v "\.test\."` returns **12**
-files, not 6 — the CSV and Markdown *decode* halves are separate files, and `id-mint-session.ts`,
-`scale-workspace.ts`, `use-storage-backend.ts` and `use-document-tools.ts` are consumers, not
-write paths. The table below is the authority; the grep is only a starting set to read through.
+files, not 6 — the CSV and Markdown *decode* halves are separate files; `id-mint-session.ts`,
+`use-storage-backend.ts` and `use-document-tools.ts` are consumers, not write paths; and
+`scale-workspace.ts` only *mentions* the field in comments, so it is neither. The table below is
+the authority; the grep is only a starting set to read through.
 ★★ That number is VOLATILE and has already rotted once: it was a true **11** when written, and
 became 12 when a comment mentioning `documentVersions` was added to `scale-workspace.ts` — a
 file whose author never touched this doc. **Re-run the command before quoting the number**; do
