@@ -5277,6 +5277,37 @@ it used to be that the counter included blocks dropped as invalid. It no longer 
 survives because the count is raw entries past the cap, some of which the validator would have
 rejected anyway — so it still over-claims rather than under-claims.
 
+### How many rounds this took, and why that is the useful part
+
+Two cold review rounds after the fix was "done", **seven CRITICALs total**, every one on a fully
+green gate board — `tsc` · `eslint --max-warnings=0` · size · dup · docs-symbols · coverage (10k+
+tests, floors met) · shuffle · build · axe. **The gates never once disagreed with a broken tree.**
+
+Round 1 (4 reviewers) found the disclosure reached 1 load path of 7 and the refusal 1 write path of
+8, the dismissal lockout, and the flag that never lowered. Round 2 (2 reviewers), against the FIX,
+found three more:
+  · `migrateCurrentProjectToTurso` — the same "abandon the original" shape, unguarded, then
+    repointing the app at the short copy and reloading, after which the flag never re-raises.
+  · **The classic layout still had the dismissal lockout.** `SidebarFooter` has ONE mount and it is
+    inside `modernTree`. This was flagged during the fix as a "residual gap" and accepted as one; it
+    was the same silent, permanent, session-wide save lockout, live in one of two layouts.
+  · Two of round 1's own fixes had NO KILL LINE — deleting them left every gate green, because the
+    `guardedWrite` backstop refuses through the SAME implementation and the states are
+    indistinguishable to the existing assertions.
+
+★★★ **THE GUARDS AIMED AT THE WRONG SIDE OF THE BOUNDARY, TWICE.** The registry test proved every
+backend ASSIGNS the field and said nothing about anything READING it. Its replacement, a `.save(`
+census, COUNTED rather than enumerated — so every added `guardedWrite(` bought back one ungated
+write, a `guardedWrite(` inside a COMMENT counted the same, and the measured slack was 1. Both were
+written specifically to catch this class of defect and both certified coverage that did not exist,
+each while carrying a header asserting the broader reach. **A scan proving a NAME exists is not a
+claim that anything reads it, and a scalar cannot express a per-site property.** The census now
+enumerates by file and callee.
+
+★ Owed and NOT closed by any of this: nothing has rendered the banner or the paused indicator in a
+real browser. jsdom has no layout and the axe seed is nowhere near the cap, so the green axe run
+never drew either surface.
+
 ### What is NOT in this entry
 
 The **phantom deleted-documents** consequence — a truncated document's surviving version has no
