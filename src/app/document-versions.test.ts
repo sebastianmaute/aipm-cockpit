@@ -209,3 +209,43 @@ describe("DOM-free contract", () => {
     expect(codeOnly).not.toMatch(/DOMPurify|dompurify|\bwindow\b|\bdocument\b\s*\./);
   });
 });
+
+describe("restored marker", () => {
+  it("hides an id from the deleted list once its newest version is a restored marker", () => {
+    const tombstone = v({ id: 1, documentId: 99, savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
+    const marker = v({ id: 2, documentId: 99, savedAt: "2026-02-01T00:00:00.000Z", op: "restored" });
+    expect(deletedDocumentVersions([tombstone], []).map((k) => k.documentId)).toEqual([99]);
+    expect(deletedDocumentVersions([tombstone, marker], [])).toEqual([]);
+  });
+
+  // The marker records a moment, it does not permanently exempt an id.
+  it("reports the id again when it is deleted a second time after restoring", () => {
+    const tombstone = v({ id: 1, documentId: 99, savedAt: "2026-01-01T00:00:00.000Z", op: "delete" });
+    const marker = v({ id: 2, documentId: 99, savedAt: "2026-02-01T00:00:00.000Z", op: "restored" });
+    const reDeleted = v({ id: 3, documentId: 99, savedAt: "2026-03-01T00:00:00.000Z", op: "delete" });
+    expect(deletedDocumentVersions([tombstone, marker, reDeleted], []).map((k) => k.id)).toEqual([3]);
+  });
+
+  // ★ The leak fix. A tombstone is exempt from BOTH caps; a restored group
+  // must NOT be, or every delete-restore cycle strands an unreclaimable row.
+  it("releases a restored group from tombstone protection so it can be trimmed", () => {
+    const marker = v({ id: 1, documentId: 99, savedAt: "2020-01-01T00:00:00.000Z", op: "restored" });
+    const noise = Array.from({ length: MAX_TOTAL_VERSIONS }, (_, i) =>
+      v({
+        id: i + 2,
+        documentId: 1 + Math.floor(i / MAX_VERSIONS_PER_DOC),
+        savedAt: `2026-08-01T10:${String(i % 60).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}.000Z`,
+      }),
+    );
+    const liveIds = [...new Set(noise.map((n) => n.documentId))];
+    const kept = trimVersions([marker, ...noise], liveIds);
+    // The marker is the globally oldest entry and is no longer protected, so
+    // the global cap drops it. A `delete` in its place would survive.
+    expect(kept.some((k) => k.id === 1)).toBe(false);
+    expect(kept).toHaveLength(MAX_TOTAL_VERSIONS);
+  });
+
+  it("sanitizes restored through as a real op rather than falling back to update", () => {
+    expect(sanitizeDocumentVersions([v({ op: "restored" })])[0].op).toBe("restored");
+  });
+});

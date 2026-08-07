@@ -25,7 +25,13 @@
 // reference identity to decide whether a write is needed at all.
 
 import { MAX_TITLE_CHARS, type DocBlock, type ProjectDocument } from "./document-model";
-import { trimVersions, type DocVersion, type DocVersionOp, type DocVersionSource } from "./document-versions";
+import {
+  RESTORED_MARKER_OP,
+  trimVersions,
+  type DocVersion,
+  type DocVersionOp,
+  type DocVersionSource,
+} from "./document-versions";
 
 export type DocOp =
   | { op: "append"; block: DocBlock }
@@ -200,9 +206,8 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         };
       }
       // The document is gone: recreate under a NEW id (ids are never
-      // reused). This is a create, not a replace, so it writes no version —
-      // and the version row that was restored is deliberately NOT consumed,
-      // so the same tombstone can be restored again if needed.
+      // reused). This is a create, not a replace, so it writes no BEFORE-IMAGE
+      // — and the version row that was restored is deliberately NOT consumed.
       const recreated: ProjectDocument = {
         id: ctx.mintDocId(),
         title: version.title,
@@ -210,7 +215,33 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         createdAt: ctx.now,
         updatedAt: ctx.now,
       };
-      return { documents: [...state.documents, recreated], versions: state.versions, changed: true, rejected: [], documentId: recreated.id };
+      // ★★★ …but it DOES write a marker against the OLD id, which is the only
+      // thing that stops the tombstone becoming permanent. The old id can
+      // never become live again, so without this `deletedDocumentVersions`
+      // would report it as deleted forever: the deleted-documents list would
+      // show a phantom entry for a document already restored, and each further
+      // Restore would mint another copy. The marker also releases the group
+      // from tombstone protection in trimVersions, so the rows can age out
+      // instead of leaking one unreclaimable entry per delete-restore cycle.
+      // It carries the recovered content (not an empty snapshot) so the row
+      // still reads as a meaningful history entry rather than a tombstone.
+      const marker: DocVersion = {
+        id: ctx.mintVersionId(),
+        documentId: version.documentId,
+        title: version.title,
+        blocks: version.blocks,
+        savedAt: ctx.now,
+        source: ctx.source,
+        op: RESTORED_MARKER_OP,
+      };
+      const nextDocuments = [...state.documents, recreated];
+      return {
+        documents: nextDocuments,
+        versions: withVersions(nextDocuments, state.versions, marker),
+        changed: true,
+        rejected: [],
+        documentId: recreated.id,
+      };
     }
 
     case "rename": {

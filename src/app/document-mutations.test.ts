@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { applyDocMutation, type DocState } from "./document-mutations";
+import { deletedDocumentVersions } from "./document-versions";
 import type { ProjectDocument } from "./document-model";
 
 const DOC: ProjectDocument = {
@@ -241,5 +242,44 @@ describe("applyDocMutation — ops edge cases", () => {
     const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "insert", index: 99, block: { type: "pageBreak" } }] }, ctx());
     expect(out.changed).toBe(false);
     expect(out.rejected).toEqual(["op 0: insert index 99 out of range 0..2"]);
+  });
+});
+
+describe("restoring a deleted document closes its tombstone", () => {
+  it("writes a restored marker against the OLD id", () => {
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
+    const restored = applyDocMutation(deleted, { kind: "restore", versionId: deleted.versions[0].id }, ctx());
+    const marker = restored.versions.find((v) => v.op === "restored");
+    expect(marker).toBeDefined();
+    expect(marker!.documentId).toBe(1);
+    expect(restored.documents[0].id).not.toBe(1);
+  });
+
+  // ★★★ THE POINT OF THE MARKER. Without it the old id is absent from
+  // `documents` forever, so the deleted-documents list shows a phantom entry
+  // for a document the user has already restored — and each further Restore
+  // mints another copy.
+  it("no longer reports the document as deleted", () => {
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
+    expect(deletedDocumentVersions(deleted.versions, deleted.documents)).toHaveLength(1);
+
+    const restored = applyDocMutation(deleted, { kind: "restore", versionId: deleted.versions[0].id }, ctx());
+    expect(deletedDocumentVersions(restored.versions, restored.documents)).toEqual([]);
+  });
+
+  it("reports it again if the recreated document is itself deleted", () => {
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
+    const restored = applyDocMutation(deleted, { kind: "restore", versionId: deleted.versions[0].id }, ctx());
+    const again = applyDocMutation(restored, { kind: "delete", id: restored.documents[0].id }, ctx());
+    expect(deletedDocumentVersions(again.versions, again.documents).map((v) => v.documentId)).toEqual([
+      restored.documents[0].id,
+    ]);
+  });
+
+  it("still does not consume the version it restored", () => {
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
+    const versionId = deleted.versions[0].id;
+    const restored = applyDocMutation(deleted, { kind: "restore", versionId }, ctx());
+    expect(restored.versions.some((v) => v.id === versionId)).toBe(true);
   });
 });

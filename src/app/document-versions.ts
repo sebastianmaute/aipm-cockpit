@@ -24,10 +24,33 @@ export const MAX_VERSIONS_PER_DOC = 20;
 export const MAX_TOTAL_VERSIONS = 500;
 
 export type DocVersionSource = "ai" | "user";
-export type DocVersionOp = "update" | "rename" | "delete" | "duplicate";
+/** ★ `"restored"` is the one op that is NOT a before-image. It is a MARKER
+ *  written against a DELETED document's old id when that document is restored
+ *  under a new one, and it exists solely so the tombstone derivation can tell
+ *  "still deleted" from "already restored". See RESTORED_MARKER_OP below. */
+export type DocVersionOp = "update" | "rename" | "delete" | "duplicate" | "restored";
 
 const SOURCES: readonly DocVersionSource[] = ["ai", "user"];
-const OPS: readonly DocVersionOp[] = ["update", "rename", "delete", "duplicate"];
+const OPS: readonly DocVersionOp[] = ["update", "rename", "delete", "duplicate", "restored"];
+
+/**
+ * ★★★ The op that closes a tombstone.
+ *
+ * Restoring a DELETED document mints a NEW id rather than resurrecting the old
+ * one (ids are never reused). Without a marker the old id stays absent from
+ * `documents` forever, so `deletedDocumentVersions` would keep reporting it as
+ * deleted after the user had already restored it — a phantom row whose Restore
+ * button spawns yet another copy on every click. A stored boolean was rejected
+ * for the usual reason (it has to be cleared, and can desync); a marker VERSION
+ * keeps the "derived, never a flag" property intact, because the derivation
+ * still reads only the version list.
+ *
+ * ★★ It also un-protects the group in `trimVersions`. A tombstone is exempt
+ * from BOTH caps, so leaving one behind per delete-restore cycle would leak
+ * rows that no mechanism could ever reclaim. Once the marker is the newest
+ * entry for that id, the group re-enters ordinary retention and ages out.
+ */
+export const RESTORED_MARKER_OP: DocVersionOp = "restored";
 
 /** A snapshot of the state a mutation REPLACED. Restoring writes it back
  *  verbatim, so there is no inversion logic anywhere. */
@@ -113,9 +136,13 @@ function byNewest(a: DocVersion, b: DocVersion): number {
  * other test still passes.
  *
  * ★ Tombstones are excluded from `keepable` entirely, so they never count
- * against MAX_TOTAL_VERSIONS — and since document ids are never reused
- * (Task 1), every historical delete leaves one permanent row with no cap on
- * how many accumulate. Accepted trade-off, not an oversight.
+ * against MAX_TOTAL_VERSIONS. That exemption is BOUNDED by the restored
+ * marker: once a deleted id's newest entry is `RESTORED_MARKER_OP`, the
+ * document has been recovered, the group is no longer a tombstone, and it
+ * re-enters ordinary retention so it can age out. Without that, every
+ * delete-restore cycle would leak one permanently unreclaimable row.
+ * An id that is deleted and never restored does keep one row forever —
+ * accepted trade-off, and the only remaining unbounded case.
  *
  * ★ The global cap has no per-document floor: a live document that is rarely
  * touched can, in principle, be starved to zero history if enough OTHER
@@ -145,7 +172,12 @@ export function trimVersions(
   const keepable: DocVersion[] = [];
   for (const [documentId, list] of byDoc) {
     const sorted = [...list].sort(byNewest);
-    if (!live.has(documentId)) {
+    // ★ A restored marker as the NEWEST entry means this id was recovered
+    // under a new document id, so the group is no longer a tombstone: it gets
+    // ordinary retention and can age out, instead of one row surviving both
+    // caps forever. Only the newest entry decides — an older marker under a
+    // later delete means the id was deleted AGAIN and is a tombstone once more.
+    if (!live.has(documentId) && sorted[0].op !== RESTORED_MARKER_OP) {
       // Deleted: the newest entry is the tombstone and survives everything.
       protectedIds.add(sorted[0].id);
       continue;
@@ -161,7 +193,14 @@ export function trimVersions(
 
 /** Versions whose document no longer exists — the "deleted documents" list.
  *  DERIVED, never a stored flag: a flag would have to be cleared on restore
- *  and can desync from the documents array. */
+ *  and can desync from the documents array.
+ *
+ *  ★★★ An id whose NEWEST version is `RESTORED_MARKER_OP` is excluded: that
+ *  document was recovered under a new id, so listing it would show a phantom
+ *  the user has already restored, and restoring it again would mint yet
+ *  another copy each time. The check is on the newest entry ONLY, so an id
+ *  that was restored and then deleted again correctly reappears — the marker
+ *  records a moment, it does not permanently exempt an id. */
 export function deletedDocumentVersions(
   versions: readonly DocVersion[],
   documents: readonly ProjectDocument[],
@@ -173,5 +212,7 @@ export function deletedDocumentVersions(
     const current = newestByDoc.get(version.documentId);
     if (!current || byNewest(version, current) < 0) newestByDoc.set(version.documentId, version);
   }
-  return [...newestByDoc.values()].sort(byNewest);
+  return [...newestByDoc.values()]
+    .filter((version) => version.op !== RESTORED_MARKER_OP)
+    .sort(byNewest);
 }
