@@ -141,6 +141,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1, unreleased | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
 | 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1, unreleased | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
 | 99 | The e2e seed writes NONE of BrowserBackend's nine optional kv slices, so any view backed by one is axe-scanned against its EMPTY STATE | AI document authoring S1, unreleased | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
+| 100 | Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M — needs a decision first | open — **measured on ALL SIX write paths**; 205 documents load as 200 and re-save as 200, with no diagnostic, toast or banner anywhere. NOT fixed by the engine-side cap (that stops the state being BUILT, not LOADED). The fork — surface it, or refuse the load — is undecided and is the whole point of the entry |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -4999,6 +5000,124 @@ workspace field name equals the kv key). The cost is entirely in whatever the sc
 ★ Related trap, same file: the seed hardcodes its `indexedDB.open` version while the app derives it
 from `IDB_VERSION`. They agree today; a future store addition that bumps one and not the other seeds
 the wrong shape silently. A comment now sits at that line.
+
+## 100. An over-cap load silently and permanently destroys the excess documents — open (REAL DATA LOSS, decision owed)
+
+**This is NOT a regression the S2 slice introduced, and it is not theoretical — it destroys
+user-authored content today.** `MAX_DOCUMENTS` and its `break` arrived with the document model in
+`90199c26` ("feat: canonical project document model and sanitizer"), which is an ancestor of `main`
+and **shipped in 0.219.0 "Elgin"**. S2 introduced only the phantom-deleted-documents *consequence*
+(see below), not the loss. Establish that before quoting this entry — reading it as an S2 regression
+sends someone hunting through this slice's diff for a cause that is not there.
+
+```bash
+git log --oneline -S "out.length >= MAX_DOCUMENTS" -- src/app/document-model.ts   # 90199c26 only
+git merge-base --is-ancestor 90199c26 main && echo "already shipped"              # already shipped
+```
+
+### What was measured
+
+`sanitizeProjectDocuments` (`document-model.ts`) stops at `MAX_DOCUMENTS` (200) with a bare `break`.
+Nothing records that it truncated. Load an over-cap file, let autosave fire, and the excess documents
+are gone from storage:
+
+```
+--- RE-SAVE ---
+original file: 205 docs / 205 versions
+after load:    200 docs / 205 versions
+after re-save: 200 docs / 205 versions
+documents PERMANENTLY LOST by load->save: 5 ["Doc 201","Doc 202","Doc 203","Doc 204","Doc 205"]
+```
+
+**All six write paths, identically** — the cap is not per-path, so JSON · IndexedDB · Turso single ·
+Turso tenant · CSV · Markdown all inherit it:
+
+```
+--- OVER CAP n=205 (MAX_DOCUMENTS=200) ---
+json          in 205d/205v -> out 200d/205v | phantoms 5 | discriminator(ai+delete) kept 205
+csv           in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+markdown      in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+turso-single  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+turso-tenant  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+indexeddb     in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+```
+
+★★ **Reproduce**: a temp vitest file (jsdom + `fake-indexeddb` come from `vitest.setup.ts`, so no
+manual JSDOM install is needed) that builds a 205-document workspace and round-trips it through
+`workspaceToJson`/`jsonToWorkspace`, `workspaceToCsv`/`csvToWorkspace`,
+`workspaceToMarkdown`/`markdownToWorkspace`, `workspaceToStatements`/`rowsToWorkspace`,
+`tenantWorkspaceToStatements`/`rowsToWorkspace`, and `BrowserBackend.save`/`load`. **Keep it out of
+`src/app`** — a `*.test.ts` there is picked up by the lint gate and the full-suite glob while it
+exists, which cost another agent a red `eslint --max-warnings=0 src/app` run when this was measured.
+
+★★ **The control is what makes the numbers mean anything.** A probe where the structural sanitizer
+silently dropped *every* version would print `phantoms 0` and read as a clean result. Two controls
+rule that out: at n=195 every path returns `195d/195v` with **0** phantoms, and the
+`discriminator(ai+delete) kept 205` column counts versions carrying `source:"ai"` + `op:"delete"` —
+neither is a sanitizer fallback (`"user"` / `"update"` are), so 205 proves real data crossed all six.
+The fixture also deliberately avoids `op:"restored"`, which the tombstone derivation excludes and
+which would have hidden the very artifact being measured.
+
+### It is independent of `documentVersions`, and the engine cap does not touch it
+
+`document-mutations.ts` now refuses creates past the cap — verified: 205 `create` calls through
+`applyDocMutation` yield `200 docs`. That stops the app **building** an over-cap state; it does
+nothing about **loading** one. The exposure is any workspace not produced by the current engine: a
+hand-edited JSON, a third-party or imported file, or data written before that guard existed.
+
+### Related, same delegation: silent per-version block truncation
+
+A version carrying more than `MAX_BLOCKS_PER_DOC` (500) blocks loads truncated, because
+`sanitizeDocumentVersions` delegates per item to `sanitizeProjectDocuments`, which slices:
+
+```
+--- REVERSE (block cap 500) ---
+blocks per version: in 525, out 500
+version COUNT cap probe: in 1200 versions -> out 1200
+```
+
+So restoring such a version hands back a **truncated document body with no indication**. History
+corruption rather than loss, and lower severity — but silent by the same mechanism, which is why it
+belongs in this entry rather than its own. ★ Note the second line: there is **no count cap on
+versions at all**, so history is never truncated while documents survive. That direction was checked
+and is clean.
+
+### The decision this entry exists to force — deliberately NOT made here
+
+Two defensible ends, and picking one is a scoped piece of work, not a trailing edit:
+
+- **Surface it.** Keep truncating, but emit a diagnostic and tell the user (the JSON path already has
+  the shape — it logs `workspace.documentVersionsDropped` when the rich-field pass throws). Preserves
+  today's "always opens" behaviour; the user learns *after* the data is already at risk.
+- **Refuse the load.** The cap's entire purpose is bounding what a corrupt or hostile file can do to
+  the app, so declining an over-cap workspace is arguably the correct reading of it. It is also a
+  footgun: a user whose legitimate project crossed 200 documents can no longer open their own file,
+  and has no in-app route to get under the cap.
+
+★ A third option exists and should be considered explicitly rather than by default: **raise or remove
+the load-side cap** now that the engine enforces it at creation. The load cap's job was to bound
+foreign input, which is a different question from bounding what the app itself writes.
+
+★ Whichever is chosen, the fix belongs at the load boundary — **not** in `sanitizeDocumentVersions`.
+Making that function drop versions for truncated documents would delete the only surviving copy of
+that content, turning a display defect into a second data-loss bug.
+
+### What is NOT in this entry
+
+The **phantom deleted-documents** consequence — a truncated document's surviving version has no
+matching document, which is exactly the tombstone shape, so `deletedDocumentVersions` reports it as a
+deleted document. That is being closed separately by requiring `op === "delete"` in the derivation
+(a real engine delete always leaves that op newest; measured 6 phantom rows → 1, the genuinely
+deleted one). Do not read this entry as covering it, and do not re-open it here.
+
+★ The two interact in a way worth knowing if the phantom fix lands first: after a truncating load the
+document count sits at **exactly** `MAX_DOCUMENTS`, so the engine's own
+`state.documents.length >= MAX_DOCUMENTS` guard refuses every restore —
+`rejected=["document limit reached (200)"]`. Any surface built on the deleted-documents list will
+show rows whose Restore button always fails, with a message that makes no sense to a user trying to
+recover a document.
+
+---
 
 ## Provenance — where these items came from, and what already closed
 
