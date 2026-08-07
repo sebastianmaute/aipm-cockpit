@@ -2567,6 +2567,9 @@ const enUS = {
   documentsVersionBlocksOne: "1 block",
   documentsPreview: "Preview",
   documentsGoToDocument: "Open in Documents",
+  documentsCardRemoved: "{0} blocks removed",
+  documentsCardRemovedOne: "1 block removed",
+  documentsCardNotApplied: "Not applied:",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
   // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
   dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToolBlock } from "./chat-tool-block";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -97,6 +97,54 @@ const downloadName = (title: string, id: number) => `Download – ${title} · #$
  *  assertion still fails if a card renders, which an exact bare-verb name would
  *  no longer do now that both names are qualified. */
 const ANY_CARD_ACTION = /^(Download|Open in Documents)/;
+
+/** The notices strip's two headings, spelled out rather than built from
+ *  `t(...)`. Both end in a colon / a specific word order, and asserting the
+ *  literal is what keeps a key swap inside the crowded `documents*` prefix
+ *  from passing. */
+const NOT_APPLIED = "Not applied:";
+
+/** The notices strip CONTAINER, or null. Queried structurally because its mere
+ *  PRESENCE is a claim — it carries a `border-t` rule, so an empty one draws a
+ *  stray line across a perfectly successful card. A contents-only check cannot
+ *  see that: an unconditionally-rendered empty strip has no text to find. */
+function noticesStrip(): HTMLElement | null {
+  return document.querySelector<HTMLElement>("[data-doc-notices]");
+}
+
+/** The rejection list, or null when no strip drew one. The card renders no
+ *  other `<ul>`, so `role="list"` names this one unambiguously. */
+function reasonList(): HTMLElement | null {
+  return screen.queryByRole("list");
+}
+
+/** Reads the rendered rejection reasons. Asserting on this ARRAY rather than on
+ *  the container's textContent is what stops a superstring passing: three
+ *  reasons concatenated would satisfy `toHaveTextContent(oneOfThem)`, but a
+ *  length + exact-string comparison cannot. */
+function reasonTexts(): string[] {
+  const list = reasonList();
+  if (!list) return [];
+  return within(list)
+    .getAllByRole("listitem")
+    .map((li) => li.textContent ?? "");
+}
+
+/** ★★ THE NEGATIVE CONTROL, and it is only worth anything because every test
+ *  that calls it is paired with a positive one in the same describe that makes
+ *  the SAME queries return something. On its own "no strip rendered" is
+ *  satisfied by a component that rendered nothing at all — which is why each
+ *  caller also asserts the card itself is present. */
+function expectNoNotices() {
+  // The CONTAINER first — the only assertion here that an empty-but-rendered
+  // strip cannot satisfy.
+  expect(noticesStrip()).toBeNull();
+  expect(reasonList()).toBeNull();
+  expect(screen.queryByText(NOT_APPLIED)).not.toBeInTheDocument();
+  // Anchored: `/removed/` alone would also match a reason string that happens
+  // to contain the word, and `"0 blocks removed"` must not render either.
+  expect(screen.queryByText(/blocks? removed$/)).not.toBeInTheDocument();
+}
 
 /** The plain tool block's OWN content — asserted in every fallback test as the
  *  positive observable that proves the component actually rendered something,
@@ -197,7 +245,9 @@ describe("ToolBlock — document file card", () => {
 
     it("cards an update_document result despite its extra fields", () => {
       // DocumentUpdateResult is a SUPERSET of the card shape; the parser reads
-      // the three fields it needs and ignores applied/rejected/removed.
+      // the three fields it needs and takes `rejected`/`removed` as optional
+      // extras (`applied` is for the model only and is never drawn). Empty
+      // extras here — the disclosure they drive has its own describe below.
       const real = JSON.stringify(
         { id: 4, title: "Steering deck", blockCount: 12, applied: 2, rejected: [], removed: 0 },
         null,
@@ -311,5 +361,163 @@ describe("ToolBlock — document file card", () => {
     // unless the count is pinned: two cards × two actions.
     expect(names).toHaveLength(4);
     expect(new Set(names).size).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// What the write did NOT do. Before this, `update_document` returning
+// `rejected`/`removed` rendered a CLEAN SUCCESS card: the refusal reached the
+// model and never the person.
+// ---------------------------------------------------------------------------
+describe("ToolBlock — document card discloses rejections and removals", () => {
+  const LIVE = [doc(4, "Steering deck", 12)];
+
+  /** The real `DocumentUpdateResult` shape, serialized the way chat-panel does
+   *  (`stringifyResult` = JSON.stringify(v, null, 2)). `extras` is typed
+   *  loosely on purpose — the malformed cases below feed it values the real
+   *  type forbids, which is exactly the input this guard exists for. */
+  function renderUpdate(extras: Record<string, unknown>, documents = LIVE) {
+    const result = JSON.stringify(
+      { id: 4, title: "Steering deck", blockCount: 12, applied: 1, ...extras },
+      null,
+      2,
+    );
+    return renderTool("update_document", result, false, documents);
+  }
+
+  /** The card itself — asserted alongside every notices assertion so neither
+   *  direction can pass by the component having rendered nothing. */
+  function expectCard() {
+    expect(screen.getByRole("button", { name: openName("Steering deck", 4) })).toBeInTheDocument();
+  }
+
+  it("lists every reason when part of the edit was refused", () => {
+    renderUpdate({
+      rejected: ["op 0: index 7 out of range", "op 1: unsupported block type"],
+      removed: 0,
+    });
+
+    expectCard();
+    // The same handle `expectNoNotices` asserts absent, proved present here —
+    // so that negative control is checking something that can exist.
+    expect(noticesStrip()).not.toBeNull();
+    expect(screen.getByText(NOT_APPLIED)).toBeInTheDocument();
+    // Length FIRST — a per-item `toContain` sweep over an empty list passes
+    // vacuously. Exact strings, so a truncated or concatenated render fails.
+    const reasons = reasonTexts();
+    expect(reasons).toHaveLength(2);
+    expect(reasons).toEqual(["op 0: index 7 out of range", "op 1: unsupported block type"]);
+  });
+
+  it("discloses a non-zero removal count", () => {
+    renderUpdate({ rejected: [], removed: 9 });
+
+    expectCard();
+    expect(noticesStrip()).not.toBeNull();
+    // Anchored on BOTH ends: `toHaveTextContent("9 blocks removed")` would pass
+    // on "19 blocks removed", and an unanchored tail would pass on
+    // "9 blocks removed from the appendix".
+    expect(screen.getByText("9 blocks removed")).toBeInTheDocument();
+    // A removal is not a rejection — the reasons heading must stay absent.
+    expect(screen.queryByText(NOT_APPLIED)).not.toBeInTheDocument();
+    expect(reasonList()).toBeNull();
+  });
+
+  it("uses the singular for exactly one removed block", () => {
+    renderUpdate({ rejected: [], removed: 1 });
+
+    expectCard();
+    expect(screen.getByText("1 block removed")).toBeInTheDocument();
+    // The plural template with {0} substituted would read "1 blocks removed".
+    expect(screen.queryByText("1 blocks removed")).not.toBeInTheDocument();
+  });
+
+  it("shows both a removal count and the reasons together", () => {
+    renderUpdate({ rejected: ["op 2: block index 99 out of range"], removed: 4 });
+
+    expectCard();
+    expect(screen.getByText("4 blocks removed")).toBeInTheDocument();
+    expect(reasonTexts()).toEqual(["op 2: block index 99 out of range"]);
+  });
+
+  it("adds NO second live region — the transcript list is already one", () => {
+    // chat-panel.tsx renders these blocks inside `<ul role="log"
+    // aria-relevant="additions">`, so the strip is announced when the tool
+    // block is appended. A `role="status"` here would announce it twice.
+    // POSITIVE CONTROL FIRST: prove a strip actually rendered, or "no status
+    // role" is trivially true.
+    renderUpdate({ rejected: ["op 0: index 7 out of range"], removed: 3 });
+
+    expect(reasonTexts()).toHaveLength(1);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("draws nothing at all for a clean success", () => {
+    // The exact shape a fully-applied edit returns. This must look EXACTLY as
+    // it did before the strip existed — an empty warning on every success is
+    // how a user learns to ignore the one that matters.
+    renderUpdate({ rejected: [], removed: 0 });
+
+    expectCard();
+    expect(screen.getByText("Steering deck")).toBeInTheDocument();
+    expect(screen.getByText("12 Blocks")).toBeInTheDocument();
+    expectNoNotices();
+  });
+
+  it("draws nothing when the extras are absent entirely (create_document)", () => {
+    // create_document returns `{id, title, blockCount}` — no channel for
+    // either field. Absent must be indistinguishable from empty.
+    const result = JSON.stringify({ id: 4, title: "Steering deck", blockCount: 12 }, null, 2);
+    renderTool("create_document", result, false, LIVE);
+
+    expect(screen.getByRole("button", { name: openName("Steering deck", 4) })).toBeInTheDocument();
+    expectNoNotices();
+  });
+
+  it("still discloses what it can when the document has since been deleted", () => {
+    // What was refused is a fact about the CALL. A document deleted afterwards
+    // does not un-refuse it, so the strip is independent of the live lookup.
+    renderUpdate({ rejected: ["op 0: index 7 out of range"], removed: 2 }, []);
+
+    expect(screen.getByRole("button", { name: openName("Steering deck", 4) })).toBeDisabled();
+    expect(screen.getByText("2 blocks removed")).toBeInTheDocument();
+    expect(reasonTexts()).toEqual(["op 0: index 7 out of range"]);
+  });
+
+  describe("a malformed extra degrades to 'not shown' — never a throw, never a lost card", () => {
+    const cases: Array<[string, Record<string, unknown>]> = [
+      ["rejected as a string", { rejected: "everything failed", removed: 0 }],
+      ["rejected as an object", { rejected: { 0: "a" }, removed: 0 }],
+      ["rejected as a number", { rejected: 3, removed: 0 }],
+      ["rejected null", { rejected: null, removed: 0 }],
+      ["rejected holding non-strings", { rejected: [1, 2, 3], removed: 0 }],
+      ["rejected holding blanks only", { rejected: ["", "   "], removed: 0 }],
+      ["removed as a string", { rejected: [], removed: "9" }],
+      ["removed negative", { rejected: [], removed: -3 }],
+      ["removed fractional", { rejected: [], removed: 2.5 }],
+      ["removed null (a serialized NaN)", { rejected: [], removed: null }],
+      ["removed as an object", { rejected: [], removed: { count: 9 } }],
+      ["both malformed", { rejected: 7, removed: "many" }],
+    ];
+
+    it.each(cases)("%s", (_label, extras) => {
+      renderUpdate(extras);
+      // THE CARD SURVIVES — a bad extra must never cost the user the card its
+      // three required fields earned.
+      expectCard();
+      expect(screen.getByText("Steering deck")).toBeInTheDocument();
+      expectNoNotices();
+    });
+
+    it("keeps the readable reasons out of a MIXED array", () => {
+      // Partial degradation, not total: showing two of three reasons discloses
+      // more than showing none. Paired with the drop-everything cases above,
+      // so neither behaviour can be mistaken for the other.
+      renderUpdate({ rejected: ["op 0: index 7 out of range", 5, null, "op 2: bad block"], removed: 0 });
+
+      expectCard();
+      expect(reasonTexts()).toEqual(["op 0: index 7 out of range", "op 2: bad block"]);
+    });
   });
 });

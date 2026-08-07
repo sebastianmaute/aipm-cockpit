@@ -30,11 +30,11 @@ import { Button } from "./button";
 //   update_document → `DocumentUpdateResult` = `{id, title, blockCount,
 //                     applied, rejected, removed}` — a SUPERSET; cards,
 //                     because the parser validates the three fields it needs
-//                     and ignores unknown keys rather than demanding an exact
-//                     key set. `title` is REQUIRED and non-blank on that type
-//                     specifically so this card cannot silently vanish after a
-//                     successful edit (chat-tools-documents.ts documents it at
-//                     the field).
+//                     and reads the rest OPTIONALLY rather than demanding an
+//                     exact key set. `title` is REQUIRED and non-blank on that
+//                     type specifically so this card cannot silently vanish
+//                     after a successful edit (chat-tools-documents.ts
+//                     documents it at the field).
 //   list_documents  → `DocumentSummary[]` — an ARRAY; falls back.
 //   get_document    → the whole `ProjectDocument` `{id, title, blocks, …}` —
 //                     carries `blocks`, never a `blockCount`; falls back.
@@ -50,9 +50,49 @@ import { Button } from "./button";
 // document to card, a deleted one has nothing left to open or download, and
 // get_document's payload is the block list the MODEL reads, not a summary for
 // a card.
+//
+// ★★★ THE EXTRAS ARE READ SEPARATELY AND NEVER GATE THE CARD. `rejected` and
+// `removed` are what update_document uses to say "part of your edit did not
+// land" / "this write dropped N blocks". Before they were surfaced here the
+// card showed a clean success for a PARTLY-REFUSED edit: the refusal reached
+// the MODEL (it is in the tool result it reads) but never the person, which is
+// the same silent-drop failure use-document-tools.ts and documents-panel.tsx
+// were both fixed for in this branch. They are read AFTER the three strict
+// checks above pass, with their own defensive readers, so a malformed extra
+// degrades to "not shown" — never to a throw, and never to withholding a card
+// whose three required fields are perfectly good.
 // ---------------------------------------------------------------------------
 
-type DocumentCardData = { id: number; title: string; blockCount: number };
+type DocumentCardData = {
+  id: number;
+  title: string;
+  blockCount: number;
+  /** Human-readable reasons, one per refused op (chat-tools-documents.ts types
+   *  it `readonly string[]`). EMPTY when absent, malformed, or genuinely empty
+   *  — a successful edit reports `rejected: []` and must look exactly like one
+   *  that reports nothing at all. */
+  rejected: readonly string[];
+  /** Blocks the write dropped; `number`, non-zero only for replaceAll. 0 when
+   *  absent or malformed, and 0 renders nothing — "0 removed" is noise. */
+  removed: number;
+};
+
+/** Keeps the string members of a `rejected` array and drops everything else.
+ *  A non-array (the whole field malformed) yields no reasons; a MIXED array
+ *  keeps what it can, because showing three of four reasons discloses more
+ *  than showing none. Blank strings are dropped — they would render an empty
+ *  bullet that says nothing. */
+function readRejected(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "");
+}
+
+/** A positive integer count, or 0 for "nothing to disclose". Non-numbers, NaN,
+ *  negatives and fractions all degrade to 0 rather than rendering a count the
+ *  engine cannot have meant. */
+function readRemoved(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
 
 // Read DOCUMENT_TOOL_DEFS live inside the function, never cached into a
 // module-eval-time Set — a Set snapshotted from an imported const at THIS
@@ -78,7 +118,15 @@ function parseDocumentResult(result: string): DocumentCardData | null {
   if (typeof r.id !== "number" || !Number.isInteger(r.id) || r.id <= 0) return null;
   if (typeof r.title !== "string" || r.title.trim() === "") return null;
   if (typeof r.blockCount !== "number" || !Number.isInteger(r.blockCount) || r.blockCount < 0) return null;
-  return { id: r.id, title: r.title, blockCount: r.blockCount };
+  // Only AFTER the three required fields are known good — the extras can never
+  // turn a valid card into a fallback.
+  return {
+    id: r.id,
+    title: r.title,
+    blockCount: r.blockCount,
+    rejected: readRejected(r.rejected),
+    removed: readRemoved(r.removed),
+  };
 }
 
 // The format this compact surface downloads with — there is no format picker
@@ -88,15 +136,85 @@ function parseDocumentResult(result: string): DocumentCardData | null {
 // panel's own default.
 const CARD_DOWNLOAD_FORMAT: DocFormat = DOC_FORMATS[0].value;
 
+/** What the write did NOT do, drawn only when there is something to say.
+ *
+ *  ★★ ABSENT, EMPTY AND PRESENT ARE THREE STATES, and the first two must look
+ *  identical: a clean edit reports `rejected: [], removed: 0` and gets no
+ *  strip at all, so this returns null rather than an empty container. An empty
+ *  warning strip on every successful edit would train the user to ignore the
+ *  one that matters.
+ *
+ *  ★★ NO `role="status"` — DELIBERATE, NOT AN OMISSION. This card renders
+ *  inside chat-panel.tsx's message list, which is `<ul role="log"
+ *  aria-relevant="additions">` (chat-panel.tsx). `role="log"` is already a live
+ *  region, and the whole `<li>` subtree — this strip included — is announced
+ *  when the tool block is appended. Nesting a second live region here would
+ *  announce the same text twice, which is worse than announcing it once.
+ *  (documents-panel.tsx DOES use `role="status"` for its restore refusal, and
+ *  correctly: that one renders in a static pane with no live-region ancestor.
+ *  The pattern is the same, the ancestor is not.)
+ *
+ *  ★ Independent of `liveDoc`. What was refused is a historical fact about the
+ *  call; a document deleted afterwards does not un-refuse it. */
+function DocumentCardNotices({
+  rejected,
+  removed,
+  lang,
+}: {
+  rejected: readonly string[];
+  removed: number;
+  lang: Lang;
+}) {
+  if (removed === 0 && rejected.length === 0) return null;
+  return (
+    // ★ `data-doc-notices` is a TEST HANDLE for the CONTAINER, and it is not
+    // decoration: without it "no strip on a clean success" can only be checked
+    // by its CONTENTS, and an unconditionally-rendered EMPTY strip has none —
+    // so that assertion passes while a stray `border-t` rule draws across
+    // every successful card. Mutation-proved: dropping the early return above
+    // reddens the clean-success test only through this attribute.
+    <div data-doc-notices="" className="border-t border-line pt-2 text-xs text-muted-foreground">
+      {removed > 0 && (
+        <p className="font-medium text-foreground">
+          {removed === 1
+            ? t(lang, "documentsCardRemovedOne")
+            : t(lang, "documentsCardRemoved", removed)}
+        </p>
+      )}
+      {rejected.length > 0 && (
+        <>
+          <p className="font-medium text-foreground">{t(lang, "documentsCardNotApplied")}</p>
+          {/* The engine's own reason strings, untranslated — same trade-off
+              documents-panel.tsx makes for its restore refusal: an
+              untranslated reason beats a silent drop. A real list, so the
+              count is conveyed structurally rather than by punctuation. */}
+          <ul className="list-disc pl-4">
+            {rejected.map((reason, i) => (
+              // Index key: two ops can be refused for the identical reason, so
+              // the string is not a stable identity. This list is render-only
+              // and never reorders.
+              <li key={i}>{reason}</li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
 function DocumentCard({
   docId,
   title,
   blockCount,
+  rejected,
+  removed,
   lang,
 }: {
   docId: number;
   title: string;
   blockCount: number;
+  rejected: readonly string[];
+  removed: number;
   lang: Lang;
 }) {
   const ws = useWorkspace();
@@ -130,40 +248,46 @@ function DocumentCard({
 
   return (
     <div className="flex justify-start">
-      <div className="flex max-w-[85%] items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-foreground">
-        <DocumentTextIcon aria-hidden="true" className="h-8 w-8 shrink-0 text-muted-foreground" />
-        <div className="min-w-0">
-          <div className="truncate font-medium">{displayTitle}</div>
-          <div className="text-xs text-muted-foreground">
-            {displayBlockCount} {t(lang, "documentsBlockCount")}
+      {/* A COLUMN now, so the notices strip can sit under the summary row. With
+          no strip the single child renders exactly as the old flex row did —
+          `gap-2` has nothing to separate. */}
+      <div className="flex max-w-[85%] flex-col gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-foreground">
+        <div className="flex items-center gap-3">
+          <DocumentTextIcon aria-hidden="true" className="h-8 w-8 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <div className="truncate font-medium">{displayTitle}</div>
+            <div className="text-xs text-muted-foreground">
+              {displayBlockCount} {t(lang, "documentsBlockCount")}
+            </div>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!liveDoc}
+              onClick={() => requestOpen("documents", docId)}
+              aria-label={`${t(lang, "documentsGoToDocument")}${nameQualifier}`}
+              className="inline-flex items-center gap-1.5"
+            >
+              <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
+              {t(lang, "documentsGoToDocument")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!liveDoc}
+              onClick={() => {
+                if (liveDoc) downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang);
+              }}
+              aria-label={`${t(lang, "documentsDownload")}${nameQualifier}`}
+              className="inline-flex items-center gap-1.5"
+            >
+              <ArrowDownTrayIcon aria-hidden="true" className="h-4 w-4" />
+              {t(lang, "documentsDownload")}
+            </Button>
           </div>
         </div>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!liveDoc}
-            onClick={() => requestOpen("documents", docId)}
-            aria-label={`${t(lang, "documentsGoToDocument")}${nameQualifier}`}
-            className="inline-flex items-center gap-1.5"
-          >
-            <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
-            {t(lang, "documentsGoToDocument")}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={!liveDoc}
-            onClick={() => {
-              if (liveDoc) downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang);
-            }}
-            aria-label={`${t(lang, "documentsDownload")}${nameQualifier}`}
-            className="inline-flex items-center gap-1.5"
-          >
-            <ArrowDownTrayIcon aria-hidden="true" className="h-4 w-4" />
-            {t(lang, "documentsDownload")}
-          </Button>
-        </div>
+        <DocumentCardNotices rejected={rejected} removed={removed} lang={lang} />
       </div>
     </div>
   );
@@ -188,7 +312,16 @@ export function ToolBlock({
   // card instead of a raw JSON blob.
   const card = !error && isDocumentTool(name) ? parseDocumentResult(result) : null;
   if (card) {
-    return <DocumentCard docId={card.id} title={card.title} blockCount={card.blockCount} lang={lang} />;
+    return (
+      <DocumentCard
+        docId={card.id}
+        title={card.title}
+        blockCount={card.blockCount}
+        rejected={card.rejected}
+        removed={card.removed}
+        lang={lang}
+      />
+    );
   }
 
   return (
