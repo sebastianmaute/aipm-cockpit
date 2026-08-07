@@ -792,6 +792,10 @@ const enUS = {
   aiPromptPhWorstBody: "Explain this project's current health rating and what is driving it, based on the dashboard snapshot.",
   aiPromptPhCompareLabel: "Can you compare?",
   aiPromptPhCompareBody: "Can you compare this project against the rest of the portfolio from here? If not, explain what you can tell me about this project instead.",
+  aiPromptDraftStatusDocLabel: "Draft a status report",
+  aiPromptDraftStatusDocBody: "Create a project document with this week's status: progress, risks and next steps.",
+  aiPromptSteeringDeckLabel: "Draft a steering deck",
+  aiPromptSteeringDeckBody: "Create a steering-committee deck covering scope, schedule, budget and the top risks.",
   versionHighlightAiAskClaude: "Ask Claude about any view: one-tap chat starters and view-specific suggestions in the AI Assistant.",
   versionHighlightUiBatch0990: "Resizable panes, dashboard trend deltas, grouped reports, and a clearer Ask Claude button.",
   versionHighlightUiBatch0100: "Rounded table headers with a consistent scrollbar gap, RAG priority dots, click-away dialogs, whole-version restore plus side-by-side compare, and task-editor tooltips.",
@@ -2542,6 +2546,14 @@ const enUS = {
   documentsActions: "Actions",
   documentsCopySuffix: "{0} (copy)",
   documentsNewTitle: "Untitled document",
+  documentsHistory: "History",
+  documentsHistoryFor: "History – {0}",
+  documentsRestore: "Restore",
+  documentsRestored: "Restored “{0}”",
+  documentsShowDeleted: "Deleted documents",
+  documentsNoVersions: "No history yet",
+  documentsVersionSourceAi: "Assistant",
+  documentsVersionSourceUser: "You",
   knowledgeModuleDesc: "A single place to see and manage every knowledge link — documents, Confluence pages, and web URLs — across the project.",
   // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
   dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",
@@ -3825,6 +3837,7 @@ const enUS = {
   allocPlanSkipBelowResolution: "no change to the stored value",
   allocPlanSkipAlreadySet: "already at that value",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
+  activityAiDocumentWrite: "Assistant edited a document",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -157,6 +157,13 @@ export const ASK_CLAUDE_PROMPTS: Partial<Record<AppView, PromptDef[]>> = {
     { labelKey: "aiPromptPhWorstLabel", bodyKey: "aiPromptPhWorstBody" },
     { labelKey: "aiPromptPhCompareLabel", bodyKey: "aiPromptPhCompareBody" },
   ],
+  // ★ The only chips in this file that ask for a WRITE rather than a reading.
+  // They are answerable because `create_document` exists — see the documents
+  // entry in view-ai-scope.ts, which hints the write tools for the same reason.
+  documents: [
+    { labelKey: "aiPromptDraftStatusDocLabel", bodyKey: "aiPromptDraftStatusDocBody" },
+    { labelKey: "aiPromptSteeringDeckLabel", bodyKey: "aiPromptSteeringDeckBody" },
+  ],
 };
 
 /** What the menu/UI shows for a view: on-page suggestions + the always-on general set. */
