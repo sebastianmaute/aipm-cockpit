@@ -989,8 +989,15 @@ describe("DocumentsPanel — deleted documents", () => {
   it("renders the reason when a restore is refused", async () => {
     const atCap = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 10, `Doc ${i + 10}`));
     const tomb: DocVersion = {
+      // ★★★ DERIVED FROM THE CAP, NEVER A LITERAL. `atCap` generates ids
+      // 10..MAX_DOCUMENTS+9. A hardcoded 999 sat OUTSIDE that range while the
+      // cap was 200 and INSIDE it once the cap became 1000 — so the restore
+      // resolved against a document the engine already held instead of
+      // recreating one, the cap never refused, and both refusal tests failed
+      // with a bare "Unable to find role=status". The tombstone must point at
+      // a document the engine does NOT hold, whatever the cap happens to be.
       id: 500,
-      documentId: 999,
+      documentId: MAX_DOCUMENTS + 999,
       title: "Doomed",
       blocks: [],
       savedAt: "2026-08-05T10:00:00.000Z",
@@ -1396,11 +1403,18 @@ describe("DocumentsPanel — the restore toast", () => {
   it("does NOT announce a REFUSED restore", async () => {
     // ★★ Same engine-at-the-cap shape as the refusal case above, and for the
     // same reason: the pane is given one live document while the ENGINE holds
-    // MAX_DOCUMENTS, so the cap really refuses without rendering 200 rows.
+    // MAX_DOCUMENTS, so the cap really refuses without rendering that many rows.
     const atCap = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 10, `Doc ${i + 10}`));
     const tomb: DocVersion = {
+      // ★★★ DERIVED FROM THE CAP, NEVER A LITERAL. `atCap` generates ids
+      // 10..MAX_DOCUMENTS+9. A hardcoded 999 sat OUTSIDE that range while the
+      // cap was 200 and INSIDE it once the cap became 1000 — so the restore
+      // resolved against a document the engine already held instead of
+      // recreating one, the cap never refused, and both refusal tests failed
+      // with a bare "Unable to find role=status". The tombstone must point at
+      // a document the engine does NOT hold, whatever the cap happens to be.
       id: 500,
-      documentId: 999,
+      documentId: MAX_DOCUMENTS + 999,
       title: "Doomed",
       blocks: [],
       savedAt: "2026-08-05T10:00:00.000Z",

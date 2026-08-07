@@ -232,7 +232,7 @@ export function DocumentsPanel({
   //  · every MUTATION — folded into `mutate` below, so a future call site
   //    cannot forget it and `handleRestore` re-sets it in the same handler
   //    (later write wins). A delete in particular FALSIFIES the commonest
-  //    reason: `document limit reached (200)` no longer binds once a row is
+  //    reason: `document limit reached (<MAX_DOCUMENTS>)` no longer binds once a row is
   //    gone, so leaving it up reads as a live blocker that is not one.
   //  · SELECTION — the region renders immediately above `DocumentPreview`, i.e.
   //    directly above the selected document's content, so a reason left behind
@@ -291,9 +291,12 @@ export function DocumentsPanel({
   // ★★ THIS LIST CAN CONTAIN THINGS THAT WERE NEVER DELETED, and the pane
   // cannot tell. `deletedDocumentVersions` reports any version whose
   // `documentId` is absent from `documents`, which is also true of
-  // (a) TRUNCATION ARTIFACTS — a 205-document file loads as 200 documents and
-  // 205 versions, because `sanitizeProjectDocuments` caps at MAX_DOCUMENTS
-  // while `sanitizeDocumentVersions` structurally cannot; and (b) ORPHANS from
+  // (a) TRUNCATION ARTIFACTS — an over-cap file loads as MAX_DOCUMENTS
+  // documents but keeps ALL its versions, because `sanitizeProjectDocuments`
+  // caps the count while `sanitizeDocumentVersions` structurally cannot. (The
+  // cap was raised to 1000 and a truncating load now warns and pauses saving
+  // — open-followups §100 — so this is rarer than it was, but a file built
+  // against the old limit can still arrive in this shape.) And (b) ORPHANS from
   // a partial import, or a text-backend load where the `documents` blob failed
   // to parse and the `documentVersions` blob succeeded (they have independent
   // try/catch on every backend). In that last case EVERY version reads as a
@@ -445,7 +448,7 @@ export function DocumentsPanel({
   // ★★★ A RESTORE CAN BE REFUSED, and at the cap it always is. After a
   // truncating load the document count sits EXACTLY at MAX_DOCUMENTS, so the
   // engine's cap guard rejects every restore with
-  // `["document limit reached (200)"]` — and a genuine tombstone restored into
+  // `["document limit reached (<MAX_DOCUMENTS>)"]` — and a genuine tombstone restored into
   // a full document set hits the same wall. `mutateDocuments` hands back
   // `rejected` synchronously, so the only way to get this wrong is to discard
   // it. Rendered below the list, not swallowed.
