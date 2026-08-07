@@ -58,7 +58,9 @@ interface EditModalShellProps {
 }
 
 /**
- * The draggable modal shell shared by the change + stakeholder edit modals:
+ * The draggable modal shell shared by SEVEN edit modals — absence,
+ * calendar-event, change, milestone, raid, resource and stakeholder (reproduce:
+ * `grep -rln EditModalShell src/app --include="*.tsx" | grep -v "\.test\."`):
  * the centered `Modal`, the fixed-width draggable panel, the `ModalHeader`
  * (carrying the field-visibility control in its right-hand cluster), and the
  * two-column form grid. The caller's fields + `ModalEditFooter` slot in as

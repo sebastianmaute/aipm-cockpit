@@ -141,6 +141,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1, unreleased | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
 | 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1, unreleased | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
 | 99 | The e2e seed writes NONE of BrowserBackend's nine optional kv slices, so any view backed by one is axe-scanned against its EMPTY STATE | AI document authoring S1, unreleased | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
+| 100 | Tab ejects focus from a portaled popover opened inside a modal, leaving it open and its contents keyboard-unreachable | field controls → modal header, unreleased | M | open — WCAG 2.1.1, **measured in Chromium** from both a radio and a checkbox. PRE-EXISTING and architectural (`Modal`'s trap guards on `container.contains`, false for every element in a portal); the move only made it prominent. Invisible to jsdom (the control's tests never mount inside `Modal`) and to axe |
+| 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -4929,6 +4931,7 @@ which users experience as data loss of a different kind.
 ★ If it is picked up: decide deliberately whether the other four join at the same time. Adding only
 `documents` leaves the register's own scoping stale, and a half-widened counter is harder to reason
 about than either end state.
+
 ---
 
 ## Decided — do not re-litigate

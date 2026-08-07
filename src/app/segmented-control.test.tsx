@@ -149,6 +149,34 @@ describe("SegmentedControl", () => {
     expect(onChange).not.toHaveBeenCalledWith("Low"); // value High + 1 (wrapped)
   });
 
+  // ★★ SUCCESSIVE arrows at ONE mount — the sequence the fix actually changes,
+  // and the only test in this file that fires more than one. `onChange` is a
+  // stub, so `value` NEVER updates: pre-fix, every keypress re-derived from the
+  // stale "High" and the control STUCK, emitting the same value forever. The
+  // split of the old two-arrow test (see the comment above it) removed the only
+  // coverage of this, leaving `segmented-control.tsx`'s own claim that the fix
+  // "fixes rapid arrowing" unpinned — a `cur` that consulted focus on the FIRST
+  // keypress only would pass every other test here.
+  test("successive arrows keep advancing even though `value` never updates", () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl value="High" options={PRIORITIES} onChange={onChange} ariaLabel="Priority" />,
+    );
+    const low = screen.getByRole("radio", { name: "Low" });
+    low.focus();
+
+    fireEvent.keyDown(low, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenLastCalledWith("Medium");
+    // The control moved focus itself; the next arrow must step from THERE.
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+
+    expect(onChange).toHaveBeenLastCalledWith("High"); // Medium + 1
+    // Pre-fix both keypresses derived from the stale `value` ("High" + 1 =
+    // "Urgent"), so the second emitted Urgent and focus never advanced.
+    expect(onChange).not.toHaveBeenCalledWith("Urgent");
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
   test("ArrowLeft likewise steps from the FOCUSED radio", () => {
     const onChange = vi.fn();
     render(
