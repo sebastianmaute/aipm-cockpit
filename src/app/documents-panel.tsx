@@ -565,6 +565,14 @@ export function DocumentsPanel({
         open={historyFor !== null}
         doc={historyDoc}
         versions={historyVersions}
+        // The Preview inside each history row renders the version's blocks
+        // through `renderDocumentHtml`, which needs a workspace to resolve a
+        // `dataSection` block — the same value, for the same reason,
+        // `DocumentPreview` gets above. Without it the modal falls back to an
+        // empty workspace and a `dataSection` renders as NOTHING: a missing
+        // section rather than broken markup, so no test that merely opens the
+        // modal would notice. Deliberately NOT `ws.documentVersions` for the
+        // `versions` prop above — see that prop's own note.
         onClose={() => setHistoryFor(null)}
         // ★★ A restore is a mutation like any other, so it goes through the
         // same single entry point — and through `handleRestore`, not a
