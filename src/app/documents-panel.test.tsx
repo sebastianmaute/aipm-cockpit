@@ -6,6 +6,9 @@ import { MAX_DOCUMENTS, MAX_TITLE_CHARS } from "./document-model";
 import { FOCUS_RING } from "./interaction-styles";
 import userEvent from "@testing-library/user-event";
 import { ConfirmProvider } from "./confirm-dialog";
+import { ToastProvider } from "./toast-context";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import { applyDocMutation, type DocMutation, type DocResult } from "./document-mutations";
 import type { DocVersion, DocVersionSource } from "./document-versions";
@@ -26,9 +29,41 @@ vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
 // test that asserts the docx default — and `test:shuffle` reorders tests WITHIN
 // a file, so the failure would be intermittent and seed-dependent rather than
 // reproducible.
+/** ★★ The pane now reads BOTH ambient contexts — `useToastContext` for the
+ *  restore toast and `useWorkspaceTab` for the deep-link signal — and the
+ *  latter THROWS outside its provider, so every harness below has to supply
+ *  them. One host component rather than nine copies, and it carries the toast
+ *  spy so any case can assert on it (or on its silence) without extra wiring. */
+const showToastSpy = vi.fn();
+const showToastActionSpy = vi.fn();
+
+function PanelHost({ children }: { children: ReactNode }) {
+  return (
+    <WorkspaceTabProvider>
+      <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastActionSpy }}>
+        <ConfirmProvider lang="en-US">{children}</ConfirmProvider>
+      </ToastProvider>
+    </WorkspaceTabProvider>
+  );
+}
+
+/** Fires `requestOpen(view, id)` — the exact primitive the chat transcript's
+ *  document card calls — from INSIDE the provider, so the pane consumes a real
+ *  signal rather than a hand-built prop. */
+function DeepLinkTrigger({ view, id }: { view: "documents" | "raid"; id: number }) {
+  const { requestOpen } = useWorkspaceTab();
+  return (
+    <button type="button" onClick={() => requestOpen(view, id)}>
+      deep-link
+    </button>
+  );
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   __resetMintStateForTests();
+  showToastSpy.mockClear();
+  showToastActionSpy.mockClear();
 });
 
 const NOW = "2026-08-06T00:00:00.000Z";
@@ -86,7 +121,7 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
   vi.mocked(downloadDocument).mockClear();
   const onResetSize = vi.fn();
   const utils = render(
-    <ConfirmProvider lang="en-US">
+    <PanelHost>
       <DocumentsPanel
         lang="en-US"
         documents={initial}
@@ -95,7 +130,7 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
       />
-    </ConfirmProvider>,
+    </PanelHost>,
   );
   return { box, mutateDocuments, onResetSize, ...utils };
 }
@@ -161,7 +196,7 @@ function providers({ children }: { children: ReactNode }) {
   return (
     <FiltersProvider>
       <WorkspaceProvider>
-        <ConfirmProvider lang="en-US">{children}</ConfirmProvider>
+        <PanelHost>{children}</PanelHost>
       </WorkspaceProvider>
     </FiltersProvider>
   );
@@ -329,7 +364,7 @@ describe("DocumentsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "New document" }));
     expect(box.docs.map((d) => d.title)).toEqual(["Untitled document"]);
     rerender(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(9, "Something else")]}
@@ -338,7 +373,7 @@ describe("DocumentsPanel", () => {
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
     fireEvent.click(screen.getByRole("button", { name: "New document" }));
     expect(box.docs.at(-1)!.title).toBe("Untitled document 2");
@@ -501,7 +536,7 @@ describe("DocumentsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Beta" }));
     expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
     rerender(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
@@ -510,7 +545,7 @@ describe("DocumentsPanel", () => {
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
     expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
   });
@@ -545,7 +580,7 @@ describe("DocumentsPanel", () => {
 
   it("honours an explicit initialFormat", () => {
     render(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
@@ -555,7 +590,7 @@ describe("DocumentsPanel", () => {
           initialFormat="pdf"
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
     expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pdf", expect.anything(), "en-US");
@@ -754,7 +789,7 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
   function renderReadOnly() {
     vi.mocked(downloadDocument).mockClear();
     return render(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha"), doc(2, "Beta")]}
@@ -776,7 +811,7 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
           isReadOnly
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
   }
 
@@ -948,7 +983,7 @@ describe("DocumentsPanel — deleted documents", () => {
     const box: Box = { docs: atCap, versions: [tomb] };
 
     render(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
@@ -957,7 +992,7 @@ describe("DocumentsPanel — deleted documents", () => {
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
@@ -1009,7 +1044,7 @@ describe("DocumentsPanel — the history modal's Restore", () => {
   function renderModalHarness(engineVersions: readonly DocVersion[]) {
     const box: Box = { docs: [doc(1, "Alpha")], versions: engineVersions };
     render(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
@@ -1018,7 +1053,7 @@ describe("DocumentsPanel — the history modal's Restore", () => {
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
     fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
     fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
@@ -1044,6 +1079,22 @@ describe("DocumentsPanel — the history modal's Restore", () => {
     // against a pane that announced a refusal for a write that succeeded.
     expect(box.docs).toHaveLength(1);
     expect(box.docs[0].title).toBe("Alpha");
+    // ★ A refusal already has a `role="status"` reason; a toast on the same
+    // event would announce it a second time. Paired with the success case in
+    // this same describe, which fires on this very code path (named rather than
+    // placed — `test:shuffle` reorders cases within a file).
+    expect(showToastSpy).not.toHaveBeenCalled();
+  });
+
+  it("announces the restore made from the MODAL, naming the restored title", () => {
+    // ★★ The second restore surface has to reach the toast too — both go
+    // through `handleRestore` for exactly this reason. This is the restore-IN-
+    // PLACE branch, so the row goes back to the version's title and the toast
+    // must name what the row now holds.
+    const box = renderModalHarness([stale]);
+    expect(box.docs[0].title).toBe("Older title");
+    expect(showToastSpy).toHaveBeenCalledTimes(1);
+    expect(showToastSpy).toHaveBeenCalledWith("success", t("en-US", "documentsRestored", "Older title"));
   });
 
   it("announces nothing when the MODAL's Restore SUCCEEDS", async () => {
@@ -1077,7 +1128,7 @@ describe("DocumentsPanel — the implausible-deleted-list guard", () => {
    *  shapes a corrupted load produces without having to corrupt a load. */
   function renderWith(documents: readonly ProjectDocument[], versions: readonly DocVersion[]) {
     return render(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={documents}
@@ -1086,7 +1137,7 @@ describe("DocumentsPanel — the implausible-deleted-list guard", () => {
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
   }
 
@@ -1122,5 +1173,238 @@ describe("DocumentsPanel — the implausible-deleted-list guard", () => {
     renderWith([doc(1, "Alpha")], [tombstone(1, 99, "Gone")]);
     await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+// ★★★ THE RESTORE TOAST. `documentsRestored` shipped in both dictionaries with
+// ZERO consumers, so a restore changed the list and said nothing. These drive
+// the REAL provider, because the title the toast must name is the one the
+// ENGINE produced — a fixture-fed title would be a second implementation of the
+// rule under test (see the uniquify case).
+describe("DocumentsPanel — the restore toast", () => {
+  /** Delete the row titled `title` through the confirm dialog, leaving one
+   *  tombstone behind. */
+  async function deleteRow(title: string) {
+    fireEvent.click(await screen.findByRole("button", { name: `Delete – ${title}` }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: `Delete – ${title}` })).toBeNull());
+  }
+
+  it("announces a successful restore, naming the document", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Doomed")]);
+    await deleteRow("Doomed");
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    await user.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // The positive observable: the document really is back in the list, so the
+    // toast is the toast of a real restore.
+    await waitFor(() => expect(renderedTitles()).toEqual(["Doomed"]));
+    expect(showToastSpy).toHaveBeenCalledTimes(1);
+    expect(showToastSpy).toHaveBeenCalledWith("success", t("en-US", "documentsRestored", "Doomed"));
+    // ★ …and the key really INTERPOLATES. Comparing only against `t(…)` with
+    // the same arguments would pass with `{0}` left unreplaced on both sides.
+    expect(showToastSpy.mock.calls[0][1]).toContain("Doomed");
+  });
+
+  // ★★★ THE CASE THAT DECIDES WHICH TITLE IS ANNOUNCED, and the only one that
+  // can tell the two candidates apart. `applyDocMutation` uniquifies on BOTH
+  // restore branches, so a tombstone stored as "Doomed" comes back as
+  // "Doomed 2" once something else has taken that title. A toast built from the
+  // VERSION's stored title names a document that does not exist; every other
+  // case here passes either way, because the two titles are equal there.
+  it("announces the title the LIST will show, not the version's stored title", async () => {
+    const user = userEvent.setup();
+    // ★ id 50, NOT 1, and that is load-bearing. `Seed` writes through
+    // `setDocuments`, which does not raise the session mint's high-water mark —
+    // so with id 1 the create below mints 1 AGAIN, the tombstone's documentId
+    // reads as live, `deletedDocumentVersions` drops it and there is no Restore
+    // button to click at all. Measured: the query failed on an empty list.
+    renderLive([doc(50, "Doomed")]);
+    await deleteRow("Doomed");
+
+    // Re-take the title with a NEW document, so the recreate has to suffix.
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename – Untitled document" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Doomed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await waitFor(() => expect(renderedTitles()).toEqual(["Doomed"]));
+
+    showToastSpy.mockClear();
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    await user.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // The engine really did suffix it — this is the row the user can see, and
+    // asserting it here is what stops the toast assertion below from merely
+    // agreeing with a stale expectation.
+    await waitFor(() => expect(renderedTitles()).toEqual(["Doomed", "Doomed 2"]));
+    expect(showToastSpy).toHaveBeenCalledTimes(1);
+    expect(showToastSpy).toHaveBeenCalledWith("success", t("en-US", "documentsRestored", "Doomed 2"));
+  });
+
+  it("does NOT announce a REFUSED restore", async () => {
+    // ★★ Same engine-at-the-cap shape as the refusal case above, and for the
+    // same reason: the pane is given one live document while the ENGINE holds
+    // MAX_DOCUMENTS, so the cap really refuses without rendering 200 rows.
+    const atCap = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 10, `Doc ${i + 10}`));
+    const tomb: DocVersion = {
+      id: 500,
+      documentId: 999,
+      title: "Doomed",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+    const box: Box = { docs: atCap, versions: [tomb] };
+
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={[tomb]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // ★ The click really landed and really was refused — without this the
+    // "no toast" assertion is satisfied by a button that did nothing at all.
+    expect((await screen.findByRole("status")).textContent).toMatch(/document limit reached/i);
+    expect(box.docs).toHaveLength(MAX_DOCUMENTS);
+    expect(showToastSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ★★★ DEEP-LINK SELECTION. The chat transcript's document card calls
+// `requestOpen("documents", id)`; with no consumer here that landed on the
+// Documents view with nothing selected — half a feature that looks whole.
+describe("DocumentsPanel — deep-link selection (pendingOpen)", () => {
+  /** Renders the live signal, so a case can prove the trigger FIRED and say
+   *  whether this pane consumed it or left it for another view's consumer.
+   *  Without it "the selection did not move" is indistinguishable from "the
+   *  click did nothing", which is the vacuity trap on every negative case
+   *  below. */
+  function PendingProbe() {
+    const { pendingOpen } = useWorkspaceTab();
+    return (
+      <p data-testid="pending">{pendingOpen ? `${pendingOpen.view}:${pendingOpen.id}` : "none"}</p>
+    );
+  }
+
+  const rows = [doc(1, "Alpha"), doc(2, "Beta")];
+
+  function panel() {
+    return (
+      <DocumentsPanel
+        lang="en-US"
+        documents={rows}
+        mutateDocuments={inertMutate}
+        documentVersions={[]}
+        ws={emptyWorkspace()}
+        onResetSize={() => {}}
+      />
+    );
+  }
+
+  /** The pane stays mounted throughout — for a signal arriving at a pane the
+   *  user is already looking at. */
+  function renderMounted(view: "documents" | "raid", id: number) {
+    return render(
+      <PanelHost>
+        <DeepLinkTrigger view={view} id={id} />
+        <PendingProbe />
+        {panel()}
+      </PanelHost>,
+    );
+  }
+
+  /** ★★★ THE ARRIVAL CASE, modelled the way the shell really behaves.
+   *  `requestOpen` sets `activeTab` AND arms `pendingOpen` in one batch, and
+   *  the shell renders only the ACTIVE view — so the pane MOUNTS FRESH with the
+   *  request already pending. That is the remount-swallow scenario, and it is
+   *  the ordinary path for this feature, not an edge case. */
+  function ShellHost() {
+    const { activeTab } = useWorkspaceTab();
+    return (
+      <>
+        <DeepLinkTrigger view="documents" id={2} />
+        <PendingProbe />
+        {activeTab === "documents" ? panel() : <p>another view</p>}
+      </>
+    );
+  }
+
+  // ★★★ MUTATION-PROVED and the most important case in this block: seeding a
+  // "last seen" ref from the LIVE signal (`useRef(pendingOpen)`) makes the
+  // first run see prop === seed and swallow the request — which is exactly this
+  // arrival — and reddens this case alone.
+  it("selects the deep-linked row when the pane MOUNTS with the request pending", () => {
+    render(
+      <PanelHost>
+        <ShellHost />
+      </PanelHost>,
+    );
+    // ★ Positive controls: the pane is not mounted yet, so this cannot pass
+    // against a selection that happened to be Beta already.
+    expect(screen.getByText("another view")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Beta" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // Mounted AND pointed at the requested row — not at the first-row fallback.
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Alpha" })).toBeNull();
+    expect(screen.getByTestId("pending").textContent).toBe("none");
+  });
+
+  it("selects the deep-linked row on a pane that is already open", () => {
+    renderMounted("documents", 2);
+    // The read-time fallback puts the selection on the first row to begin with.
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    // ★ CONSUMED. An uncleared signal re-fires on every later render, and would
+    // drag the selection back each time the user picked another row.
+    expect(screen.getByTestId("pending").textContent).toBe("none");
+  });
+
+  // ★★★ MUTATION-PROVED. The id is a REAL document id, so a consumer that
+  // ignored the `view` would select Beta here — that is what gives this teeth.
+  it("leaves a pendingOpen for ANOTHER view alone", () => {
+    renderMounted("raid", 2);
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // ★ The trigger really fired, and the signal is STILL armed — clearing
+    // another view's request here would steal it from raid-panel's consumer.
+    // This is the positive observable that makes the two assertions below
+    // something other than "the click did nothing".
+    expect(screen.getByTestId("pending").textContent).toBe("raid:2");
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Beta" })).toBeNull();
+  });
+
+  it("ignores a deep link to an id no live document holds", () => {
+    renderMounted("documents", 999);
+    // Move the selection off the fallback FIRST: without this, "the selection
+    // is still Alpha" is also what a handler that blanked it would produce,
+    // since a blank selection falls back to the first row.
+    fireEvent.click(screen.getByRole("button", { name: "Beta" }));
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // Not blanked, not reset to the first row, and no crash.
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    // It IS this pane's request, so it is consumed rather than left to rot.
+    expect(screen.getByTestId("pending").textContent).toBe("none");
   });
 });

@@ -16,7 +16,7 @@
 // before React re-renders both see the first one (see workspace-context.tsx).
 // `documents-panel.test.tsx` pins both halves against the REAL provider.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type ProjectDocument, MAX_TITLE_CHARS } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
@@ -30,6 +30,8 @@ import { downloadDocument, type DocFormat } from "./document-download";
 import { useColumnResize } from "./use-column-resize";
 import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
+import { useToastContext } from "./toast-context";
+import { useWorkspaceTab } from "./workspace-tab-context";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
@@ -212,6 +214,10 @@ export function DocumentsPanel({
   // click that produced it.
   const [restoreRejected, setRestoreRejected] = useState<readonly string[]>([]);
   const confirm = useConfirm();
+  // Ambient, exactly like every other panel's — `useToastContext` defaults to a
+  // no-op when no provider is above, so this adds no required wiring anywhere.
+  const showToast = useToastContext();
+  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<DocumentsCol>(
     "documents",
@@ -271,6 +277,46 @@ export function DocumentsPanel({
   // shape as `resolveEffectiveFilters` for orphaned list filters.
   const selected = documents.find((d) => d.id === selectedId) ?? documents[0] ?? null;
 
+  // ★★★ DEEP LINK. The chat transcript's document card calls
+  // `requestOpen("documents", id)` (workspace-tab-context), which switches the
+  // active tab and arms `pendingOpen`. Without a consumer here that landed on
+  // the Documents view with nothing selected — the navigation half worked and
+  // the "open THIS document" half silently did not.
+  //
+  // ★★ The shape is copied from `raid-panel` / `change-panel` /
+  // `milestones-panel` / `stakeholders-panel`, deliberately and unchanged in
+  // structure, including the `set-state-in-effect` suppression. That rule is
+  // fatal in CI and the render-time reconcile pattern is the usual answer to it
+  // — but it cannot be the answer HERE, because consuming the signal also means
+  // CLEARING it, and `clearPendingOpen` is a setState in an ANCESTOR. React
+  // forbids that during render, so the clear has to live in an effect either
+  // way; splitting the selection into a render reconcile would leave two
+  // mechanisms for one signal and no reader able to tell which owns it.
+  //
+  // ★★★ THE REMOUNT-SWALLOW IS WHY NOTHING IS SEEDED FROM THE LIVE SIGNAL. This
+  // pane is conditionally mounted (the shell renders only the active view), so
+  // the deep link's ARRIVAL is a fresh mount — the exact case a `useRef(prop)`
+  // "last seen" seed swallows, since prop === seed on the first run. That would
+  // make the feature never work while reading as correct. There is no seed at
+  // all: the effect runs on mount, sees the armed signal and honours it.
+  //
+  // ★★ And it CLEARS, so the signal cannot re-fire from a later render. A genuine
+  // re-arm (back/forward → `use-hash-view` re-invokes `requestOpen`) is a new
+  // navigation and is honoured on purpose; the `selectedId` guard keeps a
+  // re-arm for the row the user is ALREADY on from queueing a redundant render.
+  //
+  // ★ Both narrowing checks matter: another view's request must be left alone
+  // for that view's own consumer to take (clearing it here would steal it), and
+  // an id no live document holds must NOT blank the selection — a deep link to
+  // a deleted or unknown document leaves the pane exactly as it was.
+  useEffect(() => {
+    if (pendingOpen?.view !== "documents") return;
+    const target = documents.find((d) => d.id === pendingOpen.id);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-way deep-link
+    if (target && selectedId !== target.id) setSelectedId(target.id);
+    clearPendingOpen();
+  }, [pendingOpen, documents, selectedId, clearPendingOpen]);
+
   // ★★★ WHAT THE FUNCTIONAL SETTER USED TO BUY, FOR TITLES ONLY.
   // `mutateDocuments` reads its own refs and advances them synchronously, so
   // IDS and the version trail are already same-tick correct without any help
@@ -326,9 +372,26 @@ export function DocumentsPanel({
   // click (`version #N not found`), and the block cap on the restore-in-place
   // path. Do not re-inline a second call site; there is exactly one for a
   // reason.
+  // ★★★ THE TITLE ANNOUNCED IS THE ONE THE LIST WILL SHOW, NOT THE VERSION'S.
+  // `applyDocMutation` runs `uniqueTitle` on BOTH restore branches — in-place
+  // (against the other live documents) and recreate-a-deleted-one (against all
+  // of them) — so a version stored as "Charter" restores as "Charter 2"
+  // whenever that title has since been taken. Announcing `version.title` would
+  // therefore name a document that does not exist, which is worse than no toast
+  // at all. The result carries `documentId` (the row the mutation landed on)
+  // and the NEW `documents` list, so reading the title back out of the two is
+  // the only spelling that cannot drift from what the user sees.
+  // ★ Success only. A refusal already renders a `role="status"` reason below;
+  // a toast on the same event would announce it twice to a screen reader.
+  // ★ `documentId` is non-null on every `changed` restore branch — the lookup
+  // is type narrowing, not a suspected failure mode, and a missing row would
+  // mean the engine changed shape, so there is nothing truthful to announce.
   function handleRestore(versionId: number) {
     const result = mutate({ kind: "restore", versionId });
     setRestoreRejected(result.changed ? [] : result.rejected);
+    if (!result.changed) return;
+    const restored = result.documents.find((d) => d.id === result.documentId);
+    if (restored) showToast("success", t(lang, "documentsRestored", restored.title));
   }
 
   function handleSort(key: DocumentSortKey) {
