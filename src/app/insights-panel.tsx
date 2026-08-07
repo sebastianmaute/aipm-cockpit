@@ -238,6 +238,7 @@ export function InsightsPanel({
                               variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
+                              title={t(lang, "insightAcknowledgeHint")}
                               onClick={() => actions!.onAcknowledge(insight.id)}
                             >
                               {t(lang, "insightAcknowledge")}
@@ -248,6 +249,7 @@ export function InsightsPanel({
                               variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightAct")} – ${title}`}
+                              title={t(lang, "insightActHint")}
                               onClick={() => actions!.onAct(insight.id)}
                             >
                               {t(lang, "insightAct")}

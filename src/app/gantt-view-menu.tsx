@@ -105,6 +105,7 @@ export function GanttViewMenu({
             lang={lang}
             pressed={prefs.showDependencies}
             onToggle={toggleDependencies}
+            title={t(lang, "ganttShowDependenciesHint")}
             className={ROW_CLASS}
             icon={<ArrowLongRightIcon aria-hidden="true" className={ICON_CLASS} />}
           >
@@ -114,6 +115,7 @@ export function GanttViewMenu({
             lang={lang}
             pressed={prefs.showHolidays}
             onToggle={toggleHolidays}
+            title={t(lang, "ganttShowHolidaysHint")}
             className={ROW_CLASS}
             icon={<SunIcon aria-hidden="true" className={ICON_CLASS} />}
           >
@@ -123,6 +125,7 @@ export function GanttViewMenu({
             lang={lang}
             pressed={prefs.showAbsences}
             onToggle={toggleAbsences}
+            title={t(lang, "ganttShowAbsencesHint")}
             className={ROW_CLASS}
             icon={<UserMinusIcon aria-hidden="true" className={ICON_CLASS} />}
           >
@@ -132,6 +135,7 @@ export function GanttViewMenu({
             lang={lang}
             pressed={prefs.showGrid}
             onToggle={toggleGrid}
+            title={t(lang, "ganttShowGridHint")}
             className={ROW_CLASS}
             icon={<Squares2X2Icon aria-hidden="true" className={ICON_CLASS} />}
           >
@@ -166,6 +170,7 @@ export function GanttViewMenu({
                 lang={lang}
                 pressed={prefs.showMilestones}
                 onToggle={toggleMilestones}
+                title={t(lang, "ganttShowMilestonesHint")}
                 className={ROW_CLASS}
                 icon={<CalendarDaysIcon aria-hidden="true" className={ICON_CLASS} />}
               >

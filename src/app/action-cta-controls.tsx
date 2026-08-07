@@ -140,6 +140,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
     <span className="relative">
       <button ref={btnRef} type="button" aria-expanded={menuOpen}
         aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
+        title={t(lang, "actionMoreActionsHint")}
         onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
         className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING}`}>
         ⋮

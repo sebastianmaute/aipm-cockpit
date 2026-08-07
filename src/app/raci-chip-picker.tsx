@@ -80,6 +80,7 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={`${ariaPrefix} — ${triggerLabel}`}
+        title={t(lang, "raciSetHint")}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
@@ -120,6 +121,7 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
           <button
             type="button"
             aria-label={t(lang, "raciClear")}
+            title={t(lang, "raciClearHint")}
             onClick={(e) => {
               e.stopPropagation();
               pick("");

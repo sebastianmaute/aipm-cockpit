@@ -40,6 +40,7 @@ export const de: Record<TranslationKey, string> = {
   taskHintHealth: "Rot/Gelb/Grün-Status. Automatisch lassen oder manuell überschreiben.",
   notes: "Notizen",
   noteLogTitle: "Notizprotokoll",
+  noteLogOpenHint: "Das datierte Notizprotokoll für diese Aufgabe öffnen",
   noteLogPlaceholder: "Notiz schreiben…",
   noteLogAuthor: "Notizautor",
   noteLogAdd: "Notiz hinzufügen",
@@ -1055,6 +1056,12 @@ export const de: Record<TranslationKey, string> = {
   ganttShowDependencies: "Abhängigkeiten",
   ganttShowMilestones: "Meilensteine",
   ganttShowGrid: "Tagesraster",
+  ganttShowHolidaysHint: "Arbeitsfreie Tage im gesamten Diagramm schattieren",
+  ganttShowAbsencesHint:
+    "Abwesenheiten jeder zugewiesenen Person in ihrer eigenen Zeile schattieren",
+  ganttShowDependenciesHint: "Pfeile zwischen abhängigen Aufgaben zeichnen",
+  ganttShowMilestonesHint: "Meilenstein-Markierungen im Diagramm anzeigen",
+  ganttShowGridHint: "Für jeden Tag eine gepunktete Linie zeichnen",
   ganttMilestonesInlineHint:
     "Jeden Meilenstein als eigene Zeile zwischen den Aufgaben an seinem Fälligkeitsdatum anzeigen, statt als Block darunter.",
   health: "Ampel",
@@ -2489,6 +2496,8 @@ export const de: Record<TranslationKey, string> = {
   // --- RACI-Chip-Auswahl + UI-Batch (0.81.0) ---
   raciSetLabel: "RACI setzen",
   raciClear: "Löschen",
+  raciSetHint: "RACI-Rolle dieses Stakeholders für diesen Meilenstein festlegen",
+  raciClearHint: "RACI-Rolle dieses Stakeholders für diesen Meilenstein entfernen",
   versionHighlightUiBatch: "Größenveränderbare Trends-Spalten; Aktionschips erklären den Grund und öffnen den Eintrag; klarere Manage-Roles-Tooltips; eine kompakte RACI-Auswahl",
   // --- Dokumente-Tab (0.81.0) ---
   navKnowledge: "Wissen",
@@ -2703,6 +2712,7 @@ export const de: Record<TranslationKey, string> = {
   actionHeroEyebrow: "Zuerst erledigen",
   actionMoreReasons: "+{0} weitere Gründe",
   actionMoreActions: "Weitere Aktionen",
+  actionMoreActionsHint: "Weitere Möglichkeiten, auf diesen Eintrag zu reagieren",
   actionMarkDone: "Als erledigt markieren",
   actionClearBlocker: "Blocker entfernen",
   actionReschedule: "Neu planen",
@@ -2791,6 +2801,8 @@ export const de: Record<TranslationKey, string> = {
   reportVersionAuto: "automatisch",
   reportVersionManual: "gespeichert",
   reportDiff: "Vergleichen",
+  reportDiffHint:
+    "Zeigen, was sich zwischen dieser gespeicherten Version und dem aktuellen Bericht geändert hat",
   reportDiffCurrent: "Aktuell",
   reportDiffVersion: "Diese Version",
   committeePushError: "Erinnerungen konnten nicht an Outlook gesendet werden.",
@@ -3194,6 +3206,7 @@ export const de: Record<TranslationKey, string> = {
   helpSearchNoResults: "Keine Hilfethemen passen zur Suche.",
   dashboardStatusSave: "Speichern",
   dashboardStatusClear: "Leeren",
+  dashboardStatusClearHint: "Löscht den gespeicherten Statustext, nicht nur diesen Entwurf",
   dashboardShowTrends: "Trends anzeigen",
   dashboardHideTrends: "Trends ausblenden",
   dashboardTrendsLabel: "Trends",
@@ -3709,6 +3722,10 @@ export const de: Record<TranslationKey, string> = {
   insightsCardTitle: "Erkenntnisse",
   insightAcknowledge: "Bestätigen",
   insightAct: "Handeln",
+  insightAcknowledgeHint:
+    "Als gesehen markieren. Die Erkenntnis bleibt in der Liste und zählt weiterhin als offen.",
+  insightActHint:
+    "Festhalten, dass Sie gehandelt haben, und den heutigen Messwert als Ausgangswert für die Wirkungsmessung erfassen",
   insightDismiss: "Verwerfen",
   insightOpen: "Öffnen",
   insightSeverityHigh: "Hoch",

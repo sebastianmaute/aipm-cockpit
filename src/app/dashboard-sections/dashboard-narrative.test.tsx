@@ -223,4 +223,19 @@ describe("NarrativeEditor", () => {
     expect(after).toBe(surface);
     expect(after.textContent).toContain("committed text");
   });
+
+  // ★ "Clear" sits beside "Save", where it reads as "clear the draft". It is
+  //   not: `clearNarrative` also DELETES the stored narrative whenever
+  //   `storedHtml !== ""`. The title states the destructive half.
+  // ★★ Hardcoded expected text, not `t(lang, key)` — `t` echoes an unknown key,
+  //   so a `t`-based assertion would still pass if the string were deleted.
+  it("titles Clear with the fact that it deletes the STORED narrative", async () => {
+    const user = userEvent.setup();
+    render(<EditorHost />);
+    await user.click(screen.getByText("Status summary"));
+    expect(screen.getByRole("button", { name: t("en-US", "dashboardStatusClear") })).toHaveAttribute(
+      "title",
+      "Delete the saved status narrative, not just this draft",
+    );
+  });
 });

@@ -135,6 +135,7 @@ export function NarrativeEditor({
             size="sm"
             onClick={clearNarrative}
             onMouseDown={(e) => e.preventDefault()}
+            title={t(lang, "dashboardStatusClearHint")}
             disabled={storedHtml === "" && isNarrativeEmpty(draftNarrative)}
           >
             {t(lang, "dashboardStatusClear")}
