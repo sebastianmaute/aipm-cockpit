@@ -2031,6 +2031,7 @@ const enUS = {
   aiGuideScopeViews: "Views",
   aiGuideScopeAny: "Always on",
   aiViewScopeTitle: "What Claude knows about each view",
+  aiViewsTitle: "Views",
   aiViewScopeIntro:
     "Claude is told what the view you are on is for. This text is sent in English regardless of your interface language.",
   aiViewScopeDigest: "Also receives a summary of what is currently on screen.",
@@ -3324,7 +3325,7 @@ const enUS = {
   settingsExpertMode: "Expert mode",
   settingsExpertModeHint: "Reveal advanced settings (Mode, Templates, Notifications, Next actions, Export) and the save-as-template / apply-template actions in the toolbar.",
   settingsSectionNextActions: "Next actions",
-  settingsProjectOverrides: "This project",
+  settingsProjectOverrides: "Overrides",
   projectOverridesIntro: "Override selected settings for this project only; otherwise it follows your device-wide settings.",
   projectOverrideUseDevice: "Use device default",
   projectOverrideOn: "Override for this project",
