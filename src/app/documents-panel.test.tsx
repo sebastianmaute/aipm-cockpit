@@ -914,24 +914,63 @@ describe("DocumentsPanel — deleted documents", () => {
   // every restore is refused, and a Restore button that silently does nothing
   // is the worst outcome available. `mutateDocuments` returns `rejected`
   // synchronously, so the only way to get this wrong is to discard it.
+  // ★★★ THE ENGINE IS AT THE CAP; THE PANE IS NOT ASKED TO DRAW IT.
+  // This case needs `documents.length >= MAX_DOCUMENTS` in the ENGINE, because
+  // that is what makes the restore's recreate path refuse. It does not need the
+  // pane to RENDER 200 rows — no assertion here depends on them, and the pane's
+  // job under test is only "render what `mutateDocuments` refused".
+  //
+  // ★★★ THAT DISTINCTION IS WHY THIS TEST EXISTS IN THIS SHAPE. Seeded through
+  // `renderLive` the two are the same array, so the fixture cost 200 rows × 5
+  // controls of jsdom render plus an accessible-name scan over ~1000 buttons per
+  // query: MEASURED at 9150ms in isolation against 90–323ms for every other test
+  // in this file, and it timed out at 20s inside the full suite. Through the box
+  // harness the engine state and the rendered prop are separate, and the same
+  // assertions run in a fraction of the time.
+  // ★★ The engine, the cap, the reason string and the pane's rendering are all
+  // still REAL — `boxMutator` drives `applyDocMutation` itself. The only thing
+  // dropped is an incidental 200-row render.
+  // ★ The pane is given ONE live document on purpose: with zero, `deleted (1) >
+  // documents (0)` fires the implausibility caution, which is ALSO a
+  // `role="status"` region, and `findByRole("status")` would then be ambiguous
+  // rather than wrong — a much harder failure to read.
   it("renders the reason when a restore is refused", async () => {
-    const user = userEvent.setup();
-    // A workspace already AT the cap, plus one tombstone to restore into it.
-    const full = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 2, `Doc ${i + 2}`));
-    renderLive([doc(1, "Doomed"), ...full]);
-    fireEvent.click(await screen.findByRole("button", { name: "Delete – Doomed" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Delete – Doomed" })).toBeNull());
+    const atCap = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 10, `Doc ${i + 10}`));
+    const tomb: DocVersion = {
+      id: 500,
+      documentId: 999,
+      title: "Doomed",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+    const box: Box = { docs: atCap, versions: [tomb] };
 
-    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
-    const restore = screen.getByRole("button", { name: /^Restore –/ });
-    await user.click(restore);
+    render(
+      <ConfirmProvider lang="en-US">
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={[tomb]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </ConfirmProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
 
     // The refusal is ANNOUNCED, not merely drawn.
     const status = await screen.findByRole("status");
     expect(status.textContent).toMatch(/document limit reached/i);
-    // And the row is still there, because nothing was restored — so this is
-    // not passing against a surface that silently succeeded.
+    // The engine really did refuse — nothing was added past the cap. Without
+    // this the test could pass against a pane that rendered a reason for a
+    // write that actually succeeded.
+    expect(box.docs).toHaveLength(MAX_DOCUMENTS);
+    // And the row is still offered, because nothing was restored.
     expect(screen.getByRole("button", { name: /^Restore –/ })).toBeInTheDocument();
   });
 
