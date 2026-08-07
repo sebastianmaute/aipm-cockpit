@@ -455,12 +455,17 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
-    loadWasTruncated, allowTruncatedSave,
+    truncation, loadWasTruncated, allowTruncatedSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
-  } =
-    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+
+  // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
+  // truncated load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
+  // ★ Keyed on the counts OBJECT — the boolean never lowers between two truncated loads.
+  const [truncationSeen, setTruncationSeen] = useState<typeof truncation>(null);
+  if (truncation !== truncationSeen) { setTruncationSeen(truncation); setTruncationBannerDismissed(false); }
 
   // Refresh the Turso project list (active + archived) from the shared DB. The
   // list is the source of truth in Turso mode; this is called on first load and
@@ -591,8 +596,9 @@ function TaskManagerInner() {
     project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
-  // `isReady()`-true (config present) but actually failing, so fold in the
-  // observed error.
+  // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasTruncated` is NOT:
+  // 2 of 3 consumers are `StorageConfigSection` (`ready`), where false means UNCONFIGURED
+  // (bogus "permission needed"/Turso "needs config"). Only the footer DOT means healthy, so that ONE call site applies the truncation term itself.
   const storageOk = storageReady && !storageError;
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
@@ -2609,18 +2615,13 @@ function TaskManagerInner() {
         <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
       )}
       {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && effectiveNotifications.jiraTokenError.enabled && (
-        <JiraTokenBanner
-          alert={jiraTokenAlert}
-          lang={lang}
-          onSnooze={jiraTokenSnooze.snooze}
-          onDismiss={() => setJiraTokenDismissed(true)}
-        />
+        <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
       )}
       {!isPopout && storageError && !storageErrorDismissed && (
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
       {!isPopout && loadWasTruncated && !truncationBannerDismissed && (
-        <TruncatedLoadBanner lang={lang} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} />
+        <TruncatedLoadBanner lang={lang} truncation={truncation} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} />
       )}
     </>
   );
@@ -2813,12 +2814,11 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk}
+            storageReady={storageOk && !loadWasTruncated}
+            savingPaused={loadWasTruncated} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
-            onSignOut={() => {
-              void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed"));
-            }}
+            onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
           />
         }
         tasksSection={tasksSectionEl}
