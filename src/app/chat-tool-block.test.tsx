@@ -520,4 +520,173 @@ describe("ToolBlock — document card discloses rejections and removals", () => 
       expect(reasonTexts()).toEqual(["op 0: index 7 out of range", "op 2: bad block"]);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // ★★ The reason strings are MODEL-INFLUENCEABLE: document-mutations.ts builds
+  // `op ${i}: unknown op ${JSON.stringify(op.op)}`, interpolating the model's own
+  // value, and the model reads ingested PDF / SharePoint / Confluence content.
+  // React escapes them (measured — `<img src=x onerror=…>` renders as text, so
+  // this was never XSS), but uncapped they flooded the transcript: one 200 019-
+  // character bullet from a single op, 5000 bullets / 133 890 characters from a
+  // bogus batch.
+  //
+  // ★★★ THE VACUITY TRAP IN THIS DESCRIBE: a truncated string is a PREFIX of the
+  // untruncated one, so every containment assertion — `toContain`,
+  // `toHaveTextContent`, `stringContaining` — PASSES WITH THE CAP REMOVED.
+  // Every assertion below is exact equality or an exact length. Both caps are
+  // mutation-proved; do not relax one to a containment check.
+  //
+  // ★ The cap VALUES are spelled out here rather than imported. They are not
+  // exported, and a cap test that reads its own expectation from the constant it
+  // is testing can only ever prove self-consistency: change 120 to 4 and such a
+  // test stays green while every reason turns to mush.
+  // -------------------------------------------------------------------------
+  describe("caps the attacker-influenceable reason text it renders", () => {
+    const MAX_LEN = 120;
+    const MAX_COUNT = 12;
+    const ELLIPSIS = "…";
+
+    /** N distinct, realistically-shaped reasons — distinct so an assertion on
+     *  the array cannot be satisfied by the wrong slice of it. */
+    const reasons = (n: number) =>
+      Array.from({ length: n }, (_, i) => `op ${i}: unsupported block type`);
+
+    it("leaves a reason exactly at the length cap untouched", () => {
+      const atCap = `op 0: ${"x".repeat(MAX_LEN - 6)}`;
+      expect(atCap).toHaveLength(MAX_LEN);
+      renderUpdate({ rejected: [atCap], removed: 0 });
+
+      expectCard();
+      const shown = reasonTexts();
+      expect(shown).toEqual([atCap]);
+      // The boundary is `<=`, so nothing is marked here — an off-by-one cap
+      // would append the marker to a string that fits.
+      expect(shown[0]).not.toContain(ELLIPSIS);
+    });
+
+    it("truncates a reason one code unit over the cap", () => {
+      const overCap = `op 0: ${"x".repeat(MAX_LEN - 5)}`;
+      expect(overCap).toHaveLength(MAX_LEN + 1);
+      renderUpdate({ rejected: [overCap], removed: 0 });
+
+      expectCard();
+      const shown = reasonTexts();
+      // EXACT — `toContain(overCap.slice(0, MAX_LEN))` would pass on the
+      // uncapped render, since the prefix is a substring of the whole.
+      expect(shown).toEqual([`${overCap.slice(0, MAX_LEN)}${ELLIPSIS}`]);
+      expect(shown[0]).toHaveLength(MAX_LEN + 1);
+      expect(shown[0]).not.toBe(overCap);
+    });
+
+    it("truncates the measured 200 000-character flood to the cap", () => {
+      // The exact shape the engine emits for an unknown op, with the model's
+      // own value interpolated — the measured 200 019-character bullet.
+      const flood = `op 0: unknown op ${JSON.stringify("A".repeat(200000))}`;
+      expect(flood.length).toBeGreaterThan(200000);
+      renderUpdate({ rejected: [flood], removed: 0 });
+
+      expectCard();
+      const shown = reasonTexts();
+      expect(shown).toHaveLength(1);
+      expect(shown[0]).toHaveLength(MAX_LEN + 1);
+      expect(shown[0]).toBe(`${flood.slice(0, MAX_LEN)}${ELLIPSIS}`);
+      // The whole strip, not just the one bullet — a cap that bounded the
+      // string but rendered the raw value somewhere else would still flood.
+      expect(noticesStrip()!.textContent!.length).toBeLessThan(500);
+    });
+
+    it("drops a whole astral character rather than splitting its surrogate pair", () => {
+      // 119 ASCII + a 2-code-unit emoji: a naive `slice(0, 120)` cuts BETWEEN
+      // the halves and keeps a lone high surrogate, which is not a character.
+      const head = "a".repeat(MAX_LEN - 1);
+      const reason = `${head}\u{1F600}${"z".repeat(50)}`;
+      expect(reason.charCodeAt(MAX_LEN - 1)).toBeGreaterThanOrEqual(0xd800);
+      renderUpdate({ rejected: [reason], removed: 0 });
+
+      expectCard();
+      const shown = reasonTexts();
+      // Backed off by one: the emoji is gone WHOLE, so the result is one code
+      // unit shorter than the over-cap case above.
+      expect(shown).toEqual([`${head}${ELLIPSIS}`]);
+      expect(shown[0]).toHaveLength(MAX_LEN);
+      // Positive proof of the property itself, independent of the exact string:
+      // no high surrogate unfollowed by a low one.
+      expect(/[\ud800-\udbff](?![\udc00-\udfff])/.test(shown[0])).toBe(false);
+    });
+
+    it("leaves a list exactly at the count cap whole, with no marker", () => {
+      const twelve = reasons(MAX_COUNT);
+      renderUpdate({ rejected: twelve, removed: 0 });
+
+      expectCard();
+      // Exact array equality: no extra element, nothing reordered, nothing cut.
+      expect(reasonTexts()).toEqual(twelve);
+    });
+
+    it("caps an over-long list and marks that it continues", () => {
+      const thirty = reasons(30);
+      renderUpdate({ rejected: thirty, removed: 0 });
+
+      expectCard();
+      const shown = reasonTexts();
+      // 12 real reasons PLUS the marker bullet.
+      expect(shown).toHaveLength(MAX_COUNT + 1);
+      expect(shown).toEqual([...thirty.slice(0, MAX_COUNT), ELLIPSIS]);
+      // The dropped ones are genuinely gone, not merely pushed down the list.
+      expect(shown).not.toContain(thirty[MAX_COUNT]);
+      expect(shown).not.toContain(thirty[29]);
+    });
+
+    it("bounds the measured 5000-reason flood", () => {
+      const flood = Array.from(
+        { length: 5000 },
+        (_, i) => `op ${i}: unknown op ${JSON.stringify("A".repeat(200))}`,
+      );
+      renderUpdate({ rejected: flood, removed: 0 });
+
+      expectCard();
+      const shown = reasonTexts();
+      expect(shown).toHaveLength(MAX_COUNT + 1);
+      // BOTH caps at once: every kept reason is truncated AND the list is short.
+      for (const line of shown.slice(0, MAX_COUNT)) {
+        expect(line).toHaveLength(MAX_LEN + 1);
+      }
+      expect(shown[MAX_COUNT]).toBe(ELLIPSIS);
+      // Measured uncapped at 133 890 characters.
+      expect(noticesStrip()!.textContent!.length).toBeLessThan(2000);
+    });
+
+    it("spends the count budget on real reasons, not on junk entries", () => {
+      // 20 dropped blanks + 5 real ones. Filtering runs FIRST, so the blanks
+      // must not consume the budget real disclosure needs — a cap applied to
+      // the RAW array would show nothing at all here.
+      const real = reasons(5);
+      renderUpdate({ rejected: [...Array.from({ length: 20 }, () => "   "), ...real], removed: 0 });
+
+      expectCard();
+      expect(reasonTexts()).toEqual(real);
+    });
+
+    it("still renders the card, and no marker, for a flood of junk entries", () => {
+      // Malformed at scale: nothing survives the filter, so there is nothing to
+      // cap and nothing to mark — and the card its three required fields earned
+      // must survive regardless.
+      renderUpdate({ rejected: Array.from({ length: 5000 }, (_, i) => i), removed: 0 });
+
+      expectCard();
+      expect(screen.getByText("Steering deck")).toBeInTheDocument();
+      expectNoNotices();
+    });
+
+    it("caps nothing on an ordinary refusal", () => {
+      // THE REGRESSION GUARD for every normal case: two short reasons render
+      // verbatim, with no truncation marker and no extra bullet.
+      const ordinary = ["op 0: index 7 out of range", "op 1: unsupported block type"];
+      renderUpdate({ rejected: ordinary, removed: 3 });
+
+      expectCard();
+      expect(reasonTexts()).toEqual(ordinary);
+      expect(screen.getByText("3 blocks removed")).toBeInTheDocument();
+    });
+  });
 });

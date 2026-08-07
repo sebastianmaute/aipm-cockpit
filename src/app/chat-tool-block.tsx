@@ -70,21 +70,94 @@ type DocumentCardData = {
   /** Human-readable reasons, one per refused op (chat-tools-documents.ts types
    *  it `readonly string[]`). EMPTY when absent, malformed, or genuinely empty
    *  — a successful edit reports `rejected: []` and must look exactly like one
-   *  that reports nothing at all. */
+   *  that reports nothing at all. ★ Already CAPPED and truncated by
+   *  `readRejected` — this is what will be RENDERED, not what the engine
+   *  returned, and it may carry a trailing `REASON_ELLIPSIS` bullet. */
   rejected: readonly string[];
   /** Blocks the write dropped; `number`, non-zero only for replaceAll. 0 when
    *  absent or malformed, and 0 renders nothing — "0 removed" is noise. */
   removed: number;
 };
 
+// ---------------------------------------------------------------------------
+// ★★ DISPLAY CAPS ON THE ENGINE'S REASON STRINGS — these are MODEL-INFLUENCEABLE
+// TEXT. document-mutations.ts builds `op ${i}: unknown op ${JSON.stringify(
+// op.op)}`, interpolating the model's OWN `op` value verbatim, and the model in
+// turn reads ingested PDF / SharePoint / Confluence content — so this is not
+// purely self-inflicted. Measured against the real engine BEFORE capping:
+// `op: "A".repeat(200000)` rendered ONE 200 019-character bullet, and 5000 bogus
+// ops rendered 5000 bullets totalling 133 890 characters.
+//
+// ★ NOT an XSS fix, and do not let it read as one: these render as JSX text, so
+// React escapes them — `op: "<img src=x onerror=alert(1)>"` was MEASURED inert.
+// What the caps bound is transcript FLOODING plus attacker-chosen prose sitting
+// inside the app's own "Not applied" chrome. Escaping is what makes it safe;
+// this is what keeps it small.
+//
+// Shape and naming follow activity-log.ts's MAX_FIELD_CHANGES /
+// MAX_FIELD_VALUE_LEN, and 120 is not arbitrary here: the engine's LONGEST
+// legitimate template is `op ${i}: insert index ${op.index} out of range
+// 0..${n}` — well under half of it — so the length cap can only ever bite on an
+// interpolated value, never on a reason a real refusal produced.
+// ---------------------------------------------------------------------------
+const MAX_REJECTED_REASONS = 12;
+const MAX_REJECTED_REASON_LEN = 120;
+
+/** Marks a cut: the suffix on an over-long reason, and the whole content of the
+ *  final bullet when reasons were dropped.
+ *
+ *  ★★ NOT AN i18n GAP. It is language-neutral punctuation, sitting among the
+ *  engine's own UNTRANSLATED English reason strings (DocumentCardNotices
+ *  documents that trade-off), and activity-log.ts already marks a clipped value
+ *  with this same character.
+ *
+ *  ★ KNOWN LIMITATION, deliberately taken: it does NOT say HOW MANY reasons were
+ *  dropped. "+N more" would need a new i18n key, and no existing key fits —
+ *  the nearest, `actionMoreReasons` ("+{0} more reasons"), labels an EXPANDER
+ *  and so promises more on click, which this bullet cannot deliver. Reusing it
+ *  would render a false affordance; a foreign domain-named key would also rot
+ *  silently the next time the Action Center rewords its own string. */
+const REASON_ELLIPSIS = "…";
+
+/** Truncates one reason to MAX_REJECTED_REASON_LEN, marking the cut.
+ *
+ *  ★★ `slice` counts UTF-16 CODE UNITS, so a cut landing between the halves of a
+ *  surrogate pair keeps a LONE HIGH SURROGATE — not a character. Same back-off-
+ *  one shape as rich-text-plain.ts's `capHtmlText`. The stakes are lower here
+ *  (display-only; nothing on this path is persisted, so no backend-dependent
+ *  U+FFFD corruption is possible) but a replacement glyph mid-reason is still
+ *  a worse outcome than dropping one whole astral character. */
+function capReasonLength(reason: string): string {
+  if (reason.length <= MAX_REJECTED_REASON_LEN) return reason;
+  const last = reason.charCodeAt(MAX_REJECTED_REASON_LEN - 1);
+  const cut =
+    last >= 0xd800 && last <= 0xdbff ? MAX_REJECTED_REASON_LEN - 1 : MAX_REJECTED_REASON_LEN;
+  return `${reason.slice(0, cut)}${REASON_ELLIPSIS}`;
+}
+
 /** Keeps the string members of a `rejected` array and drops everything else.
  *  A non-array (the whole field malformed) yields no reasons; a MIXED array
  *  keeps what it can, because showing three of four reasons discloses more
  *  than showing none. Blank strings are dropped — they would render an empty
- *  bullet that says nothing. */
+ *  bullet that says nothing.
+ *
+ *  ★ THE COUNT CAP APPLIES TO THE KEPT LIST, NOT THE RAW ARRAY, so 20 blanks
+ *  beside 5 real reasons still shows all 5 — junk must not consume the budget
+ *  that real disclosure needs. The length cap runs only over the survivors, so
+ *  a 5000-entry flood costs 12 truncations rather than 5000.
+ *
+ *  ★ The marker rides IN the array as a final element rather than as a separate
+ *  flag: DocumentCardNotices renders this list verbatim, and a `<li>` is already
+ *  the right shape for "the list continues". It can never be the ONLY element —
+ *  it is appended only when the kept list overflowed, which means real reasons
+ *  precede it — so `rejected.length > 0` still means "something was refused". */
 function readRejected(value: unknown): readonly string[] {
   if (!Array.isArray(value)) return [];
-  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim() !== "");
+  const kept = value.filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim() !== "",
+  );
+  const shown = kept.slice(0, MAX_REJECTED_REASONS).map(capReasonLength);
+  return kept.length > MAX_REJECTED_REASONS ? [...shown, REASON_ELLIPSIS] : shown;
 }
 
 /** A positive integer count, or 0 for "nothing to disclose". Non-numbers, NaN,
