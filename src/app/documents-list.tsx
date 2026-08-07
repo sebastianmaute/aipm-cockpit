@@ -5,6 +5,7 @@
 // PURE presentational (the gantt split): rows arrive already sorted, and every
 // handler is a prop. It owns no state, reads no context.
 
+import type { Ref } from "react";
 import { type Lang, t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import { DataTable } from "./data-table";
@@ -12,6 +13,7 @@ import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { type SortDir, SortResizeTh } from "./report-table";
 import { INTERACTIVE } from "./interaction-styles";
+import { flashOutlineClass } from "./use-deeplink-row-flash";
 
 /** Only these three carry an order a user could act on. The actions column
  *  holds controls — sorting it would be an affordance promising nothing. */
@@ -47,6 +49,21 @@ export interface DocumentsListProps {
   /** Popout mirrors are read-only: rename/duplicate/delete go inert. Download
    *  and selection stay live — neither mutates the workspace. */
   isReadOnly?: boolean;
+  /** ★★★ THE DEEP-LINK PAIR, and both halves are REQUIRED because either one
+   *  alone is a silent no-op. `useDeepLinkRowFlash` scrolls by running
+   *  `containerRef.current.querySelector('[data-deeplink-row="<id>"]')`, so a
+   *  panel that calls the hook without wiring these gets a query that matches
+   *  nothing: no scroll, no outline, and a hook call that reads as if it had
+   *  done something. This list is its OWN `overflow-auto` box holding up to
+   *  MAX_DOCUMENTS rows, so a deep-linked row really can land below the fold —
+   *  the scroll, not the outline, is what this buys here (the arrived-at row
+   *  also carries `bg-surface-muted` + `aria-current`, and the pane swaps the
+   *  preview). Optional props with a `?? null` fallback would let the next call
+   *  site drop one and ship the no-op; required means tsc catches it. */
+  flashId: number | null;
+  /** Attached to the scroll box. ★ NOT attached on the empty-state branch —
+   *  there is no row to find, so the querySelector no-ops either way. */
+  containerRef: Ref<HTMLDivElement>;
 }
 
 export function DocumentsList({
@@ -65,13 +82,15 @@ export function DocumentsList({
   onDownload,
   onOpenHistory,
   isReadOnly,
+  flashId,
+  containerRef,
 }: DocumentsListProps) {
   if (documents.length === 0) {
     return <EmptyState title={t(lang, "documentsNoneYet")} />;
   }
 
   return (
-    <div className="overflow-auto rounded-md border border-line">
+    <div ref={containerRef} className="overflow-auto rounded-md border border-line">
       <DataTable
         tbodyClassName="divide-y divide-line"
         head={
@@ -121,7 +140,16 @@ export function DocumentsList({
         }
       >
         {documents.map((doc) => (
-          <tr key={doc.id} className={doc.id === selectedId ? "bg-surface-muted" : undefined}>
+          // ★ Same composition as change/milestones/raid/stakeholders rows:
+          // the flash outline is ADDITIVE, so a deep-linked row keeps its
+          // selected tint underneath rather than swapping one cue for another.
+          <tr
+            key={doc.id}
+            data-deeplink-row={doc.id}
+            className={[doc.id === selectedId ? "bg-surface-muted" : "", flashOutlineClass(flashId === doc.id)]
+              .filter(Boolean)
+              .join(" ")}
+          >
             <td className="px-3 py-2 font-medium text-foreground">
               {/* Selection rides a real button so it is keyboard-operable; the
                   document's own title is the accessible name, which is

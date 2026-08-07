@@ -32,6 +32,7 @@ import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
 import { useToastContext } from "./toast-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
@@ -254,6 +255,28 @@ export function DocumentsPanel({
   // no-op when no provider is above, so this adds no required wiring anywhere.
   const showToast = useToastContext();
   const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  // ★★★ THE ARRIVAL AFFORDANCE, and it is the SCROLL that matters here. The
+  // effect below moves the SELECTION, which is invisible if the row is below
+  // the fold — `documents-list` is its own `overflow-auto` box holding up to
+  // MAX_DOCUMENTS rows, so a deep link from the chat transcript's document card
+  // could select a row the user never sees move. This hook scrolls it into
+  // view (centered) and flashes it, exactly as raid / change / milestones /
+  // stakeholders do.
+  //
+  // ★★ IT IS HALF A MECHANISM ON ITS OWN. The scroll is
+  // `containerRef.current.querySelector('[data-deeplink-row="<id>"]')`, so BOTH
+  // returned values have to reach `documents-list` — the ref onto its scroll
+  // box and `flashId` onto the row. Wiring the hook alone gives a query that
+  // matches nothing: no scroll, no outline, and a call site that reads as if
+  // the pane had an arrival cue. Both props are REQUIRED on `DocumentsListProps`
+  // so that stays a typecheck error rather than a silent no-op.
+  //
+  // ★ Deliberately SEPARATE from the effect below, not folded into it: the hook
+  // owns its own render-time reconcile and rAF timing (see its notes on why a
+  // `pendingOpen` dep would tear the scroll down), and this pane's effect owns
+  // the selection + the clear. One signal, two consumers, neither reaching into
+  // the other.
+  const { flashId, containerRef } = useDeepLinkRowFlash("documents");
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<DocumentsCol>(
     "documents",
@@ -542,6 +565,8 @@ export function DocumentsPanel({
           onDownload={(doc) => downloadDocument(doc, format, ws, lang)}
           onOpenHistory={handleOpenHistory}
           isReadOnly={isReadOnly}
+          flashId={flashId}
+          containerRef={containerRef}
         />
         {showDeleted && (
           <section aria-label={t(lang, "documentsShowDeleted")} className="rounded-md border border-line p-3">
@@ -637,9 +662,22 @@ export function DocumentsPanel({
         // `dataSection` block — the same value, for the same reason,
         // `DocumentPreview` gets above. Without it the modal falls back to an
         // empty workspace and a `dataSection` renders as NOTHING: a missing
-        // section rather than broken markup, so no test that merely opens the
-        // modal would notice. Deliberately NOT `ws.documentVersions` for the
-        // `versions` prop above — see that prop's own note.
+        // section rather than broken markup.
+        // ★★ THAT SILENCE IS WHY THIS PROP IS PINNED EXPLICITLY RATHER THAN
+        // LEFT TO A TEST THAT MERELY OPENS THE MODAL. It throws nothing and
+        // breaks no layout, so a case asserting the panel has SOME text passes
+        // with `ws` dropped. It is pinned from BOTH sides, because neither side
+        // covers the other's half: `documents-panel.test.tsx` ("the history
+        // modal's Preview") asserts the resolved section's own content
+        // end-to-end and reddens on this very prop going missing — it is the
+        // only one that can, since the component's own suite mounts the modal
+        // itself; and `documents-history-modal.test.tsx` ("a version's
+        // dataSection in the Preview") pins the contract from the component
+        // side in both directions, including the `ws: undefined` branch this
+        // pane can never produce. Assert the SECTION'S CONTENT, never that
+        // some text exists.
+        // Deliberately NOT `ws.documentVersions` for the `versions` prop above
+        // — see that prop's own note.
         ws={ws}
         onClose={() => setHistoryFor(null)}
         // ★★ A restore is a mutation like any other, so it goes through the

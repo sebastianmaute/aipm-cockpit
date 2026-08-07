@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { DocumentsPanel, sortDocuments, uniqueDocumentTitle } from "./documents-panel";
@@ -18,6 +18,7 @@ import { emptyWorkspace } from "./workspace";
 import { buttonNames } from "../test/toolbar-order";
 import { downloadDocument } from "./document-download";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
+import { flashOutlineClass } from "./use-deeplink-row-flash";
 
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
@@ -59,11 +60,27 @@ function DeepLinkTrigger({ view, id }: { view: "documents" | "raid"; id: number 
   );
 }
 
+// ★★ FILE-LEVEL, not scoped to the deep-link blocks, and that is deliberate.
+// jsdom has no layout engine and does not define `scrollIntoView` at all — so
+// `vi.spyOn` cannot wrap it and, left alone, the deep-link flash hook's rAF
+// callback throws a TypeError on the row it just found. That throw happens
+// INSIDE a requestAnimationFrame, i.e. outside the assertion path: it does not
+// redden the case, it surfaces as an unhandled error that can exit the run
+// non-zero with every test reported passing. Any case in this file that fires a
+// deep link reaches it, so the stub belongs here rather than beside one block.
+// Restored to the original (undefined) after each so it never leaks out.
+const originalScrollIntoView = Element.prototype.scrollIntoView;
+
 beforeEach(() => {
   window.localStorage.clear();
   __resetMintStateForTests();
   showToastSpy.mockClear();
   showToastActionSpy.mockClear();
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
+afterEach(() => {
+  Element.prototype.scrollIntoView = originalScrollIntoView;
 });
 
 const NOW = "2026-08-06T00:00:00.000Z";
@@ -1601,5 +1618,138 @@ describe("DocumentsPanel — deep-link selection (pendingOpen)", () => {
     expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
     // It IS this pane's request, so it is consumed rather than left to rot.
     expect(screen.getByTestId("pending").textContent).toBe("none");
+  });
+});
+
+// ★★★ THE ARRIVAL AFFORDANCE — the OTHER half of the deep link, and the half
+// that was missing when the selection consumer above shipped. `documents-list`
+// is its own `overflow-auto` box holding up to MAX_DOCUMENTS rows, so moving
+// the selection to a row below the fold changes nothing the user can see there.
+//
+// ★★ THE TWO HALVES ONLY MEET THROUGH THE DOM. `useDeepLinkRowFlash` scrolls by
+// running `containerRef.current.querySelector('[data-deeplink-row="<id>"]')`, so
+// there are THREE independent wirings and any one of them missing is a SILENT
+// no-op — the hook still returns, the pane still renders, nothing throws:
+//   (a) the ref reaching the list's scroll box,
+//   (b) the row carrying `data-deeplink-row`,
+//   (c) that attribute carrying the RIGHT id.
+// The scroll case below reddens on all three, because it records the ELEMENT
+// `scrollIntoView` was called ON rather than merely that it was called.
+//
+// ★★★ WHAT THESE CANNOT COVER: that the row actually MOVES INTO VIEW. jsdom has
+// no layout — no scroll offsets, no viewport, no `scrollIntoView`
+// implementation at all (it is stubbed above). These pin the WIRING that makes
+// the browser's scroll possible and nothing about the scroll itself; the
+// scrolling behaviour is unverified by this suite and is not verifiable in
+// jsdom. Do not read a green run here as "the deep link scrolls".
+describe("DocumentsPanel — deep-link arrival affordance (scroll + flash)", () => {
+  // ids well clear of 1: `Seed`-written documents do not raise
+  // `id-mint-session`'s high-water mark, and 50/51 are also two-digit so an
+  // exact `toBe("50")` cannot be satisfied by a substring of a neighbour.
+  const rows = [doc(50, "Alpha"), doc(51, "Beta")];
+
+  /** Records the ELEMENT each scroll landed on, by its deep-link id. The
+   *  fallback string is not decoration: with `data-deeplink-row` removed from
+   *  the row the hook would still find nothing (so nothing scrolls), but if a
+   *  future change makes the querySelector match some OTHER element this
+   *  reports which, instead of failing as an opaque length mismatch. */
+  let scrolledOnto: string[] = [];
+
+  beforeEach(() => {
+    scrolledOnto = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolledOnto.push(this.getAttribute("data-deeplink-row") ?? "(no data-deeplink-row)");
+    };
+    // Synchronous, deterministic rAF — the same technique
+    // `use-deeplink-row-flash.test.tsx` uses, so the scroll has happened by the
+    // time the click returns.
+    vi.stubGlobal("requestAnimationFrame", (cb: (t: number) => void) => {
+      cb(0);
+      return 0;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function panel() {
+    return (
+      <DocumentsPanel
+        lang="en-US"
+        documents={rows}
+        mutateDocuments={inertMutate}
+        documentVersions={[]}
+        ws={emptyWorkspace()}
+        onResetSize={() => {}}
+      />
+    );
+  }
+
+  function PendingProbe() {
+    const { pendingOpen } = useWorkspaceTab();
+    return <p data-testid="pending">{pendingOpen ? `${pendingOpen.view}:${pendingOpen.id}` : "none"}</p>;
+  }
+
+  function renderMounted(view: "documents" | "raid", id: number) {
+    return render(
+      <PanelHost>
+        <DeepLinkTrigger view={view} id={id} />
+        <PendingProbe />
+        {panel()}
+      </PanelHost>,
+    );
+  }
+
+  it("tags every document row with its own id via data-deeplink-row", () => {
+    const { container } = renderMounted("documents", 50);
+    const tagged = container.querySelectorAll("[data-deeplink-row]");
+
+    // ★ NON-ZERO FIRST. Every assertion below is over a collection, and each of
+    // them is trivially true of an EMPTY one — a query that found nothing would
+    // otherwise report the attribute as correctly applied to all zero rows.
+    expect(tagged).toHaveLength(2);
+    // Exact strings, not `toContain`/substring: "5" is a substring of "50" and
+    // "51", so a loose check cannot tell a right id from a truncated one.
+    const ids = Array.from(tagged).map((r) => r.getAttribute("data-deeplink-row"));
+    expect(ids).toEqual(["50", "51"]);
+  });
+
+  it("scrolls the deep-linked row into view and flashes THAT row", () => {
+    const { container } = renderMounted("documents", 51);
+    // ★ Positive control: nothing has scrolled yet, so the assertion after the
+    // click is about this click and not about a scroll from mount.
+    expect(scrolledOnto).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // The scroll landed on the REQUESTED row — this is what proves the ref, the
+    // attribute and the id all line up. A missing ref gives `[]`; a missing
+    // attribute gives `[]`; a wrong id gives `[]` or another row's id.
+    expect(scrolledOnto).toEqual(["51"]);
+
+    // …and that row, not its neighbour, carries the flash outline.
+    const beta = container.querySelector('[data-deeplink-row="51"]');
+    const alpha = container.querySelector('[data-deeplink-row="50"]');
+    expect(beta?.getAttribute("class")).toContain(flashOutlineClass(true));
+    expect(alpha?.getAttribute("class")).not.toContain(flashOutlineClass(true));
+  });
+
+  it("neither scrolls nor flashes for a deep link aimed at ANOTHER view", () => {
+    // ★ The id is a REAL document id, so a hook wired to the wrong view — or a
+    // row that flashed on any pending signal — would scroll here. That is what
+    // gives this teeth rather than being "the click did nothing".
+    const { container } = renderMounted("raid", 51);
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // The positive observable: the trigger really fired and the signal is still
+    // armed for raid's own consumer.
+    expect(screen.getByTestId("pending").textContent).toBe("raid:51");
+    expect(scrolledOnto).toEqual([]);
+    expect(container.querySelector('[data-deeplink-row="51"]')?.getAttribute("class")).not.toContain(
+      flashOutlineClass(true),
+    );
   });
 });
