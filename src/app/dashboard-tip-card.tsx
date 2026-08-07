@@ -5,6 +5,8 @@ import { type Lang, t } from "./i18n";
 import { TIPS, tipIndexForDay } from "./tips";
 import type { DensityClasses } from "./dashboard-density";
 import { INTERACTIVE } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import { useSettings } from "./use-settings";
 
 // Per-device tip state (NOT workspace data): which tip + whether dismissed today.
@@ -80,15 +82,14 @@ export function DashboardTipCard({ lang, dc, isPopout = false }: DashboardTipCar
           >
             {t(lang, "dashboardTipNext")}
           </button>
-          <button
-            type="button"
+          <IconButton
+            variant="bordered"
             onClick={dismiss}
-            aria-label={t(lang, "dashboardTipDismiss")}
+            label={t(lang, "dashboardTipDismiss")}
             title={t(lang, "dashboardTipDismiss")}
-            className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
           >
-            ×
-          </button>
+            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+          </IconButton>
         </div>
       </div>
     </div>

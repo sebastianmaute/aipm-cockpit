@@ -86,6 +86,12 @@ describe("ResourceWorkload", () => {
         <ResourceWorkload {...baseProps} tasks={tasks} onClearUnlinked={onClearUnlinked} />
       </ConfirmProvider>,
     );
+    // ★ This clear DELETES absences and shifts outright, so it must keep the
+    // destructive affordance. `hover:text-ui-pink-strong` is unique to IconButton's
+    // `danger` recipe; the neutral `ghost` default would carry `hover:text-foreground`.
+    expect(screen.getByRole("button", { name: /clear bob lee/i }).className).toMatch(
+      /\bhover:text-ui-pink-strong\b/,
+    );
     fireEvent.click(screen.getByRole("button", { name: /clear bob lee/i }));
     fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
     await waitFor(() =>

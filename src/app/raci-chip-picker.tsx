@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { type Lang, t } from "./i18n";
 import { RACI_ROLES, type RaciRole } from "./types";
 import { useDismissable } from "./use-dismissable";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 interface RaciChipPickerProps {
   value: RaciRole | "";
@@ -125,7 +126,15 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
             }}
             className={`${CHIP_BASE} border-line text-muted-foreground hover:bg-surface-muted`}
           >
-            ✕
+            {/* ★ NOT an `IconButton`. This is the 5th of five chips that must
+                render identically (R/A/C/I + clear), and `CHIP_BASE` pins them
+                to a 20px `rounded-full` box. `IconButton` hard-codes
+                `rounded-md` + `p-1`; a caller `className` cannot reliably win
+                either, because Tailwind resolves conflicting utilities by
+                stylesheet source order, not class-attribute order — and `p-1`
+                sorts AFTER `p-0`, so the padding override loses outright.
+                Glyph-only conversion here; the wrapper stays hand-rolled. */}
+            <XMarkIcon aria-hidden="true" className="h-3 w-3" />
           </button>
         </span>,
         document.body,

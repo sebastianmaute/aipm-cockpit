@@ -13,6 +13,7 @@ import { dayFromHour, materializeRoleRates } from "./role-rates";
 import { SegmentedControl } from "./segmented-control";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -296,7 +297,9 @@ export function RolesEditor({
                     />
                   </td>
                   <td className="px-3 py-2 text-right print:hidden">
-                    <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`}>×</IconButton>
+                    <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`}>
+                      <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                    </IconButton>
                   </td>
                 </tr>
                 );
@@ -400,7 +403,9 @@ function RefList({
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}
-            >×</IconButton>
+            >
+              <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+            </IconButton>
           </li>
         ))}
       </ul>

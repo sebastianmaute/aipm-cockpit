@@ -44,6 +44,20 @@ it("traps Tab within the dialog (wraps last -> first)", () => {
   expect(document.activeElement).toBe(focusables[0]);
 });
 
+it("closes via the header ✕, so the focus-trapped dialog stays escapable by pointer", () => {
+  // ★ This is an `aria-modal` dialog with a focus trap (see the Tab test above),
+  // so a dead close button traps the user with no pointer way out. The control was
+  // converted to IconButton in the glyph batch and nothing exercised it until now.
+  // ★ `phase` stays "idle" deliberately: in "preview" the footer renders a SECOND
+  // button named "Cancel", which would make this getByRole ambiguous and throw.
+  // ★ Local mock, not the shared `base.onCancel` — the module has no clearMocks,
+  // so a shared spy could carry a call in from another test and pass vacuously.
+  const onCancel = vi.fn();
+  render(<InlineAiEditPopover {...base} onCancel={onCancel} />);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(onCancel).toHaveBeenCalled();
+});
+
 it("shows the diff and an Apply button in preview", () => {
   render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [] }} />);
   expect(screen.getByText(/status/i)).toBeInTheDocument();

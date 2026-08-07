@@ -117,10 +117,27 @@ describe("ResourceEditModal", () => {
     const onSave = vi.fn();
     setupFull({ onSave });
     fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    // ★ The per-row remove keeps IconButton's `danger` variant — the hand-rolled
+    // original already carried this exact hover recipe, and the conversion plan's
+    // stated `ghost` default would have silently dropped it.
+    expect(screen.getByRole("button", { name: /remove email 1/i }).className).toMatch(
+      /\bhover:text-ui-pink-strong\b/,
+    );
     const emailInputs = screen.getAllByRole("textbox", { name: /additional emails/i });
     fireEvent.change(emailInputs[0], { target: { value: " alt@x.com " } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave.mock.calls[0][0]).toMatchObject({ emails: ["alt@x.com"] });
+  });
+
+  it("removes an additional email row via its per-row remove button", () => {
+    // ★ Behavioural pin for the converted per-row remove: the row must actually
+    // disappear. The variant assertion above proves it still LOOKS destructive;
+    // this proves it still DOES something. Both were unexercised before.
+    setupFull();
+    fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    expect(screen.getAllByRole("textbox", { name: /additional emails/i })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /remove email 1/i }));
+    expect(screen.queryAllByRole("textbox", { name: /additional emails/i })).toHaveLength(0);
   });
 
   it("saves the External flag when checked", () => {

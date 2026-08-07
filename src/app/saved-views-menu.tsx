@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import { Input, Select } from "./form-controls";
 
 /** The minimal shape the menu needs from any saved-view record. The three
@@ -115,9 +117,9 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
         </button>
       )}
 
-      <button
-        type="button"
-        aria-label={t(lang, "savedViewsDelete")}
+      <IconButton
+        variant="bordered"
+        label={t(lang, "savedViewsDelete")}
         title={t(lang, "savedViewsDelete")}
         disabled={!selectionValid}
         onClick={() => {
@@ -126,10 +128,9 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
             setSelectedId("");
           }
         }}
-        className={BTN_CLASS}
       >
-        <span aria-hidden="true">✕</span>
-      </button>
+        <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+      </IconButton>
     </div>
   );
 }

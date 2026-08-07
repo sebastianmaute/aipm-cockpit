@@ -20,6 +20,13 @@ describe("KnowledgeLinksField", () => {
     const anchor = screen.getByRole("link", { name: /open in new tab/i });
     expect(anchor).toHaveAttribute("href", "https://c.sharepoint.com/x");
     expect(anchor).toHaveAttribute("target", "_blank");
+    // ★ Pins the destructive VARIANT, not the behaviour. `hover:text-ui-pink-strong`
+    // is unique to IconButton's `danger` recipe — `ghost` (the conversion plan's
+    // stated default) carries `hover:text-foreground`, and `dangerBordered` carries
+    // an unprefixed `text-ui-pink-strong`. A silent downgrade to neutral fails here.
+    expect(screen.getByRole("button", { name: /remove link/i }).className).toMatch(
+      /\bhover:text-ui-pink-strong\b/,
+    );
   });
 
   it("removes a link via onChange", () => {

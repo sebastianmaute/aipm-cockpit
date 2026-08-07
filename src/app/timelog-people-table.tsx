@@ -9,6 +9,8 @@ import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { INTERACTIVE } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
 import type { RowSelection } from "./use-row-selection";
 import type { TimelogUser, TimelogUserLink } from "./timelog-types";
@@ -139,15 +141,14 @@ export function TimelogPeopleTable({
                   )}
                 </td>
                 <td className="py-2">
-                  <button
-                    type="button"
-                    aria-label={removeLabel}
+                  <IconButton
+                    variant="dangerBordered"
+                    label={removeLabel}
                     disabled={isPopout}
                     onClick={() => removeUsers([u.userId])}
-                    className={`rounded border border-line px-2 py-0.5 text-xs text-ui-pink-strong ${INTERACTIVE}`}
                   >
-                    ✕
-                  </button>
+                    <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                  </IconButton>
                 </td>
               </tr>
             );
