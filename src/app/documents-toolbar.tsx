@@ -18,6 +18,7 @@ import { type Lang, t } from "./i18n";
 import { PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { PaneToolbar, AddButton } from "./pane-toolbar";
 import { Button } from "./button";
+import { ToggleButton } from "./toggle-button";
 import { Select } from "./form-controls";
 import type { DocFormat } from "./document-download";
 
@@ -45,6 +46,17 @@ export interface DocumentsToolbarProps {
   onFormatChange: (format: DocFormat) => void;
   onResetColumns: () => void;
   onResetSize: () => void;
+  /** Whether the deleted-documents section is shown. */
+  showDeleted: boolean;
+  onShowDeletedChange: (next: boolean) => void;
+  /** ★ Rendered as a language-neutral number beside the label. It is the ONLY
+   *  signal the user gets that the derivation has handed the pane something
+   *  implausible — a corrupted `documents` blob beside a valid versions blob
+   *  makes EVERY version read as a deleted document, and a count of 200 next
+   *  to an empty pane says that far better than the list itself does. A
+   *  worded warning would be better and needs an i18n key this task was told
+   *  not to add; see the report. */
+  deletedCount: number;
   /** Popout mirrors are read-only: the CREATE affordance goes inert. Download,
    *  print and the view controls stay live — they mutate nothing. */
   isReadOnly?: boolean;
@@ -59,6 +71,9 @@ export function DocumentsToolbar({
   onFormatChange,
   onResetColumns,
   onResetSize,
+  showDeleted,
+  onShowDeletedChange,
+  deletedCount,
   isReadOnly,
 }: DocumentsToolbarProps) {
   return (
@@ -93,6 +108,35 @@ export function DocumentsToolbar({
       >
         {t(lang, "documentsDownload")}
       </Button>
+      {/* ★★ `ToggleButton`, never a hand-rolled `aria-pressed` button: the
+          primitive carries the trailing non-colour `data-pressed-marker` that
+          keeps the pressed state distinguishable in the three DARK schemes,
+          where the pressed-vs-unpressed border sits at 1.03–1.22:1. axe has no
+          rule for colour-as-sole-cue on a control, so the primitive's own unit
+          test is the only coverage that exists for it.
+          ★★ The label is PINNED to what pressed=true ENABLES, so "Deleted
+          documents, pressed" means they ARE shown. A label that flipped to the
+          opposite action would announce the wrong mode (WCAG 4.1.2) and axe
+          would pass it, because a name exists either way.
+          ★ `variant="toggle"` (aria-pressed), not `"disclosure"`
+          (aria-expanded). Both readings are defensible — this does reveal a
+          region — but it is a persistent VIEW OPTION, the same shape as
+          Gantt's show-dependencies / show-holidays / show-milestones toggles,
+          and matching the closest in-repo precedent beats inventing a second
+          convention for the same kind of control. Recorded rather than
+          defaulted into.
+          ★ It sits BEFORE the trailing group and after the pane actions: it is
+          neither a primary action nor a member of Print · reset-columns ·
+          reset-size, and a control drifting BETWEEN two of those is the drift
+          the convention has been broken by more than once. */}
+      <ToggleButton
+        pressed={showDeleted}
+        onToggle={() => onShowDeletedChange(!showDeleted)}
+        lang={lang}
+        title={t(lang, "documentsShowDeleted")}
+      >
+        {`${t(lang, "documentsShowDeleted")} (${deletedCount})`}
+      </ToggleButton>
       <div className="ml-auto flex items-center gap-2">
         <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={onResetColumns} lang={lang} />

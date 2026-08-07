@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { DocumentsPanel, sortDocuments, uniqueDocumentTitle } from "./documents-panel";
-import { MAX_TITLE_CHARS } from "./document-model";
+import { MAX_DOCUMENTS, MAX_TITLE_CHARS } from "./document-model";
 import { FOCUS_RING } from "./interaction-styles";
+import userEvent from "@testing-library/user-event";
 import { ConfirmProvider } from "./confirm-dialog";
 import type { ProjectDocument } from "./document-model";
 import { applyDocMutation, type DocMutation, type DocResult } from "./document-mutations";
@@ -304,18 +305,26 @@ describe("DocumentsPanel", () => {
     expect(box.docs.map((d) => d.title)).toEqual(["Untitled document", "Untitled document 2"]);
   });
 
-  it("prefers the PROP over its own record once the prop has moved on", () => {
-    // ★★★ THE CONTROL for `freshDocuments`, and the fixture is doing the work.
-    // Remembering the last mutation's result is only safe while nothing ELSE
-    // has written — a load, or an AI tool going through the same entry point,
-    // replaces `documents` wholesale. Without the `from === documents` key the
-    // pane would go on uniquifying against a world that no longer exists.
+  it("cannot mint a title the ENGINE's set already holds, whatever the prop says", () => {
+    // ★★★ THIS CASE CHANGED MEANING, and the change is the whole point of
+    // moving uniqueness into `document-mutations.ts`. It used to pin that
+    // `freshDocuments()` prefers the PROP once the prop has moved on, and it
+    // asserted the bare base as the answer.
     //
-    // ★★ The obvious fixture (replace the prop with a list that ALSO holds
-    // "Untitled document") cannot tell the two apart: both the record and the
-    // prop then contain the title, so both answer "Untitled document 2". The
-    // replacement world here holds NO colliding title, so the correct answer is
-    // the bare base and the stale-record answer is the suffixed one.
+    // ★★★ THAT ASSERTION IS NOW WRONG, and the engine is right. The pane can
+    // only ever see its `documents` prop; the engine uniquifies against the
+    // state it actually holds, which here still contains "Untitled document"
+    // from the first create. So the bare base WOULD have collided, and the
+    // suffix is the correct answer — the engine resolved a collision the pane
+    // could not see.
+    //
+    // ★★ CONSEQUENCE WORTH KNOWING: with the engine authoritative, the pane's
+    // `freshRef` no longer changes any outcome — `mutateDocuments` reads
+    // workspace-context's refs, which are advanced synchronously and are
+    // therefore strictly fresher than anything a render body can compute. The
+    // pane's own uniquification is now belt-and-braces, kept only because
+    // documents-panel.tsx belongs to another slice. It is harmless because the
+    // engine's pass is idempotent (pinned in document-mutations.test.ts).
     const { box, mutateDocuments, rerender } = renderPanel([]);
     fireEvent.click(screen.getByRole("button", { name: "New document" }));
     expect(box.docs.map((d) => d.title)).toEqual(["Untitled document"]);
@@ -332,7 +341,10 @@ describe("DocumentsPanel", () => {
       </ConfirmProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "New document" }));
-    expect(box.docs.at(-1)!.title).toBe("Untitled document");
+    expect(box.docs.at(-1)!.title).toBe("Untitled document 2");
+    // ★ And the property that actually matters, asserted directly rather than
+    // inferred from one title: every rendered row name stays distinct.
+    expect(new Set(box.docs.map((d) => d.title)).size).toBe(box.docs.length);
   });
 
   it("renames only the targeted document through the rename dialog", () => {
@@ -752,12 +764,12 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
           documentVersions={[
             {
               id: 1,
-              documentId: 1,
-              title: "Alpha",
+              documentId: 99,
+              title: "Gone",
               blocks: [],
               savedAt: "2026-08-05T10:00:00.000Z",
               source: "user",
-              op: "rename",
+              op: "delete",
             },
           ]}
           ws={emptyWorkspace()}
@@ -800,4 +812,127 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Rename – Alpha" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  // ★★ The popout guard, same split as the history modal: READING the deleted
+  // list is safe, restoring is not. Driven through the read-only harness,
+  // whose version fixture is a tombstone (a documentId absent from the live
+  // documents) precisely so there is a row here to disable.
+  it("disables Restore in a read-only popout while still listing the tombstone", async () => {
+    const user = userEvent.setup();
+    renderReadOnly();
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    const restore = screen.getByRole("button", { name: /^Restore –/ });
+    expect(restore).toBeInTheDocument(); // still readable
+    expect(restore).toBeDisabled();
+    // A real `disabled` attribute, not an `aria-disabled` lookalike — the
+    // lookalike still fires onClick, and this pane's mutateDocuments THROWS in
+    // read-only, so a live button would surface as a crash.
+    await user.click(restore);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+// ★★★ THE DELETED-DOCUMENTS SURFACE. These drive the REAL provider
+// (`renderLive`) rather than the props harness, because the list is derived
+// from `documentVersions` and the derivation is the thing under test — a
+// fixture-fed version array would be a second implementation of it.
+describe("DocumentsPanel — deleted documents", () => {
+  /** Create a document, then delete it, leaving exactly one tombstone. */
+  async function seedOneDeleted(title = "Doomed") {
+    renderLive([{ ...doc(1, title) }]);
+    fireEvent.click(await screen.findByRole("button", { name: `Delete – ${title}` }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: `Delete – ${title}` })).toBeNull());
+  }
+
+  it("hides the section until the toggle is on, then lists the tombstone", async () => {
+    const user = userEvent.setup();
+    await seedOneDeleted();
+
+    // ★ A POSITIVE observable that the toggle is what reveals it: the section
+    // is absent first, so this cannot pass against a list that never renders.
+    expect(screen.queryByRole("button", { name: /^Restore –/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    const restores = screen.getAllByRole("button", { name: /^Restore –/ });
+    expect(restores).toHaveLength(1);
+    expect(restores[0].getAttribute("aria-label")).toContain("Doomed");
+  });
+
+  it("counts the tombstones on the toggle itself", async () => {
+    await seedOneDeleted();
+    expect(screen.getByRole("button", { name: /Deleted documents/ }).textContent).toContain("(1)");
+  });
+
+  // ★★★ MUTATION-PROVED. Row-unique names, with the trap from T20 closed: with
+  // every aria-label null, `getAllByRole(…, {name: /Restore/})` finds NOTHING
+  // and a Set-size assertion reduces to `0 === 0`. So this asserts the COUNT
+  // first, then non-emptiness, then uniqueness, then that each name carries
+  // its own version id — which is the only field unique by construction, since
+  // nothing uniquifies titles outside this pane's create/duplicate handlers.
+  it("gives every Restore button a row-unique accessible name", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Same title"), doc(2, "Same title")]);
+    for (const id of [1, 2]) {
+      fireEvent.click(screen.getAllByRole("button", { name: "Delete – Same title" })[0]);
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      await waitFor(() =>
+        expect(screen.queryAllByRole("button", { name: "Delete – Same title" })).toHaveLength(2 - id),
+      );
+    }
+
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    const buttons = screen.getAllByRole("button", { name: /^Restore –/ });
+    expect(buttons).toHaveLength(2);
+
+    const names = buttons.map((b) => b.getAttribute("aria-label"));
+    expect(names.every((n) => typeof n === "string" && n.trim().length > 0)).toBe(true);
+    expect(new Set(names).size).toBe(2);
+    // Both rows share a TITLE, so only the id can separate them — a
+    // title-only label would collide here and pass the Set check nowhere else.
+    expect(names.every((n) => /#\d+$/.test(n ?? ""))).toBe(true);
+  });
+
+  it("restores the document and drops it from the deleted list", async () => {
+    const user = userEvent.setup();
+    await seedOneDeleted();
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    await user.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // Back among the live documents (under a NEW id — ids are never reused)…
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete – Doomed" })).toBeInTheDocument());
+    // …and gone from the deleted list, because the restore wrote a marker that
+    // closes the tombstone. Without it the row would persist and every click
+    // would mint another copy.
+    expect(screen.queryByRole("button", { name: /^Restore –/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Deleted documents/ }).textContent).toContain("(0)");
+  });
+
+  // ★★★ MUTATION-PROVED, and the most important case here: at MAX_DOCUMENTS
+  // every restore is refused, and a Restore button that silently does nothing
+  // is the worst outcome available. `mutateDocuments` returns `rejected`
+  // synchronously, so the only way to get this wrong is to discard it.
+  it("renders the reason when a restore is refused", async () => {
+    const user = userEvent.setup();
+    // A workspace already AT the cap, plus one tombstone to restore into it.
+    const full = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 2, `Doc ${i + 2}`));
+    renderLive([doc(1, "Doomed"), ...full]);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete – Doomed" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Delete – Doomed" })).toBeNull());
+
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    const restore = screen.getByRole("button", { name: /^Restore –/ });
+    await user.click(restore);
+
+    // The refusal is ANNOUNCED, not merely drawn.
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toMatch(/document limit reached/i);
+    // And the row is still there, because nothing was restored — so this is
+    // not passing against a surface that silently succeeded.
+    expect(screen.getByRole("button", { name: /^Restore –/ })).toBeInTheDocument();
+  });
+
 });

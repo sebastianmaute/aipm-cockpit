@@ -20,7 +20,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type ProjectDocument, MAX_TITLE_CHARS } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
-import type { DocVersion, DocVersionSource } from "./document-versions";
+import { deletedDocumentVersions, type DocVersion, type DocVersionSource } from "./document-versions";
 import type { Workspace } from "./workspace";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
@@ -204,6 +204,13 @@ export function DocumentsPanel({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [renaming, setRenaming] = useState<{ id: number; draft: string } | null>(null);
   const [historyFor, setHistoryFor] = useState<number | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  // ★ The reasons the LAST restore was refused. `mutateDocuments` returns them
+  // synchronously, so the surface has them without re-reading state — and a
+  // Restore button that silently does nothing is the worst outcome available
+  // here. Cleared on the next attempt so a stale reason cannot outlive the
+  // click that produced it.
+  const [restoreRejected, setRestoreRejected] = useState<readonly string[]>([]);
   const confirm = useConfirm();
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<DocumentsCol>(
@@ -212,6 +219,28 @@ export function DocumentsPanel({
   );
 
   const rows = useMemo(() => sortDocuments(documents, sort.key, sort.dir), [documents, sort]);
+
+  // ★★★ DERIVED, never a stored flag — a flag would have to be cleared on
+  // restore and can desync from the documents array.
+  //
+  // ★★ THIS LIST CAN CONTAIN THINGS THAT WERE NEVER DELETED, and the pane
+  // cannot tell. `deletedDocumentVersions` reports any version whose
+  // `documentId` is absent from `documents`, which is also true of
+  // (a) TRUNCATION ARTIFACTS — a 205-document file loads as 200 documents and
+  // 205 versions, because `sanitizeProjectDocuments` caps at MAX_DOCUMENTS
+  // while `sanitizeDocumentVersions` structurally cannot; and (b) ORPHANS from
+  // a partial import, or a text-backend load where the `documents` blob failed
+  // to parse and the `documentVersions` blob succeeded (they have independent
+  // try/catch on every backend). In that last case EVERY version reads as a
+  // deleted document. The toolbar shows the COUNT for exactly that reason —
+  // "Deleted documents (200)" beside an empty pane is the signal.
+  // ★ The engine-side narrowing (requiring `op === "delete"`) is a separate
+  // change; this pane deliberately does not duplicate it, so it inherits the
+  // fix rather than masking whether it landed.
+  const deleted = useMemo(
+    () => deletedDocumentVersions(documentVersions, documents),
+    [documentVersions, documents],
+  );
 
   // ★ Resolved at read time like `selected` below, never written back: a
   // concurrent delete (an AI tool writing through the same entry point) would
@@ -273,6 +302,19 @@ export function DocumentsPanel({
   function mutate(m: DocMutation) {
     const result = mutateDocuments(m, "user");
     freshRef.current = { from: documents, latest: result.documents };
+  }
+
+  // ★★ A RESTORE CAN BE REFUSED, and at the cap it always is. After a
+  // truncating load the document count sits EXACTLY at MAX_DOCUMENTS, so the
+  // engine's cap guard rejects every restore with
+  // `["document limit reached (200)"]` — and a genuine tombstone restored into
+  // a full document set hits the same wall. `mutateDocuments` hands back
+  // `rejected` synchronously, so the only way to get this wrong is to discard
+  // it. Rendered below the list, not swallowed.
+  function handleRestore(versionId: number) {
+    const result = mutateDocuments({ kind: "restore", versionId }, "user");
+    freshRef.current = { from: documents, latest: result.documents };
+    setRestoreRejected(result.changed ? [] : result.rejected);
   }
 
   function handleSort(key: DocumentSortKey) {
@@ -338,6 +380,9 @@ export function DocumentsPanel({
         onFormatChange={chooseFormat}
         onResetColumns={resetColWidths}
         onResetSize={onResetSize}
+        showDeleted={showDeleted}
+        onShowDeletedChange={setShowDeleted}
+        deletedCount={deleted.length}
         isReadOnly={isReadOnly}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -358,6 +403,51 @@ export function DocumentsPanel({
           onOpenHistory={(doc) => setHistoryFor(doc.id)}
           isReadOnly={isReadOnly}
         />
+        {showDeleted && (
+          <section aria-label={t(lang, "documentsShowDeleted")} className="rounded-md border border-line p-3">
+            {deleted.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t(lang, "documentsNoVersions")}</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {deleted.map((v) => (
+                  <li key={v.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="min-w-0 text-foreground">
+                      <span className="font-medium">{v.title}</span>
+                      {" · "}
+                      <span className="tabular-nums text-muted-foreground">
+                        {v.savedAt.slice(0, 16).replace("T", " ")}
+                      </span>
+                    </span>
+                    {/* ★★ ROW-UNIQUE accessible name. Title alone is not
+                        enough — nothing uniquifies titles outside this pane's
+                        own create/duplicate handlers, so two tombstones can
+                        share one; the version id is unique by construction and
+                        is language-neutral. Same reasoning as the history
+                        modal's Restore labels. */}
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      onClick={() => handleRestore(v.id)}
+                      disabled={isReadOnly}
+                      aria-label={`${t(lang, "documentsRestore")} – ${v.title} · #${v.id}`}
+                    >
+                      {t(lang, "documentsRestore")}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {restoreRejected.length > 0 && (
+              // `role="status"` so the refusal is announced rather than only
+              // drawn. The reasons are the engine's own strings and are not
+              // translated — an i18n key for this was not available to add;
+              // see the report. An untranslated reason beats a silent no-op.
+              <p role="status" className="mt-2 text-sm text-ui-pink">
+                {restoreRejected.join("; ")}
+              </p>
+            )}
+          </section>
+        )}
         <DocumentPreview lang={lang} doc={selected} ws={ws} />
       </div>
 
