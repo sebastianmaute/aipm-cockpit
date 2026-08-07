@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.220.0";
-export const APP_BUILD_DATE = "2026-08-07"; // 0.220.0: field-visibility control moves into the modal header (Kuttner)
+export const APP_VERSION = "0.221.0";
+export const APP_BUILD_DATE = "2026-08-07"; // 0.221.0: an over-cap document load is disclosed, and saving pauses (Charnas)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.220.x line is "Kuttner" (Henry Kuttner, science-fiction author). */
-export const APP_MILESTONE = "Kuttner";
+ *  0.221.x line is "Charnas" (Suzy McKee Charnas, science-fiction author). */
+export const APP_MILESTONE = "Charnas";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -265,4 +265,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0218",
   "versionHighlight0219",
   "versionHighlight0220",
+  "versionHighlight0221",
 ] as const;
