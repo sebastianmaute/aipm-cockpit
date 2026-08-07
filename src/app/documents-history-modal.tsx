@@ -12,7 +12,7 @@
 // context here would make the component untestable in isolation (its whole
 // suite renders it with no provider) and would couple a read-only history list
 // to the live workspace value. It takes `ws` as an OPTIONAL prop instead — see
-// the prop's own note for what is still owed.
+// the prop's own note.
 //
 // ★★★ EVERY Restore BUTTON CARRIES A VERSION-UNIQUE ACCESSIBLE NAME, and this
 // component is the ONLY thing that will ever check it. N identical "Restore"
@@ -88,14 +88,25 @@ export interface DocumentsHistoryModalProps {
   /** Live workspace, used ONLY to resolve a version's `dataSection` blocks in
    *  the Preview — exactly what `DocumentPreview` uses its own `ws` for.
    *
-   *  ★★ OPTIONAL, AND CURRENTLY UNWIRED. `documents-panel.tsx` already holds a
-   *  `ws` and passes it to `DocumentPreview`, but that file is owned by another
-   *  change in flight and this one may not touch it, so the one-line
-   *  `ws={ws}` on the `<DocumentsHistoryModal>` mount is OWED. Until it lands,
-   *  the fallback below renders against an empty workspace, which makes a
-   *  `dataSection` block resolve to nothing — the same output the renderer
-   *  gives for an empty register, so it degrades to a missing section rather
-   *  than to broken markup. Every other block type is unaffected. */
+   *  ★★ OPTIONAL SO THE COMPONENT CAN BE RENDERED BARE — its own suite does
+   *  that throughout, and the one pair of cases that needs a workspace supplies
+   *  one itself. In PRODUCTION it is wired: `documents-panel.tsx` passes
+   *  `ws={ws}` on the `<DocumentsHistoryModal>` mount, the same value it hands
+   *  `DocumentPreview`, and both `documents-panel.test.tsx` and this
+   *  component's own suite pin that pair of claims from their two sides. When
+   *  it IS omitted the fallback below renders against an empty workspace, which
+   *  makes a `dataSection` block resolve to nothing — the same output the
+   *  renderer gives for an empty register, so it degrades to a missing section
+   *  rather than to broken markup. Every other block type is unaffected.
+   *
+   *  ★ It is the CURRENT workspace, and there is no historical one to give it:
+   *  a version stores its own blocks, but a `dataSection` block stores only a
+   *  key and resolves against whatever registers hold TODAY. So a preview
+   *  stamped with a `savedAt` from three weeks ago lists this morning's
+   *  milestones. Not a leak — same user, same workspace — but the historical
+   *  timestamp sitting beside it makes that likelier to be misread here than in
+   *  the live-document preview, where the data and the document are both
+   *  current. */
   ws?: Workspace;
 }
 
@@ -134,6 +145,23 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws }: HistoryRowP
   // paragraph block, and a document holds up to MAX_VERSIONS_PER_DOC versions
   // of up to MAX_BLOCKS_PER_DOC blocks — rendering all of them at modal-open,
   // for previews nobody asked to see, is work with no user on the other end.
+  //
+  // ★★ "WHILE OPEN" IS NOT "ONCE", AND THAT IS THE HALF THIS MEMO DOES NOT BUY.
+  // `ws` is a dep, and the value the pane passes is the WHOLE `useWorkspace()`
+  // context (`workspace-panels.tsx` passes it deliberately, so a new slice is
+  // carried for free) — one provider `useMemo` over every workspace slice, so
+  // its identity changes on ANY workspace write: a task edit, a background
+  // Outlook pull, an insight write, a scheduled AI job. Each of those re-runs
+  // this render for every EXPANDED preview. Measured, not reasoned, with a spy
+  // on `renderDocumentHtml`: a structurally identical `ws` with a fresh
+  // identity re-ran it; an unrelated prop change with a stable `ws` did not.
+  //
+  // ★ Deliberately NOT narrowed. `resolveDataSection` reads across the whole
+  // export registry, so any dep list short of `ws` would have to be maintained
+  // against it — and a section resolving against the CURRENT workspace (see the
+  // `ws` prop's note) means recomputing on fresh data is the right answer, not
+  // a cost to dodge. The bound that matters is still held: the work is one
+  // expanded version, never all MAX_VERSIONS_PER_DOC of them.
   const html = useMemo(
     () =>
       previewOpen
