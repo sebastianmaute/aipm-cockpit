@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.220.0] - 2026-08-07 "Kuttner"
+
+Every edit modal gets a row back. The Simple / Advanced / Full field switch had
+its own bordered strip under each modal's title, costing a row of height in
+every editor. It now rides in the modal's header as a single button labelled
+with the view you are in, and the field checklist opens from it. Two keyboard
+faults found while moving it are fixed in the shared controls, so they are fixed
+everywhere those controls appear.
+
+### Changed
+
+- **The field-visibility control moved into the modal header.** One button,
+  labelled with the active view — Simple, Advanced, Full or Custom — replaces the
+  strip that used to sit between a modal's title and its first field. The tier
+  switch and the per-field checklist now live together in the popover it opens.
+  Every edit modal is affected: task, absence, calendar event, change,
+  milestone, RAID, resource, stakeholder and budget bucket.
+
+### Fixed
+
+- **Arrow keys in a segmented control now move from the option you are on.**
+  They previously stepped from the selected option instead of the focused one,
+  so a single press could jump two positions and silently change the setting.
+  Affects every segmented control in the app, including task priority and the
+  RAID fields.
+- **Opening a popover no longer focuses the wrong option.** Focus landed on the
+  first choice rather than the active one, which meant a stray Enter or Space
+  immediately switched the setting — and, for a hand-picked field selection,
+  discarded it.
+
+### Accessibility
+
+- The tier switch is now a real radio group, so assistive technology announces
+  which view is active and the arrow keys follow the published pattern. It
+  replaces hand-rolled buttons that reported only a pressed state, along with a
+  "Custom" chip that looked like a control but could not be operated.
+
 ## [0.219.0] - 2026-08-06 "Elgin"
 
 Project documents. The written deliverables of a project — a status report, a
