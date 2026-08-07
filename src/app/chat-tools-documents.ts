@@ -116,7 +116,46 @@ function requireOps(input: Record<string, unknown>): readonly DocOp[] {
   if (!Array.isArray(input.ops)) {
     throw new Error("ops must be an array of block operations");
   }
+  input.ops.forEach(requirePayload);
   return input.ops as readonly DocOp[];
+}
+
+/**
+ * ★★★ THE SAME RULE, ONE LEVEL DOWN. The array-ness guard above closed the
+ * outer door and stopped there: the schema declares each op `required: ["op"]`
+ * only, so a model may legally omit `blocks`/`block`, and nothing looked inside.
+ *
+ * ★★★ AND THE OMISSION READ AS A DELETION. Measured through the real chain: a
+ * `{op:"replaceAll"}` with no `blocks` reached use-document-tools' per-op
+ * `sanitizeAiDocBlocks(op.blocks)`, which returns `[]` for a non-array, so the
+ * engine saw a well-formed "replace everything with nothing", wiped every block
+ * and returned `changed:true, rejected:[]`. The model is told it succeeded and
+ * tells the user so. That is the `set_task_dependencies` shape, and unlike the
+ * outer guard's case this one really does destroy content.
+ *
+ * ★★ AN EXPLICIT `blocks: []` IS LEGAL AND MUST STAY LEGAL — the model asked to
+ * clear the document, and the before-image preserves what it replaced. Only a
+ * MISSING or non-array field is the defect, which is why this tests the SHAPE
+ * (`Array.isArray`) and never truthiness: `[]` is falsy-adjacent in exactly the
+ * way that would break a legitimate operation.
+ *
+ * ★ The engine carries its own copy of these checks (`applyOps`) because it has
+ * other callers. This one exists so the MODEL gets a refusal it can read and
+ * retry against, rather than a silently-dropped op buried in `rejected`.
+ */
+function requirePayload(op: unknown, i: number): void {
+  const kind = (op as { op?: unknown } | null)?.op;
+  if (kind === "replaceAll" && !Array.isArray((op as { blocks?: unknown }).blocks)) {
+    throw new Error(
+      `op ${i}: replaceAll requires a blocks array — send [] to clear the document, or omit the op to leave it unchanged`,
+    );
+  }
+  if (kind === "append" || kind === "insert" || kind === "replace") {
+    const block = (op as { block?: unknown }).block;
+    if (!block || typeof block !== "object") {
+      throw new Error(`op ${i}: ${kind} requires a block`);
+    }
+  }
 }
 
 export async function runDocumentTool(

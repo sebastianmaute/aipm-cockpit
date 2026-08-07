@@ -285,3 +285,73 @@ describe("the read and create routes", () => {
     );
   });
 });
+
+// ★★★ THE OUTER DOOR WAS CLOSED AND THE INNER ONE WAS OPEN. The array-ness
+// guard above validates the ops ARRAY and stopped there; the schema declares
+// each op `required: ["op"]` only, so a model may legally omit `blocks`/`block`
+// and nothing looked inside a single op.
+//
+// ★★★ AND HERE THE OMISSION REALLY DID DELETE. Measured through the whole
+// chain: `{op:"replaceAll"}` with no `blocks` reached use-document-tools' per-op
+// `sanitizeAiDocBlocks(op.blocks)`, which returns `[]` for a non-array, so the
+// engine saw a well-formed "replace everything with nothing", wiped every block
+// and returned `changed:true, rejected:[]`. The model is told it succeeded and
+// tells the user so. Unlike the ops-array case above — which discards rather
+// than destroys — this one loses content.
+describe("per-op payload guards", () => {
+  const update = (ops: unknown) => runDocumentTool(makeDispatcher(), "update_document", { id: 1, ops });
+
+  it("refuses a replaceAll whose blocks field is missing", async () => {
+    await expect(update([{ op: "replaceAll" }])).rejects.toThrow(/replaceAll requires a blocks array/i);
+  });
+
+  it("refuses a replaceAll whose blocks field is not an array", async () => {
+    await expect(update([{ op: "replaceAll", blocks: null }])).rejects.toThrow(/replaceAll requires a blocks array/i);
+    await expect(update([{ op: "replaceAll", blocks: "everything" }])).rejects.toThrow(
+      /replaceAll requires a blocks array/i,
+    );
+  });
+
+  it.each(["append", "insert", "replace"] as const)("refuses a %s with no block", async (op) => {
+    await expect(update([{ op, index: 0 }])).rejects.toThrow(new RegExp(`${op} requires a block`, "i"));
+  });
+
+  it("names the offending op by INDEX, not just the kind", async () => {
+    // ★ A batch is the realistic shape — "the second one" is the only thing
+    // that lets the model fix its own call rather than resend the lot.
+    await expect(
+      update([{ op: "append", block: { type: "pageBreak" } }, { op: "replaceAll" }]),
+    ).rejects.toThrow(/^op 1: /);
+  });
+
+  // ★★★ THE CONTROL, and the reason this guard tests SHAPE rather than
+  // truthiness. `replaceAll: []` is a legitimate request — clear the document —
+  // and the engine's before-image preserves what it replaced. A guard written
+  // as `!op.blocks` would refuse it and break a real operation while every
+  // refusal case above still passed.
+  it("still accepts an EXPLICIT empty replaceAll and reaches the dispatcher", async () => {
+    const d = makeDispatcher();
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "replaceAll", blocks: [] }] })).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, [{ op: "replaceAll", blocks: [] }], undefined);
+  });
+
+  it("still accepts a well-formed block op, and a delete op that carries no block at all", async () => {
+    // ★ The other half of the control: `delete` legitimately has NO `block`
+    // field, so a guard that demanded one on every op would break it. Asserted
+    // through to the dispatcher so "accepted" means reached, not merely
+    // not-thrown.
+    const d = makeDispatcher();
+    const ops = [{ op: "append", block: { type: "pageBreak" } }, { op: "delete", index: 0 }];
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops })).resolves.toMatchObject({ id: 1 });
+    expect(d.updateDocument).toHaveBeenCalledWith(1, ops, undefined);
+  });
+
+  it("refuses BEFORE reaching the dispatcher, so nothing is written", async () => {
+    // ★★ The assertion that makes the refusals above meaningful: a guard that
+    // threw AFTER the write would satisfy every `rejects.toThrow` here while
+    // the document was already wiped.
+    const d = makeDispatcher();
+    await expect(runDocumentTool(d, "update_document", { id: 1, ops: [{ op: "replaceAll" }] })).rejects.toThrow();
+    expect(d.updateDocument).not.toHaveBeenCalled();
+  });
+});

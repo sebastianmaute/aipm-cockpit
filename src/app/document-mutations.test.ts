@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { applyDocMutation, type DocState } from "./document-mutations";
 import { deletedDocumentVersions } from "./document-versions";
-import type { ProjectDocument } from "./document-model";
+import { MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS, type ProjectDocument } from "./document-model";
 
 const DOC: ProjectDocument = {
   id: 1,
@@ -281,5 +281,262 @@ describe("restoring a deleted document closes its tombstone", () => {
     const versionId = deleted.versions[0].id;
     const restored = applyDocMutation(deleted, { kind: "restore", versionId }, ctx());
     expect(restored.versions.some((v) => v.id === versionId)).toBe(true);
+  });
+});
+
+// ★★★ EVERY FIX BELOW SAT IN A REGION THAT HAD NO TEST. That is the pattern,
+// not a coincidence: each one was a silent success — a wipe, a cap bypass, an
+// ignored op, a duplicate mint — and a silent success is precisely what an
+// untested branch looks like from the outside.
+describe("applyOps — an omitted field is not an empty one", () => {
+  // ★★★ MEASURED THROUGH THE REAL AI CHAIN, and the engine ALONE does not
+  // reproduce it: reaching applyOps directly, `{op:"replaceAll"}` with no
+  // `blocks` threw `TypeError: op.blocks is not iterable`. The silent WIPE
+  // needed use-document-tools' per-op `sanitizeAiDocBlocks(op.blocks)` in
+  // front of it, which turns the missing field into `[]`. Two doors, one
+  // defect — chat-tools-documents.test.ts guards the model's, this one guards
+  // every other caller's.
+  it("refuses a replaceAll whose blocks field is missing, rather than wiping", () => {
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replaceAll" } as never] }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.documents[0].blocks).toEqual(DOC.blocks);
+    expect(out.rejected).toEqual(["op 0: replaceAll requires a blocks array"]);
+  });
+
+  it("refuses a replaceAll whose blocks field is null", () => {
+    const out = applyDocMutation(
+      state(),
+      { kind: "ops", id: 1, ops: [{ op: "replaceAll", blocks: null } as never] },
+      ctx(),
+    );
+    expect(out.changed).toBe(false);
+    expect(out.rejected).toEqual(["op 0: replaceAll requires a blocks array"]);
+  });
+
+  // ★★★ THE CONTROL, and it is what keeps the guard honest. An explicit
+  // `replaceAll: []` is a REAL request — "clear this document" — and the
+  // before-image preserves what it replaced, so it is recoverable. A guard
+  // written as a truthiness check would reject this too, breaking a legitimate
+  // operation while every case above still passed.
+  it("still applies an EXPLICIT empty replaceAll, and snapshots what it cleared", () => {
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replaceAll", blocks: [] }] }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks).toEqual([]);
+    expect(out.versions[0].blocks).toEqual(DOC.blocks);
+  });
+
+  // ★★ WORSE THAN A THROW, because it succeeded: it pushed a literal
+  // `undefined` into the block array and reported `changed:true`, so the
+  // document carried a hole that serialises as `null` and that `sanitizeBlock`
+  // silently drops on the next load. The block count the user saw was never
+  // the count they kept.
+  it.each(["append", "insert", "replace"] as const)(
+    "refuses a %s with no block rather than storing a hole",
+    (op) => {
+      const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op, index: 0 } as never] }, ctx());
+      expect(out.changed).toBe(false);
+      expect(out.documents[0].blocks).toEqual(DOC.blocks);
+      expect(out.rejected).toEqual([`op 0: ${op} requires a block`]);
+    },
+  );
+
+  // ★★ An off-enum op fell straight through the switch: not applied, and —
+  // nothing having been pushed — not reported either. `changed:false,
+  // rejected:[]` is "I did nothing and have nothing to say about it", which
+  // the tool layer cannot turn into anything the model can act on.
+  it("reports an unknown op instead of ignoring it in silence", () => {
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "teleport" } as never] }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.rejected).toEqual(['op 0: unknown op "teleport"']);
+  });
+
+  it("keeps applying the GOOD ops beside a refused one", () => {
+    // ★ Partial application is the existing contract (a bad index already
+    // behaves this way) and runDocumentTool depends on it. Without this, a fix
+    // that refused the whole batch on one malformed op would pass everything
+    // above.
+    const out = applyDocMutation(
+      state(),
+      { kind: "ops", id: 1, ops: [{ op: "append" } as never, { op: "append", block: { type: "pageBreak" } }] },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks).toHaveLength(DOC.blocks.length + 1);
+    expect(out.rejected).toEqual(["op 0: append requires a block"]);
+  });
+});
+
+describe("applyDocMutation — the count caps are enforced HERE, not only on reload", () => {
+  const many = (n: number): ProjectDocument[] =>
+    Array.from({ length: n }, (_, i) => ({ ...DOC, id: i + 1, title: `Doc ${i + 1}` }));
+  const blocks = (n: number) => Array.from({ length: n }, () => ({ type: "pageBreak" as const }));
+
+  // ★★★ THE POINT: sanitizeProjectDocuments `break`s at MAX_DOCUMENTS, so the
+  // documents it drops are the LAST in the array — the ones just created. The
+  // engine allowed 205, the reload kept 200, and nothing errored in between.
+  // Create a document, see it, reload, it is gone.
+  it("refuses a create past MAX_DOCUMENTS with a reason", () => {
+    const out = applyDocMutation(
+      { documents: many(MAX_DOCUMENTS), versions: [] },
+      { kind: "create", title: "One more" },
+      ctx(),
+    );
+    expect(out.changed).toBe(false);
+    expect(out.rejected).toEqual([`document limit reached (${MAX_DOCUMENTS})`]);
+  });
+
+  it("refuses a duplicate past MAX_DOCUMENTS", () => {
+    const out = applyDocMutation(
+      { documents: many(MAX_DOCUMENTS), versions: [] },
+      { kind: "duplicate", id: 1, title: "Copy" },
+      ctx(),
+    );
+    expect(out.changed).toBe(false);
+    expect(out.rejected).toEqual([`document limit reached (${MAX_DOCUMENTS})`]);
+  });
+
+  it("still allows a create one BELOW the cap", () => {
+    // ★ The control. An off-by-one refusing at 199 would satisfy both cases
+    // above while making the last slot permanently unreachable.
+    const out = applyDocMutation(
+      { documents: many(MAX_DOCUMENTS - 1), versions: [] },
+      { kind: "create", title: "Fits" },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.documents).toHaveLength(MAX_DOCUMENTS);
+  });
+
+  it("refuses a create whose blocks exceed MAX_BLOCKS_PER_DOC", () => {
+    const out = applyDocMutation(
+      { documents: [], versions: [] },
+      { kind: "create", title: "Big", blocks: blocks(MAX_BLOCKS_PER_DOC + 1) },
+      ctx(),
+    );
+    expect(out.changed).toBe(false);
+    expect(out.rejected).toEqual([`block limit exceeded (${MAX_BLOCKS_PER_DOC + 1} > ${MAX_BLOCKS_PER_DOC})`]);
+  });
+
+  // ★★ THE PER-CALL CAP IN sanitizeAiDocBlocks CANNOT SEE THIS. It bounds ONE
+  // call's blocks, so repeated appends walked straight past the limit —
+  // measured at 600 from six 100-block calls. The cap has to be tested against
+  // the RESULT, which is what this pins.
+  it("refuses ops that would grow a document past MAX_BLOCKS_PER_DOC", () => {
+    const start: DocState = { documents: [{ ...DOC, blocks: blocks(MAX_BLOCKS_PER_DOC) }], versions: [] };
+    const out = applyDocMutation(start, { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.documents[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+    expect(out.rejected).toEqual([`block limit exceeded (${MAX_BLOCKS_PER_DOC + 1} > ${MAX_BLOCKS_PER_DOC})`]);
+  });
+
+  // ★★★ THE TRAP THIS AVOIDS. A document already over the cap — loaded from a
+  // file that carried more — must still be shrinkable. A guard written as a
+  // plain "result > cap" would refuse the very `delete` that brings it back
+  // under, turning the cap into a state with no way out.
+  it("still lets an ALREADY over-cap document shrink", () => {
+    const start: DocState = { documents: [{ ...DOC, blocks: blocks(MAX_BLOCKS_PER_DOC + 100) }], versions: [] };
+    const out = applyDocMutation(start, { kind: "ops", id: 1, ops: [{ op: "delete", index: 0 }] }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC + 99);
+    expect(out.rejected).toEqual([]);
+  });
+
+  // ★ Refusing the BLOCK half must not refuse a supplied title — the same
+  // partial-application shape runDocumentTool's "rename plus one bad op is not
+  // a refusal" clause depends on.
+  it("lets a rename land even when the block half is over-cap", () => {
+    const start: DocState = { documents: [{ ...DOC, blocks: blocks(MAX_BLOCKS_PER_DOC) }], versions: [] };
+    const out = applyDocMutation(
+      start,
+      { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }], title: "Renamed anyway" },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].title).toBe("Renamed anyway");
+    expect(out.documents[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+    expect(out.rejected).toHaveLength(1);
+  });
+
+  it("refuses a create whose blocks are a non-array, but allows the field to be omitted", () => {
+    const bad = applyDocMutation(
+      { documents: [], versions: [] },
+      { kind: "create", title: "X", blocks: "nope" as never },
+      ctx(),
+    );
+    expect(bad.changed).toBe(false);
+    expect(bad.rejected).toEqual(["blocks must be an array"]);
+    // ★ The control: `undefined` is the ONE legal non-array and means "no
+    // blocks" — the field is optional and most creates omit it.
+    const ok = applyDocMutation({ documents: [], versions: [] }, { kind: "create", title: "Y" }, ctx());
+    expect(ok.changed).toBe(true);
+    expect(ok.documents[0].blocks).toEqual([]);
+  });
+});
+
+describe("restore is idempotent", () => {
+  const deletedState = () => {
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, ctx());
+    return { deleted, tombstoneId: deleted.versions[0].id };
+  };
+
+  // ★★★ THE MARKER FIXED THE LIST, NOT THE OPERATION — and the older comment
+  // in this file reads as though it fixed both ("each further Restore mints
+  // another copy" sounds like something the marker prevents; it does not).
+  // Measured before this guard: restoring the same tombstone id four times
+  // produced four identical documents, `changed:true` and `rejected:[]` every
+  // time. Nothing offered it only because `deletedDocumentVersions` filters
+  // markers out — safety rested entirely on a derived VIEW.
+  it("refuses a second restore of the same tombstone", () => {
+    const { deleted, tombstoneId } = deletedState();
+    const first = applyDocMutation(deleted, { kind: "restore", versionId: tombstoneId }, ctx());
+    expect(first.changed).toBe(true);
+    expect(first.documents).toHaveLength(1);
+
+    const second = applyDocMutation(first, { kind: "restore", versionId: tombstoneId }, ctx());
+    expect(second.changed).toBe(false);
+    expect(second.documents).toHaveLength(1);
+    expect(second.rejected).toEqual(["document #1 has already been restored"]);
+  });
+
+  // ★★ A MARKER IS NOT A SNAPSHOT — it is the one op that is explicitly not a
+  // before-image. Restoring one measured as a second copy of the document AND
+  // a second marker. This is a SEPARATE guard from the one above, not a
+  // duplicate of it: re-delete the recreated document and the group is
+  // legitimately "still deleted" again, so the idempotence check passes and
+  // only this one stands between an old marker and another duplicate.
+  it("refuses to restore a restore-marker", () => {
+    const { deleted, tombstoneId } = deletedState();
+    const restored = applyDocMutation(deleted, { kind: "restore", versionId: tombstoneId }, ctx());
+    const marker = restored.versions.find((v) => v.op === "restored");
+    expect(marker).toBeDefined();
+
+    const out = applyDocMutation(restored, { kind: "restore", versionId: marker!.id }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.documents).toHaveLength(1);
+    expect(out.rejected).toEqual([`version #${marker!.id} is a restore marker, not a snapshot`]);
+  });
+
+  // ★★★ THE CONTROLS. Both guards refuse; a "fix" that refused restore
+  // outright would satisfy every assertion above and silently delete the
+  // feature.
+  it("still restores a document deleted a SECOND time", () => {
+    const { deleted, tombstoneId } = deletedState();
+    const restored = applyDocMutation(deleted, { kind: "restore", versionId: tombstoneId }, ctx());
+    const again = applyDocMutation(restored, { kind: "delete", id: restored.documents[0].id }, ctx());
+    const newTombstone = again.versions.find(
+      (v) => v.op === "delete" && v.documentId === restored.documents[0].id,
+    );
+    expect(newTombstone).toBeDefined();
+
+    const out = applyDocMutation(again, { kind: "restore", versionId: newTombstone!.id }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents).toHaveLength(1);
+  });
+
+  it("still restores a LIVE document in place", () => {
+    const renamed = applyDocMutation(state(), { kind: "rename", id: 1, title: "Renamed" }, ctx());
+    const out = applyDocMutation(renamed, { kind: "restore", versionId: renamed.versions[0].id }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].title).toBe("Status report");
   });
 });

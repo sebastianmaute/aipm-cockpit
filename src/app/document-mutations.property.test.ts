@@ -5,6 +5,7 @@ import {
   type DocMutation,
   type DocState,
   type DocContext,
+  type DocOp,
 } from "./document-mutations";
 import { deletedDocumentVersions } from "./document-versions";
 import type { DocBlock } from "./document-model";
@@ -28,6 +29,34 @@ const blockArb: fc.Arbitrary<DocBlock> = fc.oneof(
   }),
   fc.record({ type: fc.constant("pageBreak" as const) }),
 );
+
+/** ★★★ THE ops CASE USED TO BE A HARDCODED `replaceAll`, so append / insert /
+ *  replace / delete were never property-tested at all — every index bug in
+ *  `applyOps` rested on the example tests alone, which is the same "the defect
+ *  sat in an untested region" pattern the engine fixes came out of.
+ *
+ *  ★★ THE INDEX HAS TO BE DERIVED FROM THE ACTUAL BLOCK COUNT, not generated
+ *  independently. `applyOps` REFUSES an out-of-range index — correctly — so a
+ *  free-running index would send most runs down the `changed:false` early
+ *  return and the property would pass having asserted almost nothing, with the
+ *  `exercised` counter as the only thing left standing between it and vacuity.
+ *  Deriving it keeps every generated op APPLICABLE, which is what makes the
+ *  restore round-trip the thing under test.
+ *
+ *  ★ `delete` and `replace` need a block to act on, so an empty document falls
+ *  back to `append` — the one op that is always valid. */
+type OpKind = "append" | "insert" | "replace" | "delete" | "replaceAll";
+
+function validOp(kind: OpKind, blockCount: number, rawIndex: number): DocOp {
+  const block: DocBlock = { type: "pageBreak" };
+  if (kind === "replaceAll") return { op: "replaceAll", blocks: [block] };
+  if (kind === "append") return { op: "append", block };
+  if (kind === "insert") return { op: "insert", index: rawIndex % (blockCount + 1), block };
+  if (blockCount === 0) return { op: "append", block };
+  return kind === "replace"
+    ? { op: "replace", index: rawIndex % blockCount, block }
+    : { op: "delete", index: rawIndex % blockCount };
+}
 
 function makeContext(now: string): DocContext {
   let nextDocId = 10;
@@ -61,7 +90,9 @@ describe("mutate then restore returns the prior document state", () => {
         fc.string({ minLength: 1, maxLength: 30 }),
         isoArb,
         fc.constantFrom<"rename" | "delete" | "ops">("rename", "delete", "ops"),
-        (blocks, title, now, kind) => {
+        fc.constantFrom<OpKind>("append", "insert", "replace", "delete", "replaceAll"),
+        fc.nat({ max: 50 }),
+        (blocks, title, now, kind, opKind, rawIndex) => {
           const ctx = makeContext(now);
           const before: DocState = {
             documents: [{ id: 1, title, blocks, createdAt: now, updatedAt: now }],
@@ -72,14 +103,32 @@ describe("mutate then restore returns the prior document state", () => {
               ? { kind: "rename", id: 1, title: `${title}-changed` }
               : kind === "delete"
                 ? { kind: "delete", id: 1 }
-                : {
-                    kind: "ops",
-                    id: 1,
-                    ops: [{ op: "replaceAll", blocks: [{ type: "pageBreak" }] }],
-                  };
+                : { kind: "ops", id: 1, ops: [validOp(opKind, blocks.length, rawIndex)] };
 
           const after = applyDocMutation(before, mutation, ctx);
           if (!after.changed) return true;
+
+          // ★★★ WITHOUT THIS, WIDENING THE ops ARBITRARY BUYS REACH BUT NOT
+          // DETECTION. The round-trip below asserts that RESTORE recovers the
+          // prior state — and restore writes the snapshot back verbatim, so it
+          // holds no matter what the op did to the document in between. Both
+          // measured: breaking `insert` to drop its block, and `delete` to
+          // remove two blocks instead of one, each left the whole property
+          // GREEN. Only making `insert` throw turned it red, which proves the
+          // generated ops are reached but says nothing about their effect.
+          //
+          // So assert the FORWARD effect too. Block count is the cheapest
+          // observable that separates the five ops from each other, and it is
+          // what every one of those corruptions changes.
+          if (kind === "ops") {
+            const op = validOp(opKind, blocks.length, rawIndex);
+            const expected =
+              op.op === "replaceAll" ? 1
+              : op.op === "delete" ? blocks.length - 1
+              : op.op === "replace" ? blocks.length
+              : blocks.length + 1;
+            expect(after.documents[0].blocks).toHaveLength(expected);
+          }
 
           // `before.versions` started empty and exactly one mutation ran, so
           // the mutation's own before-image is the sole entry — but reach it

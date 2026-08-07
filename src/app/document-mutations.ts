@@ -24,8 +24,15 @@
 // references, never a rebuilt-but-equal array — workspace-context uses that
 // reference identity to decide whether a write is needed at all.
 
-import { MAX_TITLE_CHARS, type DocBlock, type ProjectDocument } from "./document-model";
 import {
+  MAX_BLOCKS_PER_DOC,
+  MAX_DOCUMENTS,
+  MAX_TITLE_CHARS,
+  type DocBlock,
+  type ProjectDocument,
+} from "./document-model";
+import {
+  deletedDocumentVersions,
   RESTORED_MARKER_OP,
   trimVersions,
   type DocVersion,
@@ -81,6 +88,33 @@ function capTitle(title: string): string {
   return title.slice(0, MAX_TITLE_CHARS).trim();
 }
 
+/** ★★★ THE ENGINE ENFORCES THE COUNT CAPS, because `sanitizeProjectDocuments`
+ *  enforces them only on the way back IN. This module already refuses a title
+ *  the sanitizer would reject (see `capTitle`) for exactly one reason: so
+ *  in-memory state cannot disagree with reloaded state. The title got that
+ *  treatment; `MAX_DOCUMENTS` and `MAX_BLOCKS_PER_DOC` did not.
+ *
+ *  Measured before these guards: the engine happily built 205 documents and a
+ *  510-block document, and the next load cut them to 200 and 500 with no error
+ *  anywhere in between. `sanitizeProjectDocuments` `break`s at the cap, so the
+ *  documents it drops are the LAST ones in the array — the ones the user just
+ *  created. Create a document, see it, reload, it is gone.
+ *
+ *  ★★ The per-call cap inside `sanitizeAiDocBlocks` cannot cover this: it bounds
+ *  ONE call's blocks, so six appends of 100 still land a 600-block document
+ *  (measured). The cap has to be tested against the RESULT, which is here.
+ *
+ *  ★ Over-cap work is REFUSED with a reason rather than truncated, so the tool
+ *  layer can surface it — silently dropping the tail is the same "reported
+ *  success, lost the content" failure seen from the other end. */
+function documentLimitReason(): string {
+  return `document limit reached (${MAX_DOCUMENTS})`;
+}
+
+function blockLimitReason(count: number): string {
+  return `block limit exceeded (${count} > ${MAX_BLOCKS_PER_DOC})`;
+}
+
 /** The before-image of `doc`, as it stands right now. */
 function snapshot(doc: ProjectDocument, op: DocVersionOp, ctx: DocContext): DocVersion {
   return {
@@ -112,6 +146,41 @@ function findTarget(documents: readonly ProjectDocument[], id: number): ProjectD
   return documents.find((d) => d.id === id);
 }
 
+/** ★★★ AN OMITTED FIELD IS NOT AN EMPTY ONE — the same rule chat-tools-documents.ts
+ *  applies to the ops ARRAY, applied one level down to each op's PAYLOAD. That
+ *  outer guard checked array-ness and stopped; nothing checked the `blocks` and
+ *  `block` fields inside, so the inner door stayed open through two different
+ *  failure modes, both measured:
+ *
+ *  - Through the AI chain, `{op:"replaceAll"}` with no `blocks` reached
+ *    use-document-tools' per-op `sanitizeAiDocBlocks(op.blocks)`, which returns
+ *    `[]` for a non-array. The engine then saw a well-formed "replace everything
+ *    with nothing", wiped every block and reported `changed:true, rejected:[]` —
+ *    a refusal that reads as success, the `set_task_dependencies` shape again.
+ *  - Reaching the engine directly (the UI path, and any future caller handing it
+ *    a raw op) the SAME input threw `TypeError: op.blocks is not iterable` out of
+ *    a module whose header promises purity.
+ *
+ *  ★★ `{op:"append"}` with no `block` was worse than either: it pushed a literal
+ *  `undefined` into the array and reported success, so the document carried a
+ *  hole that serialises as `null` and that `sanitizeBlock` silently drops on the
+ *  next load. Measured — `changed=true`, `blocks=3`, `blocks[2] === undefined`.
+ *
+ *  ★★★ AN EXPLICIT EMPTY LIST IS LEGAL AND MUST STAY LEGAL. `replaceAll: []` is
+ *  a real request ("clear this document"), the caller asked for it, and the
+ *  before-image preserves what it replaced. Only a MISSING or non-array field is
+ *  the defect. A guard that refused both would break a legitimate operation —
+ *  which is exactly why these read the field as `unknown` and test its SHAPE,
+ *  rather than testing it for truthiness. */
+function opBlockIsMissing(op: DocOp): boolean {
+  const block = (op as { block?: unknown }).block;
+  return !block || typeof block !== "object";
+}
+
+function opBlocksIsNotAnArray(op: DocOp): boolean {
+  return !Array.isArray((op as { blocks?: unknown }).blocks);
+}
+
 /** Apply ops LEFT TO RIGHT against the evolving array. An index is resolved
  *  against the array as it stands at that step, which is the only reading a
  *  model can act on deterministically — `[delete 0, delete 0]` means "the
@@ -126,10 +195,18 @@ function applyOps(
   for (const [i, op] of ops.entries()) {
     switch (op.op) {
       case "append":
+        if (opBlockIsMissing(op)) {
+          rejected.push(`op ${i}: append requires a block`);
+          break;
+        }
         next.push(op.block);
         applied++;
         break;
       case "replaceAll":
+        if (opBlocksIsNotAnArray(op)) {
+          rejected.push(`op ${i}: replaceAll requires a blocks array`);
+          break;
+        }
         next = [...op.blocks];
         applied++;
         break;
@@ -138,12 +215,20 @@ function applyOps(
           rejected.push(`op ${i}: insert index ${op.index} out of range 0..${next.length}`);
           break;
         }
+        if (opBlockIsMissing(op)) {
+          rejected.push(`op ${i}: insert requires a block`);
+          break;
+        }
         next.splice(op.index, 0, op.block);
         applied++;
         break;
       case "replace":
         if (!Number.isInteger(op.index) || op.index < 0 || op.index >= next.length) {
           rejected.push(`op ${i}: replace index ${op.index} out of range 0..${next.length - 1}`);
+          break;
+        }
+        if (opBlockIsMissing(op)) {
+          rejected.push(`op ${i}: replace requires a block`);
           break;
         }
         next[op.index] = op.block;
@@ -156,6 +241,16 @@ function applyOps(
         }
         next.splice(op.index, 1);
         applied++;
+        break;
+      // ★★ An off-enum `op` used to fall straight through this switch: not
+      // applied, and — because nothing was pushed — not reported either, so the
+      // call came back `changed:false, rejected:[]`, i.e. "I did nothing and
+      // have nothing to say about it". The types cannot prevent it (model JSON
+      // and stored ops both arrive as `unknown` at runtime), so the arm has to
+      // exist. `op` is `never` here, which is precisely why the name has to be
+      // read back off it as `unknown`.
+      default:
+        rejected.push(`op ${i}: unknown op ${JSON.stringify((op as { op?: unknown }).op)}`);
         break;
     }
   }
@@ -174,10 +269,22 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
     case "create": {
       const title = capTitle(m.title);
       if (!title) return unchanged(state, ["title must not be empty"]);
+      if (state.documents.length >= MAX_DOCUMENTS) return unchanged(state, [documentLimitReason()]);
+      // ★ `undefined` is the ONE legal non-array and means "no blocks" — the
+      // field is optional. Every OTHER non-array is refused rather than
+      // degraded to `[]`, mirroring how chat-tools-documents.ts reads the `ops`
+      // field. Measured before this guard: `blocks: "not an array"` was stored
+      // VERBATIM, so the document carried a string where its block list belongs
+      // until the next load quietly replaced it with `[]`.
+      if (m.blocks !== undefined && !Array.isArray(m.blocks)) {
+        return unchanged(state, ["blocks must be an array"]);
+      }
+      const blocks = m.blocks ?? [];
+      if (blocks.length > MAX_BLOCKS_PER_DOC) return unchanged(state, [blockLimitReason(blocks.length)]);
       const doc: ProjectDocument = {
         id: ctx.mintDocId(),
         title,
-        blocks: m.blocks ?? [],
+        blocks,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       };
@@ -190,6 +297,16 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
     case "restore": {
       const version = state.versions.find((v) => v.id === m.versionId);
       if (!version) return unchanged(state, [`version #${m.versionId} not found`]);
+      // ★★★ A MARKER IS NOT A SNAPSHOT. `RESTORED_MARKER_OP` records that an id
+      // was recovered; it is the one op that is explicitly NOT a before-image
+      // (document-versions.ts). Restoring one measured as minting a second copy
+      // of the document AND a second marker. `deletedDocumentVersions` filters
+      // markers out, so no surface offers this today — but the version-history
+      // and deleted-documents surfaces are being built against these version
+      // rows right now, and either could hand one back.
+      if (version.op === RESTORED_MARKER_OP) {
+        return unchanged(state, [`version #${m.versionId} is a restore marker, not a snapshot`]);
+      }
       const liveDoc = findTarget(state.documents, version.documentId);
       if (liveDoc) {
         // Restore IN PLACE, snapshotting what it replaced — the restore is
@@ -205,6 +322,33 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
           documentId: restoredDoc.id,
         };
       }
+      // ★★★ RESTORE IS NOT IDEMPOTENT WITHOUT THIS, and the marker alone does
+      // not make it so. The marker hides the ROW from `deletedDocumentVersions`;
+      // it does nothing to the OPERATION. Measured: restoring the same tombstone
+      // versionId four times produced four identical documents, `changed:true`
+      // and `rejected:[]` every time. Nothing offers that today only because the
+      // deleted-documents list is derived — safety rested entirely on a VIEW.
+      //
+      // ★★ So the guard asks the derivation itself rather than re-deriving
+      // "newest version for this id" here. That ordering rule lives in
+      // `byNewest`, which is not exported, and a second copy of it in this file
+      // is exactly the drift this codebase keeps getting bitten by. Reusing the
+      // function means the guard and the list the user sees cannot disagree.
+      //
+      // ★ HONEST LIMIT: a marker is subject to ordinary retention once it
+      // releases its group's tombstone protection, so a marker that ages out
+      // re-opens both this guard and the list together. That is a shared
+      // property of the derivation, not a hole this check introduces.
+      const stillDeleted = deletedDocumentVersions(state.versions, state.documents).some(
+        (v) => v.documentId === version.documentId,
+      );
+      if (!stillDeleted) {
+        return unchanged(state, [`document #${version.documentId} has already been restored`]);
+      }
+      // ★ The recreate is a create, so it takes the same document cap. Refusing
+      // is the kinder failure: allowing a 201st document means the next load
+      // drops one silently, and it drops the newest — which would be this one.
+      if (state.documents.length >= MAX_DOCUMENTS) return unchanged(state, [documentLimitReason()]);
       // The document is gone: recreate under a NEW id (ids are never
       // reused). This is a create, not a replace, so it writes no BEFORE-IMAGE
       // — and the version row that was restored is deliberately NOT consumed.
@@ -267,6 +411,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       if (!target) return unchanged(state, [`document #${m.id} not found`]);
       const title = capTitle(m.title);
       if (!title) return unchanged(state, ["title must not be empty"]);
+      if (state.documents.length >= MAX_DOCUMENTS) return unchanged(state, [documentLimitReason()]);
       const copy: ProjectDocument = { id: ctx.mintDocId(), title, blocks: target.blocks, createdAt: ctx.now, updatedAt: ctx.now };
       // The version is written AGAINST THE COPY (documentId = the copy's new
       // id), holding the SOURCE's title/blocks. So a revert right after
@@ -311,7 +456,21 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       const target = findTarget(state.documents, m.id);
       if (!target) return unchanged(state, [`document #${m.id} not found`]);
       const rejected: string[] = [];
-      const nextBlocks = applyOps(target.blocks, m.ops, rejected);
+      let nextBlocks = applyOps(target.blocks, m.ops, rejected);
+      // ★★ Refuse the BLOCK half only, and let a supplied title still land —
+      // the same partial-application shape `applyOps` already uses for a bad
+      // index, and what `runDocumentTool`'s "rename plus one bad op is not a
+      // refusal" clause expects. Rejecting the whole mutation here would turn
+      // every over-cap edit that also renamed into a hard failure.
+      // ★★★ THE SECOND CLAUSE IS NOT REDUNDANT: a document already over the cap
+      // (loaded from a file that carried more) must still be shrinkable, or the
+      // cap becomes a trap with no way out — every op on it, including the
+      // `delete` that would bring it back under, would be refused forever. So
+      // only GROWTH past the cap is refused.
+      if (nextBlocks !== null && nextBlocks.length > MAX_BLOCKS_PER_DOC && nextBlocks.length > target.blocks.length) {
+        rejected.push(blockLimitReason(nextBlocks.length));
+        nextBlocks = null;
+      }
       let nextTitle = target.title;
       let titleChanged = false;
       if (m.title !== undefined) {
