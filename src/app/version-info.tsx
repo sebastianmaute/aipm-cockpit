@@ -34,7 +34,7 @@ export function VersionInfoModal({
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(lang, "version")}
           </h3>
-          <IconButton onClick={onClose} label={t(lang, "alertModalClose")}>
+          <IconButton onClick={onClose} label={t(lang, "alertModalClose")} title={t(lang, "alertModalClose")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </div>

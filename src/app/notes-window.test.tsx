@@ -86,6 +86,18 @@ describe("NotesWindow", () => {
     expect(close.className).toMatch(/(^|\s)rounded-md(\s|$)/);
   });
 
+  // Class A tooltip batch: the icon-only close carries a `title` built from the
+  // SAME expression as its accessible name, so a mouse user gets the affordance
+  // the `aria-label` only ever gave AT. Sampled row — the batch is not fully
+  // pinned; see docs/tooltip-inventory.md.
+  it("gives the window close a hover title matching its accessible name", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t(EN, "close") })).toHaveAttribute(
+      "title",
+      t(EN, "close"),
+    );
+  });
+
   it("shows Edit + Delete only for notes the current user may edit", () => {
     setup(); // self = 1
     // Own note (author 1): both controls.

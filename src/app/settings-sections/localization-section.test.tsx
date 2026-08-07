@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LocalizationSection } from "./localization-section";
 import { defaultSettings } from "../settings-types";
+import { t } from "../i18n";
 
 describe("LocalizationSection", () => {
   it("changing the language select calls onChange with the new language", () => {
@@ -23,5 +24,21 @@ describe("LocalizationSection", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ holidayCountries: [firstReal.value] }),
     );
+  });
+
+  // Class A tooltip batch: the chip's ✕ is icon-only, so the row-unique
+  // accessible name is repeated as a `title` for the mouse. The fix lives in the
+  // shared `RemovableChipRow`, so it also covers Settings → Timezones. Sampled
+  // row — the batch is not fully pinned; see docs/tooltip-inventory.md.
+  it("gives the holiday-country remove button a hover title matching its accessible name", () => {
+    render(
+      <LocalizationSection
+        lang="en-US"
+        settings={{ ...defaultSettings, holidayCountries: ["DE"] }}
+        onChange={vi.fn()}
+      />,
+    );
+    const expected = `${t("en-US", "remove")} Germany`;
+    expect(screen.getByRole("button", { name: expected })).toHaveAttribute("title", expected);
   });
 });

@@ -61,6 +61,7 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
                 variant="danger"
                 onClick={() => remove(link.url)}
                 label={t(lang, "documentsRemove")}
+                title={t(lang, "documentsRemove")}
               >
                 <XMarkIcon aria-hidden="true" className="h-4 w-4" />
               </IconButton>

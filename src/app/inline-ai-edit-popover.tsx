@@ -48,7 +48,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
       >
         <div className="mb-2 flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{t(lang, "inlineAiEditTitle")}</h2>
-          <IconButton onClick={onCancel} label={t(lang, "cancel")}>
+          <IconButton onClick={onCancel} label={t(lang, "cancel")} title={t(lang, "cancel")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </div>

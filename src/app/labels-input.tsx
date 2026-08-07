@@ -119,6 +119,7 @@ export function LabelsInput({
                   removeAt(idx);
                 }}
                 aria-label={`${t(lang, "remove")} ${label}`}
+                title={`${t(lang, "remove")} ${label}`}
                 className="-mr-1 rounded-full text-muted-foreground hover:text-ui-pink"
               >
                 <XMarkIcon aria-hidden="true" className="h-3 w-3" />

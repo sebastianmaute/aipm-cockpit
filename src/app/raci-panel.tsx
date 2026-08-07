@@ -226,6 +226,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                 <IconButton
                   onClick={() => removePerson(s.id)}
                   label={t(lang, "raciFilterRemove", s.name)}
+                  title={t(lang, "raciFilterRemove", s.name)}
                 >
                   <XMarkIcon aria-hidden="true" className="h-3 w-3" />
                 </IconButton>

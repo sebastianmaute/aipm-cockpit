@@ -294,6 +294,7 @@ export function ResourceEditModal({
                   <IconButton
                     variant="danger"
                     label={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
+                    title={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
                     onClick={() => update("emails", (draft.emails ?? []).filter((_, j) => j !== i))}
                   >
                     <XMarkIcon aria-hidden="true" className="h-4 w-4" />

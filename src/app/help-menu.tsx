@@ -137,7 +137,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
                 * identically-named buttons on screen (WCAG 2.4.6). Same reason
                 * modal-header uses this key. */}
               <ResetSizeButton onClick={resetHelpSize} lang={lang} labelKey="modalResetSize" />
-              <IconButton onClick={() => setOpen(false)} label={t(lang, "close")}>
+              <IconButton onClick={() => setOpen(false)} label={t(lang, "close")} title={t(lang, "close")}>
                 <XMarkIcon aria-hidden="true" className="h-4 w-4" />
               </IconButton>
             </div>

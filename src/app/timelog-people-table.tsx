@@ -144,6 +144,7 @@ export function TimelogPeopleTable({
                   <IconButton
                     variant="dangerBordered"
                     label={removeLabel}
+                    title={removeLabel}
                     disabled={isPopout}
                     onClick={() => removeUsers([u.userId])}
                   >

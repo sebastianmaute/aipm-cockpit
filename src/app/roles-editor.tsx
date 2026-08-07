@@ -297,7 +297,7 @@ export function RolesEditor({
                     />
                   </td>
                   <td className="px-3 py-2 text-right print:hidden">
-                    <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`}>
+                    <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`} title={`${t(lang, "delete")} – ${rowCtx}`}>
                       <XMarkIcon aria-hidden="true" className="h-4 w-4" />
                     </IconButton>
                   </td>
@@ -400,6 +400,7 @@ function RefList({
             <IconButton
               variant="danger"
               label={`${t(lang, "delete")} – ${it.name}`}
+              title={`${t(lang, "delete")} – ${it.name}`}
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}
@@ -413,7 +414,7 @@ function RefList({
         <input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
           aria-label={addPlaceholder}
           className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
-        <Button variant="secondary" size="sm" onClick={onAdd} aria-label={addPlaceholder}>+</Button>
+        <Button variant="secondary" size="sm" onClick={onAdd} aria-label={addPlaceholder} title={addPlaceholder}>+</Button>
       </div>
     </div>
   );

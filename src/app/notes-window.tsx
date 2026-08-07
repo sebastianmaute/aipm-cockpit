@@ -101,7 +101,7 @@ export function NotesWindow(props: NotesWindowProps) {
         </h3>
         <div className="flex items-center gap-1">
           <ResetSizeButton onClick={resetSize} lang={lang} labelKey="modalResetSize" />
-          <IconButton onClick={onClose} label={t(lang, "close")}>
+          <IconButton onClick={onClose} label={t(lang, "close")} title={t(lang, "close")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </div>

@@ -156,6 +156,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             <IconButton
               onClick={aiAnalysis.onClear}
               label={t(lang, "actionAiDismiss")}
+              title={t(lang, "actionAiDismiss")}
               className="shrink-0"
             >
               <XMarkIcon aria-hidden="true" className="h-4 w-4" />
