@@ -11,7 +11,8 @@ import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
-import { CALENDAR_SUMMARY_KEYS, type SettingsUpdateInput } from "./chat-tools";
+import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
+import { type DocumentUpdateResult } from "./chat-tools-documents";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
@@ -1247,5 +1248,207 @@ describe("useChatDispatcher – knowledge, calendar and budget read tools", () =
   it("returns an empty list when the workspace has no budget buckets", () => {
     const { result } = renderRaidProbe();
     expect(result.current.d.listBudgetBuckets()).toEqual([]);
+  });
+});
+
+describe("useChatDispatcher – document tools", () => {
+  it("creates a document through the tool and stores it", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Charter",
+        blocks: [{ type: "heading", level: 1, text: "Charter" }],
+      });
+    });
+    expect(result.current.listDocuments()).toHaveLength(1);
+    expect(result.current.listDocuments()[0].title).toBe("Charter");
+  });
+
+  // ★★ TEST AT THE WRITE, NOT AT THE TOOL CALL — read the STORED blocks back
+  // rather than spying on runTool. S1's review found exactly this gap, and
+  // only on a cold read.
+  it("strips a script tag the model put in a paragraph before storing it", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Charter",
+        blocks: [{ type: "paragraph", html: "<p>ok</p><script>alert(1)</script>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    const stored = result.current.getDocument(id);
+    expect(stored).not.toBeNull();
+    expect(JSON.stringify(stored!.blocks)).not.toContain("script");
+    // Positive observable: the SAFE content must survive too — a sanitizer
+    // that dropped the whole block would also make the "no script" assertion
+    // pass, for the wrong reason.
+    expect(JSON.stringify(stored!.blocks)).toContain("ok");
+  });
+
+  it("refuses every write in a popout, routed through runTool", async () => {
+    const { result } = renderDispatcher([], true);
+    await expect(runTool(result.current, "delete_document", { id: 1 })).rejects.toThrow();
+  });
+
+  it("createDocument throws in a popout", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.createDocument("Charter", [])).toThrow(/read-only/);
+  });
+
+  it("updateDocument throws in a popout", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.updateDocument(1, [], "New title")).toThrow(/read-only/);
+  });
+
+  it("deleteDocument throws in a popout", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
+  });
+
+  // Seeded with REAL prior blocks — the assertion cannot pass by accident
+  // against an empty document.
+  it("leaves stored blocks untouched when every op is out of range", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [{ type: "paragraph", html: "<p>keep me</p>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    await expect(
+      runTool(result.current, "update_document", { id, ops: [{ op: "delete", index: 42 }] }),
+    ).rejects.toThrow();
+    expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
+  });
+
+  it("getDocument returns null for an unknown id", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.getDocument(999)).toBeNull();
+  });
+
+  it("listDocuments returns an empty array when the workspace has no documents", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  it("updateDocument returns null when the document does not exist", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.updateDocument(999, [], "New title")).toBeNull();
+  });
+
+  it("updateDocument applies a title-only rename with no ops", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Old title", []).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(id, [], "New title");
+    });
+    expect(out).toMatchObject({ id, title: "New title", applied: 0, rejected: [] });
+    expect(result.current.getDocument(id)!.title).toBe("New title");
+  });
+
+  it("updateDocument reports `removed` blocks after a replaceAll and sanitizes the new blocks", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [
+        { type: "paragraph", html: "<p>a</p>" },
+        { type: "paragraph", html: "<p>b</p>" },
+        { type: "paragraph", html: "<p>c</p>" },
+      ]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          {
+            op: "replaceAll",
+            blocks: [{ type: "paragraph", html: "<p>only</p><script>alert(1)</script>" }],
+          },
+        ],
+        undefined,
+      );
+    });
+    expect(out).toMatchObject({ id, applied: 1, removed: 2 });
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(JSON.stringify(stored.blocks)).not.toContain("script");
+  });
+
+  it("updateDocument reports a partial application when some ops are rejected and others succeed", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "append", block: { type: "paragraph", html: "<p>b</p>" } },
+          { op: "delete", index: 99 },
+        ],
+        undefined,
+      );
+    });
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toHaveLength(1);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(2);
+  });
+
+  it("updateDocument sanitizes an insert op's block before applying it", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          {
+            op: "insert",
+            index: 0,
+            block: { type: "paragraph", html: "<p>before</p><script>alert(1)</script>" },
+          },
+        ],
+        undefined,
+      );
+    });
+    expect(out).toMatchObject({ applied: 1, rejected: [] });
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(JSON.stringify(stored.blocks)).not.toContain("script");
+    expect(JSON.stringify(stored.blocks)).toContain("before");
+  });
+
+  it("deleteDocument returns deleted:false and no restorableVersionId for an unknown id", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.deleteDocument(999)).toEqual({ deleted: false, restorableVersionId: null });
+  });
+
+  it("deleteDocument reports a restorableVersionId on success and removes the document", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", []).id;
+    });
+    let out: { deleted: boolean; restorableVersionId: number | null } = {
+      deleted: false,
+      restorableVersionId: null,
+    };
+    act(() => {
+      out = result.current.deleteDocument(id);
+    });
+    expect(out.deleted).toBe(true);
+    expect(out.restorableVersionId).not.toBeNull();
+    expect(result.current.getDocument(id)).toBeNull();
   });
 });

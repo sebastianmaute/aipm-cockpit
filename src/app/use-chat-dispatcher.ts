@@ -47,6 +47,7 @@ import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { useWorkspace } from "./workspace-context";
+import { useDocumentTools } from "./use-document-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 export type { ChatDispatcherArgs };
 
@@ -233,8 +234,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const readOnlyError = () =>
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
+  const documentTools = useDocumentTools(args.isReadOnly);
+
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
+      ...documentTools,
       listTasks: () => tasksRef.current,
       getTask: (id) => tasksRef.current.find((row) => row.id === id) ?? null,
       createTask: (input) => {
@@ -743,12 +747,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listCalendarEvents: () => (calendarEventsRef.current ?? []).map(toCalendarEventSummary),
       listBudgetBuckets: () => (budgetsRef.current ?? []).map(toBudgetBucketSummary),
     }),
-    // Empty deps: every reactive value is read via a ref. Identity is stable.
+    // Empty deps otherwise: every reactive value is read via a ref. Identity is
+    // stable. `documentTools` is a REAL dep, not a ref-routed value — it is
+    // itself a useMemo'd object (use-document-tools.ts) that changes identity
+    // when isReadOnly/mutateDocuments change, and the spread above captures it
+    // by closure; omitting it here would freeze the FIRST render's document
+    // tools into every later dispatcher even after a popout toggled read-only.
     // Note: when Task 6 lands, audit whether any captured value still needs
     // ref-routing; the eslint-disable stays as long as the empty-deps approach
-    // is intentional.
+    // is intentional for everything else.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly],
+    [args.isReadOnly, documentTools],
   );
 
   return dispatcher;
