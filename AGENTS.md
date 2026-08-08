@@ -721,12 +721,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **Rich-text register descriptions (0.209.0 "Lafferty"):** SIX more fields joined `Task.description`
   as rich HTML — RAID `description` + `mitigation`, Change `description` + `impactDescription` +
   `resolutionNotes`, Milestone `description`. Same lean `RichTextEditor`, same `sanitizeNoteHtml`
-  allow-list. Two pure modules, split by ONE axis — whether the code may touch a DOM:
+  allow-list. THREE pure modules, split by ONE axis — whether the code may touch a DOM:
   • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
   `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
   • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
   upgrade) for every NON-DOM consumer, `descriptionTextWithBreaks` (the EXPORT projection), and
   `appendDictationToHtml`.
+  • `rich-text-runs.ts` — **browser-only** (DOMParser). `htmlToRichLines`: HTML → styled runs, shared
+  by `doc-render-docx.ts` + `doc-render-pptx.ts` so the two OOXML renderers cannot drift.
   ★★ **TWO projections, and exports use the SECOND one.** `descriptionText` COLLAPSES a block
   boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an export
   a human reads, where a three-paragraph description arrived as one run-on line.
@@ -803,6 +805,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   distinction; swapping the sanitizer fails it. ★ The helper lives in its OWN module because it calls
   DOMPurify — putting it in `rich-text-plain.ts` would break the DOM-free guarantee that module's guard
   exists to protect.
+  ★★ THERE IS A THIRD ALLOW-LIST AND IT IS NOT INTERCHANGEABLE: model-authored DOCUMENT paragraph HTML
+  goes through `sanitizeAiDocumentRichText` → `sanitizeDocumentHtml`, which is WIDER (adds
+  `s`/`code`/`pre`/`blockquote`/`hr`/`mark`/`sub`/`sup`/`img`). Wiring a document boundary to
+  `sanitizeAiRichText` instead silently drops all nine at the write (unwrapped, keeping their text — except
+  `img`, which is void and simply vanishes); `sanitizeTemplateHtml` must stay
+  narrow because it guards the six rich entity fields. Details in
+  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
   ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
   ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
   it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four

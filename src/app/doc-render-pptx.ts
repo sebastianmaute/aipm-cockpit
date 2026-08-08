@@ -350,9 +350,11 @@ const SUBSCRIPT_PCT = -25000;
  *  that every `<a:srgbClr>` in a slide part is one of them — unlike the
  *  repo-wide palette sweep, which scans CSS and cannot see OOXML, that test is
  *  a real gate over this renderer, and shipping FFFF00 here would mean either
- *  breaking it or carving out an exemption. 84BD00 also measures 7.8:1 against
- *  the body text colour (COLOR_TEXT on the master's body style), so the
- *  highlighted words stay readable rather than merely marked.
+ *  breaking it or carving out an exemption. 84BD00 also measures 7.67:1 against
+ *  the body text colour (COLOR_TEXT = 1A1A1A, on the master's body style), so
+ *  the highlighted words stay readable rather than merely marked. (WCAG 2.x
+ *  relative luminance, recomputed 2026-08-08: 7.674599…, i.e. 7.67 — an earlier
+ *  revision quoted 7.8, which rounds the wrong way and was never derived.)
  *  ★ ACCEPTED COST: the same document's highlight is yellow in its .docx and
  *  its printed PDF (where `doc-render-html.ts` leaves `<mark>` to the browser
  *  default) and AIPM green in its .pptx. Symmetry across the three renderings

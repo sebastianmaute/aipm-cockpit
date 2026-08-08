@@ -123,15 +123,29 @@ function para(text: string, style?: string): string {
  *  ★★ HIGHLIGHT — DECISION, NOT OVERSIGHT. `w:highlight` takes Word's fixed
  *  `ST_HighlightColor` enum ("yellow", "cyan", …); it is a CLOSED list of named
  *  values and no AIPM brand colour is expressible in it — an arbitrary hex is not
- *  legal here at all. The repo's palette rule is enforced by a CSS-scanning
- *  gate that cannot see OOXML, so either choice ships silently. Yellow is kept
- *  because (a) it is a document-FORMAT enum, the .docx equivalent of the UA
- *  default every browser paints `<mark>` with — and `doc-render-html.ts` emits
- *  that very `<mark>` unstyled, so a brand-tinted `w:shd` here would make the
- *  SAME document's highlight differ between its PDF and its .docx; (b) the
- *  palette rule governs app chrome, and this is the reader's document, not ours.
- *  If a brand tint is ever wanted, it is `<w:shd w:fill="…"/>` (which sorts
- *  between `w:u` and `w:vertAlign`), not a new `w:highlight` value. */
+ *  legal here at all. That, alone, is why yellow stands: it is the closest
+ *  member of the enum to the UA default every browser paints `<mark>` with, and
+ *  `doc-render-html.ts` emits that very `<mark>` unstyled, so .docx and the
+ *  printed PDF agree.
+ *
+ *  ★★ IT DOES NOT AGREE WITH THE .pptx, AND THAT IS DELIBERATE — the sibling
+ *  `HIGHLIGHT_RGB` in `doc-render-pptx.ts` is the AIPM green `COLOR_GREEN`,
+ *  because DrawingML's `<a:highlight>` takes a REAL colour (so the "not
+ *  expressible" argument above simply does not apply there) and because
+ *  `doc-render-pptx.test.ts` enforces a palette check over every `<a:srgbClr>`
+ *  in a slide part, which a hardcoded FFFF00 would fail. So the two renderers
+ *  differ on the CAPABILITY of their formats, not on taste, and the same
+ *  document's highlight is yellow in Word and green in PowerPoint. Read that
+ *  sibling's comment before "unifying" them.
+ *  ★ Two reasons an earlier revision of this block gave are RETIRED because the
+ *  sibling contradicts them: that yellow keeps one document's highlight
+ *  consistent across renderings (it does not — the .pptx is green), and that
+ *  the palette rule is a chrome-only rule that stops at the reader's document
+ *  (it does not — that PPTX test is a real, enforced palette gate over OOXML;
+ *  only the repo-wide CSS sweep is blind here).
+ *
+ *  If a brand tint is ever wanted in Word, it is `<w:shd w:fill="…"/>` (which
+ *  sorts between `w:u` and `w:vertAlign`), not a new `w:highlight` value. */
 const DOCX_MARK_RPR: Record<RunMark, { rank: number; xml: string }> = {
   code: { rank: 0, xml: `<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/>` },
   bold: { rank: 1, xml: `<w:b/>` },

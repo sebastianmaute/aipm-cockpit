@@ -32,12 +32,19 @@
 // Preview, which reuses doc-render-html's preview mode precisely so it inherits
 // the same re-sanitize). Naming only the first reads as an exhaustive citation
 // and is how a reader concludes the modal is a separate, unguarded path.
-// doc-render-docx.ts and
-// doc-render-pptx.ts both route paragraph.html through
-// descriptionTextWithBreaks (a plain-text projection, never OOXML markup) and
-// treat every other block's fields as plain runs too. So sanitizing only
-// `paragraph` blocks is complete — there is no second rich field in the
-// DocBlock union that reaches a render sink as markup.
+// The two OOXML renderers agree: doc-render-docx.ts (`richParas`) and
+// doc-render-pptx.ts (`blockLines`) BOTH parse paragraph.html with
+// htmlToRichLines and emit markup-derived runs from it, and BOTH hand every
+// other block's fields — heading.text, bullets.items, table columns/rows/
+// caption, the resolved dataSection — to the plain-string paths (`para`,
+// `buildDocxTable`, `tableLines`), which escape rather than interpret. So
+// sanitizing only `paragraph` blocks is complete: it is the only DocBlock field
+// any renderer treats as markup at all.
+// ★ An earlier revision of this paragraph justified the same conclusion with
+// "both route paragraph.html through descriptionTextWithBreaks (a plain-text
+// projection, never OOXML markup)". That was true when written and is now
+// FALSE — neither renderer imports that helper any more. The conclusion held;
+// the evidence for it did not.
 import { sanitizeAiDocumentRichText } from "./ai-rich-text";
 import { sanitizeProjectDocuments, type DocBlock } from "./document-model";
 
