@@ -572,6 +572,8 @@ export const de: Record<TranslationKey, string> = {
   budgetCellActual: "Ist",
   budgetTotal: "Gesamt",
   budgetRoleStatus: "Status",
+  budgetShowPeople: "Personen anzeigen",
+  budgetPeopleFigureHint: "Gebuchte / geplante Stunden",
   budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Verbleibende Stunden",
   burndownBudgetRemaining: "Verbleibendes Budget",

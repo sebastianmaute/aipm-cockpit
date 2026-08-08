@@ -867,3 +867,100 @@ test("the FX refresh control renders as a bordered secondary button", () => {
   expect(btn.className).not.toContain("border-ui-dark-blue");
   expect(btn.className).not.toContain("text-ui-dark-blue");
 });
+
+describe("BudgetPanel — per-person booking rows", () => {
+  const peopleDisciplines = [{ id: 1, name: "Design" }, { id: 2, name: "Build" }];
+  const peopleGrades = [{ id: 1, name: "Senior" }];
+  const peopleRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 2, gradeId: 1, internalRate: 100, externalRate: 150 },
+  ];
+  const peopleResources: Resource[] = [
+    { id: 5, firstName: "Ada", lastName: "L", roleId: 3, utilizationMode: "percent", utilization: { "2026-01": 100 } },
+  ];
+  // TWO role lines, so the row-uniqueness of the trigger name is observable —
+  // with one line every accessible-name collision test passes vacuously, which
+  // is exactly how the axe gate misses this class.
+  const peopleBuckets: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [
+      { roleId: 3, resourceIds: [5], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } },
+      { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: { "2026-01": 10 } },
+    ],
+  }];
+  const renderPeople = (actualsByBucket?: Record<number, Record<string, { hours: number; billableHours: number; byResource?: Record<number, { hours: number; billableHours: number }> }>>) =>
+    render(
+      <BudgetPanel {...props} buckets={peopleBuckets} roles={peopleRoles}
+        disciplines={peopleDisciplines} grades={peopleGrades} resources={peopleResources}
+        actualsByBucket={actualsByBucket} />,
+    );
+
+  test("each role line's label is a disclosure trigger with a row-unique name", () => {
+    renderPeople();
+    const triggers = screen.getAllByRole("button", { name: /Show people/ });
+    expect(triggers).toHaveLength(2);
+    // The two names must DIFFER — N identical "Show people" names is WCAG 2.4.6
+    // and axe reports missing names, never duplicate ones.
+    const names = triggers.map((b) => b.getAttribute("aria-label"));
+    expect(new Set(names).size).toBe(2);
+    expect(names[0]).toContain("Design Senior");
+    // The visible label still names the ROLE, and the accessible name states
+    // what pressing ENABLES — it must not flip to "Hide people" when expanded.
+    expect(triggers[0]).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(triggers[0]);
+    expect(screen.getAllByRole("button", { name: /Show people/ })[0]).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("the collapsed people body stays in the DOM so aria-controls resolves", () => {
+    const { container } = renderPeople();
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    const targetId = trigger.getAttribute("aria-controls")!;
+    const body = container.querySelector(`#${CSS.escape(targetId)}`);
+    expect(body).not.toBeNull();
+    expect(body).toHaveAttribute("hidden");
+    fireEvent.click(trigger);
+    expect(container.querySelector(`#${CSS.escape(targetId)}`)).not.toHaveAttribute("hidden");
+  });
+
+  // ★★★ The people body is a SIBLING tbody of the role row's, never a tbody
+  //     NESTED inside another one. Measured in Chromium via a DOM-built
+  //     about:blank probe: React builds the nested shape verbatim (only the HTML
+  //     parser reparents it, and this panel is `ssr: false`), and Chromium then
+  //     lays the inner tbody out as its own anonymous table — its second cell
+  //     landed at x=29 where the row above had it at x=220. jsdom has no layout,
+  //     so this structural assertion is the ONLY thing standing between a future
+  //     refactor and a silently destroyed column grid.
+  test("mounts the people rows as a sibling tbody, not nested inside one", () => {
+    const { container } = renderPeople();
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
+    expect(body.tagName).toBe("TBODY");
+    expect(body.parentElement?.tagName).toBe("TABLE");
+    // …and the role row above it sits in its own tbody, also directly in the table.
+    for (const tbody of container.querySelectorAll("tbody")) {
+      expect(tbody.parentElement?.tagName).toBe("TABLE");
+    }
+  });
+
+  test("booked reads as unknown, never zero, when no actuals breakdown is supplied", () => {
+    const { container } = renderPeople();
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    fireEvent.click(trigger);
+    const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
+    // Ada is on the plan line, so planned is real (176 workday hours at 100 %)
+    // while booked is "—": the panel has no per-resource breakdown to report.
+    const cells = [...body.querySelectorAll("td")].map((td) => td.textContent);
+    expect(cells[1]).toBe("Ada L");
+    expect(cells[2]).toBe("— / 176");
+  });
+
+  test("booked reports the per-resource breakdown when one is supplied", () => {
+    const { container } = renderPeople({
+      1: { "2026-01": { hours: 6, billableHours: 6, byResource: { 5: { hours: 6, billableHours: 6 } } } },
+    });
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    fireEvent.click(trigger);
+    const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
+    expect([...body.querySelectorAll("td")].map((td) => td.textContent)[2]).toBe("6 / 176");
+  });
+});

@@ -569,6 +569,8 @@ const enUS = {
   budgetCellActual: "Actual",
   budgetTotal: "Total",
   budgetRoleStatus: "Status",
+  budgetShowPeople: "Show people",
+  budgetPeopleFigureHint: "Booked / planned hours",
   budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Hours remaining",
   burndownBudgetRemaining: "Budget remaining",

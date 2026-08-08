@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
@@ -7,7 +7,9 @@ import { computeBudgetReport, bucketActivePeriods, effectiveBudgetHours, costIsK
 import { CostUnknownNotice } from "./budget-cost-notice";
 import { bucketPercentComplete } from "./budget-earned-value";
 import { describeClamp } from "./sanitize-report";
-import type { Period } from "./resource-capacity";
+import { generatePeriods, type Period } from "./resource-capacity";
+import { BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod } from "./budget-panel-people-rows";
+import type { ActualsByBucket } from "./timelog-actuals";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
@@ -131,6 +133,13 @@ export interface BudgetPanelProps {
   today: string;
   /** Tasks available to the bucket editor's "linked tasks" picker (earned value). */
   tasks?: readonly Task[];
+  /** Per-bucket, per-period Timelog actuals carrying the `byResource` breakdown
+   *  the per-person rows report as BOOKED. Optional, and its absence is not a
+   *  zero: a period with no breakdown renders "—" (unknown) all the way down.
+   *  ★ NOT wired by `workspace-section` today — the aggregate lives in
+   *  `useTimelogSync` inside `timelog-panel.tsx` and in the per-device
+   *  `timelog-actuals-store` cache keyed by `projectKey`. */
+  actualsByBucket?: ActualsByBucket;
   onChangeBuckets: (next: BudgetBucket[], meta?: BucketCommitMeta) => void;
   onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
@@ -175,6 +184,9 @@ function cpiCciValue(earnedValue: number | null, costPerformanceIndex: number | 
   return { amount: earnedValue ?? 0, percent: costPerformanceIndex === null ? null : costPerformanceIndex * 100 };
 }
 
+/** Module-level so the default is one stable identity, not a fresh `{}` per render. */
+const NO_ACTUALS: ActualsByBucket = {};
+
 function nextBucketId(buckets: readonly BudgetBucket[]): number {
   return mintId("budgetBucket", buckets);
 }
@@ -187,7 +199,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, tasks = [] } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, tasks = [], actualsByBucket = NO_ACTUALS } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
 
@@ -228,6 +240,30 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const [roleFilter, setRoleFilter] = useState("");
   const [bucketFilter, setBucketFilter] = useState("");
   const [roleSort, setRoleSort] = useState<SortDir>("off");
+
+  // `bucketId:roleId` keys. Collapsed by default and deliberately NOT persisted:
+  // this is a momentary "who is behind this line?", not a view preference.
+  const [openPeople, setOpenPeople] = useState<ReadonlySet<string>>(() => new Set());
+  const togglePeople = useCallback((key: string) => {
+    setOpenPeople((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  // ONE derivation per render, over the plan's FULL period list — each bucket's
+  // `bucketActivePeriods` is a filtered subset of it, so this map covers every
+  // bucket by period key and no role line rebuilds it. Scalars hoisted for
+  // exhaustive-deps (no `obj.member` in a dep array).
+  const planStart = plan.startDate;
+  const planEnd = plan.endDate;
+  const plannedByResourcePeriod = useMemo(
+    () => buildPlannedByResourcePeriod(
+      resources, absences, generatePeriods(planStart, planEnd, granularity), workdayHours, holidaySet,
+    ),
+    [resources, absences, planStart, planEnd, granularity, workdayHours, holidaySet],
+  );
 
   const bucketQuery = bucketFilter.trim().toLowerCase();
   const visibleBuckets = bucketQuery
@@ -535,6 +571,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   // leftover to spread; the cost is that a short plan no longer
                   // stretches to fill the pane.
                   className="w-max text-xs"
+                  // The role rows carry per-role people disclosures, whose
+                  // aria-controls target has to be a `<tbody>` — so this table
+                  // owns its bodies (a tbody inside DataTable's own tbody drops
+                  // off the column grid entirely; see `ownBodies`).
+                  ownBodies
                   head={<>
                     <tr>
                       <th
@@ -598,10 +639,20 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
                       const totActual = sumPeriods(a.actualHours, periods);
                       const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
+                      const label = roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`;
+                      const openKey = `${bucket.id}:${a.roleId}`;
+                      const open = openPeople.has(openKey);
                       return (
-                      <tr key={a.roleId} className="border-t border-line">
+                      <Fragment key={a.roleId}>
+                      <tbody>
+                      <tr className="border-t border-line">
                         <BucketRowLeadCells
-                          label={roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}
+                          label={
+                            <PeopleDisclosureLabel
+                              lang={lang} label={label} bucketId={bucket.id} roleId={a.roleId}
+                              open={open} onToggle={() => togglePeople(openKey)}
+                            />
+                          }
                           budget={totBudget} actual={totActual} lang={lang} roleWidth={colWidths.role}
                         />
                         {periods.map((p) => (
@@ -619,9 +670,21 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           />
                         ))}
                       </tr>
+                      </tbody>
+                      <BucketRolePeople
+                        bucketId={bucket.id}
+                        allocation={a}
+                        resources={resources}
+                        actualsByPeriod={actualsByBucket[bucket.id] ?? {}}
+                        plannedByResourcePeriod={plannedByResourcePeriod}
+                        periods={periods}
+                        collapsed={!open}
+                        roleWidth={colWidths.role}
+                      />
+                      </Fragment>
                       );
                     })}
-                    {isBlended && blendedRows.map((a) => {
+                    {isBlended && <tbody>{blendedRows.map((a) => {
                       // Effective budget (mirrors planned when follow-plan is on) so the
                       // row RAG agrees with the cells + bucket dot — not the stored hours.
                       const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
@@ -652,15 +715,17 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         ))}
                       </tr>
                       );
-                    })}
+                    })}</tbody>}
                     {rowsForTotals.length > 0 && (
-                      <BucketTotalRow
-                        columns={totals.columns}
-                        grandBudget={totals.grandBudget}
-                        grandActual={totals.grandActual}
-                        lang={lang}
-                        roleWidth={colWidths.role}
-                      />
+                      <tbody>
+                        <BucketTotalRow
+                          columns={totals.columns}
+                          grandBudget={totals.grandBudget}
+                          grandActual={totals.grandActual}
+                          lang={lang}
+                          roleWidth={colWidths.role}
+                        />
+                      </tbody>
                     )}
                 </DataTable>
               </div>
