@@ -68,10 +68,10 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
               className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
             />
             <div className="mt-2 flex justify-end">
-              {/* ★ No longer `type="submit"` — AiTriggerButton is the shared
-                  primitive and renders a plain button. The `<form onSubmit>`
-                  above is kept for IMPLICIT submission: this form holds exactly
-                  one text field, so Enter still submits it per the HTML spec.
+              {/* ★ Keep `type="submit"` EXPLICIT. Enter would also submit this
+                  form implicitly today (it holds exactly one text field), but
+                  that is a property of the form's contents, not of this code —
+                  a second input added later would silently break Enter.
                   ★ `busy` is `"thinking"` alone; `"applying"` is a local commit,
                   not a stoppable Claude call, so it stays disabled as before. */}
               <AiTriggerButton
@@ -80,6 +80,8 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
                 onRun={() => { if (value.trim()) onSubmit(value.trim()); }}
                 onCancel={onCancel}
                 idleLabelKey="inlineAiEdit"
+                type="submit"
+                size="sm"
                 disabled={phase === "applying" || !value.trim()}
               />
             </div>

@@ -267,9 +267,11 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   //   (`onPropose`). So `busy` is `"thinking"` alone: the other non-idle phases
   //   ("input"/"preview"/"applying") kept the trigger DISABLED before and still
   //   do, because none of them is a stoppable Claude call.
-  // ★ The longer `allocPlanTitle` sentence, which used to ride `title` as the
-  //   accessible DESCRIPTION, is gone — AiTriggerButton pins `title` to the
-  //   label so the visible text and the name can never diverge (WCAG 2.5.3).
+  // ★ The accessible NAME stays the visible label ("Plan with AI"); the longer
+  //   `allocPlanTitle` sentence rides `description` → `title`, the accessible
+  //   DESCRIPTION. Naming the button with the long sentence would fail WCAG
+  //   2.5.3 (the visible string is not contained in it); dropping the sentence
+  //   entirely would lose real disclosure for screen-reader users.
   const button = enabled ? (
     <AiTriggerButton
       lang={lang}
@@ -278,6 +280,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       onCancel={reset}
       idleLabelKey="allocPlan"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
+      description={t(lang, "allocPlanTitle")}
       disabled={phase !== "idle" && phase !== "thinking"}
     />
   ) : null;

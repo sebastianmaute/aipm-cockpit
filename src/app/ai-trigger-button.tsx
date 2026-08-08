@@ -1,7 +1,7 @@
 "use client";
 import { type ReactNode } from "react";
 import { StopIcon } from "@heroicons/react/24/outline";
-import { Button } from "./button";
+import { Button, type ButtonSize, type ButtonVariant } from "./button";
 import { t, type Lang, type TranslationKey } from "./i18n";
 
 /**
@@ -24,6 +24,10 @@ export function AiTriggerButton({
   idleLabelKey,
   idleIcon,
   nameQualifier,
+  description,
+  variant = "secondary",
+  size = "xs",
+  type = "button",
   disabled,
   className,
 }: {
@@ -49,6 +53,34 @@ export function AiTriggerButton({
    *   CONTAINED in the name, so a speech user saying what they see matches.
    */
   nameQualifier?: string;
+  /**
+   * A longer sentence for `title` — the accessible DESCRIPTION — while
+   * `aria-label` keeps the short visible label as the NAME. Same split
+   * `ResourcePicker` uses. Without it, a site whose trigger carried a fuller
+   * explanation (allocPlanTitle, "Plan resource allocations with AI") silently
+   * loses that disclosure for screen-reader users on the way to this component.
+   *
+   * ★ IDLE ONLY. While busy the description would still describe RUNNING the
+   *   feature, on a control that now stops it — so `title` falls back to the
+   *   name ("Stop"), which is what the click actually does.
+   */
+  description?: string;
+  /** Defaults to the secondary/xs treatment every trigger had before this
+   *  component existed. ★ A pane's PRIMARY action must pass its own
+   *  `variant="primary"`/`size` — silently restyling a primary CTA down to a
+   *  secondary xs button is a UI regression, and AGENTS.md's toolbar
+   *  convention has the primary action leading the control row. */
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  /**
+   * ★ Pass `"submit"` when the trigger sits in a `<form>` that relies on it.
+   *   `Button` defaults to `type="button"`, so without this a submit control
+   *   silently becomes a plain one. Implicit submission (Enter) would still
+   *   work while the form holds exactly ONE field — but that is a property of
+   *   the form's current contents, not of this code: add a second input and
+   *   Enter stops submitting, with nothing failing anywhere.
+   */
+  type?: "button" | "submit";
   disabled?: boolean;
   className?: string;
 }) {
@@ -56,11 +88,12 @@ export function AiTriggerButton({
   const name = nameQualifier ? `${label} – ${nameQualifier}` : label;
   return (
     <Button
-      variant="secondary"
-      size="xs"
+      variant={variant}
+      size={size}
+      type={type}
       onClick={busy ? onCancel : onRun}
       aria-label={name}
-      title={name}
+      title={!busy && description ? description : name}
       // ★ A real `disabled` attribute, never an `aria-disabled` lookalike —
       //   the lookalike still fires onClick, which here would start a billed
       //   AI call from a control the surface had switched off.

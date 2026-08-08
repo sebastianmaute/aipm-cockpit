@@ -94,6 +94,10 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
           </div>
           {aiAnalysis?.enabled && (
+            // ★ variant/size are PASSED, not defaulted: this is the pane's
+            //   primary action and leads the control row (AGENTS.md's toolbar
+            //   convention). Letting it fall back to the component's
+            //   secondary/xs default would restyle a primary CTA by accident.
             <AiTriggerButton
               lang={lang}
               busy={aiAnalysis.busy}
@@ -101,6 +105,8 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               onCancel={aiAnalysis.onCancel}
               idleLabelKey="actionAiAnalyze"
               idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
+              variant="primary"
+              size="sm"
               className="shrink-0 print:hidden"
             />
           )}
