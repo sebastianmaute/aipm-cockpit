@@ -642,6 +642,75 @@ describe("undoThrough", () => {
     act(() => { result.current.api.redo(); });
     expect(result.current.rows).toEqual([{ id: 1, name: "b" }]);
   });
+
+  it("names the single entry instead of counting it when only one is reverted", () => {
+    const deps = makeMockDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => {
+      result.current.capture({
+        setter: vi.fn(), kind: "task.deleted", name: "Design review",
+        removed: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }],
+      });
+    });
+    deps.showToast.mockClear();
+    act(() => { result.current.undoThrough(result.current.stack[0].id); });
+    // Same shape a plain undo() produces — not "Undid 1 action(s)".
+    expect(deps.showToast).toHaveBeenCalledWith("info", 'Undone: Delete task "Design review"');
+  });
+});
+
+// ★★★ A GUARD FOR AN INVARIANT THE PRODUCTION CODE ALREADY HOLDS: the entries'
+// runners are invoked in a plain `.map` BEFORE any setState, never inside a
+// setState updater. React double-invokes updaters under StrictMode, so moving
+// `e.run()` back inside `setStack`/`setRedoStack` would apply all N restores
+// TWICE — and every other test in this file renders without StrictMode, so all
+// of them stay green through that change.
+//
+// ★★ SHAPE MATTERS (`src/app/strictmode.meta.test.tsx`): `reactStrictMode: true`
+// leaves nothing between the root and StrictMode, so the double-invoke really
+// happens here. A composed `wrapper: ({children}) => <StrictMode>{children}</StrictMode>`
+// does NOT double-invoke on the mount commit and would make this vacuous-but-green.
+//
+// ★ The observable is the SETTER CALL COUNT, not the resulting array: a restore
+// is idempotent against a fixed `prev`, so a doubled run is invisible in the
+// final rows but unmistakable in how many updates were queued.
+describe("through-undo runners execute OUTSIDE setState updaters (StrictMode)", () => {
+  function captureTwoDeletes(api: ReturnType<typeof useUndoStack>, setter: () => void) {
+    api.capture({
+      setter, kind: "task.deleted",
+      removed: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }],
+    });
+    api.capture({
+      setter, kind: "task.deleted",
+      removed: [{ id: 3, name: "c" }], fromArray: [{ id: 1, name: "a" }, { id: 3, name: "c" }],
+    });
+  }
+
+  it("runs each entry's undo exactly ONCE (undoThrough)", () => {
+    const setter = vi.fn();
+    const { result } = renderHook(() => useUndoStack(makeMockDeps()), { reactStrictMode: true });
+    act(() => { captureTwoDeletes(result.current, setter); });
+    expect(result.current.stack).toHaveLength(2);
+    setter.mockClear();
+
+    act(() => { result.current.undoThrough(result.current.stack[0].id); });
+
+    // Two entries ⇒ two restores. Inside an updater this is 4 under StrictMode.
+    expect(setter).toHaveBeenCalledTimes(2);
+  });
+
+  it("runs each entry's redo exactly ONCE (redoThrough)", () => {
+    const setter = vi.fn();
+    const { result } = renderHook(() => useUndoStack(makeMockDeps()), { reactStrictMode: true });
+    act(() => { captureTwoDeletes(result.current, setter); });
+    act(() => { result.current.undoThrough(result.current.stack[0].id); });
+    expect(result.current.redoStack).toHaveLength(2);
+    setter.mockClear();
+
+    act(() => { result.current.redoThrough(result.current.redoStack[0].id); });
+
+    expect(setter).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("redoThrough", () => {

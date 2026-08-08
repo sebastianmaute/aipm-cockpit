@@ -47,7 +47,7 @@ describe("UndoControl", () => {
   // preview is gone; the caret now opens the multi-step history.
   it("caret toggles the history popover", async () => {
     renderUndo();
-    const caret = screen.getByRole("button", { name: t("en-US", "undoShowNext") });
+    const caret = screen.getByRole("button", { name: t("en-US", "undoShowHistory") });
     expect(caret).toHaveAttribute("aria-haspopup");
     expect(caret).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(caret);
@@ -66,7 +66,7 @@ describe("UndoControl", () => {
         onUndoThrough={vi.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: t("en-US", "undoShowNext") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "undoShowHistory") })).toBeInTheDocument();
   });
 });
 
@@ -100,7 +100,7 @@ describe("RedoControl", () => {
     render(
       <RedoControl lang="en-US" entries={STACK} onRedo={vi.fn()} onRedoThrough={onRedoThrough} />,
     );
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "redoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "redoShowHistory") }));
     // Display order is newest-first, so the last option is the OLDEST entry, id 1.
     await userEvent.click(screen.getAllByRole("option")[2]);
     expect(onRedoThrough).toHaveBeenCalledWith(1);
@@ -110,7 +110,7 @@ describe("RedoControl", () => {
 describe("UndoControl history listbox", () => {
   it("lists every entry newest-first inside a listbox", async () => {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     const options = screen.getAllByRole("option");
     expect(options).toHaveLength(3);
     expect(options[0]).toHaveTextContent("Delete 2 tasks");
@@ -118,14 +118,14 @@ describe("UndoControl history listbox", () => {
 
   it("gives duplicate labels UNIQUE accessible names by stack position", async () => {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     const names = screen.getAllByRole("option").map((o) => o.getAttribute("aria-label"));
     expect(new Set(names).size).toBe(names.length);
   });
 
   it("hovering row n marks rows 0..n as banded and updates the footer count", async () => {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     const options = screen.getAllByRole("option");
     await userEvent.hover(options[2]);
     expect(options.filter((o) => o.getAttribute("data-banded") === "true")).toHaveLength(3);
@@ -134,7 +134,7 @@ describe("UndoControl history listbox", () => {
 
   it("marks ONLY the active option aria-selected, not the whole band", async () => {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     const options = screen.getAllByRole("option");
     await userEvent.hover(options[2]);
     expect(options.filter((o) => o.getAttribute("aria-selected") === "true")).toHaveLength(1);
@@ -143,7 +143,7 @@ describe("UndoControl history listbox", () => {
 
   it("arrow keys move the active option and Enter commits through it", async () => {
     const { onUndoThrough } = renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
     // Display order is newest-first, so index 2 is the OLDEST entry, id 1.
     expect(onUndoThrough).toHaveBeenCalledWith(1);
@@ -151,7 +151,7 @@ describe("UndoControl history listbox", () => {
 
   it("exposes one tab stop, driving the active option via aria-activedescendant", async () => {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     const list = screen.getByRole("listbox");
     expect(list).toHaveAttribute("aria-activedescendant");
     expect(screen.getAllByRole("option").every((o) => o.getAttribute("tabindex") === null)).toBe(true);
@@ -194,7 +194,7 @@ describe("UndoControl history listbox — active-option scroll", () => {
 
   it("scrolls the newly-active option into view on an arrow move", async () => {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     // Opening alone must not scroll — index 0 is at the top of a fresh list.
     expect(scrolls).toEqual([]);
     await userEvent.keyboard("{ArrowDown}");
@@ -205,7 +205,7 @@ describe("UndoControl history listbox — active-option scroll", () => {
 
   it("does NOT scroll when the active option moves by HOVER", async () => {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     const options = screen.getAllByRole("option");
     await userEvent.hover(options[2]);
     // The hover DID take effect — otherwise this asserts nothing.
@@ -225,7 +225,7 @@ describe("UndoControl history listbox — active-option scroll", () => {
 describe("UndoControl history listbox — keyboard position survives a pointerless mouseenter", () => {
   async function openList() {
     renderUndo();
-    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
     return screen.getAllByRole("option");
   }
 
@@ -256,5 +256,142 @@ describe("UndoControl history listbox — keyboard position survives a pointerle
     const options = await openList();
     fireEvent.mouseEnter(options[1]);
     expect(options[1]).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+// ★★★ THE STACK CAN SHRINK UNDER AN OPEN PANEL. `use-undo-hotkey` listens on
+// `document` and skips only INPUT/TEXTAREA/SELECT/contenteditable — the focused
+// listbox <ul> is none of those — so Ctrl/⌘+Z (and Ctrl+Y / Ctrl+Shift+Z on the
+// redo control) pops an entry while this list is open and `activeIndex` keeps
+// pointing past the end. The rerender below IS that event: same open panel,
+// fewer entries.
+describe("UndoControl history listbox — a shrinking stack", () => {
+  it("clamps the active option, the footer count and aria-activedescendant", async () => {
+    const onUndoThrough = vi.fn();
+    const { rerender } = render(
+      <UndoControl lang="en-US" entries={STACK} onUndo={vi.fn()} onUndoThrough={onUndoThrough} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
+    await userEvent.keyboard("{End}");
+    // Setup proof: the index really is at the last row before the stack shrinks.
+    expect(screen.getByText(t("en-US", "undoNActions", 3))).toBeInTheDocument();
+
+    rerender(
+      <UndoControl
+        lang="en-US"
+        entries={STACK.slice(0, 2)}
+        onUndo={vi.fn()}
+        onUndoThrough={onUndoThrough}
+      />,
+    );
+
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(2);
+    // The footer is the half `options[activeIndex]?.id` would NOT fix: without
+    // the clamp it still reads "Undo 3 action(s)" over two rows.
+    expect(screen.getByText(t("en-US", "undoNActions", 2))).toBeInTheDocument();
+    expect(screen.getByRole("listbox")).toHaveAttribute(
+      "aria-activedescendant",
+      options[1].getAttribute("id"),
+    );
+    expect(options.filter((o) => o.getAttribute("aria-selected") === "true")).toHaveLength(1);
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("commits through the LAST REMAINING entry on Enter instead of throwing", async () => {
+    const onUndoThrough = vi.fn();
+    const { rerender } = render(
+      <UndoControl lang="en-US" entries={STACK} onUndo={vi.fn()} onUndoThrough={onUndoThrough} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
+    await userEvent.keyboard("{End}");
+    rerender(
+      <UndoControl
+        lang="en-US"
+        entries={STACK.slice(0, 2)}
+        onUndo={vi.fn()}
+        onUndoThrough={onUndoThrough}
+      />,
+    );
+    // Unclamped this threw `Cannot read properties of undefined (reading 'id')`.
+    await userEvent.keyboard("{Enter}");
+    // Newest-first display, so the clamped last row is the OLDEST survivor, id 1.
+    expect(onUndoThrough).toHaveBeenCalledWith(1);
+  });
+
+  it("steps ArrowUp from the clamped row, not from the stranded index", async () => {
+    const onUndoThrough = vi.fn();
+    const { rerender } = render(
+      <UndoControl lang="en-US" entries={STACK} onUndo={vi.fn()} onUndoThrough={onUndoThrough} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
+    await userEvent.keyboard("{End}");
+    rerender(
+      <UndoControl
+        lang="en-US"
+        entries={STACK.slice(0, 2)}
+        onUndo={vi.fn()}
+        onUndoThrough={onUndoThrough}
+      />,
+    );
+    await userEvent.keyboard("{ArrowUp}");
+    // From the stored 2 a bare `i - 1` lands on 1 (no visible move); from the
+    // clamped 1 it lands on 0.
+    expect(screen.getByText(t("en-US", "undoNActions", 1))).toBeInTheDocument();
+    expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+  });
+});
+
+// WCAG 2.4.3. `PopoverPanel` autofocuses the <ul>; nothing restores focus when
+// the panel unmounts, so without `close()` doing it the next Tab restarts at the
+// top of the document. `.focus()` proves nothing on its own — what is asserted
+// here is `document.activeElement` after each close path.
+describe("UndoControl history popover — focus return", () => {
+  async function openAndAssertFocusMoved() {
+    const onUndoThrough = vi.fn();
+    render(
+      <UndoControl lang="en-US" entries={STACK} onUndo={vi.fn()} onUndoThrough={onUndoThrough} />,
+    );
+    const caret = screen.getByRole("button", { name: t("en-US", "undoShowHistory") });
+    await userEvent.click(caret);
+    // Without this the "focus is on the caret afterwards" assertions would be
+    // satisfied by focus never having LEFT the caret.
+    expect(document.activeElement).toBe(screen.getByRole("listbox"));
+    return { caret, onUndoThrough };
+  }
+
+  it("returns focus to the caret when an option is clicked", async () => {
+    const { caret } = await openAndAssertFocusMoved();
+    await userEvent.click(screen.getAllByRole("option")[1]);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(document.activeElement).toBe(caret);
+  });
+
+  it("returns focus to the caret when Enter commits", async () => {
+    const { caret } = await openAndAssertFocusMoved();
+    await userEvent.keyboard("{Enter}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(document.activeElement).toBe(caret);
+  });
+
+  it("returns focus to the caret on Escape", async () => {
+    const { caret } = await openAndAssertFocusMoved();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(document.activeElement).toBe(caret);
+  });
+});
+
+// ★ The panel is the listbox's only accessible-name owner now — labelling the
+//   role="dialog" wrapper too made AT announce the name twice.
+describe("UndoControl history popover — accessible naming", () => {
+  it("names the listbox and does NOT repeat that name on the dialog", async () => {
+    renderUndo();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
+    expect(screen.getByRole("listbox")).toHaveAttribute(
+      "aria-label",
+      t("en-US", "undoHistoryLabel"),
+    );
+    expect(screen.getByRole("dialog")).not.toHaveAttribute("aria-label");
   });
 });

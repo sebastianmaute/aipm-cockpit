@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t, type Lang, type TranslationKey } from "../i18n";
-import { INTERACTIVE } from "../interaction-styles";
+import { FOCUS_RING, INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";
 import { type UndoMeta } from "./undo-stack";
 
@@ -23,6 +23,15 @@ const BUTTON_CLASS =
  * ★ ONE `activeIndex` drives the band across rows `0..activeIndex`, the footer
  *   count and `aria-activedescendant`, so the drawn and announced states cannot
  *   disagree. Hover sets it too.
+ * ★★★ IT IS READ THROUGH `clamp` EVERYWHERE, never raw — the entry list can
+ *   SHRINK while this panel is open. `use-undo-hotkey` fires Ctrl/⌘+Z from a
+ *   `document` keydown listener that skips only INPUT/TEXTAREA/SELECT/
+ *   contenteditable, and the focused `<ul>` is none of those, so an End-then-
+ *   Ctrl+Z leaves `activeIndex` pointing past the end: the footer over-counted
+ *   ("Undo 3 action(s)" above two rows), `aria-activedescendant` dangled at a
+ *   removed id, and Enter threw on `options[activeIndex].id`. Deriving during
+ *   render is deliberate — `react-hooks/set-state-in-effect` is fatal, so this
+ *   must NOT be an effect that syncs state.
  * ★ `aria-selected` marks the ACTIVE option only — the band is visual grouping;
  *   the footer count is what tells a screen-reader user how many entries Enter
  *   reverts.
@@ -33,7 +42,7 @@ function UndoRedoControl({
   onActivateThrough,
   actionLabel,
   labelKey,
-  showNextKey,
+  historyButtonKey,
   historyLabelKey,
   countKey,
   lang,
@@ -45,7 +54,9 @@ function UndoRedoControl({
   onActivateThrough: (id: number) => void;
   actionLabel: string;
   labelKey: TranslationKey;
-  showNextKey: TranslationKey;
+  /** Accessible name for the caret — it opens the whole history, not "the next
+   *  entry" (which is what the retired "Show next undo" strings claimed). */
+  historyButtonKey: TranslationKey;
   historyLabelKey: TranslationKey;
   countKey: TranslationKey;
   lang: Lang;
@@ -55,13 +66,29 @@ function UndoRedoControl({
   const [activeIndex, setActiveIndex] = useState(0);
   const caretRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const close = useCallback(() => setOpen(false), []);
+  // ★★ Return focus to the caret. The `<ul tabIndex={0}>` is what `PopoverPanel`
+  // autofocuses, and neither it nor `useDismissable` restores focus — so on
+  // Escape / Enter / an option click the focused node UNMOUNTS and focus falls
+  // to <body>, restarting the next Tab at the top of the document (WCAG 2.4.3).
+  // Fixed HERE rather than in the shared panel: every other consumer keeps its
+  // current behaviour.
+  const close = useCallback(() => {
+    setOpen(false);
+    caretRef.current?.focus();
+  }, []);
 
   const depth = entries.length;
   // Display order is newest-first; `entries` arrives oldest-first.
   const options = useMemo(() => [...entries].reverse(), [entries]);
 
   const optionId = useCallback((i: number) => `undo-history-${labelKey}-opt-${i}`, [labelKey]);
+
+  // ★★★ The single clamped read of `activeIndex` — see the header. `lastIndex`
+  // is -1 for an empty list, which `Math.max(0, …)` turns into 0 (that render
+  // returns null below, so nothing indexes `options` with it).
+  const lastIndex = options.length - 1;
+  const clamp = (i: number) => Math.max(0, Math.min(i, lastIndex));
+  const active = clamp(activeIndex);
 
   // Whether the last activation came from the KEYBOARD — read by the scroll
   // effect below AND by the hover guard. A ref, not state: it must not itself
@@ -92,9 +119,9 @@ function UndoRedoControl({
     // `labelKey` becomes. Scoped to the list so it cannot match the sibling
     // control's options (undo and redo are both mounted).
     listRef.current
-      ?.querySelector<HTMLElement>(`[id="${optionId(activeIndex)}"]`)
+      ?.querySelector<HTMLElement>(`[id="${optionId(active)}"]`)
       ?.scrollIntoView({ block: "nearest" });
-  }, [open, activeIndex, optionId]);
+  }, [open, active, optionId]);
 
   // ★★★ THE SCROLL ABOVE FIRES `mouseenter` ON THE ROW THAT SLIDES UNDER A
   // STATIONARY POINTER, and without this the synthetic enter overwrites the
@@ -127,11 +154,13 @@ function UndoRedoControl({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       keyboardMoveRef.current = true;
-      setActiveIndex((i) => Math.min(i + 1, options.length - 1));
+      // Clamp the STORED value before stepping: a stale index past the end must
+      // step from the last row, not from wherever it was stranded.
+      setActiveIndex((i) => clamp(clamp(i) + 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       keyboardMoveRef.current = true;
-      setActiveIndex((i) => Math.max(i - 1, 0));
+      setActiveIndex((i) => clamp(clamp(i) - 1));
     } else if (e.key === "Home") {
       e.preventDefault();
       keyboardMoveRef.current = true;
@@ -139,10 +168,10 @@ function UndoRedoControl({
     } else if (e.key === "End") {
       e.preventDefault();
       keyboardMoveRef.current = true;
-      setActiveIndex(options.length - 1);
+      setActiveIndex(clamp(lastIndex));
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      onActivateThrough(options[activeIndex].id);
+      onActivateThrough(options[active].id);
       close();
     }
   };
@@ -164,8 +193,8 @@ function UndoRedoControl({
         ref={caretRef}
         type="button"
         onClick={() => (open ? close() : openList())}
-        aria-label={t(lang, showNextKey)}
-        title={t(lang, showNextKey)}
+        aria-label={t(lang, historyButtonKey)}
+        title={t(lang, historyButtonKey)}
         aria-haspopup="dialog"
         aria-expanded={open}
         className={`${BUTTON_CLASS} rounded-l-none px-1 ${INTERACTIVE}`}
@@ -178,22 +207,26 @@ function UndoRedoControl({
         anchorRef={caretRef}
         onClose={close}
         role="dialog"
-        ariaLabel={t(lang, historyLabelKey)}
         className="w-72 p-2"
       >
         {/* One tab stop; the active option is announced via aria-activedescendant,
-            so the <li>s carry no tabindex. */}
+            so the <li>s carry no tabindex.
+            ★ The NAME lives here, not on the panel: labelling both made AT
+              announce "Undo history, dialog … Undo history, listbox". The
+              listbox is the half that must keep it — axe's `aria-input-field-name`
+              (wcag412, i.e. gate-blocking) covers role=listbox, while a nameless
+              role=dialog trips only the best-practice `aria-dialog-name`. */}
         <ul
           ref={listRef}
           role="listbox"
           tabIndex={0}
           aria-label={t(lang, historyLabelKey)}
-          aria-activedescendant={optionId(activeIndex)}
+          aria-activedescendant={optionId(active)}
           onKeyDown={onKeyDown}
-          className="max-h-64 overflow-y-auto focus:outline-none focus:ring-2 focus:ring-ui-green"
+          className={`max-h-64 overflow-y-auto ${FOCUS_RING}`}
         >
           {options.map((m, i) => {
-            const banded = i <= activeIndex;
+            const banded = i <= active;
             return (
               <li
                 key={m.id}
@@ -202,7 +235,7 @@ function UndoRedoControl({
                 // ★★ The position suffix is what keeps names unique — two edits
                 //    to the same named row produce an identical `label`.
                 aria-label={t(lang, "undoHistoryOption", m.label, i + 1)}
-                aria-selected={i === activeIndex}
+                aria-selected={i === active}
                 data-banded={banded}
                 // Ignored while the pointer has not moved since the last key —
                 // see the scroll effect above for why a `mouseenter` here is
@@ -219,7 +252,7 @@ function UndoRedoControl({
           })}
         </ul>
         <p className="mt-2 border-t border-line pt-2 text-xs font-medium text-muted-foreground">
-          {t(lang, countKey, activeIndex + 1)}
+          {t(lang, countKey, active + 1)}
         </p>
       </PopoverPanel>
     </span>
@@ -243,7 +276,7 @@ export function UndoControl({ lang, entries, onUndo, onUndoThrough }: UndoContro
       onActivateThrough={onUndoThrough}
       actionLabel={t(lang, "undoTooltip")}
       labelKey="undo"
-      showNextKey="undoShowNext"
+      historyButtonKey="undoShowHistory"
       historyLabelKey="undoHistoryLabel"
       countKey="undoNActions"
       lang={lang}
@@ -272,7 +305,7 @@ export function RedoControl({ lang, entries, onRedo, onRedoThrough }: RedoContro
       onActivateThrough={onRedoThrough}
       actionLabel={t(lang, "redoTooltip")}
       labelKey="redo"
-      showNextKey="redoShowNext"
+      historyButtonKey="redoShowHistory"
       historyLabelKey="redoHistoryLabel"
       countKey="redoNActions"
       lang={lang}

@@ -414,7 +414,12 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
     const { lang, logActivity, showToast } = depsRef.current;
     logActivity("undo", summed);
-    showToast("info", t(lang, "undoneNActions", inverses.length));
+    // ★ A through-undo of ONE entry is the same user-visible act as a plain
+    //   undo(), so it says the same thing — "Undone: Edit task X", not the
+    //   count-shaped "Undid 1 action(s)". Both keys already exist.
+    showToast("info", inverses.length === 1
+      ? t(lang, "undoneX", inverses[0].meta.label)
+      : t(lang, "undoneNActions", inverses.length));
     setStack(taken.rest);
     setRedoStack((rs) => pushUndoMany(rs, inverses, UNDO_CAP));
   }, []);
@@ -429,7 +434,10 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
     const { lang, logActivity, showToast } = depsRef.current;
     logActivity("redo", summed);
-    showToast("info", t(lang, "redoneNActions", inverses.length));
+    // Mirror of undoThrough's single-entry fallback above.
+    showToast("info", inverses.length === 1
+      ? t(lang, "redoneX", inverses[0].meta.label)
+      : t(lang, "redoneNActions", inverses.length));
     setRedoStack(taken.rest);
     setStack((s) => pushUndoMany(s, inverses, UNDO_CAP));
   }, []);
