@@ -155,6 +155,9 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 111 | Document row controls are named by a title that is NOT row-unique, and the code comment asserts that it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | open — a11y, WCAG 2.4.6, six controls per row. ★★★ **The false comment is the defect** — an untrue invariant outlives the code, because the next reader stops checking. `uniqueDocumentTitle` runs at only two of the four title-writing paths; `commitRename` and `use-document-tools.ts`'s `createDocument` (the MODEL's title, untouched) both bypass it, and `document-model.ts` holds no uniqueness check either. ★★ Being in `A11Y_VIEWS` does NOT help: the seed's two documents have DISTINCT titles, so the collision never renders at scan time |
 | 112 | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — the active parent pill stretches to the group's full height and unrelated top-level entries interleave onto a child's row | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | open — UX. Visible only there: jsdom has no layout, and the axe gate scans one desktop viewport with no rule for wrap order. ★★ This is the **COST of a deliberate choice**, not a regression against it — `display: contents` was rejected because its a11y-tree exposure is browser-version dependent and being ANNOUNCED is what the group exists to deliver; do NOT reach for it. Likely fix `basis-full`. ★ Reproduce: activate the AI Assistant branch FIRST, then narrow to 760px — narrowing first drops the rail's labels and there is no group to reflow |
 | 113 | The documents roadmap — block editor, entity attachment and images — is designed but UNIMPLEMENTED, and the design lives only in the gitignored tree | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open — §44's failure mode, pre-empted: the decisions are reproduced in full below so the roadmap survives without that tree |
+| 114 | `HTML_START` does not know the nine tags `sanitizeDocumentHtml` adds, so a document paragraph LEADING with one of them is stored as escaped literal markup | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | open — a SECOND instance of §107's drift class, now on a THIRD list; the mechanism lives there and is NOT restated here. ★★ The common shape is covered by an INSTRUCTION, not by construction: `chat-tool-defs-documents.ts` tells the model to wrap every paragraph in `<p>` and `p` is one of the eight — so a model that ignores it and returns a whole-paragraph `<blockquote>`/`<pre>` still escapes. ★ The DIRECTION is the mild one: this ESCAPES (visible, recoverable), it does not DELETE as §32 does |
+| 115 | `ALLOW_DATA_ATTR` is left at DOMPurify's default TRUE in the other two sanitizers, so `sanitizeTemplateHtml` and `sanitizeNoteHtml` admit arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | open — measured, not reasoned: `ALLOW_DATA_ATTR: false` occurs ONCE in `sanitize-html.ts`, inside `sanitizeDocumentHtml`. ★★ NOT a one-line fix — flipping it moves every `data-*` those two rely on into the value chain, where `ALLOWED_URI_REGEXP` is tested against EVERY attribute value and a non-URI value is dropped; that is exactly why `data-asset-id` needed `ADD_URI_SAFE_ATTR`. Enumerate the call sites first. No known exploit: `data-*` carries no script |
+| 116 | `.tsx` duplication is at 1.70% against a BLOCKING per-format threshold of 1.75%, and S3b is a large `.tsx` slice | measured 2026-08-08 during the S3a gate run | S — a deferred decision, not a defect | open — reproduce with `npm run dup:check`. ★★ The gating number is PER-FORMAT on TOKENS: tsx is 6677/391620 = **1.70%**. The comfortable **1.53%** total and the 1.34% tsx LINE figure are NOT what the gate reads, and quoting either is how this gets called safe. Decide during S3b planning: refactor the top tsx clones, or raise the threshold |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -6322,5 +6325,89 @@ kind chip and ⋮ but **no drag handle**; a handle that does nothing is worse th
 replace (extension licence unverified); marks inside `heading.text`, `bullets.items` or table cells
 (all plain `string`); AI link/unlink tools and letting the model see a task's attached documents —
 **named explicitly so it does not become a fourth accidental gap beside §86 / §87 / §89**.
+
+---
+
+## 114. `HTML_START` does not know the documents allow-list's nine tags — open
+
+★★ **A second instance of §107, not a restatement of it.** Read §107 for the mechanism and for why
+the obvious fix was retracted; only what is NEW to documents is recorded here.
+
+`HTML_START` (`narrative-html.ts`) classifies a stored value as "already HTML" from its FIRST tag:
+
+```
+/^\s*<(p|br|strong|em|ul|ol|li|a)\b[^>]*>/i
+```
+
+`DOCUMENT_ALLOWED_TAGS` adds `s code pre blockquote hr mark sub sup img`. `HTML_START` knows none of
+them, so `descriptionHtml` reads such a value as PLAIN TEXT and `plainToHtml` escapes it. A model
+returning `<blockquote>quoted</blockquote>` as a whole paragraph is stored as
+`<p>&lt;blockquote&gt;quoted&lt;/blockquote&gt;</p>` — literal tags, in the field, in every renderer
+and every export, permanently.
+
+★★★ **The mitigation in place is an INSTRUCTION, and an instruction is not a guard.**
+`chat-tool-defs-documents.ts` tells the document-authoring model to wrap every paragraph in `<p>`,
+and `p` is one of the eight — so the shape the tool asks for is classified correctly. That covers the
+common case and nothing else. It is the only mitigation, it lives in a prompt, and a model that
+emits a whole-paragraph `<blockquote>` or `<pre>` (both legitimately in the allow-list, both
+advertised to it) defeats it while doing exactly what the tool permits.
+
+★ Severity is bounded by the direction: this ESCAPES, so the content survives and a fix can repair
+stored values. §32 is the same classifier failing the OTHER way, where a `KEEP_CONTENT: false` sink
+DELETES the words. Do not merge the two into one "HTML_START is unreliable" note — the remediations
+differ.
+
+★★ Why it was not fixed in S3a: widening `HTML_START` changes what counts as already-HTML for every
+stored value on every load path, which is a byte-stability and golden-fixture change, not a one-line
+edit — and §107's own correction block retracts the widening shape because it re-breaks the
+narrative path. The policy the roadmap settles on is derive-per-sink: each sink derives its
+classifier from its OWN allow-list, so a third list cannot drift from a shared regex. That work
+moved out of S3a entirely (§113).
+
+---
+
+## 115. Two of the three sanitizers admit arbitrary `data-*` — open
+
+`sanitize-html.ts` exports three DOMPurify sanitizers. Only `sanitizeDocumentHtml` sets
+`ALLOW_DATA_ATTR: false`; `sanitizeTemplateHtml` and `sanitizeNoteHtml` leave DOMPurify's default,
+which is TRUE. So on those two the explicit `ALLOWED_ATTR` list is not the whole gate — any
+`data-*` attribute passes it regardless of what the list says.
+
+★ Reproduce: `grep -n "ALLOW_DATA_ATTR" src/app/sanitize-html.ts` returns exactly one line.
+(The file's fourth `DOMPurify.sanitize` call is the strip-everything projection —
+`ALLOWED_TAGS: []`, `ALLOWED_ATTR: []` — and is unaffected.)
+
+★★ **NOT a one-line fix, and the trap is already documented at the top of that file.** Setting
+`ALLOW_DATA_ATTR: false` removes the `data-*` SHORT-CIRCUIT, which drops every such attribute into
+the value chain — where `ALLOWED_URI_REGEXP` is tested against EVERY attribute value, not only
+URI-bearing ones, and a non-URI value is rejected. That is precisely why admitting `data-asset-id`
+to the documents list needed `ADD_URI_SAFE_ATTR` and not merely an `ALLOWED_ATTR` entry. Any fix
+here must first enumerate which `data-*` names those two sanitizers' call sites actually depend on,
+then re-admit each one the same way.
+
+★ No known exploit. `data-*` carries no script and no navigation; the concern is that the allow-list
+does not mean what it appears to mean, which is the state that produces a wrong review conclusion
+later. Recorded for that reason, not as a live vulnerability.
+
+---
+
+## 116. `.tsx` duplication is 0.05pp from a blocking threshold — open, a decision
+
+Measured 2026-08-08 on the S3a branch (`npm run dup:check`, exit 0):
+
+| Format | Duplicated tokens | Duplicated lines |
+|---|---|---|
+| tsx | 6677 / 391620 = **1.70%** | 899 (1.34%) |
+| typescript | 5249 / 379661 = 1.38% | 713 (1.04%) |
+| **Total** | 11926 / 778582 = 1.53% | 1612 (1.19%) |
+
+★★ **The gate reads the PER-FORMAT TOKEN percentage.** `jscpd --threshold 1.75` applies per format,
+so tsx at 1.70% has 0.05pp of headroom while the 1.53% total and the 1.34% tsx LINE figure both look
+comfortable. Quoting either of those is how this gets recorded as fine and then blocks a pipeline.
+
+★ Why it is filed now: S3b is the block editor — the largest `.tsx` slice in the roadmap (§113) —
+and per-block editor components are the kind of code jscpd finds repetitive. The decision (refactor
+the top tsx clones, or raise the per-format threshold with a recorded justification) belongs in
+S3b's planning, before the code exists, not to a red pipeline afterwards.
 
 ---
