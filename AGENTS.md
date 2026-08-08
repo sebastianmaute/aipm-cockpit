@@ -300,6 +300,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
   local gate and fail ONLY in CI.
+  ★★★ ADD `--workers=1` WHENEVER YOU MATCH MORE THAN ONE VIEW. `playwright.config.ts` sets
+  `workers: process.env.CI ? 1 : undefined`, so **CI runs axe SERIALLY and local runs it at CPU-count**
+  — a local-only contention mode the gate itself can never exhibit. Over-subscribed, tests die on
+  `Test timeout of 60000ms exceeded` inside `page.evaluate`, which prints as a FAILURE with a
+  screenshot and zero violation text. Measured 2026-08-08: a 3-view × 5-scheme selection went
+  **10 failed / 5 passed** in parallel and **15 passed** at `--workers=1`, same commit, same warm
+  server, no code change between runs. ★★ Read the failure BODY, never the summary line: a real
+  violation names a rule id and an impact; this names neither, and the only `axe-core` string in the
+  log is the spec's own `.withTags(...)` source echoed into the error context. Recording a green
+  branch as red is the expensive direction here.
+  ★ The 60s per-test timeout also covers the FIRST navigation's one-time Turbopack compile (the
+  config says so at its `timeout`), so a COLD server can blow it under load even at one worker. Warm
+  the route first (`curl -o /dev/null http://localhost:3000/` until it returns in well under a second)
+  and let `reuseExistingServer` attach to that.
   ★★ After ANY `globals.css` `@theme` edit or large class/token rename, run axe on a FRESH ISOLATED
   server (`PORT=3100 npm run dev`, stop with `PORT=3100 npm run stop`) — NEVER the reused long-running
   dev server. Playwright's `reuseExistingServer:!CI` will attach to a stale `:3000` whose Tailwind

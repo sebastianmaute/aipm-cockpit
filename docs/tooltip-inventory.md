@@ -48,6 +48,48 @@ the symbol where a line genuinely rots; do not cite this as the reason.
 `history-panel.tsx:364` and `roles-editor.tsx:416`. That is real, small, and the opposite direction
 from what the retracted claim described.
 
+## Corrections to this branch's commit messages
+
+★★★ These four claims live ONLY in commit messages — no tracked doc repeats them, and every count in
+this file and in `docs/open-followups.md` §103/§104 was independently re-measured and reproduced
+exactly. Recorded here because a commit message cannot be edited once it is an ancestor, and because
+two of the four sit inside the RETRACTION above: **a correction is not self-verifying, and this branch
+has now produced a wrong replacement figure twice.**
+
+★★ **`6265b549` — FALSE.** It says `p-1` "is present pre-change as a substring of `px-2`/`py-0.5`".
+Neither string contains `p-1`; the whole pre-change file contains no `p-1` at all (`gap-1` at `:75` is
+the only near hit, and it does not contain it either). The *decision* it justifies is right for a
+reason that is actually true: `p-1` is a substring of **`p-1.5`**, so an unbounded `p-1` assertion
+would survive a move to `size="md"` — the very change the same commit makes to a sibling. The
+load-bearing half is TRUE and was verified: `cursor-pointer` discriminates because `INTERACTIVE`
+genuinely does not contain it. The surviving code comment (`dashboard-tip-card.test.tsx`) says only
+"size-coupled" and does NOT repeat the false claim.
+
+★★ **`36811ceb` — wrong under BOTH conventions.** "783 → 452" mixes two measures. The gate's own
+metric (`readFileSync(f,"utf8").split("\n").length`, `scripts/check-file-sizes.mjs:21`) is
+**783 → 453**; `wc -l` is 782 → 452. The stated pair is the one combination that is wrong either way.
+"17 lines of headroom" is correct under the gate metric (800 − 783). ★ Do NOT phrase this as what the
+gate *prints*: `size:check` emits a line only for a file OVER 800, so it prints nothing for this file
+at any of these sizes. Cite the metric, not the command.
+
+★★ **`c4dc67a4` — two problems inside the retraction itself.** "376 raw occurrences" mislabels the
+measure: 376 is the WORD-BOUNDED count (`\bSie\b`); genuinely raw (`grep -o "Sie"`) is **379**. And
+"not reproducible under any measure" is stronger than the evidence — **217** lines contain `\bSie\b`
+at that revision, within 2 of the retracted 215 and the most likely origin of it. The correct claim is
+narrower: no measure yields exactly 215. ★ "193 including Ihr/Ihre" could not be reproduced under any
+measure tried (the `Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres` family gives 209 key-prefixed lines, 272 all
+lines, 504 occurrences); whatever produced 193 is unrecorded. ★ Its "165 standalone" figure DOES
+reproduce exactly, as does every other claim in that commit.
+
+★★ **`dfdd0ea4` — FALSE, and it contradicts an earlier commit on this same branch.** It calls
+`timelog-people-table` "the one conversion in the batch with no variant assertion". It is one of
+**three**: `saved-views-menu` and `version-info` have no test file at all. `176b823a` stated this
+correctly ("three of the 23 ship without a test"); `dfdd0ea4` narrowed it to one while adding the test
+that closes exactly one of the three. **Two remain unpinned.** ★ Same commit, attribution slip: "the
+commit that introduced it REPLACED the comment documenting the pairing requirement" names the wrong
+commit — `176b823a` introduced the 4px split AND wrote the pairing comment; `6265b549` is the commit
+that deleted it. The substance (the comment was removed while the pairing was broken) is TRUE.
+
 Scope: all of `src/app`, `*.tsx`, excluding `*.test.tsx`. The classification surface is the
 **icon-only and glyph-only** controls — the ones a hover tooltip is actually for. A control with a
 readable text label already tells a mouse user what it does; a bare `✕` or a cog does not.
