@@ -6137,7 +6137,7 @@ impossible, is not, and has already been cited by `documents-history-modal.tsx` 
 
 ---
 
-## 112. The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — open, UX
+## 112. The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — CLOSED 2026-08-08
 
 Found 2026-08-08 by an eye-verify pass on a seeded Playwright run (Chromium, a fresh dev server on
 `PORT=3100`). That is the only place it is visible: jsdom has no layout, and the axe gate scans one
@@ -6164,13 +6164,38 @@ is the indent, and the interleaving defeats it.
 being ANNOUNCED is the fix the group exists to deliver. A real box announces reliably and lays out;
 a contents box lays out invisibly and may not announce. Do NOT "fix" this by reaching for it.
 
-★ Likely fix: `basis-full` on the group so it claims its own row and its children wrap within it,
-which keeps both the box and the announcement. The nested `<ul>`/`<li>` nav structure raised in the
-same review is the other candidate, and is announced by more AT.
-
 ★ Reproduce: seed a project, open Settings, activate the AI Assistant branch, THEN narrow the
 viewport to 760px. Narrowing first does not reproduce it — the shell drops the rail's labels at that
 width before the branch renders, so there is no group to reflow.
+
+**CLOSED 2026-08-08 by `max-md:basis-full` on the group.** The group claims its own row, so the
+parent pill is a single-row sibling again and no top-level entry can share a row with a child.
+
+★★★ **`max-md:` is the whole fix — a bare `basis-full` (which is what the "likely fix" line above
+proposed) would BREAK the desktop rail.** Above the breakpoint the nav is `md:flex-col`, where
+`flex-basis` resolves against the MAIN axis — HEIGHT — so an unqualified `basis-full` sets the group
+to 100% of the nav's height. The `max-md:` variant is provably inert above the breakpoint: the
+measurement below reads the group's computed `flex-basis` as `auto` at 1280px and `100%` at 760px,
+from the same build.
+
+★ Measured in Chromium against a fresh `PORT=3100` dev server, seeded via `e2e/seed.ts`, in a
+throwaway spec reading `getBoundingClientRect` (deleted after use — nothing in the unit suite can see
+any of this, and the axe gate scans one desktop viewport with no wrap-order rule). Active parent pill
+("AI Assistant") height, before → after:
+
+| viewport | pill height | group width | group `flex-basis` | nav height |
+|---|---|---|---|---|
+| 1280px before | 36px | 224px | `auto` | 559px |
+| 1280px after | 36px | 224px | `auto` | 559px |
+| 760px before | **116px** | 136.02px | `auto` | 160px |
+| 760px after | **36px** | 712px | `100%` | 240px |
+
+★ The narrow nav growing 160px → 240px is the fix working, not a side effect: the group now occupies
+a row of its own instead of being packed beside three unrelated top-level entries.
+
+★ The nested `<ul>`/`<li>` nav structure raised in the same review remains the richer alternative and
+is announced by more AT — not adopted here, because a one-class layout fix does not justify rewriting
+the rail's markup and re-verifying every announcement.
 
 ## 113. The background insight-recommendation runner has no `AbortController` at all — open, billed
 
