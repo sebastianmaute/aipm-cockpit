@@ -73,11 +73,38 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // something to discriminate and the acknowledged branch renders too.
   // ★ Ids are far above the master's range so a later sample addition cannot
   // collide — same reason the seeded document uses 9001.
-  // ★ `data` carries the fields insightDetail actually reads for this type
-  // (name/date/daysOverdue — see detect.ts). The two milestoneSlip rows name
-  // DIFFERENT milestones, so their DETAIL lines differ and the digest card's own
-  // collision handling stays out of the picture; the duplication under test is
-  // the row controls' names alone.
+  // ★★ EVERY ROW'S `data` CARRIES THE KEYS ITS OWN TYPE ACTUALLY READS, and the
+  // reader is `insightDetail` (insights/insight-text.ts) — a per-type switch, so
+  // a key that belongs to a DIFFERENT type is not a near-miss, it is nothing.
+  // `str()` falls back to "—" and `num()` to 0, so a wrong shape does not throw
+  // and does not fail any gate: the row renders a degraded detail line ("0 active
+  // tasks are stale…", "— is off plan by 0%") in a fixture whose entire purpose
+  // is that the scanned view shows REAL rows. Keys per type — read them off the
+  // matching `case` arm of `insightDetail` (cited by SYMBOL, not line: a line
+  // number here is broken by the next edit to that switch):
+  //   milestoneSlip  → name · daysOverdue · date           (insightMilestoneSlipDetail)
+  //   stalledWork    → count                               (insightStalledWorkDetail)
+  //   budgetVariance → name · variancePct · buckets        (insightBudgetVarianceDetail)
+  //   overdueTrend   → current · delta · prior             (insightOverdueTrendDetail)
+  //   raidAging      → name · daysSinceUpdate · targetDate (insightRaidAgingDetail)
+  // Each matches what the matching detector in detect.ts emits — the `data`
+  // literals in milestoneSlipInsights / stalledWorkInsight / budgetVarianceInsight.
+  // Verified by execution, not by reading: feeding these four rows through
+  // sanitizeInsights + insightDetail renders "5 active tasks are stale, blocked,
+  // or waiting on a dependency." and "Data Migration (fixed price) is off plan by
+  // 18% (2 bucket(s) breaching the threshold)." — no "—" and no stray 0.
+  // ★ Values are inside the detectors' own thresholds so the rows read as real
+  // detections: stalledWork fires at `count >= STALLED_WORK_MIN` (3) and
+  // budgetVariance at `variancePct >= BUDGET_VARIANCE_PCT` (10). `name` is a real
+  // budget bucket from the master (id 4) so the line names something that exists.
+  // ★ `stalledWork` and `budgetVariance` are SINGLETON detectors — detect.ts mints
+  // the bare keys "stalledWork"/"budgetVariance" with NO entityRef, and these two
+  // rows mirror that. Only milestoneSlip/raidAging are per-entity ("<type>:<id>"
+  // + an entityRef), which is why just the two milestoneSlip rows render an
+  // "Open – …" control.
+  // ★ The two milestoneSlip rows name DIFFERENT milestones, so their DETAIL lines
+  // differ and the digest card's own collision handling stays out of the picture;
+  // the duplication under test is the row controls' names alone.
   insights: [
     {
       id: 9101, key: "milestoneSlip:1", type: "milestoneSlip", severity: "high",
@@ -96,14 +123,14 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       firstSeenAt: "2026-06-04T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
     },
     {
-      id: 9102, key: "stalledWork:2", type: "stalledWork", severity: "medium",
-      entityRef: { view: "open-points", id: 2 }, data: { days: 21 }, status: "acknowledged",
+      id: 9102, key: "stalledWork", type: "stalledWork", severity: "medium",
+      data: { count: 5 }, status: "acknowledged",
       firstSeenAt: "2026-06-02T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 3,
       acknowledgedAt: "2026-06-05T00:00:00.000Z",
     },
     {
-      id: 9103, key: "budgetVariance:1", type: "budgetVariance", severity: "low",
-      data: { variance: 12 }, status: "active",
+      id: 9103, key: "budgetVariance", type: "budgetVariance", severity: "low",
+      data: { name: "Data Migration (fixed price)", variancePct: 18, buckets: 2 }, status: "active",
       firstSeenAt: "2026-06-03T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
     },
   ],

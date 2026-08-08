@@ -153,7 +153,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 118 | A popover opened by a click that also scrolls its ancestor never mounts | found in the slice-3 eye-verify | UNKNOWN | open, PRE-EXISTING — ★★ the entry once named a "second effect" that does not exist and proposed a fix that cannot be implemented; both are RETRACTED in place. The mechanism is restated, no replacement fix is asserted |
 | 119 | Two more controls start a billed Anthropic call with no way to stop it | found in the slice-3 review prose check | S each | open, BILLED — the dashboard digest `Generate now` and the steering meeting report `Draft with AI` only grey out while running. NOT a regression; they were never converted. Read with §114 — neither is in the "six sites" the CHANGELOG names |
 | 120 | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | open, a11y — WCAG 2.4.6. ★★★ **axe CANNOT catch this** — measured against axe-core 4.12.1: in the gate’s requested tagset there is NO rule that flags two buttons sharing a name (`identical-links-same-purpose` is links-only AND `wcag2aaa`, which the spec never requests). `insight-digest-card.tsx` already de-collides the identical shape — copy it. Same class as §111 |
-| 121 | Two of the six AI trigger hooks still never abort on unmount | split out of §115 on 2026-08-08 | S each | open, BILLED — `use-action-analysis.ts` has no `useEffect` at all; `use-inline-entity-edit.ts` HAS one but it returns no cleanup, so it aborts on DEACTIVATION and never on unmount. ★★ An effect is not a cleanup — grepping for `useEffect` finds the second one and stops |
+| 121 | ~~Two of the six AI trigger hooks still never abort on unmount~~ | split out of §115 on 2026-08-08 | S each | **CLOSED 2026-08-08** in the review round that followed — both gained the cleanup-only effect, each mutation-proved. ★★ Filed then immediately closed on purpose: a follow-up is the right home for a decision, the wrong home for a one-liner with three precedents in the same file family. ★ `use-action-analysis.ts`’s guard was measured UNREACHABLE and applied as defence-in-depth — do not quote it as a shipped defect |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -5074,9 +5074,28 @@ persists its optional slices as kv entries — `fieldVisibility`, `features`, `s
 still dropped. ★★ The numbers below had already rotted TWICE (an earlier revision said "nine", and the
 merge that renumbered this register briefly carried "a minority" and "two of ten" in the same table
 row), so treat them as measured-at-a-date, not as durable. **Re-run the commands rather than quoting
-the figures:** `grep -n "^const KV_" src/app/browser-backend.ts` (measured 2026-08-08 → **10** lines)
-against `e2e/seed.ts`'s own `KV` map (→ **4** of the ten, so **6** dropped: `fieldVisibility`,
-`features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`, `calendarEvents`).
+the figures:** `grep -c "^const KV_" src/app/browser-backend.ts` (measured 2026-08-08 → **10**, the
+optional kv slices listed above).
+
+★★★ THE TWO SIDES ARE NOT COUNTED THE SAME WAY, and an earlier revision of this paragraph glossed
+that as "`e2e/seed.ts`'s own `KV` map (→ 4)". **The map has ELEVEN entries, not four.** Four is its
+INTERSECTION with the ten optional slices; the other seven (`plan`, `fxRates`, `status`,
+`milestones`, `changes`, `stakeholders`, `project`) are core kv slices that were never on the
+optional list. A reader who runs a bare count gets 11, sees the entry claim 4, and concludes the
+entry is wrong — so quote the intersection and say so. Measured 2026-08-08: map entries **11**,
+intersection **4** (`documents`, `documentVersions`, `insights`, `timelogLinks`), dropped **6**
+(`fieldVisibility`, `features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`,
+`calendarEvents`). Reproduce the intersection itself rather than eyeballing the map:
+
+```bash
+node -e 'const s=require("fs").readFileSync("e2e/seed.ts","utf8");
+const m=s.match(/const KV: Record<string, string> = \{([\s\S]*?)\};/)[1];
+const keys=[...m.matchAll(/(\w+):\s*"([^"]+)"/g)].map(x=>x[1]);
+const opt=["fieldVisibility","features","steeringCommittee","timelogLinks","knowledgeItems",
+"insights","settingsOverrides","calendarEvents","documents","documentVersions"];
+console.log("entries",keys.length,"| seeded",keys.filter(k=>opt.includes(k)).join(","),
+"| dropped",opt.filter(k=>!keys.includes(k)).join(","))'
+```
 
 ★★ The consequence is a gate that reads far stronger than it is. A view whose data never arrives
 renders its EMPTY STATE, so axe scans a panel with no rows, no per-row controls and nothing that
@@ -6294,29 +6313,54 @@ block below before treating this as current.)
 the same way.** Take the six sites the slice gave an `AiTriggerButton` and ask, for each, which hook
 owns its `AbortController` and whether that hook aborts on unmount:
 
-| trigger mount | backing hook | aborts on unmount? |
+★★★ THE TABLE BELOW CARRIED `file:line` CITATIONS AND THEY WERE ALREADY WRONG. They were exact at
+`2e1087e1` and rotted within the same branch — `inline-ai-edit-popover.tsx:77` is now 88 and
+`use-tasks-dedup.tsx:181` is now 198, moved by the very fix rounds this entry describes. Worse, the
+paragraph directly above says line numbers are DELIBERATELY OMITTED, so the table contradicted its
+own entry. They are dropped here in favour of file + symbol, which is this repo's standing rule
+precisely because a line can be broken by the commit that writes it. Do not reintroduce them.
+
+| trigger mount | backing hook | aborts on unmount? (AT AUDIT TIME) |
 |---|---|---|
-| `insight-recommendation-controls.tsx:57` | `use-insight-recommend.ts` → `use-abortable-ai.ts:22` | **yes** |
-| `use-alloc-plan.tsx:276` | `use-alloc-plan.tsx:112` | **yes** |
-| `use-raci-suggest.tsx:254` | `use-raci-suggest.tsx:144` | **yes** |
-| `actions-panel.tsx:101` | `use-action-analysis.ts:18` | **no — the file has no `useEffect` at all** |
-| `inline-ai-edit-popover.tsx:77` | `use-inline-entity-edit.ts:74` | **no — see below** |
-| `use-tasks-dedup.tsx:181` | `use-tasks-dedup.tsx:83` | **no — this entry** |
+| `insight-recommendation-controls.tsx` | `use-insight-recommend.ts` → `use-abortable-ai.ts` | **yes** |
+| `use-alloc-plan.tsx` | `use-alloc-plan.tsx` | **yes** |
+| `use-raci-suggest.tsx` | `use-raci-suggest.tsx` | **yes** |
+| `actions-panel.tsx` | `use-action-analysis.ts` | **no — the file had no `useEffect` at all** |
+| `inline-ai-edit-popover.tsx` | `use-inline-entity-edit.ts` | **no — see below** |
+| `use-tasks-dedup.tsx` | `use-tasks-dedup.tsx` | **no — this entry** |
 
 ★★★ **CLOSED for THIS hook, and the table above is now HISTORY — it is the audit taken before slice
 3's fix round, kept because the count is the point.** `use-tasks-dedup.tsx` gained the cleanup-only
 `useEffect(() => () => abortRef.current?.abort(), [])` in slice 3's review round, pinned by a test
 that captures the signal, asserts `aborted === false` before unmount and `true` after (mutation-proved
-red with the effect deleted). The remaining gap is **two of six** — `use-action-analysis.ts` and
-`use-inline-entity-edit.ts`, which that change does not touch — and it is filed as **§121**. Do not
-read the table as current; re-run the sweep below.
+red with the effect deleted). The gap remaining **when this entry was closed** was two of six —
+`use-action-analysis.ts` and `use-inline-entity-edit.ts`, which that change does not touch — and it
+was filed as **§121** — **which is now CLOSED too**: both hooks were fixed later the same day, in the
+review round that followed, so all six abort on unmount. Neither this entry nor §121 describes a live
+defect; both are kept for the count and the reasoning. Re-run the sweep below rather than quoting
+either.
 
-So THREE of the six lacked it at audit time, not one. Only three files carry the cleanup-only shape
-`useEffect(() => () => abortRef.current?.abort(), [])` — `use-abortable-ai.ts:22`,
-`use-alloc-plan.tsx:112`, `use-raci-suggest.tsx:144`. `use-inline-entity-edit.ts` has an effect
-(`:97`) but it fires on `paneActive === false` and returns no cleanup, so it aborts on DEACTIVATION
-and not on unmount. `use-action-analysis.ts` owns a controller (`:18`, `new AbortController` at
-`:24`) and a `cancel` (`:53`) and contains no `useEffect` whatsoever.
+So THREE of the six lacked it at audit time, not one. ★★★ **AT AUDIT TIME (2026-08-08, before slice
+3's fix round) exactly THREE files carried the cleanup-only shape** `useEffect(() => () =>
+abortRef.current?.abort(), [])` — `use-abortable-ai.ts`, `use-alloc-plan.tsx`, `use-raci-suggest.tsx`.
+That sentence used to be written in the present tense with the number three, and it was FALSE the
+moment `use-tasks-dedup.tsx` gained the shape in the round that closed this very entry — the fix and
+the claim it falsifies landed together. Treat the figure as historical and **re-run the sweep**; it
+moves again the moment §121 is worked:
+
+```bash
+grep -rlF "() => () => abortRef.current?.abort()" src/app; echo "EXIT=$?"
+```
+
+(No pipe — read the exit code unpiped, per the AGENTS.md landmine.) Re-measured 2026-08-08 while
+writing this correction: **6** files, i.e. all six hooks in the table. That reading includes
+UNCOMMITTED work in the tree and is therefore evidence about a moment, not about `main` — §121 is
+the entry that owns the remaining gap, and its STATUS block is the authority on whether it is real.
+
+At audit time the two remaining files failed in DIFFERENT ways, and the distinction is what §121
+carries forward: `use-inline-entity-edit.ts` HAD a `useEffect`, but it fired on
+`paneActive === false` and returned no cleanup, so it aborted on DEACTIVATION and never on unmount;
+`use-action-analysis.ts` owned a controller and a `cancel` and contained no `useEffect` whatsoever.
 
 ★★ **Do not write "all the others already do this"** — an earlier revision of this entry warned
 against exactly that framing and then committed it, by counting `use-action-analysis.ts` as not
@@ -6643,6 +6687,16 @@ exactly the types that can repeat (`milestoneSlip`, `raidAging`); the portfolio-
 (`stalledWork`, `overdueTrend`, `budgetVariance`) carry none, and detection emits at most one of each,
 so they cannot collide.
 
+★★★ **THE FIX MUST ALSO FLIP THE DETECTOR, AND THE DETECTOR WILL GO RED FIRST.**
+`e2e/seed-content.spec.ts` asserts `toHaveCount(2)` on the accessible name
+`"Dismiss – Milestone at risk"`. That assertion CHARACTERIZES this defect — it pins the bug, not the
+wanted behaviour — so a correct fix turns it red, and the red run is the fix working. It is labelled
+in the spec (a named constant plus a comment pointing back at this §), but a reader who meets the
+failure before the comment will be tempted to "repair" the spec by loosening the count, which would
+silently restore the blind spot. The flip is mechanical: expected count `2` → `0`, plus positive
+assertions for the two now-distinct qualified names. Do NOT delete the assertion and do NOT relax it
+to a range — it is the only detector in the repo, so a loosened form is equivalent to no detector.
+
 ★ Same defect class as §111 (document row controls named by a non-unique title). Fixing them together
 would be reasonable; neither is in a slice yet.
 
@@ -6650,19 +6704,73 @@ would be reasonable; neither is in a slice yet.
 `insights-panel.tsx` belongs to the insights subsystem. Filing beats a drive-by edit to another
 slice's freshly-shipped surface.
 
-## 121. Two of the six AI trigger hooks still never abort on unmount — open, billed
+## 121. Two of the six AI trigger hooks never abort on unmount — CLOSED 2026-08-08
 
 Split out of §115 on 2026-08-08, when the third of the three closed. §115's table is the audit that
 found all three; this entry carries the remainder so the closed one stops implying the set is clean.
 
-| trigger mount | backing hook | why it does not abort |
-|---|---|---|
-| `actions-panel.tsx` | `use-action-analysis.ts` | owns a controller and a `cancel`, and the file contains **no `useEffect` at all** |
-| `inline-ai-edit-popover.tsx` | `use-inline-entity-edit.ts` | HAS an effect, but it fires on `paneActive === false` and returns **no cleanup** — it aborts on DEACTIVATION, never on unmount |
+★★★ **CLOSED the same day, in the review round that followed.** Both hooks gained the cleanup-only
+`useEffect(() => () => abortRef.current?.abort(), [])`, each pinned by a test that captures the
+signal, asserts `aborted === false` before unmount as an anti-vacuity control and `true` after, and
+each mutation-proved by deleting the effect and watching that test go red. So all six trigger hooks
+now abort on unmount, and the grep in the STATUS block below returns six files.
 
-★★ The second one is the trap: a `grep` for `useEffect` finds a hit in `use-inline-entity-edit.ts`
-and a reader stops there. An effect is not a cleanup. Ask whether the effect RETURNS a function, not
-whether one exists.
+★★ **The reason it closed rather than shipping is worth keeping.** It was filed as a follow-up
+because the fix sat outside the lane of the round that found it — and a cold review of that round
+then flagged it as the round's own recurring failure shape: *the batch sets a standard and does not
+apply it to a case the SAME commit had open.* Two one-line fixes were cheaper than a register entry.
+A follow-up is the right home for a decision or a design question; it is the wrong home for a
+one-liner with three existing precedents in the same file family.
+
+★★ **`use-action-analysis.ts`'s guard was NOT reachable and was applied anyway.** Traced: `analyze`
+reaches the UI only through `use-ai-orchestration.ts` → `actions-panel.tsx`'s `AiTriggerButton`,
+which swaps `onClick` from run to cancel the instant `busy` is true, and no second trigger, hotkey or
+retry exists (the scheduled-job runner calls `runJobAnalysis` directly, not this hook). The comment
+in the code says defence-in-depth in those words rather than claiming a live bug — do not quote this
+entry as evidence of a shipped defect there.
+
+★ **One instance of the ADJACENT class is still open and is NOT covered here:** `use-timelog-sync.ts`
+guards only its `abortRef` clear, leaving `setBusy(false)` outside the guard — the same shape
+`use-abortable-ai.ts` and `use-action-analysis.ts` were both fixed for. Different defect (a
+superseded run disarming its successor's flag, not an unmount leak) and a non-AI path, so it is
+recorded here rather than reopening this entry. Nothing gates it.
+
+★★★ EVERYTHING IN THE TABLE IS **AS OF FILING** (2026-08-08), stated in the past tense on purpose:
+this entry describes a defect that is expected to be fixed, so a present-tense "the file contains no
+`useEffect`" would become false the instant someone does the work — and a register entry that
+asserts the absence of the fix is a trap for whoever applies it. Check the STATUS block below before
+quoting any row.
+
+| trigger mount | backing hook | why it did not abort (AT FILING) |
+|---|---|---|
+| `actions-panel.tsx` | `use-action-analysis.ts` | owned a controller and a `cancel`, and the file contained **no `useEffect` at all** |
+| `inline-ai-edit-popover.tsx` | `use-inline-entity-edit.ts` | HAD an effect, but it fired on `paneActive === false` and returned **no cleanup** — it aborted on DEACTIVATION, never on unmount |
+
+★★ The second one is the trap that made this worth filing separately: a `grep` for `useEffect` finds
+a hit in `use-inline-entity-edit.ts` and a reader stops there. An effect is not a cleanup. Ask
+whether the effect RETURNS a function, not whether one exists — and note this survives the fix, since
+the file then holds TWO effects and only one of them is the cleanup.
+
+**STATUS — verify before acting, do NOT trust this line.** The single check is whether BOTH files
+carry the cleanup-only shape:
+
+```bash
+grep -rlF "() => () => abortRef.current?.abort()" src/app; echo "EXIT=$?"
+```
+
+Six files listed (the six hooks in §115's table) ⇒ nothing here is left and this entry can be closed
+in the same commit that proves it. Four ⇒ untouched. Five ⇒ one of the two landed; say which.
+Measured 2026-08-08 while correcting the surrounding prose: **6**, with
+`src/app/use-action-analysis.ts` and `src/app/use-inline-entity-edit.ts` both showing the shape as
+UNCOMMITTED working-tree changes (`git status --porcelain` marks both ` M`). That is a reading of one
+machine at one moment, not a merged state and not a verification — **this entry is deliberately left
+OPEN**, and whoever confirms the change is committed and tested should close it and drop §115's
+"two of six".
+
+★★ Closing it needs more than the grep: the shape must actually be reached. §115's closure was pinned
+by a test that captures the signal and asserts `aborted === false` before unmount and `true` after,
+mutation-proved red with the effect deleted. Two hooks here, so two such tests — a grep hit with no
+test is the same evidence quality as the prose this entry exists to correct.
 
 ★ Fix is the same one line both times, the cleanup-only shape
 `useEffect(() => () => abortRef.current?.abort(), [])` — it sets no state, so it stays clear of the

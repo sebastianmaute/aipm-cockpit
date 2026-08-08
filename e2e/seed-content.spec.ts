@@ -74,30 +74,51 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   // insight-digest-card.tsx's rowLabel is `title – detail`). If the digest window
   // ever reaches them the counts go up by one each; that is a real change, not a
   // flake, and it should be reflected here rather than loosened away.
-  for (const [title, count] of [
-    ["Milestone at risk", 2],
-    ["Work is stalling", 1],
-    ["Budget off plan", 1],
+  // ★★ THE DETAIL FRAGMENT IS NOT DECORATION — it is the only thing that can
+  // tell a correctly-seeded row from a degraded one. `insightDetail`
+  // (insights/insight-text.ts) reads a DIFFERENT `data` key per type and falls
+  // back to "—" for a missing string and 0 for a missing number, so a row seeded
+  // with another type's field names still renders, still counts, and still
+  // passes every axe scan — it just says "0 active tasks are stale…". That
+  // exact mismatch shipped in this file's own seed and was invisible to the
+  // count assertions alone.
+  for (const [title, count, detail] of [
+    ["Milestone at risk", 2, "day(s) overdue"],
+    ["Work is stalling", 1, "5 active tasks are stale"],
+    ["Budget off plan", 1, "off plan by 18%"],
   ] as const) {
-    await expect(page.getByRole("listitem").filter({ hasText: title })).toHaveCount(count);
+    const rows = page.getByRole("listitem").filter({ hasText: title });
+    await expect(rows).toHaveCount(count);
+    // `.first()` because "Milestone at risk" legitimately resolves to two rows;
+    // both carry the same fragment, so the first is a sufficient witness.
+    await expect(rows.first()).toContainText(detail);
   }
 
-  // ★★★ THE DUPLICATE NAME IS THE POINT, AND THIS SPEC — NOT AXE — IS WHAT SEES
-  // IT. Both `milestoneSlip` rows render a button whose accessible name is
-  // exactly "Dismiss – Milestone at risk", because insightTitle() is derived from
-  // `type` alone. That is a WCAG 2.4.6 failure (two controls, same name, different
-  // targets) and it is now REACHABLE at scan time instead of theoretical.
-  // ★★ axe cannot report it: axe-core 4.12.1 has no rule for two BUTTONS sharing
-  // an accessible name, and the one adjacent rule (`identical-links-same-purpose`)
-  // is links-only and `wcag2aaa`, a tag e2e/a11y.spec.ts does not request. So a
-  // green Insights axe run is NOT evidence the names are unique — this assertion
-  // is. Filed as docs/open-followups.md §120.
+  // Four rows, four Dismiss controls (none of the seeded rows is terminal). THIS
+  // is the assertion about the seed: every seeded row reached the app and got its
+  // per-row controls. It stays true whether or not §120 is ever fixed.
+  await expect(page.getByRole("button", { name: /^Dismiss – / })).toHaveCount(4);
+
+  // ★★★ CHARACTERIZATION OF A KNOWN-OPEN DEFECT — docs/open-followups.md §120.
+  // READ THIS BEFORE "FIXING" A RED RUN ON THE NEXT LINE. It pins the BUG, not the
+  // wanted behaviour: both `milestoneSlip` rows render a button whose accessible
+  // name is exactly "Dismiss – Milestone at risk", because insightTitle() is
+  // derived from `type` alone. Two controls, same name, different targets — a
+  // WCAG 2.4.6 failure, now REACHABLE at scan time instead of theoretical.
+  // ★★★ WHOEVER CLOSES §120 MUST FLIP THIS ASSERTION, and a red line here after
+  // that fix is the fix WORKING. The flip: once the per-row name is qualified
+  // (e.g. "Dismiss – Milestone at risk – Design Sign-off"), change the expected
+  // count below from 2 to 0 and add positive assertions for the two now-distinct
+  // names. Do NOT relax it to a range and do NOT delete it.
+  // ★★ Keep it either way, because it is the ONLY detector in the repo: axe-core
+  // 4.12.1 has no rule for two BUTTONS sharing an accessible name, and the one
+  // adjacent rule (`identical-links-same-purpose`) is links-only and `wcag2aaa`,
+  // a tag e2e/a11y.spec.ts does not request. A green Insights axe run is not
+  // evidence the names are unique — this line is.
+  const DUPLICATE_DISMISS_NAME_IS_A_KNOWN_DEFECT = 2; // §120 fix ⇒ 0
   await expect(
     page.getByRole("button", { name: "Dismiss – Milestone at risk", exact: true }),
-  ).toHaveCount(2);
-
-  // Four rows, four Dismiss controls (none of the seeded rows is terminal).
-  await expect(page.getByRole("button", { name: /^Dismiss – / })).toHaveCount(4);
+  ).toHaveCount(DUPLICATE_DISMISS_NAME_IS_A_KNOWN_DEFECT);
 
   await expect(page.getByText("No insights yet")).toHaveCount(0);
 });
