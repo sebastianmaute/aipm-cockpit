@@ -246,9 +246,24 @@ describe("rich-text-plain — properties", () => {
         if (text.length > max && head >= 0xd800 && head <= 0xdbff) exercised += 1;
         expect(hasLoneSurrogate(capHtmlText(html, max))).toBe(false);
       }),
-      { numRuns: 50 },
+      // ★★ THE COUNTER BELOW IS ITSELF A RANDOM VARIABLE, and at `numRuns: 50`
+      // with a `> 8` floor it FAILED 1 run in 8 — measured, on a branch that
+      // touches neither this file nor anything it imports. Instrumented over 10
+      // runs at 50, `exercised` came out 8·10·13·13·14·14·16·17·17·19: mean ~14,
+      // sd ~3.3, so the old floor sat ~1.8 sd out and a 6 was ordinary.
+      // ★ The fix is SAMPLE SIZE, not a lower bar: at 250 runs the counter was
+      //   measured at 64·67·71·77·78 (5 runs), so the 25 floor — 10% of runs,
+      //   against the ~28% the generator actually produces — sits ~5 sd below
+      //   the observed minimum instead of inside the noise. That is what an
+      //   anti-vacuity guard wants: it fires when a generator change stops
+      //   producing the truncating case, never for ordinary variance. The whole
+      //   file still runs in well under 100ms of test time at 250.
+      // ★ The `> 15` floor in the property above was measured in the same 10
+      //   runs (41·41·41·41·42·42·44·46·47·49) and is ~8 sd clear, so it is
+      //   deliberately left alone.
+      { numRuns: 250 },
     );
-    expect(exercised).toBeGreaterThan(8);
+    expect(exercised).toBeGreaterThan(25);
   });
 
   // -------------------------------------------------------------------------
