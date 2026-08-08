@@ -125,8 +125,14 @@ export function sanitizeAiRichText(raw: unknown): string {
  *  ★ Deliberately NOT fixed here: widening `HTML_START` is the naive repair and
  *  it re-breaks the dashboard narrative path, whose sink is `KEEP_CONTENT: false`
  *  and therefore DELETES an unrecognised tag's text instead of unwrapping it.
- *  Deferred to its own slice (the `HTML_START` classification family,
- *  open-followups.md §32). */
+ *  Deferred to its own slice.
+ *  ★★ Cite §32 CAREFULLY — it is the same classifier and the OPPOSITE direction.
+ *  §32 is the FALSE POSITIVE (plain prose like "<a note about pricing> is
+ *  attached" is taken for HTML and the pseudo-tag's words are then deleted); this
+ *  is the FALSE NEGATIVE (real HTML is taken for prose and escaped). One regex,
+ *  two failure modes, and §32's title covers only its own — so this direction is
+ *  NOT tracked by any numbered entry today. Do not read a fix for §32 as closing
+ *  this, and do not close this by pointing at §32. */
 export function sanitizeAiDocumentRichText(raw: unknown): string {
   const upgraded = sanitizeRichText(raw, MAX_HTML_TEXT_CHARS);
   if (!upgraded) return "";
