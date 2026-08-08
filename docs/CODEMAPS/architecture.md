@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.223.0 "Okorafor" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 | App 0.224.0 "Emshwiller" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
 
 # Architecture
 
