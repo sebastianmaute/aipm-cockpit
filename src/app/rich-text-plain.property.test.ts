@@ -227,10 +227,17 @@ describe("rich-text-plain — properties", () => {
     expect(exercised).toBeGreaterThan(15);
   });
 
+  // ★★ THE `min` USED TO BE 1, WHICH MADE THE PROPERTY UNABLE TO REACH THE CASE
+  // WHERE ITS OWN NAME WAS FALSE. `capHtmlText(html, -1)` returned
+  // "<p>a\ud800</p>" — a lone surrogate — because at a negative max `cut`
+  // becomes `max` and `slice`'s end index counts from the END. A cold review
+  // found it; the property said "never" while its generator excluded the only
+  // inputs that disproved it. The range now spans negatives, so the assertion
+  // covers the range the name claims.
   test("capHtmlText never emits a lone surrogate", () => {
     let exercised = 0;
     fc.assert(
-      fc.property(astralArb, fc.integer({ min: 1, max: 13 }), (html, max) => {
+      fc.property(astralArb, fc.integer({ min: -4, max: 13 }), (html, max) => {
         const text = htmlPlainProjection(html);
         const head = text.charCodeAt(max - 1);
         // The interesting case is the cut landing INSIDE a surrogate pair; a

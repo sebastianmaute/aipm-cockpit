@@ -186,9 +186,24 @@ describe("entity-id-mint — properties", () => {
 
     // All three branches must actually be visited or the "never otherwise" half
     // of this property is asserted over nothing.
-    expect(contended).toBeGreaterThan(5);
-    expect(uncontended).toBeGreaterThan(2);
-    expect(updates).toBeGreaterThan(5);
+    //
+    // ★★★ THE FLOORS ARE `> 0` ON PURPOSE — DO NOT "TIGHTEN" THEM. Their only
+    // job is to prove each branch was REACHED; nothing here needs a branch
+    // visited N times. Earlier values of 5 / 2 / 5 were measured over 800 trials
+    // against this file's exact generators and flaked ~2.6% PER RUN
+    // (`uncontended <= 2` in 17/800, minimum observed 1; `contended <= 5` in
+    // 4/800, sitting exactly ON its floor). `uncontended` needs a free id AND
+    // `isNew ∈ {true, undefined}`, p ≈ 0.145, so its mean over 50 runs is ~7 and
+    // a floor of 3 sits inside the tail. That is a red build on two BLOCKING
+    // gates plus the weekly random-seed job, for a suite that is otherwise
+    // correct — and an intermittently-red property suite gets `.skip`ped by
+    // whoever draws the unlucky seed, costing the guard entirely.
+    // ★ A floor high enough to be meaningful would have to be CONSTRUCTED, the
+    // way sanitize-core's midPairCutArb constructs its mid-pair cut. Until it
+    // is, `> 0` is the honest assertion: it states exactly what it can prove.
+    expect(contended).toBeGreaterThan(0);
+    expect(uncontended).toBeGreaterThan(0);
+    expect(updates).toBeGreaterThan(0);
   });
 
   it("an empty list always creates under the fallback and passes the id through", () => {

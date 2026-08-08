@@ -897,10 +897,29 @@ call-site count answers "how far does this function reach", never "who else does
 When closing a defect-CLASS entry, grep for the SHAPE (`\.slice\(0,` next to a `_MAX`), not for the
 fixed function's name.
 
-★ **One site of this class is deliberately still open:** `sanitize-records.ts` `rr.html.slice(0,
-REPORT_HTML_MAX)` (the meeting report). It is HTML, so a raw slice can also cut mid-tag — a strictly
-larger problem than the surrogate one, and not fixable by the same one-line back-off. Filed as §108
-rather than folded in here.
+★★★ **MANY sites of this class are still open, and an earlier revision of this closure said "one".**
+That sentence was written in the same edit that prescribed the grep above — and did not run it.
+Running it: `grep -rn "\.slice(0, *[A-Z_]*MAX" src/app --include="*.ts" --include="*.tsx" | grep -v
+"\.test\."` returns **66** hits. Most are ARRAY slices (`MAX_CHIPS`, `MAX_BLOCKS_PER_DOC`,
+`MAX_SCHEMES`) and irrelevant; separating those from STRING truncations needs eyes, not grep, so no
+exact string-only count is asserted here. Confirmed string sites include `chat-panel.tsx:269`
+(`.trim().slice(0, CHAT_MESSAGE_MAX)` on user chat input, against a cap exported from
+`sanitize-core.ts` itself), plus `note-log.ts`, `color-schemes.ts`, `ai-errors.ts`,
+`diagnostics-redact.ts`, `committee-report/report-draft.ts`, `digest/digest-narrative.ts`,
+`insights/recommend.ts`, `insights/sanitize-insights.ts`, `settings-types.ts`,
+`next-actions-tuning.ts` and `jira-projects.ts`.
+
+★★ **§22's own body named four of those sixty lines above** ("The same shape recurs in
+`note-log.ts`'s `cleanText`, `color-schemes.ts` names, `ai-errors.ts` and `diagnostics-redact.ts`"),
+so the closure contradicted its own entry. This is the same defect the closure was rewritten to
+record, committed one paragraph after prescribing the cure — which is the strongest available
+evidence that stating the rule is not the same as applying it. **Run the command you attach.**
+
+★ Only ONE of them is separately filed, and only because it is a different problem: §108,
+`sanitize-records.ts` `rr.html.slice(0, REPORT_HTML_MAX)` (the meeting report). That value is HTML,
+so a raw slice can also cut mid-tag — strictly larger than the surrogate issue and NOT fixable by
+the one-line back-off. The rest are plain-text and would each take the `sanitizeText` routing, but
+they are not audited here and none is claimed safe.
 
 ★ **Test-validity note worth carrying to any future cap fix.** The property was first written with a
 `>= 3`-of-30 anti-vacuity floor tuned against ONE run. Measured across 5 fixed seeds the true

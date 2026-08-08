@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import fc from "fast-check";
-import { sanitizeText, sanitizeMultiline, sanitizeVoiceTranscript, sanitizeLabel } from "./sanitize";
+import { sanitizeText, sanitizeMultiline, sanitizeVoiceTranscript, sanitizeLabel, LABEL_MAX } from "./sanitize";
 
 // ★★ The defect these properties pin (open-followups §22): `clipText` truncated
 // on UTF-16 CODE UNITS, so a cap landing inside an astral character kept a LONE
@@ -224,18 +224,27 @@ describe("sanitize-core clipText — properties", () => {
   // its docstring says "Mirror sanitizeLabel" — and is covered by its own test.
   test("sanitizeLabel never emits a lone surrogate at the cap boundary", () => {
     let exercised = 0;
-    // LABEL_MAX is 50 and not exported here. Vary a BMP prefix to flip parity so
-    // the cut lands mid-pair, exactly as the transcript arbitrary above does.
+    // ★★ Uses the IMPORTED `LABEL_MAX`, never a hardcoded 50. An earlier revision
+    // hardcoded it and claimed in a comment that the constant "is not exported
+    // here" — false; it is exported from sanitize-core and a SIBLING property
+    // file already imports it. The rot that wording invited is silent: if
+    // LABEL_MAX dropped to 40, `charCodeAt(49)` would still land inside the
+    // astral run so the floor keeps passing, and `out.length <= 50` still holds
+    // — the property stays green while no longer probing the cap boundary at
+    // all. (Contrast VOICE_TRANSCRIPT_MAX two tests above, which genuinely is
+    // unexported and whose hardcoded 1000 fails LOUDLY if it changes.)
+    // Vary a BMP prefix to flip parity so the cut lands mid-pair, exactly as the
+    // transcript arbitrary above does.
     const labelArb = fc
       .tuple(fc.integer({ min: 0, max: 5 }), fc.array(astralCharArb, { minLength: 30, maxLength: 40 }))
       .map(([prefix, chars]) => "a".repeat(prefix) + chars.join(""));
     fc.assert(
       fc.property(labelArb, (s) => {
-        if (s.length > 50 && isHighSurrogate(s.charCodeAt(49))) exercised++;
+        if (s.length > LABEL_MAX && isHighSurrogate(s.charCodeAt(LABEL_MAX - 1))) exercised++;
         expect(hasLoneSurrogate(s)).toBe(false); // control: the INPUT is well-formed
         const out = sanitizeLabel(s);
         expect(hasLoneSurrogate(out)).toBe(false);
-        expect(out.length).toBeLessThanOrEqual(50);
+        expect(out.length).toBeLessThanOrEqual(LABEL_MAX);
         return true;
       }),
       { numRuns: 30 },
