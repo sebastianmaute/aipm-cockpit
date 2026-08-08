@@ -146,6 +146,15 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
 | 103 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
 | 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
+| 105 | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell switches the parser's section mid-row and the rest of the row decodes as absent | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | open — **MEASURED**, not reasoned: `blockers: "step one\n# RAID\nstep two"` → `"step one"`. No throw, no `ImportDiag`, nothing in the UI. Affects every entity the CSV backend writes; Markdown is immune BY CONSTRUCTION (`mdEscape` turns every newline into `<br>`) — do not "simplify" that away. The property this should satisfy is `describe.skip`ped with the measurement in the comment; unskip it when fixing |
+| 106 | The Markdown codec is not a fixed point when bare CRs precede a newline — one CR is lost per save/load cycle with no edit in between | property-based coverage (`!360`, no bump) | XS | open — converges, and only ever loses CRs, so it sits well below §105. Recorded because "the stored value changed on a load that made no edit" later reads as corruption. ★ Found only at `numRuns: 1500`; the **deterministic companion is the reliable reproduction**, not the property, which is itself seed-dependent |
+| 107 | `HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | open — **measured** via `sanitizeAiRichText`. ★★★ POSITION decides and the blast radius is the WHOLE VALUE: the same `<h1>` is preserved mid-value and escapes the entire description when it leads, permanently, in every reader and every export. The obvious fix (widen `HTML_START`) changes what counts as "already HTML" for every stored value on every load path — byte-stability suites and probably a golden check, not a one-line edit |
+| 108 | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag as well as split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | open — the value is HTML, so a raw cut lands inside a tag (`<stro`) and stores malformed markup. Copy `capHtmlText`'s project → truncate → **re-wrap**, NOT `clipText` (correct only for plain text). ★★ Do NOT route it through `sanitizeText`: that fixes the surrogate half, leaves the mid-tag cut, and makes the call site LOOK guarded — the more dangerous state. Reachability narrow, unmeasured in the wild |
+| 109 | Icon-only controls with no hover tooltip, plus one control whose accessible name comes only from its `title` | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open — full audit in [`docs/tooltip-inventory.md`](tooltip-inventory.md). ★★ Its counts are SNAPSHOTS and moved within one day; re-run the inventory's parser before quoting any as present-tense. Open surface at `9927d045`: **17** untitled icon-only controls; Class B row **B1** (the settings cog) HELD pending the modern shell's own route to Settings; five of the Gantt View menu's eight toggles carry no hint; **one name defect** — `workspace-section-chrome.tsx:165` is named by `title` alone and **axe passes it**; and 15 hardcoded-English accessible names across nine files that tsc's key-parity check structurally cannot see |
+| 110 | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control, so a circular 20px chip cannot be converted to it | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open — `raci-chip-picker.tsx`'s ✕ is the fifth of five sibling chips sharing a `h-5 w-5 rounded-full` base. ★★★ A caller `className` CANNOT reliably override: Tailwind resolves conflicting utilities by **stylesheet source order**, not class-attribute order, and `p-1` sorts after `p-0` — so this is a primitive problem, not a call-site one. A KNOWN, DELIBERATE hand-roll; do not "finish the conversion" before the primitive gets a shape/size escape hatch. ★★ jsdom has no layout, so no unit test can catch the regression — eye-verify only |
+| 111 | Document row controls are named by a title that is NOT row-unique, and the code comment asserts that it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | open — a11y, WCAG 2.4.6, six controls per row. ★★★ **The false comment is the defect** — an untrue invariant outlives the code, because the next reader stops checking. `uniqueDocumentTitle` runs at only two of the four title-writing paths; `commitRename` and `use-document-tools.ts`'s `createDocument` (the MODEL's title, untouched) both bypass it, and `document-model.ts` holds no uniqueness check either. ★★ Being in `A11Y_VIEWS` does NOT help: the seed's two documents have DISTINCT titles, so the collision never renders at scan time |
+| 112 | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — the active parent pill stretches to the group's full height and unrelated top-level entries interleave onto a child's row | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | open — UX. Visible only there: jsdom has no layout, and the axe gate scans one desktop viewport with no rule for wrap order. ★★ This is the **COST of a deliberate choice**, not a regression against it — `display: contents` was rejected because its a11y-tree exposure is browser-version dependent and being ANNOUNCED is what the group exists to deliver; do NOT reach for it. Likely fix `basis-full`. ★ Reproduce: activate the AI Assistant branch FIRST, then narrow to 760px — narrowing first drops the rail's labels and there is no group to reflow |
+| 113 | The documents roadmap — block editor, entity attachment and images — is designed but UNIMPLEMENTED, and the design lives only in the gitignored tree | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open — §44's failure mode, pre-empted: the decisions are reproduced in full below so the roadmap survives without that tree |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -6171,3 +6180,115 @@ same review is the other candidate, and is announced by more AT.
 ★ Reproduce: seed a project, open Settings, activate the AI Assistant branch, THEN narrow the
 viewport to 760px. Narrowing first does not reproduce it — the shell drops the rail's labels at that
 width before the branch renders, so there is no group to reflow.
+
+---
+
+## 113. The documents roadmap — block editor, entity attachment, images — designed, UNIMPLEMENTED
+
+★★★ **Recorded here for the reason §44 exists.** The design document lives in the gitignored tree,
+so on any other machine it does not exist. Per this file's own rule there is no link to it; the
+decisions are reproduced below in enough detail to resume without it. Designed 2026-08-08 against
+0.222.0 "Charnas" (`e2316f4f`). It supersedes the ~18-line S3/S4 outlines that shipped inside the
+S1 design document and **reorders them**.
+
+**Four releases, in this order — S4 moved AHEAD of the editor**, because it settles the dangling
+pattern and the versioning policy on a `{kind, id}` pair instead of on images.
+
+| | Ships | New persisted state |
+|---|---|---|
+| **S3a** | §54 · derive `HTML_START` from its allow-list · a documents-only allow-list · mark-aware DOCX/PPTX | none |
+| **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
+| **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
+| **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |
+
+### The decisions that are expensive to re-derive
+
+★★ **Tiptap's Simple Editor template is HARVESTED, never installed.** It is a single ProseMirror
+document; `DocBlock` is a typed array, and adopting it wholesale abandons `dataSection`, the
+block-keyed renderers and per-block version before-images. Its styles are SCSS and its CLI injects
+`@import '_variables.scss'` into `src/app/globals.css` and installs `sass`. `starter-kit@3.27.1`
+already bundles bold/italic/**underline**/strike/code/codeBlock/blockquote/heading/horizontalRule/
+lists/link — only highlight, subscript and superscript need new packages.
+
+★★★ **Alignment CANNOT be markup, and this generalises.** `sanitize-html.ts` applies
+`ALLOWED_URI_REGEXP` to EVERY attribute value, not only URI-bearing ones — already why `target`/`rel`
+never survive (§38). `style="text-align:center"` and `class="…"` fail identically. Alignment becomes
+a `DocBlock` field. **No toolbar in this app may introduce a new HTML attribute** without reopening
+that regexp, which is a shared security boundary.
+
+★★★ **Documents get their own allow-list; widening the shared one is forbidden.**
+`sanitizeTemplateHtml` also serves comm templates, meeting reports and the six rich entity fields, so
+widening it changes what a model may store everywhere, retroactively. `rich-text-editor.tsx` records
+that hazard as the reason an earlier slice disabled input rules instead. **And `HTML_START` must be
+DERIVED from its list, not maintained in parallel — that is §107, and deriving closes its whole
+class** before a third list is added.
+
+★★★ **The Turso gate is the IMAGE FEATURE, not the Documents view.** Gating the view was priced and
+rejected: Documents is one of the 17 `A11Y_VIEWS`, a Turso-only view must be kept out of that list
+(the file-mode seed cannot reach it), so scans would drop 90 → 85 and **§95 makes it unrecoverable**.
+It also buys no simplification — the six write paths must stay or existing file/IndexedDB users lose
+documents they already have. Gate on `tursoConfig !== null`, never on `storageConfig.kind`.
+
+★★★ **Asset BYTES go in an out-of-`TABLE_NAMES` side table** (the `comm_templates` /
+`color_schemes` / `committee_report_versions` pattern, named at `turso-schema.ts`). Two rejected
+alternatives, both measured:
+- **A meta-blob is catastrophic here.** `dirtyWorkspaceTables` maps TEN slices onto `meta` — `status`,
+  `fieldVisibility`, `features`, `steeringCommittee`, `timelogLinks`, `knowledgeItems`, `insights`,
+  `documents`, `documentVersions`, `settingsOverrides` — and the save emits an unconditional
+  `DELETE FROM meta` + full re-INSERT when any one is dirty. Every insight write would re-upload the
+  entire image library.
+- **Row-level diffing was rejected on the INVARIANT, not the effort.** `DELETE FROM t; INSERT …` is
+  self-healing — after a save the table matches the workspace whatever state it was in. Diffing is
+  correct only while the baseline is accurate, and it can be wrong (§4's second tab; a partially
+  failed save). The resulting orphan or missing rows are never repaired by a later save, and §95
+  means this repo cannot detect that class today.
+
+The side table needs none of it: the workspace save never touches it, so writes cost one row and the
+invariant is untouched because it does not apply. ★ Accepted costs: orphans become possible (needs a
+defined write order plus a reclaim action), bytes do NOT travel in the workspace JSON export, and
+project deletion must clean up explicitly with `project_id` in tenant mode.
+
+★★ **Images are referenced by id — `<img data-asset-id>` — never by src.** No URI in stored bytes, so
+the sanitizer never needs a `data:` widening (`data:text/html` is an XSS vector). Rename, automatic
+delete-propagation and single-copy storage all fall out of the indirection rather than being built.
+★★ **Delete MARKS, it does not remove:** an asset delete is not a document mutation, so
+`applyDocMutation` never fires and **no version before-image is captured** — a cascade would be
+unrecoverable, because version history is the only recovery path documents have.
+
+**Budget:** PNG + JPEG, SVG excluded permanently (the branding precedent's XSS reasoning); a 25 MB raw
+upload ceiling; an 8 000×8 000 source-dimension ceiling read from the header (a decompression-bomb
+guard — a 50 KB PNG can expand to 30000×30000); downscale to 1920×1080;
+**5 MB stored cap applied AFTER the downscale** (checking the raw file first would reject the photo
+downscaling exists to rescue), keeping the original when it was already smaller; unlimited per
+workspace with a visible total; **20 distinct images per document** — the cap belongs per document
+because a `.docx`/`.pptx` export is the only moment images are held together, assembled as one
+in-memory Blob; content-hash dedup. Metadata records `{width, height}` post-downscale because the
+OOXML writers size in EMU and cannot backfill without decoding every image.
+
+★★★ **ONE MEASUREMENT CAN INVALIDATE THAT CAP AND IT HAS NOT BEEN TAKEN.** A 5 MB image is ~6.7 MB of
+base64 and `SqlArg.value` is string-only, so one statement carries a 6.7 MB text argument in a single
+Turso pipeline request. Turso's request-size limit is UNKNOWN — do not guess it. Measure against a
+real database before planning S3c; **§95 means CI cannot.** Under ~7 MB, the per-image cap drops or
+uploads chunk.
+
+### Three cross-cutting decisions, to be settled in S3a
+
+Each is asked 2–4 times across the roadmap; answering them per-slice is how S2's "one door of two"
+shape recurred six times in one release.
+
+1. **What counts as a versioned mutation?** `DocMutation` is a discriminated union, so every new kind
+   forces the answer at the compiler. Policy: **content versions; references and metadata do not.**
+2. **ONE dangling-reference presentation** — three producers (deleted linked entity, missing asset,
+   the existing dangling resource). The existing one already solved the a11y half: a non-colour
+   marker plus a distinguishing `title`, because colour alone fails 1.4.1.
+3. **Derive, never duplicate**, for every allow-list/`HTML_START` pair.
+
+### Deliberately out of scope, recorded so it is not an accidental gap
+
+Block add/remove/reorder and a figure block (a later structural slice — so S3b's gutter carries the
+kind chip and ⋮ but **no drag handle**; a handle that does nothing is worse than none); search and
+replace (extension licence unverified); marks inside `heading.text`, `bullets.items` or table cells
+(all plain `string`); AI link/unlink tools and letting the model see a task's attached documents —
+**named explicitly so it does not become a fourth accidental gap beside §86 / §87 / §89**.
+
+---
