@@ -5055,24 +5055,43 @@ believing a severity label.
 
 ---
 
-## 99. The e2e seed writes only two of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open
+## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY CLOSED 2026-08-08
 
 `e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
 list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
 persists its optional slices as kv entries — `fieldVisibility`, `features`, `steeringCommittee`,
 `timelogLinks`, `knowledgeItems`, `insights`, `settingsOverrides`, `calendarEvents`, `documents`,
-`documentVersions` — and the seed's kv map carries only `documents` (added in S1) and
-`documentVersions` (added in S2). Everything else on that list is still dropped. ★★ The numbers below
-had already rotted TWICE (an earlier revision said "nine", and the merge that renumbered this register
-briefly carried "a minority" and "two of ten" in the same table row), so treat them as measured-at-a-date,
-not as durable. **Re-run the commands rather than quoting the figures:**
-`grep -n "^const KV_" src/app/browser-backend.ts` (measured 2026-08-07 → **10** lines) against
-`e2e/seed.ts`'s own `KV` map (→ **2** of the ten, so **8** dropped).
+`documentVersions` — and the seed's kv map carries `documents` (added in S1), `documentVersions`
+(added in S2) and, since 2026-08-08, `insights` + `timelogLinks`. Everything else on that list is
+still dropped. ★★ The numbers below had already rotted TWICE (an earlier revision said "nine", and the
+merge that renumbered this register briefly carried "a minority" and "two of ten" in the same table
+row), so treat them as measured-at-a-date, not as durable. **Re-run the commands rather than quoting
+the figures:** `grep -n "^const KV_" src/app/browser-backend.ts` (measured 2026-08-08 → **10** lines)
+against `e2e/seed.ts`'s own `KV` map (→ **4** of the ten, so **6** dropped: `fieldVisibility`,
+`features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`, `calendarEvents`).
 
 ★★ The consequence is a gate that reads far stronger than it is. A view whose data never arrives
 renders its EMPTY STATE, so axe scans a panel with no rows, no per-row controls and nothing that
-could collide. The run is green and proves close to nothing. **`Insights` is in `A11Y_VIEWS` and is
-in exactly this position today.**
+could collide. The run is green and proves close to nothing.
+
+**PARTLY CLOSED 2026-08-08 — `insights` and `timelogLinks` are seeded now, and `Insights` is no
+longer in this position.** Neither slice exists in the curated master, so both are AUTHORED in
+`SEED_WORKSPACE` (the same escape hatch `documents` uses) rather than added to
+`sample-workspace-small.json`, which would force regenerating `-big`, `-huge` and every
+`__fixtures__/golden-*` fixture and make a real format change indistinguishable from a refresh.
+Three insights, not one — a duplicate-name failure cannot render at scan time without a collision.
+Both scans came back CLEAN with rows: `-g "Insights"` 5/5 and `-g "Time bookings"` 5/5, so unlike
+`documents` these two hid no violation. `e2e/seed-content.spec.ts` carries the matching guards.
+
+★★ HALF of `timelogLinks` still does not reach a scan, and a green Time bookings run must not be read
+as covering it. `timelog-panel.tsx` merges linked-but-unfetched projects into `knownProjectRefs`
+under a synthetic name, so `projectLinks` renders real rows with row-qualified controls; the People
+table renders `sync.users`, which is network-only, so `userLinks` renders nothing. Covering the
+People table needs a route stub, not a seed row.
+
+★ Still open for the six above. `steeringCommittee` and `calendarEvents` are the worse two: the
+master DOES carry them, so the seed silently DISCARDS curated data and the e2e app is not a faithful
+load of the master — a harness-fidelity bug independent of any scan.
 
 ★★★ This is not theoretical, and the evidence is the reason the entry exists. `documents` had the
 identical defect; adding `documents: "documents"` to the kv map and seeding a second row turned up a
@@ -5081,7 +5100,7 @@ across all five scheme combos. That violation had been invisible because the pan
 scroll. Reproduce the shape of the check with:
 
 ```bash
-npx playwright test e2e/a11y.spec.ts --project=chromium -g "Insights"
+npx playwright test e2e/a11y.spec.ts --project=chromium -g "Insights" --workers=1
 ```
 
 ★★ HONEST CAVEAT, and the reason this was NOT folded into the documents commit: seeding a slice for
@@ -5089,8 +5108,12 @@ the first time can turn a currently-green scan RED, because it exposes markup th
 actually examined. That is the gate working, but it is a finding that deserves its own change with
 its own fix, not a surprise inside an unrelated commit.
 
-★ The fix per slice is one line in the kv map, and the key name is the same on both sides (the
-workspace field name equals the kv key). The cost is entirely in whatever the scan then finds.
+★ The fix is one line in the kv map when the MASTER already carries the slice (the four remaining
+case-(b) ones are not in it, so they need data authored in `SEED_WORKSPACE` too — that is what
+`insights` and `timelogLinks` needed). The key name is the same on both sides today (the workspace
+field name equals the kv key), but the map's VALUE is the kv key, not the field name, so check the
+string against `browser-backend.ts`'s `KV_*_KEY` constants — a wrong one seeds nothing and fails
+nothing. The cost is otherwise entirely in whatever the scan then finds.
 
 ★ Related trap, same file: the seed hardcodes its `indexedDB.open` version while the app derives it
 from `IDB_VERSION`. They agree today; a future store addition that bumps one and not the other seeds
