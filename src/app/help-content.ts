@@ -101,6 +101,14 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   // Every other view-coverage entry (feature-projects, feature-timelog,
   // feature-reports, feature-help) sits here too.
   { id: "feature-documents", group: "features", titleKey: "helpSecDocumentsTitle", bodyKey: "helpSecDocumentsBody", relatedViews: ["documents"], relatedConcepts: ["concept-knowledge"] },
+  // ★★ A SECOND entry on the SAME `relatedViews`, deliberately — not a split of
+  // the one above for length. `feature-version-history` already owns the phrase
+  // "version history" for the Turso-gated WORKSPACE `history` view, so a user
+  // searching "restore" needs a title that tells the two apart; folding document
+  // versions into `helpSecDocumentsBody` would have left that collision with no
+  // title to disambiguate it. Sharing a view is ordinary here (`open-points`
+  // carries eight entries) and the coverage ratchet counts views, not entries.
+  { id: "feature-document-history", group: "features", titleKey: "helpSecDocumentHistoryTitle", bodyKey: "helpSecDocumentHistoryBody", relatedViews: ["documents"] },
   { id: "feature-voice", group: "features", titleKey: "helpSecVoiceTitle", bodyKey: "helpSecVoiceBody" },
   { id: "feature-notif", group: "features", titleKey: "helpSecNotifTitle", bodyKey: "helpSecNotifBody" },
   { id: "feature-timezones", group: "features", titleKey: "helpSecTimezonesTitle", bodyKey: "helpSecTimezonesBody" },

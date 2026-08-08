@@ -1,22 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { useState, type Dispatch, type SetStateAction } from "react";
-import {
-  DocumentsPanel,
-  appendDocument,
-  duplicateDocument,
-  renameDocument,
-  removeDocument,
-  sortDocuments,
-  uniqueDocumentTitle,
-} from "./documents-panel";
-import { MAX_TITLE_CHARS } from "./document-model";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { useEffect, type ReactNode } from "react";
+import { DocumentsPanel, sortDocuments, uniqueDocumentTitle } from "./documents-panel";
+import { MAX_DOCUMENTS, MAX_TITLE_CHARS } from "./document-model";
 import { FOCUS_RING } from "./interaction-styles";
+import userEvent from "@testing-library/user-event";
 import { ConfirmProvider } from "./confirm-dialog";
+import { ToastProvider } from "./toast-context";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
+import { applyDocMutation, type DocMutation, type DocResult } from "./document-mutations";
+import type { DocVersion, DocVersionSource } from "./document-versions";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { emptyWorkspace } from "./workspace";
 import { buttonNames } from "../test/toolbar-order";
 import { downloadDocument } from "./document-download";
+import { __resetMintStateForTests, mintId } from "./id-mint-session";
+import { flashOutlineClass } from "./use-deeplink-row-flash";
 
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
@@ -28,8 +30,57 @@ vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
 // test that asserts the docx default — and `test:shuffle` reorders tests WITHIN
 // a file, so the failure would be intermittent and seed-dependent rather than
 // reproducible.
+/** ★★ The pane now reads BOTH ambient contexts — `useToastContext` for the
+ *  restore toast and `useWorkspaceTab` for the deep-link signal — and the
+ *  latter THROWS outside its provider, so every harness below has to supply
+ *  them. One host component rather than nine copies, and it carries the toast
+ *  spy so any case can assert on it (or on its silence) without extra wiring. */
+const showToastSpy = vi.fn();
+const showToastActionSpy = vi.fn();
+
+function PanelHost({ children }: { children: ReactNode }) {
+  return (
+    <WorkspaceTabProvider>
+      <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastActionSpy }}>
+        <ConfirmProvider lang="en-US">{children}</ConfirmProvider>
+      </ToastProvider>
+    </WorkspaceTabProvider>
+  );
+}
+
+/** Fires `requestOpen(view, id)` — the exact primitive the chat transcript's
+ *  document card calls — from INSIDE the provider, so the pane consumes a real
+ *  signal rather than a hand-built prop. */
+function DeepLinkTrigger({ view, id }: { view: "documents" | "raid"; id: number }) {
+  const { requestOpen } = useWorkspaceTab();
+  return (
+    <button type="button" onClick={() => requestOpen(view, id)}>
+      deep-link
+    </button>
+  );
+}
+
+// ★★ FILE-LEVEL, not scoped to the deep-link blocks, and that is deliberate.
+// jsdom has no layout engine and does not define `scrollIntoView` at all — so
+// `vi.spyOn` cannot wrap it and, left alone, the deep-link flash hook's rAF
+// callback throws a TypeError on the row it just found. That throw happens
+// INSIDE a requestAnimationFrame, i.e. outside the assertion path: it does not
+// redden the case, it surfaces as an unhandled error that can exit the run
+// non-zero with every test reported passing. Any case in this file that fires a
+// deep link reaches it, so the stub belongs here rather than beside one block.
+// Restored to the original (undefined) after each so it never leaks out.
+const originalScrollIntoView = Element.prototype.scrollIntoView;
+
 beforeEach(() => {
   window.localStorage.clear();
+  __resetMintStateForTests();
+  showToastSpy.mockClear();
+  showToastActionSpy.mockClear();
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
+afterEach(() => {
+  Element.prototype.scrollIntoView = originalScrollIntoView;
 });
 
 const NOW = "2026-08-06T00:00:00.000Z";
@@ -44,49 +95,146 @@ function doc(id: number, title: string, blocks = 0): ProjectDocument {
   };
 }
 
-/** Renders the panel against a setter that does NOT trigger a re-render, so the
- *  `documents` PROP stays at its initial value for the whole test. That is what
- *  makes the same-tick collision reproducible: a closure-reading setter would
- *  compute from the stale prop every time. Returns a live handle to the array. */
+/** Renders the panel against a mutation entry point that does NOT trigger a
+ *  re-render, so the `documents` PROP stays at its initial value for the whole
+ *  test while the underlying state really advances. That is what makes the
+ *  same-tick shape reproducible — the pane sees a world one mutation behind.
+ *
+ *  ★★ It drives the REAL `applyDocMutation`, not a hand-written stand-in, so
+ *  the state it advances to is the state production would reach. What it does
+ *  NOT reproduce is workspace-context's ref mirroring; `renderLive` below is
+ *  the harness for anything that depends on that. Returns a live handle to
+ *  both slices. */
+/** For cases that never mutate. A real no-op `DocResult`, not a cast — the old
+ *  harnesses cast `() => {}` to a setter type, which meant a signature change
+ *  landed as a silent lie rather than a type error. */
+const inertMutate = (): DocResult => ({
+  documents: [],
+  versions: [],
+  changed: false,
+  rejected: [],
+  documentId: null,
+});
+
+type Box = { docs: readonly ProjectDocument[]; versions: readonly DocVersion[] };
+
+function boxMutator(box: Box) {
+  return (m: DocMutation, source: DocVersionSource): DocResult => {
+    const result = applyDocMutation({ documents: box.docs, versions: box.versions }, m, {
+      now: NOW,
+      source,
+      mintDocId: () => mintId("document", box.docs),
+      mintVersionId: () => mintId("documentVersion", box.versions),
+    });
+    box.docs = result.documents;
+    box.versions = result.versions;
+    return result;
+  };
+}
+
 function renderPanel(initial: readonly ProjectDocument[] = []) {
-  const box = { docs: initial };
-  const setDocuments = ((updater: SetStateAction<readonly ProjectDocument[]>) => {
-    box.docs = typeof updater === "function" ? updater(box.docs) : updater;
-  }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>;
+  const box: Box = { docs: initial, versions: [] };
+  const mutateDocuments = boxMutator(box);
   vi.mocked(downloadDocument).mockClear();
   const onResetSize = vi.fn();
   const utils = render(
-    <ConfirmProvider lang="en-US">
+    <PanelHost>
       <DocumentsPanel
         lang="en-US"
         documents={initial}
-        setDocuments={setDocuments}
+        mutateDocuments={mutateDocuments}
+        documentVersions={[]}
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
       />
-    </ConfirmProvider>,
+    </PanelHost>,
   );
-  return { box, onResetSize, ...utils };
+  return { box, mutateDocuments, onResetSize, ...utils };
 }
 
-/** ★★ The OTHER harness, and it is not interchangeable with `renderPanel`.
- *  That one deliberately does NOT re-render, which is what makes the same-tick
- *  collision reproducible — but it also means the DOM never shows the row a
- *  create/duplicate just added. Every assertion about the RENDERED set of
- *  accessible names therefore needs real state behind the setter. */
-function StatefulPanel({ initial }: { initial: readonly ProjectDocument[] }) {
-  const [docs, setDocs] = useState<readonly ProjectDocument[]>(initial);
+/** ★★★ THE OTHER HARNESS, AND IT IS THE REAL `WorkspaceProvider` ON PURPOSE.
+ *  `renderPanel` deliberately does not re-render, so the DOM never shows the
+ *  row a create/duplicate just added — every assertion about the RENDERED set
+ *  of accessible names needs real state behind the entry point.
+ *
+ *  But the bigger reason is fidelity. What this task moved into the pane is the
+ *  claim "a user mutation records a version", and the code that makes that true
+ *  lives in workspace-context: it composes `documents` and `documentVersions`
+ *  from two refs it advances itself. A harness that re-implemented that would
+ *  be a SECOND implementation of the thing under test — it could stay green
+ *  while production silently dropped every version. So these cases mount the
+ *  provider and read `documentVersions` back out of it, rendered as a list. */
+function VersionTrail() {
+  const { documentVersions } = useWorkspace();
   return (
-    <ConfirmProvider lang="en-US">
+    <ul data-testid="version-trail">
+      {documentVersions.map((v) => (
+        <li key={v.id}>{`${v.op}|${v.documentId}|${v.title}|${v.source}`}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** Seeds `documents` through the plain setter, NOT through `mutateDocuments` —
+ *  seeding must not itself write versions, or every trail assertion below would
+ *  start from a polluted baseline. */
+function Seed({ documents }: { documents: readonly ProjectDocument[] }) {
+  const { setDocuments } = useWorkspace();
+  useEffect(() => {
+    if (documents.length) setDocuments(documents);
+  }, [documents, setDocuments]);
+  return null;
+}
+
+function LivePanel({ initial }: { initial: readonly ProjectDocument[] }) {
+  // ★ `documentVersions` comes from the PROVIDER here, not a fixture — the
+  // history modal is fed by it, so a static `[]` would make every live history
+  // assertion below vacuous while production worked. This is the whole reason
+  // the panel takes it as a prop rather than reading `ws.documentVersions`:
+  // `ws` is a static `emptyWorkspace()` in this harness.
+  const { documents, mutateDocuments, documentVersions } = useWorkspace();
+  return (
+    <>
+      <Seed documents={initial} />
       <DocumentsPanel
         lang="en-US"
-        documents={docs}
-        setDocuments={setDocs}
+        documents={documents}
+        mutateDocuments={mutateDocuments}
+        documentVersions={documentVersions}
         ws={emptyWorkspace()}
         onResetSize={() => {}}
       />
-    </ConfirmProvider>
+      <VersionTrail />
+    </>
   );
+}
+
+function providers({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>
+        <PanelHost>{children}</PanelHost>
+      </WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
+function renderLive(initial: readonly ProjectDocument[] = []) {
+  vi.mocked(downloadDocument).mockClear();
+  return render(<LivePanel initial={initial} />, { wrapper: providers });
+}
+
+/** The live version trail, as `op|documentId|title|source` strings. */
+function versionTrail(): string[] {
+  return within(screen.getByTestId("version-trail"))
+    .queryAllByRole("listitem")
+    .map((li) => li.textContent ?? "");
+}
+
+/** Row-title buttons currently rendered, in DOM order — the pane's documents as
+ *  a user can actually see them. */
+function renderedTitles(): string[] {
+  return buttonNames().filter((n) => n.startsWith("Rename – ")).map((n) => n.slice("Rename – ".length));
 }
 
 /** Every button name currently rendered, asserted to be collision-free. */
@@ -95,52 +243,13 @@ function expectNoDuplicateButtonNames() {
   expect(new Set(names).size).toBe(names.length);
 }
 
-describe("documents-panel pure transforms", () => {
-  it("appendDocument mints the next free id and leaves prev untouched", () => {
-    const prev = [doc(1, "A"), doc(7, "B")];
-    const next = appendDocument(prev, "New", NOW);
-    expect(next.map((d) => d.id)).toEqual([1, 7, 8]);
-    expect(prev).toHaveLength(2); // immutability
-  });
-
-  it("duplicateDocument copies blocks under a fresh id", () => {
-    const next = duplicateDocument([doc(1, "A", 3)], 1, "A copy", NOW);
-    expect(next).toHaveLength(2);
-    expect(next[1].id).toBe(2);
-    expect(next[1].blocks).toHaveLength(3);
-  });
-
-  // ★★★ `toBe`, NOT `toEqual`. Turso's dirty-table detection is by REFERENCE
-  // equality, so a value-equal NEW array is still "changed" and costs a full
-  // meta DELETE + re-INSERT for a write that changed nothing. `toEqual` cannot
-  // see the difference — it compares contents, so it passed against
-  // `return [...prev]` for the whole life of this test. Mutation-proved: put
-  // the spread back and each of these three goes red.
-  it("duplicateDocument returns prev BY REFERENCE for an id a concurrent writer removed", () => {
-    const prev = [doc(1, "A")];
-    expect(duplicateDocument(prev, 99, "x", NOW)).toBe(prev);
-  });
-
-  it("renameDocument returns prev BY REFERENCE when no document carries the id", () => {
-    const prev = [doc(1, "A"), doc(2, "B")];
-    expect(renameDocument(prev, 99, "x", NOW)).toBe(prev);
-  });
-
-  it("removeDocument returns prev BY REFERENCE when the id is absent", () => {
-    const prev = [doc(1, "A"), doc(2, "B")];
-    expect(removeDocument(prev, 99)).toBe(prev);
-  });
-
-  it("still returns a NEW array when the transform actually changes something", () => {
-    // ★ The control for all three above. Without it, `return prev` on EVERY
-    // path — mutating in place or ignoring the request outright — would satisfy
-    // them, which is a far worse bug than the one they pin.
-    const prev = [doc(1, "A")];
-    expect(duplicateDocument(prev, 1, "A (copy)", NOW)).not.toBe(prev);
-    expect(renameDocument(prev, 1, "Renamed", NOW)).not.toBe(prev);
-    expect(removeDocument(prev, 1)).not.toBe(prev);
-    expect(prev).toHaveLength(1); // and none of them mutated the input
-  });
+describe("documents-panel pure helpers", () => {
+  // ★ The four mutation transforms that used to live here — appendDocument,
+  // duplicateDocument, renameDocument, removeDocument — are GONE, along with
+  // the identity/no-op cases that pinned them. Do NOT reintroduce them: the
+  // pane mutates through `mutateDocuments` now, and `document-mutations.test.ts`
+  // owns those rules (including "a no-op returns the caller's OWN reference").
+  // What is left here is naming and ordering, which are this file's own.
 
   // ★★★ TITLE UNIQUENESS. Every per-row control's accessible name is
   // `<verb> – <title>`, so two equal titles are a WCAG 2.4.6 failure the axe
@@ -178,29 +287,6 @@ describe("documents-panel pure transforms", () => {
     expect(out.endsWith(" 2")).toBe(true);
   });
 
-  it("appendDocument mints a title that does not collide with an existing one", () => {
-    const next = appendDocument([doc(1, "New document")], "New document", NOW);
-    expect(next[1].title).toBe("New document 2");
-  });
-
-  it("duplicateDocument never gives the copy its source's exact title", () => {
-    // ★ THE SHAPE THE OLD TEST COULD NOT REACH: it passed "A copy", a value
-    // the application never produced — the call site handed over `doc.title`.
-    const next = duplicateDocument([doc(1, "A", 3)], 1, "A", NOW);
-    expect(next[1].title).not.toBe("A");
-    expect(next[1].blocks).toHaveLength(3); // still a real copy
-  });
-
-  it("renameDocument retitles ONLY the targeted document", () => {
-    const next = renameDocument([doc(1, "A"), doc(2, "B")], 2, "Renamed", NOW);
-    expect(next.map((d) => d.title)).toEqual(["A", "Renamed"]);
-  });
-
-  it("removeDocument removes ONLY the targeted document", () => {
-    const next = removeDocument([doc(1, "A"), doc(2, "B"), doc(3, "C")], 2);
-    expect(next.map((d) => d.id)).toEqual([1, 3]);
-  });
-
   it("sortDocuments returns workspace order when the direction is off", () => {
     // ★ Control for the two sort assertions below: without it, a sort that
     // ignored `dir` entirely would still satisfy an ascending-only test.
@@ -235,19 +321,82 @@ describe("DocumentsPanel", () => {
   });
 
   it("keeps BOTH documents when two creates land in one tick", () => {
-    // ★★★ THE FUNCTIONAL-SETTER GUARD. `renderPanel`'s setter does not
-    // re-render, so the `documents` prop is stale for the second click — which
-    // is exactly the concurrent-write shape. A non-functional
-    // `setDocuments([...documents, x])` computes from the stale prop both times
-    // and ends at length 1; only `setDocuments(prev => …)` reaches 2. Every
-    // single-create test above passes either way, so this is the only assertion
-    // that can tell them apart.
+    // ★★★ THE STALE-PROP GUARD, and it MOVED when the pane stopped owning a
+    // setter. It used to pin `setDocuments(prev => …)` against
+    // `setDocuments([...documents, x])`. There is no updater here any more, so
+    // what it pins now is that the pane hands `mutateDocuments` an INTENT and
+    // lets it compute — never a list, an id or a next-state it derived from its
+    // own `documents` prop, which `renderPanel` deliberately keeps one mutation
+    // behind. A pane that minted the id itself ends at ONE distinct id.
+    // ★ The same-tick correctness of the entry point itself is workspace-
+    // context's (its refs advance synchronously); pinned there, not here.
     const { box } = renderPanel([]);
     const create = screen.getByRole("button", { name: "New document" });
     fireEvent.click(create);
     fireEvent.click(create);
     expect(box.docs).toHaveLength(2);
     expect(new Set(box.docs.map((d) => d.id)).size).toBe(2);
+  });
+
+  it("keeps both TITLES distinct when two creates land in one tick", () => {
+    // ★★★ THE HALF THE ID ASSERTION ABOVE CANNOT SEE, and the one this task
+    // nearly broke. `uniqueDocumentTitle` used to run INSIDE the append
+    // transform, which a functional setter handed React's latest queued state;
+    // it runs at the CALL SITE now, and the only list a call site has is the
+    // `documents` prop — one mutation behind, exactly as `renderPanel` models
+    // it. Both creates would then uniquify against the empty pre-mutation list
+    // and mint "Untitled document" TWICE: five pairs of identical per-row
+    // control names, the WCAG 2.4.6 failure the minting exists to remove.
+    // `freshDocuments()` is what closes it. Mutation-proved: point either call
+    // site back at `documents` and this goes red while every other case here
+    // stays green.
+    const { box } = renderPanel([]);
+    const create = screen.getByRole("button", { name: "New document" });
+    fireEvent.click(create);
+    fireEvent.click(create);
+    expect(box.docs.map((d) => d.title)).toEqual(["Untitled document", "Untitled document 2"]);
+  });
+
+  it("cannot mint a title the ENGINE's set already holds, whatever the prop says", () => {
+    // ★★★ THIS CASE CHANGED MEANING, and the change is the whole point of
+    // moving uniqueness into `document-mutations.ts`. It used to pin that
+    // `freshDocuments()` prefers the PROP once the prop has moved on, and it
+    // asserted the bare base as the answer.
+    //
+    // ★★★ THAT ASSERTION IS NOW WRONG, and the engine is right. The pane can
+    // only ever see its `documents` prop; the engine uniquifies against the
+    // state it actually holds, which here still contains "Untitled document"
+    // from the first create. So the bare base WOULD have collided, and the
+    // suffix is the correct answer — the engine resolved a collision the pane
+    // could not see.
+    //
+    // ★★ CONSEQUENCE WORTH KNOWING: with the engine authoritative, the pane's
+    // `freshRef` no longer changes any outcome — `mutateDocuments` reads
+    // workspace-context's refs, which are advanced synchronously and are
+    // therefore strictly fresher than anything a render body can compute. The
+    // pane's own uniquification is now belt-and-braces, kept only because
+    // documents-panel.tsx belongs to another slice. It is harmless because the
+    // engine's pass is idempotent (pinned in document-mutations.test.ts).
+    const { box, mutateDocuments, rerender } = renderPanel([]);
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    expect(box.docs.map((d) => d.title)).toEqual(["Untitled document"]);
+    rerender(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(9, "Something else")]}
+          mutateDocuments={mutateDocuments}
+          documentVersions={[]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    expect(box.docs.at(-1)!.title).toBe("Untitled document 2");
+    // ★ And the property that actually matters, asserted directly rather than
+    // inferred from one title: every rendered row name stays distinct.
+    expect(new Set(box.docs.map((d) => d.title)).size).toBe(box.docs.length);
   });
 
   it("renames only the targeted document through the rename dialog", () => {
@@ -308,7 +457,7 @@ describe("DocumentsPanel", () => {
   // name Duplicate – Steering update" — i.e. it fails on the query, before it
   // ever reaches the uniqueness assertion.
   it("keeps every control name unique after DUPLICATING a row", () => {
-    render(<StatefulPanel initial={[doc(1, "Steering update"), doc(2, "Beta")]} />);
+    renderLive([doc(1, "Steering update"), doc(2, "Beta")]);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate – Steering update" }));
     expect(screen.getByRole("button", { name: "Duplicate – Steering update (copy)" })).toBeInTheDocument();
     expectNoDuplicateButtonNames();
@@ -318,7 +467,7 @@ describe("DocumentsPanel", () => {
     // ★ The second click's base ("… (copy)") is itself taken by then, so a
     // minter that only appended a fixed suffix collides on the second copy —
     // the exact "the collision merely moves" failure.
-    render(<StatefulPanel initial={[doc(1, "Steering update")]} />);
+    renderLive([doc(1, "Steering update")]);
     const dup = () => screen.getByRole("button", { name: "Duplicate – Steering update" });
     fireEvent.click(dup());
     fireEvent.click(dup());
@@ -329,7 +478,7 @@ describe("DocumentsPanel", () => {
   it("keeps every control name unique after two CREATES", () => {
     // Same defect on the other call site: every new document was titled with
     // the same string, so two clicks collided.
-    render(<StatefulPanel initial={[]} />);
+    renderLive([]);
     const create = screen.getByRole("button", { name: "New document" });
     fireEvent.click(create);
     fireEvent.click(create);
@@ -343,7 +492,7 @@ describe("DocumentsPanel", () => {
     // equal to the toolbar's label puts two buttons called "New document" in
     // one pane. `create` is re-queried by an EXACT name after the click, which
     // is the assertion doing the work: a second match throws.
-    render(<StatefulPanel initial={[]} />);
+    renderLive([]);
     fireEvent.click(screen.getByRole("button", { name: "New document" }));
     expect(screen.getByRole("button", { name: "New document" })).toBeInTheDocument();
     expectNoDuplicateButtonNames();
@@ -404,15 +553,16 @@ describe("DocumentsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Beta" }));
     expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
     rerender(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
-          setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
+          mutateDocuments={inertMutate}
+          documentVersions={[]}
           ws={emptyWorkspace()}
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
     expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
   });
@@ -447,16 +597,17 @@ describe("DocumentsPanel", () => {
 
   it("honours an explicit initialFormat", () => {
     render(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha")]}
-          setDocuments={(() => {}) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
+          mutateDocuments={inertMutate}
+          documentVersions={[]}
           ws={emptyWorkspace()}
           initialFormat="pdf"
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
     expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pdf", expect.anything(), "en-US");
@@ -546,22 +697,138 @@ describe("DocumentsPanel", () => {
   });
 });
 
+// ★★★ THE POINT OF THE WHOLE TASK. Before this, the pane wrote `documents`
+// with a setter of its own: a user rename recorded no history at all while an
+// AI rename — going through `mutateDocuments` — recorded one. "Every mutation
+// snapshots its before-image" cannot be half-true, because that snapshot is the
+// only history the AI writes have (they bypass the undo stack entirely).
+//
+// ★★ These assert the RESULTING `documentVersions`, read back out of the real
+// provider, not that `mutateDocuments` was called. A spy proves the wiring
+// exists; it cannot prove the wiring works, and in the previous slice a
+// flagship guard passed against a deliberately broken implementation.
+describe("DocumentsPanel — every user mutation records a version", () => {
+  function create() {
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+  }
+
+  it("records NO version for a create — a create replaces nothing", () => {
+    // ★ The control, and the reason the counts below are meaningful. Without
+    // it, an implementation that snapshotted on EVERY mutation would satisfy
+    // all three cases below while filling the trail with entries that restore
+    // to an empty document. Paired with a positive observable so the empty
+    // trail cannot be the empty trail of a pane that never rendered.
+    renderLive([]);
+    create();
+    expect(renderedTitles()).toEqual(["Untitled document"]);
+    expect(versionTrail()).toEqual([]);
+  });
+
+  it("records exactly ONE version for a rename, holding the PRE-rename title", () => {
+    // ★★★ THE HEADLINE CASE. A version is a BEFORE-image: restoring it must
+    // undo the rename, so it has to carry the title the rename REPLACED. An
+    // implementation that snapshotted the post-rename state would produce a
+    // version that restores to itself — a history entry that does nothing,
+    // which reads as working right up until someone uses it.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Rename – Untitled document" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Steering deck" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+
+    expect(renderedTitles()).toEqual(["Steering deck"]);
+    // ★ The whole trail, EXACTLY — so "one version" and "the right version" are
+    // one assertion. The id is deterministic (`__resetMintStateForTests` runs in
+    // `beforeEach`), which is the same convention the id cases above use.
+    expect(versionTrail()).toEqual(["rename|1|Untitled document|user"]);
+  });
+
+  it("records the pane's mutations as `user`, never `ai`", () => {
+    // ★ The source is what separates a user's own edit from an AI write in the
+    // version history UI, and it is a literal the pane passes — nothing else in
+    // the suite would notice it flipping. Asserted on the same live trail, so a
+    // wrong literal cannot hide behind a stubbed argument.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Rename – Untitled document" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Renamed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    expect(versionTrail().map((e) => e.split("|")[3])).toEqual(["user"]);
+  });
+
+  it("records a tombstone version for a delete rather than losing the document", async () => {
+    // ★★ A delete is the one mutation whose before-image is the ONLY surviving
+    // copy of the document — it is what the deleted-documents list and Restore
+    // read. A pane that deleted without it destroys the document irrecoverably,
+    // and the pane would look identical either way.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Untitled document" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(renderedTitles()).toEqual([]));
+    expect(versionTrail()).toEqual(["delete|1|Untitled document|user"]);
+  });
+
+  it("does NOT record a version when the delete confirm is cancelled", async () => {
+    // ★ The other half: a pane that mutated BEFORE awaiting the confirm would
+    // satisfy the tombstone case above. The surviving row is the positive
+    // observable that keeps the empty-trail assertion from being vacuous.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Untitled document" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(renderedTitles()).toEqual(["Untitled document"]);
+    expect(versionTrail()).toEqual([]);
+  });
+
+  it("duplicating corrupts neither slice", () => {
+    // Both documents survive under distinct titles, and exactly one version is
+    // written, holding the SOURCE's title.
+    // ★★ `2` is the COPY's id — the source minted 1. That is the half the
+    // rendered rows cannot show: a version filed under the SOURCE would read
+    // `duplicate|1|…`, which makes an untouched document look edited and leaves
+    // the copy with no history at all. The rule itself is
+    // document-mutations.ts's, but the trail exposes it here for free, so
+    // asserting the whole string costs nothing and catches a real regression.
+    renderLive([]);
+    create();
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate – Untitled document" }));
+
+    expect(renderedTitles()).toEqual(["Untitled document", "Untitled document (copy)"]);
+    expectNoDuplicateButtonNames();
+    expect(versionTrail()).toEqual(["duplicate|2|Untitled document|user"]);
+  });
+});
+
 describe("DocumentsPanel — read-only (popout guard)", () => {
   function renderReadOnly() {
     vi.mocked(downloadDocument).mockClear();
     return render(
-      <ConfirmProvider lang="en-US">
+      <PanelHost>
         <DocumentsPanel
           lang="en-US"
           documents={[doc(1, "Alpha"), doc(2, "Beta")]}
-          setDocuments={(() => {
-            throw new Error("setDocuments must never be called in a read-only pane");
-          }) as Dispatch<SetStateAction<readonly ProjectDocument[]>>}
+          mutateDocuments={() => {
+            throw new Error("mutateDocuments must never be called in a read-only pane");
+          }}
+          documentVersions={[
+            {
+              id: 1,
+              documentId: 99,
+              title: "Gone",
+              blocks: [],
+              savedAt: "2026-08-05T10:00:00.000Z",
+              source: "user",
+              op: "delete",
+            },
+          ]}
           ws={emptyWorkspace()}
           isReadOnly
           onResetSize={() => {}}
         />
-      </ConfirmProvider>,
+      </PanelHost>,
     );
   }
 
@@ -586,8 +853,9 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
     expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
   });
 
-  it("cannot mutate: clicking a disabled control reaches no setter", () => {
-    // The setter THROWS if called, so this fails loudly rather than silently if
+  it("cannot mutate: clicking a disabled control reaches no mutation", () => {
+    // `mutateDocuments` THROWS if called, so this fails loudly rather than
+    // silently if
     // a control is ever left live. A real `disabled` attribute is what makes
     // this hold — an `aria-disabled` lookalike still fires onClick.
     renderReadOnly();
@@ -595,5 +863,907 @@ describe("DocumentsPanel — read-only (popout guard)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
     fireEvent.click(screen.getByRole("button", { name: "Rename – Alpha" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // ★★ The popout guard, same split as the history modal: READING the deleted
+  // list is safe, restoring is not. Driven through the read-only harness,
+  // whose version fixture is a tombstone (a documentId absent from the live
+  // documents) precisely so there is a row here to disable.
+  it("disables Restore in a read-only popout while still listing the tombstone", async () => {
+    const user = userEvent.setup();
+    renderReadOnly();
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    const restore = screen.getByRole("button", { name: /^Restore –/ });
+    expect(restore).toBeInTheDocument(); // still readable
+    expect(restore).toBeDisabled();
+    // A real `disabled` attribute, not an `aria-disabled` lookalike — the
+    // lookalike still fires onClick, and this pane's mutateDocuments THROWS in
+    // read-only, so a live button would surface as a crash.
+    await user.click(restore);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+// ★★★ THE DELETED-DOCUMENTS SURFACE. These drive the REAL provider
+// (`renderLive`) rather than the props harness, because the list is derived
+// from `documentVersions` and the derivation is the thing under test — a
+// fixture-fed version array would be a second implementation of it.
+describe("DocumentsPanel — deleted documents", () => {
+  /** Create a document, then delete it, leaving exactly one tombstone. */
+  async function seedOneDeleted(title = "Doomed") {
+    renderLive([{ ...doc(1, title) }]);
+    fireEvent.click(await screen.findByRole("button", { name: `Delete – ${title}` }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: `Delete – ${title}` })).toBeNull());
+  }
+
+  it("hides the section until the toggle is on, then lists the tombstone", async () => {
+    const user = userEvent.setup();
+    await seedOneDeleted();
+
+    // ★ A POSITIVE observable that the toggle is what reveals it: the section
+    // is absent first, so this cannot pass against a list that never renders.
+    expect(screen.queryByRole("button", { name: /^Restore –/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    const restores = screen.getAllByRole("button", { name: /^Restore –/ });
+    expect(restores).toHaveLength(1);
+    expect(restores[0].getAttribute("aria-label")).toContain("Doomed");
+  });
+
+  it("counts the tombstones on the toggle itself", async () => {
+    await seedOneDeleted();
+    expect(screen.getByRole("button", { name: /Deleted documents/ }).textContent).toContain("(1)");
+  });
+
+  // ★★★ MUTATION-PROVED. Row-unique names, with the trap from T20 closed: with
+  // every aria-label null, `getAllByRole(…, {name: /Restore/})` finds NOTHING
+  // and a Set-size assertion reduces to `0 === 0`. So this asserts the COUNT
+  // first, then non-emptiness, then uniqueness, then that each name carries
+  // its own version id — which is the only field unique by construction, since
+  // nothing uniquifies titles outside this pane's create/duplicate handlers.
+  it("gives every Restore button a row-unique accessible name", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Same title"), doc(2, "Same title")]);
+    for (const id of [1, 2]) {
+      fireEvent.click(screen.getAllByRole("button", { name: "Delete – Same title" })[0]);
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      await waitFor(() =>
+        expect(screen.queryAllByRole("button", { name: "Delete – Same title" })).toHaveLength(2 - id),
+      );
+    }
+
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    const buttons = screen.getAllByRole("button", { name: /^Restore –/ });
+    expect(buttons).toHaveLength(2);
+
+    const names = buttons.map((b) => b.getAttribute("aria-label"));
+    expect(names.every((n) => typeof n === "string" && n.trim().length > 0)).toBe(true);
+    expect(new Set(names).size).toBe(2);
+    // Both rows share a TITLE, so only the id can separate them — a
+    // title-only label would collide here and pass the Set check nowhere else.
+    expect(names.every((n) => /#\d+$/.test(n ?? ""))).toBe(true);
+  });
+
+  it("restores the document and drops it from the deleted list", async () => {
+    const user = userEvent.setup();
+    await seedOneDeleted();
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    await user.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // Back among the live documents (under a NEW id — ids are never reused)…
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete – Doomed" })).toBeInTheDocument());
+    // …and gone from the deleted list, because the restore wrote a marker that
+    // closes the tombstone. Without it the row would persist and every click
+    // would mint another copy.
+    expect(screen.queryByRole("button", { name: /^Restore –/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Deleted documents/ }).textContent).toContain("(0)");
+  });
+
+  // ★★★ MUTATION-PROVED, and the most important case here: at MAX_DOCUMENTS
+  // every restore is refused, and a Restore button that silently does nothing
+  // is the worst outcome available. `mutateDocuments` returns `rejected`
+  // synchronously, so the only way to get this wrong is to discard it.
+  // ★★★ THE ENGINE IS AT THE CAP; THE PANE IS NOT ASKED TO DRAW IT.
+  // This case needs `documents.length >= MAX_DOCUMENTS` in the ENGINE, because
+  // that is what makes the restore's recreate path refuse. It does not need the
+  // pane to RENDER 200 rows — no assertion here depends on them, and the pane's
+  // job under test is only "render what `mutateDocuments` refused".
+  //
+  // ★★★ THAT DISTINCTION IS WHY THIS TEST EXISTS IN THIS SHAPE. Seeded through
+  // `renderLive` the two are the same array, so the fixture cost 200 rows × 5
+  // controls of jsdom render plus an accessible-name scan over ~1000 buttons per
+  // query: MEASURED at 9150ms in isolation against 90–323ms for every other test
+  // in this file, and it timed out at 20s inside the full suite. Through the box
+  // harness the engine state and the rendered prop are separate, and the same
+  // assertions run in a fraction of the time.
+  // ★★ The engine, the cap, the reason string and the pane's rendering are all
+  // still REAL — `boxMutator` drives `applyDocMutation` itself. The only thing
+  // dropped is an incidental 200-row render.
+  // ★ The pane is given ONE live document on purpose: with zero, `deleted (1) >
+  // documents (0)` fires the implausibility caution, which is ALSO a
+  // `role="status"` region, and `findByRole("status")` would then be ambiguous
+  // rather than wrong — a much harder failure to read.
+  it("renders the reason when a restore is refused", async () => {
+    const atCap = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 10, `Doc ${i + 10}`));
+    const tomb: DocVersion = {
+      // ★★★ DERIVED FROM THE CAP, NEVER A LITERAL. `atCap` generates ids
+      // 10..MAX_DOCUMENTS+9. A hardcoded 999 sat OUTSIDE that range while the
+      // cap was 200 and INSIDE it once the cap became 1000 — so the restore
+      // resolved against a document the engine already held instead of
+      // recreating one, the cap never refused, and both refusal tests failed
+      // with a bare "Unable to find role=status". The tombstone must point at
+      // a document the engine does NOT hold, whatever the cap happens to be.
+      id: 500,
+      documentId: MAX_DOCUMENTS + 999,
+      title: "Doomed",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+    const box: Box = { docs: atCap, versions: [tomb] };
+
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={[tomb]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // The refusal is ANNOUNCED, not merely drawn.
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toMatch(/document limit reached/i);
+    // The engine really did refuse — nothing was added past the cap. Without
+    // this the test could pass against a pane that rendered a reason for a
+    // write that actually succeeded.
+    expect(box.docs).toHaveLength(MAX_DOCUMENTS);
+    // And the row is still offered, because nothing was restored.
+    expect(screen.getByRole("button", { name: /^Restore –/ })).toBeInTheDocument();
+  });
+
+});
+
+// ★★★ THE SECOND RESTORE SURFACE. The history modal's Restore threw its
+// `DocResult` away and closed, so a refusal read as a successful dismissal:
+// the modal vanished, nothing changed, and nothing said so — the exact "a
+// Restore button that silently does nothing" outcome the pane's own comment
+// calls the worst available.
+//
+// ★★★ AND THE HALF THAT WOULD HAVE LEFT THE FIX INERT: the refusal region used
+// to render only inside the `showDeleted` block. That toggle is OFF by default
+// and is completely independent of this modal, so surfacing the reason without
+// hoisting the region would have set state that nothing drew. Every case here
+// therefore NEVER touches the show-deleted toggle, and asserts that it is off.
+describe("DocumentsPanel — the history modal's Restore", () => {
+  /** A before-image for the LIVE document #1, so the modal's own
+   *  `documentId === historyFor` filter lists it and its Restore takes the
+   *  restore-IN-PLACE branch (the modal only ever opens for a live document). */
+  const stale: DocVersion = {
+    id: 500,
+    documentId: 1,
+    title: "Older title",
+    blocks: [],
+    savedAt: "2026-08-05T10:00:00.000Z",
+    source: "user",
+    op: "rename",
+  };
+
+  /** ★ The engine's version list is passed SEPARATELY from the panel's
+   *  `documentVersions` prop, which is what lets the two disagree — and that
+   *  disagreement IS the bug's first trigger: a concurrent AI write trims the
+   *  version away between the render that drew the button and the click. Pass
+   *  `[]` for the engine to model the trim, `[stale]` for the success control. */
+  function renderModalHarness(engineVersions: readonly DocVersion[]) {
+    const box: Box = { docs: [doc(1, "Alpha")], versions: engineVersions };
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={[stale]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+    return box;
+  }
+
+  it("renders the refusal when the MODAL's Restore is refused, with showDeleted OFF", async () => {
+    const box = renderModalHarness([]);
+
+    // ★ The show-deleted section was never opened, so the region the reason
+    // used to live inside is not in the DOM at all. Asserted directly: this is
+    // the half a fix that only stopped discarding the result would fail.
+    expect(screen.queryByRole("region", { name: "Deleted documents" })).toBeNull();
+    // The modal closed on the click, exactly as before — which is why a
+    // swallowed refusal looked like a successful dismissal.
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    const status = screen.getByRole("status");
+    // The SPECIFIC reason, not merely that some status node exists.
+    expect(status.textContent).toMatch(/not found/i);
+    expect(status.textContent).toContain("#500");
+    // ★ And the engine really did refuse. Without this the case could pass
+    // against a pane that announced a refusal for a write that succeeded.
+    expect(box.docs).toHaveLength(1);
+    expect(box.docs[0].title).toBe("Alpha");
+    // ★ A refusal already has a `role="status"` reason; a toast on the same
+    // event would announce it a second time. Paired with the success case in
+    // this same describe, which fires on this very code path (named rather than
+    // placed — `test:shuffle` reorders cases within a file).
+    expect(showToastSpy).not.toHaveBeenCalled();
+  });
+
+  it("announces the restore made from the MODAL, naming the restored title", () => {
+    // ★★ The second restore surface has to reach the toast too — both go
+    // through `handleRestore` for exactly this reason. This is the restore-IN-
+    // PLACE branch, so the row goes back to the version's title and the toast
+    // must name what the row now holds.
+    const box = renderModalHarness([stale]);
+    expect(box.docs[0].title).toBe("Older title");
+    expect(showToastSpy).toHaveBeenCalledTimes(1);
+    expect(showToastSpy).toHaveBeenCalledWith("success", t("en-US", "documentsRestored", "Older title"));
+  });
+
+  it("announces nothing when the MODAL's Restore SUCCEEDS", async () => {
+    // ★ The control. Without it, a pane that rendered the reason region
+    // unconditionally — or a handler that ignored `result.changed` — would
+    // satisfy the case above while crying refusal on every restore.
+    const box = renderModalHarness([stale]);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByRole("status")).toBeNull();
+    // The positive observable: the restore really landed, so the empty status
+    // is the empty status of a SUCCESS, not of a click that did nothing.
+    expect(box.docs[0].title).toBe("Older title");
+  });
+});
+
+// ★★★ THE REFUSAL IS A STATEMENT ABOUT ONE CLICK. Hoisting the region OUT of
+// the `showDeleted` block (so a refusal raised in the history modal could draw
+// at all) removed the accidental clear that closing the section used to give it,
+// and nothing replaced it — the reason then sat above the preview through every
+// later action until the next restore overwrote it.
+//
+// ★★★ EVERY CASE HERE ASSERTS AN ABSENCE, which is exactly what a pane that
+// never rendered the message would also produce. `renderWithRefusal` therefore
+// asserts the message IS there before handing back, and each case adds a second
+// positive observable for the action itself (the selection moved, the modal
+// opened, the engine really mutated, the section really closed) so "the message
+// went away" is distinguishable from "the click did nothing".
+describe("DocumentsPanel — a refusal does not outlive the click that raised it", () => {
+  /** A before-image for the LIVE document #1 that the ENGINE does not hold, so
+   *  the modal's Restore is refused with `version #500 not found`. That is the
+   *  cheapest reliable refusal available — the other one, the document cap,
+   *  needs a MAX_DOCUMENTS engine fixture. Its `documentId` is a live document,
+   *  so it never reaches the deleted list and the pane holds exactly ONE
+   *  `role="status"` node: an ambiguous query here would be far harder to read
+   *  than a wrong one. */
+  const stale: DocVersion = {
+    id: 500,
+    documentId: 1,
+    title: "Older title",
+    blocks: [],
+    savedAt: "2026-08-05T10:00:00.000Z",
+    source: "user",
+    op: "rename",
+  };
+
+  /** TWO documents, so a case can move the selection to a row that is not the
+   *  read-time fallback. */
+  const rows = [doc(1, "Alpha"), doc(2, "Beta")];
+
+  function renderPane(documentVersions: readonly DocVersion[]) {
+    const box: Box = { docs: rows, versions: [] };
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={rows}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={documentVersions}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    return box;
+  }
+
+  /** Raises the refusal through the history modal and PROVES it rendered. */
+  function renderWithRefusal() {
+    const box = renderPane([stale]);
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+    // The positive control every case below rests on. The SPECIFIC reason, not
+    // merely that some status node exists — an unqualified match would also be
+    // satisfied by the implausible-deleted-list caution.
+    expect(screen.getByRole("status").textContent).toMatch(/#500/);
+    // …and the engine really refused, so the message is not being rendered over
+    // a write that actually landed.
+    expect(box.docs).toHaveLength(2);
+    expect(box.docs[0].title).toBe("Alpha");
+    return box;
+  }
+
+  it("clears it when the user selects a different document", () => {
+    renderWithRefusal();
+
+    fireEvent.click(screen.getByRole("button", { name: "Beta" }));
+
+    // The selection really moved: the message renders directly above the
+    // preview, so a reason left standing here reads as being about Beta.
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("clears it when the history modal is opened again", () => {
+    renderWithRefusal();
+
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+
+    // The modal really opened — a new restore session, which the previous
+    // session's reason would otherwise still be sitting under when it closes.
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  // ★★ Any mutation, pinned through the cheapest one-click path. The clear
+  // lives in `mutate`, not in the four handlers, so this case covers create /
+  // duplicate / rename / delete at once — and reddens if a future call site
+  // bypasses that funnel.
+  it("clears it when a mutation lands", () => {
+    const box = renderWithRefusal();
+
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate – Alpha" }));
+
+    // The mutation really landed. (The rendered prop is static in this harness,
+    // so the engine box — not the DOM — is where a create is observable.)
+    expect(box.docs).toHaveLength(3);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  // ★ The other restore surface, and the only case whose refusal is raised from
+  // the deleted list rather than the modal — so it needs its own tombstone.
+  it("clears it when the deleted-documents section is closed", () => {
+    const tomb: DocVersion = {
+      id: 501,
+      documentId: 999,
+      title: "Doomed",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+    const box = renderPane([tomb]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+    // Positive control: the reason is up, and the engine (which holds no
+    // version) really refused rather than restoring anything.
+    expect(screen.getByRole("status").textContent).toMatch(/#501/);
+    expect(box.docs).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    // The section really closed, taking the Restore buttons that produced the
+    // reason with it.
+    expect(screen.queryByRole("region", { name: "Deleted documents" })).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("DocumentsPanel — the implausible-deleted-list guard", () => {
+  function tombstone(id: number, documentId: number, title: string): DocVersion {
+    return {
+      id,
+      documentId,
+      title,
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+  }
+
+  /** Renders with an explicit version list, so the derivation can be handed the
+   *  shapes a corrupted load produces without having to corrupt a load. */
+  function renderWith(documents: readonly ProjectDocument[], versions: readonly DocVersion[]) {
+    return render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={documents}
+          mutateDocuments={inertMutate}
+          documentVersions={versions}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+  }
+
+  // ★★★ MUTATION-PROVED. The signature of a `documents` blob that failed to
+  // parse beside a versions blob that did not: every version reads as deleted.
+  it("cautions when more documents look deleted than exist", async () => {
+    const user = userEvent.setup();
+    renderWith([], [tombstone(1, 10, "Gone A"), tombstone(2, 11, "Gone B")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.getByRole("status").textContent).toMatch(/may not have loaded correctly/i);
+    // ★ It CAUTIONS, it does not hide or disable: a user who really did delete
+    // most of their documents must still be able to restore them.
+    expect(screen.getAllByRole("button", { name: /^Restore –/ })).toHaveLength(2);
+  });
+
+  it("stays quiet when the deleted list is a plausible size", async () => {
+    const user = userEvent.setup();
+    // ★ A POSITIVE observable in the same test, so this cannot pass against a
+    // caution that never renders under any conditions: the section IS shown and
+    // its row IS there, only the caution is absent.
+    renderWith([doc(1, "Alpha"), doc(2, "Beta")], [tombstone(1, 99, "Gone")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+
+    expect(screen.getByRole("button", { name: /^Restore –/ })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("cautions on the boundary only when deleted strictly exceeds live", async () => {
+    const user = userEvent.setup();
+    // Equal counts is the boundary: one deleted, one live is an ordinary
+    // project, not a failed load.
+    renderWith([doc(1, "Alpha")], [tombstone(1, 99, "Gone")]);
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+// ★★★ THE RESTORE TOAST. `documentsRestored` shipped in both dictionaries with
+// ZERO consumers, so a restore changed the list and said nothing. These drive
+// the REAL provider, because the title the toast must name is the one the
+// ENGINE produced — a fixture-fed title would be a second implementation of the
+// rule under test (see the uniquify case).
+describe("DocumentsPanel — the restore toast", () => {
+  /** Delete the row titled `title` through the confirm dialog, leaving one
+   *  tombstone behind. */
+  async function deleteRow(title: string) {
+    fireEvent.click(await screen.findByRole("button", { name: `Delete – ${title}` }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: `Delete – ${title}` })).toBeNull());
+  }
+
+  it("announces a successful restore, naming the document", async () => {
+    const user = userEvent.setup();
+    renderLive([doc(1, "Doomed")]);
+    await deleteRow("Doomed");
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    await user.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // The positive observable: the document really is back in the list, so the
+    // toast is the toast of a real restore.
+    await waitFor(() => expect(renderedTitles()).toEqual(["Doomed"]));
+    expect(showToastSpy).toHaveBeenCalledTimes(1);
+    expect(showToastSpy).toHaveBeenCalledWith("success", t("en-US", "documentsRestored", "Doomed"));
+    // ★ …and the key really INTERPOLATES. Comparing only against `t(…)` with
+    // the same arguments would pass with `{0}` left unreplaced on both sides.
+    expect(showToastSpy.mock.calls[0][1]).toContain("Doomed");
+  });
+
+  // ★★★ THE CASE THAT DECIDES WHICH TITLE IS ANNOUNCED, and the only one that
+  // can tell the two candidates apart. `applyDocMutation` uniquifies on BOTH
+  // restore branches, so a tombstone stored as "Doomed" comes back as
+  // "Doomed 2" once something else has taken that title. A toast built from the
+  // VERSION's stored title names a document that does not exist; every other
+  // case here passes either way, because the two titles are equal there.
+  it("announces the title the LIST will show, not the version's stored title", async () => {
+    const user = userEvent.setup();
+    // ★ id 50, NOT 1, and that is load-bearing. `Seed` writes through
+    // `setDocuments`, which does not raise the session mint's high-water mark —
+    // so with id 1 the create below mints 1 AGAIN, the tombstone's documentId
+    // reads as live, `deletedDocumentVersions` drops it and there is no Restore
+    // button to click at all. Measured: the query failed on an empty list.
+    renderLive([doc(50, "Doomed")]);
+    await deleteRow("Doomed");
+
+    // Re-take the title with a NEW document, so the recreate has to suffix.
+    fireEvent.click(screen.getByRole("button", { name: "New document" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename – Untitled document" }));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Doomed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    await waitFor(() => expect(renderedTitles()).toEqual(["Doomed"]));
+
+    showToastSpy.mockClear();
+    await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    await user.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // The engine really did suffix it — this is the row the user can see, and
+    // asserting it here is what stops the toast assertion below from merely
+    // agreeing with a stale expectation.
+    await waitFor(() => expect(renderedTitles()).toEqual(["Doomed", "Doomed 2"]));
+    expect(showToastSpy).toHaveBeenCalledTimes(1);
+    expect(showToastSpy).toHaveBeenCalledWith("success", t("en-US", "documentsRestored", "Doomed 2"));
+  });
+
+  it("does NOT announce a REFUSED restore", async () => {
+    // ★★ Same engine-at-the-cap shape as the refusal case above, and for the
+    // same reason: the pane is given one live document while the ENGINE holds
+    // MAX_DOCUMENTS, so the cap really refuses without rendering that many rows.
+    const atCap = Array.from({ length: MAX_DOCUMENTS }, (_, i) => doc(i + 10, `Doc ${i + 10}`));
+    const tomb: DocVersion = {
+      // ★★★ DERIVED FROM THE CAP, NEVER A LITERAL. `atCap` generates ids
+      // 10..MAX_DOCUMENTS+9. A hardcoded 999 sat OUTSIDE that range while the
+      // cap was 200 and INSIDE it once the cap became 1000 — so the restore
+      // resolved against a document the engine already held instead of
+      // recreating one, the cap never refused, and both refusal tests failed
+      // with a bare "Unable to find role=status". The tombstone must point at
+      // a document the engine does NOT hold, whatever the cap happens to be.
+      id: 500,
+      documentId: MAX_DOCUMENTS + 999,
+      title: "Doomed",
+      blocks: [],
+      savedAt: "2026-08-05T10:00:00.000Z",
+      source: "user",
+      op: "delete",
+    };
+    const box: Box = { docs: atCap, versions: [tomb] };
+
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={boxMutator(box)}
+          documentVersions={[tomb]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Restore –/ }));
+
+    // ★ The click really landed and really was refused — without this the
+    // "no toast" assertion is satisfied by a button that did nothing at all.
+    expect((await screen.findByRole("status")).textContent).toMatch(/document limit reached/i);
+    expect(box.docs).toHaveLength(MAX_DOCUMENTS);
+    expect(showToastSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ★★★ THE HISTORY MODAL'S PREVIEW NEEDS THE LIVE WORKSPACE. Each history row
+// renders its version's blocks through `renderDocumentHtml`, which resolves a
+// `dataSection` block against a `Workspace`. The modal's `ws` is OPTIONAL and
+// falls back to `emptyWorkspace()`, and that fallback fails SILENTLY: an empty
+// register makes `resolveDataSection` return null, so the section renders as
+// NOTHING rather than as broken markup. Every test that merely opens the modal
+// — all of them, before this one — passes with the prop dropped.
+describe("DocumentsPanel — the history modal's Preview", () => {
+  /** One milestone, because `dataSection` is the ONLY block type that reads
+   *  the workspace at all, and `buildExportSections` returns null for a
+   *  register with zero rows. */
+  const wsWithData = {
+    ...emptyWorkspace(),
+    milestones: [{ id: 7, name: "Phase gate 1", date: "2026-09-01", linkedTaskIds: [] }],
+  };
+
+  const dataVersion: DocVersion = {
+    id: 500,
+    documentId: 1,
+    title: "Older title",
+    blocks: [{ type: "dataSection", key: "milestones" }],
+    savedAt: "2026-08-05T10:00:00.000Z",
+    source: "user",
+    op: "update",
+  };
+
+  // ★★★ MUTATION-PROVED: dropping `ws={ws}` from the `<DocumentsHistoryModal>`
+  // mount reddens this case and nothing else in the file.
+  it("renders a version's dataSection against the LIVE workspace, not an empty one", () => {
+    const { container } = render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha")]}
+          mutateDocuments={inertMutate}
+          documentVersions={[dataVersion]}
+          ws={wsWithData}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "History – Alpha" }));
+
+    // ★ The panel is ALWAYS mounted and `hidden`-toggled, and its CONTENT is
+    // computed only while open — so an empty panel here is the positive
+    // control: the text asserted below cannot have been there all along.
+    const panel = () => container.querySelector("[data-documents-history-preview]");
+    expect(panel()).not.toBeNull();
+    expect(panel()!.textContent).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Preview –/ }));
+
+    // ★★ The milestone name can ONLY have come from the workspace this pane
+    // threaded through. `emptyWorkspace()` holds no milestones, so the
+    // fallback resolves this very block to null and renders nothing — which is
+    // why asserting the SECTION'S CONTENT, and not merely that the panel has
+    // some text, is what gives this teeth.
+    expect(panel()!.textContent).toContain("Phase gate 1");
+  });
+});
+
+// ★★★ DEEP-LINK SELECTION. The chat transcript's document card calls
+// `requestOpen("documents", id)`; with no consumer here that landed on the
+// Documents view with nothing selected — half a feature that looks whole.
+describe("DocumentsPanel — deep-link selection (pendingOpen)", () => {
+  /** Renders the live signal, so a case can prove the trigger FIRED and say
+   *  whether this pane consumed it or left it for another view's consumer.
+   *  Without it "the selection did not move" is indistinguishable from "the
+   *  click did nothing", which is the vacuity trap on every negative case
+   *  below. */
+  function PendingProbe() {
+    const { pendingOpen } = useWorkspaceTab();
+    return (
+      <p data-testid="pending">{pendingOpen ? `${pendingOpen.view}:${pendingOpen.id}` : "none"}</p>
+    );
+  }
+
+  const rows = [doc(1, "Alpha"), doc(2, "Beta")];
+
+  function panel() {
+    return (
+      <DocumentsPanel
+        lang="en-US"
+        documents={rows}
+        mutateDocuments={inertMutate}
+        documentVersions={[]}
+        ws={emptyWorkspace()}
+        onResetSize={() => {}}
+      />
+    );
+  }
+
+  /** The pane stays mounted throughout — for a signal arriving at a pane the
+   *  user is already looking at. */
+  function renderMounted(view: "documents" | "raid", id: number) {
+    return render(
+      <PanelHost>
+        <DeepLinkTrigger view={view} id={id} />
+        <PendingProbe />
+        {panel()}
+      </PanelHost>,
+    );
+  }
+
+  /** ★★★ THE ARRIVAL CASE, modelled the way the shell really behaves.
+   *  `requestOpen` sets `activeTab` AND arms `pendingOpen` in one batch, and
+   *  the shell renders only the ACTIVE view — so the pane MOUNTS FRESH with the
+   *  request already pending. That is the remount-swallow scenario, and it is
+   *  the ordinary path for this feature, not an edge case. */
+  function ShellHost() {
+    const { activeTab } = useWorkspaceTab();
+    return (
+      <>
+        <DeepLinkTrigger view="documents" id={2} />
+        <PendingProbe />
+        {activeTab === "documents" ? panel() : <p>another view</p>}
+      </>
+    );
+  }
+
+  // ★★★ MUTATION-PROVED and the most important case in this block: seeding a
+  // "last seen" ref from the LIVE signal (`useRef(pendingOpen)`) makes the
+  // first run see prop === seed and swallow the request — which is exactly this
+  // arrival — and reddens this case alone.
+  it("selects the deep-linked row when the pane MOUNTS with the request pending", () => {
+    render(
+      <PanelHost>
+        <ShellHost />
+      </PanelHost>,
+    );
+    // ★ Positive controls: the pane is not mounted yet, so this cannot pass
+    // against a selection that happened to be Beta already.
+    expect(screen.getByText("another view")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Beta" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // Mounted AND pointed at the requested row — not at the first-row fallback.
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Alpha" })).toBeNull();
+    expect(screen.getByTestId("pending").textContent).toBe("none");
+  });
+
+  it("selects the deep-linked row on a pane that is already open", () => {
+    renderMounted("documents", 2);
+    // The read-time fallback puts the selection on the first row to begin with.
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    // ★ CONSUMED. An uncleared signal re-fires on every later render, and would
+    // drag the selection back each time the user picked another row.
+    expect(screen.getByTestId("pending").textContent).toBe("none");
+  });
+
+  // ★★★ MUTATION-PROVED. The id is a REAL document id, so a consumer that
+  // ignored the `view` would select Beta here — that is what gives this teeth.
+  it("leaves a pendingOpen for ANOTHER view alone", () => {
+    renderMounted("raid", 2);
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // ★ The trigger really fired, and the signal is STILL armed — clearing
+    // another view's request here would steal it from raid-panel's consumer.
+    // This is the positive observable that makes the two assertions below
+    // something other than "the click did nothing".
+    expect(screen.getByTestId("pending").textContent).toBe("raid:2");
+    expect(screen.getByRole("heading", { name: "Alpha" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Beta" })).toBeNull();
+  });
+
+  it("ignores a deep link to an id no live document holds", () => {
+    renderMounted("documents", 999);
+    // Move the selection off the fallback FIRST: without this, "the selection
+    // is still Alpha" is also what a handler that blanked it would produce,
+    // since a blank selection falls back to the first row.
+    fireEvent.click(screen.getByRole("button", { name: "Beta" }));
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // Not blanked, not reset to the first row, and no crash.
+    expect(screen.getByRole("heading", { name: "Beta" })).toBeInTheDocument();
+    // It IS this pane's request, so it is consumed rather than left to rot.
+    expect(screen.getByTestId("pending").textContent).toBe("none");
+  });
+});
+
+// ★★★ THE ARRIVAL AFFORDANCE — the OTHER half of the deep link, and the half
+// that was missing when the selection consumer above shipped. `documents-list`
+// is its own `overflow-auto` box holding up to MAX_DOCUMENTS rows, so moving
+// the selection to a row below the fold changes nothing the user can see there.
+//
+// ★★ THE TWO HALVES ONLY MEET THROUGH THE DOM. `useDeepLinkRowFlash` scrolls by
+// running `containerRef.current.querySelector('[data-deeplink-row="<id>"]')`, so
+// there are THREE independent wirings and any one of them missing is a SILENT
+// no-op — the hook still returns, the pane still renders, nothing throws:
+//   (a) the ref reaching the list's scroll box,
+//   (b) the row carrying `data-deeplink-row`,
+//   (c) that attribute carrying the RIGHT id.
+// The scroll case below reddens on all three, because it records the ELEMENT
+// `scrollIntoView` was called ON rather than merely that it was called.
+//
+// ★★★ WHAT THESE CANNOT COVER: that the row actually MOVES INTO VIEW. jsdom has
+// no layout — no scroll offsets, no viewport, no `scrollIntoView`
+// implementation at all (it is stubbed above). These pin the WIRING that makes
+// the browser's scroll possible and nothing about the scroll itself; the
+// scrolling behaviour is unverified by this suite and is not verifiable in
+// jsdom. Do not read a green run here as "the deep link scrolls".
+describe("DocumentsPanel — deep-link arrival affordance (scroll + flash)", () => {
+  // ids well clear of 1: `Seed`-written documents do not raise
+  // `id-mint-session`'s high-water mark, and 50/51 are also two-digit so an
+  // exact `toBe("50")` cannot be satisfied by a substring of a neighbour.
+  const rows = [doc(50, "Alpha"), doc(51, "Beta")];
+
+  /** Records the ELEMENT each scroll landed on, by its deep-link id. The
+   *  fallback string is not decoration: with `data-deeplink-row` removed from
+   *  the row the hook would still find nothing (so nothing scrolls), but if a
+   *  future change makes the querySelector match some OTHER element this
+   *  reports which, instead of failing as an opaque length mismatch. */
+  let scrolledOnto: string[] = [];
+
+  beforeEach(() => {
+    scrolledOnto = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolledOnto.push(this.getAttribute("data-deeplink-row") ?? "(no data-deeplink-row)");
+    };
+    // Synchronous, deterministic rAF — the same technique
+    // `use-deeplink-row-flash.test.tsx` uses, so the scroll has happened by the
+    // time the click returns.
+    vi.stubGlobal("requestAnimationFrame", (cb: (t: number) => void) => {
+      cb(0);
+      return 0;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function panel() {
+    return (
+      <DocumentsPanel
+        lang="en-US"
+        documents={rows}
+        mutateDocuments={inertMutate}
+        documentVersions={[]}
+        ws={emptyWorkspace()}
+        onResetSize={() => {}}
+      />
+    );
+  }
+
+  function PendingProbe() {
+    const { pendingOpen } = useWorkspaceTab();
+    return <p data-testid="pending">{pendingOpen ? `${pendingOpen.view}:${pendingOpen.id}` : "none"}</p>;
+  }
+
+  function renderMounted(view: "documents" | "raid", id: number) {
+    return render(
+      <PanelHost>
+        <DeepLinkTrigger view={view} id={id} />
+        <PendingProbe />
+        {panel()}
+      </PanelHost>,
+    );
+  }
+
+  it("tags every document row with its own id via data-deeplink-row", () => {
+    const { container } = renderMounted("documents", 50);
+    const tagged = container.querySelectorAll("[data-deeplink-row]");
+
+    // ★ NON-ZERO FIRST. Every assertion below is over a collection, and each of
+    // them is trivially true of an EMPTY one — a query that found nothing would
+    // otherwise report the attribute as correctly applied to all zero rows.
+    expect(tagged).toHaveLength(2);
+    // Exact strings, not `toContain`/substring: "5" is a substring of "50" and
+    // "51", so a loose check cannot tell a right id from a truncated one.
+    const ids = Array.from(tagged).map((r) => r.getAttribute("data-deeplink-row"));
+    expect(ids).toEqual(["50", "51"]);
+  });
+
+  it("scrolls the deep-linked row into view and flashes THAT row", () => {
+    const { container } = renderMounted("documents", 51);
+    // ★ Positive control: nothing has scrolled yet, so the assertion after the
+    // click is about this click and not about a scroll from mount.
+    expect(scrolledOnto).toEqual([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // The scroll landed on the REQUESTED row — this is what proves the ref, the
+    // attribute and the id all line up. A missing ref gives `[]`; a missing
+    // attribute gives `[]`; a wrong id gives `[]` or another row's id.
+    expect(scrolledOnto).toEqual(["51"]);
+
+    // …and that row, not its neighbour, carries the flash outline.
+    const beta = container.querySelector('[data-deeplink-row="51"]');
+    const alpha = container.querySelector('[data-deeplink-row="50"]');
+    expect(beta?.getAttribute("class")).toContain(flashOutlineClass(true));
+    expect(alpha?.getAttribute("class")).not.toContain(flashOutlineClass(true));
+  });
+
+  it("neither scrolls nor flashes for a deep link aimed at ANOTHER view", () => {
+    // ★ The id is a REAL document id, so a hook wired to the wrong view — or a
+    // row that flashed on any pending signal — would scroll here. That is what
+    // gives this teeth rather than being "the click did nothing".
+    const { container } = renderMounted("raid", 51);
+
+    fireEvent.click(screen.getByRole("button", { name: "deep-link" }));
+
+    // The positive observable: the trigger really fired and the signal is still
+    // armed for raid's own consumer.
+    expect(screen.getByTestId("pending").textContent).toBe("raid:51");
+    expect(scrolledOnto).toEqual([]);
+    expect(container.querySelector('[data-deeplink-row="51"]')?.getAttribute("class")).not.toContain(
+      flashOutlineClass(true),
+    );
   });
 });

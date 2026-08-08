@@ -17,6 +17,7 @@ import {
   STAKEHOLDER_CATEGORIES,
   TASK_STATUSES,
 } from "./types";
+import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
 
 /** Every RAID status across the four categories (deduped). The tool schema
  *  offers the whole union; `sanitizeRaidItem` enforces the per-category subset
@@ -590,4 +591,5 @@ export const TOOL_DEFS = [
       },
     },
   },
+  ...DOCUMENT_TOOL_DEFS,
 ];

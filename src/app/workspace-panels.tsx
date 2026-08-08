@@ -152,11 +152,18 @@ export function DocumentsTabPanel({
             component directly and supply the props themselves, so an unpassed
             prop is invisible to every one of them. Pinned instead by the
             WIRING-level test in workspace-panels.documents.test.tsx
-            (mutation-proved: drop a line and its cases go red). */}
+            (mutation-proved: drop a line and its cases go red).
+            ★★ `mutateDocuments`, NOT `setDocuments`. The pane must not be able
+            to rewrite `documents` without the matching `documentVersions`
+            write — that before-image is the only history the AI tools sharing
+            this entry point have, and they bypass the undo stack entirely. It
+            is passed straight through: the panel's prop signature IS the
+            context one, so there is no wrapper here to get the source wrong. */}
         <DocumentsPanelLazy
           lang={lang}
           documents={ws.documents}
-          setDocuments={ws.setDocuments}
+          mutateDocuments={ws.mutateDocuments}
+          documentVersions={ws.documentVersions}
           ws={ws}
           isReadOnly={isPopout}
           onResetSize={resetPaneSize}

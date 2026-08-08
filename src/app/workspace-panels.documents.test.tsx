@@ -12,9 +12,11 @@
 // asynchronously and `ssr:false` means it never renders in jsdom, which is why
 // no existing test in this repo asserts a lazy panel's content.
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { lazy, Suspense, type ComponentType } from "react";
+import type { DocMutation, DocResult } from "./document-mutations";
+import type { DocVersionSource } from "./document-versions";
 
 // Stand `dynamic()` up as React.lazy + Suspense.
 // ★★ The loader MUST stay deferred until render. An eager `loader()` here runs
@@ -126,15 +128,23 @@ describe("DocumentsTabPanel — call-site wiring", () => {
     expect(pane!.className).toContain("resize");
   });
 
-  it("passes the live workspace as `ws` and threads documents + setDocuments", async () => {
-    // `ws` feeds dataSection resolution in the preview; `documents`/`setDocuments`
-    // are the state seam. A prop threaded but never passed is the mirror image
-    // of the isReadOnly bug.
+  it("passes the live workspace as `ws` and threads documents + mutateDocuments", async () => {
+    // `ws` feeds dataSection resolution in the preview; `documents`/
+    // `mutateDocuments` are the state seam. A prop threaded but never passed is
+    // the mirror image of the isReadOnly bug.
+    //
+    // ★★★ DRIVE IT, DON'T TYPE-CHECK IT. `typeof … === "function"` is what the
+    // `setDocuments` version of this case asserted, and it is satisfied by the
+    // cheapest possible wrong answer: a `() => {}` placeholder, or a locally
+    // built stand-in that writes `documents` and forgets `documentVersions` —
+    // exactly the half-implemented mutation path this prop exists to prevent.
+    // Calling it and watching the pane's own `documents` prop grow on the next
+    // render is the assertion a placeholder fails.
     renderTab(false);
     await screen.findByTestId("documents-panel-stub");
     const props = seen.at(-1)!;
     expect(Array.isArray(props.documents)).toBe(true);
-    expect(typeof props.setDocuments).toBe("function");
+    expect(props.documents).toHaveLength(0);
     // Structurally a Workspace: the required collections must be present, or the
     // preview silently renders empty dataSections.
     expect(props.ws).toMatchObject({
@@ -142,5 +152,63 @@ describe("DocumentsTabPanel — call-site wiring", () => {
       raid: expect.any(Array),
       resources: expect.any(Array),
     });
+
+    const mutate = props.mutateDocuments as (m: DocMutation, s: DocVersionSource) => DocResult;
+    expect(typeof mutate).toBe("function");
+    // ★ A holder object, not a `let`: TS narrows a `let` assigned only inside a
+    // callback back to its initialiser, so `result!.changed` would be an error
+    // on `never`. A property's DECLARED type survives the same flow analysis.
+    const captured: { result?: DocResult } = {};
+    act(() => {
+      captured.result = mutate({ kind: "create", title: "Wired" }, "user");
+    });
+    expect(captured.result?.changed).toBe(true);
+    await waitFor(() =>
+      expect(seen.at(-1)!.documents).toEqual([expect.objectContaining({ title: "Wired" })]),
+    );
+  });
+
+  it("threads LIVE documentVersions, not a placeholder", async () => {
+    // ★★★ SAME BAR AS THE CASE ABOVE — drive it, don't type-check it. The
+    // history modal is fed entirely by this prop, and the two cheapest wrong
+    // answers both satisfy tsc and any shape assertion: a literal `[]`, or
+    // `ws.documents`-shaped stand-in. Both would render an empty history
+    // forever while every other test stayed green, which is precisely the
+    // failure mode that made this a prop rather than a read off `ws` (the
+    // pane's own live harness passes a static `emptyWorkspace()` as `ws`).
+    //
+    // So: mutate twice through the seam and watch the BEFORE-IMAGE arrive. A
+    // create writes no version (nothing was replaced); the rename that follows
+    // writes exactly one, carrying the PRE-rename title.
+    renderTab(false);
+    await screen.findByTestId("documents-panel-stub");
+    const mutate = seen.at(-1)!.mutateDocuments as (
+      m: DocMutation,
+      s: DocVersionSource,
+    ) => DocResult;
+
+    expect(seen.at(-1)!.documentVersions).toEqual([]);
+
+    const captured: { result?: DocResult } = {};
+    act(() => {
+      captured.result = mutate({ kind: "create", title: "Before" }, "user");
+    });
+    const id = captured.result?.documentId;
+    expect(typeof id).toBe("number");
+    // Still empty: a create replaces nothing, so it snapshots nothing. This
+    // also proves the assertion below is not passing on a prop that simply
+    // mirrors `documents`.
+    await waitFor(() => expect(seen.at(-1)!.documents).toHaveLength(1));
+    expect(seen.at(-1)!.documentVersions).toEqual([]);
+
+    act(() => {
+      mutate({ kind: "rename", id: id as number, title: "After" }, "user");
+    });
+
+    await waitFor(() =>
+      expect(seen.at(-1)!.documentVersions).toEqual([
+        expect.objectContaining({ title: "Before", op: "rename", source: "user" }),
+      ]),
+    );
   });
 });

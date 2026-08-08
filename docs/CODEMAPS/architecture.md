@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.221.0 "Kavan" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 | App 0.222.0 "Charnas" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
 
 # Architecture
 

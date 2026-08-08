@@ -97,7 +97,8 @@
   runTool case + `ToolDispatcher` method, then implement in the dispatcher `useMemo` — guard
   `if (args.isReadOnly) throw readOnlyError()` FIRST (popouts must not mutate), build the raw object and run
   it through the entity's `sanitizeX` (the SINGLE validator — `sanitizeRaidItem` enforces enums/dates/caps +
-  per-category RAID-status defaulting), id = `nextEntityId(ref.current)` (max+1), then update BOTH the ref AND
+  per-category RAID-status defaulting), id = `mintId(kind, ref.current)` (session-scoped high-water mint, never
+  reused), then update BOTH the ref AND
   call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
   `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip the
   no-unused-vars rule).
@@ -118,6 +119,57 @@
   (`chat-tools.ts` throws, mirroring `requireId`), not in the pure resolver — a non-array must never be treated
   as "clear all". ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
   field passes whether the code preserves or erases. Seed a real prior value and watch the test FAIL first.
+- **AI document tools (five):** `list_documents` · `get_document` · `create_document` · `update_document` ·
+  `delete_document`. Schemas in `chat-tool-defs-documents.ts` (`DOCUMENT_TOOL_DEFS`, spread into `TOOL_DEFS`);
+  routing + boundary validation in `chat-tools-documents.ts` (`isDocumentTool` → `runDocumentTool`, dispatched
+  from `chat-tools.ts`'s `runTool`); the implementation is the `useDocumentTools` hook, wired in
+  `use-chat-dispatcher.ts`.
+  ★★ **The "both files were split for the 800-line ratchet" reason is only HALF true**, and
+  `chat-tools-documents.ts`'s own header states it for both. Measured 2026-08-07 with the gate's own
+  counter (`split("\n").length`): `chat-tools.ts` is **763** — 37 lines of headroom against ~139 lines of
+  routing, so that split is genuinely forced. `chat-tool-defs.ts` is **596** — **204** lines of headroom
+  against ~74 lines of schema, so the defs split was NOT ratchet-forced and would have fit comfortably
+  inline. Do not cite the ratchet as the reason for the defs file; check the real number with
+  `npm run size:check` before assuming either is tight. The version model these writes snapshot into lives in
+  [`documents.md`](documents.md); this bullet covers only the AI surface.
+  ★★★ **`chat-tools-documents.ts` IS THE VALIDATION BOUNDARY, and the only one.** Everything downstream is
+  deliberately permissive — `applyDocMutation` is pure and treats its input as already-shaped, and the entity
+  sanitizers degrade unknown shapes rather than throwing. Malformed model output refused anywhere else silently
+  becomes a legal-looking write, and chat tool writes have **NO undo capture**, so the version log is the only
+  thing behind them — and it records what a mutation REPLACED, not what the caller meant.
+  ★★★ **`requireOps` validates ops ARRAY-NESS at the tool boundary** (the `set_task_dependencies` shape above),
+  but **the consequence here is NOT a wipe and the plan claimed it was.** MEASURED by deleting the check: a
+  non-array degrades to `[]`, `applyOps` returns null for an empty list, and `applyDocMutation` refuses to touch
+  the blocks — nothing is destroyed. What actually happens is that the model's ops are SILENTLY DISCARDED while
+  the tool reports success: with no title the call throws anyway, and WITH a title the rename lands, resolves,
+  and every edit the model asked for vanishes with no rejection shown. Keep the guard — it is a
+  refusal-that-reads-as-success, just not the data-loss story. ★ Recording it accurately matters: an
+  overstated severity is the kind of claim someone later disproves and then discounts the whole guard over.
+  ★ `undefined` is the ONE legal non-array and means "no ops" (a title-only rename); `null`, a string and an
+  object are all refused, since none can be an honest empty list.
+  ★★ **`sanitizeAiDocBlocks` (`ai-document-blocks.ts`) is the model-input allow-list** and is DOM-BOUND on
+  purpose — which is why it is NOT in `document-model.ts`, whose DOM-free contract a source scan enforces.
+  Two layers, both load-bearing: `sanitizeProjectDocuments` enforces STRUCTURE and cannot sanitize, so
+  `sanitizeAiRichText` runs over `paragraph.html` first. ★ Apply it to the model's INPUT only, never to the
+  merged/stored document — re-running an allow-list over stored bytes rewrites content the call never touched
+  (same rule as `withAiRichFields`). ★ `paragraph.html` is the only `DocBlock` field reaching a render sink as
+  markup, so sanitizing just that block type is complete.
+  ★★ **Every write refuses in a read-only popout** (`isReadOnly` → `readOnlyError()`), mirroring
+  `use-chat-dispatcher`'s own per-tool guards. No undo capture means a popout mirror must never reach
+  `mutateDocuments` at all.
+  ★★ **`use-document-tools.ts` is deliberately NOT in `vitest.config.ts`'s `coverage.exclude`**, unlike the
+  render-scope UI-glue hooks beside it. It holds real decisions — which mutation kind a call becomes, what is
+  sanitized, how each result is shaped — and is tested through `use-chat-dispatcher.test.tsx`'s existing
+  `renderDispatcher`/`runTool` harness. Excluding it would drop that logic out of the coverage floors.
+  ★★★ **TWO `isDocumentTool` FUNCTIONS EXIST AND MUST NOT BE MERGED.** The exported one
+  (`chat-tools-documents.ts`) tests a LOCAL literal `Set`, deliberately NOT derived from `DOCUMENT_TOOL_DEFS`:
+  a module-eval `new Set(IMPORTED_CONST)` comes out EMPTY if an import cycle puts that module first, and an
+  empty set routes every document tool into `runTool`'s "unknown tool" throw. A test cross-checks the two lists
+  instead. The private one (`chat-tool-block.tsx`) reads `DOCUMENT_TOOL_DEFS` LIVE inside the function for the
+  same reason, solved the other way. Both are correct; "deduplicating" them reintroduces the trap.
+  ★ `DocumentUpdateResult.title` is REQUIRED, not optional, so the chat file card's obligation is a compile
+  error rather than a rendering disappointment. The routing layer deliberately does NOT runtime-guard it —
+  failing an applied write over a cosmetic card would be the worse trade.
 - **AI allocation planning ("Plan with AI", Resources → Planning toolbar):** plan-then-apply over the EXISTING
   `Resource.utilization` map — ZERO new persisted fields, backend write paths or golden regen. Pure engine
   `alloc-plan/alloc-plan.ts` (prompt digest · forced `propose_allocations` tool · parse · **ground** · apply ·
@@ -323,14 +375,23 @@
   ★★★ **`CACHED_TOOLS` (`chat-api.ts`) is what actually fixes it** — the LAST tool carries
   `cache_control`, closing a cache segment at the end of `tools` so the per-view guide swap re-caches
   only the smaller system slice after it. Without it the cached prefix is tools + `stableText` and that
-  guide swap rewrites ~6.5k tokens of schemas on every view switch. ★ Measure the SERIALIZED payload,
+  guide swap rewrites the whole tool payload on every view switch. ★ Measure the SERIALIZED payload,
   not the file:
-  `JSON.stringify(TOOL_DEFS)` is ~26 KB / **~6.5k tokens** across 38 tools, while `chat-tool-defs.ts` on
-  disk is ~24.8 KB — the two land close by coincidence (only ~16 KB of the file is the literal; comments
-  and helpers do not ship, and property names expand on serialisation). ★ Reproduce by writing a two-line
+  `JSON.stringify(TOOL_DEFS)` is ~32 KB across **43** tools. ★ Reproduce by writing a two-line
   script that imports `TOOL_DEFS` and logging `TOOL_DEFS.length, JSON.stringify(TOOL_DEFS).length`, then
-  `npx vite-node <file>` → `38 25942` (measured 2026-08-05). **`vite-node` has NO `-e` flag** — an earlier
-  revision of this line gave a one-liner using it, which prints the help text and exits 1.
+  `npx vite-node <file>` → `43 32657` (measured 2026-08-07; was `38 25942` on 2026-08-05, before the five
+  document tools). **`vite-node` has NO `-e` flag** — an earlier revision of this line gave a one-liner
+  using it, which prints the help text and exits 1. ★★ It also cannot load a script from OUTSIDE the project
+  root (`ERR_LOAD_URL`), so the temp file has to sit in the repo — write it, run it, delete it, and never
+  `git add` it.
+  ★★ The token figure here is DERIVED, not measured: the 2026-08-05 revision paired 25942 bytes with
+  "~6.5k tokens" (≈4 bytes/token), which scales to **~8k tokens** today. Nothing in this repo counts tokens,
+  so treat it as an estimate of that shape and do not quote it as measured.
+  ★★ **A coincidence this bullet used to rest on is now BROKEN.** It read "`chat-tool-defs.ts` on disk is
+  ~24.8 KB — the two land close by coincidence". The file is still ~24.9 KB, but the serialized payload is
+  now ~32 KB, because the five document schemas live in a SEPARATE file (`chat-tool-defs-documents.ts`,
+  ~5.9 KB). Comparing the payload against one defs file no longer approximates anything — measure
+  `TOOL_DEFS` itself, which is what actually ships.
   Both `buildViewScopeBlock` and `buildViewStateBlock` output sit in the **volatile, uncached suffix**,
   scope before state — which is now a readability choice (what the surface IS, then what is on it), not
   a cost one, since the tools breakpoint is where the saving comes from.

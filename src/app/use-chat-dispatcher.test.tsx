@@ -11,7 +11,11 @@ import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
-import { CALENDAR_SUMMARY_KEYS, type SettingsUpdateInput } from "./chat-tools";
+import { type ActivityKind } from "./activity-log";
+import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
+import { type DocumentUpdateResult } from "./chat-tools-documents";
+import { type DocOp } from "./document-mutations";
+import { MAX_BLOCKS_PER_DOC } from "./document-model";
 import { type DashboardModel } from "./dashboard";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
@@ -156,6 +160,12 @@ function renderDispatcher(
   initial: Task[] = seedTasks(),
   isReadOnly = false,
   currentView: AppView = "open-points",
+  // ★ Deliberately OPTIONAL and left undefined by every other call in this
+  // file: `logActivity` is an optional prop on ChatDispatcherArgs, so the ~60
+  // callers below are the standing proof that omitting it does not throw
+  // (the document-tool tests among them exercise every write path with it
+  // absent). Only the ai.documentWrite suite passes a spy.
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void,
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
@@ -176,6 +186,7 @@ function renderDispatcher(
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
+        logActivity,
       }),
     { wrapper },
   );
@@ -1247,5 +1258,1088 @@ describe("useChatDispatcher – knowledge, calendar and budget read tools", () =
   it("returns an empty list when the workspace has no budget buckets", () => {
     const { result } = renderRaidProbe();
     expect(result.current.d.listBudgetBuckets()).toEqual([]);
+  });
+});
+
+describe("useChatDispatcher – document tools", () => {
+  it("creates a document through the tool and stores it", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Charter",
+        blocks: [{ type: "heading", level: 1, text: "Charter" }],
+      });
+    });
+    expect(result.current.listDocuments()).toHaveLength(1);
+    expect(result.current.listDocuments()[0].title).toBe("Charter");
+  });
+
+  // ★★ TEST AT THE WRITE, NOT AT THE TOOL CALL — read the STORED blocks back
+  // rather than spying on runTool. S1's review found exactly this gap, and
+  // only on a cold read.
+  it("strips a script tag the model put in a paragraph before storing it", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Charter",
+        blocks: [{ type: "paragraph", html: "<p>ok</p><script>alert(1)</script>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    const stored = result.current.getDocument(id);
+    expect(stored).not.toBeNull();
+    expect(JSON.stringify(stored!.blocks)).not.toContain("script");
+    // Positive observable: the SAFE content must survive too — a sanitizer
+    // that dropped the whole block would also make the "no script" assertion
+    // pass, for the wrong reason.
+    expect(JSON.stringify(stored!.blocks)).toContain("ok");
+  });
+
+  // ★★★ THIS TEST WAS VACUOUS, and in the way that reads as thorough: it ran
+  // ONE tool while its name promised "every write", and a bare
+  // `.rejects.toThrow()` accepted ANY error. MEASURED: deleting all three
+  // `if (isReadOnly) throw readOnlyError()` lines from use-document-tools.ts
+  // left it GREEN — renderDispatcher's first argument is the TASK list, so the
+  // workspace holds no documents, and an unguarded `deleteDocument(1)` returns
+  // `{deleted:false}`, which makes runDocumentTool throw `document #1 not
+  // found` instead. A different branch, matched by the same assertion.
+  // ★★ The repair is the MESSAGE, not a seeded document: TestProviders seeds
+  // tasks only, and a read-only dispatcher cannot create the document that
+  // would make the not-found branch unreachable. Pinning /read-only/ excludes
+  // both fallbacks by name — `document #N not found` for delete/update, and a
+  // RESOLVED create, which never throws at all. Re-measured after the repair:
+  // the same three-line deletion turns all three cases RED.
+  it.each(["create_document", "update_document", "delete_document"])(
+    "refuses %s in a popout, routed through runTool",
+    async (tool) => {
+      const { result } = renderDispatcher([], true);
+      await expect(
+        runTool(result.current, tool, {
+          id: 1,
+          title: "Charter",
+          ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }],
+        }),
+      ).rejects.toThrow(/read-only/);
+      // Positive observable: the refusal is a refusal, not merely a throw —
+      // nothing reached storage on the way out.
+      expect(result.current.listDocuments()).toEqual([]);
+    },
+  );
+
+  it("createDocument throws in a popout", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.createDocument("Charter", [])).toThrow(/read-only/);
+  });
+
+  it("updateDocument throws in a popout", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.updateDocument(1, [], "New title")).toThrow(/read-only/);
+  });
+
+  it("deleteDocument throws in a popout", () => {
+    const { result } = renderDispatcher([], true);
+    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
+  });
+
+  // Seeded with REAL prior blocks — the assertion cannot pass by accident
+  // against an empty document.
+  it("leaves stored blocks untouched when every op is out of range", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [{ type: "paragraph", html: "<p>keep me</p>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    await expect(
+      runTool(result.current, "update_document", { id, ops: [{ op: "delete", index: 42 }] }),
+    ).rejects.toThrow();
+    expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
+  });
+
+  it("getDocument returns null for an unknown id", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.getDocument(999)).toBeNull();
+  });
+
+  it("listDocuments returns an empty array when the workspace has no documents", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  it("updateDocument returns null when the document does not exist", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.updateDocument(999, [], "New title")).toBeNull();
+  });
+
+  it("updateDocument applies a title-only rename with no ops", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Old title", []).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(id, [], "New title");
+    });
+    expect(out).toMatchObject({ id, title: "New title", applied: 0, rejected: [] });
+    expect(result.current.getDocument(id)!.title).toBe("New title");
+  });
+
+  it("updateDocument reports `removed` blocks after a replaceAll and sanitizes the new blocks", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [
+        { type: "paragraph", html: "<p>a</p>" },
+        { type: "paragraph", html: "<p>b</p>" },
+        { type: "paragraph", html: "<p>c</p>" },
+      ]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          {
+            op: "replaceAll",
+            blocks: [{ type: "paragraph", html: "<p>only</p><script>alert(1)</script>" }],
+          },
+        ],
+        undefined,
+      );
+    });
+    expect(out).toMatchObject({ id, applied: 1, removed: 2 });
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(JSON.stringify(stored.blocks)).not.toContain("script");
+  });
+
+  // ★★★ IMPORTANT finding, review of 1580b011: the single-block arm rejected a
+  // dropped block, the replaceAll arm ONE BRANCH EARLIER did not.
+  // sanitizeAiDocBlocks returns a SHORTER array, nothing compared the lengths,
+  // and a 4-block replaceAll carrying one bad block wrote 3 while reporting
+  // `changed:true, rejected:[]` — the tool resolved, the model said it had
+  // rewritten the document, and a section was simply gone. Chat tool writes
+  // take no undo capture; the before-image could restore it but nothing said
+  // there was anything to restore.
+  it("names the blocks a replaceAll dropped instead of silently writing fewer", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          {
+            op: "replaceAll",
+            blocks: [
+              { type: "paragraph", html: "<p>one</p>" },
+              { type: "bogus" },
+              { type: "paragraph", html: "<p>three</p>" },
+              { type: "heading", level: 1, text: "four" },
+            ],
+          },
+        ] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    // The survivors DO land — a partial drop is not a refusal — but the drop
+    // is reported rather than inferred from a blockCount the model never sees
+    // a baseline for.
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual(["op 0: 1 block(s) failed the model-input allow-list"]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(3);
+    expect(JSON.stringify(stored.blocks)).not.toContain("bogus");
+    // Positive observable: the assertion above would also pass if the whole op
+    // had been refused and the OLD single block survived.
+    expect(JSON.stringify(stored.blocks)).toContain("three");
+  });
+
+  // The XSS-shaped route into the same drop. ★★ It needs the payload WRAPPED:
+  // a bare "<script>…" does not start with a tag in HTML_START, so layer 1
+  // escapes it as plain text and the block SURVIVES. "<p><script>…</script>
+  // </p>" is real markup, DOMPurify strips the tag and its content, and the
+  // remaining "<p></p>" collapses to "" — which is what gets dropped.
+  it("names a replaceAll block dropped because its entire content was disallowed markup", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          {
+            op: "replaceAll",
+            blocks: [
+              { type: "paragraph", html: "<p>kept</p>" },
+              { type: "paragraph", html: "<p><script>alert(1)</script></p>" },
+            ],
+          },
+        ],
+        undefined,
+      );
+    });
+    expect(out!.rejected).toEqual(["op 0: 1 block(s) failed the model-input allow-list"]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(JSON.stringify(stored.blocks)).not.toContain("script");
+    expect(JSON.stringify(stored.blocks)).toContain("kept");
+  });
+
+  // ★★★ `sent > 0 && kept === 0` IS NOT A REQUEST TO CLEAR. Applying it would
+  // wipe the document on the strength of content that never survived
+  // validation — reported as a success, with the old blocks gone. The op is
+  // refused instead, mirroring the single-block arm.
+  it("refuses a replaceAll whose every block failed the allow-list, leaving the document intact", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [
+        { type: "paragraph", html: "<p>keep me</p>" },
+        { type: "paragraph", html: "<p>and me</p>" },
+      ]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "replaceAll", blocks: [{ type: "bogus" }, { type: "alsoBogus" }] }] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.rejected).toEqual(["op 0: all 2 block(s) failed the model-input allow-list"]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(JSON.stringify(stored.blocks)).toContain("keep me");
+  });
+
+  // ★★★ THE OVER-CORRECTION GUARD for the test above. An EXPLICIT empty list
+  // is a legitimate "clear this document" (document-mutations.ts says so at
+  // length) and the before-image preserves what it replaced — so the refusal
+  // must key on `sent > 0`, never on the emptiness of the RESULT. A guard
+  // written the obvious way (`kept.length === 0`) passes every assertion in
+  // the previous test and breaks this one.
+  it("still clears a document when the model explicitly sends replaceAll with an empty list", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>gone</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(id, [{ op: "replaceAll", blocks: [] }], undefined);
+    });
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual([]);
+    expect(out!.removed).toBe(1);
+    expect(result.current.getDocument(id)!.blocks).toEqual([]);
+  });
+
+  // ★★★ The `applied` arithmetic keys on `/^op \d+:/` because `result.rejected`
+  // mixes op-scoped entries with mutation-scoped ones (a blank title), and it
+  // has already gone negative once when both landed together. The new
+  // drop message is op-scoped and rides `selfRejected`, which that filter never
+  // reads — this pins that a drop and a title rejection in ONE call still
+  // produce a non-negative, truthful count.
+  it("does not report a negative `applied` when a replaceAll drop meets a blank title", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>old</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          {
+            op: "replaceAll",
+            blocks: [{ type: "paragraph", html: "<p>new</p>" }, { type: "bogus" }],
+          },
+        ] as unknown as DocOp[],
+        "   ",
+      );
+    });
+    // The op DID apply, so 1 is the truthful count — not 1 minus the title
+    // rejection, and never below zero.
+    expect(out!.applied).toBe(1);
+    expect(out!.applied).not.toBeLessThan(0);
+    expect(out!.rejected).toEqual([
+      "op 0: 1 block(s) failed the model-input allow-list",
+      "title must not be empty",
+    ]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(stored.title).toBe("Doc");
+  });
+
+  // ★★★ createDocument had the SAME silence and NO channel to break it: its
+  // result is `{id, title, blockCount}` with no `rejected` field, so a shorter
+  // array after sanitizing produced a document missing a section while the
+  // tool resolved. It throws BEFORE the write instead — nothing is created and
+  // no version row is minted, so the model gets a reason it can retry against
+  // rather than a half-written document it believes is whole.
+  it("refuses a create whose blocks the allow-list dropped, writing nothing at all", () => {
+    const { result } = renderDispatcher();
+    expect(() =>
+      result.current.createDocument("Charter", [
+        { type: "paragraph", html: "<p>intro</p>" },
+        { type: "bogus" },
+      ]),
+    ).toThrow(/1 of 2 block\(s\) failed the model-input allow-list/);
+    // The refusal is total: no partially-written document survives it.
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  it("throws through the create tool when a block fails the allow-list, storing no document", async () => {
+    const { result } = renderDispatcher();
+    await expect(
+      runTool(result.current, "create_document", {
+        title: "Charter",
+        blocks: [{ type: "paragraph", html: "<p><script>alert(1)</script></p>" }],
+      }),
+    ).rejects.toThrow(/failed the model-input allow-list/);
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  // The other side of that guard: a create whose blocks all survive is
+  // untouched by it. Without this, "throw whenever anything looks off" would
+  // pass every assertion above.
+  it("still creates a document when every block survives the allow-list", () => {
+    const { result } = renderDispatcher();
+    act(() => {
+      result.current.createDocument("Charter", [
+        { type: "heading", level: 1, text: "Charter" },
+        { type: "paragraph", html: "<p>ok</p>" },
+      ]);
+    });
+    expect(result.current.listDocuments()).toHaveLength(1);
+    expect(result.current.listDocuments()[0].blockCount).toBe(2);
+  });
+
+  it("updateDocument reports a partial application when some ops are rejected and others succeed", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "append", block: { type: "paragraph", html: "<p>b</p>" } },
+          { op: "delete", index: 99 },
+        ],
+        undefined,
+      );
+    });
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toHaveLength(1);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(2);
+  });
+
+  // ★★★ Regression, cold review of 005ede2c: `result.rejected` mixes
+  // OP-SCOPED entries ("op N: …") with MUTATION-SCOPED ones (a blank title)
+  // that describe the write as a whole, not any single op. Subtracting the
+  // WHOLE array from an op count goes negative the moment both land in the
+  // same call — this is the boundary that was untested (a blank title
+  // beside ops) and the arithmetic bug hid behind that gap.
+  it("does not report a negative `applied` when an out-of-range op meets a blank title", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [
+        { type: "paragraph", html: "<p>a</p>" },
+        { type: "paragraph", html: "<p>b</p>" },
+        { type: "paragraph", html: "<p>c</p>" },
+      ]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(id, [{ op: "delete", index: 99 }], "   ");
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.applied).not.toBeLessThan(0);
+    expect(out!.rejected).toHaveLength(2);
+    // Neither half of the write landed: the blocks AND the title survive.
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(3);
+    expect(result.current.getDocument(id)!.title).toBe("Doc");
+  });
+
+  // The other direction of the same bug: a REAL op succeeds while a blank
+  // title is rejected alongside it. The old formula also gave `applied: 0`
+  // here (0 op-rejections but 1 title-rejection subtracted from 1 op sent),
+  // telling the model nothing landed when a block genuinely did.
+  it("reports applied:1 when a valid op lands and only the accompanying title is rejected", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "append", block: { type: "paragraph", html: "<p>b</p>" } }],
+        "  ",
+      );
+    });
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual(["title must not be empty"]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(stored.title).toBe("Doc");
+  });
+
+  it("updateDocument sanitizes an insert op's block before applying it", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          {
+            op: "insert",
+            index: 0,
+            block: { type: "paragraph", html: "<p>before</p><script>alert(1)</script>" },
+          },
+        ],
+        undefined,
+      );
+    });
+    expect(out).toMatchObject({ applied: 1, rejected: [] });
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(JSON.stringify(stored.blocks)).not.toContain("script");
+    expect(JSON.stringify(stored.blocks)).toContain("before");
+  });
+
+  // ★★★ HIGH finding, cold review: an op whose block the allow-list DROPS
+  // must be REJECTED, never forwarded unsanitized. applyOps has no
+  // block-content validation of its own — append/insert/replace apply
+  // whatever `op.block` they receive unconditionally — so a fallback to the
+  // original op here would store the model's raw block, reported as a
+  // success, and only drop it (silently) on the NEXT load. `as unknown as
+  // DocOp[]` mirrors how the model's real JSON arrives at this boundary:
+  // chat-tools-documents.ts's requireOps only checks array-ness, never
+  // per-op shape.
+  it("rejects an op whose block fails the allow-list, never storing it unsanitized", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    const badOps = [
+      { op: "insert", index: 0, block: { type: "bogus" } },
+    ] as unknown as DocOp[];
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(id, badOps, undefined);
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.rejected).toHaveLength(1);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(JSON.stringify(stored.blocks)).not.toContain("bogus");
+  });
+
+  // ★★★ The SUSPECTED case from the cold review, constructed and confirmed —
+  // but NOT with a bare "<script>...": that string does not start with a
+  // recognized HTML tag (rich-text-plain.ts's HTML_START set is p/br/strong/
+  // em/ul/ol/li/a), so layer 1 (sanitizeRichText) treats it as PLAIN TEXT and
+  // ESCAPES it into "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>" — safe,
+  // non-empty, and it survives (verified directly: sanitizeAiDocBlocks kept
+  // that block). The actual empty-after-sanitize case needs the payload
+  // WRAPPED in a recognized tag so layer 1 hands it to DOMPurify as real
+  // markup: "<p><script>...</script></p>" starts with <p>, so DOMPurify
+  // strips the <script> (tag AND its content — script content is not kept)
+  // leaving "<p></p>", which the second sanitizeRichText pass's empty rule
+  // collapses to "" — confirmed by direct call. An empty paragraph then
+  // fails document-model.ts's structural validation (htmlTextLength must be
+  // > 0), so sanitizeAiDocBlocks drops the block, same as an unknown type.
+  // Before the fix, this hit the exact same unsanitized-fallback bug: the
+  // RAW "<p><script>alert(1)</script></p>" would have reached storage
+  // verbatim (a stored-XSS payload, not just a data-integrity gap) rather
+  // than being rejected. Confirmed fixed: the op is rejected and no script
+  // tag reaches storage.
+  it("rejects a paragraph op whose entire content is a disallowed element (script-only html)", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", [{ type: "paragraph", html: "<p>a</p>" }]).id;
+    });
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "append", block: { type: "paragraph", html: "<p><script>alert(1)</script></p>" } }],
+        undefined,
+      );
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.rejected).toHaveLength(1);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(JSON.stringify(stored.blocks)).not.toContain("script");
+  });
+
+  // ★★★ MEDIUM finding, cold review: `applied` must come from what was
+  // actually SENT to the engine and what it reported rejected, not from the
+  // caller's raw `ops.length` — otherwise an op this function itself
+  // rejects (never reaching the engine) still counts as "applied".
+  it("does not count a self-rejected op (bad block) toward `applied`, even mixed with a real success", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [{ type: "paragraph", html: "<p>a</p>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "append", block: { type: "paragraph", html: "<p>good</p>" } },
+          { op: "insert", index: 0, block: { type: "bogus" } } as unknown as DocOp,
+        ],
+        undefined,
+      );
+    });
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toHaveLength(1);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(JSON.stringify(stored.blocks)).not.toContain("bogus");
+    expect(JSON.stringify(stored.blocks)).toContain("good");
+  });
+
+  // Through the FULL tool boundary: every op self-rejected, none reach the
+  // engine, so chat-tools-documents.ts's "nothing applied" guard must throw
+  // rather than resolve with a hollow success.
+  it("throws through the tool when every op is rejected by the allow-list before reaching the engine", async () => {
+    const { result } = renderDispatcher();
+    await act(async () => {
+      await runTool(result.current, "create_document", {
+        title: "Doc",
+        blocks: [{ type: "paragraph", html: "<p>keep me</p>" }],
+      });
+    });
+    const id = result.current.listDocuments()[0].id;
+    await expect(
+      runTool(result.current, "update_document", {
+        id,
+        ops: [{ op: "insert", index: 0, block: { type: "bogus" } }],
+      }),
+    ).rejects.toThrow();
+    expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
+  });
+
+  it("deleteDocument returns deleted:false and no restorableVersionId for an unknown id", () => {
+    const { result } = renderDispatcher();
+    expect(result.current.deleteDocument(999)).toEqual({ deleted: false, restorableVersionId: null });
+  });
+
+  it("deleteDocument reports a restorableVersionId on success and removes the document", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", []).id;
+    });
+    let out: { deleted: boolean; restorableVersionId: number | null } = {
+      deleted: false,
+      restorableVersionId: null,
+    };
+    act(() => {
+      out = result.current.deleteDocument(id);
+    });
+    expect(out.deleted).toBe(true);
+    expect(out.restorableVersionId).not.toBeNull();
+    expect(result.current.getDocument(id)).toBeNull();
+  });
+});
+
+// ★★ The `ai.documentWrite` activity row. The kind was registered everywhere
+// (the ActivityKind union, ACTIVITY_KIND_TO_KEY, dashboard-activity-nav's
+// documents deep-link, EN/DE strings) and emitted NOWHERE, so no AI document
+// write ever appeared in the Activity panel.
+//
+// ★★★ EVERY "no row" TEST HERE CARRIES ITS OWN POSITIVE CONTROL IN THE SAME
+// `it`. A bare `expect(spy).not.toHaveBeenCalled()` is vacuous by construction:
+// it passes just as happily when the spy was never wired, when the write threw
+// before reaching any interesting branch, or when the whole emitter was
+// deleted. Each of these does the refused write, asserts nothing was logged,
+// then MUTATES THE FIXTURE into a write that should log and asserts it did —
+// so the assertion can only be green while the spy is live and the gate is the
+// thing making the difference.
+describe("useChatDispatcher – ai.documentWrite activity rows", () => {
+  /** The exact input measured (in use-document-tools.ts's own comment) to be
+   *  DROPPED by the model-input allow-list: a bare "<script>…</script>" does not
+   *  start with a tag in HTML_START, so layer 1 escapes it as plain text and the
+   *  block survives. Wrapped in <p>, DOMPurify strips tag AND content, the
+   *  paragraph empties, and the block fails the structural check. */
+  const DROPPED_BLOCK = { type: "paragraph" as const, html: "<p><script>alert(1)</script></p>" };
+  const GOOD_BLOCK = { type: "paragraph" as const, html: "<p>keep me</p>" };
+
+  function renderWithLog(isReadOnly = false) {
+    const logActivity = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), isReadOnly, "open-points", logActivity);
+    return { result, logActivity };
+  }
+
+  it("logs one ai.documentWrite row when the assistant creates a document", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  // ★ ONE row per WRITE, not per op — three ops in a single update_document
+  // call are one thing the assistant did. A per-op emitter would report 3.
+  it("logs exactly one row for a multi-op update", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    logActivity.mockClear();
+    const ops: DocOp[] = [
+      { op: "append", block: GOOD_BLOCK },
+      { op: "append", block: GOOD_BLOCK },
+      { op: "append", block: GOOD_BLOCK },
+    ];
+    act(() => {
+      result.current.updateDocument(id, ops, undefined);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  it("logs a row for a title-only rename, carrying the NEW title", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Old title", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.updateDocument(id, [], "New title");
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "New title");
+  });
+
+  // The title is read BEFORE the mutation — afterwards the row is gone from
+  // result.documents, so a naive lookup would log an empty name.
+  it("logs a row naming the document it deleted", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doomed", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.deleteDocument(id);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Doomed");
+  });
+
+  it("logs NO row when a create is refused because a block failed the allow-list", () => {
+    const { result, logActivity } = renderWithLog();
+    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK, DROPPED_BLOCK])).toThrow(
+      /allow-list/,
+    );
+    expect(logActivity).not.toHaveBeenCalled();
+    // Nothing was created either — the refusal is total.
+    expect(result.current.listDocuments()).toEqual([]);
+    // POSITIVE CONTROL: the ONLY change is dropping the bad block. Same spy,
+    // same dispatcher, same call — and now it logs. Without this, the assertion
+    // above would survive an unwired spy or a deleted emitter.
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  it("logs NO row when every op of an update was rejected", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.updateDocument(id, [{ op: "delete", index: 42 }], undefined);
+    });
+    expect(logActivity).not.toHaveBeenCalled();
+    // The document really is untouched — the write was refused, not silently
+    // applied with a missing row.
+    expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
+    // POSITIVE CONTROL: same document, same dispatcher, an in-range op.
+    act(() => {
+      result.current.updateDocument(id, [{ op: "delete", index: 0 }], undefined);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  it("logs NO row when a rename is a no-op (same title, no ops)", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.updateDocument(id, [], "Charter");
+    });
+    expect(logActivity).not.toHaveBeenCalled();
+    // POSITIVE CONTROL: a title that actually differs logs.
+    act(() => {
+      result.current.updateDocument(id, [], "Charter v2");
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter v2");
+  });
+
+  it("logs NO row when deleting an id that does not exist", () => {
+    const { result, logActivity } = renderWithLog();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Charter", []).id;
+    });
+    logActivity.mockClear();
+    act(() => {
+      result.current.deleteDocument(999);
+    });
+    expect(logActivity).not.toHaveBeenCalled();
+    // POSITIVE CONTROL: the id that DOES exist logs.
+    act(() => {
+      result.current.deleteDocument(id);
+    });
+    expect(logActivity).toHaveBeenCalledTimes(1);
+    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+  });
+
+  // A popout refuses before mutateDocuments is reached, so there is nothing to
+  // record. Positive control is the non-popout dispatcher in the same test.
+  it("logs NO row for a write refused in a read-only popout", () => {
+    const { result, logActivity } = renderWithLog(true);
+    expect(() => result.current.createDocument("Charter", [GOOD_BLOCK])).toThrow(/read-only/);
+    expect(() => result.current.updateDocument(1, [], "New title")).toThrow(/read-only/);
+    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
+    expect(logActivity).not.toHaveBeenCalled();
+    // POSITIVE CONTROL: identical create against a WRITABLE dispatcher.
+    const { result: writable, logActivity: writableLog } = renderWithLog(false);
+    act(() => {
+      writable.current.createDocument("Charter", [GOOD_BLOCK]);
+    });
+    expect(writableLog).toHaveBeenCalledTimes(1);
+  });
+
+  // logActivity is OPTIONAL on ChatDispatcherArgs (every other ai.* emitter is
+  // too, and a required prop would break task-manager.characterization's prop
+  // contract). Omitting it must no-op, not throw.
+  it("does not throw when logActivity is omitted", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    expect(() => {
+      act(() => {
+        id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
+        result.current.updateDocument(id, [], "Renamed");
+        result.current.deleteDocument(id);
+      });
+    }).not.toThrow();
+    // Positive observable: the writes really ran on the no-logger path.
+    expect(result.current.getDocument(id)).toBeNull();
+  });
+});
+
+// ★★★ THE OP-INDEX SPACES, THE BLOCK CAP, AND `removed`.
+//
+// Three defects that only became user-visible with e27fc155 (the chat
+// transcript's document card renders `rejected`). Every assertion here is an
+// EXACT array or an anchored pattern: `toContain("op 1")` passes on "op 10",
+// and a loose `/failed/` matches whichever of the two reasons happens to fire —
+// which is precisely the confusion these fix.
+describe("useChatDispatcher – document tool rejection reporting", () => {
+  const P = (n: number) => ({ type: "paragraph" as const, html: `<p>p${n}</p>` });
+  const BAD = { type: "bogus" } as unknown as ReturnType<typeof P>;
+  const OVER_CAP = MAX_BLOCKS_PER_DOC + 3;
+  const CAP_REASON = `block limit exceeded (${OVER_CAP} > ${MAX_BLOCKS_PER_DOC})`;
+
+  function docWith(result: { current: { createDocument: (t: string, b: unknown[]) => { id: number } } }, blocks: unknown[]) {
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Doc", blocks).id;
+    });
+    return id;
+  }
+
+  // ★★★ `selfRejected` is indexed against the CALLER's `ops`; applyOps indexes
+  // the `cleanOps` it RECEIVES, which is shorter by every preceding
+  // self-rejection. Measured before the fix: this exact input produced TWO
+  // entries both reading "op 0:", so the model was told to retry the wrong op
+  // and the user read a contradiction.
+  it("renumbers an engine rejection into the caller's op space when an earlier op was self-rejected", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "insert", index: 0, block: BAD },
+          { op: "delete", index: 42 },
+        ] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    // EXACT array: the second entry is "op 1", the caller's index for the
+    // delete, and there is no longer a second "op 0".
+    expect(out!.rejected).toEqual([
+      "op 0: block failed the model-input allow-list",
+      "op 1: delete index 42 out of range 0..0",
+    ]);
+    // Positive control: the write really ran and really refused both ops.
+    expect(out!.applied).toBe(0);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(1);
+  });
+
+  // ★★ The shift is not a hardcoded 1, and it is not a global offset by the
+  // TOTAL self-rejection count either: here TWO ops are self-rejected but only
+  // ONE of them precedes the engine-rejected op, so the correct caller index is
+  // 1 — a "+2" would say "op 2", a "+0" would say "op 0".
+  it("shifts each engine rejection by the self-rejections that PRECEDE it, not by the total", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1), P(2), P(3)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "insert", index: 0, block: BAD },
+          { op: "delete", index: 99 },
+          { op: "append", block: BAD },
+        ] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    expect(out!.rejected).toEqual([
+      "op 0: block failed the model-input allow-list",
+      "op 2: block failed the model-input allow-list",
+      "op 1: delete index 99 out of range 0..2",
+    ]);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(3);
+  });
+
+  // ★★★ THE `applied` FILTER, WITH ALL THREE KINDS IN ONE CALL. It counts only
+  // `/^op \d+:/` entries because `result.rejected` mixes op-scoped ones with
+  // MUTATION-scoped ones (a blank title), and it has gone negative once.
+  // Renumbering must not move that count in either direction — it cannot,
+  // because remapping preserves the prefix shape, and this pins it.
+  it("keeps `applied` non-negative when a self-rejection, an engine rejection and a blank title all land", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "insert", index: 0, block: BAD },
+          { op: "delete", index: 42 },
+        ] as unknown as DocOp[],
+        "   ",
+      );
+    });
+    expect(out!.applied).toBe(0);
+    expect(out!.applied).not.toBeLessThan(0);
+    // The mutation-scoped entry is NOT renumbered and NOT counted as an op.
+    expect(out!.rejected).toEqual([
+      "op 0: block failed the model-input allow-list",
+      "op 1: delete index 42 out of range 0..0",
+      "title must not be empty",
+    ]);
+    // Positive control: neither half of the write landed.
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(1);
+    expect(stored.title).toBe("Doc");
+  });
+
+  // ★★★ FIX 2. sanitizeAiDocBlocks routes through sanitizeProjectDocuments,
+  // which `.slice(0, MAX_BLOCKS_PER_DOC)`s BEFORE validating — so an over-cap
+  // create came back shorter and was reported as an ALLOW-LIST failure
+  // (measured: "3 of 503 block(s) failed the model-input allow-list"). Nothing
+  // failed validation. A model told its blocks are invalid rewrites them; a
+  // model told it hit a cap splits the document.
+  it("names the block CAP, not the allow-list, when a create exceeds MAX_BLOCKS_PER_DOC", () => {
+    const { result } = renderDispatcher();
+    let message = "";
+    try {
+      result.current.createDocument("Big", Array.from({ length: OVER_CAP }, (_, i) => P(i)));
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(`${CAP_REASON}; no document was created`);
+    // The wrong reason must be ABSENT, not merely outranked — a substring
+    // assertion would pass on a message carrying both.
+    expect(message).not.toMatch(/failed the model-input allow-list/);
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  // The other side of the same guard: an allow-list drop UNDER the cap must not
+  // acquire a cap reason. Without this, "always mention the cap" passes above.
+  it("names only the allow-list when blocks fail validation under the cap", () => {
+    const { result } = renderDispatcher();
+    let message = "";
+    try {
+      result.current.createDocument("Charter", [P(1), BAD, P(2)]);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(
+      "1 of 3 block(s) failed the model-input allow-list; no document was created",
+    );
+    expect(message).not.toMatch(/block limit exceeded/);
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  // ★★★ A payload can hit BOTH, and neither reason may mask the other. The
+  // decomposition is exact because truncation runs BEFORE validation: the two
+  // invalid blocks sit inside the first MAX_BLOCKS_PER_DOC, so the allow-list
+  // did see them, and the denominator is what it examined — never the full
+  // send, which would claim a rate over blocks nothing ever tested.
+  it("reports the cap AND the allow-list when an over-cap create also carries invalid blocks", () => {
+    const { result } = renderDispatcher();
+    const blocks = Array.from({ length: OVER_CAP }, (_, i) => (i === 3 || i === 7 ? BAD : P(i)));
+    let message = "";
+    try {
+      result.current.createDocument("Big", blocks);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(
+      `${CAP_REASON}; 2 of ${MAX_BLOCKS_PER_DOC} block(s) failed the model-input allow-list; no document was created`,
+    );
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  // ★★ Invalid blocks PAST the cap are attributed to the cap alone: the slice
+  // removed them before the allow-list could look. Reporting them as validation
+  // failures would be the original bug wearing the new message.
+  it("attributes over-cap blocks to the cap even when they are themselves invalid", () => {
+    const { result } = renderDispatcher();
+    const blocks = Array.from({ length: OVER_CAP }, (_, i) => (i >= MAX_BLOCKS_PER_DOC ? BAD : P(i)));
+    let message = "";
+    try {
+      result.current.createDocument("Big", blocks);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toBe(`${CAP_REASON}; no document was created`);
+  });
+
+  // Threshold control: exactly MAX_BLOCKS_PER_DOC is legal, so the guard is the
+  // cap and not "a large array looks suspicious".
+  it("still creates a document of exactly MAX_BLOCKS_PER_DOC blocks", () => {
+    const { result } = renderDispatcher();
+    act(() => {
+      result.current.createDocument(
+        "Exactly at the cap",
+        Array.from({ length: MAX_BLOCKS_PER_DOC }, (_, i) => P(i)),
+      );
+    });
+    expect(result.current.listDocuments()).toHaveLength(1);
+    expect(result.current.listDocuments()[0].blockCount).toBe(MAX_BLOCKS_PER_DOC);
+  });
+
+  // ★★★ The replaceAll arm carried the same wrong reason while APPLYING the
+  // survivors — the worse half, since the write lands and the model is told the
+  // wrong thing about it.
+  it("names the block CAP on an over-cap replaceAll, and still applies the survivors", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(0)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "replaceAll", blocks: Array.from({ length: OVER_CAP }, (_, i) => P(i)) }],
+        undefined,
+      );
+    });
+    expect(out!.rejected).toEqual([`op 0: ${CAP_REASON}`]);
+    expect(out!.applied).toBe(1);
+    // Positive control: the survivors really landed, so this is a reporting fix
+    // and not a new refusal.
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+  });
+
+  // ★★★ FIX 3. `removed` is a before/after block-count delta and is documented
+  // "non-zero only for replaceAll" — so the flag must read the CLEANED ops. A
+  // replaceAll that `selfRejected` removed never ran, and measured before the
+  // fix this reported `removed: 1` for the DELETE's block.
+  it("reports removed:0 when the only replaceAll was self-rejected and another op did the removing", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1), P(2), P(3)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [
+          { op: "replaceAll", blocks: [BAD, BAD] },
+          { op: "delete", index: 0 },
+        ] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    expect(out!.removed).toBe(0);
+    // Positive controls: the delete DID apply, so a block genuinely went away —
+    // `removed: 0` is an attribution statement, not "nothing happened".
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual(["op 0: all 2 block(s) failed the model-input allow-list"]);
+    const stored = result.current.getDocument(id)!;
+    expect(stored.blocks).toHaveLength(2);
+    expect(JSON.stringify(stored.blocks)).not.toContain("p1");
+  });
+
+  // The second self-rejection route into the same flag: a replaceAll with a
+  // non-array `blocks` is refused before the engine sees it.
+  it("reports removed:0 when a replaceAll with no blocks array is self-rejected", () => {
+    const { result } = renderDispatcher();
+    const id = docWith(result, [P(1), P(2)]);
+    let out: DocumentUpdateResult | null = null;
+    act(() => {
+      out = result.current.updateDocument(
+        id,
+        [{ op: "replaceAll" }, { op: "delete", index: 0 }] as unknown as DocOp[],
+        undefined,
+      );
+    });
+    expect(out!.removed).toBe(0);
+    expect(out!.applied).toBe(1);
+    expect(out!.rejected).toEqual(["op 0: replaceAll requires a blocks array"]);
+    expect(result.current.getDocument(id)!.blocks).toHaveLength(1);
   });
 });

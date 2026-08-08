@@ -16,6 +16,9 @@ function setup(overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {}) 
       onFormatChange={noop}
       onResetColumns={noop}
       onResetSize={noop}
+      showDeleted={false}
+      onShowDeletedChange={noop}
+      deletedCount={0}
       {...overrides}
     />,
   );
@@ -103,6 +106,70 @@ describe("DocumentsToolbar", () => {
     // a popout becomes useless rather than merely read-only.
     expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
     expect(screen.getByRole("combobox", { name: "Download format" })).toBeEnabled();
+  });
+
+  describe("the deleted-documents toggle", () => {
+    it("sits after the pane actions and BEFORE the contiguous trailing group", () => {
+      setup();
+      expectButtonOrder(["documentsNew", "documentsDownload", "documentsShowDeleted", "printHint"]);
+      // ★ Ordering alone is not enough: a control landing BETWEEN two members
+      // of the trailing group leaves the indices ascending. Only `contiguous`
+      // catches that, and it is the exact drift the convention has been broken
+      // by more than once.
+      expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+    });
+
+    // ★★★ MUTATION-PROVED. Two separate claims, and the second is the one that
+    // catches a label flipped to the opposite action: `aria-pressed` must track
+    // the state the VISIBLE LABEL names, so "Deleted documents, pressed" means
+    // deleted documents ARE shown. axe passes a flipped label (a name exists),
+    // so this is the only coverage.
+    it("announces the state on the label it enables", () => {
+      const { unmount } = setup({ showDeleted: false });
+      const off = screen.getByRole("button", { name: /Deleted documents/ });
+      expect(off).toHaveAttribute("aria-pressed", "false");
+      unmount();
+
+      setup({ showDeleted: true });
+      const on = screen.getByRole("button", { name: /Deleted documents/ });
+      expect(on).toHaveAttribute("aria-pressed", "true");
+      // The label does NOT flip to "Hide…" — it names what pressed=true
+      // enables, in both states.
+      expect(on.textContent).toContain("Deleted documents");
+    });
+
+    it("reports the flipped value to its parent", () => {
+      const onShowDeletedChange = vi.fn();
+      const { unmount } = setup({ showDeleted: false, onShowDeletedChange });
+      fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+      expect(onShowDeletedChange).toHaveBeenCalledWith(true);
+      unmount();
+
+      // The other direction, so a hardcoded `true` fails.
+      const onShowDeletedChange2 = vi.fn();
+      setup({ showDeleted: true, onShowDeletedChange: onShowDeletedChange2 });
+      fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
+      expect(onShowDeletedChange2).toHaveBeenCalledWith(false);
+    });
+
+    it("shows the count, which is the only signal an implausible list gives", () => {
+      // A corrupted `documents` blob beside a valid versions blob makes EVERY
+      // version read as deleted; "Deleted documents (200)" next to an empty
+      // pane is what tells the user that.
+      setup({ deletedCount: 200 });
+      expect(screen.getByRole("button", { name: /Deleted documents/ }).textContent).toContain("(200)");
+    });
+
+    it("carries the non-colour pressed marker the dark schemes depend on", () => {
+      // ★★ In the three DARK schemes the pressed-vs-unpressed BORDER measures
+      // 1.03–1.22:1, so colour cannot be the only channel (WCAG 1.4.1) — the
+      // primitive renders a trailing marker glyph instead. Pinned here because
+      // using a hand-rolled `aria-pressed` button would lose it silently and
+      // axe has no rule that would notice.
+      setup({ showDeleted: true });
+      const toggle = screen.getByRole("button", { name: /Deleted documents/ });
+      expect(toggle.querySelector("[data-pressed-marker]")).not.toBeNull();
+    });
   });
 
   it("renders exactly one button per control — no duplicate accessible names", () => {

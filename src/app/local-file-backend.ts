@@ -4,7 +4,7 @@
 // local-md), persisting the picked file handle in the IDB kv store.
 // Extracted from storage.ts (which re-exports everything).
 
-import { csvToWorkspace, workspaceToCsv } from "./csv-codecs";
+import { type ImportDiag, csvToWorkspace, workspaceToCsv } from "./csv-codecs";
 import { markdownToWorkspace, workspaceToMarkdown } from "./markdown-codecs";
 import {
   type FilePickType,
@@ -31,6 +31,8 @@ export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** What the most recent load() discarded to stay inside the document caps. */
+  lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private readonly idbKey: string;
   private readonly format: FilePickType;
 
@@ -110,20 +112,34 @@ export class LocalFileBackend implements StorageBackend {
   }
 
   async load(): Promise<Workspace> {
-    const handle = await this.getHandle();
-    if (!handle) throw new StorageNotReadyError("local-file-not-picked");
-    if (!(await hasGrantedPermission(handle, "read"))) {
-      throw new StorageNotReadyError("local-file-permission-needed");
+    // ★★ ONE accumulator, ONE publish point (mirrors turso-backend.load()).
+    // load() has five exits — two StorageNotReadyError throws, the empty-file
+    // short-circuit, the JSON return and the CSV/MD return — and an exit that
+    // returned without publishing would leave a STALE count from the PREVIOUS
+    // load, worse than zero because it would raise a data-loss warning about a
+    // file that is fine. The `finally` covers every one of them, including the
+    // throwing paths (which correctly publish zeros: nothing was decoded).
+    const diag: ImportDiag = { droppedRows: 0 };
+    try {
+      const handle = await this.getHandle();
+      if (!handle) throw new StorageNotReadyError("local-file-not-picked");
+      if (!(await hasGrantedPermission(handle, "read"))) {
+        throw new StorageNotReadyError("local-file-permission-needed");
+      }
+      const text = await readHandle(handle);
+      this.lastImportDroppedRows = 0;
+      if (!text.trim()) return emptyWorkspace();
+      if (this.format === "json") return jsonToWorkspace(text, { strict: true, diag });
+      const ws =
+        this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
+      this.lastImportDroppedRows = diag.droppedRows;
+      return ws;
+    } finally {
+      this.lastLoadTruncation = {
+        entries: diag.truncatedEntries ?? 0,
+        blocks: diag.truncatedBlocks ?? 0,
+      };
     }
-    const text = await readHandle(handle);
-    this.lastImportDroppedRows = 0;
-    if (!text.trim()) return emptyWorkspace();
-    if (this.format === "json") return jsonToWorkspace(text, { strict: true });
-    const diag = { droppedRows: 0 };
-    const ws =
-      this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
-    this.lastImportDroppedRows = diag.droppedRows;
-    return ws;
   }
 
   async save(ws: Workspace): Promise<void> {

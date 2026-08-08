@@ -11,6 +11,18 @@ describe("activityViewOf", () => {
     expect(activityViewOf("stakeholder.updated")).toBe("stakeholders");
   });
 
+  // ★ The other five ai.* kinds write to other registers, so this must be an
+  // exact match and not an "ai." prefix rule — asserted here together so a
+  // prefix "simplification" fails on the very next line.
+  it("sends an assistant document write to the Documents view, and no other ai.* kind", () => {
+    expect(activityViewOf("ai.documentWrite")).toBe("documents");
+    expect(activityViewOf("ai.inlineEdit")).toBeNull();
+    expect(activityViewOf("ai.taskDedup")).toBeNull();
+    expect(activityViewOf("ai.insightRecommendation")).toBeNull();
+    expect(activityViewOf("ai.allocationPlan")).toBeNull();
+    expect(activityViewOf("ai.raciSuggest")).toBeNull();
+  });
+
   it("returns null for non-deep-linkable kinds", () => {
     expect(activityViewOf("bulk.edit")).toBeNull();
     expect(activityViewOf("jira.sync")).toBeNull();

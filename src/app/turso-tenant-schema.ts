@@ -144,6 +144,12 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     if (ws.documents && ws.documents.length) {
       out.push(tenantInsert("meta", ["key", "value"], ["documents", JSON.stringify(ws.documents)], projectId));
     }
+    // documentVersions ride `meta` here too — same reasoning as documents just
+    // above: the load side is shared (rowsToWorkspace), so a save added on
+    // only one backend drops the data silently on the other.
+    if (ws.documentVersions && ws.documentVersions.length) {
+      out.push(tenantInsert("meta", ["key", "value"], ["documentVersions", JSON.stringify(ws.documentVersions)], projectId));
+    }
     if (ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)) {
       out.push(tenantInsert("meta", ["key", "value"], ["settings_overrides", JSON.stringify(ws.settingsOverrides)], projectId));
     }

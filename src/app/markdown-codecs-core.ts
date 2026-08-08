@@ -14,8 +14,9 @@ import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
-import { sanitizeProjectDocuments, type ProjectDocument } from "./document-model";
+import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
@@ -202,7 +203,10 @@ export function documentsToMarkdown(docs: readonly ProjectDocument[]): string {
   return ["## Documents", "", "```json", JSON.stringify(docs, null, 2), "```", ""].join("\n");
 }
 
-export function markdownToDocuments(md: string): ProjectDocument[] | undefined {
+export function markdownToDocuments(
+  md: string,
+  diag?: DocTruncationDiag,
+): ProjectDocument[] | undefined {
   const m = /## Documents\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
   try {
@@ -222,8 +226,52 @@ export function markdownToDocuments(md: string): ProjectDocument[] | undefined {
     // installs JSDOM into globalThis BEFORE it dynamically imports
     // src/app/storage (see its header). A NEW bare-node importer of this module
     // must do the same or it will silently lose every document.
-    const docs = sanitizeProjectDocuments(JSON.parse(m[1])).map(sanitizeDocumentRichFields);
+    const docs = sanitizeProjectDocuments(JSON.parse(m[1]), diag).map(sanitizeDocumentRichFields);
     return docs.length ? docs : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Document version history persists the same way as documents just above —
+ *  a fenced json blob, not a table — for the same reason: a version carries a
+ *  nested block array, and there is no table pattern to copy. STORAGE-ONLY,
+ *  gated by `config === undefined` at the emit site below: version history
+ *  exists to back AI-write undo, not to be read, so it must never leak into a
+ *  user-facing markdown export.
+ *
+ *  ★★ Same fence-collision argument as documentsToMarkdown, pinned by the same
+ *  shape of test in markdown-codecs.documents.test.ts: JSON.stringify escapes
+ *  U+000A as the two characters \ and n, so no character a user types can put
+ *  a ``` at column 0, and the decoder below only recognises a closing fence at
+ *  the start of a line. */
+export function documentVersionsToMarkdown(versions: readonly DocVersion[]): string {
+  return ["## Document versions", "", "```json", JSON.stringify(versions, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToDocumentVersions(
+  md: string,
+  diag?: DocTruncationDiag,
+): DocVersion[] | undefined {
+  const m = /## Document versions\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    // Same two-pass shape as markdownToDocuments just above: sanitizeDocumentVersions
+    // enforces structure (DOM-free), then each version's blocks get the paragraph
+    // HTML allow-list via sanitizeDocumentRichFields. A version has no independent
+    // createdAt/updatedAt, so it is passed through a synthetic ProjectDocument-shaped
+    // wrapper with savedAt standing in for both.
+    const versions = sanitizeDocumentVersions(JSON.parse(m[1]), diag).map((v) => ({
+      ...v,
+      blocks: sanitizeDocumentRichFields({
+        id: v.documentId,
+        title: v.title,
+        blocks: v.blocks,
+        createdAt: v.savedAt,
+        updatedAt: v.savedAt,
+      }).blocks,
+    }));
+    return versions.length ? versions : undefined;
   } catch {
     return undefined;
   }
@@ -573,6 +621,12 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // before the field existed (the golden fixtures pin those bytes).
   if (config === undefined && ws.documents && ws.documents.length)
     mdParts.push(documentsToMarkdown(ws.documents));
+  // Document version history — STORAGE-ONLY, same gate as documents just
+  // above: it backs AI-write undo, not a user-facing export, so a workspace
+  // with no history must serialize byte-for-byte as it did before the field
+  // existed (the golden fixtures pin those bytes).
+  if (config === undefined && ws.documentVersions && ws.documentVersions.length)
+    mdParts.push(documentVersionsToMarkdown(ws.documentVersions));
   const out = mdParts.join("\n");
   return out;
 }

@@ -17,7 +17,7 @@ already written into prose — check the citations after any amend.
 | **keep** | unchanged, by design |
 | **name defect** — 1 row | ❌ **OPEN** — `workspace-section-chrome.tsx`, needs `aria-label`, not a `title`. |
 | **blocked on i18n** — 1 row | ❌ **OPEN** — `stakeholder-recipient-input.tsx`; translate first. |
-| 15 hardcoded-English names | ❌ **OPEN** — adjacent finding, tracked in `docs/open-followups.md` §103. |
+| 15 hardcoded-English names | ❌ **OPEN** — adjacent finding, tracked in `docs/open-followups.md` §105. |
 
 ★★ **B1 (settings cog) is the ONE Class B row still open**, held deliberately: that control renders
 in the **classic** header only, outside the `ActionMenus` element `buildShellChrome` feeds the modern
@@ -51,7 +51,8 @@ from what the retracted claim described.
 ## Corrections to this branch's commit messages
 
 ★★★ These four claims live ONLY in commit messages — no tracked doc repeats them, and every count in
-this file and in `docs/open-followups.md` §103/§104 was independently re-measured and reproduced
+this file and in `docs/open-followups.md` §105/§106 (filed as §103/§104 — renumbered at merge, since
+main took those two numbers first) was independently re-measured and reproduced
 exactly. Recorded here because a commit message cannot be edited once it is an ancestor, and because
 two of the four sit inside the RETRACTION above: **a correction is not self-verifying, and this branch
 has now produced a wrong replacement figure twice.**

@@ -4,7 +4,7 @@
 // Microsoft Graph. Token acquisition is delegated to the caller (M1's
 // useMsAuth().acquireToken).
 
-import { csvToWorkspace, workspaceToCsv } from "./csv-codecs";
+import { type ImportDiag, csvToWorkspace, workspaceToCsv } from "./csv-codecs";
 import {
   StorageNotReadyError,
   emptyWorkspace,
@@ -39,6 +39,8 @@ export class SharePointBackend implements StorageBackend {
   readonly kind: "sp-json" | "sp-csv";
   /** Malformed rows dropped by the most recent CSV load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** What the most recent load() discarded to stay inside the document caps. */
+  lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private location: SpFileLocation;
   private acquireToken: (
     scopes: readonly string[],
@@ -85,36 +87,50 @@ export class SharePointBackend implements StorageBackend {
   }
 
   async load(): Promise<Workspace> {
-    const token = await this.getToken();
-    const res = await fetch(graphUrlFor(this.location), {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 404) return emptyWorkspace();
-    if (res.status === 401) {
-      throw new StorageNotReadyError(
-        "Sign-in expired. Re-authenticate from Settings.",
-      );
+    // ★★ ONE accumulator, ONE publish point (mirrors turso-backend.load()).
+    // load() has six exits — the 404 empty short-circuit, three HTTP error
+    // throws, the CSV return and the JSON return — and an exit that returned
+    // without publishing would leave a STALE count from the PREVIOUS load,
+    // worse than zero because it would raise a data-loss warning about a file
+    // that is fine. The `finally` covers every one of them, including the
+    // throwing paths (which correctly publish zeros: nothing was decoded).
+    const diag: ImportDiag = { droppedRows: 0 };
+    try {
+      const token = await this.getToken();
+      const res = await fetch(graphUrlFor(this.location), {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 404) return emptyWorkspace();
+      if (res.status === 401) {
+        throw new StorageNotReadyError(
+          "Sign-in expired. Re-authenticate from Settings.",
+        );
+      }
+      if (res.status === 403) {
+        throw new StorageNotReadyError(
+          "Permission denied. The signed-in user lacks read access to this file.",
+        );
+      }
+      if (!res.ok) {
+        throw new Error(`SharePoint returned ${res.status}. Try again later.`);
+      }
+      this.lastImportDroppedRows = 0;
+      if (this.kind === "sp-csv") {
+        const csv = await res.text();
+        const ws = csvToWorkspace(csv, diag);
+        this.lastImportDroppedRows = diag.droppedRows;
+        return ws;
+      }
+      // Validate + migrate like every other JSON backend (was a raw cast that
+      // risked a downstream TypeError on a malformed-but-valid-JSON file).
+      return jsonToWorkspace(await res.text(), { strict: true, diag });
+    } finally {
+      this.lastLoadTruncation = {
+        entries: diag.truncatedEntries ?? 0,
+        blocks: diag.truncatedBlocks ?? 0,
+      };
     }
-    if (res.status === 403) {
-      throw new StorageNotReadyError(
-        "Permission denied. The signed-in user lacks read access to this file.",
-      );
-    }
-    if (!res.ok) {
-      throw new Error(`SharePoint returned ${res.status}. Try again later.`);
-    }
-    this.lastImportDroppedRows = 0;
-    if (this.kind === "sp-csv") {
-      const csv = await res.text();
-      const diag = { droppedRows: 0 };
-      const ws = csvToWorkspace(csv, diag);
-      this.lastImportDroppedRows = diag.droppedRows;
-      return ws;
-    }
-    // Validate + migrate like every other JSON backend (was a raw cast that
-    // risked a downstream TypeError on a malformed-but-valid-JSON file).
-    return jsonToWorkspace(await res.text(), { strict: true });
   }
 
   async save(workspace: Workspace): Promise<void> {

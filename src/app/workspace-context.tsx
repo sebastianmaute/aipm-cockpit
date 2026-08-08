@@ -2,8 +2,11 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -42,6 +45,9 @@ import type { TimelogLinks } from "./timelog-types";
 import type { KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
 import type { ProjectDocument } from "./document-model";
+import { applyDocMutation, type DocMutation, type DocResult } from "./document-mutations";
+import type { DocVersion, DocVersionSource } from "./document-versions";
+import { mintId } from "./id-mint-session";
 import type { SettingsOverrides } from "./settings-types";
 import type { CalendarEvent } from "./calendar-event";
 
@@ -128,6 +134,20 @@ interface WorkspaceValue {
   documents: readonly ProjectDocument[];
   setDocuments: Dispatch<SetStateAction<readonly ProjectDocument[]>>;
 
+  /** ★ NON-optional (`[]` when empty) for exactly the same reason `documents`
+   *  is — callers spread `prev` inside functional setters, and an `undefined`
+   *  state would throw. Byte stability is unaffected: `workspaceToJson` emits
+   *  the key only when `length > 0`. */
+  documentVersions: readonly DocVersion[];
+  setDocumentVersions: Dispatch<SetStateAction<readonly DocVersion[]>>;
+
+  /** THE document mutation entry point — shared by the Documents pane and the
+   *  AI tools, so "every mutation snapshots a before-image" cannot be
+   *  half-implemented by one caller mutating `documents` on its own. Returns
+   *  the result SYNCHRONOUSLY so a tool can report `rejected` without waiting
+   *  for the state it just wrote to come back round. */
+  mutateDocuments: (m: DocMutation, source: DocVersionSource) => DocResult;
+
   settingsOverrides: Readonly<SettingsOverrides> | undefined;
   setSettingsOverrides: Dispatch<SetStateAction<Readonly<SettingsOverrides> | undefined>>;
 
@@ -161,8 +181,52 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [knowledgeItems, setKnowledgeItems] = useState<readonly KnowledgeItem[] | undefined>(undefined);
   const [insights, setInsights] = useState<readonly Insight[] | undefined>(undefined);
   const [documents, setDocuments] = useState<readonly ProjectDocument[]>([]);
+  const [documentVersions, setDocumentVersions] = useState<readonly DocVersion[]>([]);
   const [settingsOverrides, setSettingsOverrides] = useState<Readonly<SettingsOverrides> | undefined>(undefined);
   const [calendarEvents, setCalendarEvents] = useState<readonly CalendarEvent[] | undefined>(undefined);
+
+  // ★★★ THE BEFORE-IMAGE CANNOT BE COMPUTED INSIDE A FUNCTIONAL SETTER.
+  // `documents` and `documentVersions` are two separate setters, and the
+  // snapshot a mutation replaces is only available while updating the FIRST
+  // while it has to land in the SECOND. Reaching across from one updater to
+  // the other makes it impure, and React StrictMode double-invokes updaters —
+  // which would append the SAME version twice. So both slices are mirrored
+  // into refs and composed here, in the one place that owns both.
+  const documentsRef = useRef(documents);
+  const documentVersionsRef = useRef(documentVersions);
+  useEffect(() => { documentsRef.current = documents; }, [documents]);
+  useEffect(() => { documentVersionsRef.current = documentVersions; }, [documentVersions]);
+
+  const mutateDocuments = useCallback((m: DocMutation, source: DocVersionSource): DocResult => {
+    const result = applyDocMutation(
+      { documents: documentsRef.current, versions: documentVersionsRef.current },
+      m,
+      {
+        now: new Date().toISOString(),
+        source,
+        mintDocId: () => mintId("document", documentsRef.current),
+        mintVersionId: () => mintId("documentVersion", documentVersionsRef.current),
+      },
+    );
+    if (!result.changed) return result;
+    // ★★★ THE CALLBACK MUST WRITE THE REFS ITSELF — the mirroring effects above
+    // are not enough. A second call in the SAME tick runs before React has
+    // re-rendered, so a callback that left the refs to the effect would read
+    // the pre-mutation state, snapshot the same stale before-image twice, and
+    // build its `versions` from a list missing the first mutation's entry —
+    // silently DROPPING it (measured: two renames in one tick yield one
+    // version, not two). The effects then re-sync these very values, a no-op.
+    // ★ Their POSITION relative to the two setters is NOT what matters, though
+    // the obvious reading says otherwise: the setters are batched, so putting
+    // the ref writes after them still lands both before the next call in the
+    // tick. Measured — that swap alone leaves every test green.
+    documentsRef.current = result.documents;
+    documentVersionsRef.current = result.versions;
+    setDocuments(result.documents);
+    setDocumentVersions(result.versions);
+    return result;
+  }, []);
+
   const {
     searchDebounced,
     priorityFilter,
@@ -382,6 +446,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       knowledgeItems, setKnowledgeItems,
       insights, setInsights,
       documents, setDocuments,
+      documentVersions, setDocumentVersions,
+      mutateDocuments,
       settingsOverrides, setSettingsOverrides,
       calendarEvents, setCalendarEvents,
     }),
@@ -416,6 +482,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       knowledgeItems,
       insights,
       documents,
+      documentVersions,
+      mutateDocuments,
       settingsOverrides,
       calendarEvents,
     ],

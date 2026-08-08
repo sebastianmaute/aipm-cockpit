@@ -286,5 +286,19 @@ export function scaleWorkspace(ws: Workspace, factor: number): Workspace {
     // "Steering update" would be noise, and its dataSection blocks re-render
     // against the scaled data anyway. Measured: seeding one document grows
     // -big and -huge by the SAME 1140 bytes, which is the no-replication proof.
+    // ★★ documentVersions rides the spread for the same reason, and the two
+    // decisions are COUPLED — this is why it needs no remap of its own.
+    // `DocVersion.documentId` is an FK into `documents`, so replicating either
+    // slice alone would dangle it, and a version whose documentId is absent is
+    // exactly what `deletedDocumentVersions` reports as a DELETED DOCUMENT —
+    // the scaled samples would sprout phantom deleted documents. Because
+    // NEITHER is replicated, document ids are unchanged and the FK stays valid.
+    // If you ever start replicating documents, remap documentVersions in the
+    // same commit. Verify with:
+    //   node -e 'const s=JSON.parse(require("fs").readFileSync("sample-workspace-small.json","utf8"));
+    //   const live=new Set((s.documents||[]).map(d=>d.id));
+    //   console.log((s.documentVersions||[]).filter(v=>!live.has(v.documentId)))'
+    // — an empty array is the no-dangling-FK proof (checked against -big/-huge
+    // by running the same snippet over those files).
   };
 }

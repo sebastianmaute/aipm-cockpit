@@ -49,4 +49,33 @@ describe("VIEW_AI_SCOPE", () => {
     expect(VIEW_AI_SCOPE.raci.reading?.toLowerCase()).toContain("not");
     expect(VIEW_AI_SCOPE.raci.reading?.toLowerCase()).toContain("readable");
   });
+
+  // Documents shipped with a "there is no tool for this yet" disclosure, which
+  // stopped being true when DOCUMENT_TOOL_DEFS landed. Retiring that line is the
+  // point of this test.
+  it("no longer tells the model it cannot touch documents", () => {
+    const reading = VIEW_AI_SCOPE.documents.reading ?? "";
+    expect(reading).not.toMatch(/no tool/i);
+    // ★ The line above is WEAK ON ITS OWN — a `reading` reworded to "there are
+    // zero tools here", or deleted outright (`?? ""`), passes it. These pin the
+    // POSITIVE content only the replacement text can satisfy: that the model is
+    // pointed at the real read tool AND told the read-before-edit precondition
+    // that makes update_document's block indices meaningful.
+    expect(reading).toContain("get_document");
+    expect(reading).toContain("update_document");
+    const hints = VIEW_AI_SCOPE.documents.toolHints ?? [];
+    expect(hints).toContain("list_documents");
+    expect(hints).toContain("create_document");
+  });
+
+  // ★ Documents is the only entry that hints at write tools at all (the
+  // assistant authors there; every other register the user maintains by hand).
+  // `delete_document` was left out on purpose — see the comment on that entry.
+  // This guards the whole file, so a destructive hint added to ANY view fails.
+  it("never hints at a destructive tool on any view", () => {
+    const destructive = Object.entries(VIEW_AI_SCOPE).flatMap(([view, scope]) =>
+      (scope.toolHints ?? []).filter((h) => h.startsWith("delete_")).map((h) => `${view}:${h}`),
+    );
+    expect(destructive).toEqual([]);
+  });
 });

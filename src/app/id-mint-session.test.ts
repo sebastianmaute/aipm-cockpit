@@ -108,6 +108,10 @@ describe("seedMintFromWorkspace", () => {
     shifts: [{ id: 14 }],
     budgets: [{ id: 20 }, { id: 25 }],
     calendarEvents: [{ id: 27 }],
+    documents: [{ id: 29, title: "d", blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-01" }],
+    documentVersions: [
+      { id: 32, documentId: 29, title: "v", blocks: [], savedAt: "2026-01-01", source: "user", op: "update" },
+    ],
   } as unknown as Parameters<typeof seedMintFromWorkspace>[0];
 
   it("seeds every kind so a subsequent mint exceeds the loaded max", () => {
@@ -126,6 +130,8 @@ describe("seedMintFromWorkspace", () => {
       shift: 15,
       budgetBucket: 26,
       calendarEvent: 28,
+      document: 30,
+      documentVersion: 33,
     };
     for (const [kind, next] of Object.entries(expected) as [MintKind, number][]) {
       expect(mintId(kind, [])).toBe(next);
@@ -230,5 +236,45 @@ describe("__resetMintStateForTests", () => {
     __resetMintStateForTests();
     // After reset, minting reads the list afresh from 0.
     expect(mintId("task", [{ id: 2 }])).toBe(3);
+  });
+});
+
+describe("document id reuse", () => {
+  it("does not hand a deleted document's id to the next create", () => {
+    __resetMintStateForTests();
+    const docs = [{ id: 1 }, { id: 2 }];
+    const first = mintId("document", docs);
+    expect(first).toBe(3);
+    // The user deletes #3 and #2; the list max drops back to 1.
+    const second = mintId("document", [{ id: 1 }]);
+    expect(second).toBe(4);
+  });
+
+  it("seeds the document high-water mark from a workspace", () => {
+    __resetMintStateForTests();
+    seedMintFromWorkspace(
+      { documents: [{ id: 9, title: "d", blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-01" }] },
+      "reset",
+    );
+    expect(mintId("document", [])).toBe(10);
+  });
+
+  it("seeds the documentVersion high-water mark from a workspace", () => {
+    __resetMintStateForTests();
+    seedMintFromWorkspace(
+      {
+        documentVersions: [
+          { id: 9, documentId: 1, title: "v", blocks: [], savedAt: "2026-01-01", source: "user", op: "update" },
+        ],
+      },
+      "reset",
+    );
+    expect(mintId("documentVersion", [])).toBe(10);
+  });
+
+  it("mints version ids independently of document ids", () => {
+    __resetMintStateForTests();
+    expect(mintId("document", [{ id: 5 }])).toBe(6);
+    expect(mintId("documentVersion", [])).toBe(1);
   });
 });
