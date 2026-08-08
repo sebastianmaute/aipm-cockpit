@@ -27,7 +27,12 @@
 // rendered as HTML. doc-render-html.ts htmlEscape()s heading.text,
 // bullets.items and table columns/rows/caption — only the `paragraph` case
 // calls sanitizeDocumentHtml and only that block reaches
-// dangerouslySetInnerHTML (document-preview.tsx). doc-render-docx.ts and
+// dangerouslySetInnerHTML. TWO sinks consume that render, not one:
+// document-preview.tsx and documents-history-modal.tsx (the version-history
+// Preview, which reuses doc-render-html's preview mode precisely so it inherits
+// the same re-sanitize). Naming only the first reads as an exhaustive citation
+// and is how a reader concludes the modal is a separate, unguarded path.
+// doc-render-docx.ts and
 // doc-render-pptx.ts both route paragraph.html through
 // descriptionTextWithBreaks (a plain-text projection, never OOXML markup) and
 // treat every other block's fields as plain runs too. So sanitizing only

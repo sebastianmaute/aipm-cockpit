@@ -1,6 +1,14 @@
-// src/app/ai-rich-text.ts — the write boundary for a rich field whose value came
-// from a MODEL (chat tools, the inline-AI confirm replay, the project-proposal
-// seed) rather than from the editor.
+// src/app/ai-rich-text.ts — the write boundaries for a rich field whose value
+// came from a MODEL (chat tools, the inline-AI confirm replay, the
+// project-proposal seed, AI document authoring) rather than from the editor.
+//
+// TWO of them, same two layers, DIFFERENT allow-lists and different caps:
+//   • `sanitizeAiRichText`         -> `sanitizeTemplateHtml` (narrow), cap
+//     `TEXTAREA_MAX`. Guards Task.description and, via `withAiRichFields`, the
+//     six rich raid/change/milestone fields. Must NOT widen.
+//   • `sanitizeAiDocumentRichText` -> `sanitizeDocumentHtml` (wider: adds
+//     s/code/pre/blockquote/hr/mark/sub/sup/img), cap `MAX_HTML_TEXT_CHARS`.
+//     Guards model-authored document paragraph HTML only.
 //
 // ★★★ Why this exists as its own module rather than living in rich-text-plain.ts:
 // it CALLS DOMPurify, and rich-text-plain.ts must never do that — it runs inside
@@ -9,6 +17,7 @@
 // "successfully" writes near-empty sample files. Every caller here is browser-side
 // (a React hook or a browser-only proposal path), so the DOM is there; keeping it
 // out of the DOM-free module is what preserves that guarantee.
+import { MAX_HTML_TEXT_CHARS } from "./document-model";
 import { sanitizeRichText } from "./rich-text-plain";
 import { sanitizeDocumentHtml, sanitizeTemplateHtml } from "./sanitize-html";
 import { TEXTAREA_MAX } from "./sanitize";
@@ -76,6 +85,19 @@ export function sanitizeAiRichText(raw: unknown): string {
  *  off a model-supplied object, so it is genuinely untyped. Layer 1 coerces a
  *  non-string to "" itself — do not narrow this to `string`.
  *
+ *  ★★★ THE CAP IS `MAX_HTML_TEXT_CHARS` (20 000), NOT the sibling's
+ *  `TEXTAREA_MAX` (5 000), and copying the sibling's number here DEFEATED this
+ *  whole boundary above 5 000 characters. Exceeding the cap does not merely
+ *  SHORTEN the value: `capHtmlText`'s truncation branch returns
+ *  `plainToHtml(text.slice(0, cut))`, which FLATTENS all markup to escaped plain
+ *  text. So a model-authored paragraph of 10 006 visible characters carrying a
+ *  `<mark>` came out at 4 999 characters with the mark gone — half the text lost
+ *  AND the exact tag the wider allow-list exists to preserve. Measured, not
+ *  reasoned. `MAX_HTML_TEXT_CHARS` is what `document-model.ts`'s structural
+ *  layer already enforces on `paragraph.html` (`sanitizeBlock`, via the same
+ *  `capHtmlText`), and `sanitizeAiDocBlocks` runs this boundary FIRST — so the
+ *  tighter number silently wins unless the two agree. Keep them on one constant.
+ *
  *  ★★ The trailing `sanitizeRichText` re-run is why this mirrors the sibling
  *  line-for-line rather than collapsing to a one-liner: the allow-list pass can
  *  empty a value whose only content was a disallowed element (e.g.
@@ -89,12 +111,27 @@ export function sanitizeAiRichText(raw: unknown): string {
  *  returns []. It is kept so the two boundaries stay identical in shape and
  *  cannot drift, and so the cap is re-applied after the allow-list. The sibling's
  *  callers have no such structural layer, which is where the empty rule is load
- *  bearing. */
+ *  bearing.
+ *
+ *  ★★ THE SIBLING'S `HTML_START` CAVEAT CARRIES OVER, AND ITS BLAST RADIUS IS
+ *  BIGGER HERE. Layer 1 only treats a value as HTML when `HTML_START` says so,
+ *  and that classifier knows only p/br/strong/em/ul/ol/li/a — so a document
+ *  paragraph that STARTS with any of the nine tags this list newly allows
+ *  (`<mark>`, `<s>`, `<code>`, `<pre>`, `<blockquote>`, `<sub>`, `<sup>`, `<hr>`,
+ *  `<img>`) fails the test, `plainToHtml` escapes the WHOLE value, and the tags
+ *  become permanent literal visible text. Measured for all nine. A `<p>`-wrapped
+ *  mark stores fine; a LEADING one does not, which makes the gap easy to miss —
+ *  the model's usual output shape is the one that works.
+ *  ★ Deliberately NOT fixed here: widening `HTML_START` is the naive repair and
+ *  it re-breaks the dashboard narrative path, whose sink is `KEEP_CONTENT: false`
+ *  and therefore DELETES an unrecognised tag's text instead of unwrapping it.
+ *  Deferred to its own slice (the `HTML_START` classification family,
+ *  open-followups.md §32). */
 export function sanitizeAiDocumentRichText(raw: unknown): string {
-  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX);
+  const upgraded = sanitizeRichText(raw, MAX_HTML_TEXT_CHARS);
   if (!upgraded) return "";
   const clean = sanitizeDocumentHtml(upgraded);
-  return sanitizeRichText(clean, TEXTAREA_MAX);
+  return sanitizeRichText(clean, MAX_HTML_TEXT_CHARS);
 }
 
 /** The rich fields each AI-writable entity owns.
