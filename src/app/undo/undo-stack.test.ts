@@ -320,7 +320,7 @@ describe("buildBeforeImages", () => {
 });
 
 describe("takeThrough", () => {
-  const e = (id: number) => ({ meta: { id, kind: "task.edited", count: 1, timestamp: "", label: `e${id}` } });
+  const e = (id: number) => ({ meta: { id, kind: "task.updated" as const, count: 1, timestamp: "", label: `e${id}` } });
 
   it("returns the taken entries NEWEST-FIRST and the untouched remainder", () => {
     const stack = [e(1), e(2), e(3), e(4)];        // 4 is newest
@@ -355,7 +355,7 @@ describe("takeThrough", () => {
 });
 
 describe("pushUndoMany", () => {
-  const e = (id: number) => ({ meta: { id, kind: "task.edited", count: 1, timestamp: "", label: `e${id}` } });
+  const e = (id: number) => ({ meta: { id, kind: "task.updated" as const, count: 1, timestamp: "", label: `e${id}` } });
 
   it("appends in array order so the LAST element ends on top", () => {
     // takeThrough hands entries newest-first; redo must replay oldest-undone
