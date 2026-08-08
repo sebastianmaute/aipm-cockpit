@@ -38,6 +38,63 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       updatedAt: "2026-06-01T00:00:00.000Z",
     },
   ],
+  // ★ e2e-only, for the same reason as `documents` above: the master is the
+  // hand-curated source the CSV/Markdown goldens are generated FROM, so a
+  // test-only row there would force regenerating -big, -huge and every
+  // __fixtures__/golden-* fixture — which makes a real format change and a
+  // fixture refresh indistinguishable in review. Neither slice exists in the
+  // master at all (verify:
+  //   node -e 'const m=JSON.parse(require("fs").readFileSync("sample-workspace-small.json","utf8"));
+  //   for (const k of ["insights","timelogLinks"]) console.log(k, m[k]==null?"ABSENT":"present")'
+  // ), so nothing here overrides curated data.
+  // ★★ THREE insights, not one. Every per-row control in insights-panel.tsx is
+  // qualified by the insight's rendered title ("Acknowledge – <title>"), and N
+  // identical names can only COLLIDE when N > 1 — with a single seeded row the
+  // axe gate cannot see a WCAG 2.4.6 duplicate-name failure at all. The three
+  // differ in type, severity AND status so the status/type filters have
+  // something to discriminate and the acknowledged branch renders too.
+  // ★ Ids are far above the master's range so a later sample addition cannot
+  // collide — same reason the seeded document uses 9001.
+  insights: [
+    {
+      id: 9101, key: "milestoneSlip:1", type: "milestoneSlip", severity: "high",
+      entityRef: { view: "milestones", id: 1 }, data: { days: 5 }, status: "active",
+      firstSeenAt: "2026-06-01T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 2,
+    },
+    {
+      id: 9102, key: "stalledWork:2", type: "stalledWork", severity: "medium",
+      entityRef: { view: "open-points", id: 2 }, data: { days: 21 }, status: "acknowledged",
+      firstSeenAt: "2026-06-02T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 3,
+      acknowledgedAt: "2026-06-05T00:00:00.000Z",
+    },
+    {
+      id: 9103, key: "budgetVariance:1", type: "budgetVariance", severity: "low",
+      data: { variance: 12 }, status: "active",
+      firstSeenAt: "2026-06-03T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
+    },
+  ],
+  // ★★ ONLY `projectLinks` reaches the scan. timelog-panel.tsx merges linked-but-
+  // unfetched projects into `knownProjectRefs` with a synthetic name (the id), so
+  // these two produce two real rows with row-qualified per-row controls even
+  // though no Timelog fetch has happened. `userLinks` does NOT: the People table
+  // renders `sync.users`, which comes from the network, so it stays on its empty
+  // state here. They are seeded anyway because the round-trip through
+  // sanitizeTimelogLinks is what the kv key is being proved by — do not read a
+  // green Time bookings scan as covering the People table.
+  // ★ `bucketId: 1` is a real budget id in the master, so the row's <select>
+  // resolves to a named option instead of falling back to "none".
+  timelogLinks: {
+    userLinks: [
+      { timelogUserId: 501, resourceId: 1, manual: true },
+      { timelogUserId: 502, resourceId: 2, manual: false },
+    ],
+    projectLinks: [
+      { timelogProjectId: 701, bucketId: 1, manual: true },
+      { timelogProjectId: 702, bucketId: null, manual: false },
+    ],
+    customerId: 42,
+    projectIds: [701, 702],
+  },
 };
 
 // Registry + File System Access stub. Runs in the browser before app code on
@@ -88,22 +145,30 @@ function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
   //       independent of what any scan happens to look at.
   //   (b) master does not carry it ⇒ nothing is dropped; the view simply renders
   //       empty, which is a seeding gap but not an infidelity.
-  // Measured 2026-08-07 — reproduce by diffing this map against the master:
+  // Measured 2026-08-08 — reproduce by diffing this map against the master:
   //   node -e 'const m=JSON.parse(require("fs").readFileSync("sample-workspace-small.json","utf8"));
   //   for (const k of ["fieldVisibility","features","steeringCommittee","timelogLinks",
   //   "knowledgeItems","insights","settingsOverrides","calendarEvents","documents",
   //   "documentVersions"]) console.log(k, m[k] != null)'
-  // — the map below carries only `documents` + `documentVersions`, so EIGHT of
-  // the ten are absentees: `steeringCommittee` and `calendarEvents` are case (a)
-  // and STILL DROPPED; the other SIX are case (b) — `fieldVisibility`,
-  // `features`, `timelogLinks`, `knowledgeItems`, `insights`,
-  // `settingsOverrides`. Insights is case (b) AND in
-  // A11Y_VIEWS, so it is scanned empty today — see docs/open-followups.md.
-  // `documents` and `documentVersions` are seeded for exactly these reasons.
+  // — the map below carries FOUR of the ten (`documents`, `documentVersions`,
+  // `insights`, `timelogLinks`), so SIX are absentees: `steeringCommittee` and
+  // `calendarEvents` are case (a) and STILL DROPPED; `fieldVisibility`,
+  // `features`, `knowledgeItems` and `settingsOverrides` are case (b).
+  // `insights` and `timelogLinks` were case (b) — absent from the master AND
+  // unmapped here, so Insights (which IS in A11Y_VIEWS) was scanned against its
+  // empty state. Both are now AUTHORED in SEED_WORKSPACE above and mapped here,
+  // so those panes are scanned with rows. `documents` and `documentVersions`
+  // were seeded earlier for exactly the same reason.
+  // ★ The VALUE is the IndexedDB kv key, not the workspace field name, and the
+  // two coincide for most slices — a wrong string seeds nothing and fails
+  // nothing. Every value here is checked against browser-backend.ts's KV_*_KEY
+  // constants (KV_INSIGHTS_KEY = "insights", KV_TIMELOG_LINKS_KEY =
+  // "timelogLinks"); re-check there before adding a row.
   const KV: Record<string, string> = {
     plan: "resource-plan", fxRates: "fx-rates", status: "project-status",
     milestones: "milestones", changes: "changes", stakeholders: "stakeholders", project: "project",
     documents: "documents", documentVersions: "documentVersions",
+    insights: "insights", timelogLinks: "timelogLinks",
   };
   return new Promise((resolve, reject) => {
     // ★ The version is hardcoded here but derived from IDB_VERSION in idb.ts.
