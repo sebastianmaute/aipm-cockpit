@@ -6226,3 +6226,56 @@ path, not an edge case.
 and so stays clear of the `react-hooks/set-state-in-effect` ban. Left open only because slice 3's
 task 8 was scoped to replacing the rendered control and was explicitly forbidden from changing any
 feature's cancel semantics.
+## 115. The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity
+
+Found 2026-08-08 while wiring slice 3's task 11. Not a regression: the people rows are new, and the
+divergence is created by giving them a source at all.
+
+Two numbers are now stacked vertically in the same table, both called booked/actual, and they come
+from different places:
+
+* **The role row** (`budget-panel.tsx:663`) renders `a.actualHours[p.key]` — PERSISTED workspace
+  data on the `BucketAllocation`. It is written only when a user runs Apply in the Timelog panel
+  (`timelog-apply.ts:281` `applyActualsToBuckets`), and it is HAND-EDITABLE in the cell.
+* **The people rows beneath it** (`budget-panel.tsx:678` → `budget-bucket-people.ts:67`) render the
+  per-resource breakdown from the PER-DEVICE Timelog cache, read at
+  `workspace-section.tsx:247` (`loadActualsCache(projectId)?.aggregates?.byBucket`) and written by
+  every fetch (`use-timelog-sync.ts:219` `saveActualsCache`). Apply never touches it; nobody can
+  edit it.
+
+★★ **Nothing in the UI says they can disagree**, and their layout says the opposite: a disclosure
+opening directly under a figure reads as a BREAKDOWN of that figure. They are not one, and they do
+not reconcile by construction — the engine drops bookers whose role has no line on this bucket
+(those hours stay in `unattributed`, `budget-bucket-people.ts:41-54`), so the people column does not
+sum to the role row even when both sources are perfectly fresh.
+
+Four ways they diverge in ordinary use:
+1. Fetched but not yet applied — people rows show the new bookings, the role row still shows the old
+   total. This is the DEFAULT state after every fetch.
+2. Applied, then the cell hand-edited — the role row moves, the people rows do not.
+3. Cache absent (another device, after `clearAppConfig`, or before the first fetch) — every person
+   reads "—" while the role row shows real hours.
+4. Multi-device Turso: the workspace carries another device's applied actuals while this device's
+   cache holds an older fetch, so the people rows are OLDER than the row above them.
+
+★ The read is memoised on `projectId` alone, so it does not refresh while the Budget view stays
+mounted — a fetch in the Timelog panel does not move these figures until the view remounts. That is
+the accepted cost of not threading live `useTimelogSync` state through `workspace-section`
+(explicitly chosen 2026-08-08, not an oversight).
+
+★ Fix is one of two, and it is a product decision, not a mechanical one: (a) show a visible
+staleness/source cue on the people body — the cache carries `fetchedAt` for exactly this, and it is
+already read at `use-timelog-sync.ts:58` — or (b) give both rows ONE source, which means either
+driving the people rows off persisted per-resource actuals (a new `Workspace` field, so the six
+write paths) or accepting that the role row is the only trustworthy total and dropping the per-period
+booked figures from the people rows entirely.
+
+★★ A tooltip is NOT the fix and was deliberately not used: `budgetPeopleFigureHint` explains WHICH
+figure is which ("Booked / planned hours"), and extending it to carry a correctness caveat would put
+a data-integrity warning in a hover-only channel that no keyboard or touch user reaches.
+
+Reproduce the two reads:
+```bash
+grep -n "actualHours\[p.key\]\|actualsByPeriod={" src/app/budget-panel.tsx
+grep -n "loadActualsCache" src/app/workspace-section.tsx
+```

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { describe, expect, it, test, vi } from "vitest";
+import { beforeEach, describe, expect, it, test, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
@@ -15,6 +15,7 @@ import { createRef } from "react";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
 import type { Absence, Shift } from "./types";
+import { saveActualsCache } from "./timelog-actuals-store";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -41,7 +42,18 @@ vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> 
 vi.mock("./raid-panel", () => ({ RaidPanel: () => <div data-testid="raid-panel" /> }));
 vi.mock("./resources-panel", () => ({ ResourcesPanel: () => <div data-testid="resources-panel" /> }));
 vi.mock("./activity-log-panel", () => ({ ActivityLogPanel: () => <div data-testid="activity-panel" /> }));
-vi.mock("./budget-panel", () => ({ BudgetPanel: () => <div data-testid="budget-panel" /> }));
+// Records the props it was handed so the Timelog-cache wiring below can be
+// asserted end to end. `vi.hoisted` because `vi.mock` factories are hoisted
+// above every const in this file — a bare module-level array is in its TDZ when
+// the factory runs. Still renders the same stub div, so every other test that
+// only looks for the testid is unaffected.
+const budgetPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./budget-panel", () => ({
+  BudgetPanel: (p: Record<string, unknown>) => {
+    budgetPanelMock.props.push(p);
+    return <div data-testid="budget-panel" />;
+  },
+}));
 
 function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSectionProps {
   return {
@@ -345,5 +357,64 @@ describe("WorkspaceSection", () => {
       i18nReady: true,
       lang: "en-US" as const,
     });
+  });
+});
+
+describe("WorkspaceSection — budget people-row actuals wiring", () => {
+  function TabProbe({ view }: { view: AppView }) {
+    const { setActiveTab } = useWorkspaceTab();
+    return <button data-testid="goto-budget" onClick={() => setActiveTab(view)} />;
+  }
+
+  // ★★ `await`, not a synchronous read: `workspace-panels` loads BudgetPanel
+  //    through `next/dynamic`, so the click renders the loading placeholder and
+  //    the real panel arrives a microtask later. Read synchronously, the array
+  //    is empty — and the resolution then lands during the NEXT test, whose
+  //    assertion passes against the PREVIOUS test's props. That is how the first
+  //    version of this file reported one failure and one false pass.
+  const renderAtBudget = async () => {
+    render(
+      <>
+        <TabProbe view="budget" />
+        <WorkspaceSection {...makeProps()} />
+      </>,
+      { wrapper: Wrapper },
+    );
+    fireEvent.click(screen.getByTestId("goto-budget"));
+    await screen.findByTestId("budget-panel");
+    return budgetPanelMock.props.at(-1)!;
+  };
+
+  beforeEach(() => {
+    budgetPanelMock.props.length = 0;
+    localStorage.clear();
+  });
+
+  // ★★ The chain this pins: device cache → `loadActualsCache` → this prop →
+  //    (budget-panel.test.tsx) a rendered number instead of "—". Without it the
+  //    prop can be dropped and every other test still passes, because an absent
+  //    breakdown is a LEGAL state that renders "—" everywhere — the failure mode
+  //    is silently reporting "unknown", never an error.
+  // ★ The key must be the SAME one TimelogPanel writes under
+  //    (`currentProjectId ?? "default"`); a different fallback misses every entry.
+  it("threads the cached per-resource breakdown into BudgetPanel", async () => {
+    saveActualsCache("default", {
+      fetchedAt: "2026-06-23T10:00:00Z",
+      aggregates: {
+        byBucket: { 7: { "2026-06": { hours: 6, billableHours: 6, byResource: { 5: { hours: 6, billableHours: 6 } } } } },
+        byResource: {},
+        unattributed: { hours: 0, billableHours: 0 },
+      },
+    });
+    const props = await renderAtBudget();
+    expect(props.actualsByBucket).toEqual({
+      7: { "2026-06": { hours: 6, billableHours: 6, byResource: { 5: { hours: 6, billableHours: 6 } } } },
+    });
+  });
+
+  it("passes an empty map — never undefined — when no fetch has been cached", async () => {
+    // The control: with nothing seeded the assertion above would pass against a
+    // hardcoded `{}`, so this pins that the empty case is the EMPTY one.
+    expect((await renderAtBudget()).actualsByBucket).toEqual({});
   });
 });
