@@ -218,7 +218,7 @@ describe("InsightsCard", () => {
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
           }}
-          busy
+          generatingId={3}
           onCancelGenerate={onCancelGenerate}
         />,
       );

@@ -181,7 +181,7 @@ export function WorkspaceSection({
   nextActions,
   onOpenAction,
   insightActions,
-  insightRecommendBusy,
+  insightGeneratingId,
   onCancelInsightRecommendation,
   onSnooze,
   onCreateTask,
@@ -828,7 +828,7 @@ export function WorkspaceSection({
               aiConfigured={isAiEnabled(settings.ai)}
               density={effectiveSettings.dashboardDensity ?? "comfortable"}
               insightActions={insightActions}
-              insightRecommendBusy={insightRecommendBusy}
+              insightGeneratingId={insightGeneratingId}
               onCancelInsightRecommendation={onCancelInsightRecommendation}
               insightAiEnabled={isAiEnabled(settings.ai)}
             />
@@ -898,7 +898,7 @@ export function WorkspaceSection({
               lang={lang}
               today={today}
               actions={isPopout ? undefined : insightActions}
-              busy={isPopout ? undefined : insightRecommendBusy}
+              generatingId={isPopout ? undefined : insightGeneratingId}
               onCancelGenerate={isPopout ? undefined : onCancelInsightRecommendation}
               aiEnabled={isAiEnabled(settings.ai)}
               onOpen={(refItem) => {

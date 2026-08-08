@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InsightsPanel } from "./insights-panel";
 import { insightTitle } from "./insights/insight-text";
+import { t } from "./i18n";
 import { expectSecondaryButton } from "../test/button-variant";
 import type { Insight, InsightStatus } from "./insights/insight";
 
@@ -161,7 +162,7 @@ describe("InsightsPanel", () => {
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
           }}
-          busy
+          generatingId={3}
           onCancelGenerate={onCancelGenerate}
         />,
       );
@@ -169,6 +170,34 @@ describe("InsightsPanel", () => {
       expect(cta).not.toBeDisabled();
       await user.click(cta);
       expect(onCancelGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows Stop on ONLY the generating row, leaving the others runnable", () => {
+      // ★ THE reason `busy` is per-row and not the hook's global in-flight flag.
+      //   With the global flag every row here would read "Stop", leaving a user
+      //   who wants to generate the OTHER row no way to say so. `onCancel` stays
+      //   global and that is still correct: only one generate can be in flight,
+      //   so the global cancel IS the running row's call.
+      // ★ A one-insight fixture CANNOT observe this — it passes either way.
+      const generating = makeInsight({ id: 3, type: "milestoneSlip", status: "active" });
+      const idle = makeInsight({ id: 4, type: "stalledWork", status: "active", entityRef: undefined, data: { count: 3 } });
+      render(
+        <InsightsPanel
+          insights={[generating, idle]}
+          lang="en-US" today={TODAY}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+          generatingId={3}
+          onCancelGenerate={vi.fn()}
+        />,
+      );
+      const generate = t("en-US", "insightGenerateRecommendation");
+      expect(screen.getByRole("button", { name: `Stop – ${titleOf("milestoneSlip")}` })).toBeTruthy();
+      expect(screen.getByRole("button", { name: `${generate} – ${titleOf("stalledWork")}` })).toBeTruthy();
+      // And the idle row is NOT a second Stop.
+      expect(screen.queryByRole("button", { name: `Stop – ${titleOf("stalledWork")}` })).toBeNull();
     });
 
     it("shows the AI summary + Review/Reject buttons when a recommendation is proposed", async () => {

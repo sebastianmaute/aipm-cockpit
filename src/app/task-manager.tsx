@@ -1760,7 +1760,7 @@ function TaskManagerInner() {
     [setInsights],
   );
   const {
-    busy: insightRecommendBusy,
+    generatingId: insightGeneratingId,
     generate: generateInsightRecommendation,
     cancel: cancelInsightRecommendation,
   } = useInsightRecommend({
@@ -2317,12 +2317,12 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     // Insights lifecycle bag (#6B SP1/SP2).
     insightActions: isPopout ? undefined : insightActions,
-    // Whether an AI recommendation is generating, and how to abort it. ★ The
-    // GLOBAL flag, not the per-insight `generatingId` the hook also exposes:
-    // it drives every row's shared AiTriggerButton Stop state, and `cancel`
-    // aborts whatever call is actually in flight — a per-row flag would give
-    // rows a Stop button wired to a call they don't own.
-    insightRecommendBusy: isPopout ? undefined : insightRecommendBusy,
+    // Which insight is generating, and how to abort it. ★ The flag is PER-ROW
+    // and the cancel is GLOBAL, deliberately: only one generate can be in
+    // flight (`useAbortableAi.run` aborts the previous), so the global cancel
+    // IS the running row's call. Feeding the hook's global `busy` here instead
+    // would make EVERY row's CTA read "Stop" while one runs.
+    insightGeneratingId: isPopout ? undefined : insightGeneratingId,
     onCancelInsightRecommendation: isPopout ? undefined : cancelInsightRecommendation,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,

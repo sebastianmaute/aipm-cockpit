@@ -267,9 +267,9 @@ export interface WorkspaceSectionProps {
   /** Insights lifecycle callbacks (#6B SP1/SP2). Forwarded to DashboardPanel +
    *  InsightsPanel. Undefined in popouts. */
   insightActions?: InsightActions;
-  /** Whether an AI insight recommendation is generating (#6B SP2) — the GLOBAL
-   *  in-flight flag, driving every row's shared AiTriggerButton Stop state. */
-  insightRecommendBusy?: boolean;
+  /** Id of the insight whose AI recommendation is generating (#6B SP2) —
+   *  PER-ROW, driving only that row's shared AiTriggerButton Stop state. */
+  insightGeneratingId?: number | null;
   /** Aborts the in-flight recommendation generate. Undefined in popouts. */
   onCancelInsightRecommendation?: () => void;
   onSnooze?: (a: SuggestedAction, ms: number) => void;

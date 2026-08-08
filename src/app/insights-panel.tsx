@@ -72,8 +72,9 @@ export interface InsightsPanelProps {
   today: string;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only log. */
   actions?: InsightActions;
-  /** Whether an AI insight recommendation is generating (#6B SP2) — GLOBAL. */
-  busy?: boolean;
+  /** Id of the insight whose AI recommendation is generating (#6B SP2) —
+   *  PER-ROW: only that row's CTA shows Stop. */
+  generatingId?: number | null;
   /** Aborts the in-flight recommendation generate. */
   onCancelGenerate?: () => void;
   aiEnabled?: boolean;
@@ -88,7 +89,7 @@ export function InsightsPanel({
   lang,
   today,
   actions,
-  busy,
+  generatingId,
   onCancelGenerate,
   aiEnabled,
   onOpen,
@@ -273,7 +274,7 @@ export function InsightsPanel({
                             title={title}
                             lang={lang}
                             actions={actions!}
-                            busy={busy}
+                            generatingId={generatingId}
                             onCancelGenerate={onCancelGenerate}
                             aiEnabled={aiEnabled}
                           />
