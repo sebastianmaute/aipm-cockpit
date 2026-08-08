@@ -46,8 +46,13 @@ vi.mock("./workspace-section", async (importOriginal) => {
     WorkspaceSection: () => {
       const ws = useWorkspace();
       return (
-        <div data-testid="ws-fks">
-          {ws.tasks.map((t) => `${t.id}:${t.resourceId ?? "none"}`).join(",")}
+        <div>
+          <div data-testid="ws-fks">
+            {ws.tasks.map((t) => `${t.id}:${t.resourceId ?? "none"}`).join(",")}
+          </div>
+          <div data-testid="ws-doc-versions">
+            {ws.documentVersions.map((v) => `${v.id}:${v.source}:${v.op}`).join(",")}
+          </div>
         </div>
       );
     },
@@ -71,6 +76,13 @@ const restored = (): Workspace => ({
   // Case- and whitespace-variant on purpose: only the normalising matcher links
   // it, so a raw-string comparison would leave the FK unset and fail here.
   tasks: [makeTask({ id: 1, assignee: "  dennis   KURSCHNER " })],
+  // ★★ `source: "ai"` / `op: "restored"` are unreachable by default: the context
+  // state initialises to `[]` and the sanitizer falls back to "user"/"update",
+  // so seeing them proves the restore funnel really carried this slice through.
+  documentVersions: [{
+    id: 11, documentId: 7, title: "Before image", blocks: [],
+    savedAt: "2026-08-06T00:00:00.000Z", source: "ai", op: "restored",
+  }],
 } as unknown as Workspace);
 
 beforeEach(() => {
@@ -97,6 +109,24 @@ describe("task-manager → applyRestoredWorkspace", () => {
     // 42, not "none": the restore path ran the repair.
     await waitFor(
       () => expect(screen.getByTestId("ws-fks")).toHaveTextContent("1:42"),
+      { timeout: 40000 },
+    );
+  }, 45000);
+
+  it("carries documentVersions through the restore funnel", async () => {
+    // The restore path fans a workspace into every setter by hand, so a slice
+    // missing from that list is silently dropped on a version restore even when
+    // the ordinary load path handles it correctly.
+    render(<TaskManager />);
+    await screen.findByTestId("ws-doc-versions", undefined, { timeout: 40000 });
+    await waitFor(() => expect(applyRestored).not.toBeNull(), { timeout: 40000 });
+    // Control: empty before the restore, so the assertion cannot pass by accident.
+    expect(screen.getByTestId("ws-doc-versions")).toHaveTextContent("");
+
+    act(() => applyRestored!(restored()));
+
+    await waitFor(
+      () => expect(screen.getByTestId("ws-doc-versions")).toHaveTextContent("11:ai:restored"),
       { timeout: 40000 },
     );
   }, 45000);

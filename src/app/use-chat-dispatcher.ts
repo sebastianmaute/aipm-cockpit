@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   type Filters,
   type ToolDispatcher,
@@ -25,11 +18,7 @@ import {
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import { useViewDigest } from "./use-view-digest";
-import type { AppView } from "./nav-config";
-import { type DashboardModel } from "./dashboard";
-import { type ProjectReport } from "./budget-report";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
-import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail } from "./resource-foundation";
@@ -54,48 +43,19 @@ import {
   sanitizeResource,
 } from "./sanitize";
 import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
-import { type Settings } from "./settings-types";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { useWorkspace } from "./workspace-context";
+import { useDocumentTools } from "./use-document-tools";
+import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
+export type { ChatDispatcherArgs };
 
 const STATUS_SET = new Set<string>(TASK_STATUSES);
 
 /** True when `v` is one of the known task statuses. */
 function isTaskStatus(v: unknown): v is TaskStatus {
   return typeof v === "string" && STATUS_SET.has(v);
-}
-
-export interface ChatDispatcherArgs {
-  settings: Settings;
-  today: string;
-  setSelectedIds: Dispatch<SetStateAction<Set<number>>>;
-  setSettings: Dispatch<SetStateAction<Settings>>;
-  /** True in a popout/mirror window — mutating tools are refused so chat edits
-   *  can't be silently lost (popouts neither persist nor broadcast). */
-  isReadOnly: boolean;
-  currentView: AppView;
-  /** Canonical per-device settings key (`portfolioCurrentId ?? "default"`) —
-   *  NOT the calendar project id. Only used to resolve this project's APPEARANCE
-   *  override, which is where `tasksViewMode` lives; the Open Points digest has
-   *  to know whether the pane is a table, a board or swimlanes. */
-  settingsProjectId: string;
-  /** Threaded, NOT minted here. `useHolidaySet` owns state + an async effect, so
-   *  a local instance would add a fourth copy re-rendering the whole tree, and
-   *  would leave a window where the digest's set has resolved and the table's
-   *  has not — making the two disagree on the health filter for one paint. */
-  holidaySet: ReadonlySet<string>;
-  /** Live dashboard render model. A getter (not the value) so the dispatcher
-   *  identity stays stable — it is read through a ref at tool-call time. */
-  getDashboardModel: () => DashboardModel;
-  /** Live budget rollup, or null when the budget module is off. Deliberately
-   *  NOT memoized upstream: it runs only when a tool actually asks, so an
-   *  unused read tool costs nothing per render. */
-  getBudgetRollup: () => ProjectReport | null;
-  /** Live resource-planning grid snapshot for `list_allocations`. Deliberately
-   *  NOT memoized upstream — same reasoning as `getBudgetRollup`. */
-  getAllocationsSnapshot: () => AllocationsSnapshot;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -274,8 +234,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const readOnlyError = () =>
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
+  const documentTools = useDocumentTools(args.isReadOnly, args.logActivity);
+
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
+      ...documentTools,
       listTasks: () => tasksRef.current,
       getTask: (id) => tasksRef.current.find((row) => row.id === id) ?? null,
       createTask: (input) => {
@@ -784,12 +747,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listCalendarEvents: () => (calendarEventsRef.current ?? []).map(toCalendarEventSummary),
       listBudgetBuckets: () => (budgetsRef.current ?? []).map(toBudgetBucketSummary),
     }),
-    // Empty deps: every reactive value is read via a ref. Identity is stable.
+    // Empty deps otherwise: every reactive value is read via a ref. Identity is
+    // stable. `documentTools` is a REAL dep, not a ref-routed value — it is
+    // itself a useMemo'd object (use-document-tools.ts) that changes identity
+    // when isReadOnly/mutateDocuments change, and the spread above captures it
+    // by closure; omitting it here would freeze the FIRST render's document
+    // tools into every later dispatcher even after a popout toggled read-only.
     // Note: when Task 6 lands, audit whether any captured value still needs
     // ref-routing; the eslint-disable stays as long as the empty-deps approach
-    // is intentional.
+    // is intentional for everything else.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly],
+    [args.isReadOnly, documentTools],
   );
 
   return dispatcher;

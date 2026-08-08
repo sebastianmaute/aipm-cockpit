@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.221.0 "Kavan" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 | App 0.222.0 "Charnas" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 

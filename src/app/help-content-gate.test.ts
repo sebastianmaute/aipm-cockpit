@@ -5,6 +5,7 @@ import type { AppView } from "./nav-config";
 import { t, loadI18n, type Lang } from "./i18n";
 import { de } from "./i18n.de";
 import { helpBodyLabels } from "./help-body-markup";
+import { MAX_TOTAL_VERSIONS, MAX_VERSIONS_PER_DOC } from "./document-versions";
 
 // ★★★ THIS GATE PROVES STRUCTURE, NOT TRUTH. It proves an entry EXISTS for a
 // view and that a marked label RESOLVES. It cannot tell whether a sentence is
@@ -128,5 +129,39 @@ describe("help marker resolution", () => {
       }
     }
     expect(unresolved).toEqual([]);
+  });
+});
+
+// ★★★ THE ONE TRUTH CHECK IN THIS FILE, and it exists because the numbers it
+// guards are the WORST-covered kind of claim in the repo. `helpSecDocumentHistoryBody`
+// quotes the two retention caps to the user, and both are SCREAMING_CASE — so
+// `docs:symbols:check` skips them outright (it requires a mixed-case name), and
+// every other assertion here would go on passing with the prose quoting 20/500
+// long after the engine moved to something else. Reading the constants instead
+// of hardcoding them is what makes this fail on the commit that changes a cap
+// rather than on the support ticket six months later.
+//
+// ★★ Deliberately a NUMBER match, not a sentence match. Pinning the phrasing
+// would redden on every harmless reword of user-facing prose, and a test that
+// cries wolf gets its expectation pasted over — which is how a real gate turns
+// into a rubber stamp. Sensitivity is exactly right here: reword freely, change
+// a cap and this stops you.
+//
+// ★ Mutation-proved before it was committed, not reasoned: substituting 30/400
+// for the real constants reddens both languages. That matters because the
+// assertion reads its own expectation out of the module under test, which is
+// the shape that CAN be vacuous — it is not, because the literal lives in the
+// i18n string and only the constant moves.
+describe("document-history help quotes the real retention caps", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it.each(LANGS)("names MAX_VERSIONS_PER_DOC and MAX_TOTAL_VERSIONS in %s", (lang) => {
+    const body = t(lang, "helpSecDocumentHistoryBody");
+    for (const cap of [MAX_VERSIONS_PER_DOC, MAX_TOTAL_VERSIONS]) {
+      // Word-boundary so 500 cannot be satisfied by a stray 1500.
+      expect(body, `body must quote ${cap}`).toMatch(new RegExp(`\\b${cap}\\b`));
+    }
   });
 });

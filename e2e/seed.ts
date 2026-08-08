@@ -74,18 +74,36 @@ function seedRegistryAndFsa(): void {
 // it completes BEFORE the app loads (addInitScript can't block on async IDB).
 function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
   const ENTITY = ["tasks", "raid", "absences", "shifts", "resources", "roles", "disciplines", "grades", "budgets"];
-  // ★★ THIS MAP IS THE SEED'S BLIND SPOT. BrowserBackend persists NINE
-  // optional slices as kv entries — fieldVisibility, features,
-  // steeringCommittee, timelogLinks, knowledgeItems, insights,
-  // settingsOverrides, calendarEvents, documents — and anything absent here is
-  // silently dropped, so the matching view is scanned against its EMPTY STATE
-  // and a green axe run proves nothing about its rows or controls. `documents`
-  // is seeded for exactly that reason. The others are still missing (Insights
-  // is in A11Y_VIEWS and therefore affected today) — see docs/open-followups.md.
+  // ★★ THIS MAP IS THE SEED'S BLIND SPOT. BrowserBackend persists TEN optional
+  // slices as kv entries — fieldVisibility, features, steeringCommittee,
+  // timelogLinks, knowledgeItems, insights, settingsOverrides, calendarEvents,
+  // documents, documentVersions — and anything absent from this map is silently
+  // dropped, so the matching view is scanned against its EMPTY STATE and a green
+  // axe run proves nothing about its rows or controls.
+  // ★★ A MISSING SLICE IS TWO DIFFERENT BUGS depending on whether the MASTER
+  // carries it, and only one of them is about axe:
+  //   (a) master carries it + absent here ⇒ the seed silently DISCARDS data it
+  //       claims to seed, so the e2e app is not a faithful load of
+  //       sample-workspace-small.json. That is a harness-fidelity bug on its own,
+  //       independent of what any scan happens to look at.
+  //   (b) master does not carry it ⇒ nothing is dropped; the view simply renders
+  //       empty, which is a seeding gap but not an infidelity.
+  // Measured 2026-08-07 — reproduce by diffing this map against the master:
+  //   node -e 'const m=JSON.parse(require("fs").readFileSync("sample-workspace-small.json","utf8"));
+  //   for (const k of ["fieldVisibility","features","steeringCommittee","timelogLinks",
+  //   "knowledgeItems","insights","settingsOverrides","calendarEvents","documents",
+  //   "documentVersions"]) console.log(k, m[k] != null)'
+  // — the map below carries only `documents` + `documentVersions`, so EIGHT of
+  // the ten are absentees: `steeringCommittee` and `calendarEvents` are case (a)
+  // and STILL DROPPED; the other SIX are case (b) — `fieldVisibility`,
+  // `features`, `timelogLinks`, `knowledgeItems`, `insights`,
+  // `settingsOverrides`. Insights is case (b) AND in
+  // A11Y_VIEWS, so it is scanned empty today — see docs/open-followups.md.
+  // `documents` and `documentVersions` are seeded for exactly these reasons.
   const KV: Record<string, string> = {
     plan: "resource-plan", fxRates: "fx-rates", status: "project-status",
     milestones: "milestones", changes: "changes", stakeholders: "stakeholders", project: "project",
-    documents: "documents",
+    documents: "documents", documentVersions: "documentVersions",
   };
   return new Promise((resolve, reject) => {
     // ★ The version is hardcoded here but derived from IDB_VERSION in idb.ts.

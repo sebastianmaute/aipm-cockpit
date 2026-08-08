@@ -170,11 +170,22 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   documents: {
     purpose:
       "Documents holds project documents the user or the assistant authored — status reports, decks and charters — stored as structured blocks and downloadable as HTML, Word, PowerPoint or PDF.",
-    // ★ No toolHints: there is no document tool yet. Without this the model
-    // answers from the purpose line alone and describes a document it has not
-    // read — the same failure the activity / timelog / raci entries disclose.
+    // ★★ THE ONLY ENTRY IN THIS FILE THAT NAMES A WRITE TOOL, and deliberately
+    // so. Every other view's hints are read entry points because the user
+    // maintains those registers by hand and the assistant only reports on them;
+    // here the assistant is the AUTHOR — the chips this view offers
+    // ("Draft a status report", "Draft a steering deck", ask-claude-prompts.ts)
+    // ARE create requests, so read-only hints would contradict them.
+    // ★★ `delete_document` is EXCLUDED on purpose — do not "complete" the list.
+    // Nothing on this surface asks for a deletion, chat tool writes take no undo
+    // capture, and this block is also emitted into INLINE EDIT (see
+    // inline-ai-edit-call.ts), whose scope block forbids touching anything but
+    // the one item being edited. A destructive verb advertised as "relevant
+    // here" is the one hint whose cost is unrecoverable. Pinned by
+    // view-ai-scope.test.ts.
+    toolHints: ["list_documents", "get_document", "create_document", "update_document"],
     reading:
-      "There is no tool for reading or writing documents yet. Say so rather than describing a document you cannot see.",
+      "Read a document with get_document before editing it: update_document ops address blocks by index, so an index taken from anything but a fresh read edits the wrong block. Every write is snapshotted, so the user can revert from the Documents view.",
   },
   reports: {
     purpose: "Reports summarizes tasks by group, label and assignee with completion statistics.",

@@ -30,6 +30,7 @@ import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps } from "./use-storage-file-ops";
+import { useLoadTruncation } from "./use-load-truncation";
 
 // Hoisted to module scope — static map, no per-render allocation
 const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
@@ -88,7 +89,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setSteeringCommittee,
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
-    insights, setInsights, documents, setDocuments,
+    insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents,
   } = useWorkspace();
@@ -156,6 +157,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  clear-all / bulk delete). Without this an unexplained mass deletion is
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
+  // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
+  const { truncation, loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -246,7 +249,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
-    setInsights(workspace.insights); setDocuments(workspace.documents ?? []);
+    setInsights(workspace.insights); setDocuments(workspace.documents ?? []); setDocumentVersions(workspace.documentVersions ?? []);
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -338,6 +341,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
         applyWorkspace(workspace);
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
+        truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the flag would describe the workspace that is actually live.
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
         emitOutcome(null);
@@ -381,7 +385,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
-    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents } as Workspace;
+    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents } as Workspace;
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -397,6 +401,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //        loss L3 misses). An explicit user bulk-op (clear-all / bulk delete)
     //        sets allowDestructiveRef one-shot to bypass. On refusal the backend
     //        keeps the data; a reload restores it.
+    // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
+    // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
+    if (!mayCommitAfterTruncation()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
     const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
     const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
     if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
@@ -421,7 +428,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents }).then(() => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }).then(() => {
         emitOutcome(null);
       }).catch((err) => {
         emitOutcome(err);
@@ -474,8 +481,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", flush);
     };
+    // ★ `loadWasTruncated` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
+    // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
+    // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend, loadWasTruncated]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -490,18 +500,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("milestones", milestones, setMilestones, canSend);
   useBroadcastSync("changes", changes, setChanges, canSend);
   useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend);
-  useBroadcastSync("documents", documents, setDocuments, canSend);
+  useBroadcastSync("documents", documents, setDocuments, canSend); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend); // ★ PAIRED on one line: this file sits AT the 800-line ratchet (check-file-sizes.mjs counts split("\n").length = wc -l + 1), so splitting these re-breaks the gate. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
   useBroadcastSync("activityLog", args.activityLog, args.setActivityLog, canSend);
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, canSend);
 
   async function onPickStorageFile() {
+    if (truncationOps.wouldRefuseWrite()) { truncationOps.refuseWrite(); return; } // ★★★ §103: refuse BEFORE the picker — it creates the file and persists the handle on the ACTIVE backend, so a write-only guard stranded the app on an empty file. See `refuseWrite` (use-load-truncation.ts).
     const promise = pickFileForBackend(backend);
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents });
+      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       await refreshBackendStatus();
       emitToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -526,7 +537,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      const loaded = await backend.load();
+      const loaded = await backend.load(); // ★ NO reportFor: this path applies tasks+raid ONLY, never the loaded documents — raising the flag would warn about documents the user still has, lowering it would clear a warning that is still true of the live ones.
       if (
         tasks.length > 0 &&
         !window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))
@@ -589,7 +600,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents });
+      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
       suppressNextLoadRef.current = true;
       emitStorageConfig(newConfig);
       emitToast("info", t(langRef.current, "storageConvertedToast", label));
@@ -620,7 +631,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the file handlers above. Must NOT be memoized or it would capture stale
   // state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, settingsOverrides, calendarEvents };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents };
   }
 
   // Persist the registry AND surface the change to the caller so its observable
@@ -700,7 +711,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoConfigNow,
     tursoProjectId,
     setTursoProjectId,
-    backend,
+    truncationOps,
     currentWorkspace,
     applyWorkspace,
     suppressNextLoadRef,
@@ -719,8 +730,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setStorageConfig: emitStorageConfig,
     langRef,
     settingsRef,
-    backend,
-    currentWorkspace,
+    truncationOps,
     applyWorkspace,
     backendFor,
     commitRegistry,
@@ -758,6 +768,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
       applyWorkspace(workspace, "raise");
+      truncationOps.reportFor(backend);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
       emitOutcome(null);
@@ -774,26 +785,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     }
   };
 
+  // Grouped one line per concern — a plain re-export list, and the cheapest block
+  // to compress in a file that sits AT the 800-line ratchet.
   return {
-    storageDescription,
-    storageReady,
-    workspaceLoaded,
-    onPickStorageFile,
-    onGrantWriteAccess,
-    onOpenStorageFile,
-    onRequestStorageSwitch,
-    reloadCurrentProject,
-    allowDestructiveSave,
-    switchToProject,
-    createProject,
-    createDemoProject,
-    loadProjectFromFile,
-    switchToTursoProject,
-    createTursoProject,
-    migrateCurrentProjectToTurso,
-    archiveTursoProject,
-    restoreTursoProject,
-    hardDeleteTursoProject,
+    storageDescription, storageReady, workspaceLoaded,
+    onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
+    reloadCurrentProject, allowDestructiveSave, truncation, loadWasTruncated, allowTruncatedSave,
+    switchToProject, createProject, createDemoProject, loadProjectFromFile,
+    switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
+    archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,
     tursoProjectId,
   };
 }

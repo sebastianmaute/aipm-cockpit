@@ -9,8 +9,9 @@ import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
-import { sanitizeProjectDocuments } from "./document-model";
+import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
 import { migrateTask } from "./task-status";
@@ -77,6 +78,7 @@ const KV_INSIGHTS_KEY = "insights";
 const KV_SETTINGS_OVERRIDES_KEY = "settingsOverrides";
 const KV_CALENDAR_EVENTS_KEY = "calendarEvents";
 const KV_DOCUMENTS_KEY = "documents";
+const KV_DOCUMENT_VERSIONS_KEY = "documentVersions";
 import {
   type StorageBackend,
   type Workspace,
@@ -120,9 +122,17 @@ export class BrowserBackend implements StorageBackend {
   private gradesBaseline = new Map<number, Grade>();
   private budgetsBaseline = new Map<number, BudgetBucket>();
 
+  /** What the most recent load() discarded to stay inside the document caps. */
+  lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
+
   async load(): Promise<Workspace> {
+    // Reset BEFORE any early return. A path that exits without publishing would
+    // leave the PREVIOUS load's counts standing — worse than zero, because the
+    // consumer would then warn about data loss on a workspace that is fine.
+    this.lastLoadTruncation = { entries: 0, blocks: 0 };
     if (typeof window === "undefined") return emptyWorkspace();
 
+    const diag: DocTruncationDiag = {};
     let tasks: readonly Task[] = [];
     let raid: readonly RaidItem[] = [];
     let absences: Absence[] = [];
@@ -148,6 +158,7 @@ export class BrowserBackend implements StorageBackend {
     let settingsOverrides: Workspace["settingsOverrides"] | undefined;
     let calendarEvents: Workspace["calendarEvents"] | undefined;
     let documents: Workspace["documents"] | undefined;
+    let documentVersions: Workspace["documentVersions"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -177,6 +188,7 @@ export class BrowserBackend implements StorageBackend {
         idbSettingsOverrides,
         idbCalendarEvents,
         idbDocuments,
+        idbDocumentVersions,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -203,6 +215,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_SETTINGS_OVERRIDES_KEY),
         idbGet(KV_CALENDAR_EVENTS_KEY),
         idbGet(KV_DOCUMENTS_KEY),
+        idbGet(KV_DOCUMENT_VERSIONS_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -262,8 +275,27 @@ export class BrowserBackend implements StorageBackend {
       // separate map. Structural-only would pass stored `<script>` straight
       // through to the render sink.
       {
-        const docs = sanitizeProjectDocuments(idbDocuments).map(sanitizeDocumentRichFields);
+        const docs = sanitizeProjectDocuments(idbDocuments, diag).map(sanitizeDocumentRichFields);
         documents = docs.length ? docs : undefined;
+      }
+      // Optional list: junk/empty versions sanitize to [] → keep undefined.
+      // Same two-pass shape as documents just above — sanitizeDocumentVersions
+      // enforces structure (DOM-free), then each version's blocks get the
+      // paragraph HTML allow-list via sanitizeDocumentRichFields. A version has
+      // no independent createdAt/updatedAt, so it is passed through a synthetic
+      // ProjectDocument-shaped wrapper with savedAt standing in for both.
+      {
+        const versions = sanitizeDocumentVersions(idbDocumentVersions, diag).map((v) => ({
+          ...v,
+          blocks: sanitizeDocumentRichFields({
+            id: v.documentId,
+            title: v.title,
+            blocks: v.blocks,
+            createdAt: v.savedAt,
+            updatedAt: v.savedAt,
+          }).blocks,
+        }));
+        documentVersions = versions.length ? versions : undefined;
       }
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
@@ -305,6 +337,7 @@ export class BrowserBackend implements StorageBackend {
     if (settingsOverrides) raw.settingsOverrides = settingsOverrides;
     if (calendarEvents) raw.calendarEvents = calendarEvents;
     if (documents) raw.documents = documents;
+    if (documentVersions) raw.documentVersions = documentVersions;
     const ws = migrateWorkspaceV10(raw);
 
     try {
@@ -325,6 +358,10 @@ export class BrowserBackend implements StorageBackend {
     this.disciplinesBaseline = new Map(ws.disciplines.map((d) => [d.id, d]));
     this.gradesBaseline = new Map(ws.grades.map((g) => [g.id, g]));
     this.budgetsBaseline = new Map((ws.budgets ?? []).map((b) => [b.id, b]));
+    this.lastLoadTruncation = {
+      entries: diag.truncatedEntries ?? 0,
+      blocks: diag.truncatedBlocks ?? 0,
+    };
     return ws;
   }
 
@@ -453,6 +490,10 @@ export class BrowserBackend implements StorageBackend {
       ws.documents && ws.documents.length
         ? idbSet(KV_DOCUMENTS_KEY, ws.documents)
         : idbDelete(KV_DOCUMENTS_KEY),
+      // Delete-on-absent so cleared version history doesn't linger and reload stale.
+      ws.documentVersions && ws.documentVersions.length
+        ? idbSet(KV_DOCUMENT_VERSIONS_KEY, ws.documentVersions)
+        : idbDelete(KV_DOCUMENT_VERSIONS_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's

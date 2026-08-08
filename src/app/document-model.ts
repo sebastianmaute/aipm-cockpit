@@ -30,7 +30,13 @@ import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { capHtmlText, htmlTextLength } from "./rich-text-plain";
 
 /** Bounds on what a hostile or corrupt import can force. */
-export const MAX_DOCUMENTS = 200;
+// ★★ Raised 200 -> 1000 in the §103 fix. ONE constant serves TWO doors: the
+// load-time truncation in sanitizeProjectDocuments AND the engine's
+// create/duplicate/restore refusals in document-mutations.ts. Splitting it into
+// separate load/create limits was considered and rejected -- a load cap higher
+// than the create cap means a legitimately-loaded project cannot be edited,
+// which is the "one door of two" shape that produced six defects in S2.
+export const MAX_DOCUMENTS = 1000;
 export const MAX_BLOCKS_PER_DOC = 500;
 export const MAX_TABLE_ROWS = 500;
 export const MAX_TABLE_COLUMNS = 30;
@@ -173,7 +179,8 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
   const title = str(d.title, MAX_TITLE_CHARS).trim();
   if (!title) return null;
 
-  const blocks = (Array.isArray(d.blocks) ? d.blocks : [])
+  const rawBlocks = Array.isArray(d.blocks) ? d.blocks : [];
+  const blocks = rawBlocks
     .slice(0, MAX_BLOCKS_PER_DOC)
     .map(sanitizeBlock)
     .filter((b): b is DocBlock => b !== null);
@@ -188,23 +195,74 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
   };
 }
 
+/** Optional accumulator recording what a LOAD-TIME cap silently discarded.
+ *  Structurally compatible with `ImportDiag` (csv-codecs-decode.ts) so the
+ *  existing CSV/Markdown threading carries it with no extra plumbing, and
+ *  declared HERE so this module needs no runtime import of a codec — that
+ *  would risk the import cycle recorded in open-followups §92.
+ *  ★ `truncatedEntries` counts RAW ARRAY ENTRIES past the cap, not validated
+ *  documents. Counting real documents would mean sanitizing the whole tail,
+ *  which reintroduces the denial-of-service the cap exists to prevent. It is
+ *  therefore an UPPER BOUND — never an undercount — and every user-facing
+ *  string says "entries" for that reason.
+ *  ★ `truncatedBlocks` is the same shape one level down: raw block entries past
+ *  `MAX_BLOCKS_PER_DOC`, written by `sanitizeDocument` here for LIVE documents
+ *  and by `sanitizeDocumentVersions` for versions, into ONE accumulator. Blocks
+ *  the validator drops as INVALID are deliberately excluded — the count arms a
+ *  sticky save guard, and refusing to save cannot recover a block no load will
+ *  ever accept (document-versions.ts holds the measurement).
+ *  ★ `truncatedBlocks` is written BEFORE the document is known to survive the
+ *  dedup below, so a duplicate-id entry contributes its block overflow even
+ *  though the document itself is dropped. Upper bound, as declared. */
+export interface DocTruncationDiag {
+  truncatedEntries?: number;
+  truncatedBlocks?: number;
+}
+
 /** The SINGLE validator for the persisted documents array. Every load path
  *  routes through this. */
-export function sanitizeProjectDocuments(raw: unknown): ProjectDocument[] {
+export function sanitizeProjectDocuments(
+  raw: unknown,
+  diag?: DocTruncationDiag,
+): ProjectDocument[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<number>();
   const out: ProjectDocument[] = [];
-  for (const entry of raw) {
-    if (out.length >= MAX_DOCUMENTS) break;
-    const doc = sanitizeDocument(entry);
+  for (let i = 0; i < raw.length; i++) {
+    if (out.length >= MAX_DOCUMENTS) {
+      // Count the untouched tail and stop. `raw.length - i` is O(1) and never
+      // understates the loss; sanitizing the tail to get an exact figure is
+      // exactly the unbounded work the cap is here to refuse.
+      if (diag) diag.truncatedEntries = (diag.truncatedEntries ?? 0) + (raw.length - i);
+      break;
+    }
+    const doc = sanitizeDocument(raw[i]);
     if (!doc || seen.has(doc.id)) continue;
     seen.add(doc.id);
+    // ★★★ A LIVE DOCUMENT'S BLOCK LOSS USED TO BE COMPLETELY SILENT. Versions
+    // reported theirs (document-versions.ts) but the documents they are versions
+    // OF did not, so a 600-block document loaded as 500, the next save wrote 500
+    // back over all six write paths, and the 100 were gone with no count, no
+    // toast and nothing raised for the §103 save guard to refuse.
+    // ★★ Same UPPER-BOUND contract as `truncatedEntries`: RAW entries past the
+    // cap, not blocks proven valid. Blocks the validator drops as INVALID are
+    // deliberately NOT counted — a count including them arms the sticky guard
+    // over a loss that refusing to save cannot recover.
+    // ★★★ COUNTED HERE, AFTER THE KEEP DECISION, NOT INSIDE `sanitizeDocument`.
+    // It used to sit in there, which ran BEFORE this dedup check — so a
+    // duplicate-id document contributed its block overflow while the document
+    // itself was discarded, pausing saving over blocks belonging to a document
+    // that never loaded. That was the same inconsistency the invalid-block
+    // exclusion above exists to avoid: a duplicate is dropped by every future
+    // load too, so refusing to save cannot recover it either.
+    if (diag) {
+      const rawBlocks = (raw[i] as { blocks?: unknown }).blocks;
+      const n = Array.isArray(rawBlocks) ? rawBlocks.length : 0;
+      if (n > MAX_BLOCKS_PER_DOC) {
+        diag.truncatedBlocks = (diag.truncatedBlocks ?? 0) + (n - MAX_BLOCKS_PER_DOC);
+      }
+    }
     out.push(doc);
   }
   return out;
-}
-
-/** max+1 mint, matching every other entity. */
-export function nextDocumentId(docs: readonly ProjectDocument[]): number {
-  return docs.reduce((max, d) => Math.max(max, d.id), 0) + 1;
 }

@@ -30,7 +30,7 @@ describe("help-content backbone", () => {
     expect(HELP_ENTRIES.filter((e) => e.group === "concepts").length).toBeGreaterThanOrEqual(10);
     expect(HELP_ENTRIES.filter((e) => e.group === "workflows").length).toBeGreaterThanOrEqual(6);
     expect(HELP_ENTRIES.filter((e) => e.group === "automated").length).toBeGreaterThanOrEqual(3);
-    // ★ `features` is the bulk of the file (43 today) and was the one group
+    // ★ `features` is the bulk of the file (44 today) and was the one group
     // with no floor at all, so a mass deletion there would have passed every
     // assertion in this describe block.
     expect(HELP_ENTRIES.filter((e) => e.group === "features").length).toBeGreaterThanOrEqual(40);

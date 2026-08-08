@@ -5,6 +5,7 @@ import type { Settings } from "./settings-types";
 import type { Lang } from "./i18n";
 import type { Task } from "./types";
 import type { ProjectDocument } from "./document-model";
+import type { DocVersion } from "./document-versions";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
@@ -131,8 +132,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions };
   };
 }
 
@@ -351,6 +352,79 @@ describe("useStorageBackend — save effect", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(result.current.documents).toEqual([]);
+  });
+
+  // ── documentVersions ───────────────────────────────────────────────────────
+  // `documentVersions` is a meta-blob slice like `documents`, implemented in the
+  // model and all six write paths but — until this wiring — never loaded or
+  // saved, so a reload silently dropped every document's version history.
+  //
+  // ★★ Every fixture below carries `source: "ai"` and `op: "restored"`. The
+  // sanitizer's fallbacks are "user" and "update" and the context state
+  // initialises to `[]`, so neither value can be invented downstream: an
+  // assertion that sees them proves real data crossed the wiring rather than
+  // passing against a default.
+  const AI_RESTORED_VERSION: DocVersion = {
+    id: 11,
+    documentId: 7,
+    title: "Loaded doc — before image",
+    blocks: [],
+    savedAt: "2026-08-06T00:00:00.000Z",
+    source: "ai",
+    op: "restored",
+  };
+
+  it("persists a DOCUMENT-VERSIONS-ONLY change — the autosave deps-array guard", async () => {
+    // Same shape (and same reason) as the documents-only test above: the deps
+    // array is what decides whether a change re-triggers a save, so nothing but
+    // `documentVersions` may be mutated here. This one assertion covers BOTH
+    // failure modes — omitted from the deps array, no save fires at all;
+    // omitted from the save literal, the payload lacks the key.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => { result.current.setDocumentVersions([AI_RESTORED_VERSION]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentVersions: [expect.objectContaining({ id: 11, documentId: 7, source: "ai", op: "restored" })],
+      }),
+    );
+  });
+
+  it("restores documentVersions from a loaded workspace", async () => {
+    // The other half of the round trip. Without it a reload keeps the documents
+    // but drops their history — and because `deletedDocumentVersions` derives
+    // tombstones from the two slices together, a half-loaded pair also renders a
+    // wrong deleted-documents list.
+    mockBackend.load.mockResolvedValue({
+      tasks: [], raid: [], absences: [], shifts: [],
+      documentVersions: [AI_RESTORED_VERSION],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documentVersions).toEqual([
+      expect.objectContaining({ id: 11, documentId: 7, source: "ai", op: "restored" }),
+    ]);
+  });
+
+  it("defaults documentVersions to [] when the loaded workspace has none", async () => {
+    // ★ Non-optional in context for the same reason `documents` is: the mutation
+    // engine spreads `prev`, which would throw on `undefined`.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documentVersions).toEqual([]);
   });
 
   it("localizes the cross-tab lock-timeout save failure instead of toasting the raw English error", async () => {
@@ -850,6 +924,30 @@ describe("useStorageBackend — documents broadcast sync", () => {
     });
 
     expect(result.current.documents.map((d) => d.title)).toEqual(["Kickoff deck"]);
+  });
+
+  it("applies an incoming `documentVersions` broadcast into workspace state", () => {
+    // ★★ The two slices MUST share the cross-tab channel set. `documents` alone
+    // is not enough: `deletedDocumentVersions(versions, documents)` reports a
+    // version whose documentId is absent from `documents` as a DELETED document,
+    // so a tab that heard about a document delete but not the matching version
+    // (or the reverse) renders a wrong deleted-documents list.
+    const { result } = renderBackend();
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.documentVersions).toHaveLength(0);
+
+    const call = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls
+      .find((c) => c[0] === "documentVersions");
+    if (!call) throw new Error("no `documentVersions` channel is registered with useBroadcastSync");
+
+    // c[2] is `applyIncoming` — driving it directly proves the registered setter
+    // is wired to the live `documentVersions` state, not a stub or the wrong slice.
+    const applyIncoming = call[2] as (next: readonly DocVersion[]) => void;
+    act(() => {
+      applyIncoming([{ id: 11, documentId: 7, title: "Kickoff deck v1", blocks: [], savedAt: "2026-08-06T00:00:00.000Z", source: "ai", op: "restored" }]);
+    });
+
+    expect(result.current.documentVersions.map((v) => v.title)).toEqual(["Kickoff deck v1"]);
   });
 });
 
@@ -1847,6 +1945,567 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
     (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
     await act(async () => { result.current.allowDestructiveSave(); result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
     expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+});
+
+// ── §103: the truncated-load save guard ──────────────────────────────────────
+// An over-cap load truncates the documents array; the next AUTOMATIC save then
+// commits that loss permanently on all six write paths, because the excess
+// documents are still in the source file. The guard pauses saving until the user
+// resolves it, and `allowTruncatedSave` is the only way out — the user cannot get
+// under the cap by editing, since the excess entries were never loaded.
+describe("useStorageBackend — §103 truncated-load guard", () => {
+  // A LOCAL backend per test: `lastLoadTruncation` is a plain PROPERTY, so
+  // vi.clearAllMocks() would not reset it on the shared `mockBackend` and a
+  // truncating fixture would leak into every later test — which the shuffled-seed
+  // gate would surface as an unrelated failure somewhere else in the file.
+  // Assigned inside `load()` so the read order (load, then report) is real.
+  function makeTruncBackend(truncation?: { entries: number; blocks: number }) {
+    const b = {
+      load: vi.fn(async () => {
+        b.lastLoadTruncation = truncation;
+        return { tasks: [], raid: [], absences: [], shifts: [] };
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    return b;
+  }
+
+  function useTruncBackend(truncation?: { entries: number; blocks: number }) {
+    const b = makeTruncBackend(truncation);
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(b);
+    return b;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("toasts and raises the flag when the load truncated ENTRIES", async () => {
+    useTruncBackend({ entries: 5, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("5 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("does neither when the load reported no truncation", async () => {
+    useTruncBackend({ entries: 0, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("a BLOCKS-only truncation toasts the blocks string, never '0 document entries'", async () => {
+    // ★★★ The shape this design was corrected for. `entries` and `blocks` are
+    // independent counts; interpolating the entries count unconditionally reports
+    // "0 document entries could not be opened" over a real blocks-only loss.
+    useTruncBackend({ entries: 0, blocks: 7 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    // ★ "stored documents", not "stored document versions": live documents feed
+    // this same counter now (a >MAX_BLOCKS_PER_DOC document loaded truncated
+    // with nothing recorded until §103's fix), so the old wording was false.
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("7 blocks in stored documents could not be opened"));
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("document entries"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("refuses an AUTOMATIC save while the load is unresolved", async () => {
+    const backend = useTruncBackend({ entries: 5, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).not.toHaveBeenCalled();
+    // Sticky: the refusal does not consume the flag, so every later autosave is
+    // refused too until the user acts.
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("allowTruncatedSave() lets the pending edit through — the escape, not just an unlock", async () => {
+    // ★★★ This is the test separating a guard from a permanent save LOCKOUT.
+    // The refusal above is only correct if this path actually WRITES.
+    const backend = useTruncBackend({ entries: 5, blocks: 0 });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T1" } as unknown as Task]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    // Control — without this the assertion below could pass on a guard that
+    // never engaged at all.
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T1" })] }),
+    );
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  // ── the one-shot destructive bypass must not outlive a truncation refusal ──
+  // ★★★ EVERY OTHER EARLY RETURN IN THE SAVE EFFECT IS ONE-SHOT BOUNDED; THIS
+  // ONE IS NOT. `allowDestructiveRef` is armed by an explicit bulk op to let the
+  // NEXT save past the Layer-B mass-deletion guard, and the consume sits BELOW
+  // the truncation return — so a bypass armed while the banner is up is never
+  // spent and stays armed across an unbounded number of later edits. The
+  // scenario: truncated load → clear-all arms the bypass → save refused → work
+  // continues → an accidental bulk delete → "Save anyway" → the hour-old bypass
+  // waves the unrelated mass deletion straight through.
+  const manyTasks = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, taskName: "T" })) as unknown as Task[];
+
+  function useLoadedTruncBackend() {
+    const b = {
+      load: vi.fn(async () => {
+        b.lastLoadTruncation = { entries: 5, blocks: 0 };
+        return { tasks: manyTasks, raid: [], absences: [], shifts: [] };
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(b);
+    return b;
+  }
+
+  it("does not carry a destructive bypass armed during the refusal into the eventual 'save anyway'", async () => {
+    const backend = useLoadedTruncBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });   // 20 records → baseline 20
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // The explicit bulk op: arm the bypass, then delete 19 of 20. The save is
+    // refused by the truncation guard, so nothing is persisted and the Layer-B
+    // baseline stays at 20.
+    await act(async () => {
+      result.current.allowDestructiveSave();
+      result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled(); // control: the refusal really engaged
+
+    // Later, the user resolves the banner. The pending state is still a 19-of-20
+    // deletion, and Layer B must now judge it on its own merits.
+    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+
+  it("still honours a bypass armed AFTER the truncation is resolved", async () => {
+    // ★★★ THE CONTROL THAT MAKES THE TEST ABOVE MEAN SOMETHING. Without it,
+    // "save was not called" is equally satisfied by a guard that refuses every
+    // mass deletion unconditionally — which would break the confirmed clear-all
+    // this bypass exists for. Same fixture, same deletion; only the ORDER of
+    // arming differs, and that alone must flip the outcome.
+    const backend = useLoadedTruncBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.allowTruncatedSave();
+      result.current.allowDestructiveSave();
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
+    );
+  });
+});
+
+// ── §103: the guard must reach EVERY load and EVERY flush ────────────────────
+// ★★★ THE SEAM IS THE WHOLE POINT OF THIS BLOCK. The guard shipped correct in
+// itself and wired into ONE of six loads and ONE of seven writes, so a user who
+// switched project both missed the warning AND committed the loss the banner
+// says is paused. Every test here drives the REAL `useStorageBackend`, so it
+// pins the deps-object wiring into `useFileProjectOps` / `useTursoProjectOps`
+// that a test against either ops hook alone cannot see.
+describe("useStorageBackend — §103 truncation reaches every load/flush path", () => {
+  const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+  let setStorageConfig: ReturnType<typeof vi.fn<(config: StorageConfig) => void>>;
+
+  // A backend that publishes `lastLoadTruncation` from INSIDE load(), so the
+  // read order (load, then report) is the real one. Local per test —
+  // `lastLoadTruncation` is a plain property that vi.clearAllMocks() would not
+  // reset on a shared object, and a truncating fixture leaking into a later test
+  // surfaces under the shuffled-seed gate as an unrelated failure.
+  function makeBackend(truncation?: { entries: number; blocks: number }, ws?: object) {
+    const b = {
+      kind: "browser",
+      load: vi.fn(async () => { b.lastLoadTruncation = truncation; return ws ?? emptyWorkspace(); }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("f.json"),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    return b;
+  }
+
+  /** Register a switch TARGET in the registry (browser-kind → no file handle). */
+  function registerTarget(id: string): void {
+    saveRegistry(addProject(loadRegistry(), { id, name: "Target", code: "T", storageConfig: { kind: "browser" } }, false));
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setStorageConfig = vi.fn<(config: StorageConfig) => void>();
+    saveRegistry(emptyRegistry());
+    saveCurrentTursoProjectId(null);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.requestWriteAccessForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.setBackendFileHandle as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (handlesMod.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (handlesMod.saveHandle as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+  });
+
+  // ── LOAD PATHS: each one must REPORT ───────────────────────────────────────
+
+  it("switchToProject reports the TARGET's truncation", async () => {
+    const main = makeBackend();            // clean mount — the flag starts down
+    const target = makeBackend({ entries: 4, blocks: 0 });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("t-1");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(false); // control: not already raised
+
+    await act(async () => { await result.current.switchToProject("t-1"); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("4 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("loadProjectFromFile reports the opened file's truncation", async () => {
+    const main = makeBackend();
+    const opened = makeBackend({ entries: 9, blocks: 0 });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(opened);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(false);
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("9 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  it("reloadCurrentProject reports the re-read's truncation", async () => {
+    // Clean first read, truncated on the RE-read — so the flag can only come
+    // from the reload, not from the mount.
+    const b = makeBackend();
+    createBackendMock.mockReturnValue(b);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(false);
+
+    b.load.mockImplementationOnce(async () => { b.lastLoadTruncation = { entries: 3, blocks: 0 }; return emptyWorkspace(); });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("3 document entries could not be opened"));
+    expect(result.current.loadWasTruncated).toBe(true);
+  });
+
+  // ── CRITICAL 3: a CLEAN load must LOWER the flag ───────────────────────────
+
+  it("a clean load LOWERS the flag — one over-cap project must not poison the session", async () => {
+    // The backends already hold this invariant (`browser-backend.ts` resets
+    // `lastLoadTruncation` before any early return, because a stale value is
+    // worse than zero); the consumer used to keep the raised flag forever, so a
+    // healthy project's saves stayed blocked under a banner asserting ITS
+    // documents could not be opened.
+    const truncated = makeBackend({ entries: 12, blocks: 0 });
+    const clean = makeBackend();
+    createBackendMock.mockReturnValueOnce(truncated).mockReturnValue(clean);
+    registerTarget("healthy");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(true); // control: really raised
+
+    await act(async () => { await result.current.switchToProject("healthy"); });
+
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("reloadCurrentProject also lowers it — the recovery click a user would actually try", async () => {
+    const b = makeBackend({ entries: 12, blocks: 0 });
+    createBackendMock.mockReturnValue(b);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(true);
+
+    b.load.mockImplementationOnce(async () => { b.lastLoadTruncation = { entries: 0, blocks: 0 }; return emptyWorkspace(); });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  // ── WRITE PATHS: each best-effort flush must SKIP while unresolved ─────────
+
+  it("switchToProject SKIPS the pre-switch flush while the load is unresolved", async () => {
+    // ★★★ The worst case in the report: the banner says saving is paused, the
+    // user switches project to get away from it, and the switch's own flush
+    // commits the exact loss.
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const target = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("t-2");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.switchToProject("t-2"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    // …and the switch still completed (a skip must not strand the user).
+    expect(target.load).toHaveBeenCalled();
+    expect(setStorageConfig).toHaveBeenCalled();
+  });
+
+  it("loadProjectFromFile SKIPS its flush while the load is unresolved", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const opened = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(opened);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    expect(opened.load).toHaveBeenCalled();
+  });
+
+  it("createProject SKIPS its flush of the outgoing project", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const created = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(created);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.createProject({ name: "New", code: "N" } as never, "json"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    // The NEW project's own write is untouched: it persists a workspace built
+    // from scratch to a DIFFERENT backend and cannot overwrite the source the
+    // truncated documents are still sitting in.
+    expect(created.save).toHaveBeenCalled();
+    // ★★★ THE KILL LINE FOR `clearForFreshWorkspace`. The flag was TRUE a moment
+    // ago (the outgoing flush above was skipped because of it), and the new
+    // project is built rather than loaded — so no `reportFor` ever runs for it,
+    // and `suppressNextLoadRef` swallows the load its storageConfig change
+    // triggers. Without the clear, this brand-new project inherits the OLD one's
+    // pause: every edit to it is silently refused and the banner reports the old
+    // project's counts against a project with no documents at all.
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("createDemoProject SKIPS its flush of the outgoing project", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const demo = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(demo);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+
+    await act(async () => { await result.current.createDemoProject(emptyWorkspace() as never); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    expect(demo.save).toHaveBeenCalled();
+    // ★ Kill line for THIS path's `clearForFreshWorkspace`. Three mechanically
+    // identical one-liners is not a reason to pin only one of them — that is how
+    // two of the three end up deletable on a green board.
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("switchToTursoProject SKIPS its flush, and the clean target load lowers the flag", async () => {
+    // Covers the OTHER deps object: `truncationOps` reaching `useTursoProjectOps`
+    // at all. Both halves ride the same object, so a missing dep fails here.
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    createBackendMock.mockReturnValue(main);
+    const { result } = renderBackend(makeArgs({
+      setStorageConfig,
+      settings: {
+        storageConfig: { kind: "turso" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasTruncated).toBe(true);
+    main.save.mockClear();
+
+    await act(async () => { await result.current.switchToTursoProject("turso-p2"); });
+
+    expect(main.save).not.toHaveBeenCalled();
+    // The mocked TursoBackend publishes no truncation → a clean load → flag down.
+    expect(result.current.loadWasTruncated).toBe(false);
+  });
+
+  it("a skipped flush is NOT reported as a flush FAILURE (Turso surfaces those with a toast)", async () => {
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    createBackendMock.mockReturnValue(main);
+    const { result } = renderBackend(makeArgs({
+      setStorageConfig,
+      settings: {
+        storageConfig: { kind: "turso" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    showToast.mockClear();
+
+    await act(async () => { await result.current.switchToTursoProject("turso-p3"); });
+
+    // ★★★ ASSERT THE REAL STRING. This read `stringContaining("could not be
+    // saved")` and could not fail: no string in `i18n.ts` contains that phrase
+    // (`storageSwitchFlushFailed` is "Recent changes may not have been saved
+    // before switching projects", and `storageSaveFailedBanner` uses the
+    // contraction "couldn't"). It sat exactly where a reader assumes coverage.
+    // The skip is deliberate, not an error: the source still holds the documents.
+    expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("may not have been saved"));
+    // ★ POSITIVE CONTROL — without it "no error toast" is equally satisfied by a
+    // switch that never ran at all.
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  // ── EXPLICIT user writes: REFUSE LOUDLY, never skip silently ───────────────
+
+  it("onPickStorageFile REFUSES the write, says why, and does NOT report success", async () => {
+    // ★★ The asymmetry with the flushes above is deliberate. A pre-switch flush
+    // is housekeeping nobody asked for, so a silent skip costs the user nothing
+    // they can see. THIS is a click: silence would leave them believing the file
+    // they just picked holds their project.
+    const b = makeBackend({ entries: 8, blocks: 0 });
+    createBackendMock.mockReturnValue(b);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    b.save.mockClear();
+    showToast.mockClear();
+
+    await act(async () => { await result.current.onPickStorageFile(); });
+
+    expect(b.save).not.toHaveBeenCalled();
+    // Loud: the refusal restates the counts…
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("8 document entries could not be opened"));
+    // …and NOTHING claims the store was switched.
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.any(String));
+    // ★★★ THE KILL LINE FOR THE PRE-CHECK, and without it this test cannot tell
+    // the fix from the bug. `pickFileForBackend` runs on the ACTIVE backend and
+    // its side effects are irreversible — it creates the file on disk and
+    // persists the new handle — so refusing only at the write left the app
+    // pointed at a new EMPTY file with the original unreferenced. Delete the
+    // `refuseWrite` pre-check and the `guardedWrite` backstop still refuses,
+    // through the SAME implementation, so every assertion above stays green and
+    // the toast is byte-identical. Only this one changes.
+    expect(storageMod.pickFileForBackend).not.toHaveBeenCalled();
+  });
+
+  it("onRequestStorageSwitch REFUSES, and critically does NOT repoint the app at the short copy", async () => {
+    // The conversion writes to a DIFFERENT backend, so the source survives —
+    // but `setStorageConfig` would then make the truncated copy the live store
+    // and orphan the intact original. The early return is the load-bearing part.
+    const main = makeBackend({ entries: 8, blocks: 0 });
+    const target = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    try {
+      const { result } = renderBackend(makeArgs({ setStorageConfig }));
+      await act(async () => { await Promise.resolve(); });
+      setStorageConfig.mockClear();
+      showToast.mockClear();
+
+      await act(async () => { await result.current.onRequestStorageSwitch("local-json"); });
+
+      expect(target.save).not.toHaveBeenCalled();
+      expect(setStorageConfig).not.toHaveBeenCalled();
+      expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("8 document entries could not be opened"));
+      expect(showToast).not.toHaveBeenCalledWith("info", expect.any(String));
+    } finally {
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it("both explicit writes go through once the user has resolved it", async () => {
+    // Control for the two refusals: they must be a pause, not a dead end.
+    const b = makeBackend({ entries: 8, blocks: 0 });
+    createBackendMock.mockReturnValue(b);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    b.save.mockClear();
+    await act(async () => { result.current.allowTruncatedSave(); });
+
+    await act(async () => { await result.current.onPickStorageFile(); });
+
+    expect(b.save).toHaveBeenCalled();
+  });
+
+  it("after allowTruncatedSave() the flush is no longer skipped", async () => {
+    // The mirror of every skip above: a guard that never re-opens is a lockout.
+    const main = makeBackend({ entries: 7, blocks: 0 });
+    const target = makeBackend();
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("t-3");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    main.save.mockClear();
+    await act(async () => { result.current.allowTruncatedSave(); });
+
+    await act(async () => { await result.current.switchToProject("t-3"); });
+
+    expect(main.save).toHaveBeenCalled();
   });
 });
 

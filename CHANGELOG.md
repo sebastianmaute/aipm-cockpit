@@ -8,6 +8,48 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.222.0] - 2026-08-07 "Charnas"
+
+A project holding more documents than the app could open used to lose them.
+Opening such a file kept the first batch and discarded the rest with no
+indication anywhere, and the next automatic save wrote that shortened list back
+over the source — permanently, on all six storage backends. The limit is now
+five times higher, an over-limit file says so plainly, and saving pauses until
+you decide.
+
+### Fixed
+
+- **An over-limit document load no longer destroys the excess.** The cap is
+  raised from 200 to 1000, which removes the loss for any realistic project.
+  It remains a single limit governing both opening a file and creating
+  documents in the app: a higher opening limit would let a project load that
+  could then never be edited.
+- **A truncating load is disclosed however the project was opened.** JSON,
+  IndexedDB, Turso (single and multi-tenant), CSV and Markdown all report what
+  they could not open, and so does every route in — first load, switching
+  project, opening a file, reloading. A test fails if a storage backend stops
+  reporting. The precedent is the existing malformed-row warning, which reached
+  only two of the four backends for its whole life, leaving Turso and IndexedDB
+  silent: a warning that covers some backends is worse than none, because the
+  ones it misses look safe.
+- **Saving pauses after a truncating load**, so your saved project keeps
+  everything that could not be opened — not only the automatic save, but the
+  explicit ones too (picking a storage file, converting storage, switching
+  project). A banner offers the only two routes out: repair the project outside
+  the app, or accept the loss deliberately. The explicit escape is required
+  rather than optional — the documents that would have to be deleted to get
+  under the limit are precisely the ones that were never loaded, so without it
+  the pause would be a permanent block on saving. Dismissing the banner leaves
+  a "saving paused" indicator you can click to bring it back.
+- **Cut-off document content is reported too**, in stored version history and
+  in live documents alike. A document or version carrying more blocks than the
+  app keeps was previously shortened with no indication at all.
+
+### Changed
+
+- Restoring a document into a full project still refuses, and the refusal now
+  quotes the raised limit.
+
 ## [0.221.0] - 2026-08-07 "Kavan"
 
 ### Added

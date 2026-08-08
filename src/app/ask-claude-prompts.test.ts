@@ -44,7 +44,7 @@ describe("ask-claude-prompts", () => {
   it("offers on-page prompts for every view that has the tools to answer them", () => {
     const expected = [
       "actions", "budget", "budget-report", "calendar", "change-report", "changes",
-      "dashboard", "directory", "gantt", "insights", "knowledge", "manage-roles",
+      "dashboard", "directory", "documents", "gantt", "insights", "knowledge", "manage-roles",
       "milestones", "open-points", "planning", "portfolio-health", "raci", "raid",
       "raid-report", "reports", "resources", "stakeholder-map", "stakeholders",
       "steering-committee", "trends", "workload",

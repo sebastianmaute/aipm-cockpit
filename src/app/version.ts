@@ -2,11 +2,15 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.221.0";
-export const APP_BUILD_DATE = "2026-08-07"; // 0.221.0: Gantt weekday axis, milestone achieved toggle, shared button primitives (Kavan)
+export const APP_VERSION = "0.222.0";
+export const APP_BUILD_DATE = "2026-08-07"; // 0.222.0: an over-cap document load is disclosed, and saving pauses (Charnas)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.221.x line is "Kavan" (Anna Kavan, science-fiction author). */
-export const APP_MILESTONE = "Kavan";
+ *  0.222.x line is "Charnas" (Suzy McKee Charnas, science-fiction author).
+ *  ★ 0.221.0 "Kavan" shipped on main WHILE this branch was in review, so this
+ *  slice renumbered from 0.221.0 to 0.222.0 at merge time. Fetch before
+ *  bumping — a codename is unique per minor line and two branches picking the
+ *  same number is not something any gate here checks. */
+export const APP_MILESTONE = "Charnas";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -265,4 +269,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0218",
   "versionHighlight0219",
   "versionHighlight0220",
+  "versionHighlight0222",
 ] as const;

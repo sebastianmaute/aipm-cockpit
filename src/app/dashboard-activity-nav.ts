@@ -6,6 +6,10 @@ import type { ActivityKind } from "./activity-log";
 import type { AppView } from "./nav-config";
 
 export function activityViewOf(kind: ActivityKind): AppView | null {
+  // ★ Matched EXACTLY, not by an "ai." prefix: every other ai.* kind (inline
+  // edit, dedup, insight recommendation, allocation plan, RACI suggest) writes
+  // to a different register, so a prefix rule would send all five to Documents.
+  if (kind === "ai.documentWrite") return "documents";
   if (kind.startsWith("task.")) return "open-points";
   if (kind.startsWith("raid.")) return "raid";
   if (kind.startsWith("milestone.")) return "milestones";

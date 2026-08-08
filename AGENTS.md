@@ -17,7 +17,7 @@ before your first edit — the rest is reference, reachable from here.
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
 | [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, panel splits, toolbar order |
-| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | the eight files below, and why they are not loaded |
+| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | the nine files below, and why they are not loaded |
 
 **In `docs/AGENTS/`** (NOT loaded — open the one you need):
 
@@ -31,6 +31,7 @@ before your first edit — the rest is reference, reachable from here.
 | [integrations](docs/AGENTS/integrations.md) | steering committee · calendar write-back + two-way pull · Timelog |
 | [platform](docs/AGENTS/platform.md) | diagnostics · guard transparency · dictation · AI master switch |
 | [features](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
+| [documents](docs/AGENTS/documents.md) | version before-images · retention + tombstones · the single mutation path · `documentVersions` across the six write paths |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -41,7 +42,7 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
-backticked `SCREAMING_CASE` constant in all nine files is completely ungated.** The scan requires
+backticked `SCREAMING_CASE` constant in all ten files is completely ungated.** The scan requires
 both a lowercase and an upper/underscore character (`check-agents-symbols.mjs`, the "mixed case only"
 guard), so `HELP_ENTRIES`, `TABLE_NAMES`, `CONFIG_KEYS`, `A11Y_VIEWS` and every peer are skipped
 outright — a deleted one goes on being documented as current forever. Verified 2026-08-05 by probe,
@@ -76,7 +77,7 @@ disprove, in the same commit.
 | File | Owns |
 |---|---|
 | **AGENTS.md** (this file) | ALWAYS LOADED. Landmines and hard constraints that apply to any task, plus the architecture pointers and module maps. |
-| [`docs/AGENTS/`](docs/AGENTS/) (8 files) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
+| [`docs/AGENTS/`](docs/AGENTS/) (9 files) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
 | [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; AGENTS.md + `docs/AGENTS/` for detail. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
@@ -176,6 +177,13 @@ npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive 
                             # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
 npm run dup:check           # jscpd duplication GATE (--threshold set in package.json dup:check, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
+                            # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
+                            # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
+                            # 799 is already AT the 800 limit with ZERO headroom, and a 2971-line file is at a
+                            # 2972 baseline. Budgeting a change from `wc -l` overstates your room by exactly one
+                            # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
+                            # Read the real number with:
+                            #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
@@ -1037,18 +1045,24 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle.
   ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
   `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
+  ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`, on the same six write paths and
+  subject to everything above. The version model (before-images, retention, tombstones, the single
+  `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
+  before touching version history, deleted documents, or any "add a field to the six write paths" task,
+  which it records a landmine for.
 
 ## Subsystem reference — deeper detail, loaded on demand
 
 ★★★ **Only THIS file reaches every session.** `CLAUDE.md` is `@AGENTS.md`, so
-everything above is loaded before you type anything; the eight files below are
+everything above is loaded before you type anything; the nine files below are
 not. That is the whole point of the split — this file had grown to 324 KB
 (~81k tokens) of which ~73% was subsystem reference that most tasks never touch.
 **Open the matching file before editing that subsystem's code.** The landmines
 did not get weaker by moving, and a landmine nobody loads is a landmine nobody
 reads — which is the risk this arrangement trades for the context saving.
 
-★★ `npm run docs:symbols:check` gates all nine files, not just this one. It still
+★★ `npm run docs:symbols:check` gates all ten files, not just this one — `docs/AGENTS/`
+is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands. It still
 proves only that a backticked NAME is real, never that a CLAIM about it is true.
 
 | File | Owns |
@@ -1061,3 +1075,4 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [integrations.md](docs/AGENTS/integrations.md) | steering committee · Outlook calendar write-back and two-way pull · Timelog |
 | [platform.md](docs/AGENTS/platform.md) | diagnostics ring · guard transparency · dictation · the AI master switch |
 | [features.md](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
+| [documents.md](docs/AGENTS/documents.md) | the DATA half of documents — `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels |

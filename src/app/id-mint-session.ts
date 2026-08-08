@@ -22,7 +22,9 @@ export type MintKind =
   | "absence"
   | "shift"
   | "budgetBucket"
-  | "calendarEvent";
+  | "calendarEvent"
+  | "document"
+  | "documentVersion";
 
 /** Minimal shape every mintable entity satisfies. */
 type HasId = { id: number };
@@ -111,7 +113,7 @@ function collectBudgetBuckets(budgets: Workspace["budgets"]): readonly HasId[] {
 }
 
 /**
- * Seed all 12 mint kinds from a workspace (guarding every array with `?? []`),
+ * Seed every mint kind from a workspace (guarding every array with `?? []`),
  * plus `budgetBucket` from the (optionally nested) budget buckets.
  */
 export function seedMintFromWorkspace(
@@ -131,6 +133,8 @@ export function seedMintFromWorkspace(
   seedMintKind("shift", ws.shifts ?? [], mode);
   seedMintKind("budgetBucket", collectBudgetBuckets(ws.budgets), mode);
   seedMintKind("calendarEvent", ws.calendarEvents ?? [], mode);
+  seedMintKind("document", ws.documents ?? [], mode);
+  seedMintKind("documentVersion", ws.documentVersions ?? [], mode);
 }
 
 /**

@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isWorkspaceEmpty, jsonToWorkspace, workspaceToJson } from "./workspace";
+import { isWorkspaceEmpty, jsonToWorkspace, workspaceToJson, type Workspace } from "./workspace";
 import { clearDiagLog, readDiagLog } from "./diagnostics";
-import type { ProjectDocument } from "./document-model";
+import {
+  MAX_BLOCKS_PER_DOC,
+  MAX_DOCUMENTS,
+  type DocTruncationDiag,
+  type ProjectDocument,
+} from "./document-model";
 
 /** ★★ Forces the documents rich-field pass to throw, for the containment tests
  *  at the bottom of this file. It delegates to the REAL implementation unless
@@ -24,6 +29,22 @@ vi.mock("./document-rich-fields", async (importOriginal) => {
       return actual.sanitizeDocumentRichFields(doc);
     },
   };
+});
+
+// ★★★ FILE-SCOPED, not describe-scoped. `forceRichFieldThrow` is module state,
+// and the containment describe below sets it to `true` inside three test
+// bodies. Its own `beforeEach` reset only covers ITS tests, so in source order
+// — containment last — nothing else ever sees the flag left on. Under
+// `npm run test:shuffle` (the local reproduction of CI's BLOCKING
+// unit-tests-shuffled job, which shuffles tests WITHIN a file, not just file
+// order) a containment test can run first, and every later `load()` then
+// throws `WorkspaceParseError: shape`. Measured: 6 failures in this file at
+// the pinned seed while the unshuffled suite was fully green.
+// ★ Reset here rather than in an `afterEach` beside each setter: a test that
+// throws before its own cleanup would still leak, and this way a new describe
+// added later inherits the reset without anyone remembering to.
+beforeEach(() => {
+  forceRichFieldThrow = false;
 });
 
 /** ★★ A SENTINEL task rides in every fixture, and every test asserts it survived.
@@ -54,8 +75,8 @@ const DOC = {
   updatedAt: "2026-08-06T00:00:00.000Z",
 };
 
-function load(extra: Record<string, unknown> = {}) {
-  const ws = jsonToWorkspace(JSON.stringify({ ...EMPTY, ...extra }), { strict: true });
+function load(extra: Record<string, unknown> = {}, diag?: DocTruncationDiag) {
+  const ws = jsonToWorkspace(JSON.stringify({ ...EMPTY, ...extra }), { strict: true, diag });
   // The control assertion. If this ever fails, every `documents` expectation
   // below is measuring emptyWorkspace() rather than the load path.
   expect(ws.tasks).toHaveLength(1);
@@ -141,6 +162,30 @@ describe("workspace JSON — documents", () => {
     expect(ws.documents).toBe(before);
     expect(ws.documents).toEqual([DOC]);
   });
+
+  it("reports cap truncation through an optional diag", () => {
+    // ★★ open-followups §103: the cap truncated and recorded NOTHING, so the
+    // next autosave committed the loss on all six write paths. The count is the
+    // RAW TAIL past the cap (an upper bound), not a count of valid documents.
+    const documents = Array.from({ length: MAX_DOCUMENTS + 4 }, (_, i) => ({
+      ...DOC,
+      id: i + 1,
+      title: `Doc ${i + 1}`,
+      blocks: [],
+    }));
+    const diag: DocTruncationDiag = {};
+    const ws = load({ documents }, diag);
+    expect(ws.documents).toHaveLength(MAX_DOCUMENTS);
+    expect(diag.truncatedEntries).toBe(4);
+  });
+
+  it("leaves the diag untouched when nothing was capped", () => {
+    // CONTROL: without this, a threading bug that stamped a constant would
+    // satisfy the assertion above.
+    const diag: DocTruncationDiag = {};
+    load({ documents: [DOC] }, diag);
+    expect(diag.truncatedEntries).toBeUndefined();
+  });
 });
 
 describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => {
@@ -176,10 +221,12 @@ describe("workspace JSON — a throwing documents sanitize is CONTAINED", () => 
   });
 
   it("records the loss in the diagnostics log instead of swallowing it", () => {
-    // ★ A local catch that says nothing just moves the silence. There is no
-    // ImportDiag on this signature, so the app's diagnostics ring is the
-    // channel; logDiag is a no-op when `window` is undefined, which keeps the
-    // bare-node sample generator working.
+    // ★ A local catch that says nothing just moves the silence. The signature's
+    // optional `DocTruncationDiag` is NOT the channel for this: it counts what
+    // the CAPS discarded and has no field for a sanitize throw, so a caller
+    // reading it here learns nothing. The app's diagnostics ring is the channel;
+    // logDiag is a no-op when `window` is undefined, which keeps the bare-node
+    // sample generator working.
     forceRichFieldThrow = true;
     jsonToWorkspace(json());
     const codes = readDiagLog().map((e) => e.code);
@@ -231,5 +278,70 @@ describe("isWorkspaceEmpty — documents", () => {
   // above while destroying the guard entirely.
   it("still treats a workspace with no content at all as empty", () => {
     expect(isWorkspaceEmpty(bare)).toBe(true);
+  });
+});
+
+const VERSION = {
+  id: 1,
+  documentId: 7,
+  title: "Old title",
+  blocks: [{ type: "paragraph" as const, html: "<p>before</p>" }],
+  savedAt: "2026-08-01T09:00:00.000Z",
+  source: "ai" as const,
+  op: "update" as const,
+};
+
+describe("workspace JSON — documentVersions", () => {
+  it("round-trips a version", () => {
+    const ws = load({ documentVersions: [VERSION] });
+    expect(ws.documentVersions).toEqual([VERSION]);
+
+    const json = workspaceToJson(ws);
+    expect(json).toMatch(/"documentVersions"/);
+    const back = jsonToWorkspace(json, { strict: true });
+    expect(back.documentVersions).toEqual([VERSION]);
+  });
+
+  it("emits NO documentVersions key when absent", () => {
+    const ws = load();
+    expect(ws.documentVersions).toBeUndefined();
+    expect(workspaceToJson(ws)).not.toMatch(/"documentVersions"/);
+  });
+
+  // ★★ The test above (and "drops junk" below) route through load(), which
+  //    decodes via jsonToWorkspace FIRST — and that path already collapses a
+  //    present-but-empty array to `undefined` before workspaceToJson ever
+  //    runs. So nothing in this file called workspaceToJson with a genuinely
+  //    PRESENT empty array: a mutant that dropped workspaceToJson's OWN
+  //    `.length` check (keeping only the truthiness check) still passed every
+  //    test here, because it would only misfire on an input this file never
+  //    produced. Build the Workspace object directly — bypassing
+  //    jsonToWorkspace — to put a real empty array in front of the guard.
+  it("workspaceToJson itself omits the key for a directly-constructed empty array", () => {
+    const ws: Workspace = { ...load(), documentVersions: [] };
+    expect(workspaceToJson(ws)).not.toMatch(/"documentVersions"/);
+  });
+
+  it("drops junk rather than failing the whole load", () => {
+    const ws = load({ documentVersions: [{ nope: true }] });
+    expect(ws.documentVersions).toBeUndefined();
+  });
+
+  it("reports per-version block truncation through the SAME diag", () => {
+    // ★ The versions call site is threaded separately from documents, and both
+    // write into ONE accumulator — a version that loses blocks must be counted
+    // even though the DOCUMENT cap was never reached. The `truncatedEntries`
+    // assertion is what makes that a distinct channel rather than a second
+    // reading of the documents test: the two counters must not cross-contaminate.
+    const blocks = Array.from({ length: MAX_BLOCKS_PER_DOC + 3 }, (_, i) => ({
+      type: "heading" as const,
+      level: 1,
+      text: `H${i}`,
+    }));
+    const diag: DocTruncationDiag = {};
+    const ws = load({ documentVersions: [{ ...VERSION, blocks }] }, diag);
+    expect(ws.documentVersions?.[0].blocks).toHaveLength(MAX_BLOCKS_PER_DOC);
+    expect(diag.truncatedBlocks).toBe(3);
+    expect(diag.truncatedEntries).toBeUndefined();
   });
 });

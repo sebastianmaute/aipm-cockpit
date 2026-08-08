@@ -18,7 +18,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { BrowserBackend } from "./browser-backend";
 import { idbGet, idbSet } from "./idb";
 import { emptyWorkspace, type Workspace } from "./workspace";
-import type { ProjectDocument } from "./document-model";
+import { MAX_DOCUMENTS, type ProjectDocument } from "./document-model";
 
 // Mirrors the private KV_DOCUMENTS_KEY. Not exported by the backend, and the
 // literal IS the storage contract — a rename would be a data-migration event.
@@ -132,6 +132,55 @@ describe("BrowserBackend — documents", () => {
         updatedAt: "2026-08-06T00:00:00.000Z",
       },
     ]);
+  });
+
+  it("publishes cap truncation on lastLoadTruncation", async () => {
+    // The over-cap array has to be seeded DIRECTLY: save() caps too, so a
+    // round-trip through save() would only ever write MAX_DOCUMENTS and the
+    // load could not truncate anything.
+    const ISO = "2026-08-06T00:00:00.000Z";
+    const docs = Array.from({ length: MAX_DOCUMENTS + 6 }, (_, i) => ({
+      id: i + 1,
+      title: `Doc ${i + 1}`,
+      blocks: [],
+      createdAt: ISO,
+      updatedAt: ISO,
+    }));
+    await idbSet(KV_DOCUMENTS_KEY, docs);
+
+    const backend = new BrowserBackend();
+    const ws = await backend.load();
+
+    expect(ws.documents).toHaveLength(MAX_DOCUMENTS);
+    expect(backend.lastLoadTruncation).toEqual({ entries: 6, blocks: 0 });
+  });
+
+  it("republishes zero on a later clean load, rather than leaving the previous count standing", async () => {
+    // A stale non-zero count is worse than none: the consumer would raise a
+    // data-loss warning about a workspace that lost nothing. Same backend
+    // instance, so only a per-load republish can clear it.
+    const ISO = "2026-08-06T00:00:00.000Z";
+    await idbSet(
+      KV_DOCUMENTS_KEY,
+      Array.from({ length: MAX_DOCUMENTS + 4 }, (_, i) => ({
+        id: i + 1,
+        title: `Doc ${i + 1}`,
+        blocks: [],
+        createdAt: ISO,
+        updatedAt: ISO,
+      })),
+    );
+    const backend = new BrowserBackend();
+    await backend.load();
+    expect(backend.lastLoadTruncation.entries).toBe(4);
+
+    // Fresh store, well inside the cap.
+    globalThis.indexedDB = new IDBFactory();
+    await idbSet(KV_DOCUMENTS_KEY, [DOC]);
+    const back = await backend.load();
+
+    expect(back.documents).toHaveLength(1);
+    expect(backend.lastLoadTruncation).toEqual({ entries: 0, blocks: 0 });
   });
 
   it("keeps documents undefined when the stored blob is all junk", async () => {
