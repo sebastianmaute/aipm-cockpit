@@ -73,12 +73,18 @@ export function AiTriggerButton({
   variant?: ButtonVariant;
   size?: ButtonSize;
   /**
-   * ★ Pass `"submit"` when the trigger sits in a `<form>` that relies on it.
-   *   `Button` defaults to `type="button"`, so without this a submit control
-   *   silently becomes a plain one. Implicit submission (Enter) would still
-   *   work while the form holds exactly ONE field — but that is a property of
-   *   the form's current contents, not of this code: add a second input and
-   *   Enter stops submitting, with nothing failing anywhere.
+   * ★★★ NO CALLER PASSES `"submit"` TODAY, AND ADDING ONE IS A TWO-PATH BUG
+   *     UNLESS `onRun` STOPS SUBMITTING. This component ALWAYS wires
+   *     `onClick={onRun}`, so a submit-typed trigger inside a `<form onSubmit>`
+   *     runs the feature TWICE from one click: `onRun` first, then the browser's
+   *     default action → the form handler. For an AI trigger that is two billed
+   *     Claude calls with the first controller orphaned. `inline-ai-edit-popover`
+   *     shipped exactly that and was reverted to the default; a phase guard is
+   *     not a fix, it only makes the second call conditional on React having
+   *     flushed a discrete update before the default action ran.
+   * ★ So if a form genuinely needs a submit button (more than one field, where
+   *   implicit Enter submission stops working), pass `"submit"` AND make `onRun`
+   *   a no-op so the form handler is the single path — never both.
    */
   type?: "button" | "submit";
   disabled?: boolean;
@@ -101,7 +107,13 @@ export function AiTriggerButton({
       // `Button` carries no layout of its own, so the icon+label pair needs the
       // repo's standard inline-flex row; the caller's className still wins by
       // being appended after it.
-      className={`inline-flex items-center gap-1${className ? ` ${className}` : ""}`}
+      // ★ `gap-1.5`, not `gap-1`: all FOUR migrated sites that carried an
+      //   icon+label row before this component existed used `gap-1.5`
+      //   (actions-panel, use-alloc-plan, use-raci-suggest, use-tasks-dedup —
+      //   `git show 7151ebfd^` for each). The other two rendered text only, so
+      //   they had no gap to preserve. `gap-1` shipped as a silent 2px
+      //   restyle of every one of them; this restores what they had.
+      className={`inline-flex items-center gap-1.5${className ? ` ${className}` : ""}`}
     >
       {busy ? <StopIcon aria-hidden="true" className="h-4 w-4" /> : idleIcon}
       <span>{label}</span>

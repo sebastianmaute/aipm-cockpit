@@ -87,11 +87,15 @@ describe("GanttView", () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
   it("shows a Gantt-qualified dedup trigger when AI is enabled with >=2 tasks", () => {
-    // ★ The name lost the word "tasks" when this trigger became the shared
-    //   AiTriggerButton: that component pins the accessible name TO the visible
-    //   label (WCAG 2.5.3), and the visible label here has always been the
-    //   shorter `taskDedup`, not the `taskDedupTitle` the old hand-rolled
-    //   aria-label used. The visible text is unchanged; the name follows it now.
+    // ★★ The name lost the word "tasks" when this trigger became the shared
+    //    AiTriggerButton, which pins the accessible name to the VISIBLE label —
+    //    but do NOT read that as "the old name failed WCAG 2.5.3". An earlier
+    //    revision of this comment (and its twin in use-tasks-dedup.test.tsx) said
+    //    so and it is false: the old idle name `taskDedupTitle` ("Deduplicate &
+    //    unify tasks") CONTAINS the visible label, so idle was already conformant.
+    //    Only the old BUSY state failed. The shortening is a consequence of
+    //    adopting the primitive, not a fix, and the longer sentence is restored as
+    //    the accessible DESCRIPTION (`title`) — asserted in use-tasks-dedup.test.tsx.
     // ★ The `– Gantt` qualifier is the load-bearing half and is UNCHANGED —
     //   this hook mounts twice and the classic layout renders both at once.
     renderGanttView([mkTask(1, "Write API docs"), mkTask(2, "Write the API documentation")]);

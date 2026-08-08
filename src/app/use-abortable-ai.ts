@@ -30,14 +30,28 @@ export function useAbortableAi() {
     setBusy(true);
     setError(null);
     try {
-      return await call(controller.signal);
+      const value = await call(controller.signal);
+      // ★ DEFENCE IN DEPTH — this recheck fixes no live bug today. `ai-forced-call.ts`
+      //   has no retry, no backoff and no streaming, so nothing can interleave between
+      //   the response resolving and this return: a Stop click cannot land in that
+      //   window. It becomes reachable the moment any caller adds a retry, and the
+      //   consumer would then apply a result the user had already cancelled. The five
+      //   pre-existing controllers all guard their success path the same way.
+      return controller.signal.aborted ? null : value;
     } catch (e) {
       if (isAbortError(e)) return null;
       setError(e instanceof Error ? e.message : String(e));
       return null;
     } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setBusy(false);
+      // ★★ BOTH statements are guarded on "this is still the current run". A
+      //    superseded run unwinds AFTER its successor armed the new controller, so
+      //    an unguarded `setBusy(false)` reports idle while the successor is still
+      //    in flight — the same class of bug the ref guard already prevents for
+      //    `cancel`. `run` has no in-flight guard, so superseding is a normal path.
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setBusy(false);
+      }
     }
   }, []);
 

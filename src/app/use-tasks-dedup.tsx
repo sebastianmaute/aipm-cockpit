@@ -13,7 +13,7 @@
 // re-grounded against the LIVE tasks (groundMergeGroups) before it can delete or
 // edit anything — a hallucinated id can never touch a real task.
 
-import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useRef, useState } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
@@ -85,6 +85,18 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const enabled =
     isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && tasks.length >= MIN_TASKS_FOR_DEDUP;
+
+  // Abort any in-flight proposal if the pane unmounts — a billed response must
+  // never keep running against a dead component. Cleanup-only: sets no state, so
+  // it doesn't run into the set-state-in-effect ban. Mirrors use-alloc-plan.tsx
+  // and use-raci-suggest.tsx, which have carried this from the start.
+  // ★★ THIS HOOK IS THE ONE THAT NEEDED IT MOST and was the one without it
+  //    (open-followups §115): it mounts TWICE (tasks-section.tsx, gantt-view.tsx)
+  //    and the modern shell renders only the ACTIVE view, so starting a dedup in
+  //    Open Points and switching to Gantt unmounted the running instance. The call
+  //    went on being billed while the Gantt trigger showed the IDLE label — a
+  //    running call with no Stop anywhere in the app.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -177,6 +189,11 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   //   for exactly that. Hence AiTriggerButton's `nameQualifier`.
   // ★ `busy` is `"thinking"` alone; `"applying"` is a local merge commit, not a
   //   stoppable Claude call, and was never clickable before either.
+  // ★ The fuller `taskDedupTitle` sentence rides `description` → `title`, the
+  //   accessible DESCRIPTION, exactly as use-alloc-plan does with allocPlanTitle.
+  //   It used to be this trigger's aria-label; the NAME is now the visible label
+  //   (see the test file for why that swap was not itself a 2.5.3 fix), so
+  //   without `description` the longer sentence would be lost disclosure.
   const button = enabled ? (
     <AiTriggerButton
       lang={lang}
@@ -186,6 +203,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
       idleLabelKey="taskDedup"
       idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
       nameQualifier={triggerQualifier}
+      description={t(lang, "taskDedupTitle")}
       disabled={phase === "applying"}
     />
   ) : null;

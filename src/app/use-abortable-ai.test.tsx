@@ -76,10 +76,12 @@ describe("useAbortableAi", () => {
     expect(seen[1].aborted).toBe(false);
   });
 
-  // The superseded run settles LAST, so its `finally` must not clear the
-  // controller its successor installed — that would make cancel() a silent
-  // no-op for every run started while an older one was still unwinding.
-  it("a superseded run settling late does not disarm the new run's cancel", async () => {
+  // The superseded run settles LAST, so its `finally` must touch NEITHER the
+  // controller nor `busy` the successor owns. Clearing the controller would make
+  // cancel() a silent no-op for every run started while an older one was still
+  // unwinding; clearing `busy` reports idle while the successor is still billed —
+  // and `run` has no in-flight guard, so superseding is an ordinary path.
+  it("a superseded run settling late does not disarm the new run's cancel or its busy flag", async () => {
     const { result } = renderHook(() => useAbortableAi());
     const seen: AbortSignal[] = [];
     let rejectFirst!: (e: unknown) => void;
@@ -96,8 +98,26 @@ describe("useAbortableAi", () => {
       rejectFirst(Object.assign(new Error("aborted"), { name: "AbortError" }));
       await Promise.resolve();
     });
+    // The successor is still in flight, so the hook must still report busy.
+    expect(result.current.busy).toBe(true);
     act(() => { result.current.cancel(); });
     expect(seen[1].aborted).toBe(true);
+  });
+
+  // ★ DEFENCE IN DEPTH, and deliberately labelled as such: no live caller can
+  //   reach this today (`ai-forced-call.ts` has no retry/backoff/streaming, so a
+  //   Stop cannot land between the response resolving and the return). It pins
+  //   the guard that keeps a cancelled result from being applied once one does.
+  it("returns null when the signal was aborted while the call was still settling", async () => {
+    const { result } = renderHook(() => useAbortableAi());
+    let release!: (v: string) => void;
+    const pending = new Promise<string>((r) => { release = r; });
+    let done!: Promise<string | null>;
+    act(() => { done = result.current.run(() => pending); });
+    act(() => { result.current.cancel(); });
+    let out: string | null = "unset";
+    await act(async () => { release("late value"); out = await done; });
+    expect(out).toBeNull();
   });
 
   it("aborts an in-flight call on unmount", () => {

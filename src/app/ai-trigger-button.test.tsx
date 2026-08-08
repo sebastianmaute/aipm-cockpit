@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { type FormEvent } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AiTriggerButton } from "./ai-trigger-button";
@@ -178,5 +179,39 @@ describe("AiTriggerButton", () => {
 
     rerender(<AiTriggerButton {...props} type="submit" />);
     expect(screen.getByRole("button", name).getAttribute("type")).toBe("submit");
+  });
+
+  // ★★★ ONE CLICK MUST NOT TRAVEL TWO PATHS. This component ALWAYS wires
+  //     `onClick={onRun}`, so inside a `<form onSubmit>` a `type="submit"`
+  //     trigger fires onRun AND the form's default action — two runs of the same
+  //     feature from one click, which for an AI trigger is two billed Claude
+  //     calls with the first controller orphaned. `inline-ai-edit-popover.tsx`
+  //     shipped exactly that shape and now relies on the DEFAULT below.
+  //     ★ Asserting both halves is the point: the "does fire twice" case is what
+  //       makes the default meaningful, and pins the cost of re-adding the prop.
+  it("does not submit an enclosing form by default, and does when type=submit is passed", async () => {
+    const props = {
+      lang: "en-US", busy: false, onCancel: vi.fn(),
+      idleLabelKey: "inlineAiEdit",
+    } as const;
+    const name = { name: t("en-US", "inlineAiEdit") };
+
+    const onRun = vi.fn();
+    const onSubmit = vi.fn((e: FormEvent) => e.preventDefault());
+    const { rerender } = render(
+      <form onSubmit={onSubmit}><AiTriggerButton {...props} onRun={onRun} /></form>,
+    );
+    await userEvent.click(screen.getByRole("button", name));
+    expect(onRun).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    const onRun2 = vi.fn();
+    const onSubmit2 = vi.fn((e: FormEvent) => e.preventDefault());
+    rerender(
+      <form onSubmit={onSubmit2}><AiTriggerButton {...props} onRun={onRun2} type="submit" /></form>,
+    );
+    await userEvent.click(screen.getByRole("button", name));
+    expect(onRun2).toHaveBeenCalledTimes(1);
+    expect(onSubmit2).toHaveBeenCalledTimes(1); // the second path — the defect
   });
 });
