@@ -1759,7 +1759,11 @@ function TaskManagerInner() {
     },
     [setInsights],
   );
-  const { generatingId: insightGeneratingId, generate: generateInsightRecommendation } = useInsightRecommend({
+  const {
+    busy: insightRecommendBusy,
+    generate: generateInsightRecommendation,
+    cancel: cancelInsightRecommendation,
+  } = useInsightRecommend({
     insights: insights ?? [],
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
     today,
@@ -2313,9 +2317,13 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     // Insights lifecycle bag (#6B SP1/SP2).
     insightActions: isPopout ? undefined : insightActions,
-    // Which insight (if any) currently has an AI recommendation generating —
-    // lets a card/row show a busy state (rendering lands in Task 10).
-    insightGeneratingId: isPopout ? undefined : insightGeneratingId,
+    // Whether an AI recommendation is generating, and how to abort it. ★ The
+    // GLOBAL flag, not the per-insight `generatingId` the hook also exposes:
+    // it drives every row's shared AiTriggerButton Stop state, and `cancel`
+    // aborts whatever call is actually in flight — a per-row flag would give
+    // rows a Stop button wired to a call they don't own.
+    insightRecommendBusy: isPopout ? undefined : insightRecommendBusy,
+    onCancelInsightRecommendation: isPopout ? undefined : cancelInsightRecommendation,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,

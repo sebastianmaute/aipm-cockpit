@@ -143,7 +143,14 @@ describe("InsightsPanel", () => {
       expect(onGenerateRecommendation).toHaveBeenCalledWith(3);
     });
 
-    it("disables the CTA and shows a generating label while this insight is generating", () => {
+    it("turns the CTA into an OPERABLE Stop while a recommendation is generating", async () => {
+      // Was: disabled + a "Generating…" label. The CTA is the shared
+      // AiTriggerButton now — a billed call always has a way to abort it.
+      // ★ Exact name, never /generate|stop/i: an alternation would also match
+      //   the idle button. ★ The `– ${title}` suffix is row-uniqueness (WCAG
+      //   2.4.6), which the axe gate is blind to.
+      const user = userEvent.setup();
+      const onCancelGenerate = vi.fn();
       const insight = makeInsight({ id: 3, type: "milestoneSlip", status: "active" });
       const title = titleOf("milestoneSlip");
       render(
@@ -154,11 +161,14 @@ describe("InsightsPanel", () => {
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
           }}
-          generatingId={3}
+          busy
+          onCancelGenerate={onCancelGenerate}
         />,
       );
-      const cta = screen.getByRole("button", { name: `Generating… – ${title}` });
-      expect(cta).toBeDisabled();
+      const cta = screen.getByRole("button", { name: `Stop – ${title}` });
+      expect(cta).not.toBeDisabled();
+      await user.click(cta);
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1);
     });
 
     it("shows the AI summary + Review/Reject buttons when a recommendation is proposed", async () => {

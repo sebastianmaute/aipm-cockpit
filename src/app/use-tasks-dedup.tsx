@@ -31,7 +31,7 @@ import {
   type GroundedMergeGroup,
 } from "./task-dedup/dedup";
 import { TaskDedupModal } from "./task-dedup-modal";
-import { INTERACTIVE } from "./interaction-styles";
+import { AiTriggerButton } from "./ai-trigger-button";
 
 /** Minimum tasks before offering the button (nothing to dedupe below two). */
 const MIN_TASKS_FOR_DEDUP = 2;
@@ -51,10 +51,14 @@ export interface TasksDedupDeps {
    * Already-translated view name to append to the trigger's accessible name
    * (e.g. "Gantt"). Needed once this hook is mounted more than once — in the
    * classic layout TasksSection and WorkspaceSection render simultaneously,
-   * so two unqualified "Deduplicate & unify tasks" triggers would share one
+   * so two unqualified "Deduplicate & unify" triggers would share one
    * accessible name (WCAG 2.4.6), a collision the axe gate cannot see since
    * it only flags MISSING names, not duplicate ones. Omit for the original
    * single-mount site to keep its name unchanged.
+   *
+   * ★ Forwarded to AiTriggerButton as `nameQualifier`, which qualifies the
+   *   accessible name in BOTH the idle and the Stop state — leaving Stop
+   *   unqualified would restore the collision exactly while a call is running.
    */
   triggerQualifier?: string;
 }
@@ -65,9 +69,6 @@ export interface TasksDedup {
   /** The review/confirm modal element (null when no proposal is open). */
   modal: ReactNode;
 }
-
-const TRIGGER_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
 
 export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const { settings, isPopout, lang, tasks, setTasks, capture, logActivity, triggerQualifier } = deps;
@@ -169,22 +170,24 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
     reset();
   }, [phase, groups, selected, tasks, setTasks, capture, logActivity, showToast, lang, reset]);
 
-  const triggerLabel = triggerQualifier
-    ? `${t(lang, "taskDedupTitle")} – ${triggerQualifier}`
-    : t(lang, "taskDedupTitle");
-
+  // ★ `triggerQualifier` MUST keep reaching the accessible name. This hook is
+  //   mounted TWICE (tasks-section.tsx, gantt-view.tsx) and the classic layout
+  //   renders both at once, so an unqualified name is a WCAG 2.4.6 collision
+  //   that the axe gate cannot see — dedup-trigger-qualifier.test.tsx exists
+  //   for exactly that. Hence AiTriggerButton's `nameQualifier`.
+  // ★ `busy` is `"thinking"` alone; `"applying"` is a local merge commit, not a
+  //   stoppable Claude call, and was never clickable before either.
   const button = enabled ? (
-    <button
-      type="button"
-      onClick={() => void onOpen()}
-      disabled={phase === "thinking" || phase === "applying"}
-      aria-label={triggerLabel}
-      title={triggerLabel}
-      className={`${TRIGGER_CLASS} ${INTERACTIVE}`}
-    >
-      <SparkIcon spinning={phase === "thinking"} />
-      {phase === "thinking" ? t(lang, "taskDedupThinking") : t(lang, "taskDedup")}
-    </button>
+    <AiTriggerButton
+      lang={lang}
+      busy={phase === "thinking"}
+      onRun={() => void onOpen()}
+      onCancel={reset}
+      idleLabelKey="taskDedup"
+      idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
+      nameQualifier={triggerQualifier}
+      disabled={phase === "applying"}
+    />
   ) : null;
 
   const modal = phase === "preview" || phase === "applying" ? (
@@ -201,10 +204,4 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   ) : null;
 
   return { button, modal };
-}
-
-function SparkIcon({ spinning }: { spinning: boolean }) {
-  return (
-    <SparklesIcon aria-hidden="true" className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`} />
-  );
 }

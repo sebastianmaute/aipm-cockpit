@@ -87,9 +87,16 @@ describe("GanttView", () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
   it("shows a Gantt-qualified dedup trigger when AI is enabled with >=2 tasks", () => {
+    // ★ The name lost the word "tasks" when this trigger became the shared
+    //   AiTriggerButton: that component pins the accessible name TO the visible
+    //   label (WCAG 2.5.3), and the visible label here has always been the
+    //   shorter `taskDedup`, not the `taskDedupTitle` the old hand-rolled
+    //   aria-label used. The visible text is unchanged; the name follows it now.
+    // ★ The `– Gantt` qualifier is the load-bearing half and is UNCHANGED —
+    //   this hook mounts twice and the classic layout renders both at once.
     renderGanttView([mkTask(1, "Write API docs"), mkTask(2, "Write the API documentation")]);
-    const button = screen.getByRole("button", { name: "Deduplicate & unify tasks – Gantt" });
-    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify tasks – Gantt");
+    const button = screen.getByRole("button", { name: "Deduplicate & unify – Gantt" });
+    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify – Gantt");
   });
 
   it("renders no dedup trigger when AI is disabled", () => {
@@ -108,7 +115,7 @@ describe("GanttView", () => {
       { onCaptureUndo: captureSpy as never },
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify tasks – Gantt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify – Gantt" }));
     await waitFor(() => expect(screen.getByText(/same deliverable/i)).toBeTruthy());
 
     fireEvent.click(screen.getByRole("button", { name: /merge selected/i }));

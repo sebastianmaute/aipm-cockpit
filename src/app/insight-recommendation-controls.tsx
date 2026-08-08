@@ -6,6 +6,7 @@
 
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
 import type { Insight, InsightActions } from "./insights/insight";
 
 export interface InsightRecommendationControlsProps {
@@ -14,8 +15,14 @@ export interface InsightRecommendationControlsProps {
   title: string;
   lang: Lang;
   actions: InsightActions;
-  /** Id of the insight (if any) whose recommendation is currently generating. */
-  generatingId?: number | null;
+  /** The GLOBAL in-flight flag from `useInsightRecommend`, driving the shared
+   *  AiTriggerButton's Stop state. ★ Deliberately NOT that hook's per-row
+   *  `generatingId`: `cancel` aborts whatever call is actually running, so the
+   *  Stop affordance has to track the same global thing or it is a Stop button
+   *  that cannot stop. Undefined = unknown (tests) → idle. */
+  busy?: boolean;
+  /** Aborts the in-flight generate. Undefined at surfaces that don't wire it. */
+  onCancelGenerate?: () => void;
   /** Whether AI is enabled + configured. `false` hides the Generate CTA (apply /
    *  reject of an EXISTING recommendation stay available — they don't call AI).
    *  Undefined = unknown (tests) → treated as enabled for back-compat. */
@@ -31,22 +38,28 @@ function GenerateRecommendationCta({
   title,
   lang,
   actions,
-  generatingId,
+  busy,
+  onCancelGenerate,
   aiEnabled,
 }: InsightRecommendationControlsProps) {
   if (aiEnabled === false) return null;
-  const isGenerating = generatingId === insight.id;
-  const labelKey = isGenerating ? "insightRecommendationGenerating" : "insightGenerateRecommendation";
+  // ★ `nameQualifier` is NOT optional polish here — every insight row renders
+  //   this CTA, so without the row-unique suffix a list is N identically-named
+  //   buttons (WCAG 2.4.6), and it must qualify the Stop state too since that
+  //   is exactly when they all read the same word.
+  // ★ Whole-list consequence of the global `busy`, accepted deliberately: while
+  //   ANY generate is in flight EVERY row's CTA reads "Stop". That matches the
+  //   engine — `useAbortableAi.run` aborts the previous call, so only one
+  //   generate can ever be running and starting another cancels it anyway.
   return (
-    <Button
-      variant="secondary"
-      size="xs"
-      disabled={isGenerating}
-      aria-label={`${t(lang, labelKey)} – ${title}`}
-      onClick={() => actions.onGenerateRecommendation(insight.id)}
-    >
-      {t(lang, labelKey)}
-    </Button>
+    <AiTriggerButton
+      lang={lang}
+      busy={busy === true}
+      onRun={() => actions.onGenerateRecommendation(insight.id)}
+      onCancel={() => onCancelGenerate?.()}
+      idleLabelKey="insightGenerateRecommendation"
+      nameQualifier={title}
+    />
   );
 }
 

@@ -10,6 +10,7 @@ import { MODAL_BACKDROP_CLASS } from "./modal";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
 import { IconButton } from "./icon-button";
 
 export interface InlineAiEditPopoverProps {
@@ -67,9 +68,20 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
               className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
             />
             <div className="mt-2 flex justify-end">
-              <Button type="submit" size="sm" disabled={busy || !value.trim()}>
-                {t(lang, "inlineAiEdit")}
-              </Button>
+              {/* ★ No longer `type="submit"` — AiTriggerButton is the shared
+                  primitive and renders a plain button. The `<form onSubmit>`
+                  above is kept for IMPLICIT submission: this form holds exactly
+                  one text field, so Enter still submits it per the HTML spec.
+                  ★ `busy` is `"thinking"` alone; `"applying"` is a local commit,
+                  not a stoppable Claude call, so it stays disabled as before. */}
+              <AiTriggerButton
+                lang={lang}
+                busy={phase === "thinking"}
+                onRun={() => { if (value.trim()) onSubmit(value.trim()); }}
+                onCancel={onCancel}
+                idleLabelKey="inlineAiEdit"
+                disabled={phase === "applying" || !value.trim()}
+              />
             </div>
           </form>
         )}

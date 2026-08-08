@@ -195,7 +195,18 @@ describe("InsightsCard", () => {
       expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
     });
 
-    it("disables the CTA and shows a generating label while this insight is generating", () => {
+    it("turns the CTA into an OPERABLE Stop while a recommendation is generating", async () => {
+      // Was: disabled + a "Generating…" label. The CTA is the shared
+      // AiTriggerButton now, so a billed call is never left running with no way
+      // to abort it — the control stays enabled and its click cancels.
+      //
+      // ★ The name is matched EXACTLY. A regex alternation like /generate|stop/i
+      //   would also match the IDLE button and stop testing the busy state.
+      // ★ The row-unique `– ${title}` suffix is asserted here on purpose: every
+      //   row renders this CTA, so an unqualified name is a WCAG 2.4.6
+      //   collision the axe gate cannot see.
+      const user = userEvent.setup();
+      const onCancelGenerate = vi.fn();
       const insight = makeInsight({ id: 3 });
       const title = insightTitle(insight, "en-US");
       render(
@@ -207,11 +218,14 @@ describe("InsightsCard", () => {
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
           }}
-          generatingId={3}
+          busy
+          onCancelGenerate={onCancelGenerate}
         />,
       );
-      const cta = screen.getByRole("button", { name: `Generating… – ${title}` });
-      expect(cta).toBeDisabled();
+      const cta = screen.getByRole("button", { name: `Stop – ${title}` });
+      expect(cta).not.toBeDisabled();
+      await user.click(cta);
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1);
     });
 
     it("shows the AI summary + Review/Reject buttons when a recommendation is proposed", async () => {

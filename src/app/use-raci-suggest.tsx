@@ -47,7 +47,7 @@ import {
 } from "./raci-suggest/raci-suggest";
 import { setRaciRole } from "./stakeholders";
 import { RaciSuggestModal } from "./raci-suggest-modal";
-import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
 
 type Phase = "idle" | "thinking" | "preview" | "applying";
 
@@ -77,14 +77,6 @@ export interface RaciSuggest {
   /** The preview/confirm modal element (null while the feature is idle or thinking). */
   modal: ReactNode;
 }
-
-// Layout only — the colour, padding, motion and disabled treatment all come
-// from `Button variant="secondary" size="xs"`. The hand-rolled class this
-// replaced pinned `text-ui-dark-blue` with no `dark:` companion, which lands at
-// roughly 1.1:1 on the dark surfaces (the dark schemes define ui-dark-blue as a
-// near-black navy) — invisible text that no gate can see, since this toolbar is
-// outside the axe view list and the button only renders once AI is configured.
-const TRIGGER_LAYOUT = "inline-flex items-center gap-1.5";
 
 /** Collapse the accepted cells into ONE updated Stakeholder per person.
  *
@@ -250,26 +242,24 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
 
   const busy = phase === "thinking" || phase === "applying";
 
-  // The accessible name tracks the SAME ternary as the visible text. Pinning it
-  // to "Suggest RACI" while the label reads "Asking Claude…" is WCAG 2.5.3
-  // (F96) — a speech user saying what they see would not match the control.
-  const thinking = phase === "thinking";
-  const triggerBusy = thinking || phase === "applying";
-  const triggerLabel = t(lang, thinking ? "raciSuggestThinking" : "raciSuggest");
+  // The shared AiTriggerButton owns the label/name coherence this site used to
+  // hand-roll: while the billed proposal is in flight BOTH the visible text and
+  // the accessible name read "Stop" and the click aborts, so WCAG 2.5.3 (F96)
+  // holds without a separate "Asking Claude…" wording.
+  //
+  // ★ `busy` here is `"thinking"` ALONE, not this hook's `busy` const —
+  //   `"applying"` is committing rows locally, not waiting on Claude, so it is
+  //   not a stoppable state. It stays DISABLED, exactly as it was before.
   const button = enabled ? (
-    <Button
-      variant="secondary"
-      size="xs"
-      onClick={() => void onPropose()}
-      disabled={triggerBusy}
-      aria-busy={triggerBusy}
-      aria-label={triggerLabel}
-      title={triggerLabel}
-      className={TRIGGER_LAYOUT}
-    >
-      <SparklesIcon aria-hidden="true" className={`h-4 w-4 ${thinking ? "animate-spin" : ""}`} />
-      {triggerLabel}
-    </Button>
+    <AiTriggerButton
+      lang={lang}
+      busy={phase === "thinking"}
+      onRun={() => void onPropose()}
+      onCancel={reset}
+      idleLabelKey="raciSuggest"
+      idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
+      disabled={phase === "applying"}
+    />
   ) : null;
 
   const modal = phase === "preview" || phase === "applying" ? (

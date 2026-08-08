@@ -23,6 +23,7 @@ export function AiTriggerButton({
   onCancel,
   idleLabelKey,
   idleIcon,
+  nameQualifier,
   disabled,
   className,
 }: {
@@ -32,17 +33,34 @@ export function AiTriggerButton({
   onCancel: () => void;
   idleLabelKey: TranslationKey;
   idleIcon?: ReactNode;
+  /**
+   * Row/mount-unique suffix for the ACCESSIBLE NAME only — the visible label is
+   * never qualified. Required wherever this trigger renders more than once in
+   * one DOM: N identical "Generate recommendation" buttons is WCAG 2.4.6, and
+   * this project's axe gate can only flag a MISSING accessible name — it is
+   * BLIND to a duplicate one (see clear-label-uniqueness.test.tsx and
+   * dedup-trigger-qualifier.test.tsx, which exist because that shipped twice).
+   *
+   * ★ It qualifies BOTH states. Leaving the Stop state unqualified would put
+   *   the collision back the moment a call is in flight, which is precisely
+   *   when the surface has N buttons reading "Stop".
+   *
+   * ★ 2.5.3 still holds: the visible string ("Stop" / the idle label) is
+   *   CONTAINED in the name, so a speech user saying what they see matches.
+   */
+  nameQualifier?: string;
   disabled?: boolean;
   className?: string;
 }) {
   const label = busy ? t(lang, "aiStop") : t(lang, idleLabelKey);
+  const name = nameQualifier ? `${label} – ${nameQualifier}` : label;
   return (
     <Button
       variant="secondary"
       size="xs"
       onClick={busy ? onCancel : onRun}
-      aria-label={label}
-      title={label}
+      aria-label={name}
+      title={name}
       // ★ A real `disabled` attribute, never an `aria-disabled` lookalike —
       //   the lookalike still fires onClick, which here would start a billed
       //   AI call from a control the surface had switched off.

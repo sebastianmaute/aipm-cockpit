@@ -34,8 +34,10 @@ export interface InsightsCardProps {
   dc: DensityClasses;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only card. */
   actions?: InsightActions;
-  /** Id of the insight (if any) whose AI recommendation is generating (#6B SP2). */
-  generatingId?: number | null;
+  /** Whether an AI insight recommendation is generating (#6B SP2) — GLOBAL. */
+  busy?: boolean;
+  /** Aborts the in-flight recommendation generate. */
+  onCancelGenerate?: () => void;
   aiEnabled?: boolean;
   /** Deep-link to the insight's entity (only rendered when `entityRef` is set). */
   onOpen?: (ref: InsightEntityRef) => void;
@@ -49,7 +51,8 @@ export function InsightsCard({
   lang,
   dc,
   actions,
-  generatingId,
+  busy,
+  onCancelGenerate,
   aiEnabled,
   onOpen,
   isPopout,
@@ -131,7 +134,8 @@ export function InsightsCard({
                         title={title}
                         lang={lang}
                         actions={actions}
-                        generatingId={generatingId}
+                        busy={busy}
+                        onCancelGenerate={onCancelGenerate}
                         aiEnabled={aiEnabled}
                       />
                     </>

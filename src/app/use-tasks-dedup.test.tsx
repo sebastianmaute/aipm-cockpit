@@ -60,22 +60,37 @@ function renderHarness(props: HarnessProps = {}) {
   );
 }
 
+// The trigger's IDLE accessible name, matched EXACTLY. It was a
+// `/deduplicate & unify tasks/i` regex until the trigger became the shared
+// AiTriggerButton; a regex is the wrong tool here now, because the control
+// RENAMES to "Stop" while a call is in flight and a loose matcher tuned to
+// accept both states would stop distinguishing them.
+const DEDUP_TRIGGER = "Deduplicate & unify";
+
 describe("useTasksDedup trigger accessible name", () => {
   beforeEach(() => { vi.clearAllMocks(); });
   afterEach(() => { vi.restoreAllMocks(); });
 
+  // ★ The names below lost the trailing word "tasks" when this trigger became
+  //   the shared AiTriggerButton: that component pins the accessible name TO
+  //   the visible label (WCAG 2.5.3), and the visible label here has always
+  //   been the shorter `taskDedup` — the longer `taskDedupTitle` was only ever
+  //   the hand-rolled aria-label/title. The VISIBLE text is unchanged, and
+  //   `taskDedupTitle` still names the review modal.
+  // ★ The QUALIFIER half is untouched and is the half that matters: this hook
+  //   mounts twice and the classic layout renders both triggers in one DOM.
   it("qualifies the trigger's accessible name with the view when triggerQualifier is set", () => {
     renderHarness({ triggerQualifier: "Gantt" });
-    const button = screen.getByRole("button", { name: "Deduplicate & unify tasks – Gantt" });
-    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify tasks – Gantt");
-    expect(button.getAttribute("title")).toBe("Deduplicate & unify tasks – Gantt");
+    const button = screen.getByRole("button", { name: "Deduplicate & unify – Gantt" });
+    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify – Gantt");
+    expect(button.getAttribute("title")).toBe("Deduplicate & unify – Gantt");
   });
 
   it("leaves the trigger's accessible name unqualified when triggerQualifier is absent", () => {
     renderHarness();
-    const button = screen.getByRole("button", { name: "Deduplicate & unify tasks" });
-    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify tasks");
-    expect(button.getAttribute("title")).toBe("Deduplicate & unify tasks");
+    const button = screen.getByRole("button", { name: "Deduplicate & unify" });
+    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify");
+    expect(button.getAttribute("title")).toBe("Deduplicate & unify");
   });
 });
 
@@ -104,7 +119,7 @@ describe("useTasksDedup (plan-then-apply)", () => {
     const onTasks = vi.fn();
     renderHarness({ onTasks });
 
-    fireEvent.click(screen.getByRole("button", { name: /deduplicate & unify tasks/i }));
+    fireEvent.click(screen.getByRole("button", { name: DEDUP_TRIGGER }));
 
     await waitFor(() => expect(screen.getByText(/same deliverable/i)).toBeTruthy());
     // Preview is open — but no task mutation has happened yet.
@@ -128,8 +143,13 @@ describe("useTasksDedup (plan-then-apply)", () => {
           proposalCalls: vi.mocked(call.runDedupProposal).mock.calls.length,
           triggerDisabled:
             screen
-              .queryByRole("button", { name: /deduplicate & unify tasks/i })
+              .queryByRole("button", { name: DEDUP_TRIGGER })
               ?.hasAttribute("disabled") ?? null,
+          // ★ The trigger RENAMES to "Stop" while the billed call is in flight
+          //   (shared AiTriggerButton), so a null above means "busy" just as
+          //   often as it means "absent". Capture the two apart — a diagnostic
+          //   that conflates them is the §73 trap in a different costume.
+          triggerShowingStop: !!screen.queryByRole("button", { name: "Stop" }),
           mergeButtonPresent: !!screen.queryByRole("button", { name: /merge selected/i }),
           captureSpyCalls: captureSpy.mock.calls.length,
           ids: screen.queryByTestId("ids")?.textContent ?? null,
@@ -137,7 +157,7 @@ describe("useTasksDedup (plan-then-apply)", () => {
       );
     };
 
-    fireEvent.click(screen.getByRole("button", { name: /deduplicate & unify tasks/i }));
+    fireEvent.click(screen.getByRole("button", { name: DEDUP_TRIGGER }));
     // The wait and the assertion must be the SAME condition. The old gate was
     // getByText(/dup/i), which matched the trigger's own TEXT — not its
     // accessible name; getByText never consults one — so it resolved while the
@@ -156,7 +176,7 @@ describe("useTasksDedup (plan-then-apply)", () => {
   it("shows a 'no duplicates' toast and no modal when the model returns no groups", async () => {
     vi.mocked(call.runDedupProposal).mockResolvedValue([]);
     renderHarness();
-    fireEvent.click(screen.getByRole("button", { name: /deduplicate & unify tasks/i }));
+    fireEvent.click(screen.getByRole("button", { name: DEDUP_TRIGGER }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.stringMatching(/no duplicate/i)));
     expect(screen.queryByText(/merge selected/i)).toBeNull();
   });
@@ -169,7 +189,7 @@ describe("useTasksDedup (plan-then-apply)", () => {
     ]);
     const onTasks = vi.fn();
     renderHarness({ onTasks });
-    fireEvent.click(screen.getByRole("button", { name: /deduplicate & unify tasks/i }));
+    fireEvent.click(screen.getByRole("button", { name: DEDUP_TRIGGER }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.stringMatching(/no duplicate/i)));
     expect(onTasks).not.toHaveBeenCalled();
     expect(screen.queryByText(/merge selected/i)).toBeNull();
@@ -181,7 +201,7 @@ describe("useTasksDedup (plan-then-apply)", () => {
   it("shows no error toast when the proposal rejects with a plain AbortError shape", async () => {
     vi.mocked(call.runDedupProposal).mockRejectedValue({ name: "AbortError" });
     renderHarness();
-    fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify tasks" }));
+    fireEvent.click(screen.getByRole("button", { name: "Deduplicate & unify" }));
     await waitFor(() => expect(call.runDedupProposal).toHaveBeenCalled());
     expect(showToast).not.toHaveBeenCalled();
     // The hook returns at `isAbortError(e)` — BEFORE the `setPhase("idle")`

@@ -80,9 +80,11 @@ interface DashboardPanelProps {
   density?: DashboardDensity;
   /** Insights lifecycle callbacks (#6B SP1/SP2). Forwarded to InsightsCard. */
   insightActions?: InsightActions;
-  /** Id of the insight (if any) whose AI recommendation is generating (#6B
-   *  SP2) — forwarded to InsightsCard for a busy state. */
-  insightGeneratingId?: number | null;
+  /** Whether an AI insight recommendation is generating (#6B SP2) — the GLOBAL
+   *  flag, forwarded to InsightsCard for the shared Stop affordance. */
+  insightRecommendBusy?: boolean;
+  /** Aborts the in-flight recommendation generate. */
+  onCancelInsightRecommendation?: () => void;
   insightAiEnabled?: boolean;
 }
 
@@ -317,7 +319,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 lang={lang}
                 dc={dc}
                 actions={props.insightActions}
-                generatingId={props.insightGeneratingId}
+                busy={props.insightRecommendBusy}
+                onCancelGenerate={props.onCancelInsightRecommendation}
                 aiEnabled={props.insightAiEnabled}
                 onOpen={openInsightEntity}
                 isPopout={props.isPopout}

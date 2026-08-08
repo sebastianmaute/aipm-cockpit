@@ -6171,3 +6171,58 @@ same review is the other candidate, and is announced by more AT.
 ★ Reproduce: seed a project, open Settings, activate the AI Assistant branch, THEN narrow the
 viewport to 760px. Narrowing first does not reproduce it — the shell drops the rail's labels at that
 width before the branch renders, so there is no group to reflow.
+
+## 113. The background insight-recommendation runner has no `AbortController` at all — open, billed
+
+Found 2026-08-08 while auditing the AI trigger sites for the shared `AiTriggerButton` (slice 3's
+"every AI trigger offers Stop"). The slice covers TRIGGERS; this path is not one, which is why it is
+recorded here rather than fixed there.
+
+`use-insight-recommend-runner.ts:84` awaits `runInsightRecommendation({ apiKey, model, context,
+index, today })` inside a `for (const insight of candidates)` loop. **There is no `signal` key in
+that argument object**, and the file creates no `AbortController` anywhere — grep it. The call
+already ACCEPTS a `signal` (the on-demand sibling `use-insight-recommend.ts` passes one through
+`useAbortableAi`), so the gap is a missing thread, not a missing capability.
+
+★ Blast radius is bounded but real: `MAX_BG_RECS_PER_TICK` (`insights/insight.ts:99`) is **3**, and
+the loop is serial, so at most three billed Anthropic calls per tick run with no way to stop them —
+including across an unmount, since with no controller there is nothing for a cleanup to abort. The
+`break` on a `limit`/`auth` `AiHttpError` stops the REMAINING candidates; it cannot stop the one in
+flight.
+
+★★ Consequence for the prose: after slice 3, "every AI TRIGGER in this app is cancellable" is true
+and **"every AI CALL in this app is cancellable" is not**. Do not let the second sentence into
+AGENTS.md, a CHANGELOG entry or a commit body — this entry exists because the slice's own commit
+message was corrected for exactly that overclaim.
+
+★ Likely fix: give the runner an `abortRef`, pass `controller.signal` into the call, abort on
+unmount, and treat `isAbortError` as a silent stop (the established shape — `use-abortable-ai.ts`).
+Left open because the runner is background/unattended: there is no user-facing control to hang a
+Stop on, so the design question (does an unattended tick get cancelled on unmount only, or does the
+Insights view grow a "stop background recommendations" affordance?) is a slice of its own.
+
+## 114. `use-tasks-dedup.tsx` never aborts its in-flight call on unmount — open, billed
+
+Found 2026-08-08, same audit as §113.
+
+`use-tasks-dedup.tsx` owns an `abortRef` and aborts correctly in `reset()` (`:89`), but the file
+contains **no `useEffect` at all** — `grep -n "useEffect" src/app/use-tasks-dedup.tsx` returns
+nothing. So when the pane holding the trigger unmounts mid-`"thinking"` the billed
+`runDedupProposal` call keeps running to completion with its result discarded.
+
+★ Measured against its peers, and the peer set is smaller than it looks. Exactly THREE files carry
+the cleanup-only unmount abort — `useEffect(() => () => abortRef.current?.abort(), [])` —
+`use-abortable-ai.ts:22`, `use-alloc-plan.tsx:112`, `use-raci-suggest.tsx:144`. The fourth
+controller-owning hook, `use-inline-entity-edit.ts:97`, has a `paneActive === false` effect that
+aborts on DEACTIVATION but returns no cleanup, so it does not abort on unmount either. Do not repeat
+the "all the others already do this" framing — two of five do not.
+
+★★ The reach is larger here than for the other triggers: `useTasksDedup` is mounted TWICE
+(`tasks-section.tsx`, `gantt-view.tsx`, see `dedup-trigger-qualifier.test.tsx`), and in the modern
+shell a view UNMOUNTS on every navigation away. Starting a dedup and switching tabs is the ordinary
+path, not an edge case.
+
+★ Fix is one line beside the existing `reset` — the cleanup-only shape above, which sets no state
+and so stays clear of the `react-hooks/set-state-in-effect` ban. Left open only because slice 3's
+task 8 was scoped to replacing the rendered control and was explicitly forbidden from changing any
+feature's cancel semantics.
