@@ -78,6 +78,33 @@ describe("buildBucketPeopleRows", () => {
 
   // ★★ THE TRAP: a fixture with byResource present everywhere cannot tell
   //    `null` from `0`. This period deliberately has NO breakdown.
+  // ★★ The role line these rows explain gets its budget from
+  //    `allocationPlannedHours`, which SKIPS `isExternal` resources. Nothing
+  //    stops an allocation naming one, so a planned figure here for an external
+  //    would make the breakdown sum to MORE than the line above it under
+  //    budget-follows-plan. The map deliberately CARRIES a figure for id 5 —
+  //    otherwise the assertion would pass on a plain lookup miss and say nothing
+  //    about the exclusion.
+  it("gives an EXTERNAL plan-line member null planned, mirroring allocationPlannedHours", () => {
+    const rows = buildBucketPeopleRows({
+      allocation: { roleId: 10, resourceIds: [1, 5] },
+      resources: [...resources, { id: 5, firstName: "Ext", lastName: "", roleId: 10, isExternal: true }],
+      actualsByPeriod: { "2026-01": cell({ 5: { hours: 7, billableHours: 7 } }) },
+      plannedByResourcePeriod: { 1: { "2026-01": 8 }, 5: { "2026-01": 8 } },
+      periods: PERIODS,
+    });
+    const ext = rows.find((r) => r.resourceId === 5)!;
+    // Still ON the plan line and still shows what they booked — only the budget
+    // figure is withheld, because that is the only axis the role row excludes.
+    expect(ext.hasPlanLine).toBe(true);
+    expect(ext.bookedTotal).toBe(7);
+    expect(ext.planned["2026-01"]).toBeNull();
+    expect(ext.plannedTotal).toBeNull();
+    // The INTERNAL member on the same line is untouched — proves the exclusion
+    // is scoped to the external and did not simply blank the whole allocation.
+    expect(rows.find((r) => r.resourceId === 1)!.plannedTotal).toBe(8);
+  });
+
   it("yields NULL booked — never 0 — for a period whose cell has no byResource", () => {
     const rows = buildBucketPeopleRows({
       allocation: { roleId: 10, resourceIds: [1] },

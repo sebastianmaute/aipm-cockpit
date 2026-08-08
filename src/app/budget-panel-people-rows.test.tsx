@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { BucketPeopleRows, PeopleDisclosureLabel, peopleBodyId } from "./budget-panel-people-rows";
+import {
+  BucketPeopleRows, BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod, peopleBodyId,
+} from "./budget-panel-people-rows";
 import { DOT_COL_PX, TOTAL_COL_PX } from "./budget-panel-totals";
 import type { PersonRow } from "./budget-bucket-people";
+import type { Resource } from "./types";
 
 const PERIODS = [{ key: "2026-01", start: "2026-01-01", end: "2026-01-31" }];
 const ROLE_WIDTH = 180;
@@ -95,6 +98,54 @@ describe("BucketPeopleRows", () => {
   });
 });
 
+// ★★ Both 21-workday months, chosen so `(85/100) × 21 × 8` lands on
+//    142.79999999999998 — a value whose NOISE is visible in a single cell, not
+//    only in a sum. Every earlier fixture in this file uses whole numbers, which
+//    is exactly why the missing rounding survived: an exact fixture cannot see
+//    it. Re-check with `node -e` if these months ever move.
+const NOISY_PERIODS = [
+  { key: "2026-05", start: "2026-05-01", end: "2026-05-31" },
+  { key: "2026-08", start: "2026-08-01", end: "2026-08-31" },
+];
+
+const NOISY_PERSON: Resource = {
+  id: 1, firstName: "Adam", lastName: "", roleId: 10,
+  utilizationMode: "percent",
+  utilization: { "2026-05": 85, "2026-08": 85 },
+};
+
+const bookedCell = (hours: number) => ({ hours, billableHours: hours, byResource: { 1: { hours, billableHours: hours } } });
+
+describe("BucketRolePeople float noise", () => {
+  it("rounds every derived figure for display, the same way TotalsTd does", () => {
+    const planned = buildPlannedByResourcePeriod([NOISY_PERSON], [], NOISY_PERIODS, 8, new Set<string>());
+    // ★ THE ANTI-VACUITY CONTROL. Without this the test would still pass if the
+    //   capacity arithmetic ever became exact, and would then be pinning nothing.
+    //   These are the raw engine values the cells below must NOT render verbatim.
+    expect(String(planned[1]["2026-05"])).toBe("142.79999999999998");
+    expect(String(planned[1]["2026-05"] + planned[1]["2026-08"])).toBe("285.59999999999997");
+    // 0.1 + 0.2 — the booked axis is a sum too, and carries the same class of noise.
+    expect(String(0.1 + 0.2)).toBe("0.30000000000000004");
+
+    const { container } = render(
+      <table>
+        <BucketRolePeople
+          bucketId={1}
+          allocation={{ roleId: 10, resourceIds: [1] }}
+          resources={[NOISY_PERSON]}
+          actualsByPeriod={{ "2026-05": bookedCell(0.1), "2026-08": bookedCell(0.2) }}
+          plannedByResourcePeriod={planned}
+          periods={NOISY_PERIODS}
+          collapsed={false}
+          roleWidth={ROLE_WIDTH}
+        />
+      </table>,
+    );
+    const cells = [...container.querySelectorAll(`#${peopleBodyId(1, 10)} td`)].map((td) => td.textContent);
+    expect(cells).toEqual(["", "Adam", "0.3 / 285.6", "0.1 / 142.8", "0.2 / 142.8"]);
+  });
+});
+
 const LONG_ROLE = "Business Analyst Consultant";
 
 const renderLabel = (label = LONG_ROLE) =>
@@ -115,7 +166,7 @@ const renderLabel = (label = LONG_ROLE) =>
 describe("PeopleDisclosureLabel", () => {
   // ★★★ NONE OF THIS PROVES THE LABEL ELLIPSIZES. jsdom has no layout, so the
   //     only thing testable here is the PLUMBING the browser fix rides on. The
-  //     geometry was measured in Chromium (open-followups §116): at the 160px
+  //     geometry was measured in Chromium (open-followups §117): at the 160px
   //     default the button went 185.6px → 136px and the label span went
   //     scrollWidth 144 / clientWidth 94 with `text-overflow: ellipsis`, and
   //     the rendered glyph reads "Business Analys…". Re-measure there, not here.

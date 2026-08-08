@@ -1,5 +1,5 @@
 "use client";
-import { DOT_COL_PX, TOTAL_COL_PX } from "./budget-panel-totals";
+import { DOT_COL_PX, TOTAL_COL_PX, displayHours } from "./budget-panel-totals";
 import { buildBucketPeopleRows, type PersonRow } from "./budget-bucket-people";
 import { absencesForResource, periodCapacityHours, type Period } from "./resource-capacity";
 import { ToggleButton } from "./toggle-button";
@@ -8,6 +8,20 @@ import type { BucketPeriodCell } from "./timelog-actuals";
 import type { Absence, BucketAllocation, Resource } from "./types";
 
 const DASH = "—";
+
+/** ★★ Every figure in these rows is DERIVED — planned is `(util/100) × capacity`
+ *  summed period by period, so three months at 85% of 176h render as
+ *  448.79999999999995 — and booked is a sum of Timelog hours, which carries the
+ *  same class of noise. `budget-panel-totals.tsx` already rounds exactly this
+ *  for exactly this reason ("Mirrored plan hours are derived … and carry float
+ *  noise such as 10.559999999999999"), so its `displayHours` is REUSED rather
+ *  than re-derived: a second rounding rule that disagreed with `TotalsTd`'s
+ *  would put two different numbers for the same hours in one table, which is
+ *  worse than the noise. `null` stays the unknown dash — it is not a value to
+ *  round. These rows are read-only, so `readOnly` is always true here (rounding
+ *  a field the user is typing into fights the input; that is why the flag
+ *  exists at all). */
+const hoursText = (v: number | null): number | string => (v == null ? DASH : displayHours(v, true));
 
 /** The disclosure contract is an id shared by two elements that live ~40 lines
  *  apart, so it is minted here instead of spelled out at both call sites — a
@@ -42,7 +56,7 @@ export function PeopleDisclosureLabel({
       onToggle={onToggle}
       ariaControls={peopleBodyId(bucketId, roleId)}
       ariaLabel={`${t(lang, "budgetShowPeople")} – ${label}`}
-      // ★★ THE ELLIPSIS HAS TO LAND ON A TEXT NODE (open-followups §116). The
+      // ★★ THE ELLIPSIS HAS TO LAND ON A TEXT NODE (open-followups §117). The
       //   `<td>` around this is `truncate` and clamped to the LIVE role-column
       //   width, but `text-overflow` does not apply to an atomic inline — and
       //   this cell's only child is an inline-flex button — so the button was
@@ -187,13 +201,13 @@ export function BucketPeopleRows({
             className="sticky bg-surface px-3 py-1 text-right tabular-nums print:static"
             style={{ left: DOT_COL_PX + roleWidth, width: TOTAL_COL_PX, minWidth: TOTAL_COL_PX }}
           >
-            <span className="text-foreground">{r.bookedTotal ?? DASH}</span>
-            <span className="text-muted-foreground"> / {r.plannedTotal ?? DASH}</span>
+            <span className="text-foreground">{hoursText(r.bookedTotal)}</span>
+            <span className="text-muted-foreground"> / {hoursText(r.plannedTotal)}</span>
           </td>
           {periods.map((p) => (
             <td key={p.key} className="px-3 py-1 text-right tabular-nums">
-              <span className="text-foreground">{r.booked[p.key] ?? DASH}</span>
-              <span className="text-muted-foreground"> / {r.planned[p.key] ?? DASH}</span>
+              <span className="text-foreground">{hoursText(r.booked[p.key] ?? null)}</span>
+              <span className="text-muted-foreground"> / {hoursText(r.planned[p.key] ?? null)}</span>
             </td>
           ))}
         </tr>

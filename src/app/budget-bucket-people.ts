@@ -5,10 +5,13 @@ import type { BucketAllocation, Resource } from "./types";
 import type { BucketPeriodCell } from "./timelog-actuals";
 import type { Period } from "./resource-capacity";
 
-/** Only what membership and naming need. `Resource` carries firstName/lastName
- *  rather than a `name`, so the row's display name is DERIVED here — narrowing
- *  the input also keeps test fixtures honest instead of cast to `never[]`. */
-export type BucketPeopleResource = Pick<Resource, "id" | "firstName" | "lastName" | "roleId">;
+/** Only what membership, naming and budget-eligibility need. `Resource` carries
+ *  firstName/lastName rather than a `name`, so the row's display name is DERIVED
+ *  here — narrowing the input also keeps test fixtures honest instead of cast to
+ *  `never[]`. `isExternal` is in the Pick because the PLANNED figure depends on
+ *  it (see `build` below); a fixture that omits it is therefore stating that the
+ *  person is internal, rather than silently defaulting past the question. */
+export type BucketPeopleResource = Pick<Resource, "id" | "firstName" | "lastName" | "roleId" | "isExternal">;
 
 export interface PersonRow {
   readonly resourceId: number;
@@ -18,6 +21,10 @@ export interface PersonRow {
   /** null = the period's actuals cell carries NO per-resource breakdown, so the
    *  figure is UNKNOWN. Never conflate that with a real zero. */
   readonly booked: Readonly<Record<string, number | null>>;
+  /** null = this person contributes NO planned figure to the role line above —
+   *  either they are not on its plan (`hasPlanLine` false) or they are EXTERNAL
+   *  and therefore outside every budget figure (see `build`). Not a zero: the
+   *  hours exist, they are simply not part of what this line budgets. */
   readonly planned: Readonly<Record<string, number | null>>;
   readonly bookedTotal: number | null;
   readonly plannedTotal: number | null;
@@ -55,6 +62,19 @@ export function buildBucketPeopleRows(args: BucketPeopleArgs): readonly PersonRo
 
   const build = (res: BucketPeopleResource, hasPlanLine: boolean): PersonRow => {
     const id = res.id;
+    // ★★ These rows are read as a BREAKDOWN of the role line directly above, so
+    //    the planned axis has to answer the same question that line does — and
+    //    that line's budget comes from `effectiveBudgetHours` →
+    //    `allocationPlannedHours`, which SKIPS `isExternal` resources ("planned/
+    //    capacity-tracked elsewhere but excluded from all budget figures").
+    //    Nothing stops an allocation's `resourceIds` from naming an external, so
+    //    without this the people rows would sum to MORE than the line they
+    //    explain under budget-follows-plan. Mirrored deliberately rather than
+    //    imported: `allocationPlannedHours` needs the clock/capacity inputs this
+    //    engine is kept free of. Keep the two in step — grep that symbol.
+    //    ★ null, not 0: a fabricated zero would claim the person is planned for
+    //    nothing here, when the truth is that their plan is accounted elsewhere.
+    const plannedHere = hasPlanLine && !res.isExternal;
     const booked: Record<string, number | null> = {};
     const plannedByPeriod: Record<string, number | null> = {};
     let bookedTotal = 0;
@@ -68,7 +88,7 @@ export function buildBucketPeopleRows(args: BucketPeopleArgs): readonly PersonRo
       const cell = breakdown ? (breakdown[id]?.hours ?? 0) : null;
       booked[p.key] = cell;
       if (cell != null) { bookedTotal += cell; anyBooked = true; }
-      const plan = hasPlanLine ? (plannedByResourcePeriod[id]?.[p.key] ?? 0) : null;
+      const plan = plannedHere ? (plannedByResourcePeriod[id]?.[p.key] ?? 0) : null;
       plannedByPeriod[p.key] = plan;
       if (plan != null) plannedTotal += plan;
     }
@@ -79,7 +99,7 @@ export function buildBucketPeopleRows(args: BucketPeopleArgs): readonly PersonRo
       booked,
       planned: plannedByPeriod,
       bookedTotal: anyBooked ? bookedTotal : null,
-      plannedTotal: hasPlanLine ? plannedTotal : null,
+      plannedTotal: plannedHere ? plannedTotal : null,
     };
   };
 

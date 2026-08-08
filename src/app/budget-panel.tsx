@@ -136,9 +136,10 @@ export interface BudgetPanelProps {
   /** Per-bucket, per-period Timelog actuals carrying the `byResource` breakdown
    *  the per-person rows report as BOOKED. Optional, and its absence is not a
    *  zero: a period with no breakdown renders "—" (unknown) all the way down.
-   *  ★ NOT wired by `workspace-section` today — the aggregate lives in
-   *  `useTimelogSync` inside `timelog-panel.tsx` and in the per-device
-   *  `timelog-actuals-store` cache keyed by `projectKey`. */
+   *  ★ `workspace-section` DOES wire this — from the per-device
+   *  `timelog-actuals-store` cache (`loadActualsCache`) that `timelog-panel.tsx`
+   *  writes, NOT from live sync state, so it is a DIFFERENT source from the role
+   *  row's persisted `actualHours`; see the booked-vs-role-row follow-up. */
   actualsByBucket?: ActualsByBucket;
   onChangeBuckets: (next: BudgetBucket[], meta?: BucketCommitMeta) => void;
   onSetBudgetFollowsPlan?: (v: boolean) => void;
