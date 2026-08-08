@@ -8,6 +8,8 @@ import { ABSENCE_TYPES, type Absence, type AbsenceType, type RaidItem, type Reso
 import { absenceBg, absenceLegendBg } from "./absence-style";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";
 import { DataTable } from "./data-table";
@@ -315,17 +317,19 @@ export function ResourceWorkload({
                       {t(lang, "resourcesAddAsResource")}
                     </button>
                     {onClearUnlinked && (
-                      <button
-                        type="button"
-                        aria-label={t(lang, "resourcesClearUnlinked", row.display)}
+                      <IconButton
+                        variant="danger"
+                        label={t(lang, "resourcesClearUnlinked", row.display)}
                         title={t(lang, "resourcesClearUnlinkedHint")}
                         onClick={async () => {
                           if (await confirm({ message: t(lang, "resourcesClearUnlinkedConfirm", row.display), tone: "danger" })) {
                             onClearUnlinked({ display: row.display, email: row.email, firstName: row.firstName, lastName: row.lastName });
                           }
                         }}
-                        className={`ml-1 rounded p-1 text-xs text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink ${INTERACTIVE}`}
-                      >×</button>
+                        className="ml-1"
+                      >
+                        <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                      </IconButton>
                     )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">

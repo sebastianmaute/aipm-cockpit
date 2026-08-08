@@ -20,6 +20,8 @@ import { useId, useRef, useState } from "react";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { INTERACTIVE } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 
 /** One selectable/selected entity, flattened to what the picker renders. */
 export interface LinkPickerEntry {
@@ -230,26 +232,25 @@ export function EntityLinkPicker({
                 <span className="max-w-full truncate">{entry.label}</span>
               </>
             )}
-            <button
-              type="button"
+            <IconButton
+              variant="danger"
               onClick={() => onRemove(entry.id)}
-              // ★ In the INERT branch (no onOpen) this × is the chip's only
+              // ★ In the INERT branch (no onOpen) this remove button is the chip's only
               // focusable element, so a name of just "Unlink Risk#3" leaves a
               // screen-reader user with a code and no idea what it refers to —
               // the chip's own label is unreachable. The click-through branch
               // already names the entity on the chip body, so it only needs the
               // code here (row-uniqueness) and stays terse.
-              aria-label={
+              label={
                 onOpen
                   ? `${removeLabel} ${entry.code}`
                   : `${removeLabel} ${entry.code} ${entry.label}`
               }
               // Visible tooltip stays short in both branches.
               title={removeLabel}
-              className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
             >
-              ×
-            </button>
+              <XMarkIcon aria-hidden="true" className="h-3 w-3" />
+            </IconButton>
           </span>
         ))}
       </div>

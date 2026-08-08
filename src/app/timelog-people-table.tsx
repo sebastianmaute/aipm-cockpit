@@ -9,6 +9,8 @@ import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { INTERACTIVE } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
 import type { RowSelection } from "./use-row-selection";
 import type { TimelogUser, TimelogUserLink } from "./timelog-types";
@@ -139,15 +141,22 @@ export function TimelogPeopleTable({
                   )}
                 </td>
                 <td className="py-2">
-                  <button
-                    type="button"
-                    aria-label={removeLabel}
+                  {/* `danger`, not `dangerBordered`: this unlinks ONE user, so it
+                      is the per-row remove glyph the primitive documents — muted
+                      at rest, pink on hover — matching every other converted
+                      row-remove. It drops the old neutral border and the
+                      pink-at-rest text; `dangerBordered` is reserved for a
+                      standing destructive toolbar action that wipes everything
+                      (tasks-section's Clear all is the only other call site). */}
+                  <IconButton
+                    variant="danger"
+                    label={removeLabel}
+                    title={removeLabel}
                     disabled={isPopout}
                     onClick={() => removeUsers([u.userId])}
-                    className={`rounded border border-line px-2 py-0.5 text-xs text-ui-pink-strong ${INTERACTIVE}`}
                   >
-                    ✕
-                  </button>
+                    <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                  </IconButton>
                 </td>
               </tr>
             );

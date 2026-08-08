@@ -7,8 +7,10 @@ import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useFocusTrap } from "./use-focus-trap";
 import { MODAL_BACKDROP_CLASS } from "./modal";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "./button";
+import { IconButton } from "./icon-button";
 
 export interface InlineAiEditPopoverProps {
   lang: Lang;
@@ -46,7 +48,9 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
       >
         <div className="mb-2 flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{t(lang, "inlineAiEditTitle")}</h2>
-          <button type="button" onClick={onCancel} aria-label={t(lang, "cancel")} className={`rounded-md px-2 text-muted-foreground hover:text-foreground ${INTERACTIVE}`}>✕</button>
+          <IconButton onClick={onCancel} label={t(lang, "cancel")} title={t(lang, "cancel")}>
+            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+          </IconButton>
         </div>
         <p className="mb-3 truncate text-xs text-muted-foreground"><span className="font-medium">{entityLabel}</span> · {itemTitle}</p>
 

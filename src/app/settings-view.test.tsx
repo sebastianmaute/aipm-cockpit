@@ -182,4 +182,141 @@ describe("SettingsView", () => {
     // a later normal re-open).
     expect(onSectionConsumed).toHaveBeenCalled();
   });
+
+  it("hides the AI children until the AI branch is active", () => {
+    render(<SettingsView {...makeProps()} />);
+    expect(screen.queryByRole("button", { name: t("en-US", "aiGuidesHeading") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "aiViewsTitle") })).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "scheduledJobsTitle") })).toBeNull();
+  });
+
+  it("reveals the three AI children when AI Assistant is selected", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    expect(screen.getByRole("button", { name: t("en-US", "aiGuidesHeading") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsTitle") })).toBeInTheDocument();
+  });
+
+  it("keeps the branch open while a child is the active section", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") }));
+    // Siblings stay visible, and the child is the one marked current.
+    expect(screen.getByRole("button", { name: t("en-US", "aiGuidesHeading") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("renders each AI child exactly once", () => {
+    // The main rail group is defined by EXCLUSION, so a child missing its
+    // `!r.parent` filter renders BOTH in the alphabetical main group and under
+    // its parent. That is a duplicate, not an absence — an existence assertion
+    // cannot catch it, so this counts.
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    for (const key of ["aiGuidesHeading", "aiViewsTitle", "scheduledJobsTitle"] as const) {
+      expect(screen.getAllByRole("button", { name: t("en-US", key) })).toHaveLength(1);
+    }
+  });
+
+  it("puts the open branch's children inside a group named after the parent, and top-level entries outside it", () => {
+    // The children used to be Fragment siblings of every other rail button, so
+    // `pl-6` was the ONLY hierarchy cue and a screen reader could not tell a
+    // child from the next top-level entry. There is deliberately no
+    // `aria-expanded` any more — the button cannot collapse the branch.
+    render(<SettingsView {...makeProps()} />);
+    const ai = screen.getByRole("button", { name: t("en-US", "settingsSectionAi") });
+    expect(ai).not.toHaveAttribute("aria-expanded");
+    fireEvent.click(ai);
+    const group = screen.getByRole("group", { name: t("en-US", "settingsSectionAi") });
+    for (const key of ["aiGuidesHeading", "aiViewsTitle", "scheduledJobsTitle"] as const) {
+      expect(group).toContainElement(screen.getByRole("button", { name: t("en-US", key) }));
+    }
+    // A peer top-level entry is NOT swept into the branch.
+    expect(group).not.toContainElement(
+      screen.getByRole("button", { name: t("en-US", "settingsSectionIntegrations") }),
+    );
+    // The parent itself labels the group; it is not a member of it.
+    expect(group).not.toContainElement(ai);
+  });
+
+  it("indents child rail buttons and leaves every top-level entry flush", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    // `-` is a non-word character, so `\b` does NOT bound a Tailwind token —
+    // `\bpl-6\b` would also match `pl-6xl`. Bound on whitespace instead.
+    const indented = /(^|\s)pl-6(\s|$)/;
+    expect(
+      screen.getByRole("button", { name: t("en-US", "aiViewsTitle") }).className,
+    ).toMatch(indented);
+    // ★ Guards the `.map((r) => renderRailButton(r))` arrow-wrapping: `.map`
+    //   passes the INDEX as the second argument, which lands in `isChild` and
+    //   indents every entry EXCEPT the first. So this must check a non-first
+    //   entry of both rail groups — Appearance/AI are index 0 in theirs and
+    //   would survive that regression.
+    for (const key of [
+      "settingsSectionAppearance",
+      "settingsSectionGeneral",
+      "settingsSectionLocalization",
+      "settingsSectionAi",
+      "settingsSectionIntegrations",
+    ] as const) {
+      expect(
+        screen.getByRole("button", { name: t("en-US", key) }).className,
+      ).not.toMatch(indented);
+    }
+  });
+
+  it("honours a deep-link straight to a child section", () => {
+    render(
+      <SettingsView {...makeProps({ requestSection: { id: "scheduledJobs", nonce: 1 } })} />,
+    );
+    expect(screen.getByRole("button", { name: t("en-US", "scheduledJobsTitle") })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // The branch opened around it, so the siblings are reachable.
+    expect(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") })).toBeInTheDocument();
+  });
+
+  it("renders the guides section when its rail entry is selected", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiGuidesHeading") }));
+    // The shared <h2> supplies the heading, so it appears as a heading, not
+    // just as the rail button label.
+    expect(
+      screen.getByRole("heading", { name: t("en-US", "aiGuidesHeading") }),
+    ).toBeInTheDocument();
+    // DECISION A: the default settings have AI off, so the section shows the
+    // enable hint rather than the guides CRUD. Pins that the gate moved with
+    // the content instead of the section rendering unconditionally.
+    expect(screen.getByText(t("en-US", "aiDisabledSectionHint"))).toBeInTheDocument();
+  });
+
+  it("renders the views section when its rail entry is selected", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") }));
+    expect(screen.getByRole("heading", { name: t("en-US", "aiViewsTitle") })).toBeInTheDocument();
+  });
+
+  it("shows the per-view AI scope list once AI is enabled", () => {
+    // The gate-off case above would pass against a section that renders
+    // nothing at all, so drive the enabled branch too.
+    render(
+      <SettingsView
+        {...makeProps({ settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true } } })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAi") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiViewsTitle") }));
+    expect(screen.getByText(t("en-US", "aiViewScopeIntro"))).toBeInTheDocument();
+  });
 });

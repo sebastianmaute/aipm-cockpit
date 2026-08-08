@@ -1,7 +1,7 @@
 // src/app/actions-panel.tsx
 "use client";
 import { useMemo, useState } from "react";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { Button } from "./button";
@@ -9,6 +9,7 @@ import { TextButton } from "./text-button";
 import { Spinner } from "./spinner";
 import { Card } from "./card";
 import { Badge } from "./badge";
+import { IconButton } from "./icon-button";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -152,14 +153,14 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, "actionAiSectionTitle")}
             </h3>
-            <button
-              type="button"
+            <IconButton
               onClick={aiAnalysis.onClear}
-              aria-label={t(lang, "actionAiDismiss")}
-              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              label={t(lang, "actionAiDismiss")}
+              title={t(lang, "actionAiDismiss")}
+              className="shrink-0"
             >
-              ✕
-            </button>
+              <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+            </IconButton>
           </div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {t(lang, "actionAiDisclaimer")}

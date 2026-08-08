@@ -467,10 +467,21 @@
     26 of 34 views carry chips (2026-08-05, reproduce:
     `grep -c "^  \"\?[a-z-]*\"\?: \[" src/app/ask-claude-prompts.ts` — or count the keys of
     `ASK_CLAUDE_PROMPTS`).
-  - **The Settings disclosure is invisible to the axe gate** — `AiViewScopeDisclosure`
-    (`settings-sections/ai-view-scope-disclosure.tsx`) lives in the AI section of Settings, and the axe
-    gate scans Settings → **General** only, so this section is never reached. Its unit tests are the only
-    coverage. It reuses `ToggleButton`'s new `variant="disclosure"` (`aria-expanded`+`aria-controls`
-    instead of `aria-pressed` — a disclosure REVEALS content, it doesn't change application state, so the
-    stateful on/off semantics don't apply).
+  - **The Settings view-scope list is invisible to the axe gate** — `AiViewsSection`
+    (`settings-sections/ai-views-section.tsx`) is its own entry in the Settings rail, nested under AI
+    Assistant, and the axe gate scans Settings → **General** only, so this section is never reached. Its
+    unit tests are the only coverage.
+    ★★ It is **no longer a disclosure**. It was `AiViewScopeDisclosure` in
+    `ai-view-scope-disclosure.tsx` and reused `ToggleButton`'s `variant="disclosure"`; that component and
+    file are GONE, and every view's scope now renders always-visible in a plain list with no per-row
+    toggle at all. `ai-views-section.test.tsx` pins the absence of any button. Do NOT reintroduce a
+    per-view expander here.
+    ★★ `variant="disclosure"` itself still exists on `ToggleButton` and remains the correct choice for a
+    genuine disclosure (`aria-expanded`+`aria-controls` instead of `aria-pressed` — a disclosure REVEALS
+    content, it doesn't change application state, so the stateful on/off semantics don't apply). But this
+    section was its **only** production consumer, so as of 2026-08-07 the variant has **no call site
+    outside `toggle-button.tsx` itself** (reproduce: `grep -rln 'variant="disclosure"' src/app
+    --include=*.tsx | grep -v test`). It is kept deliberately, not by oversight — deleting it would mean
+    the next real disclosure gets hand-rolled `aria-expanded`, which is the failure this variant exists to
+    prevent. Do not "clean it up" as dead code.
 

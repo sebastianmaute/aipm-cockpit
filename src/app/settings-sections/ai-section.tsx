@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { TextButton } from "../text-button";
@@ -16,17 +16,10 @@ import { FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
 import { FieldHint } from "../field-hint";
 import { AiUsagePanel } from "./ai-usage-panel";
-import { AiViewScopeDisclosure } from "./ai-view-scope-disclosure";
-import type { UseOperatingGuidesResult } from "../use-operating-guides";
-import type { OperatingGuide, GuideScope } from "../operating-guide";
-import { guidesCharCount, GUIDE_CHAR_BUDGET } from "../operating-guide";
-import { FEATURE_MODULES } from "../feature-modules";
-import type { AppMode, FeatureModuleId } from "../feature-modules";
-import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
-import { INTERACTIVE } from "../interaction-styles";
-import { Checkbox, Input, Select, Textarea } from "../form-controls";
+import { Button } from "../button";
+import { Checkbox, Input, Select } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
@@ -37,7 +30,6 @@ interface AiSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
-  operatingGuides?: UseOperatingGuidesResult;
   /** Hide the live usage bars (which need an AiUsageProvider). Set on the
    *  new-project config surface, where there is no project/usage context yet. */
   hideUsage?: boolean;
@@ -94,192 +86,14 @@ function CapInput({
   );
 }
 
-const APP_MODES: AppMode[] = ["simple", "modular", "advanced"];
-const SCOPE_VIEWS: AppView[] = allNavViews();
-
-interface GuideDraft {
-  name: string;
-  content: string;
-  priority: number;
-  scopeModes: AppMode[];
-  scopeModules: FeatureModuleId[];
-  scopeViews: AppView[];
-}
-
-function emptyDraft(): GuideDraft {
-  return { name: "", content: "", priority: 10, scopeModes: [], scopeModules: [], scopeViews: [] };
-}
-
-function draftFromGuide(g: OperatingGuide): GuideDraft {
-  return {
-    name: g.name,
-    content: g.content,
-    priority: g.priority,
-    scopeModes: (g.scope.modes ?? []) as AppMode[],
-    scopeModules: (g.scope.modules ?? []) as FeatureModuleId[],
-    scopeViews: (g.scope.views ?? []) as AppView[],
-  };
-}
-
-function draftToScope(draft: GuideDraft): GuideScope {
-  return {
-    ...(draft.scopeModes.length ? { modes: draft.scopeModes } : {}),
-    ...(draft.scopeModules.length ? { modules: draft.scopeModules } : {}),
-    ...(draft.scopeViews.length ? { views: draft.scopeViews } : {}),
-  };
-}
-
-interface GuideFormProps {
-  lang: Lang;
-  draft: GuideDraft;
-  onChange: (d: GuideDraft) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  busy: boolean;
-}
-
-function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormProps) {
-  function toggleMode(mode: AppMode) {
-    const next = draft.scopeModes.includes(mode)
-      ? draft.scopeModes.filter((m) => m !== mode)
-      : [...draft.scopeModes, mode];
-    onChange({ ...draft, scopeModes: next });
-  }
-
-  function toggleModule(id: FeatureModuleId) {
-    const next = draft.scopeModules.includes(id)
-      ? draft.scopeModules.filter((m) => m !== id)
-      : [...draft.scopeModules, id];
-    onChange({ ...draft, scopeModules: next });
-  }
-
-  function toggleView(view: AppView) {
-    const next = draft.scopeViews.includes(view)
-      ? draft.scopeViews.filter((v) => v !== view)
-      : [...draft.scopeViews, view];
-    onChange({ ...draft, scopeViews: next });
-  }
-
-  return (
-    <div className="mt-2 flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
-      <label className="block">
-        <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuideName")}</span>
-        <Input
-          type="text"
-          size="xs"
-          value={draft.name}
-          onChange={(e) => onChange({ ...draft, name: e.target.value })}
-          className="w-full"
-        />
-      </label>
-      <label className="block">
-        <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuideContent")}</span>
-        <Textarea
-          value={draft.content}
-          rows={6}
-          size="xs"
-          onChange={(e) => onChange({ ...draft, content: e.target.value })}
-          className="w-full"
-        />
-      </label>
-      <label className="block">
-        <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuidePriority")}</span>
-        <Input
-          type="number"
-          size="xs"
-          min={1}
-          step={1}
-          value={draft.priority}
-          onChange={(e) => {
-            const n = parseInt(e.target.value, 10);
-            onChange({ ...draft, priority: Number.isFinite(n) && n > 0 ? n : draft.priority });
-          }}
-          className="w-24"
-        />
-      </label>
-      <fieldset>
-        <legend className="mb-1 text-xs text-muted-foreground">
-          {draft.scopeModes.length === 0 &&
-          draft.scopeModules.length === 0 &&
-          draft.scopeViews.length === 0
-            ? t(lang, "aiGuideScopeAny")
-            : t(lang, "aiGuideScopeModes")}
-        </legend>
-        <div className="flex flex-wrap gap-3">
-          {APP_MODES.map((mode) => (
-            <label key={mode} className="flex items-center gap-1 text-xs text-foreground">
-              <Checkbox
-                aria-label={mode}
-                checked={draft.scopeModes.includes(mode)}
-                onChange={() => toggleMode(mode)}
-              />
-              {mode}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend className="mb-1 text-xs text-muted-foreground">{t(lang, "aiGuideScopeModules")}</legend>
-        <div className="flex flex-wrap gap-3">
-          {FEATURE_MODULES.map((m) => (
-            <label key={m.id} className="flex items-center gap-1 text-xs text-foreground">
-              <Checkbox
-                aria-label={t(lang, m.labelKey)}
-                checked={draft.scopeModules.includes(m.id)}
-                onChange={() => toggleModule(m.id)}
-              />
-              {t(lang, m.labelKey)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend className="mb-1 text-xs text-muted-foreground">{t(lang, "aiGuideScopeViews")}</legend>
-        <div className="flex flex-wrap gap-3">
-          {SCOPE_VIEWS.map((view) => (
-            <label key={view} className="flex items-center gap-1 text-xs text-foreground">
-              <Checkbox
-                aria-label={t(lang, navLabelKey(view))}
-                checked={draft.scopeViews.includes(view)}
-                onChange={() => toggleView(view)}
-              />
-              {t(lang, navLabelKey(view))}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <div className="mt-1 flex gap-2">
-        <button
-          type="button"
-          disabled={busy || !draft.name.trim()}
-          onClick={onSave}
-          className={`rounded-md border border-line bg-ui-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
-        >
-          {t(lang, "aiGuideSave")}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface ${INTERACTIVE}`}
-        >
-          {t(lang, "aiGuideCancel")}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage }: AiSectionProps) {
+export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const behaviourHeadingId = useId();
   const confirm = useConfirm();
   const showToast = useToastContext();
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = settings.ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
-
-  // Guide form state: null = closed, "add" = new guide, string id = editing existing
-  const [formMode, setFormMode] = useState<null | "add" | string>(null);
-  const [draft, setDraft] = useState<GuideDraft>(emptyDraft);
 
   // API-key at-rest wrap mode + passphrase entry (with a confirm field so a typo
   // can't silently lock the key under an unknown passphrase).
@@ -365,48 +179,6 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
 
   const keyPassphraseMismatch = keyPassphrase !== "" && keyConfirm !== "" && keyPassphrase !== keyConfirm;
 
-  const og = operatingGuides;
-
-  function openAdd() {
-    setDraft(emptyDraft());
-    setFormMode("add");
-  }
-
-  function openEdit(g: OperatingGuide) {
-    setDraft(draftFromGuide(g));
-    setFormMode(g.id);
-  }
-
-  function closeForm() {
-    setFormMode(null);
-  }
-
-  async function handleSave() {
-    if (!og) return;
-    if (formMode === "add") {
-      await og.create(draft.name.trim(), draft.content, {
-        priority: draft.priority,
-        scope: draftToScope(draft),
-      });
-    } else if (formMode !== null) {
-      const existing = og.guides.find((g) => g.id === formMode);
-      if (existing) {
-        await og.update({
-          ...existing,
-          name: draft.name.trim(),
-          content: draft.content,
-          priority: draft.priority,
-          scope: draftToScope(draft),
-        });
-      }
-    }
-    closeForm();
-  }
-
-  const overBudget =
-    og != null &&
-    guidesCharCount(og.guides.filter((g) => g.enabled)) > GUIDE_CHAR_BUDGET;
-
   return (
     <div className="mb-4">
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
@@ -474,26 +246,26 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
             {keyPassphraseMismatch && (
               <Banner severity="error">{t(lang, "secretPassphraseMismatch")}</Banner>
             )}
-            <button
-              type="button"
+            <Button
+              className="self-start whitespace-nowrap"
               disabled={!settings.ai.apiKey.trim() || !keyPassphrase || keyPassphrase !== keyConfirm}
               onClick={handleLockConfirm}
-              className={`self-start whitespace-nowrap rounded-md border border-line bg-ui-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "secretPassphraseSave")}
-            </button>
+            </Button>
             <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
           </div>
         )}
         {keyStored && (
-          <button
-            type="button"
+          <Button
+            size="xs"
+            variant="destructive"
+            className="mt-2"
             onClick={handleRemoveSecret}
             title={t(lang, "secretPassphraseRemoveHint")}
-            className={`mt-2 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, "secretPassphraseRemove")}
-          </button>
+          </Button>
         )}
       </div>
       <label className="mt-2 block">
@@ -598,12 +370,40 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
       {/* Live usage bars — sourced from AiUsageProvider */}
       {!hideUsage && <AiUsagePanel lang={lang} sessionCap={sessionCap} weeklyCap={weeklyCap} />}
 
-      {/* Operating guides */}
-      <div className="mt-4 border-t border-line pt-4">
-        <p className="text-sm font-medium text-foreground">{t(lang, "aiGuidesHeading")}</p>
-        <FieldHint className="mt-1">{t(lang, "aiGuidesDesc")}</FieldHint>
-
-        {/* Master toggle */}
+      {/* Assistant behaviour. These sat under the "Operating guides" heading
+          but have nothing to do with guides — the guides extraction surfaced
+          the mis-grouping rather than carrying it along. */}
+      {/* ★ `role="group"` + `aria-labelledby`, NOT a bare <p> and NOT an <h3>.
+          The <p> the guides extraction took with it labelled this block
+          VISUALLY only — settings-view supplies a shared <h2>, but
+          settings-menu.tsx, backend-setup-wizard.tsx and project-empty-state.tsx
+          mount AiSection with no heading at all, so for AT the four settings sat
+          in an unlabeled generic on three surfaces. An <h3> would fix the
+          semantics but has no <h2> ancestor on exactly those three surfaces,
+          tripping axe's heading-order rule; the group carries the name without
+          claiming a position in the document outline. `useId` because AiSection
+          is mounted by four different surfaces and a literal id could collide. */}
+      <div
+        role="group"
+        aria-labelledby={behaviourHeadingId}
+        className="mt-4 border-t border-line pt-4"
+      >
+        <p id={behaviourHeadingId} className="text-sm font-medium text-foreground">
+          {t(lang, "aiBehaviourHeading")}
+        </p>
+        {/* ★★ Ground-in-guides is DELIBERATELY rendered here AND in
+            ai-guides-section.tsx. The guides section is only reachable from the
+            settings rail, but THREE surfaces mount AiSection outside it —
+            settings-menu.tsx, backend-setup-wizard.tsx's AI step and
+            project-empty-state.tsx — and none of them has any other route to
+            this setting. It silently vanished from all three when the guides
+            block was extracted, because nothing pinned it.
+            Duplication is safe rather than merely tolerable: settings-view
+            mounts exactly ONE `active` section, so the two copies are never in
+            the DOM together (no duplicate-accessible-name collision), and both
+            bind the same `settings.ai.groundInGuides` through the same
+            `onChange`, so they cannot drift. Keep BOTH copies pinned by a
+            test — deleting either one is invisible otherwise. */}
         <label className="mt-3 flex items-center gap-2">
           <Checkbox
             aria-label={t(lang, "aiGroundInGuides")}
@@ -689,92 +489,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
             }
           />
         )}
-
-        {og != null && (
-          <>
-            {overBudget && (
-              <Banner severity="error" className="mt-2">
-                {t(lang, "aiGuideBudgetWarning")}
-              </Banner>
-            )}
-
-            {/* Guide list */}
-            <ul className="mt-3 flex flex-col gap-2">
-              {og.guides.map((g) => (
-                <li key={g.id} className="rounded-md border border-line bg-surface p-2">
-                  {formMode === g.id ? (
-                    <GuideForm
-                      lang={lang}
-                      draft={draft}
-                      onChange={setDraft}
-                      onSave={() => { void handleSave(); }}
-                      onCancel={closeForm}
-                      busy={og.busy}
-                    />
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="flex-1 text-xs font-medium text-foreground">{g.name}</span>
-                      {g.builtIn && (
-                        <span className="rounded bg-surface px-1.5 py-0.5 text-xs text-muted-foreground ring-1 ring-line">
-                          {t(lang, "aiGuideBuiltInBadge")}
-                        </span>
-                      )}
-                      <label className="flex items-center gap-1 text-xs text-foreground">
-                        <Checkbox
-                          aria-label={`${t(lang, "aiGuideEnabled")} – ${g.name}`}
-                          checked={g.enabled}
-                          onChange={() => { void og.update({ ...g, enabled: !g.enabled }); }}
-                        />
-                        {t(lang, "aiGuideEnabled")}
-                      </label>
-                      <button
-                        type="button"
-                        aria-label={`${t(lang, "aiGuideEdit")} – ${g.name}`}
-                        onClick={() => openEdit(g)}
-                        className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-foreground ${INTERACTIVE}`}
-                      >
-                        {t(lang, "aiGuideEdit")}
-                      </button>
-                      {!g.builtIn && (
-                        <button
-                          type="button"
-                          aria-label={`${t(lang, "aiGuideDelete")} – ${g.name}`}
-                          onClick={() => { void og.remove(g.id); }}
-                          className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ui-pink-strong ${INTERACTIVE}`}
-                        >
-                          {t(lang, "aiGuideDelete")}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-
-            {/* Add guide */}
-            {formMode === "add" ? (
-              <GuideForm
-                lang={lang}
-                draft={draft}
-                onChange={setDraft}
-                onSave={() => { void handleSave(); }}
-                onCancel={closeForm}
-                busy={og.busy}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={openAdd}
-                className={`mt-3 rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground ${INTERACTIVE}`}
-              >
-                {t(lang, "aiGuideAdd")}
-              </button>
-            )}
-          </>
-        )}
       </div>
-
-      <AiViewScopeDisclosure lang={lang} />
         </>
       )}
     </div>

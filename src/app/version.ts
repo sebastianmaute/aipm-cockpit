@@ -2,15 +2,16 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.222.0";
-export const APP_BUILD_DATE = "2026-08-07"; // 0.222.0: an over-cap document load is disclosed, and saving pauses (Charnas)
+export const APP_VERSION = "0.223.0";
+export const APP_BUILD_DATE = "2026-08-08"; // 0.223.0: the settings rail nests, and icon-only controls say what they do (Okorafor)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.222.x line is "Charnas" (Suzy McKee Charnas, science-fiction author).
- *  ★ 0.221.0 "Kavan" shipped on main WHILE this branch was in review, so this
- *  slice renumbered from 0.221.0 to 0.222.0 at merge time. Fetch before
- *  bumping — a codename is unique per minor line and two branches picking the
- *  same number is not something any gate here checks. */
-export const APP_MILESTONE = "Charnas";
+ *  0.223.x line is "Okorafor" (Nnedi Okorafor, science-fiction and fantasy author).
+ *  ★ Fetch before bumping. 0.221.0 "Kavan" shipped on main while the 0.222.0
+ *  branch was in review and forced a renumber at merge time; this line was
+ *  picked after a fetch that had already moved main seven commits. A codename
+ *  is unique per minor line and no gate here checks either the number or the
+ *  name — the only defence is looking at CHANGELOG.md first. */
+export const APP_MILESTONE = "Okorafor";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -270,4 +271,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0219",
   "versionHighlight0220",
   "versionHighlight0222",
+  "versionHighlight0223",
 ] as const;

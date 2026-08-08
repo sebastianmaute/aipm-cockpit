@@ -117,10 +117,39 @@ describe("ResourceEditModal", () => {
     const onSave = vi.fn();
     setupFull({ onSave });
     fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    // ★★ This assertion DISCRIMINATES — it fails on both the `ghost` default the
+    // conversion plan stated AND on the pre-change markup. The hand-rolled original
+    // did NOT carry this recipe: `git show f6e85d55:src/app/resource-edit-modal.tsx`
+    // shows `rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink`
+    // — `hover:text-ui-pink`, not `hover:text-ui-pink-strong`.
+    // ★ So the conversion CHANGED the hover token: `--ui-pink` (#c24a76) →
+    // `--ui-pink-strong` (#a53f64), darker and AA-safer. An improvement, but a real
+    // change, not a like-for-like port — four controls in this batch moved the same
+    // way (reproduce: `git diff f6e85d55..HEAD -- src/app | grep -E
+    // "^-.*hover:text-ui-pink\b" | grep -v pink-strong`). Do not describe any of them
+    // as "already carried this recipe".
+    // ★ `(^|\s)…(\s|$)`, never `\b` — `-` is a non-word character, so `\b` sits
+    // INSIDE a hyphenated token and `\bhover:text-ui-pink-strong\b` would also
+    // match `dark:hover:text-ui-pink-stronger`. (`\b` does bound a standalone
+    // token; it fails only when the token is a prefix of a longer one.)
+    expect(screen.getByRole("button", { name: /remove email 1/i }).className).toMatch(
+      /(^|\s)hover:text-ui-pink-strong(\s|$)/,
+    );
     const emailInputs = screen.getAllByRole("textbox", { name: /additional emails/i });
     fireEvent.change(emailInputs[0], { target: { value: " alt@x.com " } });
     fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
     expect(onSave.mock.calls[0][0]).toMatchObject({ emails: ["alt@x.com"] });
+  });
+
+  it("removes an additional email row via its per-row remove button", () => {
+    // ★ Behavioural pin for the converted per-row remove: the row must actually
+    // disappear. The variant assertion above proves it still LOOKS destructive;
+    // this proves it still DOES something. Both were unexercised before.
+    setupFull();
+    fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    expect(screen.getAllByRole("textbox", { name: /additional emails/i })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /remove email 1/i }));
+    expect(screen.queryAllByRole("textbox", { name: /additional emails/i })).toHaveLength(0);
   });
 
   it("saves the External flag when checked", () => {

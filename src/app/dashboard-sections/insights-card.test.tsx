@@ -94,6 +94,42 @@ describe("InsightsCard", () => {
     expect(onDismiss).toHaveBeenCalledWith(7);
   });
 
+  // ★ "Acknowledge" and "Act" are both one-word verbs for effects the word does
+  //   not carry: acknowledging leaves the insight in the list and still OPEN
+  //   (`SURFACED_STATUSES` includes "acknowledged"), and the FIRST Act also
+  //   captures today's metric as the outcome baseline — a one-shot side effect.
+  // ★★ Act also NAVIGATES (`onActInsight` in task-manager.tsx calls requestOpen
+  //   for the insight's entityRef). That omission mattered more than the others:
+  //   the adjacent "Open" button exists solely to navigate, so a hint silent on
+  //   it reads as a promise that Act stays put, and clicking Act on the
+  //   Dashboard threw the user into another view mid-triage.
+  // ★★ The expected text is hardcoded rather than read through `t(…)`: a
+  //   missing key makes `t` echo the key, so a `t`-based assertion would compare
+  //   the attribute to itself and pass over a deleted string.
+  it("titles Acknowledge and Act with the effect their one-word labels omit", () => {
+    const insight = makeInsight({ id: 7 });
+    const title = insightTitle(insight, "en-US");
+    render(
+      <InsightsCard
+        insights={[insight]}
+        lang="en-US"
+        dc={dc}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: `Acknowledge – ${title}` })).toHaveAttribute(
+      "title",
+      "Mark as seen. It stays in the list and still counts as open.",
+    );
+    expect(screen.getByRole("button", { name: `Act – ${title}` })).toHaveAttribute(
+      "title",
+      "Record that you acted and capture today's metric as the baseline for measuring the outcome; if the insight points at an item, this also opens it and leaves the current view",
+    );
+  });
+
   it("fires the deep-link handler with the entityRef when present", async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();

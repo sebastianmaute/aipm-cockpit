@@ -633,6 +633,7 @@ export function TaskFormFields({
               type="button"
               onClick={onOpenNotes}
               disabled={!onOpenNotes}
+              title={t(lang, "noteLogOpenHint")}
               className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
             >
               {/* No count: this branch renders only for an UNSAVED task, which has

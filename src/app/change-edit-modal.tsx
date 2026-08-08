@@ -32,6 +32,8 @@ import { useToastContext } from "./toast-context";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import {
   EditModalShell,
   ModalFieldError,
@@ -642,15 +644,14 @@ export function ChangeEditModal({
                     <span className="max-w-[200px] truncate">
                       {r?.title ?? ""}
                     </span>
-                    <button
-                      type="button"
+                    <IconButton
+                      variant="danger"
                       onClick={() => removeLinkedRaid(rid)}
-                      aria-label={t(lang, "changeUnlinkRaid")}
+                      label={t(lang, "changeUnlinkRaid")}
                       title={t(lang, "changeUnlinkRaid")}
-                      className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
                     >
-                      ×
-                    </button>
+                      <XMarkIcon aria-hidden="true" className="h-3 w-3" />
+                    </IconButton>
                   </span>
                 );
               })}

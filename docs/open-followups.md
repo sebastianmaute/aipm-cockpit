@@ -5948,3 +5948,226 @@ the two states, because the next reader sees a sanitizer call and stops looking.
 sample fixture does. Unmeasured in the wild — the mechanism is read from the code, not observed.
 
 ---
+## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet
+
+★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
+(main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
+main took 105–108 as well. Every commit message on that branch says §103 and none can be edited.
+Same two hops for §110, filed as §104; §111 was filed as §107 and has moved once.
+
+The full audit is [`docs/tooltip-inventory.md`](tooltip-inventory.md), taken 2026-08-07 on
+`176b823a` (an earlier revision said `2d31abe5`, which is a dangling pre-amend duplicate NOT in the
+branch — `git merge-base --is-ancestor` exits 1). This entry exists so the register points at it, and so the **unapplied** half does not
+have to be rediscovered.
+
+**Scale, so nobody re-derives it.** Element-level, over non-test `src/app/*.tsx` (the inventory
+carries the parser that produces these — an opening tag spans lines and a `className` can contain a
+`>`, so `grep` cannot do it): **573** button-family elements, **142** carrying a `title`; **87** are
+icon- or glyph-only, of which **49** already have a `title` and **38** do not. Of those 38, **13 are
+the word `<button` inside a comment** and 2 are a primitive's own element, leaving **23 real
+controls**: **19 Class A**, **3 Class B**, **1 blocked on i18n**.
+
+★★ **Those are SNAPSHOT numbers and the fixes have since landed — do not read 38 as today's open
+surface.** At the snapshot the split was 573 / 142 titled / 87 icon-only / 49 titled / 38 untitled;
+after Tasks 14 and 16 it is 573 / 176 / 87 / 70 / **17**. The attribute-level `grep -rho 'title='`
+moved 388 → 422. "So nobody re-derives it" is about the METHOD being expensive, not about the numbers
+being current — re-run the parser in the inventory before quoting any of them as a present-tense
+count.
+★★ **AND THAT GUARD EARNED ITSELF WITHIN ONE DAY.** Every figure above reproduced EXACTLY at the
+branch tip `70395bc5` and every one of them moved when main's 98-commit document-authoring slice
+merged in on 2026-08-08. At `9927d045` the split is **583 / 178 / 88 / 70 / 17**, `grep -rho 'title='`
+is **426** (non-test), and files carrying an `aria-label` are **194**. The one number that did NOT
+move is the open surface itself: still **17** untitled icon-only controls, and
+`workspace-section-chrome.tsx` is still the only control named by `title` alone. ★★★ The parser says
+**18**, and the extra one is a PARSER ARTIFACT, not a control — see the apostrophe limitation
+recorded in the inventory's Reproduce section. `documents-history-modal.tsx` renders
+`{t(lang, "documentsRestore")}` as visible text; it is not icon-only. Do not open a row for it.
+
+**What slice 2's Task 14 applies, and what it does not.** Task 14 takes the **Class A** rows only —
+add `title={<the expression already in the accessible name>}`, zero new strings, no approval needed.
+Everything below is what remains open after it:
+
+- ★★ **Class B — 14 rows / 16 sites, each needing new EN+DE copy and row-level approval.** These are
+  the ones where the mechanical fix is *worse than nothing*: copying a bare noun into a `title`
+  produces the appearance of coverage and nobody re-opens the row. The clearest are the insights
+  verbs "Acknowledge" / "Act", where the label actively misleads — `onActInsight`
+  (`task-manager.tsx`, grep the symbol — it was `:832` when written and main's merge moved it to
+  `:840`) applies `metricAtActionPatch` on first act, a one-shot side effect the
+  word "Act" gives no hint of.
+  ★★ **RESOLVED 2026-08-07 except one row.** The user approved **13 of the 14** at row level and
+  slice 2 implements them: B2–B14. **B1 (the settings cog, `settings-menu.tsx:59`) is HELD** and is
+  the only Class B row still open. It was held for a reason worth keeping: that cog renders in the
+  **classic** `AppHeader` only — `grep -rn "SettingsMenu" src/app --include=*.tsx | grep -v test` returns just
+  `app-header.tsx` and the file itself, and it mounts at `app-header.tsx:149`, OUTSIDE the
+  `ActionMenus` element that `buildShellChrome` feeds to the modern shell's `topBarMenus` slot. The
+  modern shell is the DEFAULT layout, so most users never see this control at all. Before wording
+  its tooltip, establish the modern shell's own route to Settings — the answer may be that the
+  tooltip is not the finding here. (An earlier revision of this bullet called it "the top-bar cog",
+  which is exactly the assumption the measurement disproved.)
+- ★ **Five of the Gantt View menu's eight `ToggleButton`s carry no hint** while three do
+  (`ganttCriticalPathHint` · `ganttBaselineHint` · `ganttMilestonesInlineHint`). The split is by
+  author, not by importance. Cheapest coherence win in the set.
+- ★★ **One name defect: `workspace-section-chrome.tsx:165`.** A collapse/expand chevron with
+  `title`, `aria-expanded`, `aria-controls` and an `aria-hidden` icon — and **no `aria-label`**. Its
+  accessible name therefore comes only from `title`, the accname algorithm's last resort. **axe
+  passes it** (a name exists), so no gate will ever report it. Fix is `aria-label`, not `title`;
+  `title` is hover-only — no keyboard focus, unreachable on touch — and is never the fix for a
+  missing name. It is the only such control in the app.
+- ★★ **Fifteen hardcoded-English accessible names across nine files**, found while quoting the
+  "existing name" column (two greps, both in the inventory; the `task-editor-raid-mini.tsx` pair is
+  only half-literal and is arguably fine — "RAID" is a proper noun in the DE UI too).
+  `npx tsc --noEmit` enforces EN/DE **key parity** and structurally cannot see a string that never
+  became a key. Worst two: `create-project-wizard.tsx:389`/`:397` and
+  `settings-sections/mode-section.tsx:80`/`:88` pair a *translated* visible label with an
+  *untranslated* `aria-label`, so a German user sees "Einfach" and hears "Apply Simple preset"; and
+  `budget-panel-totals.tsx:94`/`:111` use a machine-readable test hook
+  (``aria-label={`budget-${ariaPrefix}`}``) as what a screen reader announces for every budget cell.
+  ★ `stakeholder-recipient-input.tsx:160` is Class A in every respect **except** that its name is a
+  hardcoded ``` `Remove ${name}` ```; translate it first, then it is a plain Class A row.
+
+★★ **Two sites were reported into this audit as inventory misses. Both are already `title`-complete,
+and only one of the two reports was correct** — recorded because the *mechanism* of the real miss
+will recur. `modal-header.tsx` `:77`/`:88` are genuinely absent from §102's offender tally, and not
+because a grep missed them: the file is listed in `docs/handrolled-ui-inventory.md`'s "Distribution"
+block among the thirteen whose `<button` occurrences are **subtracted as primitive internals**. Two
+hand-rolled buttons hid inside a shared component. By contrast `knowledge-panel.tsx` `:451`/`:517`
+**is** already inventoried — `handrolled-ui-inventory.md:396` lists it in the Part 2 `replace` row —
+it is merely absent from Task 12's narrower thirteen-file list. Check the wider table before calling
+anything missing.
+
+★ Nothing here is gated either. axe has no rule for a missing `title`, and the one name defect above
+is a control axe passes. The counts are reproducible with the script embedded in the inventory; the
+A/B judgement is not automatable and the inventory records every borderline call it made.
+
+---
+
+## 110. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open
+
+★ **Filed as §104** — see the renumbering note at the head of §109.
+
+Found 2026-08-07 while converting the close-button family in slice 2 (§102's programme). User
+decided it is its own slice rather than something to force inside a conversion task.
+
+`raci-chip-picker.tsx` holds the case. That ✕ is the **fifth of five sibling chips** — R / A / C / I
+plus clear — all sharing `CHIP_BASE` (`raci-chip-picker.tsx:32`, used at `:87` and `:112`), which is
+`flex h-5 w-5 … rounded-full border text-[11px]`: a 20px circle. `IconButton` hard-codes `rounded-md`
+in `BASE_CLASS` and `p-1`/`p-1.5` in `SIZE_CLASS`.
+
+★★★ **A caller `className` cannot reliably override either, and this is the part that makes it a
+primitive problem rather than a call-site one.** Tailwind resolves conflicting utilities by
+**stylesheet source order**, not by the order they appear in the class attribute — and `p-1` sorts
+AFTER `p-0`, so a caller passing `p-0` loses outright. Converting therefore yields a square,
+differently-padded chip beside four round ones.
+
+★★ **No unit test could catch that regression** — jsdom has no layout, so nothing in the suite can
+see shape or padding. It is eye-verify-only, which is precisely why the primitive should express it
+rather than each call site improvising.
+
+**Current state:** the glyph was swapped to `XMarkIcon` (that part is safe and shipped); the wrapper
+stays hand-rolled, with the reason recorded in code beside it. So this is a KNOWN, DELIBERATE
+hand-roll, not an oversight — do not "finish the conversion" without first giving the primitive a
+shape/size escape hatch.
+
+**Shape of the fix, not yet decided:** a `shape?: "square" | "circle"` and/or a `size` that can opt
+out of `SIZE_CLASS`, so `CHIP_BASE`-style controls become expressible. Whatever the API, it must keep
+`disabled` a real attribute (§the `aria-disabled` lookalike trap) and must not weaken the required
+`label`.
+
+★ A related but SEPARATE item: `knowledge-panel.tsx` `:451`/`:517` are already-`IconButton` controls
+still passing a bare `✕` child — glyph-only work in the family `roles-editor` got folded into slice
+2's Task 12. Already inventoried at `handrolled-ui-inventory.md:396`; merely outside that task's
+thirteen-file list.
+
+---
+
+## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — open, a11y
+
+★ **Filed as §107** — see the renumbering note at the head of §109.
+
+Found 2026-08-08 by a merge review, in main's code, not the branch that filed this. Filed rather
+than fixed: it belongs to the document-authoring slice, and fixing another slice's freshly-shipped
+feature from inside a settings-tooltips branch is the scope creep this register exists to avoid.
+
+`documents-list.tsx` names every per-row control with the document's title — the selection button
+(whose accessible name IS `doc.title`) plus Download / History / Rename / Duplicate / Delete, six
+controls per row. The comment above the selection button asserts the title is **"row-unique by
+construction"**.
+
+★★★ **It is not, and the comment is the defect** — a false invariant in a comment outlives the code
+it describes, because the next reader stops checking. `uniqueDocumentTitle` runs at exactly two of
+the four title-writing paths (reproduce: `grep -rn "uniqueDocumentTitle" src/app --include=*.tsx
+--include=*.ts | grep -v "\.test\."` — definition plus `kind:"create"` and `kind:"duplicate"` in
+`documents-panel.tsx`). The two that bypass it:
+
+- `commitRename` (`documents-panel.tsx`) sends the raw trimmed draft straight to
+  `mutate({kind:"rename", …})`. Rename "Q3 report (copy)" back to "Q3 report" and the collision is
+  stored.
+- `createDocument` (`use-document-tools.ts`) passes the MODEL's title through untouched —
+  `sanitizeAiDocBlocks` and the block-count checks guard the blocks, nothing guards the title. Two
+  `create_document` calls with the same title collide.
+
+`document-model.ts` holds no uniqueness check either, so nothing downstream rejects it.
+
+★★ **The axe gate cannot catch this and being in `A11Y_VIEWS` does not help.** Documents IS scanned
+and `e2e/seed.ts` DOES seed two documents — with DISTINCT titles, so the duplicate names never
+render at scan time. This is the exact pattern AGENTS.md warns about under the a11y gate ("N
+identical labels is a WCAG 2.4.6 fail, but axe can PASS it when the seed renders only one row").
+Six duplicate-name pairs in one list is what a speech-input user hits when they say "click Delete
+Q3 report" and nothing resolves.
+
+★ **main's own newer code states the opposite standard**, which is why this reads as an oversight
+rather than a decision: `documents-history-modal.tsx` ("title+timestamp collides on real data. Only
+the version id cannot") and `chat-tool-block.tsx` both qualify by id. The History button in
+`documents-list.tsx` is itself NEW on main — the hole was left open in the one surface that was
+extended rather than written fresh.
+
+### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims
+
+`chat-tool-block.tsx` qualifies its card controls with ` – #${docId}` and the comment gives two
+reasons: two cards can carry the same title "either because the same document was touched twice in
+one conversation or because two documents are genuinely named alike". **In the first of those the
+id is the same too**, so the qualifier produces identical names — `create_document` then
+`update_document` on one document, or two successive `update_document` calls, is the ordinary
+write-then-revise pattern and puts two cards in the transcript.
+
+★ Graded lower deliberately: both cards' buttons act on `liveDoc`, the CURRENT document, so the
+duplicate names sit on functionally identical controls — a far weaker 2.4.6 problem than the list
+above. **The part worth fixing is the RATIONALE**, which is recorded as proof that collision is
+impossible, is not, and has already been cited by `documents-history-modal.tsx` as precedent.
+
+---
+
+## 112. The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — open, UX
+
+Found 2026-08-08 by an eye-verify pass on a seeded Playwright run (Chromium, a fresh dev server on
+`PORT=3100`). That is the only place it is visible: jsdom has no layout, and the axe gate scans one
+desktop viewport and has no rule for wrap order.
+
+`settings-view.tsx` renders each rail branch as a real box — `<div role="group" aria-label={…}
+className="flex flex-col gap-1">`. On DESKTOP that is pixel-identical to the flat list it replaced.
+Below the nav's `flex-row flex-wrap` breakpoint the group becomes ONE flex ITEM among the rail's
+other entries, and two things follow:
+
+- The active PARENT pill stretches to the FULL HEIGHT of the group box. Measured at 760px wide it is
+  a solid ~120px tall block beside its three stacked children, because it is a row-level sibling of
+  a three-row item.
+- The children stack in a column, so unrelated TOP-LEVEL entries land on the same visual ROW as a
+  child. At 760px `Integrations`, `Information flows` and `Diagnostics` sit on the `Views` row and
+  read as AI Assistant's children. At 520px the interleaving is the same with different neighbours.
+
+★ The `<hr>` separators that carry the grouping on desktop are horizontal rules across the whole
+rail, so in the wrapped layout they no longer bound anything. The one cue that survives the reflow
+is the indent, and the interleaving defeats it.
+
+★★ This is the COST of the choice recorded when the group landed, not a regression against it.
+`display: contents` was rejected because its a11y-tree exposure is browser-version dependent and
+being ANNOUNCED is the fix the group exists to deliver. A real box announces reliably and lays out;
+a contents box lays out invisibly and may not announce. Do NOT "fix" this by reaching for it.
+
+★ Likely fix: `basis-full` on the group so it claims its own row and its children wrap within it,
+which keeps both the box and the announcement. The nested `<ul>`/`<li>` nav structure raised in the
+same review is the other candidate, and is announced by more AT.
+
+★ Reproduce: seed a project, open Settings, activate the AI Assistant branch, THEN narrow the
+viewport to 760px. Narrowing first does not reproduce it — the shell drops the rail's labels at that
+width before the branch renders, so there is no group to reflow.

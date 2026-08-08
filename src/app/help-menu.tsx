@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { QuestionMarkCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import { HelpContentPane } from "./help-content-pane";
 import { ClearableSearchInput } from "./clearable-search-input";
@@ -137,14 +137,9 @@ export function HelpMenu({ lang }: { lang: Lang }) {
                 * identically-named buttons on screen (WCAG 2.4.6). Same reason
                 * modal-header uses this key. */}
               <ResetSizeButton onClick={resetHelpSize} lang={lang} labelKey="modalResetSize" />
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label={t(lang, "close")}
-                className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
-              >
+              <IconButton onClick={() => setOpen(false)} label={t(lang, "close")} title={t(lang, "close")}>
                 <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-              </button>
+              </IconButton>
             </div>
           </div>
 

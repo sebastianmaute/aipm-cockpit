@@ -6,6 +6,8 @@ import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import type { AcquireToken } from "./use-sharepoint-browser";
 import { FOCUS_RING } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 
 export interface KnowledgeLinksFieldProps {
   value: KnowledgeLink[];
@@ -55,14 +57,18 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
               ) : (
                 <span className="flex-1 truncate text-foreground">{link.name}</span>
               )}
-              <button
-                type="button"
+              {/* Row-QUALIFIED name: N links otherwise yield N identical
+                  "Remove link" buttons (WCAG 2.4.6). The axe gate passes that
+                  whenever the seeded workspace has only one link, so the
+                  collision never renders at scan time. */}
+              <IconButton
+                variant="danger"
                 onClick={() => remove(link.url)}
-                aria-label={t(lang, "documentsRemove")}
-                className={`rounded px-1 text-ui-pink-strong hover:bg-surface-muted ${FOCUS_RING}`}
+                label={`${t(lang, "documentsRemove")} – ${link.name}`}
+                title={`${t(lang, "documentsRemove")} – ${link.name}`}
               >
-                ✕
-              </button>
+                <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+              </IconButton>
             </li>
           ))}
         </ul>

@@ -77,6 +77,7 @@ export function ComboboxChevron({
       type="button"
       onClick={onToggle}
       aria-label={t(lang, "comboToggle")}
+      title={t(lang, "comboToggle")}
       tabIndex={-1}
       disabled={disabled}
       className={className}

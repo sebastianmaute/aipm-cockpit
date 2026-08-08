@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { DataTable } from "./data-table";
@@ -221,14 +223,13 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
                 className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-foreground"
               >
                 <span>{s.name}</span>
-                <button
-                  type="button"
+                <IconButton
                   onClick={() => removePerson(s.id)}
-                  aria-label={t(lang, "raciFilterRemove", s.name)}
-                  className={`inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  label={t(lang, "raciFilterRemove", s.name)}
+                  title={t(lang, "raciFilterRemove", s.name)}
                 >
-                  &times;
-                </button>
+                  <XMarkIcon aria-hidden="true" className="h-3 w-3" />
+                </IconButton>
               </span>
             ))}
           {filtered.size > 0 && (

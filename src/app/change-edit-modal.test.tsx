@@ -127,6 +127,18 @@ describe("ChangeEditModal", () => {
     expect(onSave).toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
   });
+
+  it("gives the linked-RAID unlink chip the destructive IconButton variant", () => {
+    // The chip renders off `linkedRaidIds` alone — `raid` only supplies the title —
+    // so no RAID fixture is needed to reach the control.
+    // ★ Pins the VARIANT, which no accessible-name assertion can see:
+    // `hover:text-ui-pink-strong` is unique to `danger` (`ghost` carries
+    // `hover:text-foreground`, `dangerBordered` an unprefixed `text-ui-pink-strong`).
+    renderModalFull({ draft: change({ linkedRaidIds: [5] }) });
+    expect(
+      screen.getByRole("button", { name: t("en-US", "changeUnlinkRaid") }).className,
+    ).toMatch(/\bhover:text-ui-pink-strong\b/);
+  });
 });
 
 describe("ChangeEditModal — document links", () => {

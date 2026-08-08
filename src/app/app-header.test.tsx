@@ -73,6 +73,33 @@ describe("AppHeader", () => {
     expect(aiIdx).toBeLessThan(addIdx);
   });
 
+  // The three icon-only header actions go through the shared IconButton
+  // primitive. `cursor-pointer` + `active:translate-y-px` come from
+  // IconButton's BASE_CLASS + INTERACTIVE and appear on NO hand-rolled
+  // `p-2` button in this file, so they discriminate primitive from bespoke.
+  // (The focus ring does NOT discriminate — the hand-rolled ring was already
+  // byte-identical to FOCUS_RING.)
+  it.each(["openAiAssistant", "addTaskButton", "showDueAlerts"] as const)(
+    "renders the %s header action through the IconButton primitive",
+    (key) => {
+      render(<AppHeader {...makeProps({ onOpenAiAssistant: vi.fn() })} />, { wrapper: Wrapper });
+      const btn = screen.getByRole("button", { name: t("en-US", key) });
+      expect(btn.className).toMatch(/(^|\s)cursor-pointer(\s|$)/);
+      expect(btn.className).toMatch(/(^|\s)active:translate-y-px(\s|$)/);
+      // The accessible name and the hover title both survive the conversion.
+      expect(btn).toHaveAttribute("title", t("en-US", key));
+    },
+  );
+
+  // The badge is absolutely positioned against the alerts button, so that
+  // button must keep its own positioning context through the conversion.
+  it("keeps the alerts button as the count badge's positioning context", () => {
+    render(<AppHeader {...makeProps({ bannerCount: 2 })} />, { wrapper: Wrapper });
+    const alerts = screen.getByRole("button", { name: t("en-US", "showDueAlerts") });
+    expect(alerts.className).toMatch(/(^|\s)relative(\s|$)/);
+    expect(alerts).toContainElement(screen.getByText("2"));
+  });
+
   it("renders the Ask-Claude menu when currentView and onAskClaude are provided", () => {
     render(<AppHeader {...makeProps({ currentView: "raid", onAskClaude: vi.fn() })} />, {
       wrapper: Wrapper,

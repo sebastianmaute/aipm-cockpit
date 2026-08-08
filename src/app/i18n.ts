@@ -36,6 +36,7 @@ const enUS = {
   taskHintHealth: "Red/Amber/Green status. Leave on auto, or override to set it manually.",
   notes: "Notes",
   noteLogTitle: "Notes log",
+  noteLogOpenHint: "Open the dated note log for this task",
   noteLogPlaceholder: "Write a note…",
   noteLogAuthor: "Note author",
   noteLogAdd: "Add note",
@@ -603,6 +604,12 @@ const enUS = {
   aiAssistant: "AI assistant",
   aiEnable: "Enable AI assistant",
   aiEnableHelp: "Turn on to use Claude chat, AI action suggestions, scheduled jobs, and AI project creation. Off by default.",
+  // Shown by the AI sub-sections (guides, views) that are gated on the master
+  // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help
+  // ("Turn on to use …") — an instruction the reader cannot follow from here,
+  // because neither pane holds the toggle nor says where it lives.
+  aiDisabledSectionHint:
+    "The AI assistant is switched off, so there is nothing to configure here. Turn it on under Settings → AI Assistant.",
   openAiAssistant: "AI Assistant",
   aiApiKey: "Anthropic API key",
   aiApiKeyPlaceholder: "sk-ant-...",
@@ -1072,6 +1079,11 @@ const enUS = {
   ganttShowDependencies: "Dependencies",
   ganttShowMilestones: "Milestones",
   ganttShowGrid: "Day grid",
+  ganttShowHolidaysHint: "Shade non-working days across the chart",
+  ganttShowAbsencesHint: "Shade each assignee's absences on their own row",
+  ganttShowDependenciesHint: "Draw arrows between dependent tasks",
+  ganttShowMilestonesHint: "Show milestone markers on the chart",
+  ganttShowGridHint: "Draw a dotted rule for every day",
   health: "Health",
   healthAuto: "Auto",
   healthRed: "Red",
@@ -2020,6 +2032,7 @@ const enUS = {
   settingsResetConfirmLabel: "Reset everything",
   aiAssistantTooltip: "Connect an Anthropic API key to enable the in-app AI assistant.",
   aiGuidesHeading: "Operating guides",
+  aiBehaviourHeading: "Assistant behaviour",
   aiGuidesDesc: "Operating guides are markdown documents that steer how Claude behaves as your senior project manager. Add your own, scope them to a mode, module, or view, and order them by priority. When grounding is on, Claude reads every enabled, in-scope guide.",
   aiGroundInGuides: "Ground Claude in operating guides",
   aiGuideAdd: "Add guide",
@@ -2037,7 +2050,7 @@ const enUS = {
   aiGuideScopeModules: "Modules",
   aiGuideScopeViews: "Views",
   aiGuideScopeAny: "Always on",
-  aiViewScopeTitle: "What Claude knows about each view",
+  aiViewsTitle: "Views",
   aiViewScopeIntro:
     "Claude is told what the view you are on is for. This text is sent in English regardless of your interface language.",
   aiViewScopeDigest: "Also receives a summary of what is currently on screen.",
@@ -2532,6 +2545,8 @@ const enUS = {
   // --- RACI chip picker + UI batch (0.81.0) ---
   raciSetLabel: "Set RACI",
   raciClear: "Clear",
+  raciSetHint: "Set this stakeholder's RACI role for this milestone",
+  raciClearHint: "Clear this stakeholder's RACI role for this milestone",
   versionHighlightUiBatch: "Resizable Trends columns; action chips explain why and open the item; clearer Manage-Roles tooltips; a compact RACI picker",
   // --- Documents tab (0.81.0) ---
   navKnowledge: "Knowledge",
@@ -2776,6 +2791,7 @@ const enUS = {
   actionHeroEyebrow: "Do this first",
   actionMoreReasons: "+{0} more reasons",
   actionMoreActions: "More actions",
+  actionMoreActionsHint: "More ways to act on this item",
   actionMarkDone: "Mark done",
   actionClearBlocker: "Clear blocker",
   actionReschedule: "Reschedule",
@@ -2864,6 +2880,7 @@ const enUS = {
   reportVersionAuto: "auto",
   reportVersionManual: "saved",
   reportDiff: "Compare",
+  reportDiffHint: "Show what changed between this saved version and the current report",
   reportDiffCurrent: "Current",
   reportDiffVersion: "This version",
   committeePushError: "Could not push reminders to Outlook.",
@@ -3284,6 +3301,7 @@ const enUS = {
   helpSearchNoResults: "No help topics match your search.",
   dashboardStatusSave: "Save",
   dashboardStatusClear: "Clear",
+  dashboardStatusClearHint: "Delete the saved status narrative, not just this draft",
   dashboardShowTrends: "Show trends",
   dashboardHideTrends: "Hide trends",
   dashboardTrendsLabel: "Trends",
@@ -3364,7 +3382,7 @@ const enUS = {
   settingsExpertMode: "Expert mode",
   settingsExpertModeHint: "Reveal advanced settings (Mode, Templates, Notifications, Next actions, Export) and the save-as-template / apply-template actions in the toolbar.",
   settingsSectionNextActions: "Next actions",
-  settingsProjectOverrides: "This project",
+  settingsProjectOverrides: "Overrides",
   projectOverridesIntro: "Override selected settings for this project only; otherwise it follows your device-wide settings.",
   projectOverrideUseDevice: "Use device default",
   projectOverrideOn: "Override for this project",
@@ -3768,6 +3786,7 @@ const enUS = {
   versionHighlight0218: "Clicking a field's caption no longer does something to the field. A caption sitting above a group of controls was quietly attached to the first button or checkbox inside it, so hovering the caption lit that control up and clicking the caption pressed it. In the task editor, clicking \"Dependencies\" deleted the first dependency; in the project form, clicking \"Regulatory\" or \"Identity types\" ticked the first box. Captions that name a whole group are now labelled as groups, and captions that name a single field point at that field directly, so screen readers announce the same thing you see.",
   versionHighlight0219: "Project documents. The written deliverables — a status report, a project charter, a steering pack — now live with the project instead of beside it. A new Documents view lists them, shows the selected one as it will print, and lets you create, rename, duplicate and delete. Any document downloads as a web page, a Word file, a PowerPoint deck or a PDF, and the format you picked is remembered; the PDF goes through your browser's own print dialog, so nothing is uploaded and no extra software is needed. Documents are saved by every storage backend the app supports and stay in step across two open tabs, and a document can embed a live project table that cannot drift from the rest of the app. This release is the foundation: writing documents with Claude comes next and the in-app editor after that, so a newly created document still starts empty — the sample project seeds an example status report to show the shape.",
   versionHighlight0220: "Every edit modal gets a row back. The Simple / Advanced / Full field switch used to sit in its own bordered strip under each modal title, costing a row of height in every editor. It now rides in the modal header as a single button labelled with the view you are in, and the field checklist opens from it. Keyboard use is fixed along the way: the arrow keys now move from the option you are actually on, and opening the list no longer lands on the wrong one — so a stray Enter can no longer switch your field view or discard a custom selection.",
+  versionHighlight0223: "Settings is easier to navigate, and buttons that used to show nothing on hover now explain themselves. Operating guides, Views and Scheduled jobs sit under AI Assistant in the settings list instead of crowding one long page; the view descriptions Claude reads are a plain scannable list; and \"This project\" is now called \"Overrides\". Nineteen icon-only controls across the app gained a hover label, and thirteen more got a short explanation of what the control actually does - including when an action also moves you to another view. Twenty-three hand-built buttons were replaced by the shared ones, so sizes, spacing and focus rings now match everywhere.",
   versionHighlight0222: "A project with more documents than the app could open used to lose them. Opening one kept the first batch and quietly discarded the rest, and the next automatic save wrote that shortened list back over your saved project - permanently, on every storage option. The limit is now five times higher, so ordinary projects are simply unaffected. If a project still goes over it, the app says so plainly and pauses saving, so your saved project keeps everything until you accept the loss with one click - and it tells you how much it could not open before you do.",
   versionHighlight0217: "Cancelled work stops reading as unfinished work. The Red/Amber/Green split on the dashboard no longer counts a cancelled task as healthy Green — cancelled work is now counted separately beside it, and the same clause appears on each Reports group card. In the cross-project Portfolio health table, a project whose scope has all been cancelled shows a dash instead of \"0%\", which read as \"not started yet\" on the one screen where projects are compared side by side; it is also left out of the portfolio-wide average rather than dragging it down. The steering-committee draft and the AI snapshot are told the project has no active scope instead of being handed a bare 0. And a task marked Done but carrying no completion date now announces itself as closed rather than completed, matching the cross already shown beside it.",
   versionHighlight0215: "Trends works again on a fresh load. Snapshot capture used to race the workspace load and win, writing a snapshot of an empty project that then permanently claimed its weekly bucket — the charts read \"Not enough snapshots yet\" beside a full snapshot table. Capture now waits for the workspace. Snapshots already written that way are not repaired: delete them in the Snapshots table and capture again. In the Kanban swimlanes, a person whose tasks carry their name on some rows and a directory link on others no longer appears as two identical lanes, and the assignee dropdown on those cards is populated instead of reading \"Unassigned\". The Hide-externals toggle in Planning and Workload now survives leaving the view. In Budget, \"budget hours follow plan\" is a toggle button matching the rest of the toolbar.",
@@ -3779,6 +3798,13 @@ const enUS = {
   insightsCardTitle: "Insights",
   insightAcknowledge: "Acknowledge",
   insightAct: "Act",
+  insightAcknowledgeHint: "Mark as seen. It stays in the list and still counts as open.",
+  // ★ Act NAVIGATES: onActInsight (task-manager.tsx) calls requestOpen() for the
+  //   insight's entityRef after stamping the status. The adjacent "Open" button
+  //   exists solely to navigate, so a hint that omits this reads as a promise
+  //   that Act stays put — and it does not.
+  insightActHint:
+    "Record that you acted and capture today's metric as the baseline for measuring the outcome; if the insight points at an item, this also opens it and leaves the current view",
   insightDismiss: "Dismiss",
   insightOpen: "Open",
   insightSeverityHigh: "High",

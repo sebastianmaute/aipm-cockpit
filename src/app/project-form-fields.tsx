@@ -692,6 +692,7 @@ function ContactPersonsControl({
                 type="button"
                 onClick={() => onChange(contactPersons.filter((c) => c.name !== cp.name))}
                 aria-label={`${t(lang, "remove")} ${cp.name}`}
+                title={`${t(lang, "remove")} ${cp.name}`}
                 className="rounded-full px-1 text-muted-foreground hover:text-ui-pink"
               >
                 ×
