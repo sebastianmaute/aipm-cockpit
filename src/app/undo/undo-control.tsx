@@ -64,7 +64,8 @@ function UndoRedoControl({
   const optionId = useCallback((i: number) => `undo-history-${labelKey}-opt-${i}`, [labelKey]);
 
   // Whether the last activation came from the KEYBOARD — read by the scroll
-  // effect below. A ref, not state: it must not itself cause a render.
+  // effect below AND by the hover guard. A ref, not state: it must not itself
+  // cause a render.
   const keyboardMoveRef = useRef(false);
 
   const openList = useCallback(() => {
@@ -94,6 +95,31 @@ function UndoRedoControl({
       ?.querySelector<HTMLElement>(`[id="${optionId(activeIndex)}"]`)
       ?.scrollIntoView({ block: "nearest" });
   }, [open, activeIndex, optionId]);
+
+  // ★★★ THE SCROLL ABOVE FIRES `mouseenter` ON THE ROW THAT SLIDES UNDER A
+  // STATIONARY POINTER, and without this the synthetic enter overwrites the
+  // index the keyboard just set. Measured in Chromium on an 11-entry stack with
+  // the pointer resting on row 3: End landed on option 5 and the footer read
+  // "Undo 6 actions" instead of "Undo 11 actions" — so Enter would have reverted
+  // six edits after the user asked for eleven. Home was equally wrong (3, not 1).
+  // With the pointer parked off the list the same keys landed on 10 and 0.
+  // ★ `mousemove` is the exact discriminator and the only one available: a REAL
+  //   pointer move always emits it, a scroll-induced enter never does. So the
+  //   flag stays set until the user physically moves, which is also what
+  //   re-enables hover — no explicit re-arm is needed anywhere.
+  // ★ Listening on `window`, not the list: travelling to a row from outside
+  //   emits dozens of moves before the boundary is crossed, so a deliberate
+  //   hover is already re-armed by the time its `mouseenter` arrives. A
+  //   list-scoped listener would swallow that first hover (boundary events
+  //   precede the `mousemove` that caused them).
+  useEffect(() => {
+    if (!open) return;
+    const onMove = () => {
+      keyboardMoveRef.current = false;
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [open]);
 
   if (depth <= 0) return null;
 
@@ -178,7 +204,10 @@ function UndoRedoControl({
                 aria-label={t(lang, "undoHistoryOption", m.label, i + 1)}
                 aria-selected={i === activeIndex}
                 data-banded={banded}
-                onMouseEnter={() => { keyboardMoveRef.current = false; setActiveIndex(i); }}
+                // Ignored while the pointer has not moved since the last key —
+                // see the scroll effect above for why a `mouseenter` here is
+                // not proof that the user pointed at anything.
+                onMouseEnter={() => { if (keyboardMoveRef.current) return; setActiveIndex(i); }}
                 onClick={() => { onActivateThrough(m.id); close(); }}
                 className={`cursor-pointer rounded px-2 py-1 text-sm ${
                   banded ? "bg-surface-muted text-ui-dark-blue dark:text-ui-light-grey" : "text-muted-foreground"

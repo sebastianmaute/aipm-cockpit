@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { t } from "../i18n";
 import { UndoControl, RedoControl } from "./undo-control";
@@ -211,5 +211,50 @@ describe("UndoControl history listbox — active-option scroll", () => {
     // The hover DID take effect — otherwise this asserts nothing.
     expect(options[2]).toHaveAttribute("aria-selected", "true");
     expect(scrolls).toEqual([]);
+  });
+});
+
+// ★★ The REAL trigger for this guard — a keyboard scroll sliding a row under a
+// stationary pointer — cannot be reproduced here: jsdom has no layout, so
+// nothing scrolls and no boundary event is synthesised. What IS reproducible is
+// the SHAPE of that event: a `mouseenter` with no `mousemove` before it. These
+// pin the guard on that shape. Measured in Chromium (11 entries, pointer resting
+// on row 3): End landed on option 5 and the footer read "Undo 6 actions" instead
+// of "Undo 11 actions", so Enter would have reverted six edits after the user
+// asked for eleven.
+describe("UndoControl history listbox — keyboard position survives a pointerless mouseenter", () => {
+  async function openList() {
+    renderUndo();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    return screen.getAllByRole("option");
+  }
+
+  it("ignores a mouseenter that arrives with no pointer movement after a key move", async () => {
+    const options = await openList();
+    await userEvent.keyboard("{End}");
+    expect(screen.getByText(t("en-US", "undoNActions", 3))).toBeInTheDocument();
+
+    // No mousemove first: this is what a scroll-induced enter looks like.
+    fireEvent.mouseEnter(options[0]);
+
+    expect(screen.getByText(t("en-US", "undoNActions", 3))).toBeInTheDocument();
+    expect(options[2]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("re-arms hover as soon as the pointer actually moves", async () => {
+    const options = await openList();
+    await userEvent.keyboard("{End}");
+
+    fireEvent.mouseMove(window);
+    fireEvent.mouseEnter(options[0]);
+
+    expect(screen.getByText(t("en-US", "undoNActions", 1))).toBeInTheDocument();
+    expect(options[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("does not block hover before any key has been pressed", async () => {
+    const options = await openList();
+    fireEvent.mouseEnter(options[1]);
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
   });
 });
