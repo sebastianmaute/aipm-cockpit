@@ -33,8 +33,11 @@ were removed after their live content was extracted here. All four were git-trac
 | `docs/baselines/deadcode-2026-07.md` | every AMBIGUOUS hit resolved false-positive in Phase 2 Task 4; the one real deletion is made | nothing outstanding |
 | `docs/baselines/knip-raw.txt` | raw tool output backing the above | nothing outstanding |
 
-`docs/baselines/` keeps **`file-sizes.json`** and **`jscpd-2026-07.json`** — those are live gate
-inputs, not history. Also removed: **296 orphaned per-slice `plans/` + `specs/` docs** referenced
+`docs/baselines/` keeps **`file-sizes.json`** and **`jscpd-2026-07.json`**. ★ Only the FIRST is a
+live gate input (`scripts/check-file-sizes.mjs:6` reads it by name). The jscpd file is a retained
+July-2026 report, kept for comparison and read by NOTHING — `npm run dup:check` passes only
+`--threshold` and there is no `.jscpd.json`. Keep both files; do not claim the duplication gate
+consults one. Also removed: **296 orphaned per-slice `plans/` + `specs/` docs** referenced
 from nowhere (35 kept — 3 linked from AGENTS.md, 30 from the memory files, 2 git-tracked). All 331
 are archived byte-identical in `docs/superpowers/_archive-slice-docs-2026-07-27.zip`. ★ That archive
 lives under a **gitignored** path, so it exists only on this machine — it is not in the repo and not
@@ -156,8 +159,11 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 112 | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — the active parent pill stretches to the group's full height and unrelated top-level entries interleave onto a child's row | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | open — UX. Visible only there: jsdom has no layout, and the axe gate scans one desktop viewport with no rule for wrap order. ★★ This is the **COST of a deliberate choice**, not a regression against it — `display: contents` was rejected because its a11y-tree exposure is browser-version dependent and being ANNOUNCED is what the group exists to deliver; do NOT reach for it. Likely fix `basis-full`. ★ Reproduce: activate the AI Assistant branch FIRST, then narrow to 760px — narrowing first drops the rail's labels and there is no group to reflow |
 | 113 | The documents roadmap — block editor, entity attachment and images — is designed but UNIMPLEMENTED, and the design lives only in the gitignored tree | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open — §44's failure mode, pre-empted: the decisions are reproduced in full below so the roadmap survives without that tree |
 | 114 | `HTML_START` does not know the nine tags `sanitizeDocumentHtml` adds, so a document paragraph LEADING with one of them is stored as escaped literal markup | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | open — a SECOND instance of §107's drift class, now on a THIRD list; the mechanism lives there and is NOT restated here. ★★ The common shape is covered by an INSTRUCTION, not by construction: `chat-tool-defs-documents.ts` tells the model to wrap every paragraph in `<p>` and `p` is one of the eight — so a model that ignores it and returns a whole-paragraph `<blockquote>`/`<pre>` still escapes. ★ The DIRECTION is the mild one: this ESCAPES (visible, recoverable), it does not DELETE as §32 does |
-| 115 | `ALLOW_DATA_ATTR` is left at DOMPurify's default TRUE in the other two sanitizers, so `sanitizeTemplateHtml` and `sanitizeNoteHtml` admit arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | open — measured, not reasoned: `ALLOW_DATA_ATTR: false` occurs ONCE in `sanitize-html.ts`, inside `sanitizeDocumentHtml`. ★★ NOT a one-line fix — flipping it moves every `data-*` those two rely on into the value chain, where `ALLOWED_URI_REGEXP` is tested against EVERY attribute value and a non-URI value is dropped; that is exactly why `data-asset-id` needed `ADD_URI_SAFE_ATTR`. Enumerate the call sites first. No known exploit: `data-*` carries no script |
-| 116 | `.tsx` duplication is at 1.70% against a BLOCKING per-format threshold of 1.75%, and S3b is a large `.tsx` slice | measured 2026-08-08 during the S3a gate run | S — a deferred decision, not a defect | open — reproduce with `npm run dup:check`. ★★ The gating number is PER-FORMAT on TOKENS: tsx is 6677/391620 = **1.70%**. The comfortable **1.53%** total and the 1.34% tsx LINE figure are NOT what the gate reads, and quoting either is how this gets called safe. Decide during S3b planning: refactor the top tsx clones, or raise the threshold |
+| 115 | `ALLOW_DATA_ATTR` is left at DOMPurify's default TRUE in the other two sanitizers, so `sanitizeTemplateHtml` and `sanitizeNoteHtml` admit arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | open — `ALLOW_DATA_ATTR: false` occurs ONCE in `sanitize-html.ts`, inside `sanitizeDocumentHtml`; grep the SETTING, not the bare name, which returns three. ★★ A TWO-LINE FIX — the set of `data-*` names needing re-admission is **EMPTY**: no call site depends on one and StarterKit emits none (measured). An earlier revision said "NOT a one-line fix, enumerate first" and was wrong. No known exploit: `data-*` carries no script |
+| 116 | The duplication gate compares the TOTAL duplicated-LINE percentage (1.19% vs 1.75), not the per-format token figure — and S3b is a large `.tsx` slice | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open — ★★ the gate reads ONE of the six cells the console prints: total LINES. Bisect by exit code — `npm run dup:check` exits 0 at `--threshold 1.19` and 1 at `1.18` ("found too many duplicates (1.2%)"); 1.52 and 1.60 both exit 0, ruling out total-tokens and per-format-tokens. Headroom is 0.56pp, not 0.05pp. Decide during S3b planning: refactor the top tsx clones, or raise the threshold |
+| 117 | The three traps S3c walks into the moment images go live — image-only paragraphs are deleted on load, `data-asset-id` values are entirely unvalidated, and adding `src` to the allow-list opens `data:` URIs on `img` | measured 2026-08-08 during the S3a review, all three inert today | M | open — three S3c PREREQUISITES, not live defects. ★ Each is measured with the probe in the entry, not reasoned. ★★ (a) makes the S3a rationale for allow-listing `img` FALSE as written (`sanitize-html.ts`), which is the §111 class: the comment outlives the code and the next reader stops checking |
+| 118 | A legacy plain-text `paragraph.html` collapses to one line in every renderer — and the obvious fix was implemented, measured to DESTROY valid markup, and reverted | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | open — ★★★ the fix and §114 are the SAME defect: composing `descriptionHtml` at the renderers escapes any paragraph LEADING with ANY of the nine document-only tags, because `HTML_START` knows none of them. Two green tests went red. Fix the classifier first (§113's pre-S3b row); do not re-attempt the composition before then |
+| 119 | `<a href>` is dropped by both OOXML renderers while `a` is advertised to the document-authoring model | pre-existing, confirmed 2026-08-08 during the S3a review | S | open — link TEXT survives in `.docx`/`.pptx`, the TARGET does not; HTML/PDF keeps both. ★ Verified, not assumed: no `w:hyperlink`/`a:hlinkClick` in either renderer and `A` is in neither map in `rich-text-runs.ts` |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -6353,9 +6359,17 @@ emits a whole-paragraph `<blockquote>` or `<pre>` (both legitimately in the allo
 advertised to it) defeats it while doing exactly what the tool permits.
 
 ★ Severity is bounded by the direction: this ESCAPES, so the content survives and a fix can repair
-stored values. §32 is the same classifier failing the OTHER way, where a `KEEP_CONTENT: false` sink
-DELETES the words. Do not merge the two into one "HTML_START is unreliable" note — the remediations
-differ.
+stored values. §32 is the same classifier failing the OTHER way — plain prose taken FOR markup — and
+there the words are DELETED. ★★ The mechanism is NOT `KEEP_CONTENT: false`, which an earlier
+revision of this line named: all four of §32's documented cases wrap ALLOW-LISTED tags
+(`a` / `em` / `li` / `p`), so that flag never fires. Measured both ways through the note config,
+`"<a note about pricing> is attached"` yields `"<a> is attached</a>"` with `KEEP_CONTENT: false` AND
+with the default — byte-identical. §32 names its own mechanism as "the `TAG` pass"
+(`rich-text-plain.ts:58`, `/<\/?[a-zA-Z][^>]*>/g`, which removes a pseudo-tag together with
+everything inside its angle brackets); on a render path the stray words are attribute NAMES and the
+attribute test strips them. `KEEP_CONTENT: false` is the NARRATIVE path's hazard (§107's correction
+block) — citing it here sends a reader to change a flag that would alter nothing about §32. Do not
+merge the two into one "HTML_START is unreliable" note — the remediations differ.
 
 ★★ Why it was not fixed in S3a: widening `HTML_START` changes what counts as already-HTML for every
 stored value on every load path, which is a byte-stability and golden-fixture change, not a one-line
@@ -6370,20 +6384,67 @@ moved out of S3a entirely (§113).
 
 `sanitize-html.ts` exports three DOMPurify sanitizers. Only `sanitizeDocumentHtml` sets
 `ALLOW_DATA_ATTR: false`; `sanitizeTemplateHtml` and `sanitizeNoteHtml` leave DOMPurify's default,
-which is TRUE. So on those two the explicit `ALLOWED_ATTR` list is not the whole gate — any
-`data-*` attribute passes it regardless of what the list says.
+which is TRUE (`node_modules/dompurify/dist/purify.cjs.js:767` — `ALLOW_DATA_ATTR =
+cfg.ALLOW_DATA_ATTR !== false; // Default true`). So on those two the explicit `ALLOWED_ATTR` list is
+not the whole gate — any `data-*` attribute passes it regardless of what the list says.
 
-★ Reproduce: `grep -n "ALLOW_DATA_ATTR" src/app/sanitize-html.ts` returns exactly one line.
-(The file's fourth `DOMPurify.sanitize` call is the strip-everything projection —
+★ Reproduce: `grep -n "ALLOW_DATA_ATTR: false" src/app/sanitize-html.ts` returns exactly one
+line. ★ Deliberately no line NUMBER: the first revision of this entry cited one, and the
+same change set that wrote it inserted comment lines above and broke it. ★★★ **GREP THE SETTING, NOT THE BARE NAME** — the bare `ALLOW_DATA_ATTR` returns THREE
+lines, because that sanitizer's own comment discusses the flag twice, and the first revision of this
+entry shipped the bare-name form asserting "exactly one line". The command refuted the sentence it
+was attached to. That is the same failure this file records against the CI-bypass bullet
+(AGENTS.md's ★★★ "Attach the command and run it") — it has now happened more than once, in more
+than one file. (The file's fourth `DOMPurify.sanitize` call is the strip-everything projection —
 `ALLOWED_TAGS: []`, `ALLOWED_ATTR: []` — and is unaffected.)
 
-★★ **NOT a one-line fix, and the trap is already documented at the top of that file.** Setting
-`ALLOW_DATA_ATTR: false` removes the `data-*` SHORT-CIRCUIT, which drops every such attribute into
-the value chain — where `ALLOWED_URI_REGEXP` is tested against EVERY attribute value, not only
-URI-bearing ones, and a non-URI value is rejected. That is precisely why admitting `data-asset-id`
-to the documents list needed `ADD_URI_SAFE_ATTR` and not merely an `ALLOWED_ATTR` entry. Any fix
-here must first enumerate which `data-*` names those two sanitizers' call sites actually depend on,
-then re-admit each one the same way.
+★★ **The mechanism, and why `data-asset-id` needed `ADD_URI_SAFE_ATTR`.** Setting
+`ALLOW_DATA_ATTR: false` removes the `data-*` SHORT-CIRCUIT — at `purify.cjs.js:1846` the `data-*`
+branch skips the WHOLE remaining chain, name test and value test alike — which drops every such
+attribute into the value chain, where `ALLOWED_URI_REGEXP` is tested against EVERY attribute value,
+not only URI-bearing ones, and a non-URI value is rejected. Any `data-*` a fix wants to KEEP must
+therefore be re-admitted by name AND exempted from the value test.
+
+★★ **It is a TWO-LINE FIX — one `ALLOW_DATA_ATTR: false` per sanitizer — because the set needing
+re-admission is EMPTY.** An earlier revision said the opposite ("NOT a one-line fix… first enumerate
+which `data-*` names those two sanitizers' call sites actually depend on"), which is the expensive
+direction: it prices a two-line change as a slice and nobody starts it. The enumeration was then
+actually run, 2026-08-08:
+
+- Every non-test call site, via `grep -rn "sanitizeTemplateHtml\|sanitizeNoteHtml" src/ scripts/ e2e/
+  | grep -v "\.test\."` — including the indirect ones (`sanitizeAiRichText` → `withAiRichFields`, and
+  the four `sanitize*RichFields` wrappers, which call `sanitizeNoteHtml` at `note-log.ts:157`). None
+  depends on a `data-*` name. ★ Neither sanitizer is ever passed by REFERENCE into a `.map`/
+  `buildList` callback — the only indirection is `rich-text-editor.tsx:123`'s ternary alias, which
+  the bare-name grep catches anyway.
+- The EDITOR is the one producer that could legitimately emit `data-*`, and does not.
+  `rich-text-editor.tsx` loads `StarterKit` alone, which registers Blockquote · BulletList ·
+  CodeBlock · Heading · HorizontalRule · Link · ListItem · OrderedList · Underline — and NOT
+  TaskList/TaskItem. Scanning every enabled extension's dist for `data-` returns nothing. ★ The only
+  `data-*` in the Tiptap tree is `data-checked` / `data-type` in `@tiptap/extension-list`, and its
+  context (`tag: 'li[data-type="…"]'`) shows it belongs to the unregistered taskItem — finding those
+  strings by a package-wide grep and stopping there is how this gets called non-empty.
+- Nothing stored carries one either: `grep -rn "data-[a-zA-Z-]*=" src/app/__fixtures__/
+  src/app/sample-workspace-*.json` returns nothing, and `grep -c "data-" src/app/i18n.ts
+  src/app/i18n.de.ts` returns 0 and 0.
+- ★★ `data-asset-id` is REAL but belongs to the THIRD sanitizer and cannot reach these two. It is
+  only ever emitted on `<img>`, absent from both narrow tag lists, so such markup loses the TAG
+  before the attribute question arises — and documents never route here anyway:
+  `document-preview.tsx` and `doc-render-html.ts` both use `sanitizeDocumentHtml`, and
+  `RichTextView` (the `sanitizeNoteHtml` sink) has two production consumers —
+  `dashboard-narrative.tsx` and `note-log-panel.tsx` — neither of them documents.
+  ★ Reproduce with the IMPORT, not the bare name — and note the `\.\.?`, which is
+  load-bearing: one consumer sits in `dashboard-sections/` and imports `../rich-text-view`,
+  so a `\./`-only pattern silently returns one file instead of two.
+  `grep -rlnE 'from "\.\.?/rich-text-view"' src/app --include="*.tsx" | grep -v '\.test\.'`
+  ★★ TWO earlier revisions of this line shipped a command that did not produce the
+  sentence beside it. The bare-name grep returns FIVE files (the symbol is also named in
+  its own module and in TWO test files, so "discounting its own module and test" leaves
+  three, not two); the `\./`-only import grep returns ONE. Both were caught by running
+  them. Run yours.
+
+★ The one behaviour change a fix DOES make: model-authored HTML arriving through `sanitizeAiRichText`
+would lose any `data-*` a model happens to emit. That is the flag working, not a cost.
 
 ★ No known exploit. `data-*` carries no script and no navigation; the concern is that the allow-list
 does not mean what it appears to mean, which is the state that produces a wrong review conclusion
@@ -6391,23 +6452,234 @@ later. Recorded for that reason, not as a live vulnerability.
 
 ---
 
-## 116. `.tsx` duplication is 0.05pp from a blocking threshold — open, a decision
+## 116. The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision
+
+★★ **This entry shipped with its central claim inverted, and the inversion was INHERITED rather than
+invented.** The first revision said the gate reads the per-format TOKEN percentage, put tsx at 1.70%
+"0.05pp from blocking", and warned the reader off the two figures nearer the truth. `AGENTS.md` said
+"per-format" in two places — the `dup:check` Commands line and the CI pipeline bullet — and this
+entry turned that into a number. Both are corrected. Recorded rather than quietly rewritten, because
+the word "Measured" sat above a table that WAS measured and a sentence about which cell the gate
+reads that was NOT.
 
 Measured 2026-08-08 on the S3a branch (`npm run dup:check`, exit 0):
 
 | Format | Duplicated tokens | Duplicated lines |
 |---|---|---|
-| tsx | 6677 / 391620 = **1.70%** | 899 (1.34%) |
+| tsx | 6677 / 391620 = 1.70% | 899 (1.34%) |
 | typescript | 5249 / 379661 = 1.38% | 713 (1.04%) |
-| **Total** | 11926 / 778582 = 1.53% | 1612 (1.19%) |
+| **Total** | 11926 / 778582 = 1.53% | **1612 (1.19%)** ← the only cell the gate reads |
 
-★★ **The gate reads the PER-FORMAT TOKEN percentage.** `jscpd --threshold 1.75` applies per format,
-so tsx at 1.70% has 0.05pp of headroom while the 1.53% total and the 1.34% tsx LINE figure both look
-comfortable. Quoting either of those is how this gets recorded as fine and then blocks a pipeline.
+★★ **The gating number is the TOTAL duplicated-LINE percentage: 1.19% against `--threshold 1.75`, so
+0.56pp of headroom.** Not per-format, not tokens. The console flags none of the six cells, so the
+exit code is the only witness — run `dup:check`'s own jscpd invocation with the threshold overridden:
 
-★ Why it is filed now: S3b is the block editor — the largest `.tsx` slice in the roadmap (§113) —
-and per-block editor components are the kind of code jscpd finds repetitive. The decision (refactor
-the top tsx clones, or raise the per-format threshold with a recorded justification) belongs in
-S3b's planning, before the code exists, not to a red pipeline afterwards.
+| `--threshold` | EXIT | what a 1 would have meant |
+|---|---|---|
+| 1.60 | 0 | per-format TOKENS gate (tsx 1.70%) — ruled out |
+| 1.52 | 0 | TOTAL TOKENS gate (1.53%) — ruled out |
+| 1.30 | 0 | per-format LINES gate (tsx 1.34%) — ruled out |
+| 1.19 | 0 | — |
+| 1.18 | **1** | `ERROR: jscpd found too many duplicates (1.2%) over threshold (1.2%)` |
+
+Only the last pair moves, and it brackets 1.19%. ★ The printed `1.2%` is the total LINE figure
+rounded to one decimal; total tokens would have printed `1.5%`.
+
+★ jscpd is 5.0.11, which ships a native Rust `cpd` binary (`node_modules/jscpd/run-jscpd.js` spawns
+it) and documents `--threshold` as a single "Max duplication % before exit 1". Whether an older JS
+implementation ever thresholded per format is unknown and does not matter — it does not today. If
+the dependency is bumped, re-run the bisect rather than trusting this table.
+
+★ The decision this entry exists for still stands, on honest numbers: S3b is the block editor
+(§113), the roadmap's main UI slice, and per-block editor components are the kind of code jscpd
+finds repetitive. 0.56pp of total-LINE headroom is more room than 0.05pp of tsx tokens looked like,
+but a large repetitive slice can still spend it — and the gate counts `.tsx` lines into the same
+total, so tsx growth moves the gating number directly. Decide during S3b planning — refactor the top
+clones, or raise the threshold with a recorded justification — not against a red pipeline.
+
+---
+
+## 117. Three S3c image prerequisites, all inert today — open
+
+★ ONE entry rather than three because all three share a trigger: they become live the
+moment S3c wires the asset store, and whoever implements it needs the whole checklist.
+Lettered parts follow §36(a)'s precedent.
+
+★★ NONE OF THESE IS A LIVE DEFECT. Nothing writes `data-asset-id` today and `src` is not
+allow-listed, so every one of them is currently unreachable. They are recorded because
+each is measured, and each is the kind of thing a later slice assumes rather than checks.
+
+**Reproduce (all three).** Needs a DOM, so it cannot run under bare node. Save the probe
+OUTSIDE the repo and run it FROM the repo root, so `node_modules` resolves: bootstrap
+`window`/`document` from a `jsdom` instance, then dynamically import
+`src/app/sanitize-html` and `src/app/document-model`, and run with `npx vite-node`.
+
+### (a) An image-only paragraph is DELETED on every load path
+
+`document-model.ts` `sanitizeBlock` drops a paragraph block with no visible text:
+
+    grep -n "htmlTextLength(html) === 0" src/app/document-model.ts
+
+→ one line: `if (htmlTextLength(html) === 0) return null;`. An `<img>` contributes no
+text, so a paragraph containing only an image measures 0 and the whole block is removed.
+Measured 2026-08-08 — `sanitizeProjectDocuments` over two blocks returned only the second:
+
+| input blocks | returned |
+|---|---|
+| `[{paragraph, html:'<p><img data-asset-id="7"></p>'}, {paragraph, html:'<p>ok</p>'}]` | `[{"type":"paragraph","html":"<p>ok</p>"}]` |
+
+★ A paragraph with text AND an image survives; only the image-ONLY case is lost.
+
+★★ THIS MAKES A SHIPPED COMMENT FALSE. `sanitize-html.ts` justifies allow-listing `img`
+with "allow-listed here so stored markup written by a later slice is never retroactively
+stripped by this one" — true of that sanitizer and defeated by a different layer that
+also runs on load. The structural validator strips it regardless. That is §111's class:
+the invariant outlives the code, and the next reader stops checking.
+
+★ The fix is a DECISION, not a one-liner: `htmlTextLength` is the same helper the cap
+uses, so "visible text" would have to learn that a void element counts as content, or
+`sanitizeBlock` needs an image-aware arm. Either way it changes what an empty paragraph
+means on all six write paths.
+
+### (b) `data-asset-id` values are entirely unvalidated
+
+`ADD_URI_SAFE_ATTR: ["data-asset-id"]` exempts the attribute from the value chain
+altogether — which is the whole reason it is there (`ALLOWED_URI_REGEXP` is tested
+against EVERY attribute value, so an opaque id fails it). The cost is that NOTHING
+checks the value. Measured:
+
+| input | output |
+|---|---|
+| `<p data-asset-id="7">x</p>` | unchanged |
+| `<p data-asset-id="javascript:alert(1)">x</p>` | **unchanged, verbatim** |
+| `<p data-asset-id='a&quot;b<c'>x</p>` | **unchanged** — a raw `<` survives in the value |
+
+★★ "Opaque key" is NOT the same as "safe to interpolate". Harmless today because nothing
+reads it, and both OOXML renderers escape everything they emit. It stops being harmless
+the moment the value is used to build a URL, a filesystem path, a lookup key, or is
+concatenated into markup. The consumer must validate the SHAPE it expects at the point of
+use; the sanitizer deliberately does not and cannot.
+
+### (c) Adding `src` opens `data:` URIs on `img`, bypassing the URI allow-list
+
+`img` is in DOMPurify's default `DATA_URI_TAGS`, and `_isValidAttribute` short-circuits
+for `src` on such a tag BEFORE `ALLOWED_URI_REGEXP` is consulted. Measured on the real
+config with `src` added to `ALLOWED_ATTR` and nothing else changed:
+
+| input | result |
+|---|---|
+| `<img data-asset-id="7" src="data:…">` (TODAY, no `src` in list) | `<img data-asset-id="7">` — inert |
+| `<img src="data:image/svg+xml;base64,…">` (with `src`) | **survives** |
+| `<img src="data:text/html;base64,…">` (with `src`) | **survives** |
+| `<img src="javascript:alert(1)">` (with `src`) | dropped |
+| `<a href="data:text/html;base64,…">` (with `src`) | **dropped** |
+
+★★★ THE `<a>` ROW IS THE PROOF, not decoration. The identical config drops `data:` on an
+anchor and keeps it on an image, which isolates the cause as the per-element
+`DATA_URI_TAGS` short-circuit rather than a general failure of the regexp. Without that
+control the other rows are consistent with "the regexp does not work", which would send a
+fixer to the wrong place.
+
+★ SVG runs script, so `data:image/svg+xml` is an XSS vector, and `data:text/html` is one
+outright. `javascript:` is still dropped — that is the one thing the short-circuit does
+not cover, which is why the gap reads as safe on a casual test. A slice shipping image
+`src` must constrain `DATA_URI_TAGS` or `FORBID_ATTR` itself; widening
+`ALLOWED_URI_REGEXP` does nothing here.
+
+---
+
+## 118. A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup — open, blocked on §114
+
+A `paragraph.html` holding literal plain text with newlines renders as ONE fused line.
+Measured base-vs-head on the S3a branch with `html: "a\nb"`:
+
+| | DOCX `word/document.xml` |
+|---|---|
+| before the mark-aware slice | `<w:r><w:t>a</w:t><w:br/><w:t>b</w:t></w:r>` |
+| after | `<w:r><w:t>a b</w:t></w:r>` |
+
+PPTX went from two `<a:p>` paragraphs to one. ★ HTML/PDF has ALWAYS collapsed it — that
+renderer never upgraded — so the slice made all three CONSISTENT rather than making two
+newly wrong. It is still wrong in all three.
+
+★★ REACHABLE ONLY BY IMPORT, never by normal use. The AI write boundary upgrades before
+storing (`sanitizeAiDocumentRichText("a\nb")` → `"<p>a<br>b</p>"`), and the model is the
+only in-app author today. But measured through the real composed load pipeline
+(`sanitizeProjectDocuments` then `sanitizeDocumentRichFields`, as every load path calls
+them), `{"type":"paragraph","html":"a\nb"}` survives byte-for-byte — neither pass
+upgrades. So hand-edited or externally-produced workspace JSON, and any document predating
+the rich-text work, reaches the renderer un-upgraded.
+
+★★★ **THE OBVIOUS FIX IS UNSAFE, AND THIS IS THE POINT OF THE ENTRY.** Composing
+`descriptionHtml` in front of `htmlToRichLines` at the two OOXML call sites was
+implemented, measured and REVERTED on 2026-08-08. It turned two passing tests red:
+`descriptionHtml` gates on `HTML_START`, which knows only `p|br|strong|em|ul|ol|li|a`, so
+a paragraph whose FIRST tag is `blockquote` — already valid, already sanitized, already
+stored — is classified as PLAIN TEXT and `plainToHtml` escapes the entire value to
+`&lt;blockquote&gt;…`. Observed: expected paragraph styles
+`['Title','Quote','CodeBlock','CodeBlock']`, got `['Title']` — the formatting did not
+degrade, it vanished.
+
+★★ **So this and §114 are the SAME defect, and this direction is worse.** §114 escapes a
+value at the WRITE boundary, where the model can be told to wrap in `<p>`. This would
+escape a value already STORED as valid markup, at the RENDER sink, where nothing can be
+told anything — for ALL NINE document-only tags. ★★ Nine, not eight: an earlier
+revision of this entry said "8 of the 9", which contradicted §114 in this same file
+and understated the entry's own case. Measured one leading tag at a time through the
+real `descriptionHtml` — `s` `code` `pre` `blockquote` `hr` `mark` `sub` `sup` `img`
+all escape. `<s>` does not match `strong`, and `<sub>`/`<sup>` do not either.
+The load boundary does not protect it:
+`sanitizeDocumentHtml` is DOMPurify, which parses the whole tree and does not care which
+tag comes first, so such a value passes through as real markup.
+
+★ ORDER OF WORK: fix the classifier first — §113 schedules the `HTML_START` split in its
+*(before S3b)* row, and §107 records why widening the shared regex in place is the wrong
+shape. Only then can the upgrade be composed. Do not re-attempt the composition before
+that; it is not a one-line fix waiting to be typed, it is a fix waiting on a dependency.
+
+★★ THE LOAD-BOUNDARY VARIANT IS WORSE, NOT BETTER. Composing the upgrade into
+`sanitizeDocumentRichFields` would fix all three renderers from one place — and would be a
+MUTATION ON LOAD that the next save PERSISTS: it rewrites stored bytes on all six write
+paths for documents nobody edited, makes `documentVersions` before-images record a diff no
+user made, and moves byte-stable golden fixtures for an input that did not legitimately
+change. It is the same class as the standing rule that an AI rich-field boundary is applied
+to the model's INPUT and never to the merged entity. It also blurs that module's stated
+contract, which is the allow-list, not format normalisation.
+
+★ A CORRECTION worth keeping, because it was asserted before it was measured: composing
+the upgrade would NOT have restored the old `<w:br/>` shape even where it is safe.
+`htmlToRichLines` treats `<br>` as a line break, so `"<p>a<br>b</p>"` yields TWO
+`RichLine`s and therefore two `<w:p>` paragraphs — not one paragraph containing a break.
+That is consistent with how this slice treats every other block boundary, but it is not
+what the earlier base-vs-head comparison was taken to imply.
+
+---
+
+## 119. `<a href>` is dropped by both OOXML renderers — open
+
+A link inside a document paragraph reaches `.docx` and `.pptx` as plain text: the words
+survive, the target does not. The HTML/PDF renderer keeps both, so the same document
+carries a working link in one format and a dead phrase in two others. Meanwhile
+`chat-tool-defs-documents.ts` advertises `a` to the document-authoring model, so the model
+is invited to emit links the majority of the export paths silently flatten.
+
+★ Pre-existing, NOT introduced by the mark-aware slice — the flat projection it replaced
+dropped the href too. Confirmed rather than assumed, three ways:
+
+    grep -n "w:hyperlink\|hyperlink" src/app/doc-render-docx.ts src/app/ooxml-docx-primitives.ts
+    grep -n "hlinkClick" src/app/doc-render-pptx.ts src/app/ooxml-pptx-primitives.ts
+    grep -n "href" src/app/rich-text-runs.ts
+
+All three return nothing. `A` is in neither `MARK_BY_TAG` nor `LINE_TAGS`
+(`rich-text-runs.ts`), so an anchor falls through to the plain recursion and contributes
+only its text — which `rich-text-runs.test.ts`'s "carries no mark for a tag that only
+wraps (a link)" already pins as the intended behaviour of the parse.
+
+★ Not a one-line fix in either format, which is why it is filed rather than done: a real
+`.docx` hyperlink is a `w:hyperlink` element carrying an `r:id` into a RELATIONSHIP part,
+so `buildDocxPackage` would have to collect per-part relationships it does not model
+today; `.pptx` needs the equivalent `a:hlinkClick` plus its own slide relationship. The
+shared parse would also have to start carrying a href on `TextRun`, which is a change to
+the type both renderers consume.
 
 ---
