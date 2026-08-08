@@ -82,13 +82,22 @@ export function DashboardTipCard({ lang, dc, isPopout = false }: DashboardTipCar
           >
             {t(lang, "dashboardTipNext")}
           </button>
+          {/* ★ The dismiss sits beside the text "Next tip" button and MUST keep
+              reading as its pair — at f6e85d55 the two carried byte-identical
+              classNames. `bordered` at the default `sm` is p-1 (8px) + a 16px
+              icon + 2px border = 26px, against Next's py-0.5 + text-xs + border
+              = 22px, so the batch split a matched pair by 4px. A 12px icon
+              restores exact parity: 8 + 12 + 2 = 22. `size="md"` moves it the
+              WRONG way (30px) — this is the opposite case from
+              saved-views-menu, where `md` was the fix. jsdom has no layout, so
+              nothing here can test it; the class recipe is the only guard. */}
           <IconButton
             variant="bordered"
             onClick={dismiss}
             label={t(lang, "dashboardTipDismiss")}
             title={t(lang, "dashboardTipDismiss")}
           >
-            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+            <XMarkIcon aria-hidden="true" className="h-3 w-3" />
           </IconButton>
         </div>
       </div>

@@ -57,11 +57,15 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
               ) : (
                 <span className="flex-1 truncate text-foreground">{link.name}</span>
               )}
+              {/* Row-QUALIFIED name: N links otherwise yield N identical
+                  "Remove link" buttons (WCAG 2.4.6). The axe gate passes that
+                  whenever the seeded workspace has only one link, so the
+                  collision never renders at scan time. */}
               <IconButton
                 variant="danger"
                 onClick={() => remove(link.url)}
-                label={t(lang, "documentsRemove")}
-                title={t(lang, "documentsRemove")}
+                label={`${t(lang, "documentsRemove")} – ${link.name}`}
+                title={`${t(lang, "documentsRemove")} – ${link.name}`}
               >
                 <XMarkIcon aria-hidden="true" className="h-4 w-4" />
               </IconButton>

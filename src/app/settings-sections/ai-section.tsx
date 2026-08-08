@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { TextButton } from "../text-button";
@@ -88,6 +88,7 @@ function CapInput({
 
 export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const behaviourHeadingId = useId();
   const confirm = useConfirm();
   const showToast = useToastContext();
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
@@ -372,14 +373,24 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
       {/* Assistant behaviour. These sat under the "Operating guides" heading
           but have nothing to do with guides — the guides extraction surfaced
           the mis-grouping rather than carrying it along. */}
-      <div className="mt-4 border-t border-line pt-4">
-        {/* The heading the guides extraction took with it. Without it these four
-            settings sit under a bare rule: settings-view supplies a shared <h2>,
-            but settings-menu.tsx, backend-setup-wizard.tsx and
-            project-empty-state.tsx mount AiSection with no heading of their own,
-            so the group was unlabeled on three surfaces. Same markup shape the
-            pre-extraction heading used. */}
-        <p className="text-sm font-medium text-foreground">{t(lang, "aiBehaviourHeading")}</p>
+      {/* ★ `role="group"` + `aria-labelledby`, NOT a bare <p> and NOT an <h3>.
+          The <p> the guides extraction took with it labelled this block
+          VISUALLY only — settings-view supplies a shared <h2>, but
+          settings-menu.tsx, backend-setup-wizard.tsx and project-empty-state.tsx
+          mount AiSection with no heading at all, so for AT the four settings sat
+          in an unlabeled generic on three surfaces. An <h3> would fix the
+          semantics but has no <h2> ancestor on exactly those three surfaces,
+          tripping axe's heading-order rule; the group carries the name without
+          claiming a position in the document outline. `useId` because AiSection
+          is mounted by four different surfaces and a literal id could collide. */}
+      <div
+        role="group"
+        aria-labelledby={behaviourHeadingId}
+        className="mt-4 border-t border-line pt-4"
+      >
+        <p id={behaviourHeadingId} className="text-sm font-medium text-foreground">
+          {t(lang, "aiBehaviourHeading")}
+        </p>
         {/* ★★ Ground-in-guides is DELIBERATELY rendered here AND in
             ai-guides-section.tsx. The guides section is only reachable from the
             settings rail, but THREE surfaces mount AiSection outside it —

@@ -141,8 +141,15 @@ export function TimelogPeopleTable({
                   )}
                 </td>
                 <td className="py-2">
+                  {/* `danger`, not `dangerBordered`: this unlinks ONE user, so it
+                      is the per-row remove glyph the primitive documents — muted
+                      at rest, pink on hover — matching every other converted
+                      row-remove. It drops the old neutral border and the
+                      pink-at-rest text; `dangerBordered` is reserved for a
+                      standing destructive toolbar action that wipes everything
+                      (tasks-section's Clear all is the only other call site). */}
                   <IconButton
-                    variant="dangerBordered"
+                    variant="danger"
                     label={removeLabel}
                     title={removeLabel}
                     disabled={isPopout}

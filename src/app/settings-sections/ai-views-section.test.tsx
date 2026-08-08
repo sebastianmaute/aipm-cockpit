@@ -64,6 +64,9 @@ describe("AiViewsSection", () => {
     render(<AiViewsSection lang="de" settings={enabled} />);
     const purpose = screen.getByText(VIEW_AI_SCOPE.workload.purpose);
     expect(purpose).toHaveAttribute("lang", "en");
+    // ★ All THREE tagged paragraphs, not two: `reading` was unpinned, so
+    // deleting its lang="en" left this test green.
+    expect(screen.getByText(VIEW_AI_SCOPE.workload.reading!)).toHaveAttribute("lang", "en");
     expect(screen.getByText("list_resources, list_allocations").closest("p")).toHaveAttribute(
       "lang",
       "en",

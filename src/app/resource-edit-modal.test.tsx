@@ -128,8 +128,12 @@ describe("ResourceEditModal", () => {
     // way (reproduce: `git diff f6e85d55..HEAD -- src/app | grep -E
     // "^-.*hover:text-ui-pink\b" | grep -v pink-strong`). Do not describe any of them
     // as "already carried this recipe".
+    // ★ `(^|\s)…(\s|$)`, never `\b` — `-` is a non-word character, so `\b` sits
+    // INSIDE a hyphenated token and `\bhover:text-ui-pink-strong\b` would also
+    // match `dark:hover:text-ui-pink-stronger`. (`\b` does bound a standalone
+    // token; it fails only when the token is a prefix of a longer one.)
     expect(screen.getByRole("button", { name: /remove email 1/i }).className).toMatch(
-      /\bhover:text-ui-pink-strong\b/,
+      /(^|\s)hover:text-ui-pink-strong(\s|$)/,
     );
     const emailInputs = screen.getAllByRole("textbox", { name: /additional emails/i });
     fireEvent.change(emailInputs[0], { target: { value: " alt@x.com " } });
