@@ -175,7 +175,17 @@ npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts 
 npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
 npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
                             # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
-npm run dup:check           # jscpd duplication GATE (--threshold set in package.json dup:check, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
+npm run dup:check           # jscpd duplication GATE (--threshold in package.json dup:check; BLOCKING in CI)
+                            # ★★ IT COMPARES ONE NUMBER: the TOTAL duplicated-LINE percentage across all
+                            # formats — NOT per-format, and NOT tokens. 1.19% (1612/135895 lines) against a
+                            # 1.75 threshold on 2026-08-08. The console table prints six cells and flags
+                            # none; the eye-catching per-format token figure (tsx 1.70%) is never read.
+                            # Bisect by exit code — it is the only witness. Run dup:check's own command
+                            # with the threshold overridden: 1.60 and 1.52 both exit 0 (ruling out
+                            # per-format tokens and total tokens), 1.19 exits 0, 1.18 exits 1 with
+                            # "found too many duplicates (1.2%)". See open-followups.md §116.
+                            # ★ docs/baselines/jscpd-2026-07.json is a RETAINED July-2026 report, NOT a
+                            # gate input — dup:check passes only --threshold and there is no .jscpd.json.
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
                             # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
                             # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
@@ -332,7 +342,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **agents-symbol-check** BLOCKING
+  BLOCKING [jscpd `--threshold` per package.json `dup:check` — ★★ it compares the TOTAL
+  duplicated-LINE percentage across all formats, NOT per-format and NOT tokens; the `dup:check` line
+  in Commands carries the bisect] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
@@ -349,8 +361,28 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
   bypass block on whichever gate is actually red. One of them ATTACHED the reproduce command above
   without running it, and the command refutes the sentence it was attached to. **Attach the command and
-  run it.** ★ "Ratchets" is loose too: only **file-size-ratchet**, **duplication-gate** and
-  **unit-tests**' coverage floors hold a baseline; every other quality gate is plain pass/fail.
+  run it.** ★★★ THAT WORDING IS NOT ENOUGH, measured 2026-08-08: a review round corrected at least
+  EIGHT false claims in these docs and introduced SIX MORE errors across two correction passes — every
+  one of them prose, and in every case the author HAD run a command, just not against the sentence they
+  ended up writing. So: **a correction is a NEW claim and inherits none of the verification of the
+  thing it corrects — run a command against the REPLACEMENT text, not only against the error you
+  found.** Two replacement recipes in that round were themselves wrong (one returned five files where
+  the sentence said two; its successor returned one, because a consumer imported `../x` while the
+  pattern matched only `./x`). ★ The two counts are NOT a matching pair — they are tallied by different
+  criteria (corrections made vs. items a reviewer flagged), and one of the six was a broken sentence
+  rather than an untrue statement. Read them as magnitudes, not as a symmetry.
+  ★★★ COROLLARY — an edit that INSERTS lines invalidates every `file:line` citation below it, including
+  ones written moments earlier in the same commit, so a correction round must re-check the citations it
+  did not touch: `ALLOW_DATA_ATTR: false` moved 114→130 when a comment block landed, then 130→131 when
+  a one-line edit followed. Cite the SYMBOL and a grep instead. ★★ Three stars because
+  [`docs/open-followups.md`](docs/open-followups.md) already records this class repeatedly — one entry
+  there calls itself "the third recorded instance", so those two hops are the fourth and fifth. The
+  detail lives there, not here. ★ "Ratchets" is loose too: only **file-size-ratchet** (`docs/baselines/file-sizes.json`,
+  read by name at `check-file-sizes.mjs:6`) and **unit-tests**' coverage floors (`vitest.config.ts`)
+  hold a baseline; every other quality gate — **duplication-gate** INCLUDED — is plain pass/fail
+  against a hardcoded number. ★★ duplication-gate was listed here as baselined and is not: nothing
+  reads `docs/baselines/jscpd-2026-07.json` (`grep -rn "baselines/jscpd" package.json .gitlab-ci.yml
+  scripts/` returns no loader), and its threshold is the literal `1.75` in `package.json dup:check`.
   A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
   its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
@@ -721,14 +753,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **Rich-text register descriptions (0.209.0 "Lafferty"):** SIX more fields joined `Task.description`
   as rich HTML — RAID `description` + `mitigation`, Change `description` + `impactDescription` +
   `resolutionNotes`, Milestone `description`. Same lean `RichTextEditor`, same `sanitizeNoteHtml`
-  allow-list. THREE pure modules, split by ONE axis — whether the code may touch a DOM:
+  allow-list. THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
+  (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
+  [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
+  rather than a projection, and is covered further down this bullet.)
   • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
   `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
   • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
   upgrade) for every NON-DOM consumer, `descriptionTextWithBreaks` (the EXPORT projection), and
   `appendDictationToHtml`.
   • `rich-text-runs.ts` — **browser-only** (DOMParser). `htmlToRichLines`: HTML → styled runs, shared
-  by `doc-render-docx.ts` + `doc-render-pptx.ts` so the two OOXML renderers cannot drift.
+  by `doc-render-docx.ts` + `doc-render-pptx.ts` so the two OOXML renderers cannot drift. ★ It serves
+  DOCUMENTS, not the register fields this bullet is named for; it sits here because the DOM axis
+  governs it, and moving it out would put a second copy of that axis in another file.
   ★★ **TWO projections, and exports use the SECOND one.** `descriptionText` COLLAPSES a block
   boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an export
   a human reads, where a three-paragraph description arrived as one run-on line.
@@ -808,9 +845,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ THERE IS A THIRD ALLOW-LIST AND IT IS NOT INTERCHANGEABLE: model-authored DOCUMENT paragraph HTML
   goes through `sanitizeAiDocumentRichText` → `sanitizeDocumentHtml`, which is WIDER (adds
   `s`/`code`/`pre`/`blockquote`/`hr`/`mark`/`sub`/`sup`/`img`). Wiring a document boundary to
-  `sanitizeAiRichText` instead silently drops all nine at the write (unwrapped, keeping their text — except
-  `img`, which is void and simply vanishes); `sanitizeTemplateHtml` must stay
-  narrow because it guards the six rich entity fields. Details in
+  `sanitizeAiRichText` instead silently drops all nine at the write — seven are unwrapped keeping
+  their text, and ★ the TWO VOID ones (`hr` AND `img`) vanish outright, since there is no text to
+  keep. Measured: `"<p>a</p><hr><p>b</p>"` → `"<p>a</p><p>b</p>"`. `sanitizeTemplateHtml` must stay
+  narrow because it guards the SEVEN rich entity fields — `Task.description` plus the six in
+  `AI_RICH_FIELDS`. Details in
   [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
   ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
   ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
