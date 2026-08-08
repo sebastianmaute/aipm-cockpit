@@ -126,7 +126,7 @@ describe("htmlToText", () => {
 });
 
 describe("sanitizeDocumentHtml", () => {
-  it("keeps the eight tags documents add beyond the template list", () => {
+  it("keeps eight of the nine tags documents add beyond the template list", () => {
     const html =
       "<p><s>a</s><code>b</code><mark>c</mark><sub>d</sub><sup>e</sup></p>" +
       "<pre>f</pre><blockquote>g</blockquote><hr>";
@@ -134,23 +134,62 @@ describe("sanitizeDocumentHtml", () => {
     // ★★ The closing ">" is load-bearing — assert `<s>`, never `<s`. A bare
     // prefix match is satisfied by a DIFFERENT tag in the same output: `<sub`
     // and `<sup` both start with `<s`, so with "s" dropped from the allow-list
-    // the prefix form of this loop still passed all 21 tests (measured, not
-    // reasoned). None of the eight carries an attribute here, so every one of
+    // the prefix form of this loop still passed the whole file green (measured,
+    // not reasoned). None of the eight carries an attribute here, so every one of
     // them renders with its ">" immediately after the name.
+    // ★ img is the NINTH tag documents add. It is deliberately not in this loop:
+    // what is worth pinning about it is WHICH ATTRIBUTES survive, so it gets the
+    // dedicated test below rather than a bare tag-presence check.
     for (const tag of ["s", "code", "mark", "sub", "sup", "pre", "blockquote", "hr"]) {
       expect(out).toContain(`<${tag}>`);
     }
   });
 
-  it("keeps an image reference by id and drops any src", () => {
+  it("keeps an image reference by id and its alt, and drops any src", () => {
+    // ★★ Both attribute assertions must be able to FAIL. They could not before:
+    // `data-asset-id` used to survive via ALLOW_DATA_ATTR regardless of the list
+    // (so its assertion was vacuous), and `alt` was fed in but never asserted at
+    // all. Mutation-proved: dropping either name from DOCUMENT_ALLOWED_ATTR now
+    // turns this test red.
     const out = sanitizeDocumentHtml('<p><img data-asset-id="7" src="https://x/y.png" alt="a"></p>');
     expect(out).toContain('data-asset-id="7"');
+    expect(out).toContain('alt="a"');
     expect(out).not.toContain("src=");
   });
 
-  it("strips a script but KEEPS the words of an unknown tag", () => {
+  it("drops a data-* attribute that is not on the allow-list", () => {
+    // ★★ The pin for ALLOW_DATA_ATTR:false. DOMPurify defaults that flag to TRUE
+    // and its data-* branch short-circuits before the name test, so WITHOUT the
+    // flag every attacker-authored data-* survived on every allowed tag and
+    // DOCUMENT_ALLOWED_ATTR was not the gate it reads as.
+    const out = sanitizeDocumentHtml('<p data-anything="x" data-onclick-payload="y">hi</p>');
+    expect(out).not.toContain("data-anything");
+    expect(out).not.toContain("data-onclick-payload");
+    expect(out).toContain("hi");
+    // ...and the listed one still survives alongside, so this is a name gate and
+    // not a blanket data-* ban (that distinction is the whole point of the pair).
+    expect(sanitizeDocumentHtml('<img data-asset-id="7" data-anything="x">')).toBe(
+      '<img data-asset-id="7">',
+    );
+  });
+
+  it("drops event handlers on img, the tag this sanitizer adds", () => {
+    // ★ <img onerror> is the canonical payload for the one tag documents allow
+    // and templates do not. Handlers are stripped today; this pins it against an
+    // ADD_ATTR / ALLOW_UNKNOWN_PROTOCOLS-shaped regression.
+    const out = sanitizeDocumentHtml('<img data-asset-id="7" onerror="alert(1)">');
+    expect(out).not.toContain("onerror");
+    expect(out).not.toContain("alert");
+    expect(out).toContain('data-asset-id="7"');
+    expect(sanitizeDocumentHtml('<p onclick="x()">hi</p>')).toBe("<p>hi</p>");
+  });
+
+  it("strips a script and its text but KEEPS the words of an unknown tag", () => {
     // KEEP_CONTENT stays at DOMPurify's default: unwrap, do not delete text.
-    expect(sanitizeDocumentHtml("<p><script>alert(1)</script>hi</p>")).not.toContain("<script");
+    // ★ The script's TEXT is what matters and FORBID_CONTENTS removes it, so
+    // assert the exact output — `not.toContain("<script")` alone would pass while
+    // a bare `alert(1)` sat in the prose.
+    expect(sanitizeDocumentHtml("<p><script>alert(1)</script>hi</p>")).toBe("<p>hi</p>");
     expect(sanitizeDocumentHtml("<div>kept</div>")).toContain("kept");
   });
 
