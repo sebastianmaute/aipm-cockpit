@@ -40,27 +40,27 @@ import type { Lang } from "./i18n";
 export const DOC_STYLES = `
   <w:style w:type="paragraph" w:styleId="Heading1">
     <w:name w:val="heading 1"/>
-    <w:pPr><w:outlineLvl w:val="0"/><w:spacing w:before="240" w:after="120"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="36"/><w:color w:val="${COLOR_DARK_BLUE}"/></w:rPr>
+    <w:pPr><w:spacing w:before="240" w:after="120"/><w:outlineLvl w:val="0"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="${COLOR_DARK_BLUE}"/><w:sz w:val="36"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading2">
     <w:name w:val="heading 2"/>
-    <w:pPr><w:outlineLvl w:val="1"/><w:spacing w:before="200" w:after="100"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="${COLOR_DARK_BLUE}"/></w:rPr>
+    <w:pPr><w:spacing w:before="200" w:after="100"/><w:outlineLvl w:val="1"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="${COLOR_DARK_BLUE}"/><w:sz w:val="28"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading3">
     <w:name w:val="heading 3"/>
-    <w:pPr><w:outlineLvl w:val="2"/><w:spacing w:before="160" w:after="80"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="${COLOR_TEXT}"/></w:rPr>
+    <w:pPr><w:spacing w:before="160" w:after="80"/><w:outlineLvl w:val="2"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="${COLOR_TEXT}"/><w:sz w:val="24"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="ListParagraph">
     <w:name w:val="List Paragraph"/>
-    <w:pPr><w:ind w:left="720"/><w:spacing w:after="60"/></w:pPr>
+    <w:pPr><w:spacing w:after="60"/><w:ind w:left="720"/></w:pPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Caption">
     <w:name w:val="caption"/>
     <w:pPr><w:spacing w:before="120" w:after="60"/></w:pPr>
-    <w:rPr><w:i/><w:sz w:val="18"/><w:color w:val="${COLOR_MEDIUM_GREY}"/></w:rPr>
+    <w:rPr><w:i/><w:color w:val="${COLOR_MEDIUM_GREY}"/><w:sz w:val="18"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Quote">
     <w:name w:val="Quote"/>
@@ -77,7 +77,7 @@ export const DOC_STYLES = `
       <w:spacing w:before="0" w:after="0"/>
       <w:ind w:left="360"/>
     </w:pPr>
-    <w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/><w:color w:val="${COLOR_TEXT}"/></w:rPr>
+    <w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:color w:val="${COLOR_TEXT}"/><w:sz w:val="20"/></w:rPr>
   </w:style>`;
 
 /** ★★ A project document is PROSE, so it is PORTRAIT — `doc-render-html.ts`
@@ -105,12 +105,42 @@ function para(text: string, style?: string): string {
 
 /** How a mark becomes a Word run property, and WHERE inside `<w:rPr>` it goes.
  *
- *  ★★★ `rank` is NOT decoration — CT_RPr is an XML **sequence**, so Word may
- *  reject or silently ignore a run whose properties are out of schema order.
- *  The order is rFonts · b · i · strike · highlight · u · vertAlign, and the
- *  order the marks ARRIVE in is the HTML nesting order, which is unrelated
- *  (`<sup><code><s>…` hands us vertAlign first). Emitting arrival order is the
- *  obvious implementation and it is wrong; `markedRun` sorts on this rank.
+ *  ★ `rank` is NOT decoration — the child order of CT_RPr is an `xsd:sequence`
+ *  (ECMA-376 EG_RPrBase), so a run whose properties come out in another order is
+ *  schema-INVALID. The order is rFonts · b · i · strike · highlight · u ·
+ *  vertAlign, and the order the marks ARRIVE in is the HTML nesting order, which
+ *  is unrelated (`<sup><code><s>…` hands us vertAlign first). Emitting arrival
+ *  order is the obvious implementation and it is wrong; `markedRun` sorts on
+ *  this rank.
+ *
+ *  ★ BE PRECISE ABOUT WHO CARES — the honest answer is narrower than "Word
+ *  breaks", and an earlier revision of this comment claimed "Word may reject or
+ *  silently ignore" a mis-ordered run. That was measured wrong on 2026-08-08.
+ *  dotnet/Open-XML-SDK issue #737 is this exact case (`w:b` and `w:i` swapped
+ *  inside `w:rPr`): the Open XML SDK validator raises a schema error, and the
+ *  reporter observes that Word opens the file and renders it correctly. ★ That is
+ *  one reporter's observation, not a Microsoft statement — enough to retire the old
+ *  claim, not enough to promise Word is lenient in every case. So the cost of
+ *  getting this wrong is invalidity — rejection by strict validators and by
+ *  toolchains built on them — not a Word crash and not a visible rendering
+ *  defect. The old wording was wrong in the direction that matters: a reader who
+ *  tests it, watches Word open the file happily, and concludes the whole rule is
+ *  folklore will then ignore ordering somewhere a strict consumer does reject.
+ *  ★ LibreOffice is UNVERIFIED. No evidence either way was found; Word's
+ *  leniency is not evidence about it, so do not read it as covering both.
+ *  ★ None of this is licence to stop sorting. It costs one sort, validity is
+ *  the property being defended, and the corrected order is what the Word-generated
+ *  reference template bundled with pandoc emits, in the samples checked (`Heading1Char`,
+ *  and spacing-before-outlineLvl across `Heading2`-`Heading9`) — a sample, not a survey.
+ *
+ *  ★ TWO POSITIONS ARE COUNTER-INTUITIVE, and both were got wrong in the styles
+ *  above rather than here: `w:color` is EG_RPrBase 19 while `w:sz` is 24, so
+ *  colour comes FIRST; and in CT_PPrBase (also a sequence) `w:outlineLvl` is 31
+ *  while `w:spacing` is 22 and `w:ind` is 23, so outline level comes LAST. No
+ *  RunMark maps to either element, so this rank table never covered them and
+ *  DOC_STYLES drifted independently of this sort — which is exactly how six
+ *  style `w:rPr`s and four style `w:pPr`s ended up out of sequence across two
+ *  files before 2026-08-08.
  *
  *  ★ Rank and XML live in ONE record so a new `RunMark` cannot be given a
  *  rendering without also being given a position — and the exhaustive
