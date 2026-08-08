@@ -127,7 +127,7 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws }: HistoryRowP
 
   // ★★★ RENDERED THROUGH `doc-render-html`'s PREVIEW MODE, WHICH IS WHERE THE
   // SINK SANITIZE LIVES — `renderBlock`'s `paragraph` case runs
-  // sanitizeTemplateHtml on the ONE unescaped path, and every other block type
+  // sanitizeDocumentHtml on the ONE unescaped path, and every other block type
   // is escaped by the same module. So there is NO second pass here, for the
   // reason `document-preview.tsx` states at length: a second pass would imply
   // the sink is optional. Do not hand-roll a renderer beside this one either —

@@ -27,16 +27,43 @@ describe("sanitizeDocumentRichFields", () => {
   });
 
   it("KEEPS the text inside a heading tag a model legitimately emits", () => {
-    // ★★ This is the sanitizeTemplateHtml-vs-sanitizeNoteHtml distinction, and it
-    // is the only test that can see it. `h3` is in NEITHER allow-list, so both
-    // sanitizers delete the TAG; only KEEP_CONTENT decides whether the WORDS
+    // ★★ This is the sanitizeDocumentHtml-vs-sanitizeNoteHtml distinction, and it
+    // is the only test that can see it. `h3` is in NO allow-list, so every
+    // sanitizer deletes the TAG; only KEEP_CONTENT decides whether the WORDS
     // survive. sanitizeNoteHtml sets KEEP_CONTENT:false and would leave "".
-    // Mutation-proved: swapping the import turns this red and nothing else.
+    // ★ It no longer isolates that swap on its own: mutation-measured 2026-08-08,
+    // the sanitizeNoteHtml swap turns THIS test and the LOAD-boundary one below
+    // red (2), while the sanitizeTemplateHtml swap turns only that one red (1) —
+    // so it is the PAIR that tells the two wrong sanitizers apart. The comment
+    // here previously claimed "this red and nothing else", which was true before
+    // the documents allow-list existed.
     const out = sanitizeDocumentRichFields({
       ...base,
       blocks: [{ type: "paragraph", html: "<h3>Section</h3>" }],
     });
     expect(htmlOf(out.blocks[0])).toMatch(/Section/);
+  });
+
+  it("KEEPS the documents-only tags, so the LOAD boundary agrees with the render sink", () => {
+    // ★★★ THIS IS THE END-TO-END PROPERTY, and the render sink alone cannot hold
+    // it. This function runs at the whole-object load boundaries; a narrower
+    // allow-list here strips `<mark>`/`<s>`/`<code>` on the way IN, so the sink
+    // never sees them and doc-render-html.test.ts's "renders a document
+    // paragraph's new marks instead of stripping them" — deliberately the same
+    // fixture as below — passes over HTML that can no longer reach it. Both
+    // doors, one list.
+    //
+    // ★★ Assert the CLOSING bracket and the inner text. `toContain("<s")` is
+    // satisfied by `<strong`, `<sub`, `<sup` and `<span`; `toContain("<mark")`
+    // by any future `<marker>`. Vacuous assertions have twice been found here.
+    const out = sanitizeDocumentRichFields({
+      ...base,
+      blocks: [{ type: "paragraph", html: "<p><mark>hi</mark> <s>gone</s> <code>x</code></p>" }],
+    });
+    const html = htmlOf(out.blocks[0]);
+    expect(html).toContain("<mark>hi</mark>");
+    expect(html).toContain("<s>gone</s>");
+    expect(html).toContain("<code>x</code>");
   });
 
   it("drops a javascript: href, proving the allow-list is live and not a pass-through", () => {

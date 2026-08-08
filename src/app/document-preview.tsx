@@ -9,9 +9,12 @@
 // fragment/standalone split working as intended, not a renderer bug to patch.
 //
 // ★★ NO SECOND SANITIZE PASS HERE. The renderer's paragraph sink already runs
-// sanitizeTemplateHtml on the one unescaped path — `renderBlock`'s `paragraph`
+// sanitizeDocumentHtml on the one unescaped path — `renderBlock`'s `paragraph`
 // case in doc-render-html.ts. Adding another pass here would imply the sink is
 // optional; removing the sink's would be a stored-XSS hole. Leave both alone.
+// ★ It was sanitizeTemplateHtml until S3a gave documents their own, wider
+// allow-list; naming the old one here would send a reader to a list that no
+// longer governs this pane.
 // ★★★ CITE THE SYMBOL, NOT A LINE RANGE. This said "doc-render-html.ts:84-86,
 // verified — not taken on trust", and 84-86 is `tableHtml`'s ESCAPING, a
 // different guard on a different path. A reader following it lands on table
