@@ -27,6 +27,7 @@ import {
 } from "./export-ooxml-shared";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import type { RunMark } from "./rich-text-runs";
 
 const ws = { tasks: [], raid: [] } as unknown as Workspace;
 
@@ -137,8 +138,19 @@ function runsByText(xml: string): Map<string, RunInfo> {
  *  `<a:p><a:endParaRPr/></a:p>`, so filtering on `<a:t>` PRESENCE (never on
  *  non-empty text — a body line CAN legitimately be blank, and is how the gap
  *  between two blocks is drawn) is what keeps two decorative shapes out of
- *  every paragraph assertion below. */
-function paraInfos(xml: string): Array<{ text: string; marL: string | null }> {
+ *  every paragraph assertion below.
+ *  ★★ `indent` is captured alongside `marL`, not folded into it: a renderer
+ *  that emits `marL` but drops `indent="0"` hangs the first line of an
+ *  indented paragraph past the rest, since `indent` is a first-line DELTA and ANY
+ *  non-zero value inherited from the layout would move line one alone (the primitive
+ *  states it conditionally, and so does this: what PowerPoint actually defaults to was
+ *  never measured, so the guard rests on the deletion test below, not on that) — and a
+ *  `marL`-only
+ *  assertion cannot see that regression at all (measured: deleting `indent="0"`
+ *  from the primitive left the whole suite green before this field existed). */
+function paraInfos(
+  xml: string,
+): Array<{ text: string; marL: string | null; indent: string | null }> {
   return Array.from(parseXml(xml).getElementsByTagName("a:p"))
     .filter((p) => p.getElementsByTagName("a:t").length > 0)
     .map((p) => ({
@@ -146,6 +158,7 @@ function paraInfos(xml: string): Array<{ text: string; marL: string | null }> {
         .map((t) => t.textContent ?? "")
         .join(""),
       marL: p.getElementsByTagName("a:pPr")[0]?.getAttribute("marL") ?? null,
+      indent: p.getElementsByTagName("a:pPr")[0]?.getAttribute("indent") ?? null,
     }));
 }
 
@@ -705,13 +718,13 @@ describe("renderDocumentPptx — paragraph marks", () => {
     // silently no-op — the indent has to be on the paragraph and the italic on
     // every run.
     const xml = await onlyContentSlide("<blockquote>quoted words</blockquote>");
-    expect(paraInfos(xml)).toEqual([{ text: "quoted words", marL: "228600" }]);
+    expect(paraInfos(xml)).toEqual([{ text: "quoted words", marL: "228600", indent: "0" }]);
     expect(runsByText(xml).get("quoted words")!.attrs.i).toBe("1");
   });
 
   it("renders a pre block monospace on EVERY run, and indents it", async () => {
     const xml = await onlyContentSlide("<pre>a <em>b</em></pre>");
-    expect(paraInfos(xml)).toEqual([{ text: "a b", marL: "228600" }]);
+    expect(paraInfos(xml)).toEqual([{ text: "a b", marL: "228600", indent: "0" }]);
     for (const run of runInfos(xml)) expect(run.typeface).toBe("Consolas");
   });
 
@@ -719,7 +732,7 @@ describe("renderDocumentPptx — paragraph marks", () => {
     // CONTROL: without this, a renderer that indented everything passes both
     // tests above while shifting all body prose right.
     expect(paraInfos(await onlyContentSlide("<p>flush left</p>"))).toEqual([
-      { text: "flush left", marL: null },
+      { text: "flush left", marL: null, indent: null },
     ]);
   });
 
@@ -741,6 +754,59 @@ describe("renderDocumentPptx — paragraph marks", () => {
     // on a double-escaped "&amp;amp;".
     expect(by.get("Tom & Jerry <x>")!.attrs.b).toBe("1");
     expect(xml).not.toContain("&amp;amp;");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mark-mapping exhaustiveness — the guard DOCX gets from its type and this
+// renderer does not
+// ---------------------------------------------------------------------------
+
+// ★★★ EXHAUSTIVE over RunMark, mirroring chat-tools-documents.test.ts's
+// TAG_SAMPLE idiom: a `Record<RunMark, string>`, never a bare `RunMark[]`
+// array — an array has the same completeness hole one level up (nothing
+// forces it to grow when RunMark does), so a 9th mark could go unlisted there
+// too and the "exhaustive" guard would say nothing while looking complete.
+// TS2741 fires the moment RunMark grows and this map does not.
+//
+// ★★★ THIS IS THE ONLY GUARD ON THE PPTX SIDE. doc-render-docx.ts's
+// DOCX_MARK_RPR is a real `Record<RunMark, …>`, so a new mark is a TYPECHECK
+// ERROR there. `pptxRun` (doc-render-pptx.ts) is a chain of independent
+// `has("…")` calls with no such backstop — vitest never typechecks (AGENTS.md),
+// so even the DOCX-side tsc error is invisible to `npm run test:run`, and
+// nothing at all flags the PPTX side: a mark added to the union and wired into
+// the parser but never read by a new `has(...)` in `pptxRun` renders that run
+// completely unstyled in the real .pptx, silently. Measured 2026-08-08: adding
+// a 9th `RunMark` produced exactly one tsc error (DOCX's Record) and zero
+// vitest failures anywhere before this block existed.
+//
+// ★ Each sample isolates its mark inside a PLAIN `<p>` (never blockquote/pre),
+// so the line KIND cannot also contribute italic/monospace and mask a
+// genuinely missing mark-specific branch in `pptxRun`.
+const MARK_SAMPLE: Record<RunMark, string> = {
+  bold: "<p><strong>x</strong></p>",
+  italic: "<p><em>x</em></p>",
+  underline: "<p><u>x</u></p>",
+  strike: "<p><s>x</s></p>",
+  code: "<p><code>x</code></p>",
+  highlight: "<p><mark>x</mark></p>",
+  sub: "<p><sub>x</sub></p>",
+  sup: "<p><sup>x</sup></p>",
+};
+
+describe("renderDocumentPptx — every RunMark reaches the slide", () => {
+  it("gives each mark an rPr that differs from an unmarked run's", async () => {
+    // Baseline: an unmarked run's rPr signature — no b/i/u/strike/baseline
+    // attributes and no rPr children (pinned exactly by the CONTROL test in
+    // the "paragraph marks" suite above). A mark that silently fails to reach
+    // `pptxRun` renders identically to this.
+    const baseline = runsByText(await onlyContentSlide("<p>x</p>")).get("x")!;
+    const baselineSig = JSON.stringify({ attrs: baseline.attrs, childTags: baseline.childTags });
+    for (const mark of Object.keys(MARK_SAMPLE) as RunMark[]) {
+      const run = runsByText(await onlyContentSlide(MARK_SAMPLE[mark])).get("x")!;
+      const sig = JSON.stringify({ attrs: run.attrs, childTags: run.childTags });
+      expect(sig, `<${mark}> produced an rPr identical to an unmarked run`).not.toBe(baselineSig);
+    }
   });
 });
 
