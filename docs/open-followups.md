@@ -5929,9 +5929,36 @@ one.
 does mirror exactly. Nothing pairs `HTML_START` with the wider TEMPLATE list, which is where the
 drift is.
 
-**Fix shape, not yet decided:** widening `HTML_START` to the template list is the obvious move, but
+**Fix shape, not yet decided:** ~~widening `HTML_START` to the template list is the obvious move, but
 it changes what counts as "already HTML" for EVERY stored value on every load path, so it needs the
-byte-stability suites run and probably a golden check. Do not treat it as a one-line edit.
+byte-stability suites run and probably a golden check. Do not treat it as a one-line edit.~~
+
+★★★ **THAT FIX SHAPE IS WRONG AND WOULD SHIP A DATA-LOSS REGRESSION. Corrected 2026-08-08 while
+planning the documents roadmap (§113), by reading `narrative-html.ts` rather than reasoning from
+this entry.** `HTML_START` is not a stale parallel of the template list — it is DELIBERATELY aligned
+to a *different* sink, and ONE constant serves TWO classifiers:
+
+| Consumer | Sink | Tags | `KEEP_CONTENT` |
+|---|---|---|---|
+| `narrative-html.ts:66` `narrativeToHtml` | `sanitizeNoteHtml` | 8 | **`false`** — deletes a non-listed element WITH its text |
+| `rich-text-plain.ts:152` `descriptionHtml` | `sanitizeTemplateHtml` (six rich fields + documents) | 11 | default — unwraps, keeps the words |
+
+`narrative-html.ts:70` states the alignment as intentional — "The set is EXACTLY sanitize-html.ts's
+`NOTE_ALLOWED_TAGS` … **Recognising a tag the sink STRIPS is worse than not recognising it at all**"
+— and records the precise bug widening re-creates: "h1-6, blockquote and div used to sit here … in
+fact it made `<h1>Q3</h1><p>ok</p>` render as just 'ok' and `<div>Status</div>` render as nothing at
+all." So widening the shared constant fixes the description path by **re-breaking the narrative
+path**, restoring a bug already found and fixed once.
+
+★★ **The correct shape: each classifier derives from ITS OWN sink's list.** `descriptionHtml` takes
+the tag set as a parameter (or gains a sibling); narrative keeps deriving from `NOTE_ALLOWED_TAGS`.
+Blast radius is **the six rich entity fields, not just documents**, which is why it is its own task
+rather than a rider on a documents slice. ★ Reproduce the two-consumer fact with
+`grep -rn "HTML_START" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."` — definition,
+plus one `.test(` in each of `narrative-html.ts` and `rich-text-plain.ts`.
+
+★ Until it lands, documents inherit the 8-tag classification. That is SAFE — it escapes rather than
+deletes — so a document leading with a new tag is merely escaped, not lost.
 
 ---
 
@@ -6196,7 +6223,8 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 
 | | Ships | New persisted state |
 |---|---|---|
-| **S3a** | §54 · derive `HTML_START` from its allow-list · a documents-only allow-list · mark-aware DOCX/PPTX | none |
+| **S3a** | a documents-only allow-list · mark-aware DOCX/PPTX · the three policies below | none |
+| *(before S3b)* | **§54** — spike first: its fix is NOT established and option 1's feasibility is unverified (Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk) · the `HTML_START` classifier split, six rich fields in scope | none |
 | **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
 | **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |
@@ -6219,9 +6247,13 @@ that regexp, which is a shared security boundary.
 ★★★ **Documents get their own allow-list; widening the shared one is forbidden.**
 `sanitizeTemplateHtml` also serves comm templates, meeting reports and the six rich entity fields, so
 widening it changes what a model may store everywhere, retroactively. `rich-text-editor.tsx` records
-that hazard as the reason an earlier slice disabled input rules instead. **And `HTML_START` must be
-DERIVED from its list, not maintained in parallel — that is §107, and deriving closes its whole
-class** before a third list is added.
+that hazard as the reason an earlier slice disabled input rules instead. ★★★ **An earlier revision
+of this bullet added "and `HTML_START` must be DERIVED from its list" — that is UNDER-SPECIFIED to
+the point of being dangerous, and the correction now sits in §107 above: there is no single "its
+list", because ONE constant serves TWO classifiers whose sinks differ in both tag set and
+`KEEP_CONTENT`. Each classifier must derive from ITS OWN sink. The naive derivation re-breaks the
+narrative path.** That work is its own task with the six rich entity fields in scope, sequenced
+before S3b — NOT part of S3a.
 
 ★★★ **The Turso gate is the IMAGE FEATURE, not the Documents view.** Gating the view was priced and
 rejected: Documents is one of the 17 `A11Y_VIEWS`, a Turso-only view must be kept out of that list
