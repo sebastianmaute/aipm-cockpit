@@ -26,14 +26,27 @@
 // than plain lines it renders.
 //
 // ★★★ NOTHING HERE ESCAPES ITS OWN XML, and that is deliberate: `pptxTextBox`
-// runs `xmlEscape` over every line it emits. Escaping here as well would
-// DOUBLE-escape, so a user's "&" would read as a literal "&amp;" on the slide.
-// The corollary is that every string reaching a slide MUST go through
-// `pptxTextBox` — concatenating text into shape XML by hand produces a package
-// PowerPoint rejects outright, and it fails silently until someone opens it.
+// runs `xmlEscape` over every line AND every run it emits. Escaping here as
+// well would DOUBLE-escape, so a user's "&" would read as a literal "&amp;" on
+// the slide. The corollary is that every string reaching a slide MUST go
+// through `pptxTextBox` — concatenating text into shape XML by hand produces a
+// package PowerPoint rejects outright, and it fails silently until someone
+// opens it. That is why the styled-run support added for paragraph marks went
+// into the PRIMITIVE as a semantic `PptxRun` rather than as run XML built here.
+//
+// ★★ paragraph.html is PARSED, not projected to flat text. `htmlToRichLines`
+// (shared with the DOCX renderer precisely so the two cannot drift) yields one
+// RichLine per block boundary carrying styled runs, and each becomes one
+// `<a:p>` — so bold/italic/underline/strike/code/highlight/sub/sup survive
+// instead of being flattened away. TABLE cells still take the flat projection;
+// that is the recorded `a:tbl` limitation above, not this gap.
+// ★★ DOM-BOUND as a result: `htmlToRichLines` parses with DOMParser, so this
+// module must never be reached from a node script.
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import {
+  type PptxParagraph,
+  type PptxRun,
   buildPptxPackage,
   pptxAccentBar,
   pptxBackgroundRect,
@@ -43,10 +56,17 @@ import {
 } from "./ooxml-pptx-primitives";
 import {
   COLOR_DARK_BLUE,
+  COLOR_GREEN,
   COLOR_WHITE,
   PPTX_MAX_ROWS_PER_SECTION,
 } from "./export-ooxml-shared";
-import { descriptionTextWithBreaks } from "./rich-text-projection";
+import {
+  type RichLine,
+  type RichLineKind,
+  type RunMark,
+  type TextRun,
+  htmlToRichLines,
+} from "./rich-text-runs";
 // ★★ `resolveDataSection` comes from the NEUTRAL doc-data-section module, NOT
 // from a sibling renderer. Importing it from doc-render-docx would typecheck
 // and work, and would also drag the DOCX OOXML builders into this graph and
@@ -58,6 +78,38 @@ import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 
 export type DocSlide = { title: string; body: DocBlock[] };
+
+/**
+ * One body line on its way to a slide.
+ *
+ * ★ A plain `string` for everything that has no styling to carry — headings,
+ * bullets, table rows, the deliberate blank line between blocks — so those
+ * paths are untouched and their emitted bytes unchanged. A `RichLine` only for
+ * a rich `paragraph` block, where the marks have to survive as far as the shape
+ * builder. Widening the type rather than replacing it is also what keeps
+ * `paginateLines`' exported contract (and its tests) valid for plain strings.
+ */
+export type SlideLine = string | RichLine;
+
+/** The visible text of a line, for the length/blank decisions that do not care
+ *  about styling. ★ An `hr` line has NO runs, so this is "" for one — see
+ *  `isBlankLine`, which is where that matters. */
+function slideLineText(line: SlideLine): string {
+  return typeof line === "string" ? line : line.runs.map((r) => r.text).join("");
+}
+
+/** Whether a line is the empty spacing line, as opposed to content.
+ *
+ *  ★★ THE `hr` ARM IS LOAD-BEARING. A horizontal rule is a RichLine with ZERO
+ *  runs, so its text is "" and every blank filter in this file would delete it
+ *  — the rule would vanish from the deck with nothing to notice it by, and any
+ *  test that only checks the surrounding text would still pass. A rule is
+ *  content; it just happens to carry no text of its own until `HR_TEXT` draws
+ *  one at emit time. */
+function isBlankLine(line: SlideLine): boolean {
+  if (typeof line !== "string" && line.kind === "hr") return false;
+  return slideLineText(line).trim() === "";
+}
 
 /** Column separator for the text-laid-out tables. Wide enough to read as a
  *  column break in a proportional font, where a single "|" does not. */
@@ -141,18 +193,19 @@ function tableLines(
 }
 
 /** The lines ONE block contributes. Blank lines inside a block's own output
- *  are artifacts — a trailing newline from the projection, an empty table row
- *  — and the caller strips them; the deliberate gap BETWEEN blocks is added by
- *  the caller too. */
-function blockLines(block: DocBlock, ws: Workspace, lang: Lang): string[] {
+ *  are artifacts — an empty table row, an editor's empty `<p>` — and the
+ *  caller strips them; the deliberate gap BETWEEN blocks is added by the
+ *  caller too. ★ A horizontal rule is NOT such an artifact even though it
+ *  carries no text: see `isBlankLine`. */
+function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
   switch (block.type) {
     case "heading":
       return [block.text];
 
     case "paragraph":
-      // The projection keeps a block boundary as "\n"; splitting here is what
-      // stops three paragraphs arriving as one run-on line.
-      return descriptionTextWithBreaks(block.html).split("\n");
+      // One RichLine per block boundary, each carrying its own runs — the
+      // parse already does the splitting the flat projection used to need.
+      return [...htmlToRichLines(block.html)];
 
     case "bullets":
       return block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`);
@@ -202,9 +255,9 @@ function blockLines(block: DocBlock, ws: Workspace, lang: Lang): string[] {
  *  consecutive paragraphs abutted with no visual gap and read as one. The
  *  distinction that makes stripping safe here: a blank INSIDE one block's
  *  output is an artifact, a blank BETWEEN two blocks is typography. */
-function slideLines(slide: DocSlide, ws: Workspace, lang: Lang): string[] {
+function slideLines(slide: DocSlide, ws: Workspace, lang: Lang): SlideLine[] {
   const blocks = slide.body
-    .map((block) => blockLines(block, ws, lang).filter((line) => line.trim() !== ""))
+    .map((block) => blockLines(block, ws, lang).filter((line) => !isBlankLine(line)))
     .filter((lines) => lines.length > 0);
   return blocks.flatMap((lines, i) => (i === 0 ? lines : ["", ...lines]));
 }
@@ -254,14 +307,14 @@ const BODY_LINES_PER_SLIDE = Math.floor(
  * Returns `[[]]` for an empty list so a titled slide with no body still yields
  * exactly one slide (a section divider); the caller drops the untitled case.
  */
-export function paginateLines(lines: readonly string[], perSlide: number): string[][] {
+export function paginateLines(lines: readonly SlideLine[], perSlide: number): SlideLine[][] {
   if (lines.length === 0) return [[]];
-  const chunks: string[][] = [];
+  const chunks: SlideLine[][] = [];
   for (let i = 0; i < lines.length; i += perSlide) {
     const chunk = lines.slice(i, i + perSlide);
     // A gap between blocks is typography mid-slide and dead space at the top
     // of a continuation, so drop any blank a chunk boundary left leading.
-    while (chunk.length > 0 && chunk[0].trim() === "") chunk.shift();
+    while (chunk.length > 0 && isBlankLine(chunk[0])) chunk.shift();
     if (chunk.length > 0) chunks.push(chunk);
   }
   return chunks.length > 0 ? chunks : [[]];
@@ -281,7 +334,94 @@ function slideTitleFor(title: string, index: number, total: number): string {
   return `${title} (${index + 1}/${total})`;
 }
 
-function buildContentSlide(title: string, lines: string[], lang: Lang): string {
+/** `ST_Percentage` values PowerPoint itself writes for the two vertical
+ *  alignments. Thousandths of a percent: 30000 = +30%, -25000 = -25%. */
+const SUPERSCRIPT_PCT = 30000;
+const SUBSCRIPT_PCT = -25000;
+
+/** Highlight fill for a `<mark>` run.
+ *
+ *  ★★★ DECISION, NOT A DEFAULT — and it deliberately differs from the DOCX
+ *  renderer's. That one keeps Word's "yellow" because `w:highlight` takes the
+ *  CLOSED `ST_HighlightColor` enum, in which no brand hex is expressible at
+ *  all. `<a:highlight>` takes a REAL colour, so that argument does not carry
+ *  over and the choice is genuinely open. It goes to the AIPM accent because
+ *  this file's OWN palette test enumerates the sanctioned hexes and asserts
+ *  that every `<a:srgbClr>` in a slide part is one of them — unlike the
+ *  repo-wide palette sweep, which scans CSS and cannot see OOXML, that test is
+ *  a real gate over this renderer, and shipping FFFF00 here would mean either
+ *  breaking it or carving out an exemption. 84BD00 also measures 7.8:1 against
+ *  the body text colour (COLOR_TEXT on the master's body style), so the
+ *  highlighted words stay readable rather than merely marked.
+ *  ★ ACCEPTED COST: the same document's highlight is yellow in its .docx and
+ *  its printed PDF (where `doc-render-html.ts` leaves `<mark>` to the browser
+ *  default) and AIPM green in its .pptx. Symmetry across the three renderings
+ *  was the alternative, and it loses to a gate that is actually enforced. */
+const HIGHLIGHT_RGB = COLOR_GREEN;
+
+/** Left indent for the two non-`p` line kinds, in EMUs. 228600 EMU = 0.25" =
+ *  the 360 twips the DOCX `Quote` and `CodeBlock` styles indent by, so the same
+ *  document is indented identically in both formats. */
+const RICH_INDENT_EMU = 228600;
+
+/** A horizontal rule, drawn as text.
+ *
+ *  ★★ PPTX HAS NO PARAGRAPH BORDER — `<a:pPr>` carries no `w:pBdr` equivalent,
+ *  so the DOCX trick (an empty paragraph wearing a bottom border) has nothing
+ *  to map onto, and a drawn line SHAPE cannot sit inline in a text box's flow.
+ *  Em-dashes are the same degrade-to-text decision this renderer already makes
+ *  for tables, and they keep the rule inside the paginated line budget.
+ *  ★ The length is FIXED, not measured to the box: nothing here can measure
+ *  text (see BODY_LINES_PER_SLIDE), so this is a legible rule at the body size
+ *  rather than a promise of full width. */
+const HR_TEXT = "—".repeat(24);
+
+/**
+ * One parsed run as DrawingML run properties.
+ *
+ * ★★ ALL EIGHT MARKS ARE REPRESENTED — none is dropped as "no equivalent".
+ * `code` and `highlight` were once slated to be emitted unstyled; they have
+ * real DrawingML representations (`<a:latin>`, `<a:highlight>`) and get them.
+ * ★★ DELIBERATELY NOT the DOCX rank record. There, every mark is a CHILD of
+ * `<w:rPr>` and `CT_RPr` is a sequence, so the renderer must sort by rank.
+ * Here the properties are ATTRIBUTES (order irrelevant) and the two children
+ * are ordered inside the primitive, which owns the schema — so copying the
+ * rank table over would be cargo cult.
+ * ★ `sup` beats `sub` when a run somehow carries both: there is ONE `baseline`
+ * attribute, so it can hold one value, and a silent nothing would be worse.
+ * ★ `kind` folds the LINE's styling into every run, because a slide has no
+ * style part to declare a `Quote`/`CodeBlock` in — see `DOCX_LINE_STYLE`'s
+ * counterpart. Italic mirrors the DOCX `Quote` style; monospace mirrors
+ * `CodeBlock`. Both are no-ops on a run that already carries the mark.
+ */
+function pptxRun(run: TextRun, kind: RichLineKind): PptxRun {
+  const has = (mark: RunMark): boolean => run.marks.includes(mark);
+  return {
+    text: run.text,
+    bold: has("bold"),
+    italic: has("italic") || kind === "blockquote",
+    underline: has("underline"),
+    strike: has("strike"),
+    baselinePct: has("sup") ? SUPERSCRIPT_PCT : has("sub") ? SUBSCRIPT_PCT : undefined,
+    monospace: has("code") || kind === "pre",
+    highlightRgb: has("highlight") ? HIGHLIGHT_RGB : undefined,
+  };
+}
+
+/** One body line as one paragraph for `pptxTextBox`. A plain string keeps the
+ *  uniform-text shape it always had — byte-identical, since that branch splits
+ *  on "\n" and these lines are already split. */
+function bodyParagraph(line: SlideLine): PptxParagraph {
+  if (typeof line === "string") return { text: line, sizeHundredths: BODY_SIZE };
+  if (line.kind === "hr") return { runs: [{ text: HR_TEXT }], sizeHundredths: BODY_SIZE };
+  return {
+    runs: line.runs.map((run) => pptxRun(run, line.kind)),
+    sizeHundredths: BODY_SIZE,
+    indentEmu: line.kind === "p" ? undefined : RICH_INDENT_EMU,
+  };
+}
+
+function buildContentSlide(title: string, lines: SlideLine[], lang: Lang): string {
   const titleShape = title
     ? pptxTextBox({
         id: 2,
@@ -302,8 +442,10 @@ function buildContentSlide(title: string, lines: string[], lang: Lang): string {
         name: "Body",
         lang,
         ...BODY_BOX,
-        // One <a:p> per line: pptxTextBox splits `text` on "\n" itself.
-        paragraphs: [{ text: lines.join("\n"), sizeHundredths: BODY_SIZE }],
+        // One <a:p> per line. ★ A plain line still goes through the uniform
+        // -text branch, which splits `text` on "\n" itself — so a bullet item
+        // or table cell that smuggled a newline in behaves exactly as before.
+        paragraphs: lines.map(bodyParagraph),
       })
     : "";
 

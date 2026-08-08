@@ -79,6 +79,84 @@ async function bodyText(d: ProjectDocument, w: Workspace = ws): Promise<string[]
   return (await slides(d, w)).slice(1).flatMap(textNodes);
 }
 
+type RunInfo = {
+  text: string;
+  /** Every `<a:rPr>` ATTRIBUTE by name. DrawingML puts b/i/u/strike/baseline
+   *  here, so this is where a mark shows up. */
+  attrs: Record<string, string>;
+  /** `<a:rPr>` CHILD tag names IN DOCUMENT ORDER. CT_TextCharacterProperties
+   *  is an XML SEQUENCE, so the order is itself the assertion. */
+  childTags: string[];
+  typeface: string | null;
+  highlight: string | null;
+};
+
+/**
+ * Every `<a:r>` in a slide, each paired with ITS OWN properties.
+ *
+ * ★★ The point of pairing. A `toContain('b="1"')` over the whole part passes
+ * on any slide that happens to contain a bold run ANYWHERE — including the
+ * title shape, which is bold on every content slide — so it pins nothing about
+ * which run carries which mark. Every assertion below looks a run up by its
+ * text and reads that run's properties.
+ */
+function runInfos(xml: string): RunInfo[] {
+  return Array.from(parseXml(xml).getElementsByTagName("a:r")).map((r) => {
+    const rPr = r.getElementsByTagName("a:rPr")[0] ?? null;
+    const attrs: Record<string, string> = {};
+    for (const a of Array.from(rPr?.attributes ?? [])) attrs[a.name] = a.value;
+    const highlight = rPr?.getElementsByTagName("a:highlight")[0] ?? null;
+    return {
+      text: r.getElementsByTagName("a:t")[0]?.textContent ?? "",
+      attrs,
+      childTags: Array.from(rPr?.children ?? []).map((c) => c.tagName),
+      typeface: rPr?.getElementsByTagName("a:latin")[0]?.getAttribute("typeface") ?? null,
+      highlight: highlight?.getElementsByTagName("a:srgbClr")[0]?.getAttribute("val") ?? null,
+    };
+  });
+}
+
+/** One slide's runs keyed by their text. ★ Throws on a duplicate key rather
+ *  than silently keeping the last, which would make a lookup answer about a
+ *  run the test did not mean. */
+function runsByText(xml: string): Map<string, RunInfo> {
+  const map = new Map<string, RunInfo>();
+  for (const info of runInfos(xml)) {
+    if (map.has(info.text)) throw new Error(`ambiguous run text: ${JSON.stringify(info.text)}`);
+    map.set(info.text, info);
+  }
+  return map;
+}
+
+/** Every TEXT `<a:p>` as its OWN text plus its paragraph properties.
+ *
+ *  ★★ Assert on this, never on a flat `<a:t>` list: a flat list is identical
+ *  whether two lines are separate paragraphs or fused into one, which is the
+ *  regression this whole path exists to prevent.
+ *  ★ The background rect and the accent bar each carry a placeholder
+ *  `<a:p><a:endParaRPr/></a:p>`, so filtering on `<a:t>` PRESENCE (never on
+ *  non-empty text — a body line CAN legitimately be blank, and is how the gap
+ *  between two blocks is drawn) is what keeps two decorative shapes out of
+ *  every paragraph assertion below. */
+function paraInfos(xml: string): Array<{ text: string; marL: string | null }> {
+  return Array.from(parseXml(xml).getElementsByTagName("a:p"))
+    .filter((p) => p.getElementsByTagName("a:t").length > 0)
+    .map((p) => ({
+      text: Array.from(p.getElementsByTagName("a:t"))
+        .map((t) => t.textContent ?? "")
+        .join(""),
+      marL: p.getElementsByTagName("a:pPr")[0]?.getAttribute("marL") ?? null,
+    }));
+}
+
+/** The single CONTENT slide of an untitled one-block document. Untitled means
+ *  no Title shape, so every run and paragraph on it is body content. */
+async function onlyContentSlide(html: string): Promise<string> {
+  const all = await slides(doc([{ type: "paragraph", html }]));
+  expect(all).toHaveLength(2);
+  return all[1];
+}
+
 // ---------------------------------------------------------------------------
 // segmentIntoSlides — the rule most likely to regress
 // ---------------------------------------------------------------------------
@@ -390,8 +468,9 @@ describe("renderDocumentPptx — blocks", () => {
   });
 
   it("keeps a paragraph's block boundary as separate lines instead of fusing them", async () => {
-    // ★ Recorded S1 limitation: bold/italic are lost. What must NOT be lost is
-    // the block boundary — three paragraphs must not arrive as one run-on line.
+    // ★ Marks used to be lost here (recorded S1 limitation) — they survive now,
+    // see the "paragraph marks" suite. What must NOT be lost either way is the
+    // block boundary: three paragraphs must not arrive as one run-on line.
     const text = await bodyText(doc([{ type: "paragraph", html: "<p>one</p><p>two</p>" }]));
     expect(text).toContain("one");
     expect(text).toContain("two");
@@ -527,6 +606,141 @@ describe("renderDocumentPptx — blocks", () => {
       ]),
     );
     expect(text.indexOf("AAA")).toBeLessThan(text.indexOf("BBB"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Paragraph marks — the styled-run path
+// ---------------------------------------------------------------------------
+
+describe("renderDocumentPptx — paragraph marks", () => {
+  it("gives each run the DrawingML property for its OWN mark", async () => {
+    const xml = await onlyContentSlide(
+      "<p><strong>bo</strong><em>it</em><u>un</u><s>st</s></p>",
+    );
+    const by = runsByText(xml);
+    // Positive half: the mark reaches the run that carries it…
+    expect(by.get("bo")!.attrs.b).toBe("1");
+    expect(by.get("it")!.attrs.i).toBe("1");
+    expect(by.get("un")!.attrs.u).toBe("sng");
+    expect(by.get("st")!.attrs.strike).toBe("sngStrike");
+    // …negative half: and reaches NO other run. Without this, a renderer that
+    // stamped every property on every run passes the four assertions above.
+    expect(by.get("bo")!.attrs.i).toBeUndefined();
+    expect(by.get("it")!.attrs.b).toBeUndefined();
+    expect(by.get("un")!.attrs.strike).toBeUndefined();
+    expect(by.get("st")!.attrs.u).toBeUndefined();
+  });
+
+  it("leaves an unmarked run with no mark attributes and no rPr children", async () => {
+    // CONTROL for the whole suite: plain prose must not acquire styling.
+    const by = runsByText(await onlyContentSlide("<p>plain</p>"));
+    const run = by.get("plain")!;
+    expect(run.attrs.b).toBeUndefined();
+    expect(run.attrs.i).toBeUndefined();
+    expect(run.attrs.u).toBeUndefined();
+    expect(run.attrs.strike).toBeUndefined();
+    expect(run.attrs.baseline).toBeUndefined();
+    expect(run.childTags).toEqual([]);
+    // …but it IS still a real run with the body size, not an empty shell.
+    expect(run.attrs.sz).toBe("1400");
+  });
+
+  it("distinguishes superscript from subscript by the SIGN of baseline", async () => {
+    // ★ One `baseline` attribute carries both, so a renderer that mapped the
+    // two marks to the same value would look correct in any test that only
+    // asserted "a baseline is present".
+    const by = runsByText(await onlyContentSlide("<p>H<sub>lo</sub>O<sup>hi</sup></p>"));
+    expect(by.get("lo")!.attrs.baseline).toBe("-25000");
+    expect(by.get("hi")!.attrs.baseline).toBe("30000");
+    expect(by.get("H")!.attrs.baseline).toBeUndefined();
+  });
+
+  it("renders code as a monospace latin face, not unstyled", async () => {
+    const by = runsByText(await onlyContentSlide("<p>say <code>npm run</code></p>"));
+    expect(by.get("npm run")!.typeface).toBe("Consolas");
+    expect(by.get("npm run")!.childTags).toEqual(["a:latin"]);
+    // The surrounding prose keeps the theme face.
+    expect(by.get("say ")!.typeface).toBeNull();
+  });
+
+  it("renders highlight as a real sanctioned colour, not unstyled", async () => {
+    // ★ Unlike WordprocessingML's closed ST_HighlightColor enum, `a:highlight`
+    // takes a colour — so the DOCX renderer's "yellow was forced on us"
+    // argument does not transfer, and this pins the choice that replaced it.
+    const by = runsByText(await onlyContentSlide("<p>see <mark>this bit</mark></p>"));
+    expect(by.get("this bit")!.highlight).toBe(COLOR_GREEN);
+    expect(by.get("this bit")!.childTags).toEqual(["a:highlight"]);
+    expect(by.get("see ")!.highlight).toBeNull();
+  });
+
+  it("orders rPr children by the SCHEMA sequence, not by HTML nesting order", async () => {
+    // ★★★ CT_TextCharacterProperties is a sequence: highlight precedes latin.
+    // Marks arrive in HTML nesting order, which is unrelated — so BOTH
+    // nestings must produce the same child order. A renderer emitting arrival
+    // order passes on one of these two and fails on the other.
+    const outer = runsByText(await onlyContentSlide("<p><mark><code>aa</code></mark></p>"));
+    const inner = runsByText(await onlyContentSlide("<p><code><mark>bb</mark></code></p>"));
+    expect(outer.get("aa")!.childTags).toEqual(["a:highlight", "a:latin"]);
+    expect(inner.get("bb")!.childTags).toEqual(["a:highlight", "a:latin"]);
+    // …and both really do carry both, so the order above is not vacuous.
+    expect(inner.get("bb")!.typeface).toBe("Consolas");
+    expect(inner.get("bb")!.highlight).toBe(COLOR_GREEN);
+  });
+
+  it("draws a horizontal rule that a runs-only mapping would have dropped", async () => {
+    // ★★ An `hr` RichLine carries ZERO runs, so mapping `line.runs` blindly
+    // emits an empty paragraph and the rule disappears — and any test that
+    // only checked the surrounding text would still pass. The line COUNT and
+    // the rule's own shape are what catch it.
+    const text = await bodyText(doc([{ type: "paragraph", html: "<p>above</p><hr><p>below</p>" }]));
+    expect(text).toHaveLength(3);
+    expect(text[0]).toBe("above");
+    expect(text[2]).toBe("below");
+    expect(text[1]).toMatch(/^—+$/);
+  });
+
+  it("indents a blockquote and italicises it with DIRECT formatting", async () => {
+    // ★ A slide package has no style part, so a `pStyle`-style name would
+    // silently no-op — the indent has to be on the paragraph and the italic on
+    // every run.
+    const xml = await onlyContentSlide("<blockquote>quoted words</blockquote>");
+    expect(paraInfos(xml)).toEqual([{ text: "quoted words", marL: "228600" }]);
+    expect(runsByText(xml).get("quoted words")!.attrs.i).toBe("1");
+  });
+
+  it("renders a pre block monospace on EVERY run, and indents it", async () => {
+    const xml = await onlyContentSlide("<pre>a <em>b</em></pre>");
+    expect(paraInfos(xml)).toEqual([{ text: "a b", marL: "228600" }]);
+    for (const run of runInfos(xml)) expect(run.typeface).toBe("Consolas");
+  });
+
+  it("leaves an ordinary paragraph un-indented", async () => {
+    // CONTROL: without this, a renderer that indented everything passes both
+    // tests above while shifting all body prose right.
+    expect(paraInfos(await onlyContentSlide("<p>flush left</p>"))).toEqual([
+      { text: "flush left", marL: null },
+    ]);
+  });
+
+  it("keeps each block boundary in its OWN <a:p> when runs are styled", async () => {
+    // ★★ Asserted per paragraph, never as a flat <a:t> list: a flat list reads
+    // identically whether two lines are separate paragraphs or fused into one,
+    // which is exactly the regression multi-run output can reintroduce.
+    const xml = await onlyContentSlide(
+      "<p><strong>one</strong> and <em>two</em></p><p>three</p>",
+    );
+    expect(paraInfos(xml).map((p) => p.text)).toEqual(["one and two", "three"]);
+  });
+
+  it("escapes hostile text inside a styled run exactly once", async () => {
+    const xml = await onlyContentSlide("<p><strong>Tom &amp; Jerry &lt;x&gt;</strong></p>");
+    expect(() => parseXml(xml)).not.toThrow();
+    const by = runsByText(xml);
+    // Round-tripped through a real XML parse, so this fails on a raw "&" AND
+    // on a double-escaped "&amp;amp;".
+    expect(by.get("Tom & Jerry <x>")!.attrs.b).toBe("1");
+    expect(xml).not.toContain("&amp;amp;");
   });
 });
 
@@ -671,6 +885,12 @@ describe("renderDocumentPptx — palette", () => {
       doc([
         { type: "heading", level: 1, text: "One" },
         { type: "bullets", items: ["a"] },
+        // ★ The highlight run is here deliberately. `a:highlight` carries an
+        // `a:srgbClr`, so it is the one place a renderer can put an off-palette
+        // hex into a slide part — and this file's own palette test is the ONLY
+        // gate that sees it (the repo-wide palette sweep scans CSS). Without
+        // this block the suite said nothing about the colour a `<mark>` picks.
+        { type: "paragraph", html: "<p><mark>lit</mark></p>" },
       ]),
     );
     const hexes = all.flatMap((xml) =>
@@ -678,5 +898,8 @@ describe("renderDocumentPptx — palette", () => {
     );
     expect(hexes.length).toBeGreaterThan(0);
     for (const hex of hexes) expect(sanctioned).toContain(hex);
+    // …and the highlight really did render, so the sweep above is not passing
+    // because the paragraph produced no colour at all.
+    expect(hexes).toContain(COLOR_GREEN);
   });
 });
