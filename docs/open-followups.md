@@ -6134,3 +6134,40 @@ write-then-revise pattern and puts two cards in the transcript.
 duplicate names sit on functionally identical controls — a far weaker 2.4.6 problem than the list
 above. **The part worth fixing is the RATIONALE**, which is recorded as proof that collision is
 impossible, is not, and has already been cited by `documents-history-modal.tsx` as precedent.
+
+---
+
+## 112. The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — open, UX
+
+Found 2026-08-08 by an eye-verify pass on a seeded Playwright run (Chromium, a fresh dev server on
+`PORT=3100`). That is the only place it is visible: jsdom has no layout, and the axe gate scans one
+desktop viewport and has no rule for wrap order.
+
+`settings-view.tsx` renders each rail branch as a real box — `<div role="group" aria-label={…}
+className="flex flex-col gap-1">`. On DESKTOP that is pixel-identical to the flat list it replaced.
+Below the nav's `flex-row flex-wrap` breakpoint the group becomes ONE flex ITEM among the rail's
+other entries, and two things follow:
+
+- The active PARENT pill stretches to the FULL HEIGHT of the group box. Measured at 760px wide it is
+  a solid ~120px tall block beside its three stacked children, because it is a row-level sibling of
+  a three-row item.
+- The children stack in a column, so unrelated TOP-LEVEL entries land on the same visual ROW as a
+  child. At 760px `Integrations`, `Information flows` and `Diagnostics` sit on the `Views` row and
+  read as AI Assistant's children. At 520px the interleaving is the same with different neighbours.
+
+★ The `<hr>` separators that carry the grouping on desktop are horizontal rules across the whole
+rail, so in the wrapped layout they no longer bound anything. The one cue that survives the reflow
+is the indent, and the interleaving defeats it.
+
+★★ This is the COST of the choice recorded when the group landed, not a regression against it.
+`display: contents` was rejected because its a11y-tree exposure is browser-version dependent and
+being ANNOUNCED is the fix the group exists to deliver. A real box announces reliably and lays out;
+a contents box lays out invisibly and may not announce. Do NOT "fix" this by reaching for it.
+
+★ Likely fix: `basis-full` on the group so it claims its own row and its children wrap within it,
+which keeps both the box and the announcement. The nested `<ul>`/`<li>` nav structure raised in the
+same review is the other candidate, and is announced by more AT.
+
+★ Reproduce: seed a project, open Settings, activate the AI Assistant branch, THEN narrow the
+viewport to 760px. Narrowing first does not reproduce it — the shell drops the rail's labels at that
+width before the branch renders, so there is no group to reflow.
