@@ -9,8 +9,14 @@ import type { Period } from "./resource-capacity";
  *  firstName/lastName rather than a `name`, so the row's display name is DERIVED
  *  here — narrowing the input also keeps test fixtures honest instead of cast to
  *  `never[]`. `isExternal` is in the Pick because the PLANNED figure depends on
- *  it (see `build` below); a fixture that omits it is therefore stating that the
- *  person is internal, rather than silently defaulting past the question. */
+ *  it (see `build` below), so the dependency is at least VISIBLE in the input
+ *  type instead of reaching past it into the full `Resource`.
+ *  ★ It does NOT force the caller to decide: `Resource.isExternal` is OPTIONAL
+ *  (`types.ts:541`) and `Pick` preserves optionality, so omitting it is still a
+ *  silent default to `undefined`, which `build` reads as internal. Only a
+ *  REQUIRED field would make omission a type error, and requiring it here would
+ *  diverge from the entity. Stated plainly because the earlier wording of this
+ *  comment claimed the opposite. */
 export type BucketPeopleResource = Pick<Resource, "id" | "firstName" | "lastName" | "roleId" | "isExternal">;
 
 export interface PersonRow {

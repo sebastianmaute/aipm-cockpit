@@ -382,6 +382,58 @@ describe("UndoControl history popover — focus return", () => {
   });
 });
 
+// ★★★ THE PATH THE THREE ABOVE CANNOT REACH. They all close a panel whose
+// control SURVIVES. Committing through the OLDEST entry empties the stack, so
+// `depth <= 0` unmounts the caret `close()` just focused and focus falls to
+// <body> — the WCAG 2.4.3 failure the restore exists to prevent, on the most
+// likely path of all. The target is the element a Tab would have reached.
+//
+// ★ The mirror concern is focus THEFT: `PopoverPanel` calls `onClose` from its
+//   outside-click, ancestor-scroll and width-resize listeners too, so the
+//   restore must fire only while the panel still owns focus (or focus is lost).
+describe("UndoControl history popover — focus when the control itself unmounts", () => {
+  const tree = (entries: typeof STACK | []) => (
+    <>
+      <UndoControl lang="en-US" entries={entries} onUndo={vi.fn()} onUndoThrough={vi.fn()} />
+      <button type="button">after</button>
+    </>
+  );
+
+  it("moves focus to the next control, not <body>, when the last entry is reverted", async () => {
+    const { rerender } = render(tree(STACK));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
+    // Control: focus really is inside the panel first, so a pass cannot come
+    // from focus having sat on the "after" button all along.
+    expect(document.activeElement).toBe(screen.getByRole("listbox"));
+
+    // Newest-first display, so the LAST option is the oldest entry — committing
+    // through it drains the stack, which the parent reflects by re-rendering
+    // with no entries at all.
+    await userEvent.click(screen.getAllByRole("option")[2]);
+    rerender(tree([]));
+
+    expect(screen.queryByRole("button", { name: t("en-US", "undoShowHistory") })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "after" }));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it("does NOT pull focus back to the caret when the panel closes while focus is elsewhere", async () => {
+    render(tree(STACK));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowHistory") }));
+    const elsewhere = screen.getByRole("button", { name: "after" });
+    elsewhere.focus();
+    // Control: focus really left the panel before the close.
+    expect(document.activeElement).toBe(elsewhere);
+
+    // What an ancestor scroll looks like to `PopoverPanel`'s capture-phase
+    // window listener — it closes the panel and changes focus by itself not at all.
+    fireEvent.scroll(document.body);
+
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(document.activeElement).toBe(elsewhere);
+  });
+});
+
 // ★ The panel is the listbox's only accessible-name owner now — labelling the
 //   role="dialog" wrapper too made AT announce the name twice.
 describe("UndoControl history popover — accessible naming", () => {

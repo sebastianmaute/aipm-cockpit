@@ -3,7 +3,7 @@
 // a single report_analysis tool call and returns the parsed ActionAnalysis. No
 // agentic loop. Reuses the live in-memory API key (never logged). Mirrors
 // use-project-proposal.ts.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type ActionAnalysis } from "./action-ai";
 import { runJobAnalysis } from "./scheduled-job-analysis";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -43,14 +43,36 @@ export function useActionAnalysis(ai: AiCreds) {
         setError(/^\d+$/.test(msg) || msg === "parse" ? msg : "network");
         return null;
       } finally {
-        setBusy(false);
-        abortRef.current = null;
+        // ★ DEFENCE IN DEPTH — this guard fixes no live bug today, and saying so
+        //   is the point: the ONLY trigger is the Action Center's
+        //   `AiTriggerButton`, which swaps its click from `onRun` to `onCancel`
+        //   the moment `busy` is true, so a second `analyze` cannot overlap the
+        //   first (verified: `use-ai-orchestration.ts` exposes `analyze` solely
+        //   through `aiAnalysisBundle.onAnalyze` → `actions-panel.tsx`, and
+        //   nothing else calls it). It becomes reachable the moment a second
+        //   trigger, a hotkey or a retry is added — a superseded run unwinds
+        //   AFTER its successor armed the new controller, so an unguarded
+        //   `abortRef.current = null` would make `cancel()` a silent no-op while
+        //   the successor is still billed, and an unguarded `setBusy(false)`
+        //   would report idle during it. Matches `use-abortable-ai.ts` and
+        //   `use-timelog-sync.ts`'s `runGuarded`.
+        if (abortRef.current === controller) {
+          setBusy(false);
+          abortRef.current = null;
+        }
       }
     },
     [ai.apiKey, ai.model],
   );
 
   const cancel = useCallback(() => { abortRef.current?.abort(); }, []);
+  // ★ A billed call must never outlive the surface that started it. This hook is
+  //   mounted at task-manager lifetime, so an unmount here is effectively app
+  //   teardown and the window is small — but it is one cleanup-only line, it
+  //   costs nothing, and it removes the need for every future reader to re-derive
+  //   that lifetime before trusting the hook. Sets no state (the
+  //   `react-hooks/set-state-in-effect` ban).
+  useEffect(() => () => abortRef.current?.abort(), []);
   const clear = useCallback(() => { setResult(null); setError(null); }, []);
 
   return { analyze, busy, error, result, clear, cancel };

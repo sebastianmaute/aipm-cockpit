@@ -20,8 +20,18 @@ const DASH = "—";
  *  worse than the noise. `null` stays the unknown dash — it is not a value to
  *  round. These rows are read-only, so `readOnly` is always true here (rounding
  *  a field the user is typing into fights the input; that is why the flag
- *  exists at all). */
-const hoursText = (v: number | null): number | string => (v == null ? DASH : displayHours(v, true));
+ *  exists at all).
+ *  ★★ NON-FINITE ROUTES TO THE DASH TOO. `displayHours` returns `""` for
+ *  NaN/±Infinity, which is right for the INPUT it was written for (an empty
+ *  field) and wrong for read-only TEXT: it rendered a blank half of "— / —" with
+ *  no dash, so a broken figure read as "no data" — and, worse, as `" / 12"`,
+ *  where the missing operand is invisible rather than marked. There is one
+ *  unknown state in these rows and it is spelled `—`; anything that is not a
+ *  displayable number belongs in it. Defensive only: `bookedTotal` sums Timelog
+ *  hours and `plannedTotal` sums capacity, so no live path is known to produce a
+ *  non-finite value — this closes the third state, it does not fix a seen bug. */
+const hoursText = (v: number | null): number | string =>
+  v == null || !Number.isFinite(v) ? DASH : displayHours(v, true);
 
 /** The disclosure contract is an id shared by two elements that live ~40 lines
  *  apart, so it is minted here instead of spelled out at both call sites — a

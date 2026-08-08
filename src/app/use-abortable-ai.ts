@@ -40,7 +40,18 @@ export function useAbortableAi() {
       return controller.signal.aborted ? null : value;
     } catch (e) {
       if (isAbortError(e)) return null;
-      setError(e instanceof Error ? e.message : String(e));
+      // ★★ Guarded on "this is still the current run", for the same reason the
+      //    `finally` below is: a superseded run rejects AFTER its successor
+      //    armed the new controller and cleared `error`, so an unguarded write
+      //    here surfaces a dead run's failure against a live one. `error` is
+      //    kept (not deleted as dead code) even though the sole consumer,
+      //    `use-insight-recommend`, destructures only `{busy, run, cancel}` and
+      //    classifies its own failures: this is the shared primitive every
+      //    stoppable AI trigger is meant to adopt, dropping the surface would
+      //    push the next consumer into hand-rolling one, and the hook's tests
+      //    pin the whole error contract. Leaving the state half-live — set on
+      //    one path, guarded on the other — is what was not acceptable.
+      if (abortRef.current === controller) setError(e instanceof Error ? e.message : String(e));
       return null;
     } finally {
       // ★★ BOTH statements are guarded on "this is still the current run". A

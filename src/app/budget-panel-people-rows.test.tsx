@@ -54,6 +54,18 @@ describe("BucketPeopleRows", () => {
     expect(cellTexts(container)).toEqual(["", "Adam", "— / 8", "— / 8"]);
   });
 
+  // ★ `displayHours` returns "" for a non-finite value — correct for the INPUT
+  //   it was written for, wrong for read-only text, where it renders the blank
+  //   half of a "x / y" pair with no dash and reads as "no data". There is one
+  //   unknown state in these rows and it is spelled "—". Defensive: no live path
+  //   is known to produce NaN here.
+  it("shows the dash — not a blank — for a non-finite figure", () => {
+    const { container } = renderRows([
+      row({ booked: { "2026-01": Number.NaN }, bookedTotal: Number.POSITIVE_INFINITY }),
+    ]);
+    expect(cellTexts(container)).toEqual(["", "Adam", "— / 8", "— / 8"]);
+  });
+
   it("stays in the DOM while collapsed so aria-controls resolves", () => {
     const { container } = renderRows([row()], true);
     const body = container.querySelector("#people-1-10");

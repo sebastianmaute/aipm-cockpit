@@ -74,6 +74,31 @@ it("aborts the in-flight call when the pane goes inactive (deps.active=false)", 
   expect(captured?.aborted).toBe(true);
 });
 
+// ★★ The `active === false` transition above is NOT the same event as UNMOUNT,
+// and on the TASK path there is no `active` prop at all (`use-inline-ai-edit`
+// spreads deps without one), so nothing there ever deactivated. The modern shell
+// renders only the active view and workspace-section only the active tabpanel,
+// so navigating away UNMOUNTS the pane — without a cleanup the billed
+// `callInlineEdit` kept running with no Stop anywhere.
+it("aborts the in-flight call on UNMOUNT (the task path never deactivates)", () => {
+  let captured: AbortSignal | undefined;
+  vi.spyOn(call, "callInlineEdit").mockImplementation(
+    ((args: { signal?: AbortSignal }) => {
+      captured = args.signal;
+      return new Promise(() => {});
+    }) as unknown as typeof call.callInlineEdit,
+  );
+  const { result, unmount } = renderHook(() => useInlineAiEdit(mkDeps()));
+  act(() => result.current.openFor(task));
+  act(() => { void result.current.submit("mark done"); });
+  // Control: the signal is live before the unmount, so the assertion below
+  // cannot be satisfied by an already-aborted (or absent) signal.
+  expect(captured).toBeInstanceOf(AbortSignal);
+  expect(captured?.aborted).toBe(false);
+  unmount();
+  expect(captured?.aborted).toBe(true);
+});
+
 it("openFor on a new item aborts the previous item's in-flight call", async () => {
   let captured: AbortSignal | undefined;
   vi.spyOn(call, "callInlineEdit").mockImplementation(

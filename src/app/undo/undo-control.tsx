@@ -9,6 +9,31 @@ import { type UndoMeta } from "./undo-stack";
 const BUTTON_CLASS =
   "inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-sm text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey";
 
+// Same list `use-focus-trap.ts` uses. Kept local rather than exported from
+// there: that module owns a trap, not a focus-order utility, and widening its
+// API for one caller is the parameterise-a-working-thing move this repo avoids.
+const FOCUSABLE_SELECTOR =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * The element a Tab from `root` would have reached — the first focusable in
+ * DOCUMENT order that FOLLOWS `root` and is not inside it.
+ *
+ * ★ It has to be captured while `root` is still in the tree. Once the last undo
+ *   entry is reverted the whole control is gone, and with it every anchor a
+ *   "where should focus go" question could be asked from.
+ * ★ `querySelectorAll` returns document order, so the first FOLLOWING match is
+ *   the right one; `compareDocumentPosition` is what makes "after" precise
+ *   across the portal (`PopoverPanel` mounts at the end of <body>, i.e. after us).
+ */
+function nextFocusableAfter(root: HTMLElement): HTMLElement | null {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))) {
+    if (root.contains(el)) continue;
+    if (root.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) return el;
+  }
+  return null;
+}
+
 /**
  * A top-bar undo/redo control: the action button plus an Excel-style caret that
  * opens the MULTI-STEP history. The action button still performs exactly ONE
@@ -64,17 +89,36 @@ function UndoRedoControl({
 }) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const rootRef = useRef<HTMLSpanElement>(null);
   const caretRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  // Where focus goes when this control itself disappears — see the effect below.
+  const exitFocusRef = useRef<HTMLElement | null>(null);
+  const armExitFocus = useCallback(() => {
+    const root = rootRef.current;
+    exitFocusRef.current = root ? nextFocusableAfter(root) : null;
+  }, []);
   // ★★ Return focus to the caret. The `<ul tabIndex={0}>` is what `PopoverPanel`
   // autofocuses, and neither it nor `useDismissable` restores focus — so on
   // Escape / Enter / an option click the focused node UNMOUNTS and focus falls
   // to <body>, restarting the next Tab at the top of the document (WCAG 2.4.3).
   // Fixed HERE rather than in the shared panel: every other consumer keeps its
   // current behaviour.
+  // ★★★ ONLY WHEN THE PANEL STILL OWNS FOCUS (or focus was dropped). `close` is
+  // NOT just the Escape/Enter/click path: `PopoverPanel` also calls `onClose`
+  // from its outside-mousedown, ancestor-scroll and width-resize listeners. An
+  // unconditional `caretRef.current?.focus()` therefore yanked focus into the
+  // top bar when the user had deliberately tabbed or clicked somewhere else and
+  // then merely scrolled — a worse regression than the stranded focus this
+  // restore exists to fix. Same "lost counts as ours" rule as
+  // `usePanelInitialFocus` / `useClaimsWhenFocusWithin`.
   const close = useCallback(() => {
     setOpen(false);
-    caretRef.current?.focus();
+    if (typeof document === "undefined") return;
+    const focused = document.activeElement;
+    const lost = focused === null || focused === document.body;
+    const inside = focused !== null && listRef.current !== null && listRef.current.contains(focused);
+    if (lost || inside) caretRef.current?.focus();
   }, []);
 
   const depth = entries.length;
@@ -98,8 +142,15 @@ function UndoRedoControl({
   const openList = useCallback(() => {
     setActiveIndex(0);
     keyboardMoveRef.current = false;
+    // Armed here (not at activation) so it also covers the stack draining under
+    // an OPEN panel — `use-undo-hotkey` listens on `document` and skips only
+    // INPUT/TEXTAREA/SELECT/contenteditable, so Ctrl/⌘+Z fires while the
+    // focused <ul> is none of those. The portal does not exist yet at this
+    // point (the handler runs before React commits `open`), so the captured
+    // target can never be a node inside the panel that is about to close.
+    armExitFocus();
     setOpen(true);
-  }, []);
+  }, [armExitFocus]);
 
   // ★★ `aria-activedescendant` moves the VIRTUAL focus only — DOM focus never
   // leaves the <ul>, so the browser does NOT scroll the active option into view
@@ -148,6 +199,36 @@ function UndoRedoControl({
     return () => window.removeEventListener("mousemove", onMove);
   }, [open]);
 
+  // ★★★ THE PATH `close()` CANNOT FIX: committing THROUGH THE OLDEST ENTRY (or
+  // draining the stack with Ctrl+Z, or clicking the action button down to zero)
+  // empties `entries`, so the `depth <= 0` return below unmounts the very caret
+  // `close()` just focused and focus lands on <body> — the exact WCAG 2.4.3
+  // failure the restore was added for, on the path a user is most likely to
+  // take. Nothing of ours survives to receive focus, so the target is captured
+  // BEFORE the removal (`armExitFocus`) and applied AFTER the commit, here.
+  // ★ Where it goes: the element a Tab from this control would have reached. For
+  //   the undo control that is normally the redo control's button — undoing
+  //   pushes onto the redo stack, so it is mounting in the same commit — and
+  //   otherwise the next top-bar control. Predictable, and it keeps the user in
+  //   the place they were.
+  // ★★ ONLY when focus was actually DROPPED. If the user has moved focus
+  //   somewhere deliberate, pulling it into the top bar because a background
+  //   write happened to empty the stack is focus THEFT, which is worse than the
+  //   bug being fixed. `document.contains` also rules out a captured node that
+  //   has itself since unmounted.
+  // ★ The component is rendered unconditionally by task-manager, so it stays
+  //   MOUNTED (only its DOM goes) and this effect still runs. Every hook is
+  //   above the early return for that reason — keep it that way.
+  useEffect(() => {
+    if (depth > 0) return;
+    const target = exitFocusRef.current;
+    exitFocusRef.current = null;
+    if (target === null || !document.contains(target)) return;
+    const focused = document.activeElement;
+    if (focused !== null && focused !== document.body) return;
+    target.focus();
+  }, [depth]);
+
   if (depth <= 0) return null;
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
@@ -177,10 +258,13 @@ function UndoRedoControl({
   };
 
   return (
-    <span className="inline-flex items-center">
+    <span ref={rootRef} className="inline-flex items-center">
       <button
         type="button"
-        onClick={onActivate}
+        // Armed before the activation, not after: a click that takes the stack
+        // to zero removes THIS button, and by then there is no anchor left to
+        // measure "the next focusable" from.
+        onClick={() => { armExitFocus(); onActivate(); }}
         aria-label={actionLabel}
         title={actionLabel}
         className={`${BUTTON_CLASS} rounded-r-none border-r-0 ${INTERACTIVE}`}
