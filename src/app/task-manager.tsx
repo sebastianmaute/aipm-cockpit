@@ -2573,8 +2573,18 @@ function TaskManagerInner() {
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
   const undoControlEl = isPopout ? null : (
     <>
-      <UndoControl lang={lang} depth={undoApi.stack.length} onUndo={undoApi.undo} nextLabel={undoApi.stack[undoApi.stack.length - 1]?.label} />
-      <RedoControl lang={lang} depth={undoApi.redoStack.length} onRedo={undoApi.redo} nextLabel={undoApi.redoStack[undoApi.redoStack.length - 1]?.label} />
+      <UndoControl
+        lang={lang}
+        entries={undoApi.stack}
+        onUndo={undoApi.undo}
+        onUndoThrough={undoApi.undoThrough}
+      />
+      <RedoControl
+        lang={lang}
+        entries={undoApi.redoStack}
+        onRedo={undoApi.redo}
+        onRedoThrough={undoApi.redoThrough}
+      />
     </>
   );
   const { appHeaderEl, topBarMenus } = buildShellChrome({
