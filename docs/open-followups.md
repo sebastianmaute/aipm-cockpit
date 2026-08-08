@@ -6328,7 +6328,7 @@ grep -n "actualHours\[p.key\]\|actualsByPeriod={" src/app/budget-panel.tsx
 grep -n "loadActualsCache" src/app/workspace-section.tsx
 ```
 
-## 116. The budget people-row disclosure clips its own label mid-glyph, with no ellipsis — open, UI
+## 116. The budget people-row disclosure clips its own label mid-glyph, with no ellipsis — CLOSED 2026-08-08
 
 Found 2026-08-08 in slice 3's task-14 eye-verify. Not a regression — the control is new — and it is
 the case AGENTS.md already documents in the abstract ("`text-overflow` does not apply to an
@@ -6358,6 +6358,15 @@ sits exactly on the boundary. Dragging the role column to 90px (a normal thing t
 user-resizable) cuts every one of the seven, the worst by 107.6px, i.e. more than half the label
 gone with nothing indicating it.
 
+★★ CORRECTION, from re-measuring the same 7 lines on 2026-08-08 while fixing this: the table's `cut`
+column compares the button against the column's DECLARED 160px, but the cell clips at its PADDING
+edge, and the button starts `px-3` (12px) in — so the width actually available to the button is
+`160 − 12 = 148`, not 160. Against that boundary **FOUR of the seven lines are cut at the default**,
+not two: Business Analyst Consultant ×2 by 37.6px, Project Manager Senior by 12px, Developer
+Consultant by 2.5px; Developer Senior ×2 and Developer Lead fit. The 90px figures need no
+correction — `185.6 − (90 − 12) = 107.6` is the padding-edge number already. The entry understated
+the default-width case; it did not overstate it.
+
 ★ The disclosure chrome is what pushes it over: the label text alone fits; the `ToggleButton` adds
 its own padding plus the `data-pressed-marker` glyph, which by design renders in BOTH states so the
 button keeps one width.
@@ -6365,10 +6374,50 @@ button keeps one width.
 ★★ The obvious fix is NOT the one AGENTS.md warns against. The warning there is about
 `SortResizeTh`'s pinned HEADER, where swapping `overflow-hidden whitespace-nowrap` for `truncate`
 was measured to change nothing, because the content is a button either way. Here the fix is to make
-the button itself shrinkable and put the ellipsis INSIDE it — `max-w-full` + `min-w-0` on the
-button, `truncate` on a span wrapping `{label}` — so the ellipsis lands on the text node where it
-does apply. That is a change to a shared primitive's call site (or to `ToggleButton`'s
-`variant="disclosure"` branch), which is why it is filed rather than done inside a verification pass.
+the button itself shrinkable and put the ellipsis INSIDE it, on the text node where `text-overflow`
+does apply.
+
+### FIXED — `PeopleDisclosureLabel` passes `className="max-w-full [&>span]:min-w-0 [&>span]:truncate"`
+
+At the CALL SITE, not in `ToggleButton`: every other consumer of that primitive is a short fixed
+label in an unclamped toolbar, so changing the primitive would alter them all to fix one caller. The
+`&>span` reaches into the primitive's markup — that is the price of not changing it for everyone,
+and `budget-panel-people-rows.test.tsx` pins both the class list and the one-direct-child-span
+structure the selector depends on.
+
+Re-measured in Chromium the same way (fresh `PORT=3100` server, `e2e/seed.ts`, viewport 900×850,
+`getBoundingClientRect`), same 7 role lines, before → after:
+
+| role label | 160px button W | 160px span scroll/client | 90px button W | 90px span scroll/client |
+|---|---|---|---|---|
+| Developer Senior | 127.8 → 127.8 | 86/86 → 86/86 (fits) | 127.8 → **66** | 86/86 → **86/24** |
+| Business Analyst Consultant | 185.6 → **136** | 144/144 → **144/94** | 185.6 → **66** | 144/144 → **144/24** |
+| Project Manager Senior | 160.0 → **136** | 118/118 → **118/94** | 160.0 → **66** | 118/118 → **118/24** |
+| Developer Lead | 119.8 → 119.8 | 78/78 → 78/78 (fits) | 119.8 → **66** | 78/78 → **78/24** |
+| Developer Senior (2nd) | 127.8 → 127.8 | 86/86 → 86/86 (fits) | 127.8 → **66** | 86/86 → **86/24** |
+| Developer Consultant | 150.5 → **136** | 108/108 → **108/94** | 150.5 → **66** | 108/108 → **108/24** |
+| Business Analyst Consultant (2nd) | 185.6 → **136** | 144/144 → **144/94** | 185.6 → **66** | 144/144 → **144/24** |
+
+The button now stops at the cell's content box (136 at the 160px default, 66 at 90px) — overflow
+past the clip edge is ≤ 0 on every line at both widths — and the label span's computed
+`text-overflow` went `clip` → `ellipsis` with `scrollWidth > clientWidth` wherever the text no
+longer fits. The glyph was also confirmed by screenshot, not only by the scroll/client ratio: the
+long label renders "Business Analys…" at 160px and "Bu…" at 90px, inside an unbroken button border.
+
+★★★ `min-w-0` MEASURED INERT — the entry's own suggested fix was half wrong about the mechanism.
+`truncate` sets `overflow: hidden`, and a flex item whose computed overflow is not `visible` already
+has an automatic minimum size of 0 (CSS Flexbox §4.5), so the label span shrinks with or without it:
+dropping `[&>span]:min-w-0` and re-measuring produced byte-identical geometry on all 7 lines
+(136/136/136 buttons, span 144/94, 118/94, 108/94). **`max-w-full` is the load-bearing half** — it is
+what stops the inline-flex button overflowing the clamped `<td>`. `min-w-0` is kept as a statement of
+intent that a later `overflow` change must not silently revoke, and the unit test pins its PRESENCE
+only; do not read that assertion as proof the class does anything.
+
+★ The three pinned leading cells are unaffected, checked mid-horizontal-scroll rather than by
+computed style alone: at 160px the role row and the person rows both sit at 0 / 28 / 188 px from the
+scroller's left edge (0 / 28 / 118 at 90px), the role cell's right edge exactly meets the Total
+cell's left edge (overlap 0.0px), and the button's right edge stays inside the role cell
+(233.8 ≤ 254 at 160px; 172 ≤ 184 at 90px).
 
 ★ jsdom cannot see any of this (no layout) and axe has no rule for a clipped label, so nothing in
 CI will report a regression here either way. Reproduce with a Playwright measurement, not a unit
@@ -6377,6 +6426,7 @@ test:
 ```bash
 # in a seeded spec, on Budget, after narrowing the viewport to 900px:
 #   button.getBoundingClientRect().width  vs  button.closest("td").getBoundingClientRect().width
+#   span.scrollWidth > span.clientWidth   ⇒ the ellipsis is actually rendering
 grep -n "PeopleDisclosureLabel" src/app/budget-panel-people-rows.tsx src/app/budget-panel.tsx
 ```
 

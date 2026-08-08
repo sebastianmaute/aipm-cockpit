@@ -42,6 +42,30 @@ export function PeopleDisclosureLabel({
       onToggle={onToggle}
       ariaControls={peopleBodyId(bucketId, roleId)}
       ariaLabel={`${t(lang, "budgetShowPeople")} – ${label}`}
+      // ★★ THE ELLIPSIS HAS TO LAND ON A TEXT NODE (open-followups §116). The
+      //   `<td>` around this is `truncate` and clamped to the LIVE role-column
+      //   width, but `text-overflow` does not apply to an atomic inline — and
+      //   this cell's only child is an inline-flex button — so the button was
+      //   simply cut at the cell edge, mid-glyph, with nothing indicating it
+      //   (185.6px of "Business Analyst Consultant" inside a 160px column;
+      //   every one of the sample's seven role lines cut once the column is
+      //   dragged to 90px). Two halves, both required:
+      //   • `max-w-full` lets the button stop at the cell's content box instead
+      //     of overflowing it,
+      //   • `[&>span]:truncate` puts the ellipsis on the primitive's LABEL span,
+      //     which is a blockified flex item and therefore a place where
+      //     `text-overflow` does apply. `min-w-0` beside it is belt-and-braces:
+      //     `overflow:hidden` already zeroes a flex item's automatic minimum
+      //     size, so `truncate` alone measured identically — keep it anyway,
+      //     because it states the intent that a later `overflow` change must
+      //     not silently revoke.
+      //   ★ Deliberately at the CALL SITE, not in `ToggleButton`: every other
+      //   consumer is a short fixed label in an unclamped toolbar. The `&>span`
+      //   reaches into the primitive's markup, which is the price of not
+      //   changing it for everyone; `toggle-button.tsx` renders exactly one
+      //   span (the label) plus an `<svg>` marker, and `budget-panel-people-rows.test.tsx`
+      //   pins both this class list and that structure.
+      className="max-w-full [&>span]:min-w-0 [&>span]:truncate"
       // ★ The rows read "6 / 176" with no header saying which figure is which —
       //   position and the `/` are the only cue. This says it in words, in the
       //   accessible DESCRIPTION (the NAME must stay stable), and the disclosure

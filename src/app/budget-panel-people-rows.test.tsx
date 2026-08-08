@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { BucketPeopleRows } from "./budget-panel-people-rows";
+import { BucketPeopleRows, PeopleDisclosureLabel, peopleBodyId } from "./budget-panel-people-rows";
 import { DOT_COL_PX, TOTAL_COL_PX } from "./budget-panel-totals";
 import type { PersonRow } from "./budget-bucket-people";
 
@@ -92,5 +92,77 @@ describe("BucketPeopleRows", () => {
       expect(cell.className).toMatch(/(^|\s)bg-surface(\s|$)/);
       expect(cell.className).toMatch(/print:static/);
     }
+  });
+});
+
+const LONG_ROLE = "Business Analyst Consultant";
+
+const renderLabel = (label = LONG_ROLE) =>
+  render(
+    <table>
+      <tbody>
+        <tr>
+          <td>
+            <PeopleDisclosureLabel
+              lang="en-US" label={label} bucketId={1} roleId={10} open={false} onToggle={() => {}}
+            />
+          </td>
+        </tr>
+      </tbody>
+    </table>,
+  );
+
+describe("PeopleDisclosureLabel", () => {
+  // ★★★ NONE OF THIS PROVES THE LABEL ELLIPSIZES. jsdom has no layout, so the
+  //     only thing testable here is the PLUMBING the browser fix rides on. The
+  //     geometry was measured in Chromium (open-followups §116): at the 160px
+  //     default the button went 185.6px → 136px and the label span went
+  //     scrollWidth 144 / clientWidth 94 with `text-overflow: ellipsis`, and
+  //     the rendered glyph reads "Business Analys…". Re-measure there, not here.
+  it("makes the button shrinkable and hands the ellipsis to the label span", () => {
+    renderLabel();
+    const btn = screen.getByRole("button");
+    // `max-w-full` is the half that measured LOAD-BEARING: without it the
+    // inline-flex button overflows the clamped role `<td>` and is cut mid-glyph.
+    expect(btn.className).toMatch(/(^|\s)max-w-full(\s|$)/);
+    // `[&>span]:truncate` is what puts `text-overflow` on a node where it
+    // applies — the primitive's label span, a blockified flex item.
+    expect(btn.className).toMatch(/\[&>span\]:truncate/);
+    // ★ HONEST LIMIT: `[&>span]:min-w-0` measured INERT — `overflow:hidden`
+    //   from `truncate` already zeroes a flex item's automatic minimum size, so
+    //   Chromium rendered byte-identical geometry without it. This assertion
+    //   pins that the class is PRESENT (a mutation removing it fails here); it
+    //   cannot and does not prove the class does anything. It stays because it
+    //   states the intent a later `overflow` change must not silently revoke.
+    expect(btn.className).toMatch(/\[&>span\]:min-w-0/);
+  });
+
+  // ★★ THE STRUCTURAL ASSUMPTION BEHIND `[&>span]`. The fix reaches into
+  //    `ToggleButton`'s markup from this call site (deliberately — every other
+  //    consumer is a short label in an unclamped toolbar). If the primitive ever
+  //    wraps its label in something other than ONE direct-child span, the
+  //    selector matches nothing and the clipping silently returns with no gate
+  //    anywhere reporting it: axe has no rule for a cut label and jsdom sees no
+  //    layout. This is that gate.
+  it("keeps the label in exactly one direct-child span of the button", () => {
+    renderLabel();
+    const btn = screen.getByRole("button");
+    const spans = [...btn.children].filter((c) => c.tagName === "SPAN");
+    expect(spans).toHaveLength(1);
+    expect(spans[0].textContent).toBe(LONG_ROLE);
+  });
+
+  // The a11y contract the fix must not disturb — the accessible NAME is
+  // row-unique (N identical "Show people" names is WCAG 2.4.6, and the axe gate
+  // passes it whenever the seed renders one row), the disclosure pair still
+  // resolves, and the figure hint stays the DESCRIPTION rather than the name.
+  it("keeps the row-unique name, the disclosure pair and the figure hint", () => {
+    renderLabel();
+    const btn = screen.getByRole("button", { name: `Show people – ${LONG_ROLE}` });
+    expect(btn).toHaveAttribute("aria-expanded", "false");
+    expect(btn).toHaveAttribute("aria-controls", peopleBodyId(1, 10));
+    expect(btn).toHaveAttribute("title", "Booked / planned hours");
+    // The non-colour pressed marker the disclosure variant supplies.
+    expect(btn.querySelector("[data-pressed-marker]")).not.toBeNull();
   });
 });
