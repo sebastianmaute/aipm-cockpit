@@ -4,8 +4,14 @@
 // ★★★ THIS GUARDS A SILENT, SELF-CONCEALING REGRESSION. `e2e/seed.ts` writes the
 // sample workspace into IndexedDB from two HARDCODED lists (entity stores + a kv
 // map). A slice missing from them is dropped without a word, the view renders its
-// EMPTY STATE, and the axe gate then scans a panel with no rows, no per-row
-// controls and nothing that could collide — green, over nothing.
+// EMPTY STATE, and the axe gate then scans a panel with no rows and no per-row
+// controls — green, over nothing.
+//
+// ★★ "and nothing that could collide" used to be part of that sentence. Dropped
+// 2026-08-08: axe has NO rule for two controls sharing an accessible name (see
+// the insights test below), so a duplicate name is invisible to the gate whether
+// the rows render or not. Seeding rows buys real coverage of everything else axe
+// DOES check, plus assertions like the one below that axe cannot make.
 //
 // ★★★ THE FAILURE PRESENTS AS PROGRESS, which is why a guard is worth an e2e
 // slot. Drop `documents` from the kv map today and all five Documents axe scans
@@ -54,24 +60,44 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   await gotoApp(page);
   await openView(page, "Insights");
 
-  // All three, named individually — a partial seed must fail as loudly as a
-  // missing one. The titles are rendered from `type` (insight-text.ts), never
-  // stored, so these also pin that the seeded types are the real union members.
+  // Every seeded row, named individually with its EXPECTED COUNT — a partial
+  // seed must fail as loudly as a missing one. The titles are rendered from
+  // `type` (insight-text.ts), never stored, so these also pin that the seeded
+  // types are the real union members. Two rows are `milestoneSlip`, hence the 2.
   // ★ Scoped to the ROW, not `getByText`: the type filter's <select> carries an
   // <option> with the identical label for every insight type, so the bare text
   // locator resolves to two elements and dies on strict mode — and the option
   // exists whether or not a single insight was seeded, which is the opposite of
   // what this spec is for. Measured, not guessed: that is how it failed first run.
-  for (const title of ["Milestone at risk", "Work is stalling", "Budget off plan"]) {
-    await expect(page.getByRole("listitem").filter({ hasText: title })).toHaveCount(1);
+  // ★ These counts assume the digest card contributes no <li> for these rows —
+  // true at the seeded dates (its own rows would ALSO carry the title, since
+  // insight-digest-card.tsx's rowLabel is `title – detail`). If the digest window
+  // ever reaches them the counts go up by one each; that is a real change, not a
+  // flake, and it should be reflected here rather than loosened away.
+  for (const [title, count] of [
+    ["Milestone at risk", 2],
+    ["Work is stalling", 1],
+    ["Budget off plan", 1],
+  ] as const) {
+    await expect(page.getByRole("listitem").filter({ hasText: title })).toHaveCount(count);
   }
 
-  // ★ THE COLLISION IS THE POINT. Three rows means three "Dismiss – <title>"
-  // controls, which is the only condition under which axe could ever see a
-  // WCAG 2.4.6 duplicate-name failure here; with one row the gate is green
-  // whatever the labels say. Asserting the COUNT pins that condition, not just
-  // that some row exists.
-  await expect(page.getByRole("button", { name: /^Dismiss – / })).toHaveCount(3);
+  // ★★★ THE DUPLICATE NAME IS THE POINT, AND THIS SPEC — NOT AXE — IS WHAT SEES
+  // IT. Both `milestoneSlip` rows render a button whose accessible name is
+  // exactly "Dismiss – Milestone at risk", because insightTitle() is derived from
+  // `type` alone. That is a WCAG 2.4.6 failure (two controls, same name, different
+  // targets) and it is now REACHABLE at scan time instead of theoretical.
+  // ★★ axe cannot report it: axe-core 4.12.1 has no rule for two BUTTONS sharing
+  // an accessible name, and the one adjacent rule (`identical-links-same-purpose`)
+  // is links-only and `wcag2aaa`, a tag e2e/a11y.spec.ts does not request. So a
+  // green Insights axe run is NOT evidence the names are unique — this assertion
+  // is. Filed as docs/open-followups.md §120.
+  await expect(
+    page.getByRole("button", { name: "Dismiss – Milestone at risk", exact: true }),
+  ).toHaveCount(2);
+
+  // Four rows, four Dismiss controls (none of the seeded rows is terminal).
+  await expect(page.getByRole("button", { name: /^Dismiss – / })).toHaveCount(4);
 
   await expect(page.getByText("No insights yet")).toHaveCount(0);
 });

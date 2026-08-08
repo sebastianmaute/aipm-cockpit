@@ -47,19 +47,53 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   //   node -e 'const m=JSON.parse(require("fs").readFileSync("sample-workspace-small.json","utf8"));
   //   for (const k of ["insights","timelogLinks"]) console.log(k, m[k]==null?"ABSENT":"present")'
   // ), so nothing here overrides curated data.
-  // ★★ THREE insights, not one. Every per-row control in insights-panel.tsx is
-  // qualified by the insight's rendered title ("Acknowledge – <title>"), and N
-  // identical names can only COLLIDE when N > 1 — with a single seeded row the
-  // axe gate cannot see a WCAG 2.4.6 duplicate-name failure at all. The three
-  // differ in type, severity AND status so the status/type filters have
+  // ★★★ FOUR insights, and TWO OF THEM SHARE A TYPE ON PURPOSE. Every per-row
+  // control in insights-panel.tsx is named by the insight's rendered TITLE
+  // ("Acknowledge – <title>"), and `insightTitle` (insights/insight-text.ts) is
+  // `t(lang, TITLE_KEY[insight.type])` — TYPE-DRIVEN AND NOTHING ELSE. So rows of
+  // DIFFERENT types can never produce a duplicate accessible name no matter how
+  // many are seeded; only same-type rows can. 9101 and 9104 are both
+  // `milestoneSlip` and both `active`, so they render four pairs of
+  // identically-named buttons — Open / Acknowledge / Act / Dismiss, plus a fifth
+  // pair (the recommendation CTA) when AI is configured, which it is NOT in the
+  // e2e run, so expect four here. This is the real shape the detectors emit:
+  // `detect.ts:53` mints one `milestoneSlip:<id>` per overdue milestone.
+  // ★★★ THIS DOES NOT MAKE THE AXE GATE ABLE TO SEE IT, and an earlier revision
+  // of this comment claimed it did. axe-core 4.12.1 has NO rule that flags two
+  // BUTTONS sharing an accessible name; the only near-miss,
+  // `identical-links-same-purpose`, is links-only and tagged `wcag2aaa`, which
+  // e2e/a11y.spec.ts does not request (`wcag2a wcag2aa wcag21a wcag21aa`).
+  // Reproduce: node -e 'const a=require("axe-core"); console.log(a.getRules()
+  //   .filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" "+r.tags))'
+  // What the same-type pair buys is that the collision RENDERS at scan time and
+  // can be pinned by a locator count — which is what seed-content.spec.ts does.
+  // The detector here is that spec, not axe. (Filed as docs/open-followups.md
+  // §120; the same shape is de-collided correctly in insights/insight-digest-card.tsx.)
+  // ★ The four also differ in severity and status so the status/type filters have
   // something to discriminate and the acknowledged branch renders too.
   // ★ Ids are far above the master's range so a later sample addition cannot
   // collide — same reason the seeded document uses 9001.
+  // ★ `data` carries the fields insightDetail actually reads for this type
+  // (name/date/daysOverdue — see detect.ts). The two milestoneSlip rows name
+  // DIFFERENT milestones, so their DETAIL lines differ and the digest card's own
+  // collision handling stays out of the picture; the duplication under test is
+  // the row controls' names alone.
   insights: [
     {
       id: 9101, key: "milestoneSlip:1", type: "milestoneSlip", severity: "high",
-      entityRef: { view: "milestones", id: 1 }, data: { days: 5 }, status: "active",
+      entityRef: { view: "milestones", id: 1 },
+      data: { name: "Design Sign-off", date: "2026-04-20", daysOverdue: 5 }, status: "active",
       firstSeenAt: "2026-06-01T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 2,
+    },
+    {
+      // The second SAME-TYPE row. Distinct `id` and distinct `key` — sanitizeInsights
+      // requires both (`key` non-empty, `id` a finite number, `firstSeenAt` an ISO
+      // string, and type/severity/status all real union members) or the row is
+      // dropped silently and the seed goes inert.
+      id: 9104, key: "milestoneSlip:3", type: "milestoneSlip", severity: "medium",
+      entityRef: { view: "milestones", id: 3 },
+      data: { name: "Hypercare Exit", date: "2026-12-15", daysOverdue: 2 }, status: "active",
+      firstSeenAt: "2026-06-04T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
     },
     {
       id: 9102, key: "stalledWork:2", type: "stalledWork", severity: "medium",

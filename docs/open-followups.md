@@ -141,11 +141,19 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
 | 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
 | 98 | `documents` is in NEITHER save-time data-loss counter, so a documents-only wipe trips no guard | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open — MISSING NET, **no known live path**, and NOT a regression the documents slice introduced. `knowledgeItems`, `insights`, `timelogLinks` and `settingsOverrides` share the gap — **state that scoping whenever this row is quoted**, or a reader goes hunting for a documents bug that is not there. Widening `nonEmptyCollectionCount` / `workspaceRecordCount` shifts the L3 and Layer-B thresholds for EVERY existing project, so it needs its own slice, its own tests, and a deliberate decision on whether the other four join |
-| 99 | The e2e seed writes only two of BrowserBackend's ten optional kv slices, so any view backed by one of the other eight is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open — **Insights is in `A11Y_VIEWS` and affected TODAY**; `documents` was the same defect and seeding it immediately exposed a real serious violation, so fixing the rest may legitimately turn scans RED for the first time |
+| 99 | The e2e seed writes only four of BrowserBackend's ten optional kv slices, so any view backed by one of the other six is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open, PARTLY CLOSED 2026-08-08 — `insights` and `timelogLinks` were seeded on 2026-08-08, so **Insights is no longer in this position**; six remain (`fieldVisibility`, `features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`, `calendarEvents`). `documents` was the same defect and seeding it immediately exposed a real serious violation, so seeding the rest may legitimately turn scans RED for the first time. ★ Re-measure rather than quoting: `grep -c "^const KV_" src/app/browser-backend.ts` (→ 10) against `e2e/seed.ts`'s `KV` map (→ 4) |
 | 100 | Tab ejects focus from a portaled popover opened inside a modal, leaving it open and its contents keyboard-unreachable | field controls → modal header, unreleased | M | open — WCAG 2.1.1, **measured in Chromium** from both a radio and a checkbox. PRE-EXISTING and architectural (`Modal`'s trap guards on `container.contains`, false for every element in a portal); the move only made it prominent. Invisible to jsdom (the control's tests never mount inside `Modal`) and to axe |
 | 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
 | 103 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
 | 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
+| 114 | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | open, BILLED — the six converted trigger sites all gained a Stop; the scheduled/background runner that starts the same call has no controller to cancel, so nothing can stop it |
+| 115 | ~~`use-tasks-dedup.tsx` never aborts its in-flight call on unmount~~ | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED 2026-08-08** in the slice-3 review round — cleanup-only effect added, mutation-proved. The audit table in the entry is HISTORY; the remaining two hooks are §121 |
+| 116 | The budget people rows and the role row above them read BOOKED from two different sources | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | open, DATA-INTEGRITY — the per-person figures cannot be made to sum to the role row above them even when both sources are fresh, because they are different sources. A tooltip is not the fix |
+| 117 | ~~The budget people-row disclosure clips its own label mid-glyph, with no ellipsis~~ | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED 2026-08-08** — measured in Chromium at 4 of 7 role labels clipped at the DEFAULT width, all 7 at 90px; `max-w-full` does the work (`min-w-0` measured INERT — `truncate` already sets `overflow:hidden`, which gives a flex item automatic min-size 0) |
+| 118 | A popover opened by a click that also scrolls its ancestor never mounts | found in the slice-3 eye-verify | UNKNOWN | open, PRE-EXISTING — ★★ the entry once named a "second effect" that does not exist and proposed a fix that cannot be implemented; both are RETRACTED in place. The mechanism is restated, no replacement fix is asserted |
+| 119 | Two more controls start a billed Anthropic call with no way to stop it | found in the slice-3 review prose check | S each | open, BILLED — the dashboard digest `Generate now` and the steering meeting report `Draft with AI` only grey out while running. NOT a regression; they were never converted. Read with §114 — neither is in the "six sites" the CHANGELOG names |
+| 120 | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | open, a11y — WCAG 2.4.6. ★★★ **axe CANNOT catch this** — measured against axe-core 4.12.1: in the gate’s requested tagset there is NO rule that flags two buttons sharing a name (`identical-links-same-purpose` is links-only AND `wcag2aaa`, which the spec never requests). `insight-digest-card.tsx` already de-collides the identical shape — copy it. Same class as §111 |
+| 121 | Two of the six AI trigger hooks still never abort on unmount | split out of §115 on 2026-08-08 | S each | open, BILLED — `use-action-analysis.ts` has no `useEffect` at all; `use-inline-entity-edit.ts` HAS one but it returns no cleanup, so it aborts on DEACTIVATION and never on unmount. ★★ An effect is not a cleanup — grepping for `useEffect` finds the second one and stops |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -5079,9 +5087,23 @@ longer in this position.** Neither slice exists in the curated master, so both a
 `SEED_WORKSPACE` (the same escape hatch `documents` uses) rather than added to
 `sample-workspace-small.json`, which would force regenerating `-big`, `-huge` and every
 `__fixtures__/golden-*` fixture and make a real format change indistinguishable from a refresh.
-Three insights, not one — a duplicate-name failure cannot render at scan time without a collision.
 Both scans came back CLEAN with rows: `-g "Insights"` 5/5 and `-g "Time bookings"` 5/5, so unlike
 `documents` these two hid no violation. `e2e/seed-content.spec.ts` carries the matching guards.
+
+★★★ CORRECTION 2026-08-08 — the seeded insights were first justified as "three insights, not one, so
+a duplicate-name failure can render at scan time". **That was false twice over.** (1) The three rows
+had three DIFFERENT types, and `insightTitle` (`insights/insight-text.ts:28`) is
+`t(lang, TITLE_KEY[insight.type])` — type-driven and nothing else — so three different types give
+three different titles and three different accessible names; no collision was possible. (2) Even a
+real collision would not reach the gate: axe-core 4.12.1 has NO rule for two BUTTONS sharing an
+accessible name, and the only adjacent rule, `identical-links-same-purpose`, is links-only and tagged
+`wcag2aaa`, which `e2e/a11y.spec.ts` does not request (it asks for `wcag2a wcag2aa wcag21a wcag21aa`).
+The seed now carries FOUR insights of which TWO share the `milestoneSlip` type, so the collision
+really does render — but it is pinned by an assertion in `e2e/seed-content.spec.ts`, not by axe. See
+§120. ★ Reproduce the axe half:
+```bash
+node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" | "+r.tags.join(",")).join("\n"))'
+```
 
 ★★ HALF of `timelogLinks` still does not reach a scan, and a green Time bookings run must not be read
 as covering it. `timelog-panel.tsx` merges linked-but-unfetched projects into `knownProjectRefs`
@@ -6220,7 +6242,13 @@ a row of its own instead of being packed beside three unrelated top-level entrie
 is announced by more AT — not adopted here, because a one-class layout fix does not justify rewriting
 the rail's markup and re-verifying every announcement.
 
-## 113. The background insight-recommendation runner has no `AbortController` at all — open, billed
+## 114. The background insight-recommendation runner has no `AbortController` at all — open, billed
+
+★ **Filed as §113** on `feat/ui-batch-slice-3`, renumbered to §114 when that branch was prepared for
+merge: main had independently taken 113 (the documents-roadmap entry, `bba9b6a9`). Main is the trunk
+and the branch moves. Every commit message on this branch says §113 and none can be edited. The same
+one-hop shift applies to the four entries below — filed as §114, §115, §116, §117, now §115, §116,
+§117, §118.
 
 Found 2026-08-08 while auditing the AI trigger sites for the shared `AiTriggerButton` (slice 3's
 "every AI trigger offers Stop"). The slice covers TRIGGERS; this path is not one, which is why it is
@@ -6249,21 +6277,64 @@ Left open because the runner is background/unattended: there is no user-facing c
 Stop on, so the design question (does an unattended tick get cancelled on unmount only, or does the
 Insights view grow a "stop background recommendations" affordance?) is a slice of its own.
 
-## 114. `use-tasks-dedup.tsx` never aborts its in-flight call on unmount — open, billed
+## 115. `use-tasks-dedup.tsx` never aborts its in-flight call on unmount — CLOSED 2026-08-08
 
-Found 2026-08-08, same audit as §113.
+★ **Filed as §114** — see the renumbering note at the head of the entry above, §114.
 
-`use-tasks-dedup.tsx` owns an `abortRef` and aborts correctly in `reset()` (`:89`), but the file
-contains **no `useEffect` at all** — `grep -n "useEffect" src/app/use-tasks-dedup.tsx` returns
-nothing. So when the pane holding the trigger unmounts mid-`"thinking"` the billed
-`runDedupProposal` call keeps running to completion with its result discarded.
+Found 2026-08-08, same audit as §114 (which was filed as §113).
 
-★ Measured against its peers, and the peer set is smaller than it looks. Exactly THREE files carry
-the cleanup-only unmount abort — `useEffect(() => () => abortRef.current?.abort(), [])` —
-`use-abortable-ai.ts:22`, `use-alloc-plan.tsx:112`, `use-raci-suggest.tsx:144`. The fourth
-controller-owning hook, `use-inline-entity-edit.ts:97`, has a `paneActive === false` effect that
-aborts on DEACTIVATION but returns no cleanup, so it does not abort on unmount either. Do not repeat
-the "all the others already do this" framing — two of five do not.
+`use-tasks-dedup.tsx` owns an `abortRef` and aborts correctly in its `reset` callback, but AT AUDIT
+TIME the file contained **no `useEffect` at all** — `grep -n "useEffect"
+src/app/use-tasks-dedup.tsx` returned nothing. So when the pane holding the trigger unmounted
+mid-`"thinking"`, the billed `runDedupProposal` call kept running to completion with its result
+discarded. (Line numbers are deliberately omitted: a fix to this very file moves them. See the STATUS
+block below before treating this as current.)
+
+★★ Measured against its peers, and **this hook is not the exception — half the trigger set behaves
+the same way.** Take the six sites the slice gave an `AiTriggerButton` and ask, for each, which hook
+owns its `AbortController` and whether that hook aborts on unmount:
+
+| trigger mount | backing hook | aborts on unmount? |
+|---|---|---|
+| `insight-recommendation-controls.tsx:57` | `use-insight-recommend.ts` → `use-abortable-ai.ts:22` | **yes** |
+| `use-alloc-plan.tsx:276` | `use-alloc-plan.tsx:112` | **yes** |
+| `use-raci-suggest.tsx:254` | `use-raci-suggest.tsx:144` | **yes** |
+| `actions-panel.tsx:101` | `use-action-analysis.ts:18` | **no — the file has no `useEffect` at all** |
+| `inline-ai-edit-popover.tsx:77` | `use-inline-entity-edit.ts:74` | **no — see below** |
+| `use-tasks-dedup.tsx:181` | `use-tasks-dedup.tsx:83` | **no — this entry** |
+
+★★★ **CLOSED for THIS hook, and the table above is now HISTORY — it is the audit taken before slice
+3's fix round, kept because the count is the point.** `use-tasks-dedup.tsx` gained the cleanup-only
+`useEffect(() => () => abortRef.current?.abort(), [])` in slice 3's review round, pinned by a test
+that captures the signal, asserts `aborted === false` before unmount and `true` after (mutation-proved
+red with the effect deleted). The remaining gap is **two of six** — `use-action-analysis.ts` and
+`use-inline-entity-edit.ts`, which that change does not touch — and it is filed as **§121**. Do not
+read the table as current; re-run the sweep below.
+
+So THREE of the six lacked it at audit time, not one. Only three files carry the cleanup-only shape
+`useEffect(() => () => abortRef.current?.abort(), [])` — `use-abortable-ai.ts:22`,
+`use-alloc-plan.tsx:112`, `use-raci-suggest.tsx:144`. `use-inline-entity-edit.ts` has an effect
+(`:97`) but it fires on `paneActive === false` and returns no cleanup, so it aborts on DEACTIVATION
+and not on unmount. `use-action-analysis.ts` owns a controller (`:18`, `new AbortController` at
+`:24`) and a `cancel` (`:53`) and contains no `useEffect` whatsoever.
+
+★★ **Do not write "all the others already do this"** — an earlier revision of this entry warned
+against exactly that framing and then committed it, by counting `use-action-analysis.ts` as not
+existing. Reproduce the sweep before quoting any figure here:
+
+```bash
+grep -rn "new AbortController" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
+grep -rn "<AiTriggerButton" src/app --include="*.tsx" | grep -v "\.test\."
+grep -rn "abortRef" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
+```
+
+Measured 2026-08-08: **13** non-test `new AbortController` sites in `src/app`. Six are the hooks in
+the table above; the other **seven** are outside the trigger set — `api/stt/_helpers.ts:84`,
+`chat-panel.tsx:281`, `step0-import-panel.tsx:195`, `turso-pipeline.ts:42`, `use-chat-models.ts:35`,
+`use-digest.ts:86`, `use-timelog-sync.ts:96`. And **6** `<AiTriggerButton>` mounts, which is the
+number the CHANGELOG's "six AI trigger sites" refers to — it is the count of sites this slice
+covered, NOT a count of the app's billed AI calls (see §114, and the two uncovered controls in
+§119).
 
 ★★ The reach is larger here than for the other triggers: `useTasksDedup` is mounted TWICE
 (`tasks-section.tsx`, `gantt-view.tsx`, see `dedup-trigger-qualifier.test.tsx`), and in the modern
@@ -6274,7 +6345,9 @@ path, not an edge case.
 and so stays clear of the `react-hooks/set-state-in-effect` ban. Left open only because slice 3's
 task 8 was scoped to replacing the rendered control and was explicitly forbidden from changing any
 feature's cancel semantics.
-## 115. The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity
+## 116. The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity
+
+★ **Filed as §115** — see the renumbering note at the head of §114.
 
 Found 2026-08-08 while wiring slice 3's task 11. Not a regression: the people rows are new, and the
 divergence is created by giving them a source at all.
@@ -6328,7 +6401,11 @@ grep -n "actualHours\[p.key\]\|actualsByPeriod={" src/app/budget-panel.tsx
 grep -n "loadActualsCache" src/app/workspace-section.tsx
 ```
 
-## 116. The budget people-row disclosure clips its own label mid-glyph, with no ellipsis — CLOSED 2026-08-08
+## 117. The budget people-row disclosure clips its own label mid-glyph, with no ellipsis — CLOSED 2026-08-08
+
+★ **Filed as §116** — see the renumbering note at the head of §114. ★★ The code comments in
+`budget-panel-people-rows.tsx` and `budget-panel-people-rows.test.tsx` still cite §116; they point at
+main's entry now and must be changed to §117 in the same commit as this renumber.
 
 Found 2026-08-08 in slice 3's task-14 eye-verify. Not a regression — the control is new — and it is
 the case AGENTS.md already documents in the abstract ("`text-overflow` does not apply to an
@@ -6430,18 +6507,28 @@ test:
 grep -n "PeopleDisclosureLabel" src/app/budget-panel-people-rows.tsx src/app/budget-panel.tsx
 ```
 
-## 117. A popover opened by a click that also scrolls its ancestor never mounts — open, UI
+## 118. A popover opened by a click that also scrolls its ancestor never mounts — open, UI
+
+★ **Filed as §117** — see the renumbering note at the head of §114.
 
 Found 2026-08-08 while driving the Open Points row ⋮ menu for slice 3's task-14 eye-verify.
 PRE-EXISTING and untouched by slice 3 — `popover-panel.tsx` is not in that branch's diff — but it
 cost real debugging time and it is not written down anywhere.
 
-`PopoverPanel` renders nothing until it has measured its anchor: the gate is `open && pos`, and
-`pos` is set by an effect (`popover-panel.tsx:56`). A SECOND effect (`:85`) closes the panel on any
-ancestor scroll, capture-phase on `window`. Those two race. A click that focuses a trigger sitting
-in a horizontally scrollable container makes the browser scroll that container to reveal it, and
-that scroll lands between the two effects — so the panel closes before it has ever been in the DOM
-and `aria-expanded` goes back to `false` in the same tick.
+`PopoverPanel` renders nothing until it has measured its anchor: the gate is `open && pos`. ONE
+effect does both jobs (`popover-panel.tsx:56-91`, deps `[open, anchorRef, onClose]`): it measures the
+anchor and calls `setPos`, and then in the same pass registers a capture-phase `window` `scroll`
+listener (`:85`) whose handler calls `onClose()` for any scroll outside the panel. So a scroll
+arriving after that effect has run — but before the user has seen anything — closes a panel that has
+never been in the DOM. A click that focuses a trigger sitting in a horizontally scrollable container
+makes the browser scroll that container to reveal the trigger; that scroll event is dispatched after
+the click handler and its effects, so it lands on the freshly registered listener and
+`aria-expanded` goes back to `false`.
+
+★★ CORRECTION 2026-08-08: an earlier revision of this entry described "a SECOND effect (`:85`)"
+racing the first. There is no second effect — `grep -n useEffect src/app/popover-panel.tsx` returns
+56, 100, 138 and 153, and `:85` is a statement inside the effect that starts at `:56`. The
+mechanism is one effect doing two things, not two effects racing, and the fix below changed with it.
 
 Measured with a document-level capture listener over the Open Points row ⋮ button. Real pointer
 click, event order:
@@ -6462,10 +6549,27 @@ browser-driven either way — it is `focus()` scrolling the nearest scroller, no
 injects — so a user clicking a ⋮ that is only partly inside the table's horizontal scroll window
 should hit it; that has not been reproduced by hand and should not be written up as if it had.
 
-★ The likely fix is to ignore scroll events until the panel has actually mounted (gate the `:85`
-listener on `pos !== null`, not on `open`), which also removes a class of spurious closes at open
-time. Do not "fix" it by dropping close-on-scroll — that listener exists because a fixed-position
-panel detaches from its anchor when an ancestor scrolls.
+★★★ **THE FIX SHAPE IS NOT DETERMINED, and the one this entry used to propose does not work.** It
+said: "gate the `:85` listener on `pos !== null`, not on `open`". Two things are wrong with it, and a
+reader who implements it as written ships a regression:
+
+* `pos` is not in that effect's dep array (`[open, anchorRef, onClose]`), and `setPos` is called in
+  the same effect body, so an early `return` on `pos === null` registers the listener **never** —
+  close-on-scroll is silently deleted for every popover in the app, and nothing in the unit suite
+  would notice.
+* Even done properly — splitting the registration into its own effect keyed on `[open, pos, onClose]`
+  — it does not look like it fixes the symptom. The trace below is MEASURED and puts `scroll:DIV`
+  after `click:BUTTON`; React flushes a discrete-event state update and its effects inside that click
+  dispatch (reasoned, not measured here), so on either arrangement `pos` is already set and the
+  listener already live when the scroll event arrives. The best case is turning "never opened" into
+  "opened, then closed a frame later", which is not better.
+
+Two candidate directions, **neither implemented nor measured** — do not quote either as the fix:
+(a) arm the listener a frame after the panel first mounts (a `requestAnimationFrame`-set ready flag
+the handler checks), so the scroll caused by the opening click cannot reach it; (b) REPOSITION on
+ancestor scroll instead of closing, which retires the whole race class but is a behaviour change for
+every consumer. Do not "fix" it by dropping close-on-scroll — that listener exists because a
+fixed-position panel detaches from its anchor when an ancestor scrolls.
 
 ★ Consequence for anyone writing an e2e spec here: a popover, menu or dropdown anchored inside a
 scrollable pane cannot be driven with `locator.click()`. Use a DOM click
@@ -6477,3 +6581,97 @@ Reproduce:
 ```bash
 grep -n "close-on-scroll\|addEventListener(\"scroll\"" src/app/popover-panel.tsx
 ```
+
+## 119. Two more controls start a billed Anthropic call with no way to stop it — open, billed
+
+Filed 2026-08-08 while fact-checking the 0.224.0 "Emshwiller" CHANGELOG. Slice 3 gave six trigger
+sites a Stop affordance (`AiTriggerButton`) and the entry read "a Stop affordance on all six AI
+trigger sites", which invites the reading that the app HAS six AI triggers and every one of them now
+stops. It has more, and at least two of the rest are ordinary user-facing buttons:
+
+* **Dashboard digest — "Generate now"** (`dashboard-sections/digest-card.tsx:44-51`): a plain
+  `<button disabled={busy}>`. `use-digest.ts:86` DOES construct an `AbortController` for the
+  narrative call, but it is a local `const` inside `generate` with a `setTimeout(AI_TIMEOUT_MS)`
+  attached and no ref — nothing outside the call can reach it, so there is no `cancel` for a Stop
+  control to call. Wiring one means giving the hook a handle first.
+* **Steering meeting report — "Draft with AI"** (`meeting-report-panel.tsx:129-138`): a `Button`
+  with `disabled={generateBusy}`. Its owner `use-meeting-report-actions.ts` contains no
+  `AbortController`, no `signal` and no `abort` at all — `grep -n "AbortController\|signal\|abort"
+  src/app/use-meeting-report-actions.ts` returns nothing.
+
+★ Both therefore behave the way every trigger did before slice 3: the button greys out and the user
+waits. Not a regression, and not something slice 3 broke — it is the boundary of what slice 3
+covered, recorded so the next reader does not mistake "six sites" for "every site".
+
+★★ Scope note, so this does not get quoted as the complete list: §114 records a THIRD uncovered path
+(the background insight-recommendation runner, which has no controller at all and no user-facing
+control to hang a Stop on), and `chat-panel.tsx`, `step0-import-panel.tsx` and `use-timelog-sync.ts`
+own controllers with their own bespoke cancel UI. The sweep that produced this list is in §115; re-run
+it rather than trusting this bullet.
+
+## 120. Two same-type Insight rows produce identically-named per-row controls, and no gate can see it — open, a11y
+
+Found 2026-08-08 while correcting the e2e seed's stated rationale (§99). CAUSED by a deliberate seed
+change in the same commit: the seed now renders the collision instead of hiding it.
+
+`insightTitle` (`insights/insight-text.ts:28`) is `t(lang, TITLE_KEY[insight.type])` — derived from
+`type` and nothing else. Every per-row control in `insights-panel.tsx` names itself with that title:
+`insightOpen` (`:232`), `insightAcknowledge` (`:244`), `insightAct` (`:255`), `insightDismiss`
+(`:266`), plus `insight-recommendation-controls.tsx`'s generate CTA (`:63`, via `nameQualifier`) and
+its Apply/Reject pair (`:94`, `:102`). So ANY two rows of the same type and comparable status render
+pairs of buttons with byte-identical accessible names pointing at different insights — WCAG 2.4.6.
+
+★★ This is the ordinary case, not a contrived one: `detect.ts:53` mints one `milestoneSlip:<id>` per
+overdue milestone, so a project with two slipped milestones has two `milestoneSlip` rows on the first
+detection run. The seed previously carried three insights of three DIFFERENT types, which is why the
+shape had never rendered anywhere a test could see it.
+
+★★★ **NO GATE CATCHES THIS.** axe-core 4.12.1 has no rule for two BUTTONS sharing an accessible name;
+the nearest, `identical-links-same-purpose`, is links-only and `wcag2aaa`, a tag `e2e/a11y.spec.ts`
+does not request. jsdom-side unit tests do not render two same-type rows. The only detector in the
+repo is the count assertion added to `e2e/seed-content.spec.ts` on 2026-08-08. Reproduce the axe half:
+
+```bash
+node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" | "+r.tags.join(",")).join("\n"))'
+```
+
+★ The repo already solves this exact shape one file away. `insights/insight-digest-card.tsx:60-72`
+computes the set of colliding labels and appends an entity reference ONLY to those, deliberately
+leaving the non-colliding common case with no `aria-label` at all — so the fix here has a precedent
+to copy rather than a design to invent. `entityRef.id` is the natural qualifier and is present on
+exactly the types that can repeat (`milestoneSlip`, `raidAging`); the portfolio-level types
+(`stalledWork`, `overdueTrend`, `budgetVariance`) carry none, and detection emits at most one of each,
+so they cannot collide.
+
+★ Same defect class as §111 (document row controls named by a non-unique title). Fixing them together
+would be reasonable; neither is in a slice yet.
+
+★ NOT fixed here on purpose: this was found by a prose/seed fact-check with no source-file lane, and
+`insights-panel.tsx` belongs to the insights subsystem. Filing beats a drive-by edit to another
+slice's freshly-shipped surface.
+
+## 121. Two of the six AI trigger hooks still never abort on unmount — open, billed
+
+Split out of §115 on 2026-08-08, when the third of the three closed. §115's table is the audit that
+found all three; this entry carries the remainder so the closed one stops implying the set is clean.
+
+| trigger mount | backing hook | why it does not abort |
+|---|---|---|
+| `actions-panel.tsx` | `use-action-analysis.ts` | owns a controller and a `cancel`, and the file contains **no `useEffect` at all** |
+| `inline-ai-edit-popover.tsx` | `use-inline-entity-edit.ts` | HAS an effect, but it fires on `paneActive === false` and returns **no cleanup** — it aborts on DEACTIVATION, never on unmount |
+
+★★ The second one is the trap: a `grep` for `useEffect` finds a hit in `use-inline-entity-edit.ts`
+and a reader stops there. An effect is not a cleanup. Ask whether the effect RETURNS a function, not
+whether one exists.
+
+★ Fix is the same one line both times, the cleanup-only shape
+`useEffect(() => () => abortRef.current?.abort(), [])` — it sets no state, so it stays clear of the
+`react-hooks/set-state-in-effect` ban. `use-abortable-ai.ts`, `use-alloc-plan.tsx`,
+`use-raci-suggest.tsx` and now `use-tasks-dedup.tsx` all carry it; copy from any of them.
+
+★★ Cost is a billed Anthropic call running to completion with its result discarded, not a crash — so
+nothing fails, nothing logs, and only a bill shows it. That is why this is filed rather than left to
+be noticed.
+
+★ Reproduce the whole picture before quoting a count — the sweep is in §115, and the figure that
+matters is per-mount, not per-file.

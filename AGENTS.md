@@ -237,8 +237,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   input fails axe gate even though looks labeled).
   In LIST of rows, per-row controls need row-UNIQUE accessible name (e.g.
   `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
-  WCAG 2.4.6 fail, but axe gate can PASS it when live app seeds only ONE row (collision
-  never renders at scan time). Qualify label; don't trust green axe run with single seeded row.
+  WCAG 2.4.6 fail. ★★★ **THE AXE GATE CANNOT CATCH THIS AT ALL — not "only when one row is seeded".**
+  An earlier revision here said the gate "can PASS it when the live app seeds only ONE row (collision
+  never renders at scan time)", which reads as though seeding N rows would make the gate see it. It
+  would not. Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
+  rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
+  wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. The only rule in the
+  whole library that is even adjacent is `identical-links-same-purpose` — links ONLY, and tagged
+  `wcag2aaa`, which the spec never asks for. Reproduce:
+  `node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'`
+  So a green axe run is silent on duplicate names in EVERY view, at EVERY seed size, forever. Qualify
+  the label at write time and pin it with a UNIT test rendering ≥2 rows — that is the only detector
+  there is. (Worked example + the seeded reproduction: `docs/open-followups.md` §120.)
   ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the

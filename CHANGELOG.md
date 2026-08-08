@@ -20,21 +20,30 @@ behind it.
   it now opens the whole stack as a list, newest first. Hovering or arrowing to
   an entry bands every entry back to it and the footer says how many will be
   reverted. Enter or a click reverts them all as one commit — one activity-log
-  line, one toast, and one Redo to put them back.
-- **A Stop affordance on all six AI trigger sites.** A shared
-  `AiTriggerButton` flips the visible label and the accessible name to "Stop"
-  while a call is in flight and routes the click to cancel it. The
+  line and one toast. Putting them back works the same way in reverse: the Redo
+  button takes one step at a time, and the redo history replays a run of them
+  together.
+- **A Stop affordance on the six AI trigger sites this release covers.** A
+  shared `AiTriggerButton` flips the visible label and the accessible name to
+  "Stop" while a call is in flight and routes the click to cancel it. The
   insight-recommendation call gained the `AbortController` it did not have.
-  This covers the trigger sites: the background insight-recommendation runner
-  still has no cancellation and is filed as open-followups §113.
+  Six is the number of sites converted, not the number of AI calls the app can
+  start: the background insight-recommendation runner still has no cancellation
+  (open-followups §114), and the dashboard digest's "Generate now" and the
+  steering meeting report's "Draft with AI" still only grey out while they run
+  (open-followups §119).
 - **Budget bucket people rows.** Each role line in a bucket expands to the
   people behind it with their booked and planned hours. Booked is read from the
   per-device Timelog cache, so it can disagree with the persisted per-role
   actuals shown on the role row above it, and the people figures are not
   expected to sum to that row — bookers whose role has no line stay in
-  `unattributed`. Both gaps are filed as open-followups §115.
+  `unattributed`. Both gaps are filed as open-followups §116.
 - **Insights and Timelog links are seeded for e2e**, so both panes are axe
   scanned with real rows for the first time rather than over an empty state.
+  Two of the seeded insights deliberately share a type, which is what makes the
+  Insights rows render the duplicate-control-name case the panel has always
+  had; it is pinned by an e2e assertion and filed as open-followups §120,
+  because no accessibility gate in this repo can detect it.
 
 ### Fixed
 
@@ -44,7 +53,7 @@ behind it.
 - **The undo footer read "Undo 1 actions"**, and a scroll-induced `mouseenter`
   silently overwrote the undo listbox's keyboard position.
 - **The budget disclosure chip clipped role labels with no ellipsis**
-  (open-followups §116).
+  (open-followups §117).
 
 ## [0.223.0] - 2026-08-08 "Okorafor"
 

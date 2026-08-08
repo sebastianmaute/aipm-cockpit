@@ -239,7 +239,7 @@ export function WorkspaceSection({
   // Per-person booked hours behind each Budget bucket role line. ★★ This is the
   // per-DEVICE Timelog cache — a DIFFERENT source from the persisted per-role
   // `actualHours` the role row directly above those people shows, and the two
-  // can disagree with nothing in the UI saying so (open-followups §115). Read
+  // can disagree with nothing in the UI saying so (open-followups §116). Read
   // once per project: it refreshes when this view remounts, which is the
   // accepted cost of not threading the live sync state through here. Keyed the
   // same way TimelogPanel keys the cache it WRITES — a different fallback than
