@@ -55,9 +55,12 @@ function makeProps(over: Record<string, unknown> = {}) {
 }
 
 describe("AiGuidesSection", () => {
-  it("renders only the enable hint while the AI master switch is off", () => {
+  it("renders only the disabled hint while the AI master switch is off", () => {
     render(<AiGuidesSection {...makeProps({ settings: baseSettings })} />);
-    expect(screen.getByText(t("en-US", "aiEnableHelp"))).toBeInTheDocument();
+    // NOT `aiEnableHelp` — that is the master switch's own field help, and this
+    // pane holds no switch (fix 2).
+    expect(screen.getByText(t("en-US", "aiDisabledSectionHint"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiEnableHelp"))).toBeNull();
     expect(screen.queryByRole("button", { name: t("en-US", "aiGuideAdd") })).toBeNull();
     expect(screen.queryByLabelText(t("en-US", "aiGroundInGuides"))).toBeNull();
   });

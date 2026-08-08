@@ -604,6 +604,12 @@ const enUS = {
   aiAssistant: "AI assistant",
   aiEnable: "Enable AI assistant",
   aiEnableHelp: "Turn on to use Claude chat, AI action suggestions, scheduled jobs, and AI project creation. Off by default.",
+  // Shown by the AI sub-sections (guides, views) that are gated on the master
+  // switch but do NOT contain it. `aiEnableHelp` is the switch's own field help
+  // ("Turn on to use …") — an instruction the reader cannot follow from here,
+  // because neither pane holds the toggle nor says where it lives.
+  aiDisabledSectionHint:
+    "The AI assistant is switched off, so there is nothing to configure here. Turn it on under Settings → AI Assistant.",
   openAiAssistant: "AI Assistant",
   aiApiKey: "Anthropic API key",
   aiApiKeyPlaceholder: "sk-ant-...",
@@ -2019,6 +2025,7 @@ const enUS = {
   settingsResetConfirmLabel: "Reset everything",
   aiAssistantTooltip: "Connect an Anthropic API key to enable the in-app AI assistant.",
   aiGuidesHeading: "Operating guides",
+  aiBehaviourHeading: "Assistant behaviour",
   aiGuidesDesc: "Operating guides are markdown documents that steer how Claude behaves as your senior project manager. Add your own, scope them to a mode, module, or view, and order them by priority. When grounding is on, Claude reads every enabled, in-scope guide.",
   aiGroundInGuides: "Ground Claude in operating guides",
   aiGuideAdd: "Add guide",
@@ -3750,8 +3757,12 @@ const enUS = {
   insightAcknowledge: "Acknowledge",
   insightAct: "Act",
   insightAcknowledgeHint: "Mark as seen. It stays in the list and still counts as open.",
+  // ★ Act NAVIGATES: onActInsight (task-manager.tsx) calls requestOpen() for the
+  //   insight's entityRef after stamping the status. The adjacent "Open" button
+  //   exists solely to navigate, so a hint that omits this reads as a promise
+  //   that Act stays put — and it does not.
   insightActHint:
-    "Record that you acted, and capture today's metric as the baseline for measuring the outcome",
+    "Record that you acted and capture today's metric as the baseline for measuring the outcome; if the insight points at an item, this also opens it and leaves the current view",
   insightDismiss: "Dismiss",
   insightOpen: "Open",
   insightSeverityHigh: "High",

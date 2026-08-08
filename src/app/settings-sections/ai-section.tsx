@@ -373,13 +373,20 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           but have nothing to do with guides — the guides extraction surfaced
           the mis-grouping rather than carrying it along. */}
       <div className="mt-4 border-t border-line pt-4">
+        {/* The heading the guides extraction took with it. Without it these four
+            settings sit under a bare rule: settings-view supplies a shared <h2>,
+            but settings-menu.tsx, backend-setup-wizard.tsx and
+            project-empty-state.tsx mount AiSection with no heading of their own,
+            so the group was unlabeled on three surfaces. Same markup shape the
+            pre-extraction heading used. */}
+        <p className="text-sm font-medium text-foreground">{t(lang, "aiBehaviourHeading")}</p>
         {/* ★★ Ground-in-guides is DELIBERATELY rendered here AND in
             ai-guides-section.tsx. The guides section is only reachable from the
             settings rail, but THREE surfaces mount AiSection outside it —
             settings-menu.tsx, backend-setup-wizard.tsx's AI step and
             project-empty-state.tsx — and none of them has any other route to
             this setting. It silently vanished from all three when the guides
-            block was extracted (0.222.0), because nothing pinned it.
+            block was extracted, because nothing pinned it.
             Duplication is safe rather than merely tolerable: settings-view
             mounts exactly ONE `active` section, so the two copies are never in
             the DOM together (no duplicate-accessible-name collision), and both

@@ -98,6 +98,11 @@ describe("InsightsCard", () => {
   //   not carry: acknowledging leaves the insight in the list and still OPEN
   //   (`SURFACED_STATUSES` includes "acknowledged"), and the FIRST Act also
   //   captures today's metric as the outcome baseline — a one-shot side effect.
+  // ★★ Act also NAVIGATES (`onActInsight` in task-manager.tsx calls requestOpen
+  //   for the insight's entityRef). That omission mattered more than the others:
+  //   the adjacent "Open" button exists solely to navigate, so a hint silent on
+  //   it reads as a promise that Act stays put, and clicking Act on the
+  //   Dashboard threw the user into another view mid-triage.
   // ★★ The expected text is hardcoded rather than read through `t(…)`: a
   //   missing key makes `t` echo the key, so a `t`-based assertion would compare
   //   the attribute to itself and pass over a deleted string.
@@ -121,7 +126,7 @@ describe("InsightsCard", () => {
     );
     expect(screen.getByRole("button", { name: `Act – ${title}` })).toHaveAttribute(
       "title",
-      "Record that you acted, and capture today's metric as the baseline for measuring the outcome",
+      "Record that you acted and capture today's metric as the baseline for measuring the outcome; if the insight points at an item, this also opens it and leaves the current view",
     );
   });
 

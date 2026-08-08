@@ -42,9 +42,40 @@ describe("AiViewsSection", () => {
     expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
 
-  it("renders only the enable hint while the AI master switch is off", () => {
+  it("names every view as a heading, not a styled paragraph", () => {
+    // The row title is styled like a heading and reads as one. As a <p> it is
+    // invisible to heading navigation, leaving a screen-reader user to arrow
+    // through one paragraph per view. getByRole("heading") fails against a <p>
+    // however it is styled.
+    render(<AiViewsSection lang="en-US" settings={enabled} />);
+    const views = Object.keys(VIEW_AI_SCOPE) as AppView[];
+    expect(views.length).toBeGreaterThan(0);
+    for (const view of views) {
+      expect(
+        screen.getByRole("heading", { name: t("en-US", navLabelKey(view)) }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("marks the English prompt text as English so a German UI does not mispronounce it", () => {
+    // VIEW_AI_SCOPE prose is English by design even under lang="de" (the whole
+    // system prompt is English). Without lang="en" a German synthesiser reads
+    // it through German phonemes — WCAG 3.1.2.
+    render(<AiViewsSection lang="de" settings={enabled} />);
+    const purpose = screen.getByText(VIEW_AI_SCOPE.workload.purpose);
+    expect(purpose).toHaveAttribute("lang", "en");
+    expect(screen.getByText("list_resources, list_allocations").closest("p")).toHaveAttribute(
+      "lang",
+      "en",
+    );
+  });
+
+  it("renders only the disabled hint while the AI master switch is off", () => {
     render(<AiViewsSection lang="en-US" settings={defaultSettings} />);
-    expect(screen.getByText(t("en-US", "aiEnableHelp"))).toBeInTheDocument();
+    // NOT `aiEnableHelp` — that is the master switch's own field help, and this
+    // pane holds no switch (fix 2).
+    expect(screen.getByText(t("en-US", "aiDisabledSectionHint"))).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "aiEnableHelp"))).toBeNull();
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
   });
 

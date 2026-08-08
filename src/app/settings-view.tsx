@@ -243,11 +243,13 @@ export function SettingsView(props: SettingsViewProps) {
       <Fragment key={id}>
         <button
           type="button"
+          // `aria-current` stays on whichever entry is genuinely active, parent
+          // or child. There is deliberately NO `aria-expanded`: the branch is
+          // opened by NAVIGATING to the parent, never collapsed by clicking it
+          // again, so advertising a disclosure the button cannot perform was a
+          // lie to AT. The children's grouping is carried by the `role="group"`
+          // wrapper below instead.
           aria-current={isActive ? "page" : undefined}
-          // A parent both navigates AND expands. `aria-expanded` describes the
-          // second behaviour; `aria-current` stays on whichever entry is
-          // genuinely active, parent or child.
-          aria-expanded={children.length > 0 ? branchOpen : undefined}
           onClick={() => setActive(id)}
           className={`${
             isActive
@@ -257,7 +259,19 @@ export function SettingsView(props: SettingsViewProps) {
         >
           {t(lang, labelKey)}
         </button>
-        {branchOpen && children.map((c) => renderRailButton(c, true))}
+        {branchOpen && (
+          // A REAL element, not a Fragment: without it the children are flat
+          // siblings of every other rail button and `pl-6` is the only
+          // hierarchy cue — invisible to a screen reader. The group is named
+          // after the parent so AT announces which branch these belong to.
+          // ★ It is a real flex box rather than `display: contents` — a
+          //   contents box is dropped from the layout tree, and its exposure to
+          //   the a11y tree has been browser-version-dependent. `flex-col
+          //   gap-1` reproduces the nav's own column spacing exactly.
+          <div role="group" aria-label={t(lang, labelKey)} className="flex flex-col gap-1">
+            {children.map((c) => renderRailButton(c, true))}
+          </div>
+        )}
       </Fragment>
     );
   };

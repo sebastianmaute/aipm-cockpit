@@ -248,8 +248,12 @@ export function AiGuidesSection({ lang, settings, onChange, operatingGuides }: A
   // have rendered it unconditionally — a silent behaviour change. The gate
   // moves with it, and the rail entry stays visible either way (a child that
   // could vanish while active would need stale-active coercion).
+  // The message is `aiDisabledSectionHint`, not the master switch's own
+  // `aiEnableHelp`: this pane contains no toggle, so "Turn on to use …" is an
+  // instruction with no target here. The new string names Settings → AI
+  // Assistant. Gate behaviour is unchanged.
   if (settings.ai.enabled !== true) {
-    return <FieldHint>{t(lang, "aiEnableHelp")}</FieldHint>;
+    return <FieldHint>{t(lang, "aiDisabledSectionHint")}</FieldHint>;
   }
 
   return (

@@ -607,6 +607,8 @@ export const de: Record<TranslationKey, string> = {
   aiAssistant: "KI-Assistent",
   aiEnable: "KI-Assistent aktivieren",
   aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge, geplante Jobs und die KI-Projekterstellung zu nutzen. Standardmäßig aus.",
+  aiDisabledSectionHint:
+    "Der KI-Assistent ist ausgeschaltet, daher gibt es hier nichts einzustellen. Schalten Sie ihn unter Einstellungen → KI-Assistent ein.",
   openAiAssistant: "KI-Assistent",
   aiApiKey: "Anthropic API-Schlüssel",
   aiApiKeyPlaceholder: "sk-ant-...",
@@ -2012,6 +2014,7 @@ export const de: Record<TranslationKey, string> = {
   settingsResetConfirmLabel: "Alles zurücksetzen",
   aiAssistantTooltip: "Anthropic-API-Schlüssel verbinden, um den KI-Assistenten zu aktivieren.",
   aiGuidesHeading: "Betriebsleitfäden",
+  aiBehaviourHeading: "Verhalten des Assistenten",
   aiGuidesDesc: "Betriebsleitfäden sind Markdown-Dokumente, die steuern, wie sich Claude als Ihr leitender Projektmanager verhält. Fügen Sie eigene hinzu, grenzen Sie sie auf einen Modus, ein Modul oder eine Ansicht ein und ordnen Sie sie nach Priorität. Wenn die Verankerung aktiv ist, liest Claude jeden aktivierten, im Geltungsbereich liegenden Leitfaden.",
   aiGroundInGuides: "Claude an Betriebsleitfäden binden",
   aiGuideAdd: "Leitfaden hinzufügen",
@@ -3725,7 +3728,7 @@ export const de: Record<TranslationKey, string> = {
   insightAcknowledgeHint:
     "Als gesehen markieren. Die Erkenntnis bleibt in der Liste und zählt weiterhin als offen.",
   insightActHint:
-    "Festhalten, dass Sie gehandelt haben, und den heutigen Messwert als Ausgangswert für die Wirkungsmessung erfassen",
+    "Festhalten, dass Sie gehandelt haben, und den heutigen Messwert als Ausgangswert für die Wirkungsmessung erfassen; wenn die Erkenntnis auf ein Element verweist, wird dieses zusätzlich geöffnet und Sie verlassen die aktuelle Ansicht",
   insightDismiss: "Verwerfen",
   insightOpen: "Öffnen",
   insightSeverityHigh: "Hoch",
