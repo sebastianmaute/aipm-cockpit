@@ -1,6 +1,6 @@
 // src/app/sanitize-html.ts — the DOMPurify storage-boundary sanitizers.
 // Five exports: three DOMPurify sanitizers — sanitizeTemplateHtml (comm templates,
-// meeting reports and the six rich entity description fields), sanitizeDocumentHtml
+// meeting reports and the seven rich entity description fields), sanitizeDocumentHtml
 // (documents only, a wider list) and sanitizeNoteHtml (the lean note/description
 // set) — plus htmlToText (the plain-text projection) and plainToHtml (wraps plain
 // text as lean HTML, and is deliberately DOM-free; see its own note).
@@ -44,7 +44,8 @@ export function sanitizeTemplateHtml(html: string): string {
 
 /** Documents-only allow-list. WIDER than ALLOWED_TAGS on purpose, and separate
  *  from it on purpose: sanitizeTemplateHtml also serves comm templates, meeting
- *  reports and the six rich entity fields, so widening THAT list would change
+ *  reports and the seven rich entity fields (`Task.description` plus the six in
+ *  `AI_RICH_FIELDS`), so widening THAT list would change
  *  what a model may store everywhere — retroactively, including how already
  *  stored HTML renders. rich-text-editor.tsx records that hazard as the reason
  *  an earlier slice disabled input rules rather than widen a list.
@@ -88,11 +89,27 @@ export function sanitizeTemplateHtml(html: string): string {
  *  ★ Both options are needed; deleting either one silently changes behaviour in a
  *  different direction (drop ALLOW_DATA_ATTR:false → anything goes; drop
  *  ADD_URI_SAFE_ATTR → the real attribute is stripped). Tests pin both.
- *  Scoped to documents on purpose — the other three sanitizers keep the default
- *  and have other consumers.
+ *  Scoped to documents on purpose — the other TWO sanitizers (this file exports
+ *  three) keep the default and have other consumers. ★ That is its own gap, and it
+ *  is a two-line fix rather than the slice an earlier note implied: the set of
+ *  `data-*` names their call sites depend on was enumerated on 2026-08-08 and is
+ *  EMPTY — StarterKit registers no extension that emits one. See open-followups
+ *  §115 for the enumeration and the Tiptap scan.
  *
- *  `img` is inert until S3c ships the asset store; allow-listed here so stored
- *  markup written by a later slice is never retroactively stripped by this one. */
+ *  `img` is inert until S3c ships the asset store. It is allow-listed here so this
+ *  sanitizer does not strip markup a later slice writes.
+ *  ★★ THAT IS TRUE OF THIS SANITIZER AND NOT OF THE LOAD PATH, so do not read it as
+ *  "an image-only paragraph is safe". `document-model.ts`'s `sanitizeBlock` drops any
+ *  paragraph whose visible text measures zero (`htmlTextLength(html) === 0`), and an
+ *  `<img>` contributes no text — so a paragraph containing ONLY an image is deleted on
+ *  every load path today. Measured 2026-08-08. A paragraph with text AND an image
+ *  survives. S3c must fix that before it can rely on image markup persisting;
+ *  open-followups §117(a) carries the reproduce.
+ *  ★★ Two more S3c prerequisites live in §117: this attribute's VALUE is never
+ *  validated (`ADD_URI_SAFE_ATTR` exempts it from every value check), and `img` is in
+ *  DOMPurify's default `DATA_URI_TAGS` — so adding `src` to the list admits
+ *  `data:text/html` and `data:image/svg+xml`, both XSS vectors, bypassing
+ *  `ALLOWED_URI_REGEXP` entirely. Neither is reachable today. */
 const DOCUMENT_ALLOWED_TAGS = [
   ...ALLOWED_TAGS,
   "s",
