@@ -6327,3 +6327,103 @@ Reproduce the two reads:
 grep -n "actualHours\[p.key\]\|actualsByPeriod={" src/app/budget-panel.tsx
 grep -n "loadActualsCache" src/app/workspace-section.tsx
 ```
+
+## 116. The budget people-row disclosure clips its own label mid-glyph, with no ellipsis — open, UI
+
+Found 2026-08-08 in slice 3's task-14 eye-verify. Not a regression — the control is new — and it is
+the case AGENTS.md already documents in the abstract ("`text-overflow` does not apply to an
+inline-flex button") reaching a surface where the clipped string is a real, variable-length data
+value rather than a short column header.
+
+`PeopleDisclosureLabel` (`budget-panel-people-rows.tsx:28`) renders a `ToggleButton
+variant="disclosure"` AS the role line's label, inside the bucket table's role `<td>`, which is
+clamped to the LIVE role-column width (`BUDGET_COL_WIDTHS.role` = 160 by default) and carries
+`truncate`. `truncate` is `overflow:hidden` + `white-space:nowrap` + `text-overflow:ellipsis`, but
+the cell's only child is an atomic inline-flex box, so the ellipsis never applies: the button is
+simply cut at the cell edge, mid-glyph.
+
+Measured in Chromium against `sample-workspace-small.json` (viewport 900×850, computed
+`getBoundingClientRect`), role column at its 160px default:
+
+| role label | button width | cell width | cut |
+|---|---|---|---|
+| Business Analyst Consultant | 185.6 | 160 | **25.6px** |
+| Project Manager Senior | 160.0 | 160 | 0 (zero headroom) |
+| Developer Consultant | 150.5 | 160 | fits, 9.5px spare |
+| Developer Senior | 127.8 | 160 | fits |
+| Developer Lead | 119.8 | 160 | fits |
+
+So two of the seven role lines the sample renders are already cut at the DEFAULT width, and a third
+sits exactly on the boundary. Dragging the role column to 90px (a normal thing to do — the column is
+user-resizable) cuts every one of the seven, the worst by 107.6px, i.e. more than half the label
+gone with nothing indicating it.
+
+★ The disclosure chrome is what pushes it over: the label text alone fits; the `ToggleButton` adds
+its own padding plus the `data-pressed-marker` glyph, which by design renders in BOTH states so the
+button keeps one width.
+
+★★ The obvious fix is NOT the one AGENTS.md warns against. The warning there is about
+`SortResizeTh`'s pinned HEADER, where swapping `overflow-hidden whitespace-nowrap` for `truncate`
+was measured to change nothing, because the content is a button either way. Here the fix is to make
+the button itself shrinkable and put the ellipsis INSIDE it — `max-w-full` + `min-w-0` on the
+button, `truncate` on a span wrapping `{label}` — so the ellipsis lands on the text node where it
+does apply. That is a change to a shared primitive's call site (or to `ToggleButton`'s
+`variant="disclosure"` branch), which is why it is filed rather than done inside a verification pass.
+
+★ jsdom cannot see any of this (no layout) and axe has no rule for a clipped label, so nothing in
+CI will report a regression here either way. Reproduce with a Playwright measurement, not a unit
+test:
+
+```bash
+# in a seeded spec, on Budget, after narrowing the viewport to 900px:
+#   button.getBoundingClientRect().width  vs  button.closest("td").getBoundingClientRect().width
+grep -n "PeopleDisclosureLabel" src/app/budget-panel-people-rows.tsx src/app/budget-panel.tsx
+```
+
+## 117. A popover opened by a click that also scrolls its ancestor never mounts — open, UI
+
+Found 2026-08-08 while driving the Open Points row ⋮ menu for slice 3's task-14 eye-verify.
+PRE-EXISTING and untouched by slice 3 — `popover-panel.tsx` is not in that branch's diff — but it
+cost real debugging time and it is not written down anywhere.
+
+`PopoverPanel` renders nothing until it has measured its anchor: the gate is `open && pos`, and
+`pos` is set by an effect (`popover-panel.tsx:56`). A SECOND effect (`:85`) closes the panel on any
+ancestor scroll, capture-phase on `window`. Those two race. A click that focuses a trigger sitting
+in a horizontally scrollable container makes the browser scroll that container to reveal it, and
+that scroll lands between the two effects — so the panel closes before it has ever been in the DOM
+and `aria-expanded` goes back to `false` in the same tick.
+
+Measured with a document-level capture listener over the Open Points row ⋮ button. Real pointer
+click, event order:
+
+```
+pointerdown:BUTTON  mousedown:BUTTON  focusin:BUTTON  mouseup:BUTTON  click:BUTTON  scroll:DIV
+```
+
+Result: `aria-expanded="false"`, `document.querySelectorAll('[role="menu"]').length === 0`, and a
+MutationObserver counting menu appearances recorded **0** — the menu never mounted at all, so this
+is not "opened then closed", it is "never opened". A synthetic `element.click()` on the same button,
+which fires no focus scroll, opens it every time (`aria-expanded="true"`, one `[role="menu"]`, items
+`["Edit","Delete"]`).
+
+★★ What is NOT established: that a human pointer reproduces it. The trace above is Playwright's
+click, and Playwright scrolls an element into view before clicking. The MECHANISM is real and
+browser-driven either way — it is `focus()` scrolling the nearest scroller, not anything the driver
+injects — so a user clicking a ⋮ that is only partly inside the table's horizontal scroll window
+should hit it; that has not been reproduced by hand and should not be written up as if it had.
+
+★ The likely fix is to ignore scroll events until the panel has actually mounted (gate the `:85`
+listener on `pos !== null`, not on `open`), which also removes a class of spurious closes at open
+time. Do not "fix" it by dropping close-on-scroll — that listener exists because a fixed-position
+panel detaches from its anchor when an ancestor scrolls.
+
+★ Consequence for anyone writing an e2e spec here: a popover, menu or dropdown anchored inside a
+scrollable pane cannot be driven with `locator.click()`. Use a DOM click
+(`page.evaluate(() => el.click())`), which is what `e2e/a11y.spec.ts` already does for the Kanban
+Board toggle — for a different stated reason (the tour overlay), so the workaround is in the repo
+but this cause is not.
+
+Reproduce:
+```bash
+grep -n "close-on-scroll\|addEventListener(\"scroll\"" src/app/popover-panel.tsx
+```
