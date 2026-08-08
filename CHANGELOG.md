@@ -8,6 +8,52 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.223.0] - 2026-08-08 "Okorafor"
+
+Settings stopped being one long page, and the buttons that showed nothing on
+hover now say what they do. Underneath, three text truncators stopped splitting
+characters in half.
+
+### Added
+
+- **Operating guides, Views and Scheduled jobs are their own settings
+  sections**, nested under AI Assistant in the rail rather than stacked inside
+  one page. The rail shows a branch's children only while that branch is
+  active, and a child stays visible with its siblings while it is open.
+- **The view descriptions Claude reads are a plain list.** They were behind a
+  disclosure that had to be opened one at a time; every view is now a card you
+  can scan in order.
+- **Hover labels on nineteen icon-only controls** that had an accessible name
+  for screen readers but showed nothing to a mouse user.
+- **Short explanations on thirteen more controls**, each saying what the
+  control actually does — including when an action also navigates you to a
+  different view, which is the part that was never obvious.
+- **Property-based coverage for five pure engines** — the CSV/Markdown
+  round-trip, id minting, rich-text projection, the Gantt date math and the
+  entity sanitizers.
+
+### Changed
+
+- **"This project" is now "Overrides"** in the settings rail. It named the
+  scope; it now names the thing.
+- **Twenty-three hand-built buttons now use the shared primitives**, so size,
+  spacing, focus ring and disabled state match the rest of the app instead of
+  each site's own recipe.
+
+### Fixed
+
+- **Text caps no longer split a character in half.** Three truncators cut on
+  UTF-16 code units, so a cap landing inside an emoji or a rarer CJK character
+  kept half of it. That half is not a character: it was replaced by a
+  replacement glyph on the CSV and Markdown backends while surviving intact on
+  JSON and IndexedDB, so the same project read correctly or incorrectly
+  depending only on where it was stored. All three now drop the character
+  whole, and a negative cap can no longer return the text nearly unclipped.
+- **Five findings from a cold review of that fix**, including one truncator
+  whose cap was never exercised by any test and a parity claim that was false
+  below zero.
+- **dompurify, nanoid and js-yaml** moved past published advisories.
+
 ## [0.222.0] - 2026-08-07 "Charnas"
 
 A project holding more documents than the app could open used to lose them.
