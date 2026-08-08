@@ -798,9 +798,11 @@ log**. Not verified:
 
 ---
 
-## 22. `clipText` truncates on UTF-16 code units and can split a surrogate pair — open
+## 22. `clipText` truncates on UTF-16 code units and can split a surrogate pair — CLOSED
 
-**Where:** `sanitize-core.ts:52-55`.
+**Where:** `sanitize-core.ts`, `clipText`. (Cited as `:52-55` until the closing commit itself
+widened the function past that range — the exact `file:line`-rot this repo's convention warns about.
+Cite the SYMBOL.)
 
 ```ts
 function clipText(s: unknown, max: number): string {
@@ -856,6 +858,55 @@ rich-text fix does not.
 ★ `max <= 0` is safe in the `capHtmlText` version (`charCodeAt(-1)` is `NaN`, and `NaN` fails every
 comparison) but that was *asserted with a test*, not assumed — do the same here rather than
 reasoning about it, because `clipText`'s `max` is a per-field argument, not one constant.
+
+### CLOSED — the back-off shipped, pinned by a property suite
+
+`clipText` now backs the cut off one code unit when it would land on a high surrogate, the same
+shape `capHtmlText` carries. Pinned by `sanitize-core.property.test.ts` (8 properties).
+
+★★★ **THE GOLDEN-REGEN PREDICTION ABOVE WAS WRONG, and the two ★ paragraphs preceding this one are
+the record of getting it wrong twice in the same direction.** `golden-workspace.test` passed
+**unchanged** through this fix — 5/5, no fixture written. The reason is narrower than "the rich
+fields are empty": **no plain-text field in `sample-workspace-small.json` is over its cap**, so
+`clipText`'s truncation branch never executes on the sample at all. The paragraph above reasoned
+from "which FIELDS the sample populates" when the deciding question was "does any field EXCEED its
+cap" — populated and over-cap are different properties, and only the second one moves a golden.
+The fix's reach is unaffected: a real workspace with a long emoji-bearing title still gets it.
+
+★★ **`max <= 0` was NOT one case, and the ★ advice above is exactly why that surfaced.** Writing the
+test instead of reasoning found that a NEGATIVE `max` is a *distinct* defect from `max === 0`:
+`slice`'s end index counts from the END, so `"a𐀀".slice(0, -1)` returns `"a\uD800"` — over cap AND
+ending on a lone surrogate, i.e. it defeats the very invariant the fix establishes. `max === 0` is
+genuinely inert (`charCodeAt(-1)` is `NaN`). `clipText` now clamps `max <= 0` to `""`. No call site
+passes a negative today (every argument is a positive literal or named constant), so this is
+defensive — but the property is stated unconditionally and would otherwise simply be false.
+
+★★★ **FIXING `clipText` DID NOT CLOSE THE DEFECT CLASS, AND THE FIRST VERSION OF THIS CLOSURE
+IMPLIED IT DID.** A cold review found `sanitizeLabel` — **in this same file, 100 lines below the
+fix** — truncating with a raw `.trim().slice(0, LABEL_MAX)`, bypassing `clipText` entirely and
+returning a lone high surrogate for a label ending in an emoji at the boundary. `describeLabelStrip`
+(`sanitize-report.ts`) carried the identical body, and its own docstring says it MIRRORS
+`sanitizeLabel`. Both now route through `sanitizeText` (hence `clipText`); the replace→trim→cap order
+is unchanged, so this is behaviour-preserving apart from the back-off. Pinned by a 9th property,
+verified to fail against the raw-slice version.
+
+★★ **The lesson generalises past this entry.** "The fix reaches 54 call sites" was TRUE and still
+left `sanitizeLabel` out, because it was never one of the 54 — it never called `sanitizeText` or
+`sanitizeMultiline`. An entry named after ONE function says nothing about its siblings, and a
+call-site count answers "how far does this function reach", never "who else does this by hand".
+When closing a defect-CLASS entry, grep for the SHAPE (`\.slice\(0,` next to a `_MAX`), not for the
+fixed function's name.
+
+★ **One site of this class is deliberately still open:** `sanitize-records.ts` `rr.html.slice(0,
+REPORT_HTML_MAX)` (the meeting report). It is HTML, so a raw slice can also cut mid-tag — a strictly
+larger problem than the surrogate one, and not fixable by the same one-line back-off. Filed as §108
+rather than folded in here.
+
+★ **Test-validity note worth carrying to any future cap fix.** The property was first written with a
+`>= 3`-of-30 anti-vacuity floor tuned against ONE run. Measured across 5 fixed seeds the true
+minimum was **8** — green only by luck, with an unmeasured tail. It is now 30/30 **by construction**
+(the arbitrary places the cap exactly one code unit into an astral character) with the floor at 15.
+A counter tuned against a single run is itself a flake source, because fast-check reseeds every run.
 
 ---
 
@@ -5735,5 +5786,146 @@ it passes `(id, title)` — the args are there for a future surface, not for the
 activity row should GO and which surfaces own that routing — a decision, not a one-liner. Wiring
 `activityViewOf` for one kind while every other kind stays unrouted would be the same
 one-door-of-two shape this slice hit six times.
+
+---
+
+## 105. CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row — open, silent data loss
+
+**Where:** `csv-codecs-decode.ts` `splitCsvSections`.
+
+```ts
+const lines = csv.split(/\r?\n/);          // raw split, BEFORE any tokenizing
+for (const line of lines) {
+  const trimmed = line.trimStart();
+  // … 13-line comment elided — it is the one discussed below …
+  if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
+  // …25 more markers
+```
+
+★ Count reproduce: `grep -c "trimmed.startsWith(CSV_SECTION" src/app/csv-codecs-decode.ts` → **26**,
+so 25 follow the one shown. (An earlier revision of this entry said "24 more", derived by eye.)
+
+The section splitter runs over **physical text lines**, before the CSV tokenizer. A quoted cell
+legitimately contains newlines, so its continuation lands on its own physical line — and if that
+continuation begins with a section marker, `startsWith` fires and the parser switches section
+**mid-row**. The remainder of the row is appended to the wrong buffer and decodes as absent.
+
+**Measured, not reasoned** (found by `codec-roundtrip.property.test.ts`):
+
+```
+blockers: "step one\n# RAID\nstep two"   →   "step one"
+```
+
+Silent: no throw, no `ImportDiag` entry, nothing in the UI. `trimStart()` means leading whitespace
+does not protect the value either.
+
+★★ **The existing comment in that function reasons carefully about the WRONG collision.** It is a
+long, correct analysis of markers colliding with *each other* (prefix ordering, the
+`# DOCUMENTS` / `# DOCUMENT VERSIONS` near-miss) and pins that invariant with a reflective test. It
+never considers a marker appearing inside quoted CONTENT. The blind spot is one level up from where
+the author was looking — which is why the reflective marker-prefix test cannot catch this.
+
+★ **Markdown is immune by construction**, and for a reason worth preserving: `mdEscape` turns every
+newline into a literal `<br>`, so no MD cell can ever begin a line. Do not "simplify" that away.
+
+★ Applies to **every entity the CSV backend writes**, not just tasks. Reachability differs by field:
+`description` is HTML and `noteLog` is escaped JSON, but `blockers` is plain multi-line free text,
+and any imported / AI-written / backend-converted workspace can carry a newline in any of them. The
+mechanism is proven; the claim that a UI writer actually puts a newline in `blockers` is argued, not
+traced — settle that before pricing a fix.
+
+**Pinned:** `codec-roundtrip.property.test.ts` holds the property this SHOULD satisfy, `describe.skip`ped
+with the measurement in the comment. Confirmed to fail by unskipping before the claim was made.
+Unskip it when fixing.
+
+---
+
+## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive
+
+**Where:** `markdown-codecs-core.ts` `mdEscape` / `mdUnescape`.
+
+`mdEscape`'s `/\r?\n/` consumes the ONE carriage return nearest the LF; `mdUnescape` emits a bare LF;
+the next pass then has a fresh `\r\n` to eat. So a run of bare CRs loses one per save/load cycle
+**with no edit in between**:
+
+```
+"a\r\r\r\nb" → "a\r\r\nb" → "a\r\nb" → "a\nb" → "a\nb"     (one arrow = one full round-trip)
+```
+
+It converges, and only ever loses CRs, and `\r\n → \n` on the FIRST pass is accepted behaviour (this
+repo's markdown format is LF) — so this sits well below §105. Recorded because "the stored value
+changes on a load that made no edit" is the kind of thing that later reads as corruption.
+
+★★ **Found only at `numRuns: 1500`; twenty runs missed it on the first seed.** The live fixed-point
+property therefore excludes bare CR explicitly, and the skipped block carries both the unrestricted
+property and a deterministic companion. ★ The skipped PROPERTY is itself seed-dependent at low run
+counts — on the run where it was unskipped, the deterministic companion failed while the property
+passed. **The deterministic case is the reliable reproduction**; reach for that one, not the property.
+
+---
+
+## 107. `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup — open, measured
+
+**Where:** `narrative-html.ts` `HTML_START` vs `sanitize-html.ts` `ALLOWED_TAGS`.
+
+| List | Tags |
+|---|---|
+| `HTML_START` — decides "is this stored value already HTML?" | `p br strong em ul ol li a` (8) |
+| `sanitizeTemplateHtml` `ALLOWED_TAGS` — what a MODEL may store | `p br strong em ` **`u h1 h2`** ` ul ol li a` (11) |
+
+`sanitizeAiRichText` runs `sanitizeRichText` **first**, so `descriptionHtml` tests `HTML_START`
+before DOMPurify is ever reached. A value opening with `<h1>` fails that test, is treated as legacy
+plain text, and `plainToHtml` **escapes the whole thing**. Layer 2 then sees only inert entities and
+passes them through.
+
+**Measured** via `sanitizeAiRichText`:
+
+```
+"<h1>Title</h1><p>body</p>"      → "<p>&lt;h1&gt;Title&lt;/h1&gt;&lt;p&gt;body&lt;/p&gt;</p>"
+"<u>Title</u><p>body</p>"        → "<p>&lt;u&gt;Title&lt;/u&gt;&lt;p&gt;body&lt;/p&gt;</p>"
+"<p>Title</p><h1>Section</h1>"   → "<p>Title</p><h1>Section</h1>"          ← unaffected
+```
+
+★★★ **POSITION DECIDES, AND THE BLAST RADIUS IS THE WHOLE VALUE.** The same `<h1>` is preserved
+mid-value and, when it LEADS, escapes the entire description — not just the heading. The result is
+permanent: every reader and every export renders visible `<h1>` as literal text.
+
+★★ `h3` / `div` / `table` hit the same escape path (any leading tag outside the 8), but `u` / `h1` /
+`h2` are the sharp cases: the allow-list explicitly says a model MAY write them. AGENTS.md records
+that `sanitizeTemplateHtml` was chosen over `sanitizeNoteHtml` *precisely because* a model
+legitimately emits headings — so a description leading with one is the ordinary case, not an exotic
+one.
+
+★ The comment at `sanitize-html.ts:35` ("`HTML_START` mirrors this list… Edit both together") is
+**accurate but scoped to the wrong list** — it sits above `NOTE_ALLOWED_TAGS`, which `HTML_START`
+does mirror exactly. Nothing pairs `HTML_START` with the wider TEMPLATE list, which is where the
+drift is.
+
+**Fix shape, not yet decided:** widening `HTML_START` to the template list is the obvious move, but
+it changes what counts as "already HTML" for EVERY stored value on every load path, so it needs the
+byte-stability suites run and probably a golden check. Do not treat it as a one-line edit.
+
+---
+
+## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open
+
+**Where:** `sanitize-records.ts`, the `MeetingReport` guard — `rr.html.slice(0, REPORT_HTML_MAX)`.
+
+Split out of §22 rather than folded into it, because it is the same shape but a strictly larger
+problem. §22's one-line back-off fixes the surrogate half and does nothing for the other half: the
+value is **HTML**, so a raw cut can also land inside a tag (`<stro`) or between a tag and its
+closer, and the stored result is then malformed markup rather than merely a damaged character.
+
+★ The rich-text layer already solved exactly this: `capHtmlText` (`rich-text-plain.ts`) projects to
+text, truncates, and **re-wraps** so the result is always well-formed, accepting the loss of
+formatting on overflow. That is the shape to copy — not `clipText`, which is correct only for
+plain-text fields.
+
+★★ Do NOT "fix" this by routing it through `sanitizeText`. That would give it the surrogate back-off
+and leave the mid-tag cut in place while making the call site LOOK guarded — the more dangerous of
+the two states, because the next reader sees a sanitizer call and stops looking.
+
+★ Reachability is narrow: it needs a meeting report whose HTML exceeds `REPORT_HTML_MAX`, which no
+sample fixture does. Unmeasured in the wild — the mechanism is read from the code, not observed.
 
 ---
