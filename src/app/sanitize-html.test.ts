@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { sanitizeTemplateHtml, sanitizeNoteHtml, htmlToText, plainToHtml } from "./sanitize-html";
+import {
+  sanitizeTemplateHtml,
+  sanitizeNoteHtml,
+  sanitizeDocumentHtml,
+  htmlToText,
+  plainToHtml,
+} from "./sanitize-html";
 
 describe("sanitizeTemplateHtml", () => {
   it("drops <script> and event handlers", () => {
@@ -116,5 +122,41 @@ describe("htmlToText", () => {
     expect(htmlToText("<script>alert(1)</script>\nok", { preserveBreaks: true })).not.toContain(
       "alert",
     );
+  });
+});
+
+describe("sanitizeDocumentHtml", () => {
+  it("keeps the eight tags documents add beyond the template list", () => {
+    const html =
+      "<p><s>a</s><code>b</code><mark>c</mark><sub>d</sub><sup>e</sup></p>" +
+      "<pre>f</pre><blockquote>g</blockquote><hr>";
+    const out = sanitizeDocumentHtml(html);
+    // ★★ The closing ">" is load-bearing — assert `<s>`, never `<s`. A bare
+    // prefix match is satisfied by a DIFFERENT tag in the same output: `<sub`
+    // and `<sup` both start with `<s`, so with "s" dropped from the allow-list
+    // the prefix form of this loop still passed all 21 tests (measured, not
+    // reasoned). None of the eight carries an attribute here, so every one of
+    // them renders with its ">" immediately after the name.
+    for (const tag of ["s", "code", "mark", "sub", "sup", "pre", "blockquote", "hr"]) {
+      expect(out).toContain(`<${tag}>`);
+    }
+  });
+
+  it("keeps an image reference by id and drops any src", () => {
+    const out = sanitizeDocumentHtml('<p><img data-asset-id="7" src="https://x/y.png" alt="a"></p>');
+    expect(out).toContain('data-asset-id="7"');
+    expect(out).not.toContain("src=");
+  });
+
+  it("strips a script but KEEPS the words of an unknown tag", () => {
+    // KEEP_CONTENT stays at DOMPurify's default: unwrap, do not delete text.
+    expect(sanitizeDocumentHtml("<p><script>alert(1)</script>hi</p>")).not.toContain("<script");
+    expect(sanitizeDocumentHtml("<div>kept</div>")).toContain("kept");
+  });
+
+  it("does not widen the SHARED template sanitizer", () => {
+    // The guard that matters: documents gained tags, everyone else did not.
+    expect(sanitizeTemplateHtml("<p><mark>x</mark></p>")).not.toContain("<mark");
+    expect(sanitizeTemplateHtml("<blockquote>y</blockquote>")).not.toContain("<blockquote");
   });
 });

@@ -32,6 +32,45 @@ export function sanitizeTemplateHtml(html: string): string {
   });
 }
 
+/** Documents-only allow-list. WIDER than ALLOWED_TAGS on purpose, and separate
+ *  from it on purpose: sanitizeTemplateHtml also serves comm templates, meeting
+ *  reports and the six rich entity fields, so widening THAT list would change
+ *  what a model may store everywhere — retroactively, including how already
+ *  stored HTML renders. rich-text-editor.tsx records that hazard as the reason
+ *  an earlier slice disabled input rules rather than widen a list.
+ *
+ *  ★★ KEEP_CONTENT stays at DOMPurify's DEFAULT (unwrap, keep the words), NOT
+ *  sanitizeNoteHtml's `false`. A document is prose a person will read; losing a
+ *  paragraph's text because it was wrapped in an unlisted tag is worse than
+ *  losing its formatting.
+ *
+ *  ★★ `img` carries `data-asset-id` and NO src. Images are referenced by id so
+ *  that no URI ever enters stored block HTML — ALLOWED_URI_REGEXP would have to
+ *  admit `data:` otherwise, and `data:text/html` is an XSS vector. Inert until
+ *  S3c ships the asset store; allow-listed here so stored markup written by a
+ *  later slice is never retroactively stripped by this one. */
+const DOCUMENT_ALLOWED_TAGS = [
+  ...ALLOWED_TAGS,
+  "s",
+  "code",
+  "pre",
+  "blockquote",
+  "hr",
+  "mark",
+  "sub",
+  "sup",
+  "img",
+];
+const DOCUMENT_ALLOWED_ATTR = [...ALLOWED_ATTR, "data-asset-id", "alt"];
+
+export function sanitizeDocumentHtml(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: DOCUMENT_ALLOWED_TAGS,
+    ALLOWED_ATTR: DOCUMENT_ALLOWED_ATTR,
+    ALLOWED_URI_REGEXP: /^(?:https?|mailto):[^<>"]*$/i,
+  });
+}
+
 // ★ narrative-html.ts's HTML_START mirrors this list (minus "#text"): it decides
 // whether a stored narrative is already HTML, and recognising a tag THIS list
 // omits means the sink below deletes the element and its text. Edit both together.
