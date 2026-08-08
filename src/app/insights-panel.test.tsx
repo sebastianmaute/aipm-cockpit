@@ -172,13 +172,16 @@ describe("InsightsPanel", () => {
       expect(onCancelGenerate).toHaveBeenCalledTimes(1);
     });
 
-    it("shows Stop on ONLY the generating row, leaving the others runnable", () => {
+    it("shows Stop on ONLY the generating row, leaving the others runnable", async () => {
       // ★ THE reason `busy` is per-row and not the hook's global in-flight flag.
       //   With the global flag every row here would read "Stop", leaving a user
       //   who wants to generate the OTHER row no way to say so. `onCancel` stays
       //   global and that is still correct: only one generate can be in flight,
       //   so the global cancel IS the running row's call.
       // ★ A one-insight fixture CANNOT observe this — it passes either way.
+      const user = userEvent.setup();
+      const onGenerateRecommendation = vi.fn();
+      const onCancelGenerate = vi.fn();
       const generating = makeInsight({ id: 3, type: "milestoneSlip", status: "active" });
       const idle = makeInsight({ id: 4, type: "stalledWork", status: "active", entityRef: undefined, data: { count: 3 } });
       render(
@@ -187,15 +190,27 @@ describe("InsightsPanel", () => {
           lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
-            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+            onGenerateRecommendation, onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
           }}
           generatingId={3}
-          onCancelGenerate={vi.fn()}
+          onCancelGenerate={onCancelGenerate}
         />,
       );
       const generate = t("en-US", "insightGenerateRecommendation");
-      expect(screen.getByRole("button", { name: `Stop – ${titleOf("milestoneSlip")}` })).toBeTruthy();
-      expect(screen.getByRole("button", { name: `${generate} – ${titleOf("stalledWork")}` })).toBeTruthy();
+
+      // The generating row: named Stop, and its click CANCELS.
+      await user.click(screen.getByRole("button", { name: `Stop – ${titleOf("milestoneSlip")}` }));
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1);
+
+      // The OTHER row: still named for its idle action, and its click GENERATES
+      // for its own id. ★ Asserting only that the label is present would not
+      // catch a button that is labelled "Generate" but wired to cancel — the
+      // click is what proves the row is actually still runnable.
+      await user.click(screen.getByRole("button", { name: `${generate} – ${titleOf("stalledWork")}` }));
+      expect(onGenerateRecommendation).toHaveBeenCalledTimes(1);
+      expect(onGenerateRecommendation).toHaveBeenCalledWith(4);
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1); // unchanged by that click
+
       // And the idle row is NOT a second Stop.
       expect(screen.queryByRole("button", { name: `Stop – ${titleOf("stalledWork")}` })).toBeNull();
     });
