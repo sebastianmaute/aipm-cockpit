@@ -1,4 +1,4 @@
-import { LABEL_MAX } from "./sanitize";
+import { LABEL_MAX, sanitizeText } from "./sanitize";
 
 /** A single transformation a sanitizer applied to user input, or null if none. */
 export type Adjustment =
@@ -54,7 +54,10 @@ const LABEL_SEPARATORS = /[|,\r\n\t]/g;
 export function describeLabelStrip(raw: string): Report<string> {
   if (typeof raw !== "string") return { value: "", adjustment: null };
   const matches = raw.match(LABEL_SEPARATORS);
-  const value = raw.replace(/[|,\r\n\t]+/g, " ").trim().slice(0, LABEL_MAX);
+  // ★★ Caps via `sanitizeText` (hence `clipText`), NOT a raw `.slice` — see
+  // `sanitizeLabel`, which this mirrors by contract. A bare slice split a
+  // surrogate pair at the cap boundary (§22) and would make the two disagree.
+  const value = sanitizeText(raw.replace(/[|,\r\n\t]+/g, " "), LABEL_MAX);
   if (!matches) return { value, adjustment: null };
   const label = (c: string) =>
     c === "\r" ? "\\r" : c === "\n" ? "\\n" : c === "\t" ? "\\t" : c;

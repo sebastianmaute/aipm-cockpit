@@ -827,7 +827,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ Counters/caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`; `capHtmlText` backs a
   truncation off one code unit rather than splitting a surrogate pair (a lone surrogate is `U+FFFD`
   on CSV/MD but survives on JSON/IDB — a backend-dependent corruption). `clipText` in
-  `sanitize-core.ts` still has that bug for ~49 plain-text call sites (open-followups §22).
+  `sanitize-core.ts` carried that bug across ~49 plain-text call sites until 0.222.x, and now backs
+  the cut off the same way — open-followups §22 is CLOSED. ★ It clamps a NEGATIVE `max` to `""` too,
+  which is a distinct case from `0`: `slice(0, -1)` counts from the END and returns nearly the whole
+  string, over cap and able to end on a lone surrogate itself.
   ★ Whole-object load boundaries (JSON + IDB) route the rich fields through `sanitizeNoteFields` /
   `sanitizeRaidRichFields` / `sanitizeChangeRichFields` / `sanitizeMilestoneRichFields` — escape
   BEFORE sanitize, or `KEEP_CONTENT:false` deletes tag-shaped plain text along with its content.
