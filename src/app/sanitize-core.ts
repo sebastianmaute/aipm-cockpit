@@ -51,7 +51,30 @@ export function toNumber(n: unknown): number {
 
 function clipText(s: unknown, max: number): string {
   if (typeof s !== "string") return "";
-  return s.length > max ? s.slice(0, max) : s;
+  // ★★ NEGATIVE max first, and it is NOT the same case as max === 0. At 0 the
+  // back-off below is inert (charCodeAt(-1) is NaN, every NaN comparison is
+  // false) and slice(0, 0) is "". At a NEGATIVE max, `slice`'s end index counts
+  // from the END, so slice(0, -1) returns nearly the whole string — over cap,
+  // and able to end on a lone surrogate itself ("a𐀀" → "a\ud800"). That
+  // predates this fix, but it defeats the invariant the fix exists to establish,
+  // so clamp it rather than reasoning that no caller passes one (§22 flags that
+  // `max` here is a per-field argument, not one constant).
+  if (max <= 0) return "";
+  if (s.length <= max) return s;
+  // ★★ `slice` counts UTF-16 CODE UNITS, so a cap landing inside an astral
+  // character (emoji, rarer CJK, most symbols above the BMP) kept its LONE HIGH
+  // SURROGATE. That is not a character: encoding it to UTF-8 replaces it with
+  // U+FFFD, permanently. JSON.stringify escapes it as "\ud83d" and survives, so
+  // the JSON and IndexedDB backends did NOT corrupt while CSV and Markdown DID —
+  // a backend-dependent silent corruption, harder to diagnose than a uniform one
+  // because the same workspace reads correctly or incorrectly depending only on
+  // where it was stored. Back the cut off by one so the character is dropped
+  // WHOLE. `capHtmlText` (rich-text-plain.ts) carries the identical fix for the
+  // rich-text cap; this one closes every plain-text field behind sanitizeText /
+  // sanitizeMultiline plus sanitizeVoiceTranscript.
+  const last = s.charCodeAt(max - 1);
+  const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
+  return s.slice(0, cut);
 }
 
 /** Trim + cap. Use for short single-line fields. */
@@ -149,10 +172,19 @@ export function sanitizeGroup(s: unknown): string {
   return sanitizeText(s, GROUP_MAX);
 }
 
-/** Strips characters that conflict with serialization separators (|) and chip parsing (,). */
+/** Strips characters that conflict with serialization separators (|) and chip parsing (,).
+ *
+ *  ★★ The cap goes through `sanitizeText` (hence `clipText`) rather than a raw
+ *  `.slice`, so it inherits the surrogate back-off — a bare
+ *  `.trim().slice(0, LABEL_MAX)` returned a LONE HIGH SURROGATE for a label
+ *  ending in an emoji at the boundary, which is §22's defect exactly and was
+ *  still live here after §22 was closed on `clipText` alone. `sanitizeText` is
+ *  `clipText(s.trim(), max)`, so the replace→trim→cap ORDER is unchanged.
+ *  ★ `describeLabelStrip` (sanitize-report.ts) mirrors this by contract — its
+ *  docstring says so. Change both together. */
 export function sanitizeLabel(s: unknown): string {
   if (typeof s !== "string") return "";
-  return s.replace(/[|,\r\n\t]+/g, " ").trim().slice(0, LABEL_MAX);
+  return sanitizeText(s.replace(/[|,\r\n\t]+/g, " "), LABEL_MAX);
 }
 
 export function sanitizeLabels(input: unknown): string[] {

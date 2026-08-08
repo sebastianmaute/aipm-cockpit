@@ -56,4 +56,30 @@ describe("describeLabelStrip", () => {
       adjustment: { kind: "stripped", chars: [","] },
     });
   });
+
+  // ★★★ THIS TEST EXISTS BECAUSE THE OTHER FOUR CANNOT DETECT THE CAP AT ALL.
+  // Every other literal here and in sanitize-branches.test.ts is <= 9 characters
+  // against a 50-unit cap, so the truncation branch never executes and the
+  // function's body could be reverted to a raw `.trim().slice(0, LABEL_MAX)`
+  // with the whole suite still green. A cold review measured exactly that, on a
+  // branch whose own comment claimed this path was "covered by its own test".
+  //
+  // `describeLabelStrip` MIRRORS `sanitizeLabel` by contract (its docstring says
+  // so), so it must inherit clipText's surrogate back-off: a raw slice at the
+  // boundary keeps a LONE HIGH SURROGATE, which UTF-8-encodes to U+FFFD on the
+  // CSV and Markdown backends while surviving on JSON and IndexedDB.
+  it("caps without splitting an astral character at the boundary", () => {
+    // 3 BMP chars shift the astral run by one code unit, so the cut at 50 lands
+    // INSIDE a surrogate pair. A pure-astral string would cut cleanly and prove
+    // nothing.
+    const raw = "abc" + "\u{10000}".repeat(40);
+    const { value } = describeLabelStrip(raw);
+    expect(value.length).toBeLessThanOrEqual(50);
+    // The last unit must not be an unpaired high surrogate.
+    const last = value.charCodeAt(value.length - 1);
+    expect(last >= 0xd800 && last <= 0xdbff).toBe(false);
+    // …and the character must be dropped WHOLE, not merely trimmed to an even
+    // length by luck: 3 + 2n is odd at the cap, so a correct back-off lands on 49.
+    expect(value.length).toBe(49);
+  });
 });
