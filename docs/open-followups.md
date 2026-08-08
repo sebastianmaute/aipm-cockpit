@@ -5740,6 +5740,10 @@ one-door-of-two shape this slice hit six times.
 
 ## 105. Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet
 
+★ **Filed as §103** on `feat/ui-batch-slice-2`; renumbered when that branch merged, because main had
+already taken 103 for the over-cap document load. Every commit message on that branch says §103, and
+those cannot be edited. Same for §106, filed as §104.
+
 The full audit is [`docs/tooltip-inventory.md`](tooltip-inventory.md), taken 2026-08-07 on
 `176b823a` (an earlier revision said `2d31abe5`, which is a dangling pre-amend duplicate NOT in the
 branch — `git merge-base --is-ancestor` exits 1). This entry exists so the register points at it, and so the **unapplied** half does not
@@ -5758,6 +5762,15 @@ after Tasks 14 and 16 it is 573 / 176 / 87 / 70 / **17**. The attribute-level `g
 moved 388 → 422. "So nobody re-derives it" is about the METHOD being expensive, not about the numbers
 being current — re-run the parser in the inventory before quoting any of them as a present-tense
 count.
+★★ **AND THAT GUARD EARNED ITSELF WITHIN ONE DAY.** Every figure above reproduced EXACTLY at the
+branch tip `70395bc5` and every one of them moved when main's 98-commit document-authoring slice
+merged in on 2026-08-08. At `9927d045` the split is **583 / 178 / 88 / 70 / 17**, `grep -rho 'title='`
+is **426** (non-test), and files carrying an `aria-label` are **194**. The one number that did NOT
+move is the open surface itself: still **17** untitled icon-only controls, and
+`workspace-section-chrome.tsx` is still the only control named by `title` alone. ★★★ The parser says
+**18**, and the extra one is a PARSER ARTIFACT, not a control — see the apostrophe limitation
+recorded in the inventory's Reproduce section. `documents-history-modal.tsx` renders
+`{t(lang, "documentsRestore")}` as visible text; it is not icon-only. Do not open a row for it.
 
 **What slice 2's Task 14 applies, and what it does not.** Task 14 takes the **Class A** rows only —
 add `title={<the expression already in the accessible name>}`, zero new strings, no approval needed.
@@ -5767,7 +5780,8 @@ Everything below is what remains open after it:
   the ones where the mechanical fix is *worse than nothing*: copying a bare noun into a `title`
   produces the appearance of coverage and nobody re-opens the row. The clearest are the insights
   verbs "Acknowledge" / "Act", where the label actively misleads — `onActInsight`
-  (`task-manager.tsx:832`) applies `metricAtActionPatch` on first act, a one-shot side effect the
+  (`task-manager.tsx`, grep the symbol — it was `:832` when written and main's merge moved it to
+  `:840`) applies `metricAtActionPatch` on first act, a one-shot side effect the
   word "Act" gives no hint of.
   ★★ **RESOLVED 2026-08-07 except one row.** The user approved **13 of the 14** at row level and
   slice 2 implements them: B2–B14. **B1 (the settings cog, `settings-menu.tsx:59`) is HELD** and is
@@ -5818,6 +5832,8 @@ A/B judgement is not automatable and the inventory records every borderline call
 
 ## 106. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open
 
+★ **Filed as §104** — see the renumbering note at the head of §105.
+
 Found 2026-08-07 while converting the close-button family in slice 2 (§102's programme). User
 decided it is its own slice rather than something to force inside a conversion task.
 
@@ -5850,3 +5866,58 @@ out of `SIZE_CLASS`, so `CHIP_BASE`-style controls become expressible. Whatever 
 still passing a bare `✕` child — glyph-only work in the family `roles-editor` got folded into slice
 2's Task 12. Already inventoried at `handrolled-ui-inventory.md:396`; merely outside that task's
 thirteen-file list.
+
+---
+
+## 107. Document row controls are named by a title that is NOT unique, and the comment says it is — open, a11y
+
+Found 2026-08-08 by a merge review, in main's code, not the branch that filed this. Filed rather
+than fixed: it belongs to the document-authoring slice, and fixing another slice's freshly-shipped
+feature from inside a settings-tooltips branch is the scope creep this register exists to avoid.
+
+`documents-list.tsx` names every per-row control with the document's title — the selection button
+(whose accessible name IS `doc.title`) plus Download / History / Rename / Duplicate / Delete, six
+controls per row. The comment above the selection button asserts the title is **"row-unique by
+construction"**.
+
+★★★ **It is not, and the comment is the defect** — a false invariant in a comment outlives the code
+it describes, because the next reader stops checking. `uniqueDocumentTitle` runs at exactly two of
+the four title-writing paths (reproduce: `grep -rn "uniqueDocumentTitle" src/app --include=*.tsx
+--include=*.ts | grep -v "\.test\."` — definition plus `kind:"create"` and `kind:"duplicate"` in
+`documents-panel.tsx`). The two that bypass it:
+
+- `commitRename` (`documents-panel.tsx`) sends the raw trimmed draft straight to
+  `mutate({kind:"rename", …})`. Rename "Q3 report (copy)" back to "Q3 report" and the collision is
+  stored.
+- `createDocument` (`use-document-tools.ts`) passes the MODEL's title through untouched —
+  `sanitizeAiDocBlocks` and the block-count checks guard the blocks, nothing guards the title. Two
+  `create_document` calls with the same title collide.
+
+`document-model.ts` holds no uniqueness check either, so nothing downstream rejects it.
+
+★★ **The axe gate cannot catch this and being in `A11Y_VIEWS` does not help.** Documents IS scanned
+and `e2e/seed.ts` DOES seed two documents — with DISTINCT titles, so the duplicate names never
+render at scan time. This is the exact pattern AGENTS.md warns about under the a11y gate ("N
+identical labels is a WCAG 2.4.6 fail, but axe can PASS it when the seed renders only one row").
+Six duplicate-name pairs in one list is what a speech-input user hits when they say "click Delete
+Q3 report" and nothing resolves.
+
+★ **main's own newer code states the opposite standard**, which is why this reads as an oversight
+rather than a decision: `documents-history-modal.tsx` ("title+timestamp collides on real data. Only
+the version id cannot") and `chat-tool-block.tsx` both qualify by id. The History button in
+`documents-list.tsx` is itself NEW on main — the hole was left open in the one surface that was
+extended rather than written fresh.
+
+### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims
+
+`chat-tool-block.tsx` qualifies its card controls with ` – #${docId}` and the comment gives two
+reasons: two cards can carry the same title "either because the same document was touched twice in
+one conversation or because two documents are genuinely named alike". **In the first of those the
+id is the same too**, so the qualifier produces identical names — `create_document` then
+`update_document` on one document, or two successive `update_document` calls, is the ordinary
+write-then-revise pattern and puts two cards in the transcript.
+
+★ Graded lower deliberately: both cards' buttons act on `liveDoc`, the CURRENT document, so the
+duplicate names sit on functionally identical controls — a far weaker 2.4.6 problem than the list
+above. **The part worth fixing is the RATIONALE**, which is recorded as proof that collision is
+impossible, is not, and has already been cited by `documents-history-modal.tsx` as precedent.

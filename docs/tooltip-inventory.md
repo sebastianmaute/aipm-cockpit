@@ -17,7 +17,7 @@ already written into prose — check the citations after any amend.
 | **keep** | unchanged, by design |
 | **name defect** — 1 row | ❌ **OPEN** — `workspace-section-chrome.tsx`, needs `aria-label`, not a `title`. |
 | **blocked on i18n** — 1 row | ❌ **OPEN** — `stakeholder-recipient-input.tsx`; translate first. |
-| 15 hardcoded-English names | ❌ **OPEN** — adjacent finding, tracked in `docs/open-followups.md` §105. |
+| 15 hardcoded-English names | ❌ **OPEN** — adjacent finding, tracked in `docs/open-followups.md` §105 (filed as §103). |
 
 ★★ **B1 (settings cog) is the ONE Class B row still open**, held deliberately: that control renders
 in the **classic** header only, outside the `ActionMenus` element `buildShellChrome` feeds the modern
@@ -90,6 +90,15 @@ that closes exactly one of the three. **Two remain unpinned.** ★ Same commit, 
 commit that introduced it REPLACED the comment documenting the pairing requirement" names the wrong
 commit — `176b823a` introduced the 4px split AND wrote the pairing comment; `6265b549` is the commit
 that deleted it. The substance (the comment was removed while the pairing was broken) is TRUE.
+
+★ **The merge commit is deliberately NOT listed here.** A fact-check of it found the same defect twice
+more — "~30 source files" where the command returns 36 LINES across 18 FILES, and a "4 more" that read
+as 4 additional files when 4 of the same 19 had starved again. Both were caught while the merge was
+still unpushed and cited by nothing, so both were fixed IN the message by amending. Recording a
+correction for a claim that no longer exists anywhere would make this section itself false. ★★ The
+lesson still counts, and it is the third instance on this branch: a reproduce command was attached to
+a number without being run. **The failure is not arithmetic — it is attaching evidence as decoration,
+and it happens when the number supports a conclusion that is already correct.**
 
 Scope: all of `src/app`, `*.tsx`, excluding `*.test.tsx`. The classification surface is the
 **icon-only and glyph-only** controls — the ones a hover tooltip is actually for. A control with a
@@ -271,8 +280,8 @@ object**, on a control whose effect is not derivable from its surroundings. Draw
 | B7 | Absences toggle | `gantt-view-menu.tsx:122` | Gantt → View | `ganttShowAbsences` = "Absences" | "Shade each assignee's absences on their own row" | Bare noun. |
 | B8 | Day-grid toggle | `gantt-view-menu.tsx:131` | Gantt → View | `ganttShowGrid` = "Day grid" | "Draw a dotted rule for every day" | Bare noun. |
 | B9 | Milestones toggle | `gantt-view-menu.tsx:165` | Gantt → View | `ganttShowMilestones` = "Milestones" | "Show milestone markers on the chart" | Bare noun. |
-| B10 | Acknowledge insight | `insights-panel.tsx:237` · `dashboard-sections/insights-card.tsx:102` | Insights · Dashboard | `insightAcknowledge` = "Acknowledge" | "Mark as seen. It stays in the list and still counts as open." | **Verified against `onAcknowledgeInsight` (`task-manager.tsx:821`)**: sets `status: "acknowledged"` + `acknowledgedAt`, and `insights/insight-prompt.ts:9`'s `SURFACED_STATUSES` still includes it (`new Set(["active", "acknowledged"])`) — so "Acknowledge" does *not* mean "done", which is exactly what the label implies. 2 sites. |
-| B11 | Act on insight | `insights-panel.tsx:247` · `dashboard-sections/insights-card.tsx:111` | Insights · Dashboard | `insightAct` = "Act" | "Record that you acted, and capture today's metric as the baseline for measuring the outcome" | **Verified against `onActInsight` (`task-manager.tsx:832`)**: sets `status: "acted"` + `actedAt` **and** applies `metricAtActionPatch` — first act wins, so the click has a one-shot side effect the word "Act" gives no hint of. 2 sites. |
+| B10 | Acknowledge insight | `insights-panel.tsx:237` · `dashboard-sections/insights-card.tsx:102` | Insights · Dashboard | `insightAcknowledge` = "Acknowledge" | "Mark as seen. It stays in the list and still counts as open." | **Verified against `onAcknowledgeInsight` (`task-manager.tsx` — grep the symbol; `:821` at the time of writing, `:829` after main's merge)**: sets `status: "acknowledged"` + `acknowledgedAt`, and `insights/insight-prompt.ts:9`'s `SURFACED_STATUSES` still includes it (`new Set(["active", "acknowledged"])`) — so "Acknowledge" does *not* mean "done", which is exactly what the label implies. 2 sites. |
+| B11 | Act on insight | `insights-panel.tsx:247` · `dashboard-sections/insights-card.tsx:111` | Insights · Dashboard | `insightAct` = "Act" | "Record that you acted, and capture today's metric as the baseline for measuring the outcome" | **Verified against `onActInsight` (`task-manager.tsx` — grep the symbol; `:832` at the time of writing, `:840` after main's merge)**: sets `status: "acted"` + `actedAt` **and** applies `metricAtActionPatch` — first act wins, so the click has a one-shot side effect the word "Act" gives no hint of. 2 sites. |
 | B12 | Notes log | `task-form-fields.tsx:632` | task editor (unsaved task) | `noteLogTitle` = "Notes log" | "Open the dated note log for this task" | Bare noun on a button that opens a floating window. |
 | B13 | Compare version | `meeting-report-panel.tsx:171` | Reports → meeting report | `reportDiff` = "Compare" | "Show what changed between this saved version and the current report" | Bare verb — compare *to what* is the missing half. Row-unique `aria-label` already carries the date, so only the target is unstated. |
 | B14 | Clear narrative | `dashboard-sections/dashboard-narrative.tsx:133` | Dashboard | `dashboardStatusClear` = "Clear" | "Delete the saved status narrative, not just this draft" | **Verified against `clearNarrative` (`:91`)**: it empties the editor **and**, when `storedHtml !== ""`, deletes the stored value. Beside a "Save" button, "Clear" reads as "clear the draft". It is not. |
@@ -475,6 +484,21 @@ function walk(d, out = []) {
 
 // Index of the `>` closing the opening tag that starts at `start`. Skips {…}
 // expressions and "…"/'…'/`…` strings, so a `>` inside a className wins nothing.
+//
+// ★★★ KNOWN LIMITATION — IT PRODUCES FALSE POSITIVES, WHICH IS THE DANGEROUS
+// DIRECTION FOR A RATCHET. An apostrophe inside a `//` comment that sits INSIDE
+// a JSX opening tag opens a string that never closes, so the scan runs past the
+// tag's `>` and swallows whatever follows. Measured 2026-08-08 on
+// `documents-history-modal.tsx`: with the apostrophe in "workspace-context's"
+// the opening tag "ends" at line 308; delete that one character and it ends at
+// 244, correctly. The consequence was a Restore BUTTON — which renders
+// `{t(lang, "documentsRestore")}` as visible text — reported as an untitled
+// ICON-ONLY control, i.e. a phantom row in the open surface. `//` comments
+// inside a JSX opening tag are legal and this codebase writes them often, so
+// this WILL recur. Backticks are safe (they pair). Before opening a row for a
+// newly-reported hit, OPEN THE FILE: a false positive costs a wasted task, and
+// a doc that reports work that does not exist is worse than one that reports
+// none.
 function endOfOpenTag(s, start) {
   let i = start + 1, depth = 0;
   while (i < s.length) {
@@ -592,7 +616,9 @@ Stated plainly, because an audit's silence reads as "checked and clean":
   find more. The shortlist command is above; the judgement is not automatable.
 - **Anything gated — including by `docs:symbols:check`, which does not read this file.** Verified
   2026-08-07: `scripts/check-agents-symbols.mjs` builds its doc list as `AGENTS.md` plus
-  `docs/AGENTS/*.md` (`DOC_DIR = "docs/AGENTS"`), and a passing run reports **"9 doc(s)"**. Neither
+  `docs/AGENTS/*.md` (`DOC_DIR = "docs/AGENTS"`), and a passing run then reported **"9 doc(s)"** — it
+  reports **10** since main's `docs/AGENTS/documents.md` merged in on 2026-08-08, which is the point:
+  the figure is a census of that glob and moves whenever anyone adds a subsystem doc. Neither
   `docs/tooltip-inventory.md` nor `docs/handrolled-ui-inventory.md` nor `docs/open-followups.md` is
   in scope, so a green run says nothing whatsoever about the names in this document — not even the
   weak thing it says about `AGENTS.md` (that a backticked **mixed-case** name exists somewhere; it
