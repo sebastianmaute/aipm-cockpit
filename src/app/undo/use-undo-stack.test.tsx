@@ -521,3 +521,152 @@ describe("buildUndoLabel — entity registration", () => {
     expect(unnamed).toEqual([]);
   });
 });
+
+// A state-backed harness: `capture` needs a real setter, and the through-undo
+// property is only observable in the RESULTING ARRAY, not in call counts.
+function useRowsHarness(initial: readonly Row[]) {
+  const [rows, setRows] = useState<readonly Row[]>(initial);
+  const api = useUndoStack(makeDeps());
+  return { rows, setRows, api };
+}
+
+// `makeDeps`' `...overrides` spread widens each mock to a UNION with the plain
+// dep signature, so `.mockClear()` is not on it. A test that clears between
+// phases builds its deps directly instead.
+function makeMockDeps() {
+  return {
+    lang: "en-US" as const,
+    logActivity: vi.fn(),
+    showToast: vi.fn(),
+    showToastAction: vi.fn(),
+  };
+}
+
+describe("undoThrough", () => {
+  // ★★ SEED THREE. At N=1 a correct threaded implementation and a broken
+  // loop-over-undo() are indistinguishable — both revert one entry.
+  it("reverts every entry from the target up to the top, in one commit", () => {
+    const start: readonly Row[] = [{ id: 1, name: "a" }];
+    const { result } = renderHook(() => useRowsHarness(start));
+
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "a" }, after: { name: "b" },
+      });
+      result.current.setRows([{ id: 1, name: "b" }]);
+    });
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "b" }, after: { name: "c" },
+      });
+      result.current.setRows([{ id: 1, name: "c" }]);
+    });
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "c" }, after: { name: "d" },
+      });
+      result.current.setRows([{ id: 1, name: "d" }]);
+    });
+
+    expect(result.current.api.stack).toHaveLength(3);
+    const oldest = result.current.api.stack[0].id;
+
+    act(() => { result.current.api.undoThrough(oldest); });
+
+    // All three reverted, back to the starting value.
+    expect(result.current.rows).toEqual([{ id: 1, name: "a" }]);
+    expect(result.current.api.stack).toHaveLength(0);
+    expect(result.current.api.redoStack).toHaveLength(3);
+  });
+
+  it("logs ONE activity entry with the summed count and fires ONE toast", () => {
+    const deps = makeMockDeps();
+    const { result } = renderHook(() => {
+      const [rows, setRows] = useState<readonly Row[]>([{ id: 1, name: "a" }]);
+      return { rows, setRows, api: useUndoStack(deps) };
+    });
+    act(() => {
+      result.current.api.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [{ id: 2, name: "b" }, { id: 3, name: "c" }],
+        fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }],
+      });
+    });
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "a" }, after: { name: "z" },
+      });
+    });
+    deps.logActivity.mockClear();
+    deps.showToast.mockClear();
+
+    act(() => { result.current.api.undoThrough(result.current.api.stack[0].id); });
+
+    expect(deps.logActivity).toHaveBeenCalledTimes(1);
+    expect(deps.logActivity).toHaveBeenCalledWith("undo", 3);   // 2 deleted + 1 edited
+    expect(deps.showToast).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a no-op for an absent id", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => { result.current.undoThrough(999); });
+    expect(deps.logActivity).not.toHaveBeenCalled();
+    expect(result.current.canUndo).toBe(false);
+  });
+
+  it("leaves the redo stack replayable oldest-undone-first", () => {
+    const { result } = renderHook(() => useRowsHarness([{ id: 1, name: "a" }]));
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "a" }, after: { name: "b" },
+      });
+      result.current.setRows([{ id: 1, name: "b" }]);
+    });
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "b" }, after: { name: "c" },
+      });
+      result.current.setRows([{ id: 1, name: "c" }]);
+    });
+    act(() => { result.current.api.undoThrough(result.current.api.stack[0].id); });
+    expect(result.current.rows).toEqual([{ id: 1, name: "a" }]);
+
+    // One redo replays the FIRST edit that was undone last → "b".
+    act(() => { result.current.api.redo(); });
+    expect(result.current.rows).toEqual([{ id: 1, name: "b" }]);
+  });
+});
+
+describe("redoThrough", () => {
+  it("replays every redo entry from the target up to the top", () => {
+    const { result } = renderHook(() => useRowsHarness([{ id: 1, name: "a" }]));
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "a" }, after: { name: "b" },
+      });
+      result.current.setRows([{ id: 1, name: "b" }]);
+    });
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "b" }, after: { name: "c" },
+      });
+      result.current.setRows([{ id: 1, name: "c" }]);
+    });
+    act(() => { result.current.api.undoThrough(result.current.api.stack[0].id); });
+    expect(result.current.api.redoStack).toHaveLength(2);
+
+    act(() => { result.current.api.redoThrough(result.current.api.redoStack[0].id); });
+    expect(result.current.rows).toEqual([{ id: 1, name: "c" }]);
+    expect(result.current.api.redoStack).toHaveLength(0);
+    expect(result.current.api.stack).toHaveLength(2);
+  });
+});
