@@ -46,7 +46,7 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run e2e:install` | One-time: download Chromium browser binary |
 | `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
 | `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
-| `npm run dup:check` | Report code duplication in `src/` via jscpd (Phase 1 tech-debt baseline) |
+| `npm run dup:check` | Duplication gate for `src/` via jscpd — BLOCKING in CI (total duplicated-line % vs --threshold) |
 | `npm run size:check` | Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet) |
 | `npm run docs:symbols:check` | Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them) |
 <!-- END AUTO-GENERATED -->
