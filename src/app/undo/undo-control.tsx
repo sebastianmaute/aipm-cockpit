@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t, type Lang, type TranslationKey } from "../i18n";
 import { INTERACTIVE } from "../interaction-styles";
@@ -61,28 +61,58 @@ function UndoRedoControl({
   // Display order is newest-first; `entries` arrives oldest-first.
   const options = useMemo(() => [...entries].reverse(), [entries]);
 
+  const optionId = useCallback((i: number) => `undo-history-${labelKey}-opt-${i}`, [labelKey]);
+
+  // Whether the last activation came from the KEYBOARD — read by the scroll
+  // effect below. A ref, not state: it must not itself cause a render.
+  const keyboardMoveRef = useRef(false);
+
   const openList = useCallback(() => {
     setActiveIndex(0);
+    keyboardMoveRef.current = false;
     setOpen(true);
   }, []);
 
-  if (depth <= 0) return null;
+  // ★★ `aria-activedescendant` moves the VIRTUAL focus only — DOM focus never
+  // leaves the <ul>, so the browser does NOT scroll the active option into view
+  // the way it does for real focus. The list is `max-h-64` (~8 rows) against an
+  // UNDO_CAP of 25, so without this, arrowing past the eighth row moves the band
+  // and the footer count onto a row the user cannot see — exactly the
+  // drawn-vs-announced divergence the single `activeIndex` exists to prevent.
+  // ★ KEYBOARD moves only. A hovered row is under the pointer and therefore
+  // already visible, and scrolling the list out from under a moving pointer is
+  // its own bug — the row that slides under the cursor fires its own
+  // `onMouseEnter` and the active option runs away from the user.
+  // ★ `block: "nearest"` specifically: "center"/"start" re-scroll on every arrow
+  // press and can scroll the PAGE, not just this list.
+  useEffect(() => {
+    if (!open || !keyboardMoveRef.current) return;
+    // Attribute selector, not `#id` — it needs no CSS escaping whatever
+    // `labelKey` becomes. Scoped to the list so it cannot match the sibling
+    // control's options (undo and redo are both mounted).
+    listRef.current
+      ?.querySelector<HTMLElement>(`[id="${optionId(activeIndex)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [open, activeIndex, optionId]);
 
-  const listId = `undo-history-${labelKey}`;
-  const optionId = (i: number) => `${listId}-opt-${i}`;
+  if (depth <= 0) return null;
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      keyboardMoveRef.current = true;
       setActiveIndex((i) => Math.min(i + 1, options.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      keyboardMoveRef.current = true;
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Home") {
       e.preventDefault();
+      keyboardMoveRef.current = true;
       setActiveIndex(0);
     } else if (e.key === "End") {
       e.preventDefault();
+      keyboardMoveRef.current = true;
       setActiveIndex(options.length - 1);
     } else if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -148,7 +178,7 @@ function UndoRedoControl({
                 aria-label={t(lang, "undoHistoryOption", m.label, i + 1)}
                 aria-selected={i === activeIndex}
                 data-banded={banded}
-                onMouseEnter={() => setActiveIndex(i)}
+                onMouseEnter={() => { keyboardMoveRef.current = false; setActiveIndex(i); }}
                 onClick={() => { onActivateThrough(m.id); close(); }}
                 className={`cursor-pointer rounded px-2 py-1 text-sm ${
                   banded ? "bg-surface-muted text-ui-dark-blue dark:text-ui-light-grey" : "text-muted-foreground"

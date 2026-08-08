@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { t } from "../i18n";
@@ -160,5 +160,56 @@ describe("UndoControl history listbox", () => {
   it("renders nothing for an empty stack", () => {
     render(<UndoControl lang="en-US" entries={[]} onUndo={vi.fn()} onUndoThrough={vi.fn()} />);
     expect(screen.queryByRole("button")).toBeNull();
+  });
+});
+
+// ★★★ WHAT THESE CANNOT COVER: that the option actually MOVES INTO VIEW. jsdom
+// has no layout — no scroll offsets, no viewport, and no real `scrollIntoView`
+// (vitest.setup.ts installs a no-op stub). These pin the WIRING that makes the
+// browser's scroll possible — WHICH element is scrolled, with WHICH `block`, and
+// on which interactions — and nothing about the scroll itself. Do not read a
+// green run here as "the active option is visible".
+describe("UndoControl history listbox — active-option scroll", () => {
+  /** Records the id + `block` of every scroll. The id is what makes this fail on
+   *  a wrong-element match rather than as an opaque length mismatch. */
+  let scrolls: { id: string; block?: string }[] = [];
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+
+  beforeEach(() => {
+    scrolls = [];
+    Element.prototype.scrollIntoView = function (
+      this: Element,
+      arg?: boolean | ScrollIntoViewOptions,
+    ) {
+      scrolls.push({
+        id: this.getAttribute("id") ?? "(no id)",
+        block: typeof arg === "object" ? arg.block : undefined,
+      });
+    };
+  });
+
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  it("scrolls the newly-active option into view on an arrow move", async () => {
+    renderUndo();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    // Opening alone must not scroll — index 0 is at the top of a fresh list.
+    expect(scrolls).toEqual([]);
+    await userEvent.keyboard("{ArrowDown}");
+    const activeId = screen.getByRole("listbox").getAttribute("aria-activedescendant");
+    // Same source as aria-activedescendant: the scrolled row IS the announced one.
+    expect(scrolls).toEqual([{ id: activeId, block: "nearest" }]);
+  });
+
+  it("does NOT scroll when the active option moves by HOVER", async () => {
+    renderUndo();
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "undoShowNext") }));
+    const options = screen.getAllByRole("option");
+    await userEvent.hover(options[2]);
+    // The hover DID take effect — otherwise this asserts nothing.
+    expect(options[2]).toHaveAttribute("aria-selected", "true");
+    expect(scrolls).toEqual([]);
   });
 });
