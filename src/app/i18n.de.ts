@@ -2104,8 +2104,6 @@ export const de: Record<TranslationKey, string> = {
   undoHistoryLabel: "Verlauf rückgängig machen",
   redoHistoryLabel: "Verlauf wiederholen",
   aiStop: "Stopp",
-  undoNextLabel: "Als Nächstes rückgängig",
-  redoNextLabel: "Als Nächstes wiederholen",
   undoLabelEditNamed: "{0} \"{1}\" bearbeiten",
   undoLabelDeleteNamed: "{0} \"{1}\" löschen",
   undoLabelDeleteCount: "{0} {1} löschen",

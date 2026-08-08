@@ -1,48 +1,96 @@
 "use client";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t, type Lang, type TranslationKey } from "../i18n";
 import { INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";
+import { type UndoMeta } from "./undo-stack";
 
 const BUTTON_CLASS =
   "inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-sm text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey";
 
 /**
  * A top-bar undo/redo control: the action button plus an Excel-style caret that
- * previews (visualization only) the label of the NEXT entry to be reverted. The
- * caret opens a `PopoverPanel` (portaled, escapes top-bar clipping); the action
- * button still performs exactly ONE undo/redo. Self-hides on an empty stack.
- * Wired into BOTH header mounts; in the top bar → axe-scanned every view, so both
- * the action button and the caret carry explicit aria-labels. Not in popouts.
+ * opens the MULTI-STEP history. The action button still performs exactly ONE
+ * undo/redo; the history lets the user revert through a chosen entry in one
+ * commit. The caret opens a `PopoverPanel` (portaled, escapes top-bar clipping)
+ * which keeps `role="dialog"` — the listbox is its CONTENT, so the panel's
+ * `role` union is deliberately not widened for this one caller. Self-hides on an
+ * empty stack. Wired into BOTH header mounts; in the top bar → axe-scanned every
+ * view, so the action button, the caret and every option carry explicit
+ * aria-labels. Not in popouts.
+ *
+ * ★ ONE `activeIndex` drives the band across rows `0..activeIndex`, the footer
+ *   count and `aria-activedescendant`, so the drawn and announced states cannot
+ *   disagree. Hover sets it too.
+ * ★ `aria-selected` marks the ACTIVE option only — the band is visual grouping;
+ *   the footer count is what tells a screen-reader user how many entries Enter
+ *   reverts.
  */
 function UndoRedoControl({
-  depth,
+  entries,
   onActivate,
+  onActivateThrough,
   actionLabel,
   labelKey,
   showNextKey,
-  nextHeadingKey,
-  nextLabel,
+  historyLabelKey,
+  countKey,
   lang,
   icon,
 }: {
-  depth: number;
+  /** Oldest-first, exactly as `UndoStackApi.stack` provides it. */
+  entries: readonly UndoMeta[];
   onActivate: () => void;
+  onActivateThrough: (id: number) => void;
   actionLabel: string;
   labelKey: TranslationKey;
   showNextKey: TranslationKey;
-  nextHeadingKey: TranslationKey;
-  nextLabel?: string;
+  historyLabelKey: TranslationKey;
+  countKey: TranslationKey;
   lang: Lang;
   icon: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const caretRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const close = useCallback(() => setOpen(false), []);
 
+  const depth = entries.length;
+  // Display order is newest-first; `entries` arrives oldest-first.
+  const options = useMemo(() => [...entries].reverse(), [entries]);
+
+  const openList = useCallback(() => {
+    setActiveIndex(0);
+    setOpen(true);
+  }, []);
+
   if (depth <= 0) return null;
-  const hasPreview = !!nextLabel;
+
+  const listId = `undo-history-${labelKey}`;
+  const optionId = (i: number) => `${listId}-opt-${i}`;
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, options.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setActiveIndex(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setActiveIndex(options.length - 1);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onActivateThrough(options[activeIndex].id);
+      close();
+    }
+  };
+
   return (
     <span className="inline-flex items-center">
       <button
@@ -50,64 +98,95 @@ function UndoRedoControl({
         onClick={onActivate}
         aria-label={actionLabel}
         title={actionLabel}
-        className={`${BUTTON_CLASS} ${hasPreview ? "rounded-r-none border-r-0" : ""} ${INTERACTIVE}`}
+        className={`${BUTTON_CLASS} rounded-r-none border-r-0 ${INTERACTIVE}`}
       >
         {icon}
         <span>{t(lang, labelKey)}</span>
         <span className="rounded-full bg-ui-medium-grey px-1.5 text-xs text-white">{depth}</span>
       </button>
-      {hasPreview && (
-        <>
-          <button
-            ref={caretRef}
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-label={t(lang, showNextKey)}
-            title={t(lang, showNextKey)}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            className={`${BUTTON_CLASS} rounded-l-none px-1 ${INTERACTIVE}`}
-          >
-            {/* Chevron (decorative — aria-label carries the name) */}
-            <ChevronDownIcon aria-hidden="true" className="h-3.5 w-3.5" />
-          </button>
-          <PopoverPanel
-            open={open}
-            anchorRef={caretRef}
-            onClose={close}
-            role="dialog"
-            ariaLabel={t(lang, showNextKey)}
-            className="w-64 p-2"
-          >
-            <p className="text-xs font-medium text-muted-foreground">{t(lang, nextHeadingKey)}</p>
-            <p className="mt-1 text-sm text-ui-dark-blue dark:text-ui-light-grey">{nextLabel}</p>
-          </PopoverPanel>
-        </>
-      )}
+      <button
+        ref={caretRef}
+        type="button"
+        onClick={() => (open ? close() : openList())}
+        aria-label={t(lang, showNextKey)}
+        title={t(lang, showNextKey)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={`${BUTTON_CLASS} rounded-l-none px-1 ${INTERACTIVE}`}
+      >
+        {/* Chevron (decorative — aria-label carries the name) */}
+        <ChevronDownIcon aria-hidden="true" className="h-3.5 w-3.5" />
+      </button>
+      <PopoverPanel
+        open={open}
+        anchorRef={caretRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, historyLabelKey)}
+        className="w-72 p-2"
+      >
+        {/* One tab stop; the active option is announced via aria-activedescendant,
+            so the <li>s carry no tabindex. */}
+        <ul
+          ref={listRef}
+          role="listbox"
+          tabIndex={0}
+          aria-label={t(lang, historyLabelKey)}
+          aria-activedescendant={optionId(activeIndex)}
+          onKeyDown={onKeyDown}
+          className="max-h-64 overflow-y-auto focus:outline-none focus:ring-2 focus:ring-ui-green"
+        >
+          {options.map((m, i) => {
+            const banded = i <= activeIndex;
+            return (
+              <li
+                key={m.id}
+                id={optionId(i)}
+                role="option"
+                // ★★ The position suffix is what keeps names unique — two edits
+                //    to the same named row produce an identical `label`.
+                aria-label={t(lang, "undoHistoryOption", m.label, i + 1)}
+                aria-selected={i === activeIndex}
+                data-banded={banded}
+                onMouseEnter={() => setActiveIndex(i)}
+                onClick={() => { onActivateThrough(m.id); close(); }}
+                className={`cursor-pointer rounded px-2 py-1 text-sm ${
+                  banded ? "bg-surface-muted text-ui-dark-blue dark:text-ui-light-grey" : "text-muted-foreground"
+                }`}
+              >
+                {m.label}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-2 border-t border-line pt-2 text-xs font-medium text-muted-foreground">
+          {t(lang, countKey, activeIndex + 1)}
+        </p>
+      </PopoverPanel>
     </span>
   );
 }
 
 interface UndoControlProps {
   lang: Lang;
-  /** Undo-stack depth; 0 → control renders nothing. */
-  depth: number;
+  /** The undo stack, oldest-first. Empty → the control renders nothing. */
+  entries: readonly UndoMeta[];
   onUndo: () => void;
-  /** Label of the NEXT entry to undo (stack top) — powers the caret preview. */
-  nextLabel?: string;
+  onUndoThrough: (id: number) => void;
 }
 
-/** Top-bar undo button + next-entry caret preview. See {@link UndoRedoControl}. */
-export function UndoControl({ lang, depth, onUndo, nextLabel }: UndoControlProps) {
+/** Top-bar undo button + a caret opening the multi-step history. */
+export function UndoControl({ lang, entries, onUndo, onUndoThrough }: UndoControlProps) {
   return (
     <UndoRedoControl
-      depth={depth}
+      entries={entries}
       onActivate={onUndo}
+      onActivateThrough={onUndoThrough}
       actionLabel={t(lang, "undoTooltip")}
       labelKey="undo"
       showNextKey="undoShowNext"
-      nextHeadingKey="undoNextLabel"
-      nextLabel={nextLabel}
+      historyLabelKey="undoHistoryLabel"
+      countKey="undoNActions"
       lang={lang}
       icon={
         // Undo arrow (decorative — aria-label carries the name)
@@ -119,24 +198,24 @@ export function UndoControl({ lang, depth, onUndo, nextLabel }: UndoControlProps
 
 interface RedoControlProps {
   lang: Lang;
-  /** Redo-stack depth; 0 → control renders nothing. */
-  depth: number;
+  /** The redo stack, oldest-first. Empty → the control renders nothing. */
+  entries: readonly UndoMeta[];
   onRedo: () => void;
-  /** Label of the NEXT entry to redo (redo-stack top) — powers the caret preview. */
-  nextLabel?: string;
+  onRedoThrough: (id: number) => void;
 }
 
-/** Top-bar redo button + next-entry caret preview — mirror of {@link UndoControl}. */
-export function RedoControl({ lang, depth, onRedo, nextLabel }: RedoControlProps) {
+/** Top-bar redo button + multi-step history — mirror of {@link UndoControl}. */
+export function RedoControl({ lang, entries, onRedo, onRedoThrough }: RedoControlProps) {
   return (
     <UndoRedoControl
-      depth={depth}
+      entries={entries}
       onActivate={onRedo}
+      onActivateThrough={onRedoThrough}
       actionLabel={t(lang, "redoTooltip")}
       labelKey="redo"
       showNextKey="redoShowNext"
-      nextHeadingKey="redoNextLabel"
-      nextLabel={nextLabel}
+      historyLabelKey="redoHistoryLabel"
+      countKey="redoNActions"
       lang={lang}
       icon={
         // Redo arrow — horizontal mirror of the undo arrow (decorative; aria-label carries the name)

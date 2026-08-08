@@ -2116,8 +2116,6 @@ const enUS = {
   undoHistoryLabel: "Undo history",
   redoHistoryLabel: "Redo history",
   aiStop: "Stop",
-  undoNextLabel: "Next to undo",
-  redoNextLabel: "Next to redo",
   undoLabelEditNamed: "Edit {0} \"{1}\"",
   undoLabelDeleteNamed: "Delete {0} \"{1}\"",
   undoLabelDeleteCount: "Delete {0} {1}",
