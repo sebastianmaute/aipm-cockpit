@@ -64,6 +64,26 @@ describe("sanitizeAiRichText — allow-list layer", () => {
     // which every `if (description)` gate would store.
     expect(sanitizeAiRichText("<p><script>x</script></p>")).toBe("");
   });
+
+  // ★★★ THE SHARED BOUNDARY MUST NOT WIDEN TO THE DOCUMENTS LIST. S3a gave
+  // documents their own, wider allow-list via the sibling
+  // sanitizeAiDocumentRichText. THIS function also guards the six rich entity
+  // description fields (raid description/mitigation, change description/
+  // impactDescription/resolutionNotes, milestone description) — those must stay
+  // on the narrow template list. Repointing this one at sanitizeDocumentHtml, or
+  // "deduplicating" the two into one parameterised helper that defaults the wrong
+  // way, silently widens all six and NOTHING else in the suite would notice:
+  // every existing assertion here passes under the wider list too.
+  // ★★ <mark> is the probe because it is document-only. The assertion is the
+  // WRAPPED form, not the bare word: the template list unwraps the tag and keeps
+  // its text, so `toContain("emphasis")` passes either way and would be vacuous.
+  it("does NOT admit the document-only marks — the entity fields stay on the narrow list", () => {
+    const out = sanitizeAiRichText("<p><mark>emphasis</mark></p>");
+    expect(out).not.toContain("<mark");
+    // The TEXT survives (KEEP_CONTENT default unwraps rather than deletes) —
+    // proves the tag went missing by allow-list, not by the value being dropped.
+    expect(out).toContain("emphasis");
+  });
 });
 
 describe("withAiRichFields", () => {

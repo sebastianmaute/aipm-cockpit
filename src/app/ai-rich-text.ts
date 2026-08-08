@@ -10,7 +10,7 @@
 // (a React hook or a browser-only proposal path), so the DOM is there; keeping it
 // out of the DOM-free module is what preserves that guarantee.
 import { sanitizeRichText } from "./rich-text-plain";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeDocumentHtml, sanitizeTemplateHtml } from "./sanitize-html";
 import { TEXTAREA_MAX } from "./sanitize";
 
 /** Model-supplied value -> stored rich HTML.
@@ -53,6 +53,47 @@ export function sanitizeAiRichText(raw: unknown): string {
   // The allow-list pass can empty a value whose only content was a disallowed
   // element (e.g. "<p><script>x</script></p>"), so re-apply the empty rule —
   // otherwise a phantom "<p></p>" reaches the `if (description)` gates.
+  return sanitizeRichText(clean, TEXTAREA_MAX);
+}
+
+/** The DOCUMENTS variant of the boundary above — model-supplied value -> stored
+ *  document-block HTML. Same two layers in the same order and for the same
+ *  reasons; only the allow-list differs, and it is the WIDER documents one
+ *  (`sanitizeDocumentHtml`: the template tags plus s/code/pre/blockquote/hr/
+ *  mark/sub/sup/img). A model writing `<mark>` into a document had it unwrapped
+ *  at the write before this existed.
+ *
+ *  ★★★ A SEPARATE FUNCTION, NOT A PARAMETER ON `sanitizeAiRichText`. The two
+ *  boundaries guard different storage: this one only ever sees document blocks,
+ *  while `sanitizeAiRichText` also guards the six rich entity description fields
+ *  (raid/change/milestone) whose list must NOT widen. Threading the sanitizer
+ *  through as an argument would put the wider list one defaulted/mistyped
+ *  parameter away from every entity field — the "parameterizing divergent guard
+ *  chains is where a config slip silently weakens a guard" rule. Two call sites,
+ *  two names, no way to hand entity HTML the document list by accident.
+ *
+ *  ★★ `raw` is `unknown`, matching the sibling: the caller reads `block.html`
+ *  off a model-supplied object, so it is genuinely untyped. Layer 1 coerces a
+ *  non-string to "" itself — do not narrow this to `string`.
+ *
+ *  ★★ The trailing `sanitizeRichText` re-run is why this mirrors the sibling
+ *  line-for-line rather than collapsing to a one-liner: the allow-list pass can
+ *  empty a value whose only content was a disallowed element (e.g.
+ *  "<p><script>x</script></p>"), and the re-run turns the resulting phantom
+ *  "<p></p>" back into "".
+ *  ★ Be precise about what that buys HERE, because it is NOT what it buys for the
+ *  sibling: on this path it is defense-in-depth, not the thing doing the work.
+ *  `sanitizeAiDocBlocks`'s structural layer already drops an empty paragraph via
+ *  its own `htmlTextLength(html) === 0` check, so the block disappears either way
+ *  — MEASURED, not assumed: `htmlTextLength("<p></p>")` is 0 and that input
+ *  returns []. It is kept so the two boundaries stay identical in shape and
+ *  cannot drift, and so the cap is re-applied after the allow-list. The sibling's
+ *  callers have no such structural layer, which is where the empty rule is load
+ *  bearing. */
+export function sanitizeAiDocumentRichText(raw: unknown): string {
+  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX);
+  if (!upgraded) return "";
+  const clean = sanitizeDocumentHtml(upgraded);
   return sanitizeRichText(clean, TEXTAREA_MAX);
 }
 
