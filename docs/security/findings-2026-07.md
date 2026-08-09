@@ -5,6 +5,14 @@
 
 **Severity key:** CRITICAL = exploitable secret leak / SSRF bypass / stored XSS (blocks merge). HIGH = bug or significant gap. MEDIUM = maintainability/defense-in-depth. LOW = minor / deployment-topology dependent.
 
+> ★★ **This is a DATED SNAPSHOT of v0.164, not a live document.** Its `path:LINE` citations
+> described the tree at 2026-07-02 and several no longer resolve — `document-links-field.tsx` has
+> since been deleted, and one `timelog/_helpers.ts` cite now runs one line past EOF. Both are
+> recorded in `docs/baselines/doc-line-cites.json` and are deliberately NOT renumbered: rewriting an
+> audit record to match today's tree destroys the only thing it is good for, which is saying what was
+> true when it was signed. Re-verify any finding here against HEAD before acting on it; if a claim
+> still matters, restate it in a live doc rather than editing this one.
+
 ## Headline
 
 **0 CRITICAL, 0 HIGH.** The posture is strong: the four secrets are AES-256-GCM encrypted with a non-extractable device key (PBKDF2 fallback at 600k iters, meeting OWASP ASVS 2023), the two SSRF proxies fail closed with a domain allowlist plus private-IP/metadata blocking, and every dynamic URL sink is guarded. Residual items are LOW and depend on deployment topology.

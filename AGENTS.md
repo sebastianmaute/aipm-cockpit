@@ -226,11 +226,28 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # sits on a PREVIOUS line stay out of scope: the form is truly ambiguous
                             # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
                             # is worse than one with a known blind spot.
-                            # ★ Pre-existing breakage is GRANDFATHERED in
-                            # docs/baselines/doc-line-cites.json (11 unresolvable + 8 out-of-range at
-                            # 0.227.0). Re-baseline ONLY after REMOVING citations or converting them
-                            # to symbols: `node scripts/check-doc-claims.mjs --update`. Re-baselining
-                            # to admit a new one defeats the only thing it checks.
+                            # ★ Grandfathered breakage in docs/baselines/doc-line-cites.json is down
+                            # to 1 unresolvable + 1 out-of-range (from 11 + 8), and BOTH survivors sit
+                            # in docs/security/findings-2026-07.md — a DATED AUDIT SNAPSHOT, bannered
+                            # as such and deliberately NOT renumbered, because rewriting a signed
+                            # record to match today's tree destroys the only thing it is good for.
+                            # A third bucket, `thirdParty` (10), holds cites into dompurify/
+                            # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
+                            # debt, classified so the debt number stays worth reading. ★★ Not
+                            # harmless though — they rot on any upgrade, and the vitest one carries a
+                            # CONTENT HASH in its filename, so it WILL break and nothing will say so.
+                            # Re-baseline ONLY after REMOVING citations or converting them to
+                            # symbols: `node scripts/check-doc-claims.mjs --update`. Re-baselining to
+                            # admit a new one defeats the only thing it checks.
+                            # ★★★ WHAT THE CLEAN-UP MEASURED, and it is the argument for the whole
+                            # rule: ONE row of docs/handrolled-ui-inventory.md carried SEVEN line
+                            # numbers and FIVE were wrong — two off by 3 and 6, two off by 8, and one
+                            # naming a file the code had left — while the CLAIM they supported was
+                            # still true at every site. The gate caught ONE, the only one past EOF.
+                            # Two more rows named the wrong FILE outright (`export-pptx.ts` for an
+                            # element emitted by `pptxTextBox`; `chat-panel.tsx` for a caret that had
+                            # moved to `chat-tool-block.tsx`). A wrong line number is a SYMPTOM — go
+                            # re-verify the claim, never renumber it.
                             # ★ Citations inside ``` fences are ignored on purpose — a stack trace or
                             # sample command is an example, not a claim about this repo.
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)

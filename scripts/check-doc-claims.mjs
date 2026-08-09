@@ -165,9 +165,23 @@ function citesOnLine(line) {
   return out.sort((a, b) => a.index - b.index);
 }
 
+// ★★ A citation into a DEPENDENCY is not repo debt and must not be counted as
+// it. Ten of the eleven originally-grandfathered "unresolvable" cites were
+// dompurify / prosemirror / vitest / eslint-plugin internals — legitimate
+// references to code this repo does not own and cannot fix. Lumping them in
+// made the debt look 11× worse than the ONE real broken pointer, which is the
+// fastest way to get a number ignored.
+// ★ They are not harmless: they rot silently on any upgrade, and
+// `vitest/dist/chunks/coverage.DM_a_rWm.js` carries a CONTENT HASH in its
+// filename, so that one is guaranteed to break and nothing will announce it.
+// Classified, not exempted — `thirdParty` is reported separately every run.
+const THIRD_PARTY_RE =
+  /^(?:node_modules\/|(?:vitest|eslint|dompurify|prosemirror-\w+|@[\w.-]+)\/)|^(?:purify\.cjs|minimatch|version)\.js$|^(?:lib\/util|rules)\//;
+
 const cites = {}; // doc -> citedPath -> count
 const unresolved = [];
 const outOfRange = [];
+const thirdParty = [];
 
 for (const doc of collectDocs()) {
   let text;
@@ -188,7 +202,12 @@ for (const doc of collectDocs()) {
       const key = `${doc} :: ${citedPath}:${lineNo}`;
       const candidates = resolveCandidates(citedPath);
       if (candidates.length === 0) {
-        unresolved.push({ key, msg: `${doc}:${i + 1}  ${citedPath}:${lineNo} — no such file` });
+        // A dependency path is unresolvable BY DESIGN — this repo does not ship
+        // it. Record it, but never as repo debt.
+        (THIRD_PARTY_RE.test(citedPath) ? thirdParty : unresolved).push({
+          key,
+          msg: `${doc}:${i + 1}  ${citedPath}:${lineNo} — no such file`,
+        });
         continue;
       }
       // Ambiguous suffix match: only a violation if the line is out of range for
@@ -226,6 +245,7 @@ if (process.argv.includes("--update")) {
         cites: sortedCites,
         knownUnresolved: unresolved.map((u) => u.key).sort(),
         knownOutOfRange: outOfRange.map((o) => o.key).sort(),
+        thirdParty: thirdParty.map((t) => t.key).sort(),
       },
       null,
       2,
@@ -233,7 +253,8 @@ if (process.argv.includes("--update")) {
   );
   console.log(
     `baseline written: ${totalCites} line citations across ${Object.keys(cites).length} docs` +
-      ` (${unresolved.length} unresolvable, ${outOfRange.length} out of range, both grandfathered)`,
+      ` (${unresolved.length} unresolvable, ${outOfRange.length} out of range, both grandfathered;` +
+      ` ${thirdParty.length} third-party, classified not counted)`,
   );
   process.exit(0);
 }
@@ -295,5 +316,6 @@ if (fatal.length) {
 
 console.log(
   `doc-claims ratchet ok — ${totalCites} line citations across ${Object.keys(sortedCites).length} docs, none added` +
-    ` (${knownUnresolved.size} unresolvable + ${knownOutOfRange.size} out-of-range grandfathered)`,
+    ` (${knownUnresolved.size} unresolvable + ${knownOutOfRange.size} out-of-range grandfathered;` +
+    ` ${thirdParty.length} third-party, not repo debt)`,
 );

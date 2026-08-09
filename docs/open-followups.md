@@ -1172,12 +1172,17 @@ its own slice and probably a golden check.
 
 0.210.0 made a block boundary cost a whole `<a:p>` in PPTX instead of collapsing to whitespace.
 `pptxTextBox`'s `cyEmu` is FIXED (`2800000` on the row-fields box, sized for ~6 wrapped lines) and
-`export-pptx.ts:213` sets `<a:bodyPr wrap="square" …>` with **no** `normAutofit`/`spAutoFit` — verified,
+`pptxTextBox` (`ooxml-pptx-primitives.ts` — grep `a:bodyPr`) sets `<a:bodyPr wrap="square" …>` with **no** `normAutofit`/`spAutoFit` — verified,
 so PowerPoint will not shrink text to fit. A task with a four-paragraph description turns one meta line
 into four and pushes later fields past the bottom of the box.
 
 ★ Not a regression in kind (a long run-on line wrapped and overflowed too) but it is newly easy to hit,
 and the adjacent "cap at 6 extra fields so the text fits the slide" comment is now false.
+★★ That `bodyPr` sentence cited a line in `export-pptx.ts` until 2026-08-09 and was wrong in BOTH
+halves — the number ran past that file's 202 lines, and the element was never in it at any length:
+`pptxTextBox` emits it and `export-pptx.ts` only calls the primitive. The doc-claims ratchet flagged
+the past-EOF half, which is the cheap one; a wrong FILE is the half no gate can see. The `cyEmu`
+cite beside it (grep `2800000`) was correct.
 ★ Byte-stability of the break-free case IS pinned; layout is not, and nothing in the release's
 verification opened a generated deck. Cheapest fix: add `<a:normAutofit/>` to that `bodyPr`, or bound the
 paragraph count per meta line. Needs an eye-check on a real deck either way.
@@ -2904,10 +2909,16 @@ two cites read `:127` and `:140` until 2026-08-05 and were six lines stale — b
 the §61 split; the sentence names both symbols, which is the durable cite. Nothing
 in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller.
 
-★ **Pre-existing, not introduced by §2's split** — they were equally dead at `0d770283`
-(`use-resource-planner.ts:710` and `:723`, returned at `:1023`/`:1025`). The move-only rule required
-carrying them across verbatim, so the split re-exported two dead handlers through a three-level
-spread rather than creating the problem.
+★ **Pre-existing, not introduced by §2's split** — both handlers were equally dead at `0d770283`,
+where `use-resource-planner.ts` still declared and re-exported them directly. Recover it with
+`git show 0d770283:src/app/use-resource-planner.ts` and grep the two names. The move-only rule
+required carrying them across verbatim, so the split re-exported two dead handlers through a
+three-level spread rather than creating the problem.
+
+★★ Those four line numbers were ACCURATE — and still had to go. They described the file at that
+commit (1042 lines), not at HEAD (554), so `docs:claims:check` read them as four past-EOF violations
+and could not have known better: it only ever sees the checkout. A cite pinned to a named revision
+is a real category, and the durable form is the SHA plus a symbol, never the SHA plus a number.
 
 ★★ **The role-assignment path that IS live is `handleAssignRoleById`**, which the directory picker
 uses and which never mints a role. `handleAssignResourceRole` is the older discipline×grade variant
@@ -4741,19 +4752,28 @@ Found while building the view-scoped AI prompts' Settings disclosure (`AiViewSco
 Assistant" and "Operating guides" sub-section titles in `ai-section.tsx` are styled elements, not
 headings:
 
-- `{t(lang, "aiAssistant")}` renders inside a `<span className="... text-sm font-medium ...">`
-  (`ai-section.tsx:412`).
-- `{t(lang, "aiGuidesHeading")}` renders inside a `<p className="text-sm font-medium ...">`
-  (`ai-section.tsx:603`).
+- **STILL OPEN.** `{t(lang, "aiAssistant")}` renders inside a
+  `<span className="... text-sm font-medium ...">` — grep the key in `ai-section.tsx`.
+- **CLOSED, verified 2026-08-09.** `{t(lang, "aiGuidesHeading")}` had the same defect in a `<p>`.
+  That section has since moved to `ai-guides-section.tsx`, and `settings-view.tsx` renders a shared
+  `<h2>` from the rail label instead — so the sub-section carries no heading of its own. A test in
+  `ai-guides-section.test.tsx` pins the drop ("does not render its own heading"), because re-adding
+  the `<p>` would otherwise double the heading with nothing failing.
+
+★★ Both bullets carried a line number and BOTH were wrong when this was re-checked: the surviving
+one was 227 lines off, and the closed one pointed into a file the code had left entirely. Neither
+number was ever re-read after it was written — the section was rewritten twice in between. The
+doc-claims ratchet caught only the second, and only because `ai-section.tsx` had shrunk past it; a
+227-line drift stays green forever. This is the case the "cite the SYMBOL" rule is about.
 
 A screen-reader user navigating that Settings tab by heading (NVDA/JAWS "next heading", VoiceOver
-rotor) skips both — they read as body text, not section landmarks. `AiViewScopeDisclosure` was written
-correctly from the start — a real `<h3>` for its own title — but the two pre-existing titles above it
-were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
+rotor) skips the remaining one — it reads as body text, not a section landmark. `AiViewScopeDisclosure`
+was written correctly from the start — a real `<h3>` for its own title — but the pre-existing titles
+above it were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
 sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
 `aria-sort` and §55's colour-only toggles). Fix is
-mechanical — swap both to `<h3>` with matching classes — but touches visual rhythm in a settings tab
-with no eye-verification pass scheduled, so it is recorded rather than fixed in this slice.
+mechanical — swap the remaining `<span>` to `<h3>` with matching classes — but touches visual rhythm
+in a settings tab with no eye-verification pass scheduled, so it is recorded rather than fixed here.
 
 ---
 
@@ -7714,7 +7734,7 @@ follow is worse than no guard: the comment is what the next reader checks.
 
 ---
 
-## 131. The doc-claims ratchet cannot verify a citation is CORRECT, and 16 known-broken ones are grandfathered — open, accepted, measured
+## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 2 — open, accepted, measured
 
 **Where:** `scripts/check-doc-claims.mjs`, `docs/baselines/doc-line-cites.json`, CI job `doc-claims-check`.
 
@@ -7739,23 +7759,63 @@ attached to a quoted comment — "status-only — never the token" — that **ex
 The mitigation itself held (no proxy logs a credential); every artifact describing it had rotted.
 That row now cites a grep instead, and the gate cannot check the grep either.
 
-**Grandfathered debt (16, at 0.227.0).** Failing on pre-existing breakage would have made the gate
-unlandable, and a gate that cannot land protects nothing. `knownUnresolved` (11) is mostly citations
-into `node_modules` and other third-party trees, which are legitimate references to code this repo
-does not own. `knownOutOfRange` (5) are genuinely broken and worth fixing:
+**★★ CONTINUATION CITES — the first cut saw a quarter of the breakage.** Docs write one path and then
+several bare line numbers. §62 read, before this pass (fenced because it is an EXAMPLE — the gate
+fired on this very paragraph when it was written as prose, which is the ratchet working):
 
 ```
-docs/handrolled-ui-inventory.md :: chat-panel.tsx:962          (file has 936)
-docs/open-followups.md          :: ai-section.tsx:603          (file has 498)
-docs/open-followups.md          :: export-pptx.ts:213          (file has 202)
-docs/open-followups.md          :: use-resource-planner.ts:710 (file has 554)
-docs/security/findings-2026-07.md :: timelog/_helpers.ts:185   (file has 184)
+(`use-resource-planner.ts:710` and `:723`, returned at `:1023`/`:1025`)
 ```
 
-★ `findings-2026-07.md` is a DATED snapshot of a July 2026 audit, so a citation that has since rotted
-is arguably history rather than a defect — it also cites `document-links-field.tsx` at line 42, a file that
-no longer exists at all. Left as-is deliberately; converting a dated report to live symbols would
-misrepresent when it was verified.
+That is FOUR citations; the original pattern matched the first only — and all four were broken. Bare
+`` `:NNN` `` spans are now attributed to the nearest file mentioned EARLIER ON THE SAME LINE. Effect:
+496 → 551 citations seen, out-of-range 5 → 8.
+
+★★★ Two false-positive classes surfaced while building that, both caught by RUNNING it rather than
+reasoning about it, and both would have reported a green branch as red — the expensive direction:
+(a) the anchor must be the nearest preceding file MENTION, not the nearest preceding `path:LINE` — a
+colon-less `task-manager.tsx` was skipped, hanging four of its numbers on a 153-line file; (b) the
+path pattern truncated `notes-badge-button.tsx` to `.ts`, because the extension alternation tried
+`ts` first with nothing forcing the token to end, inventing 20 citations to files that do not exist.
+The full-cite pattern was immune to (b) only because the `:` after the extension forces a backtrack.
+
+★ The ~113 bare cites whose path sits on a PREVIOUS line stay OUT of scope. The form is genuinely
+ambiguous — AGENTS.md's own `` `:3000` `` is a PORT NUMBER — and a cross-line rule would have hunted
+for a source file to hang it on. A gate that invents a citation is worse than one with a documented
+blind spot.
+
+**Grandfathered debt: 2, down from 16.** Failing on pre-existing breakage would have made the gate
+unlandable, and a gate that cannot land protects nothing — but the debt was then worked off rather
+than left. Both survivors are in `findings-2026-07.md`, a DATED snapshot of a July 2026 audit (one
+cite past EOF, one to a file since deleted). They are deliberately NOT renumbered and the file now
+carries a banner saying so: rewriting a signed audit record to match today's tree destroys the only
+thing it is good for, which is saying what was true when it was signed.
+
+**A third bucket, `thirdParty` (10), is classified rather than counted.** Ten of the eleven original
+"unresolvable" cites pointed into dompurify / prosemirror / vitest / eslint-plugin internals —
+legitimate references to code this repo does not own and cannot fix. Counting them made the debt look
+11× worse than the ONE real broken pointer, which is the fastest way to get a number ignored. ★ Not
+harmless: they rot on any upgrade, and `vitest/dist/chunks/coverage.DM_a_rWm.js` carries a CONTENT
+HASH in its filename, so that one is guaranteed to break and nothing will announce it.
+
+**★★★ WHAT THE CLEAN-UP MEASURED — the real argument for the rule.** Every out-of-range cite in a
+LIVING doc was re-verified against the code rather than renumbered, and in every case the CLAIM was
+sound while the coordinates were not:
+
+- ONE row of `handrolled-ui-inventory.md` carried SEVEN line numbers and **FIVE were wrong**:
+  `actions-panel` off by 3, `notifications` by 6, `sidebar` and `timelog-panel` by 8 each, and the
+  caret it attributed to `chat-panel.tsx` had moved into `chat-tool-block.tsx` entirely. The gate
+  caught ONE — the only one past EOF.
+- §33 cited `export-pptx.ts` for a `<a:bodyPr>` that file has never contained at any length;
+  `pptxTextBox` emits it. Wrong FILE, not a wrong line.
+- §88's two bullets were both wrong: the surviving defect was 227 lines off, and the other pointed
+  into a file the code had left — that half turned out to be **fixed**, closed here on re-check.
+- §62's four numbers were ACCURATE, for the file at commit `0d770283` (1042 lines) rather than at
+  HEAD (554). A cite pinned to a named revision is a real category the gate cannot know about; the
+  durable form is the SHA plus a symbol, never the SHA plus a number.
+
+The through-line: a wrong line number is a SYMPTOM. Renumbering it preserves a claim nobody re-read —
+and §88 proves that can mean documenting an open defect that was closed months ago.
 
 **Deliberately NOT built: staleness detection.** The strongest available check is "was the cited file
 modified after the doc line was written", via `git blame` on the doc plus `git log` on each cited
