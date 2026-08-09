@@ -73,7 +73,29 @@ export function DependencyLinkGroup({
     return m;
   }, [allTasks]);
 
-  const selectedIds = useMemo(() => links.map((l) => l.taskId), [links]);
+  // ★★ ONE CHIP PER TASK, first link wins. `sanitizeDependencies` dedupes on the
+  // (taskId, type) PAIR (`pushUniqueDependency` keys on `${tid}:${type}`), so
+  // [{2,"FS"},{2,"SS"}] survives sanitization and persists — reachable via the AI
+  // `update_task` tool, a CSV/JSON import or a hand-edited file. Rendered raw,
+  // both chips took the SAME React key (`entry.id`) and either ✕ removed both.
+  // The picker itself can never mint a duplicate (the second link's task is
+  // already excluded from the options), so this only normalises imported data —
+  // but it makes the one-per-task model explicit rather than accidental, and it
+  // feeds BOTH the chip list and the exclusion set so display, exclusion and
+  // removal cannot disagree. Removal stays filter-by-taskId: one chip, one ✕,
+  // and the task is unlinked entirely.
+  const uniqueLinks = useMemo(() => {
+    const seen = new Set<number>();
+    const out: TaskDependency[] = [];
+    for (const link of links) {
+      if (seen.has(link.taskId)) continue;
+      seen.add(link.taskId);
+      out.push(link);
+    }
+    return out;
+  }, [links]);
+
+  const selectedIds = useMemo(() => uniqueLinks.map((l) => l.taskId), [uniqueLinks]);
 
   // ★★★ The successor arm runs the guard REVERSED. Adding successor S means S
   // gains a dependency on this task, so the walk starts here and looks for S:
@@ -86,26 +108,42 @@ export function DependencyLinkGroup({
   // ★ The self case needs no branch: the guard returns true when its two ids
   // are equal, so the owning task filters itself out of both directions. On the
   // create path ownTaskId is null and nothing can depend on a task that does
-  // not exist yet, so the guard is skipped entirely.
+  // not exist yet, so the guard is skipped entirely — `null` here means "no
+  // restriction", which is NOT the same as an empty set.
   //
+  // ★★ Computed ONCE per task-list change, not per keystroke. `filterPickerOptions`
+  // applies `extraFilter` BEFORE the query filter and before `.slice(0, limit)`,
+  // and `useTaskPickerOptions` memoises on `query` — so leaving the DFS inline
+  // re-walked the graph once per task in the workspace on every keystroke, in
+  // both mounted groups. `picker-filter.ts`'s order is deliberately NOT changed
+  // (the RAID caller depends on it); the work is hoisted out of the query path
+  // instead.
+  const allowedIds = useMemo(() => {
+    if (ownTaskId === null) return null;
+    return new Set(
+      allTasks
+        .filter((tk) =>
+          direction === "successor"
+            ? !wouldCreateDependencyCycle(tk.id, ownTaskId, taskById)
+            : !wouldCreateDependencyCycle(ownTaskId, tk.id, taskById),
+        )
+        .map((tk) => tk.id),
+    );
+  }, [allTasks, ownTaskId, direction, taskById]);
+
   // ★ useCallback, not an inline arrow: useTaskPickerOptions memoises on this
   // identity, and a fresh one each render would re-filter on every keystroke-
   // free re-render.
   const extraFilter = useCallback(
-    (task: Task) => {
-      if (ownTaskId === null) return true;
-      return direction === "successor"
-        ? !wouldCreateDependencyCycle(task.id, ownTaskId, taskById)
-        : !wouldCreateDependencyCycle(ownTaskId, task.id, taskById);
-    },
-    [direction, ownTaskId, taskById],
+    (task: Task) => allowedIds === null || allowedIds.has(task.id),
+    [allowedIds],
   );
 
   const available = useTaskPickerOptions(allTasks, selectedIds, query, extraFilter);
 
   const selected = useMemo<LinkPickerEntry[]>(
     () =>
-      links.map((link) => ({
+      uniqueLinks.map((link) => ({
         id: link.taskId,
         // The type rides `code`, which EntityLinkPicker renders monospace and
         // appends to each remove button's name — so two links to different
@@ -113,7 +151,7 @@ export function DependencyLinkGroup({
         code: `${link.type} #${link.taskId}`,
         label: taskById.get(link.taskId)?.taskName ?? t(lang, "depMissing"),
       })),
-    [links, taskById, lang],
+    [uniqueLinks, taskById, lang],
   );
 
   const options = useMemo<LinkPickerEntry[]>(
@@ -143,19 +181,40 @@ export function DependencyLinkGroup({
         placeholder={t(lang, "depSearchPlaceholder")}
         removeLabel={t(lang, keys.remove)}
       />
-      <Select
-        size="xs"
-        value={pendingType}
-        onChange={(e) => setPendingType(e.target.value as DependencyType)}
-        aria-label={t(lang, keys.type)}
-        className="font-mono"
-      >
-        {DEPENDENCY_TYPES.map((dt) => (
-          <option key={dt} value={dt}>
-            {dt} — {t(lang, depTypeShortKey(dt))}
-          </option>
-        ))}
-      </Select>
+      {/* ★★ The select governs the NEXT link added, not the ones already
+          chipped above it, and an aria-label alone said that to nobody looking
+          at the screen. The caption is a plain <span>, not a <label htmlFor>:
+          the accessible name has to stay DIRECTION-QUALIFIED (two groups render
+          on one modal, and N identical names is a WCAG 2.4.6 failure), so
+          `aria-label` must keep winning the name — and a <label> that does not
+          supply the name it appears to supply is worse than no <label>.
+          ★★★ WCAG 2.5.3 (label-in-name) then requires the accessible name to
+          CONTAIN this visible text, which is why `depTypePredecessor` /
+          `depTypeSuccessor` were reworded to end in `depTypeForNext`'s wording
+          rather than keeping "…dependency type". Editing either string alone
+          breaks that containment — pinned by a test, since nothing else can
+          see it (axe has no label-in-name rule). */}
+      {/* Own wrapper so the caption sits TIGHT above its select (mb-1) instead
+          of inheriting the group's space-y-2, which would read as two unrelated
+          rows. */}
+      <div>
+        <span className="mb-1 block text-xs font-medium text-muted-foreground">
+          {t(lang, "depTypeForNext")}
+        </span>
+        <Select
+          size="xs"
+          value={pendingType}
+          onChange={(e) => setPendingType(e.target.value as DependencyType)}
+          aria-label={t(lang, keys.type)}
+          className="font-mono"
+        >
+          {DEPENDENCY_TYPES.map((dt) => (
+            <option key={dt} value={dt}>
+              {dt} — {t(lang, depTypeShortKey(dt))}
+            </option>
+          ))}
+        </Select>
+      </div>
     </div>
   );
 }

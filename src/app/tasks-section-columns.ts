@@ -33,7 +33,7 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   blockers: 140,
   description: 140,
   notesLog: 80,
-  depRelations: 96, // an em-dash, or a short chip plus a pencil
+  depRelations: 80, // an em-dash, or read-only chips (the edit pencil is gone)
   estimate: 80,
   spent: 80,
   actions: 32, // one ⋮ icon button

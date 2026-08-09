@@ -36,7 +36,8 @@ export const de: Record<TranslationKey, string> = {
   blockers: "Blocker",
   taskHintGroup: "Verwandte Aufgaben unter einem gemeinsamen Namen gruppieren (z. B. Workstream oder Epic), um sie zusammenzufassen.",
   taskHintDependencies: "Aufgaben, die abgeschlossen sein müssen, bevor diese beginnen kann.",
-  taskHintSuccessors: "Aufgaben, die erst starten können, wenn diese fertig ist.",
+  taskHintSuccessors:
+    "Aufgaben hinzufügen, die erst starten können, wenn diese fertig ist. Vorhandene Nachfolger werden auf jenen Aufgaben verwaltet.",
   taskHintBlockers: "Was diese Aufgabe derzeit aufhält — wird als Hindernis angezeigt.",
   taskHintHealth: "Rot/Gelb/Grün-Status. Automatisch lassen oder manuell überschreiben.",
   notes: "Notizen",
@@ -1356,9 +1357,10 @@ export const de: Record<TranslationKey, string> = {
   depSuccessors: "Nachfolger",
   depSearchPredecessors: "Vorgängeraufgaben suchen",
   depSearchSuccessors: "Nachfolgeraufgaben suchen",
-  depSearchPlaceholder: "Aufgabe suchen…",
-  depTypePredecessor: "Abhängigkeitstyp des Vorgängers",
-  depTypeSuccessor: "Abhängigkeitstyp des Nachfolgers",
+  depSearchPlaceholder: "Aufgabe suchen, oder * für alle…",
+  depTypeForNext: "Typ für nächste Verknüpfung",
+  depTypePredecessor: "Vorgänger-Typ für nächste Verknüpfung",
+  depTypeSuccessor: "Nachfolger-Typ für nächste Verknüpfung",
   depUnlinkPredecessor: "Vorgänger entfernen",
   depUnlinkSuccessor: "Nachfolger entfernen",
   depSuccessorsSkipped:

@@ -32,7 +32,8 @@ const enUS = {
   blockers: "Blockers",
   taskHintGroup: "Group related tasks under a shared name (e.g. a workstream or epic) to roll them up together.",
   taskHintDependencies: "Tasks that must finish before this one can start.",
-  taskHintSuccessors: "Tasks that cannot start until this one is done.",
+  taskHintSuccessors:
+    "Add tasks that cannot start until this one is done. Existing successors are managed on those tasks.",
   taskHintBlockers: "What is currently holding this task up — surfaced as an impediment.",
   taskHintHealth: "Red/Amber/Green status. Leave on auto, or override to set it manually.",
   notes: "Notes",
@@ -1370,9 +1371,13 @@ const enUS = {
   depSuccessors: "Successors",
   depSearchPredecessors: "Search predecessor tasks",
   depSearchSuccessors: "Search successor tasks",
-  depSearchPlaceholder: "Type to find a task…",
-  depTypePredecessor: "Predecessor dependency type",
-  depTypeSuccessor: "Successor dependency type",
+  depSearchPlaceholder: "Type to find a task, or * for all",
+  // ★ WCAG 2.5.3: each of these must CONTAIN `depTypeForNext` (the visible
+  // caption above the select) as a substring, case-insensitively. Editing one
+  // without the other breaks that — pinned by dependencies-editor.test.tsx.
+  depTypeForNext: "Type for next link",
+  depTypePredecessor: "Predecessor type for next link",
+  depTypeSuccessor: "Successor type for next link",
   depUnlinkPredecessor: "Remove predecessor",
   depUnlinkSuccessor: "Remove successor",
   depSuccessorsSkipped:

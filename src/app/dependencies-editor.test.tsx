@@ -33,7 +33,7 @@ describe("DependencyLinkGroup", () => {
     render(
       <DependencyLinkGroup lang="en-US" direction="predecessor" links={[]} allTasks={TASKS} ownTaskId={1} onChange={onChange} />,
     );
-    await user.selectOptions(screen.getByRole("combobox", { name: "Predecessor dependency type" }), "SS");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Predecessor type for next link" }), "SS");
     await user.type(screen.getByRole("combobox", { name: "Search predecessor tasks" }), "api");
     await user.click(screen.getByRole("option", { name: /Draft the API spec/ }));
     expect(onChange).toHaveBeenCalledWith([{ taskId: 2, type: "SS" }]);
@@ -44,10 +44,17 @@ describe("DependencyLinkGroup", () => {
     render(
       <DependencyLinkGroup lang="en-US" direction="predecessor" links={[{ taskId: 2, type: "FS" }]} allTasks={TASKS} ownTaskId={1} onChange={vi.fn()} />,
     );
-    await user.type(screen.getByRole("combobox", { name: "Search predecessor tasks" }), "task");
+    // `*` lists everything (wildcardMatcher turns it into /.*/), so ONE query
+    // puts all three tasks in front of the filter and the two exclusions are
+    // measured against a live control rather than against an empty list.
+    // A text query cannot do that here: "task" matches only "Own task", so the
+    // list would be legitimately empty and both absences below would pass for
+    // the trivial reason.
+    await user.type(screen.getByRole("combobox", { name: "Search predecessor tasks" }), "*");
+    // CONTROL: neither the owning task nor already linked ⇒ MUST be offered.
+    // Without it, any mutation that simply empties `options` passes this test.
+    expect(screen.getByRole("option", { name: /Ship the release/ })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: /Own task/ })).not.toBeInTheDocument();
-    await user.clear(screen.getByRole("combobox", { name: "Search predecessor tasks" }));
-    await user.type(screen.getByRole("combobox", { name: "Search predecessor tasks" }), "api");
     expect(screen.queryByRole("option", { name: /Draft the API spec/ })).not.toBeInTheDocument();
   });
 
@@ -91,14 +98,66 @@ describe("DependencyLinkGroup", () => {
     expect(screen.getByRole("button", { name: "Remove successor SS #3 Ship the release" })).toBeInTheDocument();
   });
 
-  it("removes only the clicked link", async () => {
+  // ★★ Clicks the SECOND chip on purpose. Clicking the first, `filter(l =>
+  // l.taskId !== 2)` and a plain `links.slice(1)` both yield [{3,SS}], so that
+  // spelling of the test passes against removal-by-position and pins nothing.
+  it("removes the clicked link by id, not by position", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <DependencyLinkGroup lang="en-US" direction="predecessor" links={[{ taskId: 2, type: "FS" }, { taskId: 3, type: "SS" }]} allTasks={TASKS} ownTaskId={1} onChange={onChange} />,
     );
+    await user.click(screen.getByRole("button", { name: /Remove predecessor SS #3/ }));
+    expect(onChange).toHaveBeenCalledWith([{ taskId: 2, type: "FS" }]);
+  });
+
+  // ★★ `sanitizeDependencies` dedupes on the (taskId, type) PAIR, so this is a
+  // legal STORED shape — it arrives via the AI `update_task` tool, a CSV/JSON
+  // import or a hand-edited file, never from this picker. Rendered raw it was
+  // two chips sharing one React key, and either ✕ removed both.
+  it("renders one chip per task for a duplicated link, and its ✕ clears both", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <DependencyLinkGroup lang="en-US" direction="predecessor" links={[{ taskId: 2, type: "FS" }, { taskId: 2, type: "SS" }, { taskId: 3, type: "SS" }]} allTasks={TASKS} ownTaskId={1} onChange={onChange} />,
+    );
+    // First link wins, so the surviving chip is the FS one — and the SS
+    // duplicate contributes no second chip and no second ✕.
+    expect(screen.getByRole("button", { name: "Remove predecessor FS #2 Draft the API spec" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove predecessor SS #2/ })).not.toBeInTheDocument();
+    // CONTROL: the unrelated link still renders its own chip, so the assertion
+    // above is not passing because the chip list collapsed altogether.
+    expect(screen.getByRole("button", { name: /Remove predecessor SS #3/ })).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: /Remove predecessor FS #2/ }));
+    // Removal is by taskId, so BOTH stored links to task 2 go.
     expect(onChange).toHaveBeenCalledWith([{ taskId: 3, type: "SS" }]);
+  });
+
+  // ★★ WCAG 2.5.3 (label-in-name): the visible caption above the type select is
+  // shared by both groups, while the accessible name must stay direction-unique
+  // (2.4.6) — so the name has to CONTAIN the caption rather than equal it.
+  // Nothing else can catch a drift here: axe 4.12.1 has no label-in-name rule,
+  // and the task modal is not in A11Y_VIEWS anyway.
+  it("keeps each type select's accessible name containing the visible caption", () => {
+    render(
+      <div>
+        <DependencyLinkGroup lang="en-US" direction="predecessor" links={[]} allTasks={TASKS} ownTaskId={1} onChange={vi.fn()} />
+        <DependencyLinkGroup lang="en-US" direction="successor" links={[]} allTasks={TASKS} ownTaskId={1} onChange={vi.fn()} />
+      </div>,
+    );
+    const captions = screen.getAllByText("Type for next link");
+    expect(captions).toHaveLength(2);
+    const caption = captions[0].textContent ?? "";
+    expect(caption).not.toBe("");
+
+    for (const name of ["Predecessor type for next link", "Successor type for next link"]) {
+      const select = screen.getByRole("combobox", { name });
+      // Case-INSENSITIVE: 2.5.3 is about the words matching for speech input,
+      // and the caption is sentence-cased where the name embeds it mid-string.
+      expect(name.toLowerCase()).toContain(caption.toLowerCase());
+      expect(select.getAttribute("aria-label")).toBe(name);
+    }
   });
 
   it("offers every task on the create path, where no cycle is possible", async () => {
