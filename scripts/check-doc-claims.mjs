@@ -30,7 +30,10 @@ const BASELINE = "docs/baselines/doc-line-cites.json";
 // ★★ LONGEST-FIRST, and it matters. `CITE_RE` survives any order because the `:`
 // after the extension forces a backtrack, but `PATH_RE` has no such anchor: with
 // `ts` before `tsx` it matched `notes-badge-button.tsx` as `notes-badge-button.ts`
-// and reported 20 citations to files that do not exist. The `(?!...)` boundary in
+// and reported 47 phantom citations to files that do not exist (58 unresolvable
+// against the fixed pattern's 11, over 25 distinct truncated paths). The
+// first write of this comment said "20" — read off a display truncated at 20
+// lines, which is a floor, never a count. The `(?!...)` boundary in
 // PATH_RE is the real guard; this order is the belt to its braces.
 const SOURCE_EXT = "tsx|ts|mjs|json|js|yaml|yml|css";
 const CITE_RE = new RegExp(

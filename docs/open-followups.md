@@ -7776,7 +7776,14 @@ reasoning about it, and both would have reported a green branch as red — the e
 (a) the anchor must be the nearest preceding file MENTION, not the nearest preceding `path:LINE` — a
 colon-less `task-manager.tsx` was skipped, hanging four of its numbers on a 153-line file; (b) the
 path pattern truncated `notes-badge-button.tsx` to `.ts`, because the extension alternation tried
-`ts` first with nothing forcing the token to end, inventing 20 citations to files that do not exist.
+`ts` first with nothing forcing the token to end, inventing 47 phantom citations to files that do not
+exist (58 unresolvable against the fixed pattern's 11, over 25 distinct truncated paths).
+
+★★★ THAT NUMBER WAS FIRST WRITTEN AS "20", AND THE MISTAKE IS THE ONE THIS REGISTER KEEPS RECORDING:
+it was read off a display truncated at 20 lines. A `head`/`sed 1,20p` output is a FLOOR, never a
+count, and it looks exactly as rigorous as a real measurement in the sentence that quotes it. Caught
+by re-running the buggy pattern on purpose and DIFFING the totals — which is the only thing that can
+catch it, since nothing about "20" reads as wrong. Count with a counter, not with your eyes.
 The full-cite pattern was immune to (b) only because the `:` after the extension forces a backtrack.
 
 ★ The ~113 bare cites whose path sits on a PREVIOUS line stay OUT of scope. The form is genuinely
