@@ -29,8 +29,11 @@ import {
 const TAG_NAME = /^[a-z][a-z0-9]*$/;
 
 /** Never matches anything. Returned when no valid tag name survives the filter —
- *  an empty alternation would compile to `<()\b[^>]*>`, which matches a bare
- *  "<>" and turns every stray angle bracket into "this is HTML". */
+ *  an empty alternation would compile to `<()\b[^>]*>`, which matches "<" followed
+ *  by any word character (e.g. "<b>", "<div>") and turns every such stray angle
+ *  bracket into "this is HTML". Measured: it does NOT match a bare "<>" — `\b`
+ *  needs a word character on at least one side, and there is none between "<"
+ *  and ">". */
 const NEVER = /(?!)/;
 
 /** Build the "already HTML?" test for one allow-list.
@@ -42,9 +45,17 @@ const NEVER = /(?!)/;
  *  literal characters.
  *
  *  ★ `\b[^>]*>` so void spellings (`<hr/>`, `<img src=…>`) and attribute-bearing
- *  tags match. The `\b` is also what stops a short name swallowing a longer one
- *  that shares its prefix: against "<strong>", the `s` alternative fails because
- *  `s` is followed by a word character, and the engine backtracks to `strong`. */
+ *  tags match. The `\b` does NOT change the outcome for a tag that IS on the
+ *  list — with `strong` and `s` both present, "<strong>" matches either way,
+ *  since alternation is leftmost-first and (in every real sink) `strong` is
+ *  listed before `s`, so `s` is never even tried. What `\b` actually decides is
+ *  an UNLISTED tag that shares a listed one's prefix: without it, the `s`
+ *  alternative matches the leading "s" of "<script>", "<section>", "<summary>"
+ *  or "<strongish>" and `[^>]*>` swallows the rest of the name as if it were
+ *  attributes — misclassifying each as already-HTML. Since `s` is a member of
+ *  DOCUMENT_ALLOWED_TAGS, dropping `\b` would make the document and projection
+ *  sinks treat a value starting "<script...>" as already-HTML. Measured, not
+ *  reasoned — see the "does not let a short tag swallow" test below. */
 export function htmlStartRe(tags: readonly string[]): RegExp {
   const names = tags.filter((t) => TAG_NAME.test(t));
   if (names.length === 0) return NEVER;
