@@ -63,6 +63,29 @@ function textNodes(xml: string): string[] {
   );
 }
 
+/** Each <w:p> as its own concatenated visible text, in document order.
+ *
+ *  ★ This is what `textNodes` cannot see: whether two pieces of text landed in
+ *  ONE paragraph or two. A rich paragraph block now emits one <w:p> per line,
+ *  so the block boundary is a real paragraph rather than a <w:br/>, and only a
+ *  per-paragraph view can tell those apart. A rule (<hr>) carries no runs at
+ *  all, so it shows up here as an empty string — which is exactly the entry a
+ *  renderer that drops rules would be missing. */
+function paraTexts(xml: string): string[] {
+  return Array.from(parseXml(xml).getElementsByTagName("w:p")).map((p) =>
+    Array.from(p.getElementsByTagName("w:t"))
+      .map((n) => n.textContent ?? "")
+      .join(""),
+  );
+}
+
+/** Every <w:pStyle w:val>, in document order. */
+function pStyles(xml: string): (string | null)[] {
+  return Array.from(parseXml(xml).getElementsByTagName("w:pStyle")).map((n) =>
+    n.getAttribute("w:val"),
+  );
+}
+
 describe("renderDocumentDocx — package integrity", () => {
   it("writes every part Word requires to open the file", async () => {
     const paths = [...(await parts(doc([]))).keys()];
@@ -230,13 +253,17 @@ describe("renderDocumentDocx — blocks", () => {
     }
   });
 
-  it("keeps the paragraph boundary as a break instead of fusing the lines", async () => {
-    // ★ Recorded S1 limitation: bold/italic are lost. What must NOT be lost is
-    // the block boundary — three paragraphs must not arrive as one run-on line.
+  it("keeps the paragraph boundary instead of fusing the lines", async () => {
+    // ★★ The PROPERTY is unchanged — three paragraphs must not arrive as one
+    // run-on line — but the MECHANISM changed deliberately in the mark-aware
+    // slice: a block boundary is now a real <w:p> per line, where it used to be
+    // a <w:br/> inside a single paragraph. So the old `toContain("<w:br/>")`
+    // assertion was retired, not weakened; `paraTexts` pins the stronger
+    // property (each line is its own paragraph), which the <w:br/> form would
+    // fail. `<w:br/>` itself is still emitted for table cells that hold a
+    // newline (ooxml-docx-primitives.test.ts owns that) and for pageBreak.
     const xml = await documentXml(doc([{ type: "paragraph", html: "<p>one</p><p>two</p>" }]));
-    expect(textNodes(xml)).toContain("one");
-    expect(textNodes(xml)).toContain("two");
-    expect(xml).toContain("<w:br/>");
+    expect(paraTexts(xml)).toEqual(["Report", "one", "two"]);
     expect(textNodes(xml)).not.toContain("onetwo");
   });
 
@@ -302,6 +329,139 @@ describe("renderDocumentDocx — blocks", () => {
     );
     const text = textNodes(xml);
     expect(text.indexOf("AAA")).toBeLessThan(text.indexOf("BBB"));
+  });
+});
+
+describe("renderDocumentDocx — rich paragraph marks", () => {
+  // ★★ Assertions here pin the WHOLE RUN, never a bare tag. `toContain("<w:b/>")`
+  // alone is satisfied by buildDocxTable's header run and by DOC_STYLES, so it
+  // would pass with the paragraph path still flattening to plain text — the
+  // exact vacuity this slice has already produced three times elsewhere.
+
+  it("emits Word run properties for each mark in a paragraph", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<p><strong>b</strong><em>i</em><u>u</u><s>s</s></p>" }]),
+    );
+    expect(xml).toContain(`<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">b</w:t></w:r>`);
+    expect(xml).toContain(`<w:r><w:rPr><w:i/></w:rPr><w:t xml:space="preserve">i</w:t></w:r>`);
+    expect(xml).toContain(
+      `<w:r><w:rPr><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">u</w:t></w:r>`,
+    );
+    expect(xml).toContain(
+      `<w:r><w:rPr><w:strike/></w:rPr><w:t xml:space="preserve">s</w:t></w:r>`,
+    );
+    // All four marks are siblings in ONE line, so they must be four runs in one
+    // paragraph — not four paragraphs, and not one fused run.
+    expect(paraTexts(xml)).toEqual(["Report", "bius"]);
+  });
+
+  it("emits a subscript run property", async () => {
+    const xml = await documentXml(doc([{ type: "paragraph", html: "<p><sub>x</sub></p>" }]));
+    expect(xml).toContain(
+      `<w:r><w:rPr><w:vertAlign w:val="subscript"/></w:rPr><w:t xml:space="preserve">x</w:t></w:r>`,
+    );
+  });
+
+  it("orders w:rPr children by the WordprocessingML schema, not by arrival", async () => {
+    // ★★★ CT_RPr is a SEQUENCE: rFonts · b · i · strike · highlight · u ·
+    // vertAlign. Word may reject or silently ignore a run whose properties are
+    // out of sequence. The nesting below hands the parser the marks in almost
+    // the reverse of that order, so an implementation that emits them in
+    // arrival order fails here and only here.
+    const xml = await documentXml(
+      doc([
+        {
+          type: "paragraph",
+          html: "<p><sup><code><s><mark><u><em><strong>x</strong></em></u></mark></s></code></sup></p>",
+        },
+      ]),
+    );
+    const rPrs = parseXml(xml).getElementsByTagName("w:rPr");
+    expect(rPrs).toHaveLength(1);
+    expect(Array.from(rPrs[0].children).map((el) => el.tagName)).toEqual([
+      "w:rFonts",
+      "w:b",
+      "w:i",
+      "w:strike",
+      "w:highlight",
+      "w:u",
+      "w:vertAlign",
+    ]);
+    expect(rPrs[0].getElementsByTagName("w:vertAlign")[0].getAttribute("w:val")).toBe(
+      "superscript",
+    );
+  });
+
+  it("emits no run properties at all for unmarked text", async () => {
+    // Byte-stability for the overwhelmingly common case: plain prose must not
+    // grow an empty <w:rPr>.
+    const xml = await documentXml(doc([{ type: "paragraph", html: "<p>plain</p>" }]));
+    expect(xml).toContain(`<w:p><w:r><w:t xml:space="preserve">plain</w:t></w:r></w:p>`);
+    expect(xml).not.toContain("<w:rPr>");
+  });
+
+  it("renders a horizontal rule as a bordered paragraph", async () => {
+    // ★★ An <hr> line carries ZERO runs, so a renderer that maps line.runs
+    // blindly emits an empty paragraph and the rule vanishes. The exact
+    // paraTexts array below is what catches that: the "" entry must be there
+    // AND must be the paragraph carrying the border.
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<p>a</p><hr><p>b</p>" }]),
+    );
+    expect(paraTexts(xml)).toEqual(["Report", "a", "", "b"]);
+    const bordered = Array.from(parseXml(xml).getElementsByTagName("w:p")).filter(
+      (p) => p.getElementsByTagName("w:pBdr").length > 0,
+    );
+    expect(bordered).toHaveLength(1);
+    const bottom = bordered[0].getElementsByTagName("w:bottom")[0];
+    expect(bottom.getAttribute("w:val")).toBe("single");
+    expect(bottom.getAttribute("w:color")).toBe(COLOR_MEDIUM_GREY);
+  });
+
+  it("gives blockquote and preformatted lines their own paragraph styles", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<blockquote><p>q</p></blockquote><pre>c1\nc2</pre>" }]),
+    );
+    // A <pre> splits on its newlines, so two code lines are two paragraphs —
+    // both styled, neither folded into the quote's style.
+    expect(pStyles(xml)).toEqual(["Title", "Quote", "CodeBlock", "CodeBlock"]);
+    expect(paraTexts(xml)).toEqual(["Report", "q", "c1", "c2"]);
+  });
+
+  it("declares every style a rich paragraph can emit", async () => {
+    // Same contract as the block-level test above: a w:pStyle naming a style
+    // that styles.xml does not declare is SILENTLY IGNORED by Word, so the
+    // blockquote would render as body text while every assertion still passed.
+    const blocks: DocBlock[] = [
+      { type: "paragraph", html: "<blockquote>q</blockquote><pre>c</pre><p>p</p>" },
+    ];
+    const declared = new Set(
+      Array.from(
+        parseXml(await part(doc(blocks), "word/styles.xml")).documentElement.children,
+      ).map((el) => el.getAttribute("w:styleId")),
+    );
+    const used = pStyles(await documentXml(doc(blocks)));
+    expect(used).toContain("Quote");
+    expect(used).toContain("CodeBlock");
+    for (const id of used) expect(declared).toContain(id);
+  });
+
+  it("sets a monospace font on the preformatted style and on inline code", async () => {
+    // A code block routed through a style that does not change the font exports
+    // in the body face, which is the whole point of marking it up as code.
+    expect(DOC_STYLES).toContain(`<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/>`);
+    const xml = await documentXml(doc([{ type: "paragraph", html: "<p><code>x()</code></p>" }]));
+    expect(xml).toContain(
+      `<w:r><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/></w:rPr><w:t xml:space="preserve">x()</w:t></w:r>`,
+    );
+  });
+
+  it("escapes marked text just as it escapes plain text", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<p><strong>A &amp; B &lt; C</strong></p>" }]),
+    );
+    expect(() => parseXml(xml)).not.toThrow();
+    expect(textNodes(xml)).toContain("A & B < C");
   });
 });
 

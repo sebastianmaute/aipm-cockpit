@@ -150,7 +150,14 @@
   ★★ **`sanitizeAiDocBlocks` (`ai-document-blocks.ts`) is the model-input allow-list** and is DOM-BOUND on
   purpose — which is why it is NOT in `document-model.ts`, whose DOM-free contract a source scan enforces.
   Two layers, both load-bearing: `sanitizeProjectDocuments` enforces STRUCTURE and cannot sanitize, so
-  `sanitizeAiRichText` runs over `paragraph.html` first. ★ Apply it to the model's INPUT only, never to the
+  `sanitizeAiDocumentRichText` runs over `paragraph.html` first. ★★★ **`sanitizeAiDocumentRichText`, NOT its
+  sibling `sanitizeAiRichText`** — both are the same two layers, and the difference is the allow-list. The
+  sibling narrows documents to the TEMPLATE list, which UNWRAPS `mark`/`s`/`code`/`pre`/`blockquote`/`hr`/
+  `sub`/`sup` at the write, so the model's formatting is gone before storage sees it (measured:
+  `"<p><mark>keep</mark></p>"` stored as `"<p>keep</p>"`). Both symbols are real, so `docs:symbols:check` is
+  green either way and this line is the only thing standing between a new document boundary and the narrow
+  door. The sibling must STAY narrow — it guards the six rich raid/change/milestone fields.
+  ★ Apply it to the model's INPUT only, never to the
   merged/stored document — re-running an allow-list over stored bytes rewrites content the call never touched
   (same rule as `withAiRichFields`). ★ `paragraph.html` is the only `DocBlock` field reaching a render sink as
   markup, so sanitizing just that block type is complete.

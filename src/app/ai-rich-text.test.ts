@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
+import {
+  AI_RICH_FIELDS,
+  sanitizeAiDocumentRichText,
+  sanitizeAiRichText,
+  withAiRichFields,
+} from "./ai-rich-text";
+import { MAX_HTML_TEXT_CHARS } from "./document-model";
+import { htmlTextLength } from "./rich-text-plain";
+import { TEXTAREA_MAX } from "./sanitize";
 
 // The write boundary for a rich field whose value came from a MODEL. Two layers:
 // upgrade-aware (accept plain OR HTML) and allow-listed (an actual DOMPurify pass,
@@ -63,6 +71,60 @@ describe("sanitizeAiRichText — allow-list layer", () => {
     // allow-list has run; it must return "" rather than a phantom "<p></p>",
     // which every `if (description)` gate would store.
     expect(sanitizeAiRichText("<p><script>x</script></p>")).toBe("");
+  });
+
+  // ★★★ THE SHARED BOUNDARY MUST NOT WIDEN TO THE DOCUMENTS LIST. S3a gave
+  // documents their own, wider allow-list via the sibling
+  // sanitizeAiDocumentRichText. THIS function also guards the six rich entity
+  // description fields (raid description/mitigation, change description/
+  // impactDescription/resolutionNotes, milestone description) — those must stay
+  // on the narrow template list. Repointing this one at sanitizeDocumentHtml, or
+  // "deduplicating" the two into one parameterised helper that defaults the wrong
+  // way, silently widens all six and NOTHING else in the suite would notice:
+  // every existing assertion here passes under the wider list too.
+  // ★★ <mark> is the probe because it is document-only. The assertion is the
+  // WRAPPED form, not the bare word: the template list unwraps the tag and keeps
+  // its text, so `toContain("emphasis")` passes either way and would be vacuous.
+  it("does NOT admit the document-only marks — the entity fields stay on the narrow list", () => {
+    const out = sanitizeAiRichText("<p><mark>emphasis</mark></p>");
+    expect(out).not.toContain("<mark");
+    // The TEXT survives (KEEP_CONTENT default unwraps rather than deletes) —
+    // proves the tag went missing by allow-list, not by the value being dropped.
+    expect(out).toContain("emphasis");
+  });
+});
+
+describe("sanitizeAiDocumentRichText — cap", () => {
+  // ★★★ The cap must be the DOCUMENTS one (MAX_HTML_TEXT_CHARS, 20 000), not the
+  // sibling's TEXTAREA_MAX (5 000). Exceeding it does not merely SHORTEN the
+  // value: capHtmlText's truncation branch returns plainToHtml(text.slice(...)),
+  // which FLATTENS the markup to escaped plain text. So at the wrong cap a
+  // model-authored document paragraph above 5 000 visible characters lost half
+  // its text AND every mark this slice exists to preserve — the exact tag the
+  // wider allow-list was added for. The structural layer
+  // (document-model.sanitizeBlock) already caps at MAX_HTML_TEXT_CHARS, so the
+  // two boundaries must agree on one number or the tighter one wins silently.
+  const long = `<p>${"word ".repeat(2000)}<mark>KEEPME</mark></p>`;
+
+  it("keeps a >5 000-character paragraph's text and its marks intact", () => {
+    expect(htmlTextLength(long)).toBeGreaterThan(TEXTAREA_MAX);
+    expect(htmlTextLength(long)).toBeLessThan(MAX_HTML_TEXT_CHARS);
+
+    const out = sanitizeAiDocumentRichText(long);
+    // Uncapped: the visible text survives whole, not truncated to 5 000.
+    expect(htmlTextLength(out)).toBe(htmlTextLength(long));
+    // Un-flattened: the mark is still markup, not "&lt;mark&gt;" or plain text.
+    expect(out).toContain("<mark>KEEPME</mark>");
+  });
+
+  it("still caps at MAX_HTML_TEXT_CHARS — the cap is raised, not removed", () => {
+    // Anti-vacuity control for the test above: a boundary that passed Infinity
+    // (or dropped the cap argument) would also satisfy it.
+    const huge = `<p>${"word ".repeat(6000)}</p>`;
+    expect(htmlTextLength(huge)).toBeGreaterThan(MAX_HTML_TEXT_CHARS);
+    expect(htmlTextLength(sanitizeAiDocumentRichText(huge))).toBeLessThanOrEqual(
+      MAX_HTML_TEXT_CHARS,
+    );
   });
 });
 

@@ -214,7 +214,7 @@ export function buildDocxPackage(
   <w:style w:type="paragraph" w:styleId="Title">
     <w:name w:val="Title"/>
     <w:pPr><w:spacing w:after="120"/></w:pPr>
-    <w:rPr><w:sz w:val="48"/><w:color w:val="${COLOR_DARK_BLUE}"/></w:rPr>
+    <w:rPr><w:color w:val="${COLOR_DARK_BLUE}"/><w:sz w:val="48"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="TableHeader">
     <w:name w:val="Table Header"/>
