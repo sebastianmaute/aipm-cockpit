@@ -338,6 +338,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         group: task.group ?? "",
         labels: task.labels ?? [],
         dependencies: task.dependencies ?? [],
+        // Never hydrated from the live graph — see emptyForm()'s comment.
+        successorLinks: [],
         originalEstimateMinutes: task.originalEstimateMinutes,
         timeSpentMinutes: task.timeSpentMinutes,
         resourceId: task.resourceId,
