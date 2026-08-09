@@ -2,23 +2,22 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.226.0";
-export const APP_BUILD_DATE = "2026-08-09"; // 0.226.0: undo history you can step back through, and a Stop on every AI trigger (Emshwiller)
+export const APP_VERSION = "0.227.0";
+export const APP_BUILD_DATE = "2026-08-09"; // 0.227.0: the text editor renders styled in production again (Bolander)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.226.x line is "Emshwiller" (Carol Emshwiller, science-fiction and fantasy author).
- *  ★★ 0.224.0 AND 0.225.0-as-Emshwiller ARE BOTH DEAD NUMBERS, for one reason.
- *  This line was built and numbered 0.224.0 while unpushed; main could not wait
- *  for it, deliberately skipped 0.224.0 and shipped 0.225.0 "Walton" first. That
- *  left the branch BEHIND the trunk, so keeping 0.224.0 would have meant a
- *  release commit naming a version no build ever reported. It took 0.226.0 at
- *  merge instead. 0.224.0 is now permanently unused — do not reuse it; the gap
- *  is the record of why.
+ *  0.227.x line is "Bolander" (Brooke Bolander, science-fiction and fantasy author).
+ *  ★★ 0.224.0 IS A PERMANENTLY DEAD NUMBER — do not reuse it. The 0.226.0 line
+ *  was built and numbered 0.224.0 while unpushed; main could not wait for it,
+ *  deliberately skipped 0.224.0 and shipped 0.225.0 "Walton" first, so keeping
+ *  0.224.0 would have meant a release commit naming a version no build ever
+ *  reported. The gap is the record of why.
  *  ★ Fetch before bumping. 0.221.0 "Kavan" shipped on main while the 0.222.0
- *  branch was in review and forced a renumber at merge time; this line was
- *  picked after a fetch that had already moved main seven commits. A codename
+ *  branch was in review and forced a renumber at merge time. A codename
  *  is unique per minor line and no gate here checks either the number or the
- *  name — the only defence is looking at CHANGELOG.md first. */
-export const APP_MILESTONE = "Emshwiller";
+ *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
+ *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
+ *  so a dash-anchored grep reports used names as free. */
+export const APP_MILESTONE = "Bolander";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -281,4 +280,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0223",
   "versionHighlight0225",
   "versionHighlight0226",
+  "versionHighlight0227",
 ] as const;
