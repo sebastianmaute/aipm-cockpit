@@ -163,17 +163,6 @@ describe("DependencyLinkGroup", () => {
     const selects = [...container.querySelectorAll("select")];
     expect(selects).toHaveLength(2); // vacuity guard: an empty set must not pass
 
-    // ★★★ DISTINCTNESS, checked ACROSS the two selects — the per-select
-    // `for === id` check below cannot see this. Replace `useId()` with one
-    // hardcoded literal and every pairwise check still passes: both labels get
-    // `for="x"` and both selects `id="x"`. What breaks is duplicate DOM ids —
-    // `getElementById` and label activation both resolve to whichever rendered
-    // first, so clicking the SUCCESSOR caption focuses the PREDECESSOR select.
-    // Nothing else detects it: axe's `duplicate-id` is deprecated in 4.x, and
-    // the task modal is in none of the 17 A11Y_VIEWS anyway.
-    const ids = selects.map((s) => s.id);
-    expect(new Set(ids).size).toBe(2);
-
     for (const select of selects) {
       const label = select.parentElement?.querySelector("label") ?? null;
       expect(label).not.toBeNull();
@@ -191,6 +180,34 @@ describe("DependencyLinkGroup", () => {
       // https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html
       expect(name.toLowerCase()).toContain(caption.toLowerCase());
     }
+  });
+
+  // ★★★ DISTINCTNESS ACROSS the two selects — deliberately its OWN test, because
+  // it has nothing to do with 2.5.3 and once lived inside the containment test
+  // above, where an a11y-motivated rename or narrowing would have carried this
+  // pin off with it.
+  // ★★ The per-select `for === id` check in that test CANNOT see this: replace
+  // `useId()` with one hardcoded literal and every pairwise check still passes,
+  // because both labels get `for="x"` and both selects `id="x"`. What breaks is
+  // duplicate DOM ids — `getElementById` and label activation both resolve to
+  // whichever rendered first, and task-form-fields.tsx renders the predecessor
+  // group first, so clicking the SUCCESSOR caption focuses the PREDECESSOR
+  // select. ★ Nothing else detects it: axe's `duplicate-id` and
+  // `duplicate-id-active` are both deprecated in 4.x (so tagExclude drops them),
+  // and while `duplicate-id-aria` IS live and tagged `wcag2a`, it only indexes
+  // ids referenced by ARIA idref attributes — `label[for]` is not one. The task
+  // modal is in none of the 17 A11Y_VIEWS either way.
+  it("gives each group's type select its own DOM id", () => {
+    const { container } = render(
+      <div>
+        <DependencyLinkGroup lang="en-US" direction="predecessor" links={[]} allTasks={TASKS} ownTaskId={1} onChange={vi.fn()} />
+        <DependencyLinkGroup lang="en-US" direction="successor" links={[]} allTasks={TASKS} ownTaskId={1} onChange={vi.fn()} />
+      </div>,
+    );
+    const ids = [...container.querySelectorAll("select")].map((s) => s.id);
+    expect(ids).toHaveLength(2); // vacuity guard: an empty set must not pass
+    expect(ids.every((id) => id !== "")).toBe(true);
+    expect(new Set(ids).size).toBe(2);
   });
 
   // ★ The query "task" matches ONLY "Own task" in this fixture, so this pins one

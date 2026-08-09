@@ -291,8 +291,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   and that is a STRICTER rule than the SC, so applying it literally flags conformant code: axe ends in
   `curatedCompareWith.includes(curatedCompare)` (position-independent, punctuation- and unicode-
   stripped), and this repo's own dependency type select passes while failing a prefix test — visible
-  "Type for next link" inside accessible "Predecessor type for next link". Front-position IS a real
-  best practice, but for speech input (G208/G211), not for 2.5.3.
+  "Type for next link" inside accessible "Predecessor type for next link". ★★ Front-position IS a real
+  best practice and WCAG says so — but in a NOTE attached to the SC ("A best practice is to have the
+  text of the label at the start of the name"), not in its normative text, so enforcing it as THE rule
+  flags conformant code. An earlier revision of this very paragraph cited that best practice to G208 /
+  G211 "for speech input, not 2.5.3", which is backwards twice over: those two ARE 2.5.3's own
+  sufficient techniques, and neither one mentions ordering. 2.5.3 IS the speech-input criterion.
   ★★★ AND THE RULE CANNOT SEE A `<select>` AT ALL, so enabling it explicitly is not the fix it looks
   like. Its `matches` admits only roles supporting name-from-content; a `<select>` without `multiple`
   and size null-or-1 maps to `combobox`, which is not among them. Measured 2026-08-09, not reasoned:
