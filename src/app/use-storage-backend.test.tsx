@@ -2552,6 +2552,153 @@ describe("useStorageBackend — workspaceLoaded (snapshot-capture gate)", () => 
     expect(result.current.workspaceLoaded).toBe(false);
   });
 
+  // ★★★ open-followups §77: `workspaceLoaded` was a one-way LATCH — set true at
+  // the end of applyWorkspace and never set false anywhere. Pointing Settings at
+  // a different backend mid-session rebuilds the `backend` memo and re-runs the
+  // load effect with the flag still true from the PREVIOUS project, so snapshot
+  // auto-capture could fire against the NEW projectId while render scope still
+  // held the OLD project's tasks and budgets — permanently claiming that bucket.
+  // ★★ The two backends must be DISTINCT OBJECTS — but NOT for the reason an
+  // earlier revision of this comment gave. It claimed a shared mock would make
+  // the test pass either way; the truth is the opposite, and a reviewer who
+  // trusts the wrong version concludes this assertion is weaker than it is.
+  // With one shared object `loadedBackend === backend` still holds after the
+  // config change, so `workspaceLoaded` is TRUE and the `toBe(false)` below
+  // FAILS — under the fixed code and under the old latch alike.
+  // ★ Do not read "it fails either way" as "so it does not matter". Distinct
+  // objects are what make the test able to PASS AT ALL, and that is the whole
+  // discriminating property: with them it fails on the old latch and passes on
+  // the fix. With a shared mock it fails for a reason unrelated to the bug, and
+  // a red run would tell you nothing about whether the gate works.
+  it("closes the workspaceLoaded gate when the backend changes, until the new load lands", async () => {
+    // Deferred load for backend B — held open so the "gate shut" window is
+    // observable rather than a race the test would usually lose.
+    let resolveB: (workspace: unknown) => void = () => {};
+    const backendB = {
+      load: vi.fn(() => new Promise((resolve) => { resolveB = resolve as (workspace: unknown) => void; })),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("project-b.json"),
+    };
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      tasks: [{ id: 1, taskName: "From project A" }],
+    });
+    const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(backendB);
+
+    // Mutable args ref so rerender() can hand the hook a NEW storageConfig
+    // without changing the hook function identity (mirrors the switch tests
+    // above). `makeArgs()` mints a fresh settings object, which is what
+    // invalidates the backend memo.
+    const argsRef = { current: makeArgs() };
+    const { result, rerender } = renderHook(
+      () => {
+        const backend = useStorageBackend(argsRef.current);
+        const { tasks } = useWorkspace();
+        return { ...backend, tasks };
+      },
+      { wrapper: ({ children }) => <TestProviders>{children}</TestProviders> },
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.workspaceLoaded).toBe(true);
+    expect(result.current.tasks).toHaveLength(1);
+
+    // Repoint Settings at a different backend whose load has NOT resolved yet.
+    argsRef.current = makeArgs({
+      settings: { storageConfig: { kind: "local-json" } } as unknown as Settings,
+    });
+    await act(async () => { rerender(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Control: the new backend's load really is in flight, and render scope
+    // still holds PROJECT A's data — which is exactly why the gate must be shut.
+    expect(backendB.load).toHaveBeenCalled();
+    expect((result.current.tasks[0] as { taskName: string }).taskName).toBe("From project A");
+    expect(result.current.workspaceLoaded).toBe(false);
+
+    await act(async () => {
+      resolveB({
+        ...storageMod.emptyWorkspace(),
+        tasks: [{ id: 2, taskName: "From project B" }, { id: 3, taskName: "Also B" }],
+      });
+      await Promise.resolve();
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.workspaceLoaded).toBe(true);
+    expect(result.current.tasks).toHaveLength(2);
+  });
+
+  // ★★★ open-followups §77, the OTHER half. The suppress path is how EVERY
+  // project switch, create and open-from-file gets its workspace: the op puts
+  // the right data in render scope (the six ops call `applyWorkspace`;
+  // `onRequestStorageSwitch` SAVES the live workspace to the target) and only
+  // THEN flips storageConfig/tursoProjectId, so the load effect early-returns
+  // without loading. Because `applyWorkspace` is a plain render-scope function,
+  // it stamped `loadedBackend` with the PREVIOUS backend — so without the
+  // re-stamp in the suppress branch the derived gate strands CLOSED for the
+  // session and snapshot capture silently dies after every switch.
+  it("re-opens the workspaceLoaded gate on the suppressed-load path", async () => {
+    const targetBackend = {
+      kind: "turso",
+      load: vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("turso-target"),
+    };
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      tasks: [{ id: 1, taskName: "Carried across the switch" }],
+    });
+    const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)    // initial memo
+      .mockReturnValueOnce(targetBackend)  // built inside onRequestStorageSwitch
+      .mockReturnValue(targetBackend);     // memo rebuilds after the config change
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const argsRef = { current: makeArgs({ setStorageConfig: vi.fn() }) };
+    const { result, rerender } = renderHook(
+      () => {
+        const backend = useStorageBackend(argsRef.current);
+        const { tasks } = useWorkspace();
+        return { ...backend, tasks };
+      },
+      { wrapper: ({ children }) => <TestProviders>{children}</TestProviders> },
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.workspaceLoaded).toBe(true);
+
+    // The real user path: this SAVES the live workspace to the target, arms
+    // suppressNextLoadRef, then asks the caller to repoint storageConfig.
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+    expect(targetBackend.save).toHaveBeenCalled();
+
+    // The config change the caller makes in response — this is what rebuilds the
+    // backend memo and flips the identity the gate compares against.
+    argsRef.current = makeArgs({
+      setStorageConfig: vi.fn(),
+      settings: { storageConfig: { kind: "turso" } } as unknown as Settings,
+    });
+    await act(async () => { rerender(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Control 1 — the suppress branch really was taken: no load was issued...
+    expect(targetBackend.load).not.toHaveBeenCalled();
+    // Control 2 — ...but the effect DID run, against the NEW backend. Without
+    // this the test could pass having never re-run the effect at all, and
+    // `storageDescription` proves the identity genuinely flipped (it can only
+    // come from targetBackend.describe).
+    expect(result.current.storageDescription).toBe("turso-target");
+    // Control 3 — render scope still holds the workspace the switch carried over.
+    expect(result.current.tasks).toHaveLength(1);
+
+    expect(result.current.workspaceLoaded).toBe(true);
+  });
+
   it("back-fills task resource FKs through the load funnel", async () => {
     // The v9 FK migration lives in jsonToWorkspace, which the CSV/Markdown/Turso
     // backends never reach — so the funnel is the only place this can happen for

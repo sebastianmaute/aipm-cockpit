@@ -1,9 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ActivityEntry } from "./activity-log";
 import { useBroadcastSync } from "./broadcast-sync";
-import { type Lang, t } from "./i18n";
-import type { Settings } from "./settings-types";
+import { t } from "./i18n";
 import {
   type StorageConfig,
   type StorageKind,
@@ -31,40 +29,9 @@ import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
 import { useFileProjectOps } from "./use-storage-file-ops";
 import { useLoadTruncation } from "./use-load-truncation";
+import { STORAGE_LABEL_KEYS, type UseStorageBackendArgs } from "./use-storage-backend-types";
 
-// Hoisted to module scope — static map, no per-render allocation
-const STORAGE_LABEL_KEYS: Record<StorageKind, Parameters<typeof t>[1]> = {
-  browser: "storageBrowser",
-  "local-json": "storageLocalJson",
-  "local-csv": "storageLocalCsv",
-  "local-md": "storageLocalMd",
-  "sp-json": "storageSpJson",
-  "sp-csv": "storageSpCsv",
-  turso: "storageTurso",
-};
-
-export interface UseStorageBackendArgs {
-  settings: Settings;
-  lang: Lang;
-  hydrated: boolean;
-  /** True when this window was opened as a popout (`?popout=<tab>`). A popout is
-   *  a mirror: it receives live state, forwards nothing, and must NOT persist.
-   *  ★ Claimed popouts "forward their own edits via BroadcastChannel" until 2026-08-06. */
-  isPopout: boolean;
-  activityLog: ActivityEntry[];
-  setActivityLog: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
-  showToast: (kind: "info" | "error" | "success", text: string) => void;
-  setStorageConfig: (config: StorageConfig) => void;
-  /** Reports the outcome of a load/save so the caller can drive the storage
-   *  status bubble + banner. `null` = success (clear any error); an error value
-   *  is classified (see storage-error.ts). */
-  onStorageOutcome?: (err: unknown | null) => void;
-  /** Notifies the caller after the projects registry is persisted (switch /
-   *  create / load-from-file). Lets task-manager keep an observable copy of the
-   *  registry in React state so the switcher list, empty-state gate, and Projects
-   *  panel re-render. Receives the freshly-saved registry. */
-  onRegistryChange?: (registry: ProjectsRegistry) => void;
-}
+export type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
 export function useStorageBackend(args: UseStorageBackendArgs) {
   const {
@@ -127,14 +94,25 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     tursoProjectId,
   ]);
 
+  // ★★★ IDENTITY, NOT A LATCH (open-followups §77 — full rationale there).
+  // Holds the BACKEND the applied workspace came from; the published boolean is
+  // derived below. A boolean flag had to be RESET by whoever started the next
+  // load and nobody did, so a mid-session switch left the gate open over the
+  // PREVIOUS project's data. An inequality cannot be forgotten.
+  // ★ Derived in RENDER: `react-hooks/set-state-in-effect` is fatal here.
+  // ★ Typed, not `unknown`, so a `loadedBackend === someString` typo cannot compile.
+  const [loadedBackend, setLoadedBackend] = useState<ReturnType<typeof createBackend> | null>(null);
+  // ★ NOT `storageReady`, which is `backend.isReady()` and is set even on the
+  // load-error path where render scope holds no workspace for this backend.
+  // ★★ Invariant: render scope holds the workspace that BELONGS to this backend
+  // — NOT the narrower "was loaded from it". `onRequestStorageSwitch` never
+  // loads, yet scope holds the right data; wording it as "loaded" invites
+  // someone to delete the suppress-path re-stamp below. §77 has the seven arm
+  // sites and its reproduce grep.
+  const workspaceLoaded = loadedBackend !== null && loadedBackend === backend;
+
   // Storage status
   const [storageReady, setStorageReady] = useState(false);
-  // ★ NOT the same question as `storageReady`. That one is `backend.isReady()`
-  // — "can this backend be talked to" — and it is also set on the load-error
-  // and suppressed-load paths, where no workspace was applied at all. This one
-  // means "a workspace has been applied to render scope", which is what a
-  // consumer reading live entity state actually needs.
-  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [storageDescription, setStorageDescription] = useState<string | null>(null);
 
   // Suppresses the save effect that fires immediately after a load
@@ -261,9 +239,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Side-effecting (mutates module state) — safe here inside the load callback,
     // never a render body.
     seedMintFromWorkspace(workspace, seedMode);
-    // Publishes "render scope now holds real project data". Snapshot capture
-    // gates on this: it is the ONLY thing separating a KPI capture from the
-    // boot race against this very load (see useSnapshots `workspaceReady`).
+    // Records WHICH backend this workspace came from; the published
+    // `workspaceLoaded` above is derived from it. Snapshot capture gates on
+    // that: it is the ONLY thing separating a KPI capture from the boot race
+    // against this very load (see useSnapshots `workspaceReady`).
     // ★★ Set LAST. Today no consumer can observe it true beside an empty slice
     // whatever the position, because React auto-batches this whole callback into
     // ONE commit — so under the CURRENT code no test can distinguish last from
@@ -277,7 +256,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // capture writes a null-KPI row that permanently claims its bucket.
     // ★ An earlier revision of this comment asserted the opposite (that a
     // flushSync would defeat the ordering) and invited the first-line move.
-    setWorkspaceLoaded(true);
+    setLoadedBackend(backend);
   };
 
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
@@ -320,6 +299,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     (async () => {
       if (suppressNextLoadRef.current) {
         suppressNextLoadRef.current = false;
+        // ★★★ REQUIRED re-stamp (open-followups §77 — seven arm sites, the
+        // reproduce grep and the full argument live there). Every op that arms
+        // this ref already put the right workspace in render scope, but does so
+        // BEFORE flipping `storageConfig`/`tursoProjectId`; `applyWorkspace` is
+        // a plain render-scope function, so it stamped the PREVIOUS backend and
+        // the derived gate reads false. Without this the gate strands CLOSED for
+        // the session, silently disabling snapshot capture.
+        // ★★ The load effect's OTHER two early-returns — the empty-load
+        // data-loss guard and the `catch` — deliberately do NOT re-stamp. A cold
+        // review read that as a regression; it is not, and §77 says why. Do not
+        // "fix" it by re-stamping there.
+        setLoadedBackend(backend);
         await refreshBackendStatus();
         return;
       }

@@ -6,7 +6,7 @@ import {
   deleteSnapshots as storeDeleteMany,
   loadSnapshots, setBaseline as storeSetBaseline,
 } from "./snapshot-store";
-import { bucketKey, buildSnapshot, computeVariance, detectGaps, withoutCompletionVariance } from "./snapshot";
+import { bucketKey, buildSnapshot, computeVariance, detectGaps, hasCapturableContent, withoutCompletionVariance } from "./snapshot";
 import type { SnapshotCadence, SnapshotRecord, SnapshotTrigger, VarianceRow } from "./snapshot";
 import type { BuildSnapshotInput } from "./snapshot";
 import type { TursoConfig } from "./turso-config";
@@ -53,14 +53,17 @@ export interface UseSnapshotsArgs {
    * all, so gating that on the load would flash the "needs Turso" placeholder on
    * every boot. Only CAPTURE has to wait.
    *
-   * ★★ KNOWN EXCEPTION — a brand-new project. `createTursoProject` applies an
-   * empty workspace and changes `projectId` in one batch, so this flag is
-   * legitimately true (data WAS applied — there just isn't any) and the effect
-   * captures a null-KPI row that, being the first ever, is also flagged
-   * `isBaseline`. Every later variance row then compares against nulls. That is
-   * pre-existing and NOT what this flag is for: it answers "has a load
-   * landed", not "is the project worth snapshotting". Gate `isFirstEver` on
-   * content if it needs closing — do not overload this flag.
+   * ★★ CLOSED, and NOT by this flag — a brand-new project used to slip through
+   * here. `createTursoProject` applies an empty workspace and changes
+   * `projectId` in one batch, so this flag is legitimately true (data WAS
+   * applied — there just isn't any). The capture effect now asks a SEPARATE
+   * question first, `hasCapturableContent` (`snapshot.ts`), and declines. This
+   * flag still answers only "has a load landed"; it was never overloaded.
+   * ★★★ An earlier revision of this comment prescribed gating `isFirstEver` on
+   * content instead. That would NOT have closed it: `pickBaseline` below falls
+   * back to the EARLIEST row when none is flagged, so the empty capture would
+   * still have been the baseline — and `hasCurrent` would still have claimed
+   * the bucket. The gate has to be on the CAPTURE. (open-followups §78.)
    */
   workspaceReady: boolean;
   cadence: SnapshotCadence;
@@ -134,9 +137,13 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   }, []);
 
   const makeRecord = useCallback(
-    (trigger: SnapshotTrigger, isBaseline: boolean, bucket: string): SnapshotRecord => {
+    (
+      trigger: SnapshotTrigger,
+      isBaseline: boolean,
+      bucket: string,
+      ctx: ReturnType<UseSnapshotsArgs["buildContext"]> = ctxRef.current(),
+    ): SnapshotRecord => {
       const capturedAt = new Date().toISOString();
-      const ctx = ctxRef.current();
       return { ...buildSnapshot({ ...ctx, capturedAt, cadence, trigger }), bucket, isBaseline };
     },
     [cadence],
@@ -161,8 +168,29 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
         if (stale()) return;
         const hasCurrent = history.some((s) => s.bucket === currentBucket);
         if (!hasCurrent) {
+          const ctx = ctxRef.current();
+          // ★★★ open-followups §78. A capture CLAIMS this bucket permanently
+          // (`hasCurrent` never revisits it), so an empty project must not be
+          // captured at all — un-flagging `isBaseline` would NOT be enough,
+          // because `pickBaseline` falls back to the earliest row when none is
+          // flagged, and the bucket would still be claimed.
+          // ★★ "Declines" means declines FOR THIS EFFECT RUN, and nothing
+          // re-arms it. The deps below are [active, workspaceReady, cadence,
+          // currentBucket, args.projectId] — adding the project's first task changes
+          // NONE of them, so this bucket is not reconsidered until a reload,
+          // a project switch, or a bucket rollover (which captures the NEW
+          // bucket, not the missed one). Create a project on Monday and
+          // populate it Tuesday and that first period simply has no auto row.
+          // That is a deliberate trade, and strictly better than the bug: the
+          // bucket is NOT claimed, so nothing is poisoned and the first REAL
+          // capture correctly becomes the baseline. Adding `tasks.length` as a
+          // dep would close the gap but re-runs this effect on every task edit.
+          if (!hasCapturableContent(ctx)) {
+            setSnapshots(history);
+            return;
+          }
           const isFirstEver = history.length === 0;
-          const rec = makeRecord("auto", isFirstEver, currentBucket);
+          const rec = makeRecord("auto", isFirstEver, currentBucket, ctx);
           await storeAppend(cfgRef.current, rec, pidRef.current);
           if (stale()) return;
           setSnapshots([...history, rec]);

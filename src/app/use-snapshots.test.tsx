@@ -25,11 +25,21 @@ const baseArgs = {
     model: { progress: { percent: 0 }, overall: { effective: "G" }, schedule: { effective: "G" },
       budget: { effective: null }, scope: { effective: null }, burndown: null,
       evm: { spi: null, cpi: null } },
-    tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR",
+    tasks: [taskWith(1, "To Do")], milestones: [], planEndDate: "2026-07-31", currency: "EUR",
   }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
   showToast: vi.fn(),
   lang: "en-US" as const,
   tasks: [] as readonly Task[],
+};
+
+const emptyContextArgs = {
+  ...baseArgs,
+  buildContext: () => ({
+    model: { progress: { percent: 0 }, overall: { effective: "G" }, schedule: { effective: "G" },
+      budget: { effective: null }, scope: { effective: null }, burndown: null,
+      evm: { spi: null, cpi: null } },
+    tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR",
+  }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
 };
 
 function taskWith(id: number, status: Task["status"]): Task {
@@ -93,6 +103,38 @@ describe("useSnapshots", () => {
     expect(captured.spi).toBe(0.9);
     expect(captured.cpi).toBe(1.1);
     expect(captured.pctComplete).toBe(42);
+  });
+
+  // ★★★ open-followups §78: `createTursoProject` applies an EMPTY workspace and
+  // changes projectId in one batch, so `workspaceReady` is legitimately true
+  // with nothing to capture. Without this gate the effect wrote a null-KPI row
+  // that — being the first ever — was also the BASELINE, so every later
+  // variance row compared against nulls forever.
+  it("does not auto-capture a project with no tasks, milestones or burndown", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    renderHook(() => useSnapshots(emptyContextArgs));
+    // POSITIVE observable first: prove the effect ran PAST its
+    // active/workspaceReady/config guard, so this cannot pass because the hook
+    // did nothing at all. ★ It does not prove the `hasCapturableContent` branch
+    // itself was reached — a `stale()` return sits between — so the mutation
+    // check (flip the gate to `if (false)` and watch this test die) is what
+    // actually pins the branch. Do not upgrade this comment's claim without
+    // adding an observable that distinguishes the two.
+    await waitFor(() => expect(store.loadSnapshots).toHaveBeenCalledTimes(1));
+    expect(append).not.toHaveBeenCalled();
+    // ★ Deliberately NO `expect(result.current.snapshots).toEqual([])` here: the
+    // decline path calls `setSnapshots(history)` with `history === []`, which is
+    // also the initial value, so that assertion cannot fail either way. The
+    // `append` assertion above is the real one.
+  });
+
+  it("still auto-captures once the project has scope", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    renderHook(() => useSnapshots(baseArgs));
+    await waitFor(() => expect(append).toHaveBeenCalledTimes(1));
+    expect(append.mock.calls[0][1].isBaseline).toBe(true);
   });
 
   it("does NOT auto-capture when the current bucket already has a snapshot", async () => {
