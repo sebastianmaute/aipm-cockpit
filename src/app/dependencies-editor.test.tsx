@@ -139,24 +139,43 @@ describe("DependencyLinkGroup", () => {
   // (2.4.6) — so the name has to CONTAIN the caption rather than equal it.
   // Nothing else can catch a drift here: axe 4.12.1 has no label-in-name rule,
   // and the task modal is not in A11Y_VIEWS anyway.
-  it("keeps each type select's accessible name containing the visible caption", () => {
-    render(
+  it("keeps each type select's accessible name containing its visible caption", () => {
+    const { container } = render(
       <div>
         <DependencyLinkGroup lang="en-US" direction="predecessor" links={[]} allTasks={TASKS} ownTaskId={1} onChange={vi.fn()} />
         <DependencyLinkGroup lang="en-US" direction="successor" links={[]} allTasks={TASKS} ownTaskId={1} onChange={vi.fn()} />
       </div>,
     );
-    const captions = screen.getAllByText("Type for next link");
-    expect(captions).toHaveLength(2);
-    const caption = captions[0].textContent ?? "";
-    expect(caption).not.toBe("");
+    // ★★★ STRUCTURAL lookup and BOTH sides read from the DOM — no wording
+    // literal appears in this test at all. An earlier spelling compared a loop
+    // literal against the DOM, which made the containment line UNREACHABLE as a
+    // failure: reword one string and the hardcoded lookup throws first; reword
+    // BOTH consistently and the literals get updated to match, so nothing
+    // re-checks that the new pair still satisfies containment. That is the only
+    // case this test exists for.
+    // The two type selects are the only `<select>`s here — the search boxes are
+    // `<input role="combobox">` — so this needs no text to find them.
+    const selects = [...container.querySelectorAll("select")];
+    expect(selects).toHaveLength(2); // vacuity guard: an empty set must not pass
 
-    for (const name of ["Predecessor type for next link", "Successor type for next link"]) {
-      const select = screen.getByRole("combobox", { name });
-      // Case-INSENSITIVE: 2.5.3 is about the words matching for speech input,
-      // and the caption is sentence-cased where the name embeds it mid-string.
+    for (const select of selects) {
+      const label = select.parentElement?.querySelector("label") ?? null;
+      expect(label).not.toBeNull();
+      // Pins the htmlFor binding as well — that is what makes the caption
+      // clickable, and `useId` is what keeps the two groups' captions bound to
+      // their OWN select instead of both to whichever rendered first.
+      expect(select.id).not.toBe("");
+      expect(label!.getAttribute("for")).toBe(select.id);
+
+      const caption = label!.textContent?.trim() ?? "";
+      const name = select.getAttribute("aria-label") ?? "";
+      expect(caption).not.toBe("");
+      expect(name).not.toBe("");
+      // Case-insensitive BY THE SPEC, not by our leniency — Understanding SC
+      // 2.5.3, "Punctuation and capitalization": "differences in capitalization
+      // and punctuation are not relevant when evaluating this criterion".
+      // https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html
       expect(name.toLowerCase()).toContain(caption.toLowerCase());
-      expect(select.getAttribute("aria-label")).toBe(name);
     }
   });
 

@@ -14,7 +14,7 @@
 // The caller owns both link lists (they live on the form draft) and applies the
 // successor ones on Save. Nothing here writes to another task.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Select } from "./form-controls";
 import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
@@ -66,6 +66,9 @@ export function DependencyLinkGroup({
   const [pendingType, setPendingType] = useState<DependencyType>("FS");
   const [query, setQuery] = useState("");
   const keys = DIRECTION_KEYS[direction];
+  // Per-instance, so the two groups' captions bind to their OWN select rather
+  // than both pointing at whichever rendered first.
+  const typeSelectId = useId();
 
   const taskById = useMemo(() => {
     const m = new Map<number, Task>();
@@ -183,25 +186,38 @@ export function DependencyLinkGroup({
       />
       {/* ★★ The select governs the NEXT link added, not the ones already
           chipped above it, and an aria-label alone said that to nobody looking
-          at the screen. The caption is a plain <span>, not a <label htmlFor>:
-          the accessible name has to stay DIRECTION-QUALIFIED (two groups render
-          on one modal, and N identical names is a WCAG 2.4.6 failure), so
-          `aria-label` must keep winning the name — and a <label> that does not
-          supply the name it appears to supply is worse than no <label>.
+          at the screen.
+          ★★ A REAL <label htmlFor>, and `aria-label` STAYS. Both are needed and
+          neither is redundant: `aria-label` outranks a `<label>` in the accname
+          computation, so the announced name stays DIRECTION-QUALIFIED (two
+          groups render on one modal, and N identical names is a WCAG 2.4.6
+          failure) while the `<label>` buys the click-to-focus a <span> cannot.
+          AT therefore never sees this element as a name source — dropping the
+          aria-label would collapse both names to the same string.
           ★★★ WCAG 2.5.3 (label-in-name) then requires the accessible name to
           CONTAIN this visible text, which is why `depTypePredecessor` /
           `depTypeSuccessor` were reworded to end in `depTypeForNext`'s wording
-          rather than keeping "…dependency type". Editing either string alone
-          breaks that containment — pinned by a test, since nothing else can
-          see it (axe has no label-in-name rule). */}
+          rather than keeping "…dependency type". The match is CASE-INSENSITIVE
+          by the spec, not by our leniency — Understanding SC 2.5.3, "Punctuation
+          and capitalization": "differences in capitalization and punctuation are
+          not relevant when evaluating this criterion" (its worked example pairs
+          a visible `First Name:` with `aria-label="first name"` and passes).
+          https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html
+          Nothing else can catch drift here — axe 4.12.1 has no label-in-name
+          rule and the task modal is not in A11Y_VIEWS — so the test reads BOTH
+          sides out of the DOM rather than comparing against literals. */}
       {/* Own wrapper so the caption sits TIGHT above its select (mb-1) instead
           of inheriting the group's space-y-2, which would read as two unrelated
           rows. */}
       <div>
-        <span className="mb-1 block text-xs font-medium text-muted-foreground">
+        <label
+          htmlFor={typeSelectId}
+          className="mb-1 block text-xs font-medium text-muted-foreground"
+        >
           {t(lang, "depTypeForNext")}
-        </span>
+        </label>
         <Select
+          id={typeSelectId}
           size="xs"
           value={pendingType}
           onChange={(e) => setPendingType(e.target.value as DependencyType)}
