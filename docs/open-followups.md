@@ -7838,6 +7838,23 @@ mismatch as "one of these two is wrong", never as "the claim is wrong" — the r
 newer measurement is exactly how a correction round introduces errors, which this register already
 records at three stars elsewhere.
 
+**★★ The parsing is now a tested module.** `scripts/doc-claims-lib.mjs` holds the regexes and
+`citesOnLine`/`resolveCandidates`/`stripFencedBlocks`; `check-doc-claims.mjs` is a 195-line driver.
+`vitest.config.ts` `include` gained `scripts/**/*.{test,spec}.mjs`, so the CI gates are reachable from
+the unit suite for the first time — coverage `include` stays `src/**`, so a script test raises no
+floor and gates no percentage. The other ungated scripts (`check-agents-symbols`, `check-file-sizes`,
+`stop-dev`) are now testable the same way; none is tested yet.
+
+★★★ MUTATION-PROVED, and the result corrected the harness rather than the tests. Six injected
+defects, four killed at once. TWO SURVIVED — `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead
+are REDUNDANT guards against the same truncation bug, so removing either ALONE is an equivalent
+mutant and the survivor still holds. Removing BOTH reproduces the shipped defect exactly and turns
+three tests red. **A surviving mutant is a QUESTION, not a verdict** — reading these two as "vacuous
+tests" would have led to rewriting tests that were already correct. Note also that the `.yaml` case
+sitting beside the two real truncation regressions is NOT one (`yml` is not a prefix of `yaml`, so no
+ordering can truncate it); it is relabelled as a plain positive case, because a vacuous test filed
+under "regression" is worse than no test — it is counted as cover.
+
 **Deliberately NOT built: staleness detection.** The strongest available check is "was the cited file
 modified after the doc line was written", via `git blame` on the doc plus `git log` on each cited
 file — about 11 blames and ~50 log lookups, so cost is not the objection. **The slim CI image has no

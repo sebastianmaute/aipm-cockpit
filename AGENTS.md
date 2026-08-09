@@ -250,6 +250,15 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # re-verify the claim, never renumber it.
                             # ★ Citations inside ``` fences are ignored on purpose — a stack trace or
                             # sample command is an example, not a claim about this repo.
+                            # ★★ The PARSING lives in `scripts/doc-claims-lib.mjs` and HAS A UNIT
+                            # TEST (`doc-claims-lib.test.mjs`) — every defect this gate has shipped
+                            # was a regex defect, and both were found by running it against the real
+                            # docs, never by reading it. `vitest.config.ts` `include` now covers
+                            # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
+                            # coverage `include` deliberately stays `src/**`, so a script test raises
+                            # no floor. ★ The two truncation guards (extension order + PATH_RE's
+                            # lookahead) are REDUNDANT — mutate BOTH to reproduce the defect;
+                            # removing either alone is an equivalent mutant and stays green.
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
