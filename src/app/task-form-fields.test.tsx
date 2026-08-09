@@ -6,9 +6,10 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { t } from "./i18n";
+import { useTaskForm } from "./task-form-context";
 import { selectFieldTier } from "../test/field-tier";
 import type { TaskBudgetLink } from "./use-task-budget-link";
-import type { BudgetBucket } from "./types";
+import type { BudgetBucket, Task } from "./types";
 
 // The Description field renders a Tiptap/ProseMirror editor, which touches
 // layout APIs jsdom lacks; stub them so the editor mounts (mirrors rich-text-editor.test.tsx).
@@ -201,5 +202,134 @@ describe("TaskFormFields description + notes button", () => {
     });
     await user.click(btn);
     expect(onOpenNotes).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ★★★ THE SEAM NOBODY ELSE WATCHES. The two `DependencyLinkGroup`s are
+// identical apart from four characters: which draft slice each one READS
+// (`form.dependencies` vs `form.successorLinks`) and which one it WRITES back.
+// Swap either half and the successor picker becomes a second PREDECESSOR editor
+// — the exact reverse of the feature — with no type error and, until this test,
+// no red suite. Every neighbouring suite structurally misses it:
+// `dependencies-editor.test.tsx` renders the group directly with explicit
+// `links`/`onChange` props (so the wiring under test is supplied BY the test),
+// `use-task-submit.test.ts` is handed a `form` object and never renders a field,
+// the other `task-form-fields` tests all pass `tasksForDeps={[]}` (so no option
+// is ever offered and no add can fire), and `label-binding.guard.test.ts` is a
+// regex source scan. Mutation-verified in BOTH directions — a one-directional
+// assertion survives the mutation aimed the other way.
+describe("TaskFormFields — successor/predecessor draft wiring", () => {
+  function depTask(id: number, taskName: string): Task {
+    return {
+      id,
+      taskName,
+      assignee: "",
+      assigneeEmail: "",
+      dueDate: "2026-01-01",
+      lastUpdateDate: "2026-01-01",
+      priority: "Medium",
+      status: "To Do",
+      blockers: "",
+      description: "",
+      group: "",
+      labels: [],
+      inquiriesSent: 0,
+      createdDate: "2026-01-01",
+      dependencies: [],
+    } as unknown as Task;
+  }
+
+  // Distinctive names: `role="option"` also matches the type `<select>`'s
+  // FS/SS/FF/SF options, so the fixture must not share words with those labels.
+  const DEP_TASKS = [depTask(41, "Zeta groundwork"), depTask(42, "Omega rollout")];
+
+  /** Renders the two draft slices under test so they can be asserted from the
+   *  DOM. Pure render — no callback fired during render, which the repo's
+   *  react-hooks purity rule would reject. */
+  function FormProbe() {
+    const { form } = useTaskForm();
+    return (
+      <>
+        <output data-testid="probe-dependencies">{JSON.stringify(form.dependencies)}</output>
+        <output data-testid="probe-successors">{JSON.stringify(form.successorLinks)}</output>
+      </>
+    );
+  }
+
+  function DepsHarness() {
+    return (
+      <>
+        <FormProbe />
+        <form aria-label="form">
+          <TaskFormFields
+            lang="en-US" today="2026-05-29" nextId={1} contactsList={[]}
+            resources={[]} onCreateResource={vi.fn(() => 1)}
+            absences={[]} tasksForDeps={DEP_TASKS} uniqueGroups={[]} uniqueLabels={[]}
+            editingIsJiraLinked={false} jiraEnabled={false}
+            fieldErrors={{}} submitted={false}
+            holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
+            onRemoveContact={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
+          />
+        </form>
+      </>
+    );
+  }
+
+  /** Type into one group's search box and click the offered task. The two
+   *  comboboxes carry direction-unique accessible names, which is the only
+   *  reason a single rendered modal can be driven per-direction at all. */
+  async function addVia(
+    user: ReturnType<typeof userEvent.setup>,
+    searchLabel: string,
+    optionText: string,
+  ) {
+    await user.type(screen.getByRole("combobox", { name: searchLabel }), optionText.slice(0, 4));
+    await user.click(screen.getByRole("option", { name: new RegExp(optionText) }));
+  }
+
+  // ★★★ TWO adds, not one, and the reason is measured rather than reasoned. The
+  // group's add is `onChange([...links, picked])` — it READS the slice it is
+  // handed and appends. Both draft slices start EMPTY, so a single add cannot
+  // tell `links={form.successorLinks}` from `links={form.dependencies}`:
+  // appending to either empty array yields the same one-element result, and the
+  // write-back (which is a separate prop) still lands in the right place. The
+  // read-side mutation was applied and MEASURED to survive the one-add version
+  // of this test. The SECOND add is what makes the read observable — by then the
+  // correct slice holds an entry and the wrong one does not, so a misread drops
+  // the first link instead of accumulating.
+  it("routes SUCCESSOR picks to form.successorLinks and leaves form.dependencies alone", async () => {
+    const user = userEvent.setup();
+    render(<DepsHarness />, { wrapper: TestProviders });
+
+    // Vacuity guard: both slices start empty, so the assertions below measure a
+    // change rather than a pre-existing value.
+    expect(screen.getByTestId("probe-successors").textContent).toBe("[]");
+    expect(screen.getByTestId("probe-dependencies").textContent).toBe("[]");
+
+    await addVia(user, "Search successor tasks", "Zeta groundwork");
+    await addVia(user, "Search successor tasks", "Omega rollout");
+
+    // Both links present ⇒ the group read back its OWN slice each time.
+    expect(screen.getByTestId("probe-successors").textContent).toBe(
+      JSON.stringify([{ taskId: 41, type: "FS" }, { taskId: 42, type: "FS" }]),
+    );
+    // …and the write-back never touched the predecessor slice.
+    expect(screen.getByTestId("probe-dependencies").textContent).toBe("[]");
+  });
+
+  it("routes PREDECESSOR picks to form.dependencies and leaves form.successorLinks alone", async () => {
+    const user = userEvent.setup();
+    render(<DepsHarness />, { wrapper: TestProviders });
+
+    expect(screen.getByTestId("probe-successors").textContent).toBe("[]");
+    expect(screen.getByTestId("probe-dependencies").textContent).toBe("[]");
+
+    await addVia(user, "Search predecessor tasks", "Omega rollout");
+    await addVia(user, "Search predecessor tasks", "Zeta groundwork");
+
+    expect(screen.getByTestId("probe-dependencies").textContent).toBe(
+      JSON.stringify([{ taskId: 42, type: "FS" }, { taskId: 41, type: "FS" }]),
+    );
+    expect(screen.getByTestId("probe-successors").textContent).toBe("[]");
   });
 });

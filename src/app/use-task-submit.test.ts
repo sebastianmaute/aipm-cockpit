@@ -695,9 +695,14 @@ describe("useTaskSubmit — staged successor links", () => {
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
 
-    const call = captureFieldEdit.mock.calls
+    const forTarget = captureFieldEdit.mock.calls
       .map(([o]) => o as { id: number; before: object; after: object; name?: string })
-      .find((o) => o.id === 2);
+      .filter((o) => o.id === 2);
+    // ★ ONE, not "at least one" — the name says "one entry per target", and a
+    // `.find` alone would let a duplicate capture (two undo steps for a single
+    // link, so one Ctrl+Z reverts nothing visible) pass unnoticed.
+    expect(forTarget).toHaveLength(1);
+    const call = forTarget[0];
     expect(call).toBeDefined();
     // ★ Nothing but `dependencies`. A whole-row capture would list every field
     // here and would revert values this save never touched (open-followups §50).
