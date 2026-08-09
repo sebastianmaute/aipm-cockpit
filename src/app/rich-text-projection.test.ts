@@ -186,3 +186,23 @@ describe("description consumers use the correct projection", () => {
     expect(callers.sort()).toEqual([]);
   });
 });
+
+describe("projection classifies at the widest list", () => {
+  it("does not emit literal markup for a value leading with a heading", () => {
+    // Before the split this projected to the visible text "<h1>Title</h1><p>body</p>"
+    // — into search results, the AI digests, and every DOCX/PPTX/XLSX/PDF export.
+    expect(descriptionText("<h1>Title</h1><p>body</p>")).toBe("Title body");
+  });
+
+  it("does not emit literal markup for a document-only leading tag", () => {
+    expect(descriptionText("<blockquote>quoted</blockquote>")).toBe("quoted");
+  });
+
+  it("keeps the export projection's block boundary as a newline", () => {
+    expect(descriptionTextWithBreaks("<h1>Title</h1><p>body</p>")).toBe("Title\nbody");
+  });
+
+  it("still escapes and projects genuine plain text unchanged", () => {
+    expect(descriptionText("cost < 5k")).toBe("cost < 5k");
+  });
+});
