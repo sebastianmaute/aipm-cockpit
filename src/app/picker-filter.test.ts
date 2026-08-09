@@ -39,6 +39,9 @@ describe("filterPickerOptions — # id queries", () => {
     { id: 1, name: "Draft the API spec" },
     { id: 2, name: "Review the API docs" },
     { id: 4, name: "Fix #42 crash" },
+    // Carries the bare digits with no `#` — discriminates the stripped id
+    // query from the raw query in the text matcher (see the "#42" test).
+    { id: 5, name: "Meeting 42 notes" },
   ];
 
   it("matches an id written with a leading #", () => {
@@ -53,7 +56,9 @@ describe("filterPickerOptions — # id queries", () => {
     expect(out.map((r) => r.id)).toEqual([4]);
   });
 
-  it("falls through to the text matcher when the stripped id matches nothing", () => {
+  it("falls through to the text matcher when the stripped id matches nothing, using the RAW query", () => {
+    // Row 5 carries "42" (no #) — it must NOT match, which proves the text
+    // matcher runs against the raw "#42" query and not the stripped "42".
     const out = filterPickerOptions(HASH_ROWS, { ...base, query: "#42" });
     expect(out.map((r) => r.id)).toEqual([4]);
   });
