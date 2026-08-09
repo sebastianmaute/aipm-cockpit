@@ -2341,7 +2341,7 @@ effect, then the unpiped gate — and treat the result as a fresh measurement.
 
 ---
 
-## 54. Prod-only CSP blocks ProseMirror's base CSS — open, PRE-EXISTING, user-visible
+## 54. Prod-only CSP blocks ProseMirror's base CSS — CLOSED 2026-08-09
 
 Every rich-text editor in a **production build** renders without ProseMirror's base stylesheet, because
 the prod CSP refuses the `<style>` element Tiptap injects at runtime. Dev is unaffected, which is why
@@ -2377,10 +2377,36 @@ Exactly one `<style>` element: 1329 bytes, no nonce, `sha256=PlumsSlvJ7vvWzjqibG
 injector directly: `sourceFile: /_next/static/chunks/2uni9ru3abh_p.js`, and that built chunk contains
 both `ProseMirror` (19 hits) and `createElement("style")`.
 
-**It is dependency behaviour, not app code.** `@tiptap/react` + `@tiptap/starter-kit` → `@tiptap/core` →
-prosemirror CSS. The editor loads via `next/dynamic`, so Turbopack ships that CSS inside a lazily-loaded
-client chunk which injects it at runtime with no nonce. `grep -rn "prosemirror.css" src/` returns
-nothing — the app never imports it. Fires once, on initial load.
+**The injector is `@tiptap/core` itself, measured 2026-08-09.** Not Turbopack, not prosemirror-view:
+
+```
+node_modules/@tiptap/core/src/Editor.ts:255-257
+  private injectCSS(): void {
+    if (this.options.injectCSS && typeof document !== 'undefined') {
+      this.css = createStyleTag(style, this.options.injectNonce)
+```
+
+`style` is a JavaScript STRING CONSTANT (`@tiptap/core/src/style.ts`), measured at **1329 bytes** — a
+byte-exact match for the `<style>` element hashed in the live prod DOM above. Reproduce:
+
+```bash
+node -e 'const s=require("fs").readFileSync("node_modules/@tiptap/core/src/style.ts","utf8");const m=s.match(/^export const style = `([\s\S]*)`\s*$/);console.log(Buffer.byteLength(m[1],"utf8"));'
+```
+
+★★★ **THE ORIGINAL `grep` EVIDENCE POINTED THE OPPOSITE WAY FROM HOW IT WAS READ.** This entry cited
+`grep -rn "prosemirror.css" src/` returning nothing as SUPPORT for the bundler theory. Nothing imports
+that file because the CSS never travels as CSS at all — it is a JS string. `prosemirror.css` is a
+different file (`prosemirror-view/style/prosemirror.css`, 1243 bytes, so not the one hashed) and
+`grep -rn "prosemirror.css\|style/prosemirror" node_modules/@tiptap` returns no matches either.
+prosemirror-view never injects; it only warns (`checkCSS`, `dist/index.js`, recommending you load its
+stylesheet yourself). Fires once, on initial load.
+
+★ The entry also said "The editor loads via `next/dynamic`". True of only 2 of its 8 call sites —
+`meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx`. The other six import
+`RichTextEditor` statically, so it SSRs, which is why the nonce reader must guard `typeof document`.
+Reproduce the split with `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
+(8 consumers; note `grep -rl "<RichTextEditor" src/app` returns 10 — it also catches the component and
+its own test). See §129.
 
 ★★ **Why it is prod-only, structurally** (`src/proxy.ts:51-52`) — verified on the live response header:
 
@@ -2422,21 +2448,83 @@ per-request nonce differing, was seen from the branch first and then measured on
 - ★★ **Only `main` was measured.** That is sufficient to establish the branch did not introduce it, but
   it is **not** an independent re-confirmation of the branch-side observation — the two are one
   measurement plus one corroborating sighting, not two measurements.
-- **Which fix is right.** Both options below are recorded; neither is decided.
+- ~~**Which fix is right.**~~ SETTLED — option A (`injectNonce`) shipped; see below.
 - Whether any other lazily-loaded dependency injects an un-nonced `<style>` on a route the smoke does not
   reach. Only one such element was found on initial load; the sweep was not exhaustive across all views.
+  ★ Still not settled. The `prod-smoke` job narrows it over time rather than answering it — the smoke
+  walks the nav views it can reach, so a surface it never opens stays unmeasured.
 
-### Fix options — recorded, neither chosen
+### Fix — option A chosen and shipped
 
-1. **Nonce Next's runtime style injection**, so the injected `<style>` carries the per-request nonce and
-   the policy is unchanged.
-2. **Allow `'unsafe-inline'` in prod `style-src-elem`.** ★★ This weakens the policy
-   `docs/security/threat-model.md:71` leans on — precisely: that row's mitigation reads "strict
-   nonce-based CSP, no `unsafe-inline` script" and lists `style-src-attr 'unsafe-inline'` as the single
-   documented low-risk residual. Option 2 would extend that residual from style *attributes* to style
-   *elements*. It does not touch the script axis, so it is narrower than "abandons the CSP" — but it is a
-   real widening of the one exception the threat model already calls out, and it should be argued on that
-   row, not around it.
+`injectNonce`, a first-class `@tiptap/core` option this entry did not know about (declared beside
+`injectCSS: boolean`). `src/app/csp-nonce.ts` reads the per-request nonce and `rich-text-editor.tsx`
+passes it to the app's single `useEditor`. **`src/proxy.ts` is untouched and the CSP is unchanged.**
+
+★★ It covers BOTH Tiptap injection points — `Editor.ts` and `@tiptap/extensions`'s selection extension
+both read `editor.options.injectNonce` — which the previously-recorded option 1 shape would not have.
+
+The two options recorded earlier were rejected. **`injectCSS: false` + owning the CSS** copies a
+dependency stylesheet (drift), gates only `Editor.injectCSS()` and not the selection extension's tag, and
+would import `border-top: 1px solid black`, an off-palette literal the palette-sweep scans for.
+**`'unsafe-inline'` in prod `style-src-elem`** would widen the single documented residual in
+`docs/security/threat-model.md` — that row's mitigation reads "strict nonce-based CSP, no `unsafe-inline`
+script" and lists `style-src-attr 'unsafe-inline'` as the one low-risk residual — from style *attributes*
+to style *elements*.
+
+★★★ **THE UNIT TEST CANNOT PROVE THIS AND MUST NOT BE READ AS PROVING IT.** `readCspNonce` reads the
+`.nonce` IDL property, because a real browser EMPTIES the `nonce` content attribute on insertion ("nonce
+hiding") and keeps the value only on the IDL slot. jsdom does not implement nonce hiding, so
+`getAttribute("nonce")` passes every unit test and returns `""` in production. Measured, not reasoned: a
+reviewer mutated `.nonce` into `getAttribute("nonce")` and **the entire unit suite stayed GREEN**.
+
+Confirmed in Chromium against a real `next start`, 2026-08-09. Response headers checked first to confirm
+the STRICT prod policy was in force. Landing view sufficed — `dashboard-sections/dashboard-narrative.tsx`
+mounts `RichTextEditor` statically on the dashboard, so no navigation was needed.
+
+**Shipped code:**
+
+```
+{
+  "scriptSelectorMatched": true,
+  "scriptAttrValue": "",
+  "scriptIdlValue": "YTQwZDYwZmUtNDczYy00YjdhLWExNjktNmY4ZjQxMjBkOTA2",
+  "styleTagPresent": true,
+  "styleNonce": "YTQwZDYwZmUtNDczYy00YjdhLWExNjktNmY4ZjQxMjBkOTA2"
+}
+CSP violations seen: 0 []
+```
+
+`styleNonce === scriptIdlValue` byte for byte: the value read off the IDL property is the value that
+reached Tiptap's injected `<style data-tiptap-style>`.
+
+**Negative control** — same commit, same server, `.nonce` replaced by `getAttribute("nonce")`:
+
+```
+{
+  "scriptSelectorMatched": true,
+  "scriptAttrValue": "",
+  "scriptIdlValue": "OTYxMjAzY2EtMzM3NC00YTdjLWJhYmQtNDc2N2Y2YTdjOGFj",
+  "styleTagPresent": true,
+  "styleNonce": ""
+}
+CSP violations seen: 1 [ "Applying inline style violates ... 'style-src-elem 'self'
+'nonce-OTYxMjAzY2EtMzM3NC00YTdjLWJhYmQtNDc2N2Y2YTdjOGFj''. ..." ]
+```
+
+★★★ The refusal quotes the SAME nonce `scriptIdlValue` carries — the browser is saying the correct value
+was on the page and the code simply failed to read it. So necessity here is an OBSERVATION, not a
+deduction.
+
+★★ `styleTagPresent` stays `true` under the mutation. Tiptap injects the tag either way and the browser
+then refuses to APPLY it — so "a style tag exists" proves nothing; only `styleNonce` does.
+
+★★★ The mutated build COMPILES AND SERVES CLEANLY. The failure is silent at every layer except the
+browser console. That is why the unit suite stayed green on it, and why a real-browser probe rather than
+a test is what proves this fix.
+
+**The gate that now covers this:** `npm run e2e:smoke:prod` (`scripts/e2e-smoke-prod.mjs`) and the
+BLOCKING `prod-smoke` CI job. Baseline before the fix on this branch: `=== ISSUES (1) ===`, the
+`style-src-elem` violation and nothing else. After: `=== ISSUES (0) ===`.
 
 ### ★★★ Why this went unseen — the process lesson
 
@@ -7490,3 +7578,46 @@ without it the guard is unpinned exactly as `use-abortable-ai.ts`'s `setError` g
 ★★ Severity is lower than §127's: nothing is billed twice and nothing leaks, the UI just reads idle
 early. Filed rather than fixed because slice 3's review rounds were already three deep and this is a
 non-AI surface none of them touched — a fourth widening was the wrong call.
+
+---
+
+## 129. Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle — open, a decision, measured
+
+**Where:** `src/app/rich-text-editor.tsx`'s consumers.
+
+| Import style | Sites |
+|---|---|
+| STATIC (SSRs) | `change-edit-modal.tsx` · `dashboard-sections/dashboard-narrative.tsx` · `milestone-edit-modal.tsx` · `note-log-panel.tsx` · `raid-edit-modal.tsx` · `task-form-fields.tsx` |
+| `dynamic(..., { ssr: false })` | `meeting-report-panel.tsx` · `settings-sections/comm-templates-section.tsx` |
+
+Reproduce: `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'` returns the 8
+consumers; intersect with `grep -rln "ssr: *false" src/app --include="*.tsx"` for the 2. ★ Do NOT use
+`grep -rl "<RichTextEditor" src/app` — it returns 10, catching the component and its own test.
+
+Raised while fixing §54, and deliberately NOT folded into it.
+
+★★★ **CONVERTING THE SIX WOULD NOT HAVE FIXED §54, AND READING IT AS AN ALTERNATIVE FIX IS THE TRAP.**
+`useEditor` is called with `immediatelyRender: false`, which defers Editor construction — and therefore
+`injectCSS()` — to mount. So the un-nonced `<style>` is injected client-side under BOTH import styles and
+the CSP violation is byte-identical. `ssr: false` changes where the component renders, not where Tiptap
+injects.
+
+★★ Nor does it let the `typeof document` guard in `csp-nonce.ts` go away. Even with every site converted
+the guard stays: it costs one line, it makes the function total, and a future static import would
+silently reintroduce the SSR call. So there is no simplification on offer either — the two questions are
+independent.
+
+★ Static + `immediatelyRender: false` is a SUPPORTED Tiptap configuration, not an oversight. That flag
+exists precisely so the editor can be SSR'd safely. The two dynamic sites are a settings panel and a
+report panel, where lazy-loading a rarely-opened surface is its own justification — they are not evidence
+the other six are wrong.
+
+**The real question is bundle weight, and it is UNMEASURED.** `@tiptap/react` + `@tiptap/starter-kit` +
+the prosemirror tree is large, and six static imports put it in the initial bundle. Nobody has measured
+the delta. **Measure before deciding** — a conversion argued from "Tiptap is big" rather than from a
+number is the same class of reasoning that put the wrong mechanism in §54.
+
+**Costs if it is done.** Mount timing changes in six surfaces that all carry test suites; each needs a
+`loading:` fallback or a modal shows a blank flash while the chunk loads; and each affected test goes
+from a synchronous `render` to `await waitFor`. That is a real behavioural surface, which is why it is
+its own slice rather than a rider.
