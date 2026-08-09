@@ -8,6 +8,53 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.226.0] - 2026-08-09 "Emshwiller"
+
+Undo stopped being a one-step-at-a-time affair, every button that starts an AI
+call can now stop it, and a budget bucket's role line opens to the people
+behind it.
+
+### Added
+
+- **Multi-step undo history.** The caret beside Undo previewed a single entry;
+  it now opens the whole stack as a list, newest first. Hovering or arrowing to
+  an entry bands every entry back to it and the footer says how many will be
+  reverted. Enter or a click reverts them all as one commit — one activity-log
+  line and one toast. Putting them back works the same way in reverse: the Redo
+  button takes one step at a time, and the redo history replays a run of them
+  together.
+- **A Stop affordance on the six AI trigger sites this release covers.** A
+  shared `AiTriggerButton` flips the visible label and the accessible name to
+  "Stop" while a call is in flight and routes the click to cancel it. The
+  insight-recommendation call gained the `AbortController` it did not have.
+  Six is the number of sites converted, not the number of AI calls the app can
+  start: the background insight-recommendation runner still has no cancellation
+  (open-followups §120), and the dashboard digest's "Generate now" and the
+  steering meeting report's "Draft with AI" still only grey out while they run
+  (open-followups §125).
+- **Budget bucket people rows.** Each role line in a bucket expands to the
+  people behind it with their booked and planned hours. Booked is read from the
+  per-device Timelog cache, so it can disagree with the persisted per-role
+  actuals shown on the role row above it, and the people figures are not
+  expected to sum to that row — bookers whose role has no line stay in
+  `unattributed`. Both gaps are filed as open-followups §122.
+- **Insights and Timelog links are seeded for e2e**, so both panes are axe
+  scanned with real rows for the first time rather than over an empty state.
+  Two of the seeded insights deliberately share a type, which is what makes the
+  Insights rows render the duplicate-control-name case the panel has always
+  had; it is pinned by an e2e assertion and filed as open-followups §126,
+  because no accessibility gate in this repo can detect it.
+
+### Fixed
+
+- **The settings rail no longer wraps into a tall stack on a narrow window**
+  (open-followups §112, measured 116px → 36px at 760px and unchanged at
+  1280px).
+- **The undo footer read "Undo 1 actions"**, and a scroll-induced `mouseenter`
+  silently overwrote the undo listbox's keyboard position.
+- **The budget disclosure chip clipped role labels with no ellipsis**
+  (open-followups §123).
+
 ## [0.225.0] - 2026-08-09 "Walton"
 
 Word and PowerPoint exports keep the formatting you wrote. Until now every

@@ -72,8 +72,11 @@ export interface InsightsPanelProps {
   today: string;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only log. */
   actions?: InsightActions;
-  /** Id of the insight (if any) whose AI recommendation is generating (#6B SP2). */
+  /** Id of the insight whose AI recommendation is generating (#6B SP2) —
+   *  PER-ROW: only that row's CTA shows Stop. */
   generatingId?: number | null;
+  /** Aborts the in-flight recommendation generate. */
+  onCancelGenerate?: () => void;
   aiEnabled?: boolean;
   /** Deep-link to the insight's entity (only rendered when `entityRef` is set). */
   onOpen?: (ref: InsightEntityRef) => void;
@@ -87,6 +90,7 @@ export function InsightsPanel({
   today,
   actions,
   generatingId,
+  onCancelGenerate,
   aiEnabled,
   onOpen,
   isPopout,
@@ -271,6 +275,7 @@ export function InsightsPanel({
                             lang={lang}
                             actions={actions!}
                             generatingId={generatingId}
+                            onCancelGenerate={onCancelGenerate}
                             aiEnabled={aiEnabled}
                           />
                         </>

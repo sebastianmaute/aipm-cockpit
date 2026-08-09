@@ -268,7 +268,15 @@ export function SettingsView(props: SettingsViewProps) {
           //   contents box is dropped from the layout tree, and its exposure to
           //   the a11y tree has been browser-version-dependent. `flex-col
           //   gap-1` reproduces the nav's own column spacing exactly.
-          <div role="group" aria-label={t(lang, labelKey)} className="flex flex-col gap-1">
+          // ★★ `max-md:` is LOAD-BEARING. Above the breakpoint the nav is
+          //   `md:flex-col`, where `flex-basis` resolves against the MAIN axis —
+          //   height — so a bare `basis-full` would set this group to 100% of the
+          //   nav's height and break the desktop rail, which is correct today.
+          //   Below `md` the nav is `flex-row flex-wrap` and the group is one
+          //   flex ITEM, so without a full-width basis the active parent pill
+          //   stretches to the group's height (measured 116px at 760px wide) and
+          //   unrelated top-level entries share a visual row with a child.
+          <div role="group" aria-label={t(lang, labelKey)} className="flex flex-col gap-1 max-md:basis-full">
             {children.map((c) => renderRailButton(c, true))}
           </div>
         )}

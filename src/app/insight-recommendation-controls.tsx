@@ -6,6 +6,7 @@
 
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
 import type { Insight, InsightActions } from "./insights/insight";
 
 export interface InsightRecommendationControlsProps {
@@ -14,8 +15,12 @@ export interface InsightRecommendationControlsProps {
   title: string;
   lang: Lang;
   actions: InsightActions;
-  /** Id of the insight (if any) whose recommendation is currently generating. */
+  /** Id of the insight (if any) whose recommendation is currently generating —
+   *  PER-ROW, so only the running row's CTA shows Stop. Undefined → idle. */
   generatingId?: number | null;
+  /** Aborts the in-flight generate — GLOBAL, since only one generate can ever
+   *  be running. Undefined at surfaces that don't wire it. */
+  onCancelGenerate?: () => void;
   /** Whether AI is enabled + configured. `false` hides the Generate CTA (apply /
    *  reject of an EXISTING recommendation stay available — they don't call AI).
    *  Undefined = unknown (tests) → treated as enabled for back-compat. */
@@ -32,21 +37,31 @@ function GenerateRecommendationCta({
   lang,
   actions,
   generatingId,
+  onCancelGenerate,
   aiEnabled,
 }: InsightRecommendationControlsProps) {
   if (aiEnabled === false) return null;
-  const isGenerating = generatingId === insight.id;
-  const labelKey = isGenerating ? "insightRecommendationGenerating" : "insightGenerateRecommendation";
+  // ★ `nameQualifier` is NOT optional polish here — every insight row renders
+  //   this CTA, so without the row-unique suffix a list is N identically-named
+  //   buttons (WCAG 2.4.6), and it must qualify the Stop state too since that
+  //   is exactly when they all read the same word.
+  // ★★ `busy` is PER-ROW and `onCancel` is GLOBAL, and that pairing is correct
+  //   rather than inconsistent. The invariant is "a Stop button must stop the
+  //   call it appears to belong to": only one generate can ever be in flight
+  //   (`useAbortableAi.run` aborts the previous one), so the global cancel IS
+  //   this row's call whenever this row is the one generating. Feeding the
+  //   GLOBAL flag to `busy` instead would turn EVERY row's CTA into "Stop"
+  //   while one runs, leaving a user who wants row 5 no way to say so — a
+  //   worse control than the disabled-and-labelled one this replaced.
   return (
-    <Button
-      variant="secondary"
-      size="xs"
-      disabled={isGenerating}
-      aria-label={`${t(lang, labelKey)} – ${title}`}
-      onClick={() => actions.onGenerateRecommendation(insight.id)}
-    >
-      {t(lang, labelKey)}
-    </Button>
+    <AiTriggerButton
+      lang={lang}
+      busy={generatingId === insight.id}
+      onRun={() => actions.onGenerateRecommendation(insight.id)}
+      onCancel={() => onCancelGenerate?.()}
+      idleLabelKey="insightGenerateRecommendation"
+      nameQualifier={title}
+    />
   );
 }
 

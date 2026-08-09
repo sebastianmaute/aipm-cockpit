@@ -34,7 +34,7 @@ import {
   type SkippedCell,
 } from "./alloc-plan/alloc-plan";
 import { AllocPlanModal } from "./alloc-plan-modal";
-import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
 
 type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
@@ -61,14 +61,6 @@ export interface AllocPlan {
   /** The preview/confirm modal element (null while the feature is idle). */
   modal: ReactNode;
 }
-
-// Layout only — colour/padding/motion come from the Button primitive. The
-// hand-rolled class this replaced pinned `text-ui-dark-blue` with no `dark:`
-// companion, which measures ~1.1:1 against the dark surfaces (those schemes
-// define ui-dark-blue as a near-black navy) — effectively invisible text. This
-// toolbar sits outside the axe view list AND the button only renders once AI is
-// configured, which the e2e seed never is, so no gate could ever have caught it.
-const TRIGGER_LAYOUT = "inline-flex items-center gap-1.5";
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const { settings, isPopout, lang, resources, setResources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, capture, logActivity } = deps;
@@ -271,25 +263,26 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const busy = phase === "thinking" || phase === "applying";
   const canCancel = phase !== "applying";
 
+  // ★ This trigger only OPENS the modal — the billed call fires from inside it
+  //   (`onPropose`). So `busy` is `"thinking"` alone: the other non-idle phases
+  //   ("input"/"preview"/"applying") kept the trigger DISABLED before and still
+  //   do, because none of them is a stoppable Claude call.
+  // ★ The accessible NAME stays the visible label ("Plan with AI"); the longer
+  //   `allocPlanTitle` sentence rides `description` → `title`, the accessible
+  //   DESCRIPTION. Naming the button with the long sentence would fail WCAG
+  //   2.5.3 (the visible string is not contained in it); dropping the sentence
+  //   entirely would lose real disclosure for screen-reader users.
   const button = enabled ? (
-    // The accessible name is the VISIBLE label; the longer sentence moves to
-    // `title` (the accessible description). Naming it "Plan resource
-    // allocations with AI" while the button reads "Plan with AI" fails WCAG
-    // 2.5.3 — the visible string is not contained in the name, so a speech user
-    // saying what they see gets no match.
-    <Button
-      variant="secondary"
-      size="xs"
-      onClick={onOpen}
-      disabled={phase !== "idle"}
-      aria-busy={phase !== "idle"}
-      aria-label={t(lang, "allocPlan")}
-      title={t(lang, "allocPlanTitle")}
-      className={TRIGGER_LAYOUT}
-    >
-      <SparklesIcon aria-hidden="true" className="h-4 w-4" />
-      {t(lang, "allocPlan")}
-    </Button>
+    <AiTriggerButton
+      lang={lang}
+      busy={phase === "thinking"}
+      onRun={onOpen}
+      onCancel={reset}
+      idleLabelKey="allocPlan"
+      idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
+      description={t(lang, "allocPlanTitle")}
+      disabled={phase !== "idle" && phase !== "thinking"}
+    />
   ) : null;
 
   const modal = phase !== "idle" ? (

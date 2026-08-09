@@ -1759,7 +1759,11 @@ function TaskManagerInner() {
     },
     [setInsights],
   );
-  const { generatingId: insightGeneratingId, generate: generateInsightRecommendation } = useInsightRecommend({
+  const {
+    generatingId: insightGeneratingId,
+    generate: generateInsightRecommendation,
+    cancel: cancelInsightRecommendation,
+  } = useInsightRecommend({
     insights: insights ?? [],
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
     today,
@@ -2313,9 +2317,13 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     // Insights lifecycle bag (#6B SP1/SP2).
     insightActions: isPopout ? undefined : insightActions,
-    // Which insight (if any) currently has an AI recommendation generating —
-    // lets a card/row show a busy state (rendering lands in Task 10).
+    // Which insight is generating, and how to abort it. ★ The flag is PER-ROW
+    // and the cancel is GLOBAL, deliberately: only one generate can be in
+    // flight (`useAbortableAi.run` aborts the previous), so the global cancel
+    // IS the running row's call. Feeding the hook's global `busy` here instead
+    // would make EVERY row's CTA read "Stop" while one runs.
     insightGeneratingId: isPopout ? undefined : insightGeneratingId,
+    onCancelInsightRecommendation: isPopout ? undefined : cancelInsightRecommendation,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
@@ -2573,8 +2581,18 @@ function TaskManagerInner() {
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
   const undoControlEl = isPopout ? null : (
     <>
-      <UndoControl lang={lang} depth={undoApi.stack.length} onUndo={undoApi.undo} nextLabel={undoApi.stack[undoApi.stack.length - 1]?.label} />
-      <RedoControl lang={lang} depth={undoApi.redoStack.length} onRedo={undoApi.redo} nextLabel={undoApi.redoStack[undoApi.redoStack.length - 1]?.label} />
+      <UndoControl
+        lang={lang}
+        entries={undoApi.stack}
+        onUndo={undoApi.undo}
+        onUndoThrough={undoApi.undoThrough}
+      />
+      <RedoControl
+        lang={lang}
+        entries={undoApi.redoStack}
+        onRedo={undoApi.redo}
+        onRedoThrough={undoApi.redoThrough}
+      />
     </>
   );
   const { appHeaderEl, topBarMenus } = buildShellChrome({

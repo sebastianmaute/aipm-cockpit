@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InsightsPanel } from "./insights-panel";
 import { insightTitle } from "./insights/insight-text";
+import { t } from "./i18n";
 import { expectSecondaryButton } from "../test/button-variant";
 import type { Insight, InsightStatus } from "./insights/insight";
 
@@ -143,7 +144,14 @@ describe("InsightsPanel", () => {
       expect(onGenerateRecommendation).toHaveBeenCalledWith(3);
     });
 
-    it("disables the CTA and shows a generating label while this insight is generating", () => {
+    it("turns the CTA into an OPERABLE Stop while a recommendation is generating", async () => {
+      // Was: disabled + a "Generating…" label. The CTA is the shared
+      // AiTriggerButton now — a billed call always has a way to abort it.
+      // ★ Exact name, never /generate|stop/i: an alternation would also match
+      //   the idle button. ★ The `– ${title}` suffix is row-uniqueness (WCAG
+      //   2.4.6), which the axe gate is blind to.
+      const user = userEvent.setup();
+      const onCancelGenerate = vi.fn();
       const insight = makeInsight({ id: 3, type: "milestoneSlip", status: "active" });
       const title = titleOf("milestoneSlip");
       render(
@@ -155,10 +163,56 @@ describe("InsightsPanel", () => {
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
           }}
           generatingId={3}
+          onCancelGenerate={onCancelGenerate}
         />,
       );
-      const cta = screen.getByRole("button", { name: `Generating… – ${title}` });
-      expect(cta).toBeDisabled();
+      const cta = screen.getByRole("button", { name: `Stop – ${title}` });
+      expect(cta).not.toBeDisabled();
+      await user.click(cta);
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows Stop on ONLY the generating row, leaving the others runnable", async () => {
+      // ★ THE reason `busy` is per-row and not the hook's global in-flight flag.
+      //   With the global flag every row here would read "Stop", leaving a user
+      //   who wants to generate the OTHER row no way to say so. `onCancel` stays
+      //   global and that is still correct: only one generate can be in flight,
+      //   so the global cancel IS the running row's call.
+      // ★ A one-insight fixture CANNOT observe this — it passes either way.
+      const user = userEvent.setup();
+      const onGenerateRecommendation = vi.fn();
+      const onCancelGenerate = vi.fn();
+      const generating = makeInsight({ id: 3, type: "milestoneSlip", status: "active" });
+      const idle = makeInsight({ id: 4, type: "stalledWork", status: "active", entityRef: undefined, data: { count: 3 } });
+      render(
+        <InsightsPanel
+          insights={[generating, idle]}
+          lang="en-US" today={TODAY}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation, onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+          generatingId={3}
+          onCancelGenerate={onCancelGenerate}
+        />,
+      );
+      const generate = t("en-US", "insightGenerateRecommendation");
+
+      // The generating row: named Stop, and its click CANCELS.
+      await user.click(screen.getByRole("button", { name: `Stop – ${titleOf("milestoneSlip")}` }));
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1);
+
+      // The OTHER row: still named for its idle action, and its click GENERATES
+      // for its own id. ★ Asserting only that the label is present would not
+      // catch a button that is labelled "Generate" but wired to cancel — the
+      // click is what proves the row is actually still runnable.
+      await user.click(screen.getByRole("button", { name: `${generate} – ${titleOf("stalledWork")}` }));
+      expect(onGenerateRecommendation).toHaveBeenCalledTimes(1);
+      expect(onGenerateRecommendation).toHaveBeenCalledWith(4);
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1); // unchanged by that click
+
+      // And the idle row is NOT a second Stop.
+      expect(screen.queryByRole("button", { name: `Stop – ${titleOf("stalledWork")}` })).toBeNull();
     });
 
     it("shows the AI summary + Review/Reject buttons when a recommendation is proposed", async () => {

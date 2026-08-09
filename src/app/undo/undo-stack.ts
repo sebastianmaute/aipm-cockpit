@@ -263,3 +263,29 @@ export function dropEntry<E extends { meta: UndoMeta }>(
 ): E[] {
   return stack.filter((e) => e.meta.id !== id);
 }
+
+/** Take every entry from the one with `meta.id === id` up to the TOP, returned
+ *  NEWEST-FIRST (the execution order for a through-undo), plus the untouched
+ *  remainder below it. Null when the id is absent — mirrors `popUndo`'s
+ *  null-on-empty contract. Generic over the entry shape so the undo AND redo
+ *  stacks share it. Pure. */
+export function takeThrough<E extends { meta: UndoMeta }>(
+  stack: readonly E[],
+  id: number,
+): { entries: E[]; rest: E[] } | null {
+  const idx = stack.findIndex((e) => e.meta.id === id);
+  if (idx === -1) return null;
+  return { entries: stack.slice(idx).reverse(), rest: stack.slice(0, idx) };
+}
+
+/** Push N entries in array order and apply the cap ONCE. `pushUndo` caps per
+ *  call, which is correct but re-slices N times; the through-path also needs a
+ *  single fold so the commit is one setState. Pure. */
+export function pushUndoMany<E extends { meta: UndoMeta }>(
+  stack: readonly E[],
+  entries: readonly E[],
+  cap: number,
+): E[] {
+  const next = [...stack, ...entries];
+  return next.length > cap ? next.slice(next.length - cap) : next;
+}

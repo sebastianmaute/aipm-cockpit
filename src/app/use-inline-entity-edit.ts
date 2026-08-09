@@ -101,6 +101,20 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     }
   }, [paneActive]);
 
+  // ★★ A BILLED CALL MUST NEVER OUTLIVE THE SURFACE THAT STARTED IT, and the
+  // effect above does NOT cover unmount: it fires only on an `active === false`
+  // TRANSITION, and the task path passes no `active` at all (see the prop's own
+  // comment), so on that path nothing ever aborted. Navigating away UNMOUNTS the
+  // pane rather than flipping the flag — the modern shell renders only the
+  // active view, and workspace-section only the active tabpanel, so `active`
+  // moves between workspace TABS but not when workspace-section itself goes
+  // (Dashboard / Settings / AI Assistant). Without this the in-flight
+  // `callInlineEdit` kept running, billed, with no Stop anywhere.
+  // ★ Cleanup-ONLY: it sets no state, so it stays clear of the fatal
+  //   `react-hooks/set-state-in-effect` ban. Same shape as `use-tasks-dedup` /
+  //   `use-alloc-plan` / `use-raci-suggest`.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   // Stable identities so consumers threading these through a context value (the
   // task row context) don't rebuild that value — and re-render every row — on
   // every render (audit #6). Hoist the member reads to locals: exhaustive-deps

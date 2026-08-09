@@ -156,9 +156,14 @@ describe("useRaciSuggest (plan-then-apply)", () => {
   });
 
   it("names the trigger by its BUSY label while a proposal is in flight", async () => {
-    // WCAG 2.5.3: the visible text flips to "Asking Claude…", so the accessible
-    // name must follow it. Every other test here matches /suggest raci/i, which
-    // never observes the busy state at all.
+    // WCAG 2.5.3: the visible text flips while a proposal is in flight, so the
+    // accessible name must follow it. Since the trigger became the shared
+    // AiTriggerButton that busy label is "Stop" (the control now ABORTS rather
+    // than sitting disabled), not the old "Asking Claude…".
+    //
+    // ★ Matched EXACTLY, never as a regex alternation like /suggest raci|stop/i
+    //   — a matcher that accepts both states would also pass against the idle
+    //   button and stop testing the thing this test is named for.
     let release: (v: { cells: never[]; truncated: boolean }) => void = () => {};
     vi.mocked(call.runRaciSuggestion).mockReturnValue(
       new Promise((res) => { release = res; }) as ReturnType<typeof call.runRaciSuggestion>,
@@ -167,7 +172,7 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: t("en-US", "raciSuggestThinking") }),
+        screen.getByRole("button", { name: t("en-US", "aiStop") }),
       ).toBeTruthy(),
     );
     release({ cells: [], truncated: false });

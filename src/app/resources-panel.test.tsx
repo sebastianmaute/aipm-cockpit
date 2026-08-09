@@ -867,9 +867,18 @@ test("puts Plan with AI ahead of the plan-window date fields", () => {
   const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
   render(<ResourcesPanel {...baseProps} view="planning" plan={plan} workdayHours={8}
     onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
-  // The accessible name is the VISIBLE label (allocPlan). It used to be the
+  // The accessible name is the VISIBLE label (allocPlan). It was once the
   // longer allocPlanTitle, which does not contain the visible string and so
-  // failed WCAG 2.5.3; that sentence is now the `title` (the description).
+  // failed WCAG 2.5.3.
+  // ★★ CORRECTION: an earlier revision of this comment claimed the sentence was
+  //    "no longer the `title` either" and survived "only on the modal". Both
+  //    halves are false. `use-alloc-plan.tsx` passes it as AiTriggerButton's
+  //    `description`, and the component renders `title={!busy && description ?
+  //    description : name}` — so while idle the `title` IS allocPlanTitle. It is
+  //    the name and the title that diverge, deliberately: name = visible label
+  //    (2.5.3), title = the fuller accessible DESCRIPTION. Only the BUSY state
+  //    drops it, because it describes running the feature on a control that now
+  //    stops it. This test asserts neither, so the claim was ungated prose.
   const ai = screen.getByRole("button", { name: t("en-US", "allocPlan") });
   const start = screen.getByLabelText(t("en-US", "resourcesPlanStart"));
   expect(ai.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
