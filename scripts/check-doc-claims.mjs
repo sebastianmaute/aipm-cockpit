@@ -26,6 +26,7 @@ import {
   citesOnLine,
   collectDocs,
   collectSources,
+  countLines,
   resolveCandidates,
   stripFencedBlocks,
   THIRD_PARTY_RE,
@@ -39,11 +40,13 @@ const BASELINE = "docs/baselines/doc-line-cites.json";
 
 const sources = collectSources();
 
+// The off-by-one this closes is documented on `countLines` in the lib, where it
+// is unit-tested. Found cold-review 2026-08-09.
 const lineCounts = new Map();
 function lineCountOf(path) {
   if (!lineCounts.has(path)) {
     try {
-      lineCounts.set(path, readFileSync(path, "utf8").split("\n").length);
+      lineCounts.set(path, countLines(readFileSync(path, "utf8")));
     } catch {
       lineCounts.set(path, null);
     }

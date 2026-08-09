@@ -253,7 +253,19 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # ★★ The PARSING lives in `scripts/doc-claims-lib.mjs` and HAS A UNIT
                             # TEST (`doc-claims-lib.test.mjs`) — every defect this gate has shipped
                             # was a regex defect, and both were found by running it against the real
-                            # docs, never by reading it. `vitest.config.ts` `include` now covers
+                            # docs, never by reading it. ★★★ A COLD REVIEW THEN FOUND SIX MORE, TWO
+                            # OF WHICH COULD FAIL A GOOD BRANCH: `@` was missing from the citation
+                            # char classes, so a scoped package (`@tiptap/...`) parsed with the `@`
+                            # stripped and was counted as REPO DEBT rather than third-party; and
+                            # `stripFencedBlocks` was a parity toggle that missed BLOCKQUOTED and
+                            # TILDE fences, inverted on an inline ``` span, and let NESTED fences
+                            # leak — a `> ```bash` block exists in README.md today. Also: bare
+                            # RANGES (`:113-116`) were invisible, a URL with a line anchor parsed as
+                            # a citation, and the range check counted one line too many so a cite to
+                            # exactly one past EOF passed. All fixed and mutation-proved; details in
+                            # open-followups §131. ★ Fixing them made the gate STRICTER and it found
+                            # more at once (537 → 541 cites, a second broken cite in the snapshot).
+                            # `vitest.config.ts` `include` now covers
                             # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
                             # coverage `include` deliberately stays `src/**`, so a script test raises
                             # no floor. ★ The two truncation guards (extension order + PATH_RE's

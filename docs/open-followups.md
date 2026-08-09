@@ -7751,7 +7751,10 @@ shifted by an insertion still passes.** That is not a gap to be closed later —
 "prefer a symbol" rather than "keep the numbers fresh".
 
 ★★ MEASURED ON THE ROW THAT MOTIVATED THE GATE, not reasoned. `threat-model.md`'s server-logging row
-cited three files. TWO were wrong: `timelog/_helpers.ts` cited at line 185, one past its 184; and
+cited three files. TWO were wrong: `timelog/_helpers.ts` cited at line 185, past its 183 (this said
+"one past its 184" until a cold review found the gate's own line arithmetic counted the empty string
+after the trailing newline — the file has 183 citable lines, so the cite is TWO past, and a cite to
+:184 was silently passing); and
 `jira/_helpers.ts` cited at line 181, while the only `console.error` in it sits at line 117 — 64 off. The gate
 caught the first and was **silent** on the second, because being 64 lines wrong is indistinguishable
 from being right when the only question asked is "does line 181 exist". One of two. Both were also
@@ -7854,6 +7857,55 @@ tests" would have led to rewriting tests that were already correct. Note also th
 sitting beside the two real truncation regressions is NOT one (`yml` is not a prefix of `yaml`, so no
 ordering can truncate it); it is relabelled as a plain positive case, because a vacuous test filed
 under "regression" is worse than no test — it is counted as cover.
+
+**★★★ A COLD REVIEW OF THE GATE FOUND SIX REAL DEFECTS, and two of them could FAIL A GOOD BRANCH.**
+Dispatched after the tests existed, scoped to the parsing, and required to report an executed input
+and its observed output for every finding. All six were verified independently before being fixed;
+every one reproduced.
+
+- **Scoped packages were counted as repo debt.** `@` was absent from the citation character classes,
+  so a line-numbered cite to `node_modules/@tiptap/core/dist/index.js` parsed as
+  `tiptap/core/dist/index.js` — the `@` split the token and took the `node_modules/` prefix with it.
+  ★ Writing that example WITH its line number tripped this very ratchet, which is the fix
+  demonstrating itself: before it, the gate could not see that citation at all.
+  `THIRD_PARTY_RE`'s `@[\w.-]+/` branch
+  was therefore UNREACHABLE from anything the parser produced, and the first person to cite a scoped
+  package in prose would have reddened the gate. ★★ Its unit tests passed throughout because they
+  feed the classifier hand-written literals and never `citesOnLine` output — a dead branch reads as
+  live when the pipeline between the two is untested. There is now a test on the composed pipeline.
+- **`stripFencedBlocks` was a six-line parity toggle with four failure modes**, three of them one
+  authoring habit away: a BLOCKQUOTED fence (`> ```bash`) was not recognised, so its contents were
+  scanned as prose — and README.md carries one TODAY, harmless only by luck of content; TILDE fences
+  were unhandled; a line containing an INLINE ``` span inverted the parity and silently swallowed
+  every line to the next fence (a mass false negative); and a NESTED fence closed the outer block,
+  leaking fenced content back out. Replaced with CommonMark's actual rule — open on a run of ≥3 of
+  one char plus an info string containing no fence char, close only on a longer-or-equal run of the
+  SAME char with nothing after it.
+- **Bare RANGES were invisible.** `` `:113-116` `` did not match, so the gate was blind to precisely
+  the form the "cite the SYMBOL, not a line RANGE" rule exists to discourage. Live in
+  `docs/security/threat-model.md`. Only the START line is range-checked.
+- **A URL with a line anchor parsed as a citation.** `https://github.com/x/y/blob/main/app.js:12`
+  became a cite to `github.com/x/y/blob/main/app.js`, which resolves to nothing — so merely LINKING
+  to code on the web would have failed the gate.
+- **The range check was off by one.** It counted `split("\n").length`, which includes the empty
+  string after a trailing newline, so a citation to exactly one past EOF passed and every failure
+  message overstated the file by one. Now `countLines`, unit-tested, and the reason the numbers in
+  this very section moved. ★ `check-file-sizes.mjs` counts the other way on purpose — that gate asks
+  how big a file is, this one asks which line numbers exist. Do not "align" them.
+
+★★ FIXING THEM MADE THE GATE STRICTER AND IT IMMEDIATELY FOUND MORE: 537 → 541 citations (four had
+been hidden by the `@` and range blind spots) and a SECOND out-of-range cite in the dated snapshot
+that the off-by-one had been passing. All four fixes are mutation-proved (4/4 killed). Debt is now
+1 unresolvable + 2 out-of-range, **all three in `findings-2026-07.md`** — every living doc is clean.
+
+★ WHAT THE REVIEW DID NOT FIND, which is worth as much: zero live false positives across the whole
+corpus (218 distinct cited paths), zero mis-attributions across all 52 bare-cite attributions — each
+read against its source line, including the awkward colon-less-mention cases — and no catastrophic
+backtracking (quadratic, cleanly 4× per doubling; a 50k-char line parses in ~1.8s). The
+nearest-preceding-MENTION anchor does exactly what its comment claims. ★ One accepted looseness:
+`resolveCandidates`' dotfile fallback also matches `config.ts` → the three `*.config.ts` files, and
+`route.ts` already resolves to 12 candidates, so those citations are effectively unchecked (a cite is
+only flagged when EVERY candidate is out of range). Permissive, so it cannot redden a good branch.
 
 **Deliberately NOT built: staleness detection.** The strongest available check is "was the cited file
 modified after the doc line was written", via `git blame` on the doc plus `git log` on each cited

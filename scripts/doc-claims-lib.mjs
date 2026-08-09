@@ -24,8 +24,16 @@ import { readdirSync } from "node:fs";
 // PATH_RE is the real guard; this order is the belt to its braces.
 export const SOURCE_EXT = "tsx|ts|mjs|json|js|yaml|yml|css";
 
+// ★★ `@` IS IN BOTH CLASSES ON PURPOSE. Without it a cite to a scoped package —
+// `node_modules/@tiptap/core/dist/index.js:88` — parsed as
+// `tiptap/core/dist/index.js`: the `@` split the token, taking the
+// `node_modules/` prefix with it. THIRD_PARTY_RE's `@[\w.-]+/` branch was then
+// unreachable from anything the parser produced, so a legitimate dependency
+// citation landed in `unresolved` and FAILED the gate on a branch that was fine.
+// Found cold-review 2026-08-09; the classifier's own unit tests passed the whole
+// time because they feed it hand-written literals, never `citesOnLine` output.
 export const CITE_RE = new RegExp(
-  `([A-Za-z0-9_][A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})):(\\d+)`,
+  `([@A-Za-z0-9_][@A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})):(\\d+)`,
   "g",
 );
 
@@ -42,7 +50,13 @@ export const CITE_RE = new RegExp(
 // theory: AGENTS.md's `` `:3000` `` is a PORT NUMBER, and a cross-line rule
 // would have hunted for a source file to hang it on. A gate that invents a
 // citation is worse than one with a known blind spot. See open-followups §131.
-export const BARE_CITE_RE = /`:(\d+)`/g;
+// ★★ The optional `-N` tail catches a bare RANGE — `` `:113-116` ``. Without it
+// the gate was blind to exactly the form AGENTS.md tells authors NOT to write
+// ("cite the SYMBOL, not a line RANGE"): a full `a.ts:12-40` was already caught
+// (CITE_RE stops at the first number), but its bare continuations were not.
+// `docs/security/threat-model.md` carries two of them on one line today. Only
+// the START line is checked — that is what the range claims to begin at.
+export const BARE_CITE_RE = /`:(\d+)(?:[-–]\d+)?`/g;
 
 // ★★★ The anchor is the nearest preceding FILE MENTION, with or without a line
 // number — NOT the nearest preceding `path:LINE`. Measured: a first cut used the
@@ -53,7 +67,7 @@ export const BARE_CITE_RE = /`:(\d+)`/g;
 // 153-line file — and reported four out-of-range violations that do not exist.
 // A gate reporting a green branch as red is the expensive direction.
 export const PATH_RE = new RegExp(
-  `[A-Za-z0-9_][A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})(?![A-Za-z0-9_])`,
+  `[@A-Za-z0-9_][@A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})(?![A-Za-z0-9_])`,
   "g",
 );
 
@@ -115,16 +129,59 @@ export function collectSources() {
 // ★ A fenced block holds EXAMPLES — command output, stack traces, sample code.
 // A `foo.ts:12` in there is not a claim about this repo, and gating it would
 // make the rule fire on its own documentation. Prose is what makes claims.
+// ★★★ This was a six-line parity toggle on `/^\s*```/` and had FOUR failure
+// modes, three of them one authoring habit away. All four were reproduced in a
+// cold review on 2026-08-09; the first already exists in the corpus.
+//   1. A BLOCKQUOTED fence (`> ```bash`) did not match, so every command inside
+//      it was scanned as prose. README.md carries one today — harmless only
+//      because its content happens to hold nothing cite-shaped.
+//   2. A TILDE fence (`~~~`) was not recognised at all.
+//   3. A line holding an INLINE triple-backtick span toggled the parity, so
+//      everything from there to the next fence line silently vanished from the
+//      scan — a mass false NEGATIVE, and a baseline churn when someone reflows.
+//   4. NESTED fences (` ````md ` wrapping ` ```js `) closed at the inner fence,
+//      leaking fenced content back out as prose.
+// The fix is CommonMark's own rule, not a bigger regex: a fence OPENS on a line
+// that is a run of >=3 of one char plus an info string containing NO fence char,
+// and CLOSES only on a run of the SAME char at least as long, with nothing after
+// it. An info string is why "fence line and nothing else" would be wrong for the
+// opener, and why the closer has to be stricter than the opener.
+const FENCE_RE = /^\s*(?:>\s?)*(`{3,}|~{3,})([^`~]*)$/;
+
 export function stripFencedBlocks(text) {
   const lines = text.split(/\r?\n/);
-  let fenced = false;
+  let open = null; // { char, len } while inside a fence
   return lines.map((l) => {
-    if (/^\s*```/.test(l)) {
-      fenced = !fenced;
+    const m = FENCE_RE.exec(l);
+    if (m) {
+      const char = m[1][0];
+      const len = m[1].length;
+      if (open === null) {
+        open = { char, len };
+        return "";
+      }
+      // A closer takes no info string and must match the opener's char and
+      // reach its length — otherwise it is content inside the block.
+      if (char === open.char && len >= open.len && m[2].trim() === "") {
+        open = null;
+        return "";
+      }
       return "";
     }
-    return fenced ? "" : l;
+    return open !== null ? "" : l;
   });
+}
+
+// ★★ The number of lines a reader can actually CITE. `split("\n").length` is one
+// MORE than that for a newline-terminated file — the trailing element is the
+// empty string after the last newline, not a line. Counting it let a citation to
+// exactly one past the end pass the range check, and made every failure message
+// overstate the file by one ("file has 184 lines" for a 183-line file).
+// ★ `check-file-sizes.mjs` deliberately counts the OTHER way; do not "align"
+// them. That gate asks how big a file is, this one asks what line numbers exist.
+export function countLines(text) {
+  if (text === "") return 0; // an empty file has no line 1 to cite
+  return text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
 }
 
 export function resolveCandidates(citedPath, sources) {
@@ -143,13 +200,23 @@ export function resolveCandidates(citedPath, sources) {
 // Every citation a single line makes: the explicit `path:LINE` ones, plus each
 // bare `` `:LINE` `` attributed to the nearest file MENTION to its LEFT. A bare
 // span with no mention before it on the same line is skipped — see BARE_CITE_RE.
+// ★ A URL is not a citation. `https://github.com/x/y/blob/main/app.js:12` parsed
+// as a cite to `github.com/x/y/blob/main/app.js`, which resolves to nothing and
+// would FAIL the gate on a doc that merely links to code. The host always sits
+// directly after `//`, so that is the whole test.
+const isUrlPath = (line, index) => line.slice(Math.max(0, index - 2), index) === "//";
+
 export function citesOnLine(line) {
-  const out = [...line.matchAll(CITE_RE)].map((m) => ({
-    citedPath: m[1],
-    lineNo: m[2],
-    index: m.index,
-  }));
-  const mentions = [...line.matchAll(PATH_RE)];
+  const out = [...line.matchAll(CITE_RE)]
+    .filter((m) => !isUrlPath(line, m.index))
+    .map((m) => ({
+      citedPath: m[1],
+      lineNo: m[2],
+      index: m.index,
+    }));
+  // A URL host is not an anchor either, or a bare `:N` after a link would be
+  // attributed to a "file" that is really github.com/....
+  const mentions = [...line.matchAll(PATH_RE)].filter((m) => !isUrlPath(line, m.index));
   for (const b of line.matchAll(BARE_CITE_RE)) {
     const anchor = mentions.filter((f) => f.index < b.index).pop();
     if (anchor) out.push({ citedPath: anchor[0], lineNo: b[1], index: b.index });

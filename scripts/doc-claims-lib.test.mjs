@@ -23,10 +23,35 @@
 import { describe, expect, it } from "vitest";
 import {
   citesOnLine,
+  countLines,
   resolveCandidates,
   stripFencedBlocks,
   THIRD_PARTY_RE,
 } from "./doc-claims-lib.mjs";
+
+describe("countLines", () => {
+  it("regression: does not count the empty string after a trailing newline", () => {
+    // `split("\n").length` says 3 here. There is no line 3 to cite, so a
+    // citation to :3 used to pass the range check.
+    expect(countLines("a\nb\n")).toBe(2);
+  });
+
+  it("counts a file with no trailing newline", () => {
+    expect(countLines("a\nb")).toBe(2);
+  });
+
+  it("counts a single line", () => {
+    expect(countLines("a")).toBe(1);
+  });
+
+  it("treats an empty file as zero lines", () => {
+    expect(countLines("")).toBe(0);
+  });
+
+  it("counts a lone newline as one line", () => {
+    expect(countLines("\n")).toBe(1);
+  });
+});
 
 const paths = (line) => citesOnLine(line).map((c) => `${c.citedPath}:${c.lineNo}`);
 
@@ -130,6 +155,48 @@ describe("citesOnLine — extension matching", () => {
   });
 });
 
+describe("citesOnLine — cold-review regressions (2026-08-09)", () => {
+  it("regression: a scoped package keeps its @ and stays one token", () => {
+    // Without `@` in the char classes this parsed as `tiptap/core/dist/index.js`
+    // — the `@` split the token and took the `node_modules/` prefix with it, so
+    // a legitimate dependency citation was counted as repo debt and FAILED the
+    // gate on a good branch.
+    expect(paths("crash in `node_modules/@tiptap/core/dist/index.js:88`")).toEqual([
+      "node_modules/@tiptap/core/dist/index.js:88",
+    ]);
+  });
+
+  it("regression: THIRD_PARTY_RE classifies what citesOnLine ACTUALLY produces", () => {
+    // ★ The classifier's other tests feed it hand-written literals, so its
+    // `@scope` branch read as live while nothing the parser emitted could ever
+    // reach it. Assert on the composed pipeline, not on the regex in isolation.
+    const [cite] = citesOnLine("see `@tiptap/core/dist/index.js:88`");
+    expect(cite.citedPath).toBe("@tiptap/core/dist/index.js");
+    expect(THIRD_PARTY_RE.test(cite.citedPath)).toBe(true);
+  });
+
+  it("regression: a bare RANGE continuation is caught, at its start line", () => {
+    // The exact form AGENTS.md tells authors not to write was the one form the
+    // gate could not see. Live in docs/security/threat-model.md.
+    expect(paths("`secrets.ts` at `:113-116`, iters `:46`")).toEqual([
+      "secrets.ts:113",
+      "secrets.ts:46",
+    ]);
+  });
+
+  it("regression: a URL with a line anchor is not a citation", () => {
+    expect(paths("See https://github.com/x/y/blob/main/app.js:12 for detail")).toEqual([]);
+  });
+
+  it("regression: a URL host cannot anchor a bare continuation", () => {
+    expect(paths("See https://github.com/x/y/app.js then `:12`")).toEqual([]);
+  });
+
+  it("a real cite still wins when a URL is also on the line", () => {
+    expect(paths("https://example.com/a.js:9 but `real.ts:4` is ours")).toEqual(["real.ts:4"]);
+  });
+});
+
 describe("stripFencedBlocks", () => {
   it("blanks lines inside a fence but keeps line positions", () => {
     const out = stripFencedBlocks(["before", "```", "`a.ts:1`", "```", "after"].join("\n"));
@@ -149,6 +216,44 @@ describe("stripFencedBlocks", () => {
   it("handles CRLF input", () => {
     const out = stripFencedBlocks("before\r\n```\r\n`a.ts:1`\r\n```\r\nafter");
     expect(out).toEqual(["before", "", "", "", "after"]);
+  });
+
+  it("keeps an opener's info string working", () => {
+    // The opener MAY carry an info string (```bash), which is why "a fence line
+    // and nothing else" is the wrong rule for OPENING — only for closing.
+    const out = stripFencedBlocks(["```bash", "`a.ts:1`", "```", "after"].join("\n"));
+    expect(out.filter(Boolean)).toEqual(["after"]);
+  });
+
+  it("regression: strips a BLOCKQUOTED fence", () => {
+    // Live shape in README.md today, harmless only by luck of content.
+    const out = stripFencedBlocks(
+      ["> run:", "> ```bash", "> node x.mjs # see doc-claims-lib.mjs:9999", "> ```"].join("\n"),
+    );
+    expect(out.filter(Boolean)).toEqual(["> run:"]);
+  });
+
+  it("regression: strips a TILDE fence", () => {
+    const out = stripFencedBlocks(["~~~js", "see a.ts:1", "~~~", "prose b.ts:2"].join("\n"));
+    expect(out.filter(Boolean)).toEqual(["prose b.ts:2"]);
+  });
+
+  it("regression: an inline ``` span does not invert fence state", () => {
+    // This silently swallowed every line from the span to the next fence line.
+    const out = stripFencedBlocks(["```a.ts:1``` is inline-ish", "prose b.ts:2"].join("\n"));
+    expect(out.filter(Boolean)).toEqual(["```a.ts:1``` is inline-ish", "prose b.ts:2"]);
+  });
+
+  it("regression: a NESTED fence does not close the outer block", () => {
+    const out = stripFencedBlocks(
+      ["````md", "```js", "see a.ts:1", "```", "````", "prose b.ts:2"].join("\n"),
+    );
+    expect(out.filter(Boolean)).toEqual(["prose b.ts:2"]);
+  });
+
+  it("a tilde run cannot close a backtick fence", () => {
+    const out = stripFencedBlocks(["```", "a.ts:1", "~~~", "b.ts:2", "```", "after"].join("\n"));
+    expect(out.filter(Boolean)).toEqual(["after"]);
   });
 });
 

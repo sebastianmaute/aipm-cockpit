@@ -133,6 +133,7 @@
     },
     "docs/open-followups.md": {
       "_helpers.ts": 1,
+      "@vitest/runner/dist/chunk-artifact.js": 1,
       "ai-dashboard-snapshot.ts": 2,
       "ai-project-proposal.ts": 2,
       "alloc-plan/alloc-plan.ts": 1,
@@ -201,6 +202,7 @@
       "roles-panel.tsx": 1,
       "rules/forward-ref-uses-ref.js": 1,
       "rules/jsx-filename-extension.js": 1,
+      "sanitize-core.ts": 1,
       "sanitize-entities.ts": 2,
       "sanitize-html.ts": 4,
       "scripts/check-file-sizes.mjs": 2,
@@ -221,6 +223,7 @@
       "timelog-actuals-store.ts": 1,
       "timelog-apply.ts": 1,
       "tour-catalog.tsx": 1,
+      "tour-overlay.tsx": 1,
       "turso-backend.ts": 1,
       "turso-pipeline.ts": 1,
       "undo-stack.ts": 2,
@@ -246,7 +249,6 @@
       "use-undo-stack.ts": 1,
       "version.js": 1,
       "vitest/dist/chunks/coverage.DM_a_rWm.js": 1,
-      "vitest/runner/dist/chunk-artifact.js": 1,
       "voice-button.tsx": 2,
       "workspace-section-chrome.tsx": 2,
       "workspace-section.tsx": 1,
@@ -271,7 +273,7 @@
       "confluence/page/route.ts": 1,
       "jira/_helpers.ts": 9,
       "jira/_rate-limit.ts": 1,
-      "secrets.ts": 6,
+      "secrets.ts": 8,
       "src/app/secrets.ts": 1,
       "timelog/_helpers.ts": 7
     },
@@ -342,9 +344,11 @@
     "docs/security/findings-2026-07.md :: document-links-field.tsx:42"
   ],
   "knownOutOfRange": [
+    "docs/security/findings-2026-07.md :: timelog/_helpers.ts:184",
     "docs/security/findings-2026-07.md :: timelog/_helpers.ts:185"
   ],
   "thirdParty": [
+    "docs/open-followups.md :: @vitest/runner/dist/chunk-artifact.js:2442",
     "docs/open-followups.md :: lib/util/eslint.js:18",
     "docs/open-followups.md :: minimatch.js:271",
     "docs/open-followups.md :: node_modules/dompurify/dist/purify.cjs.js:767",
@@ -353,7 +357,6 @@
     "docs/open-followups.md :: rules/forward-ref-uses-ref.js:60",
     "docs/open-followups.md :: rules/jsx-filename-extension.js:64",
     "docs/open-followups.md :: version.js:31",
-    "docs/open-followups.md :: vitest/dist/chunks/coverage.DM_a_rWm.js:470",
-    "docs/open-followups.md :: vitest/runner/dist/chunk-artifact.js:2442"
+    "docs/open-followups.md :: vitest/dist/chunks/coverage.DM_a_rWm.js:470"
   ]
 }
