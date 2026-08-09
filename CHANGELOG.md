@@ -8,6 +8,50 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.225.0] - 2026-08-09 "Walton"
+
+Word and PowerPoint exports keep the formatting you wrote. Until now every
+document paragraph was flattened to plain text on its way into `.docx` and
+`.pptx`, so bold, italic, strikethrough, highlight, inline code, superscript and
+subscript all vanished, and quotes and code blocks arrived looking like ordinary
+prose. Both renderers now read the same parsed representation, so they cannot
+drift apart as more formatting is added.
+
+Documents also got their own HTML allow-list rather than sharing one with
+unrelated parts of the app, which is what lets them carry the wider set of
+formatting without loosening anything else.
+
+### Added
+
+- Mark-aware `.docx` and `.pptx` paragraph runs, from one shared parse
+  (`rich-text-runs.ts`) consumed by both renderers.
+- `sanitizeDocumentHtml`, a documents-only allow-list adding `s`, `code`,
+  `pre`, `blockquote`, `hr`, `mark`, `sub`, `sup` and `img`. Routed at all
+  three boundaries: the render sink, the load path, and the AI write boundary.
+- `Quote` and `CodeBlock` Word styles, and a bordered paragraph for `hr`.
+
+### Fixed
+
+- Ten OOXML style definitions emitted `w:rPr` and `w:pPr` children out of
+  schema sequence, which is invalid per ECMA-376 and rejected by strict
+  validators such as the Open XML SDK. Word itself renders them, so this was
+  never visible in the app.
+- The document-authoring model was still being told the narrow tag set, so the
+  wider allow-list had nothing to carry.
+- Several inaccurate claims in the developer documentation, including the
+  duplication gate's metric, which had been described as per-format since
+  before this release and compares one total instead.
+
+### Known limitations
+
+- A document paragraph whose stored value *begins* with one of the nine
+  document-only tags is still escaped to literal text on read; the classifier
+  that decides this predates the wider list and is split in a later slice.
+- A legacy plain-text paragraph carrying newlines collapses to one line in all
+  three renderers. The obvious fix shares a cause with the item above and was
+  measured to destroy valid markup, so it waits for the same work.
+- `<a href>` reaches `.docx` and `.pptx` as text without its target.
+
 ## [0.223.0] - 2026-08-08 "Okorafor"
 
 Settings stopped being one long page, and the buttons that showed nothing on
