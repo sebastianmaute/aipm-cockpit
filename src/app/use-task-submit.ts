@@ -12,7 +12,7 @@ import { type Task, type RaidItem } from "./types";
 import { applyStatusChange } from "./task-status";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { TASK_UNDO_GROUPS } from "./undo/field-groups";
-import type { UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
@@ -65,6 +65,9 @@ export interface UseTaskSubmitArgs {
    *  editor buffer discards any staged create-mode items. */
   onEditorDiscard?: () => void;
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Groups the successor-target edits into ONE undo entry — see
+   *  `recordSuccessorEdits`. */
+  captureComposite?: UndoStackApi["captureComposite"];
 }
 
 export function useTaskSubmit(args: UseTaskSubmitArgs): {
@@ -97,6 +100,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     onTaskCreated,
     onEditorDiscard,
     captureFieldEdit,
+    captureComposite,
   } = args;
 
   // `submitted` flips true on the first submit attempt so per-field errors can
@@ -233,40 +237,79 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // entries, and a create pushes none at all (creates are not undoable
       // here) — the target entries then stand alone.
       //
-      // ★★ captureFieldEdit MERGES before/after onto the live row by id rather
-      // than replacing it, so these entries cannot revert a field this save
-      // never touched. A whole-row capture() would give one tidier entry and
-      // inherit open-followups §50, where undo restores a stale row.
+      // ★★ The capture MERGES before/after onto each live row by id rather than
+      // replacing it, so it cannot revert a field this save never touched. A
+      // whole-row capture() / capturePart() would inherit open-followups §50,
+      // where undo restores a stale row — which is why the fan-out is grouped
+      // with `captureFieldPart`, the field-level fragment, rather than with the
+      // whole-row `capturePart` that `captureComposite`'s other callers use.
       //
       // ★★ The undo IMAGES stay snapshot-based even though the WRITE above is
       // live: `before`/`after` are the arrays resolved from `tasksRef.current`,
       // so undoing after a concurrent writer touched the same target reverts to
       // the snapshot rather than to that writer's value. Accepted residue —
-      // the write itself is what data loss turns on. Two known consequences,
-      // both recorded as follow-ups rather than fixed here: (a) redo can write a
+      // the write itself is what data loss turns on. One known consequence,
+      // recorded as a follow-up rather than fixed here: redo can write a
       // dangling reference (create task 5 with successor 2 → undo → delete 5 →
-      // redo merges `{taskId:5}` back; it self-heals on the next load), and
-      // (b) a staged successor list is unbounded while UNDO_CAP is 25, so a
-      // large fan-out can evict the own-task entries of its own save.
+      // redo merges `{taskId:5}` back; it self-heals on the next load).
+      // ★ The fan-out no longer evicts its own save's own-task entries: that
+      // needed the staged list (unbounded) to out-number UNDO_CAP (25), and the
+      // whole fan-out is ONE entry now regardless of how many targets it has.
       const recordSuccessorEdits = (
         resolution: ReturnType<typeof resolveSuccessorLinks>,
         nameSource: readonly Task[],
       ) => {
-        for (const [targetId, edit] of resolution.edits) {
-          const name = nameSource.find((r) => r.id === targetId)?.taskName;
-          captureFieldEdit?.({
-            setter: setTasks,
+        const targets = [...resolution.edits];
+        // ★★★ ONE undo entry for the whole fan-out, not one per target. Linking
+        // four successors is ONE user act; N entries meant a single Ctrl+Z
+        // unlinked one target and left the rest, N separate "Edited 1 item(s)"
+        // toasts stacked up on one Save, and — because the staged list is
+        // unbounded while UNDO_CAP is 25 — a large fan-out evicted the OWN-TASK
+        // entries of its own save, leaving it permanently half-undoable.
+        // ★★★ `captureFieldPart`, NOT `capturePart`: the latter captures WHOLE
+        // ROWS, so undo would restore every field of each target as it stood at
+        // save time and discard anything a concurrent writer changed on them
+        // meanwhile (open-followups §50 — the shape that reverts a note log).
+        // The merge semantics that made the per-target `captureFieldEdit` safe
+        // are exactly what the field-level fragment preserves.
+        if (targets.length > 0) {
+          const firstName = nameSource.find((r) => r.id === targets[0][0])?.taskName;
+          captureComposite?.({
             kind: "task.updated",
-            id: targetId,
-            before: { dependencies: edit.before },
-            after: { dependencies: edit.after },
-            stampField: "localModifiedAt",
-            name,
+            primaryCount: targets.length,
+            parts: [
+              captureFieldPart({
+                setter: setTasks,
+                edits: targets.map(([targetId, edit]) => ({
+                  id: targetId,
+                  before: { dependencies: edit.before },
+                  after: { dependencies: edit.after },
+                })),
+                stampField: "localModifiedAt",
+              }),
+            ],
+            // ★ A label naming ONE row would misdescribe a multi-target entry,
+            // so the name rides only the single-target case.
+            // ★★ KNOWN COST, measured not assumed: with no name and a non-bulk
+            // kind, `buildUndoLabel` falls through to `undoToastEdit` — so the
+            // history row for a 3-target fan-out reads "Edited 3 item(s)", with
+            // no entity word, where the single-target case reads `Edit task
+            // "Target"`. Fixing it properly needs an edit-side twin of
+            // `undoLabelDeleteCount`; adding one here would change the label of
+            // every unnamed multi-row edit capture in the app, which is well
+            // outside this change. Left as a follow-up rather than papered over
+            // by mislabelling the kind as `bulk.edit`.
+            name: targets.length === 1 ? firstName : undefined,
           });
+        }
+        for (const [targetId] of targets) {
+          const name = nameSource.find((r) => r.id === targetId)?.taskName;
           // A silent write to a row the user never opened is exactly what an
           // audit trail is for. `diffFields` skips array-valued fields, so this
           // names the row with no field detail — the same entry the own task's
-          // dependency edit already produces.
+          // dependency edit already produces. ★ Still PER TARGET even though the
+          // undo entry is now single: the activity log records what changed, and
+          // three rows changed.
           logActivity("task.updated", targetId, name ?? "");
         }
       };
@@ -451,6 +494,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       pendingLinkRaidIdRef,
       onTaskCreated,
       captureFieldEdit,
+      captureComposite,
     ],
   );
 

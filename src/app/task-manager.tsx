@@ -1406,6 +1406,7 @@ function TaskManagerInner() {
     onTaskCreated: onTaskCreatedWithBucket,
     onEditorDiscard: onEditorDiscardWithBucket,
     captureFieldEdit: undoApi.captureFieldEdit,
+    captureComposite: undoApi.captureComposite,
   });
 
   // Deep-link: when a suggested-action chip requests opening a task, open its

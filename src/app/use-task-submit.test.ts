@@ -707,43 +707,8 @@ describe("useTaskSubmit — staged successor links", () => {
     expect(next.find((t) => t.id === 1)?.taskName).toBe("Valid Task");
   });
 
-  it("captures one dependencies-only undo entry per successor target", () => {
-    const captureFieldEdit = vi.fn();
-    const tasks = [makeTask({ id: 1, taskName: "Own" }), makeTask({ id: 2, taskName: "Target" })];
-    const { result } = renderHook(() =>
-      useTaskSubmit(
-        makeArgs({
-          captureFieldEdit,
-          editingId: 1,
-          tasks,
-          tasksRef: { current: tasks },
-          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
-        }),
-      ),
-    );
-    act(() => result.current.handleSubmit(fakeSubmitEvent()));
-
-    const forTarget = captureFieldEdit.mock.calls
-      .map(([o]) => o as { id: number; before: object; after: object; name?: string })
-      .filter((o) => o.id === 2);
-    // ★ ONE, not "at least one" — the name says "one entry per target", and a
-    // `.find` alone would let a duplicate capture (two undo steps for a single
-    // link, so one Ctrl+Z reverts nothing visible) pass unnoticed.
-    expect(forTarget).toHaveLength(1);
-    const call = forTarget[0];
-    expect(call).toBeDefined();
-    // ★ Nothing but `dependencies`. A whole-row capture would list every field
-    // here and would revert values this save never touched (open-followups §50).
-    expect(Object.keys(call!.before)).toEqual(["dependencies"]);
-    expect(Object.keys(call!.after)).toEqual(["dependencies"]);
-    expect(call!.after).toEqual({ dependencies: [{ taskId: 1, type: "FS" }] });
-    expect(call!.name).toBe("Target");
-  });
-
-  // ★ ONE target cannot tell "one entry per target" from "exactly one, ever",
-  // and cannot catch the name lookup resolving the wrong row — the likeliest
-  // real bug in a per-target loop.
-  it("captures a separately-named entry for EACH successor target", () => {
+  it("captures ONE composite undo entry for the whole successor fan-out", () => {
+    const captureComposite = vi.fn();
     const captureFieldEdit = vi.fn();
     const tasks = [
       makeTask({ id: 1, taskName: "Own" }),
@@ -753,6 +718,7 @@ describe("useTaskSubmit — staged successor links", () => {
     const { result } = renderHook(() =>
       useTaskSubmit(
         makeArgs({
+          captureComposite,
           captureFieldEdit,
           editingId: 1,
           tasks,
@@ -769,28 +735,161 @@ describe("useTaskSubmit — staged successor links", () => {
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
 
-    const byId = new Map(
-      captureFieldEdit.mock.calls
-        .map(([o]) => o as { id: number; after: { dependencies: unknown }; name?: string })
-        .map((o) => [o.id, o] as const),
-    );
-    expect(byId.get(2)?.name).toBe("First target");
-    expect(byId.get(3)?.name).toBe("Second target");
-    expect(byId.get(2)?.after.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
-    expect(byId.get(3)?.after.dependencies).toEqual([{ taskId: 1, type: "SS" }]);
+    // ★★★ ONE entry, not two. Two targets used to mean two undo entries and two
+    // toasts, so one Ctrl+Z unlinked one target and left the other.
+    expect(captureComposite).toHaveBeenCalledOnce();
+    const opts = captureComposite.mock.calls[0][0] as {
+      primaryCount: number;
+      parts: readonly unknown[];
+      name?: string;
+    };
+    expect(opts.primaryCount).toBe(2);
+    expect(opts.parts).toHaveLength(1);
+    // ★ Above one target the label must NOT name a single row, or the entry
+    // claims to be about "Second target" alone.
+    expect(opts.name).toBeUndefined();
+    // ★ No per-target field entries survive alongside the composite — that
+    // would restore the N-entry behaviour AND double-apply on undo.
+    const targetFieldEdits = captureFieldEdit.mock.calls
+      .map(([o]) => o as { id: number })
+      .filter((o) => o.id === 2 || o.id === 3);
+    expect(targetFieldEdits).toEqual([]);
   });
 
-  // ★ Ordering is load-bearing for undo: the targets must land ON TOP of the
-  // own-task entries so a bare undo() peels the successor links first. Moving
-  // the call above captureFieldChanges passes every other test in this file.
+  // ★★★ Exercises the FRAGMENT, not the call shape. `captureFieldPart` returns
+  // an opaque restore closure, so asserting on `captureComposite`'s arguments
+  // alone cannot see which rows get which patch — the assertion would pass
+  // against a fragment that reverts nothing, or only the first target.
+  it("reverts EVERY successor target in ONE setter pass, touching only dependencies", () => {
+    const captureComposite = vi.fn();
+    const setTasks = vi.fn();
+    const tasks = [
+      makeTask({ id: 1, taskName: "Own" }),
+      makeTask({ id: 2, taskName: "First target" }),
+      makeTask({ id: 3, taskName: "Second target" }),
+    ];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          captureComposite,
+          setTasks,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: {
+            ...validForm(),
+            successorLinks: [
+              { taskId: 2, type: "FS" as const },
+              { taskId: 3, type: "SS" as const },
+            ],
+          },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const opts = captureComposite.mock.calls[0][0] as {
+      parts: readonly { restore: (box: { current: ReadonlyMap<number, number> }, p: boolean) => () => void }[];
+    };
+    const callsBefore = setTasks.mock.calls.length;
+    let redo: (() => void) | undefined;
+    act(() => {
+      redo = opts.parts[0].restore({ current: new Map() }, false);
+    });
+    // ★★ ONE state update for the whole fan-out. N passes would re-render per
+    // target and is the shape this replaced.
+    expect(setTasks.mock.calls.length - callsBefore).toBe(1);
+
+    // The live rows at undo time: both linked, and target 2 ALSO carries a field
+    // this save never touched — a concurrent writer's edit. A whole-row capture
+    // would discard it (open-followups §50); the field merge must preserve it.
+    const live = [
+      makeTask({ id: 1, taskName: "Own" }),
+      makeTask({
+        id: 2,
+        taskName: "First target",
+        assignee: "Changed by someone else",
+        dependencies: [{ taskId: 1, type: "FS" }],
+      }),
+      makeTask({ id: 3, taskName: "Second target", dependencies: [{ taskId: 1, type: "SS" }] }),
+    ];
+    const undoUpdater = setTasks.mock.calls.at(-1)![0] as (p: readonly Task[]) => readonly Task[];
+    const afterUndo = undoUpdater(live);
+    // BOTH targets reverted, not just the first.
+    expect(afterUndo.find((t) => t.id === 2)?.dependencies).toEqual([]);
+    expect(afterUndo.find((t) => t.id === 3)?.dependencies).toEqual([]);
+    // The unrelated concurrent edit survives.
+    expect(afterUndo.find((t) => t.id === 2)?.assignee).toBe("Changed by someone else");
+    // ★★ Every target is re-stamped, or a reverted row reports as unmodified:
+    // `localModifiedAt` is persisted on all six write paths and `diffFields`
+    // suppresses it, so nothing downstream would notice the omission.
+    for (const id of [2, 3]) {
+      const before = live.find((t) => t.id === id)!.localModifiedAt;
+      expect(afterUndo.find((t) => t.id === id)?.localModifiedAt).not.toBe(before);
+    }
+
+    // ★★★ THE REDO DIRECTION. `restore` returns the closure that re-applies
+    // `after`, and it is the one asymmetric line in the fragment — writing
+    // `before` there again is a one-identifier slip that leaves Ctrl+Y silently
+    // doing nothing while the stack claims it redid.
+    expect(redo).toBeTypeOf("function");
+    act(() => redo!());
+    const redoUpdater = setTasks.mock.calls.at(-1)![0] as (p: readonly Task[]) => readonly Task[];
+    const afterRedo = redoUpdater(afterUndo);
+    expect(afterRedo.find((t) => t.id === 2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+    expect(afterRedo.find((t) => t.id === 3)?.dependencies).toEqual([{ taskId: 1, type: "SS" }]);
+    // And redo must not resurrect the snapshot over the concurrent edit either.
+    expect(afterRedo.find((t) => t.id === 2)?.assignee).toBe("Changed by someone else");
+  });
+
+  // ★ A single target is the one case where a row NAME is unambiguous, so the
+  // label carries it. Pins the lookup resolving the right row, which a
+  // `nameSource[0]` slip would break.
+  it("names the composite entry after the row when there is exactly ONE target", () => {
+    const captureComposite = vi.fn();
+    const tasks = [
+      makeTask({ id: 1, taskName: "Own" }),
+      makeTask({ id: 2, taskName: "Ignored first row" }),
+      makeTask({ id: 3, taskName: "The only target" }),
+    ];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          captureComposite,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: { ...validForm(), successorLinks: [{ taskId: 3, type: "SS" as const }] },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const opts = captureComposite.mock.calls[0][0] as { primaryCount: number; name?: string };
+    expect(opts.primaryCount).toBe(1);
+    // ★ The fixture puts a DIFFERENT task first in the list, so a lookup that
+    // grabbed `nameSource[0]` would read "Ignored first row" and fail here.
+    expect(opts.name).toBe("The only target");
+  });
+
+  // ★ Ordering is load-bearing for undo: the composite target entry must land
+  // ON TOP of the own-task entries so a bare undo() peels the successor links
+  // first. Moving the call above captureFieldChanges passes every other test.
   it("captures the target entries AFTER the own-task entries", () => {
-    const captureFieldEdit = vi.fn();
+    const order: string[] = [];
+    const captureFieldEdit = vi.fn(() => {
+      order.push("own");
+    });
+    const captureComposite = vi.fn(() => {
+      order.push("composite");
+    });
     const existing = makeTask({ id: 1, taskName: "Old name", assignee: "Bob" });
     const tasks = [existing, makeTask({ id: 2, taskName: "Target" })];
     const { result } = renderHook(() =>
       useTaskSubmit(
         makeArgs({
           captureFieldEdit,
+          captureComposite,
           editingId: 1,
           tasks,
           tasksRef: { current: tasks },
@@ -805,13 +904,14 @@ describe("useTaskSubmit — staged successor links", () => {
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
 
-    const ids = captureFieldEdit.mock.calls.map(([o]) => (o as { id: number }).id);
-    const ownIdx = ids.indexOf(1);
-    const targetIdx = ids.indexOf(2);
+    // ★ Two different capture APIs now, so ordering has to be read from a
+    // SHARED log rather than one mock's call list.
+    const ownIdx = order.indexOf("own");
+    const targetIdx = order.indexOf("composite");
     // Control: both kinds of entry actually fired, or the comparison is vacuous.
     expect(ownIdx).toBeGreaterThanOrEqual(0);
     expect(targetIdx).toBeGreaterThanOrEqual(0);
-    expect(targetIdx).toBeGreaterThan(ids.lastIndexOf(1));
+    expect(targetIdx).toBeGreaterThan(order.lastIndexOf("own"));
   });
 
   it("writes the target edits to the activity log", () => {
