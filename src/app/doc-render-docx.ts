@@ -26,6 +26,7 @@ import {
   type TextRun,
   htmlToRichLines,
 } from "./rich-text-runs";
+import { descriptionHtml } from "./rich-text-plain";
 import { resolveDataSection } from "./doc-data-section";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
@@ -234,7 +235,13 @@ const HR_PARAGRAPH =
  *  strings — so no `<w:p>`/`<w:pBdr>` emitted here can land somewhere a
  *  paragraph is not allowed. */
 function richParas(html: string): string {
-  return htmlToRichLines(html)
+  // ★★ UPGRADE-AWARE, per SINK. A legacy plain-text value ("a\nb") is not
+  // markup, and handing it straight to the parser fused its lines into one
+  // run-on paragraph. descriptionHtml upgrades it; the "document" sink is the
+  // load-bearing argument — an earlier attempt composed this against the old
+  // shared 8-tag classifier, which did not recognise <blockquote>/<pre> and so
+  // ESCAPED a legitimately-stored document paragraph (open-followups §118).
+  return htmlToRichLines(descriptionHtml(html, "document"))
     .map((line) => {
       if (line.kind === "hr") return HR_PARAGRAPH;
       const style = DOCX_LINE_STYLE[line.kind];

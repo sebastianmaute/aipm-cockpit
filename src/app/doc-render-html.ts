@@ -49,6 +49,7 @@
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { resolveDataSection } from "./doc-data-section";
 import { sanitizeDocumentHtml } from "./sanitize-html";
+import { descriptionHtml } from "./rich-text-plain";
 import { htmlEscape, htmlCellWithBreaks, PRINT_STYLES } from "./download";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
@@ -101,8 +102,13 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
       return `<h${block.level}>${htmlEscape(block.text)}</h${block.level}>`;
 
     // The ONE unescaped path: already-sanitized HTML, re-sanitized here.
+    // ★★ Upgraded FIRST, on the "document" sink. A legacy plain-text value is
+    // not markup, and handing it to the sanitizer raw dropped its line breaks
+    // (§118); descriptionHtml escapes it into <p>/<br> instead — both of which
+    // sanitizeDocumentHtml keeps, so the re-sanitize stays a real guard rather
+    // than a no-op. Same composition as the DOCX/PPTX renderers.
     case "paragraph":
-      return sanitizeDocumentHtml(block.html);
+      return sanitizeDocumentHtml(descriptionHtml(block.html, "document"));
 
     case "bullets": {
       const tag = block.ordered ? "ol" : "ul";

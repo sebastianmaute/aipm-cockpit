@@ -490,6 +490,18 @@ describe("renderDocumentPptx — blocks", () => {
     expect(text).not.toContain("onetwo");
   });
 
+  it("upgrades a legacy plain-text paragraph instead of fusing its lines", async () => {
+    // Sibling of the DOCX suite's test of the same name — the composition is at
+    // THREE renderer call sites, so each needs its own pin or deleting one goes
+    // unnoticed. A hand-edited or externally-produced workspace can store
+    // {"type":"paragraph","html":"a\nb"}: neither load-path sanitizer upgrades
+    // it, so the renderer is where the newline must become a line break
+    // (open-followups §118). Asserting SEPARATE paragraphs, not "<a:br/>" —
+    // htmlToRichLines ENDS a line at the <br> plainToHtml produces.
+    const texts = paraInfos(await onlyContentSlide("a\nb")).map((p) => p.text);
+    expect(texts).toEqual(["a", "b"]);
+  });
+
   it("keeps a literal '<' from prose as text, not markup", async () => {
     // The projection treats "<" not followed by a letter as literal text; if
     // that regressed, this is where the package stops opening.

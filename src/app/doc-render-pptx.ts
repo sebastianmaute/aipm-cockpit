@@ -67,6 +67,7 @@ import {
   type TextRun,
   htmlToRichLines,
 } from "./rich-text-runs";
+import { descriptionHtml } from "./rich-text-plain";
 // ★★ `resolveDataSection` comes from the NEUTRAL doc-data-section module, NOT
 // from a sibling renderer. Importing it from doc-render-docx would typecheck
 // and work, and would also drag the DOCX OOXML builders into this graph and
@@ -205,7 +206,11 @@ function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
     case "paragraph":
       // One RichLine per block boundary, each carrying its own runs — the
       // parse already does the splitting the flat projection used to need.
-      return [...htmlToRichLines(block.html)];
+      // ★★ Upgrade-aware first, on the "document" sink: a legacy plain-text
+      // value is not markup, and parsing it raw fuses its lines (§118). Same
+      // composition as doc-render-docx's richParas — see the note there for why
+      // the sink argument is load-bearing.
+      return [...htmlToRichLines(descriptionHtml(block.html, "document"))];
 
     case "bullets":
       return block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`);

@@ -267,6 +267,22 @@ describe("renderDocumentDocx — blocks", () => {
     expect(textNodes(xml)).not.toContain("onetwo");
   });
 
+  it("upgrades a legacy plain-text paragraph instead of fusing its lines", async () => {
+    // Reachable by import only: the AI write boundary upgrades before storing,
+    // but hand-edited or externally-produced workspace JSON reaches the renderer
+    // raw. Measured through the composed load pipeline, {"type":"paragraph",
+    // "html":"a\nb"} survives byte-for-byte — neither sanitizeProjectDocuments
+    // nor sanitizeDocumentRichFields upgrades it (open-followups §118).
+    //
+    // ★★ Asserting the OUTPUT, not the mechanism: plainToHtml turns the newline
+    // into "<br>", and htmlToRichLines ENDS a line at a <br> rather than
+    // emitting a marker — so the upgrade yields TWO <w:p>, not one paragraph
+    // holding a <w:br/>. A `toContain("<w:br/>")` assertion would be red here
+    // for the right reason and green for a table cell's newline elsewhere.
+    const xml = await documentXml(doc([{ type: "paragraph", html: "a\nb" }]));
+    expect(paraTexts(xml)).toEqual(["Report", "a", "b"]);
+  });
+
   it("keeps a literal '<' from prose as text, not markup", async () => {
     // The projection treats "<" not followed by a letter as literal text; if
     // that ever regressed, this is where the package stops opening.
