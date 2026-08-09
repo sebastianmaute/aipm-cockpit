@@ -2341,11 +2341,29 @@ effect, then the unpiped gate — and treat the result as a fresh measurement.
 
 ---
 
-## 54. Prod-only CSP blocks ProseMirror's base CSS — open, PRE-EXISTING, user-visible
+## 54. Prod-only CSP blocks ProseMirror's base CSS — CLOSED 2026-08-09
 
-Every rich-text editor in a **production build** renders without ProseMirror's base stylesheet, because
-the prod CSP refuses the `<style>` element Tiptap injects at runtime. Dev is unaffected, which is why
-this has gone unseen.
+**FIXED in 0.227.0 "Bolander". This entry is a MIX of dated layers, not a preserved original — read the
+date attached to a paragraph, never its position.** The 2026-08-03 measurement blocks below are written
+in the present tense and describe the BROKEN state. But the mechanism paragraph ("The injector is
+`@tiptap/core` itself, measured 2026-08-09") and the blast-radius list were REWRITTEN on 2026-08-09 and
+are the authoritative versions — they sit *above* the fix section, not in it. The fix and the real-browser
+verification are under "Fix — option A chosen and shipped".
+★★ An earlier revision of this banner called everything below it "the original investigation preserved
+verbatim" and sent readers to the fix heading for "the corrected mechanism". Both false: this branch
+rewrote four regions above that heading, and the corrected mechanism ("The injector is `@tiptap/core`
+itself") sits well *above* it, not in it — so the banner discounted the very paragraph that replaces the
+disproved Turbopack theory. A banner that mislocates a correction is worse than no banner.
+★★ An earlier wording of THIS sentence said "87 lines before it" and attributed the disproved theory to
+"three contributors". Both were wrong and in different ways. The line count was measured on the
+pre-commit file and the same commit's own insertions moved it to 91 before it shipped — a distance in
+lines self-invalidates, so cite the heading. And no repo record supports the contributor count: it was
+imported from the unrelated `migrateTaskStatus` incident in AGENTS.md, which really did have three.
+Borrowing a number from a similar-sounding incident is how a fabricated fact enters a register.
+
+Every rich-text editor in a **production build** rendered without ProseMirror's base stylesheet, because
+the prod CSP refused the `<style>` element Tiptap injects at runtime. Dev was unaffected, which is why
+this went unseen.
 
 ★★★ **MEASURED 2026-08-03 on `main` (`13b518db`) in an isolated worktree — observed, not inferred.**
 Same dated-measurement rule as §53: re-measure before acting, do not treat these values as properties.
@@ -2377,12 +2395,38 @@ Exactly one `<style>` element: 1329 bytes, no nonce, `sha256=PlumsSlvJ7vvWzjqibG
 injector directly: `sourceFile: /_next/static/chunks/2uni9ru3abh_p.js`, and that built chunk contains
 both `ProseMirror` (19 hits) and `createElement("style")`.
 
-**It is dependency behaviour, not app code.** `@tiptap/react` + `@tiptap/starter-kit` → `@tiptap/core` →
-prosemirror CSS. The editor loads via `next/dynamic`, so Turbopack ships that CSS inside a lazily-loaded
-client chunk which injects it at runtime with no nonce. `grep -rn "prosemirror.css" src/` returns
-nothing — the app never imports it. Fires once, on initial load.
+**The injector is `@tiptap/core` itself, measured 2026-08-09.** Not Turbopack, not prosemirror-view:
 
-★★ **Why it is prod-only, structurally** (`src/proxy.ts:51-52`) — verified on the live response header:
+```
+node_modules/@tiptap/core/src/Editor.ts:255-257
+  private injectCSS(): void {
+    if (this.options.injectCSS && typeof document !== 'undefined') {
+      this.css = createStyleTag(style, this.options.injectNonce)
+```
+
+`style` is a JavaScript STRING CONSTANT (`@tiptap/core/src/style.ts`), measured at **1329 bytes** — a
+byte-exact match for the `<style>` element hashed in the live prod DOM above. Reproduce:
+
+```bash
+node -e 'const s=require("fs").readFileSync("node_modules/@tiptap/core/src/style.ts","utf8");const m=s.match(/^export const style = `([\s\S]*)`\s*$/);console.log(Buffer.byteLength(m[1],"utf8"));'
+```
+
+★★★ **THE ORIGINAL `grep` EVIDENCE POINTED THE OPPOSITE WAY FROM HOW IT WAS READ.** This entry cited
+`grep -rn "prosemirror.css" src/` returning nothing as SUPPORT for the bundler theory. Nothing imports
+that file because the CSS never travels as CSS at all — it is a JS string. `prosemirror.css` is a
+different file (`prosemirror-view/style/prosemirror.css`, 1243 bytes, so not the one hashed) and
+`grep -rn "prosemirror.css\|style/prosemirror" node_modules/@tiptap` returns no matches either.
+prosemirror-view never injects; it only warns (`checkCSS`, `dist/index.js`, recommending you load its
+stylesheet yourself). Fires once, on initial load.
+
+★ The entry also said "The editor loads via `next/dynamic`". True of only 2 of its 8 call sites —
+`meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx`. The other six import
+`RichTextEditor` statically, so it SSRs, which is why the nonce reader must guard `typeof document`.
+Reproduce the split with `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
+(8 consumers). See §129, which carries the full table and the counter-example command.
+
+★★ **Why it is prod-only, structurally** (`src/proxy.ts`, the `styleElem` ternary — `grep -n styleElem
+src/proxy.ts`) — verified on the live response header:
 
 | build | `style-src-elem` | injected `<style>` |
 |---|---|---|
@@ -2390,7 +2434,8 @@ nothing — the app never imports it. Fires once, on initial load.
 | prod | `'self' 'nonce-${nonce}'` | **blocked** |
 
 ★ It is `style-src-**elem**`. React `style={{…}}` props ride `style-src-attr 'unsafe-inline'`
-(`proxy.ts:60`) and are **not** implicated — do not conflate the two axes when reasoning about a fix.
+(the `style-src-attr` entry in `proxy.ts`) and are **not** implicated — do not conflate the two axes
+when reasoning about a fix.
 ★ The SSR HTML is clean: zero un-nonced `<style>` tags, and its one stylesheet `<link>` correctly
 carries the nonce. The offender is client-injected only, which is exactly why an SSR-level audit would
 report all-clear.
@@ -2411,7 +2456,23 @@ ships its own warning about precisely this at `node_modules/prosemirror-view/dis
 
 **Blast radius — every rich-text surface in a prod build:** task description · note log · RAID
 description + mitigation · change description + impact description + resolution notes · milestone
-description.
+description · **the dashboard narrative · the meeting/steering report body · the comm-template body**.
+
+★★★ **THE LAST THREE WERE MISSING FROM THIS LIST UNTIL 2026-08-09, AND THE OMISSION WAS SELF-REFUTING.**
+The original list enumerated the SEVEN sanitizer-backed register fields plus the note log — the fields a
+`sanitize*` sweep finds — not the RENDER SURFACES, which is what a CSS failure actually follows.
+`RichTextEditor` has 8 consumers (§129); three of them render no register field at all. The verification
+paragraph below closes this entry by measuring `dashboard-sections/dashboard-narrative.tsx` — a surface
+this very list said was not affected — the two `dashboard-narrative.tsx` mentions sit 55 lines apart in
+the same entry (count between the two mentions, not from the list, which gives 62). ★★ The two `ssr: false`
+consumers are affected identically: `immediatelyRender: false` defers Editor construction to mount, so
+the injection is client-side under BOTH import styles (§129). ★ Derive a blast radius from the consumer
+list, NOT from the field list — a field list answers "what is stored", and this bug is about what is
+RENDERED. The consumer list is
+`grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v "\.test\.tsx"` (8); the bare
+`grep -rl 'rich-text-editor"' src/app` an earlier revision quoted here returns 12, because it also picks
+up `csp-nonce.ts` and three test files. Abbreviating an attached command is how it stops reproducing the
+number beside it.
 
 **Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
 its only runtime commit is six type annotations. The same violation, with an identical hash and only the
@@ -2422,21 +2483,89 @@ per-request nonce differing, was seen from the branch first and then measured on
 - ★★ **Only `main` was measured.** That is sufficient to establish the branch did not introduce it, but
   it is **not** an independent re-confirmation of the branch-side observation — the two are one
   measurement plus one corroborating sighting, not two measurements.
-- **Which fix is right.** Both options below are recorded; neither is decided.
+- ~~**Which fix is right.**~~ SETTLED — option A (`injectNonce`) shipped; see below.
 - Whether any other lazily-loaded dependency injects an un-nonced `<style>` on a route the smoke does not
   reach. Only one such element was found on initial load; the sweep was not exhaustive across all views.
+  ★ Still not settled. The `prod-smoke` job narrows it over time rather than answering it — the smoke
+  walks the nav views it can reach, so a surface it never opens stays unmeasured.
 
-### Fix options — recorded, neither chosen
+### Fix — option A chosen and shipped
 
-1. **Nonce Next's runtime style injection**, so the injected `<style>` carries the per-request nonce and
-   the policy is unchanged.
-2. **Allow `'unsafe-inline'` in prod `style-src-elem`.** ★★ This weakens the policy
-   `docs/security/threat-model.md:71` leans on — precisely: that row's mitigation reads "strict
-   nonce-based CSP, no `unsafe-inline` script" and lists `style-src-attr 'unsafe-inline'` as the single
-   documented low-risk residual. Option 2 would extend that residual from style *attributes* to style
-   *elements*. It does not touch the script axis, so it is narrower than "abandons the CSP" — but it is a
-   real widening of the one exception the threat model already calls out, and it should be argued on that
-   row, not around it.
+`injectNonce`, a first-class `@tiptap/core` option this entry did not know about (declared beside
+`injectCSS: boolean`). `src/app/csp-nonce.ts` reads the per-request nonce and `rich-text-editor.tsx`
+passes it to the app's single `useEditor`. **`src/proxy.ts` is untouched and the CSP is unchanged.**
+
+★★ It covers BOTH Tiptap injection points — `Editor.ts` and `@tiptap/extensions`'s selection extension
+both read `editor.options.injectNonce` — which the previously-recorded option 1 shape would not have.
+
+The two options recorded earlier were rejected. **`injectCSS: false` + owning the CSS** copies a
+dependency stylesheet (drift), gates only `Editor.injectCSS()` and not the selection extension's tag, and
+would import `border-top: 1px solid black`, an off-palette literal the palette-sweep scans for.
+**`'unsafe-inline'` in prod `style-src-elem`** would widen the single documented **`unsafe-inline`**
+residual in `docs/security/threat-model.md` — that row's mitigation reads "strict nonce-based CSP, no
+`unsafe-inline` script" and lists `style-src-attr 'unsafe-inline'` as the one low-risk residual — from
+style *attributes* to style *elements*. ★ "the single documented residual" unqualified would be false —
+but "several" was the wrong correction: the B5 table holding that row has 4 rows and exactly TWO
+non-empty Residual cells, and one of those two IS the `unsafe-inline` one, so it carries exactly ONE
+other. It is the only `unsafe-inline` residual in the file (`grep -n unsafe-inline
+docs/security/threat-model.md` → 2 hits: the row at `:71`, and `:79`, which is the script-src inventory
+line, not a residual). ★★ Correcting an over-claim with a vaguer word is not a correction — "several"
+was as unmeasured as the thing it replaced.
+
+★★★ **THE UNIT TEST CANNOT PROVE THIS AND MUST NOT BE READ AS PROVING IT.** `readCspNonce` reads the
+`.nonce` IDL property, because a real browser EMPTIES the `nonce` content attribute on insertion ("nonce
+hiding") and keeps the value only on the IDL slot. jsdom does not implement nonce hiding, so
+`getAttribute("nonce")` passes every unit test and returns `""` in production. Measured, not reasoned: a
+reviewer mutated `.nonce` into `getAttribute("nonce")` and **the entire unit suite stayed GREEN**.
+
+Confirmed in Chromium against a real `next start`, 2026-08-09. Response headers checked first to confirm
+the STRICT prod policy was in force. Landing view sufficed — `dashboard-sections/dashboard-narrative.tsx`
+mounts `RichTextEditor` statically on the dashboard, so no navigation was needed.
+
+**Shipped code:**
+
+```
+{
+  "scriptSelectorMatched": true,
+  "scriptAttrValue": "",
+  "scriptIdlValue": "YTQwZDYwZmUtNDczYy00YjdhLWExNjktNmY4ZjQxMjBkOTA2",
+  "styleTagPresent": true,
+  "styleNonce": "YTQwZDYwZmUtNDczYy00YjdhLWExNjktNmY4ZjQxMjBkOTA2"
+}
+CSP violations seen: 0 []
+```
+
+`styleNonce === scriptIdlValue` byte for byte: the value read off the IDL property is the value that
+reached Tiptap's injected `<style data-tiptap-style>`.
+
+**Negative control** — same commit, same server, `.nonce` replaced by `getAttribute("nonce")`:
+
+```
+{
+  "scriptSelectorMatched": true,
+  "scriptAttrValue": "",
+  "scriptIdlValue": "OTYxMjAzY2EtMzM3NC00YTdjLWJhYmQtNDc2N2Y2YTdjOGFj",
+  "styleTagPresent": true,
+  "styleNonce": ""
+}
+CSP violations seen: 1 [ "Applying inline style violates ... 'style-src-elem 'self'
+'nonce-OTYxMjAzY2EtMzM3NC00YTdjLWJhYmQtNDc2N2Y2YTdjOGFj''. ..." ]
+```
+
+★★★ The refusal quotes the SAME nonce `scriptIdlValue` carries — the browser is saying the correct value
+was on the page and the code simply failed to read it. So necessity here is an OBSERVATION, not a
+deduction.
+
+★★ `styleTagPresent` stays `true` under the mutation. Tiptap injects the tag either way and the browser
+then refuses to APPLY it — so "a style tag exists" proves nothing; only `styleNonce` does.
+
+★★★ The mutated build COMPILES AND SERVES CLEANLY. The failure is silent at every layer except the
+browser console. That is why the unit suite stayed green on it, and why a real-browser probe rather than
+a test is what proves this fix.
+
+**The gate that now covers this:** `npm run e2e:smoke:prod` (`scripts/e2e-smoke-prod.mjs`) and the
+BLOCKING `prod-smoke` CI job. Baseline before the fix on this branch: `=== ISSUES (1) ===`, the
+`style-src-elem` violation and nothing else. After: `=== ISSUES (0) ===`.
 
 ### ★★★ Why this went unseen — the process lesson
 
@@ -6437,7 +6566,7 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 | | Ships | New persisted state |
 |---|---|---|
 | **S3a** | a documents-only allow-list · mark-aware DOCX/PPTX · the three policies below | none |
-| *(before S3b)* | **§54** — spike first: its fix is NOT established and option 1's feasibility is unverified (Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk) · the `HTML_START` classifier split, six rich fields in scope | none |
+| *(before S3b)* | ~~**§54** — spike first~~ **DONE, §54 CLOSED 2026-08-09.** No spike needed. ★★ The parenthetical this cell used to carry — "Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk" — was RIGHT on both clauses, and is precisely why Next's own nonce machinery could not cover this and `readCspNonce()` has to read the nonce off the DOM. An earlier correction here declared it wrong; that was an over-correction against a claim it never made (it says "client chunk", not "Turbopack-shipped CSS chunk"). The theory that was actually disproved — Turbopack shipping prosemirror CSS in a lazily-loaded chunk — lived in §54, not in this cell. The injector is `@tiptap/core`'s own `Editor.injectCSS()` over a JS string constant. Fixed via Tiptap's `injectNonce`; the CSP is unchanged. · the `HTML_START` classifier split, six rich fields in scope | none |
 | **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
 | **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |
@@ -7490,3 +7619,95 @@ without it the guard is unpinned exactly as `use-abortable-ai.ts`'s `setError` g
 ★★ Severity is lower than §127's: nothing is billed twice and nothing leaks, the UI just reads idle
 early. Filed rather than fixed because slice 3's review rounds were already three deep and this is a
 non-AI surface none of them touched — a fourth widening was the wrong call.
+
+---
+
+## 129. Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle — open, a decision, measured
+
+**Where:** `src/app/rich-text-editor.tsx`'s consumers.
+
+| Import style | Sites |
+|---|---|
+| STATIC (SSRs) | `change-edit-modal.tsx` · `dashboard-sections/dashboard-narrative.tsx` · `milestone-edit-modal.tsx` · `note-log-panel.tsx` · `raid-edit-modal.tsx` · `task-form-fields.tsx` |
+| `dynamic(..., { ssr: false })` | `meeting-report-panel.tsx` · `settings-sections/comm-templates-section.tsx` |
+
+Reproduce: `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'` returns the 8
+consumers; intersect with `grep -rln "ssr: *false" src/app --include="*.tsx"` for the 2. ★ Do NOT use
+`grep -rl "<RichTextEditor" src/app` — it returns **11**, adding `rich-text-editor.tsx` itself,
+`rich-text-editor.test.tsx`, and `label-binding.guard.test.ts`.
+
+★★ That 11 was written here as "10" in the commit that filed this entry, and a reviewer caught it. The
+number came from a subagent's report and was copied without re-running the command — inside the very
+commit that corrects §54 for the same class of mistake. It is 11 at this HEAD and was 11 at the base
+commit, so it was never 10. Recorded rather than quietly fixed: this file's standing rule is that a
+correction is a NEW claim inheriting none of the verification of the thing it corrects, and the cheapest
+proof that the rule is worth keeping is an instance of breaking it.
+
+Raised while fixing §54, and deliberately NOT folded into it.
+
+★★★ **CONVERTING THE SIX WOULD NOT HAVE FIXED §54, AND READING IT AS AN ALTERNATIVE FIX IS THE TRAP.**
+`useEditor` is called with `immediatelyRender: false`, which defers Editor construction — and therefore
+`injectCSS()` — to mount. So the un-nonced `<style>` is injected client-side under BOTH import styles and
+the CSP violation is byte-identical. `ssr: false` changes where the component renders, not where Tiptap
+injects.
+
+★★ Nor does it let the `typeof document` guard in `csp-nonce.ts` go away. Even with every site converted
+the guard stays: it costs one line, it makes the function total, and a future static import would
+silently reintroduce the SSR call. So there is no simplification on offer either — the two questions are
+independent.
+
+★ Static + `immediatelyRender: false` is a SUPPORTED Tiptap configuration, not an oversight. That flag
+exists precisely so the editor can be SSR'd safely. The two dynamic sites are a settings panel and a
+report panel, where lazy-loading a rarely-opened surface is its own justification — they are not evidence
+the other six are wrong.
+
+**The real question is bundle weight, and it is UNMEASURED.** `@tiptap/react` + `@tiptap/starter-kit` +
+the prosemirror tree is large, and six static imports put it in the initial bundle. Nobody has measured
+the delta. **Measure before deciding** — a conversion argued from "Tiptap is big" rather than from a
+number is the same class of reasoning that put the wrong mechanism in §54.
+
+**Costs if it is done.** Mount timing changes in six surfaces that all carry test suites; each needs a
+`loading:` fallback or a modal shows a blank flash while the chunk loads; and each affected test goes
+from a synchronous `render` to `await waitFor`. That is a real behavioural surface, which is why it is
+its own slice rather than a rider.
+
+---
+
+## 130. The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured
+
+**Where:** `scripts/e2e-smoke-prod.mjs` `isPortAlreadyInUse()`; the kill side is `scripts/stop-dev.mjs`.
+
+**The guard exists** to stop the destructive sequence: something else holds port 3200 → `next start`
+fails to bind → `waitForReady()` succeeds against the FOREIGN server → the smoke measures the wrong app
+→ `stopServer()` port-kills a process we did not start. It refuses to run rather than adopt-then-kill.
+
+**What it does not cover.** It is a raw TCP connect to `localhost`, so a listener bound to a specific
+non-loopback address (a LAN IP, a container bridge) never answers it. Measured 2026-08-09:
+
+```
+LAN addr: 10.2.0.2
+guard(localhost) sees it? -> false
+guard(LAN addr)  sees it? -> true
+second bind on 0.0.0.0: bound 0.0.0.0 OK
+```
+
+On Windows the subsequent bind on `0.0.0.0` then SUCCEEDS, so the smoke runs happily against its own
+server — and the kill still hits both, because `stop-dev.mjs` adds every PID whose `netstat` local
+address matches `[:.]<port>$`, which `10.2.0.2:3200` does, and kills each. So the exact outcome the
+guard was written to prevent survives on a path the guard cannot see.
+
+**Why it is accepted rather than fixed.** Closing it means enumerating local interfaces and probing
+each, which is real machinery for a case that needs someone to have bound a non-loopback address on
+the smoke's own port on the same machine. The decision recorded here is to **narrow the claim instead
+of overstating the guard** — the doc comment used to say it covered "ANYTHING listening on the port",
+which is what turned a known limit into a false statement.
+
+★★ **The timeout branch is a separate question and it was WRONG until 2026-08-09.** It resolved
+`false` — "port is free" — for a probe that sent a SYN and got nothing back. On loopback a genuinely
+free port RSTs the SYN, taking the error branch in 16.6-30.6 ms over five COLD processes — the only
+condition the script runs in, and ~20x the "0-1 ms" this entry first recorded from a warm second
+connect — so a two-second hang is never the
+free case; it is a full accept backlog or a firewall DROP. Mapping the ambiguous outcome to "free"
+re-opened the destructive path above, in the same function whose comment says "Refusing is the safe
+behaviour". It now resolves `true`. ★ A guard whose comment states a safety rule its code does not
+follow is worse than no guard: the comment is what the next reader checks.

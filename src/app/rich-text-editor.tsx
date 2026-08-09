@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { Editor } from "@tiptap/react";
 import { sanitizeTemplateHtml, sanitizeNoteHtml } from "./sanitize-html";
+import { readCspNonce } from "./csp-nonce";
 import { isSafeHttpUrl } from "./document-link";
 import { Button } from "./button";
 import { t, type Lang } from "./i18n";
@@ -127,6 +128,15 @@ export function RichTextEditor(props: RichTextEditorProps) {
     extensions: isLean ? LEAN_EXTENSIONS : FULL_EXTENSIONS,
     content: value,
     immediatelyRender: false,
+    // @tiptap/core injects its ProseMirror base stylesheet with
+    // document.createElement("style"); prod CSP is style-src-elem 'self'
+    // 'nonce-...' (src/proxy.ts), so without this the tag is refused and every
+    // rich-text surface renders unstyled in a production build — invisible in
+    // dev, whose CSP is the permissive branch. open-followups.md §54.
+    // This is the app's ONLY useEditor call, and createStyleTag dedupes on
+    // style[data-tiptap-style], so one un-nonced mount anywhere would poison
+    // every later one. Keep it that way.
+    injectNonce: readCspNonce(),
     editorProps: {
       attributes: {
         "aria-label": label,

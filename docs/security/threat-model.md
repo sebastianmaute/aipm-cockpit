@@ -3,7 +3,7 @@
 **Date:** 2026-07-02 · **Scope:** v0.164 "Cixin" · **Author role:** Senior software architect
 **Review cadence:** re-run this STRIDE pass on every new trust boundary — a new external host in the CSP `connect-src`/`frame-src` allowlist (`src/proxy.ts`), a new `SecretId` (`src/app/secrets.ts:8`), or a new `/api/*` route. Owner: security-lead; enforced in MR review via the CSP + SecretId lockstep lists.
 
-> Method: STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) over each trust boundary. Every mitigation cites `file:line` verified against the tree at this commit. This is a **client-heavy** app: the browser calls Anthropic / MS Graph / Turso directly; only Jira, Confluence, Timelog, and ECB FX go through thin same-origin Next.js proxy routes.
+> Method: STRIDE (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege) over each trust boundary. Every mitigation cites its source, verified against the tree at the date on the citation. ★★ Prefer a SYMBOL or a grep over a `file:line` — an edit that inserts lines silently repoints every citation below it, and that is not hypothetical here: a 10-line comment rewrite in `src/proxy.ts` on 2026-08-09 broke all four `proxy.ts:NN` cites in this file at once, each of which had been exact. They now cite the CSP directive by name. Where a line number remains it has not been re-verified since the date above. This is a **client-heavy** app: the browser calls Anthropic / MS Graph / Turso directly; only Jira, Confluence, Timelog, and ECB FX go through thin same-origin Next.js proxy routes.
 
 ---
 
@@ -11,8 +11,8 @@
 
 | Asset | At rest | In transit | Notes |
 |---|---|---|---|
-| Anthropic API key | `aipm-cockpit:secrets` — AES-256-GCM, non-extractable device key in IndexedDB `aipm-cockpit-secrets` (`secrets.ts:47-49,113-117`) | browser → `api.anthropic.com` (CSP `connect-src`, `proxy.ts:63`) | `SecretId="anthropicApiKey"` |
-| Turso authToken | same | browser → `*.turso.io` (`proxy.ts:63`) | `SecretId="tursoAuthToken"` |
+| Anthropic API key | `aipm-cockpit:secrets` — AES-256-GCM, non-extractable device key in IndexedDB `aipm-cockpit-secrets` (`secrets.ts:47-49,113-117`) | browser → `api.anthropic.com` (CSP `connect-src` in `proxy.ts`) | `SecretId="anthropicApiKey"` |
+| Turso authToken | same | browser → `*.turso.io` (CSP `connect-src` in `proxy.ts`) | `SecretId="tursoAuthToken"` |
 | Jira apiToken | same | browser → `/api/jira/*` → `*.atlassian.net` (Basic auth built server-side, `jira/_helpers.ts:140-142`) | `SecretId="jiraApiToken"`; per-request in body, never persisted server-side (`jira/_helpers.ts:1-4`) |
 | Timelog apiToken | same | browser → `/api/timelog/*` → `*.timelog.com` (Bearer, `timelog/_helpers.ts:173`) | `SecretId="timelogApiToken"` |
 | Workspace / project data | file (JSON/CSV/MD) · IndexedDB `aipm-cockpit` · Turso | per backend | not a secret; user's own data |
@@ -37,13 +37,13 @@
 | STRIDE | Threat | Existing mitigation | Residual | Action |
 |---|---|---|---|---|
 | S/E | Token theft / over-broad scope | MSAL owns token cache (app stores no M365 secret); incremental consent — background probes silent, new scope pops interactive dialog | — | none |
-| I | Exfil to a spoofed Graph host | CSP `connect-src graph.microsoft.com` + `frame-src login.microsoftonline.com` only (`proxy.ts:63-64`) | — | none |
+| I | Exfil to a spoofed Graph host | CSP `connect-src graph.microsoft.com` + `frame-src login.microsoftonline.com` only (the `connect-src` and `frame-src` entries in `proxy.ts`) | — | none |
 
 ### B3 — Browser ↔ Turso (libSQL HTTP `/v2/pipeline`)
 
 | STRIDE | Threat | Existing mitigation | Residual | Action |
 |---|---|---|---|---|
-| I | authToken exfil | encrypted at rest; CSP restricts `connect-src` to `*.turso.io` + loopback (`proxy.ts:63`) | loopback plaintext http allowed for self-hosted tursodb (documented, `turso-config.ts toHttpUrl`) | acceptable for local dev; note in findings |
+| I | authToken exfil | encrypted at rest; CSP restricts `connect-src` to `*.turso.io` + loopback (CSP `connect-src` in `proxy.ts`) | loopback plaintext http allowed for self-hosted tursodb (documented, `turso-config.ts toHttpUrl`) | acceptable for local dev; note in findings |
 | T | Non-workspace tables wiped by save | `TABLE_NAMES` guard test keeps snapshot/version/template tables out of the per-table DELETE | — | none |
 
 ### B4 — Browser ↔ `/api/jira|confluence|timelog|ecb` proxies (SSRF-guarded)
@@ -68,7 +68,7 @@ The strongest surface — this is where the server makes outbound calls on the u
 | I | Decrypted secret written to disk | `writeSettings` is the SOLE writer of `aipm-cockpit:settings` and BLANKS every `SecretId` field before write (AGENTS.md secrets lockstep; guarded by Phase 1 Task 7 test) | a raw `setItem` bypass would leak — prevented by convention + test | Phase 1 Task 7 pins it |
 | I | Secret exported / synced to Turso | `aipm-cockpit:secrets` ciphertext excluded from exports, Turso, and recovery `CONFIG_KEYS` (`recovery-config.ts`) | — | Phase 1 Task 7 pins it |
 | T | Tampered ciphertext | AES-GCM auth tag → `SecretUnlockError` on tamper (`secrets.ts:137-148`); `isSealedSecret` validates shape from untrusted storage (`secrets.ts:23-36`) | — | none |
-| I | XSS reads localStorage | No `dangerouslySetInnerHTML` anywhere (CSP comment `proxy.ts:22-24`); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts:20-24`) | none |
+| I | XSS reads localStorage | Every `dangerouslySetInnerHTML` sink sanitizes or renders an app-authored constant — 6 sites, see the `style-src-attr` note in `proxy.ts` (corrected 2026-08-09: this cell previously read "No `dangerouslySetInnerHTML` anywhere", which was false, and cited a `proxy.ts` comment that said the same); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts`) | none |
 
 ---
 

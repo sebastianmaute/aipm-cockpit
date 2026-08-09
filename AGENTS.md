@@ -175,6 +175,15 @@ npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts 
 npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
 npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
                             # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
+npm run e2e:smoke:prod      # smoke against a REAL production server (build FIRST — it does not build).
+                            # ★★★ THE ONLY LOCAL REPRODUCTION OF THE PROD CSP. `e2e:smoke` starts no
+                            # server, so it is only ever pointed at a dev server — and dev grants
+                            # 'unsafe-inline' on style-src-elem while prod is nonce-only (src/proxy.ts).
+                            # A prod-only defect that rendered EVERY rich-text editor unstyled shipped
+                            # unnoticed behind exactly that gap (open-followups §54). Run it before
+                            # shipping anything touching CSP, layout.tsx, or a dependency that injects a
+                            # <style>. ★ Owns port 3200 and REFUSES to run if something else holds it —
+                            # it would otherwise mistake a foreign server for its own and kill it.
 npm run dup:check           # jscpd duplication GATE (--threshold in package.json dup:check; BLOCKING in CI)
                             # ★★ IT COMPARES ONE NUMBER: the TOTAL duplicated-LINE percentage across all
                             # formats — NOT per-format, and NOT tokens. 1.19% (1612/135895 lines) against a
@@ -379,7 +388,26 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
   machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
-  dependence, open-followups §75]) → build → e2e. All quality gates are ratchets. ★★ The
+  dependence, open-followups §75]) → build → e2e [**e2e** · **prod-smoke** BLOCKING
+  [`npm run e2e:smoke:prod` — `next start` + the smoke driver, consuming build's `.next/` artifact.
+  ★★ THE ONLY GATE THAT SEES THE PROD CSP, and the reason is per-suite. Dev grants `'unsafe-inline'` on
+  `style-src-elem` while prod is nonce-only (`src/proxy.ts`), so anything meeting the DEV policy is blind
+  to this class. The unit suite never starts a server at all. **e2e** does, but `playwright.config.ts`
+  `webServer.command` is `npm run dev` — so it meets the permissive policy too. And `e2e:smoke` starts no
+  server, so it only ever gets pointed at one somebody already had running, which in practice is dev.
+  ★ Note **e2e** does NOT invoke `e2e:smoke` — they are separate entry points that happen to share the
+  same blind spot, so fixing one would not have covered the other. That is how §54 stayed invisible for
+  months. ★ **dast-zap** DOES serve a prod build (`Dockerfile.dast` ends `CMD ["npm","run","start"]`), so
+  it is the one other suite that meets this policy — but it does not gate MR or default-branch pipelines,
+  where its rule is `when: manual` WITH `allow_failure: true`. ★★ It is NOT unconditionally non-blocking,
+  and an earlier revision of this bullet said it "cannot fail a pipeline", which is false in the very mode
+  the line names: `allow_failure: true` is indented under the `- when: manual` rule ONLY, there is no
+  job-level one, and a `rules:` entry that omits it defaults to FALSE — so on a `schedule`
+  pipeline the first rule matches and dast-zap runs BLOCKING. Its ZAP findings still cannot fail it
+  (`zap-baseline.py … -I … || true`), but the unguarded `docker build` / `docker network create dastnet`
+  / `docker run` steps can, and `network create` fails outright on a re-run where the network survives.
+  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **dast-zap** weekly/manual].
+  All quality gates are ratchets. ★★ The
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
