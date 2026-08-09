@@ -27,9 +27,42 @@ const BASELINE = "docs/baselines/doc-line-cites.json";
 
 // Extensions that denote a real source file. A bare `foo.io:80` or a version
 // like `0.227.0` must never match, so the extension list is a closed set.
-const SOURCE_EXT = "ts|tsx|mjs|js|json|yml|yaml|css";
+// ★★ LONGEST-FIRST, and it matters. `CITE_RE` survives any order because the `:`
+// after the extension forces a backtrack, but `PATH_RE` has no such anchor: with
+// `ts` before `tsx` it matched `notes-badge-button.tsx` as `notes-badge-button.ts`
+// and reported 20 citations to files that do not exist. The `(?!...)` boundary in
+// PATH_RE is the real guard; this order is the belt to its braces.
+const SOURCE_EXT = "tsx|ts|mjs|json|js|yaml|yml|css";
 const CITE_RE = new RegExp(
   `([A-Za-z0-9_][A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})):(\\d+)`,
+  "g",
+);
+
+// ★★ CONTINUATION cites. Docs routinely write one path and then several bare
+// line numbers: "`use-resource-planner.ts:710` and `:723`, returned at `:1023`".
+// Only the FIRST carries a path, so CITE_RE saw one of that row's FOUR numbers —
+// and the three it missed were all broken too. Measured 2026-08-09: 150 bare
+// `:NNN` spans across the tracked docs.
+//
+// ★★★ ONLY the ones with a full cite EARLIER ON THE SAME LINE are resolved (37
+// of the 150). The other 113 take their path from a previous line or an adjacent
+// table cell, and resolving those needs a nearest-preceding-path heuristic that
+// WILL mis-attribute. The bare form is genuinely ambiguous, which is not a
+// theory: AGENTS.md's `` `:3000` `` is a PORT NUMBER, and a cross-line rule
+// would have hunted for a source file to hang it on. A gate that invents a
+// citation is worse than one with a known blind spot. See open-followups §131.
+const BARE_CITE_RE = /`:(\d+)`/g;
+
+// ★★★ The anchor is the nearest preceding FILE MENTION, with or without a line
+// number — NOT the nearest preceding `path:LINE`. Measured: a first cut used the
+// latter and mis-attributed four cites. `tooltip-inventory.md` row B10 reads
+// "`insights-card.tsx:102` … `onAcknowledgeInsight` (`task-manager.tsx` — grep
+// the symbol; `:821` …)". The bare numbers are task-manager's, but that mention
+// carries no colon, so a full-cite anchor skipped past it to insights-card — a
+// 153-line file — and reported four out-of-range violations that do not exist.
+// A gate reporting a green branch as red is the expensive direction.
+const PATH_RE = new RegExp(
+  `[A-Za-z0-9_][A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})(?![A-Za-z0-9_])`,
   "g",
 );
 
@@ -115,6 +148,23 @@ function resolveCandidates(citedPath) {
   return sources.filter((s) => s.endsWith(needle) && s[s.length - needle.length - 1] === ".");
 }
 
+// Every citation a single line makes: the explicit `path:LINE` ones, plus each
+// bare `` `:LINE` `` attributed to the nearest full cite to its LEFT. A bare span
+// with no full cite before it on the same line is skipped — see BARE_CITE_RE.
+function citesOnLine(line) {
+  const out = [...line.matchAll(CITE_RE)].map((m) => ({
+    citedPath: m[1],
+    lineNo: m[2],
+    index: m.index,
+  }));
+  const mentions = [...line.matchAll(PATH_RE)];
+  for (const b of line.matchAll(BARE_CITE_RE)) {
+    const anchor = mentions.filter((f) => f.index < b.index).pop();
+    if (anchor) out.push({ citedPath: anchor[0], lineNo: b[1], index: b.index });
+  }
+  return out.sort((a, b) => a.index - b.index);
+}
+
 const cites = {}; // doc -> citedPath -> count
 const unresolved = [];
 const outOfRange = [];
@@ -128,8 +178,7 @@ for (const doc of collectDocs()) {
   }
   const lines = stripFencedBlocks(text);
   lines.forEach((line, i) => {
-    for (const m of line.matchAll(CITE_RE)) {
-      const [, citedPath, lineNo] = m;
+    for (const { citedPath, lineNo } of citesOnLine(line)) {
       cites[doc] ??= {};
       cites[doc][citedPath] = (cites[doc][citedPath] ?? 0) + 1;
 
@@ -205,9 +254,12 @@ for (const [doc, paths] of Object.entries(sortedCites)) {
 }
 
 // ★★ Pre-existing breakage is GRANDFATHERED, exactly like the file-size ratchet:
-// the first run found 12 unresolvable and 6 out-of-range citations that predate
-// this gate. Failing on them would have made the gate unlandable, and a gate that
-// cannot land protects nothing. They are recorded so the number can only fall.
+// 11 unresolvable and 8 out-of-range citations predate this gate. Failing on them
+// would have made the gate unlandable, and a gate that cannot land protects
+// nothing. They are recorded so the number can only fall.
+//
+// ★ 8, not the 5 the first cut reported: widening to continuation cites raised
+// it. Re-measure this comment against the baseline file rather than trusting it.
 const knownUnresolved = new Set(baseline.knownUnresolved ?? []);
 const knownOutOfRange = new Set(baseline.knownOutOfRange ?? []);
 const newUnresolved = unresolved.filter((u) => !knownUnresolved.has(u.key));

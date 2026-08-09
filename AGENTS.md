@@ -214,8 +214,20 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # actual `console.error` and passed the range check while
                             # `timelog/_helpers.ts:185` (one line past EOF) was caught. Two wrong
                             # cites, one detectable. Do NOT read green as "the citations are right".
+                            # ★★ It reads CONTINUATION cites too — "`use-resource-planner.ts:710` and
+                            # `:723`, returned at `:1023`" is FOUR citations, and the first cut saw
+                            # ONE of them while the three bare ones (all broken) were invisible.
+                            # Widening found 55 more citations and raised out-of-range 5 → 8.
+                            # ★★★ A bare `:NNN` is resolved ONLY from a file mentioned EARLIER ON THE
+                            # SAME LINE, and the anchor is the nearest preceding file MENTION, not the
+                            # nearest preceding `path:LINE` — a full-cite anchor skipped a colon-less
+                            # `task-manager.tsx` and hung four of its line numbers on a 153-line file,
+                            # reporting violations that did not exist. The ~113 bare cites whose path
+                            # sits on a PREVIOUS line stay out of scope: the form is truly ambiguous
+                            # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
+                            # is worse than one with a known blind spot.
                             # ★ Pre-existing breakage is GRANDFATHERED in
-                            # docs/baselines/doc-line-cites.json (11 unresolvable + 5 out-of-range at
+                            # docs/baselines/doc-line-cites.json (11 unresolvable + 8 out-of-range at
                             # 0.227.0). Re-baseline ONLY after REMOVING citations or converting them
                             # to symbols: `node scripts/check-doc-claims.mjs --update`. Re-baselining
                             # to admit a new one defeats the only thing it checks.
