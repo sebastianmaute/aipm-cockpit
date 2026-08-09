@@ -178,7 +178,7 @@ Seven fields hold rich HTML rather than plain text: `Task.description`, RAID
 `resolutionNotes`, and `Milestone.description`. Plus the note log
 (`Task.noteLog` / `RaidItem.noteLog`), which is separate and owns itself.
 
-Four rules, each of which has already cost a bug:
+Five rules, each of which has already cost a bug:
 
 1. **`rich-text-plain.ts` must never *call* DOMPurify.** It runs inside the
    entity sanitizers, which execute under bare Node in
@@ -206,6 +206,20 @@ Four rules, each of which has already cost a bug:
    through `sanitizeAiRichText` / `withAiRichFields` — the DOM-free sanitizers
    cannot run an allow-list, so a model's `<script>` would otherwise reach all
    six backends.
+5. **A second `useEditor` must pass `injectNonce: readCspNonce()`.**
+   `@tiptap/core` injects the ProseMirror base stylesheet at runtime with
+   `document.createElement("style")`, and the prod CSP is
+   `style-src-elem 'self' 'nonce-…'` — so an un-nonced mount is refused and that
+   editor renders with no base CSS (`white-space` falls back to `normal`,
+   `position` to `static`). ★★ It is worse than one broken editor:
+   `createStyleTag` DEDUPES on `style[data-tiptap-style]` and returns the
+   existing tag, so whichever editor mounts FIRST wins for the whole page — one
+   un-nonced mount poisons every later one. `rich-text-editor.tsx` is the app's
+   only `useEditor` today; keep it that way if you can. ★ Dev cannot show you
+   this (its CSP is the permissive branch) and neither can the unit suite (jsdom
+   does not implement nonce hiding, so `getAttribute("nonce")` passes every test
+   and returns `""` in a browser). `npm run e2e:smoke:prod` is the only check
+   that sees it. See `docs/open-followups.md` §54.
 
 ### Multi-project / portfolio
 Each project is a full, independent `Workspace` plus a `ProjectMeta` header on
@@ -265,14 +279,21 @@ what a field serializes to, not only when the master changes.
 
 ## Testing
 
-Four layers, all gating in CI:
+Five layers, all gating in CI:
 
 | layer | runner | entry |
 |---|---|---|
 | unit + component | Vitest (jsdom) | `src/**/*.test.{ts,tsx}`, co-located |
 | property | Vitest + fast-check | 22 `*.property.test.ts` files |
 | e2e + a11y | Playwright | `e2e/{app,smoke,a11y,visual,print}.spec.ts` |
+| prod-CSP smoke | `scripts/e2e-smoke-prod.mjs` | `npm run e2e:smoke:prod` — no spec file |
 | gates | scripts | file-size ratchet · jscpd duplication · palette guards · Semgrep |
+
+★★ The **prod-CSP smoke** is a layer rather than another Playwright spec because it is the only
+one that runs against a real `next start`. The other four all meet the DEV policy, and dev grants
+`'unsafe-inline'` on `style-src-elem` while prod is nonce-only (`src/proxy.ts`) — so a prod-only
+defect that rendered EVERY rich-text editor unstyled was structurally invisible to all of them for
+months (`docs/open-followups.md` §54). CI job: `prod-smoke`, BLOCKING.
 
 ### Unit + component tests — Vitest
 
@@ -352,7 +373,11 @@ Artifacts (`/test-results`, `/playwright-report`, `/playwright/.cache`,
 In addition to running the suites:
 
 1. `npm run build` — catches type errors and SSR/build issues.
-2. Manual smoke check for anything you couldn't cover with a test:
+2. `npm run e2e:smoke:prod` — build FIRST; it does not build. ★★ Required if you
+   touched the CSP, `layout.tsx`, `src/proxy.ts`, or added a dependency that
+   injects a `<style>` or `<script>` at runtime. It is the only check that meets
+   the PROD policy; every other suite meets the permissive dev one.
+3. Manual smoke check for anything you couldn't cover with a test:
    - Add / edit / delete a task; verify it persists across reload.
    - Open each tab (Chat, Reports, Gantt, RAID, Resources, Activity).
    - Switch language to German.
@@ -366,7 +391,12 @@ Jira sync, storage backend switching, voice commands, OOXML export.
 ## Code style
 
 - ESLint via `eslint-config-next` (typescript + core-web-vitals presets).
-  Run `npm run lint` before opening a PR; CI does not currently enforce it.
+  Run `npm run lint` before opening a PR. ★ CI DOES enforce it — the `lint` job
+  carries no `allow_failure`, so it blocks. (This line previously said CI did not;
+  corrected 2026-08-09 against `.gitlab-ci.yml`.) ★★ But `npm run lint` is bare
+  `eslint` with no `--max-warnings`, so it exits 0 on warnings and only ERRORS
+  fail the job — check a stricter posture locally with
+  `npx eslint --max-warnings=0 src/app`.
 - Prefer immutable updates (`...spread`) over mutation.
 - Functions should stay short — `task-manager.tsx` is already too long; do
   not add to it without a reason. Prefer splitting new logic into a helper

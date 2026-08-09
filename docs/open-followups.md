@@ -2405,8 +2405,7 @@ stylesheet yourself). Fires once, on initial load.
 `meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx`. The other six import
 `RichTextEditor` statically, so it SSRs, which is why the nonce reader must guard `typeof document`.
 Reproduce the split with `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
-(8 consumers; note `grep -rl "<RichTextEditor" src/app` returns 10 — it also catches the component and
-its own test). See §129.
+(8 consumers). See §129, which carries the full table and the counter-example command.
 
 ★★ **Why it is prod-only, structurally** (`src/proxy.ts:51-52`) — verified on the live response header:
 
@@ -7592,7 +7591,15 @@ non-AI surface none of them touched — a fourth widening was the wrong call.
 
 Reproduce: `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'` returns the 8
 consumers; intersect with `grep -rln "ssr: *false" src/app --include="*.tsx"` for the 2. ★ Do NOT use
-`grep -rl "<RichTextEditor" src/app` — it returns 10, catching the component and its own test.
+`grep -rl "<RichTextEditor" src/app` — it returns **11**, adding `rich-text-editor.tsx` itself,
+`rich-text-editor.test.tsx`, and `label-binding.guard.test.ts`.
+
+★★ That 11 was written here as "10" in the commit that filed this entry, and a reviewer caught it. The
+number came from a subagent's report and was copied without re-running the command — inside the very
+commit that corrects §54 for the same class of mistake. It is 11 at this HEAD and was 11 at the base
+commit, so it was never 10. Recorded rather than quietly fixed: this file's standing rule is that a
+correction is a NEW claim inheriting none of the verification of the thing it corrects, and the cheapest
+proof that the rule is worth keeping is an instance of breaking it.
 
 Raised while fixing §54, and deliberately NOT folded into it.
 

@@ -16,6 +16,7 @@
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import fs from "node:fs";
+import net from "node:net";
 
 const require = createRequire(import.meta.url);
 const port = Number(process.env.PORT) || 3200;
@@ -29,20 +30,31 @@ if (!fs.existsSync(".next")) {
 }
 
 /**
- * True if something already answers on `url`. Guards against the case where
- * `next start` fails to bind because the port is held by an unrelated
+ * True if ANYTHING is already listening on the port. Guards against the case
+ * where `next start` fails to bind because the port is held by an unrelated
  * process: without this check, waitForReady() below would happily succeed
  * against that FOREIGN server, the smoke would run against the wrong app,
  * and stopServer() would then kill someone else's process. Refusing is the
  * safe behaviour — never adopt-then-kill a server we didn't start.
+ *
+ * ★★ A RAW TCP CONNECT, NOT AN HTTP REQUEST, AND THAT IS THE POINT. An
+ * HTTP-only probe misses a listener that never speaks HTTP — and that case is
+ * the DESTRUCTIVE one: next start fails to bind, waitForReady burns its full
+ * timeout, and stopServer() then port-kills the foreign PID anyway. The check
+ * has to cover any listener to be worth having.
  */
-async function isPortAlreadyInUse() {
-  try {
-    await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(2000) });
-    return true;
-  } catch {
-    return false;
-  }
+function isPortAlreadyInUse() {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host: "localhost", port });
+    const done = (inUse) => {
+      socket.destroy();
+      resolve(inUse);
+    };
+    socket.setTimeout(2000);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
 }
 
 if (await isPortAlreadyInUse()) {
@@ -90,7 +102,11 @@ async function waitForReady() {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
-      await fetch(url, { redirect: "manual" });
+      // ★ The per-attempt timeout is REQUIRED, not tidiness: a socket that
+      // accepts the connection but never responds would hang this await
+      // forever, the while-condition would never be re-evaluated, and
+      // READY_TIMEOUT_MS would silently stop being a bound at all.
+      await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(2000) });
       return true;
     } catch {
       // not listening yet
