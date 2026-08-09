@@ -2916,7 +2916,7 @@ required carrying them across verbatim, so the split re-exported two dead handle
 three-level spread rather than creating the problem.
 
 ★★ Those four line numbers were ACCURATE — and still had to go. They described the file at that
-commit (1042 lines), not at HEAD (554), so `docs:claims:check` read them as four past-EOF violations
+commit (1043 lines), not at HEAD (554), so `docs:claims:check` read them as four past-EOF violations
 and could not have known better: it only ever sees the checkout. A cite pinned to a named revision
 is a real category, and the durable form is the SHA plus a symbol, never the SHA plus a number.
 
@@ -7817,12 +7817,26 @@ sound while the coordinates were not:
   `pptxTextBox` emits it. Wrong FILE, not a wrong line.
 - §88's two bullets were both wrong: the surviving defect was 227 lines off, and the other pointed
   into a file the code had left — that half turned out to be **fixed**, closed here on re-check.
-- §62's four numbers were ACCURATE, for the file at commit `0d770283` (1042 lines) rather than at
+- §62's four numbers were ACCURATE, for the file at commit `0d770283` (1043 lines) rather than at
   HEAD (554). A cite pinned to a named revision is a real category the gate cannot know about; the
   durable form is the SHA plus a symbol, never the SHA plus a number.
+  ★★ That 1043 read "1042" until it was audited: it came from `wc -l`, while this gate — and
+  `check-file-sizes.mjs`, and the "file has N lines" message in this very tool — all count
+  `split("\n").length`, which is one MORE for a newline-terminated file. AGENTS.md documents that
+  exact off-by-one for the size ratchet, and it still landed here, in the branch about citation
+  accuracy. Two conventions for "how many lines" is one too many: use the gate's.
 
 The through-line: a wrong line number is a SYMPTOM. Renumbering it preserves a claim nobody re-read —
 and §88 proves that can mean documenting an open defect that was closed months ago.
+
+**★★ EVERY NUMBER ABOVE WAS THEN RE-DERIVED BY A SCRIPT, and the audit is worth as much as the
+findings.** 28 claims, 25 clean. Of the THREE mismatches, only ONE was a real error (the 1043 above);
+the other two were bugs in the AUDITOR — it matched `ChevronDownIcon` on the IMPORT line instead of
+the JSX usage and duly reported drifts of −60 and −584 against claims that were correct. A
+verification probe is code, and carries the same defect rate as the thing it verifies. Read a
+mismatch as "one of these two is wrong", never as "the claim is wrong" — the reflex to trust the
+newer measurement is exactly how a correction round introduces errors, which this register already
+records at three stars elsewhere.
 
 **Deliberately NOT built: staleness detection.** The strongest available check is "was the cited file
 modified after the doc line was written", via `git blame` on the doc plus `git log` on each cited
