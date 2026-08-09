@@ -7,7 +7,8 @@
 
 > ★★ **This is a DATED SNAPSHOT of v0.164, not a live document.** Its `path:LINE` citations
 > described the tree at 2026-07-02 and several no longer resolve — `document-links-field.tsx` has
-> since been deleted, and one `timelog/_helpers.ts` cite now runs one line past EOF. Both are
+> since been deleted, and TWO `timelog/_helpers.ts` cites now run past EOF (one by a line, one by
+> two — that file has 183 citable lines today). All THREE are
 > recorded in `docs/baselines/doc-line-cites.json` and are deliberately NOT renumbered: rewriting an
 > audit record to match today's tree destroys the only thing it is good for, which is saying what was
 > true when it was signed. Re-verify any finding here against HEAD before acting on it; if a claim

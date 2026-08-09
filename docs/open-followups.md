@@ -7871,9 +7871,20 @@ Reproduce with `ls scripts/ scripts/*.test.*` and subtract.
 ★★★ MUTATION-PROVED — and the first reading of the result was HALF WRONG, in the dangerous
 direction. Six injected defects, four killed at once, two survived; I classified BOTH survivors as
 equivalent mutants, concluding that `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead were
-redundant guards so removing either alone changed nothing. A cold review's differential fuzz over
-784 inputs settled it: dropping the ORDER changes **0** outputs, dropping the LOOKAHEAD changes
-**336**. `` `foo.tsxx` `` yields a phantom anchor to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+redundant guards so removing either alone changed nothing. A cold review's differential fuzz settled
+it: dropping the ORDER changes NO outputs, dropping the LOOKAHEAD invents phantom paths —
+`` `foo.tsxx` `` anchors to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+★★ THAT EXPERIMENT NOW LIVES IN THE SUITE (`PATH_RE mutants — the two guards are NOT
+interchangeable`), and this entry used to quote its corpus size instead — "784 inputs, 336 differ".
+Nothing in the repo reproduced those figures, and a second reviewer building their own corpus got
+different ones for the same true property; that is this section's own "quote the 25, not a total"
+rule applied to the text that states the rule. Both mutants are now built from the exported
+`SOURCE_EXT`, so the property is ENFORCED rather than asserted and there is no count to go stale.
+★ Writing that pin is itself worked evidence: the first version enumerated "every
+extension-SUFFIXED input" as the expected differing set and FAILED, because the corpus builds
+`ts` + `x` as `foo.tsx` — a valid name that must not differ. Enumerating re-derived the regex's
+rules and got them wrong; asserting the PROPERTY (every difference is an invented path, and no
+accepted input is affected) is what holds.
 The lookahead mutant survived only because no test fed it an extension-SUFFIXED name — a TEST GAP,
 which I recorded as proof the code was redundant, in a comment a future contributor would read as
 licence to delete a live guard. There is now a test (".tsxx is not .tsx") and that mutant dies.
@@ -7960,7 +7971,12 @@ new `path:LINE` citations and the ratchet refused them. The temptation is to re-
 have admitted three new citations into the baseline and quietly defeated the only thing the gate
 checks, on the very commit that introduced it. The fix was to obey the rule instead: the examples now
 read "`timelog/_helpers.ts` cited at line 185" rather than the `path:LINE` form. Baseline unchanged at
-496/11/5. ★ If you are ever about to run `--update` to make your own commit pass, that is the signal
+310 cites / 11 unresolvable / 5 out-of-range across 11 docs — the state recorded in
+`doc-line-cites.json` at that commit, and today's 541/1/2 across 12 is the live figure.
+★★ This said "496/11/5". The 11 and the 5 were right and the 496 was not: summing the baseline's own
+per-doc counts at that commit gives 310. Two right numbers beside a wrong one is the hardest shape to
+catch by reading, because the pair vouches for the third — re-derive EACH, and cite the artifact that
+holds it (`git show <sha>:docs/baselines/doc-line-cites.json`) rather than a remembered triple. ★ If you are ever about to run `--update` to make your own commit pass, that is the signal
 you are the thing being gated.
 
 ★ **The parsing now has a unit test** (see above); `check-file-sizes.mjs` and

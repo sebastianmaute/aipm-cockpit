@@ -277,9 +277,13 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # coverage `include` deliberately stays `src/**`, so a script test raises
                             # no floor. ★★★ THE TWO TRUNCATION GUARDS ARE NOT INTERCHANGEABLE, and
                             # this line said they were: PATH_RE's `(?!...)` lookahead is LOAD-BEARING
-                            # ALONE (drop it and 336 of 784 fuzzed inputs change — `foo.tsxx` yields
-                            # a phantom anchor to `foo.tsx`), while the longest-first extension order
-                            # really is redundant (0 of 784). The lookahead mutant survived the first
+                            # ALONE (drop it and `foo.tsxx` yields a phantom anchor to `foo.tsx`),
+                            # while the longest-first extension order really is redundant (dropping
+                            # it changes NO output). ★ Both are pinned by a differential test in
+                            # `doc-claims-lib.test.mjs` that builds each mutant from the exported
+                            # `SOURCE_EXT` — run it, don't trust a number here; this line used to
+                            # quote a review's corpus size, which nothing could reproduce.
+                            # The lookahead mutant survived the first
                             # suite only because nothing fed it an extension-SUFFIXED name — a test
                             # gap recorded as proof of redundancy, i.e. licence to delete a live
                             # guard. ★★ A surviving mutant is a QUESTION: "equivalent mutant" and

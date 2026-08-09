@@ -12,10 +12,10 @@
 // dangerous thing in the file. It said `SOURCE_EXT` ordering and PATH_RE's
 // `(?!...)` lookahead were REDUNDANT guards, so "removing either ALONE is an
 // equivalent mutant". That is true of the ORDER and FALSE of the LOOKAHEAD.
-// Differential fuzz over 784 inputs, run by a cold reviewer and re-verified
-// here: dropping the order changes 0 outputs; dropping the lookahead changes
-// 336 — `` `foo.tsxx` `` yields a phantom anchor to `foo.tsx`, and
-// `tsconfig.jsonc` to `tsconfig.json`. The mutant survived my harness only
+// Differential fuzz, first run by a cold reviewer and now PINNED BELOW as a
+// test ("PATH_RE mutants"): dropping the order changes no output; dropping the
+// lookahead invents paths — `` `foo.tsxx` `` yields a phantom anchor to
+// `foo.tsx`, and `tsconfig.jsonc` to `tsconfig.json`. The mutant survived my harness only
 // because no test fed it an extension-suffixed name. I had a TEST GAP and
 // recorded it as proof the code was redundant, in a comment a future
 // contributor would read as licence to delete a live guard. There is now a test
@@ -25,7 +25,7 @@
 // mutant" and "missing test", which look identical from the harness. Deciding
 // between them requires an input the suite does not contain, so you must go
 // LOOKING for one. Assuming equivalence is how a guard gets deleted later.
-// ★ The order genuinely IS redundant (0 of 784), so it is belt to the
+// ★ The order genuinely IS redundant (its mutant changes nothing), so it is belt to the
 // lookahead's braces — that half of the original claim survived checking.
 import { describe, expect, it } from "vitest";
 import {
@@ -34,6 +34,7 @@ import {
   collectSources,
   countLines,
   resolveCandidates,
+  SOURCE_EXT,
   stripFencedBlocks,
   THIRD_PARTY_RE,
 } from "./doc-claims-lib.mjs";
@@ -212,15 +213,81 @@ describe("citesOnLine — cold-review regressions (2026-08-09)", () => {
   it("regression: the extension must END the token (.tsxx is not .tsx)", () => {
     // ★★★ PATH_RE's `(?!...)` lookahead is NOT redundant with the longest-first
     // extension order, and a comment here claimed it was. Differential fuzz
-    // over 784 inputs: dropping the ORDER changes nothing (0 differ), dropping
-    // the LOOKAHEAD changes 336. Without it `foo.tsxx` yields a phantom anchor
-    // to `foo.tsx`. This test is the one that would have caught the mislabel.
+    // (now pinned by "PATH_RE mutants" below) showed the ORDER mutant changes
+    // nothing while the LOOKAHEAD mutant invents paths: without it `foo.tsxx`
+    // yields a phantom anchor to `foo.tsx`. This single case is the one that
+    // would have caught the mislabel, which is why it stays as its own test.
     expect(paths("`foo.tsxx` at `:5`")).toEqual([]);
     expect(paths("`tsconfig.jsonc` at `:5`")).toEqual([]);
   });
 
   it("regression: a URL with a line anchor is not a citation", () => {
     expect(paths("See https://github.com/x/y/blob/main/app.js:12 for detail")).toEqual([]);
+  });
+
+  // ★★★ The differential fuzz that settled "equivalent mutant vs missing test"
+  // used to live only in a REVIEW REPORT, and this file quoted its corpus size
+  // ("784 inputs", "336 differ") as the evidence. Those numbers were not
+  // reproducible from anything in the repo — a second reviewer building their
+  // own corpus got different ones for the same true property, which is the
+  // "quote the 25, not a total" failure applied to my own text. The experiment
+  // is now IN the suite, so the property is enforced instead of asserted and
+  // there is no corpus size to go stale. Derive both mutants from the SAME
+  // exported `SOURCE_EXT` the real regex uses, or the test drifts from it.
+  describe("PATH_RE mutants — the two guards are NOT interchangeable", () => {
+    const STEMS = ["foo", "a/b/c", "notes-badge-button", "tsconfig", "src/app/x_y", "@t/pkg/index"];
+    // "" is the control (a bare, valid name); the rest suffix the extension.
+    const SUFFIXES = ["", "x", "c", "1", "_", "z9"];
+
+    const build = (ext, withLookahead) =>
+      new RegExp(
+        `[@A-Za-z0-9_][@A-Za-z0-9_/.-]*\\.(?:${ext})${withLookahead ? "(?![A-Za-z0-9_])" : ""}`,
+        "g",
+      );
+
+    const CORPUS = STEMS.flatMap((stem) =>
+      SOURCE_EXT.split("|").flatMap((ext) => SUFFIXES.map((sfx) => `${stem}.${ext}${sfx}`)),
+    );
+    const run = (re, s) => [...s.matchAll(re)].map((m) => m[0]);
+    const differs = (a, b) =>
+      CORPUS.filter((s) => JSON.stringify(run(a, s)) !== JSON.stringify(run(b, s)));
+
+    it("the longest-first extension ORDER is genuinely redundant — zero inputs differ", () => {
+      // The `:` (or here, the token boundary) forces a backtrack, so shortest-first
+      // still reaches the longer alternative. Belt to the lookahead's braces.
+      const reversed = build(SOURCE_EXT.split("|").reverse().join("|"), true);
+      expect(differs(build(SOURCE_EXT, true), reversed)).toEqual([]);
+    });
+
+    it("the boundary LOOKAHEAD is load-bearing — every difference it makes is a PHANTOM", () => {
+      const base = build(SOURCE_EXT, true);
+      const dropped = build(SOURCE_EXT, false);
+      const changed = differs(base, dropped);
+
+      // ★★ A first cut asserted `changed` equalled "every extension-SUFFIXED
+      // input" and FAILED — the corpus builds `ts` + `x` as `foo.tsx`, a
+      // perfectly valid name that must NOT differ. Enumerating the expected
+      // set re-derived the regex's own rules and got them wrong; assert the
+      // PROPERTY instead, which is also what survives a change to SOURCE_EXT.
+      expect(changed.length).toBeGreaterThan(0);
+
+      // Direction: every difference is the mutant INVENTING a path the real
+      // regex correctly rejects — never the mutant losing a real one.
+      for (const s of changed) {
+        expect(run(base, s)).toEqual([]);
+        expect(run(dropped, s).length).toBeGreaterThan(0);
+      }
+
+      // And no input the real regex ACCEPTS is affected at all.
+      const accepted = CORPUS.filter((s) => run(base, s).length > 0);
+      expect(accepted.filter((s) => changed.includes(s))).toEqual([]);
+
+      // The concrete phantom this prevents.
+      expect(run(dropped, "foo.tsxx")).toEqual(["foo.tsx"]);
+      expect(run(base, "foo.tsxx")).toEqual([]);
+      expect(run(dropped, "tsconfig.jsonc")).toEqual(["tsconfig.json"]);
+      expect(run(base, "tsconfig.jsonc")).toEqual([]);
+    });
   });
 
   it("regression: the URL guard needs TWO slashes, not one", () => {

@@ -49,8 +49,11 @@ export const CITE_RE = new RegExp(
 // (56 of 156, measured 2026-08-09). ★★ This said "37 of the 150" until a cold
 // review caught it: those are the counts under the REJECTED full-cite anchor,
 // carried forward from the first implementation and never re-derived after the
-// rule changed to the mention anchor described 15 lines below. The comment
-// contradicted both the code beneath it and its own neighbour.
+// rule changed to the mention anchor described at `PATH_RE` below. The comment
+// contradicted both the code beneath it and its own neighbour. ★ That reference
+// was a LINE OFFSET ("15 lines below") and had already drifted to point at a
+// blank line — in the file whose whole purpose is to gate line citations. Name
+// the symbol.
 // The other 100 take their path from a previous line or an adjacent
 // table cell, and resolving those needs a nearest-preceding-path heuristic that
 // WILL mis-attribute. The bare form is genuinely ambiguous, which is not a
@@ -67,12 +70,18 @@ export const BARE_CITE_RE = /`:(\d+)(?:[-–]\d+)?`/g;
 
 // ★★★ The anchor is the nearest preceding FILE MENTION, with or without a line
 // number — NOT the nearest preceding `path:LINE`. Measured: a first cut used the
-// latter and mis-attributed four cites. `tooltip-inventory.md` row B10 reads
+// latter and mis-attributed four cites, across tooltip-inventory rows B10 AND
+// B11 — not one row, as this comment said until it was re-measured. B10 reads
 // "`insights-card.tsx:102` … `onAcknowledgeInsight` (`task-manager.tsx` — grep
 // the symbol; `:821` …)". The bare numbers are task-manager's, but that mention
 // carries no colon, so a full-cite anchor skipped past it to insights-card — a
 // 152-line file — and reported four out-of-range violations that do not exist.
 // A gate reporting a green branch as red is the expensive direction.
+// ★★ The same re-measurement found a SECOND failure mode nothing had recorded:
+// on three further bare cites the rejected anchor finds NO preceding full cite
+// at all and silently DROPS them (`modal-header.tsx` ×2, `raci-chip-picker.tsx`),
+// so it loses coverage as well as mis-attributing. Seven disagreements in that
+// one file; reproduce by resolving each bare cite both ways and diffing.
 export const PATH_RE = new RegExp(
   `[@A-Za-z0-9_][@A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})(?![A-Za-z0-9_])`,
   "g",
