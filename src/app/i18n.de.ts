@@ -1367,11 +1367,6 @@ export const de: Record<TranslationKey, string> = {
     "{0} Nachfolger-Verknüpfung(en) wurden nicht angewendet – die Aufgabe wurde entfernt, hat ihr Abhängigkeitslimit erreicht, ist bereits verknüpft oder würde einen Zyklus erzeugen.",
   depRelations: "Beziehungen",
   depDependsOn: "Abhängig von",
-  depAdd: "Hinzufügen",
-  depRemove: "Entfernen",
-  depType: "Abhängigkeitstyp",
-  depPickTask: "Vorgänger-Aufgabe",
-  depPickTaskPlaceholder: "Vorgänger auswählen…",
   depMissing: "fehlt",
   depHelp:
     "FS – der Vorgänger endet, bevor der Nachfolger startet (am häufigsten). SS – beide können gleichzeitig starten. FF – beide können gleichzeitig enden. SF – der Vorgänger startet, bevor der Nachfolger endet (selten).",
@@ -1379,14 +1374,6 @@ export const de: Record<TranslationKey, string> = {
   depTypeSsShort: "Anfang-zu-Anfang",
   depTypeFfShort: "Ende-zu-Ende",
   depTypeSfShort: "Anfang-zu-Ende",
-  depTypeFsHelp:
-    "Ende-zu-Anfang: Diese Aufgabe kann starten, sobald der Vorgänger endet.",
-  depTypeSsHelp:
-    "Anfang-zu-Anfang: Diese Aufgabe kann starten, sobald der Vorgänger startet.",
-  depTypeFfHelp:
-    "Ende-zu-Ende: Diese Aufgabe kann enden, sobald der Vorgänger endet.",
-  depTypeSfHelp:
-    "Anfang-zu-Ende: Diese Aufgabe kann enden, sobald der Vorgänger startet.",
 
   contactsRemove: "Diesen Kontakt vergessen",
   allGroups: "Alle Gruppen",

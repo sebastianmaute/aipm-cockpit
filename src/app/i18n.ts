@@ -1384,11 +1384,6 @@ const enUS = {
     "{0} successor link(s) were not applied — the task was removed, is at its dependency limit, already has this link, or would create a cycle.",
   depRelations: "Relations",
   depDependsOn: "Depends on",
-  depAdd: "Add",
-  depRemove: "Remove",
-  depType: "Dependency type",
-  depPickTask: "Predecessor task",
-  depPickTaskPlaceholder: "Select a predecessor task…",
   depMissing: "missing",
   depHelp:
     "FS — the predecessor finishes before the successor starts (most common). SS — both can start together. FF — both can finish together. SF — the predecessor starts before the successor finishes (rare).",
@@ -1396,14 +1391,6 @@ const enUS = {
   depTypeSsShort: "Start-to-Start",
   depTypeFfShort: "Finish-to-Finish",
   depTypeSfShort: "Start-to-Finish",
-  depTypeFsHelp:
-    "Finish-to-Start: this task can start once the predecessor finishes.",
-  depTypeSsHelp:
-    "Start-to-Start: this task can start once the predecessor starts.",
-  depTypeFfHelp:
-    "Finish-to-Finish: this task can finish once the predecessor finishes.",
-  depTypeSfHelp:
-    "Start-to-Finish: this task can finish once the predecessor starts.",
 
   contactsRemove: "Forget this contact",
   allGroups: "All groups",
