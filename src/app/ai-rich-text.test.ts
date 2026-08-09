@@ -181,3 +181,50 @@ describe("withAiRichFields", () => {
     for (const v of Object.values(out)) expect(v).not.toContain("script");
   });
 });
+
+describe("open-followups §107 — a leading template tag is no longer escaped", () => {
+  it("keeps a leading h1 as markup", () => {
+    expect(sanitizeAiRichText("<h1>Title</h1><p>body</p>")).toBe("<h1>Title</h1><p>body</p>");
+  });
+
+  it("keeps a leading u as markup", () => {
+    expect(sanitizeAiRichText("<u>Title</u><p>body</p>")).toBe("<u>Title</u><p>body</p>");
+  });
+
+  it("still leaves a mid-value heading alone (this case was never broken)", () => {
+    expect(sanitizeAiRichText("<p>Title</p><h1>Section</h1>")).toBe("<p>Title</p><h1>Section</h1>");
+  });
+
+  it("still escapes genuine plain text", () => {
+    expect(sanitizeAiRichText("cost < 5k and rising")).toBe("<p>cost &lt; 5k and rising</p>");
+  });
+});
+
+describe("open-followups §114 — the nine document-only tags, one leading tag at a time", () => {
+  // Measured individually on purpose: the register got the count wrong the first
+  // time by reasoning about the group instead of testing each member.
+  const cases: Array<[string, string]> = [
+    ["s", "<s>a</s><p>b</p>"],
+    ["code", "<code>a</code><p>b</p>"],
+    ["pre", "<pre>a</pre><p>b</p>"],
+    ["blockquote", "<blockquote>a</blockquote><p>b</p>"],
+    ["hr", "<hr><p>b</p>"],
+    ["mark", "<mark>a</mark><p>b</p>"],
+    ["sub", "<sub>a</sub><p>b</p>"],
+    ["sup", "<sup>a</sup><p>b</p>"],
+    ["img", '<img data-asset-id="7" alt="a"><p>b</p>'],
+  ];
+
+  for (const [tag, html] of cases) {
+    it(`does not escape a leading <${tag}>`, () => {
+      expect(sanitizeAiDocumentRichText(html)).not.toContain("&lt;");
+    });
+  }
+
+  it("does not widen the entity path: a document-only tag is still not markup there", () => {
+    // sanitizeAiRichText's sink is sanitizeTemplateHtml, which has no blockquote.
+    // Classifying it as HTML would hand the sink a tag it unwraps, so the value
+    // must still take the escape path.
+    expect(sanitizeAiRichText("<blockquote>q</blockquote>")).toContain("&lt;blockquote&gt;");
+  });
+});
