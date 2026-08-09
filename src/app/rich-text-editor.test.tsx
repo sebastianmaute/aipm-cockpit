@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { useRef } from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -267,5 +267,44 @@ describe("RichTextEditor commitOnEnter", () => {
     // A normal Enter afterwards still commits.
     fireEvent.keyDown(surface, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RichTextEditor — CSP nonce on the injected Tiptap stylesheet", () => {
+  // ★★★ createStyleTag DEDUPES on style[data-tiptap-style] and appends to
+  // document.head, which RTL cleanup() does not touch. Without this reset the
+  // FIRST editor mounted anywhere in this file wins and every assertion below
+  // reads that tag — the test then passes with `injectNonce` deleted. Mutation
+  // -proved: removing the option must turn this red.
+  beforeEach(() => {
+    document.head.querySelectorAll("style[data-tiptap-style]").forEach((el) => el.remove());
+    document.head.querySelectorAll("script[nonce]").forEach((el) => el.remove());
+  });
+
+  it("puts the page's nonce on the style tag Tiptap injects", async () => {
+    const script = document.createElement("script");
+    script.setAttribute("nonce", "test-nonce");
+    script.nonce = "test-nonce";
+    document.head.appendChild(script);
+
+    setup();
+
+    await waitFor(() => {
+      expect(document.head.querySelector("style[data-tiptap-style]")).not.toBeNull();
+    });
+    expect(
+      document.head.querySelector("style[data-tiptap-style]")!.getAttribute("nonce"),
+    ).toBe("test-nonce");
+  });
+
+  it("injects an un-nonced tag when the page has no nonce, rather than failing to mount", async () => {
+    setup();
+
+    await waitFor(() => {
+      expect(document.head.querySelector("style[data-tiptap-style]")).not.toBeNull();
+    });
+    expect(
+      document.head.querySelector("style[data-tiptap-style]")!.hasAttribute("nonce"),
+    ).toBe(false);
   });
 });
