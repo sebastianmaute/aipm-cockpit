@@ -390,8 +390,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         // identical anyway so the two paths cannot drift.
         tasksRef.current = nextList;
         setTasks(nextList);
-        recordSuccessorEdits(successors, nextList);
+        // ★ Creation FIRST. Both calls are synchronous and `recordSuccessorEdits`
+        // emits a `task.updated` entry per successor target, so the other order
+        // put "Target updated" above "New task created" in the activity log —
+        // a row reported as edited by a task that did not exist yet. The update
+        // path has no such choice to make (the task already existed).
         logActivity("task.created", newId, taskName);
+        recordSuccessorEdits(successors, nextList);
         // Flush any editor-buffered RAID/links now that the parent id exists.
         onTaskCreated?.(newId);
         const linkRaidId = pendingLinkRaidIdRef.current;
