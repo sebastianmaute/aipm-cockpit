@@ -27,6 +27,15 @@
  *  component still renders on the server, so the `useEditor({...})` options
  *  object — and therefore this function — is evaluated during SSR. Only
  *  meeting-report-panel.tsx and comm-templates-section.tsx use `ssr: false`.
+ *  Reproduce the eight (2026-08-09):
+ *  `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
+ *
+ *  ★ `document.querySelector("script[nonce]")` is not specific to the one
+ *  hand-authored nonced tag in `layout.tsx` — it also matches Next.js's own
+ *  auto-nonced framework/page `<script>` elements. That is fine: every nonced
+ *  element on a given request shares the SAME nonce, the one minted once per
+ *  request in `src/proxy.ts`, so whichever nonced script this selector reaches
+ *  first yields an identical string.
  *
  *  ★ Deliberately NOT threaded down as a prop or React context from layout.tsx,
  *  which already reads the `x-nonce` header: that would put the real value back
