@@ -54,8 +54,17 @@ export function useActionAnalysis(ai: AiCreds) {
         //   AFTER its successor armed the new controller, so an unguarded
         //   `abortRef.current = null` would make `cancel()` a silent no-op while
         //   the successor is still billed, and an unguarded `setBusy(false)`
-        //   would report idle during it. Matches `use-abortable-ai.ts` and
-        //   `use-timelog-sync.ts`'s `runGuarded`.
+        //   would report idle during it. Matches `use-abortable-ai.ts`'s `run`,
+        //   which guards BOTH statements the same way — the only other instance
+        //   of this shape in the app, so copy that one. (Reproduce the census
+        //   with `grep -rn "=== controller" src` — three non-test sites today.)
+        // ★★ `use-timelog-sync.ts`'s `runGuarded` is the REMAINING OUTLIER and
+        //   is NOT a model for this: it closes the guard before the busy write
+        //   (`if (abortRef.current === controller) abortRef.current = null;`
+        //   then an unconditional `setBusy(false)`), so a superseded run there
+        //   still reports idle while its successor is in flight. Left alone
+        //   deliberately — it is working, separately-tested code and fixing it
+        //   was out of scope — but do not read it as the reference shape.
         if (abortRef.current === controller) {
           setBusy(false);
           abortRef.current = null;

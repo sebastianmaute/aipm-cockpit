@@ -247,8 +247,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `wcag2aaa`, which the spec never asks for. Reproduce:
   `node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'`
   So a green axe run is silent on duplicate names in EVERY view, at EVERY seed size, forever. Qualify
-  the label at write time and pin it with a UNIT test rendering ≥2 rows — that is the only detector
-  there is. (Worked example + the seeded reproduction: `docs/open-followups.md` §120.)
+  the label at write time and pin it with a UNIT test rendering ≥2 rows — a test you write is the ONLY
+  thing that can catch this, in either layer. ★ Two different tests are meant here and they are not
+  interchangeable: a UNIT test rendering two same-type rows is the PREVENTION you write alongside a new
+  per-row control, and it is what this bullet asks for. The one e2e count in `e2e/seed-content.spec.ts`
+  is a CHARACTERIZATION of a defect already shipped (`docs/open-followups.md` §120) — it asserts the
+  collision is still there and is meant to go red when §120 is fixed. Both call themselves "the only
+  detector" in their own scope; neither is a gate. (Worked example + the seeded reproduction: §120.)
   ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the

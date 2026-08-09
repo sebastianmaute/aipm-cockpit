@@ -206,11 +206,17 @@ function UndoRedoControl({
   // failure the restore was added for, on the path a user is most likely to
   // take. Nothing of ours survives to receive focus, so the target is captured
   // BEFORE the removal (`armExitFocus`) and applied AFTER the commit, here.
-  // ★ Where it goes: the element a Tab from this control would have reached. For
-  //   the undo control that is normally the redo control's button — undoing
-  //   pushes onto the redo stack, so it is mounting in the same commit — and
-  //   otherwise the next top-bar control. Predictable, and it keeps the user in
-  //   the place they were.
+  // ★★ Where it goes: the element a Tab from this control would have reached AT
+  //   ARM TIME — and arm time is BEFORE the undo, so what is mounted then is
+  //   what gets captured. For the undo control on a FIRST undo the redo stack is
+  //   empty, so the redo control has returned null and is not in the DOM at all:
+  //   measured in Chromium, the captured target was the next top-bar control
+  //   ("Voice command"), NOT the redo button. It is the redo button only when a
+  //   redo entry ALREADY existed when the panel opened (or the action button was
+  //   clicked). Both cases are real; which one is "normal" is simply whether the
+  //   user has undone anything yet in this session, so the first undo of a
+  //   session lands on the neighbouring control. Predictable either way, and it
+  //   keeps the user in the place they were.
   // ★★ ONLY when focus was actually DROPPED. If the user has moved focus
   //   somewhere deliberate, pulling it into the top bar because a background
   //   write happened to empty the stack is focus THEFT, which is worse than the

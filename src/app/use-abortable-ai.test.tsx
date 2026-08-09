@@ -104,6 +104,66 @@ describe("useAbortableAi", () => {
     expect(seen[1].aborted).toBe(true);
   });
 
+  // ★★ THE `setError` GUARD — nothing else in the repo pins it. The superseded
+  // test above rejects with an AbortError, so it returns at `isAbortError(e)`
+  // and never reaches `setError`; every other error test is a single or
+  // strictly sequential run, where `abortRef.current === controller` holds
+  // anyway. So deleting the guard changed no assertion until this test existed.
+  // Here the LOSER rejects with a genuine NON-ABORT error — a real shape: a
+  // network failure that lands a tick before its own abort does, since the
+  // catch's abort branch tests the THROWN VALUE, not `signal.aborted`. It
+  // therefore walks into the `setError` arm while the successor is in flight
+  // with a freshly cleared `error`.
+  it("a superseded run failing with a non-abort error does not clobber the successor's cleared error", async () => {
+    const { result } = renderHook(() => useAbortableAi());
+    const seen: AbortSignal[] = [];
+    let rejectLoser!: (e: unknown) => void;
+    let rejectWinner!: (e: unknown) => void;
+    let loserDone!: Promise<string | null>;
+    let winnerDone!: Promise<string | null>;
+    act(() => {
+      loserDone = result.current.run((signal) => {
+        seen.push(signal);
+        return new Promise<string>((_, rej) => { rejectLoser = rej; });
+      });
+    });
+    act(() => {
+      winnerDone = result.current.run((signal) => {
+        seen.push(signal);
+        return new Promise<string>((_, rej) => { rejectWinner = rej; });
+      });
+    });
+    // CONTROL — the setup really happened: BOTH runs started, and the first was
+    // really superseded (a test where only one run ran would pass vacuously).
+    expect(seen).toHaveLength(2);
+    expect(seen[0].aborted).toBe(true);
+    expect(seen[1].aborted).toBe(false);
+
+    let loserOut: string | null = "unset";
+    await act(async () => {
+      rejectLoser(new Error("loser boom"));
+      loserOut = await loserDone;
+    });
+    // CONTROL — the loser's rejection was OBSERVED, not merely scheduled: `run`
+    // resolves only after its catch has run to completion, and a plain Error is
+    // not an AbortError, so the guarded `setError` line WAS reached and declined.
+    expect(loserOut).toBeNull();
+    expect(result.current.error).toBeNull();
+    expect(result.current.busy).toBe(true);
+
+    // CONTROL — the error channel is live in this exact arrangement: the
+    // successor's own failure still surfaces, so the null above is the guard
+    // working, not a dead path that could never have written.
+    let winnerOut: string | null = "unset";
+    await act(async () => {
+      rejectWinner(new Error("winner boom"));
+      winnerOut = await winnerDone;
+    });
+    expect(winnerOut).toBeNull();
+    expect(result.current.error).toBe("winner boom");
+    expect(result.current.busy).toBe(false);
+  });
+
   // ★ DEFENCE IN DEPTH, and deliberately labelled as such: no live caller can
   //   reach this today (`ai-forced-call.ts` has no retry/backoff/streaming, so a
   //   Stop cannot land between the response resolving and the return). It pins

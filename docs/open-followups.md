@@ -147,13 +147,14 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 103 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
 | 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 | 114 | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | open, BILLED — the six converted trigger sites all gained a Stop; the scheduled/background runner that starts the same call has no controller to cancel, so nothing can stop it |
-| 115 | ~~`use-tasks-dedup.tsx` never aborts its in-flight call on unmount~~ | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED 2026-08-08** in the slice-3 review round — cleanup-only effect added, mutation-proved. The audit table in the entry is HISTORY; the remaining two hooks are §121 |
+| 115 | ~~`use-tasks-dedup.tsx` never aborts its in-flight call on unmount~~ | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED 2026-08-08** in the slice-3 review round — cleanup-only effect added, mutation-proved. The audit table in the entry is HISTORY. The two hooks that remained were §121, **also CLOSED** the same day — all six abort on unmount now. The adjacent unguarded-`setBusy` defect is §122 |
 | 116 | The budget people rows and the role row above them read BOOKED from two different sources | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | open, DATA-INTEGRITY — the per-person figures cannot be made to sum to the role row above them even when both sources are fresh, because they are different sources. A tooltip is not the fix |
 | 117 | ~~The budget people-row disclosure clips its own label mid-glyph, with no ellipsis~~ | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED 2026-08-08** — measured in Chromium at 4 of 7 role labels clipped at the DEFAULT width, all 7 at 90px; `max-w-full` does the work (`min-w-0` measured INERT — `truncate` already sets `overflow:hidden`, which gives a flex item automatic min-size 0) |
 | 118 | A popover opened by a click that also scrolls its ancestor never mounts | found in the slice-3 eye-verify | UNKNOWN | open, PRE-EXISTING — ★★ the entry once named a "second effect" that does not exist and proposed a fix that cannot be implemented; both are RETRACTED in place. The mechanism is restated, no replacement fix is asserted |
 | 119 | Two more controls start a billed Anthropic call with no way to stop it | found in the slice-3 review prose check | S each | open, BILLED — the dashboard digest `Generate now` and the steering meeting report `Draft with AI` only grey out while running. NOT a regression; they were never converted. Read with §114 — neither is in the "six sites" the CHANGELOG names |
 | 120 | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | open, a11y — WCAG 2.4.6. ★★★ **axe CANNOT catch this** — measured against axe-core 4.12.1: in the gate’s requested tagset there is NO rule that flags two buttons sharing a name (`identical-links-same-purpose` is links-only AND `wcag2aaa`, which the spec never requests). `insight-digest-card.tsx` already de-collides the identical shape — copy it. Same class as §111 |
 | 121 | ~~Two of the six AI trigger hooks still never abort on unmount~~ | split out of §115 on 2026-08-08 | S each | **CLOSED 2026-08-08** in the review round that followed — both gained the cleanup-only effect, each mutation-proved. ★★ Filed then immediately closed on purpose: a follow-up is the right home for a decision, the wrong home for a one-liner with three precedents in the same file family. ★ `use-action-analysis.ts`’s guard was measured UNREACHABLE and applied as defence-in-depth — do not quote it as a shipped defect |
+| 122 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §121 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §121 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §115/§121's sweeps do not surface it. First written as a bullet inside CLOSED §121 — a live defect in a closed entry has no index row and stops being read |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -6345,8 +6346,8 @@ So THREE of the six lacked it at audit time, not one. ★★★ **AT AUDIT TIME 
 abortRef.current?.abort(), [])` — `use-abortable-ai.ts`, `use-alloc-plan.tsx`, `use-raci-suggest.tsx`.
 That sentence used to be written in the present tense with the number three, and it was FALSE the
 moment `use-tasks-dedup.tsx` gained the shape in the round that closed this very entry — the fix and
-the claim it falsifies landed together. Treat the figure as historical and **re-run the sweep**; it
-moves again the moment §121 is worked:
+the claim it falsifies landed together. Treat the figure as historical and **re-run the sweep** — it
+moved again when §121 was worked, and reads **6** today:
 
 ```bash
 grep -rlF "() => () => abortRef.current?.abort()" src/app; echo "EXIT=$?"
@@ -6385,10 +6386,16 @@ covered, NOT a count of the app's billed AI calls (see §114, and the two uncove
 shell a view UNMOUNTS on every navigation away. Starting a dedup and switching tabs is the ordinary
 path, not an edge case.
 
-★ Fix is one line beside the existing `reset` — the cleanup-only shape above, which sets no state
-and so stays clear of the `react-hooks/set-state-in-effect` ban. Left open only because slice 3's
-task 8 was scoped to replacing the rendered control and was explicitly forbidden from changing any
-feature's cancel semantics.
+★ The fix WAS one line beside the existing `reset` — the cleanup-only shape above, which sets no
+state and so stays clear of the `react-hooks/set-state-in-effect` ban. It was filed rather than done
+at the time only because slice 3's task 8 was scoped to replacing the rendered control and was
+explicitly forbidden from changing any feature's cancel semantics; the review round that followed was
+not, and closed it.
+
+★★ Past tense throughout, on purpose. This entry spent one commit reading as though the fix were
+still owed, because the closure was written at the top and the prescription left at the bottom. When
+you close an entry, read it to the END — see the same failure recorded in §121's STATUS block.
+
 ## 116. The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity
 
 ★ **Filed as §115** — see the renumbering note at the head of §114.
@@ -6729,11 +6736,10 @@ retry exists (the scheduled-job runner calls `runJobAnalysis` directly, not this
 in the code says defence-in-depth in those words rather than claiming a live bug — do not quote this
 entry as evidence of a shipped defect there.
 
-★ **One instance of the ADJACENT class is still open and is NOT covered here:** `use-timelog-sync.ts`
-guards only its `abortRef` clear, leaving `setBusy(false)` outside the guard — the same shape
-`use-abortable-ai.ts` and `use-action-analysis.ts` were both fixed for. Different defect (a
-superseded run disarming its successor's flag, not an unmount leak) and a non-AI path, so it is
-recorded here rather than reopening this entry. Nothing gates it.
+★ **One instance of the ADJACENT class is still open: `use-timelog-sync.ts`. It is filed as §122.**
+It was first written here as a bullet, which was wrong — a live defect recorded inside a CLOSED
+entry, with no number and no index row, is a defect nobody will read again. Closed entries are the
+ones that stop being re-read.
 
 ★★★ EVERYTHING IN THE TABLE IS **AS OF FILING** (2026-08-08), stated in the past tense on purpose:
 this entry describes a defect that is expected to be fixed, so a present-tense "the file contains no
@@ -6751,35 +6757,82 @@ a hit in `use-inline-entity-edit.ts` and a reader stops there. An effect is not 
 whether the effect RETURNS a function, not whether one exists — and note this survives the fix, since
 the file then holds TWO effects and only one of them is the cleanup.
 
-**STATUS — verify before acting, do NOT trust this line.** The single check is whether BOTH files
-carry the cleanup-only shape:
+**STATUS — SETTLED. Both fixes are committed and tested.** The check was whether both files carry the
+cleanup-only shape:
 
 ```bash
 grep -rlF "() => () => abortRef.current?.abort()" src/app; echo "EXIT=$?"
 ```
 
-Six files listed (the six hooks in §115's table) ⇒ nothing here is left and this entry can be closed
-in the same commit that proves it. Four ⇒ untouched. Five ⇒ one of the two landed; say which.
-Measured 2026-08-08 while correcting the surrounding prose: **6**, with
-`src/app/use-action-analysis.ts` and `src/app/use-inline-entity-edit.ts` both showing the shape as
-UNCOMMITTED working-tree changes (`git status --porcelain` marks both ` M`). That is a reading of one
-machine at one moment, not a merged state and not a verification — **this entry is deliberately left
-OPEN**, and whoever confirms the change is committed and tested should close it and drop §115's
-"two of six".
+Six files listed (the six hooks in §115's table) ⇒ nothing left here. Four ⇒ untouched. Five ⇒ one of
+the two landed. Measured **6** on 2026-08-08, and again after commit with a clean tree.
 
-★★ Closing it needs more than the grep: the shape must actually be reached. §115's closure was pinned
-by a test that captures the signal and asserts `aborted === false` before unmount and `true` after,
-mutation-proved red with the effect deleted. Two hooks here, so two such tests — a grep hit with no
-test is the same evidence quality as the prose this entry exists to correct.
+★★★ **THIS BLOCK CONTRADICTED ITS OWN HEADING FOR ONE COMMIT AND THAT IS THE LESSON.** It was written
+while the fixes were still uncommitted, so it correctly refused to close on a working-tree reading
+and said the entry was "deliberately left OPEN". The heading, the opening paragraph and the index row
+were then all flipped to CLOSED — and this block, forty lines down, was not. For one commit a reader
+who scrolled reached "deliberately left OPEN" and would have re-done finished work. **A cautious
+STATUS block is right; leaving it behind when the caution is discharged is the exact trap this entry
+was rewritten to remove.** When you close an entry, grep its own body for the words that said it was
+open.
 
-★ Fix is the same one line both times, the cleanup-only shape
-`useEffect(() => () => abortRef.current?.abort(), [])` — it sets no state, so it stays clear of the
-`react-hooks/set-state-in-effect` ban. `use-abortable-ai.ts`, `use-alloc-plan.tsx`,
-`use-raci-suggest.tsx` and now `use-tasks-dedup.tsx` all carry it; copy from any of them.
+★★ Closure needed more than the grep, and got it: the shape must actually be REACHED. Each hook is
+pinned by a test that captures the signal, asserts `aborted === false` before unmount and `true`
+after, mutation-proved red with the effect deleted. A grep hit with no test is the same evidence
+quality as the prose this entry exists to correct.
 
-★★ Cost is a billed Anthropic call running to completion with its result discarded, not a crash — so
-nothing fails, nothing logs, and only a bill shows it. That is why this is filed rather than left to
-be noticed.
+★ The fix was the same one line both times — the cleanup-only shape
+`useEffect(() => () => abortRef.current?.abort(), [])`, which sets no state and so stays clear of the
+`react-hooks/set-state-in-effect` ban. **All six hooks now carry it**; copy from any of them.
+
+★★ The cost was a billed Anthropic call running to completion with its result discarded, not a crash
+— nothing failed, nothing logged, and only a bill would have shown it. That is why it was worth
+finding, and why it is worth pinning with a test rather than a grep.
 
 ★ Reproduce the whole picture before quoting a count — the sweep is in §115, and the figure that
 matters is per-mount, not per-file.
+
+## 122. `use-timelog-sync.ts` clears `busy` from a superseded run — open, UI
+
+Split out of §121 on 2026-08-09. It was first written as a bullet INSIDE §121, which was the wrong
+home twice over: §121 is CLOSED, and a live defect in a closed entry has no index row and stops being
+read. Filed properly here.
+
+`use-timelog-sync.ts`'s `finally` guards only half of what it should:
+
+```ts
+} finally {
+  if (abortRef.current === controller) abortRef.current = null;
+  setBusy(false);            // ← outside the guard
+}
+```
+
+So a superseded run turns `busy` off while its successor is still in flight — the surface reports
+idle during a call that is still running. This is the SAME shape `use-abortable-ai.ts` and
+`use-action-analysis.ts` were both fixed for in slice 3's review rounds, and it is the last of the
+three.
+
+★★ **It is a DIFFERENT defect from §121, and conflating them is why it nearly shipped as a footnote.**
+§121 was an unmount LEAK (a billed call outliving its surface); this is a superseded run disarming
+its successor's FLAG. Same file family, same `finally`, different failure. An entry that fixes one
+does not cover the other.
+
+★ Not an AI path, so it is outside the "six trigger hooks" framing entirely — do not expect the
+sweeps in §115 or §121 to surface it. Reproduce the census with:
+
+```bash
+grep -rn "=== controller" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
+```
+
+Measured 2026-08-09: three non-test SITES (`use-abortable-ai.ts`, `use-action-analysis.ts`,
+`use-timelog-sync.ts`), of which this is the only one whose `setBusy` sits outside. ★ The grep also
+returns three COMMENT lines in `use-action-analysis.ts` that document this very outlier — count
+sites, not lines.
+
+★ Fix is to move `setBusy(false)` inside the existing `if`. Cheap, but it needs a test that
+supersedes a run and asserts the flag survives — the same shape that proved the other two, and
+without it the guard is unpinned exactly as `use-abortable-ai.ts`'s `setError` guard was.
+
+★★ Severity is lower than §121's: nothing is billed twice and nothing leaks, the UI just reads idle
+early. Filed rather than fixed because slice 3's review rounds were already three deep and this is a
+non-AI surface none of them touched — a fourth widening was the wrong call.
