@@ -308,6 +308,8 @@ e2e:
 # node_modules, and `build` publishes only .next/, which is not node_modules.
 prod-smoke:
   stage: e2e
+  # ★ SECOND copy of the playwright image tag — `e2e:` above carries the same one
+  # and the "keep it in lockstep with @playwright/test" note. Bump BOTH together.
   image: mcr.microsoft.com/playwright:v1.61.1-jammy
   needs: [build]
   rules:
