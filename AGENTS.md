@@ -215,7 +215,7 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # `timelog/_helpers.ts:185` (one line past EOF) was caught. Two wrong
                             # cites, one detectable. Do NOT read green as "the citations are right".
                             # ★★ It reads CONTINUATION cites too — "`use-resource-planner.ts:710` and
-                            # `:723`, returned at `:1023`" is FOUR citations, and the first cut saw
+                            # `:723`, returned at `:1023`/`:1025`" is FOUR citations, and the first cut saw
                             # ONE of them while the three bare ones (all broken) were invisible.
                             # Widening found 55 more citations and raised out-of-range 5 → 8.
                             # ★★★ A bare `:NNN` is resolved ONLY from a file mentioned EARLIER ON THE
@@ -223,11 +223,11 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # nearest preceding `path:LINE` — a full-cite anchor skipped a colon-less
                             # `task-manager.tsx` and hung four of its line numbers on a 153-line file,
                             # reporting violations that did not exist. The ~113 bare cites whose path
-                            # sits on a PREVIOUS line stay out of scope: the form is truly ambiguous
+                            # sits on a PREVIOUS line stay out of scope (100 of 156): the form is ambiguous
                             # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
                             # is worse than one with a known blind spot.
                             # ★ Grandfathered breakage in docs/baselines/doc-line-cites.json is down
-                            # to 1 unresolvable + 1 out-of-range (from 11 + 8), and BOTH survivors sit
+                            # to 1 unresolvable + 2 out-of-range (from 11 + 8), and ALL survivors sit
                             # in docs/security/findings-2026-07.md — a DATED AUDIT SNAPSHOT, bannered
                             # as such and deliberately NOT renumbered, because rewriting a signed
                             # record to match today's tree destroys the only thing it is good for.
@@ -439,7 +439,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   in Commands carries the bisect] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
   **doc-claims-check** BLOCKING [`npm run docs:claims:check` — a RATCHET over `path:LINE` citations in
-  every tracked doc, incl. `docs/security/*`; proves only that a cited line COULD exist, never that it
+  every tracked PROSE doc — all of `docs/**` bar `docs/superpowers/`, plus the seven root/lib docs in
+  `ROOT_DOCS` (the byte-pinned `golden-workspace.md` fixture is deliberately excluded). ★★ It said
+  "every tracked doc" while `CHANGELOG.md`, `CLAUDE.md` and the two `lib/*.md` guides were NOT
+  scanned; a cold review caught it and the scope was widened to match the claim rather than the claim
+  narrowed. Proves only that a cited line COULD exist, never that it
   is right — the Commands entry carries the measurement] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:

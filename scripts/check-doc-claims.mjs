@@ -4,7 +4,7 @@
 // ★★★ WHY THIS EXISTS. AGENTS.md has said "CITE THE SYMBOL, NOT A LINE RANGE"
 // at three stars for a long time, and nothing enforced it. On 2026-08-09 a
 // 10-line comment insertion in `src/proxy.ts` silently repointed EVERY
-// `proxy.ts:NN` citation in the repo — nine of them across four tracked files,
+// `proxy.ts:NN` citation in the repo — six of them across two tracked files,
 // FOUR inside `docs/security/threat-model.md`, including the one cited twice as
 // the evidence that `connect-src` is restricted to `*.turso.io`. Every one had
 // been exact. A security reviewer following them lands on `return [`.

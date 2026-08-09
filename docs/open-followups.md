@@ -1179,8 +1179,9 @@ into four and pushes later fields past the bottom of the box.
 ★ Not a regression in kind (a long run-on line wrapped and overflowed too) but it is newly easy to hit,
 and the adjacent "cap at 6 extra fields so the text fits the slide" comment is now false.
 ★★ That `bodyPr` sentence cited a line in `export-pptx.ts` until 2026-08-09 and was wrong in BOTH
-halves — the number ran past that file's 202 lines, and the element was never in it at any length:
-`pptxTextBox` emits it and `export-pptx.ts` only calls the primitive. The doc-claims ratchet flagged
+halves — the number ran past that file's 201 citable lines, and the element is no longer in it at
+all: `pptxTextBox` emits it and `export-pptx.ts` only calls the primitive. ★ The cite was EXACT
+before the extraction commit that moved it, so this is drift, not an authoring error. The doc-claims ratchet flagged
 the past-EOF half, which is the cheap one; a wrong FILE is the half no gate can see. The `cyEmu`
 cite beside it (grep `2800000`) was correct.
 ★ Byte-stability of the break-free case IS pinned; layout is not, and nothing in the release's
@@ -2916,7 +2917,7 @@ required carrying them across verbatim, so the split re-exported two dead handle
 three-level spread rather than creating the problem.
 
 ★★ Those four line numbers were ACCURATE — and still had to go. They described the file at that
-commit (1043 lines), not at HEAD (554), so `docs:claims:check` read them as four past-EOF violations
+commit (1042 citable lines), not at HEAD (553), so `docs:claims:check` read them as four past-EOF violations
 and could not have known better: it only ever sees the checkout. A cite pinned to a named revision
 is a real category, and the durable form is the SHA plus a symbol, never the SHA plus a number.
 
@@ -7740,7 +7741,7 @@ follow is worse than no guard: the comment is what the next reader checks.
 
 **Why it exists.** AGENTS.md has carried "CITE THE SYMBOL, NOT A LINE RANGE" at three stars for a long
 time with NOTHING enforcing it. On 2026-08-09 a 10-line comment insertion in `src/proxy.ts` silently
-repointed nine `proxy.ts:NN` citations across four tracked files — four inside
+repointed six `proxy.ts:NN` citations across TWO tracked files — four of them inside
 `docs/security/threat-model.md`, including the one cited twice as the evidence that `connect-src` is
 restricted to `*.turso.io`, which came to rest on `return [`. Every one had been exact when written.
 
@@ -7772,15 +7773,18 @@ fired on this very paragraph when it was written as prose, which is the ratchet 
 
 That is FOUR citations; the original pattern matched the first only — and all four were broken. Bare
 `` `:NNN` `` spans are now attributed to the nearest file mentioned EARLIER ON THE SAME LINE. Effect:
-496 → 551 citations seen, out-of-range 5 → 8.
+496 → 551 citations seen, out-of-range 5 → 8. (56 of 156 bare spans resolve; an earlier
+wording said 37 of 150, which were the counts under the REJECTED full-cite anchor.)
 
 ★★★ Two false-positive classes surfaced while building that, both caught by RUNNING it rather than
 reasoning about it, and both would have reported a green branch as red — the expensive direction:
 (a) the anchor must be the nearest preceding file MENTION, not the nearest preceding `path:LINE` — a
 colon-less `task-manager.tsx` was skipped, hanging four of its numbers on a 153-line file; (b) the
 path pattern truncated `notes-badge-button.tsx` to `.ts`, because the extension alternation tried
-`ts` first with nothing forcing the token to end, inventing 47 phantom citations to files that do not
-exist (58 unresolvable against the fixed pattern's 11, over 25 distinct truncated paths).
+`ts` first with nothing forcing the token to end, inventing phantom citations to files that do not
+exist across **25 distinct truncated paths**. ★ Quote the 25, not a total: the totals (47 against
+the tree that first measured it, 45 against `73935dab`) move with the corpus, so a bare count is
+unreproducible a week later while the distinct-path figure has held across both measurements.
 
 ★★★ THAT NUMBER WAS FIRST WRITTEN AS "20", AND THE MISTAKE IS THE ONE THIS REGISTER KEEPS RECORDING:
 it was read off a display truncated at 20 lines. A `head`/`sed 1,20p` output is a FLOOR, never a
@@ -7789,12 +7793,12 @@ by re-running the buggy pattern on purpose and DIFFING the totals — which is t
 catch it, since nothing about "20" reads as wrong. Count with a counter, not with your eyes.
 The full-cite pattern was immune to (b) only because the `:` after the extension forces a backtrack.
 
-★ The ~113 bare cites whose path sits on a PREVIOUS line stay OUT of scope. The form is genuinely
+★ The 100 bare cites whose path sits on a PREVIOUS line stay OUT of scope. The form is genuinely
 ambiguous — AGENTS.md's own `` `:3000` `` is a PORT NUMBER — and a cross-line rule would have hunted
 for a source file to hang it on. A gate that invents a citation is worse than one with a documented
 blind spot.
 
-**Grandfathered debt: 2, down from 16.** Failing on pre-existing breakage would have made the gate
+**Grandfathered debt: 3, down from 19.** Failing on pre-existing breakage would have made the gate
 unlandable, and a gate that cannot land protects nothing — but the debt was then worked off rather
 than left. Both survivors are in `findings-2026-07.md`, a DATED snapshot of a July 2026 audit (one
 cite past EOF, one to a file since deleted). They are deliberately NOT renumbered and the file now
@@ -7816,18 +7820,27 @@ sound while the coordinates were not:
   `actions-panel` off by 3, `notifications` by 6, `sidebar` and `timelog-panel` by 8 each, and the
   caret it attributed to `chat-panel.tsx` had moved into `chat-tool-block.tsx` entirely. The gate
   caught ONE — the only one past EOF.
-- §33 cited `export-pptx.ts` for a `<a:bodyPr>` that file has never contained at any length;
-  `pptxTextBox` emits it. Wrong FILE, not a wrong line.
+- §33's `export-pptx.ts` cite was EXACT until an extraction commit moved the element into
+  `ooxml-pptx-primitives.ts` (`git log -S 'a:bodyPr' -- src/app/export-pptx.ts`). ★★ A first
+  write of this bullet called it a wrong FILE that "never contained" the element, and used it as
+  the CONTRAST to §62's accurate-for-an-older-revision case — when it is the SAME category. The
+  gate saw only the past-EOF symptom; the drift is invisible to it either way.
 - §88's two bullets were both wrong: the surviving defect was 227 lines off, and the other pointed
   into a file the code had left — that half turned out to be **fixed**, closed here on re-check.
-- §62's four numbers were ACCURATE, for the file at commit `0d770283` (1043 lines) rather than at
-  HEAD (554). A cite pinned to a named revision is a real category the gate cannot know about; the
+- §62's four numbers were ACCURATE, for the file at commit `0d770283` (1042 citable lines) rather
+  than at HEAD (553). A cite pinned to a named revision is a real category the gate cannot know about; the
   durable form is the SHA plus a symbol, never the SHA plus a number.
-  ★★ That 1043 read "1042" until it was audited: it came from `wc -l`, while this gate — and
-  `check-file-sizes.mjs`, and the "file has N lines" message in this very tool — all count
-  `split("\n").length`, which is one MORE for a newline-terminated file. AGENTS.md documents that
-  exact off-by-one for the size ratchet, and it still landed here, in the branch about citation
-  accuracy. Two conventions for "how many lines" is one too many: use the gate's.
+  ★★★ THIS NUMBER WAS "CORRECTED" IN THE WRONG DIRECTION, TWICE, AND THAT IS THE REAL LESSON.
+  It first read 1042 (from `wc -l`), was "audited" to 1043 on the reasoning that every gate counts
+  `split("\n").length`, and is 1042 again — because the same branch then FIXED this gate to count
+  CITABLE lines (`countLines`, which drops the empty string after the trailing newline and so equals
+  `wc -l` for a newline-terminated file). The audit's replacement claim was true when written and
+  falsified by a later commit in its own branch; the closing instruction it added — "use the gate's"
+  — then pointed at the number it had just called an error. ★★ There are genuinely TWO conventions
+  and neither is wrong: `check-file-sizes.mjs` counts `split("\n").length` because it asks HOW BIG a
+  file is; this gate counts `countLines` because it asks WHICH LINE NUMBERS EXIST. So the file was
+  1042 citable lines at that commit and 1043 by the size gate's measure. ★ Which is the argument for
+  the bullet above rather than against it: a SHA plus a symbol needs no convention at all.
 
 The through-line: a wrong line number is a SYMPTOM. Renumbering it preserves a claim nobody re-read —
 and §88 proves that can mean documenting an open defect that was closed months ago.
@@ -7842,7 +7855,7 @@ newer measurement is exactly how a correction round introduces errors, which thi
 records at three stars elsewhere.
 
 **★★ The parsing is now a tested module.** `scripts/doc-claims-lib.mjs` holds the regexes and
-`citesOnLine`/`resolveCandidates`/`stripFencedBlocks`; `check-doc-claims.mjs` is a 195-line driver.
+`citesOnLine`/`resolveCandidates`/`stripFencedBlocks`; `check-doc-claims.mjs` is a ~200-line driver.
 `vitest.config.ts` `include` gained `scripts/**/*.{test,spec}.mjs`, so the CI gates are reachable from
 the unit suite for the first time — coverage `include` stays `src/**`, so a script test raises no
 floor and gates no percentage. The other ungated scripts (`check-agents-symbols`, `check-file-sizes`,
@@ -7899,7 +7912,7 @@ that the off-by-one had been passing. All four fixes are mutation-proved (4/4 ki
 1 unresolvable + 2 out-of-range, **all three in `findings-2026-07.md`** — every living doc is clean.
 
 ★ WHAT THE REVIEW DID NOT FIND, which is worth as much: zero live false positives across the whole
-corpus (218 distinct cited paths), zero mis-attributions across all 52 bare-cite attributions — each
+corpus (220 distinct cited paths), zero mis-attributions across all 56 bare-cite attributions — each
 read against its source line, including the awkward colon-less-mention cases — and no catastrophic
 backtracking (quadratic, cleanly 4× per doubling; a 50k-char line parses in ~1.8s). The
 nearest-preceding-MENTION anchor does exactly what its comment claims. ★ One accepted looseness:
@@ -7909,7 +7922,8 @@ only flagged when EVERY candidate is out of range). Permissive, so it cannot red
 
 **Deliberately NOT built: staleness detection.** The strongest available check is "was the cited file
 modified after the doc line was written", via `git blame` on the doc plus `git log` on each cited
-file — about 11 blames and ~50 log lookups, so cost is not the objection. **The slim CI image has no
+file — a dozen blames and one log lookup per distinct cited path (220 today), so cost is not the
+objection. **The slim CI image has no
 git** (the same constraint `check-file-sizes.mjs` records at its `readdirSync` comment). It would work
 locally and silently no-op in CI, which is the worst possible shape for a gate: green because it did
 not run. Either move it to a job on a git-bearing image, or do not build it.
@@ -7927,8 +7941,12 @@ read "`timelog/_helpers.ts` cited at line 185" rather than the `path:LINE` form.
 496/11/5. ★ If you are ever about to run `--update` to make your own commit pass, that is the signal
 you are the thing being gated.
 
-★ **No automated test covers this script**, matching `check-file-sizes.mjs` and
-`check-agents-symbols.mjs`, neither of which has one either. Verification was a manual mutation pass
+★ **The parsing now has a unit test** (see above); `check-file-sizes.mjs` and
+`check-agents-symbols.mjs` still have none. ★★ This bullet read "No automated test covers this
+script" until a cold review caught it contradicting the paragraph above it in the same entry — a
+leftover from before the test landed, and read alone it told the next maintainer the opposite of
+the truth. The DRIVER (walk, baseline diff, reporting) is still untested; verification there was
+a manual mutation pass
 proving it exits 1 on each violation class (new cite to an existing path · new cite to a new path ·
 unresolvable file · line past EOF) and 0 on each allowed case (a citation inside a fence · a
 symbol-only citation · correcting an existing citation's line number in place). A future edit to the

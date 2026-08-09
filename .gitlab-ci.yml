@@ -252,7 +252,7 @@ agents-symbol-check:
 # citation, or cites a line that cannot exist. It is the enforcement AGENTS.md's
 # three-star "CITE THE SYMBOL, NOT A LINE RANGE" rule never had: on 2026-08-09 a
 # 10-line comment insertion in src/proxy.ts silently repointed NINE proxy.ts:NN
-# citations across four tracked files — FOUR of them inside
+# citations across two tracked files — FOUR of them inside
 # docs/security/threat-model.md — every one of which had been exact.
 # ★★ It CANNOT verify a citation still points at the right code; nothing can,
 # because the doc never records what was supposed to be there. It proves only

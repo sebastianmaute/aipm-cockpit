@@ -17,10 +17,12 @@ import { readdirSync } from "node:fs";
 // ★★ LONGEST-FIRST, and it matters. `CITE_RE` survives any order because the `:`
 // after the extension forces a backtrack, but `PATH_RE` has no such anchor: with
 // `ts` before `tsx` it matched `notes-badge-button.tsx` as `notes-badge-button.ts`
-// and reported 47 phantom citations to files that do not exist (58 unresolvable
-// against the fixed pattern's 11, over 25 distinct truncated paths). The
-// first write of that comment said "20" — read off a display truncated at 20
-// lines, which is a floor, never a count. The `(?!...)` boundary in
+// and invented phantom citations to files that do not exist across 25 DISTINCT
+// truncated paths. ★ Quote the 25, not a total: totals move with the corpus
+// (47 on the tree that first measured it, 45 on `73935dab`), so a bare count is
+// unreproducible a week later. An even earlier draft said "20" — read off a
+// display truncated at 20 lines, which is a floor, never a count.
+// The `(?!...)` boundary in
 // PATH_RE is the real guard; this order is the belt to its braces.
 export const SOURCE_EXT = "tsx|ts|mjs|json|js|yaml|yml|css";
 
@@ -40,11 +42,16 @@ export const CITE_RE = new RegExp(
 // ★★ CONTINUATION cites. Docs routinely write one path and then several bare
 // line numbers: "`use-resource-planner.ts:710` and `:723`, returned at `:1023`".
 // Only the FIRST carries a path, so CITE_RE saw one of that row's FOUR numbers —
-// and the three it missed were all broken too. Measured 2026-08-09: 150 bare
+// and the three it missed were all broken too. Measured 2026-08-09: 156 bare
 // `:NNN` spans across the tracked docs.
 //
-// ★★★ ONLY the ones with a full cite EARLIER ON THE SAME LINE are resolved (37
-// of the 150). The other 113 take their path from a previous line or an adjacent
+// ★★★ ONLY the ones with a file MENTION earlier on the SAME LINE are resolved
+// (56 of 156, measured 2026-08-09). ★★ This said "37 of the 150" until a cold
+// review caught it: those are the counts under the REJECTED full-cite anchor,
+// carried forward from the first implementation and never re-derived after the
+// rule changed to the mention anchor described 15 lines below. The comment
+// contradicted both the code beneath it and its own neighbour.
+// The other 100 take their path from a previous line or an adjacent
 // table cell, and resolving those needs a nearest-preceding-path heuristic that
 // WILL mis-attribute. The bare form is genuinely ambiguous, which is not a
 // theory: AGENTS.md's `` `:3000` `` is a PORT NUMBER, and a cross-line rule
@@ -64,7 +71,7 @@ export const BARE_CITE_RE = /`:(\d+)(?:[-–]\d+)?`/g;
 // "`insights-card.tsx:102` … `onAcknowledgeInsight` (`task-manager.tsx` — grep
 // the symbol; `:821` …)". The bare numbers are task-manager's, but that mention
 // carries no colon, so a full-cite anchor skipped past it to insights-card — a
-// 153-line file — and reported four out-of-range violations that do not exist.
+// 152-line file — and reported four out-of-range violations that do not exist.
 // A gate reporting a green branch as red is the expensive direction.
 export const PATH_RE = new RegExp(
   `[@A-Za-z0-9_][@A-Za-z0-9_/.-]*\\.(?:${SOURCE_EXT})(?![A-Za-z0-9_])`,
@@ -88,7 +95,24 @@ export const THIRD_PARTY_RE =
 // material, not shipped documentation — scanning it would gate files that are
 // not in the repo.
 export const SKIP_DIRS = ["docs/superpowers"];
-export const ROOT_DOCS = ["AGENTS.md", "CONTRIBUTING.md", "README.md"];
+
+// ★★ ALL tracked prose docs outside `docs/`, not just the obvious three. A cold
+// review found `CHANGELOG.md`, `CLAUDE.md` and the two `lib/*.md` operating
+// guides were never scanned, so AGENTS.md's "a ratchet over every tracked doc"
+// was false. All four hold zero citations today, so this closed a latent gap
+// rather than a live one — which is exactly when it is cheap to close.
+// ★ `src/app/__fixtures__/golden-workspace.md` is deliberately absent: it is a
+// byte-pinned serializer FIXTURE, not prose, and scanning it would gate
+// generated output.
+export const ROOT_DOCS = [
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "CLAUDE.md",
+  "CONTRIBUTING.md",
+  "README.md",
+  "lib/app-feature-guide.md",
+  "lib/project-leadership-operating-guide.md",
+];
 
 // Walk with node's fs, NOT `git ls-files` — the slim CI image has no git.
 export function collectDocs() {
