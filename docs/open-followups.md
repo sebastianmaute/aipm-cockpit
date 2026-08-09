@@ -7859,10 +7859,14 @@ records at three stars elsewhere.
 `citesOnLine`/`resolveCandidates`/`stripFencedBlocks`; `check-doc-claims.mjs` is a ~200-line driver.
 `vitest.config.ts` `include` gained `scripts/**/*.{test,spec}.mjs`, so the CI gates are reachable from
 the unit suite for the first time — coverage `include` stays `src/**`, so a script test raises no
-floor and gates no percentage. EIGHT other scripts are now testable the same way and none is tested
-yet — including two more GATE scripts (`check-agents-symbols`, `check-file-sizes`) and
-`sync-script-docs`, which backs the `docs:scripts:check` prebuild gate and was missed by an earlier
-three-item list here that read as exhaustive. Reproduce with `ls scripts/ scripts/*.test.*`.
+floor and gates no percentage. NINE other scripts are now testable the same way and none is tested
+yet — including two more GATE scripts (`check-agents-symbols`, `check-file-sizes`),
+`sync-script-docs` (which backs the `docs:scripts:check` prebuild gate), and ★★ `check-doc-claims`
+ITSELF: extracting the parsing left the DRIVER — the walk, the baseline diff, the reporting —
+entirely untested, so "the parsing is now a tested module" is true and is HALF the gate. An earlier
+three-item list here read as exhaustive and named three of nine; the first correction of it said
+EIGHT, dropping the driver, which is the one omission that changes what a reader concludes.
+Reproduce with `ls scripts/ scripts/*.test.*` and subtract.
 
 ★★★ MUTATION-PROVED — and the first reading of the result was HALF WRONG, in the dangerous
 direction. Six injected defects, four killed at once, two survived; I classified BOTH survivors as
