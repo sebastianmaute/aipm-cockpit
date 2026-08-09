@@ -383,7 +383,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   server, so it only ever gets pointed at one somebody already had running, which in practice is dev.
   ★ Note **e2e** does NOT invoke `e2e:smoke` — they are separate entry points that happen to share the
   same blind spot, so fixing one would not have covered the other. That is how §54 stayed invisible for
-  months] · **dast-zap** weekly/manual].
+  months. ★ **dast-zap** DOES serve a prod build (`Dockerfile.dast` ends `CMD ["npm","run","start"]`), so
+  it is the one other suite that meets this policy — but it is not a GATE: its scan is `zap-baseline.py
+  -I … || true` and its rule is schedule-or-manual with `allow_failure: true`, so it cannot fail a
+  pipeline. Enumerating the other four suites and stopping short of this one is what made an earlier
+  revision of this bullet read as an oversight] · **dast-zap** weekly/manual].
   All quality gates are ratchets. ★★ The
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and

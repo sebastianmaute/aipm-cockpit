@@ -68,7 +68,7 @@ The strongest surface — this is where the server makes outbound calls on the u
 | I | Decrypted secret written to disk | `writeSettings` is the SOLE writer of `aipm-cockpit:settings` and BLANKS every `SecretId` field before write (AGENTS.md secrets lockstep; guarded by Phase 1 Task 7 test) | a raw `setItem` bypass would leak — prevented by convention + test | Phase 1 Task 7 pins it |
 | I | Secret exported / synced to Turso | `aipm-cockpit:secrets` ciphertext excluded from exports, Turso, and recovery `CONFIG_KEYS` (`recovery-config.ts`) | — | Phase 1 Task 7 pins it |
 | T | Tampered ciphertext | AES-GCM auth tag → `SecretUnlockError` on tamper (`secrets.ts:137-148`); `isSealedSecret` validates shape from untrusted storage (`secrets.ts:23-36`) | — | none |
-| I | XSS reads localStorage | No `dangerouslySetInnerHTML` anywhere (CSP comment `proxy.ts:22-24`); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts:20-24`) | none |
+| I | XSS reads localStorage | Every `dangerouslySetInnerHTML` sink sanitizes or renders an app-authored constant — 6 sites, see the `style-src-attr` note in `proxy.ts` (corrected 2026-08-09: this cell previously read "No `dangerouslySetInnerHTML` anywhere", which was false, and cited a `proxy.ts` comment that said the same); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts`) | none |
 
 ---
 

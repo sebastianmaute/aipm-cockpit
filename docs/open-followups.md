@@ -2343,10 +2343,17 @@ effect, then the unpiped gate — and treat the result as a fresh measurement.
 
 ## 54. Prod-only CSP blocks ProseMirror's base CSS — CLOSED 2026-08-09
 
-**FIXED in 0.227.0 "Bolander" — everything below the next paragraph is written in the present tense and
-describes the BROKEN state, because it is the original investigation preserved verbatim.** The fix, the
-real-browser verification that closes this, and the corrected mechanism are in "Fix — option A chosen and
-shipped" further down. ★ Read the heading date before acting on any sentence in this entry.
+**FIXED in 0.227.0 "Bolander". This entry is a MIX of dated layers, not a preserved original — read the
+date attached to a paragraph, never its position.** The 2026-08-03 measurement blocks below are written
+in the present tense and describe the BROKEN state. But the mechanism paragraph ("The injector is
+`@tiptap/core` itself, measured 2026-08-09") and the blast-radius list were REWRITTEN on 2026-08-09 and
+are the authoritative versions — they sit *above* the fix section, not in it. The fix and the real-browser
+verification are under "Fix — option A chosen and shipped".
+★★ An earlier revision of this banner called everything below it "the original investigation preserved
+verbatim" and sent readers to the fix heading for "the corrected mechanism". Both false: this branch
+rewrote four regions above that heading, and the corrected mechanism is 87 lines *before* it — so the
+banner discounted the very paragraph that replaces the disproved Turbopack theory, which is the claim
+three contributors had already acted on. A banner that mislocates a correction is worse than no banner.
 
 Every rich-text editor in a **production build** rendered without ProseMirror's base stylesheet, because
 the prod CSP refused the `<style>` element Tiptap injects at runtime. Dev was unaffected, which is why
@@ -2448,11 +2455,15 @@ The original list enumerated the SEVEN sanitizer-backed register fields plus the
 `sanitize*` sweep finds — not the RENDER SURFACES, which is what a CSS failure actually follows.
 `RichTextEditor` has 8 consumers (§129); three of them render no register field at all. The verification
 paragraph below closes this entry by measuring `dashboard-sections/dashboard-narrative.tsx` — a surface
-this very list said was not affected, two hundred lines apart in the same entry. ★★ The two `ssr: false`
+this very list said was not affected, 55 lines apart in the same entry. ★★ The two `ssr: false`
 consumers are affected identically: `immediatelyRender: false` defers Editor construction to mount, so
-the injection is client-side under BOTH import styles (§129). ★ Derive a blast radius from the
-`grep -rl 'rich-text-editor"'` consumer list, NOT from the field list — a field list answers "what is
-stored", and this bug is about what is RENDERED.
+the injection is client-side under BOTH import styles (§129). ★ Derive a blast radius from the consumer
+list, NOT from the field list — a field list answers "what is stored", and this bug is about what is
+RENDERED. The consumer list is
+`grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v "\.test\.tsx"` (8); the bare
+`grep -rl 'rich-text-editor"' src/app` an earlier revision quoted here returns 12, because it also picks
+up `csp-nonce.ts` and three test files. Abbreviating an attached command is how it stops reproducing the
+number beside it.
 
 **Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
 its only runtime commit is six type annotations. The same violation, with an identical hash and only the
@@ -2484,8 +2495,13 @@ would import `border-top: 1px solid black`, an off-palette literal the palette-s
 **`'unsafe-inline'` in prod `style-src-elem`** would widen the single documented **`unsafe-inline`**
 residual in `docs/security/threat-model.md` — that row's mitigation reads "strict nonce-based CSP, no
 `unsafe-inline` script" and lists `style-src-attr 'unsafe-inline'` as the one low-risk residual — from
-style *attributes* to style *elements*. ★ "the single documented residual" unqualified would be false:
-that table carries several non-empty Residual cells. Only the `unsafe-inline` one is at issue here.
+style *attributes* to style *elements*. ★ "the single documented residual" unqualified would be false —
+but "several" was the wrong correction: the B5 table holding that row has 4 rows and exactly TWO
+non-empty Residual cells, and one of those two IS the `unsafe-inline` one, so it carries exactly ONE
+other. It is the only `unsafe-inline` residual in the file (`grep -n unsafe-inline
+docs/security/threat-model.md` → 2 hits: the row at `:71`, and `:79`, which is the script-src inventory
+line, not a residual). ★★ Correcting an over-claim with a vaguer word is not a correction — "several"
+was as unmeasured as the thing it replaced.
 
 ★★★ **THE UNIT TEST CANNOT PROVE THIS AND MUST NOT BE READ AS PROVING IT.** `readCspNonce` reads the
 `.nonce` IDL property, because a real browser EMPTIES the `nonce` content attribute on insertion ("nonce
@@ -6541,7 +6557,7 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 | | Ships | New persisted state |
 |---|---|---|
 | **S3a** | a documents-only allow-list · mark-aware DOCX/PPTX · the three policies below | none |
-| *(before S3b)* | ~~**§54** — spike first~~ **DONE, §54 CLOSED 2026-08-09.** No spike needed and the parenthetical here was wrong: the injector is `@tiptap/core`'s own `Editor.injectCSS()` over a JS string constant, not a Turbopack-shipped client CSS chunk. Fixed via Tiptap's `injectNonce`; the CSP is unchanged. · the `HTML_START` classifier split, six rich fields in scope | none |
+| *(before S3b)* | ~~**§54** — spike first~~ **DONE, §54 CLOSED 2026-08-09.** No spike needed. ★★ The parenthetical this cell used to carry — "Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk" — was RIGHT on both clauses, and is precisely why Next's own nonce machinery could not cover this and `readCspNonce()` has to read the nonce off the DOM. An earlier correction here declared it wrong; that was an over-correction against a claim it never made (it says "client chunk", not "Turbopack-shipped CSS chunk"). The theory that was actually disproved — Turbopack shipping prosemirror CSS in a lazily-loaded chunk — lived in §54, not in this cell. The injector is `@tiptap/core`'s own `Editor.injectCSS()` over a JS string constant. Fixed via Tiptap's `injectNonce`; the CSP is unchanged. · the `HTML_START` classifier split, six rich fields in scope | none |
 | **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
 | **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |
@@ -7645,3 +7661,42 @@ number is the same class of reasoning that put the wrong mechanism in §54.
 `loading:` fallback or a modal shows a blank flash while the chunk loads; and each affected test goes
 from a synchronous `render` to `await waitFor`. That is a real behavioural surface, which is why it is
 its own slice rather than a rider.
+
+---
+
+## 130. The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured
+
+**Where:** `scripts/e2e-smoke-prod.mjs` `isPortAlreadyInUse()`; the kill side is `scripts/stop-dev.mjs`.
+
+**The guard exists** to stop the destructive sequence: something else holds port 3200 → `next start`
+fails to bind → `waitForReady()` succeeds against the FOREIGN server → the smoke measures the wrong app
+→ `stopServer()` port-kills a process we did not start. It refuses to run rather than adopt-then-kill.
+
+**What it does not cover.** It is a raw TCP connect to `localhost`, so a listener bound to a specific
+non-loopback address (a LAN IP, a container bridge) never answers it. Measured 2026-08-09:
+
+```
+LAN addr: 10.2.0.2
+guard(localhost) sees it? -> false
+guard(LAN addr)  sees it? -> true
+second bind on 0.0.0.0: bound 0.0.0.0 OK
+```
+
+On Windows the subsequent bind on `0.0.0.0` then SUCCEEDS, so the smoke runs happily against its own
+server — and the kill still hits both, because `stop-dev.mjs` adds every PID whose `netstat` local
+address matches `[:.]<port>$`, which `10.2.0.2:3200` does, and kills each. So the exact outcome the
+guard was written to prevent survives on a path the guard cannot see.
+
+**Why it is accepted rather than fixed.** Closing it means enumerating local interfaces and probing
+each, which is real machinery for a case that needs someone to have bound a non-loopback address on
+the smoke's own port on the same machine. The decision recorded here is to **narrow the claim instead
+of overstating the guard** — the doc comment used to say it covered "ANYTHING listening on the port",
+which is what turned a known limit into a false statement.
+
+★★ **The timeout branch is a separate question and it was WRONG until 2026-08-09.** It resolved
+`false` — "port is free" — for a probe that sent a SYN and got nothing back. On loopback a genuinely
+free port RSTs immediately (measured 0-1 ms, via the error branch), so a two-second hang is never the
+free case; it is a full accept backlog or a firewall DROP. Mapping the ambiguous outcome to "free"
+re-opened the destructive path above, in the same function whose comment says "Refusing is the safe
+behaviour". It now resolves `true`. ★ A guard whose comment states a safety rule its code does not
+follow is worse than no guard: the comment is what the next reader checks.
