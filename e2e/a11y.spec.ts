@@ -15,7 +15,7 @@ import { APP_VERSION } from "../src/app/version";
 // names, labels, landmarks, ARIA) AND `color-contrast`, which now passes after
 // the palette tuning, the status-chip rework (dark-blue text on the hue tint
 // instead of same-hue text), and dropping the opacity-dim on completed rows.
-const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings", "AI Assistant", "Next actions", "Insights"] as const;
+const A11Y_VIEWS = ["Dashboard", "Open Points", "Gantt", "Resources", "Budget", "RAID", "Settings", "Stakeholders", "Changes", "Milestones", "Reports", "Activity", "Time bookings", "AI Assistant", "Next actions", "Insights", "Documents"] as const;
 
 // Views reached by hash (not a top-level sidebar click): Dashboard sub-children
 // whose sidebar entry may be collapsed at scan time. Navigating by hash mirrors
@@ -26,10 +26,15 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 };
 
 // AIPM and Dashboard no longer exist in the app in any form — a theme is a file
-// the user loads. The matrix therefore runs on the three BUILT-IN schemes, which
-// keeps the check count identical (5 × 16 views + 5 Kanban = 85) while scanning
-// three distinct palettes instead of two. All three are dark-capable; Umber runs
-// light-only to hold the count at five.
+// the user loads. The matrix therefore runs on the three BUILT-IN schemes,
+// scanning three distinct palettes instead of two. All three are dark-capable;
+// Umber runs light-only to hold the combo count at five.
+// ★ 5 combos × 17 views + 5 Kanban variants = 90 scans, plus the one non-scan
+// guard below = 91 tests. MEASURE it in the same commit that changes A11Y_VIEWS
+// rather than deriving it — this comment said 85 for as long as the list said 16
+// views, and nothing gates a count. Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 91 total
+//   …then `grep -c "a11y:"` over that output       # 90 scans
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },

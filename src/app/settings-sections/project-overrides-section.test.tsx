@@ -76,4 +76,24 @@ describe("ProjectOverridesSection", () => {
     const apGroup = screen.getByRole("radiogroup", { name: /appearance/i });
     expect(within(apGroup).getByRole("radio", { name: /override for this project/i })).toBeChecked();
   });
+
+  // ★★ The three appearance rows wrap a radiogroup, which is not labelable — a
+  // `<label>` there bound to the first RADIO instead, so clicking the caption
+  // selected that option (clicking the "View" caption forced Table).
+  // ★ Asserted as "no radiogroup sits inside a label" rather than via
+  // expectNoLabelBoundToButton: the fix removes the LAST label from this tree,
+  // so that helper's own vacuity guard (correctly) refuses to run here. The
+  // group count is the positive observable — with the override off the rows do
+  // not render at all and the assertion would hold for the wrong reason.
+  test("wraps no appearance radiogroup in a label", () => {
+    state.appearance = { dashboardDensity: "compact" };
+    renderSection();
+    const groups = screen.getAllByRole("radiogroup");
+    // ★★ EXACT, not `> 3`. The four OverrideGroup device/project toggles are
+    // themselves radiogroups and render unconditionally, so `> 3` is satisfied
+    // by those alone — it would pass with ZERO appearance rows, the precise
+    // wrong-reason pass this observable exists to exclude.
+    expect(groups).toHaveLength(7); // 4 group toggles + the 3 appearance rows
+    expect(groups.filter((g) => g.closest("label") !== null)).toEqual([]);
+  });
 });

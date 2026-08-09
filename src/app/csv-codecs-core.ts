@@ -6,8 +6,17 @@
 // escaping / formula neutralization primitives, the per-section entity
 // encoders, and the low-level `parseCsv` tokenizer. Pure leaf — no imports
 // from the config/decode siblings. Re-exported via the ./csv-codecs barrel.
+//
+// The `CSV_SECTION_*` markers moved to ./csv-codecs-sections when this file
+// crossed the 800-line ratchet. They are re-exported below, so every existing
+// `from "./csv-codecs-core"` import of a marker keeps working unchanged.
 
 import { riskSeverityFromMatrix } from "./raid";
+// `export *` does not bind names locally, so the two markers this module USES
+// are imported explicitly as well.
+import { CSV_SECTION_FXRATES, CSV_SECTION_PLAN } from "./csv-codecs-sections";
+
+export * from "./csv-codecs-sections";
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { encodeNoteLog, decodeNoteLog } from "./note-log";
 import {
@@ -194,28 +203,6 @@ export const BUDGETS_CSV_COLUMNS = [
   "planningMode", "disciplineAllocations", "rateOverrideInternal", "rateOverrideExternal",
   "taskIds", "percentComplete",
 ] as const;
-
-export const CSV_SECTION_BUDGETS = "# BUDGETS";
-export const CSV_SECTION_FXRATES = "# FXRATES";
-export const CSV_SECTION_MILESTONES = "# MILESTONES";
-export const CSV_SECTION_CHANGES = "# CHANGES";
-export const CSV_SECTION_STAKEHOLDERS = "# STAKEHOLDERS";
-
-// Section markers for the new entity sections in multi-section CSV files.
-export const CSV_SECTION_RESOURCES = "# RESOURCES";
-export const CSV_SECTION_ROLES = "# ROLES";
-export const CSV_SECTION_DISCIPLINES = "# DISCIPLINES";
-export const CSV_SECTION_GRADES = "# GRADES";
-export const CSV_SECTION_PLAN = "# PLAN";
-export const CSV_SECTION_STATUS = "# PROJECT STATUS";
-export const CSV_SECTION_PROJECT = "# PROJECT META";
-export const CSV_SECTION_FIELD_VIS = "# FIELD-VISIBILITY";
-export const CSV_SECTION_FUNCTIONS = "# FUNCTIONS";
-export const CSV_SECTION_STEERING = "# STEERING COMMITTEE";
-export const CSV_SECTION_TIMELOG_LINKS = "# TIMELOG LINKS";
-export const CSV_SECTION_KNOWLEDGE_ITEMS = "# KNOWLEDGE ITEMS";
-export const CSV_SECTION_INSIGHTS = "# INSIGHTS";
-export const CSV_SECTION_SETTINGS_OVERRIDES = "# SETTINGS OVERRIDES";
 
 export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {
@@ -726,17 +713,6 @@ export function planToCsvLine(p: ResourcePlan): string {
   if (p.budgetFollowsPlan) cells.push("true");
   return [CSV_SECTION_PLAN, cells.map(csvEscape).join(",")].join("\r\n");
 }
-
-// Section markers used by `workspaceToCsv` / `csvToWorkspace`. The hash
-// prefix isn't formal CSV but every spreadsheet tool we care about treats
-// a line whose only cell starts with "#" as a comment row.
-export const CSV_SECTION_TASKS = "# TASKS";
-export const CSV_SECTION_RAID = "# RAID";
-export const CSV_SECTION_ABSENCES = "# ABSENCES";
-export const CSV_SECTION_SHIFTS = "# SHIFTS";
-export const CSV_SECTION_CALENDAR_EVENTS = "# CALENDAR EVENTS";
-
-
 
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];

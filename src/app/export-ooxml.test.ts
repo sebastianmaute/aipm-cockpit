@@ -444,6 +444,33 @@ describe("buildXlsx", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildPptx", () => {
+  it("tags every prose run with the REQUESTED language, not a hardcoded en-US", async () => {
+    // Every <a:r> run carried `a:rPr lang="en-US"` regardless of the export
+    // language, so a German deck asserted American English over all its prose:
+    // PowerPoint spell-checks it against an English dictionary and an
+    // accessibility checker reads the wrong language.
+    //
+    // ★ Scoped to `<a:rPr`, NOT the whole slide. `<a:endParaRPr lang="en-US"/>`
+    // still appears on the background rect and accent bar — empty decorative
+    // shapes with no text, deliberately left alone. A blanket
+    // not.toContain('lang="en-US"') would fail against the CORRECT fix.
+    const ws: Workspace = { ...makeBaseWorkspace(), tasks: [makeTask(1)] };
+    const sections = buildExportSections(ws, defaultExportConfig, "de");
+
+    const files = await unzipBlob(buildPptx(sections, "de"));
+    const slides = [...files.entries()]
+      .filter(([k]) => k.startsWith("ppt/slides/slide") && !k.includes("_rels"))
+      .map(([, v]) => v);
+
+    expect(slides.length).toBeGreaterThan(0);
+    // The title slide alone would prove too little — assert across every slide,
+    // so the divider and row builders are covered too.
+    for (const xml of slides) {
+      expect(xml).toContain('<a:rPr lang="de"');
+      expect(xml).not.toContain('<a:rPr lang="en-US"');
+    }
+  });
+
   it("with defaultExportConfig — title slide + tasks + RAID present, milestones absent", async () => {
     const ws: Workspace = {
       ...makeBaseWorkspace(),
@@ -452,7 +479,7 @@ describe("buildPptx", () => {
       milestones: [makeMilestone(1)],
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
-    const blob = buildPptx(sections);
+    const blob = buildPptx(sections, "en-US");
     const files = await unzipBlob(blob);
 
     const allSlides = [...files.entries()]
@@ -475,7 +502,7 @@ describe("buildPptx", () => {
       milestones: [makeMilestone(7)],
     };
     const sections = buildExportSections(ws, cfg, "en-US");
-    const blob = buildPptx(sections);
+    const blob = buildPptx(sections, "en-US");
     const files = await unzipBlob(blob);
 
     const allSlides = [...files.entries()]
@@ -498,7 +525,7 @@ describe("buildPptx", () => {
       raid: [],
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
-    const blob = buildPptx(sections);
+    const blob = buildPptx(sections, "en-US");
     const files = await unzipBlob(blob);
 
     const allSlides = [...files.entries()]
@@ -517,7 +544,7 @@ describe("buildPptx", () => {
       raid: [],
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
-    const blob = buildPptx(sections);
+    const blob = buildPptx(sections, "en-US");
     const files = await unzipBlob(blob);
 
     const slide1 = files.get("ppt/slides/slide1.xml")!;
@@ -531,7 +558,7 @@ describe("buildPptx", () => {
       raid: [makeRaidItem(10)],
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
-    const blob = buildPptx(sections);
+    const blob = buildPptx(sections, "en-US");
     const files = await unzipBlob(blob);
 
     // slide1 = title, slide2 = tasks divider, slide3 = task item,
@@ -552,7 +579,7 @@ describe("buildPptx", () => {
       raid: [],
     };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
-    const blob = buildPptx(sections);
+    const blob = buildPptx(sections, "en-US");
     const files = await unzipBlob(blob);
 
     expect(files.has("[Content_Types].xml")).toBe(true);
@@ -565,7 +592,7 @@ describe("buildPptx", () => {
 
   it("empty sections list — only title slide emitted", async () => {
     const sections: ReturnType<typeof buildExportSections> = [];
-    const blob = buildPptx(sections);
+    const blob = buildPptx(sections, "en-US");
     const files = await unzipBlob(blob);
 
     const slideFiles = [...files.keys()].filter(
@@ -655,7 +682,7 @@ describe("PPTX export text", () => {
         columns: ["id", "taskName", "description"],
         rows: [[1, "Task one", "one\ntwo"]],
       },
-    ]);
+    ], "en-US");
     // slide1 = title, slide2 = Tasks divider, slide3 = the single row slide.
     const xml = (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
     // Columns 2..7 render as "<label>: <value>" meta lines, so the label is
@@ -677,7 +704,7 @@ describe("PPTX export text", () => {
   it("leaves a break-free paragraph as exactly one <a:p>", async () => {
     const blob = buildPptx([
       { key: "tasks", title: "Tasks", columns: ["id", "taskName"], rows: [[1, "Task one"]] },
-    ]);
+    ], "en-US");
     const xml = (await unzipBlob(blob)).get("ppt/slides/slide3.xml")!;
     // ★ The <a:t> count alone does NOT pin this: a split that emitted a
     // trailing EMPTY paragraph leaves the text occurring exactly once while

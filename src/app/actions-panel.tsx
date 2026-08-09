@@ -1,14 +1,15 @@
 // src/app/actions-panel.tsx
 "use client";
 import { useMemo, useState } from "react";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
-import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
 import { TextButton } from "./text-button";
 import { Spinner } from "./spinner";
 import { Card } from "./card";
 import { Badge } from "./badge";
+import { IconButton } from "./icon-button";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -93,19 +94,21 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
           </div>
           {aiAnalysis?.enabled && (
-            <Button
+            // ★ variant/size are PASSED, not defaulted: this is the pane's
+            //   primary action and leads the control row (AGENTS.md's toolbar
+            //   convention). Letting it fall back to the component's
+            //   secondary/xs default would restyle a primary CTA by accident.
+            <AiTriggerButton
+              lang={lang}
+              busy={aiAnalysis.busy}
+              onRun={aiAnalysis.onAnalyze}
+              onCancel={aiAnalysis.onCancel}
+              idleLabelKey="actionAiAnalyze"
+              idleIcon={<SparklesIcon aria-hidden="true" className="h-4 w-4" />}
               variant="primary"
               size="sm"
-              onClick={aiAnalysis.onAnalyze}
-              disabled={aiAnalysis.busy}
-              aria-busy={aiAnalysis.busy}
-              aria-label={t(lang, "actionAiAnalyze")}
-              title={t(lang, "actionAiAnalyze")}
-              className="inline-flex shrink-0 items-center gap-1.5 print:hidden"
-            >
-              <SparklesIcon aria-hidden="true" className="h-4 w-4" />
-              <span>{t(lang, "actionAiAnalyze")}</span>
-            </Button>
+              className="shrink-0 print:hidden"
+            />
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2 print:hidden">
@@ -152,14 +155,14 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, "actionAiSectionTitle")}
             </h3>
-            <button
-              type="button"
+            <IconButton
               onClick={aiAnalysis.onClear}
-              aria-label={t(lang, "actionAiDismiss")}
-              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              label={t(lang, "actionAiDismiss")}
+              title={t(lang, "actionAiDismiss")}
+              className="shrink-0"
             >
-              ✕
-            </button>
+              <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+            </IconButton>
           </div>
           <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {t(lang, "actionAiDisclaimer")}

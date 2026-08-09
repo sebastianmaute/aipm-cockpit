@@ -6,8 +6,10 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
+import { expectNoLabelBoundToButton } from "../test/label-binding";
 
 // Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
@@ -50,29 +52,37 @@ function Seed({ tier }: { tier: "full" }) {
   return null;
 }
 
+/** Renders one milestone, optionally interacts with it, then clicks Save and
+ *  returns the record the save handler received. Shared so the achieved-toggle
+ *  block below asserts the PERSISTED value rather than growing a second copy. */
+function save(
+  description: string | undefined,
+  beforeSave?: () => void,
+) {
+  const onSave = vi.fn();
+  render(
+    <MilestoneEditModal
+      lang="en-US"
+      milestone={{ id: 1, name: "M1", date: "2026-08-01", description, linkedTaskIds: [] }}
+      isNew={false}
+      tasks={[]}
+      onSave={onSave}
+      onDelete={vi.fn()}
+      onClose={vi.fn()}
+    />,
+    { wrapper },
+  );
+  beforeSave?.();
+  fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+  return onSave.mock.calls[0][0] as { description?: string; achievedDate?: string };
+}
+
 describe("MilestoneEditModal rich-field write-path cap", () => {
   // ★★ Same regression as the RAID/change modals: `description` became a
   // RichTextEditor and nothing capped it on the way out, so an over-cap value
   // was persisted uncapped and only truncated on the NEXT load, inside
   // sanitizeRichText. This modal has no adjustment tracker, so the only
   // observable is the value handed to onSave.
-  function save(description: string | undefined) {
-    const onSave = vi.fn();
-    render(
-      <MilestoneEditModal
-        lang="en-US"
-        milestone={{ id: 1, name: "M1", date: "2026-08-01", description, linkedTaskIds: [] }}
-        isNew={false}
-        tasks={[]}
-        onSave={onSave}
-        onDelete={vi.fn()}
-        onClose={vi.fn()}
-      />,
-      { wrapper },
-    );
-    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
-    return onSave.mock.calls[0][0] as { description?: string };
-  }
 
   it("caps an over-cap description on the value it SAVES", () => {
     const saved = save(`<p>${"d".repeat(TEXTAREA_MAX + 40)}</p>`);
@@ -128,7 +138,6 @@ describe("MilestoneEditModal — field visibility", () => {
   // an Advanced field shown by default; documentLinks is Full-only and hidden
   // at the Advanced default. The cog popover is closed, so body labels are safe.
   const ACHIEVED_LABEL = t("en-US", "milestoneAchieved");
-  const SIMPLE_LABEL = t("en-US", "fieldViewSimple");
 
   function renderModal() {
     return render(
@@ -159,7 +168,7 @@ describe("MilestoneEditModal — field visibility", () => {
     renderModal();
     expect(screen.getByText(ACHIEVED_LABEL)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: SIMPLE_LABEL }));
+    selectFieldTier("fieldViewSimple");
 
     // Advanced field gone, required Name input remains.
     expect(screen.queryByText(ACHIEVED_LABEL)).not.toBeInTheDocument();
@@ -167,26 +176,34 @@ describe("MilestoneEditModal — field visibility", () => {
   });
 });
 
+/** Shared single-milestone render. Hoisted to module scope so the achieved-toggle
+ *  block below reuses it rather than growing a second copy. */
+function renderWith(milestone: {
+  id: number;
+  name: string;
+  date: string;
+  description?: string;
+  achievedDate?: string;
+}) {
+  return render(
+    <MilestoneEditModal
+      lang="en-US"
+      milestone={{ ...milestone, linkedTaskIds: [] }}
+      isNew={false}
+      tasks={[]}
+      onSave={vi.fn()}
+      onDelete={vi.fn()}
+      onClose={vi.fn()}
+    />,
+    { wrapper },
+  );
+}
+
 describe("MilestoneEditModal — rich-text description (slice B)", () => {
   // The lean editor names its contenteditable surface with its `label` prop
   // (editorProps.attributes sets role="textbox" + aria-label), so the query is
   // by the same i18n key the visible field label uses.
   const DESC_LABEL = t("en-US", "milestoneDescription");
-
-  function renderWith(milestone: { id: number; name: string; date: string; description?: string }) {
-    return render(
-      <MilestoneEditModal
-        lang="en-US"
-        milestone={{ ...milestone, linkedTaskIds: [] }}
-        isNew={false}
-        tasks={[]}
-        onSave={vi.fn()}
-        onDelete={vi.fn()}
-        onClose={vi.fn()}
-      />,
-      { wrapper },
-    );
-  }
 
   it("renders the description in a rich-text editor, not a textarea", async () => {
     renderWith({ id: 1, name: "M", date: "2026-01-01", description: "<p>cutover</p>" });
@@ -238,5 +255,65 @@ describe("MilestoneEditModal — rich-text description (slice B)", () => {
     const editor = await screen.findByRole("textbox", { name: DESC_LABEL });
     expect(editor).toHaveTextContent("beta");
     expect(editor).not.toHaveTextContent("alpha");
+  });
+});
+
+describe("achieved toggle", () => {
+  const NAME = t("en-US", "milestoneAchieved");
+
+  it("renders achieved as a toggle button reflecting the draft", () => {
+    renderWith({ id: 1, name: "Go live", date: "2026-06-30" });
+    expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("clears the date when an achieved milestone is unpressed", () => {
+    renderWith({ id: 1, name: "Go live", date: "2026-06-30", achievedDate: "2026-06-28" });
+    expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: NAME }));
+    expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // ★★ The other direction, and the only test that sees the STORED VALUE.
+  //    aria-pressed alone cannot catch the date shape: dropping `.slice(0, 10)`
+  //    from `new Date().toISOString().slice(0, 10)` (milestone-edit-modal.tsx)
+  //    persists a full timestamp into a date-only field across all six write
+  //    paths while every aria-pressed assertion stays green. Replacing the
+  //    handler's value with `undefined` fails the aria-pressed step instead.
+  it("stamps a date-only value when an unachieved milestone is pressed", () => {
+    const saved = save(undefined, () => {
+      expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "false");
+      fireEvent.click(screen.getByRole("button", { name: NAME }));
+      expect(screen.getByRole("button", { name: NAME })).toHaveAttribute("aria-pressed", "true");
+    });
+    expect(saved.achievedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("MilestoneEditModal — field wrappers", () => {
+  // ★★ See src/test/label-binding.ts: a contenteditable is not labelable, so
+  // the description `<label>` bound to the first BUTTON inside it instead —
+  // the dictation mic in a real browser, Bold here.
+  // ★★★ Two rows are FIXED but invisible to this test, so a REGRESSION in
+  // either would leave it green: the Name row (fixed with `htmlFor`; the mic
+  // outranks the `<Input>`, and jsdom has no SpeechRecognition so none renders)
+  // and the document-links row (now `DocumentLinksGroup`; SharePoint mocked
+  // off ⇒ bare `<p>`). `label-binding.guard.test.ts` reads SOURCE and covers both.
+  it("binds no field label to a button", () => {
+    render(
+      <>
+        <Seed tier="full" />
+        <MilestoneEditModal
+          lang="en-US"
+          milestone={{ id: 1, name: "M", date: "2026-01-01", description: "<p>d</p>", linkedTaskIds: [] }}
+          isNew={false}
+          tasks={[]}
+          onSave={vi.fn()}
+          onDelete={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </>,
+      { wrapper },
+    );
+    expectNoLabelBoundToButton();
   });
 });

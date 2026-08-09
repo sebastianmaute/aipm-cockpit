@@ -16,11 +16,13 @@ import { GanttViewMenu } from "./gantt-view-menu";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
 import {
   addDays,
+  DAY_ROW_HEIGHT_PX,
   DAY_WIDTH_PX,
   diffDays,
   EDGE_STROKE_MUTED,
   edgeKey,
   fmtDay,
+  fmtWeekdayShort,
   GANTT_STATUS_VALUES,
   type GanttPrefs,
   type GanttSort,
@@ -286,7 +288,7 @@ export function GanttHeader({
         </div>
         <div
           className="flex"
-          style={{ height: HEADER_ROW_HEIGHT_PX }}
+          style={{ height: DAY_ROW_HEIGHT_PX }}
         >
           {Array.from({ length: range.days }).map((_, i) => {
             const d = addDays(range.min, i);
@@ -295,7 +297,7 @@ export function GanttHeader({
             return (
               <div
                 key={i}
-                className={`flex items-center justify-center border-r text-[10px] ${
+                className={`flex flex-col items-center justify-center border-r text-[10px] leading-none ${
                   isToday
                     ? "border-ui-dark-blue bg-ui-dark-blue/10 font-semibold text-ui-dark-blue dark:text-foreground"
                     : isWeekend
@@ -304,7 +306,13 @@ export function GanttHeader({
                 }`}
                 style={{ width: DAY_WIDTH_PX }}
               >
-                {fmtDay(d)}
+                <span>{fmtDay(d)}</span>
+                {/* ★ The today cell owns a deliberate accent colour; letting the
+                    weekday line force `text-muted-foreground` there would undo it.
+                    Inherit in that one case, mute otherwise. */}
+                <span className={isToday ? "text-[9px]" : "text-[9px] text-muted-foreground"}>
+                  {fmtWeekdayShort(d, lang)}
+                </span>
               </div>
             );
           })}

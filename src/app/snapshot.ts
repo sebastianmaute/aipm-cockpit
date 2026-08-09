@@ -6,7 +6,7 @@
 
 import type { Health } from "./health";
 import type { DashboardModel } from "./dashboard";
-import { isTaskClosed, isTaskDelivered } from "./task-closed";
+import { isTaskClosed, isTaskOutOfScope } from "./task-closed";
 import type { Milestone, Task } from "./types";
 
 export type SnapshotCadence = "weekly" | "daily" | "monthly";
@@ -142,7 +142,7 @@ export function milestoneForecast(m: Milestone, tasksById: ReadonlyMap<number, T
   for (const id of m.linkedTaskIds) {
     const t = tasksById.get(id);
     if (!t) continue;
-    if (isTaskClosed(t) && !isTaskDelivered(t)) continue;
+    if (isTaskOutOfScope(t)) continue;
     const end = t.completedDate || t.dueDate;
     if (end && end > latest) latest = end;
   }

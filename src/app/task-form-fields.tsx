@@ -9,7 +9,7 @@ import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
 import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
-import { InfoTooltip } from "./info-tooltip";
+import { Field, TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { RichTextEditor } from "./rich-text-editor";
@@ -165,7 +165,7 @@ export function TaskFormFields({
         </Field>
 
         {isVisible("priority") && (
-          <Field label={t(lang, "priority")}>
+          <Field label={t(lang, "priority")} group>
             <SegmentedControl
               value={form.priority}
               ariaLabel={t(lang, "priority")}
@@ -442,7 +442,7 @@ export function TaskFormFields({
         )}
 
         {isVisible("labels") && (
-          <Field label={t(lang, "labels")}>
+          <Field label={t(lang, "labels")} group>
             <LabelsInput
               lang={lang}
               value={form.labels}
@@ -455,8 +455,13 @@ export function TaskFormFields({
 
       {(isVisible("dependencies") || isVisible("blockers") || (budgetLink !== undefined && isVisible("budgetBucket"))) && (
       <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
+        {/* `group`: once the task HAS a dependency, the chip list renders each
+            one's remove ✕ ABOVE the type `<Select>`, so a plain caption adopts
+            that ✕ and clicking "Dependencies" calls `remove(0)`. On an empty
+            list the `<Select>` wins and the caption looks fine — which is why
+            this survived the first sweep and a cold review found it. */}
         {isVisible("dependencies") && (
-        <Field label={t(lang, "depDependencies")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2">
+        <Field label={t(lang, "depDependencies")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2" group>
           <DependenciesEditor
             lang={lang}
             value={form.dependencies}
@@ -505,7 +510,7 @@ export function TaskFormFields({
 
       <TaskFormSection index={5} title={t(lang, "taskFormSectionStatus")}>
         {(isVisible("health") || isVisible("healthOverride")) && (
-        <Field label={t(lang, "health")} hint={t(lang, "taskHintHealth")} className="sm:col-span-2">
+        <Field label={t(lang, "health")} hint={t(lang, "taskHintHealth")} className="sm:col-span-2" group>
           {(() => {
             // Show what the auto-rule would say so the user can decide
             // whether to override it. Recomputed each render — cheap.
@@ -628,6 +633,7 @@ export function TaskFormFields({
               type="button"
               onClick={onOpenNotes}
               disabled={!onOpenNotes}
+              title={t(lang, "noteLogOpenHint")}
               className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
             >
               {/* No count: this branch renders only for an UNSAVED task, which has
@@ -640,7 +646,10 @@ export function TaskFormFields({
           </div>
         )}
 
-        <Field label={t(lang, "documents")} className="sm:col-span-2">
+        {/* KnowledgeLinksField renders per-link ✕ buttons then an "add" button
+            and NO input, so a `<label>` here bound the caption to the first ✕:
+            clicking "Documents" deleted a link. */}
+        <Field label={t(lang, "documents")} className="sm:col-span-2" group>
           <KnowledgeLinksFieldGated
             value={form.knowledgeLinks}
             onChange={(knowledgeLinks) => setForm((prev) => ({ ...prev, knowledgeLinks }))}
@@ -723,59 +732,5 @@ function EffortField({
       />
       {invalid && <FieldNotice id={noticeId}>{t(lang, "taskEffortInvalid")}</FieldNotice>}
     </Field>
-  );
-}
-
-// One titled, numbered section of the task form. Owns its own two-column grid so
-// fields with `sm:col-span-2` keep spanning. Heading uses the AIPM dark-blue token.
-export function TaskFormSection({
-  index,
-  title,
-  children,
-}: {
-  index: number;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h3 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-        {index}. {title}
-      </h3>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
-    </section>
-  );
-}
-
-// Field helper — moved verbatim from task-form-modal.tsx.
-export function Field({
-  label,
-  required,
-  hint,
-  className,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  /** Optional explanatory tooltip shown via an InfoTooltip beside the label. */
-  hint?: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className={`block ${className ?? ""}`}>
-      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-        {label}
-        {required && <span className="ml-0.5 text-ui-pink-strong">*</span>}
-        {hint && (
-          // preventDefault stops the wrapping <label> from also focusing/toggling
-          // its control when the tooltip trigger is clicked.
-          <span onClick={(e) => e.preventDefault()} className="inline-flex">
-            <InfoTooltip text={hint} />
-          </span>
-        )}
-      </span>
-      {children}
-    </label>
   );
 }

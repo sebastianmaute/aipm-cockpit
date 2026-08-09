@@ -10,7 +10,7 @@ import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
 import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
-import { isTaskClosed, isTaskDelivered } from "./task-closed";
+import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import type {
   Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, RaidSeverity,
   Resource, ResourcePlan, Role, Task,
@@ -68,6 +68,10 @@ export type DashboardProgress = {
   completed: number;
   percent: number;
   counts: Record<Health, number>;
+  /** Closed-but-never-delivered tasks, EXCLUDED from `counts`. Equals
+   *  `total - inScope` whenever no task carries a `healthOverride` — a pinned
+   *  one keeps its manual colour in `counts` and is not counted here. */
+  outOfScope: number;
 };
 
 /** Total tasks and the in-scope denominator, in one place.
@@ -76,14 +80,17 @@ export type DashboardProgress = {
  *  denominator means a project with cancelled scope can never read 100%.
  *
  *  ★★ Extracted so a caller that needs only the SCOPE question does not have to
- *  re-derive `isTaskClosed(t) && !isTaskDelivered(t)` — re-deriving that pair is
- *  how two dashboard cards came to disagree in the first place. Callers outside
+ *  re-derive the pair `isTaskOutOfScope` answers — re-deriving it is how two
+ *  dashboard cards came to disagree in the first place. Callers outside
  *  `computeDashboardProgress` want `tasksHaveNoActiveScope` below, not this.
+ *
+ *  ★ `computeGroupHealth` asks the SAME predicate to decide what to leave out of
+ *  the R/A/G tally, which is why it lives in `task-closed.ts` and not here.
  */
 export function scopeCounts(tasks: readonly Task[]): { total: number; inScope: number } {
   const total = tasks.length;
-  const cancelled = tasks.filter((t) => isTaskClosed(t) && !isTaskDelivered(t)).length;
-  return { total, inScope: Math.max(0, total - cancelled) };
+  const outOfScope = tasks.filter(isTaskOutOfScope).length;
+  return { total, inScope: Math.max(0, total - outOfScope) };
 }
 
 /** `hasNoActiveScope` for a caller that holds tasks but no `DashboardProgress`
@@ -94,22 +101,31 @@ export function tasksHaveNoActiveScope(tasks: readonly Task[]): boolean {
 }
 
 /** % complete (delivered-based) + R/A/G health counts from computeGroupHealth.
- *  Note: completed tasks are counted in BOTH `completed` and `counts.G`
- *  (computeGroupHealth colors a completed task Green), so `counts.G` includes
- *  done items, not just active on-track ones. */
+ *  Note: DELIVERED tasks are counted in BOTH `completed` and `counts.G`
+ *  (computeGroupHealth colors a delivered task Green), so `counts.G` includes
+ *  done items, not just active on-track ones.
+ *  ★ Never-delivered closed work is in `outOfScope` instead — it is in neither
+ *  `completed` nor `counts` (open-followups §66). */
 export function computeDashboardProgress(
   tasks: readonly Task[],
   todayISO: string,
   holidaySet: ReadonlySet<string>,
 ): DashboardProgress {
-  const counts = computeGroupHealth(tasks, todayISO, holidaySet).counts;
+  const group = computeGroupHealth(tasks, todayISO, holidaySet);
   const { total, inScope: denominator } = scopeCounts(tasks);
   const completed = tasks.filter((t) => isTaskDelivered(t)).length;
   const percent = denominator === 0 ? 0 : Math.round((completed / denominator) * 100);
   // `total` keeps its original meaning (every task) for genuine inventory
   // counts; `inScope` publishes the denominator so a caller rendering a pair
   // beside `percent` can describe the SAME set the percentage does.
-  return { total, inScope: denominator, completed, percent, counts };
+  return {
+    total,
+    inScope: denominator,
+    completed,
+    percent,
+    counts: group.counts,
+    outOfScope: group.outOfScope,
+  };
 }
 
 /** True when a project HAS tasks but none of them are still in scope — i.e.

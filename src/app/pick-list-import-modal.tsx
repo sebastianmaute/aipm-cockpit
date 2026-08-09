@@ -63,7 +63,7 @@ export function PickListImportModal({
       <div className={`flex max-h-[80vh] w-full ${maxWidthClass} flex-col overflow-hidden rounded-xl border border-line bg-surface`}>
         <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
           <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">{title}</h2>
-          <IconButton size="md" onClick={onClose} label={cancelLabel}>
+          <IconButton size="md" onClick={onClose} label={cancelLabel} title={cancelLabel}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </header>

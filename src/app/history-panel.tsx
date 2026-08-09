@@ -237,6 +237,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 type="button"
                 onClick={cancelSave}
                 aria-label={t(lang, "cancel")}
+                title={t(lang, "cancel")}
                 className={`rounded-full px-1 text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
               >
                 ×
@@ -365,6 +366,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 type="button"
                 onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); setRestoreFrom(null); setSideBySide(false); setCompareLabels(null); }}
                 aria-label={t(lang, "alertModalClose")}
+                title={t(lang, "alertModalClose")}
                 className={`cursor-pointer rounded-full px-1 text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
               >
                 ×

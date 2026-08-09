@@ -17,6 +17,7 @@ import {
   STAKEHOLDER_CATEGORIES,
   TASK_STATUSES,
 } from "./types";
+import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
 
 /** Every RAID status across the four categories (deduped). The tool schema
  *  offers the whole union; `sanitizeRaidItem` enforces the per-category subset
@@ -371,6 +372,24 @@ export const TOOL_DEFS = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "list_knowledge_items",
+    description:
+      "List the standalone Knowledge-library items (documents, Confluence pages, URLs) with id, name, url, linkKind (document/confluence/url), and the task ids they're linked to. Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_calendar_events",
+    description:
+      "List resource-calendar meetings with id, title, startDate, startTime, durationMinutes, location, notes, attendeeResourceIds, the recurrence rule, and its exceptions. Recurring events are returned ONCE as their series definition, not expanded per occurrence — compute occurrences yourself from the rule, then apply exceptions: each exception overrides one date, either kind 'skip' (that occurrence is cancelled — drop it) or kind 'move' (that occurrence is relocated to toDate/toTime — do not also emit it on its original date). Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_budget_buckets",
+    description:
+      "List budget planner buckets with id, name, status, window (startDate/endDate), and per-role planned (budget) hours by period. This is PER-BUCKET detail. For project-level totals (hours, value, cost, margin, EV, CPI) call get_dashboard_snapshot instead — do NOT sum these buckets to derive a rollup, and do not report both as if they were independent figures. Read-only.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "create_resource",
     description:
       "Add a person to the resource directory. Provide firstName and lastName, OR a single full `name` (it is split). At least one of these is required — a call with no name is rejected. Use this when a document describes a team/resource plan — assigning a task to a name alone does NOT create a directory entry. Discipline/grade are assigned in the app, not here.",
@@ -572,4 +591,5 @@ export const TOOL_DEFS = [
       },
     },
   },
+  ...DOCUMENT_TOOL_DEFS,
 ];

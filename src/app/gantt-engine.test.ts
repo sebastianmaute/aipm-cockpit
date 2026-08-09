@@ -2,9 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildGanttRows,
   clampNameColWidth,
+  DAY_ROW_HEIGHT_PX,
   DEFAULT_PREFS,
+  fmtWeekdayShort,
   GANTT_NAME_COL_MAX,
   GANTT_NAME_COL_MIN,
+  HEADER_HEIGHT_PX,
+  HEADER_ROW_HEIGHT_PX,
   LEFT_GUTTER_PX,
   loadPrefs,
   milestoneSlipDays,
@@ -222,5 +226,68 @@ describe("prefs v2 migration", () => {
       "open",
       "overdue",
     ]);
+  });
+});
+
+describe("fmtWeekdayShort", () => {
+  // 2026-08-07 is a Friday in UTC.
+  const friday = new Date(Date.UTC(2026, 7, 7));
+
+  it("formats the short weekday in English", () => {
+    expect(fmtWeekdayShort(friday, "en-US")).toBe("Fri");
+  });
+
+  it("treats en-GB as English, mirroring fmtMonth", () => {
+    expect(fmtWeekdayShort(friday, "en-GB")).toBe("Fri");
+  });
+
+  it("formats the short weekday in German", () => {
+    expect(fmtWeekdayShort(friday, "de")).toBe("Fr");
+  });
+
+  // ★ The guard that matters. Every date in this module is UTC-built and read
+  //   with getUTCDay(); formatting in the host zone shifts the label by a day
+  //   for any negative-offset zone. Which zone the runner happens to be in
+  //   would otherwise decide whether this assertion can fail at all — under
+  //   UTC (CI) or a positive offset (CET, this project's dev machines) a UTC
+  //   midnight formats as the SAME calendar day with `timeZone: "UTC"`
+  //   deleted, so the test would pass over the bug. The zone is therefore
+  //   pinned to a negative-offset one for the duration of the assertion and
+  //   restored afterwards, even on failure. Node re-reads `process.env.TZ` on
+  //   assignment and notifies V8's date cache, which is what makes setting it
+  //   mid-process take effect (same pattern as `resource-calendar.test.tsx`).
+  it("reads the date in UTC, not the host zone", () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = "America/New_York"; // UTC-4 in August
+    try {
+      // 2026-08-03 is a UTC Monday; the oracle is the hardcoded run of
+      // weekdays, not another date-API call that could share the same bug.
+      const expected = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.UTC(2026, 7, 3 + i)); // Mon 3rd .. Sun 9th
+        expect(fmtWeekdayShort(d, "en-US")).toBe(expected[i]);
+      }
+    } finally {
+      if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz;
+    }
+  });
+});
+
+describe("gantt header layout constants", () => {
+  it("gives the day row more height than the month row, for the two-line label", () => {
+    expect(DAY_ROW_HEIGHT_PX).toBeGreaterThan(HEADER_ROW_HEIGHT_PX);
+  });
+
+  // ★ NARROW BY CONSTRUCTION — read this before trusting it. `HEADER_HEIGHT_PX`
+  //   is itself written as `HEADER_ROW_HEIGHT_PX + DAY_ROW_HEIGHT_PX`, so both
+  //   sides of this assertion move together and it CANNOT catch a future height
+  //   edit leaving the total stale (an earlier comment here claimed it could).
+  //   The one mutation it does catch is the total drifting back to a form that
+  //   is not the sum of the two bands — the literal `HEADER_ROW_HEIGHT_PX * 2`
+  //   it used to be, or a hardcoded number. That the RENDERED header actually
+  //   spans its two rendered bands is pinned in `gantt-chrome.test.tsx`, which
+  //   sums the DOM rather than the constants.
+  it("totals the two header rows exactly", () => {
+    expect(HEADER_HEIGHT_PX).toBe(HEADER_ROW_HEIGHT_PX + DAY_ROW_HEIGHT_PX);
   });
 });

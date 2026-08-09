@@ -13,7 +13,9 @@ import {
   buildForwardImages,
   remapImageField,
   pushUndo,
+  pushUndoMany,
   popUndo,
+  takeThrough,
   dropEntry,
   type BeforeImage,
   type UndoMeta,
@@ -333,6 +335,10 @@ export interface UndoStackApi {
   captureComposite: (opts: CaptureCompositeOpts) => void;
   undo: () => void;
   undoById: (id: number) => void;
+  /** Undo every entry from `id` up to the top, newest-first, as ONE commit. */
+  undoThrough: (id: number) => void;
+  /** Redo every entry from `id` up to the top of the redo stack, as ONE commit. */
+  redoThrough: (id: number) => void;
   redo: () => void;
   stack: readonly UndoMeta[];
   redoStack: readonly UndoMeta[];
@@ -394,6 +400,47 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     if (!popped) return;
     commitUndo(popped.entry, popped.rest, true);
   }, [commitUndo]);
+
+  // ★★ NOT a loop over undo(): `stackRef` is refreshed by an effect, so N calls
+  //    in one tick all read the same stale stack and undo the top entry N times.
+  //    Read the ref ONCE and thread the list locally.
+  // ★★ The runners execute OUTSIDE every setState updater — StrictMode
+  //    double-invokes updaters, which would apply all N restores twice (same
+  //    reason commitUndo runs entry.run() before its setStates).
+  const undoThrough = useCallback((id: number) => {
+    const taken = takeThrough(stackRef.current, id);
+    if (!taken) return;
+    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
+    const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
+    const { lang, logActivity, showToast } = depsRef.current;
+    logActivity("undo", summed);
+    // ★ A through-undo of ONE entry is the same user-visible act as a plain
+    //   undo(), so it says the same thing — "Undone: Edit task X", not the
+    //   count-shaped "Undid 1 action(s)". Both keys already exist.
+    showToast("info", inverses.length === 1
+      ? t(lang, "undoneX", inverses[0].meta.label)
+      : t(lang, "undoneNActions", inverses.length));
+    setStack(taken.rest);
+    setRedoStack((rs) => pushUndoMany(rs, inverses, UNDO_CAP));
+  }, []);
+
+  // Mirror of undoThrough against the redo stack. Deliberately NOT folded in
+  // with redo() — that function has its own body and shares nothing with
+  // commitUndo, so unifying them would be a refactor of working code.
+  const redoThrough = useCallback((id: number) => {
+    const taken = takeThrough(redoStackRef.current, id);
+    if (!taken) return;
+    const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
+    const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
+    const { lang, logActivity, showToast } = depsRef.current;
+    logActivity("redo", summed);
+    // Mirror of undoThrough's single-entry fallback above.
+    showToast("info", inverses.length === 1
+      ? t(lang, "redoneX", inverses[0].meta.label)
+      : t(lang, "redoneNActions", inverses.length));
+    setRedoStack(taken.rest);
+    setStack((s) => pushUndoMany(s, inverses, UNDO_CAP));
+  }, []);
 
   // Redo the last undone op: apply its forward runner (which returns a fresh undo
   // runner so redo→undo round-trips), and push the re-undoable entry back on top.
@@ -465,6 +512,8 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     captureComposite,
     undo,
     undoById,
+    undoThrough,
+    redoThrough,
     redo,
     stack: metas,
     redoStack: redoMetas,

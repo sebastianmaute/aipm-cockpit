@@ -109,11 +109,40 @@ export function PopoverPanel({
     }
   }, [open, pos]);
 
-  // Focus the first control once mounted+positioned. preventScroll so the
+  // Focus the first TAB-STOP once mounted+positioned. preventScroll so the
   // programmatic focus can't scroll an ancestor and fire close-on-scroll.
+  //
+  // ★★ The `:not([tabindex="-1"])` on each arm is load-bearing, not tidying. A
+  // roving-tabindex widget (`SegmentedControl`) renders every UNCHECKED radio at
+  // -1, and the bare `input,button,[tabindex]` selector matched those — so the
+  // field-visibility popover opened with focus on the FIRST radio ("Simple")
+  // while a different one was checked ("Advanced"). The radios are real
+  // `<button>`s carrying their own `onClick`, so Enter or Space on that
+  // mis-focused radio SELECTED it, silently changing the tier; in custom mode
+  // that discarded a hand-picked field set. AT announced the wrong state too.
+  // ★ `querySelector` with a comma list returns the first match in DOCUMENT
+  // order (not selector order), so this lands on the checked radio wherever it
+  // sits among its siblings. Inert for every panel whose first control is
+  // already tabbable — which is all of them but this one.
+  // ★ When a roving group has NOTHING checked, its first radio IS the tab-stop
+  // (SegmentedControl's `hasSelection` fallback), so focus correctly stays put.
+  // ★★ The `??` fallback is NOT redundant: a panel whose every candidate is a
+  // roving -1 (an all-`tabIndex={-1}` menu — `project-switcher.tsx` renders
+  // exactly that shape today) matches the narrow selector NOWHERE, and a bare
+  // `?.focus()` would then silently no-op. That is the one outcome this effect
+  // must never produce: the panel is PORTALED, so with nothing focused the
+  // user's next Tab leaves it entirely — the very failure `autoFocus` exists to
+  // prevent. Programmatic `.focus()` works on a -1 element, so the fallback is
+  // functional, not cosmetic. No current consumer needs it; it is here so the
+  // next one cannot regress silently.
   useEffect(() => {
     if (autoFocus && open && pos) {
-      panelRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus({ preventScroll: true });
+      const panel = panelRef.current;
+      (
+        panel?.querySelector<HTMLElement>(
+          'input:not([tabindex="-1"]),button:not([tabindex="-1"]),[tabindex]:not([tabindex="-1"])',
+        ) ?? panel?.querySelector<HTMLElement>("input,button,[tabindex]")
+      )?.focus({ preventScroll: true });
     }
   }, [autoFocus, open, pos]);
 

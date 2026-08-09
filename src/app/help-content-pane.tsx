@@ -7,8 +7,9 @@
 // parent owns the search input, tours, relations map, and footer.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
+import { HELP_ENTRIES, HELP_GROUP_LABEL, helpGroupOrder, type HelpReadingLevel } from "./help-content";
 import { matchesQuery, highlightSegments } from "./help-search";
+import { parseHelpBody, stripHelpMarkers } from "./help-body-markup";
 import { navLabelKey, type AppView } from "./nav-config";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -36,23 +37,42 @@ export function HelpContentPane({
   lang,
   query,
   onNavigateView,
+  readingLevel = "standard",
 }: {
   lang: Lang;
   query: string;
   onNavigateView?: (view: AppView) => void;
+  /** How much teaching to do — see `Settings.helpReadingLevel`. Defaults to
+   *  "standard" so a caller that has not wired settings (and every existing
+   *  test) renders exactly today's Help. */
+  readingLevel?: HelpReadingLevel;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
+  // A concept primer renders at Guided only, so it is SEARCHABLE at Guided
+  // only. ★★ Same principle as stripping markers below: a query must never
+  // match text the user cannot see. The consequence is deliberate — the same
+  // query can find a different number of entries at different reading levels.
+  const showPrimers = readingLevel === "guided";
+  const primerFor = (e: (typeof HELP_ENTRIES)[number]): string =>
+    showPrimers && e.primerKey ? t(lang, e.primerKey) : "";
+
   const groups = useMemo(() => {
-    const matched = HELP_ENTRIES.filter((e) =>
-      matchesQuery(t(lang, e.titleKey), t(lang, e.bodyKey), query),
-    );
-    return HELP_GROUP_ORDER.map((group) => ({
-      group,
-      entries: matched.filter((e) => e.group === group),
-    })).filter((g) => g.entries.length > 0);
-  }, [lang, query]);
+    const matched = HELP_ENTRIES.filter((e) => {
+      const primer = showPrimers && e.primerKey ? t(lang, e.primerKey) : "";
+      // ★ STRIPPED, not raw: searching the raw body would let a query match
+      // `[[` markup that is never rendered.
+      const body = stripHelpMarkers([primer, t(lang, e.bodyKey)].filter(Boolean).join("\n\n"));
+      return matchesQuery(t(lang, e.titleKey), body, query);
+    });
+    return helpGroupOrder(readingLevel)
+      .map((group) => ({
+        group,
+        entries: matched.filter((e) => e.group === group),
+      }))
+      .filter((g) => g.entries.length > 0);
+  }, [lang, query, readingLevel, showPrimers]);
 
   // Stable key of the rendered section ids → re-create the observer when the
   // filtered set changes (search). Hoisted scalar avoids the exhaustive-deps
@@ -133,8 +153,57 @@ export function HelpContentPane({
                   <h3 className="mb-1 text-sm font-semibold text-foreground">
                     <Highlighted text={t(lang, e.titleKey)} query={query} />
                   </h3>
+                  {/* Guided-level primer: everyday framing above the body's
+                      What / Why / In this app. Inset with existing tokens only
+                      — the card is `bg-surface` on a `bg-surface-muted`
+                      scroller, so the muted fill reads as a nested block
+                      without a new token, a gradient or a shadow.
+                      ★★ THE FILL + BORDER ARE THE WHOLE CUE — `text-foreground`
+                      here is INERT. `scheme-tokens.ts` derives
+                      `--muted-foreground` FROM `--foreground`, so the two are
+                      identical BY CONSTRUCTION in every built-in scheme, not
+                      just the default (measured in Chromium: both `#15212e`).
+                      The class stays because it states the intent and would
+                      matter in a scheme that broke the derivation — but do not
+                      "simplify" the box away and expect the colour to carry
+                      the distinction, because it never has. */}
+                  {primerFor(e) ? (
+                    <p className="mb-2 max-w-[64ch] whitespace-pre-line rounded border border-line bg-surface-muted p-2 text-sm leading-relaxed text-foreground">
+                      {parseHelpBody(primerFor(e)).map((seg, i) =>
+                        seg.isLabel ? (
+                          <span key={i} className="font-medium">
+                            <Highlighted text={seg.text} query={query} />
+                          </span>
+                        ) : (
+                          <Highlighted key={i} text={seg.text} query={query} />
+                        ),
+                      )}
+                    </p>
+                  ) : null}
                   <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                    <Highlighted text={t(lang, e.bodyKey)} query={query} />
+                    {/* ★ Segments, not one string: a label renders emphasised
+                        against the body. `Highlighted` runs PER segment, so a
+                        search term spanning a label boundary matches (the
+                        search body is stripped) but highlights only within its
+                        own segment. Accepted — see the spec.
+                        ★★ `font-medium` IS THE WHOLE EFFECT — do not drop it.
+                        Measured in Chromium: `--foreground` and
+                        `--muted-foreground` are BOTH #15212e in the default
+                        scheme, so `text-foreground` here is a colour no-op and
+                        the label is distinguished by weight (500 vs 400) alone.
+                        Keeping the weight also means the cue is not colour-only,
+                        which is the WCAG-safer outcome — but a "simplification"
+                        that keeps the colour class and drops the weight would
+                        render labels perfectly invisible. */}
+                    {parseHelpBody(t(lang, e.bodyKey)).map((seg, i) =>
+                      seg.isLabel ? (
+                        <span key={i} className="font-medium text-foreground">
+                          <Highlighted text={seg.text} query={query} />
+                        </span>
+                      ) : (
+                        <Highlighted key={i} text={seg.text} query={query} />
+                      ),
+                    )}
                   </p>
                   {(e.relatedConcepts?.length ?? 0) > 0 || (e.relatedViews?.length ?? 0) > 0 ? (
                     <p className="mt-1.5 text-xs text-muted-foreground">

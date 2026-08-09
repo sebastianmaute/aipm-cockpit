@@ -62,6 +62,8 @@ import {
   markdownToSteeringCommittee,
   markdownToTimelogLinks,
   markdownToKnowledgeItems,
+  markdownToDocuments,
+  markdownToDocumentVersions,
   markdownToInsights,
   markdownToSettingsOverrides,
   mdUnescape,
@@ -304,7 +306,12 @@ function markdownToRaid(md: string, diag?: ImportDiag): RaidItem[] {
 }
 
 /** Parses all sections out of a (possibly multi-section) markdown string. Pass
- *  an optional {@link ImportDiag} to count rows rejected as malformed. */
+ *  an optional {@link ImportDiag} to count rows rejected as malformed.
+ *
+ *  ★ The SAME accumulator also carries the document-cap counters — a capped
+ *  document is a DIFFERENT loss from a dropped row (it was perfectly valid and
+ *  simply went unread), but it travels this path, so both fenced-json document
+ *  decoders below receive `diag` too. */
 export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   const s = splitMarkdownSections(md);
   const ws: Workspace = {
@@ -339,6 +346,18 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   if (ki) ws.knowledgeItems = ki;
   const ins = markdownToInsights(md);
   if (ins) ws.insights = ins;
+  // Whole-md scan like the other fenced-json sections: the "## Documents"
+  // heading is not one splitMarkdownSections knows, so its lines stay in
+  // whichever section was open — harmless, since the block is emitted last and
+  // its lines never look like a table row.
+  const docs = markdownToDocuments(md, diag);
+  if (docs) ws.documents = docs;
+  // Whole-md scan, same shape as documents just above: "## Document versions"
+  // is not a heading splitMarkdownSections knows, so its lines stay wherever
+  // they landed — harmless, since the block is emitted last and its lines
+  // never look like a table row.
+  const docVersions = markdownToDocumentVersions(md, diag);
+  if (docVersions) ws.documentVersions = docVersions;
   const so = markdownToSettingsOverrides(md);
   if (so) ws.settingsOverrides = so;
   return migrateWorkspaceV10(ws);

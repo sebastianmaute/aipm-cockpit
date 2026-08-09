@@ -3,7 +3,7 @@
 // the forced-tool schema, the output sanitizer, and the prompt builder. Mirrors
 // digest/digest-narrative.ts for security: no key/body ever appears here.
 import type { Lang } from "../i18n";
-import type { DashboardModel } from "../dashboard";
+import { type DashboardModel, hasNoActiveScope } from "../dashboard";
 
 // Shared control-char scrub (hex escapes — never literal control bytes).
 const CONTROL_CHARS = /[\x00-\x1f]/g;
@@ -65,10 +65,15 @@ export function buildMeetingReportPrompt(model: DashboardModel, agenda: string, 
     `  5. Next steps\n\n` +
     `Base the report on these project facts:\n` +
     `- Overall RAG status: ${rag}\n` +
-    `- Completion: ${model.progress.percent}% complete ` +
-    // inScope, NOT total: this pair sits inside the same sentence as the
-    // percentage, and a model handed 100% beside "5 of 10" will contradict itself.
-    `(${model.progress.completed} of ${model.progress.inScope} tasks done)\n` +
+    // ★ An all-cancelled project is not "0% complete" — that reads as "not
+    //   started yet", and the model can restate it in generated prose that a
+    //   steering committee then reads (open-followups §64).
+    (hasNoActiveScope(model.progress)
+      ? `- Completion: no active scope — all ${model.progress.total} tasks are cancelled\n`
+      // inScope, NOT total: this pair sits inside the same sentence as the
+      // percentage, and a model handed 100% beside "5 of 10" will contradict itself.
+      : `- Completion: ${model.progress.percent}% complete ` +
+        `(${model.progress.completed} of ${model.progress.inScope} tasks done)\n`) +
     `- Overdue tasks: ${model.overdue.length}\n` +
     `- Tasks due soon: ${model.dueSoon.length}\n` +
     `- Open RAID items: ${model.openRaidCount}\n` +

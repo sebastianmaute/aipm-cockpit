@@ -43,6 +43,12 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
+import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
+// ★ logDiag is a no-op when `window` is undefined and swallows its own errors,
+// so importing it here cannot break the bare-node sample generator.
+import { logDiag } from "./diagnostics";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
@@ -126,6 +132,22 @@ export type Workspace = {
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
    *  Sanitized by sanitizeInsights. */
   insights?: readonly Insight[];
+  /** AI- and user-authored project documents (canonical block model; the
+   *  .docx/.pptx/.html/.pdf bytes are rendered on demand and never stored).
+   *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
+   *  Sanitized in TWO passes — `sanitizeProjectDocuments` for structure, then
+   *  `sanitizeDocumentRichFields` for the paragraph HTML allow-list. They are
+   *  separate because the first is DOM-FREE by contract (it runs under bare
+   *  node in the sample generator) and therefore cannot call DOMPurify. */
+  documents?: readonly ProjectDocument[];
+  /** Before-image snapshots of document mutations (AI and user) — the safety
+   *  net that makes direct AI document writes acceptable, since chat tool
+   *  writes have no undo capture. Restoring writes a version back verbatim;
+   *  there is no inversion logic. Optional & additive: undefined/empty
+   *  serializes to nothing (byte-stable). Sanitized by
+   *  `sanitizeDocumentVersions` (DOM-free, structure only) then the paragraph
+   *  HTML allow-list, same two-pass split as `documents`. */
+  documentVersions?: readonly DocVersion[];
   /** Per-project policy overrides (next-actions weights, notification cadence,
    *  timezone) that travel WITH the project. Optional & additive: undefined
    *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
@@ -156,7 +178,19 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     && (ws.milestones?.length ?? 0) === 0
     && (ws.changes?.length ?? 0) === 0
     && (ws.stakeholders?.length ?? 0) === 0
-    && (ws.calendarEvents?.length ?? 0) === 0;
+    && (ws.calendarEvents?.length ?? 0) === 0
+    // ★★ documents belongs here even though the other JSON-blob slices
+    //    (insights, knowledgeItems, timelogLinks) do NOT. This feeds the LOAD
+    //    guard, which refuses an incoming empty workspace only when the current
+    //    one is non-empty. "Only documents" is an ordinary state — someone
+    //    drafting a charter before entering any task — and without this a
+    //    transient empty read applies, wipes them, and autosave persists it.
+    //    ★ Deliberately NOT added to nonEmptyCollectionCount /
+    //    workspaceRecordCount: those feed the SAVE-time mass-deletion
+    //    thresholds, so widening them changes when saves are REFUSED for every
+    //    existing project. See docs/open-followups.md §98.
+    && (ws.documents?.length ?? 0) === 0
+    && (ws.documentVersions?.length ?? 0) === 0;
 }
 
 /** Number of user collections that hold at least one record. Used by the
@@ -423,6 +457,20 @@ export interface StorageBackend {
    * backends). Lets the import UI warn the user instead of showing only success.
    */
   lastImportDroppedRows?: number;
+  /**
+   * Optional: what the LAST {@link load} silently discarded to stay inside the
+   * document caps. `entries` counts raw array entries past MAX_DOCUMENTS (an
+   * upper bound — see DocTruncationDiag); `blocks` counts blocks past
+   * MAX_BLOCKS_PER_DOC, in stored versions AND in live documents.
+   * ★ Every backend must set this. A backend that leaves it undefined reports
+   * no truncation and its users lose documents in silence.
+   * ★★ The net is a VITEST UNIT TEST (`backend-truncation-registry.test.ts`),
+   * NOT a build step — `next build` never runs it — and it scans a HARDCODED
+   * list of four files for an assignment, so a fifth backend is not caught
+   * until someone adds it there. An earlier wording here said it "fails the
+   * build", which overstates both what runs it and what it checks.
+   */
+  lastLoadTruncation?: { entries: number; blocks: number };
 }
 
 /** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */
@@ -462,6 +510,15 @@ export function workspaceToJson(ws: Workspace): string {
       // of an `insights` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
       ...(ws.insights && ws.insights.length ? { insights: ws.insights } : {}),
+      // Additive: only present when documents exist, so legacy files stay free
+      // of a `documents` key. JSON is the complete round-trip, so this is
+      // always emitted (storage AND export) when present.
+      ...(ws.documents && ws.documents.length ? { documents: ws.documents } : {}),
+      // Additive: only present when version history exists, so files without
+      // it stay free of a `documentVersions` key. Mirrors `documents` above.
+      ...(ws.documentVersions && ws.documentVersions.length
+        ? { documentVersions: ws.documentVersions }
+        : {}),
       // Additive: only present when the project carries policy overrides, so
       // override-less files stay free of a `settingsOverrides` key.
       ...(hasAnyOverride(ws.settingsOverrides) ? { settingsOverrides: ws.settingsOverrides } : {}),
@@ -517,8 +574,16 @@ export class WorkspaceParseError extends Error {
  *  failure or a non-workspace shape. Used by the disk/SharePoint load paths so
  *  a corrupt file becomes a controlled load error, never a silent empty that
  *  the next autosave overwrites. (Empty/blank text is guarded upstream by the
- *  backends before reaching here, so strict only ever sees non-blank content.) */
-export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Workspace {
+ *  backends before reaching here, so strict only ever sees non-blank content.)
+ *
+ *  `opts.diag`: an optional accumulator the caller owns. The document and
+ *  document-version sanitizers write into it what a load-time CAP silently
+ *  discarded, so a backend can report the loss instead of truncating in
+ *  silence. Purely additive — omitting it decodes exactly as before. */
+export function jsonToWorkspace(
+  text: string,
+  opts?: { strict?: boolean; diag?: DocTruncationDiag },
+): Workspace {
   const strict = opts?.strict === true;
   let parsed: unknown;
   try {
@@ -596,6 +661,76 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     if (p.insights !== undefined) {
       const ins = sanitizeInsights(p.insights);
       if (ins.length) raw.insights = ins;
+    }
+    // Additive: sanitize incoming documents when present. TWO passes, in this
+    // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free
+    // by contract, so it cannot run an HTML allow-list), then the rich-field
+    // pass applies DOMPurify to the paragraph HTML. Running only the first
+    // would persist `<script>` from a crafted .json verbatim. An all-garbage or
+    // empty list stays off the key rather than emitting [].
+    // ★★★ The rich-field pass is the ONLY DOM-dependent step in this decoder, and
+    // it needs its OWN catch. Without one, a throw here reaches the outer
+    // catch-all below, which answers a non-strict load with `emptyWorkspace()` —
+    // so one unsanitizable document discarded every task, RAID item and
+    // milestone in the file, silently. Measured: tasks 0. CSV, Markdown and
+    // Turso already scope this call locally and lose only the documents; this
+    // brings JSON into line. See open-followups §97.
+    // ★★ Scoped to these two calls ONLY, never widened to the whole decode: a
+    // broader catch would make real file corruption survivable, which is what
+    // `strict` exists to prevent.
+    // ★ Degrading a THROW to "documents dropped" matches what this field already
+    // does with garbage — `sanitizeProjectDocuments` returns [] and the key stays
+    // off — so containment does not invent a new failure mode for it.
+    if (p.documents !== undefined) {
+      try {
+        const docs = sanitizeProjectDocuments(p.documents, opts?.diag).map(sanitizeDocumentRichFields);
+        if (docs.length) raw.documents = docs;
+      } catch (err) {
+        // ★★ strict must stay LOUD. The sample generator decodes with
+        // { strict: true } so a bad load fails the build rather than writing a
+        // near-empty artifact; rethrowing lets the outer catch raise the same
+        // WorkspaceParseError("shape") it always did.
+        if (strict) throw err;
+        // ★ Not silent: the diagnostics ring is the channel for THIS loss. The
+        // signature does carry an optional `DocTruncationDiag`, but that
+        // accumulator counts only what the CAPS discarded — it has no field for
+        // a sanitize THROW, and a caller reading it after this branch sees
+        // nothing. So the ring stays the channel here. Names what was lost, so
+        // a user who opens a file and finds no documents has something to find.
+        logDiag("error", "workspace.documentsDropped", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    // Additive: sanitize incoming document version history when present. Same
+    // two-pass shape as documents just above — sanitizeDocumentVersions
+    // enforces structure (DOM-free), then each version's blocks get the
+    // paragraph HTML allow-list via sanitizeDocumentRichFields. A version has
+    // no independent createdAt/updatedAt, so it is passed through a synthetic
+    // ProjectDocument-shaped wrapper with savedAt standing in for both. An
+    // all-garbage or empty list stays off the key rather than emitting [].
+    // ★ Same containment as documents: the rich-field pass is the only
+    // DOM-dependent step, scoped to its own catch so one bad version cannot
+    // discard the whole workspace on a non-strict load.
+    if (p.documentVersions !== undefined) {
+      try {
+        const versions = sanitizeDocumentVersions(p.documentVersions, opts?.diag).map((v) => ({
+          ...v,
+          blocks: sanitizeDocumentRichFields({
+            id: v.documentId,
+            title: v.title,
+            blocks: v.blocks,
+            createdAt: v.savedAt,
+            updatedAt: v.savedAt,
+          }).blocks,
+        }));
+        if (versions.length) raw.documentVersions = versions;
+      } catch (err) {
+        if (strict) throw err;
+        logDiag("error", "workspace.documentVersionsDropped", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
     // Additive: sanitize incoming per-project policy overrides when present;
     // an all-junk override sanitizes to {} (no valid sub-key) and the key stays off.

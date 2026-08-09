@@ -18,8 +18,30 @@
   `dynamic()` strips function props under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
   HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
   SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
-  "Related:" links. The floating top-bar Help panel stays features-only via the
-  derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`).
+  "Related:" links. (`help-sections.ts` was renamed to `help-content.ts`.)
+  ★★★ BOTH surfaces render EVERY group — the floating panel is NOT features-only. It was, via a
+  derived `HELP_SECTIONS` slice, and this file said so long after that stopped being true while
+  CONTRADICTING ITSELF six lines below ("FLOATING panel is CONTENT-PANE ONLY"). The export outlived
+  its last caller; its only surviving reference was a test asserting it equalled its own definition,
+  which would have kept passing however few surfaces used it. Cost: slice 2 of the help roadmap was
+  scoped around "split the surfaces", work that already existed. Both the export and that test are
+  now REMOVED — do not reintroduce a group filter without a caller. `docs:symbols:check` passed the
+  whole time, because `HELP_SECTIONS` was a real NAME; the gate proves names, never claims.
+  ★★ **Reading level** (`Settings.helpReadingLevel`, `SegmentedControl` in Settings → Appearance):
+  `guided` | `standard` | `expert`, per-DEVICE, default `standard` (= today's rendering, byte-identical).
+  `helpGroupOrder(level)` (`help-content.ts`) gives Expert a reference-first order (features →
+  automated → workflows → concepts); Guided/Standard keep teaching-first. `HelpContentPane` takes an
+  optional `readingLevel` (defaults `"standard"`, so every un-wired caller and test is unaffected);
+  `help-menu.tsx` + `help-view.tsx` each read it via a LOCAL `useSettings()`. ★ Do NOT thread it
+  through `ActionMenus` — that contract is guarded by `action-menus-sweep.test.ts`, and the
+  props-not-hooks rule it documents was motivated by staleness that `use-settings.ts`'s listener
+  registry has since fixed. ★ DELIBERATELY device-only: it is the ONLY Appearance field with no
+  `ProjectAppearancePref` entry, because reading level belongs to the reader, not the project.
+  ★★ Guided adds a `primerKey` primer above the body on the 12 `concepts` entries (a test pins that
+  no other group has one). Primers name NO control, path or setting — conceptual prose cannot rot,
+  and twelve paragraphs of behavioural claims would hand the next slice slice 1's job over again.
+  A primer is SEARCHABLE only at the level that renders it, same rule as marker-stripping: never
+  match text the user cannot see. Consequence, pinned by test: one query, different hit counts per level.
   ★★ `help-content-pane.tsx` (shared by the in-pane view AND the floating panel) renders each concept
   as a CARD (`border-l-ui-dark-blue` stripe, no shadow) on a `bg-surface-muted` scroller, with a wider `w-56`
   TOC driven by an `IntersectionObserver` SCROLL-SPY (effect dep = a hoisted scalar `sectionIdsKey` join, NOT an
@@ -41,9 +63,60 @@
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
   (the sidebar entry IS scanned every view; eye-verify the page).
+  • **Help body `[[label]]` markers:** a body naming a UI control writes it `[[Take the tour]]`, never in bare
+  quotes. Pure `help-body-markup.ts` (`parseHelpBody`/`stripHelpMarkers`/`helpBodyLabels`) splits them;
+  `help-content-pane.tsx` renders label segments `font-medium text-foreground` and feeds the STRIPPED body to
+  `matchesQuery` — TWO call sites, and missing the second gives users search hits on markup they cannot see.
+  ★★ `help-content-gate.test.ts` resolves every marker against all three dictionaries and ratchets nav-view
+  coverage against an explicit `KNOWN_UNCOVERED` id list, asserted by set EQUALITY so a CLOSED gap fails until its
+  id is removed (a subset check would let the baseline rot into a permanent exemption). Coverage is measured over
+  `allNavViews()`, which flattens nested `children` — a walk over `NAV_GROUPS` items alone sees half the sidebar and
+  measured 7 gaps where there are 14.
+  ★★ **The baseline is now EMPTY** (slice 3): every nav view is named by some entry's `relatedViews`, so the
+  assertion reads "nothing is uncovered" and a regression fails on the next run. `HELP_ENTRIES` is 64
+  (`grep -c '^  { id: "' src/app/help-content.ts`).
+  ★★★ **FIVE of the fourteen gaps were missing WIRING, NOT CONTENT**, and the gate cannot tell those apart —
+  coverage is `relatedViews` membership, so a complete, truthful entry that lists no view reads as a gap.
+  `feature-activity`, `feature-version-history` and `feature-resources` already described `activity`, `history`
+  and the `directory`/`calendar`/`manage-roles` sub-tabs; they simply carried no `relatedViews`. Slice 1's spec
+  called slice 3 "~18 new entries for features that have none today", and acting on that would have written a
+  SECOND entry for each. Read the entry before concluding a view is undocumented.
+  ★★ It is FIVE and not six: the sixth baseline id, `stakeholder-map`, DID need content — the body that named
+  it was false (see the `stakeholder-map`/`concept-stakeholder` bullet further down; it is not the next one,
+  and a positional pointer in a doc whose thesis is that stale references rot was a poor choice). This
+  paragraph said "SIX … NOT CONTENT" for a day while that bullet
+  described rewriting that very prose — a self-contradiction ten lines apart, which is exactly the defect
+  slice 2 was scoped around. `workload` and `planning` are not in the arithmetic at all: `concept-resource`
+  already covered them, so they were never in the baseline.
+  ★★★ **AN EMPTY BASELINE IS NOT "HELP IS COMPLETE."** Coverage is defined over VIEWS, so a feature that is not
+  a view can never appear in the list however undocumented it is. Seven had zero prose while the ratchet was
+  silent — saved views, install/PWA, undo/redo, inline AI edit, weekly digest, column widths, print — and were
+  written in slice 3 by judgement, not by any gate result. Nothing enforces the next one.
+  ★★ Wiring `stakeholder-map` onto `concept-stakeholder` FORCED a truth fix slice 1 had left in its
+  REPORTED-not-verified bucket: the body claimed an "interest × power" matrix in the Stakeholders view, but the
+  axis is Influence (`quadrantAxisInfluence`) and the 2×2 grid is the separate `stakeholder-map` view, whose own
+  `stakeholderMapTitle` reads "Influence / Interest". The cheap structural fix dragged the truth fix with it —
+  an argument for doing both in one slice.
+  ★★ The DE dictionary is LAZY: without `beforeAll(loadI18n("de"))` the DE lane silently falls back to en-US and
+  passes by testing English twice. Proof it is per-language: injecting the EN value of the `print` key into the DE
+  body as a marker (DE renders "Drucken") fails `de` ALONE while both English lanes pass.
+  ★ Keep every marker WRITTEN IN THESE DOCS multi-word. Tailwind v4 scans `.md` too, and a space-free
+  `[[Something]]` can read as an arbitrary variant — the failure mode that has already broken `globals.css` once.
+  ★★★ IT PROVES STRUCTURE, NOT TRUTH. A body can be entirely false and pass — `helpSecAiBody` claimed the API key
+  lived in localStorage while it is AES-256-GCM sealed in IndexedDB, and no assertion here would catch it. Worse,
+  `[[Take the tour]]` would have RESOLVED (`tourLaunch` exists) while rendering on no control — a green gate on a
+  false sentence. A green run is not evidence that help content is correct.
+  ★ Markers are UI LABELS ONLY; ordinary quoted prose stays quoted, because a false marker fails the build on a
+  true sentence. Near-misses that would fail an exact match: `"Also create in Jira"` (real value carries `({0} — {1})`),
+  `"Version history: keep N versions"` (split across two keys), `"internal/d"` (real: `"Internal /d"`).
   • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
   one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
-  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, ~14 views; `conceptId` in `HELP_ENTRIES`
+  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, **16** views — `grep -c 'conceptId: "'
+  src/app/view-callouts.ts`, was documented as "~14" until 2026-08-05; ★★ the quote in that pattern is
+  load-bearing — a bare `grep -c 'conceptId:'` returns **17**, counting the interface's own
+  `conceptId: string;` field, and anchoring to `^  ` does not help because that field is indented too. A
+  reproduce command published beside a corrected count and never run re-seeds the rot it was meant to
+  stop; this one shipped wrong for a day. `conceptId` in `HELP_ENTRIES`
   concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`aipm-cockpit:view-hints`, out of
   exports/Turso, cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep). Presentational `view-callout.tsx` is
   PROPS-only (`view`/`lang`/`showHints`/`isPopout`/`onLearnMore`) — NOT context-consuming, because the
@@ -170,6 +243,63 @@
   `isPopout`-gated (never shown in pop-outs). `SettingsView` gained an `isPopout` prop threaded from
   task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch (no existing workspace to
   migrate in create-project / empty-state).
+
+  • **★★★ A `<label>` MUST NOT WRAP A WIDGET WHOSE FIRST LABELABLE DESCENDANT IS A BUTTON.** A `<label>`
+  with no `for` binds to its first LABELABLE descendant — button · input · meter · output · progress ·
+  select · textarea, among the elements this app uses. (The full HTML set also counts a form-associated
+  custom element and excludes `<input type="hidden">`; this repo has neither, so the seven above are the
+  working set rather than the complete one.) A chip row, a `role="radiogroup"` div and a contenteditable are
+  none of those, so the caption silently adopts a BUTTON inside instead. Two consequences, both measured
+  in Chromium: `:hover` on the label paints that button's hover state (reported as "hovering the text
+  field highlights Bold"), and clicking anywhere non-interactive in the label forwards a synthetic click
+  to it. Whether the click DOES anything depends on that button's own handlers, so the two halves diverge
+  — the dictation mic binds pointerdown/keydown with no `onClick` (hover bleed only), while
+  `SegmentedControl`'s radios carry a real DOM `onClick` (the `onClick` on the `role="radio"` button in
+`segmented-control.tsx` — cited by SYMBOL, not line: this read `:99` and was falsified twice by
+commits that merely added comments above it; its `onChange` is
+  the COMPONENT's prop, not the DOM handler — naming `onChange` here reverses the point), so clicking the
+  caption WROTE data. Shipped instances: clicking "Priority" set Low, "Labels" DELETED the first chip,
+  "Documents" removed a link, RAID "Status"/"Severity" changed the record, and the Knowledge linked-tasks
+  caption UNLINKED a task. ★ RAID "Category" only on a NEW or explicitly unlocked item — it is
+  `disabled={!isNew && !categoryUnlocked}`, and a DISABLED labeled control receives no forwarded click
+  (measured in Chromium). ★★ Every one of those assumes a NON-EMPTY collection: with no chips or links the
+  first button is a different one, so "Documents" with nothing linked opens the picker (the Add button) and
+  an empty chip row lets the input win and merely focuses it. A test that forgets to seed a row passes
+  against the unfixed code.
+  ★★ TWO sanctioned fixes, and picking the wrong one strips an accessible name. The deciding question is
+  **what the caption is FOR**, not whether the widget self-names. (a) If the block has no single input the
+  caption could name — a chip row, a radiogroup, a contenteditable, or several controls — use
+  **`FieldGroup`** (`form-controls.tsx`): `<div role="group" aria-label>` + a `<span>` caption, so the block
+  is still named but the caption is not a click target. Both form `Field` helpers (`task-form-layout.tsx`,
+  `project-form-fields.tsx`) take a `group` prop that delegates to it, and `DocumentLinksGroup` wraps the
+  Documents case the four entity editors share. (b) If the caption legitimately names a real `<input>` and a
+  button merely got IN FRONT of it (the mic before a title/name field), keep the `<label>` and add an
+  explicit `htmlFor`/`id`.
+  ★★ Self-naming is NOT the criterion, and an earlier revision of this bullet said it was. FOUR converted
+  widgets do not name themselves — Documents, the Health chip row, Labels, and the stakeholder Name row.
+  The last two both needed a new `aria-label` in the same change: Labels because its placeholder collapses
+  to `""` once a chip exists, and stakeholder Name because its `ResourcePicker` carried neither
+  `aria-label` nor `placeholder` on HEAD (`git show HEAD:src/app/stakeholder-edit-modal.tsx`). Naming the block is precisely what `FieldGroup` is for; a bare `<div>` there would lose the name
+  outright. ★ Where the widget DOES self-name and a visible caption sits beside it (the Settings appearance
+  rows, the rich-text editors) a plain `<div>` is enough and the app uses one — either is correct, but only
+  after asking (a) vs (b).
+  ★ Fix (b) has a failure mode of its own: `htmlFor` and `id` are written by hand in two places, and a TYPO
+  leaves the field with no accessible name while looking fixed. `expectNoLabelBoundToButton` fails on a
+  dangling `htmlFor` for that reason — the source scan can only see that the attribute is PRESENT.
+  ★★ THE ORDER IS THE RULE — a mic AFTER its `<Input>` is harmless, because the input already won the
+  association (task-form-fields' title field).
+  ★★★ NEITHER GATE SEES THIS BY DEFAULT. No axe rule models label→control binding — enumerating axe
+  4.12.1 under the four tags the gate uses returns 69 rules and none of them do; axe's own name computation
+  takes the nearest ANCESTOR `<label>`, so it credits that text to the input regardless of the real binding.
+  (Do NOT write "a name exists, just on the wrong element" — the change title and milestone name had no
+  accessible name at all in a real browser. ★ But do not flatten the class either: the RAID title carries a
+  placeholder, which HTML-AAM makes its fallback name — a POOR name, not none. `src/test/label-binding.ts`
+  keeps the same distinction; an earlier revision of this parenthetical erased it.) Modals are not in `A11Y_VIEWS` anyway; under jsdom the mic never renders (`voice.ts`
+  `getCtor()` returns null) and `KnowledgeLinksFieldGated` renders a bare `<p>` with SharePoint off, so a
+  unit render is blind to both classes. Coverage is `src/app/label-binding.guard.test.ts` (a positional
+  SOURCE scan over every `.tsx` — a named-widget list, so a NEW button-first component is invisible to it
+  until added there) plus per-suite render guards using `src/test/label-binding.ts`
+  (`expectNoLabelBoundToButton`, which asks the browser's own `HTMLLabelElement.control`).
 
 ### UI shell — dismissal: Escape & Tab ownership
 

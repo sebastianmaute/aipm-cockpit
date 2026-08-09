@@ -158,3 +158,9 @@ notes,Generated sample project for the multi-tenant Turso demo database.
 
 # STEERING COMMITTEE
 config,"{""name"":""CIP Steering Committee"",""memberResourceIds"":[1,2,3],""meetings"":[{""id"":1,""date"":""2026-07-10"",""title"":""Q3 steering review"",""agenda"":""Migration readiness, load-test results, go-live gate decision."",""location"":""Teams""}],""infoSchedules"":[{""id"":1,""label"":""Board info pack"",""leadDays"":3}]}"
+
+# DOCUMENTS
+config,"[{""id"":1,""title"":""Steering update"",""blocks"":[{""type"":""heading"",""level"":1,""text"":""Steering update""},{""type"":""paragraph"",""html"":""<p>Delivery is on track for the March gate.</p>""},{""type"":""bullets"",""items"":[""API integration complete"",""UAT window confirmed""]},{""type"":""table"",""columns"":[""Workstream"",""Status""],""rows"":[[""Integration"",""Green""],[""Migration"",""Amber""]]},{""type"":""pageBreak""},{""type"":""heading"",""level"":1,""text"":""Open risks""},{""type"":""dataSection"",""key"":""raid""}],""createdAt"":""2026-08-01T09:00:00.000Z"",""updatedAt"":""2026-08-01T09:00:00.000Z""}]"
+
+# DOCUMENT VERSIONS
+config,"[{""id"":1,""documentId"":1,""title"":""Steering update"",""blocks"":[{""type"":""heading"",""level"":1,""text"":""Steering update""},{""type"":""paragraph"",""html"":""<p>First draft, before the March gate date was confirmed.</p>""}],""savedAt"":""2026-08-01T08:30:00.000Z"",""source"":""ai"",""op"":""update""}]"

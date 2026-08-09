@@ -9,6 +9,8 @@ import {
   pushUndo,
   popUndo,
   dropEntry,
+  takeThrough,
+  pushUndoMany,
   type UndoEntry,
 } from "./undo-stack";
 
@@ -314,5 +316,61 @@ describe("buildBeforeImages", () => {
   it("clamps a not-found row's index to 0 and returns [] when nothing changed", () => {
     expect(buildBeforeImages([{ id: 99, name: "x" }], [], from)[0].index).toBe(0);
     expect(buildBeforeImages([], [], from)).toEqual([]);
+  });
+});
+
+describe("takeThrough", () => {
+  const e = (id: number) => ({ meta: { id, kind: "task.updated" as const, count: 1, timestamp: "", label: `e${id}` } });
+
+  it("returns the taken entries NEWEST-FIRST and the untouched remainder", () => {
+    const stack = [e(1), e(2), e(3), e(4)];        // 4 is newest
+    const got = takeThrough(stack, 2);
+    expect(got?.entries.map((x) => x.meta.id)).toEqual([4, 3, 2]);
+    expect(got?.rest.map((x) => x.meta.id)).toEqual([1]);
+  });
+
+  it("takes the whole stack when the id is the oldest entry", () => {
+    const stack = [e(1), e(2), e(3)];
+    const got = takeThrough(stack, 1);
+    expect(got?.entries.map((x) => x.meta.id)).toEqual([3, 2, 1]);
+    expect(got?.rest).toEqual([]);
+  });
+
+  it("takes exactly one when the id is the newest entry", () => {
+    const got = takeThrough([e(1), e(2)], 2);
+    expect(got?.entries.map((x) => x.meta.id)).toEqual([2]);
+    expect(got?.rest.map((x) => x.meta.id)).toEqual([1]);
+  });
+
+  it("returns null for an absent id and for an empty stack", () => {
+    expect(takeThrough([e(1)], 99)).toBeNull();
+    expect(takeThrough([], 1)).toBeNull();
+  });
+
+  it("does not mutate the input stack", () => {
+    const stack = [e(1), e(2), e(3)];
+    takeThrough(stack, 1);
+    expect(stack.map((x) => x.meta.id)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("pushUndoMany", () => {
+  const e = (id: number) => ({ meta: { id, kind: "task.updated" as const, count: 1, timestamp: "", label: `e${id}` } });
+
+  it("appends in array order so the LAST element ends on top", () => {
+    // takeThrough hands entries newest-first; redo must replay oldest-undone
+    // FIRST, and redo pops from the END — so the oldest-undone must land last.
+    const got = pushUndoMany([], [e(4), e(3), e(2)], 25);
+    expect(got.map((x) => x.meta.id)).toEqual([4, 3, 2]);
+  });
+
+  it("evicts from the front when the combined length exceeds the cap", () => {
+    const got = pushUndoMany([e(1), e(2)], [e(3), e(4)], 3);
+    expect(got.map((x) => x.meta.id)).toEqual([2, 3, 4]);
+  });
+
+  it("is a no-op copy for an empty entry list", () => {
+    const got = pushUndoMany([e(1)], [], 25);
+    expect(got.map((x) => x.meta.id)).toEqual([1]);
   });
 });

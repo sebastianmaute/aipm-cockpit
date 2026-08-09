@@ -74,6 +74,30 @@ describe("NotesWindow", () => {
     expect(screen.getByText("Third note")).toBeTruthy();
   });
 
+  // The title-bar close goes through the shared IconButton primitive. The
+  // hand-rolled button it replaced already composed INTERACTIVE, so the focus
+  // ring and `active:translate-y-px` are VACUOUS here — they matched before the
+  // conversion too. `cursor-pointer` (IconButton's BASE_CLASS) and `rounded-md`
+  // (the bespoke button used bare `rounded`) are the two that discriminate.
+  it("renders the window close through the IconButton primitive", () => {
+    setup();
+    const close = screen.getByRole("button", { name: t(EN, "close") });
+    expect(close.className).toMatch(/(^|\s)cursor-pointer(\s|$)/);
+    expect(close.className).toMatch(/(^|\s)rounded-md(\s|$)/);
+  });
+
+  // Class A tooltip batch: the icon-only close carries a `title` built from the
+  // SAME expression as its accessible name, so a mouse user gets the affordance
+  // the `aria-label` only ever gave AT. Sampled row — the batch is not fully
+  // pinned; see docs/tooltip-inventory.md.
+  it("gives the window close a hover title matching its accessible name", () => {
+    setup();
+    expect(screen.getByRole("button", { name: t(EN, "close") })).toHaveAttribute(
+      "title",
+      t(EN, "close"),
+    );
+  });
+
   it("shows Edit + Delete only for notes the current user may edit", () => {
     setup(); // self = 1
     // Own note (author 1): both controls.

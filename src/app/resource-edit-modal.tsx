@@ -9,6 +9,8 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Input, Textarea } from "./form-controls";
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
@@ -289,12 +291,14 @@ export function ResourceEditModal({
                     }}
                     className="flex-1"
                   />
-                  <button
-                    type="button"
-                    aria-label={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
+                  <IconButton
+                    variant="danger"
+                    label={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
+                    title={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
                     onClick={() => update("emails", (draft.emails ?? []).filter((_, j) => j !== i))}
-                    className="rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink"
-                  >×</button>
+                  >
+                    <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+                  </IconButton>
                 </div>
               ))}
               <button

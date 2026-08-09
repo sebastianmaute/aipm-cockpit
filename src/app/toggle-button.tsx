@@ -55,6 +55,15 @@ interface ToggleButtonProps {
   disabled?: boolean;
   /** Extra layout classes appended verbatim (e.g. `w-fit`). */
   className?: string;
+  /** Renders as a disclosure trigger (aria-expanded + aria-controls) instead of
+   *  a stateful toggle (aria-pressed). Same visuals, same non-colour marker —
+   *  only the announced semantics differ. A disclosure REVEALS content; a
+   *  toggle CHANGES state. Defaults to "toggle" so every existing consumer is
+   *  byte-identical. */
+  variant?: "toggle" | "disclosure";
+  /** id of the region this trigger reveals. Required (and meaningful) only
+   *  when `variant="disclosure"`. */
+  ariaControls?: string;
 }
 
 export function ToggleButton({
@@ -69,6 +78,8 @@ export function ToggleButton({
   ariaDescribedBy,
   disabled,
   className,
+  variant = "toggle",
+  ariaControls,
 }: ToggleButtonProps) {
   // ★★ STATE IN THE TOOLTIP. The visible label is PINNED to what pressed=true
   //    enables, so it cannot say which state is live. The tooltip says it in
@@ -88,13 +99,22 @@ export function ToggleButton({
   //    disabled control cannot honour; a screen reader in browse mode announced
   //    "unavailable … click to turn on" on the Settings auto-sync row. The caller
   //    explains the dependency instead (see `ariaDescribedBy`).
-  const stateText = lang && !disabled ? t(lang, pressed ? "toggleStateOn" : "toggleStateOff") : "";
+  // ★ ALSO SUPPRESSED FOR `variant="disclosure"`. The suffix states on/off
+  //    setting language ("click to turn on/off"), which misdescribes a
+  //    disclosure trigger that reveals static content rather than changing
+  //    application state.
+  const stateText =
+    lang && !disabled && variant !== "disclosure"
+      ? t(lang, pressed ? "toggleStateOn" : "toggleStateOff")
+      : "";
   const fullTitle = [title, stateText].filter(Boolean).join(" · ") || undefined;
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-pressed={pressed}
+      {...(variant === "disclosure"
+        ? { "aria-expanded": pressed, "aria-controls": ariaControls }
+        : { "aria-pressed": pressed })}
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
       title={fullTitle}

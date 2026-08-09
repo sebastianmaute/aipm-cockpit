@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   type Filters,
   type ToolDispatcher,
@@ -18,13 +11,14 @@ import {
   toMilestoneSummary,
   toStakeholderSummary,
   toResourceSummary,
+  toKnowledgeSummary,
+  toCalendarEventSummary,
+  toBudgetBucketSummary,
 } from "./chat-tools";
-import { deriveMode, sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
-import type { AppView } from "./nav-config";
-import { type DashboardModel } from "./dashboard";
-import { type ProjectReport } from "./budget-report";
+import { deriveMode, type FeatureModuleId } from "./feature-modules";
+import { computeSettingsPatch } from "./chat-settings-patch";
+import { useViewDigest } from "./use-view-digest";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
-import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail } from "./resource-foundation";
@@ -49,43 +43,19 @@ import {
   sanitizeResource,
 } from "./sanitize";
 import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
-import {
-  NEXT_ACTIONS_FIELD_COERCE,
-  resolveNextActionsConfig,
-  type NextActionsConfig,
-  type Settings,
-} from "./settings-types";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { useWorkspace } from "./workspace-context";
+import { useDocumentTools } from "./use-document-tools";
+import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
+export type { ChatDispatcherArgs };
 
 const STATUS_SET = new Set<string>(TASK_STATUSES);
 
 /** True when `v` is one of the known task statuses. */
 function isTaskStatus(v: unknown): v is TaskStatus {
   return typeof v === "string" && STATUS_SET.has(v);
-}
-
-export interface ChatDispatcherArgs {
-  settings: Settings;
-  today: string;
-  setSelectedIds: Dispatch<SetStateAction<Set<number>>>;
-  setSettings: Dispatch<SetStateAction<Settings>>;
-  /** True in a popout/mirror window — mutating tools are refused so chat edits
-   *  can't be silently lost (popouts neither persist nor broadcast). */
-  isReadOnly: boolean;
-  currentView: AppView;
-  /** Live dashboard render model. A getter (not the value) so the dispatcher
-   *  identity stays stable — it is read through a ref at tool-call time. */
-  getDashboardModel: () => DashboardModel;
-  /** Live budget rollup, or null when the budget module is off. Deliberately
-   *  NOT memoized upstream: it runs only when a tool actually asks, so an
-   *  unused read tool costs nothing per render. */
-  getBudgetRollup: () => ProjectReport | null;
-  /** Live resource-planning grid snapshot for `list_allocations`. Deliberately
-   *  NOT memoized upstream — same reasoning as `getBudgetRollup`. */
-  getAllocationsSnapshot: () => AllocationsSnapshot;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -103,6 +73,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     resources,
     setResources,
     insights,
+    knowledgeItems,
+    calendarEvents,
+    budgets,
+    effectiveFilters,
+    filteredSortedTasks,
   } = useWorkspace();
   const { editingId, setEditingId, setForm } = useTaskForm();
   const {
@@ -128,6 +103,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const stakeholdersRef = useRef(stakeholders);
   const resourcesRef = useRef(resources);
   const insightsRef = useRef(insights);
+  const knowledgeItemsRef = useRef(knowledgeItems);
+  const calendarEventsRef = useRef(calendarEvents);
+  const budgetsRef = useRef(budgets);
+  const viewDigest = useViewDigest({
+    view: args.currentView, tasks, filteredSortedTasks, effectiveFilters,
+    resources, budgets, milestones, today: args.today, settings: args.settings,
+    settingsProjectId: args.settingsProjectId, holidaySet: args.holidaySet,
+  });
+  const viewDigestRef = useRef(viewDigest);
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
@@ -164,6 +148,18 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     insightsRef.current = insights;
   }, [insights]);
+  useEffect(() => {
+    knowledgeItemsRef.current = knowledgeItems;
+  }, [knowledgeItems]);
+  useEffect(() => {
+    calendarEventsRef.current = calendarEvents;
+  }, [calendarEvents]);
+  useEffect(() => {
+    budgetsRef.current = budgets;
+  }, [budgets]);
+  useEffect(() => {
+    viewDigestRef.current = viewDigest;
+  }, [viewDigest]);
   useEffect(() => {
     getDashboardModelRef.current = args.getDashboardModel;
   }, [args.getDashboardModel]);
@@ -238,8 +234,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const readOnlyError = () =>
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
+  const documentTools = useDocumentTools(args.isReadOnly, args.logActivity);
+
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
+      ...documentTools,
       listTasks: () => tasksRef.current,
       getTask: (id) => tasksRef.current.find((row) => row.id === id) ?? null,
       createTask: (input) => {
@@ -474,61 +473,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       updateSettings: (patch: SettingsUpdateInput) => {
         if (args.isReadOnly) throw readOnlyError();
         const cur = settingsRef.current;
-        // Accumulate ONLY the changed top-level fields, so the functional setter
-        // below merges them onto the LIVE `prev` — a concurrent non-AI settings
-        // edit in the same tick keeps its own fields instead of being clobbered.
-        const changes: Partial<Settings> = {};
-        const applied: Record<string, unknown> = {};
-
-        if (patch.dashboardDensity === "comfortable" || patch.dashboardDensity === "compact") {
-          changes.dashboardDensity = patch.dashboardDensity;
-          applied.dashboardDensity = patch.dashboardDensity;
-        }
-        if (typeof patch.showViewHints === "boolean") {
-          changes.showViewHints = patch.showViewHints;
-          applied.showViewHints = patch.showViewHints;
-        }
-        if (
-          patch.tasksViewMode === "table" ||
-          patch.tasksViewMode === "board" ||
-          patch.tasksViewMode === "swimlane"
-        ) {
-          changes.tasksViewMode = patch.tasksViewMode;
-          applied.tasksViewMode = patch.tasksViewMode;
-        }
-        if (typeof patch.hideExternalTasks === "boolean") {
-          changes.hideExternalTasks = patch.hideExternalTasks;
-          applied.hideExternalTasks = patch.hideExternalTasks;
-        }
-        if (patch.enabledModules !== undefined) {
-          // sanitizeFeatures drops any unknown/invalid module id — a hallucinated
-          // id can never enable a non-existent module.
-          const feats = sanitizeFeatures(patch.enabledModules);
-          changes.features = feats;
-          applied.enabledModules = feats;
-        }
-        if (patch.nextActionsWeights && typeof patch.nextActionsWeights === "object") {
-          const curCfg = resolveNextActionsConfig(cur.nextActions);
-          const cfg: NextActionsConfig = { ...curCfg };
-          const appliedWeights: Record<string, number> = {};
-          for (const [k, v] of Object.entries(
-            patch.nextActionsWeights as Record<string, unknown>,
-          )) {
-            // Only known tuning fields, each clamped by its own coercer — the
-            // SAME validators the settings UI uses. Unknown keys are ignored.
-            if (Object.prototype.hasOwnProperty.call(NEXT_ACTIONS_FIELD_COERCE, k)) {
-              const key = k as keyof NextActionsConfig;
-              const coerced = NEXT_ACTIONS_FIELD_COERCE[key](v, curCfg[key]);
-              cfg[key] = coerced;
-              appliedWeights[k] = coerced;
-            }
-          }
-          if (Object.keys(appliedWeights).length > 0) {
-            changes.nextActions = cfg;
-            applied.nextActionsWeights = appliedWeights;
-          }
-        }
-
+        const { changes, applied } = computeSettingsPatch(patch, cur);
         if (Object.keys(applied).length > 0) {
           // Ref kept in sync (like the entity setters) so a back-to-back tool
           // call reads the just-applied settings; persistence + writeSettings
@@ -775,6 +720,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           enabledModules: settingsRef.current.features as FeatureModuleId[],
           currentView: viewRef.current,
           insights: insightsRef.current ?? [],
+          // Assembled by useViewDigest — it needs pane state this hook does not
+          // hold (health filter, debounced search, effective view mode) to name
+          // the rows the pane is ACTUALLY rendering. See use-view-digest.ts.
+          // ★ Unlike the entity refs above — which tool handlers update
+          // SYNCHRONOUSLY so back-to-back calls see fresh data — this one is
+          // written by an effect, so it can lag one render. Harmless for the
+          // system prompt (built once per send, well after effects flush); a
+          // `get_app_state` called mid-turn right after a create can return a
+          // digest that predates that write. Not worth a synchronous mirror:
+          // the digest describes the SCREEN, which has not repainted yet either.
+          viewDigest: viewDigestRef.current,
         };
       },
 
@@ -786,13 +742,22 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         ),
 
       listAllocations: () => getAllocationsSnapshotRef.current(),
+
+      listKnowledgeItems: () => (knowledgeItemsRef.current ?? []).map(toKnowledgeSummary),
+      listCalendarEvents: () => (calendarEventsRef.current ?? []).map(toCalendarEventSummary),
+      listBudgetBuckets: () => (budgetsRef.current ?? []).map(toBudgetBucketSummary),
     }),
-    // Empty deps: every reactive value is read via a ref. Identity is stable.
+    // Empty deps otherwise: every reactive value is read via a ref. Identity is
+    // stable. `documentTools` is a REAL dep, not a ref-routed value — it is
+    // itself a useMemo'd object (use-document-tools.ts) that changes identity
+    // when isReadOnly/mutateDocuments change, and the spread above captures it
+    // by closure; omitting it here would freeze the FIRST render's document
+    // tools into every later dispatcher even after a popout toggled read-only.
     // Note: when Task 6 lands, audit whether any captured value still needs
     // ref-routing; the eslint-disable stays as long as the empty-deps approach
-    // is intentional.
+    // is intentional for everything else.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly],
+    [args.isReadOnly, documentTools],
   );
 
   return dispatcher;

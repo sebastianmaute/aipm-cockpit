@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.215.0 "Friedman" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 | App 0.226.0 "Emshwiller" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
@@ -78,7 +78,8 @@ escaped markup or fused text.
 |---|---|---|
 | `rich-text-plain.ts` | **NO — never calls DOMPurify** | `descriptionHtml` (upgrade) · `htmlPlainProjection` · `htmlTextLength` · `capHtmlText` · `sanitizeRichText` |
 | `rich-text-projection.ts` | yes, browser-only | `descriptionText` (search / AI / previews) · `descriptionTextWithBreaks` (exports) · `appendDictationToHtml` |
-| `ai-rich-text.ts` | yes, browser-only | `sanitizeAiRichText` / `withAiRichFields` — the allow-list for model-supplied values |
+| `rich-text-runs.ts` | yes, browser-only (DOMParser) | `htmlToRichLines` — HTML → styled runs; the SHARED parse behind `doc-render-docx.ts` and `doc-render-pptx.ts`, so the two OOXML renderers cannot drift |
+| `ai-rich-text.ts` | yes, browser-only | `sanitizeAiRichText` / `withAiRichFields` (narrow `sanitizeTemplateHtml` list — guards the seven rich entity fields: `Task.description` plus the six in `AI_RICH_FIELDS`) · `sanitizeAiDocumentRichText` (wider `sanitizeDocumentHtml` list — model-authored document `paragraph.html` only). ★★ Not interchangeable: the narrow one DROPS all nine of `s`/`code`/`pre`/`blockquote`/`hr`/`mark`/`sub`/`sup`/`img` at the write — seven unwrapped keeping their text, the two VOID ones (`hr`, `img`) gone outright |
 
 ★★★ The DOM-free rule on `rich-text-plain.ts` is load-bearing for **data integrity, not style**: it
 runs inside the entity sanitizers, which execute under bare Node in

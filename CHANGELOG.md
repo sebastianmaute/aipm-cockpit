@@ -8,6 +8,458 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.226.0] - 2026-08-09 "Emshwiller"
+
+Undo stopped being a one-step-at-a-time affair, every button that starts an AI
+call can now stop it, and a budget bucket's role line opens to the people
+behind it.
+
+### Added
+
+- **Multi-step undo history.** The caret beside Undo previewed a single entry;
+  it now opens the whole stack as a list, newest first. Hovering or arrowing to
+  an entry bands every entry back to it and the footer says how many will be
+  reverted. Enter or a click reverts them all as one commit — one activity-log
+  line and one toast. Putting them back works the same way in reverse: the Redo
+  button takes one step at a time, and the redo history replays a run of them
+  together.
+- **A Stop affordance on the six AI trigger sites this release covers.** A
+  shared `AiTriggerButton` flips the visible label and the accessible name to
+  "Stop" while a call is in flight and routes the click to cancel it. The
+  insight-recommendation call gained the `AbortController` it did not have.
+  Six is the number of sites converted, not the number of AI calls the app can
+  start: the background insight-recommendation runner still has no cancellation
+  (open-followups §120), and the dashboard digest's "Generate now" and the
+  steering meeting report's "Draft with AI" still only grey out while they run
+  (open-followups §125).
+- **Budget bucket people rows.** Each role line in a bucket expands to the
+  people behind it with their booked and planned hours. Booked is read from the
+  per-device Timelog cache, so it can disagree with the persisted per-role
+  actuals shown on the role row above it, and the people figures are not
+  expected to sum to that row — bookers whose role has no line stay in
+  `unattributed`. Both gaps are filed as open-followups §122.
+- **Insights and Timelog links are seeded for e2e**, so both panes are axe
+  scanned with real rows for the first time rather than over an empty state.
+  Two of the seeded insights deliberately share a type, which is what makes the
+  Insights rows render the duplicate-control-name case the panel has always
+  had; it is pinned by an e2e assertion and filed as open-followups §126,
+  because no accessibility gate in this repo can detect it.
+
+### Fixed
+
+- **The settings rail no longer wraps into a tall stack on a narrow window**
+  (open-followups §112, measured 116px → 36px at 760px and unchanged at
+  1280px).
+- **The undo footer read "Undo 1 actions"**, and a scroll-induced `mouseenter`
+  silently overwrote the undo listbox's keyboard position.
+- **The budget disclosure chip clipped role labels with no ellipsis**
+  (open-followups §123).
+
+## [0.225.0] - 2026-08-09 "Walton"
+
+Word and PowerPoint exports keep the formatting you wrote. Until now every
+document paragraph was flattened to plain text on its way into `.docx` and
+`.pptx`, so bold, italic, strikethrough, highlight, inline code, superscript and
+subscript all vanished, and quotes and code blocks arrived looking like ordinary
+prose. Both renderers now read the same parsed representation, so they cannot
+drift apart as more formatting is added.
+
+Documents also got their own HTML allow-list rather than sharing one with
+unrelated parts of the app, which is what lets them carry the wider set of
+formatting without loosening anything else.
+
+### Added
+
+- Mark-aware `.docx` and `.pptx` paragraph runs, from one shared parse
+  (`rich-text-runs.ts`) consumed by both renderers.
+- `sanitizeDocumentHtml`, a documents-only allow-list adding `s`, `code`,
+  `pre`, `blockquote`, `hr`, `mark`, `sub`, `sup` and `img`. Routed at all
+  three boundaries: the render sink, the load path, and the AI write boundary.
+- `Quote` and `CodeBlock` Word styles, and a bordered paragraph for `hr`.
+
+### Fixed
+
+- Ten OOXML style definitions emitted `w:rPr` and `w:pPr` children out of
+  schema sequence, which is invalid per ECMA-376 and rejected by strict
+  validators such as the Open XML SDK. Word itself renders them, so this was
+  never visible in the app.
+- The document-authoring model was still being told the narrow tag set, so the
+  wider allow-list had nothing to carry.
+- Several inaccurate claims in the developer documentation, including the
+  duplication gate's metric, which had been described as per-format since
+  before this release and compares one total instead.
+
+### Known limitations
+
+- A document paragraph whose stored value *begins* with one of the nine
+  document-only tags is still escaped to literal text on read; the classifier
+  that decides this predates the wider list and is split in a later slice.
+- A legacy plain-text paragraph carrying newlines collapses to one line in all
+  three renderers. The obvious fix shares a cause with the item above and was
+  measured to destroy valid markup, so it waits for the same work.
+- `<a href>` reaches `.docx` and `.pptx` as text without its target.
+
+## [0.223.0] - 2026-08-08 "Okorafor"
+
+Settings stopped being one long page, and the buttons that showed nothing on
+hover now say what they do. Underneath, three text truncators stopped splitting
+characters in half.
+
+### Added
+
+- **Operating guides, Views and Scheduled jobs are their own settings
+  sections**, nested under AI Assistant in the rail rather than stacked inside
+  one page. The rail shows a branch's children only while that branch is
+  active, and a child stays visible with its siblings while it is open.
+- **The view descriptions Claude reads are a plain list.** They were behind a
+  disclosure that had to be opened one at a time; every view is now a card you
+  can scan in order.
+- **Hover labels on nineteen icon-only controls** that had an accessible name
+  for screen readers but showed nothing to a mouse user.
+- **Short explanations on thirteen more controls**, each saying what the
+  control actually does — including when an action also navigates you to a
+  different view, which is the part that was never obvious.
+- **Property-based coverage for five pure engines** — the CSV/Markdown
+  round-trip, id minting, rich-text projection, the Gantt date math and the
+  entity sanitizers.
+
+### Changed
+
+- **"This project" is now "Overrides"** in the settings rail. It named the
+  scope; it now names the thing.
+- **Twenty-three hand-built buttons now use the shared primitives**, so size,
+  spacing, focus ring and disabled state match the rest of the app instead of
+  each site's own recipe.
+
+### Fixed
+
+- **Text caps no longer split a character in half.** Three truncators cut on
+  UTF-16 code units, so a cap landing inside an emoji or a rarer CJK character
+  kept half of it. That half is not a character: it was replaced by a
+  replacement glyph on the CSV and Markdown backends while surviving intact on
+  JSON and IndexedDB, so the same project read correctly or incorrectly
+  depending only on where it was stored. All three now drop the character
+  whole, and a negative cap can no longer return the text nearly unclipped.
+- **Five findings from a cold review of that fix**, including one truncator
+  whose cap was never exercised by any test and a parity claim that was false
+  below zero.
+- **dompurify, nanoid and js-yaml** moved past published advisories.
+
+## [0.222.0] - 2026-08-07 "Charnas"
+
+A project holding more documents than the app could open used to lose them.
+Opening such a file kept the first batch and discarded the rest with no
+indication anywhere, and the next automatic save wrote that shortened list back
+over the source — permanently, on all six storage backends. The limit is now
+five times higher, an over-limit file says so plainly, and saving pauses until
+you decide.
+
+### Fixed
+
+- **An over-limit document load no longer destroys the excess.** The cap is
+  raised from 200 to 1000, which removes the loss for any realistic project.
+  It remains a single limit governing both opening a file and creating
+  documents in the app: a higher opening limit would let a project load that
+  could then never be edited.
+- **A truncating load is disclosed however the project was opened.** JSON,
+  IndexedDB, Turso (single and multi-tenant), CSV and Markdown all report what
+  they could not open, and so does every route in — first load, switching
+  project, opening a file, reloading. A test fails if a storage backend stops
+  reporting. The precedent is the existing malformed-row warning, which reached
+  only two of the four backends for its whole life, leaving Turso and IndexedDB
+  silent: a warning that covers some backends is worse than none, because the
+  ones it misses look safe.
+- **Saving pauses after a truncating load**, so your saved project keeps
+  everything that could not be opened — not only the automatic save, but the
+  explicit ones too (picking a storage file, converting storage, switching
+  project). A banner offers the only two routes out: repair the project outside
+  the app, or accept the loss deliberately. The explicit escape is required
+  rather than optional — the documents that would have to be deleted to get
+  under the limit are precisely the ones that were never loaded, so without it
+  the pause would be a permanent block on saving. Dismissing the banner leaves
+  a "saving paused" indicator you can click to bring it back.
+- **Cut-off document content is reported too**, in stored version history and
+  in live documents alike. A document or version carrying more blocks than the
+  app keeps was previously shortened with no indication at all.
+
+### Changed
+
+- Restoring a document into a full project still refuses, and the refusal now
+  quotes the raised limit.
+
+## [0.221.0] - 2026-08-07 "Kavan"
+
+### Added
+
+- **Gantt day axis shows the weekday.** Each day column now stacks the short
+  weekday under the day-of-month number ("15" over "Mon"), via a new pure
+  `fmtWeekdayShort` helper. The formatter reads the date in UTC to match the
+  rest of the Gantt engine, which is UTC-built throughout — formatting in the
+  host zone would shift the label by a day in any negative-offset zone and
+  disagree with the bar placement. The day band grew from 22px to 30px to fit
+  the second line, so the header total is now a sum of two differing row
+  heights rather than a doubled constant.
+- **Hand-rolled UI inventory** (`docs/handrolled-ui-inventory.md`) — a repo-wide
+  audit of markup that reimplements a shared primitive, and of Unicode glyphs
+  used where a heroicon exists. Audit only; the remainder is a ratchet, filed
+  as open-followups 102.
+
+### Changed
+
+- **Milestone "achieved" is a toggle button**, in both the milestones table and
+  the milestone editor, replacing a hand-rolled label-and-checkbox. The table
+  control carries a row-unique accessible name, since N identical "Achieved"
+  labels would be a WCAG 2.4.6 failure that the axe gate passes whenever the
+  seed renders a single milestone.
+- **Insights row actions use the bordered button variant.** Eleven buttons
+  across the Insights pane, the shared recommendation controls and the
+  dashboard insights card move from `ghost` to `secondary`, giving them the
+  bordered-chip look of the Open Points "Hide finished" control. The dashboard
+  card is included because its buttons are siblings of the shared controls in
+  one flex row — converting only the shared component would have mixed two
+  looks in a single row.
+- **Budget bucket actions use the shared button primitive.** The three
+  per-bucket actions and the FX refresh control become `Button`, replacing
+  hand-rolled markup. **Remove bucket takes the `destructive` variant** rather
+  than matching Edit and Close — it is the only irreversible action in that row
+  and previously looked identical to the other two. It remains `confirm()`-gated;
+  the variant is the affordance, not the safeguard. The FX refresh control
+  consequently loses its dark-blue accent and now reads as neutral, matching the
+  reset controls beside it, which already used the same bordered recipe. The
+  bucket drag handle stays hand-rolled: it carries the drag lifecycle and
+  arrow-key reordering, which the primitive does not forward.
+
+## [0.220.0] - 2026-08-07 "Kuttner"
+
+Every edit modal gets a row back. The Simple / Advanced / Full field switch had
+its own bordered strip under each modal's title, costing a row of height in
+every editor. It now rides in the modal's header as a single button labelled
+with the view you are in, and the field checklist opens from it. Two keyboard
+faults found while moving it are fixed in the shared controls, so they are fixed
+everywhere those controls appear.
+
+### Changed
+
+- **The field-visibility control moved into the modal header.** One button,
+  labelled with the active view — Simple, Advanced, Full or Custom — replaces the
+  strip that used to sit between a modal's title and its first field. The tier
+  switch and the per-field checklist now live together in the popover it opens.
+  Every edit modal is affected: task, absence, calendar event, change,
+  milestone, RAID, resource, stakeholder and budget bucket.
+
+### Fixed
+
+- **Arrow keys in a segmented control now move from the option you are on.**
+  They previously stepped from the selected option instead of the focused one,
+  so a single press could jump two positions and silently change the setting.
+  Affects every segmented control in the app, including task priority and the
+  RAID fields.
+- **Opening a popover no longer focuses the wrong option.** Focus landed on the
+  first choice rather than the active one, which meant a stray Enter or Space
+  immediately switched the setting — and, for a hand-picked field selection,
+  discarded it.
+
+### Accessibility
+
+- The tier switch is now a real radio group, so assistive technology announces
+  which view is active and the arrow keys follow the published pattern. It
+  replaces hand-rolled buttons that reported only a pressed state, along with a
+  "Custom" chip that looked like a control but could not be operated.
+
+## [0.219.0] - 2026-08-06 "Elgin"
+
+Project documents. The written deliverables of a project — a status report, a
+charter, a steering pack — now live with the project instead of beside it. This
+release is the foundation: documents are stored with the project, previewed in a
+new Documents view, and exported as a web page, a Word file, a PowerPoint deck or
+a PDF. Writing them with Claude comes next, and the in-app editor after that — so
+a newly created document still starts empty, and the sample project now seeds an
+example status report to show the shape.
+
+### Added
+
+- **A Documents view.** It lists every document in the project with the date it
+  last changed, and shows the selected one as it will print. Create, rename,
+  duplicate and delete from the toolbar; sort and resize the columns as in any
+  other table. In a pop-out window the view is read-only, matching every other
+  pop-out.
+- **Four export formats from one document.** Choose a web page, Word (.docx),
+  PowerPoint (.pptx) or PDF, and the choice is remembered for next time. The PDF
+  goes through your browser's own print dialog, so it needs no extra software and
+  the document never leaves your machine.
+- **Documents travel with the project.** Every storage backend saves them — JSON
+  file, CSV, Markdown, Turso and in-browser storage — and two open tabs stay in
+  step with each other.
+- **A document can embed live project data.** An embedded section renders the
+  same table the workspace exporter produces, so it cannot drift from the numbers
+  shown everywhere else in the app.
+
+## [0.218.0] - 2026-08-06 "Hopkinson"
+
+Field captions stop activating the control beside them.
+
+An HTML `<label>` with no `for` attaches itself to the first *labelable* thing
+inside it — button, input, meter, output, progress, select, textarea. A caption
+wrapping a group of controls therefore adopted whichever one came first, with
+two consequences: hovering the caption painted that control's hover state, and
+clicking the caption forwarded a synthetic click that pressed it.
+
+### Fixed
+
+- **Clicking "Dependencies" in the task editor deleted a dependency.** The chip
+  list renders each dependency's remove button above the type select, so the
+  caption adopted the first chip's ✕. Only reproducible once a task had at least
+  one dependency — with an empty list the select wins and the field looks fine.
+- **Clicking "Regulatory" or "Identity types" in the project form ticked the
+  first checkbox.** Both also nested a `<label>` inside a `<label>`, which is
+  invalid HTML.
+- **Hovering a rich-text caption lit up the Bold button**, and clicking the
+  caption toggled it — the originally reported symptom, in the register modals.
+- Several captions that named a real input a button had got in front of are now
+  bound to that input explicitly, so it has an accessible name again rather than
+  losing it to the adopted button.
+
+### Added
+
+- `FieldGroup`, a shared primitive rendering `<div role="group" aria-label>` for
+  captions that name a whole block rather than one field. It names the group for
+  assistive technology without making the caption a click target.
+- Three guards, each verified able to fail. A source scan
+  (`label-binding.guard.test.ts`) covering button-first widgets and the
+  nested-`<label>` shape, whose self-tests run the real scan over synthetic
+  markup rather than restating its rules; a DOM assertion applied at nine render
+  call sites, covering labels bound to buttons, dangling `htmlFor` and nested
+  labels; and a Chromium probe for the hover behaviour itself.
+
+Neither existing gate can see this class of defect: axe models no
+label-to-control binding, and jsdom has no CSS engine, so hover forwarding is
+invisible to unit tests. That is why the guards are the coverage.
+
+## [0.217.0] - 2026-08-06 "Piercy"
+
+Cancelled work stops reading as unfinished work. The 0.213.0 batch fixed the
+headline tiles and stopped at the branch boundary; this finishes the surfaces it
+left, and tells the AI what it had been guessing at.
+
+### Fixed
+
+- **The Red / Amber / Green split no longer counts cancelled work as Green.** A
+  project of two cancelled tasks rendered "No active scope / All cancelled (2)"
+  beside "R 0 · A 0 · G 2" inside one card. Cancelled work now leaves the tally
+  and is counted separately next to it, and each Reports group card carries the
+  same clause. A task whose health you set by hand keeps the colour you chose.
+- **Portfolio health shows a dash, not "0%", for a project with no scope left.**
+  That 0 read as "not started yet" on the one screen where projects are compared
+  side by side. Such a project is also left out of the portfolio-wide average
+  instead of dragging it down, and the average tile itself shows no figure when
+  no project contributed one.
+- **A `Done` task with no completion date announces itself as closed**, not
+  completed — matching the cross already shown beside it rather than
+  contradicting it.
+- **The steering-committee draft and the AI snapshot** are told a project has no
+  active scope, instead of being handed a bare 0 they could restate as
+  "0% complete" in generated prose.
+
+### Changed
+
+- Reports group cards rank by in-scope size within a colour band, so a mostly
+  cancelled workstream no longer outranks a smaller active one.
+
+### Internal
+
+- One shared `isTaskOutOfScope` predicate replaces five inlined copies of
+  "closed but never delivered", so the completion denominator and the health
+  tally cannot drift apart.
+- A ratchet fails the suite on any NUL byte committed under `src/` or `docs/`;
+  such a byte makes grep treat the file as binary and silently skip it.
+
+## [0.216.0] - 2026-08-06 "Martine"
+
+The assistant now knows which screen you are on, and says so when it cannot see
+something rather than guessing. Help now covers every view in the app, and can
+be read at the depth you want.
+
+### Added
+
+- **View-aware AI.** Claude is told which of the app's 34 views is active and
+  what that view is for. On Open Points, Workload, Gantt and Budget it is also
+  handed a short summary of what is currently on screen.
+- **Three read tools**: knowledge-library links, resource-calendar meetings
+  (the recurring series definition and its skip/move exceptions, never an
+  expanded occurrence list), and budget-planner buckets.
+- **Starter prompts on 26 views** instead of 14.
+- **Settings -> AI -> "What Claude is told about each view"** lists, read-only,
+  the exact description the assistant receives for every view.
+- **Honest gaps.** Where no tool can answer -- time bookings, the activity log,
+  cross-project portfolio data, RACI assignments, and calendar absences -- the
+  assistant is told to say so instead of estimating.
+
+### Fixed
+
+- **The on-screen summary named rows you could not see.** On Open Points it was
+  built one filtering layer above what the table renders, so hidden rows were
+  reported as visible; and a search, priority filter or hide-externals left it
+  claiming "no filters active". It now uses the same row set the table and
+  select-all use, and names every active filter.
+- **Board and swimlane modes were counted as if they were the table.** The
+  hide-finished toggle is table-only, so a board was under-reported by every
+  finished card and its cards were called "rows in the table".
+- **Inline "Ask Claude" edits saw neighbouring rows.** An inline edit inherited
+  the on-screen summary, handing a mutation planner a list of other tasks and
+  their ids while instructing it to change only one.
+
+### Changed
+
+- Tool schemas now carry their own prompt-cache breakpoint, so switching views
+  no longer re-sends roughly 6.5k tokens of schema definitions.
+- **The assistant's starter chips are now complete briefs.** The chat strip
+  offers a risk review, a weekly status update, a stakeholder update, and
+  "prioritize all tasks" -- each a full instruction that sends on click rather
+  than a few words dropped into the input for you to finish. "Process an
+  attachment" is kept and now sends on click too; it trails the others because
+  it is the only one that needs a file attached first.
+- The header "Ask Claude" menu drops its **Status overview** and **Prioritize**
+  entries, which duplicated the two fuller chips above. It keeps the short
+  questions that suit a menu -- "Explain this" and "What's next?".
+
+### Added -- Help
+
+- **Reading levels.** Guided, Standard or Expert. Guided puts a plain-language
+  primer above each of the twelve concept entries; Expert moves the reference
+  sections ahead of the explanatory ones; Standard renders exactly as before.
+  The control sits in the Help window itself, beside the search box, and in
+  Settings -> Appearance -- one device-wide setting, so changing it in either
+  place moves the other. A primer is searchable only at the level that renders
+  it, so the same query can match a different number of entries at different
+  levels.
+- **Every view in the app is now covered.** Thirteen new entries: Projects,
+  Portfolio health, Insights, Time bookings, Reports (covering all four report
+  views), Help itself, and seven features that are not views at all -- saved
+  views, installing the app, undo and redo, asking Claude to edit one record,
+  the weekly digest, column widths, and printing.
+- **A gate that DE prose is translated, not pasted English.** `tsc` proves a
+  German key exists; nothing proved anyone translated it. It cannot go vacuous
+  through the lazy-dictionary trap: without the dictionary load every pair
+  becomes identical and the test fails loudly.
+
+### Fixed -- Help and pop-outs
+
+- **A Budget pop-out could edit cells** that every other pop-out treats as
+  read-only. The edit never reached the workspace backend -- pop-outs do not
+  save and do not broadcast -- but it left a divergent mirror and a phantom
+  undo entry.
+- **The stakeholder concept described the wrong view and the wrong axis.** It
+  said stakeholders are tracked in the Stakeholders view on an "interest x
+  power" matrix. The axis is Influence, and the 2x2 grid is the separate
+  Influence / Interest view; the Stakeholders view is a table.
+- **Sixteen further corrections to existing and new Help text**, each checked
+  against the module it describes rather than against how it read -- among
+  them: which project row carries Delete (the other rows, not the current one),
+  that Portfolio health cannot be popped out at all, that the digest mails a
+  copy to the signed-in Microsoft 365 account rather than distributing it, that
+  the dashboard shows up to five insights, and how Timelog actually matches
+  people and projects.
+
 ## [0.215.0] - 2026-08-04 "Friedman"
 
 Trends stops recording an empty project. Three smaller fixes where a control

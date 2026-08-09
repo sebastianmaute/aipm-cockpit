@@ -8,7 +8,7 @@
 // so the same body can also be mounted inside the task editor.
 
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 // `Lang` no longer needs importing here: the props are derived from
 // NoteLogPanelProps, which already types `lang`.
 import { t } from "./i18n";
@@ -101,14 +101,9 @@ export function NotesWindow(props: NotesWindowProps) {
         </h3>
         <div className="flex items-center gap-1">
           <ResetSizeButton onClick={resetSize} lang={lang} labelKey="modalResetSize" />
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t(lang, "close")}
-            className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
-          >
+          <IconButton onClick={onClose} label={t(lang, "close")} title={t(lang, "close")}>
             <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
+          </IconButton>
         </div>
       </div>
 

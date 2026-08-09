@@ -80,9 +80,11 @@ interface DashboardPanelProps {
   density?: DashboardDensity;
   /** Insights lifecycle callbacks (#6B SP1/SP2). Forwarded to InsightsCard. */
   insightActions?: InsightActions;
-  /** Id of the insight (if any) whose AI recommendation is generating (#6B
-   *  SP2) — forwarded to InsightsCard for a busy state. */
+  /** Id of the insight whose AI recommendation is generating (#6B SP2) —
+   *  PER-ROW, forwarded to InsightsCard for the shared Stop affordance. */
   insightGeneratingId?: number | null;
+  /** Aborts the in-flight recommendation generate. */
+  onCancelInsightRecommendation?: () => void;
   insightAiEnabled?: boolean;
 }
 
@@ -318,6 +320,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 dc={dc}
                 actions={props.insightActions}
                 generatingId={props.insightGeneratingId}
+                onCancelGenerate={props.onCancelInsightRecommendation}
                 aiEnabled={props.insightAiEnabled}
                 onOpen={openInsightEntity}
                 isPopout={props.isPopout}
@@ -354,6 +357,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
                       <span className="inline-flex items-center gap-1"><RagDot level="R" />{model.progress.counts.R}</span>
                       <span className="inline-flex items-center gap-1"><RagDot level="A" />{model.progress.counts.A}</span>
                       <span className="inline-flex items-center gap-1"><RagDot level="G" />{model.progress.counts.G}</span>
+                      {/* ★ Conditional on > 0 — "✕ 0" on every healthy project is
+                          noise. ★ The glyph is aria-hidden with an sr-only
+                          companion: a bare "✕" announces inconsistently across
+                          screen readers, and unlike the three RagDots it cannot
+                          lean on the tile's own "R / A / G" label for meaning. */}
+                      {model.progress.outOfScope > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <span aria-hidden="true" className="text-muted-foreground">✕</span>
+                          <span className="sr-only">{t(lang, "dashboardOutOfScopeCount")}</span>
+                          {model.progress.outOfScope}
+                        </span>
+                      )}
                     </span>
                   }
                   onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}

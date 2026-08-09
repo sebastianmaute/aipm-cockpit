@@ -62,7 +62,7 @@ import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
-import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
+import { BirthdayBanner, JiraTokenBanner, StorageBanner, TruncatedLoadBanner } from "./notifications";
 import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
@@ -291,7 +291,7 @@ function TaskManagerInner() {
     setTimelogLinks,
     setKnowledgeItems,
     insights,
-    setInsights,
+    setInsights, setDocuments, setDocumentVersions,
     settingsOverrides,
     setSettingsOverrides,
     setCalendarEvents,
@@ -393,7 +393,8 @@ function TaskManagerInner() {
   // with an unreachable host or rejected token, cleared on the next success.
   // Drives the status bubble (red) and a sticky banner (mirrors the Jira token).
   const [storageError, setStorageError] = useState<{ kind: StorageErrorKind } | null>(null);
-  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false);
+  const [storageErrorDismissed, setStorageErrorDismissed] = useState(false); // ★ §103's banner dismissal is SEPARATE and hides only the banner — the save guard stays armed (use-load-truncation.ts).
+  const [truncationBannerDismissed, setTruncationBannerDismissed] = useState(false);
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.
   const versionNotifyRef = useRef<() => void>(() => {});
@@ -454,11 +455,17 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
+    truncation, loadWasTruncated, allowTruncatedSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
-  } =
-    useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+
+  // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
+  // truncated load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
+  // ★ Keyed on the counts OBJECT — the boolean never lowers between two truncated loads.
+  const [truncationSeen, setTruncationSeen] = useState<typeof truncation>(null);
+  if (truncation !== truncationSeen) { setTruncationSeen(truncation); setTruncationBannerDismissed(false); }
 
   // Refresh the Turso project list (active + archived) from the shared DB. The
   // list is the source of truth in Turso mode; this is called on first load and
@@ -589,8 +596,9 @@ function TaskManagerInner() {
     project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
-  // `isReady()`-true (config present) but actually failing, so fold in the
-  // observed error.
+  // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasTruncated` is NOT:
+  // 2 of 3 consumers are `StorageConfigSection` (`ready`), where false means UNCONFIGURED
+  // (bogus "permission needed"/Turso "needs config"). Only the footer DOT means healthy, so that ONE call site applies the truncation term itself.
   const storageOk = storageReady && !storageError;
 
   // Reverse-lookup index for the "referenced by N RAID items" badge on
@@ -1042,7 +1050,7 @@ function TaskManagerInner() {
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
-    setInsights(w.insights);
+    setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []);
     setSettingsOverrides(w.settingsOverrides);
     setCalendarEvents(w.calendarEvents);
     // Version restore replaces the SAME project's data — RAISE the id-minter
@@ -1050,7 +1058,7 @@ function TaskManagerInner() {
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setSettingsOverrides, setCalendarEvents]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setDocuments, setDocumentVersions, setSettingsOverrides, setCalendarEvents]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
@@ -1663,7 +1671,7 @@ function TaskManagerInner() {
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout,
-    currentView: activeTab,
+    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivity,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
@@ -1751,7 +1759,11 @@ function TaskManagerInner() {
     },
     [setInsights],
   );
-  const { generatingId: insightGeneratingId, generate: generateInsightRecommendation } = useInsightRecommend({
+  const {
+    generatingId: insightGeneratingId,
+    generate: generateInsightRecommendation,
+    cancel: cancelInsightRecommendation,
+  } = useInsightRecommend({
     insights: insights ?? [],
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
     today,
@@ -2271,7 +2283,7 @@ function TaskManagerInner() {
         ? guardEdit(() => { void handleOpenCalendarImport(); })
         : undefined,
     onEditTask: openEditModal,
-    onChangeBudgets: commitBuckets,
+    onChangeBudgets: guardEdit(commitBuckets), // ★★★ keep guarded — why, and why onCreateResource can't be: task-manager.popout-guard.test.tsx
     onRefreshFx: () => { void refreshFx().then((err) => { if (err) reportSilentFailure(showToast, lang, "fx.refreshFailed", new Error(err), "guardFxRefreshFailed"); }); },
     fxLoading,
     trends,
@@ -2305,9 +2317,13 @@ function TaskManagerInner() {
     onOpenAction: openAction,
     // Insights lifecycle bag (#6B SP1/SP2).
     insightActions: isPopout ? undefined : insightActions,
-    // Which insight (if any) currently has an AI recommendation generating —
-    // lets a card/row show a busy state (rendering lands in Task 10).
+    // Which insight is generating, and how to abort it. ★ The flag is PER-ROW
+    // and the cancel is GLOBAL, deliberately: only one generate can be in
+    // flight (`useAbortableAi.run` aborts the previous), so the global cancel
+    // IS the running row's call. Feeding the hook's global `busy` here instead
+    // would make EVERY row's CTA read "Stop" while one runs.
     insightGeneratingId: isPopout ? undefined : insightGeneratingId,
+    onCancelInsightRecommendation: isPopout ? undefined : cancelInsightRecommendation,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
@@ -2565,8 +2581,18 @@ function TaskManagerInner() {
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
   const undoControlEl = isPopout ? null : (
     <>
-      <UndoControl lang={lang} depth={undoApi.stack.length} onUndo={undoApi.undo} nextLabel={undoApi.stack[undoApi.stack.length - 1]?.label} />
-      <RedoControl lang={lang} depth={undoApi.redoStack.length} onRedo={undoApi.redo} nextLabel={undoApi.redoStack[undoApi.redoStack.length - 1]?.label} />
+      <UndoControl
+        lang={lang}
+        entries={undoApi.stack}
+        onUndo={undoApi.undo}
+        onUndoThrough={undoApi.undoThrough}
+      />
+      <RedoControl
+        lang={lang}
+        entries={undoApi.redoStack}
+        onRedo={undoApi.redo}
+        onRedoThrough={undoApi.redoThrough}
+      />
     </>
   );
   const { appHeaderEl, topBarMenus } = buildShellChrome({
@@ -2607,20 +2633,13 @@ function TaskManagerInner() {
         <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
       )}
       {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && effectiveNotifications.jiraTokenError.enabled && (
-        <JiraTokenBanner
-          alert={jiraTokenAlert}
-          lang={lang}
-          onSnooze={jiraTokenSnooze.snooze}
-          onDismiss={() => setJiraTokenDismissed(true)}
-        />
+        <JiraTokenBanner alert={jiraTokenAlert} lang={lang} onSnooze={jiraTokenSnooze.snooze} onDismiss={() => setJiraTokenDismissed(true)} />
       )}
       {!isPopout && storageError && !storageErrorDismissed && (
-        <StorageBanner
-          kind={storageError.kind}
-          lang={lang}
-          onOpenSettings={() => setActiveTab("settings")}
-          onDismiss={() => setStorageErrorDismissed(true)}
-        />
+        <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
+      )}
+      {!isPopout && loadWasTruncated && (
+        <TruncatedLoadBanner lang={lang} truncation={truncation} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
       )}
     </>
   );
@@ -2813,12 +2832,11 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk}
+            storageReady={storageOk && !loadWasTruncated}
+            savingPaused={!isPopout && loadWasTruncated} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
-            onSignOut={() => {
-              void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed"));
-            }}
+            onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
           />
         }
         tasksSection={tasksSectionEl}

@@ -329,37 +329,28 @@ describe("suggested prompt chips", () => {
     expect(screen.getByRole("list", { name: "Suggested prompts" })).toBeInTheDocument();
   });
 
-  it("renders a 'Give me an update' chip", () => {
+  // ★★ THE CHIP SET IS RENDERED-SURFACE STATE AND THIS IS THE ONLY THING THAT
+  // PINS IT. 0.216.0 replaced four legacy chips ("Give me an update", "Show
+  // overdue tasks", "What's at risk?", "Draft a status update for
+  // stakeholders") plus the spread-in FOUNDATIONAL_PROMPTS with the four
+  // CHAT_STARTER_PROMPTS. Dropping `...CHAT_STARTER_PROMPTS` from PROMPT_CHIPS
+  // would remove them from the product while every module-level test still
+  // passed — the same hole the attachment-chip test below was written for.
+  it("renders exactly the five starter chips, starters first and attachment last", () => {
     renderEmpty();
-    expect(
-      screen.getByRole("button", { name: "Give me an update" }),
-    ).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Suggested prompts" });
+    const names = Array.from(list.querySelectorAll("button")).map((b) => b.textContent?.trim());
+    expect(names).toEqual([
+      "Risk review",
+      "Weekly status",
+      "Stakeholder update",
+      "Prioritize tasks",
+      "Process attachment",
+    ]);
   });
 
-  it("renders all four chips", () => {
-    renderEmpty();
-    expect(screen.getByRole("button", { name: "Give me an update" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show overdue tasks" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "What's at risk?" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Draft a status update for stakeholders" })).toBeInTheDocument();
-  });
-
-  it("clicking 'Give me an update' fills the textarea with the directive prompt body", () => {
-    renderEmpty();
-    fireEvent.click(screen.getByRole("button", { name: "Give me an update" }));
-    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
-    expect(textarea.value).toMatch(/list_tasks/);
-    expect(textarea.value).toMatch(/list_raid/);
-    expect(textarea.value).toMatch(/list_changes/);
-    expect(textarea.value).toMatch(/list_milestones/);
-  });
-
-  it("clicking 'Show overdue tasks' fills the textarea with that text", () => {
-    renderEmpty();
-    fireEvent.click(screen.getByRole("button", { name: "Show overdue tasks" }));
-    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
-    expect(textarea.value).toBe("Show overdue tasks");
-  });
+  // ★ The send-vs-fill behaviour is pinned by "clicking a starter chip
+  // auto-sends" in the describe below — it owns the `jsonResponse` fetch stub.
 
   it("chips stay available after the first message is sent (while busy)", async () => {
     let rejectFetch!: (reason: unknown) => void;
@@ -480,7 +471,13 @@ describe("SP1 seed + foundational chips", () => {
     expect(onChatSeedConsumed).toHaveBeenCalledTimes(1);
   });
 
-  it("clicking a foundational chip auto-sends", async () => {
+  // ★★ Names a CHAT_STARTER_PROMPTS chip, not a foundational one. The chat strip
+  // stopped spreading FOUNDATIONAL_PROMPTS in 0.216.0 — those now live only in
+  // the header Ask-Claude menu — so "What's next?" is no longer a chip here and
+  // this test failed until it was repointed. That failure was the intended
+  // signal, not a break: it is the only thing that pins the chip strip's
+  // contents to a rendered surface (see the sibling attachment test's comment).
+  it("clicking a starter chip auto-sends", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
     render(
       <ChatPanel
@@ -490,8 +487,14 @@ describe("SP1 seed + foundational chips", () => {
         onAcceptConsent={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "What's next?" }));
+    fireEvent.click(screen.getByRole("button", { name: "Weekly status" }));
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    // ★★ SEND, not FILL. The legacy chips filled the textarea and left it
+    // holding the prompt (autoSend: false); every chip now sends. Without this
+    // second assertion the test passes against a chip that merely fills, which
+    // is the exact regression the removal of the legacy set could reintroduce.
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…") as HTMLTextAreaElement;
+    expect(textarea.value).toBe("");
   });
 
   // The attachment prompt was moved OUT of FOUNDATIONAL_PROMPTS (the header
@@ -513,19 +516,12 @@ describe("SP1 seed + foundational chips", () => {
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
   });
 
-  it("clicking an existing chip only fills (no send)", () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
-    render(
-      <ChatPanel
-        lang="en-US"
-        ai={AI_WITH_KEY}
-        dispatcher={makeDispatcher()}
-        onAcceptConsent={vi.fn()}
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Give me an update" }));
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
+  // ★ REMOVED in 0.216.0: "clicking an existing chip only fills (no send)".
+  // It clicked "Give me an update", one of the four legacy autoSend:false
+  // chips. No chip fills any more — every entry in PROMPT_CHIPS auto-sends —
+  // so the test had no subject left. Deleted rather than repointed: repointing
+  // it at a current chip would have asserted the OPPOSITE of the behaviour its
+  // name describes.
 });
 
 describe("chat panel layout", () => {

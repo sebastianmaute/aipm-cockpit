@@ -45,12 +45,22 @@ describe("nav-config", () => {
     expect(slugToView("totally-unknown")).toBe("open-points");
   });
 
-  it("legacy `documents` slug resolves to the renamed knowledge view (bookmark back-compat)", () => {
-    expect(slugToView("documents")).toBe("knowledge");
-    // deep-link bookmark #documents/12 still routes to knowledge with the id preserved
-    expect(parseHash("#documents/12")).toEqual({ view: "knowledge", itemId: 12 });
-    // the canonical slug is now `knowledge`
+  it("`documents` slug resolves to the Documents view (the v0.190 knowledge alias was removed)", () => {
+    // The alias existed because the Documents view had been RENAMED to Knowledge.
+    // A real Documents view now exists, so that redirect is no longer true; it
+    // would also permanently shadow the new view's own hash route.
+    expect(slugToView("documents")).toBe("documents");
+    expect(parseHash("#documents/12")).toEqual({ view: "documents", itemId: 12 });
+    // knowledge keeps its own canonical slug — the rename is not being undone.
     expect(viewToSlug("knowledge")).toBe("knowledge");
+    expect(slugToView("knowledge")).toBe("knowledge");
+  });
+
+  it("registers the Documents view alongside knowledge", () => {
+    expect(allNavViews()).toContain("documents");
+    expect(navLabelKey("documents")).toBe("navDocuments");
+    expect(buildHash("documents")).toBe("#documents");
+    expect(buildHash("documents", 4)).toBe("#documents/4");
   });
 
   it("subTabsFor returns the containing section's children for a parent or child view", () => {

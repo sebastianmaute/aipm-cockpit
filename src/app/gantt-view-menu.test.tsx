@@ -68,4 +68,30 @@ describe("GanttViewMenu", () => {
     expect(screen.getByRole("button", { name: t("en-US", "ganttShowMilestones") })).not.toBeNull();
     expect(screen.getByRole("button", { name: t("en-US", "ganttMilestonesInline") })).not.toBeNull();
   });
+
+  // ★ Every toggle here is labelled with a bare noun ("Dependencies",
+  //   "Holidays", "Day grid") that names a layer, never its effect. Three of the
+  //   eight already carried a `title` saying what the layer DOES; these five did
+  //   not, and the split was by author, not by importance.
+  // ★★ The expected text is HARDCODED, not read back through `t(…)`. Asserting
+  //   `title` contains `t(lang, "ganttShowGridHint")` would pass against a
+  //   missing key (t echoes the key, and the attribute would echo it too) —
+  //   i.e. the assertion would compare the bug to itself.
+  // ★ `toContain`, not equality: `ToggleButton` composes
+  //   `title · <on/off state>` in the primitive, so the attribute is a superset.
+  it("titles each layer toggle with the consequence its label omits", () => {
+    render(<GanttViewMenu {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "ganttViewMenu") }));
+    const cases: [Parameters<typeof t>[1], string][] = [
+      ["ganttShowDependencies", "Draw arrows between dependent tasks"],
+      ["ganttShowHolidays", "Shade non-working days across the chart"],
+      ["ganttShowAbsences", "Shade each assignee's absences on their own row"],
+      ["ganttShowGrid", "Draw a dotted rule for every day"],
+      ["ganttShowMilestones", "Show milestone markers on the chart"],
+    ];
+    for (const [labelKey, hint] of cases) {
+      const button = screen.getByRole("button", { name: t("en-US", labelKey) });
+      expect(button.getAttribute("title") ?? "").toContain(hint);
+    }
+  });
 });

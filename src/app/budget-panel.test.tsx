@@ -5,6 +5,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
+import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -806,5 +807,160 @@ describe("BudgetPanel — Total column + total row", () => {
     expect(cells[0].className).toContain("bg-surface");
     expect(cells[1].className).toContain("bg-surface");
     expect(cells[2].className).toContain("bg-surface");
+  });
+});
+
+test("the non-destructive bucket actions render as bordered secondary buttons", () => {
+  render(<BudgetPanel {...props} />);
+  // ★★ Edit and Close ONLY. Remove is deliberately NOT in this loop — it renders
+  //    `destructive` and is asserted in the test below. Adding it back here would
+  //    fail, which is the point: the two variants must not silently converge.
+  for (const key of ["budgetEditBucket", "budgetClose"] as const) {
+    const btn = screen.getByRole("button", { name: t("en-US", key) });
+    // ★★ Word-bounded, never `toContain` — see `src/test/button-variant.ts` for
+    //    why the substring form is vacuous. NOT because "every variant ends in
+    //    `hover:bg-surface-muted`" (an earlier revision of this comment claimed
+    //    that and it is false — `primary` ends in `hover:opacity-90`,
+    //    `destructive` in `dark:border-ui-pink/50`). Only `secondary` and
+    //    `ghost` carry that hover class, which is enough: `ghost` is precisely
+    //    what this test rejects, so the substring check would pass against it.
+    // ★ `border-line` is the discriminating check — it kills BOTH a flip to
+    //   `ghost` and a flip to `destructive` (which carries its own standalone
+    //   `bg-surface`, so the `bg-surface` half does no work against that one).
+    expectSecondaryButton(btn);
+    // ★ Separately kills a revert to the pre-0.221.0 hand-rolled markup, which
+    //   was `border border-transparent` + a hover-only `hover:border-ui-dark-blue`.
+    //   Verified against the removed classes, so it is falsifiable rather than
+    //   decorative — but it is site-specific, which is why it is not in the
+    //   shared helper (the FX button below had DIFFERENT old markup).
+    expect(btn.className).not.toContain("border-transparent");
+  }
+});
+
+test("remove bucket renders as the destructive variant, not secondary", () => {
+  render(<BudgetPanel {...props} />);
+  const btn = screen.getByRole("button", { name: t("en-US", "budgetRemoveBucket") });
+  // ★★ Removing a bucket is the only irreversible action in that row. Rendering
+  //    it identically to Edit and Close is what this pins against — the killing
+  //    mutation is flipping it back to `variant="secondary"`, which loses both
+  //    tokens below.
+  expectDestructiveButton(btn);
+  // ★ The control assertion: `secondary`'s defining border must be ABSENT.
+  //   Without this the test would still pass if some future variant carried the
+  //   pink tokens AND `border-line`, i.e. if the two looks reconverged.
+  expect(btn.className).not.toMatch(/(^|\s)border-line(\s|$)/);
+});
+
+test("the FX refresh control renders as a bordered secondary button", () => {
+  render(<BudgetPanel {...props} />);
+  // Accessible name comes from the label text — the ArrowPathIcon beside it is
+  // `aria-hidden`, so it contributes nothing.
+  const btn = screen.getByRole("button", { name: t("en-US", "budgetFxRefresh") });
+  expectSecondaryButton(btn);
+  // ★ This site's old markup was `border border-ui-dark-blue bg-surface …
+  //   text-ui-dark-blue`, NOT the bucket actions' `border-transparent` — so
+  //   copying their negative here would be UNFALSIFIABLE (the removed markup
+  //   never contained that class). The two checks that actually discriminate
+  //   against the revert are the helper's `border-line` and the accent negative
+  //   below; note the helper's `bg-surface` half does NOT, because the old
+  //   hand-rolled classes carried a standalone `bg-surface` too.
+  expect(btn.className).not.toContain("border-ui-dark-blue");
+  expect(btn.className).not.toContain("text-ui-dark-blue");
+});
+
+describe("BudgetPanel — per-person booking rows", () => {
+  const peopleDisciplines = [{ id: 1, name: "Design" }, { id: 2, name: "Build" }];
+  const peopleGrades = [{ id: 1, name: "Senior" }];
+  const peopleRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 2, gradeId: 1, internalRate: 100, externalRate: 150 },
+  ];
+  const peopleResources: Resource[] = [
+    { id: 5, firstName: "Ada", lastName: "L", roleId: 3, utilizationMode: "percent", utilization: { "2026-01": 100 } },
+  ];
+  // TWO role lines, so the row-uniqueness of the trigger name is observable —
+  // with one line every accessible-name collision test passes vacuously, which
+  // is exactly how the axe gate misses this class.
+  const peopleBuckets: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [
+      { roleId: 3, resourceIds: [5], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } },
+      { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: { "2026-01": 10 } },
+    ],
+  }];
+  const renderPeople = (actualsByBucket?: Record<number, Record<string, { hours: number; billableHours: number; byResource?: Record<number, { hours: number; billableHours: number }> }>>) =>
+    render(
+      <BudgetPanel {...props} buckets={peopleBuckets} roles={peopleRoles}
+        disciplines={peopleDisciplines} grades={peopleGrades} resources={peopleResources}
+        actualsByBucket={actualsByBucket} />,
+    );
+
+  test("each role line's label is a disclosure trigger with a row-unique name", () => {
+    renderPeople();
+    const triggers = screen.getAllByRole("button", { name: /Show people/ });
+    expect(triggers).toHaveLength(2);
+    // The two names must DIFFER — N identical "Show people" names is WCAG 2.4.6
+    // and axe reports missing names, never duplicate ones.
+    const names = triggers.map((b) => b.getAttribute("aria-label"));
+    expect(new Set(names).size).toBe(2);
+    expect(names[0]).toContain("Design Senior");
+    // The visible label still names the ROLE, and the accessible name states
+    // what pressing ENABLES — it must not flip to "Hide people" when expanded.
+    expect(triggers[0]).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(triggers[0]);
+    expect(screen.getAllByRole("button", { name: /Show people/ })[0]).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("the collapsed people body stays in the DOM so aria-controls resolves", () => {
+    const { container } = renderPeople();
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    const targetId = trigger.getAttribute("aria-controls")!;
+    const body = container.querySelector(`#${CSS.escape(targetId)}`);
+    expect(body).not.toBeNull();
+    expect(body).toHaveAttribute("hidden");
+    fireEvent.click(trigger);
+    expect(container.querySelector(`#${CSS.escape(targetId)}`)).not.toHaveAttribute("hidden");
+  });
+
+  // ★★★ The people body is a SIBLING tbody of the role row's, never a tbody
+  //     NESTED inside another one. Measured in Chromium via a DOM-built
+  //     about:blank probe: React builds the nested shape verbatim (only the HTML
+  //     parser reparents it, and this panel is `ssr: false`), and Chromium then
+  //     lays the inner tbody out as its own anonymous table — its second cell
+  //     landed at x=29 where the row above had it at x=220. jsdom has no layout,
+  //     so this structural assertion is the ONLY thing standing between a future
+  //     refactor and a silently destroyed column grid.
+  test("mounts the people rows as a sibling tbody, not nested inside one", () => {
+    const { container } = renderPeople();
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
+    expect(body.tagName).toBe("TBODY");
+    expect(body.parentElement?.tagName).toBe("TABLE");
+    // …and the role row above it sits in its own tbody, also directly in the table.
+    for (const tbody of container.querySelectorAll("tbody")) {
+      expect(tbody.parentElement?.tagName).toBe("TABLE");
+    }
+  });
+
+  test("booked reads as unknown, never zero, when no actuals breakdown is supplied", () => {
+    const { container } = renderPeople();
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    fireEvent.click(trigger);
+    const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
+    // Ada is on the plan line, so planned is real (176 workday hours at 100 %)
+    // while booked is "—": the panel has no per-resource breakdown to report.
+    const cells = [...body.querySelectorAll("td")].map((td) => td.textContent);
+    expect(cells[1]).toBe("Ada L");
+    expect(cells[2]).toBe("— / 176");
+  });
+
+  test("booked reports the per-resource breakdown when one is supplied", () => {
+    const { container } = renderPeople({
+      1: { "2026-01": { hours: 6, billableHours: 6, byResource: { 5: { hours: 6, billableHours: 6 } } } },
+    });
+    const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];
+    fireEvent.click(trigger);
+    const body = container.querySelector(`#${CSS.escape(trigger.getAttribute("aria-controls")!)}`)!;
+    expect([...body.querySelectorAll("td")].map((td) => td.textContent)[2]).toBe("6 / 176");
   });
 });

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.215.0 "Friedman" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 | App 0.226.0 "Emshwiller" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 

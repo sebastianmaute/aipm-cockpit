@@ -214,10 +214,18 @@ export function capHtmlText(html: string, max: number): string {
   // a backend-dependent silent corruption, harder to diagnose than a uniform
   // one. Back the cut off by one so the character is dropped WHOLE.
   //
-  // ★ max <= 0 is unreachable from the app (every caller passes the constant
-  // TEXTAREA_MAX) but safe anyway, and covered by a test rather than assumed:
-  // charCodeAt(-1) is NaN, every comparison with NaN is false, so cut stays 0
-  // and plainToHtml("") returns "".
+  // ★★★ `max <= 0` IS NOT ONE CASE, and an earlier revision of this comment got
+  // it wrong: it said "charCodeAt(-1) is NaN … so cut stays 0", which is true at
+  // max === 0 and FALSE at max < 0. At a negative max `cut` becomes `max`, and
+  // `slice`'s end index then counts from the END — so capHtmlText(-1) returned
+  // "<p>a\ud800</p>", a LONE SURROGATE, from the very function whose job is to
+  // never emit one. Measured, not reasoned. `clipText` (sanitize-core.ts) hit
+  // the identical trap and clamps; these two are documented as carrying the same
+  // fix, so they must agree at the boundary or the claim is false.
+  // ★ Still unreachable from the app — every caller passes TEXTAREA_MAX or
+  // MAX_HTML_TEXT_CHARS — but "no caller passes one" is exactly the reasoning
+  // this file now records as insufficient twice over.
+  if (max <= 0) return "";
   const last = text.charCodeAt(max - 1);
   const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
   return plainToHtml(text.slice(0, cut));

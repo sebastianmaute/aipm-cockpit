@@ -29,6 +29,20 @@ export interface DataTableProps extends HTMLAttributes<HTMLTableElement> {
   children: ReactNode;
   /** `<tbody>` classes, when a table needs them (rare). */
   tbodyClassName?: string;
+  /** Renders `children` as the table's DIRECT body content: the caller supplies
+   *  its own `<tbody>` groups instead of the single wrapper added here, and
+   *  `tbodyClassName` no longer applies.
+   *
+   *  ★★ A table with per-row DISCLOSURE bodies needs this. The trigger's
+   *  `aria-controls` target must be ONE element, which for a group of rows can
+   *  only be a `<tbody>` — and a `<tbody>` nested inside a `<tbody>` is NOT
+   *  reparented when React builds it through the DOM (only the HTML parser
+   *  rewrites that shape, and these panels are `ssr: false`). Measured in
+   *  Chromium via a DOM-built about:blank probe: the inner tbody becomes its own
+   *  anonymous table, putting its second cell at x=29 where the row above has it
+   *  at x=220. The column grid is simply gone — and jsdom, having no layout,
+   *  reports nothing. */
+  ownBodies?: boolean;
   /** `<table>` element classes. Default matches the most common register table
    *  (`min-w-full text-left text-sm`); dense/report tables pass their own. */
   className?: string;
@@ -38,13 +52,14 @@ export function DataTable({
   head,
   children,
   tbodyClassName,
+  ownBodies = false,
   className = "min-w-full text-left text-sm",
   ...props
 }: DataTableProps) {
   return (
     <table className={className} {...props}>
       <thead className={TABLE_HEAD_CLASS}>{head}</thead>
-      <tbody className={tbodyClassName}>{children}</tbody>
+      {ownBodies ? children : <tbody className={tbodyClassName}>{children}</tbody>}
     </table>
   );
 }

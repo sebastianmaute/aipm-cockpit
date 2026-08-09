@@ -33,8 +33,11 @@ were removed after their live content was extracted here. All four were git-trac
 | `docs/baselines/deadcode-2026-07.md` | every AMBIGUOUS hit resolved false-positive in Phase 2 Task 4; the one real deletion is made | nothing outstanding |
 | `docs/baselines/knip-raw.txt` | raw tool output backing the above | nothing outstanding |
 
-`docs/baselines/` keeps **`file-sizes.json`** and **`jscpd-2026-07.json`** — those are live gate
-inputs, not history. Also removed: **296 orphaned per-slice `plans/` + `specs/` docs** referenced
+`docs/baselines/` keeps **`file-sizes.json`** and **`jscpd-2026-07.json`**. ★ Only the FIRST is a
+live gate input (`scripts/check-file-sizes.mjs:6` reads it by name). The jscpd file is a retained
+July-2026 report, kept for comparison and read by NOTHING — `npm run dup:check` passes only
+`--threshold` and there is no `.jscpd.json`. Keep both files; do not claim the duplication gate
+consults one. Also removed: **296 orphaned per-slice `plans/` + `specs/` docs** referenced
 from nowhere (35 kept — 3 linked from AGENTS.md, 30 from the memory files, 2 git-tracked). All 331
 are archived byte-identical in `docs/superpowers/_archive-slice-docs-2026-07-27.zip`. ★ That archive
 lives under a **gitignored** path, so it exists only on this machine — it is not in the repo and not
@@ -97,7 +100,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
 | 53 | ESLint 10 is blocked upstream by `eslint-plugin-react` | 0.211.2 | — | open — **not actionable today**; a dated MEASUREMENT, re-measure before acting |
 | 54 | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | open — **user-visible in production**, no gate sees it |
-| 55 | Fourteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 14 are NOT colour-only |
+| 55 | Thirteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 13 are NOT colour-only; was 14, tier selector resolved |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
 | 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half CLOSED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
@@ -106,10 +109,10 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
 | 62 | Two reference-data handlers have no production consumer, only tests | pre-existing, found post-0.212.0 | S | open — delete-or-record; ★ needs a non-move-only commit |
 | 63 | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED in 0.213.0** — split after all; `gantt.tsx` is 715 lines and its baseline entry is gone |
-| 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S–M | open — user-read: Portfolio health; model/storage: steering-committee AI draft, AI snapshot, persisted `pctComplete`, landing-state |
-| 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | open — the glyph is right, the health driver is the stale half |
-| 66 | The R/A/G tile counts a cancelled task GREEN, one tile from the fix | cancelled-work presentation | M | open — `computeGroupHealth` is per-task and Green-for-finished; not presentation-only |
-| 67 | A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps | pre-existing (`909118b2`) | XS | open — benign at runtime, silently skips the file in every grep |
+| 64 | Other surfaces still read "0% complete" for an all-cancelled project | cancelled-work presentation | S | **half closed post-0.216.0** — presentation + model feeds done; the persisted `pctComplete` and landing-state `complete:` remain, deliberately |
+| 65 | A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" | cancelled-work presentation | S | **half closed post-0.216.0** — tooltip fixed by a three-way driver; the entry's second symptom (such a row still called "cancelled" in the UI) is open |
+| 66 | ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ | cancelled-work presentation | M | **CLOSED post-0.216.0** — out-of-scope work leaves the tally and is counted separately |
+| 67 | ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ | pre-existing (`909118b2`) | XS | **CLOSED post-0.216.0** — source escape, plus a ratchet |
 | 68 | Allocation rows' `border-t` sits on the `<tr>`, where it has never painted | 0.214.0 (Lostetter) | S–M | open — **VISUAL change across six panels, needs sign-off**; 6 of the 8 sites unconfirmed |
 | 69 | `BrandingConfig`'s "is this blob empty?" is answered in TWO places | 0.214.0 (Lostetter) | S | open — silent data loss on a missed field, not an error; ★ it bit on the FIRST addition |
 | 70 | A budget bucket's Total column and total row follow the role filter | 0.214.0 (Lostetter) | S | open — product decision, untested either way |
@@ -119,8 +122,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 74 | ~~The TimeLog action handlers omit a guard their buttons carry~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — shared pure `timelog-guards.ts` predicates; all four button wirings DOM-pinned |
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed, plus the pinned-seed blocking gate `unit-tests-shuffled` and a weekly random-seed sweep |
 | 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; both pinned |
-| 77 | ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ | found post-0.214.0 | M | **CLOSED** — identity (`loadedBackend === backend`) derived in RENDER, not a latch; ★★ needs the re-stamp in the suppress branch or it strands closed at all seven arm sites |
-| 78 | ~~A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE~~ | pre-existing, found post-0.214.0 | S | **CLOSED** — gates the CAPTURE, not `isFirstEver`; ★★ gating the flag would NOT have worked (`pickBaseline` falls back to the earliest row) |
+| 77 | ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ | found post-0.214.0 | M | **CLOSED** post-0.226.0 — identity (`loadedBackend === backend`) derived in RENDER, not a latch; ★★ needs the re-stamp in the suppress branch or it strands closed at all seven arm sites |
+| 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | **HALF CLOSED** post-0.226.0 — the ALL-null empty-project case gates the CAPTURE, not `isFirstEver` (★★ gating the flag would NOT have worked — `pickBaseline` falls back to the earliest row); ★★★ the partial-KPI half is OPEN — a project with one task and no budget still baselines a row with no SPI/CPI |
 | 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
 | 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites; both pinned |
 | 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`, and `source` carries caller INTENT |
@@ -128,6 +131,48 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 83 | Email/name disagreement in the FK backfill resolves silently to email | found post-0.214.0 | XS | open — deliberate (an address is the stronger identifier), but nothing surfaces the disagreement |
 | 84 | ~~A THIRD order-dependent test in `use-storage-backend.test.tsx` — different mechanism from §75~~ | pre-existing, found post-0.214.0 | S | **CLOSED, FALSE** — same §75 mechanism, measured on a tree with only the `beforeEach` half of the fix |
 | 85 | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown~~ | pre-existing, found in the slice-3 review | M | **CLOSED, FALSE PREMISE** — it DOES double-invoke here in the right wrapper shape; `src/app/strictmode.meta.test.tsx` is the standing instrument |
+| 86 | AI cannot read timelog entries — no tool exposes them | view-scoped AI prompts, unreleased | — | deliberate — `VIEW_AI_SCOPE.timelog` says so; no chips |
+| 87 | AI cannot read the activity log — no tool exposes it | view-scoped AI prompts, unreleased | — | deliberate — `VIEW_AI_SCOPE.activity` says so; no chips |
+| 88 | `ai-section.tsx`'s own sub-section titles are styled `<span>`/`<p>`, not real headings | found during view-scoped AI prompts review, unreleased | S | open — a11y, unguarded; the new disclosure's `<h3>` was not extended back to them |
+| 89 | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open — buildable (absences are in `Workspace`, unlike §86's live external calls); out of scope for that slice. ★ Had a detail section but NO table row until 2026-08-06 |
+| 90 | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — it returns the new resource id, which the guard would widen to `number \| undefined` | found in the help-coverage slice-3 review, unreleased | S | open — a popout can create a resource via the RAID/task picker while the save around it is blocked |
+| 91 | A popout can record an undo entry and persist an activity line | found in the help-coverage slice-3 review, unreleased | S | open — `onCaptureRaidBulk` is unguarded and `useUndoHotkey` is unconditional, so bulk-apply + Ctrl+Z writes `setRaid` and `logActivity("undo")`; the activity log is localStorage with no `isPopout` check, so that line outlives the window. Gating the hotkey closes both |
+| 92 | The `settings-types` ⇄ `workspace` ⇄ `document-model` value-import cycle is a standing trap for any eval-time snapshot | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per instance | open — a TRAP, not a defect. **Sweep 2026-08-06 CLEAN**, no unfixed instances; carries a verified structural triage rule (exporter must transitively import the snapshotter) so the next candidate is decidable, not guesswork |
+| 93 | The PPTX truncation notice is a hardcoded English frame wrapped around a LOCALIZED section title | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open — i18n; affects BOTH PPTX paths, and only the newer one carries a code comment saying so |
+| 94 | PPTX pagination counts logical lines, so a wrapped long line still overflows the slide | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open — eye-verify owed; UNBOUNDED overflow is fixed, bounded overflow remains and no test in this repo can see it |
+| 95 | No test exercises a real Turso database on any path — meta-blob coverage is statements → synthetic results | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open — class-wide (`documents` · `insights` · `knowledgeItems`), not a documents-specific gap |
+| 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
+| 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
+| 98 | `documents` is in NEITHER save-time data-loss counter, so a documents-only wipe trips no guard | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open — MISSING NET, **no known live path**, and NOT a regression the documents slice introduced. `knowledgeItems`, `insights`, `timelogLinks` and `settingsOverrides` share the gap — **state that scoping whenever this row is quoted**, or a reader goes hunting for a documents bug that is not there. Widening `nonEmptyCollectionCount` / `workspaceRecordCount` shifts the L3 and Layer-B thresholds for EVERY existing project, so it needs its own slice, its own tests, and a deliberate decision on whether the other four join |
+| 99 | The e2e seed writes only four of BrowserBackend's ten optional kv slices, so any view backed by one of the other six is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open, PARTLY CLOSED 2026-08-08 — `insights` and `timelogLinks` were seeded on 2026-08-08, so **Insights is no longer in this position**; six remain (`fieldVisibility`, `features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`, `calendarEvents`). `documents` was the same defect and seeding it immediately exposed a real serious violation, so seeding the rest may legitimately turn scans RED for the first time. ★ Re-measure rather than quoting: `grep -c "^const KV_" src/app/browser-backend.ts` (→ 10) against `e2e/seed.ts`'s `KV` map (→ 4) |
+| 100 | Tab ejects focus from a portaled popover opened inside a modal, leaving it open and its contents keyboard-unreachable | field controls → modal header, unreleased | M | open — WCAG 2.1.1, **measured in Chromium** from both a radio and a checkbox. PRE-EXISTING and architectural (`Modal`'s trap guards on `container.contains`, false for every element in a portal); the move only made it prominent. Invisible to jsdom (the control's tests never mount inside `Modal`) and to axe |
+| 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
+| 103 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
+| 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
+| 105 | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell switches the parser's section mid-row and the rest of the row decodes as absent | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | open — **MEASURED**, not reasoned: `blockers: "step one\n# RAID\nstep two"` → `"step one"`. No throw, no `ImportDiag`, nothing in the UI. Affects every entity the CSV backend writes; Markdown is immune BY CONSTRUCTION (`mdEscape` turns every newline into `<br>`) — do not "simplify" that away. The property this should satisfy is `describe.skip`ped with the measurement in the comment; unskip it when fixing |
+| 106 | The Markdown codec is not a fixed point when bare CRs precede a newline — one CR is lost per save/load cycle with no edit in between | property-based coverage (`!360`, no bump) | XS | open — converges, and only ever loses CRs, so it sits well below §105. Recorded because "the stored value changed on a load that made no edit" later reads as corruption. ★ Found only at `numRuns: 1500`; the **deterministic companion is the reliable reproduction**, not the property, which is itself seed-dependent |
+| 107 | `HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | open — **measured** via `sanitizeAiRichText`. ★★★ POSITION decides and the blast radius is the WHOLE VALUE: the same `<h1>` is preserved mid-value and escapes the entire description when it leads, permanently, in every reader and every export. The obvious fix (widen `HTML_START`) changes what counts as "already HTML" for every stored value on every load path — byte-stability suites and probably a golden check, not a one-line edit |
+| 108 | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag as well as split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | open — the value is HTML, so a raw cut lands inside a tag (`<stro`) and stores malformed markup. Copy `capHtmlText`'s project → truncate → **re-wrap**, NOT `clipText` (correct only for plain text). ★★ Do NOT route it through `sanitizeText`: that fixes the surrogate half, leaves the mid-tag cut, and makes the call site LOOK guarded — the more dangerous state. Reachability narrow, unmeasured in the wild |
+| 109 | Icon-only controls with no hover tooltip, plus one control whose accessible name comes only from its `title` | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open — full audit in [`docs/tooltip-inventory.md`](tooltip-inventory.md). ★★ Its counts are SNAPSHOTS and moved within one day; re-run the inventory's parser before quoting any as present-tense. Open surface at `9927d045`: **17** untitled icon-only controls; Class B row **B1** (the settings cog) HELD pending the modern shell's own route to Settings; five of the Gantt View menu's eight toggles carry no hint; **one name defect** — `workspace-section-chrome.tsx:165` is named by `title` alone and **axe passes it**; and 15 hardcoded-English accessible names across nine files that tsc's key-parity check structurally cannot see |
+| 110 | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control, so a circular 20px chip cannot be converted to it | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open — `raci-chip-picker.tsx`'s ✕ is the fifth of five sibling chips sharing a `h-5 w-5 rounded-full` base. ★★★ A caller `className` CANNOT reliably override: Tailwind resolves conflicting utilities by **stylesheet source order**, not class-attribute order, and `p-1` sorts after `p-0` — so this is a primitive problem, not a call-site one. A KNOWN, DELIBERATE hand-roll; do not "finish the conversion" before the primitive gets a shape/size escape hatch. ★★ jsdom has no layout, so no unit test can catch the regression — eye-verify only |
+| 111 | Document row controls are named by a title that is NOT row-unique, and the code comment asserts that it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | open — a11y, WCAG 2.4.6, six controls per row. ★★★ **The false comment is the defect** — an untrue invariant outlives the code, because the next reader stops checking. `uniqueDocumentTitle` runs at only two of the four title-writing paths; `commitRename` and `use-document-tools.ts`'s `createDocument` (the MODEL's title, untouched) both bypass it, and `document-model.ts` holds no uniqueness check either. ★★ Being in `A11Y_VIEWS` does NOT help: the seed's two documents have DISTINCT titles, so the collision never renders at scan time |
+| 112 | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — the active parent pill stretches to the group's full height and unrelated top-level entries interleave onto a child's row | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | open — UX. Visible only there: jsdom has no layout, and the axe gate scans one desktop viewport with no rule for wrap order. ★★ This is the **COST of a deliberate choice**, not a regression against it — `display: contents` was rejected because its a11y-tree exposure is browser-version dependent and being ANNOUNCED is what the group exists to deliver; do NOT reach for it. Likely fix `basis-full`. ★ Reproduce: activate the AI Assistant branch FIRST, then narrow to 760px — narrowing first drops the rail's labels and there is no group to reflow |
+| 113 | The documents roadmap — block editor, entity attachment and images — is designed but UNIMPLEMENTED, and the design lives only in the gitignored tree | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open — §44's failure mode, pre-empted: the decisions are reproduced in full below so the roadmap survives without that tree |
+| 114 | `HTML_START` does not know the nine tags `sanitizeDocumentHtml` adds, so a document paragraph LEADING with one of them is stored as escaped literal markup | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | open — a SECOND instance of §107's drift class, now on a THIRD list; the mechanism lives there and is NOT restated here. ★★ The common shape is covered by an INSTRUCTION, not by construction: `chat-tool-defs-documents.ts` tells the model to wrap every paragraph in `<p>` and `p` is one of the eight — so a model that ignores it and returns a whole-paragraph `<blockquote>`/`<pre>` still escapes. ★ The DIRECTION is the mild one: this ESCAPES (visible, recoverable), it does not DELETE as §32 does |
+| 115 | `ALLOW_DATA_ATTR` is left at DOMPurify's default TRUE in the other two sanitizers, so `sanitizeTemplateHtml` and `sanitizeNoteHtml` admit arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | open — `ALLOW_DATA_ATTR: false` occurs ONCE in `sanitize-html.ts`, inside `sanitizeDocumentHtml`; grep the SETTING, not the bare name, which returns three. ★★ A TWO-LINE FIX — the set of `data-*` names needing re-admission is **EMPTY**: no call site depends on one and StarterKit emits none (measured). An earlier revision said "NOT a one-line fix, enumerate first" and was wrong. No known exploit: `data-*` carries no script |
+| 116 | The duplication gate compares the TOTAL duplicated-LINE percentage (1.19% vs 1.75), not the per-format token figure — and S3b is a large `.tsx` slice | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open — ★★ the gate reads ONE of the six cells the console prints: total LINES. Bisect by exit code — `npm run dup:check` exits 0 at `--threshold 1.19` and 1 at `1.18` ("found too many duplicates (1.2%)"); 1.52 and 1.60 both exit 0, ruling out total-tokens and per-format-tokens. Headroom is 0.56pp, not 0.05pp. Decide during S3b planning: refactor the top tsx clones, or raise the threshold |
+| 117 | The three traps S3c walks into the moment images go live — image-only paragraphs are deleted on load, `data-asset-id` values are entirely unvalidated, and adding `src` to the allow-list opens `data:` URIs on `img` | measured 2026-08-08 during the S3a review, all three inert today | M | open — three S3c PREREQUISITES, not live defects. ★ Each is measured with the probe in the entry, not reasoned. ★★ (a) makes the S3a rationale for allow-listing `img` FALSE as written (`sanitize-html.ts`), which is the §111 class: the comment outlives the code and the next reader stops checking |
+| 118 | A legacy plain-text `paragraph.html` collapses to one line in every renderer — and the obvious fix was implemented, measured to DESTROY valid markup, and reverted | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | open — ★★★ the fix and §114 are the SAME defect: composing `descriptionHtml` at the renderers escapes any paragraph LEADING with ANY of the nine document-only tags, because `HTML_START` knows none of them. Two green tests went red. Fix the classifier first (§113's pre-S3b row); do not re-attempt the composition before then |
+| 119 | `<a href>` is dropped by both OOXML renderers while `a` is advertised to the document-authoring model | pre-existing, confirmed 2026-08-08 during the S3a review | S | open — link TEXT survives in `.docx`/`.pptx`, the TARGET does not; HTML/PDF keeps both. ★ Verified, not assumed: no `w:hyperlink`/`a:hlinkClick` in either renderer and `A` is in neither map in `rich-text-runs.ts` |
+| 120 | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | open, BILLED — the six converted trigger sites all gained a Stop; the scheduled/background runner that starts the same call has no controller to cancel, so nothing can stop it |
+| 121 | ~~`use-tasks-dedup.tsx` never aborts its in-flight call on unmount~~ | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED 2026-08-08** in the slice-3 review round — cleanup-only effect added, mutation-proved. The audit table in the entry is HISTORY. The two hooks that remained were §127, **also CLOSED** the same day — all six abort on unmount now. The adjacent unguarded-`setBusy` defect is §128 |
+| 122 | The budget people rows and the role row above them read BOOKED from two different sources | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | open, DATA-INTEGRITY — the per-person figures cannot be made to sum to the role row above them even when both sources are fresh, because they are different sources. A tooltip is not the fix |
+| 123 | ~~The budget people-row disclosure clips its own label mid-glyph, with no ellipsis~~ | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED 2026-08-08** — measured in Chromium at 4 of 7 role labels clipped at the DEFAULT width, all 7 at 90px; `max-w-full` does the work (`min-w-0` measured INERT — `truncate` already sets `overflow:hidden`, which gives a flex item automatic min-size 0) |
+| 124 | A popover opened by a click that also scrolls its ancestor never mounts | found in the slice-3 eye-verify | UNKNOWN | open, PRE-EXISTING — ★★ the entry once named a "second effect" that does not exist and proposed a fix that cannot be implemented; both are RETRACTED in place. The mechanism is restated, no replacement fix is asserted |
+| 125 | Two more controls start a billed Anthropic call with no way to stop it | found in the slice-3 review prose check | S each | open, BILLED — the dashboard digest `Generate now` and the steering meeting report `Draft with AI` only grey out while running. NOT a regression; they were never converted. Read with §120 — neither is in the "six sites" the CHANGELOG names |
+| 126 | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | open, a11y — WCAG 2.4.6. ★★★ **axe CANNOT catch this** — measured against axe-core 4.12.1: in the gate’s requested tagset there is NO rule that flags two buttons sharing a name (`identical-links-same-purpose` is links-only AND `wcag2aaa`, which the spec never requests). `insight-digest-card.tsx` already de-collides the identical shape — copy it. Same class as §111 |
+| 127 | ~~Two of the six AI trigger hooks still never abort on unmount~~ | split out of §121 on 2026-08-08 | S each | **CLOSED 2026-08-08** in the review round that followed — both gained the cleanup-only effect, each mutation-proved. ★★ Filed then immediately closed on purpose: a follow-up is the right home for a decision, the wrong home for a one-liner with three precedents in the same file family. ★ `use-action-analysis.ts`’s guard was measured UNREACHABLE and applied as defence-in-depth — do not quote it as a shipped defect |
+| 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -780,9 +825,11 @@ log**. Not verified:
 
 ---
 
-## 22. `clipText` truncates on UTF-16 code units and can split a surrogate pair — open
+## 22. `clipText` truncates on UTF-16 code units and can split a surrogate pair — CLOSED
 
-**Where:** `sanitize-core.ts:52-55`.
+**Where:** `sanitize-core.ts`, `clipText`. (Cited as `:52-55` until the closing commit itself
+widened the function past that range — the exact `file:line`-rot this repo's convention warns about.
+Cite the SYMBOL.)
 
 ```ts
 function clipText(s: unknown, max: number): string {
@@ -838,6 +885,74 @@ rich-text fix does not.
 ★ `max <= 0` is safe in the `capHtmlText` version (`charCodeAt(-1)` is `NaN`, and `NaN` fails every
 comparison) but that was *asserted with a test*, not assumed — do the same here rather than
 reasoning about it, because `clipText`'s `max` is a per-field argument, not one constant.
+
+### CLOSED — the back-off shipped, pinned by a property suite
+
+`clipText` now backs the cut off one code unit when it would land on a high surrogate, the same
+shape `capHtmlText` carries. Pinned by `sanitize-core.property.test.ts` (8 properties).
+
+★★★ **THE GOLDEN-REGEN PREDICTION ABOVE WAS WRONG, and the two ★ paragraphs preceding this one are
+the record of getting it wrong twice in the same direction.** `golden-workspace.test` passed
+**unchanged** through this fix — 5/5, no fixture written. The reason is narrower than "the rich
+fields are empty": **no plain-text field in `sample-workspace-small.json` is over its cap**, so
+`clipText`'s truncation branch never executes on the sample at all. The paragraph above reasoned
+from "which FIELDS the sample populates" when the deciding question was "does any field EXCEED its
+cap" — populated and over-cap are different properties, and only the second one moves a golden.
+The fix's reach is unaffected: a real workspace with a long emoji-bearing title still gets it.
+
+★★ **`max <= 0` was NOT one case, and the ★ advice above is exactly why that surfaced.** Writing the
+test instead of reasoning found that a NEGATIVE `max` is a *distinct* defect from `max === 0`:
+`slice`'s end index counts from the END, so `"a𐀀".slice(0, -1)` returns `"a\uD800"` — over cap AND
+ending on a lone surrogate, i.e. it defeats the very invariant the fix establishes. `max === 0` is
+genuinely inert (`charCodeAt(-1)` is `NaN`). `clipText` now clamps `max <= 0` to `""`. No call site
+passes a negative today (every argument is a positive literal or named constant), so this is
+defensive — but the property is stated unconditionally and would otherwise simply be false.
+
+★★★ **FIXING `clipText` DID NOT CLOSE THE DEFECT CLASS, AND THE FIRST VERSION OF THIS CLOSURE
+IMPLIED IT DID.** A cold review found `sanitizeLabel` — **in this same file, 100 lines below the
+fix** — truncating with a raw `.trim().slice(0, LABEL_MAX)`, bypassing `clipText` entirely and
+returning a lone high surrogate for a label ending in an emoji at the boundary. `describeLabelStrip`
+(`sanitize-report.ts`) carried the identical body, and its own docstring says it MIRRORS
+`sanitizeLabel`. Both now route through `sanitizeText` (hence `clipText`); the replace→trim→cap order
+is unchanged, so this is behaviour-preserving apart from the back-off. Pinned by a 9th property,
+verified to fail against the raw-slice version.
+
+★★ **The lesson generalises past this entry.** "The fix reaches 54 call sites" was TRUE and still
+left `sanitizeLabel` out, because it was never one of the 54 — it never called `sanitizeText` or
+`sanitizeMultiline`. An entry named after ONE function says nothing about its siblings, and a
+call-site count answers "how far does this function reach", never "who else does this by hand".
+When closing a defect-CLASS entry, grep for the SHAPE (`\.slice\(0,` next to a `_MAX`), not for the
+fixed function's name.
+
+★★★ **MANY sites of this class are still open, and an earlier revision of this closure said "one".**
+That sentence was written in the same edit that prescribed the grep above — and did not run it.
+Running it: `grep -rn "\.slice(0, *[A-Z_]*MAX" src/app --include="*.ts" --include="*.tsx" | grep -v
+"\.test\."` returns **66** hits. Most are ARRAY slices (`MAX_CHIPS`, `MAX_BLOCKS_PER_DOC`,
+`MAX_SCHEMES`) and irrelevant; separating those from STRING truncations needs eyes, not grep, so no
+exact string-only count is asserted here. Confirmed string sites include `chat-panel.tsx:269`
+(`.trim().slice(0, CHAT_MESSAGE_MAX)` on user chat input, against a cap exported from
+`sanitize-core.ts` itself), plus `note-log.ts`, `color-schemes.ts`, `ai-errors.ts`,
+`diagnostics-redact.ts`, `committee-report/report-draft.ts`, `digest/digest-narrative.ts`,
+`insights/recommend.ts`, `insights/sanitize-insights.ts`, `settings-types.ts`,
+`next-actions-tuning.ts` and `jira-projects.ts`.
+
+★★ **§22's own body named four of those sixty lines above** ("The same shape recurs in
+`note-log.ts`'s `cleanText`, `color-schemes.ts` names, `ai-errors.ts` and `diagnostics-redact.ts`"),
+so the closure contradicted its own entry. This is the same defect the closure was rewritten to
+record, committed one paragraph after prescribing the cure — which is the strongest available
+evidence that stating the rule is not the same as applying it. **Run the command you attach.**
+
+★ Only ONE of them is separately filed, and only because it is a different problem: §108,
+`sanitize-records.ts` `rr.html.slice(0, REPORT_HTML_MAX)` (the meeting report). That value is HTML,
+so a raw slice can also cut mid-tag — strictly larger than the surrogate issue and NOT fixable by
+the one-line back-off. The rest are plain-text and would each take the `sanitizeText` routing, but
+they are not audited here and none is claimed safe.
+
+★ **Test-validity note worth carrying to any future cap fix.** The property was first written with a
+`>= 3`-of-30 anti-vacuity floor tuned against ONE run. Measured across 5 fixed seeds the true
+minimum was **8** — green only by luck, with an unmeasured tail. It is now 30/30 **by construction**
+(the arbitrary places the cap exactly one code unit into an astral character) with the floor at 15.
+A counter tuned against a single run is itself a flake source, because fast-check reseeds every run.
 
 ---
 
@@ -2335,13 +2450,23 @@ unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to po
 
 ---
 
-## 55. Fourteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
+## 55. Thirteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
-Fourteen controls do NOT use that primitive and were left as they were. For MOST of them the only
+Thirteen controls do NOT use that primitive and were left as they were. For MOST of them the only
 visual signal that they are active is a fill or tint change — WCAG 1.4.1.
 
-★★ TWO OF THE FOURTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
+★ THIS READ **fourteen** UNTIL 2026-08-06. The field-visibility tier selector
+(`modal-field-controls.tsx`) was the fourteenth, and it is RESOLVED — the control moved into the
+modal header and its hand-rolled `aria-pressed` buttons were replaced by the shared
+`SegmentedControl`, i.e. by `role="radio"`, which is exactly the answer this entry's own closing
+paragraph proposed for the radio-like cases. Re-measure rather than trust the number:
+
+```bash
+grep -rn "aria-pressed={" src/app --include="*.tsx" | grep -v "\.test\." | grep -v "toggle-button.tsx" | wc -l   # 13
+```
+
+★★ TWO OF THE THIRTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
 all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
 flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
 `status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
@@ -2363,8 +2488,8 @@ destructuring it.
 `rich-text-editor.tsx:83-84` is the clearest and the most used: `BTN` and `BTN_ON` differ by
 `bg-ui-dark-blue` + `text-white` and nothing else, on the bold/italic/list buttons every task
 description and note passes through. The others: `task-form-fields.tsx:545,559` (health-override
-chips) · `create-project-wizard.tsx:308,337` (template picker) · `modal-field-controls.tsx:63` (tier
-selector) · `raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
+chips) · `create-project-wizard.tsx:308,337` (template picker) ·
+`raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
 `settings-sections/comm-templates-section.tsx:335,357` (version compare) · `step0-import-panel.tsx:304`
 · `influence-interest-matrix.tsx:80` · `dictation-mic.tsx:73` · `voice-button.tsx:101`.
 
@@ -2375,10 +2500,15 @@ the hosts sit on axe-scanned views and pass today. The count above is the whole 
 `aria-pressed` JSX attribute outside the primitive, counted, not estimated.
 
 ★ The fix is not uniformly "migrate to `ToggleButton`". Some are radio-like single-select groups
-(template picker, tier selector, RACI role, import method, quadrant) where the primitive's chip
-styling and pinned-label rule may not fit, and where `role="radio"` might be the better answer than
-`aria-pressed` at all. The editor toolbar and the two mic buttons are genuine binary toggles and are
-the natural first migration.
+(template picker, RACI role, import method, quadrant) where the primitive's chip styling and
+pinned-label rule may not fit, and where `role="radio"` might be the better answer than
+`aria-pressed` at all. That is no longer a hypothesis: the tier selector took exactly that route
+(adopting `SegmentedControl`, i.e. `role="radio"`) and left this list. ★ Deliberately NO version
+here — the change is committed but UNRELEASED, and an earlier draft of this sentence said "in
+0.218.0", which is the commit this work sits ON TOP of; that release shipped a different a11y fix
+and a reader chasing the resolution would find nothing. Write the real version at release time or
+leave it to the date above. The editor toolbar and the two mic buttons are genuine binary toggles
+and are the natural first migration.
 
 ---
 
@@ -2720,7 +2850,40 @@ currently over the limit.
 
 ---
 
-## 64. Other surfaces still read "0% complete" for an all-cancelled project — open
+## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF CLOSED post-0.216.0
+
+★ **HALF CLOSED post-0.216.0.** Every surface that reads the figure DIRECTLY is done; both PERSISTED
+figures are deliberately untouched.
+
+★★★ **DO NOT STATE THAT AS "everything a user READS is done" — a draft did, and it is FALSE.** The
+landing-state `complete:` is persisted AND user-read: `dashboard-panel.tsx` writes
+`complete: model.progress.percent` into the per-device snapshot, `use-landing-delta.ts` feeds it to
+`computeMetricTrends`, and `dashboard-kpi-strip.tsx` renders `trends.complete` as a `TrendArrow`. The
+arrow is suppressed WHILE the project is no-scope, so the poisoned 0 surfaces on the visit AFTER
+scope returns — reachable, rendered, still open. This entry's own body says exactly that ("the NEXT
+visit's trend arrow is baselined off a number the UI has just decided not to show"), so the draft
+contradicted the entry it was closing. **A clean two-way split (read vs persisted) is exactly the
+shape that hides an item belonging to both.**
+
+| surface | state |
+|---|---|
+| Portfolio health table (`use-portfolio-health.ts` → `portfolio-health-panel.tsx`) | CLOSED — `completionPercent` is now nullable, gated on the same `hasNoActiveScope` the tiles use; the cell renders an aria-hidden "—" with an sr-only "No active scope" |
+| `portfolio-rollup.ts` `avgCompletionPercent` | CLOSED — **this entry never named it** (see below) |
+| `committee-report/report-draft.ts` | CLOSED — emits "no active scope" instead of "0% complete" |
+| `ai-dashboard-snapshot.ts` | CLOSED — the payload carries an explicit `noActiveScope` |
+| `snapshot.ts` `pctComplete` | **OPEN, deliberately** — persisted |
+| `dashboard-panel.tsx` landing-state `complete:` | **OPEN, deliberately** — persisted **and user-read**: it feeds `trends.complete` → the KPI strip's `TrendArrow` on a later visit |
+
+★★ **THE SURFACE LIST WAS INCOMPLETE, in exactly the way this entry warns about.** It names the
+portfolio ROW and the CELL but not `aggregatePortfolio`, which summed those zeroes and divided by
+`rows.length` — so one no-scope project pulled the portfolio-WIDE average down with a value meaning
+"nothing left", not "nothing done". Found by grepping every reader of `completionPercent` rather
+than reading this list, which is the habit the ★★★ below already prescribes. The divisor is now the
+count of projects that contributed a figure.
+
+★ The persisted pair stays open for the reason recorded below and not because it was missed: giving
+a stored figure a null state is a data-shape change that Trends charts over time and version history
+diffs. It is worth its own decision, not a pattern-match onto the presentation fix.
 
 The cancelled-work presentation batch fixed the Reports headline tiles, the Dashboard completion
 tile, the Dashboard at-a-glance KPI card, the Dashboard completion-trend sparkline, and the Open
@@ -2837,7 +3000,56 @@ this warning exists to record — and reported the entry's correct cite as a def
 
 ---
 
-## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — open
+## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF CLOSED post-0.216.0
+
+★ **HALF CLOSED post-0.216.0.** `computeTaskHealth`'s finished-task driver is now three-way —
+`cancelled` (by status) / `completed` (by `isTaskDelivered`) / `closed` (neither) — so this pair
+announces "closed" and no longer contradicts the ✕ beside it.
+
+★★ **`isTaskDelivered` ALONE would not have fixed it.** A two-way split on delivery labels this row
+"cancelled", which is a different false statement, not a fix. Cancelled is a STATUS; delivered is a
+DATE; this pair is neither, so it needed its own driver and its own i18n key.
+
+★★★ **THIS ENTRY HAS TWO PRESCRIPTIVE CLAUSES FOUR LINES APART, AND THREE SUCCESSIVE DRAFTS OF THIS
+CLOSURE EACH READ ONLY ONE OF THEM.** The verdict below concerns the FIRST. The SECOND — "Fixing the
+drivers fixes both" — is **WRONG**, and this slice proved it: the second symptom is gated on
+`hasNoActiveScope` → `scopeCounts` → `isTaskOutOfScope`, which never consults a health driver, so no
+driver change could ever have reached it. A draft that had just finished retracting an over-claim
+about clause one then declared the whole entry "sound", never having read clause two. **Over-correction
+is the same error as over-claiming: deciding the answer's shape, then reading only far enough to
+confirm it.**
+
+★★★ **CLAUSE ONE WAS RIGHT AND A DRAFT OF THIS CLOSURE SAID IT WAS WRONG.** It reads
+"drivers should consult `completedDate`, **not `status` alone**" — that is *consult BOTH*, which is
+exactly what the three-way does. The draft paraphrased it as "consult `completedDate` INSTEAD OF
+`status`" and then refuted the paraphrase, in a closure block whose theme was other entries' faulty
+prescriptions. **Slice 1 made this identical mistake one week earlier and had to retract it**
+(see the §77/§78 provenance). Twice now: hunting for a pattern makes you find it where it is not.
+What is fair to say is that the prescription is UNDERSPECIFIED — it does not say the split is
+three-way, and the careless two-way reading of it is the trap. That is a much weaker claim, and it
+is the true one. **Quote an entry before criticising it; a paraphrase you wrote is not evidence.**
+
+★★ The second symptom this entry names is verified and **STILL OPEN**. The entry's complaint is about
+the WORD: `dashboardAllCancelled` — "All cancelled ({0})" — is rendered about rows whose status says
+Done. The COUNT is right (that work will not be delivered, so it is out of scope), but "cancelled" is
+still the wrong word for a Done row, and BOTH `dashboard-panel.tsx` and
+`dashboard-kpi-strip.tsx` still render it.
+★★★ A draft of this bullet said "Only the tooltip was lying", having answered a complaint about the
+count that the entry never made — while calling the symptom "verified" two clauses earlier, which
+contradicts it. Same paraphrase-then-refute shape as the §66 block above. The tooltip was the half
+worth fixing here; the naming half is below.
+
+★★ **AND THIS SLICE ADDED TWO MORE SURFACES USING THAT WORD.** `GroupHealth.outOfScope` counts
+`isTaskOutOfScope` = cancelled PLUS Done-with-no-date, and its new user-facing strings are
+`dashboardOutOfScopeCount` ("Cancelled") and `reportsGroupOutOfScope` ("{0} cancelled"), with
+`dashboardProgressCaption` saying "cancelled work is counted separately". So the engine calls that
+row `closed` and the UI calls it "Cancelled", two tiles apart on one screen.
+★ Recorded as a DECISION, not an oversight: `reports-stats.ts` already labelled the identical bucket
+"cancelled" (`reportsCancelledCount`) before this slice, and `dashboardAllCancelled` predates it too,
+so renaming only the two new strings would make one card disagree with itself. Renaming all four is a
+UX call that should not ride in on a defect-closure slice. The Done-with-no-date pair is also not
+producible through the UI — `migrateTask` leaves it alone, so it arrives only via an imported or
+hand-edited blob. **Left as is, deliberately; the naming sweep is the open half.**
 
 `isTaskDelivered` is `!!task.completedDate`, so a task whose status is `"Done"` but which carries no
 completion date is CLOSED but not DELIVERED, and `TaskStatusGlyph` renders the muted ✕ where it used
@@ -2876,7 +3088,38 @@ answers "was it delivered?", and collapsing them is the defect 0.213.0 existed t
 
 ---
 
-## 66. The R/A/G tile counts a cancelled task GREEN, one tile from the fix — open
+## 66. ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ — CLOSED post-0.216.0
+
+★ **CLOSED post-0.216.0** by the second of the three options this entry listed: closed-but-never-
+delivered work leaves the R/A/G tally and is counted in a sibling `GroupHealth.outOfScope`, rendered
+as a fourth group on the dashboard tile and a trailing clause on each reports group card.
+
+★ **The entry's stated blast radius was RIGHT.** It says the options "each ripple well past the
+dashboard" — and they did: the reports group cards gained a cancelled clause, and their within-colour
+sort silently became in-scope size rather than group size. Confirmed, not refuted.
+
+★ Where the ripple STOPS is worth recording, because it is not obvious and the entry does not say:
+it does not reach `overallComputed` (`dashboard.ts`). An out-of-scope task only ever incremented
+`counts.G`, and the colour is `R > 0 ? "R" : A > 0 ? "A" : "G"` with G as the FALLBACK, so removing
+G-only entries cannot change the result in any case. That is an argument, not a test — the
+all-cancelled fixture returns "G" both before and after, so no fixture of that shape can pin it.
+
+★★★ **A DRAFT OF THIS BLOCK SAID "THE STATED BLAST RADIUS WAS WRONG" AND ATTACHED THAT
+`overallComputed` CLAUSE TO THE ENTRY AS IF THE ENTRY HAD WRITTEN IT.** The entry never mentions
+`overallComputed` — reproduce with
+`git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**; every occurrence in
+this file today is text the closure added. So the draft invented a claim, refuted it, and credited
+the error to the entry. **§65 in this same file was corrected for the identical misquote-then-refute
+in the identical commit that published the rule "quote the entry inline before criticising it."** The
+retraction pass caught one instance and walked past the other, because it was looking for the §65
+wording rather than the SHAPE. When you retract one instance of an error, grep for the shape.
+
+★ The `healthOverride` clause this entry insisted on is preserved and is now load-bearing in a way
+it was not before: the exclusion is guarded on `!task.healthOverride`, so a hand-pinned cancelled
+row keeps its manual colour inside `counts`. The consequence is that the invariant is
+`R + A + G + outOfScope === total`, NOT `=== inScope` — the two diverge by exactly the pinned rows.
+Both halves are pinned by tests; `dashboardProgressCaption` was reworded, since it asserted the
+opposite ("covers every task; closed work counts Green").
 
 `computeGroupHealth` (`health.ts`) tallies `computeTaskHealth` per TASK, and that returns `"G"` for
 anything `isTaskFinished` — Cancelled included. So the Dashboard's Progress `<Section>` renders, side
@@ -2907,7 +3150,56 @@ hand" for exactly that reason — do not simplify that clause away.
 
 ---
 
-## 67. A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps — open
+## 67. ~~A committed NUL byte makes `use-portfolio-health.ts` invisible to content greps~~ — CLOSED post-0.216.0
+
+★ **CLOSED post-0.216.0.** The raw `0x00` is now the source escape `\u0000`, so the runtime
+character is byte-identical — still the one separator that cannot occur in a URL or a token — and
+the file is text again.
+
+★★★ **THE VERIFICATION COMMAND FIRST RECORDED HERE WAS FABRICATED.** It read: *"`grep -c
+completionPercent` returned 'Binary file … matches' before and a count after."* `grep -c` prints a
+COUNT in both states — `-c` suppresses the binary notice — so that command cannot distinguish them.
+What actually happened is that two DIFFERENT commands were run, before and after, and written up as
+one. The working check drops `-c`:
+`git show f9e17f9e:src/app/use-portfolio-health.ts > /tmp/pre.ts; grep completionPercent /tmp/pre.ts`
+→ `Binary file /tmp/pre.ts matches`, versus the matching line on the current file. **This is the
+failure this whole register warns about, committed inside the entry about a guard that had to be seen
+red before it could be trusted.** Run the command you are about to quote, in the state you claim it
+was run.
+
+★★ **This entry proposed the wrong fix and the reasoning it gave is why.** It weighed `|` and a space
+and noted both are merely UNLIKELY to collide rather than unable to — then treated that as an
+acceptable cost instead of a reason to look for a third option. The escape has neither cost. When an
+entry records a drawback and accepts it anyway, check whether the drawback was avoidable.
+
+★ A ratchet now guards recurrence: `src/app/no-nul-bytes.test.ts` takes its file list from
+`git ls-files src docs` and checks every tracked `.ts`/`.tsx`/`.md`, failing on any NUL and naming
+file and offset. It was written BEFORE the fix and verified red against
+`use-portfolio-health.ts @ byte 2940` — a guard that has never been red is not known to work. It
+filters by EXTENSION for the reason this entry already records: `src/app/favicon.ico` and
+`docs/assets/dashboard.png` are TRACKED binaries holding NULs legitimately.
+
+★★ **It asks git rather than walking the filesystem, because the first version's comment claimed a
+CATEGORY while the code implemented an INSTANCE.** It skipped one hardcoded directory name
+(`superpowers`) under the sentence "skips gitignored trees" — and `docs/patterns/` is also
+gitignored and was being scanned, so a scratch file dropped there could redden the suite for a reason
+unrelated to any commit, which is the exact failure the skip existed to prevent. Reproduce the gap
+with `git status --porcelain --ignored=matching -- docs | grep '^!!'` → two entries, not one.
+`git ls-files` makes "what gets COMMITTED" the literal definition instead of an approximation of it.
+
+★ It also carries a POSITIVE CONTROL (`files.length > 500`, and that the list still contains
+`use-portfolio-health.ts`). The real assertion is `toEqual([])`, which passes trivially if the file
+list is ever empty — a bad regex, a cwd that is not the repo root. Without the control the guard can
+scan nothing and report success.
+
+★★★ **THE DOCS HALF EXISTS BECAUSE CLOSING THIS ENTRY PRODUCED TWO MORE NUL BYTES — IN THIS FILE.**
+The scan started at `.ts`/`.tsx`, matching the sweep recorded above. Then writing the closure prose
+put a raw `0x00` into `open-followups.md` twice: *the escape sequence, written as prose about the
+escape sequence, collapsed into the byte it names.* Nothing would have caught it — the sweep this
+entry declares DONE was source-only, and this register is the file in the repo most likely to be
+grepped, so it is the worst one to silently read as binary. **A guard scoped to where a bug was last
+seen is blind to where it is next written.** The scope was widened only because the failure recurred
+during the fix; had it not, the narrow guard would have shipped looking complete.
 
 Byte offset 2940 is a raw `0x00` inside a template literal — `` `${tursoConfig.httpUrl}\0${tursoConfig.authToken}` ``
 — almost certainly the recorded Edit-tool corruption (see the memory note on NUL corruption). It is
@@ -3795,7 +4087,7 @@ had the same shape — a question worth asking of every guard fix.
 
 ---
 
-## 77. ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ — CLOSED
+## 77. ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ — CLOSED post-0.226.0
 
 `use-storage-backend.ts` publishes `workspaceLoaded`, set `true` at the end of `applyWorkspace` and
 **never set back to `false`**. `useSnapshots` gates auto-capture on it (as `workspaceReady`), which
@@ -3879,7 +4171,7 @@ reachable on inspection.
 
 ---
 
-## 78. ~~A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE~~ — CLOSED
+## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF CLOSED post-0.226.0, partial-KPI half OPEN
 
 `use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
 workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§77) is legitimately
@@ -4278,6 +4570,567 @@ in the wrapper argument, one line away from the thing being measured.
 
 ---
 
+## 86. AI cannot read timelog entries — deliberate, no tool exposes them
+
+`Workspace` holds only `timelogLinks?: Readonly<TimelogLinks>` (`workspace.ts`) — user→resource and
+project→bucket LINK mappings, additive and optional. The real booked-time entries never enter
+`Workspace`; they are fetched live over the `/api/timelog` proxy (`api/timelog/route.ts` +
+`_helpers.ts`), which is host-allowlisted and private-IP-guarded via the shared
+`api/_shared/proxy-ssrf.ts` and authenticated with the device-sealed `timelogApiToken` secret.
+
+A read tool here would mean the model triggers a live authenticated external call on request — a
+different risk class (an outbound request to a third-party host, not a read of local project data) and
+a different failure mode: the v2 per-project endpoint has already timed out for large projects once in
+production (fixed by widening its request budget to 30s while every other Timelog call keeps 10s — see
+CHANGELOG). Building a chat tool on top of that path reintroduces that failure mode as an AI-triggered
+one, on a call the user did not directly initiate.
+
+`VIEW_AI_SCOPE.timelog.reading` tells the model outright that it cannot read booked time entries, so it
+says so rather than estimating. `ASK_CLAUDE_PROMPTS` deliberately has no `timelog` entry — pinned by
+`ask-claude-prompts.test.ts` ("has no chips for the views whose read tools are deferred") — because a
+chip there would be a dead prompt.
+
+---
+
+## 87. AI cannot read the activity log — deliberate, no tool exposes it
+
+`activity-log-context.tsx` exposes a WRITER only — `LogActivityFn`, delivered through
+`ActivityLogProvider`/`useActivityLogger()` — and the log itself is not part of `Workspace`, so there is
+nothing for a read tool to query without new plumbing. Reading it would mean threading it through
+`task-manager.tsx`, which is the Phase-3 baselined orchestrator (see "task-manager decomposition map"
+above) and is deliberately kept from growing new responsibilities.
+
+Same handling as §86: `VIEW_AI_SCOPE.activity.reading` states the model cannot read the log, and
+`ASK_CLAUDE_PROMPTS` has no `activity` entry (same test pins both absences together).
+
+---
+
+## 88. `ai-section.tsx`'s own sub-section titles are not real headings — open, a11y
+
+Found while building the view-scoped AI prompts' Settings disclosure (`AiViewScopeDisclosure`,
+`settings-sections/ai-view-scope-disclosure.tsx`, unreleased at time of writing). Its own "AI
+Assistant" and "Operating guides" sub-section titles in `ai-section.tsx` are styled elements, not
+headings:
+
+- `{t(lang, "aiAssistant")}` renders inside a `<span className="... text-sm font-medium ...">`
+  (`ai-section.tsx:412`).
+- `{t(lang, "aiGuidesHeading")}` renders inside a `<p className="text-sm font-medium ...">`
+  (`ai-section.tsx:603`).
+
+A screen-reader user navigating that Settings tab by heading (NVDA/JAWS "next heading", VoiceOver
+rotor) skips both — they read as body text, not section landmarks. `AiViewScopeDisclosure` was written
+correctly from the start — a real `<h3>` for its own title — but the two pre-existing titles above it
+were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
+sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
+`aria-sort` and §55's colour-only toggles). Fix is
+mechanical — swap both to `<h3>` with matching classes — but touches visual rhythm in a settings tab
+with no eye-verification pass scheduled, so it is recorded rather than fixed in this slice.
+
+---
+
+## 89. AI cannot read absences, and the Resource-calendar view renders them beside meetings
+
+`list_calendar_events` returns `CalendarEvent` series only. Absences are a separate entity and no tool
+exposes them (`grep -n "absence" src/app/chat-tool-defs.ts src/app/chat-tools.ts` returns nothing), yet
+the `calendar` view draws both on one grid — so a clash or availability question answered from meetings
+alone silently omits half the data the user is looking at.
+
+★★ This is a WORSE shape than §86/§87, and that is why it was missed. There the tool is simply absent,
+so nothing can answer. Here `list_calendar_events` **succeeds**, returns plausible data, and the model
+has no way to know it saw only half the grid. `ask-claude-prompts.test.ts`'s chip↔capability guard
+cannot catch it either: it asserts `hasHints || hasDigest`, and `calendar` has two hints — so the rule
+it really enforces is chip↔*some* capability, never chip↔*sufficient* capability. ★ Stated precisely
+because "some tool" would wrongly imply a digest-only view is unguarded; it is not, the guard just
+cannot judge whether the capability ANSWERS the chip.
+
+Handled for now the same way as §86/§87 — `VIEW_AI_SCOPE.calendar.reading` states outright that
+absences are not readable and that any clash answer covers meetings only. Unlike those two, the chip
+(`aiPromptCalClashBody`, "are any people double-booked in overlapping meetings?") is deliberately KEPT,
+because it is answerable as worded; it asks about meetings, not availability.
+
+Building the tool is the real fix and is not hard — absences are in `Workspace` (unlike timelog entries
+in §86, which are live external calls) — it was simply out of scope for this slice.
+
+---
+
+## 90. `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open
+
+Every mutating handler `task-manager` threads to `WorkspaceSection` is either wrapped in
+`guardEdit` (`makeEditGuard(isPopout, …)`) or self-guards; `onChangeBudgets` was the exception and was
+fixed. `onCreateResource` is the remaining one, and the same fix does **not** apply: it is typed
+`(name, email) => number` and the caller assigns the result straight into a foreign key, while
+`makeEditGuard` returns `undefined` on the read-only path — wrapping it widens the contract to
+`number | undefined`. That is a tsc error rather than a silent break, which is why it was left alone
+rather than patched over.
+
+Reachable: RAID is in `POPOUT_TABS`, `RaidPanelToolbar` renders its add button unconditionally, so the
+edit modal opens in a popout and typing a new name into the owner picker calls through to
+`handleCreateResource` → `setResources` + `logActivity("resource.created")`. The item saving around it
+is blocked, so a popout can create a resource it cannot then attach.
+
+★ Blast radius is popout-local for the workspace itself (the save effect early-returns on `isPopout`
+and `canSend` disables every outbound broadcast) — but see §91 for the part that is not.
+
+Fix options: give the guard a read-only sentinel return for this shape, or gate the affordance at the
+picker on `isPopout`.
+
+---
+
+## 91. A popout can record an undo entry and persist an activity line — open
+
+Two unguarded paths compose into a write that outlives the window.
+
+`onCaptureRaidBulk` / `onCaptureUndo` / `onCaptureFieldEdit` are threaded unwrapped, and
+`raid-panel.tsx`'s `applyBulk` calls `onCaptureBulk` **before** its per-row `onSave` — so in a RAID
+popout the per-row saves are guarded away while the undo entry still lands. `useUndoHotkey` is then
+mounted unconditionally, so Ctrl+Z there calls the unguarded `undoApi.undo` → a real `setRaid`. Only
+the visible undo/redo BUTTONS are popout-gated, which is why the affordance is invisible rather than
+merely available.
+
+★★ The part that is not popout-local: `undo()` calls `logActivity("undo", …)`, and `use-activity-log`
+writes the log to `localStorage` with **no `isPopout` check**. That key is shared with the opener and
+holds the whole array written from each window's own in-memory copy — so a popout undo persists a line
+that survives the window closing, and can clobber entries the main window added since the popout
+mounted. Every other popout write is discarded on close; this one is not.
+
+★ Gating `useUndoHotkey` on `isPopout` closes both the `setRaid` and the persisted activity line in one
+edit, and is the reason this is filed as one item rather than two.
+
+---
+
+## 92. The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open
+
+**This is a TRAP, not a defect.** The one instance that bit is fixed and regression-pinned. The
+CYCLE it exploited is still there, and the next module-eval snapshot taken anywhere in that graph
+fails the same silent way.
+
+The cycle, all three edges VALUE imports (reproduce — each returns one line; ★ deliberately no line
+numbers written down here, see the note at the end of this entry):
+
+```bash
+grep -n "defaultStorageConfig"     src/app/settings-types.ts | head -1   # settings-types → workspace
+grep -n "sanitizeProjectDocuments" src/app/workspace.ts      | head -1   # workspace → document-model
+grep -n "EXPORT_SECTION_KEYS"      src/app/document-model.ts | head -1   # document-model → settings-types
+```
+
+Entered through `./storage` — how the app actually loads — `document-model` evaluates while
+`settings-types` is still mid-evaluation, so anything it snapshots at module scope captures the
+**partially-initialised** value. `document-model` had `const SECTION_KEYS = new Set(EXPORT_SECTION_KEYS)`,
+which captured an EMPTY set and froze it for the process, silently rejecting every `dataSection`
+block — the one block type that embeds live project data. Fixed by reading the array at call time —
+see `isSectionKey` in `document-model.ts`.
+
+★★★ **Why this needs a register entry rather than just the code comment: the failing shape is
+invisible to the obvious test.** Imported DIRECTLY, `settings-types` finishes evaluating first and
+the snapshot is fine — so the module's own suite stayed green while the app was broken. Only an
+import-order test reproduces it, which is why `document-model.storage-cycle.test.ts` exists and why
+its first line says the import ORDER is the test. A future snapshot elsewhere in this graph gets no
+such test for free.
+
+**How to triage a candidate — a structural test, decidable from the import graph.** The bug requires
+the EXPORTER of the snapshotted value to transitively import the SNAPSHOTTER. Import declarations are
+hoisted and evaluated before any statement in a module body, so where `exporter →* snapshotter`, the
+snapshotter can evaluate before the exporter has run a single line and the binding is guaranteed
+uninitialized. Where that edge does not exist, the exporter always completes first. Necessary AND
+sufficient — no need to reason about entry points case by case.
+
+Verified here rather than taken on faith, with one positive control and one real candidate:
+
+| exporter → snapshotter | reaches? | verdict |
+|---|---|---|
+| `settings-types.ts` → `document-model.ts` (the known bug) | YES, via `workspace.ts` | at risk — the rule predicts the defect |
+| `types.ts` → `sanitize-entities.ts` (`ABSENCE_TYPE_SET`) | no | safe |
+
+★★ **The risk marker is NOT "snapshots an imported value"** — that is common and almost always fine.
+It is **a CONSTANTS or TYPES module that imports a VALUE.** `types.ts` and `scheme-apply.ts` are
+LEAVES (`types.ts` has exactly one import and it is `import type`; `scheme-apply.ts` has none), which
+is why every candidate in the sweep came back safe. `settings-types.ts` is the anomaly: it imports the
+VALUE `defaultStorageConfig` from `./workspace`, and that single edge creates the only real cycle
+here. So the live-candidate set is: anything snapshotting a value exported from `settings-types.ts`,
+or from any module `settings-types` transitively reaches.
+
+**The trap shape:** any `new Set(...)`, `new Map(...)`, `Object.freeze(...)`, `.map()`/`.filter()`
+result, or derived constant computed at MODULE SCOPE from an imported value. A lazily-memoized version
+has the same failure moved to first call. Read the imported value inside the function that needs it.
+
+★★★ **The `new Set(...)` form is the DANGEROUS one, and that inverts the obvious intuition.**
+`new Set(undefined)` is a silently EMPTY set — verified, size 0, and `new Set(null)` likewise — so the
+snapshot "succeeds" and every later membership test quietly answers false. Calling a method on the
+same uninitialized binding (`X.map(...)`) throws at import time instead (`TypeError`; an untransformed
+ESM read of a `const` still in TDZ throws `ReferenceError`). **The LOUD failure is the SAFE one.** A
+crash at startup is fixed in minutes; an empty Set ships. So "calling a function at module-eval is
+more fragile" is true and beside the point — it is more fragile and LESS dangerous.
+
+★ Counterfactual severity is easy to overstate, so state it precisely. Had `ABSENCE_TYPE_SET` been
+reachable, the consequence would NOT have been dropped absences: `sanitizeAbsenceType`
+(in `sanitize-entities.ts`) falls back to `"other"` and never returns null, so every
+vacation/sick/training row would have been silently REWRITTEN to "other". Type corruption, not data
+loss — both bad, but they need different detection and different recovery.
+
+**Fix options**, in ascending order of ambition: (a) leave it and rely on the call-time convention,
+(b) break the cycle by moving `defaultStorageConfig` out of `workspace.ts` into a leaf module so
+`settings-types` no longer imports a value from it, (c) a lint rule or a guard test that fails on a
+module-scope derived constant in this graph. (b) is the only one that removes the trap rather than
+documenting it.
+
+★★ **Taking option (b) silently RETIRES the behavioural guard, and that is an accepted DECISION, not
+an oversight.** `document-model.storage-cycle.test.ts` can only fail while this cycle exists — it
+works by importing `./storage` first so `document-model` evaluates while `settings-types` is
+mid-evaluation. Remove the cycle and that condition is gone: the test passes for a new reason, and
+nothing announces that it stopped protecting anything. Deliberately NOT guarded against, because the
+only way to guard it is to assert the cycle EXISTS — which pins the current architecture as a
+requirement, so whoever takes option (b), the one fix that removes the trap rather than documenting
+it, would be met with a failing test demanding they put the cycle back. A guard that quietly retires
+once its hazard is gone is the right shape.
+
+★ The SHAPE half survives (b). The source scan added in `4fd23a7b` reads document-model's SOURCE
+TEXT, so it is order- AND cycle-independent and keeps biting no matter what happens to the graph;
+it is also the only guard that can fire from inside `document-model.test.ts`, whose direct-import
+path can never reproduce the behaviour. The two are complements: the behavioural test pins the
+CONSEQUENCE, the scan pins the SHAPE — and the scan alone would NOT catch a different way of
+snapshotting early (a lazy memo, an eval-time `.map`, a derived frozen array), which is why both
+stay. Reproduce:
+
+```bash
+npx vitest run src/app/document-model.test.ts -t "never snapshots"   # 1 passed | 28 skipped
+```
+
+★ **Sweep result, 2026-08-06: CLEAN.** All five candidates were checked and none is reachable, so this
+entry has NO unfixed instances behind it — it is purely a trap for future work. Do not re-run the
+sweep expecting to find something; re-run the check only when a new VALUE import is added to a
+constants or types module, which is the event that can create a new cycle.
+
+★★ **If you write the graph check, handle `export … from`.** The sweep's first parser read `import`
+statements only and ignored re-exports. Those are real runtime edges, and a barrel is built entirely
+from them — `sanitize.ts` is nothing but `export * from …` lines, one of them `"./sanitize-entities"`
+— so the gap made it report that
+`sanitize.ts` does not reach `sanitize-entities.ts`, which is false. Any reachability answer produced
+without re-export edges is untrustworthy in both directions.
+
+★★ **Cite SYMBOLS here, not line numbers — this entry proved its own point.** Its first draft pinned
+the three cycle edges and `isSectionKey` to specific lines. Within the SAME session another agent
+edited `document-model.ts`, moving the import from :14 to :29 and `isSectionKey` from :66 to :81, so
+two of four citations were stale before the entry was ever committed. The greps above are written to
+PRINT the current line instead. A `file:line` in this register is wrong the moment anyone touches the
+file, and nothing gates it.
+
+★ **No durable script exists.** The walker behind the table above lives in a scratchpad outside the
+repo, so those two rows are reproducible today only by rewriting it. Whether a checked-in version
+belongs in `scripts/` is an OPEN DECISION nobody has taken: it would be gate-shaped, and a gate that
+scans the import graph needs its own justification, allowlist and failure policy. Until then, treat
+the rule as a manual check and the table as a worked example of applying it.
+
+---
+
+## 93. The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open
+
+Both PPTX paths build the same sentence from a hardcoded English frame and a section title that the
+registry has ALREADY translated, so a German deck gets a mixed-language sentence:
+
+> "Showing the first 100 of 125 **Aufgaben** rows."
+
+Reproduce:
+
+```bash
+grep -nE '`Showing the first' src/app/export-pptx.ts src/app/doc-render-pptx.ts   # 2 call sites
+grep -n  "Showing the first" src/app/export-pptx.ts src/app/doc-render-pptx.ts    # 3 lines — one is a comment
+```
+
+★ Use the first form. The plain-substring search returns THREE lines, not two: the extra one is prose
+inside the `doc-render-pptx.ts` comment that describes this very problem, and reading it as a third
+call site sends you looking for a site that does not exist.
+
+The two sites are NOT equally documented: `doc-render-pptx.ts` carries a ★★ comment above its
+copy explaining the mixed-language problem and why it was deferred; `export-pptx.ts` — the older
+workspace-export path, which has shipped this for far longer — has no comment at all. Anyone fixing
+this from the code alone will likely find one and miss the other.
+
+The second line, "Export to XLSX for the full list.", is hardcoded English in both places too, but
+it is at least monolingual.
+
+**Fix:** an i18n key taking the two counts and the title as positional placeholders — shaped like
+`t(lang, "<newKey>", cap, total, title)`, applied at BOTH sites. ★ No such key exists yet and this
+entry deliberately does not invent a name for it: a plausible identifier written down in prose gets
+grepped for, not found, and then re-created slightly differently by the next person. Name it when you
+add it. Deferred because it
+means editing `i18n.de.ts`, which has its own handling rules (CRLF, real umlauts, no ASCII
+substitutes — see AGENTS.md), and an awkward sentence is much less bad than silently dropping rows.
+
+★ Related but already solved, and worth copying rather than re-deriving: the continuation marker in
+the same renderer uses a NUMERIC `(2/3)` instead of a word like "(cont.)" precisely to dodge this
+problem for free. Prefer that trick wherever a marker can carry no prose.
+
+---
+
+## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
+
+**Half of this is already fixed — do not re-open the fixed half.** `doc-render-pptx.ts` now derives
+`BODY_LINES_PER_SLIDE` from the body box and font size (`:247`) and chunks each slide's lines through
+`paginateLines`, so overflow went from UNBOUNDED to BOUNDED.
+
+What remains: the budget counts lines in the array, not lines as RENDERED. `bodyPr` emits
+`wrap="square"` with no `normAutofit`/`spAutoFit`, so PowerPoint's no-autofit default lets text run
+past the shape rather than scaling it — and one long line wraps to two or three rendered lines while
+counting as one. The budget is therefore sound for short lines and optimistic for long ones. A
+`dataSection` row rendered as `"Col: value · Col: value · …"` is exactly the long-line case.
+
+★★★ **No test in this repo can catch it, and that is the reason it is filed here rather than left to
+CI.** jsdom has no layout, the box is never rendered, and the overflow is invisible in the XML — it
+shows up only when a human opens the deck. The module's own comment states this limit honestly; this
+entry exists so the OWED EYE VERIFICATION is tracked somewhere a release checklist will see it.
+
+**Verify by hand:** export a document containing a `dataSection` over a register with wide rows (RAID
+with long titles is the worst case), open the deck in real PowerPoint, and look for body text
+crossing the bottom of the content area.
+
+**Fix options:** (a) emit `normAutofit` and let PowerPoint shrink text to fit — one attribute, but it
+makes font size vary per slide; (b) estimate rendered height from a character-per-line budget derived
+from the box width and an average glyph width, which is still an estimate but a much closer one;
+(c) hard-wrap long lines at a character count before pagination, so the count and the render agree.
+
+---
+
+## 95. No test exercises a real Turso database on ANY path — open
+
+Framing matters here: this is **not** a `documents` gap. It is a known limit of the whole meta-blob
+class and of the Turso layer generally, and `documents` merely inherits it.
+
+There is no `@libsql/client` dependency at all — the app reaches Turso over the HTTP pipeline API
+(`turso-pipeline.ts`), and tests mock `fetch`. So no test in the repo opens a database, real or
+in-memory:
+
+```bash
+grep -rn ":memory:" src/app/*.test.ts        # no hits
+grep -n "libsql" package.json                # no hits — HTTP pipeline, not a driver
+```
+
+`turso-schema.documents.test.ts` (16 tests — `grep -cE "^\s*it\(" src/app/turso-schema.documents.test.ts`;
+★ the naive `grep -c "it("` answers 17 because it also matches `.split(`) is a good test of the layer it covers, and it is explicit
+about what it does: its `resultsFromStatements` helper REBUILDS the SELECT results by parsing the
+INSERT statements the save just emitted. That proves the encode and decode halves agree with each
+other. It cannot prove either agrees with SQLite — malformed SQL, a column-type surprise, a quoting
+bug, or a driver/endpoint quirk all pass.
+
+The same is true of the other meta-blob fields (`insights`, `knowledgeItems`) and of the entity tables.
+
+**Fix options:** (a) accept it and say so in the test files, which is nearly the status quo;
+(b) one integration test against a real SQLite file through the same statement builders, catching the
+"is this valid SQL" class without needing a network; (c) a recorded-fixture test replaying a real
+pipeline response captured once by hand. (b) is the cheapest real improvement, and it would cover
+every entity at once rather than per-field.
+
+★ Do not size this as a documents task. The work is the harness; once it exists, adding a field to it
+is minutes.
+
+---
+
+## 96. The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN
+
+`doc-render-html.ts` backs the in-app document PREVIEW and the print-to-PDF path, so its module graph
+loads whenever a user opens a document — not only when they click Download. Extracting
+`doc-data-section.ts` removed the OOXML builders and the ZIP writer from that graph (that part is
+done and is why the extraction happened). What remains is the section registry itself.
+
+Measured, and the type/value split matters:
+
+| entry | modules reachable | runtime (value imports only) | type-only, erased at build |
+|---|---|---|---|
+| `doc-data-section.ts` | 84 | **60** | 24 |
+| `export-sections.ts` | 83 | 59 | 24 |
+
+★★ So `doc-data-section` adds exactly ONE runtime module on top of `export-sections`, and
+`export-sections` alone accounts for 59 of the 60 — it pulls the csv-codecs column definitions, i18n
+and the entity types. There is nothing to trim inside `doc-data-section`; the whole cost is the
+registry, which the preview needs **only when the document actually contains a `dataSection` block**.
+
+★★★ **An earlier report of this said "84 modules" without separating type-only imports, which
+overstates the runtime cost by 24 modules. If you have seen that number quoted, 60 is the one that
+means anything.** To reproduce: walk the transitive `./`-relative import graph from the entry file,
+resolving each specifier `.ts` then `.tsx`, and count the modules reached — once following EVERY
+`from "…"` edge, and once skipping edges whose whole clause is `import type` / `export type` (and
+brace lists where every specifier is `type X`). The gap between the two counts is the type-only
+tail, which is erased at build and costs nothing at runtime.
+
+**Fix:** make the registry a dynamic `import()` inside `resolveDataSection`, so a document with no
+`dataSection` block never loads it. That changes the function to async, which ripples into all three
+renderers — so it is a real change, not a one-liner.
+
+★ **Honest state: no bundle measurement has been taken.** Module COUNT is not bytes, Next.js
+code-splits, and nobody has reported the preview as slow. This is recorded because the "59 of 60 come
+from one conditionally-needed import" fact is non-obvious and expensive to rediscover — NOT because
+there is evidence of a user-visible problem. Measure before scheduling it, and close this as
+"not worth it" if the bytes are small.
+
+---
+
+## 97. The DOM constraint INVERTED for the document load paths — open (TRAP, safe today)
+
+**Nothing here is broken. The danger is that the rule everyone has memorised is now BACKWARDS for
+four specific call sites**, and the failure it produces is silent.
+
+The lore this repo repeats — §36(a), the `templates.ts` guard, the sample-generator landmine — is
+*"you must NOT call DOMPurify here, the generator runs under bare node."* For the document load paths
+it is now the opposite: **you MUST ensure a DOM exists, or documents are lost without a diagnostic.**
+`document-rich-fields.ts` says as much in its own header (the DOM-free rationale is called obsolete
+there), but that is a file you only open once you already know to look. This entry exists because the
+register is what someone reads while PLANNING.
+
+### Measured, with a negative control
+
+Reproduce by installing JSDOM into `globalThis` before a dynamic import of the codec (exactly what
+`scripts/generate-sample-workspace.ts` does in its header), then running the same decode with and
+without it:
+
+```
+WITHOUT JSDOM:  CSV → documents defined: FALSE · html "<missing>"
+                Markdown → documents defined: FALSE · html "<missing>"
+WITH JSDOM:     CSV → documents defined: true · html "<p>keep me</p>"   (and <script> stripped)
+                Markdown → documents defined: true · html "<p>keep me</p>"
+```
+
+With no DOM the DOMPurify call throws, the decoder's own `catch` swallows it, and the documents are
+gone. No error, no log, no partial result.
+
+★★ And it is silent even though a reporting channel EXISTS. `csvToWorkspace` / `markdownToWorkspace`
+both take an `ImportDiag`, which is how other import problems reach the user — but `csvToDocuments`
+and `markdownToDocuments` take no diag, and their caller is a bare `if (docs) ws.documents = docs;`,
+so a falsy result is skipped without a word. A user importing a file therefore gets a diagnostics
+report that says nothing at all about the documents they just lost. Threading `diag` into these two
+is the cheapest partial improvement available.
+
+### The blast radius is NOT uniform — and the worst path is now CONTAINED
+
+Four load paths compose `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`. All four now
+wrap it in a LOCAL `try/catch`, so a throw costs the documents and nothing else:
+
+| path | on a missing DOM | what is lost |
+|---|---|---|
+| CSV (`csvToDocuments`) | local catch | documents only |
+| Markdown (`markdownToDocuments`) | local catch | documents only |
+| Turso (`rowsToWorkspace`) | local catch | documents only |
+| JSON (`jsonToWorkspace`) | local catch **(added)** | documents only |
+
+★★★ **The JSON path used to be categorically worse and this is why the entry exists.** It had no
+local catch, so the throw reached `jsonToWorkspace`'s outer catch-all, which answers a NON-STRICT load
+with `emptyWorkspace()`. A `.json` project file therefore came back not "missing its documents" but
+EMPTY — measured, **tasks survived: 0** — losing every task, RAID item and milestone, silently. JSON is
+also the most likely thing a bare-node script touches, so the worst severity sat on the most reachable
+path. Fixed: the sanitize is wrapped locally, non-strict degrades to documents-dropped and records
+`workspace.documentsDropped` in the diagnostics ring, and **`strict: true` still throws** so the sample
+generator keeps failing loudly rather than writing a near-empty artifact. Pinned by four tests in
+`workspace.documents.test.ts`, one of which was run RED against the old code and reported the
+`tasks: 0` above.
+
+★ The containment is deliberately narrow — it wraps those two calls, never the whole decode, because a
+broader catch would make real file corruption survivable, which is exactly what `strict` exists to
+prevent. Degrading a throw to "documents dropped" also matches what the field already does with
+garbage input, so it introduces no new failure mode.
+
+★★ **The underlying DOM dependency is UNCHANGED and this entry stays open for it.** Containment limits
+the damage; it does not make the decoders work without a DOM. A bare-node importer still silently
+loses every document — it just keeps the rest of the workspace now.
+
+### ★★ The trigger is narrower than "has documents" — measured
+
+The allow-list only runs for a **paragraph** block, so most shapes are unaffected. Without a DOM:
+
+| workspace shape | tasks survived |
+|---|---|
+| no documents at all | 1 — fine |
+| a document with only a heading block | 1 — fine |
+| a document with a PARAGRAPH block | **0 — whole workspace lost** |
+
+That narrowness is why this has not bitten yet, and it is also what makes it treacherous: a bare-node
+script can pass every test against document-free fixtures and fail the first time someone's real
+project contains a paragraph.
+
+### Why it is safe today
+
+Verified by grep, not assumed: no file outside `src/app` imports these codecs directly, the only
+DOM-free importer is `scripts/generate-sample-workspace.ts` (which installs JSDOM into `globalThis`
+BEFORE its `await import("../src/app/storage")` — the dynamic import is load-bearing, a static one
+would hoist above the install), and every runtime decode caller is browser-side.
+
+### What would break it
+
+Removing or reordering the generator's JSDOM install; converting its dynamic import back to a static
+one; a NEW bare-node script or codegen step that imports `storage`, the CSV codec or the Markdown
+codec; or a test that exercises a decode path in a non-jsdom environment.
+
+**Fix options:** (a) leave it and rely on the comments, which is the status quo; (b) make the decoders
+distinguish "no documents" from "could not sanitize" so the failure is loud — the JSON path especially
+should not answer a DOM problem with an empty workspace; (c) have the sanitizer detect the absent DOM
+and throw a NAMED error, so the catch sites can decide rather than guess; (d) a tiny DOM shim so the
+allow-list degrades to a no-op instead of throwing — rejected on sight, because it would silently
+store unfiltered HTML, which is the vulnerability the pass exists to close.
+
+★ Cross-reference: §36(a) records the OTHER direction (a sanitizer that must stay DOM-free because it
+is in the generator's import graph). Both are true at once, of different modules, which is exactly why
+neither should be quoted as a general rule.
+
+---
+
+## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
+
+**Nothing is broken today and this is NOT a regression the documents slice introduced.** It is a
+pre-existing boundary that the documents feature makes newly consequential, and it is recorded
+separately because the reason it now matters did not exist before this slice.
+
+`nonEmptyCollectionCount` and `workspaceRecordCount` (both in `workspace.ts`) each enumerate the same
+THIRTEEN entity collections. `documents` is in neither — and neither are `knowledgeItems`, `insights`,
+`timelogLinks` or `settingsOverrides`. **State that scoping whenever this entry is quoted:** four
+sibling slices are equally invisible, so anyone reading it as "the documents slice forgot a counter"
+will go looking for a bug that is not there.
+
+### Measured, with a positive control
+
+```bash
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.tasks"           # 1
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.calendarEvents"  # 1
+```
+
+Run 2026-08-06; the `ws.tasks` / `ws.calendarEvents` lines are the control, so a zero from a broken
+pattern cannot masquerade as a finding. `knowledgeItems` and `insights` also return 0 from the first
+command, which is how the scoping above was established rather than assumed.
+
+### What it defeats, by name
+
+Both counters feed the save-effect choke point in `use-storage-backend.ts`, which computes
+`curCollections` / `curRecords` from the outgoing workspace and enforces two invariants:
+
+- **L3, the full wipe** — `curCollections === 0` while the previous save had `>= 2`.
+- **Layer B, the unexplained mass deletion** — `isMassDeletion(prevRecords, curRecords)`.
+
+A save that dropped every document while leaving the other slices untouched produces IDENTICAL
+`curCollections` and `curRecords`, so neither invariant fires and the destructive write proceeds with
+no refusal, no `recordDataLossEvent` entry, and no toast. `allowDestructiveRef` is never even
+consulted, because nothing looked destructive.
+
+### Why it matters more than the four siblings it shares the gap with
+
+Documents are user-AUTHORED long-form content: one record can represent hours of work, which is not
+true of `insights` (machine-derived) or `settingsOverrides` (reconstructible). And a project holding
+ONLY documents counts as **zero** non-empty collections — a completely plausible state for this
+feature, since a user can create a project and write a document before entering a single task. That
+combination is what is new.
+
+### Why widening the counters is NOT free, and was deliberately not done here
+
+Adding `documents` to both functions is two lines each, but the counters are the INPUT to a
+destructive-save guard: raising `curCollections` and `curRecords` shifts the L3 and Layer-B thresholds
+for every existing project, changing when saves are REFUSED. That is a behaviour change to the
+data-loss machinery and belongs in its own slice with its own tests — not as a trailing edit to the
+slice that noticed it. The failure mode of getting it wrong is a guard that refuses legitimate saves,
+which users experience as data loss of a different kind.
+
+★ If it is picked up: decide deliberately whether the other four join at the same time. Adding only
+`documents` leaves the register's own scoping stale, and a half-widened counter is harder to reason
+about than either end state.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
@@ -4326,13 +5179,301 @@ believing a severity label.
 
 ---
 
+## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY CLOSED 2026-08-08
+
+`e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
+list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
+persists its optional slices as kv entries — `fieldVisibility`, `features`, `steeringCommittee`,
+`timelogLinks`, `knowledgeItems`, `insights`, `settingsOverrides`, `calendarEvents`, `documents`,
+`documentVersions` — and the seed's kv map carries `documents` (added in S1), `documentVersions`
+(added in S2) and, since 2026-08-08, `insights` + `timelogLinks`. Everything else on that list is
+still dropped. ★★ The numbers below had already rotted TWICE (an earlier revision said "nine", and the
+merge that renumbered this register briefly carried "a minority" and "two of ten" in the same table
+row), so treat them as measured-at-a-date, not as durable. **Re-run the commands rather than quoting
+the figures:** `grep -c "^const KV_" src/app/browser-backend.ts` (measured 2026-08-08 → **10**, the
+optional kv slices listed above).
+
+★★★ THE TWO SIDES ARE NOT COUNTED THE SAME WAY, and an earlier revision of this paragraph glossed
+that as "`e2e/seed.ts`'s own `KV` map (→ 4)". **The map has ELEVEN entries, not four.** Four is its
+INTERSECTION with the ten optional slices; the other seven (`plan`, `fxRates`, `status`,
+`milestones`, `changes`, `stakeholders`, `project`) are core kv slices that were never on the
+optional list. A reader who runs a bare count gets 11, sees the entry claim 4, and concludes the
+entry is wrong — so quote the intersection and say so. Measured 2026-08-08: map entries **11**,
+intersection **4** (`documents`, `documentVersions`, `insights`, `timelogLinks`), dropped **6**
+(`fieldVisibility`, `features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`,
+`calendarEvents`). Reproduce the intersection itself rather than eyeballing the map:
+
+```bash
+node -e 'const s=require("fs").readFileSync("e2e/seed.ts","utf8");
+const m=s.match(/const KV: Record<string, string> = \{([\s\S]*?)\};/)[1];
+const keys=[...m.matchAll(/(\w+):\s*"([^"]+)"/g)].map(x=>x[1]);
+const opt=["fieldVisibility","features","steeringCommittee","timelogLinks","knowledgeItems",
+"insights","settingsOverrides","calendarEvents","documents","documentVersions"];
+console.log("entries",keys.length,"| seeded",keys.filter(k=>opt.includes(k)).join(","),
+"| dropped",opt.filter(k=>!keys.includes(k)).join(","))'
+```
+
+★★ The consequence is a gate that reads far stronger than it is. A view whose data never arrives
+renders its EMPTY STATE, so axe scans a panel with no rows, no per-row controls and nothing that
+could collide. The run is green and proves close to nothing.
+
+**PARTLY CLOSED 2026-08-08 — `insights` and `timelogLinks` are seeded now, and `Insights` is no
+longer in this position.** Neither slice exists in the curated master, so both are AUTHORED in
+`SEED_WORKSPACE` (the same escape hatch `documents` uses) rather than added to
+`sample-workspace-small.json`, which would force regenerating `-big`, `-huge` and every
+`__fixtures__/golden-*` fixture and make a real format change indistinguishable from a refresh.
+Both scans came back CLEAN with rows: `-g "Insights"` 5/5 and `-g "Time bookings"` 5/5, so unlike
+`documents` these two hid no violation. `e2e/seed-content.spec.ts` carries the matching guards.
+
+★★★ CORRECTION 2026-08-08 — the seeded insights were first justified as "three insights, not one, so
+a duplicate-name failure can render at scan time". **That was false twice over.** (1) The three rows
+had three DIFFERENT types, and `insightTitle` (`insights/insight-text.ts:28`) is
+`t(lang, TITLE_KEY[insight.type])` — type-driven and nothing else — so three different types give
+three different titles and three different accessible names; no collision was possible. (2) Even a
+real collision would not reach the gate: axe-core 4.12.1 has NO rule for two BUTTONS sharing an
+accessible name, and the only adjacent rule, `identical-links-same-purpose`, is links-only and tagged
+`wcag2aaa`, which `e2e/a11y.spec.ts` does not request (it asks for `wcag2a wcag2aa wcag21a wcag21aa`).
+The seed now carries FOUR insights of which TWO share the `milestoneSlip` type, so the collision
+really does render — but it is pinned by an assertion in `e2e/seed-content.spec.ts`, not by axe. See
+§120. ★ Reproduce the axe half:
+```bash
+node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" | "+r.tags.join(",")).join("\n"))'
+```
+
+★★ HALF of `timelogLinks` still does not reach a scan, and a green Time bookings run must not be read
+as covering it. `timelog-panel.tsx` merges linked-but-unfetched projects into `knownProjectRefs`
+under a synthetic name, so `projectLinks` renders real rows with row-qualified controls; the People
+table renders `sync.users`, which is network-only, so `userLinks` renders nothing. Covering the
+People table needs a route stub, not a seed row.
+
+★ Still open for the six above. `steeringCommittee` and `calendarEvents` are the worse two: the
+master DOES carry them, so the seed silently DISCARDS curated data and the e2e app is not a faithful
+load of the master — a harness-fidelity bug independent of any scan.
+
+★★★ This is not theoretical, and the evidence is the reason the entry exists. `documents` had the
+identical defect; adding `documents: "documents"` to the kv map and seeding a second row turned up a
+REAL `serious` violation on the first run — `scrollable-region-focusable` on the preview pane,
+across all five scheme combos. That violation had been invisible because the pane had nothing to
+scroll. Reproduce the shape of the check with:
+
+```bash
+npx playwright test e2e/a11y.spec.ts --project=chromium -g "Insights" --workers=1
+```
+
+★★ HONEST CAVEAT, and the reason this was NOT folded into the documents commit: seeding a slice for
+the first time can turn a currently-green scan RED, because it exposes markup the gate has never
+actually examined. That is the gate working, but it is a finding that deserves its own change with
+its own fix, not a surprise inside an unrelated commit.
+
+★ The fix is one line in the kv map when the MASTER already carries the slice (the four remaining
+case-(b) ones are not in it, so they need data authored in `SEED_WORKSPACE` too — that is what
+`insights` and `timelogLinks` needed). The key name is the same on both sides today (the workspace
+field name equals the kv key), but the map's VALUE is the kv key, not the field name, so check the
+string against `browser-backend.ts`'s `KV_*_KEY` constants — a wrong one seeds nothing and fails
+nothing. The cost is otherwise entirely in whatever the scan then finds.
+
+★ Related trap, same file: the seed hardcodes its `indexedDB.open` version while the app derives it
+from `IDB_VERSION`. They agree today; a future store addition that bumps one and not the other seeds
+the wrong shape silently. A comment now sits at that line.
+
+## 100. Tab ejects focus from a portaled popover opened inside a modal — open, a11y
+
+**Measured in Chromium 2026-08-06, not inferred.** Open any edit modal → open the field-visibility
+popover in its header → press Tab ONCE. Focus lands back on the trigger button **while the popover
+stays open**, and the same happens from a checkbox inside the popover. So the checkbox list and the
+Reset button have NO keyboard path at all (WCAG 2.1.1). Both probes below were run; the second is
+what proves the cause is the portal rather than the radiogroup:
+
+| start | Tab → | popover |
+|---|---|---|
+| checked tier radio | the trigger | still open |
+| a field checkbox | the trigger | still open |
+
+**Cause.** `Modal`'s Tab trap collects focusables from `dialogRef.current` and guards on
+`container.contains(active)`. `PopoverPanel` renders through `createPortal` into `document.body`, so
+its content is NOT a descendant of that container and `contains` is false for EVERY element inside
+it — not merely at the boundary. The first Tab therefore satisfies the "focus escaped" branch
+unconditionally and re-focuses the modal's own first/last focusable. The dismissal stack is working
+as designed and is not the bug: a popover pushes kind `"layer"`, which deliberately traps nothing so
+the modal keeps Tab. The gap is that the modal's trap cannot SEE portaled layer content, so it does
+not deliver on that stated intent.
+
+★★ **Pre-existing, and NOT introduced by the field-controls-into-header change.** The old cog
+popover held the same checkbox list in the same `PopoverPanel` inside the same `Modal` — the second
+probe above is exactly that path. What the move changed is prominence: the whole field-visibility
+surface now lives behind the popover, so every keyboard user meets this on their first Tab. The tier
+switch itself stays operable, because focus lands on the checked radio and arrows work.
+
+★ **Invisible to every gate.** `modal-field-controls.test.tsx` renders the control STANDALONE, never
+inside `Modal`, so no unit test can see it; axe scans views, not interaction-opened modals, and does
+not evaluate cross-widget Tab order in any case. A test for this must mount the control inside a real
+`Modal` — that mounting, not the assertion, is the load-bearing part.
+
+★ Two directions, neither prescribed: give `PopoverPanel` its own Tab cycle over `panelRef` while
+open (Escape and outside-click stay the exit), or teach the modal's trap to include the DOM of any
+open `"layer"` above it. The first is contained; the second fixes the class. Either needs a sweep of
+all `PopoverPanel` consumers — three of them (`action-cta-controls`, `action-popover-trigger`,
+`version-menu`) have no test file at all.
+
+★ Related and separate: nothing restores focus to the trigger when a popover closes. That is a
+repo-wide `PopoverPanel` gap — no consumer does it — and worth folding into the same visit.
+
+---
+
+## 101. `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y
+
+The checked segment is distinguished from its siblings by fill alone (`--segment-active-bg` against
+`--segment-track-bg`). AGENTS.md's own rule for `ToggleButton` treats a lightness difference of
+**≥3:1** as the additional non-colour distinction WCAG 1.4.1 requires. Computed from
+`builtin-schemes.ts` (reproduce with the WCAG relative-luminance formula on the two tokens):
+
+| scheme | track vs active | |
+|---|---|---|
+| harbor-light | 10.42:1 | pass |
+| meridian-light | 8.73:1 | pass |
+| umber-light | 10.54:1 | pass |
+| harbor-dark | **2.38:1** | fail |
+| meridian-dark | **2.43:1** | fail |
+| umber-dark | **2.25:1** | fail |
+
+★★ There is no second cue to fall back on. The selected segment carries
+`shadow-[var(--shadow-control)]`, but `--shadow-control` is `none` in `globals.css` and **no scheme
+overrides it** (`grep -c "shadow-control" src/app/builtin-schemes.ts` → 0), so that class paints
+nothing in any scheme. The light schemes pass on lightness alone; the dark ones have neither.
+
+★ The screen-reader side is NOT affected and needs no fix: this is a real `radiogroup`, so
+`aria-checked` carries the state regardless of colour. That is the difference from the `aria-pressed`
+family in §55 — the gap here is purely visual, for sighted low-vision and CVD users.
+
+★★ **Pre-existing and repo-wide — not introduced by moving the field tier switch into the primitive.**
+The tier switch's previous hand-rolled buttons used the very same two tokens, and the primitive has
+**31 invocations across 14 files** (see the reproduce command in `segmented-control.tsx`'s header), so
+a fix lands everywhere at once. Deliberately not fixed in the field-controls slice: a token change
+touching every segmented control in the app wants its own slice and its own eye-verify.
+
+★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
+evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
+
+## 102. Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet
+
+The full audit is [`docs/handrolled-ui-inventory.md`](handrolled-ui-inventory.md), taken 2026-08-07 on
+`63e4d768`. It is the work-list for **both** parts; this entry exists so the register points at it.
+
+**What 0.221.0 actually converted** — 17 call sites across six files (four panes — Insights,
+Dashboard, Budget, Milestones — plus the milestone modal), and nothing else:
+`insights-panel.tsx` (4) · `insight-recommendation-controls.tsx` (3) ·
+`dashboard-sections/insights-card.tsx` (4) all moved `Button` from `variant="ghost"` to
+`"secondary"`; `budget-panel.tsx` converted 4 hand-rolled `<button>` to `Button variant="secondary"`;
+`milestones-panel.tsx` and `milestone-edit-modal.tsx` each moved the achieved checkbox to
+`ToggleButton`. **The remainder is a ratchet, not a scheduled slice** — acting on the inventory and
+producing it are separate jobs, and converting 311 elements in one sweep is unreviewable.
+
+The scale, so nobody re-derives it: **341** `<button>` sites in non-test `.tsx` across **152** files;
+18 are the primitives' own internals; of the remaining 323, **12 are the word `<button>` in a
+comment** and **311 are elements** — 134 correctly hand-rolled, **141 convertible** to `Button`,
+**36** to `IconButton`.
+
+★★ **The glyph baseline in the slice plan is not reproducible under the filter that plan's own
+command states, and the difference is not drift.** **11 of the 13** quoted figures (`•` 21 · `✓`
+17 · `▲`/`▼` 17 · `↑` 12 · `⚠`/`⋮`/`↓` 9 · `▸` 4 · `▾` 3 · `🗒` 2) match `src/app` scanned with the
+`--include=*.tsx --exclude="*.test.tsx"` filters **not in effect** — `.ts` files and test files
+included. Under the stated filter the same glyphs measure 7 · 10 · 14 · 5 · 8/2/4 · 4 · 3 · **0**.
+★ The two that do NOT match are the two the sweep is sized from: `✕` measures **42** (not 47) and
+`×` measures **73** (not 75); under the stated filter they are **19** and **20**, not 24 and 22.
+Two things follow. The `🗒` count is not UI at all — both hits are in the generated
+`operating-guide-builtin.generated.ts`, and there is **no `🗒` glyph anywhere in the app's markup**
+(the notes badge renders an icon at `notes-badge-button.tsx:32`). And `×` inflates 20 → 73 mostly
+because test comments are full of arithmetic, so the multiplication-vs-close-glyph triage the plan
+calls "the main manual work" is about a third the size it looks: of **20** real `×` lines, **6** are
+multiplication or prose and 14 are close glyphs.
+
+★★★ **DO NOT VERIFY `🗒` WITH `grep` — it fails silently, in both directions.** `🗒` is U+1F5D2,
+outside the BMP, and this environment's grep mishandles it: `grep -rlF '🗒' .` finds **nothing**
+though the glyph is really in nine files, while a bracket expression containing it matches **every**
+non-BMP emoji (`printf 'a 📎\nb 🚀\nc 🗒\n' | grep -c '[✓🗒★]'` → **3**). The `🗒` = 2 figure above
+was confirmed with node, not grep, and is correct. Any glyph count attached to a reproduce command
+must keep non-BMP characters out of the pattern.
+
+★★★ **Six source sites have their glyph pinned by a test assertion, not the two the plan names.**
+`report-table.tsx:148` (`report-table.test.tsx`, and again via `SortResizeTh` in
+`calendar-series-list.test.tsx`) were known. The four that were not: `task-status-glyph.tsx` 54/56 ·
+`dashboard-panel.tsx:364` · `entity-link-picker.tsx:222` · `milestone-horizon-strip.tsx:46`.
+Distinguish them from the ~10 test files that merely mention a glyph in an `it(...)` title — the
+inventory lists both sets so the distinction is not re-derived.
+
+★★★ **A fifth was listed here as pinned and is NOT: `raid-panel-rows.tsx`.** `raid-panel.test.tsx`
+115/122/131 match it with `getByRole("button", { name: /^Severity( [▲▼])?$/ })` — the glyph sits in
+an **optional** group, so the name `"Severity"` matches just as well and blanking the glyph does not
+fail the test. It is a locator written to *tolerate* the glyph, not an assertion that requires it.
+★★ **A `getByRole` name regex containing a glyph looks identical to one asserting it** — check for a
+`?`/`*` around the glyph before calling anything pinned. Nothing else in that file reads `▲`/`▼`.
+
+★★★ **THE `raid-panel-rows` a11y CONCLUSION PREVIOUSLY RECORDED HERE WAS FALSE, AND IT INVERTS.**
+This entry claimed its seven `<th>` were "raw `<th>`s with no `aria-sort` (unlike `SortResizeTh`)",
+so blanking the glyph "would leave sort direction with **no** channel to assistive tech at all".
+**All seven set `aria-sort`** — `raid-panel-rows.tsx` 107, 115, 123, 131, 140, 148, 156;
+`grep -c aria-sort src/app/raid-panel-rows.tsx` → **7**. `AGENTS.md:965` already said so
+("`change-panel.tsx` + `raid-panel-rows.tsx` + `stakeholders-panel.tsx` set aria-sort AND keep a
+▲/▼ inside the button's name"), so a correct line of the always-loaded file was contradicted here
+for a whole release. What is actually true is the opposite: RAID sets `aria-sort` **and** repeats
+that state in the accessible name — the same **double announcement** `SortResizeTh` was changed to
+eliminate. Blanking the glyph removes a redundancy and leaves `aria-sort` standing, so **RAID is an
+argument for the sweep, not a hazard against it**. ★ Six of the seven headers carry the glyph in
+their name; the seventh (`id`, button at `:108`) has `aria-label={t(lang,"id")}`, which overrides
+content, so its glyph is in `textContent` only.
+
+★★★ **The "no channel at all" warning is real and belongs to three OTHER files** —
+`activity-log-panel.tsx`, `resource-directory.tsx` and `roles-editor.tsx`, whose `aria-sort` count is
+**0** each. There the glyph IS the only sort-state channel and an `aria-hidden` SVG would delete the
+information. **Any glyph sweep must `grep -c aria-sort` the file before touching the indicator** —
+that one command distinguishes the two groups, and it is cheaper than the review round that missed it.
+
+★★ **`Button` is step one; the variant is step two.** The insights panes in this very release already
+had `Button` — what changed was the variant, because ghost renders no border. Converting a
+bordered-surface `<button>` to `Button variant="ghost"` deletes its border silently, and jsdom cannot
+see it. Match the variant to the current look and eye-verify.
+
+★★★ **AND THIS RELEASE'S OWN BUDGET CONVERSION BROKE THAT RULE IN THE OTHER DIRECTION — eye-verify
+it.** Three of the four `budget-panel.tsx` sites (now `<Button>` at 668, 675, 684) read
+`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground
+hover:border-ui-dark-blue hover:bg-surface-muted` at `4dd13660` (`git show
+4dd13660:src/app/budget-panel.tsx`) — a **ghost**-looking control that only grows a border on hover.
+Moving them to `secondary` gives them a permanent border they never had. Only the fourth (`:380`,
+`border-ui-dark-blue bg-surface px-2.5 py-1.5`) was a genuine bordered-surface button. So the
+worked example the inventory offered for this rule was in fact a counter-example, and it was
+described as having carried the bordered class string "verbatim", which none of the four did.
+★ The rule stands; the release may need a follow-up to `ghost` on those three if the new border is
+unwanted. That is a look decision, so it needs eyes, not a test.
+
+★★ `ButtonVariant` is `"primary" | "secondary" | "ghost" | "destructive"` (`button.tsx:15`). There is
+**no `danger` variant on `Button`** — `danger` belongs to `IconButtonVariant` (`icon-button.tsx:14`),
+and the inventory named it twice for `Button`, where it would not compile.
+
+★ Two deliberate non-conversions, recorded so they are not re-litigated: the budget bucket drag
+handle (`budget-panel.tsx:455`) carries `draggable`, the drag lifecycle **and** arrow-key reordering,
+none of which `Button` forwards; and `milestone-edit-modal.tsx`'s `linkedTasks` checkboxes stay real
+checkboxes, because a multi-select list is not a binary toggle and `aria-pressed` would announce each
+row as a button rather than a checked item in a set.
+
+★ The largest single conversion family is ~26 close/remove/clear controls spelling the same idea
+three ways (`×` U+00D7, `✕` U+2715, `&times;`), all already carrying an `aria-label`. `XMarkIcon` is
+imported in 13 files already, so converging them adds no dependency — and since each is also an
+`IconButton` candidate, the element and the glyph are one edit, not two.
+
+★ Nothing here is gated. `npm run docs:symbols:check` proves only that a backticked mixed-case name
+exists somewhere in the tree, and skips every `SCREAMING_CASE` name outright; axe has no rule for a
+hand-rolled control that a primitive would have done better. Re-measure before quoting any count
+above.
+
+---
+
 ## Provenance — where these items came from, and what already closed
 
 Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
 it is, and because several entries are **negative results** — work already done that returned nothing,
 which is exactly the kind of thing that gets re-run.
 
-### post-0.215.0 — the snapshot baseline-poisoning slice (§77 · §78 closed)
+### post-0.226.0 — the snapshot baseline-poisoning slice (§77 closed · §78 half)
 
 Triage slice 1 of the harm-ranked pass over this register. No version bump — no user-visible surface
 changed, only what the Trends auto-capture is willing to write.
@@ -4378,6 +5519,67 @@ and fact-checking prose are different jobs; a reviewer doing the first will not 
 empty-load guard's shut gate as a regression; a shut gate is correct there). That is the expected
 yield from a cold read — take the findings, re-derive each one, and say which you rejected.
 
+### post-0.216.0 — the cancelled-work leftovers (§66 · §67 closed · §64 · §65 half)
+
+Branch `fix/cancelled-work-leftovers`; no version bump decided at time of writing. Slice 2 of the
+harm-ranked triage of this register, taken because 0.213.0 fixed the Reports and Dashboard headline
+surfaces and then stopped at the branch boundary.
+
+| was | what closed it |
+|---|---|
+| §65 (half) tooltip says "completed" under a ✕ | a THREE-way health driver — `cancelled` / `completed` / `closed` — plus the `healthDriverClosed` key. Its SECOND symptom — the UI calling such a row "cancelled" — is open, and this slice added two more strings that do |
+| §66 R/A/G counts a cancelled task Green | out-of-scope work leaves the tally into `GroupHealth.outOfScope`, surfaced on the tile and the reports cards |
+| §67 committed NUL byte | the source escape `\u0000`, plus `no-nul-bytes.test.ts` as a ratchet |
+| §64 (half) presentation + model feeds | portfolio table + `avgCompletionPercent` + steering draft + AI snapshot; the two PERSISTED figures stay open by decision |
+
+★ One shared predicate underpins all of it: `isTaskOutOfScope` (`task-closed.ts`), which `scopeCounts`
+and `computeGroupHealth` now both call. Those two render side by side in ONE dashboard card, and a
+second copy of `isTaskClosed(t) && !isTaskDelivered(t)` is the drift `hasNoActiveScope`'s own doc
+comment records having already caused once.
+
+★ **TWO of the four entries carried a faulty prescription.** §67 weighed `|` and a space, noted both
+were merely UNLIKELY to collide rather than unable to, and accepted that instead of looking for the
+option with no drawback. §65 wrote "**Fixing the drivers fixes both**" — and it does not: the second
+symptom is gated on `hasNoActiveScope` → `scopeCounts` → `isTaskOutOfScope`, which never consults a
+health driver, so no driver change could reach it. (§65's OTHER prescription, "not `status` alone",
+was right but UNDERSPECIFIED — it does not say the split is three-way.) §66 was sound. §64's
+DIAGNOSIS was incomplete — its surface list missed `aggregatePortfolio`.
+
+★★★ **THAT NUMBER HAS NOW BEEN WRONG IN BOTH DIRECTIONS, BY THE SAME MECHANISM.** Draft 1 said
+"all three". Draft 2 — a correction — said "TWO of the four" and listed three items under it. Draft 3
+— a correction of the correction — said "ONE", and got there by stopping at the §65 clause it had
+already argued about ("not `status` alone") without reading the entry's OTHER prescriptive clause
+four lines below it. Over-count and under-count are the same failure: **deciding the shape of the
+answer first, then reading only far enough to confirm it.** Draft 3 also asserted §65 was "recorded
+as sound in its entry" while §65's own text said "UNDERSPECIFIED" — flattening a concession the same
+author had written.
+
+Each wrong draft is worth keeping, because the two DIRECTIONS of error had different causes.
+Over-counting came from misquoting; under-counting came from stopping early.
+
+- **§65, over-counted** — draft 1 paraphrased "consult `completedDate`, **not `status` alone**" as
+  "INSTEAD OF `status`" and refuted the paraphrase. The clause means consult BOTH, which is what
+  shipped. But draft 3 then over-corrected to "sound": the entry's OTHER prescriptive clause,
+  "Fixing the drivers fixes both", IS wrong. Both drafts read one clause and stopped.
+- **§66, over-counted** — draft 1 attributed an `overallComputed` clause to the entry. The entry
+  never mentions it: `git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**.
+  That one was a clean over-count; §66 really was sound.
+
+Same error, same document, same commit — and the commit that fixed §65's misquote published the rule
+("quote the entry inline before criticising it") while leaving §66's standing, because it searched
+for the §65 WORDING instead of the SHAPE. **Slice 1 (§77/§78) made this identical mistake a week
+earlier.** Four drafts, three of them wrong, every one written while criticising someone else's text.
+
+★★ The durable lessons, in order of how much they cost here: **(1)** a pattern you are pleased to
+have found is the one to re-check — a category claim ("all three", "every X") invites pressing
+non-instances into it, and then over-correcting invites pressing real instances OUT; **(2)** when you
+retract one instance of an error, grep for its SHAPE, not its words; **(3)** quote inline, because
+every claim in this block that survived scrutiny is one where the quote is present; **(4)** read the
+WHOLE entry before judging its prescription — §65 has two prescriptive clauses four lines apart and
+three drafts in a row read only one of them.
+
+★ Opened by nothing. The one new surface found (`avgCompletionPercent`) was folded into §64 rather
+than numbered, because it is the same defect on the same value, one call frame up.
 ### post-0.212.0 — the machine-unblocking slice (§2 closed · §58 half · §51 hardened)
 
 Branch `chore/machine-unblocking-slice-1`; no version bump (nothing user-facing shipped).
@@ -4573,3 +5775,1718 @@ MR → poll the MR-ref pipeline to `status:success` yourself → plain
 `glab mr merge <iid> --remove-source-branch --yes` → sync main → confirm the post-merge MAIN pipeline
 green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `npm run test:run` ·
 `npm run dup:check` · palette guards · axe. Internal a11y/refactor work = **no version bump**.
+
+## 103. An over-cap load silently and permanently destroyed the excess documents — CLOSED
+
+**This is NOT a regression the S2 slice introduced, and it is not theoretical — it destroys
+user-authored content today.** `MAX_DOCUMENTS` and its `break` arrived with the document model in
+`90199c26` ("feat: canonical project document model and sanitizer"), which is an ancestor of `main`
+and **shipped in 0.219.0 "Elgin"**. S2 introduced only the phantom-deleted-documents *consequence*
+(see below), not the loss. Establish that before quoting this entry — reading it as an S2 regression
+sends someone hunting through this slice's diff for a cause that is not there.
+
+```bash
+git log --oneline -S "out.length >= MAX_DOCUMENTS" -- src/app/document-model.ts   # 90199c26 only
+git merge-base --is-ancestor 90199c26 main && echo "already shipped"              # already shipped
+```
+
+### What was measured
+
+`sanitizeProjectDocuments` (`document-model.ts`) stops at `MAX_DOCUMENTS` (**200 at the time of this
+measurement**; the fix raised it to 1000 — everything below records the defect as found) with a bare `break`.
+Nothing records that it truncated. Load an over-cap file, let autosave fire, and the excess documents
+are gone from storage:
+
+```
+--- RE-SAVE ---
+original file: 205 docs / 205 versions
+after load:    200 docs / 205 versions
+after re-save: 200 docs / 205 versions
+documents PERMANENTLY LOST by load->save: 5 ["Doc 201","Doc 202","Doc 203","Doc 204","Doc 205"]
+```
+
+**All six write paths, identically** — the cap is not per-path, so JSON · IndexedDB · Turso single ·
+Turso tenant · CSV · Markdown all inherit it:
+
+```
+--- OVER CAP n=205 (MAX_DOCUMENTS=200) ---
+json          in 205d/205v -> out 200d/205v | phantoms 5 | discriminator(ai+delete) kept 205
+csv           in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+markdown      in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+turso-single  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+turso-tenant  in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+indexeddb     in 205d/205v -> out 200d/205v | phantoms 5 | discriminator kept 205
+```
+
+★★ **Reproduce**: a temp vitest file (jsdom + `fake-indexeddb` come from `vitest.setup.ts`, so no
+manual JSDOM install is needed) that builds a 205-document workspace and round-trips it through
+`workspaceToJson`/`jsonToWorkspace`, `workspaceToCsv`/`csvToWorkspace`,
+`workspaceToMarkdown`/`markdownToWorkspace`, `workspaceToStatements`/`rowsToWorkspace`,
+`tenantWorkspaceToStatements`/`rowsToWorkspace`, and `BrowserBackend.save`/`load`. **Keep it out of
+`src/app`** — a `*.test.ts` there is picked up by the lint gate and the full-suite glob while it
+exists, which cost another agent a red `eslint --max-warnings=0 src/app` run when this was measured.
+
+★★ **The control is what makes the numbers mean anything.** A probe where the structural sanitizer
+silently dropped *every* version would print `phantoms 0` and read as a clean result. Two controls
+rule that out: at n=195 every path returns `195d/195v` with **0** phantoms, and the
+`discriminator(ai+delete) kept 205` column counts versions carrying `source:"ai"` + `op:"delete"` —
+neither is a sanitizer fallback (`"user"` / `"update"` are), so 205 proves real data crossed all six.
+The fixture also deliberately avoids `op:"restored"`, which the tombstone derivation excludes and
+which would have hidden the very artifact being measured.
+
+### It is independent of `documentVersions`, and the engine cap does not touch it
+
+`document-mutations.ts` now refuses creates past the cap — verified: 205 `create` calls through
+`applyDocMutation` yield `200 docs`. That stops the app **building** an over-cap state; it does
+nothing about **loading** one. The exposure is any workspace not produced by the current engine: a
+hand-edited JSON, a third-party or imported file, or data written before that guard existed.
+
+### Related, same delegation: silent per-version block truncation
+
+A version carrying more than `MAX_BLOCKS_PER_DOC` (500) blocks loads truncated, because
+`sanitizeDocumentVersions` delegates per item to `sanitizeProjectDocuments`, which slices:
+
+```
+--- REVERSE (block cap 500) ---
+blocks per version: in 525, out 500
+version COUNT cap probe: in 1200 versions -> out 1200
+```
+
+So restoring such a version hands back a **truncated document body with no indication**. History
+corruption rather than loss, and lower severity — but silent by the same mechanism, which is why it
+belongs in this entry rather than its own. ★ Note the second line: there is **no count cap on
+versions at all**, so history is never truncated while documents survive. That direction was checked
+and is clean.
+
+### The decision that was taken — CLOSED
+
+All three candidate ends were on the table (surface it · refuse the load · raise the cap). **The
+third was chosen and combined with the first**, because neither alone is sufficient: raising the cap
+alone still destroys data for whoever exceeds the new number, and surfacing alone leaves the data
+dying with a warning attached. Refusing the load was rejected outright — it locks a user out of
+their own legitimate project with no in-app route to get back under the cap.
+
+What shipped:
+
+1. **`MAX_DOCUMENTS` 200 → 1000**, and deliberately still **ONE constant serving TWO doors** — the
+   load-time truncation *and* the engine's create/duplicate/restore refusals. A separate
+   `MAX_DOCUMENTS_LOAD` was considered and rejected: a load cap above the create cap means a
+   legitimately-loaded project cannot be edited, which is the "one door of two" shape that produced
+   six defects in S2.
+2. **The truncation is counted**, via an optional `DocTruncationDiag` threaded into
+   `sanitizeProjectDocuments` and `sanitizeDocumentVersions`. It counts **raw array entries** past
+   the cap, not validated documents — an exact count means sanitizing the whole tail, which is the
+   unbounded work the cap exists to refuse. It is an UPPER BOUND, never an undercount, which is why
+   every user-facing string says "entries".
+3. **Every backend publishes `lastLoadTruncation`**, netted by
+   `backend-truncation-registry.test.ts` — a vitest unit test (NOT a build step) scanning a
+   hardcoded list of the four backend files. The cautionary precedent is `lastImportDroppedRows`,
+   which reached two of the FOUR backends for its whole life without anything noticing — Turso and
+   IndexedDB silent throughout — because its consumer sits in `use-storage-file-ops`.
+   ★★★ THAT NET GUARDS THE PRODUCER SIDE ONLY, AND THE FIRST VERSION OF THIS ENTRY DID NOT SAY SO.
+   It shipped calling itself "the one-door-of-N guard" while the CONSUMER reached one load path of
+   seven — the six others (project switch, file open, Turso switch, reload) suppress that effect via
+   `suppressNextLoadRef` — so the register recorded this as closed while the original data loss was
+   still fully live on every route except first mount. Fixed by routing all of them through
+   `truncationOps.reportFor`, with a behavioural test per path. **A source scan proving a name
+   exists is not a claim that anything reads it.**
+4. **One consumer**, reached from every load path that applies a workspace — diagnostics-ring entry,
+   toast, and a STICKY flag. Sticky is load-bearing: `suppressNextSaveRef` beside it is one-shot AND
+   is set by every load, so it clears on the first debounce cycle and the loss lands on the *next*
+   save. Reusing it would have bought nothing. ★ Two loads deliberately do NOT report and say why at
+   the call site: the empty-load refusal applies nothing, and `onOpenStorageFile` applies tasks+raid
+   only and never the loaded documents. ★★ A CLEAN load must LOWER the flag — it did not at first,
+   so one over-cap project blocked saves in every project opened after it while the banner asserted
+   the innocent project's documents could not be opened.
+5. **Saves are paused** until the user decides, so the stored project keeps what was never loaded.
+   Neither existing invariant would have caught this: dropping 205 of 1205 leaves 83%, nowhere near
+   guard B's ≤10% threshold, and documents are not counted by those guards at all (§98).
+   ★★★ "AUTOMATIC saves are paused" is what this entry said first, and it was FALSE — the refusal
+   sat only in the debounced effect, while SEVEN other sites wrote the live workspace directly
+   (four project-switch flushes, the Turso flush, `onPickStorageFile`, `onRequestStorageSwitch`).
+   The pre-switch flush was the cruellest: the banner told the user saving was paused, and switching
+   project — a reasonable response — committed the loss. All writes now go through `flushCurrent` /
+   `guardedWrite`; the two explicit user actions refuse LOUDLY and skip their success toast, because
+   a save the user asked for must never appear to have happened.
+   ★ The truncation refusal also CONSUMES `allowDestructiveRef`. It did not at first, so a one-shot
+   destructive bypass armed during a paused period stayed armed indefinitely and could authorise an
+   unrelated mass deletion later.
+6. **A persistent banner with an explicit "Save anyway"**, not merely a toast. ★★★ This is not
+   polish — it is what stops the guard being a LOCKOUT. **The user cannot get under the cap by
+   editing**: the excess documents were never loaded, so the rows that would have to go are exactly
+   the ones that are not there. A sticky flag with no escape would be a permanent block on saving,
+   a worse defect than the one being fixed.
+   ★★★ DISMISSING IT WAS THAT LOCKOUT FOR ONE REVISION. `truncationBannerDismissed` was never reset
+   and the refusal was a bare `return` with no toast, so a single ✕ silently dropped every later
+   edit to every entity for the session while the storage indicator read healthy. The sidebar footer
+   now carries a "saving paused" state that is CLICKABLE to bring the banner back, so dismiss means
+   "stop shouting", never "stop telling me". ★ `loadWasTruncated` is deliberately NOT folded into
+   `storageOk`: two of that value's three consumers read it as "configured", so folding it in made
+   `storage-config` print three FALSE diagnoses on a healthy file (write-permission-needed, a
+   Grant-access button, Turso-needs-configuration). The term is applied at the footer call site only.
+
+★ The fix landed at the load boundary and **not** in `sanitizeDocumentVersions`, as this entry
+originally warned it must: making that function drop versions for truncated documents would delete
+the only surviving copy of that content, turning a display defect into a second data-loss bug.
+
+★★ Block truncation is counted by the same diag and surfaces through the same banner, with its OWN
+string. Three traps for whoever edits that wording, all of them shipped-and-fixed rather than
+theoretical:
+  · The toast originally interpolated only the ENTRIES count while triggering on
+    `entries + blocks > 0`, so a blocks-only truncation announced "0 document entries could not be
+    opened". A test pins that case now.
+  · The count originally compared `raw.blocks.length` against the POST-FILTER length, and
+    `sanitizeDocument` both caps blocks AND drops invalid ones — so a single malformed block
+    reported as truncation and, because any non-zero count arms the sticky guard, paused saving for
+    the whole workspace. Reachable with no hostile file at all: a `dataSection` block whose key
+    leaves `EXPORT_SECTION_KEYS` is dropped on every load thereafter, forever, after an ordinary
+    refactor. It now counts against `MAX_BLOCKS_PER_DOC`.
+  · LIVE documents were not counted at all — only stored versions. A 600-block document loaded as
+    500 with an empty diag, on the same write-back path. Both are counted now, which is why the
+    string says "stored documents" and not "stored document versions".
+★ **No string may say the cap did the cutting.** The reason has CHANGED and the old one is stale:
+it used to be that the counter included blocks dropped as invalid. It no longer does. The rule
+survives because the count is raw entries past the cap, some of which the validator would have
+rejected anyway — so it still over-claims rather than under-claims.
+
+### How many rounds this took, and why that is the useful part
+
+Two cold review rounds after the fix was "done", **seven CRITICALs total**, every one on a fully
+green gate board — `tsc` · `eslint --max-warnings=0` · size · dup · docs-symbols · coverage (10k+
+tests, floors met) · shuffle · build · axe. **The gates never once disagreed with a broken tree.**
+
+Round 1 (4 reviewers) found the disclosure reached 1 load path of 7 and the refusal 1 write path of
+8, the dismissal lockout, and the flag that never lowered. Round 2 (2 reviewers), against the FIX,
+found three more:
+  · `migrateCurrentProjectToTurso` — the same "abandon the original" shape, unguarded, then
+    repointing the app at the short copy and reloading, after which the flag never re-raises.
+  · **The classic layout still had the dismissal lockout.** `SidebarFooter` has ONE mount and it is
+    inside `modernTree`. This was flagged during the fix as a "residual gap" and accepted as one; it
+    was the same silent, permanent, session-wide save lockout, live in one of two layouts.
+  · Two of round 1's own fixes had NO KILL LINE — deleting them left every gate green, because the
+    `guardedWrite` backstop refuses through the SAME implementation and the states are
+    indistinguishable to the existing assertions.
+
+★★★ **THE GUARDS AIMED AT THE WRONG SIDE OF THE BOUNDARY, TWICE.** The registry test proved every
+backend ASSIGNS the field and said nothing about anything READING it. Its replacement, a `.save(`
+census, COUNTED rather than enumerated — so every added `guardedWrite(` bought back one ungated
+write, a `guardedWrite(` inside a COMMENT counted the same, and the measured slack was 1. Both were
+written specifically to catch this class of defect and both certified coverage that did not exist,
+each while carrying a header asserting the broader reach. **A scan proving a NAME exists is not a
+claim that anything reads it, and a scalar cannot express a per-site property.** The census now
+enumerates by file and callee.
+
+★ Owed and NOT closed by any of this: nothing has rendered the banner or the paused indicator in a
+real browser. jsdom has no layout and the axe seed is nowhere near the cap, so the green axe run
+never drew either surface.
+
+### What is NOT in this entry
+
+The **phantom deleted-documents** consequence — a truncated document's surviving version has no
+matching document, which is exactly the tombstone shape, so `deletedDocumentVersions` reports it as a
+deleted document. That is being closed separately by requiring `op === "delete"` in the derivation
+(a real engine delete always leaves that op newest; measured 6 phantom rows → 1, the genuinely
+deleted one). Do not read this entry as covering it, and do not re-open it here.
+
+★ The two interact in a way worth knowing if the phantom fix lands first: after a truncating load the
+document count sits at **exactly** `MAX_DOCUMENTS`, so the engine's own
+`state.documents.length >= MAX_DOCUMENTS` guard refuses every restore —
+`rejected=["document limit reached (<MAX_DOCUMENTS>)"]`. Any surface built on the deleted-documents
+list will show rows whose Restore button always fails, with a message that makes no sense to a user
+trying to recover a document. ★★ Do not quote a literal there: the number moved 200 → 1000 in this
+fix, and two `documents-panel` tests broke because a FIXTURE encoded the old value implicitly — it
+generated ids `10..MAX_DOCUMENTS+9` and pointed a tombstone at a hardcoded `999`, which sat outside
+that range at 200 and inside it at 1000, so the restore resolved against an existing document and
+the cap never refused.
+
+---
+
+## 104. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
+
+`d7f1e0b9` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
+AI create / update / delete that actually CHANGED something. Before it, the kind was registered in
+four places and emitted from none.
+
+★★★ **That did NOT make the deep-link work, and the reason is not the one the S2 review first
+assumed.** The review recorded the deep-link as "unreachable for want of rows". Measured — wrong
+mechanism:
+
+```bash
+grep -rn "activityViewOf|dashboard-activity-nav" src/ e2e/
+#  -> src/app/dashboard-activity-nav.ts        (the definition)
+#  -> src/app/dashboard-activity-nav.test.ts   (its unit test)
+#  and nothing else
+```
+
+So `activityViewOf` has never been called from production code, for ANY activity kind — not just
+this one. Rows now exist and carry `(id, title)` args; nothing routes a click on one anywhere.
+
+★ The only consumer of `ActivityEntry.args` anywhere is `activity-log-panel.tsx`, which renders
+`t(lang, ACTIVITY_KIND_TO_KEY[e.kind], ...e.args)`. And `activityAiDocumentWrite` has **zero**
+placeholders in both EN and DE, so the id and title are stored on the entry and rendered by nothing
+today. That is deliberate and matches `ai.inlineEdit`, whose string is also placeholder-free while
+it passes `(id, title)` — the args are there for a future surface, not for the current label.
+
+★★ Do NOT "fix" this by adding placeholders to the string. The open question is where a click on an
+activity row should GO and which surfaces own that routing — a decision, not a one-liner. Wiring
+`activityViewOf` for one kind while every other kind stays unrouted would be the same
+one-door-of-two shape this slice hit six times.
+
+---
+
+## 105. CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row — open, silent data loss
+
+**Where:** `csv-codecs-decode.ts` `splitCsvSections`.
+
+```ts
+const lines = csv.split(/\r?\n/);          // raw split, BEFORE any tokenizing
+for (const line of lines) {
+  const trimmed = line.trimStart();
+  // … 13-line comment elided — it is the one discussed below …
+  if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
+  // …25 more markers
+```
+
+★ Count reproduce: `grep -c "trimmed.startsWith(CSV_SECTION" src/app/csv-codecs-decode.ts` → **26**,
+so 25 follow the one shown. (An earlier revision of this entry said "24 more", derived by eye.)
+
+The section splitter runs over **physical text lines**, before the CSV tokenizer. A quoted cell
+legitimately contains newlines, so its continuation lands on its own physical line — and if that
+continuation begins with a section marker, `startsWith` fires and the parser switches section
+**mid-row**. The remainder of the row is appended to the wrong buffer and decodes as absent.
+
+**Measured, not reasoned** (found by `codec-roundtrip.property.test.ts`):
+
+```
+blockers: "step one\n# RAID\nstep two"   →   "step one"
+```
+
+Silent: no throw, no `ImportDiag` entry, nothing in the UI. `trimStart()` means leading whitespace
+does not protect the value either.
+
+★★ **The existing comment in that function reasons carefully about the WRONG collision.** It is a
+long, correct analysis of markers colliding with *each other* (prefix ordering, the
+`# DOCUMENTS` / `# DOCUMENT VERSIONS` near-miss) and pins that invariant with a reflective test. It
+never considers a marker appearing inside quoted CONTENT. The blind spot is one level up from where
+the author was looking — which is why the reflective marker-prefix test cannot catch this.
+
+★ **Markdown is immune by construction**, and for a reason worth preserving: `mdEscape` turns every
+newline into a literal `<br>`, so no MD cell can ever begin a line. Do not "simplify" that away.
+
+★ Applies to **every entity the CSV backend writes**, not just tasks. Reachability differs by field:
+`description` is HTML and `noteLog` is escaped JSON, but `blockers` is plain multi-line free text,
+and any imported / AI-written / backend-converted workspace can carry a newline in any of them. The
+mechanism is proven; the claim that a UI writer actually puts a newline in `blockers` is argued, not
+traced — settle that before pricing a fix.
+
+**Pinned:** `codec-roundtrip.property.test.ts` holds the property this SHOULD satisfy, `describe.skip`ped
+with the measurement in the comment. Confirmed to fail by unskipping before the claim was made.
+Unskip it when fixing.
+
+---
+
+## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive
+
+**Where:** `markdown-codecs-core.ts` `mdEscape` / `mdUnescape`.
+
+`mdEscape`'s `/\r?\n/` consumes the ONE carriage return nearest the LF; `mdUnescape` emits a bare LF;
+the next pass then has a fresh `\r\n` to eat. So a run of bare CRs loses one per save/load cycle
+**with no edit in between**:
+
+```
+"a\r\r\r\nb" → "a\r\r\nb" → "a\r\nb" → "a\nb" → "a\nb"     (one arrow = one full round-trip)
+```
+
+It converges, and only ever loses CRs, and `\r\n → \n` on the FIRST pass is accepted behaviour (this
+repo's markdown format is LF) — so this sits well below §105. Recorded because "the stored value
+changes on a load that made no edit" is the kind of thing that later reads as corruption.
+
+★★ **Found only at `numRuns: 1500`; twenty runs missed it on the first seed.** The live fixed-point
+property therefore excludes bare CR explicitly, and the skipped block carries both the unrestricted
+property and a deterministic companion. ★ The skipped PROPERTY is itself seed-dependent at low run
+counts — on the run where it was unskipped, the deterministic companion failed while the property
+passed. **The deterministic case is the reliable reproduction**; reach for that one, not the property.
+
+---
+
+## 107. `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup — open, measured
+
+**Where:** `narrative-html.ts` `HTML_START` vs `sanitize-html.ts` `ALLOWED_TAGS`.
+
+| List | Tags |
+|---|---|
+| `HTML_START` — decides "is this stored value already HTML?" | `p br strong em ul ol li a` (8) |
+| `sanitizeTemplateHtml` `ALLOWED_TAGS` — what a MODEL may store | `p br strong em ` **`u h1 h2`** ` ul ol li a` (11) |
+
+`sanitizeAiRichText` runs `sanitizeRichText` **first**, so `descriptionHtml` tests `HTML_START`
+before DOMPurify is ever reached. A value opening with `<h1>` fails that test, is treated as legacy
+plain text, and `plainToHtml` **escapes the whole thing**. Layer 2 then sees only inert entities and
+passes them through.
+
+**Measured** via `sanitizeAiRichText`:
+
+```
+"<h1>Title</h1><p>body</p>"      → "<p>&lt;h1&gt;Title&lt;/h1&gt;&lt;p&gt;body&lt;/p&gt;</p>"
+"<u>Title</u><p>body</p>"        → "<p>&lt;u&gt;Title&lt;/u&gt;&lt;p&gt;body&lt;/p&gt;</p>"
+"<p>Title</p><h1>Section</h1>"   → "<p>Title</p><h1>Section</h1>"          ← unaffected
+```
+
+★★★ **POSITION DECIDES, AND THE BLAST RADIUS IS THE WHOLE VALUE.** The same `<h1>` is preserved
+mid-value and, when it LEADS, escapes the entire description — not just the heading. The result is
+permanent: every reader and every export renders visible `<h1>` as literal text.
+
+★★ `h3` / `div` / `table` hit the same escape path (any leading tag outside the 8), but `u` / `h1` /
+`h2` are the sharp cases: the allow-list explicitly says a model MAY write them. AGENTS.md records
+that `sanitizeTemplateHtml` was chosen over `sanitizeNoteHtml` *precisely because* a model
+legitimately emits headings — so a description leading with one is the ordinary case, not an exotic
+one.
+
+★ The comment at `sanitize-html.ts:35` ("`HTML_START` mirrors this list… Edit both together") is
+**accurate but scoped to the wrong list** — it sits above `NOTE_ALLOWED_TAGS`, which `HTML_START`
+does mirror exactly. Nothing pairs `HTML_START` with the wider TEMPLATE list, which is where the
+drift is.
+
+**Fix shape, not yet decided:** ~~widening `HTML_START` to the template list is the obvious move, but
+it changes what counts as "already HTML" for EVERY stored value on every load path, so it needs the
+byte-stability suites run and probably a golden check. Do not treat it as a one-line edit.~~
+
+★★★ **THAT FIX SHAPE IS WRONG AND WOULD SHIP A DATA-LOSS REGRESSION. Corrected 2026-08-08 while
+planning the documents roadmap (§113), by reading `narrative-html.ts` rather than reasoning from
+this entry.** `HTML_START` is not a stale parallel of the template list — it is DELIBERATELY aligned
+to a *different* sink, and ONE constant serves TWO classifiers:
+
+| Consumer | Sink | Tags | `KEEP_CONTENT` |
+|---|---|---|---|
+| `narrative-html.ts:66` `narrativeToHtml` | `sanitizeNoteHtml` | 8 | **`false`** — deletes a non-listed element WITH its text |
+| `rich-text-plain.ts:152` `descriptionHtml` | `sanitizeTemplateHtml` (six rich fields + documents) | 11 | default — unwraps, keeps the words |
+
+`narrative-html.ts:70` states the alignment as intentional — "The set is EXACTLY sanitize-html.ts's
+`NOTE_ALLOWED_TAGS` … **Recognising a tag the sink STRIPS is worse than not recognising it at all**"
+— and records the precise bug widening re-creates: "h1-6, blockquote and div used to sit here … in
+fact it made `<h1>Q3</h1><p>ok</p>` render as just 'ok' and `<div>Status</div>` render as nothing at
+all." So widening the shared constant fixes the description path by **re-breaking the narrative
+path**, restoring a bug already found and fixed once.
+
+★★ **The correct shape: each classifier derives from ITS OWN sink's list.** `descriptionHtml` takes
+the tag set as a parameter (or gains a sibling); narrative keeps deriving from `NOTE_ALLOWED_TAGS`.
+Blast radius is **the six rich entity fields, not just documents**, which is why it is its own task
+rather than a rider on a documents slice. ★ Reproduce the two-consumer fact with
+`grep -rn "HTML_START" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."` — definition,
+plus one `.test(` in each of `narrative-html.ts` and `rich-text-plain.ts`.
+
+★ Until it lands, documents inherit the 8-tag classification. That is SAFE — it escapes rather than
+deletes — so a document leading with a new tag is merely escaped, not lost.
+
+---
+
+## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open
+
+**Where:** `sanitize-records.ts`, the `MeetingReport` guard — `rr.html.slice(0, REPORT_HTML_MAX)`.
+
+Split out of §22 rather than folded into it, because it is the same shape but a strictly larger
+problem. §22's one-line back-off fixes the surrogate half and does nothing for the other half: the
+value is **HTML**, so a raw cut can also land inside a tag (`<stro`) or between a tag and its
+closer, and the stored result is then malformed markup rather than merely a damaged character.
+
+★ The rich-text layer already solved exactly this: `capHtmlText` (`rich-text-plain.ts`) projects to
+text, truncates, and **re-wraps** so the result is always well-formed, accepting the loss of
+formatting on overflow. That is the shape to copy — not `clipText`, which is correct only for
+plain-text fields.
+
+★★ Do NOT "fix" this by routing it through `sanitizeText`. That would give it the surrogate back-off
+and leave the mid-tag cut in place while making the call site LOOK guarded — the more dangerous of
+the two states, because the next reader sees a sanitizer call and stops looking.
+
+★ Reachability is narrow: it needs a meeting report whose HTML exceeds `REPORT_HTML_MAX`, which no
+sample fixture does. Unmeasured in the wild — the mechanism is read from the code, not observed.
+
+---
+## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet
+
+★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
+(main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
+main took 105–108 as well. Every commit message on that branch says §103 and none can be edited.
+Same two hops for §110, filed as §104; §111 was filed as §107 and has moved once.
+
+The full audit is [`docs/tooltip-inventory.md`](tooltip-inventory.md), taken 2026-08-07 on
+`176b823a` (an earlier revision said `2d31abe5`, which is a dangling pre-amend duplicate NOT in the
+branch — `git merge-base --is-ancestor` exits 1). This entry exists so the register points at it, and so the **unapplied** half does not
+have to be rediscovered.
+
+**Scale, so nobody re-derives it.** Element-level, over non-test `src/app/*.tsx` (the inventory
+carries the parser that produces these — an opening tag spans lines and a `className` can contain a
+`>`, so `grep` cannot do it): **573** button-family elements, **142** carrying a `title`; **87** are
+icon- or glyph-only, of which **49** already have a `title` and **38** do not. Of those 38, **13 are
+the word `<button` inside a comment** and 2 are a primitive's own element, leaving **23 real
+controls**: **19 Class A**, **3 Class B**, **1 blocked on i18n**.
+
+★★ **Those are SNAPSHOT numbers and the fixes have since landed — do not read 38 as today's open
+surface.** At the snapshot the split was 573 / 142 titled / 87 icon-only / 49 titled / 38 untitled;
+after Tasks 14 and 16 it is 573 / 176 / 87 / 70 / **17**. The attribute-level `grep -rho 'title='`
+moved 388 → 422. "So nobody re-derives it" is about the METHOD being expensive, not about the numbers
+being current — re-run the parser in the inventory before quoting any of them as a present-tense
+count.
+★★ **AND THAT GUARD EARNED ITSELF WITHIN ONE DAY.** Every figure above reproduced EXACTLY at the
+branch tip `70395bc5` and every one of them moved when main's 98-commit document-authoring slice
+merged in on 2026-08-08. At `9927d045` the split is **583 / 178 / 88 / 70 / 17**, `grep -rho 'title='`
+is **426** (non-test), and files carrying an `aria-label` are **194**. The one number that did NOT
+move is the open surface itself: still **17** untitled icon-only controls, and
+`workspace-section-chrome.tsx` is still the only control named by `title` alone. ★★★ The parser says
+**18**, and the extra one is a PARSER ARTIFACT, not a control — see the apostrophe limitation
+recorded in the inventory's Reproduce section. `documents-history-modal.tsx` renders
+`{t(lang, "documentsRestore")}` as visible text; it is not icon-only. Do not open a row for it.
+
+**What slice 2's Task 14 applies, and what it does not.** Task 14 takes the **Class A** rows only —
+add `title={<the expression already in the accessible name>}`, zero new strings, no approval needed.
+Everything below is what remains open after it:
+
+- ★★ **Class B — 14 rows / 16 sites, each needing new EN+DE copy and row-level approval.** These are
+  the ones where the mechanical fix is *worse than nothing*: copying a bare noun into a `title`
+  produces the appearance of coverage and nobody re-opens the row. The clearest are the insights
+  verbs "Acknowledge" / "Act", where the label actively misleads — `onActInsight`
+  (`task-manager.tsx`, grep the symbol — it was `:832` when written and main's merge moved it to
+  `:840`) applies `metricAtActionPatch` on first act, a one-shot side effect the
+  word "Act" gives no hint of.
+  ★★ **RESOLVED 2026-08-07 except one row.** The user approved **13 of the 14** at row level and
+  slice 2 implements them: B2–B14. **B1 (the settings cog, `settings-menu.tsx:59`) is HELD** and is
+  the only Class B row still open. It was held for a reason worth keeping: that cog renders in the
+  **classic** `AppHeader` only — `grep -rn "SettingsMenu" src/app --include=*.tsx | grep -v test` returns just
+  `app-header.tsx` and the file itself, and it mounts at `app-header.tsx:149`, OUTSIDE the
+  `ActionMenus` element that `buildShellChrome` feeds to the modern shell's `topBarMenus` slot. The
+  modern shell is the DEFAULT layout, so most users never see this control at all. Before wording
+  its tooltip, establish the modern shell's own route to Settings — the answer may be that the
+  tooltip is not the finding here. (An earlier revision of this bullet called it "the top-bar cog",
+  which is exactly the assumption the measurement disproved.)
+- ★ **Five of the Gantt View menu's eight `ToggleButton`s carry no hint** while three do
+  (`ganttCriticalPathHint` · `ganttBaselineHint` · `ganttMilestonesInlineHint`). The split is by
+  author, not by importance. Cheapest coherence win in the set.
+- ★★ **One name defect: `workspace-section-chrome.tsx:165`.** A collapse/expand chevron with
+  `title`, `aria-expanded`, `aria-controls` and an `aria-hidden` icon — and **no `aria-label`**. Its
+  accessible name therefore comes only from `title`, the accname algorithm's last resort. **axe
+  passes it** (a name exists), so no gate will ever report it. Fix is `aria-label`, not `title`;
+  `title` is hover-only — no keyboard focus, unreachable on touch — and is never the fix for a
+  missing name. It is the only such control in the app.
+- ★★ **Fifteen hardcoded-English accessible names across nine files**, found while quoting the
+  "existing name" column (two greps, both in the inventory; the `task-editor-raid-mini.tsx` pair is
+  only half-literal and is arguably fine — "RAID" is a proper noun in the DE UI too).
+  `npx tsc --noEmit` enforces EN/DE **key parity** and structurally cannot see a string that never
+  became a key. Worst two: `create-project-wizard.tsx:389`/`:397` and
+  `settings-sections/mode-section.tsx:80`/`:88` pair a *translated* visible label with an
+  *untranslated* `aria-label`, so a German user sees "Einfach" and hears "Apply Simple preset"; and
+  `budget-panel-totals.tsx:94`/`:111` use a machine-readable test hook
+  (``aria-label={`budget-${ariaPrefix}`}``) as what a screen reader announces for every budget cell.
+  ★ `stakeholder-recipient-input.tsx:160` is Class A in every respect **except** that its name is a
+  hardcoded ``` `Remove ${name}` ```; translate it first, then it is a plain Class A row.
+
+★★ **Two sites were reported into this audit as inventory misses. Both are already `title`-complete,
+and only one of the two reports was correct** — recorded because the *mechanism* of the real miss
+will recur. `modal-header.tsx` `:77`/`:88` are genuinely absent from §102's offender tally, and not
+because a grep missed them: the file is listed in `docs/handrolled-ui-inventory.md`'s "Distribution"
+block among the thirteen whose `<button` occurrences are **subtracted as primitive internals**. Two
+hand-rolled buttons hid inside a shared component. By contrast `knowledge-panel.tsx` `:451`/`:517`
+**is** already inventoried — `handrolled-ui-inventory.md:396` lists it in the Part 2 `replace` row —
+it is merely absent from Task 12's narrower thirteen-file list. Check the wider table before calling
+anything missing.
+
+★ Nothing here is gated either. axe has no rule for a missing `title`, and the one name defect above
+is a control axe passes. The counts are reproducible with the script embedded in the inventory; the
+A/B judgement is not automatable and the inventory records every borderline call it made.
+
+---
+
+## 110. `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open
+
+★ **Filed as §104** — see the renumbering note at the head of §109.
+
+Found 2026-08-07 while converting the close-button family in slice 2 (§102's programme). User
+decided it is its own slice rather than something to force inside a conversion task.
+
+`raci-chip-picker.tsx` holds the case. That ✕ is the **fifth of five sibling chips** — R / A / C / I
+plus clear — all sharing `CHIP_BASE` (`raci-chip-picker.tsx:32`, used at `:87` and `:112`), which is
+`flex h-5 w-5 … rounded-full border text-[11px]`: a 20px circle. `IconButton` hard-codes `rounded-md`
+in `BASE_CLASS` and `p-1`/`p-1.5` in `SIZE_CLASS`.
+
+★★★ **A caller `className` cannot reliably override either, and this is the part that makes it a
+primitive problem rather than a call-site one.** Tailwind resolves conflicting utilities by
+**stylesheet source order**, not by the order they appear in the class attribute — and `p-1` sorts
+AFTER `p-0`, so a caller passing `p-0` loses outright. Converting therefore yields a square,
+differently-padded chip beside four round ones.
+
+★★ **No unit test could catch that regression** — jsdom has no layout, so nothing in the suite can
+see shape or padding. It is eye-verify-only, which is precisely why the primitive should express it
+rather than each call site improvising.
+
+**Current state:** the glyph was swapped to `XMarkIcon` (that part is safe and shipped); the wrapper
+stays hand-rolled, with the reason recorded in code beside it. So this is a KNOWN, DELIBERATE
+hand-roll, not an oversight — do not "finish the conversion" without first giving the primitive a
+shape/size escape hatch.
+
+**Shape of the fix, not yet decided:** a `shape?: "square" | "circle"` and/or a `size` that can opt
+out of `SIZE_CLASS`, so `CHIP_BASE`-style controls become expressible. Whatever the API, it must keep
+`disabled` a real attribute (§the `aria-disabled` lookalike trap) and must not weaken the required
+`label`.
+
+★ A related but SEPARATE item: `knowledge-panel.tsx` `:451`/`:517` are already-`IconButton` controls
+still passing a bare `✕` child — glyph-only work in the family `roles-editor` got folded into slice
+2's Task 12. Already inventoried at `handrolled-ui-inventory.md:396`; merely outside that task's
+thirteen-file list.
+
+---
+
+## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — open, a11y
+
+★ **Filed as §107** — see the renumbering note at the head of §109.
+
+Found 2026-08-08 by a merge review, in main's code, not the branch that filed this. Filed rather
+than fixed: it belongs to the document-authoring slice, and fixing another slice's freshly-shipped
+feature from inside a settings-tooltips branch is the scope creep this register exists to avoid.
+
+`documents-list.tsx` names every per-row control with the document's title — the selection button
+(whose accessible name IS `doc.title`) plus Download / History / Rename / Duplicate / Delete, six
+controls per row. The comment above the selection button asserts the title is **"row-unique by
+construction"**.
+
+★★★ **It is not, and the comment is the defect** — a false invariant in a comment outlives the code
+it describes, because the next reader stops checking. `uniqueDocumentTitle` runs at exactly two of
+the four title-writing paths (reproduce: `grep -rn "uniqueDocumentTitle" src/app --include=*.tsx
+--include=*.ts | grep -v "\.test\."` — definition plus `kind:"create"` and `kind:"duplicate"` in
+`documents-panel.tsx`). The two that bypass it:
+
+- `commitRename` (`documents-panel.tsx`) sends the raw trimmed draft straight to
+  `mutate({kind:"rename", …})`. Rename "Q3 report (copy)" back to "Q3 report" and the collision is
+  stored.
+- `createDocument` (`use-document-tools.ts`) passes the MODEL's title through untouched —
+  `sanitizeAiDocBlocks` and the block-count checks guard the blocks, nothing guards the title. Two
+  `create_document` calls with the same title collide.
+
+`document-model.ts` holds no uniqueness check either, so nothing downstream rejects it.
+
+★★ **The axe gate cannot catch this and being in `A11Y_VIEWS` does not help.** Documents IS scanned
+and `e2e/seed.ts` DOES seed two documents — with DISTINCT titles, so the duplicate names never
+render at scan time. This is the exact pattern AGENTS.md warns about under the a11y gate ("N
+identical labels is a WCAG 2.4.6 fail, but axe can PASS it when the seed renders only one row").
+Six duplicate-name pairs in one list is what a speech-input user hits when they say "click Delete
+Q3 report" and nothing resolves.
+
+★ **main's own newer code states the opposite standard**, which is why this reads as an oversight
+rather than a decision: `documents-history-modal.tsx` ("title+timestamp collides on real data. Only
+the version id cannot") and `chat-tool-block.tsx` both qualify by id. The History button in
+`documents-list.tsx` is itself NEW on main — the hole was left open in the one surface that was
+extended rather than written fresh.
+
+### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims
+
+`chat-tool-block.tsx` qualifies its card controls with ` – #${docId}` and the comment gives two
+reasons: two cards can carry the same title "either because the same document was touched twice in
+one conversation or because two documents are genuinely named alike". **In the first of those the
+id is the same too**, so the qualifier produces identical names — `create_document` then
+`update_document` on one document, or two successive `update_document` calls, is the ordinary
+write-then-revise pattern and puts two cards in the transcript.
+
+★ Graded lower deliberately: both cards' buttons act on `liveDoc`, the CURRENT document, so the
+duplicate names sit on functionally identical controls — a far weaker 2.4.6 problem than the list
+above. **The part worth fixing is the RATIONALE**, which is recorded as proof that collision is
+impossible, is not, and has already been cited by `documents-history-modal.tsx` as precedent.
+
+---
+
+## 112. The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — CLOSED 2026-08-08
+
+Found 2026-08-08 by an eye-verify pass on a seeded Playwright run (Chromium, a fresh dev server on
+`PORT=3100`). That is the only place it is visible: jsdom has no layout, and the axe gate scans one
+desktop viewport and has no rule for wrap order.
+
+`settings-view.tsx` renders each rail branch as a real box — `<div role="group" aria-label={…}
+className="flex flex-col gap-1">`. On DESKTOP that is pixel-identical to the flat list it replaced.
+Below the nav's `flex-row flex-wrap` breakpoint the group becomes ONE flex ITEM among the rail's
+other entries, and two things follow:
+
+- The active PARENT pill stretches to the FULL HEIGHT of the group box. Measured at 760px wide it is
+  a solid ~120px tall block beside its three stacked children, because it is a row-level sibling of
+  a three-row item.
+- The children stack in a column, so unrelated TOP-LEVEL entries land on the same visual ROW as a
+  child. At 760px `Integrations`, `Information flows` and `Diagnostics` sit on the `Views` row and
+  read as AI Assistant's children. At 520px the interleaving is the same with different neighbours.
+
+★ The `<hr>` separators that carry the grouping on desktop are horizontal rules across the whole
+rail, so in the wrapped layout they no longer bound anything. The one cue that survives the reflow
+is the indent, and the interleaving defeats it.
+
+★★ This is the COST of the choice recorded when the group landed, not a regression against it.
+`display: contents` was rejected because its a11y-tree exposure is browser-version dependent and
+being ANNOUNCED is the fix the group exists to deliver. A real box announces reliably and lays out;
+a contents box lays out invisibly and may not announce. Do NOT "fix" this by reaching for it.
+
+★ Reproduce: seed a project, open Settings, activate the AI Assistant branch, THEN narrow the
+viewport to 760px. Narrowing first does not reproduce it — the shell drops the rail's labels at that
+width before the branch renders, so there is no group to reflow.
+
+---
+
+## 113. The documents roadmap — block editor, entity attachment, images — designed, UNIMPLEMENTED
+
+★★★ **Recorded here for the reason §44 exists.** The design document lives in the gitignored tree,
+so on any other machine it does not exist. Per this file's own rule there is no link to it; the
+decisions are reproduced below in enough detail to resume without it. Designed 2026-08-08 against
+0.222.0 "Charnas" (`e2316f4f`). It supersedes the ~18-line S3/S4 outlines that shipped inside the
+S1 design document and **reorders them**.
+
+**Four releases, in this order — S4 moved AHEAD of the editor**, because it settles the dangling
+pattern and the versioning policy on a `{kind, id}` pair instead of on images.
+
+| | Ships | New persisted state |
+|---|---|---|
+| **S3a** | a documents-only allow-list · mark-aware DOCX/PPTX · the three policies below | none |
+| *(before S3b)* | **§54** — spike first: its fix is NOT established and option 1's feasibility is unverified (Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk) · the `HTML_START` classifier split, six rich fields in scope | none |
+| **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
+| **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
+| **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |
+
+### The decisions that are expensive to re-derive
+
+★★ **Tiptap's Simple Editor template is HARVESTED, never installed.** It is a single ProseMirror
+document; `DocBlock` is a typed array, and adopting it wholesale abandons `dataSection`, the
+block-keyed renderers and per-block version before-images. Its styles are SCSS and its CLI injects
+`@import '_variables.scss'` into `src/app/globals.css` and installs `sass`. `starter-kit@3.27.1`
+already bundles bold/italic/**underline**/strike/code/codeBlock/blockquote/heading/horizontalRule/
+lists/link — only highlight, subscript and superscript need new packages.
+
+★★★ **Alignment CANNOT be markup, and this generalises.** `sanitize-html.ts` applies
+`ALLOWED_URI_REGEXP` to EVERY attribute value, not only URI-bearing ones — already why `target`/`rel`
+never survive (§38). `style="text-align:center"` and `class="…"` fail identically. Alignment becomes
+a `DocBlock` field. **No toolbar in this app may introduce a new HTML attribute** without reopening
+that regexp, which is a shared security boundary.
+
+★★★ **Documents get their own allow-list; widening the shared one is forbidden.**
+`sanitizeTemplateHtml` also serves comm templates, meeting reports and the six rich entity fields, so
+widening it changes what a model may store everywhere, retroactively. `rich-text-editor.tsx` records
+that hazard as the reason an earlier slice disabled input rules instead. ★★★ **An earlier revision
+of this bullet added "and `HTML_START` must be DERIVED from its list" — that is UNDER-SPECIFIED to
+the point of being dangerous, and the correction now sits in §107 above: there is no single "its
+list", because ONE constant serves TWO classifiers whose sinks differ in both tag set and
+`KEEP_CONTENT`. Each classifier must derive from ITS OWN sink. The naive derivation re-breaks the
+narrative path.** That work is its own task with the six rich entity fields in scope, sequenced
+before S3b — NOT part of S3a.
+
+★★★ **The Turso gate is the IMAGE FEATURE, not the Documents view.** Gating the view was priced and
+rejected: Documents is one of the 17 `A11Y_VIEWS`, a Turso-only view must be kept out of that list
+(the file-mode seed cannot reach it), so scans would drop 90 → 85 and **§95 makes it unrecoverable**.
+It also buys no simplification — the six write paths must stay or existing file/IndexedDB users lose
+documents they already have. Gate on `tursoConfig !== null`, never on `storageConfig.kind`.
+
+★★★ **Asset BYTES go in an out-of-`TABLE_NAMES` side table** (the `comm_templates` /
+`color_schemes` / `committee_report_versions` pattern, named at `turso-schema.ts`). Two rejected
+alternatives, both measured:
+- **A meta-blob is catastrophic here.** `dirtyWorkspaceTables` maps TEN slices onto `meta` — `status`,
+  `fieldVisibility`, `features`, `steeringCommittee`, `timelogLinks`, `knowledgeItems`, `insights`,
+  `documents`, `documentVersions`, `settingsOverrides` — and the save emits an unconditional
+  `DELETE FROM meta` + full re-INSERT when any one is dirty. Every insight write would re-upload the
+  entire image library.
+- **Row-level diffing was rejected on the INVARIANT, not the effort.** `DELETE FROM t; INSERT …` is
+  self-healing — after a save the table matches the workspace whatever state it was in. Diffing is
+  correct only while the baseline is accurate, and it can be wrong (§4's second tab; a partially
+  failed save). The resulting orphan or missing rows are never repaired by a later save, and §95
+  means this repo cannot detect that class today.
+
+The side table needs none of it: the workspace save never touches it, so writes cost one row and the
+invariant is untouched because it does not apply. ★ Accepted costs: orphans become possible (needs a
+defined write order plus a reclaim action), bytes do NOT travel in the workspace JSON export, and
+project deletion must clean up explicitly with `project_id` in tenant mode.
+
+★★ **Images are referenced by id — `<img data-asset-id>` — never by src.** No URI in stored bytes, so
+the sanitizer never needs a `data:` widening (`data:text/html` is an XSS vector). Rename, automatic
+delete-propagation and single-copy storage all fall out of the indirection rather than being built.
+★★ **Delete MARKS, it does not remove:** an asset delete is not a document mutation, so
+`applyDocMutation` never fires and **no version before-image is captured** — a cascade would be
+unrecoverable, because version history is the only recovery path documents have.
+
+**Budget:** PNG + JPEG, SVG excluded permanently (the branding precedent's XSS reasoning); a 25 MB raw
+upload ceiling; an 8 000×8 000 source-dimension ceiling read from the header (a decompression-bomb
+guard — a 50 KB PNG can expand to 30000×30000); downscale to 1920×1080;
+**5 MB stored cap applied AFTER the downscale** (checking the raw file first would reject the photo
+downscaling exists to rescue), keeping the original when it was already smaller; unlimited per
+workspace with a visible total; **20 distinct images per document** — the cap belongs per document
+because a `.docx`/`.pptx` export is the only moment images are held together, assembled as one
+in-memory Blob; content-hash dedup. Metadata records `{width, height}` post-downscale because the
+OOXML writers size in EMU and cannot backfill without decoding every image.
+
+★★★ **ONE MEASUREMENT CAN INVALIDATE THAT CAP AND IT HAS NOT BEEN TAKEN.** A 5 MB image is ~6.7 MB of
+base64 and `SqlArg.value` is string-only, so one statement carries a 6.7 MB text argument in a single
+Turso pipeline request. Turso's request-size limit is UNKNOWN — do not guess it. Measure against a
+real database before planning S3c; **§95 means CI cannot.** Under ~7 MB, the per-image cap drops or
+uploads chunk.
+
+### Three cross-cutting decisions, to be settled in S3a
+
+Each is asked 2–4 times across the roadmap; answering them per-slice is how S2's "one door of two"
+shape recurred six times in one release.
+
+1. **What counts as a versioned mutation?** `DocMutation` is a discriminated union, so every new kind
+   forces the answer at the compiler. Policy: **content versions; references and metadata do not.**
+2. **ONE dangling-reference presentation** — three producers (deleted linked entity, missing asset,
+   the existing dangling resource). The existing one already solved the a11y half: a non-colour
+   marker plus a distinguishing `title`, because colour alone fails 1.4.1.
+3. **Derive, never duplicate**, for every allow-list/`HTML_START` pair.
+
+### Deliberately out of scope, recorded so it is not an accidental gap
+
+Block add/remove/reorder and a figure block (a later structural slice — so S3b's gutter carries the
+kind chip and ⋮ but **no drag handle**; a handle that does nothing is worse than none); search and
+replace (extension licence unverified); marks inside `heading.text`, `bullets.items` or table cells
+(all plain `string`); AI link/unlink tools and letting the model see a task's attached documents —
+**named explicitly so it does not become a fourth accidental gap beside §86 / §87 / §89**.
+
+---
+
+## 114. `HTML_START` does not know the documents allow-list's nine tags — open
+
+★★ **A second instance of §107, not a restatement of it.** Read §107 for the mechanism and for why
+the obvious fix was retracted; only what is NEW to documents is recorded here.
+
+`HTML_START` (`narrative-html.ts`) classifies a stored value as "already HTML" from its FIRST tag:
+
+```
+/^\s*<(p|br|strong|em|ul|ol|li|a)\b[^>]*>/i
+```
+
+`DOCUMENT_ALLOWED_TAGS` adds `s code pre blockquote hr mark sub sup img`. `HTML_START` knows none of
+them, so `descriptionHtml` reads such a value as PLAIN TEXT and `plainToHtml` escapes it. A model
+returning `<blockquote>quoted</blockquote>` as a whole paragraph is stored as
+`<p>&lt;blockquote&gt;quoted&lt;/blockquote&gt;</p>` — literal tags, in the field, in every renderer
+and every export, permanently.
+
+★★★ **The mitigation in place is an INSTRUCTION, and an instruction is not a guard.**
+`chat-tool-defs-documents.ts` tells the document-authoring model to wrap every paragraph in `<p>`,
+and `p` is one of the eight — so the shape the tool asks for is classified correctly. That covers the
+common case and nothing else. It is the only mitigation, it lives in a prompt, and a model that
+emits a whole-paragraph `<blockquote>` or `<pre>` (both legitimately in the allow-list, both
+advertised to it) defeats it while doing exactly what the tool permits.
+
+★ Severity is bounded by the direction: this ESCAPES, so the content survives and a fix can repair
+stored values. §32 is the same classifier failing the OTHER way — plain prose taken FOR markup — and
+there the words are DELETED. ★★ The mechanism is NOT `KEEP_CONTENT: false`, which an earlier
+revision of this line named: all four of §32's documented cases wrap ALLOW-LISTED tags
+(`a` / `em` / `li` / `p`), so that flag never fires. Measured both ways through the note config,
+`"<a note about pricing> is attached"` yields `"<a> is attached</a>"` with `KEEP_CONTENT: false` AND
+with the default — byte-identical. §32 names its own mechanism as "the `TAG` pass"
+(`rich-text-plain.ts:58`, `/<\/?[a-zA-Z][^>]*>/g`, which removes a pseudo-tag together with
+everything inside its angle brackets); on a render path the stray words are attribute NAMES and the
+attribute test strips them. `KEEP_CONTENT: false` is the NARRATIVE path's hazard (§107's correction
+block) — citing it here sends a reader to change a flag that would alter nothing about §32. Do not
+merge the two into one "HTML_START is unreliable" note — the remediations differ.
+
+★★ Why it was not fixed in S3a: widening `HTML_START` changes what counts as already-HTML for every
+stored value on every load path, which is a byte-stability and golden-fixture change, not a one-line
+edit — and §107's own correction block retracts the widening shape because it re-breaks the
+narrative path. The policy the roadmap settles on is derive-per-sink: each sink derives its
+classifier from its OWN allow-list, so a third list cannot drift from a shared regex. That work
+moved out of S3a entirely (§113).
+
+---
+
+## 115. Two of the three sanitizers admit arbitrary `data-*` — open
+
+`sanitize-html.ts` exports three DOMPurify sanitizers. Only `sanitizeDocumentHtml` sets
+`ALLOW_DATA_ATTR: false`; `sanitizeTemplateHtml` and `sanitizeNoteHtml` leave DOMPurify's default,
+which is TRUE (`node_modules/dompurify/dist/purify.cjs.js:767` — `ALLOW_DATA_ATTR =
+cfg.ALLOW_DATA_ATTR !== false; // Default true`). So on those two the explicit `ALLOWED_ATTR` list is
+not the whole gate — any `data-*` attribute passes it regardless of what the list says.
+
+★ Reproduce: `grep -n "ALLOW_DATA_ATTR: false" src/app/sanitize-html.ts` returns exactly one
+line. ★ Deliberately no line NUMBER: the first revision of this entry cited one, and the
+same change set that wrote it inserted comment lines above and broke it. ★★★ **GREP THE SETTING, NOT THE BARE NAME** — the bare `ALLOW_DATA_ATTR` returns THREE
+lines, because that sanitizer's own comment discusses the flag twice, and the first revision of this
+entry shipped the bare-name form asserting "exactly one line". The command refuted the sentence it
+was attached to. That is the same failure this file records against the CI-bypass bullet
+(AGENTS.md's ★★★ "Attach the command and run it") — it has now happened more than once, in more
+than one file. (The file's fourth `DOMPurify.sanitize` call is the strip-everything projection —
+`ALLOWED_TAGS: []`, `ALLOWED_ATTR: []` — and is unaffected.)
+
+★★ **The mechanism, and why `data-asset-id` needed `ADD_URI_SAFE_ATTR`.** Setting
+`ALLOW_DATA_ATTR: false` removes the `data-*` SHORT-CIRCUIT — at `purify.cjs.js:1846` the `data-*`
+branch skips the WHOLE remaining chain, name test and value test alike — which drops every such
+attribute into the value chain, where `ALLOWED_URI_REGEXP` is tested against EVERY attribute value,
+not only URI-bearing ones, and a non-URI value is rejected. Any `data-*` a fix wants to KEEP must
+therefore be re-admitted by name AND exempted from the value test.
+
+★★ **It is a TWO-LINE FIX — one `ALLOW_DATA_ATTR: false` per sanitizer — because the set needing
+re-admission is EMPTY.** An earlier revision said the opposite ("NOT a one-line fix… first enumerate
+which `data-*` names those two sanitizers' call sites actually depend on"), which is the expensive
+direction: it prices a two-line change as a slice and nobody starts it. The enumeration was then
+actually run, 2026-08-08:
+
+- Every non-test call site, via `grep -rn "sanitizeTemplateHtml\|sanitizeNoteHtml" src/ scripts/ e2e/
+  | grep -v "\.test\."` — including the indirect ones (`sanitizeAiRichText` → `withAiRichFields`, and
+  the four `sanitize*RichFields` wrappers, which call `sanitizeNoteHtml` at `note-log.ts:157`). None
+  depends on a `data-*` name. ★ Neither sanitizer is ever passed by REFERENCE into a `.map`/
+  `buildList` callback — the only indirection is `rich-text-editor.tsx:123`'s ternary alias, which
+  the bare-name grep catches anyway.
+- The EDITOR is the one producer that could legitimately emit `data-*`, and does not.
+  `rich-text-editor.tsx` loads `StarterKit` alone, which registers Blockquote · BulletList ·
+  CodeBlock · Heading · HorizontalRule · Link · ListItem · OrderedList · Underline — and NOT
+  TaskList/TaskItem. Scanning every enabled extension's dist for `data-` returns nothing. ★ The only
+  `data-*` in the Tiptap tree is `data-checked` / `data-type` in `@tiptap/extension-list`, and its
+  context (`tag: 'li[data-type="…"]'`) shows it belongs to the unregistered taskItem — finding those
+  strings by a package-wide grep and stopping there is how this gets called non-empty.
+- Nothing stored carries one either: `grep -rn "data-[a-zA-Z-]*=" src/app/__fixtures__/
+  src/app/sample-workspace-*.json` returns nothing, and `grep -c "data-" src/app/i18n.ts
+  src/app/i18n.de.ts` returns 0 and 0.
+- ★★ `data-asset-id` is REAL but belongs to the THIRD sanitizer and cannot reach these two. It is
+  only ever emitted on `<img>`, absent from both narrow tag lists, so such markup loses the TAG
+  before the attribute question arises — and documents never route here anyway:
+  `document-preview.tsx` and `doc-render-html.ts` both use `sanitizeDocumentHtml`, and
+  `RichTextView` (the `sanitizeNoteHtml` sink) has two production consumers —
+  `dashboard-narrative.tsx` and `note-log-panel.tsx` — neither of them documents.
+  ★ Reproduce with the IMPORT, not the bare name — and note the `\.\.?`, which is
+  load-bearing: one consumer sits in `dashboard-sections/` and imports `../rich-text-view`,
+  so a `\./`-only pattern silently returns one file instead of two.
+  `grep -rlnE 'from "\.\.?/rich-text-view"' src/app --include="*.tsx" | grep -v '\.test\.'`
+  ★★ TWO earlier revisions of this line shipped a command that did not produce the
+  sentence beside it. The bare-name grep returns FIVE files (the symbol is also named in
+  its own module and in TWO test files, so "discounting its own module and test" leaves
+  three, not two); the `\./`-only import grep returns ONE. Both were caught by running
+  them. Run yours.
+
+★ The one behaviour change a fix DOES make: model-authored HTML arriving through `sanitizeAiRichText`
+would lose any `data-*` a model happens to emit. That is the flag working, not a cost.
+
+★ No known exploit. `data-*` carries no script and no navigation; the concern is that the allow-list
+does not mean what it appears to mean, which is the state that produces a wrong review conclusion
+later. Recorded for that reason, not as a live vulnerability.
+
+---
+
+## 116. The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision
+
+★★ **This entry shipped with its central claim inverted, and the inversion was INHERITED rather than
+invented.** The first revision said the gate reads the per-format TOKEN percentage, put tsx at 1.70%
+"0.05pp from blocking", and warned the reader off the two figures nearer the truth. `AGENTS.md` said
+"per-format" in two places — the `dup:check` Commands line and the CI pipeline bullet — and this
+entry turned that into a number. Both are corrected. Recorded rather than quietly rewritten, because
+the word "Measured" sat above a table that WAS measured and a sentence about which cell the gate
+reads that was NOT.
+
+Measured 2026-08-08 on the S3a branch (`npm run dup:check`, exit 0):
+
+| Format | Duplicated tokens | Duplicated lines |
+|---|---|---|
+| tsx | 6677 / 391620 = 1.70% | 899 (1.34%) |
+| typescript | 5249 / 379661 = 1.38% | 713 (1.04%) |
+| **Total** | 11926 / 778582 = 1.53% | **1612 (1.19%)** ← the only cell the gate reads |
+
+★★ **The gating number is the TOTAL duplicated-LINE percentage: 1.19% against `--threshold 1.75`, so
+0.56pp of headroom.** Not per-format, not tokens. The console flags none of the six cells, so the
+exit code is the only witness — run `dup:check`'s own jscpd invocation with the threshold overridden:
+
+| `--threshold` | EXIT | what a 1 would have meant |
+|---|---|---|
+| 1.60 | 0 | per-format TOKENS gate (tsx 1.70%) — ruled out |
+| 1.52 | 0 | TOTAL TOKENS gate (1.53%) — ruled out |
+| 1.30 | 0 | per-format LINES gate (tsx 1.34%) — ruled out |
+| 1.19 | 0 | — |
+| 1.18 | **1** | `ERROR: jscpd found too many duplicates (1.2%) over threshold (1.2%)` |
+
+Only the last pair moves, and it brackets 1.19%. ★ The printed `1.2%` is the total LINE figure
+rounded to one decimal; total tokens would have printed `1.5%`.
+
+★ jscpd is 5.0.11, which ships a native Rust `cpd` binary (`node_modules/jscpd/run-jscpd.js` spawns
+it) and documents `--threshold` as a single "Max duplication % before exit 1". Whether an older JS
+implementation ever thresholded per format is unknown and does not matter — it does not today. If
+the dependency is bumped, re-run the bisect rather than trusting this table.
+
+★ The decision this entry exists for still stands, on honest numbers: S3b is the block editor
+(§113), the roadmap's main UI slice, and per-block editor components are the kind of code jscpd
+finds repetitive. 0.56pp of total-LINE headroom is more room than 0.05pp of tsx tokens looked like,
+but a large repetitive slice can still spend it — and the gate counts `.tsx` lines into the same
+total, so tsx growth moves the gating number directly. Decide during S3b planning — refactor the top
+clones, or raise the threshold with a recorded justification — not against a red pipeline.
+
+---
+
+## 117. Three S3c image prerequisites, all inert today — open
+
+★ ONE entry rather than three because all three share a trigger: they become live the
+moment S3c wires the asset store, and whoever implements it needs the whole checklist.
+Lettered parts follow §36(a)'s precedent.
+
+★★ NONE OF THESE IS A LIVE DEFECT. Nothing writes `data-asset-id` today and `src` is not
+allow-listed, so every one of them is currently unreachable. They are recorded because
+each is measured, and each is the kind of thing a later slice assumes rather than checks.
+
+**Reproduce (all three).** Needs a DOM, so it cannot run under bare node. Save the probe
+OUTSIDE the repo and run it FROM the repo root, so `node_modules` resolves: bootstrap
+`window`/`document` from a `jsdom` instance, then dynamically import
+`src/app/sanitize-html` and `src/app/document-model`, and run with `npx vite-node`.
+
+### (a) An image-only paragraph is DELETED on every load path
+
+`document-model.ts` `sanitizeBlock` drops a paragraph block with no visible text:
+
+    grep -n "htmlTextLength(html) === 0" src/app/document-model.ts
+
+→ one line: `if (htmlTextLength(html) === 0) return null;`. An `<img>` contributes no
+text, so a paragraph containing only an image measures 0 and the whole block is removed.
+Measured 2026-08-08 — `sanitizeProjectDocuments` over two blocks returned only the second:
+
+| input blocks | returned |
+|---|---|
+| `[{paragraph, html:'<p><img data-asset-id="7"></p>'}, {paragraph, html:'<p>ok</p>'}]` | `[{"type":"paragraph","html":"<p>ok</p>"}]` |
+
+★ A paragraph with text AND an image survives; only the image-ONLY case is lost.
+
+★★ THIS MAKES A SHIPPED COMMENT FALSE. `sanitize-html.ts` justifies allow-listing `img`
+with "allow-listed here so stored markup written by a later slice is never retroactively
+stripped by this one" — true of that sanitizer and defeated by a different layer that
+also runs on load. The structural validator strips it regardless. That is §111's class:
+the invariant outlives the code, and the next reader stops checking.
+
+★ The fix is a DECISION, not a one-liner: `htmlTextLength` is the same helper the cap
+uses, so "visible text" would have to learn that a void element counts as content, or
+`sanitizeBlock` needs an image-aware arm. Either way it changes what an empty paragraph
+means on all six write paths.
+
+### (b) `data-asset-id` values are entirely unvalidated
+
+`ADD_URI_SAFE_ATTR: ["data-asset-id"]` exempts the attribute from the value chain
+altogether — which is the whole reason it is there (`ALLOWED_URI_REGEXP` is tested
+against EVERY attribute value, so an opaque id fails it). The cost is that NOTHING
+checks the value. Measured:
+
+| input | output |
+|---|---|
+| `<p data-asset-id="7">x</p>` | unchanged |
+| `<p data-asset-id="javascript:alert(1)">x</p>` | **unchanged, verbatim** |
+| `<p data-asset-id='a&quot;b<c'>x</p>` | **unchanged** — a raw `<` survives in the value |
+
+★★ "Opaque key" is NOT the same as "safe to interpolate". Harmless today because nothing
+reads it, and both OOXML renderers escape everything they emit. It stops being harmless
+the moment the value is used to build a URL, a filesystem path, a lookup key, or is
+concatenated into markup. The consumer must validate the SHAPE it expects at the point of
+use; the sanitizer deliberately does not and cannot.
+
+### (c) Adding `src` opens `data:` URIs on `img`, bypassing the URI allow-list
+
+`img` is in DOMPurify's default `DATA_URI_TAGS`, and `_isValidAttribute` short-circuits
+for `src` on such a tag BEFORE `ALLOWED_URI_REGEXP` is consulted. Measured on the real
+config with `src` added to `ALLOWED_ATTR` and nothing else changed:
+
+| input | result |
+|---|---|
+| `<img data-asset-id="7" src="data:…">` (TODAY, no `src` in list) | `<img data-asset-id="7">` — inert |
+| `<img src="data:image/svg+xml;base64,…">` (with `src`) | **survives** |
+| `<img src="data:text/html;base64,…">` (with `src`) | **survives** |
+| `<img src="javascript:alert(1)">` (with `src`) | dropped |
+| `<a href="data:text/html;base64,…">` (with `src`) | **dropped** |
+
+★★★ THE `<a>` ROW IS THE PROOF, not decoration. The identical config drops `data:` on an
+anchor and keeps it on an image, which isolates the cause as the per-element
+`DATA_URI_TAGS` short-circuit rather than a general failure of the regexp. Without that
+control the other rows are consistent with "the regexp does not work", which would send a
+fixer to the wrong place.
+
+★ SVG runs script, so `data:image/svg+xml` is an XSS vector, and `data:text/html` is one
+outright. `javascript:` is still dropped — that is the one thing the short-circuit does
+not cover, which is why the gap reads as safe on a casual test. A slice shipping image
+`src` must constrain `DATA_URI_TAGS` or `FORBID_ATTR` itself; widening
+`ALLOWED_URI_REGEXP` does nothing here.
+
+---
+
+## 118. A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup — open, blocked on §114
+
+A `paragraph.html` holding literal plain text with newlines renders as ONE fused line.
+Measured base-vs-head on the S3a branch with `html: "a\nb"`:
+
+| | DOCX `word/document.xml` |
+|---|---|
+| before the mark-aware slice | `<w:r><w:t>a</w:t><w:br/><w:t>b</w:t></w:r>` |
+| after | `<w:r><w:t>a b</w:t></w:r>` |
+
+PPTX went from two `<a:p>` paragraphs to one. ★ HTML/PDF has ALWAYS collapsed it — that
+renderer never upgraded — so the slice made all three CONSISTENT rather than making two
+newly wrong. It is still wrong in all three.
+
+★★ REACHABLE ONLY BY IMPORT, never by normal use. The AI write boundary upgrades before
+storing (`sanitizeAiDocumentRichText("a\nb")` → `"<p>a<br>b</p>"`), and the model is the
+only in-app author today. But measured through the real composed load pipeline
+(`sanitizeProjectDocuments` then `sanitizeDocumentRichFields`, as every load path calls
+them), `{"type":"paragraph","html":"a\nb"}` survives byte-for-byte — neither pass
+upgrades. So hand-edited or externally-produced workspace JSON, and any document predating
+the rich-text work, reaches the renderer un-upgraded.
+
+★★★ **THE OBVIOUS FIX IS UNSAFE, AND THIS IS THE POINT OF THE ENTRY.** Composing
+`descriptionHtml` in front of `htmlToRichLines` at the two OOXML call sites was
+implemented, measured and REVERTED on 2026-08-08. It turned two passing tests red:
+`descriptionHtml` gates on `HTML_START`, which knows only `p|br|strong|em|ul|ol|li|a`, so
+a paragraph whose FIRST tag is `blockquote` — already valid, already sanitized, already
+stored — is classified as PLAIN TEXT and `plainToHtml` escapes the entire value to
+`&lt;blockquote&gt;…`. Observed: expected paragraph styles
+`['Title','Quote','CodeBlock','CodeBlock']`, got `['Title']` — the formatting did not
+degrade, it vanished.
+
+★★ **So this and §114 are the SAME defect, and this direction is worse.** §114 escapes a
+value at the WRITE boundary, where the model can be told to wrap in `<p>`. This would
+escape a value already STORED as valid markup, at the RENDER sink, where nothing can be
+told anything — for ALL NINE document-only tags. ★★ Nine, not eight: an earlier
+revision of this entry said "8 of the 9", which contradicted §114 in this same file
+and understated the entry's own case. Measured one leading tag at a time through the
+real `descriptionHtml` — `s` `code` `pre` `blockquote` `hr` `mark` `sub` `sup` `img`
+all escape. `<s>` does not match `strong`, and `<sub>`/`<sup>` do not either.
+The load boundary does not protect it:
+`sanitizeDocumentHtml` is DOMPurify, which parses the whole tree and does not care which
+tag comes first, so such a value passes through as real markup.
+
+★ ORDER OF WORK: fix the classifier first — §113 schedules the `HTML_START` split in its
+*(before S3b)* row, and §107 records why widening the shared regex in place is the wrong
+shape. Only then can the upgrade be composed. Do not re-attempt the composition before
+that; it is not a one-line fix waiting to be typed, it is a fix waiting on a dependency.
+
+★★ THE LOAD-BOUNDARY VARIANT IS WORSE, NOT BETTER. Composing the upgrade into
+`sanitizeDocumentRichFields` would fix all three renderers from one place — and would be a
+MUTATION ON LOAD that the next save PERSISTS: it rewrites stored bytes on all six write
+paths for documents nobody edited, makes `documentVersions` before-images record a diff no
+user made, and moves byte-stable golden fixtures for an input that did not legitimately
+change. It is the same class as the standing rule that an AI rich-field boundary is applied
+to the model's INPUT and never to the merged entity. It also blurs that module's stated
+contract, which is the allow-list, not format normalisation.
+
+★ A CORRECTION worth keeping, because it was asserted before it was measured: composing
+the upgrade would NOT have restored the old `<w:br/>` shape even where it is safe.
+`htmlToRichLines` treats `<br>` as a line break, so `"<p>a<br>b</p>"` yields TWO
+`RichLine`s and therefore two `<w:p>` paragraphs — not one paragraph containing a break.
+That is consistent with how this slice treats every other block boundary, but it is not
+what the earlier base-vs-head comparison was taken to imply.
+
+---
+
+## 119. `<a href>` is dropped by both OOXML renderers — open
+
+A link inside a document paragraph reaches `.docx` and `.pptx` as plain text: the words
+survive, the target does not. The HTML/PDF renderer keeps both, so the same document
+carries a working link in one format and a dead phrase in two others. Meanwhile
+`chat-tool-defs-documents.ts` advertises `a` to the document-authoring model, so the model
+is invited to emit links the majority of the export paths silently flatten.
+
+★ Pre-existing, NOT introduced by the mark-aware slice — the flat projection it replaced
+dropped the href too. Confirmed rather than assumed, three ways:
+
+    grep -n "w:hyperlink\|hyperlink" src/app/doc-render-docx.ts src/app/ooxml-docx-primitives.ts
+    grep -n "hlinkClick" src/app/doc-render-pptx.ts src/app/ooxml-pptx-primitives.ts
+    grep -n "href" src/app/rich-text-runs.ts
+
+All three return nothing. `A` is in neither `MARK_BY_TAG` nor `LINE_TAGS`
+(`rich-text-runs.ts`), so an anchor falls through to the plain recursion and contributes
+only its text — which `rich-text-runs.test.ts`'s "carries no mark for a tag that only
+wraps (a link)" already pins as the intended behaviour of the parse.
+
+★ Not a one-line fix in either format, which is why it is filed rather than done: a real
+`.docx` hyperlink is a `w:hyperlink` element carrying an `r:id` into a RELATIONSHIP part,
+so `buildDocxPackage` would have to collect per-part relationships it does not model
+today; `.pptx` needs the equivalent `a:hlinkClick` plus its own slide relationship. The
+shared parse would also have to start carrying a href on `TextRun`, which is a change to
+the type both renderers consume.
+
+---
+**CLOSED 2026-08-08 by `max-md:basis-full` on the group.** The group claims its own row, so the
+parent pill is a single-row sibling again and no top-level entry can share a row with a child.
+
+★★★ **`max-md:` is the whole fix — a bare `basis-full` (which is what the "likely fix" line above
+proposed) would BREAK the desktop rail.** Above the breakpoint the nav is `md:flex-col`, where
+`flex-basis` resolves against the MAIN axis — HEIGHT — so an unqualified `basis-full` sets the group
+to 100% of the nav's height. The `max-md:` variant is provably inert above the breakpoint: the
+measurement below reads the group's computed `flex-basis` as `auto` at 1280px and `100%` at 760px,
+from the same build.
+
+★ Measured in Chromium against a fresh `PORT=3100` dev server, seeded via `e2e/seed.ts`, in a
+throwaway spec reading `getBoundingClientRect` (deleted after use — nothing in the unit suite can see
+any of this, and the axe gate scans one desktop viewport with no wrap-order rule). Active parent pill
+("AI Assistant") height, before → after:
+
+| viewport | pill height | group width | group `flex-basis` | nav height |
+|---|---|---|---|---|
+| 1280px before | 36px | 224px | `auto` | 559px |
+| 1280px after | 36px | 224px | `auto` | 559px |
+| 760px before | **116px** | 136.02px | `auto` | 160px |
+| 760px after | **36px** | 712px | `100%` | 240px |
+
+★ The narrow nav growing 160px → 240px is the fix working, not a side effect: the group now occupies
+a row of its own instead of being packed beside three unrelated top-level entries.
+
+★ The nested `<ul>`/`<li>` nav structure raised in the same review remains the richer alternative and
+is announced by more AT — not adopted here, because a one-class layout fix does not justify rewriting
+the rail's markup and re-verifying every announcement.
+
+## 120. The background insight-recommendation runner has no `AbortController` at all — open, billed
+
+★ **Filed as §113** on `feat/ui-batch-slice-3`, renumbered to §120 when that branch was prepared for
+merge: main had independently taken 113 (the documents-roadmap entry, `bba9b6a9`). Main is the trunk
+and the branch moves. Every commit message on this branch says §113 and none can be edited. The same
+one-hop shift applies to the four entries below — filed as §120, §121, §122, §123, now §121, §122,
+§123, §124.
+
+Found 2026-08-08 while auditing the AI trigger sites for the shared `AiTriggerButton` (slice 3's
+"every AI trigger offers Stop"). The slice covers TRIGGERS; this path is not one, which is why it is
+recorded here rather than fixed there.
+
+`use-insight-recommend-runner.ts:84` awaits `runInsightRecommendation({ apiKey, model, context,
+index, today })` inside a `for (const insight of candidates)` loop. **There is no `signal` key in
+that argument object**, and the file creates no `AbortController` anywhere — grep it. The call
+already ACCEPTS a `signal` (the on-demand sibling `use-insight-recommend.ts` passes one through
+`useAbortableAi`), so the gap is a missing thread, not a missing capability.
+
+★ Blast radius is bounded but real: `MAX_BG_RECS_PER_TICK` (`insights/insight.ts:99`) is **3**, and
+the loop is serial, so at most three billed Anthropic calls per tick run with no way to stop them —
+including across an unmount, since with no controller there is nothing for a cleanup to abort. The
+`break` on a `limit`/`auth` `AiHttpError` stops the REMAINING candidates; it cannot stop the one in
+flight.
+
+★★ Consequence for the prose: after slice 3, "every AI TRIGGER in this app is cancellable" is true
+and **"every AI CALL in this app is cancellable" is not**. Do not let the second sentence into
+AGENTS.md, a CHANGELOG entry or a commit body — this entry exists because the slice's own commit
+message was corrected for exactly that overclaim.
+
+★ Likely fix: give the runner an `abortRef`, pass `controller.signal` into the call, abort on
+unmount, and treat `isAbortError` as a silent stop (the established shape — `use-abortable-ai.ts`).
+Left open because the runner is background/unattended: there is no user-facing control to hang a
+Stop on, so the design question (does an unattended tick get cancelled on unmount only, or does the
+Insights view grow a "stop background recommendations" affordance?) is a slice of its own.
+
+## 121. `use-tasks-dedup.tsx` never aborts its in-flight call on unmount — CLOSED 2026-08-08
+
+★ **Filed as §120** — see the renumbering note at the head of the entry above, §120.
+
+Found 2026-08-08, same audit as §120 (which was filed as §113).
+
+`use-tasks-dedup.tsx` owns an `abortRef` and aborts correctly in its `reset` callback, but AT AUDIT
+TIME the file contained **no `useEffect` at all** — `grep -n "useEffect"
+src/app/use-tasks-dedup.tsx` returned nothing. So when the pane holding the trigger unmounted
+mid-`"thinking"`, the billed `runDedupProposal` call kept running to completion with its result
+discarded. (Line numbers are deliberately omitted: a fix to this very file moves them. See the STATUS
+block below before treating this as current.)
+
+★★ Measured against its peers, and **this hook is not the exception — half the trigger set behaves
+the same way.** Take the six sites the slice gave an `AiTriggerButton` and ask, for each, which hook
+owns its `AbortController` and whether that hook aborts on unmount:
+
+★★★ THE TABLE BELOW CARRIED `file:line` CITATIONS AND THEY WERE ALREADY WRONG. They were exact at
+`2e1087e1` and rotted within the same branch — `inline-ai-edit-popover.tsx:77` is now 88 and
+`use-tasks-dedup.tsx:181` is now 198, moved by the very fix rounds this entry describes. Worse, the
+paragraph directly above says line numbers are DELIBERATELY OMITTED, so the table contradicted its
+own entry. They are dropped here in favour of file + symbol, which is this repo's standing rule
+precisely because a line can be broken by the commit that writes it. Do not reintroduce them.
+
+| trigger mount | backing hook | aborts on unmount? (AT AUDIT TIME) |
+|---|---|---|
+| `insight-recommendation-controls.tsx` | `use-insight-recommend.ts` → `use-abortable-ai.ts` | **yes** |
+| `use-alloc-plan.tsx` | `use-alloc-plan.tsx` | **yes** |
+| `use-raci-suggest.tsx` | `use-raci-suggest.tsx` | **yes** |
+| `actions-panel.tsx` | `use-action-analysis.ts` | **no — the file had no `useEffect` at all** |
+| `inline-ai-edit-popover.tsx` | `use-inline-entity-edit.ts` | **no — see below** |
+| `use-tasks-dedup.tsx` | `use-tasks-dedup.tsx` | **no — this entry** |
+
+★★★ **CLOSED for THIS hook, and the table above is now HISTORY — it is the audit taken before slice
+3's fix round, kept because the count is the point.** `use-tasks-dedup.tsx` gained the cleanup-only
+`useEffect(() => () => abortRef.current?.abort(), [])` in slice 3's review round, pinned by a test
+that captures the signal, asserts `aborted === false` before unmount and `true` after (mutation-proved
+red with the effect deleted). The gap remaining **when this entry was closed** was two of six —
+`use-action-analysis.ts` and `use-inline-entity-edit.ts`, which that change does not touch — and it
+was filed as **§127** — **which is now CLOSED too**: both hooks were fixed later the same day, in the
+review round that followed, so all six abort on unmount. Neither this entry nor §127 describes a live
+defect; both are kept for the count and the reasoning. Re-run the sweep below rather than quoting
+either.
+
+So THREE of the six lacked it at audit time, not one. ★★★ **AT AUDIT TIME (2026-08-08, before slice
+3's fix round) exactly THREE files carried the cleanup-only shape** `useEffect(() => () =>
+abortRef.current?.abort(), [])` — `use-abortable-ai.ts`, `use-alloc-plan.tsx`, `use-raci-suggest.tsx`.
+That sentence used to be written in the present tense with the number three, and it was FALSE the
+moment `use-tasks-dedup.tsx` gained the shape in the round that closed this very entry — the fix and
+the claim it falsifies landed together. Treat the figure as historical and **re-run the sweep** — it
+moved again when §127 was worked, and reads **6** today:
+
+```bash
+grep -rlF "() => () => abortRef.current?.abort()" src/app; echo "EXIT=$?"
+```
+
+(No pipe — read the exit code unpiped, per the AGENTS.md landmine.) Re-measured 2026-08-08 while
+writing this correction: **6** files, i.e. all six hooks in the table. That reading includes
+UNCOMMITTED work in the tree and is therefore evidence about a moment, not about `main` — §127 is
+the entry that owns the remaining gap, and its STATUS block is the authority on whether it is real.
+
+At audit time the two remaining files failed in DIFFERENT ways, and the distinction is what §127
+carries forward: `use-inline-entity-edit.ts` HAD a `useEffect`, but it fired on
+`paneActive === false` and returned no cleanup, so it aborted on DEACTIVATION and never on unmount;
+`use-action-analysis.ts` owned a controller and a `cancel` and contained no `useEffect` whatsoever.
+
+★★ **Do not write "all the others already do this"** — an earlier revision of this entry warned
+against exactly that framing and then committed it, by counting `use-action-analysis.ts` as not
+existing. Reproduce the sweep before quoting any figure here:
+
+```bash
+grep -rn "new AbortController" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
+grep -rn "<AiTriggerButton" src/app --include="*.tsx" | grep -v "\.test\."
+grep -rn "abortRef" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
+```
+
+Measured 2026-08-08: **13** non-test `new AbortController` sites in `src/app`. Six are the hooks in
+the table above; the other **seven** are outside the trigger set — `api/stt/_helpers.ts:84`,
+`chat-panel.tsx:281`, `step0-import-panel.tsx:195`, `turso-pipeline.ts:42`, `use-chat-models.ts:35`,
+`use-digest.ts:86`, `use-timelog-sync.ts:96`. And **6** `<AiTriggerButton>` mounts, which is the
+number the CHANGELOG's "six AI trigger sites" refers to — it is the count of sites this slice
+covered, NOT a count of the app's billed AI calls (see §120, and the two uncovered controls in
+§125).
+
+★★ The reach is larger here than for the other triggers: `useTasksDedup` is mounted TWICE
+(`tasks-section.tsx`, `gantt-view.tsx`, see `dedup-trigger-qualifier.test.tsx`), and in the modern
+shell a view UNMOUNTS on every navigation away. Starting a dedup and switching tabs is the ordinary
+path, not an edge case.
+
+★ The fix WAS one line beside the existing `reset` — the cleanup-only shape above, which sets no
+state and so stays clear of the `react-hooks/set-state-in-effect` ban. It was filed rather than done
+at the time only because slice 3's task 8 was scoped to replacing the rendered control and was
+explicitly forbidden from changing any feature's cancel semantics; the review round that followed was
+not, and closed it.
+
+★★ Past tense throughout, on purpose. This entry spent one commit reading as though the fix were
+still owed, because the closure was written at the top and the prescription left at the bottom. When
+you close an entry, read it to the END — see the same failure recorded in §127's STATUS block.
+
+## 122. The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity
+
+★ **Filed as §121** — see the renumbering note at the head of §120.
+
+Found 2026-08-08 while wiring slice 3's task 11. Not a regression: the people rows are new, and the
+divergence is created by giving them a source at all.
+
+Two numbers are now stacked vertically in the same table, both called booked/actual, and they come
+from different places:
+
+* **The role row** (`budget-panel.tsx:663`) renders `a.actualHours[p.key]` — PERSISTED workspace
+  data on the `BucketAllocation`. It is written only when a user runs Apply in the Timelog panel
+  (`timelog-apply.ts:281` `applyActualsToBuckets`), and it is HAND-EDITABLE in the cell.
+* **The people rows beneath it** (`budget-panel.tsx:678` → `budget-bucket-people.ts:67`) render the
+  per-resource breakdown from the PER-DEVICE Timelog cache, read at
+  `workspace-section.tsx:247` (`loadActualsCache(projectId)?.aggregates?.byBucket`) and written by
+  every fetch (`use-timelog-sync.ts:219` `saveActualsCache`). Apply never touches it; nobody can
+  edit it.
+
+★★ **Nothing in the UI says they can disagree**, and their layout says the opposite: a disclosure
+opening directly under a figure reads as a BREAKDOWN of that figure. They are not one, and they do
+not reconcile by construction — the engine drops bookers whose role has no line on this bucket
+(those hours stay in `unattributed`, `budget-bucket-people.ts:41-54`), so the people column does not
+sum to the role row even when both sources are perfectly fresh.
+
+Four ways they diverge in ordinary use:
+1. Fetched but not yet applied — people rows show the new bookings, the role row still shows the old
+   total. This is the DEFAULT state after every fetch.
+2. Applied, then the cell hand-edited — the role row moves, the people rows do not.
+3. Cache absent (another device, after `clearAppConfig`, or before the first fetch) — every person
+   reads "—" while the role row shows real hours.
+4. Multi-device Turso: the workspace carries another device's applied actuals while this device's
+   cache holds an older fetch, so the people rows are OLDER than the row above them.
+
+★ The read is memoised on `projectId` alone, so it does not refresh while the Budget view stays
+mounted — a fetch in the Timelog panel does not move these figures until the view remounts. That is
+the accepted cost of not threading live `useTimelogSync` state through `workspace-section`
+(explicitly chosen 2026-08-08, not an oversight).
+
+★ Fix is one of two, and it is a product decision, not a mechanical one: (a) show a visible
+staleness/source cue on the people body — the cache carries `fetchedAt` for exactly this, and it is
+already read at `use-timelog-sync.ts:58` — or (b) give both rows ONE source, which means either
+driving the people rows off persisted per-resource actuals (a new `Workspace` field, so the six
+write paths) or accepting that the role row is the only trustworthy total and dropping the per-period
+booked figures from the people rows entirely.
+
+★★ A tooltip is NOT the fix and was deliberately not used: `budgetPeopleFigureHint` explains WHICH
+figure is which ("Booked / planned hours"), and extending it to carry a correctness caveat would put
+a data-integrity warning in a hover-only channel that no keyboard or touch user reaches.
+
+Reproduce the two reads:
+```bash
+grep -n "actualHours\[p.key\]\|actualsByPeriod={" src/app/budget-panel.tsx
+grep -n "loadActualsCache" src/app/workspace-section.tsx
+```
+
+## 123. The budget people-row disclosure clips its own label mid-glyph, with no ellipsis — CLOSED 2026-08-08
+
+★ **Filed as §122** — see the renumbering note at the head of §120. ★★ The code comments in
+`budget-panel-people-rows.tsx` and `budget-panel-people-rows.test.tsx` still cite §122; they point at
+main's entry now and must be changed to §123 in the same commit as this renumber.
+
+Found 2026-08-08 in slice 3's task-14 eye-verify. Not a regression — the control is new — and it is
+the case AGENTS.md already documents in the abstract ("`text-overflow` does not apply to an
+inline-flex button") reaching a surface where the clipped string is a real, variable-length data
+value rather than a short column header.
+
+`PeopleDisclosureLabel` (`budget-panel-people-rows.tsx:28`) renders a `ToggleButton
+variant="disclosure"` AS the role line's label, inside the bucket table's role `<td>`, which is
+clamped to the LIVE role-column width (`BUDGET_COL_WIDTHS.role` = 160 by default) and carries
+`truncate`. `truncate` is `overflow:hidden` + `white-space:nowrap` + `text-overflow:ellipsis`, but
+the cell's only child is an atomic inline-flex box, so the ellipsis never applies: the button is
+simply cut at the cell edge, mid-glyph.
+
+Measured in Chromium against `sample-workspace-small.json` (viewport 900×850, computed
+`getBoundingClientRect`), role column at its 160px default:
+
+| role label | button width | cell width | cut |
+|---|---|---|---|
+| Business Analyst Consultant | 185.6 | 160 | **25.6px** |
+| Project Manager Senior | 160.0 | 160 | 0 (zero headroom) |
+| Developer Consultant | 150.5 | 160 | fits, 9.5px spare |
+| Developer Senior | 127.8 | 160 | fits |
+| Developer Lead | 119.8 | 160 | fits |
+
+So two of the seven role lines the sample renders are already cut at the DEFAULT width, and a third
+sits exactly on the boundary. Dragging the role column to 90px (a normal thing to do — the column is
+user-resizable) cuts every one of the seven, the worst by 107.6px, i.e. more than half the label
+gone with nothing indicating it.
+
+★★ CORRECTION, from re-measuring the same 7 lines on 2026-08-08 while fixing this: the table's `cut`
+column compares the button against the column's DECLARED 160px, but the cell clips at its PADDING
+edge, and the button starts `px-3` (12px) in — so the width actually available to the button is
+`160 − 12 = 148`, not 160. Against that boundary **FOUR of the seven lines are cut at the default**,
+not two: Business Analyst Consultant ×2 by 37.6px, Project Manager Senior by 12px, Developer
+Consultant by 2.5px; Developer Senior ×2 and Developer Lead fit. The 90px figures need no
+correction — `185.6 − (90 − 12) = 107.6` is the padding-edge number already. The entry understated
+the default-width case; it did not overstate it.
+
+★ The disclosure chrome is what pushes it over: the label text alone fits; the `ToggleButton` adds
+its own padding plus the `data-pressed-marker` glyph, which by design renders in BOTH states so the
+button keeps one width.
+
+★★ The obvious fix is NOT the one AGENTS.md warns against. The warning there is about
+`SortResizeTh`'s pinned HEADER, where swapping `overflow-hidden whitespace-nowrap` for `truncate`
+was measured to change nothing, because the content is a button either way. Here the fix is to make
+the button itself shrinkable and put the ellipsis INSIDE it, on the text node where `text-overflow`
+does apply.
+
+### FIXED — `PeopleDisclosureLabel` passes `className="max-w-full [&>span]:min-w-0 [&>span]:truncate"`
+
+At the CALL SITE, not in `ToggleButton`: every other consumer of that primitive is a short fixed
+label in an unclamped toolbar, so changing the primitive would alter them all to fix one caller. The
+`&>span` reaches into the primitive's markup — that is the price of not changing it for everyone,
+and `budget-panel-people-rows.test.tsx` pins both the class list and the one-direct-child-span
+structure the selector depends on.
+
+Re-measured in Chromium the same way (fresh `PORT=3100` server, `e2e/seed.ts`, viewport 900×850,
+`getBoundingClientRect`), same 7 role lines, before → after:
+
+| role label | 160px button W | 160px span scroll/client | 90px button W | 90px span scroll/client |
+|---|---|---|---|---|
+| Developer Senior | 127.8 → 127.8 | 86/86 → 86/86 (fits) | 127.8 → **66** | 86/86 → **86/24** |
+| Business Analyst Consultant | 185.6 → **136** | 144/144 → **144/94** | 185.6 → **66** | 144/144 → **144/24** |
+| Project Manager Senior | 160.0 → **136** | 118/118 → **118/94** | 160.0 → **66** | 118/118 → **118/24** |
+| Developer Lead | 119.8 → 119.8 | 78/78 → 78/78 (fits) | 119.8 → **66** | 78/78 → **78/24** |
+| Developer Senior (2nd) | 127.8 → 127.8 | 86/86 → 86/86 (fits) | 127.8 → **66** | 86/86 → **86/24** |
+| Developer Consultant | 150.5 → **136** | 108/108 → **108/94** | 150.5 → **66** | 108/108 → **108/24** |
+| Business Analyst Consultant (2nd) | 185.6 → **136** | 144/144 → **144/94** | 185.6 → **66** | 144/144 → **144/24** |
+
+The button now stops at the cell's content box (136 at the 160px default, 66 at 90px) — overflow
+past the clip edge is ≤ 0 on every line at both widths — and the label span's computed
+`text-overflow` went `clip` → `ellipsis` with `scrollWidth > clientWidth` wherever the text no
+longer fits. The glyph was also confirmed by screenshot, not only by the scroll/client ratio: the
+long label renders "Business Analys…" at 160px and "Bu…" at 90px, inside an unbroken button border.
+
+★★★ `min-w-0` MEASURED INERT — the entry's own suggested fix was half wrong about the mechanism.
+`truncate` sets `overflow: hidden`, and a flex item whose computed overflow is not `visible` already
+has an automatic minimum size of 0 (CSS Flexbox §4.5), so the label span shrinks with or without it:
+dropping `[&>span]:min-w-0` and re-measuring produced byte-identical geometry on all 7 lines
+(136/136/136 buttons, span 144/94, 118/94, 108/94). **`max-w-full` is the load-bearing half** — it is
+what stops the inline-flex button overflowing the clamped `<td>`. `min-w-0` is kept as a statement of
+intent that a later `overflow` change must not silently revoke, and the unit test pins its PRESENCE
+only; do not read that assertion as proof the class does anything.
+
+★ The three pinned leading cells are unaffected, checked mid-horizontal-scroll rather than by
+computed style alone: at 160px the role row and the person rows both sit at 0 / 28 / 188 px from the
+scroller's left edge (0 / 28 / 118 at 90px), the role cell's right edge exactly meets the Total
+cell's left edge (overlap 0.0px), and the button's right edge stays inside the role cell
+(233.8 ≤ 254 at 160px; 172 ≤ 184 at 90px).
+
+★ jsdom cannot see any of this (no layout) and axe has no rule for a clipped label, so nothing in
+CI will report a regression here either way. Reproduce with a Playwright measurement, not a unit
+test:
+
+```bash
+# in a seeded spec, on Budget, after narrowing the viewport to 900px:
+#   button.getBoundingClientRect().width  vs  button.closest("td").getBoundingClientRect().width
+#   span.scrollWidth > span.clientWidth   ⇒ the ellipsis is actually rendering
+grep -n "PeopleDisclosureLabel" src/app/budget-panel-people-rows.tsx src/app/budget-panel.tsx
+```
+
+## 124. A popover opened by a click that also scrolls its ancestor never mounts — open, UI
+
+★ **Filed as §123** — see the renumbering note at the head of §120.
+
+Found 2026-08-08 while driving the Open Points row ⋮ menu for slice 3's task-14 eye-verify.
+PRE-EXISTING and untouched by slice 3 — `popover-panel.tsx` is not in that branch's diff — but it
+cost real debugging time and it is not written down anywhere.
+
+`PopoverPanel` renders nothing until it has measured its anchor: the gate is `open && pos`. ONE
+effect does both jobs (`popover-panel.tsx:56-91`, deps `[open, anchorRef, onClose]`): it measures the
+anchor and calls `setPos`, and then in the same pass registers a capture-phase `window` `scroll`
+listener (`:85`) whose handler calls `onClose()` for any scroll outside the panel. So a scroll
+arriving after that effect has run — but before the user has seen anything — closes a panel that has
+never been in the DOM. A click that focuses a trigger sitting in a horizontally scrollable container
+makes the browser scroll that container to reveal the trigger; that scroll event is dispatched after
+the click handler and its effects, so it lands on the freshly registered listener and
+`aria-expanded` goes back to `false`.
+
+★★ CORRECTION 2026-08-08: an earlier revision of this entry described "a SECOND effect (`:85`)"
+racing the first. There is no second effect — `grep -n useEffect src/app/popover-panel.tsx` returns
+56, 100, 138 and 153, and `:85` is a statement inside the effect that starts at `:56`. The
+mechanism is one effect doing two things, not two effects racing, and the fix below changed with it.
+
+Measured with a document-level capture listener over the Open Points row ⋮ button. Real pointer
+click, event order:
+
+```
+pointerdown:BUTTON  mousedown:BUTTON  focusin:BUTTON  mouseup:BUTTON  click:BUTTON  scroll:DIV
+```
+
+Result: `aria-expanded="false"`, `document.querySelectorAll('[role="menu"]').length === 0`, and a
+MutationObserver counting menu appearances recorded **0** — the menu never mounted at all, so this
+is not "opened then closed", it is "never opened". A synthetic `element.click()` on the same button,
+which fires no focus scroll, opens it every time (`aria-expanded="true"`, one `[role="menu"]`, items
+`["Edit","Delete"]`).
+
+★★ What is NOT established: that a human pointer reproduces it. The trace above is Playwright's
+click, and Playwright scrolls an element into view before clicking. The MECHANISM is real and
+browser-driven either way — it is `focus()` scrolling the nearest scroller, not anything the driver
+injects — so a user clicking a ⋮ that is only partly inside the table's horizontal scroll window
+should hit it; that has not been reproduced by hand and should not be written up as if it had.
+
+★★★ **THE FIX SHAPE IS NOT DETERMINED, and the one this entry used to propose does not work.** It
+said: "gate the `:85` listener on `pos !== null`, not on `open`". Two things are wrong with it, and a
+reader who implements it as written ships a regression:
+
+* `pos` is not in that effect's dep array (`[open, anchorRef, onClose]`), and `setPos` is called in
+  the same effect body, so an early `return` on `pos === null` registers the listener **never** —
+  close-on-scroll is silently deleted for every popover in the app, and nothing in the unit suite
+  would notice.
+* Even done properly — splitting the registration into its own effect keyed on `[open, pos, onClose]`
+  — it does not look like it fixes the symptom. The trace below is MEASURED and puts `scroll:DIV`
+  after `click:BUTTON`; React flushes a discrete-event state update and its effects inside that click
+  dispatch (reasoned, not measured here), so on either arrangement `pos` is already set and the
+  listener already live when the scroll event arrives. The best case is turning "never opened" into
+  "opened, then closed a frame later", which is not better.
+
+Two candidate directions, **neither implemented nor measured** — do not quote either as the fix:
+(a) arm the listener a frame after the panel first mounts (a `requestAnimationFrame`-set ready flag
+the handler checks), so the scroll caused by the opening click cannot reach it; (b) REPOSITION on
+ancestor scroll instead of closing, which retires the whole race class but is a behaviour change for
+every consumer. Do not "fix" it by dropping close-on-scroll — that listener exists because a
+fixed-position panel detaches from its anchor when an ancestor scrolls.
+
+★ Consequence for anyone writing an e2e spec here: a popover, menu or dropdown anchored inside a
+scrollable pane cannot be driven with `locator.click()`. Use a DOM click
+(`page.evaluate(() => el.click())`), which is what `e2e/a11y.spec.ts` already does for the Kanban
+Board toggle — for a different stated reason (the tour overlay), so the workaround is in the repo
+but this cause is not.
+
+Reproduce:
+```bash
+grep -n "close-on-scroll\|addEventListener(\"scroll\"" src/app/popover-panel.tsx
+```
+
+## 125. Two more controls start a billed Anthropic call with no way to stop it — open, billed
+
+Filed 2026-08-08 while fact-checking the 0.224.0 "Emshwiller" CHANGELOG. Slice 3 gave six trigger
+sites a Stop affordance (`AiTriggerButton`) and the entry read "a Stop affordance on all six AI
+trigger sites", which invites the reading that the app HAS six AI triggers and every one of them now
+stops. It has more, and at least two of the rest are ordinary user-facing buttons:
+
+* **Dashboard digest — "Generate now"** (`dashboard-sections/digest-card.tsx:44-51`): a plain
+  `<button disabled={busy}>`. `use-digest.ts:86` DOES construct an `AbortController` for the
+  narrative call, but it is a local `const` inside `generate` with a `setTimeout(AI_TIMEOUT_MS)`
+  attached and no ref — nothing outside the call can reach it, so there is no `cancel` for a Stop
+  control to call. Wiring one means giving the hook a handle first.
+* **Steering meeting report — "Draft with AI"** (`meeting-report-panel.tsx:129-138`): a `Button`
+  with `disabled={generateBusy}`. Its owner `use-meeting-report-actions.ts` contains no
+  `AbortController`, no `signal` and no `abort` at all — `grep -n "AbortController\|signal\|abort"
+  src/app/use-meeting-report-actions.ts` returns nothing.
+
+★ Both therefore behave the way every trigger did before slice 3: the button greys out and the user
+waits. Not a regression, and not something slice 3 broke — it is the boundary of what slice 3
+covered, recorded so the next reader does not mistake "six sites" for "every site".
+
+★★ Scope note, so this does not get quoted as the complete list: §120 records a THIRD uncovered path
+(the background insight-recommendation runner, which has no controller at all and no user-facing
+control to hang a Stop on), and `chat-panel.tsx`, `step0-import-panel.tsx` and `use-timelog-sync.ts`
+own controllers with their own bespoke cancel UI. The sweep that produced this list is in §121; re-run
+it rather than trusting this bullet.
+
+## 126. Two same-type Insight rows produce identically-named per-row controls, and no gate can see it — open, a11y
+
+Found 2026-08-08 while correcting the e2e seed's stated rationale (§99). CAUSED by a deliberate seed
+change in the same commit: the seed now renders the collision instead of hiding it.
+
+`insightTitle` (`insights/insight-text.ts:28`) is `t(lang, TITLE_KEY[insight.type])` — derived from
+`type` and nothing else. Every per-row control in `insights-panel.tsx` names itself with that title:
+`insightOpen` (`:232`), `insightAcknowledge` (`:244`), `insightAct` (`:255`), `insightDismiss`
+(`:266`), plus `insight-recommendation-controls.tsx`'s generate CTA (`:63`, via `nameQualifier`) and
+its Apply/Reject pair (`:94`, `:102`). So ANY two rows of the same type and comparable status render
+pairs of buttons with byte-identical accessible names pointing at different insights — WCAG 2.4.6.
+
+★★ This is the ordinary case, not a contrived one: `detect.ts:53` mints one `milestoneSlip:<id>` per
+overdue milestone, so a project with two slipped milestones has two `milestoneSlip` rows on the first
+detection run. The seed previously carried three insights of three DIFFERENT types, which is why the
+shape had never rendered anywhere a test could see it.
+
+★★★ **NO GATE CATCHES THIS.** axe-core 4.12.1 has no rule for two BUTTONS sharing an accessible name;
+the nearest, `identical-links-same-purpose`, is links-only and `wcag2aaa`, a tag `e2e/a11y.spec.ts`
+does not request. jsdom-side unit tests do not render two same-type rows. The only detector in the
+repo is the count assertion added to `e2e/seed-content.spec.ts` on 2026-08-08. Reproduce the axe half:
+
+```bash
+node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" | "+r.tags.join(",")).join("\n"))'
+```
+
+★ The repo already solves this exact shape one file away. `insights/insight-digest-card.tsx:60-72`
+computes the set of colliding labels and appends an entity reference ONLY to those, deliberately
+leaving the non-colliding common case with no `aria-label` at all — so the fix here has a precedent
+to copy rather than a design to invent. `entityRef.id` is the natural qualifier and is present on
+exactly the types that can repeat (`milestoneSlip`, `raidAging`); the portfolio-level types
+(`stalledWork`, `overdueTrend`, `budgetVariance`) carry none, and detection emits at most one of each,
+so they cannot collide.
+
+★★★ **THE FIX MUST ALSO FLIP THE DETECTOR, AND THE DETECTOR WILL GO RED FIRST.**
+`e2e/seed-content.spec.ts` asserts `toHaveCount(2)` on the accessible name
+`"Dismiss – Milestone at risk"`. That assertion CHARACTERIZES this defect — it pins the bug, not the
+wanted behaviour — so a correct fix turns it red, and the red run is the fix working. It is labelled
+in the spec (a named constant plus a comment pointing back at this §), but a reader who meets the
+failure before the comment will be tempted to "repair" the spec by loosening the count, which would
+silently restore the blind spot. The flip is mechanical: expected count `2` → `0`, plus positive
+assertions for the two now-distinct qualified names. Do NOT delete the assertion and do NOT relax it
+to a range — it is the only detector in the repo, so a loosened form is equivalent to no detector.
+
+★ Same defect class as §111 (document row controls named by a non-unique title). Fixing them together
+would be reasonable; neither is in a slice yet.
+
+★ NOT fixed here on purpose: this was found by a prose/seed fact-check with no source-file lane, and
+`insights-panel.tsx` belongs to the insights subsystem. Filing beats a drive-by edit to another
+slice's freshly-shipped surface.
+
+## 127. Two of the six AI trigger hooks never abort on unmount — CLOSED 2026-08-08
+
+Split out of §121 on 2026-08-08, when the third of the three closed. §121's table is the audit that
+found all three; this entry carries the remainder so the closed one stops implying the set is clean.
+
+★★★ **CLOSED the same day, in the review round that followed.** Both hooks gained the cleanup-only
+`useEffect(() => () => abortRef.current?.abort(), [])`, each pinned by a test that captures the
+signal, asserts `aborted === false` before unmount as an anti-vacuity control and `true` after, and
+each mutation-proved by deleting the effect and watching that test go red. So all six trigger hooks
+now abort on unmount, and the grep in the STATUS block below returns six files.
+
+★★ **The reason it closed rather than shipping is worth keeping.** It was filed as a follow-up
+because the fix sat outside the lane of the round that found it — and a cold review of that round
+then flagged it as the round's own recurring failure shape: *the batch sets a standard and does not
+apply it to a case the SAME commit had open.* Two one-line fixes were cheaper than a register entry.
+A follow-up is the right home for a decision or a design question; it is the wrong home for a
+one-liner with three existing precedents in the same file family.
+
+★★ **`use-action-analysis.ts`'s guard was NOT reachable and was applied anyway.** Traced: `analyze`
+reaches the UI only through `use-ai-orchestration.ts` → `actions-panel.tsx`'s `AiTriggerButton`,
+which swaps `onClick` from run to cancel the instant `busy` is true, and no second trigger, hotkey or
+retry exists (the scheduled-job runner calls `runJobAnalysis` directly, not this hook). The comment
+in the code says defence-in-depth in those words rather than claiming a live bug — do not quote this
+entry as evidence of a shipped defect there.
+
+★ **One instance of the ADJACENT class is still open: `use-timelog-sync.ts`. It is filed as §128.**
+It was first written here as a bullet, which was wrong — a live defect recorded inside a CLOSED
+entry, with no number and no index row, is a defect nobody will read again. Closed entries are the
+ones that stop being re-read.
+
+★★★ EVERYTHING IN THE TABLE IS **AS OF FILING** (2026-08-08), stated in the past tense on purpose:
+this entry describes a defect that is expected to be fixed, so a present-tense "the file contains no
+`useEffect`" would become false the instant someone does the work — and a register entry that
+asserts the absence of the fix is a trap for whoever applies it. Check the STATUS block below before
+quoting any row.
+
+| trigger mount | backing hook | why it did not abort (AT FILING) |
+|---|---|---|
+| `actions-panel.tsx` | `use-action-analysis.ts` | owned a controller and a `cancel`, and the file contained **no `useEffect` at all** |
+| `inline-ai-edit-popover.tsx` | `use-inline-entity-edit.ts` | HAD an effect, but it fired on `paneActive === false` and returned **no cleanup** — it aborted on DEACTIVATION, never on unmount |
+
+★★ The second one is the trap that made this worth filing separately: a `grep` for `useEffect` finds
+a hit in `use-inline-entity-edit.ts` and a reader stops there. An effect is not a cleanup. Ask
+whether the effect RETURNS a function, not whether one exists — and note this survives the fix, since
+the file then holds TWO effects and only one of them is the cleanup.
+
+**STATUS — SETTLED. Both fixes are committed and tested.** The check was whether both files carry the
+cleanup-only shape:
+
+```bash
+grep -rlF "() => () => abortRef.current?.abort()" src/app; echo "EXIT=$?"
+```
+
+Six files listed (the six hooks in §121's table) ⇒ nothing left here. Four ⇒ untouched. Five ⇒ one of
+the two landed. Measured **6** on 2026-08-08, and again after commit with a clean tree.
+
+★★★ **THIS BLOCK CONTRADICTED ITS OWN HEADING FOR ONE COMMIT AND THAT IS THE LESSON.** It was written
+while the fixes were still uncommitted, so it correctly refused to close on a working-tree reading
+and said the entry was "deliberately left OPEN". The heading, the opening paragraph and the index row
+were then all flipped to CLOSED — and this block, forty lines down, was not. For one commit a reader
+who scrolled reached "deliberately left OPEN" and would have re-done finished work. **A cautious
+STATUS block is right; leaving it behind when the caution is discharged is the exact trap this entry
+was rewritten to remove.** When you close an entry, grep its own body for the words that said it was
+open.
+
+★★ Closure needed more than the grep, and got it: the shape must actually be REACHED. Each hook is
+pinned by a test that captures the signal, asserts `aborted === false` before unmount and `true`
+after, mutation-proved red with the effect deleted. A grep hit with no test is the same evidence
+quality as the prose this entry exists to correct.
+
+★ The fix was the same one line both times — the cleanup-only shape
+`useEffect(() => () => abortRef.current?.abort(), [])`, which sets no state and so stays clear of the
+`react-hooks/set-state-in-effect` ban. **All six hooks now carry it**; copy from any of them.
+
+★★ The cost was a billed Anthropic call running to completion with its result discarded, not a crash
+— nothing failed, nothing logged, and only a bill would have shown it. That is why it was worth
+finding, and why it is worth pinning with a test rather than a grep.
+
+★ Reproduce the whole picture before quoting a count — the sweep is in §121, and the figure that
+matters is per-mount, not per-file.
+
+## 128. `use-timelog-sync.ts` clears `busy` from a superseded run — open, UI
+
+Split out of §127 on 2026-08-09. It was first written as a bullet INSIDE §127, which was the wrong
+home twice over: §127 is CLOSED, and a live defect in a closed entry has no index row and stops being
+read. Filed properly here.
+
+`use-timelog-sync.ts`'s `finally` guards only half of what it should:
+
+```ts
+} finally {
+  if (abortRef.current === controller) abortRef.current = null;
+  setBusy(false);            // ← outside the guard
+}
+```
+
+So a superseded run turns `busy` off while its successor is still in flight — the surface reports
+idle during a call that is still running. This is the SAME shape `use-abortable-ai.ts` and
+`use-action-analysis.ts` were both fixed for in slice 3's review rounds, and it is the last of the
+three.
+
+★★ **It is a DIFFERENT defect from §127, and conflating them is why it nearly shipped as a footnote.**
+§127 was an unmount LEAK (a billed call outliving its surface); this is a superseded run disarming
+its successor's FLAG. Same file family, same `finally`, different failure. An entry that fixes one
+does not cover the other.
+
+★ Not an AI path, so it is outside the "six trigger hooks" framing entirely — do not expect the
+sweeps in §121 or §127 to surface it. Reproduce the census with:
+
+```bash
+grep -rn "=== controller" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
+```
+
+Measured 2026-08-09: three non-test SITES (`use-abortable-ai.ts`, `use-action-analysis.ts`,
+`use-timelog-sync.ts`), of which this is the only one whose `setBusy` sits outside. ★ The grep also
+returns three COMMENT lines in `use-action-analysis.ts` that document this very outlier — count
+sites, not lines.
+
+★ Fix is to move `setBusy(false)` inside the existing `if`. Cheap, but it needs a test that
+supersedes a run and asserts the flag survives — the same shape that proved the other two, and
+without it the guard is unpinned exactly as `use-abortable-ai.ts`'s `setError` guard was.
+
+★★ Severity is lower than §127's: nothing is billed twice and nothing leaks, the UI just reads idle
+early. Filed rather than fixed because slice 3's review rounds were already three deep and this is a
+non-AI surface none of them touched — a fourth widening was the wrong call.

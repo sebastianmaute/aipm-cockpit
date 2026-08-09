@@ -34,8 +34,11 @@ export interface InsightsCardProps {
   dc: DensityClasses;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only card. */
   actions?: InsightActions;
-  /** Id of the insight (if any) whose AI recommendation is generating (#6B SP2). */
+  /** Id of the insight whose AI recommendation is generating (#6B SP2) —
+   *  PER-ROW: only that row's CTA shows Stop. */
   generatingId?: number | null;
+  /** Aborts the in-flight recommendation generate. */
+  onCancelGenerate?: () => void;
   aiEnabled?: boolean;
   /** Deep-link to the insight's entity (only rendered when `entityRef` is set). */
   onOpen?: (ref: InsightEntityRef) => void;
@@ -50,6 +53,7 @@ export function InsightsCard({
   dc,
   actions,
   generatingId,
+  onCancelGenerate,
   aiEnabled,
   onOpen,
   isPopout,
@@ -88,7 +92,7 @@ export function InsightsCard({
                 <div className="mt-1 flex flex-wrap items-center gap-1">
                   {insight.entityRef && onOpen ? (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="xs"
                       aria-label={`${t(lang, "insightOpen")} – ${title}`}
                       onClick={() => onOpen(insight.entityRef!)}
@@ -100,24 +104,26 @@ export function InsightsCard({
                     <>
                       {insight.status === "active" ? (
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="xs"
                           aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
+                          title={t(lang, "insightAcknowledgeHint")}
                           onClick={() => actions.onAcknowledge(insight.id)}
                         >
                           {t(lang, "insightAcknowledge")}
                         </Button>
                       ) : null}
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="xs"
                         aria-label={`${t(lang, "insightAct")} – ${title}`}
+                        title={t(lang, "insightActHint")}
                         onClick={() => actions.onAct(insight.id)}
                       >
                         {t(lang, "insightAct")}
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="xs"
                         aria-label={`${t(lang, "insightDismiss")} – ${title}`}
                         onClick={() => actions.onDismiss(insight.id)}
@@ -130,6 +136,7 @@ export function InsightsCard({
                         lang={lang}
                         actions={actions}
                         generatingId={generatingId}
+                        onCancelGenerate={onCancelGenerate}
                         aiEnabled={aiEnabled}
                       />
                     </>

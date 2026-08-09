@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { InsightsCard } from "./insights-card";
 import { densityClasses } from "../dashboard-density";
 import { insightTitle } from "../insights/insight-text";
+import { expectSecondaryButton } from "../../test/button-variant";
 import type { Insight, InsightStatus } from "../insights/insight";
 
 const dc = densityClasses("comfortable");
@@ -93,6 +94,42 @@ describe("InsightsCard", () => {
     expect(onDismiss).toHaveBeenCalledWith(7);
   });
 
+  // ★ "Acknowledge" and "Act" are both one-word verbs for effects the word does
+  //   not carry: acknowledging leaves the insight in the list and still OPEN
+  //   (`SURFACED_STATUSES` includes "acknowledged"), and the FIRST Act also
+  //   captures today's metric as the outcome baseline — a one-shot side effect.
+  // ★★ Act also NAVIGATES (`onActInsight` in task-manager.tsx calls requestOpen
+  //   for the insight's entityRef). That omission mattered more than the others:
+  //   the adjacent "Open" button exists solely to navigate, so a hint silent on
+  //   it reads as a promise that Act stays put, and clicking Act on the
+  //   Dashboard threw the user into another view mid-triage.
+  // ★★ The expected text is hardcoded rather than read through `t(…)`: a
+  //   missing key makes `t` echo the key, so a `t`-based assertion would compare
+  //   the attribute to itself and pass over a deleted string.
+  it("titles Acknowledge and Act with the effect their one-word labels omit", () => {
+    const insight = makeInsight({ id: 7 });
+    const title = insightTitle(insight, "en-US");
+    render(
+      <InsightsCard
+        insights={[insight]}
+        lang="en-US"
+        dc={dc}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: `Acknowledge – ${title}` })).toHaveAttribute(
+      "title",
+      "Mark as seen. It stays in the list and still counts as open.",
+    );
+    expect(screen.getByRole("button", { name: `Act – ${title}` })).toHaveAttribute(
+      "title",
+      "Record that you acted and capture today's metric as the baseline for measuring the outcome; if the insight points at an item, this also opens it and leaves the current view",
+    );
+  });
+
   it("fires the deep-link handler with the entityRef when present", async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
@@ -158,7 +195,18 @@ describe("InsightsCard", () => {
       expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
     });
 
-    it("disables the CTA and shows a generating label while this insight is generating", () => {
+    it("turns the CTA into an OPERABLE Stop while a recommendation is generating", async () => {
+      // Was: disabled + a "Generating…" label. The CTA is the shared
+      // AiTriggerButton now, so a billed call is never left running with no way
+      // to abort it — the control stays enabled and its click cancels.
+      //
+      // ★ The name is matched EXACTLY. A regex alternation like /generate|stop/i
+      //   would also match the IDLE button and stop testing the busy state.
+      // ★ The row-unique `– ${title}` suffix is asserted here on purpose: every
+      //   row renders this CTA, so an unqualified name is a WCAG 2.4.6
+      //   collision the axe gate cannot see.
+      const user = userEvent.setup();
+      const onCancelGenerate = vi.fn();
       const insight = makeInsight({ id: 3 });
       const title = insightTitle(insight, "en-US");
       render(
@@ -171,10 +219,13 @@ describe("InsightsCard", () => {
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
           }}
           generatingId={3}
+          onCancelGenerate={onCancelGenerate}
         />,
       );
-      const cta = screen.getByRole("button", { name: `Generating… – ${title}` });
-      expect(cta).toBeDisabled();
+      const cta = screen.getByRole("button", { name: `Stop – ${title}` });
+      expect(cta).not.toBeDisabled();
+      await user.click(cta);
+      expect(onCancelGenerate).toHaveBeenCalledTimes(1);
     });
 
     it("shows the AI summary + Review/Reject buttons when a recommendation is proposed", async () => {
@@ -290,5 +341,42 @@ describe("InsightsCard", () => {
       expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
       expect(screen.queryByText("AI suggests: Reassign the overdue task")).not.toBeInTheDocument();
     });
+  });
+
+  // ★★ Pins the ghost→secondary conversion of THIS file's four row-action
+  //    Buttons. Without it, reverting `insights-card.tsx` to `variant="ghost"`
+  //    left the whole suite green: the only CALL-SITE variant assertion was in
+  //    `insights-panel.test.tsx`, over a different component. (`button.test.tsx`
+  //    asserts the variants too, but on the primitive — it pins what each
+  //    variant EMITS, never which variant a given call site asks for.)
+  //    Killing mutation: flip any one of the four `variant="secondary"` props in
+  //    `insights-card.tsx` back to `variant="ghost"`.
+  // ★ `expectSecondaryButton` is word-bounded because the obvious
+  //   `toContain("bg-surface")` form matches ghost's `hover:bg-surface-muted`
+  //   and passes against the exact markup it exists to reject. See
+  //   `src/test/button-variant.ts`.
+  it("renders its row actions as bordered secondary buttons, not ghost", () => {
+    const insight = makeInsight({ id: 8 });
+    const title = insightTitle(insight, "en-US");
+    render(
+      <InsightsCard
+        insights={[insight]}
+        lang="en-US"
+        dc={dc}
+        onOpen={vi.fn()}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
+      />,
+    );
+    // Open needs `entityRef` (the fixture default) AND `onOpen`; Acknowledge
+    // needs status "active" (also the default) — so all four render together.
+    for (const name of ["Open", "Acknowledge", "Act", "Dismiss"]) {
+      expectSecondaryButton(screen.getByRole("button", { name: `${name} – ${title}` }));
+    }
+    // Ghost's defining trait. Redundant with the helper's positives, but names
+    // the failure mode explicitly.
+    expect(screen.getByRole("button", { name: `Act – ${title}` }).className).not.toContain("bg-transparent");
   });
 });

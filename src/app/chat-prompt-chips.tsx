@@ -6,18 +6,20 @@
 
 import { t, type Lang } from "./i18n";
 import { TRANSITION, PRESS } from "./interaction-styles";
-import { CHAT_ONLY_PROMPTS, FOUNDATIONAL_PROMPTS, type PromptDef } from "./ask-claude-prompts";
+import { CHAT_ONLY_PROMPTS, CHAT_STARTER_PROMPTS, type PromptDef } from "./ask-claude-prompts";
 
-// A starter chip: a prompt plus whether clicking it sends immediately
-// (foundational prompts) or just fills the input (the legacy chips).
+// A starter chip: a prompt plus whether clicking it sends immediately or just
+// fills the input. Every chip here auto-sends — each body is a complete brief,
+// so there is nothing for the user to fill in first.
 type PromptChip = PromptDef & { autoSend: boolean };
 
+// ★ The four starters lead; "process an attachment" trails because it is the
+// only CONDITIONAL one — it does nothing useful until a file is attached.
+// ★★ FOUNDATIONAL_PROMPTS is deliberately NOT spread in here any more. It is
+// still live: the header Ask-Claude menu serves it (`promptsFor`), so do not
+// delete it on the assumption this was its only consumer.
 export const PROMPT_CHIPS: PromptChip[] = [
-  { labelKey: "chatPromptUpdate", bodyKey: "chatPromptUpdateBody", autoSend: false },
-  { labelKey: "chatPromptOverdue", bodyKey: "chatPromptOverdue", autoSend: false },
-  { labelKey: "chatPromptAtRisk", bodyKey: "chatPromptAtRisk", autoSend: false },
-  { labelKey: "chatPromptStatusUpdate", bodyKey: "chatPromptStatusUpdate", autoSend: false },
-  ...[...FOUNDATIONAL_PROMPTS, ...CHAT_ONLY_PROMPTS].map((p) => ({ ...p, autoSend: true })),
+  ...[...CHAT_STARTER_PROMPTS, ...CHAT_ONLY_PROMPTS].map((p) => ({ ...p, autoSend: true })),
 ];
 
 export function ChatPromptChips({

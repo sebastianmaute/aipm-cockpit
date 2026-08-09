@@ -7,6 +7,7 @@
 // Re-exported via the ./csv-codecs barrel.
 
 import { decodeKnowledgeLinks } from "./document-link";
+import type { DocTruncationDiag } from "./document-model";
 import { decodeNoteLog } from "./note-log";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
@@ -71,6 +72,8 @@ import {
   CSV_SECTION_KNOWLEDGE_ITEMS,
   CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
+  CSV_SECTION_DOCUMENTS,
+  CSV_SECTION_DOCUMENT_VERSIONS,
   buildCalendarEventFromObj,
   buildChangeFromObj,
   buildMilestoneFromObj,
@@ -89,6 +92,8 @@ import {
   csvToKnowledgeItems,
   csvToInsights,
   csvToSettingsOverrides,
+  csvToDocuments,
+  csvToDocumentVersions,
 } from "./csv-codecs-config";
 
 
@@ -98,8 +103,18 @@ import {
  * rejects can be counted and surfaced to the user, instead of silently dropped.
  * Only rows a decoder actively REJECTS (returns null) are counted — blank rows,
  * dangling-dependency pruning, and config-blob decoders are not.
+ *
+ * ★ It also carries the DOCUMENT CAP counters via {@link DocTruncationDiag}.
+ * Those are a different kind of loss from `droppedRows` — a rejected row was
+ * malformed, whereas a capped document was perfectly valid and simply went
+ * unread — but they travel the same path, so extending this interface lets the
+ * accumulator every CSV/Markdown caller already builds carry both with no new
+ * plumbing at those call sites. The import is TYPE-ONLY and therefore erased:
+ * `document-model.ts` must gain no runtime dependency on a codec module (see
+ * the import cycle recorded in open-followups §92), which is also why the
+ * counters are DECLARED there and merely re-exposed here.
  */
-export interface ImportDiag {
+export interface ImportDiag extends DocTruncationDiag {
   droppedRows: number;
 }
 
@@ -132,9 +147,11 @@ function splitCsvSections(csv: string): {
   knowledgeItemsText: string;
   insightsText: string;
   settingsOverridesText: string;
+  documentsText: string;
+  documentVersionsText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -159,8 +176,23 @@ function splitCsvSections(csv: string): {
   const knowledgeItemsLines: string[] = [];
   const insightsLines: string[] = [];
   const settingsOverridesLines: string[] = [];
+  const documentsLines: string[] = [];
+  const documentVersionsLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
+    // ★★ ORDER IS LOAD-BEARING because these are `startsWith` tests, not
+    // equality tests: if one marker were a strict PREFIX of another, whichever
+    // is checked FIRST would swallow the other's section into its own buffer —
+    // silently, since the loser's lines simply land under the wrong mode and
+    // its slice decodes as absent. `# DOCUMENTS` / `# DOCUMENT VERSIONS` are
+    // the near miss (they diverge at index 10, "S" vs " "), and today NO marker
+    // is a prefix of any other. Do NOT rely on reading this chain to keep it
+    // that way — a rename to `# DOCUMENT` would reintroduce the hazard with no
+    // test failure from the outcome tests alone. The invariant is pinned in
+    // csv-codecs.documents.test.ts ("no section marker is a prefix of another"),
+    // which reads the marker list reflectively, so a NEW marker is covered
+    // without touching the test. Add a longer marker AFTER its shorter
+    // namesake, or make them non-overlapping.
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FXRATES)) { mode = "fxrates"; continue; }
     if (trimmed.startsWith(CSV_SECTION_RESOURCES)) { mode = "resources"; continue; }
@@ -180,6 +212,8 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_KNOWLEDGE_ITEMS)) { mode = "knowledgeItems"; continue; }
     if (trimmed.startsWith(CSV_SECTION_INSIGHTS)) { mode = "insights"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SETTINGS_OVERRIDES)) { mode = "settingsOverrides"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_DOCUMENTS)) { mode = "documents"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_DOCUMENT_VERSIONS)) { mode = "documentVersions"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -209,6 +243,8 @@ function splitCsvSections(csv: string): {
     else if (mode === "knowledgeItems") knowledgeItemsLines.push(line);
     else if (mode === "insights") insightsLines.push(line);
     else if (mode === "settingsOverrides") settingsOverridesLines.push(line);
+    else if (mode === "documents") documentsLines.push(line);
+    else if (mode === "documentVersions") documentVersionsLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -236,6 +272,11 @@ function splitCsvSections(csv: string): {
     knowledgeItemsText: knowledgeItemsLines.join("\r\n"),
     insightsText: insightsLines.join("\r\n"),
     settingsOverridesText: settingsOverridesLines.join("\r\n"),
+    // ★ CRLF: CSV is CRLF-delimited in this repo (markdown is LF), and the
+    // split above accepts both — so the join must restore "\r\n" or a quoted
+    // multi-line cell would come back with its breaks rewritten.
+    documentsText: documentsLines.join("\r\n"),
+    documentVersionsText: documentVersionsLines.join("\r\n"),
   };
 }
 
@@ -450,6 +491,14 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   if (s.settingsOverridesText.trim()) {
     const so = csvToSettingsOverrides(s.settingsOverridesText);
     if (so) ws.settingsOverrides = so;
+  }
+  if (s.documentsText.trim()) {
+    const docs = csvToDocuments(s.documentsText, diag);
+    if (docs) ws.documents = docs;
+  }
+  if (s.documentVersionsText.trim()) {
+    const versions = csvToDocumentVersions(s.documentVersionsText, diag);
+    if (versions) ws.documentVersions = versions;
   }
   return migrateWorkspaceV10(ws);
 }

@@ -29,6 +29,9 @@ import {
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
+import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
@@ -114,8 +117,19 @@ export function rowObjects(res: PipelineResultLike | undefined): Record<string, 
   });
 }
 
-/** Assemble a Workspace from selectStatements() results (TABLE_NAMES order). */
-export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
+/** Assemble a Workspace from selectStatements() results (TABLE_NAMES order).
+ *
+ *  ★★ This decoder serves BOTH Turso modes — single-tenant and multi-tenant
+ *  (turso-tenant-schema only builds the project-scoped SELECTs) — so the
+ *  optional `diag` covers two of the six write paths at once. It is an
+ *  accumulator the caller owns: the document and document-version sanitizers
+ *  record into it what a load-time CAP silently discarded, so the backend can
+ *  report the loss instead of truncating in silence. Omitting it decodes
+ *  exactly as before. */
+export function rowsToWorkspace(
+  results: PipelineResultLike[],
+  diag?: DocTruncationDiag,
+): Workspace {
   if (results.length < TABLE_NAMES.length) {
     throw new Error(`rowsToWorkspace: expected at least ${TABLE_NAMES.length} results, got ${results.length}`);
   }
@@ -197,6 +211,43 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave undefined
     }
   }
+  // Documents ride `meta` as one JSON blob — no table of their own, so
+  // TABLE_NAMES stays untouched. TWO passes, in this order: the structural
+  // sanitizer is DOM-FREE and cannot strip markup, so the rich-field allow-list
+  // has to follow it or a stored `<script>` reaches the render sink. (One
+  // argument, so it is safe as a bare .map callback — see document-rich-fields.)
+  const docRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documents");
+  if (docRow?.value) {
+    try {
+      const docs = sanitizeProjectDocuments(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
+      if (docs.length) ws.documents = docs;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
+  // documentVersions ride `meta` too — same two-pass shape as documents just
+  // above. A version has no independent createdAt/updatedAt, so it is passed
+  // through a synthetic ProjectDocument-shaped wrapper with savedAt standing
+  // in for both (mirrors workspace.ts's JSON path and browser-backend.ts's
+  // IndexedDB path).
+  const verRow = rowObjects(byTable.get("meta")).find((r) => r.key === "documentVersions");
+  if (verRow?.value) {
+    try {
+      const versions = sanitizeDocumentVersions(JSON.parse(verRow.value), diag).map((v) => ({
+        ...v,
+        blocks: sanitizeDocumentRichFields({
+          id: v.documentId,
+          title: v.title,
+          blocks: v.blocks,
+          createdAt: v.savedAt,
+          updatedAt: v.savedAt,
+        }).blocks,
+      }));
+      if (versions.length) ws.documentVersions = versions;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   const soRow = rowObjects(byTable.get("meta")).find((r) => r.key === "settings_overrides");
   if (soRow?.value) {
     try {
@@ -250,6 +301,8 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.timelogLinks !== next.timelogLinks) dirty.add("meta");
   if (prev.knowledgeItems !== next.knowledgeItems) dirty.add("meta");
   if (prev.insights !== next.insights) dirty.add("meta");
+  if (prev.documents !== next.documents) dirty.add("meta");
+  if (prev.documentVersions !== next.documentVersions) dirty.add("meta");
   if (prev.settingsOverrides !== next.settingsOverrides) dirty.add("meta");
   return dirty;
 }
@@ -345,6 +398,24 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "insights" },
           { type: "text", value: JSON.stringify(ws.insights) },
+        ],
+      });
+    }
+    if (ws.documents && ws.documents.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "documents" },
+          { type: "text", value: JSON.stringify(ws.documents) },
+        ],
+      });
+    }
+    if (ws.documentVersions && ws.documentVersions.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "documentVersions" },
+          { type: "text", value: JSON.stringify(ws.documentVersions) },
         ],
       });
     }

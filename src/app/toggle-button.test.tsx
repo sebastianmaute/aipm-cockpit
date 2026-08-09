@@ -100,6 +100,53 @@ describe("ToggleButton", () => {
     expect(enabled).toContain(t("en-US", "toggleStateOff"));
   });
 
+  // ★★ Disclosure vs toggle semantics (WAI-ARIA Disclosure pattern). The
+  //    default MUST stay the stateful toggle so every pre-existing consumer is
+  //    byte-identical — this is the guard against that regressing silently.
+  it("defaults to variant=toggle: emits aria-pressed and no aria-expanded/aria-controls", () => {
+    render(
+      <ToggleButton pressed onToggle={() => {}} ariaLabel="Row">Row</ToggleButton>,
+    );
+    const btn = screen.getByRole("button", { name: "Row" });
+    expect(btn).toHaveAttribute("aria-pressed", "true");
+    expect(btn).not.toHaveAttribute("aria-expanded");
+    expect(btn).not.toHaveAttribute("aria-controls");
+  });
+
+  it("variant=disclosure emits aria-expanded + aria-controls and never aria-pressed", () => {
+    render(
+      <ToggleButton
+        pressed
+        onToggle={() => {}}
+        ariaLabel="Row"
+        variant="disclosure"
+        ariaControls="panel-1"
+      >
+        Row
+      </ToggleButton>,
+    );
+    const btn = screen.getByRole("button", { name: "Row" });
+    expect(btn).toHaveAttribute("aria-expanded", "true");
+    expect(btn).toHaveAttribute("aria-controls", "panel-1");
+    expect(btn).not.toHaveAttribute("aria-pressed");
+  });
+
+  it("suppresses the on/off tooltip suffix for variant=disclosure", () => {
+    render(
+      <ToggleButton
+        pressed={false}
+        onToggle={() => {}}
+        lang="en-US"
+        title="Base"
+        variant="disclosure"
+        ariaControls="panel-1"
+      >
+        Row
+      </ToggleButton>,
+    );
+    expect(screen.getByRole("button", { name: "Row" })).toHaveAttribute("title", "Base");
+  });
+
   it("renders a leading icon and an override aria-label", () => {
     render(
       <ToggleButton pressed={false} onToggle={() => {}} ariaLabel="Detailed planning" icon={<svg data-testid="ic" aria-hidden />}>

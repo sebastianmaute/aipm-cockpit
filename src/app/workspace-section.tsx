@@ -79,9 +79,10 @@ import {
   ActionsPanel,
   InsightsPanel,
   KnowledgePanel,
-  TimelogPanel,
+  TimelogPanel, DocumentsTabPanel,
 } from "./workspace-panels";
 import { baselineMilestoneTargets } from "./snapshot";
+import { loadActualsCache } from "./timelog-actuals-store";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { isAiEnabled } from "./settings-types";
@@ -182,6 +183,7 @@ export function WorkspaceSection({
   onOpenAction,
   insightActions,
   insightGeneratingId,
+  onCancelInsightRecommendation,
   onSnooze,
   onCreateTask,
   onDraftMessage,
@@ -234,6 +236,18 @@ export function WorkspaceSection({
   // panels routed here (e.g. the standalone RAID By-Owner report) — the stored
   // owner/assignee string is only a stale-able cache.
   const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
+  // Per-person booked hours behind each Budget bucket role line. ★★ This is the
+  // per-DEVICE Timelog cache — a DIFFERENT source from the persisted per-role
+  // `actualHours` the role row directly above those people shows, and the two
+  // can disagree with nothing in the UI saying so (open-followups §122). Read
+  // once per project: it refreshes when this view remounts, which is the
+  // accepted cost of not threading the live sync state through here. Keyed the
+  // same way TimelogPanel keys the cache it WRITES — a different fallback than
+  // `"default"` would miss every entry and silently report "unknown".
+  const budgetActualsByBucket = useMemo(
+    () => loadActualsCache(currentProjectId ?? "default")?.aggregates?.byBucket ?? {},
+    [currentProjectId],
+  );
   // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
   // each yields the row handlers threaded into the panel + its active-edit
   // popover element. Called unconditionally (hook rules); the popover only
@@ -700,6 +714,7 @@ export function WorkspaceSection({
               workdayHours={settings.resources.workdayHours}
               today={today}
               tasks={tasks}
+              actualsByBucket={budgetActualsByBucket}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
@@ -828,6 +843,7 @@ export function WorkspaceSection({
               density={effectiveSettings.dashboardDensity ?? "comfortable"}
               insightActions={insightActions}
               insightGeneratingId={insightGeneratingId}
+              onCancelInsightRecommendation={onCancelInsightRecommendation}
               insightAiEnabled={isAiEnabled(settings.ai)}
             />
           </div>
@@ -897,6 +913,7 @@ export function WorkspaceSection({
               today={today}
               actions={isPopout ? undefined : insightActions}
               generatingId={isPopout ? undefined : insightGeneratingId}
+              onCancelGenerate={isPopout ? undefined : onCancelInsightRecommendation}
               aiEnabled={isAiEnabled(settings.ai)}
               onOpen={(refItem) => {
                 if (refItem.id < 0) setActiveTab(refItem.view);
@@ -912,6 +929,8 @@ export function WorkspaceSection({
             <KnowledgePanel />
           </div>
         )}
+
+        {activeTab === "documents" && <DocumentsTabPanel className={panelClass} lang={lang} isPopout={isPopout} />}
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>

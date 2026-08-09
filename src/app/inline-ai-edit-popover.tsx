@@ -7,8 +7,11 @@ import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useFocusTrap } from "./use-focus-trap";
 import { MODAL_BACKDROP_CLASS } from "./modal";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "./button";
+import { AiTriggerButton } from "./ai-trigger-button";
+import { IconButton } from "./icon-button";
 
 export interface InlineAiEditPopoverProps {
   lang: Lang;
@@ -46,7 +49,9 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
       >
         <div className="mb-2 flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{t(lang, "inlineAiEditTitle")}</h2>
-          <button type="button" onClick={onCancel} aria-label={t(lang, "cancel")} className={`rounded-md px-2 text-muted-foreground hover:text-foreground ${INTERACTIVE}`}>✕</button>
+          <IconButton onClick={onCancel} label={t(lang, "cancel")} title={t(lang, "cancel")}>
+            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+          </IconButton>
         </div>
         <p className="mb-3 truncate text-xs text-muted-foreground"><span className="font-medium">{entityLabel}</span> · {itemTitle}</p>
 
@@ -63,9 +68,32 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
               className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
             />
             <div className="mt-2 flex justify-end">
-              <Button type="submit" size="sm" disabled={busy || !value.trim()}>
-                {t(lang, "inlineAiEdit")}
-              </Button>
+              {/* ★★★ ONE SUBMIT PATH PER INTERACTION — do NOT re-add
+                  `type="submit"` here. AiTriggerButton always wires
+                  `onClick={onRun}`, so a submit-typed button inside this
+                  `<form onSubmit>` fires BOTH: onRun → onSubmit(value), then the
+                  browser's default action → the form handler → onSubmit(value)
+                  again. Worst case that is two billed Claude calls per click with
+                  the first controller orphaned; only the two phase guards stood
+                  between us and it, and they hold solely because React happens to
+                  flush the discrete-event update before the default action runs.
+                  ★ Enter still submits: with no submit button in the form and
+                    exactly one field, the HTML implicit-submission rule fires the
+                    form's onSubmit. That IS a property of this form's contents —
+                    adding a second input silently breaks Enter, at which point the
+                    fix is a real submit button and REMOVING onRun's call, never
+                    both paths at once.
+                  ★ `busy` is `"thinking"` alone; `"applying"` is a local commit,
+                    not a stoppable Claude call, so it stays disabled as before. */}
+              <AiTriggerButton
+                lang={lang}
+                busy={phase === "thinking"}
+                onRun={() => { if (value.trim()) onSubmit(value.trim()); }}
+                onCancel={onCancel}
+                idleLabelKey="inlineAiEdit"
+                size="sm"
+                disabled={phase === "applying" || !value.trim()}
+              />
             </div>
           </form>
         )}

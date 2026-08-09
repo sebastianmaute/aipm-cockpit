@@ -1,8 +1,9 @@
 // src/app/settings-view.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t, localeFor } from "./i18n";
+import { isBranchActive, type RailEntry } from "./settings-rail";
 import type { Settings, NextActionsLearningConfig } from "./settings-types";
 import type { StorageKind } from "./storage";
 import { Card } from "./card";
@@ -20,6 +21,8 @@ import { NextActionsSection } from "./settings-sections/next-actions-section";
 import { ProjectOverridesSection } from "./settings-sections/project-overrides-section";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { AiSection } from "./settings-sections/ai-section";
+import { AiGuidesSection } from "./settings-sections/ai-guides-section";
+import { AiViewsSection } from "./settings-sections/ai-views-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { ModeSection } from "./settings-sections/mode-section";
 import { TemplatesSection } from "./settings-sections/templates-section";
@@ -74,7 +77,7 @@ interface SettingsViewProps {
   onSectionConsumed?: () => void;
   /** When true (popout window) the "Run setup wizard" launch button is hidden. */
   isPopout?: boolean;
-  /** Active project id — for the "This project" per-project overrides section
+  /** Active project id — for the "Overrides" per-project overrides section
    *  (its appearance overrides are stored per-device-per-project). */
   projectId?: string;
   /** Resource directory for the Appearance "I am this resource" picker. */
@@ -83,10 +86,13 @@ interface SettingsViewProps {
 
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
-  | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows"
-  | "commTemplates" | "scheduledJobs" | "diagnostics" | "dictation" | "projectOverrides";
+  | "nextActions" | "ai" | "aiGuides" | "aiViews" | "jira" | "storage" | "integrations"
+  | "export" | "informationFlows" | "commTemplates" | "scheduledJobs" | "diagnostics"
+  | "dictation" | "projectOverrides";
 
-const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
+// `labelKey` is narrowed to `TranslationKey` on top of the generic `string` the
+// pure helper declares — that narrowing is what stops a typo'd key compiling.
+const RAIL: (RailEntry<SectionId> & { labelKey: TranslationKey })[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
   { id: "templates", labelKey: "settingsSectionTemplates" },
   { id: "appearance", labelKey: "settingsSectionAppearance" },
@@ -94,7 +100,12 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "general", labelKey: "settingsSectionGeneral" },
   { id: "notifications", labelKey: "settingsSectionNotifications" },
   { id: "ai", labelKey: "settingsSectionAi" },
-  { id: "scheduledJobs", labelKey: "scheduledJobsTitle" },
+  // Children of `ai` — rendered indented, and only while the AI branch is
+  // active. Declaration order, NOT alphabetical: alpha would order these
+  // differently in EN and DE for no gain.
+  { id: "aiGuides", labelKey: "aiGuidesHeading", parent: "ai" },
+  { id: "aiViews", labelKey: "aiViewsTitle", parent: "ai" },
+  { id: "scheduledJobs", labelKey: "scheduledJobsTitle", parent: "ai" },
   { id: "storage", labelKey: "settingsSectionStorage" },
   { id: "integrations", labelKey: "settingsSectionIntegrations" },
   { id: "export", labelKey: "settingsSectionExport" },
@@ -109,7 +120,9 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
 // Advanced sections revealed only in expert mode.
 const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export", "commTemplates"];
 // Connectivity sections grouped together above Information flows (own divider).
-const INTEGRATION_IDS: readonly SectionId[] = ["ai", "scheduledJobs", "integrations"];
+// `scheduledJobs` is NOT here any more — it is a child of `ai` and renders
+// inside that branch, not as a peer.
+const INTEGRATION_IDS: readonly SectionId[] = ["ai", "integrations"];
 // Storage gets its own divider group between connectivity and information flows.
 const STORAGE_ID: SectionId = "storage";
 const FLOWS_ID: SectionId = "informationFlows";
@@ -181,6 +194,10 @@ export function SettingsView(props: SettingsViewProps) {
   // mode. Appearance is its own rail entry. Alphabetical by label.
   const mainEntriesSorted = RAIL.filter(
     (r) =>
+      // Children never appear in a group filter — the parent's render path
+      // owns them. The main group is defined by EXCLUSION, so omitting this
+      // renders each child twice: once here, once under its parent.
+      !r.parent &&
       r.id !== FLOWS_ID &&
       r.id !== STORAGE_ID &&
       r.id !== DIAGNOSTICS_ID &&
@@ -199,7 +216,9 @@ export function SettingsView(props: SettingsViewProps) {
     next.splice(templatesIdx + 1, 0, commEntry);
     return next;
   })();
-  const integrationEntries = RAIL.filter((r) => INTEGRATION_IDS.includes(r.id)).sort(byLabel);
+  const integrationEntries = RAIL.filter(
+    (r) => !r.parent && INTEGRATION_IDS.includes(r.id),
+  ).sort(byLabel);
   const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
   const diagnosticsEntry = RAIL.find((r) => r.id === DIAGNOSTICS_ID);
 
@@ -210,22 +229,58 @@ export function SettingsView(props: SettingsViewProps) {
     if (!next && EXPERT_IDS.includes(active)) setActive("general");
   };
 
-  const renderRailButton = ({ id, labelKey }: { id: SectionId; labelKey: TranslationKey }) => {
+  // ★ Never pass this straight to `.map` — `.map` supplies the INDEX as the
+  //   second argument, which would land in `isChild` and indent every entry
+  //   except the first. Call sites wrap it in an arrow.
+  const renderRailButton = (
+    { id, labelKey }: { id: SectionId; labelKey: TranslationKey },
+    isChild = false,
+  ) => {
     const isActive = active === id;
+    const children = RAIL.filter((r) => r.parent === id);
+    const branchOpen = children.length > 0 && isBranchActive(active, id, RAIL);
     return (
-      <button
-        key={id}
-        type="button"
-        aria-current={isActive ? "page" : undefined}
-        onClick={() => setActive(id)}
-        className={`${
-          isActive
-            ? "rounded-md bg-ui-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
-            : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
-        } ${INTERACTIVE}`}
-      >
-        {t(lang, labelKey)}
-      </button>
+      <Fragment key={id}>
+        <button
+          type="button"
+          // `aria-current` stays on whichever entry is genuinely active, parent
+          // or child. There is deliberately NO `aria-expanded`: the branch is
+          // opened by NAVIGATING to the parent, never collapsed by clicking it
+          // again, so advertising a disclosure the button cannot perform was a
+          // lie to AT. The children's grouping is carried by the `role="group"`
+          // wrapper below instead.
+          aria-current={isActive ? "page" : undefined}
+          onClick={() => setActive(id)}
+          className={`${
+            isActive
+              ? "rounded-md bg-ui-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
+              : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
+          } ${isChild ? "pl-6" : ""} ${INTERACTIVE}`}
+        >
+          {t(lang, labelKey)}
+        </button>
+        {branchOpen && (
+          // A REAL element, not a Fragment: without it the children are flat
+          // siblings of every other rail button and `pl-6` is the only
+          // hierarchy cue — invisible to a screen reader. The group is named
+          // after the parent so AT announces which branch these belong to.
+          // ★ It is a real flex box rather than `display: contents` — a
+          //   contents box is dropped from the layout tree, and its exposure to
+          //   the a11y tree has been browser-version-dependent. `flex-col
+          //   gap-1` reproduces the nav's own column spacing exactly.
+          // ★★ `max-md:` is LOAD-BEARING. Above the breakpoint the nav is
+          //   `md:flex-col`, where `flex-basis` resolves against the MAIN axis —
+          //   height — so a bare `basis-full` would set this group to 100% of the
+          //   nav's height and break the desktop rail, which is correct today.
+          //   Below `md` the nav is `flex-row flex-wrap` and the group is one
+          //   flex ITEM, so without a full-width basis the active parent pill
+          //   stretches to the group's height (measured 116px at 760px wide) and
+          //   unrelated top-level entries share a visual row with a child.
+          <div role="group" aria-label={t(lang, labelKey)} className="flex flex-col gap-1 max-md:basis-full">
+            {children.map((c) => renderRailButton(c, true))}
+          </div>
+        )}
+      </Fragment>
     );
   };
 
@@ -254,11 +309,11 @@ export function SettingsView(props: SettingsViewProps) {
             <InfoTooltip text={t(lang, "settingsExpertModeHint")} />
           </span>
         </label>
-        {mainEntries.map(renderRailButton)}
+        {mainEntries.map((r) => renderRailButton(r))}
         {integrationEntries.length > 0 && (
           <>
             <hr className="my-1 border-line" />
-            {integrationEntries.map(renderRailButton)}
+            {integrationEntries.map((r) => renderRailButton(r))}
           </>
         )}
         {flowsEntry && (
@@ -356,8 +411,17 @@ export function SettingsView(props: SettingsViewProps) {
           />
         )}
         {active === "ai" && (
-          <AiSection lang={lang} settings={settings} onChange={onChange} operatingGuides={props.operatingGuides} />
+          <AiSection lang={lang} settings={settings} onChange={onChange} />
         )}
+        {active === "aiGuides" && (
+          <AiGuidesSection
+            lang={lang}
+            settings={settings}
+            onChange={onChange}
+            operatingGuides={props.operatingGuides}
+          />
+        )}
+        {active === "aiViews" && <AiViewsSection lang={lang} settings={settings} />}
         {active === "scheduledJobs" && (
           <ScheduledJobsSection
             lang={lang}

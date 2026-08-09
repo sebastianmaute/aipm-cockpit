@@ -261,4 +261,13 @@ describe("RolesEditor rate-card table", () => {
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Design / Junior` })).toBeInTheDocument();
   });
+
+  // Class A tooltip batch: the row delete is icon-only, so its row-qualified
+  // name is repeated as a `title` for the mouse. Sampled row — the batch is not
+  // fully pinned; see docs/tooltip-inventory.md.
+  it("gives each row's delete button a hover title matching its accessible name", () => {
+    renderEditor();
+    const expected = `${t("en-US", "delete")} – Engineering / Senior`;
+    expect(screen.getByRole("button", { name: expected })).toHaveAttribute("title", expected);
+  });
 });

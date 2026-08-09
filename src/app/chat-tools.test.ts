@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { runTool, TOOL_DEFS, type ToolDispatcher, type Filters } from "./chat-tools";
+import {
+  runTool,
+  TOOL_DEFS,
+  CALENDAR_SUMMARY_KEYS,
+  toKnowledgeSummary,
+  toCalendarEventSummary,
+  toBudgetBucketSummary,
+  type ToolDispatcher,
+  type Filters,
+} from "./chat-tools";
 import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
 
 function makeTask(over: Partial<Task> = {}): Task {
@@ -162,6 +171,38 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     // this fixture and forgets to override it fails legibly.
     listAllocations: vi.fn(() => {
       throw new Error("listAllocations not stubbed");
+    }),
+    // Same "throw a named error" convention — none of the tests using this
+    // fixture exercise these three; a future test that reuses it and forgets
+    // to override one fails legibly instead of returning a silent [].
+    listKnowledgeItems: vi.fn(() => {
+      throw new Error("listKnowledgeItems not stubbed");
+    }),
+    listCalendarEvents: vi.fn(() => {
+      throw new Error("listCalendarEvents not stubbed");
+    }),
+    listBudgetBuckets: vi.fn(() => {
+      throw new Error("listBudgetBuckets not stubbed");
+    }),
+    // The five document methods. Same "throw a named error" convention as the
+    // four above for the ones no test here drives; the routing tests below
+    // override the two they exercise. Their guards live in
+    // chat-tools-documents.test.ts — these exist so runTool's dispatcher type
+    // is satisfied and so the routing seam itself can be pinned.
+    listDocuments: vi.fn(() => {
+      throw new Error("listDocuments not stubbed");
+    }),
+    getDocument: vi.fn(() => {
+      throw new Error("getDocument not stubbed");
+    }),
+    createDocument: vi.fn(() => {
+      throw new Error("createDocument not stubbed");
+    }),
+    updateDocument: vi.fn(() => {
+      throw new Error("updateDocument not stubbed");
+    }),
+    deleteDocument: vi.fn(() => {
+      throw new Error("deleteDocument not stubbed");
     }),
     ...over,
   };
@@ -492,8 +533,22 @@ describe("TOOL_DEFS — new read-only tools are registered", () => {
     expect(names).toContain("list_milestones");
   });
 
+  it("list_knowledge_items, list_calendar_events, list_budget_buckets appear in TOOL_DEFS", () => {
+    const names = TOOL_DEFS.map((t) => t.name);
+    expect(names).toContain("list_knowledge_items");
+    expect(names).toContain("list_calendar_events");
+    expect(names).toContain("list_budget_buckets");
+  });
+
   it("each new tool has an empty-object input_schema (read-only, no params)", () => {
-    for (const toolName of ["list_raid", "list_changes", "list_milestones"]) {
+    for (const toolName of [
+      "list_raid",
+      "list_changes",
+      "list_milestones",
+      "list_knowledge_items",
+      "list_calendar_events",
+      "list_budget_buckets",
+    ]) {
       const def = TOOL_DEFS.find((t) => t.name === toolName);
       expect(def).toBeDefined();
       expect(def!.input_schema).toEqual({ type: "object", properties: {} });
@@ -817,5 +872,208 @@ describe("list_allocations", () => {
     const d = { listAllocations: () => snapshot } as unknown as ToolDispatcher;
 
     await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
+  });
+});
+
+// NOTE: the plan this test block came from guessed field names (KnowledgeItem
+// title/description, BudgetBucket label/roleId/periods) that don't exist on
+// the real types — see chat-tools.ts for what's actually there. Verified via
+// document-link.ts (KnowledgeItem = KnowledgeLink & {taskIds?}, no description
+// field at all — it's a link, not a document with a summary) and types.ts
+// (BudgetBucket.name, .allocations: BucketAllocation[] with roleId/budgetHours
+// per role, not a flat roleId/periods pair). These tests assert the REAL shape.
+describe("read-tool summary mappers", () => {
+  it("maps a knowledge item to id, name, url, link kind and linked task ids", () => {
+    const summary = toKnowledgeSummary({
+      id: "dl-1",
+      name: "Charter",
+      url: "https://example.com/charter",
+      kind: "file",
+      linkKind: "confluence",
+      taskIds: [5],
+    });
+    expect(summary).toEqual({
+      id: "dl-1",
+      name: "Charter",
+      url: "https://example.com/charter",
+      linkKind: "confluence",
+      taskIds: [5],
+    });
+  });
+
+  it("defaults a knowledge item's link kind to document and task ids to empty", () => {
+    const summary = toKnowledgeSummary({
+      id: "dl-2",
+      name: "Spec",
+      url: "https://example.com/spec",
+      kind: "file",
+    });
+    expect(summary.linkKind).toBe("document");
+    expect(summary.taskIds).toEqual([]);
+  });
+
+  it("returns a calendar event's series definition rather than an expansion", () => {
+    const summary = toCalendarEventSummary({
+      id: 7,
+      title: "Weekly sync",
+      startDate: "2026-02-02",
+      startTime: "09:00",
+      durationMinutes: 30,
+      recurrence: { freq: "weekly", interval: 1 },
+    });
+    expect(summary.recurrence).toEqual({ freq: "weekly", interval: 1 });
+    // ★★ Assert NO key outside the summary's own contract, rather than probing
+    // for a field named `occurrences`. `occurrences` has never existed on this
+    // type, so `Array.isArray(summary.occurrences)` was `Array.isArray(undefined)`
+    // — false unconditionally, green even if the mapper expanded the series into
+    // a field called anything else. This catches an expansion under ANY name.
+    const ALLOWED_KEYS = new Set<string>(CALENDAR_SUMMARY_KEYS);
+    expect(Object.keys(summary).filter((k) => !ALLOWED_KEYS.has(k))).toEqual([]);
+    expect(summary.attendeeResourceIds).toEqual([]);
+    expect(summary.exceptions).toEqual([]);
+  });
+
+  it("passes a calendar event's recurrence exceptions through verbatim", () => {
+    const summary = toCalendarEventSummary({
+      id: 8,
+      title: "Weekly sync",
+      startDate: "2026-02-02",
+      startTime: "09:00",
+      durationMinutes: 30,
+      recurrence: { freq: "weekly", interval: 1 },
+      exceptions: [
+        { date: "2026-02-09", kind: "skip" },
+        { date: "2026-02-16", kind: "move", toDate: "2026-02-17", toTime: "10:00" },
+      ],
+    });
+    expect(summary.exceptions).toEqual([
+      { date: "2026-02-09", kind: "skip" },
+      { date: "2026-02-16", kind: "move", toDate: "2026-02-17", toTime: "10:00" },
+    ]);
+  });
+
+  it("maps a budget bucket to id, name and its per-role budget hours", () => {
+    // No `as never`: a complete, REAL BudgetBucket. The cast disabled all
+    // structural checking, so a fixture drifting from the type (a renamed key,
+    // a newly-required field) would only surface as a runtime assertion, if at
+    // all. Typed properly, tsc catches the drift.
+    const summary = toBudgetBucketSummary({
+      id: 3,
+      name: "Delivery",
+      type: "tm",
+      currency: "EUR",
+      status: "open",
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      allocations: [
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} },
+      ],
+    });
+    expect(summary.id).toBe(3);
+    expect(summary.name).toBe("Delivery");
+    expect(summary.allocations).toEqual([{ roleId: 2, budgetHours: { "2026-01": 40 } }]);
+  });
+});
+
+describe("runTool — knowledge/calendar/budget read tools", () => {
+  it("routes list_knowledge_items to the dispatcher", async () => {
+    const items = [{ id: "dl-1", name: "Charter", url: "https://x", linkKind: "document" as const, taskIds: [] }];
+    const d = { listKnowledgeItems: () => items } as unknown as ToolDispatcher;
+    await expect(runTool(d, "list_knowledge_items", {})).resolves.toBe(items);
+  });
+
+  it("routes list_calendar_events to the dispatcher", async () => {
+    const events: unknown[] = [];
+    const d = { listCalendarEvents: () => events } as unknown as ToolDispatcher;
+    await expect(runTool(d, "list_calendar_events", {})).resolves.toBe(events);
+  });
+
+  it("routes list_budget_buckets to the dispatcher", async () => {
+    const buckets: unknown[] = [];
+    const d = { listBudgetBuckets: () => buckets } as unknown as ToolDispatcher;
+    await expect(runTool(d, "list_budget_buckets", {})).resolves.toBe(buckets);
+  });
+});
+
+describe("document tool defs", () => {
+  it("registers all five document tools", () => {
+    const names = TOOL_DEFS.map((d) => d.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "list_documents",
+        "get_document",
+        "create_document",
+        "update_document",
+        "delete_document",
+      ]),
+    );
+  });
+
+  // ★★★ An ops array, NEVER a bare `blocks` replacement array. A
+  // replace-the-whole-thing write is the set_task_dependencies failure class:
+  // omission reads as deletion, and chat tool writes have NO undo capture.
+  it("gives update_document an ops array, not a bare blocks array", () => {
+    const def = TOOL_DEFS.find((d) => d.name === "update_document")!;
+    const props = def.input_schema.properties as Record<string, unknown>;
+    expect(props.ops).toBeDefined();
+    expect(props.blocks).toBeUndefined();
+  });
+
+  // The six variants must match the real DocBlock union in document-model.ts —
+  // this description is the model's ONLY source of truth for the shape, and a
+  // block it invents is silently dropped by the sanitizer.
+  it("describes exactly the six real block types", () => {
+    const def = TOOL_DEFS.find((d) => d.name === "create_document")!;
+    const props = def.input_schema.properties as Record<string, { items?: { properties?: Record<string, { enum?: string[] }> } }>;
+    expect(props.blocks?.items?.properties?.type?.enum).toEqual([
+      "heading",
+      "paragraph",
+      "bullets",
+      "table",
+      "dataSection",
+      "pageBreak",
+    ]);
+  });
+});
+
+// The routing SEAM only. The five tools' boundary guards are pinned in
+// chat-tools-documents.test.ts; what cannot be tested there is that runTool
+// reaches that module at all — the document names fall through runTool's switch
+// to its `default` arm, which used to throw `unknown tool` for anything it did
+// not recognise.
+describe("runTool — document tool routing", () => {
+  it("routes a document tool to the document module's dispatcher", async () => {
+    const listDocuments = vi.fn(() => [
+      { id: 1, title: "Status", blockCount: 2, updatedAt: "2026-08-01T08:00:00.000Z" },
+    ]);
+    const d = makeDispatcher({ listDocuments });
+    await expect(runTool(d, "list_documents", {})).resolves.toEqual([
+      { id: 1, title: "Status", blockCount: 2, updatedAt: "2026-08-01T08:00:00.000Z" },
+    ]);
+    expect(listDocuments).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★ The guard has to be reachable THROUGH runTool, not merely present in the
+  // module: routing that skipped it would still resolve this call, and a
+  // non-array ops would then read as "no ops" at the dispatcher.
+  it("applies the document module's guards on the way through", async () => {
+    const updateDocument = vi.fn(() => ({ id: 1, title: "Status", blockCount: 1, applied: 1, rejected: [], removed: 0 }));
+    const d = makeDispatcher({ updateDocument });
+
+    await expect(runTool(d, "update_document", { id: 1, ops: "wipe it" })).rejects.toThrow(/ops/i);
+    expect(updateDocument).not.toHaveBeenCalled();
+
+    // Paired positive: the same dispatcher IS reachable through runTool, so the
+    // absence assertion above is about the guard and not about dead routing.
+    await expect(
+      runTool(d, "update_document", { id: 1, ops: [{ op: "append", block: { type: "pageBreak" } }] }),
+    ).resolves.toMatchObject({ applied: 1 });
+    expect(updateDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("still throws unknown tool for a name nothing routes", async () => {
+    await expect(runTool(makeDispatcher(), "burn_everything", {})).rejects.toThrow(
+      /unknown tool: burn_everything/,
+    );
   });
 });

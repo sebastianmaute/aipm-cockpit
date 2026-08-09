@@ -97,7 +97,8 @@
   runTool case + `ToolDispatcher` method, then implement in the dispatcher `useMemo` — guard
   `if (args.isReadOnly) throw readOnlyError()` FIRST (popouts must not mutate), build the raw object and run
   it through the entity's `sanitizeX` (the SINGLE validator — `sanitizeRaidItem` enforces enums/dates/caps +
-  per-category RAID-status defaulting), id = `nextEntityId(ref.current)` (max+1), then update BOTH the ref AND
+  per-category RAID-status defaulting), id = `mintId(kind, ref.current)` (session-scoped high-water mint, never
+  reused), then update BOTH the ref AND
   call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
   `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip the
   no-unused-vars rule).
@@ -118,6 +119,64 @@
   (`chat-tools.ts` throws, mirroring `requireId`), not in the pure resolver — a non-array must never be treated
   as "clear all". ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
   field passes whether the code preserves or erases. Seed a real prior value and watch the test FAIL first.
+- **AI document tools (five):** `list_documents` · `get_document` · `create_document` · `update_document` ·
+  `delete_document`. Schemas in `chat-tool-defs-documents.ts` (`DOCUMENT_TOOL_DEFS`, spread into `TOOL_DEFS`);
+  routing + boundary validation in `chat-tools-documents.ts` (`isDocumentTool` → `runDocumentTool`, dispatched
+  from `chat-tools.ts`'s `runTool`); the implementation is the `useDocumentTools` hook, wired in
+  `use-chat-dispatcher.ts`.
+  ★★ **The "both files were split for the 800-line ratchet" reason is only HALF true**, and
+  `chat-tools-documents.ts`'s own header states it for both. Measured 2026-08-07 with the gate's own
+  counter (`split("\n").length`): `chat-tools.ts` is **763** — 37 lines of headroom against ~139 lines of
+  routing, so that split is genuinely forced. `chat-tool-defs.ts` is **596** — **204** lines of headroom
+  against ~74 lines of schema, so the defs split was NOT ratchet-forced and would have fit comfortably
+  inline. Do not cite the ratchet as the reason for the defs file; check the real number with
+  `npm run size:check` before assuming either is tight. The version model these writes snapshot into lives in
+  [`documents.md`](documents.md); this bullet covers only the AI surface.
+  ★★★ **`chat-tools-documents.ts` IS THE VALIDATION BOUNDARY, and the only one.** Everything downstream is
+  deliberately permissive — `applyDocMutation` is pure and treats its input as already-shaped, and the entity
+  sanitizers degrade unknown shapes rather than throwing. Malformed model output refused anywhere else silently
+  becomes a legal-looking write, and chat tool writes have **NO undo capture**, so the version log is the only
+  thing behind them — and it records what a mutation REPLACED, not what the caller meant.
+  ★★★ **`requireOps` validates ops ARRAY-NESS at the tool boundary** (the `set_task_dependencies` shape above),
+  but **the consequence here is NOT a wipe and the plan claimed it was.** MEASURED by deleting the check: a
+  non-array degrades to `[]`, `applyOps` returns null for an empty list, and `applyDocMutation` refuses to touch
+  the blocks — nothing is destroyed. What actually happens is that the model's ops are SILENTLY DISCARDED while
+  the tool reports success: with no title the call throws anyway, and WITH a title the rename lands, resolves,
+  and every edit the model asked for vanishes with no rejection shown. Keep the guard — it is a
+  refusal-that-reads-as-success, just not the data-loss story. ★ Recording it accurately matters: an
+  overstated severity is the kind of claim someone later disproves and then discounts the whole guard over.
+  ★ `undefined` is the ONE legal non-array and means "no ops" (a title-only rename); `null`, a string and an
+  object are all refused, since none can be an honest empty list.
+  ★★ **`sanitizeAiDocBlocks` (`ai-document-blocks.ts`) is the model-input allow-list** and is DOM-BOUND on
+  purpose — which is why it is NOT in `document-model.ts`, whose DOM-free contract a source scan enforces.
+  Two layers, both load-bearing: `sanitizeProjectDocuments` enforces STRUCTURE and cannot sanitize, so
+  `sanitizeAiDocumentRichText` runs over `paragraph.html` first. ★★★ **`sanitizeAiDocumentRichText`, NOT its
+  sibling `sanitizeAiRichText`** — both are the same two layers, and the difference is the allow-list. The
+  sibling narrows documents to the TEMPLATE list, which UNWRAPS `mark`/`s`/`code`/`pre`/`blockquote`/`hr`/
+  `sub`/`sup` at the write, so the model's formatting is gone before storage sees it (measured:
+  `"<p><mark>keep</mark></p>"` stored as `"<p>keep</p>"`). Both symbols are real, so `docs:symbols:check` is
+  green either way and this line is the only thing standing between a new document boundary and the narrow
+  door. The sibling must STAY narrow — it guards the six rich raid/change/milestone fields.
+  ★ Apply it to the model's INPUT only, never to the
+  merged/stored document — re-running an allow-list over stored bytes rewrites content the call never touched
+  (same rule as `withAiRichFields`). ★ `paragraph.html` is the only `DocBlock` field reaching a render sink as
+  markup, so sanitizing just that block type is complete.
+  ★★ **Every write refuses in a read-only popout** (`isReadOnly` → `readOnlyError()`), mirroring
+  `use-chat-dispatcher`'s own per-tool guards. No undo capture means a popout mirror must never reach
+  `mutateDocuments` at all.
+  ★★ **`use-document-tools.ts` is deliberately NOT in `vitest.config.ts`'s `coverage.exclude`**, unlike the
+  render-scope UI-glue hooks beside it. It holds real decisions — which mutation kind a call becomes, what is
+  sanitized, how each result is shaped — and is tested through `use-chat-dispatcher.test.tsx`'s existing
+  `renderDispatcher`/`runTool` harness. Excluding it would drop that logic out of the coverage floors.
+  ★★★ **TWO `isDocumentTool` FUNCTIONS EXIST AND MUST NOT BE MERGED.** The exported one
+  (`chat-tools-documents.ts`) tests a LOCAL literal `Set`, deliberately NOT derived from `DOCUMENT_TOOL_DEFS`:
+  a module-eval `new Set(IMPORTED_CONST)` comes out EMPTY if an import cycle puts that module first, and an
+  empty set routes every document tool into `runTool`'s "unknown tool" throw. A test cross-checks the two lists
+  instead. The private one (`chat-tool-block.tsx`) reads `DOCUMENT_TOOL_DEFS` LIVE inside the function for the
+  same reason, solved the other way. Both are correct; "deduplicating" them reintroduces the trap.
+  ★ `DocumentUpdateResult.title` is REQUIRED, not optional, so the chat file card's obligation is a compile
+  error rather than a rendering disappointment. The routing layer deliberately does NOT runtime-guard it —
+  failing an applied write over a cosmetic card would be the worse trade.
 - **AI allocation planning ("Plan with AI", Resources → Planning toolbar):** plan-then-apply over the EXISTING
   `Resource.utilization` map — ZERO new persisted fields, backend write paths or golden regen. Pure engine
   `alloc-plan/alloc-plan.ts` (prompt digest · forced `propose_allocations` tool · parse · **ground** · apply ·
@@ -200,6 +259,16 @@
   proposal/confirm if the popover is reopened with a new instruction before the in-flight call resolves. Logs
   a new `ai.inlineEdit` activity kind. Wired into `task-row.tsx` (`RowContextValue`) + `task-kanban-card.tsx`
   (props — the board renders outside `RowContextProvider`, see the Kanban board bullet above).
+  ★★★ **`callInlineEdit` STRIPS `viewDigest` from the snapshot and must keep doing so.** Inline edit does
+  NOT build its own snapshot — `use-inline-entity-edit.ts` calls the SAME `dispatcher.getSnapshot()` the
+  chat panel uses, so it inherits whatever that carries. Left in, the VIEW STATE block lists up to 15
+  NEIGHBOURING rows WITH IDS from the surface the editor was opened from, directly contradicting this
+  call's own scope block ("Do NOT update or delete any OTHER item") — a mutation planner handed a menu of
+  things it was just told not to touch. `inline-ai-edit-call.ts` therefore passes
+  `{ ...args.snapshot, viewDigest: undefined }`. ★ Pinned by `inline-ai-edit-call.test.ts` ("strips the
+  view digest…"); its control asserts `VIEW SCOPE`, NOT the item label — the label comes from `scopeBlock`
+  independently of `buildSystemPrompt`, so controlling on it proves nothing. ★★ Any NEW consumer of
+  `getSnapshot()` must make the same decision explicitly.
 - **AI "Deduplicate & unify tasks" (Open Points):** a toolbar action that PROPOSES duplicate merge groups,
   the user reviews/confirms, then it applies — plan-then-apply layered ON TOP of the existing task path (ZERO
   new AI tools, Workspace fields, or backend write paths). Pure i18n-free contract in `task-dedup/dedup.ts`
@@ -285,4 +354,141 @@
   control bytes; they corrupt the file to binary).
 - **No `settings.mode` field:** PM mode is DERIVED — `deriveMode(settings.features)` (same call the chat
   snapshot uses in `use-chat-dispatcher.ts`). Reading `settings.mode` is `undefined`; use `deriveMode`.
+- **View-scoped AI prompts:** before this, the assistant was told only `Current view: <name>` — a bare
+  string with no meaning attached. `view-ai-scope.ts` fixes that: `VIEW_AI_SCOPE` is a **total**
+  `Record<AppView, ViewScope>` (`purpose` / optional `reading` / optional `toolHints`) describing what
+  every one of the app's 34 views is for. ★ Total BY CONSTRUCTION — adding an `AppView` is a typecheck
+  error until it is described here, which is why there is deliberately **no** "every view is present"
+  test: such a test could not fail. `view-ai-scope-block.ts` formats the registry into two blocks:
+  `buildViewScopeBlock` (what the surface IS — call-invariant per view) and `buildViewStateBlock` (what
+  is currently ON it). `buildSystemPrompt`'s SIGNATURE was deliberately not changed — both blocks derive
+  from the `snapshot` it already receives, so `chat-panel.tsx` is untouched.
+  ★★ **The scope block is NOT gated by `settings.ai.groundInGuides` and NOT counted in
+  `GUIDE_CHAR_BUDGET`.** It is deliberately **not** an `OperatingGuide`, even though that type carries a
+  `builtIn` flag that makes routing built-ins through the guide store look natural — the whole guide
+  block is gated by that one user preference, so doing that would let a user setting silently switch off
+  shipped product behavior. `VIEW_AI_SCOPE`/`VIEW_AI_DIGEST` stay their own registries.
+  ★★★ **THE CACHE BOUNDARY — BOTH BLOCKS ARE VOLATILE, and an earlier revision of this bullet said the
+  opposite.** It claimed the scope block belonged in the cached prefix because it is "invariant per
+  view". **Per-view invariance is not the property prompt caching rewards; per-CONVERSATION invariance
+  is.** ★★★ **AND THE FIRST CORRECTION WAS ALSO WRONG — read this before repricing anything here.** It
+  argued the move BOUGHT a cache read. It did not: `stableText` is `[stableInstructions, guideBlock]`,
+  and `guideBlock` is view-filtered by `selectActiveGuides`. `settings.ai.groundInGuides` defaults to
+  **true** (`settings-types.ts`, and a missing key reads as true), and **20 of the 21
+  `BUILTIN_FEATURE_GUIDES` are view-scoped** (mean ~1 KB; Open Points ~2.9 KB), all seeded `enabled:
+  true` and undeletable. So the cached prefix ALREADY changed on every view switch, by default, for
+  every user — through a block an order of magnitude larger than the one being moved. Moving a
+  ~100-token block out of a prefix that churns anyway saves nothing and costs ~100 tokens/message.
+  ★★★ **`CACHED_TOOLS` (`chat-api.ts`) is what actually fixes it** — the LAST tool carries
+  `cache_control`, closing a cache segment at the end of `tools` so the per-view guide swap re-caches
+  only the smaller system slice after it. Without it the cached prefix is tools + `stableText` and that
+  guide swap rewrites the whole tool payload on every view switch. ★ Measure the SERIALIZED payload,
+  not the file:
+  `JSON.stringify(TOOL_DEFS)` is ~32 KB across **43** tools. ★ Reproduce by writing a two-line
+  script that imports `TOOL_DEFS` and logging `TOOL_DEFS.length, JSON.stringify(TOOL_DEFS).length`, then
+  `npx vite-node <file>` → `43 32657` (measured 2026-08-07; was `38 25942` on 2026-08-05, before the five
+  document tools). **`vite-node` has NO `-e` flag** — an earlier revision of this line gave a one-liner
+  using it, which prints the help text and exits 1. ★★ It also cannot load a script from OUTSIDE the project
+  root (`ERR_LOAD_URL`), so the temp file has to sit in the repo — write it, run it, delete it, and never
+  `git add` it.
+  ★★ The token figure here is DERIVED, not measured: the 2026-08-05 revision paired 25942 bytes with
+  "~6.5k tokens" (≈4 bytes/token), which scales to **~8k tokens** today. Nothing in this repo counts tokens,
+  so treat it as an estimate of that shape and do not quote it as measured.
+  ★★ **A coincidence this bullet used to rest on is now BROKEN.** It read "`chat-tool-defs.ts` on disk is
+  ~24.8 KB — the two land close by coincidence". The file is still ~24.9 KB, but the serialized payload is
+  now ~32 KB, because the five document schemas live in a SEPARATE file (`chat-tool-defs-documents.ts`,
+  ~5.9 KB). Comparing the payload against one defs file no longer approximates anything — measure
+  `TOOL_DEFS` itself, which is what actually ships.
+  Both `buildViewScopeBlock` and `buildViewStateBlock` output sit in the **volatile, uncached suffix**,
+  scope before state — which is now a readability choice (what the surface IS, then what is on it), not
+  a cost one, since the tools breakpoint is where the saving comes from.
+  ★★ Three things would silently raise cost and break **nothing visible**, so they are the ones to
+  guard: dropping `CACHED_TOOLS` back to a bare `TOOL_DEFS`; moving either block into `stableText`; or
+  putting anything view-dependent AHEAD of the tools breakpoint. `chat-api.system-prompt.test.ts`
+  ("marks exactly the LAST tool…", "puts the view scope in the UNCACHED block…", "puts the digest in the
+  UNCACHED block…") is the only thing that would catch any of them.
+  ★★ **This bullet has now been wrong twice in opposite directions** — first asserting the scope block
+  belonged in the cached prefix, then asserting that moving it out bought a read. Both were reasoned
+  from arithmetic that was internally correct and priced against a baseline nobody checked. Before
+  changing anything here, verify what `stableText` actually contains AT RUNTIME for a default install;
+  this file already said "view change re-caches that slice" (in the operating-guides bullet
+  above) throughout both errors.
+  ★ `view-ai-digest.ts`'s `VIEW_AI_DIGEST` is a **`Partial<Record<AppView, DigestFn>>`** on purpose,
+  covering exactly four views (`open-points`, `workload`, `gantt`, `budget`) fed through
+  `getSnapshot().viewDigest` in `use-chat-dispatcher.ts` — the other 30 views cost nothing and nobody
+  should fill them in for symmetry. Pure, i18n-free, **clock-free** (`today` passed in, unread by all
+  four digests today but kept required so the first date-based digest doesn't have to touch every call
+  site to add it).
+  ★★★ **The digest must describe what the user can actually SEE, and this took TWO corrections.** The
+  input is assembled by **`use-view-digest.ts`**, not inline in the dispatcher — it needs pane state the
+  dispatcher does not hold. ★★ Correction 1: an early revision fed the digest raw `tasks`. ★★★ Correction
+  2 — and this bullet asserted the fix while it was still wrong — it then fed `filteredSortedTasks` and
+  called that "the array the Open Points TABLE actually renders". **It is not.** The table renders
+  `visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, …)`, and `visible-task-rows.ts`'s own
+  header records this identical bug being fixed once before for select-all: reading `filteredSortedTasks`
+  is "upstream of BOTH filters", so it "reported on — and acted on — rows the table was not rendering".
+  The hook now calls that SAME shared function. ★ Never reintroduce a second copy of the narrowing.
+  ★★★ **`TaskFilterValues` is ONLY `{assignee, group, label}`** — the table also applies a priority
+  filter, a debounced search, hide-externals, the health filter and hide-finished. The digest therefore
+  takes an **`extraFilters: readonly string[]`** built in `use-view-digest.ts`. Without it the digest
+  printed "No filters active — the table shows every task" while a search hid all but a handful — worse
+  than silence, because that sentence exists to tell the model it need not call a tool.
+  ★★ `gantt`/`workload`/`budget` deliberately report **project totals, not visible rows**, because their
+  panes filter through state this layer cannot reach without duplicating panel logic (Gantt alone: four
+  prefs, a show-milestones toggle, and the rule that a task with no due date is never drawn). **Each
+  digest LINE says so itself** — the shared `buildViewStateBlock` wrapper must NOT re-acquire a blanket
+  "after their filters and sorting" claim, which is what it used to carry: one wrapper promise turned
+  three honest counts into three false ones.
+  ★★ The digest reads **`effectiveFilters`** for the assignee/group/label triple — never the RAW values —
+  for the same reason the table and the `<select>`s do. The "no filter" sentinel is the shared
+  **`FILTER_ALL`** (`"All"`, imported from `task-filters.ts`) — not an invented `"__all__"`. A local
+  sentinel would have made every message from Open Points report three phantom active filters.
+  ★★★ **THAT CLAIM IS SCOPED TO THOSE THREE, and an earlier revision of this line stated it flatly for
+  the whole digest — which the `use-view-digest.ts` extraction falsified without touching the sentence.**
+  The hook reads `healthFilter`, `priorityFilter` and `search` STRAIGHT from `useFilters()`, because
+  `effectiveFilters` does not carry them (`TaskFilterValues` is only the triple).
+  ★★ **It also reads `hideFinishedTasks`/`hideExternalTasks` off the RAW DEVICE settings** the dispatcher
+  is handed, while `tasks-section.tsx` reads them off **effective** settings — whose own comment warns
+  that reading device there "would silently re-open the drift the shared `visibleTaskRows()` exists to
+  close". The two agree TODAY only because neither flag is overridable: `resolveEffectiveSettings`
+  (`settings-effective.ts`) touches `nextActions`, `notifications`, `timezone`, `additionalTimezones`,
+  `dashboardDensity`, `showViewHints` and `tasksViewMode`, and nothing else. ★★★ `tasksViewMode` JOINED
+  that list once already, so this is a live risk, and a RUNTIME test cannot catch it — a future override
+  key is simply absent from any fixture. `use-view-digest.test.tsx` therefore carries a **compile-time**
+  guard ("neither hide flag is a per-project appearance override"): add either flag to
+  `ProjectAppearancePref` and tsc fails there, pointing at the fix (thread effective settings in).
+  ★★ It reads **`searchDebounced`, not the raw box value** — the rows it counts are filtered on the
+  debounced one, so reading raw would under-report on CLEAR (raw empties instantly while the rows stay
+  narrowed for ~150 ms, emitting "No filters active"). See the hook's own comment for the asymmetry.
+  ★★ **Two registry entries disclose gaps rather than hinting at tools that cannot answer:**
+  `portfolio-health` (`get_dashboard_snapshot` covers the active project only — there is no cross-project
+  tool) and `raci` (RACI assignments are not tool-readable at all: `Stakeholder.raci` is absent from both
+  `StakeholderSummary` and `MilestoneSummary`, the shapes `list_stakeholders`/`list_milestones` actually
+  return). `activity` and `timelog` likewise state outright that the model cannot read them, rather than
+  staying silent and risking an invented answer.
+  - **The chip↔capability rule:** every view in `ASK_CLAUDE_PROMPTS` (`ask-claude-prompts.ts`) must have
+    `toolHints` in `VIEW_AI_SCOPE` or a digest behind it in `VIEW_AI_DIGEST` — pinned by
+    `ask-claude-prompts.test.ts` ("every chipped view has tool hints or a digest behind it"). A chip
+    asking a question no tool can answer is a dead prompt; the same test file also pins that `timelog`
+    and `activity` carry **no** chips at all.
+    26 of 34 views carry chips (2026-08-05, reproduce:
+    `grep -c "^  \"\?[a-z-]*\"\?: \[" src/app/ask-claude-prompts.ts` — or count the keys of
+    `ASK_CLAUDE_PROMPTS`).
+  - **The Settings view-scope list is invisible to the axe gate** — `AiViewsSection`
+    (`settings-sections/ai-views-section.tsx`) is its own entry in the Settings rail, nested under AI
+    Assistant, and the axe gate scans Settings → **General** only, so this section is never reached. Its
+    unit tests are the only coverage.
+    ★★ It is **no longer a disclosure**. It was `AiViewScopeDisclosure` in
+    `ai-view-scope-disclosure.tsx` and reused `ToggleButton`'s `variant="disclosure"`; that component and
+    file are GONE, and every view's scope now renders always-visible in a plain list with no per-row
+    toggle at all. `ai-views-section.test.tsx` pins the absence of any button. Do NOT reintroduce a
+    per-view expander here.
+    ★★ `variant="disclosure"` itself still exists on `ToggleButton` and remains the correct choice for a
+    genuine disclosure (`aria-expanded`+`aria-controls` instead of `aria-pressed` — a disclosure REVEALS
+    content, it doesn't change application state, so the stateful on/off semantics don't apply). But this
+    section was its **only** production consumer, so as of 2026-08-07 the variant has **no call site
+    outside `toggle-button.tsx` itself** (reproduce: `grep -rln 'variant="disclosure"' src/app
+    --include=*.tsx | grep -v test`). It is kept deliberately, not by oversight — deleting it would mean
+    the next real disclosure gets hand-rolled `aria-expanded`, which is the failure this variant exists to
+    prevent. Do not "clean it up" as dead code.
 

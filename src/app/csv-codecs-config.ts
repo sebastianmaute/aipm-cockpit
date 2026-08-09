@@ -43,6 +43,8 @@ import {
   CSV_SECTION_KNOWLEDGE_ITEMS,
   CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
+  CSV_SECTION_DOCUMENTS,
+  CSV_SECTION_DOCUMENT_VERSIONS,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -62,6 +64,13 @@ import {
   tasksToCsv,
 } from "./csv-codecs-core";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
+import {
+  sanitizeProjectDocuments,
+  type DocTruncationDiag,
+  type ProjectDocument,
+} from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 
@@ -228,6 +237,108 @@ export function csvToInsights(text: string): Insight[] | undefined {
   try {
     const ins = sanitizeInsights(JSON.parse(rows[0][1]));
     return ins.length ? ins : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Documents encoder / decoder ---------------------------------------------
+//
+// Same single `config,<json>` row shape as the knowledge items, but — unlike
+// them — documents are STORAGE-ONLY: there is no `documents` key in
+// EXPORT_SECTION_KEYS, so emission is gated purely on the array being non-empty
+// rather than routed through the export `enabled(...)` allowlist.
+//
+// ★ The whole blob rides in ONE cell, so a title carrying a comma, a quote or a
+// newline depends on `csvCellEscape` quoting it (and on JSON.stringify having
+// already escaped the break, so the cell never spans two CSV lines).
+
+export function documentsToCsv(docs: readonly ProjectDocument[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(docs), neutralize)].join(",");
+}
+
+export function csvToDocuments(
+  text: string,
+  diag?: DocTruncationDiag,
+): ProjectDocument[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    // ★★★ TWO PASSES, and the second one is not optional. sanitizeProjectDocuments
+    // is DOM-FREE BY CONTRACT, so it enforces STRUCTURE and cannot strip markup;
+    // sanitizeDocumentRichFields applies the paragraph HTML allow-list. CSV and
+    // Markdown were the only two of the six load paths missing this, which left
+    // the same document decoding to different in-memory HTML depending on the
+    // backend it came from — and a CSV→JSON migration then WROTE the unfiltered
+    // markup into a backend that would have cleaned it.
+    // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
+    // SILENT. Measured both ways with the generator's exact arrangement: with
+    // JSDOM installed first, documents decode and come back sanitized; with no
+    // DOM the DOMPurify call throws, the catch below swallows it, and documents
+    // decode to UNDEFINED — dropped whole, no error, no diagnostic. Today the
+    // only DOM-free importer is scripts/generate-sample-workspace.ts, which
+    // installs JSDOM into globalThis BEFORE it dynamically imports
+    // src/app/storage (see its header). A NEW bare-node importer of this module
+    // must do the same or it will silently lose every document.
+    // ★ `diag` records what the MAX_DOCUMENTS cap silently discarded, so an
+    // over-cap file can tell the user before the next autosave writes the
+    // truncation back (open-followups §103).
+    const docs = sanitizeProjectDocuments(JSON.parse(rows[0][1]), diag).map(
+      sanitizeDocumentRichFields,
+    );
+    return docs.length ? docs : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Document version history encoder / decoder ------------------------------
+//
+// Same single `config,<json>` row shape as documents just above, and the same
+// STORAGE-ONLY gate: version history exists to give AI chat tool writes an
+// undo path, not to appear in a file the user opens in Excel — there is no
+// `documentVersions` export key, so emission is gated purely on the array
+// being non-empty.
+
+export function documentVersionsToCsv(versions: readonly DocVersion[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(versions), neutralize)].join(",");
+}
+
+export function csvToDocumentVersions(
+  text: string,
+  diag?: DocTruncationDiag,
+): DocVersion[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    // ★★★ TWO PASSES, same shape as csvToDocuments above: sanitizeDocumentVersions
+    // is DOM-FREE BY CONTRACT (enforces structure only, delegating block/title
+    // shape to sanitizeProjectDocuments), so sanitizeDocumentRichFields still has
+    // to run separately to apply the paragraph HTML allow-list. A version has no
+    // independent createdAt/updatedAt, so it is passed through a synthetic
+    // ProjectDocument-shaped wrapper with savedAt standing in for both — mirrors
+    // the JSON path's load boundary (workspace.ts).
+    // ★★ THIS MAKES THE DECODE PATH DOM-DEPENDENT, and the failure mode is
+    // SILENT, exactly like csvToDocuments: without a DOM the rich-field pass
+    // throws, the catch below swallows it, and history decodes to UNDEFINED —
+    // dropped whole, no error, no diagnostic. The only DOM-free importer today is
+    // scripts/generate-sample-workspace.ts, which installs JSDOM into globalThis
+    // BEFORE it dynamically imports src/app/storage; a new bare-node importer of
+    // this module must do the same or it will silently lose every version.
+    // ★ Same accumulator as csvToDocuments above, but here it fills
+    // `truncatedBlocks` — a version can never trip the DOCUMENT cap, since
+    // sanitizeDocumentVersions sanitizes one version at a time.
+    const versions = sanitizeDocumentVersions(JSON.parse(rows[0][1]), diag).map((v) => ({
+      ...v,
+      blocks: sanitizeDocumentRichFields({
+        id: v.documentId,
+        title: v.title,
+        blocks: v.blocks,
+        createdAt: v.savedAt,
+        updatedAt: v.savedAt,
+      }).blocks,
+    }));
+    return versions.length ? versions : undefined;
   } catch {
     return undefined;
   }
@@ -558,5 +669,20 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // so insight-less files stay byte-stable.
   if (enabled("insights") && ws.insights && ws.insights.length)
     csvPush(CSV_SECTION_INSIGHTS, insightsToCsv(ws.insights, neutralize));
+  // Documents — STORAGE-ONLY, same `config === undefined` gate as steering /
+  // timelog / settings-overrides: `workspaceToCsv` serves BOTH the CSV storage
+  // backend and the user-facing CSV export, and a raw JSON document blob has no
+  // business in a file the user opens in Excel. There is no `documents` export
+  // key, so this is a gate rather than an `enabled(...)` call. Emitted LAST and
+  // only when populated, so a document-less workspace's bytes are unchanged —
+  // golden-workspace.test pins them.
+  if (config === undefined && ws.documents && ws.documents.length)
+    csvPush(CSV_SECTION_DOCUMENTS, documentsToCsv(ws.documents, neutralize));
+  // Document version history — STORAGE-ONLY, same `config === undefined` gate
+  // as documents just above: it is a before-image trail for AI tool writes,
+  // not user-facing content. Emitted last so a history-less workspace's bytes
+  // are unchanged — golden-workspace.test pins them.
+  if (config === undefined && ws.documentVersions && ws.documentVersions.length)
+    csvPush(CSV_SECTION_DOCUMENT_VERSIONS, documentVersionsToCsv(ws.documentVersions, neutralize));
   return parts.join("\r\n");
 }

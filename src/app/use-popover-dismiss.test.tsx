@@ -37,8 +37,9 @@ describe("usePopoverDismiss", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  // ★★ This hook backs popovers that render INSIDE edit modals — the ⚙
-  // field-visibility button of every one. The shared `Modal` closes on a
+  // ★★ This hook backs popovers that render INSIDE edit modals — the
+  // field-visibility trigger (the active tier plus a cog icon) that every edit
+  // modal now carries in its header. The shared `Modal` closes on a
   // document-level Escape unless a descendant marked the event handled, so both
   // halves of that protocol matter:
   //

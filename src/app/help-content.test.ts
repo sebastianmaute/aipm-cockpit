@@ -1,15 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { HELP_ENTRIES, HELP_SECTIONS, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
+import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL, helpGroupOrder } from "./help-content";
 import { allNavViews } from "./nav-config";
 
 describe("help-content backbone", () => {
   it("has unique entry ids", () => {
     const ids = HELP_ENTRIES.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("HELP_SECTIONS is exactly the features group", () => {
-    expect(HELP_SECTIONS).toEqual(HELP_ENTRIES.filter((e) => e.group === "features"));
   });
 
   it("every relatedConcepts id resolves to a real entry", () => {
@@ -33,6 +29,46 @@ describe("help-content backbone", () => {
   it("has the concept, workflow and automated entries", () => {
     expect(HELP_ENTRIES.filter((e) => e.group === "concepts").length).toBeGreaterThanOrEqual(10);
     expect(HELP_ENTRIES.filter((e) => e.group === "workflows").length).toBeGreaterThanOrEqual(6);
-    expect(HELP_ENTRIES.filter((e) => e.group === "automated").length).toBeGreaterThanOrEqual(1);
+    expect(HELP_ENTRIES.filter((e) => e.group === "automated").length).toBeGreaterThanOrEqual(3);
+    // ★ `features` is the bulk of the file (44 today) and was the one group
+    // with no floor at all, so a mass deletion there would have passed every
+    // assertion in this describe block.
+    expect(HELP_ENTRIES.filter((e) => e.group === "features").length).toBeGreaterThanOrEqual(40);
+  });
+});
+
+describe("concept primers", () => {
+  it("every concept entry has one", () => {
+    const missing = HELP_ENTRIES.filter((e) => e.group === "concepts" && !e.primerKey).map((e) => e.id);
+    expect(missing).toEqual([]);
+  });
+
+  // Primers are the Guided level's whole payload. Putting one on a feature or
+  // workflow entry would render it at Guided with nothing having decided what
+  // it should say there.
+  it("no other group has one", () => {
+    const stray = HELP_ENTRIES.filter((e) => e.group !== "concepts" && e.primerKey).map((e) => e.id);
+    expect(stray).toEqual([]);
+  });
+});
+
+describe("helpGroupOrder", () => {
+  it("gives Guided and Standard today's order", () => {
+    expect(helpGroupOrder("guided")).toEqual(["concepts", "workflows", "features", "automated"]);
+    expect(helpGroupOrder("standard")).toEqual(["concepts", "workflows", "features", "automated"]);
+  });
+
+  it("gives Expert reference-first order", () => {
+    expect(helpGroupOrder("expert")).toEqual(["features", "automated", "workflows", "concepts"]);
+  });
+
+  // Guards the reorder against a typo that drops or duplicates a group — an
+  // Expert user would silently lose a whole section of Help.
+  it("covers every group exactly once at every level", () => {
+    for (const level of ["guided", "standard", "expert"] as const) {
+      const order = helpGroupOrder(level);
+      expect([...order].sort()).toEqual([...HELP_GROUP_ORDER].sort());
+      expect(new Set(order).size).toBe(order.length);
+    }
   });
 });

@@ -26,6 +26,7 @@ export function RemovableChipRow({ label, ariaLabel, onRemove }: RemovableChipRo
         type="button"
         onClick={onRemove}
         aria-label={ariaLabel}
+        title={ariaLabel}
         className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
       >
         <XMarkIcon aria-hidden="true" className="h-4 w-4" />

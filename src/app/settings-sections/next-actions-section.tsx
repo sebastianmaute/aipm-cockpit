@@ -193,7 +193,14 @@ export function NextActionsSection({
         const fieldLabel = t(lang, f.labelKey);
         const s = byField.get(f.key);
         return (
-          <label key={f.key} className="mb-2 flex items-center justify-between gap-2 text-sm text-foreground">
+          // ★★ `htmlFor` is LOAD-BEARING, not decoration. Without it this label
+          // binds to its FIRST LABELABLE DESCENDANT — and when a weight
+          // suggestion is showing, that is the "Accept" button, not the number
+          // field. The row then highlights Accept on hover and ACCEPTS THE
+          // SUGGESTION when the caption is clicked. Explicit association also
+          // keeps the click-to-focus affordance the implicit binding gave the
+          // input while no suggestion was present. See src/test/label-binding.ts.
+          <label key={f.key} htmlFor={`next-actions-weight-${f.key}`} className="mb-2 flex items-center justify-between gap-2 text-sm text-foreground">
             <span className="inline-flex items-center gap-1">
               {fieldLabel}
               <InfoTooltip text={t(lang, f.hintKey)} />
@@ -215,6 +222,7 @@ export function NextActionsSection({
                 </span>
               )}
               <Input
+                id={`next-actions-weight-${f.key}`}
                 size="xs"
                 type="number"
                 min={f.min ?? (f.kind === "ratio" ? 0.1 : 1)}

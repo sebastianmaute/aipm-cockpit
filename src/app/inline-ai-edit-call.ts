@@ -51,8 +51,29 @@ function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLab
 }
 
 export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditResult> {
+  // ★★ STRIP THE VIEW DIGEST. Inline edit does NOT build its own snapshot — it
+  // reuses the chat dispatcher's (`use-inline-entity-edit.ts` calls the same
+  // `dispatcher.getSnapshot()`), so without this it inherits the VIEW STATE
+  // block describing the surface the editor was opened from. Two reasons that
+  // is wrong, and the second is the serious one:
+  //   1. It restates content the editor already has — `scopeBlock` below hands
+  //      the model the target entity's own fields verbatim.
+  //   2. Inline edit PLANS MUTATIONS. Opened from Open Points, the digest lists
+  //      up to 15 NEIGHBOURING task rows, ids and all, directly contradicting
+  //      the scope block's "Do NOT update or delete any OTHER item".
+  // ★★ VIEW SCOPE IS DELIBERATELY KEPT — this is a decision, not an oversight,
+  // and the test's control assertion depends on it. It carries no entity ids,
+  // and orienting the model on what the surface is makes its edit better. Its
+  // `toolHints` do name broad tools the scope block then forbids acting on
+  // beyond this item; that tension is accepted because the scope block is
+  // adjacent and explicit, where a list of real neighbouring ids is not.
   const system: SystemBlock[] = [
-    ...buildSystemPrompt(args.lang, args.snapshot, args.guides, args.groundInGuides),
+    ...buildSystemPrompt(
+      args.lang,
+      { ...args.snapshot, viewDigest: undefined },
+      args.guides,
+      args.groundInGuides,
+    ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
   const res = await callClaude(

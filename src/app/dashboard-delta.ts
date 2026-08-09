@@ -54,7 +54,14 @@ function emptyCounts(): DeltaCounts {
 }
 
 /** Map an activity kind to a (group, verb) the strip cares about, or null to
- *  ignore (deletes, settings, jira.sync, docs, history, bulk, etc.). */
+ *  ignore (deletes, settings, jira.sync, docs, history, bulk, etc.).
+ *  ★ `ai.documentWrite` is deliberately NOT a delta verb and falls through the
+ *  prefix switch below to `null`. The strip counts movement on the four
+ *  REGISTERS the dashboard reports health for; a document is an artefact the
+ *  assistant authored ABOUT that movement, so counting it would inflate
+ *  "since you last looked" with work that changed no task, RAID item,
+ *  milestone or change. Pinned by dashboard-delta.test.ts — do not "complete"
+ *  the switch with a `documents` DeltaGroup. */
 function classify(kind: ActivityKind): { group: DeltaGroup; verb: DeltaVerb } | null {
   const dot = kind.indexOf(".");
   const prefix = kind.slice(0, dot);

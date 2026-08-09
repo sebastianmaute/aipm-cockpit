@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTaskClosed, isTaskDelivered } from "./task-closed";
+import { isTaskClosed, isTaskDelivered, isTaskOutOfScope } from "./task-closed";
 import { type Task } from "./types";
 
 const task = (over: Partial<Task>): Task => ({
@@ -31,5 +31,24 @@ describe("isTaskDelivered", () => {
     expect(isTaskDelivered(task({ status: "Done", completedDate: "2026-08-01" }))).toBe(true);
     expect(isTaskDelivered(task({ status: "Cancelled" }))).toBe(false);
     expect(isTaskDelivered(task({ status: "To Do" }))).toBe(false);
+  });
+});
+
+describe("isTaskOutOfScope", () => {
+  it("is true for a cancelled task", () => {
+    expect(isTaskOutOfScope(task({ status: "Cancelled" }))).toBe(true);
+  });
+
+  // The pair open-followups §65 is about: closed, but nothing was delivered.
+  it("is true for Done with no completedDate", () => {
+    expect(isTaskOutOfScope(task({ status: "Done" }))).toBe(true);
+  });
+
+  it("is false for a delivered task", () => {
+    expect(isTaskOutOfScope(task({ status: "Done", completedDate: "2026-08-01" }))).toBe(false);
+  });
+
+  it("is false for an open task", () => {
+    expect(isTaskOutOfScope(task({ status: "In Progress" }))).toBe(false);
   });
 });

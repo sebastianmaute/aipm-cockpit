@@ -4309,6 +4309,82 @@
       }
     ]
   },
+  "documents": [
+    {
+      "id": 1,
+      "title": "Steering update",
+      "blocks": [
+        {
+          "type": "heading",
+          "level": 1,
+          "text": "Steering update"
+        },
+        {
+          "type": "paragraph",
+          "html": "<p>Delivery is on track for the March gate.</p>"
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "API integration complete",
+            "UAT window confirmed"
+          ]
+        },
+        {
+          "type": "table",
+          "columns": [
+            "Workstream",
+            "Status"
+          ],
+          "rows": [
+            [
+              "Integration",
+              "Green"
+            ],
+            [
+              "Migration",
+              "Amber"
+            ]
+          ]
+        },
+        {
+          "type": "pageBreak"
+        },
+        {
+          "type": "heading",
+          "level": 1,
+          "text": "Open risks"
+        },
+        {
+          "type": "dataSection",
+          "key": "raid"
+        }
+      ],
+      "createdAt": "2026-08-01T09:00:00.000Z",
+      "updatedAt": "2026-08-01T09:00:00.000Z"
+    }
+  ],
+  "documentVersions": [
+    {
+      "id": 1,
+      "documentId": 1,
+      "title": "Steering update",
+      "blocks": [
+        {
+          "type": "heading",
+          "level": 1,
+          "text": "Steering update"
+        },
+        {
+          "type": "paragraph",
+          "html": "<p>First draft, before the March gate date was confirmed.</p>"
+        }
+      ],
+      "savedAt": "2026-08-01T08:30:00.000Z",
+      "source": "ai",
+      "op": "update"
+    }
+  ],
   "calendarEvents": [
     {
       "id": 1,

@@ -24,6 +24,8 @@ import {
   csvToWorkspace,
   workspaceToMarkdown,
   markdownToWorkspace,
+  workspaceToJson,
+  jsonToWorkspace,
 } from "./storage";
 import {
   CSV_COLUMNS,
@@ -280,5 +282,117 @@ describe("entity persistence registry — bucket task links + manual completion 
     const b = markdownToWorkspace(workspaceToMarkdown(seedBudget())).budgets?.[0];
     expect(b?.taskIds).toEqual([3, 4]);
     expect(b?.percentComplete).toBe(40);
+  });
+});
+
+// Project documents (AI document authoring, S1).
+//
+// ★★ THIS BLOCK COVERS TWO BACKENDS, NOT THREE — do not copy the sibling
+// comment above. Every other entry here guards a COLUMN, so asserting the name
+// is in `*_CSV_COLUMNS` also covers Turso single+tenant (their DDL and inserts
+// derive from that list). A document is not a column: it rides as ONE
+// `config,<json>` row under `# DOCUMENTS` (CSV) and one fenced JSON block
+// (Markdown), so there is no column list to assert and the CSV assertion buys
+// nothing on Turso. The other four write paths are covered elsewhere — Turso
+// single + tenant persist documents as a `meta` row keyed "documents"
+// (`turso-schema.documents.test.ts`), and JSON + IndexedDB pass the whole
+// object through (`workspace.documents.test.ts`, `browser-backend.ts`).
+//
+// ★ The assertion is a deep-equal on the WHOLE array rather than one field:
+// a document is nested, so a codec that dropped a single block TYPE (the
+// `table` rows, say, or the `dataSection` key) would still return a document
+// with the right title and pass a shallower check.
+describe("entity persistence registry — documents survive every text backend", () => {
+  const seedDocs = (): Workspace => ({
+    ...emptyWorkspace(),
+    documents: [{
+      id: 1,
+      title: "Steering update",
+      blocks: [
+        { type: "heading", level: 1, text: "Steering update" },
+        { type: "paragraph", html: "<p>Delivery is on track.</p>" },
+        { type: "bullets", items: ["API integration complete"] },
+        { type: "table", columns: ["Risk", "Owner"], rows: [["Vendor delay", "Ann"]] },
+        { type: "dataSection", key: "raid" },
+        { type: "pageBreak" },
+      ],
+      createdAt: "2026-08-01T09:00:00.000Z",
+      updatedAt: "2026-08-01T09:00:00.000Z",
+    }],
+  });
+
+  it("documents survive the CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(seedDocs()));
+    expect(back.documents).toEqual(seedDocs().documents);
+  });
+
+  it("documents survive the Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(seedDocs()));
+    expect(back.documents).toEqual(seedDocs().documents);
+  });
+});
+
+// documentVersions is the second meta-blob slice of the documents feature and
+// rides the same three text paths. It gets its own block rather than extra
+// fields on seedDocs() because it is a SEPARATE top-level key: a codec can
+// carry `documents` perfectly and drop `documentVersions` outright.
+//
+// ★★ The seed deliberately avoids BOTH of sanitizeDocumentVersions' fallback
+// values. It maps an unrecognised `source` to "user" and an unrecognised `op`
+// to "update", so a seed carrying those two values round-trips to itself even
+// if the field were lost and re-invented in the fallback — the test would pass
+// on a backend that stored neither. Seeding `source: "ai"` and `op: "restored"`
+// means only a genuinely preserved value can satisfy the assertion.
+//
+// ★ `op: "restored"` is also the marker op (document-versions.ts
+// RESTORED_MARKER_OP) — the one value the tombstone derivation reads to tell
+// "still deleted" from "already restored", so a backend that normalised it to
+// "update" would resurrect a phantom deleted document on that backend alone.
+//
+// ★ JSON is included here even though the header above says JSON passes whole
+// objects through: that is true of `documents`, but jsonToWorkspace routes
+// documentVersions through sanitizeDocumentVersions plus a rich-field pass, so
+// it is a real filter with its own way to drop data.
+describe("entity persistence registry — documentVersions survive every text backend", () => {
+  const seedVersions = (): Workspace => ({
+    ...emptyWorkspace(),
+    documents: [{
+      id: 7,
+      title: "Steering update",
+      blocks: [{ type: "heading", level: 1, text: "Steering update" }],
+      createdAt: "2026-08-01T09:00:00.000Z",
+      updatedAt: "2026-08-06T09:00:00.000Z",
+    }],
+    documentVersions: [{
+      id: 1,
+      documentId: 7,
+      title: "Steering update — first cut",
+      blocks: [
+        { type: "heading", level: 2, text: "Steering update" },
+        { type: "paragraph", html: "<p>Delivery is on track.</p>" },
+        { type: "bullets", ordered: true, items: ["API integration complete"] },
+        { type: "table", caption: "Risks", columns: ["Risk", "Owner"], rows: [["Vendor delay", "Ann"]] },
+        { type: "dataSection", key: "raid" },
+        { type: "pageBreak" },
+      ],
+      savedAt: "2026-08-05T09:00:00.000Z",
+      source: "ai",
+      op: "restored",
+    }],
+  });
+
+  it("documentVersions survive the CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(seedVersions()));
+    expect(back.documentVersions).toEqual(seedVersions().documentVersions);
+  });
+
+  it("documentVersions survive the Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(seedVersions()));
+    expect(back.documentVersions).toEqual(seedVersions().documentVersions);
+  });
+
+  it("documentVersions survive the JSON round-trip", () => {
+    const back = jsonToWorkspace(workspaceToJson(seedVersions()));
+    expect(back.documentVersions).toEqual(seedVersions().documentVersions);
   });
 });

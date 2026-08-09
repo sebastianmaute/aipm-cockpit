@@ -7,10 +7,12 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { ChangeEditModal } from "./change-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { ChangeItem, Stakeholder } from "./types";
+import { expectNoLabelBoundToButton } from "../test/label-binding";
 
 // ProseMirror (the three RichTextEditors) touches layout APIs jsdom lacks; stub
 // them so the editors mount. Mirrors raid-edit-modal / milestone-edit-modal.
@@ -125,6 +127,18 @@ describe("ChangeEditModal", () => {
     expect(onSave).toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
   });
+
+  it("gives the linked-RAID unlink chip the destructive IconButton variant", () => {
+    // The chip renders off `linkedRaidIds` alone — `raid` only supplies the title —
+    // so no RAID fixture is needed to reach the control.
+    // ★ Pins the VARIANT, which no accessible-name assertion can see:
+    // `hover:text-ui-pink-strong` is unique to `danger` (`ghost` carries
+    // `hover:text-foreground`, `dangerBordered` an unprefixed `text-ui-pink-strong`).
+    renderModalFull({ draft: change({ linkedRaidIds: [5] }) });
+    expect(
+      screen.getByRole("button", { name: t("en-US", "changeUnlinkRaid") }).className,
+    ).toMatch(/\bhover:text-ui-pink-strong\b/);
+  });
 });
 
 describe("ChangeEditModal — document links", () => {
@@ -165,14 +179,11 @@ describe("ChangeEditModal — field visibility", () => {
     expect(screen.getByDisplayValue("Widen scope")).toBeTruthy();
   });
 
-  it("hides advanced fields like Requested-by when switched to Simple, keeping Title", async () => {
-    const user = userEvent.setup();
+  it("hides advanced fields like Requested-by when switched to Simple, keeping Title", () => {
     renderModal();
     expect(screen.getByText(REQUESTOR_LABEL)).toBeTruthy();
 
-    await user.click(
-      screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }),
-    );
+    selectFieldTier("fieldViewSimple");
 
     expect(screen.queryByText(REQUESTOR_LABEL)).toBeNull();
     expect(screen.getByDisplayValue("Widen scope")).toBeTruthy();
@@ -552,5 +563,26 @@ describe("ChangeEditModal — field tooltips", () => {
   it("renders an InfoTooltip for the Title field (accessible by hint text as aria-label)", () => {
     renderModal();
     expect(screen.getByRole("button", { name: t("en-US", "changeFieldTitleHint") })).toBeInTheDocument();
+  });
+});
+
+describe("ChangeEditModal — field wrappers", () => {
+  // ★★ Three rich-text fields (description · impactDescription · resolution)
+  // sat inside a `<label>`. A contenteditable is not labelable, so each label
+  // silently adopted the first BUTTON inside it, making hover paint that
+  // button's state and a click on the text area activate it. For
+  // impactDescription and resolution that button is Bold (neither field has a
+  // mic); for description it is the mic in a real browser and Bold here.
+  // ★★★ THIS TEST DOES NOT COVER THE WHOLE MODAL. Two rows are FIXED but
+  // invisible to it, so a REGRESSION in either would leave this green: the
+  // Title row (fixed with `htmlFor`; the mic outranks the `<Input>`, but jsdom
+  // has no SpeechRecognition so no mic renders to compete) and the
+  // document-links row (now `DocumentLinksGroup`; SharePoint is mocked off
+  // above, so the gated field renders a bare `<p>` with no labelable
+  // descendant). `label-binding.guard.test.ts` reads SOURCE and covers both.
+  // See src/test/label-binding.ts.
+  it("binds no field label to a button", () => {
+    renderModalFull();
+    expectNoLabelBoundToButton();
   });
 });

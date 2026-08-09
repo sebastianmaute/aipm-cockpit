@@ -62,6 +62,7 @@ export type ActivityKind =
   | "ai.insightRecommendation"
   | "ai.allocationPlan"
   | "ai.raciSuggest"
+  | "ai.documentWrite"
   | "undo"
   | "redo";
 
@@ -218,6 +219,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.insightRecommendation": "activityAiInsightRecommendation",
   "ai.allocationPlan": "activityAiAllocationPlan",
   "ai.raciSuggest": "activityAiRaciSuggest",
+  "ai.documentWrite": "activityAiDocumentWrite",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };

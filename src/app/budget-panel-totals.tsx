@@ -46,7 +46,7 @@ export const TOTAL_COL_PX = 148;
  *  mid-number. Rounded for DISPLAY only — the stored and aggregated values are
  *  untouched. Editable cells are left alone: rounding a field while the user
  *  types fights the input. */
-function displayHours(v: number | undefined, readOnly: boolean | undefined): number | "" {
+export function displayHours(v: number | undefined, readOnly: boolean | undefined): number | "" {
   if (v === undefined || !Number.isFinite(v)) return "";
   return readOnly ? Math.round(v * 100) / 100 : v;
 }

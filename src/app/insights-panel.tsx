@@ -72,8 +72,11 @@ export interface InsightsPanelProps {
   today: string;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only log. */
   actions?: InsightActions;
-  /** Id of the insight (if any) whose AI recommendation is generating (#6B SP2). */
+  /** Id of the insight whose AI recommendation is generating (#6B SP2) —
+   *  PER-ROW: only that row's CTA shows Stop. */
   generatingId?: number | null;
+  /** Aborts the in-flight recommendation generate. */
+  onCancelGenerate?: () => void;
   aiEnabled?: boolean;
   /** Deep-link to the insight's entity (only rendered when `entityRef` is set). */
   onOpen?: (ref: InsightEntityRef) => void;
@@ -87,6 +90,7 @@ export function InsightsPanel({
   today,
   actions,
   generatingId,
+  onCancelGenerate,
   aiEnabled,
   onOpen,
   isPopout,
@@ -223,7 +227,7 @@ export function InsightsPanel({
                     <div className="mt-1 flex flex-wrap items-center gap-1 print:hidden">
                       {insight.entityRef && onOpen ? (
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="xs"
                           aria-label={`${t(lang, "insightOpen")} – ${title}`}
                           onClick={() => onOpen(insight.entityRef!)}
@@ -235,9 +239,10 @@ export function InsightsPanel({
                         <>
                           {showAck ? (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
+                              title={t(lang, "insightAcknowledgeHint")}
                               onClick={() => actions!.onAcknowledge(insight.id)}
                             >
                               {t(lang, "insightAcknowledge")}
@@ -245,9 +250,10 @@ export function InsightsPanel({
                           ) : null}
                           {showAct ? (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightAct")} – ${title}`}
+                              title={t(lang, "insightActHint")}
                               onClick={() => actions!.onAct(insight.id)}
                             >
                               {t(lang, "insightAct")}
@@ -255,7 +261,7 @@ export function InsightsPanel({
                           ) : null}
                           {showDismiss ? (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="xs"
                               aria-label={`${t(lang, "insightDismiss")} – ${title}`}
                               onClick={() => actions!.onDismiss(insight.id)}
@@ -269,6 +275,7 @@ export function InsightsPanel({
                             lang={lang}
                             actions={actions!}
                             generatingId={generatingId}
+                            onCancelGenerate={onCancelGenerate}
                             aiEnabled={aiEnabled}
                           />
                         </>

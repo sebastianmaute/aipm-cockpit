@@ -45,6 +45,12 @@ describe("EntityLinkPicker", () => {
     // repeating the label on the × would announce it twice per chip.
     renderPicker({ selected: [entry(3, "Risk#3", "Vendor delay")], onOpen: vi.fn() });
     expect(screen.getByRole("button", { name: /unlink/i })).toHaveAccessibleName("Unlink Risk#3");
+    // ★ An unlink is a remove, so the chip's ✕ takes IconButton's `danger` variant.
+    // `hover:text-ui-pink-strong` appears in no other variant, so this fails if the
+    // control is ever downgraded to the neutral `ghost` default.
+    expect(screen.getByRole("button", { name: /unlink/i }).className).toMatch(
+      /\bhover:text-ui-pink-strong\b/,
+    );
   });
 
   it("names the search box for assistive tech rather than relying on the placeholder", () => {

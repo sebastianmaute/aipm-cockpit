@@ -20,9 +20,12 @@ import type { Task } from "./types";
  * off, this glyph and the row's strikethrough are the entire signal. A muted ✓
  * was the smaller change and was rejected: it would distinguish the two by
  * colour alone, which is the WCAG 1.4.1 pattern `docs/open-followups.md` §55
- * tracks. ★ §55's HEADLINE count is fourteen and its body retracts it — two of
- * the fourteen toggles carry a non-colour cue, so twelve are instances of this
- * pattern. Do not copy the headline number. (§56 is a NEIGHBOURING but
+ * tracks. ★ Deliberately NO number here. §55's HEADLINE count over-counts for
+ * this purpose — its own body retracts two of the toggles as carrying a
+ * non-colour cue — and that count has already moved once (fourteen → thirteen,
+ * when the field-visibility tier switch adopted `role="radio"`) while this
+ * comment went on asserting the old one. Read §55 and run its reproduce
+ * command rather than copying a figure from here. (§56 is a NEIGHBOURING but
  * different SC — 1.4.11 contrast — so do not read this as "the §56 problem".)
  *
  * ★ `label` is the caller's already-derived accessible name and is passed
@@ -31,13 +34,13 @@ import type { Task } from "./types";
  * "…: cancelled" for a cancelled one — so this adds the VISUAL channel only.
  * Do not fork `label`.
  *
- * ★★ It does NOT distinguish the THIRD case. A task with status "Done" and no
- * `completedDate` is closed but not delivered, so it takes the ✕ branch while
- * `formatHealthTooltip` still derives its drivers from `status` and announces
- * "completed" — the same thing the ✓ announces. That is the open defect
- * `docs/open-followups.md` §65 records, and its fix belongs in the health
- * engine, not here. Do not read the bullet above as "AT is covered in every
- * branch"; it is covered in two of three.
+ * ★★ The THIRD case — status "Done" with no `completedDate` — is closed but not
+ * delivered, so it takes the ✕ branch. It used to announce "completed" here,
+ * because `formatHealthTooltip` derived its drivers from `status` alone; that
+ * was `docs/open-followups.md` §65, whose tooltip half is now closed. `computeTaskHealth`'s driver is
+ * three-way (`cancelled` / `completed` / `closed`) and this pair yields
+ * `closed`, so the glyph and the announcement agree. The fix was in the health
+ * engine, not here — this component is unchanged by it.
  */
 export function TaskStatusGlyph({ task, health, label }: {
   task: Task;

@@ -17,7 +17,7 @@ before your first edit — the rest is reference, reachable from here.
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
 | [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, panel splits, toolbar order |
-| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | the eight files below, and why they are not loaded |
+| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | the nine files below, and why they are not loaded |
 
 **In `docs/AGENTS/`** (NOT loaded — open the one you need):
 
@@ -31,6 +31,7 @@ before your first edit — the rest is reference, reachable from here.
 | [integrations](docs/AGENTS/integrations.md) | steering committee · calendar write-back + two-way pull · Timelog |
 | [platform](docs/AGENTS/platform.md) | diagnostics · guard transparency · dictation · AI master switch |
 | [features](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
+| [documents](docs/AGENTS/documents.md) | version before-images · retention + tombstones · the single mutation path · `documentVersions` across the six write paths |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -40,7 +41,17 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 `agents-symbol-check` (`npm run docs:symbols:check`) fails when a backticked name in THIS file or in
 any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
-or not that path calls it. ★★ It cannot see a COUNT either — "the 20 lazy panels" passed every run
+or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
+backticked `SCREAMING_CASE` constant in all ten files is completely ungated.** The scan requires
+both a lowercase and an upper/underscore character (`check-agents-symbols.mjs`, the "mixed case only"
+guard), so `HELP_ENTRIES`, `TABLE_NAMES`, `CONFIG_KEYS`, `A11Y_VIEWS` and every peer are skipped
+outright — a deleted one goes on being documented as current forever. Verified 2026-08-05 by probe,
+not by reading: injecting two backticked names that never existed — one SCREAMING_CASE, one camelCase
+— into a doc failed the gate on the camelCase one ALONE. (Deliberately un-backticked here: quoting a
+fake identifier in backticks makes the gate flag THIS file, which is the gate working.) It cost real work — a `HELP_SECTIONS` export deleted from the
+code stayed described as live here and in `docs/AGENTS/ui-shell.md`, and a whole slice was scoped
+around the behaviour that prose implied. Do not read a green run as covering a constant.
+★★ It cannot see a COUNT either — "the 20 lazy panels" passed every run
 while the number was 23, and two of five counts sampled on 2026-08-04 were wrong. A count is the
 easiest claim to check and the easiest to leave rotting: put the reproduce command beside it.
 
@@ -66,7 +77,7 @@ disprove, in the same commit.
 | File | Owns |
 |---|---|
 | **AGENTS.md** (this file) | ALWAYS LOADED. Landmines and hard constraints that apply to any task, plus the architecture pointers and module maps. |
-| [`docs/AGENTS/`](docs/AGENTS/) (8 files) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
+| [`docs/AGENTS/`](docs/AGENTS/) (9 files) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
 | [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; AGENTS.md + `docs/AGENTS/` for detail. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
@@ -161,11 +172,28 @@ npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts 
                             # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
                             # pure engine, or an extracted `use*` hook that wasn't added to
                             # coverage.exclude) can be green locally and fail the unit job.
-npm run e2e                 # playwright (incl. the 16-view axe a11y gate)
+npm run e2e                 # playwright (incl. the 17-view axe a11y gate)
 npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
                             # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
-npm run dup:check           # jscpd duplication GATE (--threshold set in package.json dup:check, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
+npm run dup:check           # jscpd duplication GATE (--threshold in package.json dup:check; BLOCKING in CI)
+                            # ★★ IT COMPARES ONE NUMBER: the TOTAL duplicated-LINE percentage across all
+                            # formats — NOT per-format, and NOT tokens. 1.19% (1612/135895 lines) against a
+                            # 1.75 threshold on 2026-08-08. The console table prints six cells and flags
+                            # none; the eye-catching per-format token figure (tsx 1.70%) is never read.
+                            # Bisect by exit code — it is the only witness. Run dup:check's own command
+                            # with the threshold overridden: 1.60 and 1.52 both exit 0 (ruling out
+                            # per-format tokens and total tokens), 1.19 exits 0, 1.18 exits 1 with
+                            # "found too many duplicates (1.2%)". See open-followups.md §116.
+                            # ★ docs/baselines/jscpd-2026-07.json is a RETAINED July-2026 report, NOT a
+                            # gate input — dup:check passes only --threshold and there is no .jscpd.json.
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
+                            # ★★ IT COUNTS `wc -l` + 1. The script measures `readFileSync().split("\n").length`,
+                            # which for a newline-terminated file is one MORE than `wc -l`. So a file at `wc -l`
+                            # 799 is already AT the 800 limit with ZERO headroom, and a 2971-line file is at a
+                            # 2972 baseline. Budgeting a change from `wc -l` overstates your room by exactly one
+                            # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
+                            # Read the real number with:
+                            #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
@@ -219,8 +247,23 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   input fails axe gate even though looks labeled).
   In LIST of rows, per-row controls need row-UNIQUE accessible name (e.g.
   `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
-  WCAG 2.4.6 fail, but axe gate can PASS it when live app seeds only ONE row (collision
-  never renders at scan time). Qualify label; don't trust green axe run with single seeded row.
+  WCAG 2.4.6 fail. ★★★ **THE AXE GATE CANNOT CATCH THIS AT ALL — not "only when one row is seeded".**
+  An earlier revision here said the gate "can PASS it when the live app seeds only ONE row (collision
+  never renders at scan time)", which reads as though seeding N rows would make the gate see it. It
+  would not. Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
+  rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
+  wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. The only rule in the
+  whole library that is even adjacent is `identical-links-same-purpose` — links ONLY, and tagged
+  `wcag2aaa`, which the spec never asks for. Reproduce:
+  `node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'`
+  So a green axe run is silent on duplicate names in EVERY view, at EVERY seed size, forever. Qualify
+  the label at write time and pin it with a UNIT test rendering ≥2 rows — a test you write is the ONLY
+  thing that can catch this, in either layer. ★ Two different tests are meant here and they are not
+  interchangeable: a UNIT test rendering two same-type rows is the PREVENTION you write alongside a new
+  per-row control, and it is what this bullet asks for. The one e2e count in `e2e/seed-content.spec.ts`
+  is a CHARACTERIZATION of a defect already shipped (`docs/open-followups.md` §126) — it asserts the
+  collision is still there and is meant to go red when §126 is fixed. Both call themselves "the only
+  detector" in their own scope; neither is a gate. (Worked example + the seeded reproduction: §126.)
   ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
@@ -265,21 +308,45 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **16** named views — Dashboard · Open Points · Gantt ·
+  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **17** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 scheme COMBOS × 16
-  + 5 Kanban-board variants = **85** axe scans, plus ONE non-scan guard test (asserts the served app's
-  `data-app-version` matches this checkout, open-followups §58) — **86** tests total in the spec file.
+  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 5 scheme
+  COMBOS × 17 + 5 Kanban-board variants = **90** axe scans, plus ONE non-scan guard test (asserts the
+  served app's `data-app-version` matches this checkout, open-followups §58) — **91** tests total in the
+  spec file. ★ Don't derive these three numbers, MEASURE them, in the same commit that changes the list:
+  `npx playwright test e2e/a11y.spec.ts --list` prints the total (no browsers needed, and it also proves
+  `e2e/seed.ts`'s module-level sample read still resolves), and `grep -c "a11y:"` over that output splits
+  scans from the guard.
+  ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
+  put in IndexedDB, and `e2e/seed.ts` seeds from two HARDCODED lists. A slice absent from them renders
+  its EMPTY STATE at scan time, so the run is green over a panel with no rows, no per-row controls and
+  nothing to collide. Seeding `documents` for the first time immediately turned up a real serious
+  violation the empty state had been hiding. Most of BrowserBackend's optional kv slices are still
+  unseeded — Insights is in this list and affected today (`docs/open-followups.md`).
   It does NOT include Projects, Knowledge, or the
   Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
   surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).
   ★★ Calendar being unscanned has already cost real bugs: 0.202.0 shipped an AA contrast failure
-  there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a full 85/85 axe pass said nothing
-  about. Check contrast BY HAND for anything styled on that surface.
+  there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a fully green axe run said nothing
+  about (the count at the time was lower than today's, which is why this sentence no longer quotes one). Check contrast BY HAND for anything styled on that surface.
   Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
   local gate and fail ONLY in CI.
+  ★★★ ADD `--workers=1` WHENEVER YOU MATCH MORE THAN ONE VIEW. `playwright.config.ts` sets
+  `workers: process.env.CI ? 1 : undefined`, so **CI runs axe SERIALLY and local runs it at CPU-count**
+  — a local-only contention mode the gate itself can never exhibit. Over-subscribed, tests die on
+  `Test timeout of 60000ms exceeded` inside `page.evaluate`, which prints as a FAILURE with a
+  screenshot and zero violation text. Measured 2026-08-08: a 3-view × 5-scheme selection went
+  **10 failed / 5 passed** in parallel and **15 passed** at `--workers=1`, same commit, same warm
+  server, no code change between runs. ★★ Read the failure BODY, never the summary line: a real
+  violation names a rule id and an impact; this names neither, and the only `axe-core` string in the
+  log is the spec's own `.withTags(...)` source echoed into the error context. Recording a green
+  branch as red is the expensive direction here.
+  ★ The 60s per-test timeout also covers the FIRST navigation's one-time Turbopack compile (the
+  config says so at its `timeout`), so a COLD server can blow it under load even at one worker. Warm
+  the route first (`curl -o /dev/null http://localhost:3000/` until it returns in well under a second)
+  and let `reuseExistingServer` attach to that.
   ★★ After ANY `globals.css` `@theme` edit or large class/token rename, run axe on a FRESH ISOLATED
   server (`PORT=3100 npm run dev`, stop with `PORT=3100 npm run stop`) — NEVER the reused long-running
   dev server. Playwright's `reuseExistingServer:!CI` will attach to a stale `:3000` whose Tailwind
@@ -290,7 +357,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold` per package.json `dup:check`, per-format] · **agents-symbol-check** BLOCKING
+  BLOCKING [jscpd `--threshold` per package.json `dup:check` — ★★ it compares the TOTAL
+  duplicated-LINE percentage across all formats, NOT per-format and NOT tokens; the `dup:check` line
+  in Commands carries the bisect] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
@@ -307,8 +376,28 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
   bypass block on whichever gate is actually red. One of them ATTACHED the reproduce command above
   without running it, and the command refutes the sentence it was attached to. **Attach the command and
-  run it.** ★ "Ratchets" is loose too: only **file-size-ratchet**, **duplication-gate** and
-  **unit-tests**' coverage floors hold a baseline; every other quality gate is plain pass/fail.
+  run it.** ★★★ THAT WORDING IS NOT ENOUGH, measured 2026-08-08: a review round corrected at least
+  EIGHT false claims in these docs and introduced SIX MORE errors across two correction passes — every
+  one of them prose, and in every case the author HAD run a command, just not against the sentence they
+  ended up writing. So: **a correction is a NEW claim and inherits none of the verification of the
+  thing it corrects — run a command against the REPLACEMENT text, not only against the error you
+  found.** Two replacement recipes in that round were themselves wrong (one returned five files where
+  the sentence said two; its successor returned one, because a consumer imported `../x` while the
+  pattern matched only `./x`). ★ The two counts are NOT a matching pair — they are tallied by different
+  criteria (corrections made vs. items a reviewer flagged), and one of the six was a broken sentence
+  rather than an untrue statement. Read them as magnitudes, not as a symmetry.
+  ★★★ COROLLARY — an edit that INSERTS lines invalidates every `file:line` citation below it, including
+  ones written moments earlier in the same commit, so a correction round must re-check the citations it
+  did not touch: `ALLOW_DATA_ATTR: false` moved 114→130 when a comment block landed, then 130→131 when
+  a one-line edit followed. Cite the SYMBOL and a grep instead. ★★ Three stars because
+  [`docs/open-followups.md`](docs/open-followups.md) already records this class repeatedly — one entry
+  there calls itself "the third recorded instance", so those two hops are the fourth and fifth. The
+  detail lives there, not here. ★ "Ratchets" is loose too: only **file-size-ratchet** (`docs/baselines/file-sizes.json`,
+  read by name at `check-file-sizes.mjs:6`) and **unit-tests**' coverage floors (`vitest.config.ts`)
+  hold a baseline; every other quality gate — **duplication-gate** INCLUDED — is plain pass/fail
+  against a hardcoded number. ★★ duplication-gate was listed here as baselined and is not: nothing
+  reads `docs/baselines/jscpd-2026-07.json` (`grep -rn "baselines/jscpd" package.json .gitlab-ci.yml
+  scripts/` returns no loader), and its threshold is the literal `1.75` in `package.json dup:check`.
   A weekly `schedule` pipeline also runs
   `dependency-audit-full` + **unit-tests-shuffled-random** (same suite, seed `$CI_PIPELINE_ID` echoed with
   its reproduce command, warn-only `allow_failure: true`) + a **dast-zap** ZAP baseline (dind-based, manual
@@ -409,7 +498,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ These three hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
   same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
-  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. The
+  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. ★ A THIRD option, and the better one when the hook holds real logic rather than glue: TEST it. `use-view-digest.ts` (0.216.0) is a deps-object hook that assembles the AI view digest from live pane state; it is coverage-GATED and stays above the floors on its own tests, so it is deliberately NOT in `coverage.exclude`. Exclude glue, not logic. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
@@ -679,12 +768,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **Rich-text register descriptions (0.209.0 "Lafferty"):** SIX more fields joined `Task.description`
   as rich HTML — RAID `description` + `mitigation`, Change `description` + `impactDescription` +
   `resolutionNotes`, Milestone `description`. Same lean `RichTextEditor`, same `sanitizeNoteHtml`
-  allow-list. Two pure modules, split by ONE axis — whether the code may touch a DOM:
+  allow-list. THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
+  (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
+  [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
+  rather than a projection, and is covered further down this bullet.)
   • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
   `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
   • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
   upgrade) for every NON-DOM consumer, `descriptionTextWithBreaks` (the EXPORT projection), and
   `appendDictationToHtml`.
+  • `rich-text-runs.ts` — **browser-only** (DOMParser). `htmlToRichLines`: HTML → styled runs, shared
+  by `doc-render-docx.ts` + `doc-render-pptx.ts` so the two OOXML renderers cannot drift. ★ It serves
+  DOCUMENTS, not the register fields this bullet is named for; it sits here because the DOM axis
+  governs it, and moving it out would put a second copy of that axis in another file.
   ★★ **TWO projections, and exports use the SECOND one.** `descriptionText` COLLAPSES a block
   boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an export
   a human reads, where a three-paragraph description arrived as one run-on line.
@@ -761,6 +857,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   distinction; swapping the sanitizer fails it. ★ The helper lives in its OWN module because it calls
   DOMPurify — putting it in `rich-text-plain.ts` would break the DOM-free guarantee that module's guard
   exists to protect.
+  ★★ THERE IS A THIRD ALLOW-LIST AND IT IS NOT INTERCHANGEABLE: model-authored DOCUMENT paragraph HTML
+  goes through `sanitizeAiDocumentRichText` → `sanitizeDocumentHtml`, which is WIDER (adds
+  `s`/`code`/`pre`/`blockquote`/`hr`/`mark`/`sub`/`sup`/`img`). Wiring a document boundary to
+  `sanitizeAiRichText` instead silently drops all nine at the write — seven are unwrapped keeping
+  their text, and ★ the TWO VOID ones (`hr` AND `img`) vanish outright, since there is no text to
+  keep. Measured: `"<p>a</p><hr><p>b</p>"` → `"<p>a</p><p>b</p>"`. `sanitizeTemplateHtml` must stay
+  narrow because it guards the SEVEN rich entity fields — `Task.description` plus the six in
+  `AI_RICH_FIELDS`. Details in
+  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
   ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
   ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
   it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four
@@ -785,7 +890,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ Counters/caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`; `capHtmlText` backs a
   truncation off one code unit rather than splitting a surrogate pair (a lone surrogate is `U+FFFD`
   on CSV/MD but survives on JSON/IDB — a backend-dependent corruption). `clipText` in
-  `sanitize-core.ts` still has that bug for ~49 plain-text call sites (open-followups §22).
+  `sanitize-core.ts` carried that bug across ~49 plain-text call sites until 0.222.x, and now backs
+  the cut off the same way — open-followups §22 is CLOSED. ★ It clamps a NEGATIVE `max` to `""` too,
+  which is a distinct case from `0`: `slice(0, -1)` counts from the END and returns nearly the whole
+  string, over cap and able to end on a lone surrogate itself.
   ★ Whole-object load boundaries (JSON + IDB) route the rich fields through `sanitizeNoteFields` /
   `sanitizeRaidRichFields` / `sanitizeChangeRichFields` / `sanitizeMilestoneRichFields` — escape
   BEFORE sanitize, or `KEEP_CONTENT:false` deletes tag-shaped plain text along with its content.
@@ -999,18 +1107,42 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ Gantt's **View** menu (`GanttViewMenu`, 0.213.0) sits AFTER the reset-filters button and BEFORE the
   trailing Print · reset-columns · reset-size group (`gantt-chrome.tsx`) — it collects display toggles, so
   it is neither a primary action nor a member of the trailing group.
+- **Documents (AI document authoring):** a `ProjectDocument` is `{id, title, blocks, createdAt, updatedAt}`
+  over a typed `DocBlock` union — **JSON at rest; bytes are rendered ON DEMAND and never stored**, so no blob
+  lives anywhere in the workspace. Three renderers: `doc-render-html.ts` (canonical), `doc-render-docx.ts`,
+  `doc-render-pptx.ts`. ★ **PDF is not a fourth renderer** — it is the HTML renderer's `standalone` mode
+  driven through the browser print dialog, so there is no PDF writer and no PDF dependency; keep it that way.
+  Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
+  `documents-toolbar.tsx`.
+  ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
+  `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
+  because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a
+  future slice talks itself into adding it to the per-table DELETE set. The dirty check is reference
+  equality (`prev.documents !== next.documents`), so an in-place mutation silently skips the save.
+  ★★ `document-model.ts` is DOM-FREE BY CONTRACT (a comment-stripped source scan in its test enforces it, so
+  comments may name DOMPurify and code may not) — but the CSV/MD/JSON/Turso LOAD paths are the OPPOSITE and
+  REQUIRE a DOM. Do not generalise either direction: `docs/open-followups.md` §97 holds the measurement and
+  the blast radius, and §92 the `settings-types` ⇄ `workspace` ⇄ `document-model` import cycle.
+  ★ `dataSection` blocks resolve through `doc-data-section.ts` `resolveDataSection`, which calls the REAL
+  `buildExportSections` — so a document's embedded data cannot drift from what the workspace exporter emits.
+  ★★ `documentVersions` is a SECOND meta-blob slice beside `documents`, on the same six write paths and
+  subject to everything above. The version model (before-images, retention, tombstones, the single
+  `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
+  before touching version history, deleted documents, or any "add a field to the six write paths" task,
+  which it records a landmine for.
 
 ## Subsystem reference — deeper detail, loaded on demand
 
 ★★★ **Only THIS file reaches every session.** `CLAUDE.md` is `@AGENTS.md`, so
-everything above is loaded before you type anything; the eight files below are
+everything above is loaded before you type anything; the nine files below are
 not. That is the whole point of the split — this file had grown to 324 KB
 (~81k tokens) of which ~73% was subsystem reference that most tasks never touch.
 **Open the matching file before editing that subsystem's code.** The landmines
 did not get weaker by moving, and a landmine nobody loads is a landmine nobody
 reads — which is the risk this arrangement trades for the context saving.
 
-★★ `npm run docs:symbols:check` gates all nine files, not just this one. It still
+★★ `npm run docs:symbols:check` gates all ten files, not just this one — `docs/AGENTS/`
+is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands. It still
 proves only that a backticked NAME is real, never that a CLAIM about it is true.
 
 | File | Owns |
@@ -1023,3 +1155,4 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [integrations.md](docs/AGENTS/integrations.md) | steering committee · Outlook calendar write-back and two-way pull · Timelog |
 | [platform.md](docs/AGENTS/platform.md) | diagnostics ring · guard transparency · dictation · the AI master switch |
 | [features.md](docs/AGENTS/features.md) | guided tour + demo · timezones · saved views · PWA · resource calendar meetings |
+| [documents.md](docs/AGENTS/documents.md) | the DATA half of documents — `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels |

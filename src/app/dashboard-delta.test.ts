@@ -37,6 +37,23 @@ describe("computeDelta", () => {
     expect(r.since).toBe("2026-06-20T00:00:00.000Z");
   });
 
+  // A document is an artefact ABOUT register movement, not movement itself, so
+  // it must not inflate the "since you last looked" total. The control entry is
+  // what stops this passing vacuously: it proves the window and the timestamps
+  // are right, so the zero above it is a real exclusion and not an empty scan.
+  test("ai.documentWrite is not a delta verb", () => {
+    const r = computeDelta({
+      prior: { lastVisitAt: "2026-06-20T00:00:00.000Z" },
+      activity: [
+        entry(1, "2026-06-20T10:00:00.000Z", "ai.documentWrite"),
+        entry(2, "2026-06-20T11:00:00.000Z", "task.created"), // control
+      ],
+      currentRag: NO_RAG, overdue: [], today: "2026-06-21",
+    });
+    expect(r.counts.tasks.created).toBe(1);
+    expect(r.total).toBe(1);
+  });
+
   test("raid.statusChanged maps to statusChanged", () => {
     const r = computeDelta({ prior: { lastVisitAt: "2026-06-20T00:00:00.000Z" }, activity: [entry(1, "2026-06-20T10:00:00.000Z", "raid.statusChanged")], currentRag: NO_RAG, overdue: [], today: "2026-06-21" });
     expect(r.counts.raid.statusChanged).toBe(1);

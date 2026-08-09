@@ -7,10 +7,12 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { RaidEditModal } from "./raid-edit-modal";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
+import { selectFieldTier } from "../test/field-tier";
 import { ASSIGNEE_MAX, TASK_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { htmlTextLength } from "./rich-text-plain";
 import { ToastProvider } from "./toast-context";
 import type { RaidItem } from "./types";
+import { expectNoLabelBoundToButton } from "../test/label-binding";
 
 // ProseMirror (the description + mitigation RichTextEditors) touches layout
 // APIs jsdom lacks; stub them so the editors mount. Mirrors notes-window /
@@ -126,14 +128,11 @@ describe("RaidEditModal field visibility", () => {
     expect(screen.getByText(/Title/)).toBeTruthy();
   });
 
-  it("hides advanced fields like Mitigation when switched to Simple, keeping Title", async () => {
-    const user = userEvent.setup();
+  it("hides advanced fields like Mitigation when switched to Simple, keeping Title", () => {
     render(modalEl({ category: "I" }), { wrapper });
     expect(screen.getByText(MITIGATION_LABEL)).toBeTruthy();
 
-    await user.click(
-      screen.getByRole("button", { name: t("en-US", "fieldViewSimple") }),
-    );
+    selectFieldTier("fieldViewSimple");
 
     expect(screen.queryByText(MITIGATION_LABEL)).toBeNull();
     expect(screen.getByText(/Title/)).toBeTruthy();
@@ -457,5 +456,28 @@ describe("RaidEditModal drag/resize chrome", () => {
     expect(panel.style.transform).toContain("translate(0px, 0px)");
     expect(panel.style.width).toBe("");
     expect(panel.style.height).toBe("");
+  });
+});
+
+describe("RaidEditModal — field wrappers", () => {
+  // ★★ See src/test/label-binding.ts. Converted here: Category · Status ·
+  // Severity (radiogroups — the severe case, a forwarded click WROTE the
+  // field) plus description + mitigation (contenteditable — the click toggles
+  // Bold). None of those five is a labelable element, so each `<label>`
+  // adopted the first BUTTON inside it.
+  // ★★★ Two rows are FIXED but invisible to this test, so a REGRESSION in
+  // either would leave it green: the Title row (fixed with `htmlFor`; the mic
+  // outranks the `<Input>`, and jsdom has no SpeechRecognition so none renders)
+  // and the document-links row (now `DocumentLinksGroup`; SharePoint off ⇒
+  // bare `<p>`). `label-binding.guard.test.ts` reads SOURCE and covers both.
+  it("binds no field label to a button", () => {
+    render(
+      <>
+        <Seed tier="full" />
+        {modalEl({ category: "R" })}
+      </>,
+      { wrapper },
+    );
+    expectNoLabelBoundToButton();
   });
 });
