@@ -1381,7 +1381,7 @@ const enUS = {
   depUnlinkPredecessor: "Remove predecessor",
   depUnlinkSuccessor: "Remove successor",
   depSuccessorsSkipped:
-    "{0} successor link(s) were not applied — the task was removed, is at its dependency limit, already has this link, or would create a cycle.",
+    "{0} successor link(s) were not applied — the task was removed, is at its dependency limit, or would create a cycle.",
   depRelations: "Relations",
   depDependsOn: "Depends on",
   depMissing: "missing",

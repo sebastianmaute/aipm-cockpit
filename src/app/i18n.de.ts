@@ -1364,7 +1364,7 @@ export const de: Record<TranslationKey, string> = {
   depUnlinkPredecessor: "Vorgänger entfernen",
   depUnlinkSuccessor: "Nachfolger entfernen",
   depSuccessorsSkipped:
-    "{0} Nachfolger-Verknüpfung(en) wurden nicht angewendet – die Aufgabe wurde entfernt, hat ihr Abhängigkeitslimit erreicht, ist bereits verknüpft oder würde einen Zyklus erzeugen.",
+    "{0} Nachfolger-Verknüpfung(en) wurden nicht angewendet – die Aufgabe wurde entfernt, hat ihr Abhängigkeitslimit erreicht oder würde einen Zyklus erzeugen.",
   depRelations: "Beziehungen",
   depDependsOn: "Abhängig von",
   depMissing: "fehlt",
