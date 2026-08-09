@@ -221,7 +221,7 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # ★★★ A bare `:NNN` is resolved ONLY from a file mentioned EARLIER ON THE
                             # SAME LINE, and the anchor is the nearest preceding file MENTION, not the
                             # nearest preceding `path:LINE` — a full-cite anchor skipped a colon-less
-                            # `task-manager.tsx` and hung four of its line numbers on a 153-line file,
+                            # `task-manager.tsx` and hung four of its line numbers on a 152-citable-line file,
                             # reporting violations that did not exist. The ~113 bare cites whose path
                             # sits on a PREVIOUS line stay out of scope (100 of 156): the form is ambiguous
                             # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
@@ -244,16 +244,21 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # numbers and FIVE were wrong — two off by 3 and 6, two off by 8, and one
                             # naming a file the code had left — while the CLAIM they supported was
                             # still true at every site. The gate caught ONE, the only one past EOF.
-                            # Two more rows named the wrong FILE outright (`export-pptx.ts` for an
-                            # element emitted by `pptxTextBox`; `chat-panel.tsx` for a caret that had
-                            # moved to `chat-tool-block.tsx`). A wrong line number is a SYMPTOM — go
+                            # Two more rows ended up naming a file the code had LEFT (`export-pptx.ts`
+                            # for an element now emitted by `pptxTextBox`; `chat-panel.tsx` for a caret
+                            # now in `chat-tool-block.tsx`). ★★ BOTH were EXACT when written and were
+                            # broken by a later EXTRACTION commit — verify with `git log -S` on the
+                            # moved string, which names the refactor in each case. An earlier revision
+                            # here called them wrong-file-outright authoring errors and contrasted them
+                            # with the line-number drift; they are the SAME drift, one directory up, and
+                            # no gate can see either. A wrong line number is a SYMPTOM — go
                             # re-verify the claim, never renumber it.
                             # ★ Citations inside ``` fences are ignored on purpose — a stack trace or
                             # sample command is an example, not a claim about this repo.
                             # ★★ The PARSING lives in `scripts/doc-claims-lib.mjs` and HAS A UNIT
                             # TEST (`doc-claims-lib.test.mjs`) — every defect this gate has shipped
                             # was a regex defect, and both were found by running it against the real
-                            # docs, never by reading it. ★★★ A COLD REVIEW THEN FOUND SIX MORE, TWO
+                            # docs, never by reading it. ★★★ A COLD REVIEW THEN FOUND FIVE MORE, TWO
                             # OF WHICH COULD FAIL A GOOD BRANCH: `@` was missing from the citation
                             # char classes, so a scoped package (`@tiptap/...`) parsed with the `@`
                             # stripped and was counted as REPO DEBT rather than third-party; and
@@ -262,7 +267,9 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # leak — a `> ```bash` block exists in README.md today. Also: bare
                             # RANGES (`:113-116`) were invisible, a URL with a line anchor parsed as
                             # a citation, and the range check counted one line too many so a cite to
-                            # exactly one past EOF passed. All fixed and mutation-proved; details in
+                            # exactly one past EOF passed. All five fixed; the four REGEX ones are
+                            # mutation-proved (4/4), the `stripFencedBlocks` rewrite by its own cases
+                            # rather than by a mutant — which is why that 4 sits under a 5. Details in
                             # open-followups §131. ★ Fixing them made the gate STRICTER and it found
                             # more at once (537 → 541 cites, a second broken cite in the snapshot).
                             # `vitest.config.ts` `include` now covers

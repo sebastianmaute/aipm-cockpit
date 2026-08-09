@@ -7735,7 +7735,7 @@ follow is worse than no guard: the comment is what the next reader checks.
 
 ---
 
-## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 2 — open, accepted, measured
+## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured
 
 **Where:** `scripts/check-doc-claims.mjs`, `docs/baselines/doc-line-cites.json`, CI job `doc-claims-check`.
 
@@ -7779,7 +7779,8 @@ wording said 37 of 150, which were the counts under the REJECTED full-cite ancho
 ★★★ Two false-positive classes surfaced while building that, both caught by RUNNING it rather than
 reasoning about it, and both would have reported a green branch as red — the expensive direction:
 (a) the anchor must be the nearest preceding file MENTION, not the nearest preceding `path:LINE` — a
-colon-less `task-manager.tsx` was skipped, hanging four of its numbers on a 153-line file; (b) the
+colon-less `task-manager.tsx` was skipped, hanging four of its numbers on a file with 152 CITABLE
+lines (153 by `split`, and the range check is the one that matters here); (b) the
 path pattern truncated `notes-badge-button.tsx` to `.ts`, because the extension alternation tried
 `ts` first with nothing forcing the token to end, inventing phantom citations to files that do not
 exist across **25 distinct truncated paths**. ★ Quote the 25, not a total: the totals (47 against
@@ -7800,8 +7801,8 @@ blind spot.
 
 **Grandfathered debt: 3, down from 19.** Failing on pre-existing breakage would have made the gate
 unlandable, and a gate that cannot land protects nothing — but the debt was then worked off rather
-than left. Both survivors are in `findings-2026-07.md`, a DATED snapshot of a July 2026 audit (one
-cite past EOF, one to a file since deleted). They are deliberately NOT renumbered and the file now
+than left. All three survivors are in `findings-2026-07.md`, a DATED snapshot of a July 2026 audit
+(TWO cites past EOF, one to a file since deleted). They are deliberately NOT renumbered and the file now
 carries a banner saying so: rewriting a signed audit record to match today's tree destroys the only
 thing it is good for, which is saying what was true when it was signed.
 
@@ -7858,8 +7859,10 @@ records at three stars elsewhere.
 `citesOnLine`/`resolveCandidates`/`stripFencedBlocks`; `check-doc-claims.mjs` is a ~200-line driver.
 `vitest.config.ts` `include` gained `scripts/**/*.{test,spec}.mjs`, so the CI gates are reachable from
 the unit suite for the first time — coverage `include` stays `src/**`, so a script test raises no
-floor and gates no percentage. The other ungated scripts (`check-agents-symbols`, `check-file-sizes`,
-`stop-dev`) are now testable the same way; none is tested yet.
+floor and gates no percentage. EIGHT other scripts are now testable the same way and none is tested
+yet — including two more GATE scripts (`check-agents-symbols`, `check-file-sizes`) and
+`sync-script-docs`, which backs the `docs:scripts:check` prebuild gate and was missed by an earlier
+three-item list here that read as exhaustive. Reproduce with `ls scripts/ scripts/*.test.*`.
 
 ★★★ MUTATION-PROVED — and the first reading of the result was HALF WRONG, in the dangerous
 direction. Six injected defects, four killed at once, two survived; I classified BOTH survivors as
@@ -7881,10 +7884,13 @@ sitting beside the two real truncation regressions is NOT one (`yml` is not a pr
 ordering can truncate it); it is relabelled as a plain positive case, because a vacuous test filed
 under "regression" is worse than no test — it is counted as cover.
 
-**★★★ A COLD REVIEW OF THE GATE FOUND SIX REAL DEFECTS, and two of them could FAIL A GOOD BRANCH.**
+**★★★ A COLD REVIEW OF THE GATE FOUND FIVE REAL DEFECTS, and two of them could FAIL A GOOD BRANCH.**
 Dispatched after the tests existed, scoped to the parsing, and required to report an executed input
-and its observed output for every finding. All six were verified independently before being fixed;
-every one reproduced.
+and its observed output for every finding. All five were verified independently before being fixed;
+every one reproduced. ★★ This said SIX for one release while the LIST below held five, and what the
+sixth was meant to be is NOT recoverable — the review report is gone and no commit names it. Corrected
+DOWN to what is enumerated, because a count nobody can reproduce is worse than a smaller true one.
+Count the bullets; they are the authority.
 
 - **Scoped packages were counted as repo debt.** `@` was absent from the citation character classes,
   so a line-numbered cite to `node_modules/@tiptap/core/dist/index.js` parsed as
@@ -7918,7 +7924,9 @@ every one reproduced.
 
 ★★ FIXING THEM MADE THE GATE STRICTER AND IT IMMEDIATELY FOUND MORE: 537 → 541 citations (four had
 been hidden by the `@` and range blind spots) and a SECOND out-of-range cite in the dated snapshot
-that the off-by-one had been passing. All four fixes are mutation-proved (4/4 killed). Debt is now
+that the off-by-one had been passing. All four REGEX fixes are mutation-proved (4/4 killed); the fifth
+defect — the `stripFencedBlocks` rewrite — is covered by its own cases, not by a mutant, which is why
+that number is four against a five-item list. Debt is now
 1 unresolvable + 2 out-of-range, **all three in `findings-2026-07.md`** — every living doc is clean.
 
 ★ WHAT THE REVIEW DID NOT FIND, which is worth as much: zero live false positives across the whole

@@ -108,7 +108,10 @@ describe("citesOnLine — continuation cites", () => {
   it("regression: the anchor is the nearest preceding file MENTION, not the nearest cite", () => {
     // Measured from tooltip-inventory row B10. `task-manager.tsx` carries NO
     // line number, so a nearest-CITE anchor skipped past it and hung `:821` on
-    // `insights-card.tsx` — a 153-line file — inventing an out-of-range failure.
+    // `insights-card.tsx` — 152 CITABLE lines — inventing an out-of-range failure.
+    // (153 by `split`; the range check uses `countLines`, so 152 is the number
+    // that decides this case. Do not "correct" it back — the two conventions are
+    // both right and `doc-claims-lib.mjs` states which belongs to which gate.)
     expect(paths("`insights-card.tsx:102` … (`task-manager.tsx` — grep it; `:821`)")).toEqual([
       "insights-card.tsx:102",
       "task-manager.tsx:821",
@@ -139,7 +142,10 @@ describe("citesOnLine — extension matching", () => {
   it("regression: does not truncate .tsx to .ts", () => {
     // The alternation once tried `ts` first with nothing forcing the token to
     // end, so the ANCHOR path came back as `notes-badge-button.ts` — a file that
-    // does not exist — producing 47 phantom unresolvable citations.
+    // does not exist — producing phantom unresolvable citations across 25
+    // distinct truncated paths. Quote the 25, never a bare total: totals move
+    // with the corpus (it was 47 on the tree that first measured it, 45 a commit
+    // later), so a bare count is unreproducible a week after it is written.
     expect(paths("`notes-badge-button.tsx` at `:25`")).toEqual(["notes-badge-button.tsx:25"]);
   });
 
@@ -318,10 +324,14 @@ describe("stripFencedBlocks", () => {
   });
 
   it("regression: a run of fewer than three fence chars is NOT a fence", () => {
-    // ★★ The `{3,}` quantifier is load-bearing on live data. AGENTS.md and two
-    // docs/AGENTS files carry prose lines that OPEN with a single `~` (an
-    // approximate measurement — "~20px narrower…"). Under a 1+ quantifier each
-    // opens a phantom fence and swallows everything to the next fence line.
+    // ★★ The `{3,}` quantifier is load-bearing on live data. AGENTS.md and ONE
+    // docs/AGENTS file (`ai-assistant.md`) each carry a prose line that OPENS
+    // with a single `~` (an approximate measurement — "~20px narrower…"). Under
+    // a 1+ quantifier each opens a phantom fence and swallows everything to the
+    // next fence line. ★ TWO lines in two files, measured by running `FENCE_RE`
+    // with `{1,}` over `collectDocs()` — NOT the four a naive `^ *~` grep
+    // returns. The other three are saved only by a second `~` later on the same
+    // line, which the info-string group rejects; that is luck, not a guard.
     // ★★★ A first version of this test used a line starting with ONE BACKTICK
     // and was VACUOUS: an inline code span closes with a second backtick, and
     // the info-string group `[^`~]*$` rejects that, so such a line is not a
