@@ -1,9 +1,13 @@
 // src/app/sanitize-html.ts — the DOMPurify storage-boundary sanitizers.
-// Five exports: three DOMPurify sanitizers — sanitizeTemplateHtml (comm templates,
-// meeting reports and the seven rich entity description fields), sanitizeDocumentHtml
+// Three DOMPurify sanitizers — sanitizeTemplateHtml (comm templates, meeting
+// reports and the seven rich entity description fields), sanitizeDocumentHtml
 // (documents only, a wider list) and sanitizeNoteHtml (the lean note/description
 // set) — plus htmlToText (the plain-text projection) and plainToHtml (wraps plain
-// text as lean HTML, and is deliberately DOM-free; see its own note).
+// text as lean HTML, and is deliberately DOM-free; see its own note). The three
+// sanitizers' allow-lists — TEMPLATE_ALLOWED_TAGS, DOCUMENT_ALLOWED_TAGS,
+// NOTE_ALLOWED_TAGS — are also exported, so html-start.ts can derive each sink's
+// own "is this value already HTML?" classifier from the same list that sink
+// sanitizes against, instead of a hand-maintained mirror that can drift.
 // The template TAG allow-list mirrors the Tiptap editor's schema (the only producer
 // of that HTML), so sanitizing the editor output is a defense-in-depth boundary.
 // Merge-field tokens ({{field}}) are plain text and pass through untouched.
@@ -48,8 +52,8 @@ export function sanitizeTemplateHtml(html: string): string {
   });
 }
 
-/** Documents-only allow-list. WIDER than ALLOWED_TAGS on purpose, and separate
- *  from it on purpose: sanitizeTemplateHtml also serves comm templates, meeting
+/** Documents-only allow-list. WIDER than TEMPLATE_ALLOWED_TAGS on purpose, and
+ *  separate from it on purpose: sanitizeTemplateHtml also serves comm templates, meeting
  *  reports and the seven rich entity fields (`Task.description` plus the six in
  *  `AI_RICH_FIELDS`), so widening THAT list would change
  *  what a model may store everywhere — retroactively, including how already
