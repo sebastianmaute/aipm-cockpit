@@ -18,6 +18,105 @@ import {
   xmlEscape,
 } from "./export-ooxml-shared";
 
+/** Monospace face for a code run. One constant so a `<pre>` line and an inline
+ *  `<code>` span cannot end up in two different faces. */
+const MONO_TYPEFACE = "Consolas";
+
+/** `a:rPr sz` when a paragraph names none — HUNDREDTHS of a point (see below). */
+const DEFAULT_SIZE_HUNDREDTHS = 1800;
+
+/**
+ * One individually styled run inside a `PptxParagraph`.
+ *
+ * ★★ SEMANTIC, deliberately NOT raw XML. DrawingML splits a run's styling
+ * across two mechanisms and a caller assembling either by hand gets it wrong
+ * eventually: bold/italic/underline/strike/baseline are ATTRIBUTES of
+ * `<a:rPr>` (so their order is free), while a monospace face and a highlight
+ * are CHILD ELEMENTS of it — and `CT_TextCharacterProperties` is an XML
+ * SEQUENCE (`ln · fill · effectLst · highlight · uLn · latin · …`), so
+ * children emitted in the order the caller happened to discover them produce a
+ * part PowerPoint rejects. Saying what a run MEANS and letting this module
+ * place it makes that unreachable.
+ *
+ * ★ Every field is optional and falsy means "not set", so an unstyled run emits
+ * the same `lang`/`sz`/`dirty` `<a:rPr>` the uniform-text paragraph below has
+ * always emitted — nothing extra appears until a mark asks for it.
+ */
+export type PptxRun = {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  /** ★ `ST_Percentage` in THOUSANDTHS of a percent: 30000 = superscript,
+   *  -25000 = subscript. NOT a point offset, and NOT the WordprocessingML
+   *  `w:vertAlign` enum — there is one attribute here, so a run can be one or
+   *  the other but never both. */
+  baselinePct?: number;
+  /** Monospace via `<a:latin>` DIRECT formatting. A slide package carries no
+   *  character-style part, so there is no `rStyle`/`pStyle` to name — a
+   *  style-name approach silently no-ops here. */
+  monospace?: boolean;
+  /** Highlight fill, 6 hex digits. `<a:highlight>` takes a real colour, unlike
+   *  WordprocessingML's closed `ST_HighlightColor` enum. */
+  highlightRgb?: string;
+};
+
+/** A paragraph is EITHER one uniformly styled text (the original shape, whose
+ *  emitted bytes are unchanged) OR a list of individually styled runs. */
+export type PptxParagraph =
+  | {
+      text: string;
+      bold?: boolean;
+      italic?: boolean;
+      // ★ HUNDREDTHS of a point, which is what DrawingML `a:rPr sz` takes:
+      //   1800 = 18pt, 4400 = 44pt. NOT half-points — that is the
+      //   WordprocessingML convention (`w:sz`, where 36 = 18pt), and the two
+      //   differ by 50x. This comment said "half-points" while every value in
+      //   the file was already correct hundredths, so a reader trusting it would
+      //   write 5600 meaning 28pt and ship 56pt text.
+      sizeHundredths?: number;
+      colorRgb?: string;
+    }
+  | {
+      runs: readonly PptxRun[];
+      /** HUNDREDTHS of a point — see the sibling member above. */
+      sizeHundredths?: number;
+      /** Left indent in EMUs, emitted as `<a:pPr marL indent="0"/>`. ★ `indent`
+       *  is pinned to 0 so the first line sits flush with the rest: `indent` is
+       *  a first-line DELTA, so any non-zero value inherited from the layout
+       *  would hang or over-indent line one alone. */
+      indentEmu?: number;
+    };
+
+/** One `<a:r>`.
+ *
+ *  ★ `<a:rPr>` uses the OPEN/CLOSE form even when it has no children, matching
+ *  what the uniform-text paragraph has always emitted (`>${color}</a:rPr>`).
+ *  A self-closing `<a:rPr …/>` would be equally valid when empty and IMPOSSIBLE
+ *  the moment a run carries a highlight or a monospace face, so one form for
+ *  both keeps a single code path.
+ */
+function pptxRunXml(run: PptxRun, lang: Lang, sizeHundredths: number): string {
+  const attrs =
+    (run.bold ? ' b="1"' : "") +
+    (run.italic ? ' i="1"' : "") +
+    (run.underline ? ' u="sng"' : "") +
+    (run.strike ? ' strike="sngStrike"' : "") +
+    (run.baselinePct === undefined ? "" : ` baseline="${run.baselinePct}"`);
+  // ★★★ THIS ORDER IS THE SCHEMA'S, not a preference: `highlight` precedes
+  // `latin` in CT_TextCharacterProperties, and the marks arrive in HTML NESTING
+  // order, which is unrelated (`<code><mark>…` hands us the face first).
+  const children =
+    (run.highlightRgb
+      ? `<a:highlight><a:srgbClr val="${run.highlightRgb}"/></a:highlight>`
+      : "") + (run.monospace ? `<a:latin typeface="${MONO_TYPEFACE}"/>` : "");
+  return `<a:r>
+    <a:rPr lang="${xmlEscape(lang)}" sz="${sizeHundredths}"${attrs} dirty="0">${children}</a:rPr>
+    <a:t>${xmlEscape(run.text)}</a:t>
+  </a:r>`;
+}
+
 /**
  * A drawingml text box helper that produces a single `<p:sp>` shape. EMUs
  * (English Metric Units) are the standard PPTX coordinate: 914400 EMUs per
@@ -39,24 +138,24 @@ export function pptxTextBox(opts: {
   yEmu: number;
   cxEmu: number;
   cyEmu: number;
-  paragraphs: Array<{
-    text: string;
-    bold?: boolean;
-    italic?: boolean;
-    // ★ HUNDREDTHS of a point, which is what DrawingML `a:rPr sz` takes:
-    //   1800 = 18pt, 4400 = 44pt. NOT half-points — that is the
-    //   WordprocessingML convention (`w:sz`, where 36 = 18pt), and the two
-    //   differ by 50x. This comment said "half-points" while every value in
-    //   the file was already correct hundredths, so a reader trusting it would
-    //   write 5600 meaning 28pt and ship 56pt text.
-    sizeHundredths?: number;
-    colorRgb?: string;
-  }>;
+  paragraphs: readonly PptxParagraph[];
 }): string {
   const runs = opts.paragraphs
     .flatMap((p) => {
+      if ("runs" in p) {
+        const size = p.sizeHundredths ?? DEFAULT_SIZE_HUNDREDTHS;
+        const pPr =
+          p.indentEmu === undefined ? "" : `<a:pPr marL="${p.indentEmu}" indent="0"/>`;
+        // ★ ONE <a:p>, never split: a run's text is a fragment of a line, so
+        // splitting it on "\n" the way the uniform-text branch does would break
+        // a paragraph apart mid-sentence. The caller upstream has already split
+        // on block boundaries — that is what makes each RichLine one paragraph.
+        return [
+          `<a:p>${pPr}${p.runs.map((r) => pptxRunXml(r, opts.lang, size)).join("")}</a:p>`,
+        ];
+      }
       const rPr =
-        `sz="${p.sizeHundredths ?? 1800}"` +
+        `sz="${p.sizeHundredths ?? DEFAULT_SIZE_HUNDREDTHS}"` +
         (p.bold ? ' b="1"' : "") +
         (p.italic ? ' i="1"' : "");
       const color = p.colorRgb

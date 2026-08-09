@@ -24,13 +24,20 @@
 // not weaken this sink in exchange. Compose it at the caller as
 // `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`.
 //
-// ★★★ sanitizeTemplateHtml, never sanitizeNoteHtml. Neither allow-list contains
+// ★★★ sanitizeDocumentHtml, never sanitizeNoteHtml. Neither allow-list contains
 // h3/div/table, so both DELETE those tags; what differs is the TEXT inside them.
 // sanitizeNoteHtml sets KEEP_CONTENT:false and deletes the words along with the
 // tag — right for the lean note editor, catastrophic here, because a document is
 // authored by a model that legitimately emits headings and tables and its prose
-// would vanish. sanitizeTemplateHtml keeps DOMPurify's default and unwraps the
+// would vanish. sanitizeDocumentHtml keeps DOMPurify's default and unwraps the
 // tag, so the words survive. (It lives in ./sanitize-html — NOT ./note-log.)
+//
+// ★★ Nor sanitizeTemplateHtml, which this sink used until the documents list
+// existed: that one is SHARED with comm templates, meeting reports and the six
+// rich entity fields, so a document's marks could only be admitted by widening
+// what every one of those consumers may store. sanitizeDocumentHtml is the same
+// list plus the document-only tags, kept separate for exactly that reason —
+// route a NEW documents sink here, and never widen the template list instead.
 //
 // ★★ dataSection resolution is IMPORTED from ./doc-data-section, not written
 // here and not taken from ./doc-render-docx. This module backs the in-app
@@ -41,7 +48,7 @@
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { resolveDataSection } from "./doc-data-section";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeDocumentHtml } from "./sanitize-html";
 import { htmlEscape, htmlCellWithBreaks, PRINT_STYLES } from "./download";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
@@ -95,7 +102,7 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
 
     // The ONE unescaped path: already-sanitized HTML, re-sanitized here.
     case "paragraph":
-      return sanitizeTemplateHtml(block.html);
+      return sanitizeDocumentHtml(block.html);
 
     case "bullets": {
       const tag = block.ordered ? "ol" : "ul";

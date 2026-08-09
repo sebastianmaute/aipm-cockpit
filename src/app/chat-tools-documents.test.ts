@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { runDocumentTool, isDocumentTool, type DocumentToolDispatcher } from "./chat-tools-documents";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
+import { sanitizeAiDocumentRichText } from "./ai-rich-text";
 
 const doc = {
   id: 1,
@@ -45,6 +46,96 @@ describe("isDocumentTool", () => {
     expect(schemaNames).toEqual(
       ["create_document", "delete_document", "get_document", "list_documents", "update_document"],
     );
+  });
+});
+
+// ★★★ THE MODEL IS THE ONLY AUTHOR OF `paragraph.html` — there is no
+// RichTextEditor on any document surface — so the schema description is not
+// documentation, it is the input contract. S3a widened the allow-list to nine
+// document-only tags while the description still named the old seven and said
+// everything else is unwrapped; the sanitizer kept `<mark>` that nothing ever
+// asked for. These tests tie the ADVERTISED set to what the WRITE BOUNDARY
+// actually keeps, so the two cannot drift apart again.
+describe("the paragraph schema description matches the document write boundary", () => {
+  const blockDescription = (
+    DOCUMENT_TOOL_DEFS.find((def) => def.name === "create_document")!.input_schema as unknown as {
+      properties: { blocks: { items: { description: string } } };
+    }
+  ).properties.blocks.items.description;
+
+  const advertisedTags = (blockDescription.match(/HTML using ([^;]+);/)?.[1] ?? "")
+    .split(/[,/\s]+/)
+    .filter(Boolean);
+
+  /** ★ Each sample LEADS with `<p>`, which is the very instruction under test:
+   *  layer 1's `HTML_START` knows only p/br/strong/em/ul/ol/li/a, so a sample
+   *  opening with `<mark>` or `<pre>` would be escaped to literal text and the
+   *  assertion would fail for the classifier's reason rather than the
+   *  allow-list's. Block-level tags sit AFTER a `<p>` for the same reason (and
+   *  because `<pre>`/`<hr>` inside a `<p>` is not parseable markup). */
+  const TAG_SAMPLE: Record<string, string> = {
+    p: "<p>a</p>",
+    br: "<p>a<br>b</p>",
+    strong: "<p><strong>a</strong></p>",
+    em: "<p><em>a</em></p>",
+    u: "<p><u>a</u></p>",
+    s: "<p><s>a</s></p>",
+    code: "<p><code>a</code></p>",
+    mark: "<p><mark>a</mark></p>",
+    sub: "<p><sub>a</sub></p>",
+    sup: "<p><sup>a</sup></p>",
+    pre: "<p>x</p><pre>a</pre>",
+    blockquote: "<p>x</p><blockquote>a</blockquote>",
+    hr: "<p>x</p><hr>",
+    ul: "<p>x</p><ul><li>a</li></ul>",
+    ol: "<p>x</p><ol><li>a</li></ol>",
+    li: "<p>x</p><ul><li>a</li></ul>",
+    a: '<p><a href="https://example.test/">a</a></p>',
+  };
+
+  // ★ Anti-vacuity: an empty or unparsed list would make the survival loop
+  // below assert nothing at all, and it would still be green.
+  it("advertises exactly the document tag set", () => {
+    expect(advertisedTags).toEqual([
+      "p", "br", "strong", "em", "u", "s", "code", "pre",
+      "blockquote", "mark", "sub", "sup", "hr", "ul", "ol", "li", "a",
+    ]);
+  });
+
+  it("advertises only tags sanitizeAiDocumentRichText actually keeps", () => {
+    for (const tag of advertisedTags) {
+      const sample = TAG_SAMPLE[tag];
+      expect(sample, `no sample for advertised tag <${tag}>`).toBeTruthy();
+      expect(sanitizeAiDocumentRichText(sample), `<${tag}> did not survive the write boundary`)
+        .toMatch(new RegExp(`<${tag}[ >]`));
+    }
+  });
+
+  // ★★ Three tags the sanitizer keeps are withheld ON PURPOSE, and pinning that
+  // keeps the omission a decision rather than an oversight: `h1`/`h2` because a
+  // document heading is its own block kind (a heading buried in paragraph HTML
+  // gets no outline level in .docx and no slide title in .pptx), and `img`
+  // because it is inert until the S3c asset store exists — advertising it would
+  // invite the model to emit a reference nothing can resolve.
+  it("withholds h1, h2 and img", () => {
+    expect(advertisedTags).not.toContain("h1");
+    expect(advertisedTags).not.toContain("h2");
+    expect(advertisedTags).not.toContain("img");
+  });
+
+  // ★★★ LOAD-BEARING, not style advice — see chat-tool-defs-documents.ts. A
+  // value LEADING with a document-only tag fails layer 1's `HTML_START` test and
+  // is escaped to permanently visible literal tags. Proven both ways below so
+  // the instruction cannot be dropped as redundant.
+  it("tells the model to start the value with <p>", () => {
+    expect(blockDescription).toMatch(/start the value with <p>/i);
+  });
+
+  it("proves the <p> instruction is what makes a leading <mark> survive", () => {
+    expect(sanitizeAiDocumentRichText("<p><mark>keep</mark></p>")).toContain("<mark>");
+    const unwrapped = sanitizeAiDocumentRichText("<mark>keep</mark> and more");
+    expect(unwrapped).not.toContain("<mark>");
+    expect(unwrapped).toContain("&lt;mark&gt;");
   });
 });
 

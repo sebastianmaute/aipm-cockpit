@@ -66,7 +66,7 @@ export function PeopleDisclosureLabel({
       onToggle={onToggle}
       ariaControls={peopleBodyId(bucketId, roleId)}
       ariaLabel={`${t(lang, "budgetShowPeople")} – ${label}`}
-      // ★★ THE ELLIPSIS HAS TO LAND ON A TEXT NODE (open-followups §117). The
+      // ★★ THE ELLIPSIS HAS TO LAND ON A TEXT NODE (open-followups §123). The
       //   `<td>` around this is `truncate` and clamped to the LIVE role-column
       //   width, but `text-overflow` does not apply to an atomic inline — and
       //   this cell's only child is an inline-flex button — so the button was

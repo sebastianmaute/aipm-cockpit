@@ -96,16 +96,16 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
 
   // Four rows, four Dismiss controls (none of the seeded rows is terminal). THIS
   // is the assertion about the seed: every seeded row reached the app and got its
-  // per-row controls. It stays true whether or not §120 is ever fixed.
+  // per-row controls. It stays true whether or not §126 is ever fixed.
   await expect(page.getByRole("button", { name: /^Dismiss – / })).toHaveCount(4);
 
-  // ★★★ CHARACTERIZATION OF A KNOWN-OPEN DEFECT — docs/open-followups.md §120.
+  // ★★★ CHARACTERIZATION OF A KNOWN-OPEN DEFECT — docs/open-followups.md §126.
   // READ THIS BEFORE "FIXING" A RED RUN ON THE NEXT LINE. It pins the BUG, not the
   // wanted behaviour: both `milestoneSlip` rows render a button whose accessible
   // name is exactly "Dismiss – Milestone at risk", because insightTitle() is
   // derived from `type` alone. Two controls, same name, different targets — a
   // WCAG 2.4.6 failure, now REACHABLE at scan time instead of theoretical.
-  // ★★★ WHOEVER CLOSES §120 MUST FLIP THIS ASSERTION, and a red line here after
+  // ★★★ WHOEVER CLOSES §126 MUST FLIP THIS ASSERTION, and a red line here after
   // that fix is the fix WORKING. The flip: once the per-row name is qualified
   // (e.g. "Dismiss – Milestone at risk – Design Sign-off"), change the expected
   // count below from 2 to 0 and add positive assertions for the two now-distinct
@@ -115,7 +115,7 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   // adjacent rule (`identical-links-same-purpose`) is links-only and `wcag2aaa`,
   // a tag e2e/a11y.spec.ts does not request. A green Insights axe run is not
   // evidence the names are unique — this line is.
-  const DUPLICATE_DISMISS_NAME_IS_A_KNOWN_DEFECT = 2; // §120 fix ⇒ 0
+  const DUPLICATE_DISMISS_NAME_IS_A_KNOWN_DEFECT = 2; // §126 fix ⇒ 0
   await expect(
     page.getByRole("button", { name: "Dismiss – Milestone at risk", exact: true }),
   ).toHaveCount(DUPLICATE_DISMISS_NAME_IS_A_KNOWN_DEFECT);

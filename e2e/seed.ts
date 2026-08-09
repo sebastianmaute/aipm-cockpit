@@ -68,7 +68,7 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // What the same-type pair buys is that the collision RENDERS at scan time and
   // can be pinned by a locator count — which is what seed-content.spec.ts does.
   // The detector here is that spec, not axe. (Filed as docs/open-followups.md
-  // §120; the same shape is de-collided correctly in insights/insight-digest-card.tsx.)
+  // §126; the same shape is de-collided correctly in insights/insight-digest-card.tsx.)
   // ★ The four also differ in severity and status so the status/type filters have
   // something to discriminate and the acknowledged branch renders too.
   // ★ Ids are far above the master's range so a later sample addition cannot

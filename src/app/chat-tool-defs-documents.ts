@@ -30,10 +30,30 @@ import { EXPORT_SECTION_KEYS } from "./settings-types";
 // union as of Task 16: six variants — heading{level:1|2|3,text},
 // paragraph{html}, bullets{items,ordered?}, table{columns,rows,caption?},
 // dataSection{key}, pageBreak — field-for-field match.
+//
+// ★★★ THE PARAGRAPH TAG LIST MUST TRACK `sanitizeDocumentHtml`, and the "start
+// with <p>" instruction is LOAD-BEARING — do not simplify either away. There is
+// no human editor for `paragraph.html` (grep RichTextEditor in document*.tsx:
+// nothing), so this schema is the ONLY thing that decides what the sole author
+// of that field emits. Two separate failure modes it prevents:
+//   (a) UNDER-ADVERTISING. The description used to name p/strong/em/ul/ol/li/a
+//       and say everything else is unwrapped, so the document-only marks the
+//       sanitizer keeps (s/code/pre/blockquote/hr/mark/sub/sup) were never asked
+//       for and the wider allow-list sat inert.
+//   (b) THE `HTML_START` GAP. `sanitizeAiDocumentRichText`'s layer 1 classifies
+//       "is this HTML?" with the SHARED 8-tag `HTML_START` (p/br/strong/em/
+//       ul/ol/li/a), which does not know the nine document-only tags. A value
+//       LEADING with one of them fails that test and is ESCAPED to literal
+//       visible tags. Widening `HTML_START` is not the fix (the dashboard
+//       narrative sink uses KEEP_CONTENT:false and would DELETE the text
+//       instead) — telling the model to open with `<p>` sidesteps it on the one
+//       path it is reachable from, since a `<p>`-wrapped `<mark>` stores fine.
+// `chat-tools-documents.test.ts` pins the advertised set against what the
+// sanitizer actually keeps, so widening one without the other goes red.
 const docBlockSchema = {
   type: "object" as const,
   description:
-    "One document block. heading: {type,level:1-3,text}. paragraph: {type,html} — simple HTML (p, strong, em, ul/ol/li, a); anything else is unwrapped to its text. bullets: {type,items,ordered?}. table: {type,columns,rows,caption?}. dataSection: {type,key} embeds live project data — key must be one of the enum values, which mirror the app's export sections. pageBreak: {type} starts a new page in Word/PDF and a new slide in PowerPoint.",
+    "One document block. heading: {type,level:1-3,text}. paragraph: {type,html} — HTML using p, br, strong, em, u, s, code, pre, blockquote, mark, sub, sup, hr, ul/ol/li, a; anything else is unwrapped to its text. ALWAYS start the value with <p> and wrap each paragraph in <p>...</p>, or the whole value is stored as literal visible text. bullets: {type,items,ordered?}. table: {type,columns,rows,caption?}. dataSection: {type,key} embeds live project data — key must be one of the enum values, which mirror the app's export sections. pageBreak: {type} starts a new page in Word/PDF and a new slide in PowerPoint.",
   properties: {
     type: { type: "string" as const, enum: ["heading", "paragraph", "bullets", "table", "dataSection", "pageBreak"] },
     level: { type: "number" as const, description: "heading only: 1, 2 or 3" },

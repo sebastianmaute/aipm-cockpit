@@ -113,7 +113,21 @@ describe("renderDocumentHtml — the escaped/unescaped boundary", () => {
     expect(html).not.toContain("javascript:");
   });
 
-  // ★★ NOT "keeps the heading tag". sanitizeTemplateHtml's allow-list has no
+  // ★★ The sink is the DOCUMENTS allow-list, not the shared template one. The
+  // assertions carry the CLOSING bracket on purpose: "<s" is a prefix of
+  // <strong>/<sub>/<sup>/<span> and "<mark" of nothing today but of any future
+  // tag starting the same way, so a bracket-less toContain would stay green with
+  // `s` dropped from DOCUMENT_ALLOWED_TAGS as long as some <strong> survived.
+  it("renders a document paragraph's new marks instead of stripping them", () => {
+    const html = preview([
+      { type: "paragraph", html: "<p><mark>hi</mark> <s>gone</s> <code>x</code></p>" },
+    ]);
+    expect(html).toContain("<mark>hi</mark>");
+    expect(html).toContain("<s>gone</s>");
+    expect(html).toContain("<code>x</code>");
+  });
+
+  // ★★ NOT "keeps the heading tag". sanitizeDocumentHtml's allow-list has no
   // h3/div/table, and it keeps DOMPurify's KEEP_CONTENT default, so the tag is
   // UNWRAPPED and only the words survive. That is the intended behaviour for a
   // model-authored document (structure belongs in heading/table BLOCKS), and

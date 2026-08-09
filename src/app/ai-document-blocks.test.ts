@@ -9,9 +9,10 @@ describe("sanitizeAiDocBlocks", () => {
     expect(JSON.stringify(out)).toContain("hi");
   });
 
-  // ★★★ sanitizeTemplateHtml, NOT sanitizeNoteHtml. Both allow-lists omit h3 —
+  // ★★★ sanitizeDocumentHtml, NOT sanitizeNoteHtml. Both allow-lists omit h3 —
   // the difference is the TEXT inside it (sanitizeNoteHtml deletes it via
-  // KEEP_CONTENT:false; sanitizeTemplateHtml unwraps and keeps it). That
+  // KEEP_CONTENT:false; sanitizeDocumentHtml keeps DOMPurify's default, so it
+  // unwraps the tag and keeps the text). That
   // distinction only fires when DOMPurify actually SEES the tag as markup —
   // which requires the value to start with a tag HTML_START recognises
   // (p/br/strong/em/ul/ol/li/a). A bare "<h3>Section</h3>" does NOT start with
@@ -32,7 +33,7 @@ describe("sanitizeAiDocBlocks", () => {
     const raw = "<p>before <h3>Section</h3> after</p>";
     // The wrong sanitizer (KEEP_CONTENT:false) deletes "Section" outright...
     expect(sanitizeNoteHtml(raw)).not.toContain("Section");
-    // ...while sanitizeAiDocBlocks (sanitizeTemplateHtml, KEEP_CONTENT default) keeps it.
+    // ...while sanitizeAiDocBlocks (sanitizeDocumentHtml, KEEP_CONTENT default) keeps it.
     const out = sanitizeAiDocBlocks([{ type: "paragraph", html: raw }]);
     expect(JSON.stringify(out)).toContain("Section");
   });
@@ -69,6 +70,32 @@ describe("sanitizeAiDocBlocks", () => {
   it("clamps an out-of-range heading level via the structural sanitizer, rather than dropping the block", () => {
     const out = sanitizeAiDocBlocks([{ type: "heading", level: 9, text: "x" }]);
     expect(out).toEqual([{ type: "heading", level: 3, text: "x" }]);
+  });
+
+  // ★★ `mark` is in the DOCUMENTS allow-list and NOT in the template one, so this
+  // pins that the write boundary routes through sanitizeDocumentHtml specifically
+  // — not merely through "some sanitizer". The narrow template list unwraps
+  // <mark> (KEEP_CONTENT default) leaving the bare word "keep", so a text-only
+  // assertion would pass against the unfixed code.
+  // ★★ Assert the CLOSING bracket and the inner text (`<mark>keep</mark>`), never
+  // the `<mark` prefix: a prefix is satisfied by any longer tag name that shares
+  // it, and that shape has already been caught passing while the thing it claimed
+  // to pin was gone. The paired `<script` negative is a prefix on purpose — there
+  // it is the WEAKER (broader) form that is wanted.
+  it("lets a model store the document marks but still strips a script", () => {
+    const blocks = sanitizeAiDocBlocks([
+      { type: "paragraph", html: "<p><mark>keep</mark></p>" },
+      { type: "paragraph", html: "<p><script>alert(1)</script>text</p>" },
+    ]);
+    // Anti-vacuity: without this, a dropped first block would shift the indices
+    // and silently retarget both assertions below.
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toMatchObject({ type: "paragraph" });
+    expect((blocks[0] as { html: string }).html).toContain("<mark>keep</mark>");
+    expect((blocks[1] as { html: string }).html).not.toContain("<script");
+    // Positive observable: proves block 1 survived with its text rather than
+    // passing because the whole block was emptied away.
+    expect((blocks[1] as { html: string }).html).toContain("text");
   });
 
   it("preserves block order across a mix of paragraph and non-paragraph blocks", () => {

@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.224.0] - 2026-08-08 "Emshwiller"
+## [0.226.0] - 2026-08-09 "Emshwiller"
 
 Undo stopped being a one-step-at-a-time affair, every button that starts an AI
 call can now stop it, and a budget bucket's role line opens to the people
@@ -29,20 +29,20 @@ behind it.
   insight-recommendation call gained the `AbortController` it did not have.
   Six is the number of sites converted, not the number of AI calls the app can
   start: the background insight-recommendation runner still has no cancellation
-  (open-followups §114), and the dashboard digest's "Generate now" and the
+  (open-followups §120), and the dashboard digest's "Generate now" and the
   steering meeting report's "Draft with AI" still only grey out while they run
-  (open-followups §119).
+  (open-followups §125).
 - **Budget bucket people rows.** Each role line in a bucket expands to the
   people behind it with their booked and planned hours. Booked is read from the
   per-device Timelog cache, so it can disagree with the persisted per-role
   actuals shown on the role row above it, and the people figures are not
   expected to sum to that row — bookers whose role has no line stay in
-  `unattributed`. Both gaps are filed as open-followups §116.
+  `unattributed`. Both gaps are filed as open-followups §122.
 - **Insights and Timelog links are seeded for e2e**, so both panes are axe
   scanned with real rows for the first time rather than over an empty state.
   Two of the seeded insights deliberately share a type, which is what makes the
   Insights rows render the duplicate-control-name case the panel has always
-  had; it is pinned by an e2e assertion and filed as open-followups §120,
+  had; it is pinned by an e2e assertion and filed as open-followups §126,
   because no accessibility gate in this repo can detect it.
 
 ### Fixed
@@ -53,7 +53,51 @@ behind it.
 - **The undo footer read "Undo 1 actions"**, and a scroll-induced `mouseenter`
   silently overwrote the undo listbox's keyboard position.
 - **The budget disclosure chip clipped role labels with no ellipsis**
-  (open-followups §117).
+  (open-followups §123).
+
+## [0.225.0] - 2026-08-09 "Walton"
+
+Word and PowerPoint exports keep the formatting you wrote. Until now every
+document paragraph was flattened to plain text on its way into `.docx` and
+`.pptx`, so bold, italic, strikethrough, highlight, inline code, superscript and
+subscript all vanished, and quotes and code blocks arrived looking like ordinary
+prose. Both renderers now read the same parsed representation, so they cannot
+drift apart as more formatting is added.
+
+Documents also got their own HTML allow-list rather than sharing one with
+unrelated parts of the app, which is what lets them carry the wider set of
+formatting without loosening anything else.
+
+### Added
+
+- Mark-aware `.docx` and `.pptx` paragraph runs, from one shared parse
+  (`rich-text-runs.ts`) consumed by both renderers.
+- `sanitizeDocumentHtml`, a documents-only allow-list adding `s`, `code`,
+  `pre`, `blockquote`, `hr`, `mark`, `sub`, `sup` and `img`. Routed at all
+  three boundaries: the render sink, the load path, and the AI write boundary.
+- `Quote` and `CodeBlock` Word styles, and a bordered paragraph for `hr`.
+
+### Fixed
+
+- Ten OOXML style definitions emitted `w:rPr` and `w:pPr` children out of
+  schema sequence, which is invalid per ECMA-376 and rejected by strict
+  validators such as the Open XML SDK. Word itself renders them, so this was
+  never visible in the app.
+- The document-authoring model was still being told the narrow tag set, so the
+  wider allow-list had nothing to carry.
+- Several inaccurate claims in the developer documentation, including the
+  duplication gate's metric, which had been described as per-format since
+  before this release and compares one total instead.
+
+### Known limitations
+
+- A document paragraph whose stored value *begins* with one of the nine
+  document-only tags is still escaped to literal text on read; the classifier
+  that decides this predates the wider list and is split in a later slice.
+- A legacy plain-text paragraph carrying newlines collapses to one line in all
+  three renderers. The obvious fix shares a cause with the item above and was
+  measured to destroy valid markup, so it waits for the same work.
+- `<a href>` reaches `.docx` and `.pptx` as text without its target.
 
 ## [0.223.0] - 2026-08-08 "Okorafor"
 

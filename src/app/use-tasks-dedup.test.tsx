@@ -207,7 +207,7 @@ describe("useTasksDedup (plan-then-apply)", () => {
     expect(screen.queryByText(/merge selected/i)).toBeNull();
   });
 
-  // ★★ REGRESSION (open-followups §115): this hook had NO unmount cleanup while
+  // ★★ REGRESSION (open-followups §121): this hook had NO unmount cleanup while
   //    both its siblings (use-alloc-plan, use-raci-suggest) have always carried
   //    one — and it is the one mounted TWICE (tasks-section + gantt-view). The
   //    modern shell renders only the active view, so starting a dedup in Open

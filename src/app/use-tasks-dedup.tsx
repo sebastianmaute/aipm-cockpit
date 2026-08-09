@@ -91,7 +91,7 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   // it doesn't run into the set-state-in-effect ban. Mirrors use-alloc-plan.tsx
   // and use-raci-suggest.tsx, which have carried this from the start.
   // ★★ THIS HOOK IS THE ONE THAT NEEDED IT MOST and was the one without it
-  //    (open-followups §115): it mounts TWICE (tasks-section.tsx, gantt-view.tsx)
+  //    (open-followups §121): it mounts TWICE (tasks-section.tsx, gantt-view.tsx)
   //    and the modern shell renders only the ACTIVE view, so starting a dedup in
   //    Open Points and switching to Gantt unmounted the running instance. The call
   //    went on being billed while the Gantt trigger showed the IDLE label — a

@@ -178,7 +178,7 @@ const renderLabel = (label = LONG_ROLE) =>
 describe("PeopleDisclosureLabel", () => {
   // ★★★ NONE OF THIS PROVES THE LABEL ELLIPSIZES. jsdom has no layout, so the
   //     only thing testable here is the PLUMBING the browser fix rides on. The
-  //     geometry was measured in Chromium (open-followups §117): at the 160px
+  //     geometry was measured in Chromium (open-followups §123): at the 160px
   //     default the button went 185.6px → 136px and the label span went
   //     scrollWidth 144 / clientWidth 94 with `text-overflow: ellipsis`, and
   //     the rendered glyph reads "Business Analys…". Re-measure there, not here.
