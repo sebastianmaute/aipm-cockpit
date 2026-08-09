@@ -285,8 +285,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   → `true experimental,deprecated cat.semantics,wcag21a,…`. ★★ So "does `getRules(tags)` list it?" is
   the WRONG question — ask whether it survives tagExclude. That mistake was made and corrected on
   2026-08-09: a listing probe was read as proof the gate ran the rule. A control whose VISIBLE label is
-  not a prefix-preserving substring of its `aria-label` (2.5.3 is case-INSENSITIVE — Understanding SC
-  2.5.3, "Punctuation and capitalization") therefore needs a UNIT test, in every view, scanned or not.
+  not CONTAINED in its `aria-label` (2.5.3 is case-INSENSITIVE — Understanding SC 2.5.3, "Punctuation
+  and capitalization") therefore needs a UNIT test, in every view, scanned or not.
+  ★★★ CONTAINMENT, NOT PREFIX — an earlier revision of this bullet said "prefix-preserving substring"
+  and that is a STRICTER rule than the SC, so applying it literally flags conformant code: axe ends in
+  `curatedCompareWith.includes(curatedCompare)` (position-independent, punctuation- and unicode-
+  stripped), and this repo's own dependency type select passes while failing a prefix test — visible
+  "Type for next link" inside accessible "Predecessor type for next link". Front-position IS a real
+  best practice, but for speech input (G208/G211), not for 2.5.3.
+  ★★★ AND THE RULE CANNOT SEE A `<select>` AT ALL, so enabling it explicitly is not the fix it looks
+  like. Its `matches` admits only roles supporting name-from-content; a `<select>` without `multiple`
+  and size null-or-1 maps to `combobox`, which is not among them. Measured 2026-08-09, not reasoned:
+  `node -e 'const s=require("axe-core").commons.standards.getAriaRolesSupportingNameFromContent();console.log(s.length, "combobox:", s.includes("combobox"), "button:", s.includes("button"))'`
+  → `32 combobox: false button: true`. So for every `<select>` in the app the unit test is not merely
+  the best detector, it is the ONLY possible one, at any gate configuration.
   ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the

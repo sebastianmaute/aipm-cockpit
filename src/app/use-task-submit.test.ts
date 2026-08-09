@@ -401,6 +401,34 @@ describe("useTaskSubmit — resourceId threading", () => {
     const seeded = setForm.mock.calls[0][0] as TaskFormDraft;
     expect(seeded.resourceId).toBe(9);
   });
+
+  // ★★★ `successorLinks` is a STAGING list, never a projection of stored state.
+  // The stored `dependencies` are this task's PREDECESSORS; seeding them here
+  // would re-read them back out on Save as SUCCESSORS and write a reciprocal
+  // link onto every one of them — silently, on a save the user made for an
+  // unrelated field. Nothing downstream can catch that: the resolver is handed
+  // whatever the draft holds and would apply it faithfully.
+  // ★★ The fixture MUST carry stored dependencies. With `dependencies: []` the
+  // correct empty seed and a hydrating one produce the same `[]`, and the test
+  // passes whichever the code does — the same too-small-fixture vacuity that
+  // already had to be fixed once on this branch.
+  it("openEditModal seeds successorLinks EMPTY even when the task has stored dependencies", () => {
+    const setForm = vi.fn();
+    const withDeps = makeTask({
+      id: 1,
+      dependencies: [{ taskId: 2, type: "FS" }, { taskId: 3, type: "SS" }],
+    });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ setForm })),
+    );
+    act(() => result.current.openEditModal(withDeps));
+    const seeded = setForm.mock.calls[0][0] as TaskFormDraft;
+    // Control: the stored links DID reach the draft, on the field that owns
+    // them — so `successorLinks` being empty is a real decision and not an
+    // artifact of the seed ignoring `dependencies` altogether.
+    expect(seeded.dependencies).toEqual([{ taskId: 2, type: "FS" }, { taskId: 3, type: "SS" }]);
+    expect(seeded.successorLinks).toEqual([]);
+  });
 });
 
 describe("useTaskSubmit — status on save", () => {
@@ -805,6 +833,36 @@ describe("useTaskSubmit — staged successor links", () => {
     expect(logActivity).toHaveBeenCalledWith("task.updated", 2, "Target");
   });
 
+  // ★★ Ordering, not just presence. `recordSuccessorEdits` emits one
+  // `task.updated` per target, so calling it before `logActivity("task.created")`
+  // puts "Target updated" ABOVE "New task created" in the log — a row reported
+  // as edited by a task that did not yet exist. Both calls are synchronous and
+  // adjacent, so swapping them back is invisible to every other assertion.
+  it("logs task.created BEFORE the successor edits it causes", () => {
+    const logActivity = vi.fn();
+    const tasks = [makeTask({ id: 2, taskName: "Target" })];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          logActivity,
+          editingId: null,
+          tasks,
+          tasksRef: { current: tasks },
+          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const kinds = logActivity.mock.calls.map(([kind]) => kind as string);
+    const createdIdx = kinds.indexOf("task.created");
+    const targetIdx = kinds.indexOf("task.updated");
+    // Control: BOTH entries fired, or the comparison below is vacuous.
+    expect(createdIdx).toBeGreaterThanOrEqual(0);
+    expect(targetIdx).toBeGreaterThanOrEqual(0);
+    expect(createdIdx).toBeLessThan(targetIdx);
+  });
+
   // ★★★ Asserts the target points at the MINTED id, not merely that some link
   // exists. Resolving before the mint yields no link at all; resolving against
   // the wrong id would yield a link to the wrong task.
@@ -943,6 +1001,42 @@ describe("useTaskSubmit — staged successor links", () => {
       { taskId: 3, type: "FS" },
       { taskId: 1, type: "FS" },
     ]);
+  });
+
+  // ★★★ The write applies `after` MINUS `before` — the links this save ADDS —
+  // not `after` wholesale. The test above cannot tell those apart: its target
+  // starts with no dependencies, so `before` is empty and the subtraction is a
+  // no-op. Both spellings emit the same array and the filter could be deleted
+  // green. Only a target that ALREADY had a link, which a concurrent writer
+  // then DELETES, separates them: `after` still carries that stored link, so
+  // writing it wholesale RESURRECTS an edge the user just removed elsewhere.
+  it("does not resurrect a dependency a concurrent writer deleted from the target", () => {
+    const setTasks = vi.fn();
+    const tasks = [
+      makeTask({ id: 1, taskName: "Own" }),
+      // Stored at resolve time, so it lands in `before` AND in `after`.
+      makeTask({ id: 2, taskName: "Target", dependencies: [{ taskId: 3, type: "FS" }] }),
+      makeTask({ id: 3, taskName: "Other" }),
+    ];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          setTasks,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    // State moved on between resolve and commit: someone unlinked 3 -> 2.
+    const live = tasks.map((t) => (t.id === 2 ? { ...t, dependencies: [] } : t));
+    const updater = setTasks.mock.calls[0][0] as (prev: readonly Task[]) => readonly Task[];
+    const next = updater(live);
+    // ONLY the link this save adds. `{ taskId: 3 }` stays deleted.
+    expect(next.find((t) => t.id === 2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
 
   // ★★★ The cycle guard must see the predecessors THIS SAVE is about to store,

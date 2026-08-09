@@ -217,18 +217,23 @@ export function DependencyLinkGroup({
           not relevant when evaluating this criterion" (its worked example pairs
           a visible `First Name:` with `aria-label="first name"` and passes).
           https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html
-          ★★ Nothing else can catch drift here, for TWO independent reasons —
-          neither of which is "axe has no such rule", which an earlier revision
-          of this comment claimed and which is false. axe 4.12.1 DOES ship
-          `label-content-name-mismatch`, and it does carry `wcag21a`, one of the
-          four tags e2e/a11y.spec.ts requests. But (1) it is also tagged
-          `experimental`, and axe's default tagExclude is
-          ['experimental','deprecated'], so a tag-only runOnly never runs it —
-          the spec enables no rules explicitly, so the gate is silent on 2.5.3
-          everywhere in the app; and (2) the task modal opens on interaction and
-          is in none of the 17 A11Y_VIEWS, so these controls are never even
-          rendered at scan time. Reproduce (1):
-            node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.ruleId==='label-content-name-mismatch');console.log(!!r, a._audit.tagExclude.join(','), r.tags.join(','))"
+          ★★ Nothing else can catch drift here, for THREE independent reasons.
+          axe 4.12.1 DOES ship `label-content-name-mismatch` and it does carry
+          `wcag21a`, one of the four tags e2e/a11y.spec.ts requests — so a rule
+          listing reads as coverage. But (1) it is ALSO tagged `experimental`,
+          and axe's default tagExclude is ['experimental','deprecated'], so a
+          tag-only runOnly never runs it and the gate is silent on 2.5.3
+          everywhere in the app; (2) the task modal opens on interaction and is
+          in none of the 17 A11Y_VIEWS, so these controls are never rendered at
+          scan time; and ★★★ (3) THE RULE COULD NOT EVALUATE THIS ELEMENT EVEN
+          IF (1) AND (2) WERE FIXED. Its `matches` gate admits only roles that
+          support name-from-content, and a <select> without `multiple` and with
+          size null-or-1 maps to `combobox`, which is not one of them. So adding
+          {"label-content-name-mismatch": {enabled: true}} to the spec would buy
+          NOTHING here — do not "restore coverage" that way and delete this test.
+          Reproduce (1) and (3):
+            node -e 'const a=require("axe-core");const r=a.getRules(["wcag21a"]).find(x=>x.ruleId==="label-content-name-mismatch");const s=a.commons.standards.getAriaRolesSupportingNameFromContent();console.log(a.version, a._audit.tagExclude.join(","), r.tags.includes("experimental"), "combobox:", s.includes("combobox"), "button:", s.includes("button"))'
+          → 4.12.1 experimental,deprecated true combobox: false button: true
           So the unit test is the only detector, and it reads BOTH sides out of
           the DOM rather than comparing against literals. */}
       {/* Own wrapper so the caption sits TIGHT above its select (mb-1) instead

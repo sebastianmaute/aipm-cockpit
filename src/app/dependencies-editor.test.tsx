@@ -137,16 +137,13 @@ describe("DependencyLinkGroup", () => {
   // ★★ WCAG 2.5.3 (label-in-name): the visible caption above the type select is
   // shared by both groups, while the accessible name must stay direction-unique
   // (2.4.6) — so the name has to CONTAIN the caption rather than equal it.
-  // ★★ Nothing else can catch a drift here, and NOT because axe lacks the rule
-  // — an earlier revision of this comment said so and it is false. axe 4.12.1
-  // ships `label-content-name-mismatch` tagged `wcag21a`, one of the four tags
-  // e2e/a11y.spec.ts requests. It still never runs: the rule is ALSO tagged
-  // `experimental`, and axe's default tagExclude is
-  // ['experimental','deprecated'], so a tag-only runOnly skips it and the spec
-  // enables no rules explicitly. On top of that the task modal opens on
-  // interaction and is in none of the 17 A11Y_VIEWS, so these controls are not
-  // rendered at scan time either. Reproduce the first half with:
-  //   node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.ruleId==='label-content-name-mismatch');console.log(!!r, a._audit.tagExclude.join(','), r.tags.join(','))"
+  // ★★ Nothing else can catch a drift here. axe DOES ship
+  // `label-content-name-mismatch` tagged `wcag21a` — one of the four tags
+  // e2e/a11y.spec.ts requests — so a rule listing reads as coverage, but three
+  // separate things stop it reaching these controls, and the third means
+  // enabling the rule explicitly would not help. The measurement and its
+  // reproduce command live beside the markup in dependencies-editor.tsx; this
+  // test is what that comment calls the only detector.
   it("keeps each type select's accessible name containing its visible caption", () => {
     const { container } = render(
       <div>
@@ -166,12 +163,21 @@ describe("DependencyLinkGroup", () => {
     const selects = [...container.querySelectorAll("select")];
     expect(selects).toHaveLength(2); // vacuity guard: an empty set must not pass
 
+    // ★★★ DISTINCTNESS, checked ACROSS the two selects — the per-select
+    // `for === id` check below cannot see this. Replace `useId()` with one
+    // hardcoded literal and every pairwise check still passes: both labels get
+    // `for="x"` and both selects `id="x"`. What breaks is duplicate DOM ids —
+    // `getElementById` and label activation both resolve to whichever rendered
+    // first, so clicking the SUCCESSOR caption focuses the PREDECESSOR select.
+    // Nothing else detects it: axe's `duplicate-id` is deprecated in 4.x, and
+    // the task modal is in none of the 17 A11Y_VIEWS anyway.
+    const ids = selects.map((s) => s.id);
+    expect(new Set(ids).size).toBe(2);
+
     for (const select of selects) {
       const label = select.parentElement?.querySelector("label") ?? null;
       expect(label).not.toBeNull();
-      // Pins the htmlFor binding as well — that is what makes the caption
-      // clickable, and `useId` is what keeps the two groups' captions bound to
-      // their OWN select instead of both to whichever rendered first.
+      // Pins the htmlFor binding — that is what makes the caption clickable.
       expect(select.id).not.toBe("");
       expect(label!.getAttribute("for")).toBe(select.id);
 
