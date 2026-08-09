@@ -8,6 +8,28 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.227.0] - 2026-08-09 "Bolander"
+
+### Fixed
+
+- **Rich-text editors render styled in a production build again.** The prod
+  Content-Security-Policy refused the stylesheet `@tiptap/core` injects at runtime, so on
+  every formatted field — task description, note log, RAID description and mitigation,
+  change description, impact description and resolution notes, milestone description —
+  `white-space` computed `normal` instead of `break-spaces` and `position` computed
+  `static` instead of `relative`. Consecutive spaces and newlines collapsed while typing,
+  and the cursor lost its containing block. Only the released build was affected; a
+  development build never was, because its CSP is the permissive branch — which is why
+  this went unnoticed. The editor now receives the per-request nonce through Tiptap's own
+  `injectNonce` option; the policy itself is unchanged.
+
+### Added
+
+- **`npm run e2e:smoke:prod`** and a matching **`prod-smoke` CI job** — the smoke run
+  against a real production server. The existing smoke starts no server of its own, so it
+  was only ever pointed at a development one, and a prod-only defect of this size was
+  structurally invisible to the suite most likely to catch it.
+
 ## [0.226.0] - 2026-08-09 "Emshwiller"
 
 Undo stopped being a one-step-at-a-time affair, every button that starts an AI
