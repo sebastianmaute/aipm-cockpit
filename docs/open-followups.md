@@ -2351,9 +2351,15 @@ are the authoritative versions — they sit *above* the fix section, not in it. 
 verification are under "Fix — option A chosen and shipped".
 ★★ An earlier revision of this banner called everything below it "the original investigation preserved
 verbatim" and sent readers to the fix heading for "the corrected mechanism". Both false: this branch
-rewrote four regions above that heading, and the corrected mechanism is 87 lines *before* it — so the
-banner discounted the very paragraph that replaces the disproved Turbopack theory, which is the claim
-three contributors had already acted on. A banner that mislocates a correction is worse than no banner.
+rewrote four regions above that heading, and the corrected mechanism ("The injector is `@tiptap/core`
+itself") sits well *above* it, not in it — so the banner discounted the very paragraph that replaces the
+disproved Turbopack theory. A banner that mislocates a correction is worse than no banner.
+★★ An earlier wording of THIS sentence said "87 lines before it" and attributed the disproved theory to
+"three contributors". Both were wrong and in different ways. The line count was measured on the
+pre-commit file and the same commit's own insertions moved it to 91 before it shipped — a distance in
+lines self-invalidates, so cite the heading. And no repo record supports the contributor count: it was
+imported from the unrelated `migrateTaskStatus` incident in AGENTS.md, which really did have three.
+Borrowing a number from a similar-sounding incident is how a fabricated fact enters a register.
 
 Every rich-text editor in a **production build** rendered without ProseMirror's base stylesheet, because
 the prod CSP refused the `<style>` element Tiptap injects at runtime. Dev was unaffected, which is why
@@ -2419,7 +2425,8 @@ stylesheet yourself). Fires once, on initial load.
 Reproduce the split with `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
 (8 consumers). See §129, which carries the full table and the counter-example command.
 
-★★ **Why it is prod-only, structurally** (`src/proxy.ts:51-52`) — verified on the live response header:
+★★ **Why it is prod-only, structurally** (`src/proxy.ts`, the `styleElem` ternary — `grep -n styleElem
+src/proxy.ts`) — verified on the live response header:
 
 | build | `style-src-elem` | injected `<style>` |
 |---|---|---|
@@ -2427,7 +2434,8 @@ Reproduce the split with `grep -rl 'rich-text-editor"' src/app --include="*.tsx"
 | prod | `'self' 'nonce-${nonce}'` | **blocked** |
 
 ★ It is `style-src-**elem**`. React `style={{…}}` props ride `style-src-attr 'unsafe-inline'`
-(`proxy.ts:60`) and are **not** implicated — do not conflate the two axes when reasoning about a fix.
+(the `style-src-attr` entry in `proxy.ts`) and are **not** implicated — do not conflate the two axes
+when reasoning about a fix.
 ★ The SSR HTML is clean: zero un-nonced `<style>` tags, and its one stylesheet `<link>` correctly
 carries the nonce. The offender is client-injected only, which is exactly why an SSR-level audit would
 report all-clear.
@@ -2455,7 +2463,8 @@ The original list enumerated the SEVEN sanitizer-backed register fields plus the
 `sanitize*` sweep finds — not the RENDER SURFACES, which is what a CSS failure actually follows.
 `RichTextEditor` has 8 consumers (§129); three of them render no register field at all. The verification
 paragraph below closes this entry by measuring `dashboard-sections/dashboard-narrative.tsx` — a surface
-this very list said was not affected, 55 lines apart in the same entry. ★★ The two `ssr: false`
+this very list said was not affected — the two `dashboard-narrative.tsx` mentions sit 55 lines apart in
+the same entry (count between the two mentions, not from the list, which gives 62). ★★ The two `ssr: false`
 consumers are affected identically: `immediatelyRender: false` defers Editor construction to mount, so
 the injection is client-side under BOTH import styles (§129). ★ Derive a blast radius from the consumer
 list, NOT from the field list — a field list answers "what is stored", and this bug is about what is
@@ -7695,7 +7704,9 @@ which is what turned a known limit into a false statement.
 
 ★★ **The timeout branch is a separate question and it was WRONG until 2026-08-09.** It resolved
 `false` — "port is free" — for a probe that sent a SYN and got nothing back. On loopback a genuinely
-free port RSTs immediately (measured 0-1 ms, via the error branch), so a two-second hang is never the
+free port RSTs the SYN, taking the error branch in 16.6-30.6 ms over five COLD processes — the only
+condition the script runs in, and ~20x the "0-1 ms" this entry first recorded from a warm second
+connect — so a two-second hang is never the
 free case; it is a full accept backlog or a firewall DROP. Mapping the ambiguous outcome to "free"
 re-opened the destructive path above, in the same function whose comment says "Refusing is the safe
 behaviour". It now resolves `true`. ★ A guard whose comment states a safety rule its code does not

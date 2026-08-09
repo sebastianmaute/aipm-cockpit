@@ -24,6 +24,11 @@ const url = `http://localhost:${port}/`;
 const READY_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 500;
 const PORT_PROBE_TIMEOUT_MS = 2_000;
+// ★ Same value as PORT_PROBE_TIMEOUT_MS, different question: this bounds ONE
+// readiness attempt inside the retry loop, that one bounds the single
+// is-the-port-taken probe. Kept separate so tuning one cannot silently move
+// the other.
+const READY_ATTEMPT_TIMEOUT_MS = 2_000;
 
 if (!fs.existsSync(".next")) {
   console.error("No .next/ directory found. Run `npm run build` first — this script does not build.");
@@ -31,7 +36,9 @@ if (!fs.existsSync(".next")) {
 }
 
 /**
- * True if anything reachable at `localhost:<port>` is already listening.
+ * True if `localhost:<port>` is NOT provably free — it answers `true` both when
+ * something is listening and when the probe is ambiguous (see the timeout note
+ * below). It is a refuse-to-run signal, not a "someone is listening" fact.
  * Guards against the case where `next start` fails to bind because the port is
  * held by an unrelated process: without this check, waitForReady() below would
  * happily succeed against that FOREIGN server, the smoke would run against the
@@ -44,20 +51,29 @@ if (!fs.existsSync(".next")) {
  * timeout, and stopServer() then port-kills the foreign PID anyway.
  *
  * ★★ THE TIMEOUT BRANCH RESOLVES `true`, AND THAT IS NOT THE OBVIOUS CHOICE.
- * On loopback a genuinely free port RSTs the SYN immediately (measured: 0-1ms,
- * via the "error" branch), so a probe that hangs for two seconds is never the
- * "nothing is there" case — it is "something is there and is not answering",
- * e.g. a full accept backlog or a local firewall DROP. Mapping that ambiguous
- * outcome to "free" would re-open the exact destructive path above, so the
- * ambiguous outcome refuses instead.
+ * On loopback a genuinely free port RSTs the SYN, taking the "error" branch in
+ * 16.6-30.6 ms — measured over five COLD processes, which is the only condition
+ * this script runs in (one probe, then exit). A hang of PORT_PROBE_TIMEOUT_MS is
+ * therefore never the "nothing is there" case; it is "something is there and is
+ * not answering", e.g. a full accept backlog or a local firewall DROP. Mapping
+ * that ambiguous outcome to "free" would re-open the destructive path above, so
+ * the ambiguous outcome refuses instead.
+ * ★ This said "0-1ms" until it was re-measured. That figure is real but comes
+ * from a WARM process on a second connect; a cold process pays DNS resolution
+ * for the name "localhost" plus the dual-stack attempt, ~20x more. The
+ * conclusion is unchanged — 30 ms is still nowhere near 2000 — but the sole
+ * number backing a security-relevant branch decision should not be taken from a
+ * condition the code never runs in.
  *
- * ★ RESIDUAL, deliberately not closed here: this probes `localhost` only, so a
- * listener bound to a specific non-loopback address is invisible to it. On
- * Windows the subsequent bind on 0.0.0.0 then SUCCEEDS, and stop-dev.mjs
- * collects every PID whose netstat row ends in `:<port>` — including that
- * foreign one. Closing it means enumerating local interfaces, which is a lot of
- * machinery for a case that needs someone to have bound a non-loopback address
- * on the smoke's own port. Narrow the claim rather than overstate the guard.
+ * ★ RESIDUAL, deliberately not closed here — see `docs/open-followups.md` §130
+ * for the measurement and the accept/reject rationale: this probes `localhost`
+ * only, so a listener bound to a specific non-loopback address is invisible to
+ * it. On Windows the subsequent bind on 0.0.0.0 then SUCCEEDS, and stop-dev.mjs
+ * kills every PID whose netstat LOCAL ADDRESS matches `[:.]<port>$` — including
+ * that foreign one. Closing it means enumerating local interfaces, which is a
+ * lot of machinery for a case that needs someone to have bound a non-loopback
+ * address on the smoke's own port. Narrow the claim rather than overstate the
+ * guard.
  */
 function isPortAlreadyInUse() {
   return new Promise((resolve) => {
@@ -128,7 +144,10 @@ async function waitForReady() {
       // rejecting UND_ERR_HEADERS_TIMEOUT. That is ~2.6x READY_TIMEOUT_MS,
       // which is what makes the bound useless; "forever" overstates a real
       // defect and invites the next reader to disprove it and dismiss it.
-      await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(2000) });
+      await fetch(url, {
+        redirect: "manual",
+        signal: AbortSignal.timeout(READY_ATTEMPT_TIMEOUT_MS),
+      });
       return true;
     } catch {
       // not listening yet

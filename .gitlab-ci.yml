@@ -359,7 +359,14 @@ dast-zap:
         fi
         sleep 3
       done
-    # -I = do not fail the job on warn/alert (allow_failure already covers infra).
+    # -I = do not fail the job on warn/alert.
+    # ★★ NOT "allow_failure already covers infra" — that was wrong. allow_failure
+    # is on the `when: manual` rule ONLY; the `schedule` rule above omits it and a
+    # rules entry without allow_failure defaults to FALSE. So on the weekly
+    # schedule this job is BLOCKING, and an infra failure (docker build, or
+    # `network create dastnet` on a re-run where the network survived) reddens the
+    # scheduled pipeline. -I keeps ZAP *findings* from doing that; nothing else here
+    # is guarded.
     - |
       docker run --rm --network dastnet -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
         zap-baseline.py -t http://app:3000 -I -r zap-report.html -J zap-report.json || true

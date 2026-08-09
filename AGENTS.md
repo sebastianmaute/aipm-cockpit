@@ -384,10 +384,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ Note **e2e** does NOT invoke `e2e:smoke` — they are separate entry points that happen to share the
   same blind spot, so fixing one would not have covered the other. That is how §54 stayed invisible for
   months. ★ **dast-zap** DOES serve a prod build (`Dockerfile.dast` ends `CMD ["npm","run","start"]`), so
-  it is the one other suite that meets this policy — but it is not a GATE: its scan is `zap-baseline.py
-  -I … || true` and its rule is schedule-or-manual with `allow_failure: true`, so it cannot fail a
-  pipeline. Enumerating the other four suites and stopping short of this one is what made an earlier
-  revision of this bullet read as an oversight] · **dast-zap** weekly/manual].
+  it is the one other suite that meets this policy — but it does not gate MR or default-branch pipelines,
+  where its rule is `when: manual` WITH `allow_failure: true`. ★★ It is NOT unconditionally non-blocking,
+  and an earlier revision of this bullet said it "cannot fail a pipeline", which is false in the very mode
+  the line names: `allow_failure: true` is indented under the `- when: manual` rule ONLY, there is no
+  job-level one, and a `rules:` entry that omits it defaults to FALSE — so on a `schedule`
+  pipeline the first rule matches and dast-zap runs BLOCKING. Its ZAP findings still cannot fail it
+  (`zap-baseline.py … -I … || true`), but the unguarded `docker build` / `docker network create dastnet`
+  / `docker run` steps can, and `network create` fails outright on a re-run where the network survives.
+  Reproduce with `sed -n '/^dast-zap:/,/^  image:/p' .gitlab-ci.yml`] · **dast-zap** weekly/manual].
   All quality gates are ratchets. ★★ The
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
