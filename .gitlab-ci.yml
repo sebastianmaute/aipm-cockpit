@@ -248,6 +248,26 @@ agents-symbol-check:
   script:
     - npm run docs:symbols:check
 
+# Doc-claims ratchet — BLOCKING. Fails when a doc gains a NEW `path:LINE`
+# citation, or cites a line that cannot exist. It is the enforcement AGENTS.md's
+# three-star "CITE THE SYMBOL, NOT A LINE RANGE" rule never had: on 2026-08-09 a
+# 10-line comment insertion in src/proxy.ts silently repointed NINE proxy.ts:NN
+# citations across four tracked files — FOUR of them inside
+# docs/security/threat-model.md — every one of which had been exact.
+# ★★ It CANNOT verify a citation still points at the right code; nothing can,
+# because the doc never records what was supposed to be there. It proves only
+# that the line could exist and that the count is not growing. Do not read a
+# green run as "the citations are correct".
+# Pre-existing breakage is grandfathered in docs/baselines/doc-line-cites.json.
+# Re-baseline ONLY when citations are removed or converted to symbols:
+#   node scripts/check-doc-claims.mjs --update
+# Never re-baseline to admit a new one — that is the whole thing being gated.
+doc-claims-check:
+  stage: quality
+  needs: []
+  script:
+    - npm run docs:claims:check
+
 # Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
 # non-zero if any format's duplication % exceeds the `--threshold` set in the
 # `dup:check` script (post-TD-6 exit level: tsx 1.69% / typescript 1.71% [binding]

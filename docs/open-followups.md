@@ -7711,3 +7711,75 @@ free case; it is a full accept backlog or a firewall DROP. Mapping the ambiguous
 re-opened the destructive path above, in the same function whose comment says "Refusing is the safe
 behaviour". It now resolves `true`. ★ A guard whose comment states a safety rule its code does not
 follow is worse than no guard: the comment is what the next reader checks.
+
+---
+
+## 131. The doc-claims ratchet cannot verify a citation is CORRECT, and 16 known-broken ones are grandfathered — open, accepted, measured
+
+**Where:** `scripts/check-doc-claims.mjs`, `docs/baselines/doc-line-cites.json`, CI job `doc-claims-check`.
+
+**Why it exists.** AGENTS.md has carried "CITE THE SYMBOL, NOT A LINE RANGE" at three stars for a long
+time with NOTHING enforcing it. On 2026-08-09 a 10-line comment insertion in `src/proxy.ts` silently
+repointed nine `proxy.ts:NN` citations across four tracked files — four inside
+`docs/security/threat-model.md`, including the one cited twice as the evidence that `connect-src` is
+restricted to `*.turso.io`, which came to rest on `return [`. Every one had been exact when written.
+
+**★★★ WHAT IT CANNOT DO, and no future version can.** It cannot tell you a citation still points at
+the right code, because the doc never records what was supposed to be at that line. It proves two
+things only: the cited file exists, and the cited line number is within it. **A citation silently
+shifted by an insertion still passes.** That is not a gap to be closed later — it is why the rule is
+"prefer a symbol" rather than "keep the numbers fresh".
+
+★★ MEASURED ON THE ROW THAT MOTIVATED THE GATE, not reasoned. `threat-model.md`'s server-logging row
+cited three files. TWO were wrong: `timelog/_helpers.ts` cited at line 185, one past its 184; and
+`jira/_helpers.ts` cited at line 181, while the only `console.error` in it sits at line 117 — 64 off. The gate
+caught the first and was **silent** on the second, because being 64 lines wrong is indistinguishable
+from being right when the only question asked is "does line 181 exist". One of two. Both were also
+attached to a quoted comment — "status-only — never the token" — that **exists nowhere in the file**.
+The mitigation itself held (no proxy logs a credential); every artifact describing it had rotted.
+That row now cites a grep instead, and the gate cannot check the grep either.
+
+**Grandfathered debt (16, at 0.227.0).** Failing on pre-existing breakage would have made the gate
+unlandable, and a gate that cannot land protects nothing. `knownUnresolved` (11) is mostly citations
+into `node_modules` and other third-party trees, which are legitimate references to code this repo
+does not own. `knownOutOfRange` (5) are genuinely broken and worth fixing:
+
+```
+docs/handrolled-ui-inventory.md :: chat-panel.tsx:962          (file has 936)
+docs/open-followups.md          :: ai-section.tsx:603          (file has 498)
+docs/open-followups.md          :: export-pptx.ts:213          (file has 202)
+docs/open-followups.md          :: use-resource-planner.ts:710 (file has 554)
+docs/security/findings-2026-07.md :: timelog/_helpers.ts:185   (file has 184)
+```
+
+★ `findings-2026-07.md` is a DATED snapshot of a July 2026 audit, so a citation that has since rotted
+is arguably history rather than a defect — it also cites `document-links-field.tsx` at line 42, a file that
+no longer exists at all. Left as-is deliberately; converting a dated report to live symbols would
+misrepresent when it was verified.
+
+**Deliberately NOT built: staleness detection.** The strongest available check is "was the cited file
+modified after the doc line was written", via `git blame` on the doc plus `git log` on each cited
+file — about 11 blames and ~50 log lookups, so cost is not the objection. **The slim CI image has no
+git** (the same constraint `check-file-sizes.mjs` records at its `readdirSync` comment). It would work
+locally and silently no-op in CI, which is the worst possible shape for a gate: green because it did
+not run. Either move it to a job on a git-bearing image, or do not build it.
+
+★ Citations inside ``` fences are ignored by design — a stack trace or a sample command is an example,
+not a claim about this repo. A citation hidden in a fence therefore escapes the ratchet. Accepted: the
+alternative is the gate firing on its own documentation.
+
+★★ **THE GATE FIRED ON THIS ENTRY, ON THE FIRST RUN, AND THAT WAS CORRECT.** A register entry about
+broken citations necessarily contains citation-shaped text, so §131's own prose examples read as three
+new `path:LINE` citations and the ratchet refused them. The temptation is to re-baseline — which would
+have admitted three new citations into the baseline and quietly defeated the only thing the gate
+checks, on the very commit that introduced it. The fix was to obey the rule instead: the examples now
+read "`timelog/_helpers.ts` cited at line 185" rather than the `path:LINE` form. Baseline unchanged at
+496/11/5. ★ If you are ever about to run `--update` to make your own commit pass, that is the signal
+you are the thing being gated.
+
+★ **No automated test covers this script**, matching `check-file-sizes.mjs` and
+`check-agents-symbols.mjs`, neither of which has one either. Verification was a manual mutation pass
+proving it exits 1 on each violation class (new cite to an existing path · new cite to a new path ·
+unresolvable file · line past EOF) and 0 on each allowed case (a citation inside a fence · a
+symbol-only citation · correcting an existing citation's line number in place). A future edit to the
+regex or the resolver has nothing catching a regression — re-run that mutation pass by hand.

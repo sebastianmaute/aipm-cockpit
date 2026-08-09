@@ -59,7 +59,7 @@ The strongest surface — this is where the server makes outbound calls on the u
 | T | Field injection on Jira write | `sanitizeIssueFields` allowlists summary/priority/labels/description/duedate, strips all else (`jira/_helpers.ts:200-267`) | — | none |
 | S | Plaintext credential interception | jira rejects non-`https:` (`jira/_helpers.ts:128`); timelog forces `https://` (`timelog/_helpers.ts:168`) | — | none |
 | D | Proxy resource exhaustion | per-IP sliding-window rate limit, 60/min, scoped per route so jira/timelog/ecb don't drain each other (`jira/_rate-limit.ts:6-7,42-43`); 10s upstream timeout via `AbortSignal.timeout` (`jira/_helpers.ts:148,174`; `timelog/_helpers.ts:99,179`) | in-memory Map → single-process only (documented `_rate-limit.ts:1-4`); multi-instance needs shared store | note as LOW (deployment-topology dependent) |
-| R/I | Secret leaked to server logs | `console.error` sites log only the caught `err` (upstream fetch failure) or a status — never creds (`jira/_helpers.ts:181`, `timelog/_helpers.ts:185`, `ecb/route.ts:40`); comment at `timelog/_helpers.ts:184` explicitly "status-only — never the token" | — | none |
+| R/I | Secret leaked to server logs | Each proxy has exactly ONE `console.error`, and none takes a credential: jira and ecb log the caught `err` only; timelog logs a derived failure class, an elapsed ms and the request PATH — never a header, body or token (`grep -n "console.error" src/app/api/jira/_helpers.ts src/app/api/timelog/_helpers.ts src/app/api/ecb/route.ts`) | — | re-verified 2026-08-09 |
 
 ### B5 — Local persistence (localStorage settings blob, IndexedDB, FS-access handles)
 

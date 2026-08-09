@@ -203,6 +203,24 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
                             # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
                             # Read the real number with:
                             #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
+npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when a doc gains a NEW
+                            # `path:LINE` citation, or cites a line that cannot exist. This is the
+                            # enforcement the ★★★ "cite the SYMBOL, not a line range" rule never had.
+                            # ★★ IT CANNOT TELL YOU A CITATION IS CORRECT, and nothing can — the doc
+                            # never records what was supposed to be at that line. It proves only that
+                            # the line COULD exist and that the count is not growing. A cite silently
+                            # shifted by an insertion still passes: measured on the very row that
+                            # motivated the gate, where `jira/_helpers.ts:181` sat 64 lines off the
+                            # actual `console.error` and passed the range check while
+                            # `timelog/_helpers.ts:185` (one line past EOF) was caught. Two wrong
+                            # cites, one detectable. Do NOT read green as "the citations are right".
+                            # ★ Pre-existing breakage is GRANDFATHERED in
+                            # docs/baselines/doc-line-cites.json (11 unresolvable + 5 out-of-range at
+                            # 0.227.0). Re-baseline ONLY after REMOVING citations or converting them
+                            # to symbols: `node scripts/check-doc-claims.mjs --update`. Re-baselining
+                            # to admit a new one defeats the only thing it checks.
+                            # ★ Citations inside ``` fences are ignored on purpose — a stack trace or
+                            # sample command is an example, not a claim about this repo.
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
@@ -369,7 +387,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   BLOCKING [jscpd `--threshold` per package.json `dup:check` — ★★ it compares the TOTAL
   duplicated-LINE percentage across all formats, NOT per-format and NOT tokens; the `dup:check` line
   in Commands carries the bisect] · **agents-symbol-check** BLOCKING
-  [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
+  **doc-claims-check** BLOCKING [`npm run docs:claims:check` — a RATCHET over `path:LINE` citations in
+  every tracked doc, incl. `docs/security/*`; proves only that a cited line COULD exist, never that it
+  is right — the Commands entry carries the measurement] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
@@ -398,7 +419,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
-  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `unit-tests`,
+  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `doc-claims-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
