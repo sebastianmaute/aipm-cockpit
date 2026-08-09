@@ -268,9 +268,16 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # `vitest.config.ts` `include` now covers
                             # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
                             # coverage `include` deliberately stays `src/**`, so a script test raises
-                            # no floor. ★ The two truncation guards (extension order + PATH_RE's
-                            # lookahead) are REDUNDANT — mutate BOTH to reproduce the defect;
-                            # removing either alone is an equivalent mutant and stays green.
+                            # no floor. ★★★ THE TWO TRUNCATION GUARDS ARE NOT INTERCHANGEABLE, and
+                            # this line said they were: PATH_RE's `(?!...)` lookahead is LOAD-BEARING
+                            # ALONE (drop it and 336 of 784 fuzzed inputs change — `foo.tsxx` yields
+                            # a phantom anchor to `foo.tsx`), while the longest-first extension order
+                            # really is redundant (0 of 784). The lookahead mutant survived the first
+                            # suite only because nothing fed it an extension-SUFFIXED name — a test
+                            # gap recorded as proof of redundancy, i.e. licence to delete a live
+                            # guard. ★★ A surviving mutant is a QUESTION: "equivalent mutant" and
+                            # "missing test" look identical from the harness, and separating them
+                            # needs an input the suite does not have. Go find one.
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a

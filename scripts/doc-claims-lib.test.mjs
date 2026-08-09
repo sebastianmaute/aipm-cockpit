@@ -8,21 +8,30 @@
 // Each `regression:` test names the defect it pins. Do not delete one without
 // re-measuring the behaviour it describes against `docs/`.
 //
-// ★★★ MUTATION-PROVED, and the result changed what this file says. Six injected
-// defects: four died immediately (anchor-on-cite, first-mention-not-nearest,
-// dropping resolveCandidates' dot boundary, disabling fence stripping). TWO
-// SURVIVED — and investigating them showed the tests were right and the harness
-// naive. `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead are REDUNDANT
-// guards against the same truncation bug, so removing either ALONE is an
-// equivalent mutant: the survivor still holds the line. Removing BOTH reproduces
-// the shipped defect exactly (`.tsx`→`.ts`, `.json`→`.js`) and turns three tests
-// red. ★★ The lesson is not "the guards are belt-and-braces", which the lib
-// already said — it is that a surviving mutant is a QUESTION, not a verdict. Two
-// of six here meant the harness was wrong; reading them as "vacuous tests" would
-// have led to rewriting tests that were already correct.
+// ★★★ MUTATION-PROVED — and an earlier version of THIS COMMENT was the most
+// dangerous thing in the file. It said `SOURCE_EXT` ordering and PATH_RE's
+// `(?!...)` lookahead were REDUNDANT guards, so "removing either ALONE is an
+// equivalent mutant". That is true of the ORDER and FALSE of the LOOKAHEAD.
+// Differential fuzz over 784 inputs, run by a cold reviewer and re-verified
+// here: dropping the order changes 0 outputs; dropping the lookahead changes
+// 336 — `` `foo.tsxx` `` yields a phantom anchor to `foo.tsx`, and
+// `tsconfig.jsonc` to `tsconfig.json`. The mutant survived my harness only
+// because no test fed it an extension-suffixed name. I had a TEST GAP and
+// recorded it as proof the code was redundant, in a comment a future
+// contributor would read as licence to delete a live guard. There is now a test
+// (".tsxx is not .tsx"), and dropping the lookahead alone turns it red.
+// ★★★ THE GENERAL RULE, which the first version got backwards: a surviving
+// mutant is a QUESTION, not a verdict — and the two answers are "equivalent
+// mutant" and "missing test", which look identical from the harness. Deciding
+// between them requires an input the suite does not contain, so you must go
+// LOOKING for one. Assuming equivalence is how a guard gets deleted later.
+// ★ The order genuinely IS redundant (0 of 784), so it is belt to the
+// lookahead's braces — that half of the original claim survived checking.
 import { describe, expect, it } from "vitest";
 import {
   citesOnLine,
+  collectDocs,
+  collectSources,
   countLines,
   resolveCandidates,
   stripFencedBlocks,
@@ -184,8 +193,53 @@ describe("citesOnLine — cold-review regressions (2026-08-09)", () => {
     ]);
   });
 
+  it("regression: a scoped package survives on the MENTION path too", () => {
+    // ★★ A SEPARATE CODE PATH from the cite above: the anchor comes from
+    // PATH_RE, so dropping `@` from PATH_RE alone reproduces the shipped defect
+    // on continuations while every other test stays green. Measured: without it
+    // the anchor becomes `tiptap/core/dist/index.js`.
+    expect(paths("crash in `node_modules/@tiptap/core/dist/index.js` at `:88`")).toEqual([
+      "node_modules/@tiptap/core/dist/index.js:88",
+    ]);
+  });
+
+  it("regression: the extension must END the token (.tsxx is not .tsx)", () => {
+    // ★★★ PATH_RE's `(?!...)` lookahead is NOT redundant with the longest-first
+    // extension order, and a comment here claimed it was. Differential fuzz
+    // over 784 inputs: dropping the ORDER changes nothing (0 differ), dropping
+    // the LOOKAHEAD changes 336. Without it `foo.tsxx` yields a phantom anchor
+    // to `foo.tsx`. This test is the one that would have caught the mislabel.
+    expect(paths("`foo.tsxx` at `:5`")).toEqual([]);
+    expect(paths("`tsconfig.jsonc` at `:5`")).toEqual([]);
+  });
+
   it("regression: a URL with a line anchor is not a citation", () => {
     expect(paths("See https://github.com/x/y/blob/main/app.js:12 for detail")).toEqual([]);
+  });
+
+  it("regression: the URL guard needs TWO slashes, not one", () => {
+    // A one-character guard would silently DROP real citations — a false
+    // negative nothing announces.
+    expect(paths("see /foo.ts:12 there")).toEqual(["foo.ts:12"]);
+    expect(paths("(/src/app/x.ts:9)")).toEqual(["src/app/x.ts:9"]);
+  });
+
+  it("accepts an en-dash range, not just a hyphen", () => {
+    // `BARE_CITE_RE` writes `[-–]` deliberately. No en-dash range exists in the
+    // corpus today, so this pins an arm that is otherwise unreachable.
+    expect(paths("`secrets.ts` at `:113–116`")).toEqual(["secrets.ts:113"]);
+  });
+
+  it("parses a full dotfile citation", () => {
+    // resolveCandidates' dotfile test assumes this exact string; nothing else
+    // pins that the PARSER produces it.
+    expect(paths("`.gitlab-ci.yml:99` sets it")).toEqual(["gitlab-ci.yml:99"]);
+  });
+
+  it("returns citations sorted by position, mixing bare and full", () => {
+    // "in document order" is what the sort exists for; the all-full-cite case
+    // passes with the sort deleted, because matchAll already yields in order.
+    expect(paths("`a.ts:1` `:2` `b.ts:3`")).toEqual(["a.ts:1", "a.ts:2", "b.ts:3"]);
   });
 
   it("regression: a URL host cannot anchor a bare continuation", () => {
@@ -255,6 +309,33 @@ describe("stripFencedBlocks", () => {
     const out = stripFencedBlocks(["```", "a.ts:1", "~~~", "b.ts:2", "```", "after"].join("\n"));
     expect(out.filter(Boolean)).toEqual(["after"]);
   });
+
+  it("regression: a closer carrying an info string does not close", () => {
+    // ```js INSIDE a block is content — realistic in any doc showing fenced
+    // markdown. Without this the block ends early and leaks prose.
+    const out = stripFencedBlocks(["```", "a.ts:1", "```js", "prose b.ts:2"].join("\n"));
+    expect(out.filter(Boolean)).toEqual([]);
+  });
+
+  it("regression: a run of fewer than three fence chars is NOT a fence", () => {
+    // ★★ The `{3,}` quantifier is load-bearing on live data. AGENTS.md and two
+    // docs/AGENTS files carry prose lines that OPEN with a single `~` (an
+    // approximate measurement — "~20px narrower…"). Under a 1+ quantifier each
+    // opens a phantom fence and swallows everything to the next fence line.
+    // ★★★ A first version of this test used a line starting with ONE BACKTICK
+    // and was VACUOUS: an inline code span closes with a second backtick, and
+    // the info-string group `[^`~]*$` rejects that, so such a line is not a
+    // fence under EITHER quantifier. The mutant survived and said so. The
+    // opener must have no further fence char on the line — which is exactly
+    // what makes the `~` prose lines the dangerous shape.
+    const out = stripFencedBlocks(["~20px narrower when off", "prose b.ts:2"].join("\n"));
+    expect(out.filter(Boolean)).toEqual(["~20px narrower when off", "prose b.ts:2"]);
+  });
+
+  it("an unterminated fence blanks to end of file", () => {
+    const out = stripFencedBlocks(["prose a.ts:1", "```js", "code b.ts:2", "more c.ts:3"].join("\n"));
+    expect(out).toEqual(["prose a.ts:1", "", "", ""]);
+  });
 });
 
 describe("resolveCandidates", () => {
@@ -299,6 +380,56 @@ describe("resolveCandidates", () => {
   it("returns nothing for a file that does not exist", () => {
     expect(resolveCandidates("nope.ts", sources)).toEqual([]);
   });
+
+  it("regression: the three branches are a PRECEDENCE, not a union", () => {
+    // ★★ A needle can match both the segment branch and the dot branch — two do
+    // in this repo today. Unioning them widens the candidate set, and the driver
+    // only reports out-of-range when EVERY candidate is exceeded, so a wider set
+    // silently SUPPRESSES violations.
+    const both = ["src/app/secrets.test.ts", "src/app/other.secrets.test.ts"];
+    expect(resolveCandidates("secrets.test.ts", both)).toEqual(["src/app/secrets.test.ts"]);
+  });
+});
+
+describe("collectSources / collectDocs", () => {
+  // These run against the real tree, which is the point: they pin the WALK, and
+  // the walk is where the one shipped defect in this file lived.
+  it("regression: indexes root-level config files", () => {
+    // ★★ Omitting these made every `vitest.config.ts:24` / `.gitlab-ci.yml:99`
+    // citation look DELETED on the gate's first run. The comment recorded that
+    // defect; nothing tested it until now.
+    const sources = collectSources();
+    expect(sources).toContain("vitest.config.ts");
+    expect(sources).toContain(".gitlab-ci.yml");
+  });
+
+  it("indexes nested sources under src/", () => {
+    expect(collectSources()).toContain("src/app/sanitize.ts");
+  });
+
+  it("normalises separators to forward slashes", () => {
+    // readdirSync(..., {recursive:true}) yields backslashes on Windows, which is
+    // where this repo is developed — a regression here breaks every resolve on
+    // the dev machine only, and would look fine in CI.
+    expect(collectSources().every((s) => !s.includes("\\"))).toBe(true);
+  });
+
+  it("seeds the root docs and scans docs/", () => {
+    const docs = collectDocs();
+    expect(docs).toContain("AGENTS.md");
+    expect(docs).toContain("CHANGELOG.md");
+    expect(docs).toContain("docs/open-followups.md");
+  });
+
+  it("excludes the gitignored superpowers working material", () => {
+    // Scanning it would gate files that are not in the repo at all.
+    expect(collectDocs().some((d) => d.startsWith("docs/superpowers/"))).toBe(false);
+  });
+
+  it("returns docs sorted", () => {
+    const docs = collectDocs();
+    expect(docs).toEqual([...docs].sort());
+  });
 });
 
 describe("THIRD_PARTY_RE", () => {
@@ -326,5 +457,26 @@ describe("THIRD_PARTY_RE", () => {
     "task-manager.tsx",
   ])("does not classify repo path %s as third-party", (p) => {
     expect(THIRD_PARTY_RE.test(p)).toBe(false);
+  });
+
+  it("regression: the bare dompurify/ branch is reachable on its own", () => {
+    // Every other dompurify fixture also matches via `node_modules/`, so this
+    // branch was never exercised alone. A doc can cite it without the prefix.
+    expect(THIRD_PARTY_RE.test("dompurify/dist/purify.cjs.js")).toBe(true);
+  });
+
+  it("regression: the bare-filename branch is anchored at both ends", () => {
+    // Without the trailing `$`, `version.json` — real repo debt — would be
+    // exempted as a dependency. A false negative that hides a broken cite.
+    expect(THIRD_PARTY_RE.test("version.json")).toBe(false);
+    expect(THIRD_PARTY_RE.test("minimatch.json")).toBe(false);
+    expect(THIRD_PARTY_RE.test("version.js")).toBe(true);
+  });
+
+  it("regression: a dependency NAME inside a repo path is not third-party", () => {
+    // Without the leading `^`, any repo path containing `eslint/` or `vitest/`
+    // would be exempted.
+    expect(THIRD_PARTY_RE.test("src/app/eslint/foo.js")).toBe(false);
+    expect(THIRD_PARTY_RE.test("e2e/vitest/helper.ts")).toBe(false);
   });
 });

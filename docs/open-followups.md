@@ -7861,12 +7861,22 @@ the unit suite for the first time — coverage `include` stays `src/**`, so a sc
 floor and gates no percentage. The other ungated scripts (`check-agents-symbols`, `check-file-sizes`,
 `stop-dev`) are now testable the same way; none is tested yet.
 
-★★★ MUTATION-PROVED, and the result corrected the harness rather than the tests. Six injected
-defects, four killed at once. TWO SURVIVED — `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead
-are REDUNDANT guards against the same truncation bug, so removing either ALONE is an equivalent
-mutant and the survivor still holds. Removing BOTH reproduces the shipped defect exactly and turns
-three tests red. **A surviving mutant is a QUESTION, not a verdict** — reading these two as "vacuous
-tests" would have led to rewriting tests that were already correct. Note also that the `.yaml` case
+★★★ MUTATION-PROVED — and the first reading of the result was HALF WRONG, in the dangerous
+direction. Six injected defects, four killed at once, two survived; I classified BOTH survivors as
+equivalent mutants, concluding that `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead were
+redundant guards so removing either alone changed nothing. A cold review's differential fuzz over
+784 inputs settled it: dropping the ORDER changes **0** outputs, dropping the LOOKAHEAD changes
+**336**. `` `foo.tsxx` `` yields a phantom anchor to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+The lookahead mutant survived only because no test fed it an extension-SUFFIXED name — a TEST GAP,
+which I recorded as proof the code was redundant, in a comment a future contributor would read as
+licence to delete a live guard. There is now a test (".tsxx is not .tsx") and that mutant dies.
+
+★★★ THE RULE, stated correctly this time: a surviving mutant is a QUESTION, and its two answers —
+"equivalent mutant" and "missing test" — are INDISTINGUISHABLE from the harness, because both look
+like a green run. Telling them apart requires an input the suite does not contain, so you have to go
+LOOKING for one; assuming equivalence is how a guard gets deleted two releases later. ★ Reading them
+as "vacuous tests" would also have been wrong, and that was the original mistake's mirror image: the
+tests were fine, the *conclusion drawn from their silence* was not. Note also that the `.yaml` case
 sitting beside the two real truncation regressions is NOT one (`yml` is not a prefix of `yaml`, so no
 ordering can truncate it); it is relabelled as a plain positive case, because a vacuous test filed
 under "regression" is worse than no test — it is counted as cover.
