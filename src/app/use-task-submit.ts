@@ -31,6 +31,7 @@ import {
 } from "./sanitize";
 import { sanitizeNoteHtml } from "./sanitize-html";
 import { describeTextCap } from "./sanitize-report";
+import { resolveSuccessorLinks } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
 
 export interface UseTaskSubmitArgs {
@@ -184,20 +185,61 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
       setContacts((prev) => upsertContact(prev, assignee, email));
 
+      // ★ Called AFTER each branch's own-task captures, so the target entries
+      // land on top of the stack: a bare undo() peels the successor links first
+      // (the most recently-intended act), and undoThrough from the own-task's
+      // oldest entry unwinds the whole save as one commit.
+      //
+      // ★★ captureFieldEdit MERGES before/after onto the live row by id rather
+      // than replacing it, so these entries cannot revert a field this save
+      // never touched. A whole-row capture() would give one tidier entry and
+      // inherit open-followups §50, where undo restores a stale row.
+      const captureSuccessorEdits = (
+        resolution: ReturnType<typeof resolveSuccessorLinks>,
+        nameSource: readonly Task[],
+      ) => {
+        for (const [targetId, edit] of resolution.edits) {
+          captureFieldEdit?.({
+            setter: setTasks,
+            kind: "task.updated",
+            id: targetId,
+            before: { dependencies: edit.before },
+            after: { dependencies: edit.after },
+            stampField: "localModifiedAt",
+            name: nameSource.find((r) => r.id === targetId)?.taskName,
+          });
+        }
+      };
+
       if (editingId !== null) {
         const stamp = new Date().toISOString();
         const updatedId = editingId;
         const prevTask = tasksRef.current.find((r) => r.id === editingId);
+        const successors = resolveSuccessorLinks({
+          ownId: editingId,
+          links: form.successorLinks,
+          tasks: tasksRef.current,
+        });
+        if (successors.skipped > 0) {
+          showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
+        }
+        // ONE functional setter for the edited task AND every successor target:
+        // they all live in the same array, so a second setTasks would be a
+        // second pass over it for no benefit.
         setTasks((prev) =>
-          prev.map((row) =>
-            row.id === editingId
-              ? applyStatusChange(
-                  { ...row, ...payload, localModifiedAt: stamp },
-                  form.status,
-                  today,
-                )
-              : row,
-          ),
+          prev.map((row) => {
+            if (row.id === editingId) {
+              return applyStatusChange(
+                { ...row, ...payload, localModifiedAt: stamp },
+                form.status,
+                today,
+              );
+            }
+            const edit = successors.edits.get(row.id);
+            return edit
+              ? { ...row, dependencies: edit.after, localModifiedAt: stamp }
+              : row;
+          }),
         );
         setEditingId(null);
         if (prevTask) {
@@ -226,6 +268,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         } else {
           logActivity("task.updated", updatedId, taskName);
         }
+        captureSuccessorEdits(successors, tasksRef.current);
       } else {
         const newTask: Task = applyStatusChange(
           {
@@ -243,9 +286,35 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           form.pushToJira &&
           settings.jira.enabled &&
           !!settings.jira.projectKey;
-        const nextList = [...tasksRef.current, newTask];
+        const stamp = new Date().toISOString();
+        const withNew = [...tasksRef.current, newTask];
+        // ★★★ Resolve AFTER the mint, against a list that CONTAINS the new
+        // task. Resolving against tasksRef.current makes newId a dangling
+        // reference that sanitizeDependencies strips, so every staged link is
+        // silently dropped — green tests, no error, no links. It also lets the
+        // cycle walk see the new task's own predecessors, which is how a task
+        // staged as both predecessor and successor gets caught here.
+        const successors = resolveSuccessorLinks({
+          ownId: newId,
+          links: form.successorLinks,
+          tasks: withNew,
+        });
+        if (successors.skipped > 0) {
+          showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
+        }
+        const nextList =
+          successors.edits.size === 0
+            ? withNew
+            : withNew.map((row) => {
+                const edit = successors.edits.get(row.id);
+                return edit
+                  ? { ...row, dependencies: edit.after, localModifiedAt: stamp }
+                  : row;
+              });
+        // ★ Patch BEFORE this assignment so the ref and the state agree.
         tasksRef.current = nextList;
         setTasks(nextList);
+        captureSuccessorEdits(successors, nextList);
         logActivity("task.created", newId, taskName);
         // Flush any editor-buffered RAID/links now that the parent id exists.
         onTaskCreated?.(newId);
