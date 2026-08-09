@@ -145,7 +145,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run e2e` | Playwright functional E2E (smoke + app nav + a11y), headless — the CI suite |
 | `npm run e2e:ui` | Playwright interactive UI mode |
 | `npm run e2e:smoke` | Standalone smoke driver (scripts/e2e-smoke.mjs): seeds a project, walks every view, fails on any console/page error. Needs a running server |
-| `npm run e2e:smoke:prod` | Build-then-smoke against a real production server (scripts/e2e-smoke-prod.mjs): starts `next start`, runs the smoke, stops it. The ONLY local reproduction of the prod CSP — `e2e:smoke` alone only ever meets the permissive dev policy. Needs `npm run build` first |
+| `npm run e2e:smoke:prod` | Smoke against a real, already-built production server (scripts/e2e-smoke-prod.mjs): starts `next start`, runs the smoke, stops it. Does NOT build — run `npm run build` first. The ONLY local reproduction of the prod CSP; `e2e:smoke` alone only ever meets the permissive dev policy |
 | `npm run e2e:visual` | Playwright visual-regression snapshots (opt-in; baselines are per-platform — generate CI's in the Linux container) |
 | `npm run e2e:visual:update` | Regenerate visual snapshot baselines for the current platform |
 | `npm run e2e:install` | One-time: download Chromium browser binary |

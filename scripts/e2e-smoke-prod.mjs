@@ -11,7 +11,7 @@
 //   npm run build          # required first; this script does NOT build
 //   npm run e2e:smoke:prod # PORT overridable, default 3200
 //
-// Exit code is the smoke's exit code, unmodified.
+// Exits with the smoke's exit code (1 if the smoke could not be run).
 
 import { spawn, spawnSync, execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -25,6 +25,32 @@ const POLL_INTERVAL_MS = 500;
 
 if (!fs.existsSync(".next")) {
   console.error("No .next/ directory found. Run `npm run build` first — this script does not build.");
+  process.exit(1);
+}
+
+/**
+ * True if something already answers on `url`. Guards against the case where
+ * `next start` fails to bind because the port is held by an unrelated
+ * process: without this check, waitForReady() below would happily succeed
+ * against that FOREIGN server, the smoke would run against the wrong app,
+ * and stopServer() would then kill someone else's process. Refusing is the
+ * safe behaviour — never adopt-then-kill a server we didn't start.
+ */
+async function isPortAlreadyInUse() {
+  try {
+    await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(2000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (await isPortAlreadyInUse()) {
+  console.error(
+    `Something is already listening on ${url} — refusing to start \`next start\` there ` +
+      `(this script would mistake it for its own server and kill it on exit).\n` +
+      `If it's a stale server of yours, run: PORT=${port} npm run stop`,
+  );
   process.exit(1);
 }
 
@@ -64,8 +90,8 @@ async function waitForReady() {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(url, { redirect: "manual" });
-      if (res.status > 0) return true;
+      await fetch(url, { redirect: "manual" });
+      return true;
     } catch {
       // not listening yet
     }
@@ -87,6 +113,12 @@ const smoke = spawnSync(process.execPath, ["scripts/e2e-smoke.mjs"], {
   env: { ...process.env, E2E_URL: url },
   stdio: "inherit",
 });
+
+// stdio is "inherit", so a child that RAN prints its own output — but a child
+// that never launched (ENOENT/EACCES) prints nothing, and would otherwise
+// collapse into the same silent exit 1 as "the smoke ran and found issues".
+if (smoke.error) console.error("Failed to launch e2e-smoke.mjs:", smoke.error);
+else if (smoke.signal) console.error(`e2e-smoke.mjs was killed by ${smoke.signal}`);
 
 stopServer();
 process.exit(smoke.status ?? 1);
