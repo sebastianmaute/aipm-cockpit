@@ -65,8 +65,16 @@ export function resolveSuccessorLinks(args: {
       continue;
     }
     const staged = edits.get(target.id);
-    const before = staged?.before ?? target.dependencies ?? [];
-    const current = staged?.after ?? target.dependencies ?? [];
+    // `before` is the RAW stored array — an undo has to restore exactly what
+    // was there, dangling entries included.
+    const before = staged?.before ?? [...(target.dependencies ?? [])];
+    // `current` is the SANITIZED baseline. Comparing a raw baseline against a
+    // sanitized result conflates "the sanitizer refused my link" with "it
+    // dropped a stale entry while accepting my link" — for a target carrying
+    // one dangling reference those lengths match, and the write was silently
+    // discarded.
+    const current =
+      staged?.after ?? sanitizeDependencies(target.dependencies ?? [], knownIds, target.id);
     // The real sanitizer owns the 20-link cap, the dangling-ref check and
     // de-duplication. If the array did not grow, one of those refused the link.
     const after = sanitizeDependencies(

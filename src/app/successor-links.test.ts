@@ -73,7 +73,12 @@ describe("resolveSuccessorLinks", () => {
     expect(edits.size).toBe(0);
   });
 
-  it("skips a link to the owning task itself", () => {
+  // Renamed from "skips a link to the owning task itself" — a self-link always
+  // has target.id === ownId, so BOTH the cycle guard (equal ids -> true) and
+  // sanitizeDependencies' own self-loop rule (tid === ownTaskId) fire on it.
+  // No fixture can separate the two, so this pins the observable BEHAVIOUR,
+  // not this module's guard specifically.
+  it("refuses a self-link (both guards catch it)", () => {
     const tasks = [task(1, "Own")];
     const { edits, skipped } = resolveSuccessorLinks({
       ownId: 1,
@@ -129,6 +134,50 @@ describe("resolveSuccessorLinks", () => {
     const { edits, skipped } = resolveSuccessorLinks({ ownId: 1, links: [], tasks });
     expect(skipped).toBe(0);
     expect(edits.size).toBe(0);
+  });
+
+  it("applies a link to a target whose stored dependencies contain a dangling reference", () => {
+    // Task 9 is gone, so sanitizeDependencies strips it in the same pass that
+    // adds the new link. Comparing against a RAW baseline sees no growth and
+    // silently drops the write.
+    const tasks = [task(1, "Own"), task(2, "Target", [{ taskId: 9, type: "SS" }])];
+    const { edits, skipped } = resolveSuccessorLinks({
+      ownId: 1,
+      links: [{ taskId: 2, type: "FS" }],
+      tasks,
+    });
+    expect(skipped).toBe(0);
+    // `before` keeps the dangling entry: undo restores what was actually stored.
+    expect(edits.get(2)).toEqual({
+      before: [{ taskId: 9, type: "SS" }],
+      after: [{ taskId: 1, type: "FS" }],
+    });
+  });
+
+  it("accumulates two staged links to the same target instead of overwriting", () => {
+    const tasks = [
+      task(1, "Own"),
+      task(2, "Target", [{ taskId: 9, type: "SS" }]),
+      task(9, "Other"),
+    ];
+    const { edits, skipped } = resolveSuccessorLinks({
+      ownId: 1,
+      links: [
+        { taskId: 2, type: "FS" },
+        { taskId: 2, type: "SF" },
+      ],
+      tasks,
+    });
+    expect(skipped).toBe(0);
+    expect(edits.size).toBe(1);
+    expect(edits.get(2)).toEqual({
+      before: [{ taskId: 9, type: "SS" }],
+      after: [
+        { taskId: 9, type: "SS" },
+        { taskId: 1, type: "FS" },
+        { taskId: 1, type: "SF" },
+      ],
+    });
   });
 
   // ★★★ The create-path contract. Resolving against the PRE-mint array makes
