@@ -17,7 +17,7 @@
 // escapes &<> and adds only <p>/<br>, both in the note allow-list, which makes
 // a sanitize pass a provable no-op.
 import { plainToHtml } from "./sanitize-html";
-import { HTML_START } from "./narrative-html";
+import { isHtmlStart, type RichTextSink } from "./html-start";
 
 /** Whitespace control characters — TAB (0x09), vertical tab and form feed —
  *  collapse to a SINGLE SPACE instead of being deleted.
@@ -145,11 +145,17 @@ export function separateBlockBoundaries(html: string, sep: " " | "\n" = " "): st
 }
 
 /** A stored value -> HTML. Already-HTML passes through; legacy plain text is
- *  escaped and wrapped. Idempotent — this runs on every load. */
-export function descriptionHtml(stored: string | undefined): string {
+ *  escaped and wrapped. Idempotent — this runs on every load.
+ *
+ *  ★★★ `sink` is REQUIRED and names where the result is going, because the answer
+ *  to "is this already HTML?" is different per sink. Passing the wrong one is a
+ *  data-integrity bug in both directions: too narrow escapes the whole value
+ *  permanently (§107 / §114), too wide lets a KEEP_CONTENT:false sink delete the
+ *  text. There is deliberately no default. */
+export function descriptionHtml(stored: string | undefined, sink: RichTextSink): string {
   const s = (stored ?? "").trim();
   if (!s) return "";
-  return HTML_START.test(s) ? s : plainToHtml(s);
+  return isHtmlStart(s, sink) ? s : plainToHtml(s);
 }
 
 /** Plain-text projection WITHOUT DOMPurify — the only projection legal in a
@@ -246,10 +252,13 @@ export function capHtmlText(html: string, max: number): string {
  *
  *  ★ Measure the VISIBLE text (htmlTextLength), not the markup: a value whose
  *  only content sits inside markup ("<p><strong>x</strong></p>") is NOT empty
- *  and must survive. */
-export function sanitizeRichText(raw: unknown, max: number): string {
+ *  and must survive.
+ *
+ *  ★★★ `sink` is REQUIRED and is forwarded to descriptionHtml — see its comment
+ *  for why there is no default. */
+export function sanitizeRichText(raw: unknown, max: number, sink: RichTextSink): string {
   const s =
     typeof raw === "string" ? raw.replace(WS_CONTROL, " ").replace(CONTROL_CHARS, "") : "";
-  const html = capHtmlText(descriptionHtml(s), max);
+  const html = capHtmlText(descriptionHtml(s, sink), max);
   return htmlTextLength(html) === 0 ? "" : html;
 }

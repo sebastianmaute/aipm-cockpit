@@ -56,13 +56,13 @@ import { TEXTAREA_MAX } from "./sanitize";
  *  That is the `HTML_START` classification family (open-followups.md §32), not
  *  something this boundary can fix — do not read "they degrade" as unconditional. */
 export function sanitizeAiRichText(raw: unknown): string {
-  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX);
+  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, "template");
   if (!upgraded) return "";
   const clean = sanitizeTemplateHtml(upgraded);
   // The allow-list pass can empty a value whose only content was a disallowed
   // element (e.g. "<p><script>x</script></p>"), so re-apply the empty rule —
   // otherwise a phantom "<p></p>" reaches the `if (description)` gates.
-  return sanitizeRichText(clean, TEXTAREA_MAX);
+  return sanitizeRichText(clean, TEXTAREA_MAX, "template");
 }
 
 /** The DOCUMENTS variant of the boundary above — model-supplied value -> stored
@@ -134,10 +134,10 @@ export function sanitizeAiRichText(raw: unknown): string {
  *  NOT tracked by any numbered entry today. Do not read a fix for §32 as closing
  *  this, and do not close this by pointing at §32. */
 export function sanitizeAiDocumentRichText(raw: unknown): string {
-  const upgraded = sanitizeRichText(raw, MAX_HTML_TEXT_CHARS);
+  const upgraded = sanitizeRichText(raw, MAX_HTML_TEXT_CHARS, "document");
   if (!upgraded) return "";
   const clean = sanitizeDocumentHtml(upgraded);
-  return sanitizeRichText(clean, MAX_HTML_TEXT_CHARS);
+  return sanitizeRichText(clean, MAX_HTML_TEXT_CHARS, "document");
 }
 
 /** The rich fields each AI-writable entity owns.

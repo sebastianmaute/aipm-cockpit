@@ -143,7 +143,7 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     // accident.
     // ★★ `||`, not `??`: a template carrying `description: ""` alongside a legacy
     // `notes` must fall back to the notes, and `??` only catches null/undefined.
-    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX),
+    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, "template"),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

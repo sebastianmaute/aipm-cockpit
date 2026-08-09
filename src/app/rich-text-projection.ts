@@ -36,7 +36,9 @@ import { descriptionHtml, htmlPlainProjection, separateBlockBoundaries } from ".
  *  ★ descriptionTextWithBreaks below is a SECOND caller and satisfies the same
  *  precondition — it too composes in front of htmlToText. */
 export function descriptionText(stored: string | undefined): string {
-  return htmlPlainProjection(htmlToText(separateBlockBoundaries(descriptionHtml(stored))));
+  return htmlPlainProjection(
+    htmlToText(separateBlockBoundaries(descriptionHtml(stored, "projection"))),
+  );
 }
 
 /** Stored value -> plain text with block boundaries kept as newlines.
@@ -58,7 +60,9 @@ export function descriptionText(stored: string | undefined): string {
  *  the two functions that were told to keep it. */
 export function descriptionTextWithBreaks(stored: string | undefined): string {
   return htmlPlainProjection(
-    htmlToText(separateBlockBoundaries(descriptionHtml(stored), "\n"), { preserveBreaks: true }),
+    htmlToText(separateBlockBoundaries(descriptionHtml(stored, "projection"), "\n"), {
+      preserveBreaks: true,
+    }),
     { preserveBreaks: true },
   );
 }

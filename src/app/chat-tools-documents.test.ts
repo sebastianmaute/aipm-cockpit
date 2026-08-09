@@ -123,19 +123,45 @@ describe("the paragraph schema description matches the document write boundary",
     expect(advertisedTags).not.toContain("img");
   });
 
-  // ★★★ LOAD-BEARING, not style advice — see chat-tool-defs-documents.ts. A
-  // value LEADING with a document-only tag fails layer 1's `HTML_START` test and
-  // is escaped to permanently visible literal tags. Proven both ways below so
-  // the instruction cannot be dropped as redundant.
+  // ★★★ NO LONGER LOAD-BEARING FOR SURVIVAL, and this comment used to say the
+  // opposite. It claimed a value LEADING with a document-only tag fails layer 1's
+  // classifier and is escaped to permanently visible literal tags. That WAS true:
+  // one shared 8-tag `HTML_START` (p/br/strong/em/ul/ol/li/a) served every sink,
+  // so `<mark>`, `<pre>`, `<hr>` and the rest of the document-only set were read
+  // as plain text and `plainToHtml` escaped the WHOLE value — open-followups §107
+  // at the document sink, on the tags this very schema advertises.
+  //
+  // The classifier is now DERIVED per sink from that sink's own allow-list, so the
+  // document sink recognises every one of the 20 tags in `DOCUMENT_ALLOWED_TAGS`
+  // as an opener and a leading `<mark>` passes through as markup. The test below
+  // used to pin the escaping and now pins the survival.
+  //
+  // ★★ KEEP the instruction, but for ONE measured reason and not the two obvious
+  // ones. Measured 2026-08-09 by probe, both renderer families:
+  //   - HTML/PDF: bare inline content is emitted verbatim, so it lands between
+  //     <header> and <footer> with NO <p> around it — no paragraph semantics and
+  //     no paragraph spacing. This is the whole of what the instruction buys.
+  //   - DOCX/PPTX: `htmlToRichLines` opens a line on first text when none is
+  //     current (rich-text-runs.ts pushText), so bare and wrapped produce
+  //     BYTE-IDENTICAL RichLine[]. The wrapper is a no-op on this path.
+  // ★ Two justifications that read well and are FALSE — do not restore either:
+  // "<pre>/<hr> inside a <p> is not parseable" (the parser auto-closes the <p>
+  // and yields a correct p/pre/p) and "bare inline content has no block to
+  // render" (refuted by the DOCX/PPTX result above).
+  // ★★ The schema's own rationale in chat-tool-defs-documents.ts is now WRONG for
+  // the same reason this comment was — it tells the model the value "is stored as
+  // literal visible text" otherwise, which is the §107 behaviour this slice
+  // removed. Retargeting that string is Task 9's job, not this test's.
   it("tells the model to start the value with <p>", () => {
     expect(blockDescription).toMatch(/start the value with <p>/i);
   });
 
-  it("proves the <p> instruction is what makes a leading <mark> survive", () => {
+  it("keeps a leading document-only tag as markup, wrapped or not", () => {
     expect(sanitizeAiDocumentRichText("<p><mark>keep</mark></p>")).toContain("<mark>");
     const unwrapped = sanitizeAiDocumentRichText("<mark>keep</mark> and more");
-    expect(unwrapped).not.toContain("<mark>");
-    expect(unwrapped).toContain("&lt;mark&gt;");
+    expect(unwrapped).toContain("<mark>");
+    // The §107 regression in miniature: the whole value escaped into literal text.
+    expect(unwrapped).not.toContain("&lt;mark&gt;");
   });
 });
 

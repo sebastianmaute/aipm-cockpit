@@ -424,7 +424,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         // Both fields are rich HTML since slice B: UPGRADE (pass HTML through,
         // wrap legacy plain text) instead of escaping an already-HTML value a
         // second time, which would render markup as visible text.
-        description: descriptionHtml(item.mitigation ?? item.description ?? ""),
+        description: descriptionHtml(item.mitigation ?? item.description ?? "", "template"),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };
