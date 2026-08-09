@@ -871,6 +871,7 @@ describe("useTaskSubmit — staged successor links", () => {
   // is the routine case, not an edge one.
   it("stays silent when a staged link is one the target already has", () => {
     const showToast = vi.fn();
+    const setTasks = vi.fn();
     const tasks = [
       makeTask({ id: 1, taskName: "Own" }),
       makeTask({ id: 2, taskName: "Target", dependencies: [{ taskId: 1, type: "FS" }] }),
@@ -879,6 +880,7 @@ describe("useTaskSubmit — staged successor links", () => {
       useTaskSubmit(
         makeArgs({
           showToast,
+          setTasks,
           editingId: 1,
           tasks,
           tasksRef: { current: tasks },
@@ -888,6 +890,14 @@ describe("useTaskSubmit — staged successor links", () => {
     );
     act(() => result.current.handleSubmit(fakeSubmitEvent()));
 
+    // ★ POSITIVE CONTROL. "No toast fired" on its own is satisfied by an early
+    // return, a rejected form, or the whole feature deleted — assert the save
+    // actually ran and that the no-op is a real no-op.
+    expect(setTasks).toHaveBeenCalled();
+    const updater = setTasks.mock.calls[0][0] as (prev: readonly Task[]) => readonly Task[];
+    const next = updater(tasks);
+    // Unchanged, and specifically NOT appended a second time.
+    expect(next.find((t) => t.id === 2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
     expect(
       showToast.mock.calls.find(
         ([kind, text]) => kind === "info" && String(text).includes("not applied"),

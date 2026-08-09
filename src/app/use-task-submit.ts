@@ -193,6 +193,18 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // a whole array computed outside the updater. Idempotent (the sanitizer
       // de-dupes), so a StrictMode double-invoke is safe. Mirrors how `onDelete`
       // in use-task-row-handlers.ts rebuilds each dependent from `prev`.
+      //
+      // ★★ "Additive" hides two things. (1) THE CAP WINDOW: sanitizeDependencies
+      // iterates and BREAKS at the 20-link cap, and the live entries come FIRST
+      // here — so if a concurrent writer filled the target to 20 between resolve
+      // and commit, `added` is never reached and NOTHING is toasted, because the
+      // skipped count was computed from the snapshot where the row still had
+      // room. Do NOT "fix" that by putting `added` first: that drops a STORED
+      // entry instead of the new one, which is strictly worse. The ordering is
+      // right; the silence is the known cost. (2) It re-sanitizes the WHOLE live
+      // array, so a stored DANGLING reference on the target is stripped in the
+      // same pass. That is a repair rather than a bug, and it is self-consistent
+      // with the engine keeping `before` raw so undo restores what was stored.
       const addSuccessorLinks = (
         row: Task,
         edit: SuccessorEdit,
