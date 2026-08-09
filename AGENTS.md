@@ -203,6 +203,92 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
                             # line and the gate fails on the commit — it cost a build on `use-storage-backend.ts`.
                             # Read the real number with:
                             #   node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"
+npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when a doc gains a NEW
+                            # `path:LINE` citation, or cites a line that cannot exist. This is the
+                            # enforcement the ★★★ "cite the SYMBOL, not a line range" rule never had.
+                            # ★★ IT CANNOT TELL YOU A CITATION IS CORRECT, and nothing can — the doc
+                            # never records what was supposed to be at that line. It proves only that
+                            # the line COULD exist and that the count is not growing. A cite silently
+                            # shifted by an insertion still passes: measured on the very row that
+                            # motivated the gate, where `jira/_helpers.ts:181` sat 64 lines off the
+                            # actual `console.error` and passed the range check while
+                            # `timelog/_helpers.ts:185` (one line past EOF) was caught. Two wrong
+                            # cites, one detectable. Do NOT read green as "the citations are right".
+                            # ★★ It reads CONTINUATION cites too — "`use-resource-planner.ts:710` and
+                            # `:723`, returned at `:1023`/`:1025`" is FOUR citations, and the first cut saw
+                            # ONE of them while the three bare ones (all broken) were invisible.
+                            # Widening found 55 more citations and raised out-of-range 5 → 8.
+                            # ★★★ A bare `:NNN` is resolved ONLY from a file mentioned EARLIER ON THE
+                            # SAME LINE, and the anchor is the nearest preceding file MENTION, not the
+                            # nearest preceding `path:LINE` — a full-cite anchor skipped a colon-less
+                            # `task-manager.tsx` and hung four of its line numbers on a 152-citable-line file,
+                            # reporting violations that did not exist. The ~113 bare cites whose path
+                            # sits on a PREVIOUS line stay out of scope (100 of 156): the form is ambiguous
+                            # (AGENTS.md's own `:3000` is a PORT), and a gate that invents a citation
+                            # is worse than one with a known blind spot.
+                            # ★ Grandfathered breakage in docs/baselines/doc-line-cites.json is down
+                            # to 1 unresolvable + 2 out-of-range (from 11 + 8), and ALL survivors sit
+                            # in docs/security/findings-2026-07.md — a DATED AUDIT SNAPSHOT, bannered
+                            # as such and deliberately NOT renumbered, because rewriting a signed
+                            # record to match today's tree destroys the only thing it is good for.
+                            # A third bucket, `thirdParty` (10), holds cites into dompurify/
+                            # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
+                            # debt, classified so the debt number stays worth reading. ★★ Not
+                            # harmless though — they rot on any upgrade, and the vitest one carries a
+                            # CONTENT HASH in its filename, so it WILL break and nothing will say so.
+                            # Re-baseline ONLY after REMOVING citations or converting them to
+                            # symbols: `node scripts/check-doc-claims.mjs --update`. Re-baselining to
+                            # admit a new one defeats the only thing it checks.
+                            # ★★★ WHAT THE CLEAN-UP MEASURED, and it is the argument for the whole
+                            # rule: ONE row of docs/handrolled-ui-inventory.md carried SEVEN line
+                            # numbers and FIVE were wrong — two off by 3 and 6, two off by 8, and one
+                            # naming a file the code had left — while the CLAIM they supported was
+                            # still true at every site. The gate caught ONE, the only one past EOF.
+                            # Two more rows ended up naming a file the code had LEFT (`export-pptx.ts`
+                            # for an element now emitted by `pptxTextBox`; `chat-panel.tsx` for a caret
+                            # now in `chat-tool-block.tsx`). ★★ BOTH were EXACT when written and were
+                            # broken by a later EXTRACTION commit — verify with `git log -S` on the
+                            # moved string, which names the refactor in each case. An earlier revision
+                            # here called them wrong-file-outright authoring errors and contrasted them
+                            # with the line-number drift; they are the SAME drift, one directory up, and
+                            # no gate can see either. A wrong line number is a SYMPTOM — go
+                            # re-verify the claim, never renumber it.
+                            # ★ Citations inside ``` fences are ignored on purpose — a stack trace or
+                            # sample command is an example, not a claim about this repo.
+                            # ★★ The PARSING lives in `scripts/doc-claims-lib.mjs` and HAS A UNIT
+                            # TEST (`doc-claims-lib.test.mjs`) — every defect this gate has shipped
+                            # was a regex defect, and both were found by running it against the real
+                            # docs, never by reading it. ★★★ A COLD REVIEW THEN FOUND FIVE MORE, TWO
+                            # OF WHICH COULD FAIL A GOOD BRANCH: `@` was missing from the citation
+                            # char classes, so a scoped package (`@tiptap/...`) parsed with the `@`
+                            # stripped and was counted as REPO DEBT rather than third-party; and
+                            # `stripFencedBlocks` was a parity toggle that missed BLOCKQUOTED and
+                            # TILDE fences, inverted on an inline ``` span, and let NESTED fences
+                            # leak — a `> ```bash` block exists in README.md today. Also: bare
+                            # RANGES (`:113-116`) were invisible, a URL with a line anchor parsed as
+                            # a citation, and the range check counted one line too many so a cite to
+                            # exactly one past EOF passed. All five fixed; the four REGEX ones are
+                            # mutation-proved (4/4), the `stripFencedBlocks` rewrite by its own cases
+                            # rather than by a mutant — which is why that 4 sits under a 5. Details in
+                            # open-followups §131. ★ Fixing them made the gate STRICTER and it found
+                            # more at once (537 → 541 cites, a second broken cite in the snapshot).
+                            # `vitest.config.ts` `include` now covers
+                            # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
+                            # coverage `include` deliberately stays `src/**`, so a script test raises
+                            # no floor. ★★★ THE TWO TRUNCATION GUARDS ARE NOT INTERCHANGEABLE, and
+                            # this line said they were: PATH_RE's `(?!...)` lookahead is LOAD-BEARING
+                            # ALONE (drop it and `foo.tsxx` yields a phantom anchor to `foo.tsx`),
+                            # while the longest-first extension order really is redundant (dropping
+                            # it changes NO output). ★ Both are pinned by a differential test in
+                            # `doc-claims-lib.test.mjs` that builds each mutant from the exported
+                            # `SOURCE_EXT` — run it, don't trust a number here; this line used to
+                            # quote a review's corpus size, which nothing could reproduce.
+                            # The lookahead mutant survived the first
+                            # suite only because nothing fed it an extension-SUFFIXED name — a test
+                            # gap recorded as proof of redundancy, i.e. licence to delete a live
+                            # guard. ★★ A surviving mutant is a QUESTION: "equivalent mutant" and
+                            # "missing test" look identical from the harness, and separating them
+                            # needs an input the suite does not have. Go find one.
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
                             # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
                             # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
@@ -369,7 +455,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   BLOCKING [jscpd `--threshold` per package.json `dup:check` — ★★ it compares the TOTAL
   duplicated-LINE percentage across all formats, NOT per-format and NOT tokens; the `dup:check` line
   in Commands carries the bisect] · **agents-symbol-check** BLOCKING
-  [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
+  **doc-claims-check** BLOCKING [`npm run docs:claims:check` — a RATCHET over `path:LINE` citations in
+  every tracked PROSE doc — all of `docs/**` bar `docs/superpowers/`, plus the seven root/lib docs in
+  `ROOT_DOCS` (the byte-pinned `golden-workspace.md` fixture is deliberately excluded). ★★ It said
+  "every tracked doc" while `CHANGELOG.md`, `CLAUDE.md` and the two `lib/*.md` guides were NOT
+  scanned; a cold review caught it and the scope was widened to match the claim rather than the claim
+  narrowed. Proves only that a cited line COULD exist, never that it
+  is right — the Commands entry carries the measurement] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
@@ -398,7 +491,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
-  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `unit-tests`,
+  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `doc-claims-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a

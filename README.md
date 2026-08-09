@@ -154,6 +154,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run dup:check` | Duplication gate for `src/` via jscpd — BLOCKING in CI (total duplicated-line % vs --threshold) |
 | `npm run size:check` | Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet) |
 | `npm run docs:symbols:check` | Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them) |
+| `npm run docs:claims:check` | Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it) |
 <!-- END AUTO-GENERATED -->
 
 ## Storage Backends
