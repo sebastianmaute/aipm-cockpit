@@ -6,7 +6,7 @@ import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
-import { DependenciesEditor } from "./dependencies-editor";
+import { DependencyLinkGroup } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
 import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { Field, TaskFormSection } from "./task-form-layout";
@@ -455,16 +455,19 @@ export function TaskFormFields({
 
       {(isVisible("dependencies") || isVisible("blockers") || (budgetLink !== undefined && isVisible("budgetBucket"))) && (
       <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
-        {/* `group`: once the task HAS a dependency, the chip list renders each
-            one's remove ✕ ABOVE the type `<Select>`, so a plain caption adopts
-            that ✕ and clicking "Dependencies" calls `remove(0)`. On an empty
-            list the `<Select>` wins and the caption looks fine — which is why
-            this survived the first sweep and a cold review found it. */}
         {isVisible("dependencies") && (
-        <Field label={t(lang, "depDependencies")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2" group>
-          <DependenciesEditor
+        <>
+        {/* `group` on BOTH: once a group holds a chip, that chip's remove ✕ is
+            the first labelable element inside the Field, so a plain <label>
+            caption would adopt it and clicking the caption would fire a
+            removal. On an empty list the type `<Select>` wins and the caption
+            looks fine — which is why the single field this replaced survived
+            the first sweep and a cold review found it. */}
+        <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2" group>
+          <DependencyLinkGroup
             lang={lang}
-            value={form.dependencies}
+            direction="predecessor"
+            links={form.dependencies}
             allTasks={tasksForDeps}
             ownTaskId={editingId}
             onChange={(dependencies) =>
@@ -472,6 +475,23 @@ export function TaskFormFields({
             }
           />
         </Field>
+        <Field label={t(lang, "depSuccessors")} hint={t(lang, "taskHintSuccessors")} className="sm:col-span-2" group>
+          <DependencyLinkGroup
+            lang={lang}
+            direction="successor"
+            links={form.successorLinks}
+            allTasks={tasksForDeps}
+            ownTaskId={editingId}
+            onChange={(successorLinks) =>
+              setForm((prev) => ({ ...prev, successorLinks }))
+            }
+          />
+        </Field>
+        {/* Rendered ONCE for both groups — it lived inside the editor, which is
+            now instantiated twice, and printing the type legend twice on one
+            modal is noise. */}
+        <p className="sm:col-span-2 text-xs text-muted-foreground">{t(lang, "depHelp")}</p>
+        </>
         )}
 
         {isVisible("blockers") && (

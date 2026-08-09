@@ -1352,7 +1352,6 @@ export const de: Record<TranslationKey, string> = {
   labelsPlaceholder: "Label eingeben und Enter drücken",
   labelsAtCap: "Label-Limit erreicht",
 
-  depDependencies: "Abhängigkeiten",
   depPredecessors: "Vorgänger",
   depSuccessors: "Nachfolger",
   depSearchPredecessors: "Vorgängeraufgaben suchen",
@@ -1365,7 +1364,6 @@ export const de: Record<TranslationKey, string> = {
   depSuccessorsSkipped:
     "{0} Nachfolger-Verknüpfung(en) wurden nicht angewendet – die Aufgabe wurde entfernt, hat ihr Abhängigkeitslimit erreicht, ist bereits verknüpft oder würde einen Zyklus erzeugen.",
   depRelations: "Beziehungen",
-  depEditRelations: "Beziehungen bearbeiten",
   depDependsOn: "Abhängig von",
   depAdd: "Hinzufügen",
   depRemove: "Entfernen",

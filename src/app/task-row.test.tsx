@@ -1186,13 +1186,22 @@ describe("TaskRow inline cell editing", () => {
     expect(onInlinePatch).toHaveBeenCalledWith(47, { blockers: "waiting on Y" });
   });
 
-  test("relations cell exposes an edit button that opens the dependency editor popover", () => {
+  // Replaces "relations cell exposes an edit button that opens the dependency
+  // editor popover". That popover wrote through live via `onInlinePatch` and had
+  // no draft, so it could not stage a successor link; it is deleted rather than
+  // given a second commit model, and editing now lives only in the task modal.
+  test("relations cell is read-only chips — no inline edit affordance", () => {
     const ctx = makeContext();
-    const task = makeTask({ id: 48, taskName: "Relate me", dependencies: [] });
-    const { getByRole, queryByRole } = renderRow(ctx, task);
+    const task = makeTask({ id: 48, taskName: "Relate me", dependencies: [{ taskId: 12, type: "FS" }] });
+    const { getByTitle } = renderRow(ctx, task);
 
-    expect(queryByRole("dialog", { name: "Edit relations" })).toBeNull();
-    fireEvent.click(getByRole("button", { name: "Edit relations – Relate me" }));
-    expect(getByRole("dialog", { name: "Edit relations" })).toBeTruthy();
+    // ★ The positive observable comes FIRST and on purpose: the absence
+    // assertion below would pass just as well against a cell that rendered
+    // nothing at all, so something has to prove this cell really is the
+    // relations cell and really has a link in it.
+    const chip = getByTitle(/#12 \(FS\)/);
+    const cell = chip.closest("td");
+    expect(cell).not.toBeNull();
+    expect(cell!.querySelectorAll("button")).toHaveLength(0);
   });
 });

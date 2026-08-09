@@ -1,23 +1,24 @@
 "use client";
 
-// Inline editor for a task's predecessor dependencies inside the task modal.
+// One direction's worth of a task's relation links, rendered by the task modal
+// TWICE — once for predecessors, once for successors. Chips + a searchable
+// dropdown come from the shared EntityLinkPicker (the same primitive the
+// knowledge/change/raid linked-task fields use), and the option filtering from
+// the shared useTaskPickerOptions, so link-to-tasks behaviour cannot drift.
 //
-// Renders the current dependencies as removable chips, plus a small add-row
-// (type select + task select + Add button). The add-row's task dropdown
-// filters out:
-//   • The task being edited itself
-//   • Tasks already referenced as predecessors of this task
-//   • Tasks whose own dependency chain reaches back to this task (cycle prevention)
+// Direction is STRUCTURAL — the caller wraps each instance in its own labelled
+// Field — so it needs no toggle, no arrow glyph and no colour. That is also
+// what makes it announce correctly: EntityLinkPicker takes ONE removeLabel for
+// all chips, so the direction word has to come from the instance, not the chip.
 //
-// All sanitization happens upstream — this component only emits valid
-// `TaskDependency[]` arrays to the parent via `onChange`.
+// The caller owns both link lists (they live on the form draft) and applies the
+// successor ones on Save. Nothing here writes to another task.
 
-import { useMemo, useState } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { useCallback, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { Button } from "./button";
-import { IconButton } from "./icon-button";
 import { Select } from "./form-controls";
+import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
+import { useTaskPickerOptions } from "./use-task-picker-options";
 import { wouldCreateDependencyCycle } from "./sanitize";
 import {
   DEPENDENCY_TYPES,
@@ -26,162 +27,144 @@ import {
   type TaskDependency,
 } from "./types";
 
-export function DependenciesEditor({
+export type LinkDirection = "predecessor" | "successor";
+
+/** Per-direction translation keys. Exhaustive by construction, so a new
+ *  direction is a type error rather than a silently reused label. */
+const DIRECTION_KEYS = {
+  predecessor: {
+    search: "depSearchPredecessors",
+    type: "depTypePredecessor",
+    remove: "depUnlinkPredecessor",
+  },
+  successor: {
+    search: "depSearchSuccessors",
+    type: "depTypeSuccessor",
+    remove: "depUnlinkSuccessor",
+  },
+} as const;
+
+export function DependencyLinkGroup({
   lang,
-  value,
+  direction,
+  links,
   allTasks,
   ownTaskId,
   onChange,
 }: {
   lang: Lang;
-  value: TaskDependency[];
-  /** Snapshot of all tasks; used to populate the predecessor dropdown and
-   *  validate cycles. */
+  direction: LinkDirection;
+  /** This direction's links. For successors the entry names the OTHER task and
+   *  the write lands there on Save — the shape is identical either way. */
+  links: readonly TaskDependency[];
+  /** Snapshot of all tasks; populates the dropdown and validates cycles. */
   allTasks: readonly Task[];
-  /** Id of the task being edited; null when creating a new task (no cycles
-   *  are possible yet). */
+  /** Id of the task being edited; null when creating (no graph yet). */
   ownTaskId: number | null;
   onChange: (next: TaskDependency[]) => void;
 }) {
   const [pendingType, setPendingType] = useState<DependencyType>("FS");
-  const [pendingTaskId, setPendingTaskId] = useState<number | "">("");
+  const [query, setQuery] = useState("");
+  const keys = DIRECTION_KEYS[direction];
 
   const taskById = useMemo(() => {
     const m = new Map<number, Task>();
-    for (const t of allTasks) m.set(t.id, t);
+    for (const tk of allTasks) m.set(tk.id, tk);
     return m;
   }, [allTasks]);
 
-  const referencedIds = useMemo(
-    () => new Set(value.map((d) => d.taskId)),
-    [value],
+  const selectedIds = useMemo(() => links.map((l) => l.taskId), [links]);
+
+  // ★★★ The successor arm runs the guard REVERSED. Adding successor S means S
+  // gains a dependency on this task, so the walk starts here and looks for S:
+  // wouldCreateDependencyCycle(S, ownTaskId, …), NOT the predecessor form.
+  // Written the predecessor way round it compiles, passes any chain-free
+  // fixture, and lets the user close a cycle. Mirrors resolveSuccessorLinks,
+  // which applies these links on Save — the two must agree or the picker
+  // offers a link the resolver then silently skips.
+  //
+  // ★ The self case needs no branch: the guard returns true when its two ids
+  // are equal, so the owning task filters itself out of both directions. On the
+  // create path ownTaskId is null and nothing can depend on a task that does
+  // not exist yet, so the guard is skipped entirely.
+  //
+  // ★ useCallback, not an inline arrow: useTaskPickerOptions memoises on this
+  // identity, and a fresh one each render would re-filter on every keystroke-
+  // free re-render.
+  const extraFilter = useCallback(
+    (task: Task) => {
+      if (ownTaskId === null) return true;
+      return direction === "successor"
+        ? !wouldCreateDependencyCycle(task.id, ownTaskId, taskById)
+        : !wouldCreateDependencyCycle(ownTaskId, task.id, taskById);
+    },
+    [direction, ownTaskId, taskById],
   );
 
-  const eligibleTasks = useMemo(() => {
-    return allTasks.filter((task) => {
-      if (ownTaskId !== null && task.id === ownTaskId) return false;
-      if (referencedIds.has(task.id)) return false;
-      // Cycle check is only meaningful when editing an existing task.
-      if (
-        ownTaskId !== null &&
-        wouldCreateDependencyCycle(ownTaskId, task.id, taskById)
-      ) {
-        return false;
-      }
-      return true;
-    });
-  }, [allTasks, ownTaskId, referencedIds, taskById]);
+  const available = useTaskPickerOptions(allTasks, selectedIds, query, extraFilter);
 
-  function add() {
-    if (pendingTaskId === "") return;
-    const tid = pendingTaskId;
-    if (
-      ownTaskId !== null &&
-      wouldCreateDependencyCycle(ownTaskId, tid, taskById)
-    ) {
-      // Defensive: shouldn't be reachable because eligibleTasks already
-      // filters cycles, but guard against state races.
-      return;
-    }
-    if (referencedIds.has(tid)) return;
-    onChange([...value, { taskId: tid, type: pendingType }]);
-    setPendingTaskId("");
-  }
+  const selected = useMemo<LinkPickerEntry[]>(
+    () =>
+      links.map((link) => ({
+        id: link.taskId,
+        // The type rides `code`, which EntityLinkPicker renders monospace and
+        // appends to each remove button's name — so two links to different
+        // tasks get row-unique names (WCAG 2.4.6).
+        code: `${link.type} #${link.taskId}`,
+        label: taskById.get(link.taskId)?.taskName ?? t(lang, "depMissing"),
+      })),
+    [links, taskById, lang],
+  );
 
-  function remove(idx: number) {
-    onChange(value.filter((_, i) => i !== idx));
-  }
+  const options = useMemo<LinkPickerEntry[]>(
+    () => available.map((tk) => ({ id: tk.id, code: `#${tk.id}`, label: tk.taskName })),
+    [available],
+  );
+
+  const searchLabel = t(lang, keys.search);
 
   return (
     <div className="space-y-2">
-      {value.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
-          {value.map((dep, i) => {
-            const task = taskById.get(dep.taskId);
-            const label = task
-              ? `${dep.type} · #${task.id} ${task.taskName}`
-              : `${dep.type} · #${dep.taskId} (${t(lang, "depMissing")})`;
-            return (
-              <li key={`${dep.taskId}-${dep.type}-${i}`}>
-                <span
-                  className="inline-flex items-center gap-1 rounded-full bg-ui-dark-blue/10 px-2 py-0.5 text-xs font-medium text-ui-dark-blue dark:bg-ui-dark-blue/30 dark:text-ui-light-grey"
-                  title={t(lang, depTypeHelpKey(dep.type))}
-                >
-                  <span className="font-mono">{dep.type}</span>
-                  <span className="opacity-70">·</span>
-                  <span className="max-w-[18ch] truncate" title={label}>
-                    #{dep.taskId}{" "}
-                    {task ? task.taskName : `(${t(lang, "depMissing")})`}
-                  </span>
-                  <IconButton
-                    variant="danger"
-                    onClick={() => remove(i)}
-                    label={t(lang, "depRemove")}
-                    title={t(lang, "depRemove")}
-                    className="ml-0.5"
-                  >
-                    <XMarkIcon aria-hidden="true" className="h-3 w-3" />
-                  </IconButton>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          size="xs"
-          value={pendingType}
-          onChange={(e) =>
-            setPendingType(e.target.value as DependencyType)
-          }
-          aria-label={t(lang, "depType")}
-          className="font-mono"
-        >
-          {DEPENDENCY_TYPES.map((dt) => (
-            <option key={dt} value={dt}>
-              {dt} — {t(lang, depTypeShortKey(dt))}
-            </option>
-          ))}
-        </Select>
-        <Select
-          size="xs"
-          value={pendingTaskId === "" ? "" : String(pendingTaskId)}
-          onChange={(e) =>
-            setPendingTaskId(e.target.value === "" ? "" : Number(e.target.value))
-          }
-          aria-label={t(lang, "depPickTask")}
-          className="min-w-[12rem] flex-1"
-        >
-          <option value="">{t(lang, "depPickTaskPlaceholder")}</option>
-          {eligibleTasks.map((task) => (
-            <option key={task.id} value={task.id}>
-              #{task.id} — {task.taskName}
-            </option>
-          ))}
-        </Select>
-        <Button size="sm" onClick={add} disabled={pendingTaskId === ""}>
-          {t(lang, "depAdd")}
-        </Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        {t(lang, "depHelp")}
-      </p>
+      <EntityLinkPicker
+        selected={selected}
+        options={options}
+        query={query}
+        onQueryChange={setQuery}
+        onAdd={(id) => {
+          onChange([...links, { taskId: id, type: pendingType }]);
+          setQuery("");
+        }}
+        onRemove={(id) => onChange(links.filter((l) => l.taskId !== id))}
+        searchLabel={searchLabel}
+        // The group's own label is already direction-unique, so the clear
+        // inherits that uniqueness instead of announcing a bare "Clear" twice
+        // on one modal (TaskLinkPicker precedent).
+        clearLabel={`${t(lang, "clear")} – ${searchLabel}`}
+        placeholder={t(lang, "depSearchPlaceholder")}
+        removeLabel={t(lang, keys.remove)}
+      />
+      <Select
+        size="xs"
+        value={pendingType}
+        onChange={(e) => setPendingType(e.target.value as DependencyType)}
+        aria-label={t(lang, keys.type)}
+        className="font-mono"
+      >
+        {DEPENDENCY_TYPES.map((dt) => (
+          <option key={dt} value={dt}>
+            {dt} — {t(lang, depTypeShortKey(dt))}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
 
 /** Translation key for a one-word friendly name of each dependency type. */
 function depTypeShortKey(
-  t: DependencyType,
-):
-  | "depTypeFsShort"
-  | "depTypeSsShort"
-  | "depTypeFfShort"
-  | "depTypeSfShort" {
-  switch (t) {
+  type: DependencyType,
+): "depTypeFsShort" | "depTypeSsShort" | "depTypeFfShort" | "depTypeSfShort" {
+  switch (type) {
     case "FS":
       return "depTypeFsShort";
     case "SS":
@@ -190,21 +173,5 @@ function depTypeShortKey(
       return "depTypeFfShort";
     case "SF":
       return "depTypeSfShort";
-  }
-}
-
-/** Translation key for the long explanatory tooltip. */
-function depTypeHelpKey(
-  t: DependencyType,
-): "depTypeFsHelp" | "depTypeSsHelp" | "depTypeFfHelp" | "depTypeSfHelp" {
-  switch (t) {
-    case "FS":
-      return "depTypeFsHelp";
-    case "SS":
-      return "depTypeSsHelp";
-    case "FF":
-      return "depTypeFfHelp";
-    case "SF":
-      return "depTypeSfHelp";
   }
 }

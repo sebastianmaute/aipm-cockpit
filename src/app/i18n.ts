@@ -1366,7 +1366,6 @@ const enUS = {
   labelsPlaceholder: "Type a label and press Enter",
   labelsAtCap: "Label limit reached",
 
-  depDependencies: "Dependencies",
   depPredecessors: "Predecessors",
   depSuccessors: "Successors",
   depSearchPredecessors: "Search predecessor tasks",
@@ -1379,7 +1378,6 @@ const enUS = {
   depSuccessorsSkipped:
     "{0} successor link(s) were not applied — the task was removed, is at its dependency limit, already has this link, or would create a cycle.",
   depRelations: "Relations",
-  depEditRelations: "Edit relations",
   depDependsOn: "Depends on",
   depAdd: "Add",
   depRemove: "Remove",

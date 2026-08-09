@@ -45,8 +45,14 @@ const BUTTON_FIRST: readonly { readonly what: string; readonly re: RegExp }[] = 
   { what: "KnowledgeLinksField", re: /<KnowledgeLinksField\w*\b/ },
   // Dependency chips, each with a remove ✕ (`IconButton`), render ABOVE the
   // type `<Select>` — so a task with at least one dependency adopts that ✕ and
-  // clicking the caption calls `remove(0)`.
-  { what: "DependenciesEditor", re: /<DependenciesEditor\b/ },
+  // clicking the caption calls the remove handler.
+  // ★★ RENAMED with the component (`DependenciesEditor` → `DependencyLinkGroup`,
+  // now rendered TWICE — once per direction). The entry has to be renamed WITH
+  // it: a stale name matches nothing, so both new `<Field>`s would have been
+  // unguarded while this list still looked complete. The inner
+  // `EntityLinkPicker` entry above does NOT cover them — this is a per-FILE
+  // source scan, and the caller's `<Field>` body names only this component.
+  { what: "DependencyLinkGroup", re: /<DependencyLinkGroup\b/ },
   // `useDictationMic` returns an OBJECT whose `mic` property is the node, and
   // call sites destructure it and interpolate that node — so this matches the
   // interpolation rather than a tag: `{titleMic}`, `{descriptionMic}`, `{mic}`.
