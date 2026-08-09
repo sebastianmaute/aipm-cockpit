@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.227.0 "Bolander" | Files scanned: 1544 (src/**/*.{ts,tsx}, incl. 768 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-09 at main e368c938 | App 0.227.0 "Bolander" | Files scanned: 1686 (src/**/*.{ts,tsx}, incl. 847 tests) | Token estimate: ~950 -->
 
 # Architecture
 
