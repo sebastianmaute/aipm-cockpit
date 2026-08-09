@@ -264,6 +264,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   is a CHARACTERIZATION of a defect already shipped (`docs/open-followups.md` §126) — it asserts the
   collision is still there and is meant to go red when §126 is fixed. Both call themselves "the only
   detector" in their own scope; neither is a gate. (Worked example + the seeded reproduction: §126.)
+  ★★★ THE GATE IS SILENT ON WCAG 2.5.3 (label-in-name) IN EVERY VIEW TOO — and here, unlike the case
+  above, THE RULE DOES EXIST, which is what makes it dangerous. axe 4.12.1 ships
+  `label-content-name-mismatch` and it DOES carry `wcag21a`, one of the four tags the spec requests, so
+  a rule listing reads as coverage. It is ALSO tagged `experimental`, and axe's default tagExclude is
+  `experimental,deprecated` — a tag-only runOnly never RUNS it, and `e2e/a11y.spec.ts` enables no rule
+  explicitly. Measured 2026-08-09 under the gate's exact four tags, not reasoned: the rule lands in NO
+  result bucket — not violations, passes, incomplete OR inapplicable — and appears only once
+  `{"label-content-name-mismatch": {enabled: true}}` is passed as an explicit rule override. Reproduce:
+  `node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.ruleId==='label-content-name-mismatch');console.log(!!r, a._audit.tagExclude.join(','), r.tags.join(','))"`
+  → `true experimental,deprecated cat.semantics,wcag21a,…`. ★★ So "does `getRules(tags)` list it?" is
+  the WRONG question — ask whether it survives tagExclude. That mistake was made and corrected on
+  2026-08-09: a listing probe was read as proof the gate ran the rule. A control whose VISIBLE label is
+  not a prefix-preserving substring of its `aria-label` (2.5.3 is case-INSENSITIVE — Understanding SC
+  2.5.3, "Punctuation and capitalization") therefore needs a UNIT test, in every view, scanned or not.
   ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
