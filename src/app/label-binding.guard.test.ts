@@ -61,7 +61,8 @@ const BUTTON_FIRST: readonly { readonly what: string; readonly re: RegExp }[] = 
   // the entries above are instances of. It matches `<button` written in the
   // block's own text, so a COMPONENT that renders a button first stays invisible
   // until it is named here; that is the ceiling restated, not an escape from it.
-  // `DependenciesEditor` above was found by a cold review as a live counterexample
+  // The dependency-picker entry above (then named `DependenciesEditor`, now
+  // `DependencyLinkGroup`) was found by a cold review as a live counterexample
   // sitting in the tree while this list looked complete.
   // Measured 2026-08-06, both directions, with
   // `npx vitest run src/app/label-binding.guard.test.ts --reporter=dot`:
