@@ -294,6 +294,30 @@ e2e:
     paths: [playwright-report/]
     expire_in: 1 week
 
+# Prod-CSP smoke — the gate that would have caught open-followups §54.
+#
+# ★★ The unit suite CANNOT see this class and neither can `e2e`. The dev CSP
+# grants 'unsafe-inline' on style-src-elem while prod is nonce-only
+# (src/proxy.ts), and `npm run e2e:smoke` starts no server — so in practice it
+# only ever met the permissive dev policy. A prod-only defect that made every
+# rich-text editor render unstyled shipped unnoticed for months behind exactly
+# that gap.
+#
+# Takes the .next/ artifact `build` publishes. The `e2e` job's `dependencies: []`
+# precaution does not apply here: that exists to avoid reusing glibc-mismatched
+# node_modules, and `build` publishes only .next/, which is not node_modules.
+prod-smoke:
+  stage: e2e
+  image: mcr.microsoft.com/playwright:v1.61.1-jammy
+  needs: [build]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - npm ci
+    - npx playwright install chromium
+    - npm run e2e:smoke:prod
+
 # DAST — OWASP ZAP baseline scan against the running app.
 #
 # ★★ UNVALIDATED LOCALLY (no Docker on the authoring box) — verify on the first
