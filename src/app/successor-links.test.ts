@@ -109,24 +109,50 @@ describe("resolveSuccessorLinks", () => {
     const fillers = Array.from({ length: 20 }, (_, i) => task(100 + i, `Filler ${i}`));
     const targetDeps: TaskDependency[] = fillers.map((f) => ({ taskId: f.id, type: "FS" }));
     const tasks = [task(1, "Own"), task(2, "Target", targetDeps), ...fillers];
-    const { edits, skipped } = resolveSuccessorLinks({
+    const { edits, skipped, alreadyPresent } = resolveSuccessorLinks({
       ownId: 1,
       links: [{ taskId: 2, type: "FS" }],
       tasks,
     });
     expect(skipped).toBe(1);
+    // ★ Pins the SPLIT, not just the total. A cap-refusal and a duplicate both
+    // leave the array the same length, so an implementation that sorted this
+    // case into `alreadyPresent` would go silent on a link that never landed.
+    expect(alreadyPresent).toBe(0);
     expect(edits.size).toBe(0);
   });
 
-  it("skips a duplicate link to a target that already has one", () => {
+  // Routine, not a failure: `successorLinks` is never seeded from stored data,
+  // so the picker offers an existing successor right back. Re-staging it leaves
+  // the end state exactly as asked — reporting that as "not applied" is a lie.
+  it("counts a link the target already has as alreadyPresent, NOT skipped", () => {
     const tasks = [task(1, "Own"), task(2, "Target", [{ taskId: 1, type: "FS" }])];
-    const { edits, skipped } = resolveSuccessorLinks({
+    const { edits, skipped, alreadyPresent } = resolveSuccessorLinks({
       ownId: 1,
       links: [{ taskId: 2, type: "FS" }],
       tasks,
     });
-    expect(skipped).toBe(1);
+    expect(alreadyPresent).toBe(1);
+    expect(skipped).toBe(0);
     expect(edits.size).toBe(0);
+  });
+
+  // A DIFFERENT type to the same target is a new link, not a duplicate — the
+  // stored identity is the (taskId, type) pair, and sanitizeDependencies dedupes
+  // on both. Guards against an alreadyPresent check written on taskId alone.
+  it("treats a second link type to the same target as a real addition", () => {
+    const tasks = [task(1, "Own"), task(2, "Target", [{ taskId: 1, type: "FS" }])];
+    const { edits, skipped, alreadyPresent } = resolveSuccessorLinks({
+      ownId: 1,
+      links: [{ taskId: 2, type: "SS" }],
+      tasks,
+    });
+    expect(skipped).toBe(0);
+    expect(alreadyPresent).toBe(0);
+    expect(edits.get(2)?.after).toEqual([
+      { taskId: 1, type: "FS" },
+      { taskId: 1, type: "SS" },
+    ]);
   });
 
   it("returns an empty resolution for an empty link list", () => {

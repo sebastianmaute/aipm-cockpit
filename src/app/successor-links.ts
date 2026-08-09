@@ -19,8 +19,17 @@ export interface SuccessorEdit {
 export interface SuccessorResolution {
   /** Keyed by TARGET task id. Empty when nothing could be applied. */
   edits: Map<number, SuccessorEdit>;
-  /** Links dropped: target gone, cycle, at the link cap, or already present. */
+  /** Genuine REFUSALS: target gone, would close a cycle, or at the link cap.
+   *  The user asked for something that did not happen — worth reporting. */
   skipped: number;
+  /** Links the target ALREADY had. Deliberately NOT `skipped`: the end state is
+   *  exactly what the user asked for, so nothing failed. This is routine rather
+   *  than exceptional — `successorLinks` is never seeded from stored data, so on
+   *  edit-open the successor group is empty even for a task that already has
+   *  successors and the picker offers them right back. Counting these as
+   *  refusals told the user "1 successor link(s) were not applied" about a link
+   *  that was, in fact, present. Call sites stay SILENT on this count. */
+  alreadyPresent: number;
 }
 
 /**
@@ -45,6 +54,7 @@ export function resolveSuccessorLinks(args: {
   const { ownId, links, tasks } = args;
   const edits = new Map<number, SuccessorEdit>();
   let skipped = 0;
+  let alreadyPresent = 0;
   const taskById = new Map<number, Task>(tasks.map((t) => [t.id, t]));
   const knownIds = new Set(tasks.map((t) => t.id));
 
@@ -75,8 +85,17 @@ export function resolveSuccessorLinks(args: {
     // discarded.
     const current =
       staged?.after ?? sanitizeDependencies(target.dependencies ?? [], knownIds, target.id);
+    // ★ Checked BEFORE the sanitizer, because a duplicate and a cap-refusal are
+    // indistinguishable afterwards — both leave the array the same length. The
+    // two mean opposite things to the user (one succeeded already, one did not
+    // happen), so they cannot share a counter.
+    if (current.some((d) => d.taskId === ownId && d.type === link.type)) {
+      alreadyPresent += 1;
+      continue;
+    }
     // The real sanitizer owns the 20-link cap, the dangling-ref check and
-    // de-duplication. If the array did not grow, one of those refused the link.
+    // de-duplication. With duplicates already handled above, a non-growing
+    // array now means a genuine refusal.
     const after = sanitizeDependencies(
       [...current, { taskId: ownId, type: link.type }],
       knownIds,
@@ -89,5 +108,5 @@ export function resolveSuccessorLinks(args: {
     edits.set(target.id, { before, after });
   }
 
-  return { edits, skipped };
+  return { edits, skipped, alreadyPresent };
 }

@@ -707,6 +707,99 @@ describe("useTaskSubmit — staged successor links", () => {
     expect(call!.name).toBe("Target");
   });
 
+  // ★ ONE target cannot tell "one entry per target" from "exactly one, ever",
+  // and cannot catch the name lookup resolving the wrong row — the likeliest
+  // real bug in a per-target loop.
+  it("captures a separately-named entry for EACH successor target", () => {
+    const captureFieldEdit = vi.fn();
+    const tasks = [
+      makeTask({ id: 1, taskName: "Own" }),
+      makeTask({ id: 2, taskName: "First target" }),
+      makeTask({ id: 3, taskName: "Second target" }),
+    ];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          captureFieldEdit,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: {
+            ...validForm(),
+            successorLinks: [
+              { taskId: 2, type: "FS" as const },
+              { taskId: 3, type: "SS" as const },
+            ],
+          },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const byId = new Map(
+      captureFieldEdit.mock.calls
+        .map(([o]) => o as { id: number; after: { dependencies: unknown }; name?: string })
+        .map((o) => [o.id, o] as const),
+    );
+    expect(byId.get(2)?.name).toBe("First target");
+    expect(byId.get(3)?.name).toBe("Second target");
+    expect(byId.get(2)?.after.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+    expect(byId.get(3)?.after.dependencies).toEqual([{ taskId: 1, type: "SS" }]);
+  });
+
+  // ★ Ordering is load-bearing for undo: the targets must land ON TOP of the
+  // own-task entries so a bare undo() peels the successor links first. Moving
+  // the call above captureFieldChanges passes every other test in this file.
+  it("captures the target entries AFTER the own-task entries", () => {
+    const captureFieldEdit = vi.fn();
+    const existing = makeTask({ id: 1, taskName: "Old name", assignee: "Bob" });
+    const tasks = [existing, makeTask({ id: 2, taskName: "Target" })];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          captureFieldEdit,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: {
+            ...validForm(),
+            taskName: "New name",
+            assignee: "Bob",
+            successorLinks: [{ taskId: 2, type: "FS" as const }],
+          },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const ids = captureFieldEdit.mock.calls.map(([o]) => (o as { id: number }).id);
+    const ownIdx = ids.indexOf(1);
+    const targetIdx = ids.indexOf(2);
+    // Control: both kinds of entry actually fired, or the comparison is vacuous.
+    expect(ownIdx).toBeGreaterThanOrEqual(0);
+    expect(targetIdx).toBeGreaterThanOrEqual(0);
+    expect(targetIdx).toBeGreaterThan(ids.lastIndexOf(1));
+  });
+
+  it("writes the target edits to the activity log", () => {
+    const logActivity = vi.fn();
+    const tasks = [makeTask({ id: 1, taskName: "Own" }), makeTask({ id: 2, taskName: "Target" })];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          logActivity,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    expect(logActivity).toHaveBeenCalledWith("task.updated", 2, "Target");
+  });
+
   // ★★★ Asserts the target points at the MINTED id, not merely that some link
   // exists. Resolving before the mint yields no link at all; resolving against
   // the wrong id would yield a link to the wrong task.
@@ -734,17 +827,30 @@ describe("useTaskSubmit — staged successor links", () => {
     ]);
   });
 
-  it("reports links it could not apply", () => {
+  // ★ The toast block is duplicated on the update and create branches, so a
+  // test covering one leaves the other free to be deleted. Both are exercised,
+  // and both assert the COUNT — two genuinely-missing targets, not one, so an
+  // implementation hardcoding "1" cannot pass.
+  it.each([
+    ["update", 1 as number | null],
+    ["create", null as number | null],
+  ])("reports the number of links it could not apply (%s path)", (_label, editingId) => {
     const showToast = vi.fn();
     const tasks = [makeTask({ id: 1 })];
     const { result } = renderHook(() =>
       useTaskSubmit(
         makeArgs({
           showToast,
-          editingId: 1,
+          editingId,
           tasks,
           tasksRef: { current: tasks },
-          form: { ...validForm(), successorLinks: [{ taskId: 99, type: "FS" as const }] },
+          form: {
+            ...validForm(),
+            successorLinks: [
+              { taskId: 98, type: "FS" as const },
+              { taskId: 99, type: "FS" as const },
+            ],
+          },
         }),
       ),
     );
@@ -756,12 +862,152 @@ describe("useTaskSubmit — staged successor links", () => {
       ([kind, text]) => kind === "info" && String(text).includes("not applied"),
     );
     expect(skippedToast).toBeDefined();
+    expect(String(skippedToast![1])).toContain("2");
   });
 
+  // Re-staging a successor the target already has is NOT a failure: the end
+  // state is exactly what was asked for. `successorLinks` is never seeded from
+  // stored data, so the picker offers existing successors right back and this
+  // is the routine case, not an edge one.
+  it("stays silent when a staged link is one the target already has", () => {
+    const showToast = vi.fn();
+    const tasks = [
+      makeTask({ id: 1, taskName: "Own" }),
+      makeTask({ id: 2, taskName: "Target", dependencies: [{ taskId: 1, type: "FS" }] }),
+    ];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          showToast,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    expect(
+      showToast.mock.calls.find(
+        ([kind, text]) => kind === "info" && String(text).includes("not applied"),
+      ),
+    ).toBeUndefined();
+  });
+
+  // ★ The write must be ADDITIVE against the live row: the resolution decides
+  // WHICH links, but the array is rebuilt inside the updater. Assigning the
+  // resolved `after` wholesale drops the concurrent writer's edge below.
+  it("does not clobber a dependency a concurrent writer added to the target", () => {
+    const setTasks = vi.fn();
+    const tasks = [
+      makeTask({ id: 1, taskName: "Own" }),
+      makeTask({ id: 2, taskName: "Target" }),
+      makeTask({ id: 3, taskName: "Other" }),
+    ];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          setTasks,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    // State moved on between resolve and commit: someone linked 3 -> 2.
+    const live = tasks.map((t) =>
+      t.id === 2 ? { ...t, dependencies: [{ taskId: 3, type: "FS" as const }] } : t,
+    );
+    const updater = setTasks.mock.calls[0][0] as (prev: readonly Task[]) => readonly Task[];
+    const next = updater(live);
+    expect(next.find((t) => t.id === 2)?.dependencies).toEqual([
+      { taskId: 3, type: "FS" },
+      { taskId: 1, type: "FS" },
+    ]);
+  });
+
+  // ★★★ The cycle guard must see the predecessors THIS SAVE is about to store,
+  // not the ones already on disk. A/B/C: B already depends on C. Editing A to
+  // add predecessor B and successor C in one save closes B→A→C→B. Resolving
+  // against the unpatched `tasksRef.current` walks an A that still has no
+  // predecessors, finds nothing, and stores the cycle.
+  it("sees the predecessors staged in the SAME save when checking for a cycle", () => {
+    const setTasks = vi.fn();
+    const showToast = vi.fn();
+    const tasks = [
+      makeTask({ id: 1, taskName: "A" }),
+      makeTask({ id: 2, taskName: "B", dependencies: [{ taskId: 3, type: "FS" }] }),
+      makeTask({ id: 3, taskName: "C" }),
+    ];
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          setTasks,
+          showToast,
+          editingId: 1,
+          tasks,
+          tasksRef: { current: tasks },
+          form: {
+            ...validForm(),
+            dependencies: [{ taskId: 2, type: "FS" as const }],
+            successorLinks: [{ taskId: 3, type: "FS" as const }],
+          },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const updater = setTasks.mock.calls[0][0] as (prev: readonly Task[]) => readonly Task[];
+    const next = updater(tasks);
+    // C must NOT gain a dependency on A — that edge closes the loop.
+    expect(next.find((t) => t.id === 3)?.dependencies ?? []).toEqual([]);
+    // And the refusal is reported rather than swallowed.
+    expect(
+      showToast.mock.calls.find(
+        ([kind, text]) => kind === "info" && String(text).includes("not applied"),
+      ),
+    ).toBeDefined();
+  });
+
+  // ★ The create path patches `tasksRef.current` as well as calling setTasks,
+  // and the ref is what the NEXT save resolves against. Every other test here
+  // reads setTasks' argument, so seeding the ref with the unpatched pre-link
+  // array — the natural slip — is invisible to them.
+  it("patches tasksRef with the LINKED list on create, not the unlinked one", () => {
+    const tasks = [makeTask({ id: 2, taskName: "Target" })];
+    const tasksRef = { current: tasks as readonly Task[] };
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          editingId: null,
+          tasks,
+          tasksRef,
+          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const created = tasksRef.current.find((t) => t.taskName === "Valid Task");
+    expect(created).toBeDefined();
+    expect(tasksRef.current.find((t) => t.id === 2)?.dependencies).toEqual([
+      { taskId: created!.id, type: "FS" },
+    ]);
+  });
+
+  // ★ `emptyForm().successorLinks` is `[]` by construction, so asserting only
+  // that the reset is empty passes with this whole feature deleted. What makes
+  // it a real guard is the pair: the form under test DID carry a staged link,
+  // and what cancel wrote back does not.
   it("discards staged successor links on cancel", () => {
     const setTasks = vi.fn();
     const setForm = vi.fn();
     const tasks = [makeTask({ id: 1 }), makeTask({ id: 2 })];
+    const staged = { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] };
     const { result } = renderHook(() =>
       useTaskSubmit(
         makeArgs({
@@ -770,14 +1016,16 @@ describe("useTaskSubmit — staged successor links", () => {
           editingId: 1,
           tasks,
           tasksRef: { current: tasks },
-          form: { ...validForm(), successorLinks: [{ taskId: 2, type: "FS" as const }] },
+          form: staged,
         }),
       ),
     );
     act(() => result.current.handleCancelEdit());
 
+    expect(staged.successorLinks).toHaveLength(1);
     expect(setTasks).not.toHaveBeenCalled();
-    const reset = setForm.mock.calls.at(-1)?.[0] as { successorLinks: unknown[] };
+    const reset = setForm.mock.calls.at(-1)?.[0] as TaskFormDraft;
     expect(reset.successorLinks).toEqual([]);
+    expect(reset.successorLinks).not.toEqual(staged.successorLinks);
   });
 });

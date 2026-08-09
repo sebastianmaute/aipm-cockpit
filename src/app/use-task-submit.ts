@@ -31,7 +31,7 @@ import {
 } from "./sanitize";
 import { sanitizeNoteHtml } from "./sanitize-html";
 import { describeTextCap } from "./sanitize-report";
-import { resolveSuccessorLinks } from "./successor-links";
+import { resolveSuccessorLinks, type SuccessorEdit } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
 
 export interface UseTaskSubmitArgs {
@@ -185,20 +185,63 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
       setContacts((prev) => upsertContact(prev, assignee, email));
 
+      // A successor target is a row the user never opened, so their intent was
+      // purely ADDITIVE — unlike the own task, whose whole field list they
+      // authored and may legitimately overwrite. Apply only the entries the
+      // resolution ADDS, onto the LIVE row, and re-sanitize: a concurrent
+      // writer's edit to the same target survives instead of being clobbered by
+      // a whole array computed outside the updater. Idempotent (the sanitizer
+      // de-dupes), so a StrictMode double-invoke is safe. Mirrors how `onDelete`
+      // in use-task-row-handlers.ts rebuilds each dependent from `prev`.
+      const addSuccessorLinks = (
+        row: Task,
+        edit: SuccessorEdit,
+        liveIds: ReadonlySet<number>,
+        stamp: string,
+      ): Task => {
+        const added = edit.after.filter(
+          (a) => !edit.before.some((b) => b.taskId === a.taskId && b.type === a.type),
+        );
+        return {
+          ...row,
+          dependencies: sanitizeDependencies(
+            [...(row.dependencies ?? []), ...added],
+            liveIds,
+            row.id,
+          ),
+          localModifiedAt: stamp,
+        };
+      };
+
       // ★ Called AFTER each branch's own-task captures, so the target entries
-      // land on top of the stack: a bare undo() peels the successor links first
-      // (the most recently-intended act), and undoThrough from the own-task's
-      // oldest entry unwinds the whole save as one commit.
+      // land on top of the stack and a bare undo() peels the successor links
+      // first (the most recently-intended act). ★★ There is NOT always an
+      // own-task entry to unwind from: `captureFieldChanges` pushes nothing when
+      // no own field changed, so a successors-only save leaves ONLY these
+      // entries, and a create pushes none at all (creates are not undoable
+      // here) — the target entries then stand alone.
       //
       // ★★ captureFieldEdit MERGES before/after onto the live row by id rather
       // than replacing it, so these entries cannot revert a field this save
       // never touched. A whole-row capture() would give one tidier entry and
       // inherit open-followups §50, where undo restores a stale row.
-      const captureSuccessorEdits = (
+      //
+      // ★★ The undo IMAGES stay snapshot-based even though the WRITE above is
+      // live: `before`/`after` are the arrays resolved from `tasksRef.current`,
+      // so undoing after a concurrent writer touched the same target reverts to
+      // the snapshot rather than to that writer's value. Accepted residue —
+      // the write itself is what data loss turns on. Two known consequences,
+      // both recorded as follow-ups rather than fixed here: (a) redo can write a
+      // dangling reference (create task 5 with successor 2 → undo → delete 5 →
+      // redo merges `{taskId:5}` back; it self-heals on the next load), and
+      // (b) a staged successor list is unbounded while UNDO_CAP is 25, so a
+      // large fan-out can evict the own-task entries of its own save.
+      const recordSuccessorEdits = (
         resolution: ReturnType<typeof resolveSuccessorLinks>,
         nameSource: readonly Task[],
       ) => {
         for (const [targetId, edit] of resolution.edits) {
+          const name = nameSource.find((r) => r.id === targetId)?.taskName;
           captureFieldEdit?.({
             setter: setTasks,
             kind: "task.updated",
@@ -206,8 +249,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             before: { dependencies: edit.before },
             after: { dependencies: edit.after },
             stampField: "localModifiedAt",
-            name: nameSource.find((r) => r.id === targetId)?.taskName,
+            name,
           });
+          // A silent write to a row the user never opened is exactly what an
+          // audit trail is for. `diffFields` skips array-valued fields, so this
+          // names the row with no field detail — the same entry the own task's
+          // dependency edit already produces.
+          logActivity("task.updated", targetId, name ?? "");
         }
       };
 
@@ -215,10 +263,20 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         const stamp = new Date().toISOString();
         const updatedId = editingId;
         const prevTask = tasksRef.current.find((r) => r.id === editingId);
+        // ★★★ Resolve against the edited task carrying THIS SAVE's predecessors,
+        // not its stored ones — the same reason the create path resolves against
+        // a list containing the new task. The cycle walk starts at the owning
+        // task and follows its predecessors, so an unpatched row hides an edge
+        // the user is adding right now: with B already depending on C, editing A
+        // to add predecessor B and successor C in one save closes B→A→C→B, and
+        // the stale walk finds nothing to object to. The picker cannot catch it
+        // either — its `allowedIds` reads the same stored map.
         const successors = resolveSuccessorLinks({
           ownId: editingId,
           links: form.successorLinks,
-          tasks: tasksRef.current,
+          tasks: tasksRef.current.map((r) =>
+            r.id === editingId ? { ...r, dependencies: cleanDependencies } : r,
+          ),
         });
         if (successors.skipped > 0) {
           showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
@@ -226,8 +284,11 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         // ONE functional setter for the edited task AND every successor target:
         // they all live in the same array, so a second setTasks would be a
         // second pass over it for no benefit.
-        setTasks((prev) =>
-          prev.map((row) => {
+        setTasks((prev) => {
+          // Live ids, so the re-sanitize inside addSuccessorLinks judges
+          // dangling references against current state rather than the snapshot.
+          const liveIds = new Set(prev.map((r) => r.id));
+          return prev.map((row) => {
             if (row.id === editingId) {
               return applyStatusChange(
                 { ...row, ...payload, localModifiedAt: stamp },
@@ -236,11 +297,9 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
               );
             }
             const edit = successors.edits.get(row.id);
-            return edit
-              ? { ...row, dependencies: edit.after, localModifiedAt: stamp }
-              : row;
-          }),
-        );
+            return edit ? addSuccessorLinks(row, edit, liveIds, stamp) : row;
+          });
+        });
         setEditingId(null);
         if (prevTask) {
           // Single-item edit, so tasksRef's row equals the mapped row — recompute
@@ -268,7 +327,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         } else {
           logActivity("task.updated", updatedId, taskName);
         }
-        captureSuccessorEdits(successors, tasksRef.current);
+        recordSuccessorEdits(successors, tasksRef.current);
       } else {
         const newTask: Task = applyStatusChange(
           {
@@ -302,19 +361,24 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         if (successors.skipped > 0) {
           showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
         }
+        const newIds = new Set(withNew.map((r) => r.id));
         const nextList =
           successors.edits.size === 0
             ? withNew
             : withNew.map((row) => {
                 const edit = successors.edits.get(row.id);
-                return edit
-                  ? { ...row, dependencies: edit.after, localModifiedAt: stamp }
-                  : row;
+                return edit ? addSuccessorLinks(row, edit, newIds, stamp) : row;
               });
-        // ★ Patch BEFORE this assignment so the ref and the state agree.
+        // ★ Assign the PATCHED list, not `withNew` — the ref is what the next
+        // save reads, so seeding it with the unpatched array would make every
+        // following save resolve against targets that look unlinked.
+        // ★ This branch replaces the whole array rather than mapping `prev`
+        // (pre-existing: the create was always a snapshot write), so the
+        // additive merge above buys less here than on the update path. Kept
+        // identical anyway so the two paths cannot drift.
         tasksRef.current = nextList;
         setTasks(nextList);
-        captureSuccessorEdits(successors, nextList);
+        recordSuccessorEdits(successors, nextList);
         logActivity("task.created", newId, taskName);
         // Flush any editor-buffered RAID/links now that the parent id exists.
         onTaskCreated?.(newId);
