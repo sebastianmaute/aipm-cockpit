@@ -4,9 +4,13 @@
 // per-target before/after dependency arrays (ready for both the setTasks map
 // and the undo capture) plus a count of links that could not be applied.
 //
-// Composes the two existing guards — sanitizeDependencies (the sole owner of
-// the 20-link cap and the dangling-ref check) and wouldCreateDependencyCycle —
-// instead of reimplementing either. No React, no I/O, no i18n.
+// Composes the two existing guards — sanitizeDependencies (the guard that owns
+// the 20-link cap and the dangling-ref check ON THIS PATH) and
+// wouldCreateDependencyCycle — instead of reimplementing either. Neither check
+// is app-wide sole ownership: the cap itself lives in `pushUniqueDependency`
+// (sanitize-core.ts), which `parseDependenciesString` shares, and the codec load
+// paths get their dangling-ref check from `dropDanglingDependencies`.
+// No React, no I/O, no i18n.
 import { sanitizeDependencies, wouldCreateDependencyCycle } from "./sanitize";
 import type { Task, TaskDependency } from "./types";
 

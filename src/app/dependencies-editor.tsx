@@ -79,14 +79,28 @@ export function DependencyLinkGroup({
   // ★★ ONE CHIP PER TASK, first link wins. `sanitizeDependencies` dedupes on the
   // (taskId, type) PAIR (`pushUniqueDependency` keys on `${tid}:${type}`), so
   // [{2,"FS"},{2,"SS"}] survives sanitization and persists — reachable via the AI
-  // `update_task` tool, a CSV/JSON import or a hand-edited file. Rendered raw,
-  // both chips took the SAME React key (`entry.id`) and either ✕ removed both.
-  // The picker itself can never mint a duplicate (the second link's task is
-  // already excluded from the options), so this only normalises imported data —
-  // but it makes the one-per-task model explicit rather than accidental, and it
-  // feeds BOTH the chip list and the exclusion set so display, exclusion and
-  // removal cannot disagree. Removal stays filter-by-taskId: one chip, one ✕,
-  // and the task is unlinked entirely.
+  // `update_task` tool, a CSV/JSON import or a hand-edited file.
+  //
+  // ★★★ The hazard this answers belongs to the NEW picker, not to the editor it
+  // replaced — do not read this as a bug fix. `EntityLinkPicker` keys chips by
+  // ENTITY ID, so two links to the same task would take the same React key and
+  // either ✕ would remove both. The OLD editor had neither problem: it keyed
+  // each row `${dep.taskId}-${dep.type}-${i}` and removed BY INDEX, so removing
+  // just the SS half of the pair above WAS possible there and is not here. That
+  // is the deliberate trade — collapsing to one chip per task makes the
+  // one-per-task model explicit rather than accidental, and feeds BOTH the chip
+  // list and the exclusion set so display, exclusion and removal cannot
+  // disagree. Removal stays filter-by-taskId: one chip, one ✕, task unlinked.
+  //
+  // ★★ The cost is DISPLAY-ONLY, which is why the trade is affordable: `links`
+  // (i.e. `form.dependencies` / `form.successorLinks`) still holds BOTH entries,
+  // and `sanitizeDependencies` dedupes on the PAIR, so a save that never touches
+  // this field round-trips both. A second link to the same task with a different
+  // type is simply no longer shown or individually removable — the only way to
+  // drop it from here is to ✕ the task entirely and re-add the one you want.
+  // The picker itself can never mint such a pair (the second link's task is
+  // already excluded from the options), so this only ever normalises data that
+  // arrived from outside the modal.
   const uniqueLinks = useMemo(() => {
     const seen = new Set<number>();
     const out: TaskDependency[] = [];
@@ -203,9 +217,20 @@ export function DependencyLinkGroup({
           not relevant when evaluating this criterion" (its worked example pairs
           a visible `First Name:` with `aria-label="first name"` and passes).
           https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html
-          Nothing else can catch drift here — axe 4.12.1 has no label-in-name
-          rule and the task modal is not in A11Y_VIEWS — so the test reads BOTH
-          sides out of the DOM rather than comparing against literals. */}
+          ★★ Nothing else can catch drift here, for TWO independent reasons —
+          neither of which is "axe has no such rule", which an earlier revision
+          of this comment claimed and which is false. axe 4.12.1 DOES ship
+          `label-content-name-mismatch`, and it does carry `wcag21a`, one of the
+          four tags e2e/a11y.spec.ts requests. But (1) it is also tagged
+          `experimental`, and axe's default tagExclude is
+          ['experimental','deprecated'], so a tag-only runOnly never runs it —
+          the spec enables no rules explicitly, so the gate is silent on 2.5.3
+          everywhere in the app; and (2) the task modal opens on interaction and
+          is in none of the 17 A11Y_VIEWS, so these controls are never even
+          rendered at scan time. Reproduce (1):
+            node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.ruleId==='label-content-name-mismatch');console.log(!!r, a._audit.tagExclude.join(','), r.tags.join(','))"
+          So the unit test is the only detector, and it reads BOTH sides out of
+          the DOM rather than comparing against literals. */}
       {/* Own wrapper so the caption sits TIGHT above its select (mb-1) instead
           of inheriting the group's space-y-2, which would read as two unrelated
           rows. */}

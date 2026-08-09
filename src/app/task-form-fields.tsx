@@ -460,9 +460,15 @@ export function TaskFormFields({
         {/* `group` on BOTH: once a group holds a chip, that chip's remove ✕ is
             the first labelable element inside the Field, so a plain <label>
             caption would adopt it and clicking the caption would fire a
-            removal. On an empty list the type `<Select>` wins and the caption
-            looks fine — which is why the single field this replaced survived
-            the first sweep and a cold review found it. */}
+            removal. ★ On an EMPTY list the first labelable descendant is
+            `EntityLinkPicker`'s search box — an unconditional `<Input
+            role="combobox">` that `DependencyLinkGroup` renders ahead of the
+            type `<Select>` — so the caption merely focuses the search field and
+            looks fine. (An earlier revision of this comment named the `<Select>`
+            here. That was true of the OLD editor, which had no search box; it
+            went stale in this branch's own rewrite.) The benign empty case is
+            why the single field this replaced survived the first sweep and a
+            cold review found it. */}
         <Field label={t(lang, "depPredecessors")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2" group>
           <DependencyLinkGroup
             lang={lang}
