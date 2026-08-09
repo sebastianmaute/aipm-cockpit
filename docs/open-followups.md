@@ -2343,9 +2343,14 @@ effect, then the unpiped gate — and treat the result as a fresh measurement.
 
 ## 54. Prod-only CSP blocks ProseMirror's base CSS — CLOSED 2026-08-09
 
-Every rich-text editor in a **production build** renders without ProseMirror's base stylesheet, because
-the prod CSP refuses the `<style>` element Tiptap injects at runtime. Dev is unaffected, which is why
-this has gone unseen.
+**FIXED in 0.227.0 "Bolander" — everything below the next paragraph is written in the present tense and
+describes the BROKEN state, because it is the original investigation preserved verbatim.** The fix, the
+real-browser verification that closes this, and the corrected mechanism are in "Fix — option A chosen and
+shipped" further down. ★ Read the heading date before acting on any sentence in this entry.
+
+Every rich-text editor in a **production build** rendered without ProseMirror's base stylesheet, because
+the prod CSP refused the `<style>` element Tiptap injects at runtime. Dev was unaffected, which is why
+this went unseen.
 
 ★★★ **MEASURED 2026-08-03 on `main` (`13b518db`) in an isolated worktree — observed, not inferred.**
 Same dated-measurement rule as §53: re-measure before acting, do not treat these values as properties.
@@ -2436,7 +2441,18 @@ ships its own warning about precisely this at `node_modules/prosemirror-view/dis
 
 **Blast radius — every rich-text surface in a prod build:** task description · note log · RAID
 description + mitigation · change description + impact description + resolution notes · milestone
-description.
+description · **the dashboard narrative · the meeting/steering report body · the comm-template body**.
+
+★★★ **THE LAST THREE WERE MISSING FROM THIS LIST UNTIL 2026-08-09, AND THE OMISSION WAS SELF-REFUTING.**
+The original list enumerated the SEVEN sanitizer-backed register fields plus the note log — the fields a
+`sanitize*` sweep finds — not the RENDER SURFACES, which is what a CSS failure actually follows.
+`RichTextEditor` has 8 consumers (§129); three of them render no register field at all. The verification
+paragraph below closes this entry by measuring `dashboard-sections/dashboard-narrative.tsx` — a surface
+this very list said was not affected, two hundred lines apart in the same entry. ★★ The two `ssr: false`
+consumers are affected identically: `immediatelyRender: false` defers Editor construction to mount, so
+the injection is client-side under BOTH import styles (§129). ★ Derive a blast radius from the
+`grep -rl 'rich-text-editor"'` consumer list, NOT from the field list — a field list answers "what is
+stored", and this bug is about what is RENDERED.
 
 **Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
 its only runtime commit is six type annotations. The same violation, with an identical hash and only the
@@ -2465,10 +2481,11 @@ both read `editor.options.injectNonce` — which the previously-recorded option 
 The two options recorded earlier were rejected. **`injectCSS: false` + owning the CSS** copies a
 dependency stylesheet (drift), gates only `Editor.injectCSS()` and not the selection extension's tag, and
 would import `border-top: 1px solid black`, an off-palette literal the palette-sweep scans for.
-**`'unsafe-inline'` in prod `style-src-elem`** would widen the single documented residual in
-`docs/security/threat-model.md` — that row's mitigation reads "strict nonce-based CSP, no `unsafe-inline`
-script" and lists `style-src-attr 'unsafe-inline'` as the one low-risk residual — from style *attributes*
-to style *elements*.
+**`'unsafe-inline'` in prod `style-src-elem`** would widen the single documented **`unsafe-inline`**
+residual in `docs/security/threat-model.md` — that row's mitigation reads "strict nonce-based CSP, no
+`unsafe-inline` script" and lists `style-src-attr 'unsafe-inline'` as the one low-risk residual — from
+style *attributes* to style *elements*. ★ "the single documented residual" unqualified would be false:
+that table carries several non-empty Residual cells. Only the `unsafe-inline` one is at issue here.
 
 ★★★ **THE UNIT TEST CANNOT PROVE THIS AND MUST NOT BE READ AS PROVING IT.** `readCspNonce` reads the
 `.nonce` IDL property, because a real browser EMPTIES the `nonce` content attribute on insertion ("nonce
@@ -6524,7 +6541,7 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 | | Ships | New persisted state |
 |---|---|---|
 | **S3a** | a documents-only allow-list · mark-aware DOCX/PPTX · the three policies below | none |
-| *(before S3b)* | **§54** — spike first: its fix is NOT established and option 1's feasibility is unverified (Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk) · the `HTML_START` classifier split, six rich fields in scope | none |
+| *(before S3b)* | ~~**§54** — spike first~~ **DONE, §54 CLOSED 2026-08-09.** No spike needed and the parenthetical here was wrong: the injector is `@tiptap/core`'s own `Editor.injectCSS()` over a JS string constant, not a Turbopack-shipped client CSS chunk. Fixed via Tiptap's `injectNonce`; the CSP is unchanged. · the `HTML_START` classifier split, six rich fields in scope | none |
 | **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
 | **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |

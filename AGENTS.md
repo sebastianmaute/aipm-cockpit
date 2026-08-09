@@ -376,9 +376,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   machine-saturation condition behind the load-sensitive flakes; guards against intra-file test-order
   dependence, open-followups §75]) → build → e2e [**e2e** · **prod-smoke** BLOCKING
   [`npm run e2e:smoke:prod` — `next start` + the smoke driver, consuming build's `.next/` artifact.
-  ★★ THE ONLY GATE THAT SEES THE PROD CSP: the unit suite cannot, and neither can **e2e**, because dev
-  grants `'unsafe-inline'` on `style-src-elem` while prod is nonce-only and `e2e:smoke` starts no server
-  — which is exactly how open-followups §54 stayed invisible for months] · **dast-zap** weekly/manual].
+  ★★ THE ONLY GATE THAT SEES THE PROD CSP, and the reason is per-suite. Dev grants `'unsafe-inline'` on
+  `style-src-elem` while prod is nonce-only (`src/proxy.ts`), so anything meeting the DEV policy is blind
+  to this class. The unit suite never starts a server at all. **e2e** does, but `playwright.config.ts`
+  `webServer.command` is `npm run dev` — so it meets the permissive policy too. And `e2e:smoke` starts no
+  server, so it only ever gets pointed at one somebody already had running, which in practice is dev.
+  ★ Note **e2e** does NOT invoke `e2e:smoke` — they are separate entry points that happen to share the
+  same blind spot, so fixing one would not have covered the other. That is how §54 stayed invisible for
+  months] · **dast-zap** weekly/manual].
   All quality gates are ratchets. ★★ The
   `quality-gate-bypass` escape hatch is NOT uniform — reproduce with
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and

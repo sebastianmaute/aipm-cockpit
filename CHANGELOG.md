@@ -15,7 +15,8 @@ longer carries its own changelog comment.
 - **Rich-text editors render styled in a production build again.** The prod
   Content-Security-Policy refused the stylesheet `@tiptap/core` injects at runtime, so on
   every formatted field — task description, note log, RAID description and mitigation,
-  change description, impact description and resolution notes, milestone description —
+  change description, impact description and resolution notes, milestone description, the
+  dashboard narrative, the meeting report body and the comm-template body —
   `white-space` computed `normal` instead of `break-spaces` and `position` computed
   `static` instead of `relative`. Consecutive spaces and newlines collapsed while typing,
   and the cursor lost its containing block. Only the released build was affected; a
