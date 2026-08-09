@@ -4,11 +4,17 @@
 //
 // ★★★ THE RULE: never recognise more than your own sink KEEPS. A classifier
 // narrower than its sink escapes a value the sink would have kept, and the escape
-// covers the WHOLE value, permanently (open-followups §107 / §114). A classifier
-// WIDER than its sink is worse where the sink deletes: sanitizeNoteHtml sets
-// KEEP_CONTENT: false, so recognising a tag it strips removes the element AND its
-// text — a bug already shipped and fixed once, where "<h1>Q3</h1><p>ok</p>"
-// rendered as just "ok" and "<div>Status</div>" rendered as nothing.
+// covers the WHOLE value, permanently (open-followups §107 / §114). A concrete
+// case of that direction: an imported or hand-edited value opening
+// `<strong>bold</strong> lead` — real HTML the lean editor never produces itself
+// (it always emits a block wrapper) but a workspace can perfectly well store —
+// used to be classified as plain text and escaped into literal `&lt;strong&gt;`.
+// That is why a sink's list carries its INLINE members too, not just its block
+// ones. A classifier WIDER than its sink is worse where the sink deletes:
+// sanitizeNoteHtml sets KEEP_CONTENT: false, so recognising a tag it strips
+// removes the element AND its text — a bug already shipped and fixed once, where
+// "<h1>Q3</h1><p>ok</p>" rendered as just "ok" and "<div>Status</div>" rendered
+// as nothing.
 //
 // One shared constant cannot express that rule for four sinks, which is why the
 // regexes are DERIVED from each sink's own allow-list rather than hand-mirrored.
@@ -55,7 +61,24 @@ const NEVER = /(?!)/;
  *  attributes — misclassifying each as already-HTML. Since `s` is a member of
  *  DOCUMENT_ALLOWED_TAGS, dropping `\b` would make the document and projection
  *  sinks treat a value starting "<script...>" as already-HTML. Measured, not
- *  reasoned — see the "does not let a short tag swallow" test below. */
+ *  reasoned — see the "does not let a short tag swallow" test below.
+ *
+ *  ★★★ The tag must be an OPENING tag that actually CLOSES — `[^>]*>` requires
+ *  the terminating `>`. Accepting a bare opener classified a legacy PLAIN value
+ *  that merely STARTS tag-shaped ("<li 3 items", "<p ok", "<em dash - not
+ *  markup") as already-HTML: passed through raw instead of escaped, the HTML
+ *  tokenizer DISCARDS an incomplete tag at EOF, so the whole value vanished —
+ *  off the screen, out of search, out of exports, out of the AI digests. And it
+ *  vanished SILENTLY: a text-length count taken over the unclosed value is still
+ *  non-zero, so no empty-state fallback ever fired either. Escaped instead, the
+ *  user reads their own text — the same resolution the sink lists reach for a
+ *  tag they don't recognise at all.
+ *
+ *  ★ RESIDUE, deliberately not chased: a value that is genuinely tag-shaped AND
+ *  terminated but is not markup — "<a href> tags are banned" — still passes
+ *  through, and the sink eats the "<a href>" fragment. A heuristic on the
+ *  opening tag alone cannot separate that from real markup; more regex would
+ *  only move the boundary, not close it. */
 export function htmlStartRe(tags: readonly string[]): RegExp {
   const names = tags.filter((t) => TAG_NAME.test(t));
   if (names.length === 0) return NEVER;
