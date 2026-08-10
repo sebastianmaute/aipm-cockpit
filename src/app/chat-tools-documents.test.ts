@@ -74,8 +74,26 @@ describe("the paragraph schema description matches the document write boundary",
    *  text and the assertion would have failed for the classifier's reason rather
    *  than the allow-list's. The "document" sink now derives its test from
    *  `DOCUMENT_ALLOWED_TAGS` and recognises both, so only the first reason is
-   *  live. Block-level tags still sit AFTER a `<p>` because `<pre>`/`<hr>` inside
-   *  a `<p>` is not parseable markup. */
+   *  live.
+   *
+   *  ★★★ Block-level samples still sit AFTER a `<p>`, but NOT for the reason an
+   *  earlier revision of this comment gave. It said `<pre>`/`<hr>` inside a `<p>`
+   *  "is not parseable markup" — which is the exact claim the "do not restore
+   *  either" note below BANS, re-promoted from a parenthetical aside into the SOLE
+   *  stated reason — in the SAME FILE as its own ban. Measured 2026-08-10 against
+   *  jsdom and the real exported sanitizer, not reasoned:
+   *
+   *    parse "<p><pre>a</pre></p>" -> "<p></p><pre>a</pre><p></p>"  (p/pre/p)
+   *    parse "<p><hr></p>"         -> "<p></p><hr><p></p>"          (p/hr/p)
+   *    sanitizeAiDocumentRichText("<p><pre>a</pre></p>") -> "<p></p><pre>a</pre><p></p>"
+   *    sanitizeAiDocumentRichText("<p><hr></p>")         -> ""
+   *
+   *  So the parser auto-closes the `<p>` in BOTH cases and `pre` would still
+   *  satisfy the survival assertion wrapped. Exactly ONE sample needs the leading
+   *  `<p>`, and for a different reason: `hr`. `<p><hr></p>` carries no TEXT, so
+   *  `sanitizeRichText`'s drop-empty rule (`htmlTextLength(html) === 0 ? ""`)
+   *  discards the WHOLE value and the assertion sees `""`. The other block-level
+   *  samples sit after a `<p>` only to match that shape. */
   const TAG_SAMPLE: Record<string, string> = {
     p: "<p>a</p>",
     br: "<p>a<br>b</p>",
@@ -152,6 +170,11 @@ describe("the paragraph schema description matches the document write boundary",
   // "<pre>/<hr> inside a <p> is not parseable" (the parser auto-closes the <p>
   // and yields a correct p/pre/p) and "bare inline content has no block to
   // render" (refuted by the DOCX/PPTX result above).
+  // ★★★ THE FIRST ONE CAME BACK. A later commit on this same branch re-promoted
+  // it into the TAG_SAMPLE comment ABOVE — in this same file, above this ban — as
+  // the SOLE reason the block-level samples are unwrapped, and it was measured and
+  // corrected a second time. Before writing any reason for those sample shapes,
+  // read that comment: the real one is `hr`'s drop-empty rule, not parseability.
   // ★ The schema's own rationale in chat-tool-defs-documents.ts USED to be wrong
   // for the same reason this comment was — it told the model the value "is stored
   // as literal visible text" otherwise, which is the §107 behaviour this slice

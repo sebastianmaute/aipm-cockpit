@@ -151,7 +151,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 | 105 | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell switches the parser's section mid-row and the rest of the row decodes as absent | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | open — **MEASURED**, not reasoned: `blockers: "step one\n# RAID\nstep two"` → `"step one"`. No throw, no `ImportDiag`, nothing in the UI. Affects every entity the CSV backend writes; Markdown is immune BY CONSTRUCTION (`mdEscape` turns every newline into `<br>`) — do not "simplify" that away. The property this should satisfy is `describe.skip`ped with the measurement in the comment; unskip it when fixing |
 | 106 | The Markdown codec is not a fixed point when bare CRs precede a newline — one CR is lost per save/load cycle with no edit in between | property-based coverage (`!360`, no bump) | XS | open — converges, and only ever loses CRs, so it sits well below §105. Recorded because "the stored value changed on a load that made no edit" later reads as corruption. ★ Found only at `numRuns: 1500`; the **deterministic companion is the reliable reproduction**, not the property, which is itself seed-dependent |
-| 107 | ~~`HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup~~ | property-based coverage (`!360`, no bump) | M | **CLOSED 2026-08-10** — the one shared 8-tag classifier is GONE (the name `HTML_START` is retired; it survives only in comments). `html-start.ts` derives a regex PER SINK from that sink's own allow-list, and `descriptionHtml` / `sanitizeRichText` now REQUIRE the sink with no default, so tsc enumerated every call site instead of leaving one on a silent fallback. ★★★ READ THE ENTRY TO THE END: its retraction block is the only record of why widening the shared constant was wrong, and its closure note points at **§137** — storing the model's `<h1>` as real markup is correct and it converted a visible-but-lossless defect into a silent lossy one on a path this row never mentions |
+| 107 | ~~`HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup~~ | property-based coverage (`!360`, no bump) | M | **CLOSED 2026-08-10** — the one shared 8-tag classifier is GONE (the name `HTML_START` is retired; it survives only in comments). `html-start.ts` derives a regex PER SINK from that sink's own allow-list, and `descriptionHtml` / `sanitizeRichText` now REQUIRE the sink with no default, so tsc enumerated every call site instead of leaving one on a silent fallback. ★★★ READ THE ENTRY TO THE END: its retraction block is the only record of why widening the shared constant was wrong, and its closure note points at **§137** — storing the model's `<h1>` as real markup is correct and it converted a visible-but-lossless defect into a silent lossy one on a path this row never mentions. ★★★ **CLOSED MEANS "THE CLASSIFIER IS FIXED", NOT "THE PAYOFF IS DELIVERED"** — the model's markup is real markup only until the NEXT LOAD. `sanitizeRichFields` (`note-log.ts`) applies the **`note`** sink to all seven rich entity fields on both whole-object load boundaries, so `<h1>Title</h1><p>body</p>` comes back as `<p>&lt;h1&gt;Title&lt;/h1&gt;…</p>` and the literal tags reappear in search, the AI digests and every export. PRE-EXISTING, not caused by this slice. Measured in **§137** |
 | 108 | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag as well as split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | open — the value is HTML, so a raw cut lands inside a tag (`<stro`) and stores malformed markup. Copy `capHtmlText`'s project → truncate → **re-wrap**, NOT `clipText` (correct only for plain text). ★★ Do NOT route it through `sanitizeText`: that fixes the surrogate half, leaves the mid-tag cut, and makes the call site LOOK guarded — the more dangerous state. Reachability narrow, unmeasured in the wild |
 | 109 | Icon-only controls with no hover tooltip, plus one control whose accessible name comes only from its `title` | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open — full audit in [`docs/tooltip-inventory.md`](tooltip-inventory.md). ★★ Its counts are SNAPSHOTS and moved within one day; re-run the inventory's parser before quoting any as present-tense. Open surface at `9927d045`: **17** untitled icon-only controls; Class B row **B1** (the settings cog) HELD pending the modern shell's own route to Settings; five of the Gantt View menu's eight toggles carry no hint; **one name defect** — `workspace-section-chrome.tsx:165` is named by `title` alone and **axe passes it**; and 15 hardcoded-English accessible names across nine files that tsc's key-parity check structurally cannot see |
 | 110 | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control, so a circular 20px chip cannot be converted to it | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open — `raci-chip-picker.tsx`'s ✕ is the fifth of five sibling chips sharing a `h-5 w-5 rounded-full` base. ★★★ A caller `className` CANNOT reliably override: Tailwind resolves conflicting utilities by **stylesheet source order**, not class-attribute order, and `p-1` sorts after `p-0` — so this is a primitive problem, not a call-site one. A KNOWN, DELIBERATE hand-roll; do not "finish the conversion" before the primitive gets a shape/size escape hatch. ★★ jsdom has no layout, so no unit test can catch the regression — eye-verify only |
@@ -6393,6 +6393,41 @@ visible-but-lossless defect into a silent LOSSY one on a path this entry never m
 save of `Task.description` runs `sanitizeNoteHtml` (8 tags, `KEEP_CONTENT: false`), which deletes the
 heading's TEXT along with its tag. Measured, with the numbers, in §137.
 
+★★★ **AND CLOSED IS QUALIFIED IN A SECOND WAY — THIS ENTRY'S USER-VISIBLE PAYOFF DOES NOT SURVIVE A
+LOAD.** The classifier defect is genuinely fixed and the closure stands on that. But "the model's
+`<h1>` is now STORED as real markup" is only true until the workspace is read back:
+`sanitizeRichFields` (`note-log.ts`) applies `sanitizeNoteHtml(descriptionHtml(value, "note"))` to
+every rich field it is given, and all four per-entity normalizers are that one function with a
+different field list. Both whole-object load boundaries call all four — `jsonToWorkspace`
+(`workspace.ts`, every JSON load) and the IndexedDB load (`browser-backend.ts`, the DEFAULT backend).
+A value LEADING with `<h1>` is not in the `note` sink's 8 tags, so it is classified as plain text and
+`plainToHtml` escapes the whole thing back. Measured 2026-08-10 through the real exported functions:
+
+```
+AI write boundary stores : "<h1>Title</h1><p>body</p>"
+after ONE load (raid)    : "<p>&lt;h1&gt;Title&lt;/h1&gt;&lt;p&gt;body&lt;/p&gt;</p>"
+after ONE load (task)    : identical
+after TWO loads (raid)   : identical to one load — it escapes ONCE, it does not compound
+descriptionText BEFORE   : "Title body"
+descriptionText AFTER    : "<h1>Title</h1><p>body</p>"   <- literal markup in search / AI digests / exports
+```
+
+★★ **PRE-EXISTING, and do NOT read it as a regression from this slice.** `git diff 528dd5fe...HEAD --
+src/app/note-log.ts` is a ONE-LINE change — the explicit `"note"` argument — and the `note` list
+(`NOTE_ALLOWED_TAGS` minus its `#text` member) is the SAME eight tags the retired shared constant
+carried, so this path classified identically before and after. What the slice changed is the value
+that ARRIVES here: the AI boundary is 11 tags wide, so it now hands the load path markup the load
+path will not keep.
+
+★ **Documents are genuinely exempt — verified, not assumed.** `sanitizeDocumentRichFields`
+(`document-rich-fields.ts`) calls `sanitizeDocumentHtml` and nothing else: no `descriptionHtml`, no
+`note` classification. Measured on the same input, a document paragraph holding
+`<h1>Title</h1><p>body</p>` comes back byte-identical.
+
+★ Recorded as a follow-up under **§137**, NOT as its own number — same function, same seven fields,
+same two load boundaries that entry already dissects, and the same single closure slice. Adding a
+§138 would have restated a measurement §137 already prints.
+
 ---
 
 ## 108. The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open
@@ -7126,8 +7161,14 @@ classifier but to ask the other question, "is this plain text at all?"
 
 ★★ The `render` sink is not a bare "match anything": it reuses the factory's shape and so
 keeps all three guards — the tag must actually CLOSE, it must start with a LETTER, and a
-leading CLOSING tag does not match. `<li 3 items`, `<3 open` and `</p> means close` all
-still take the plain-text path.
+CLOSING tag does not match. `<li 3 items`, `<3 open` and `</p> means close` all still take
+the plain-text path. ★ What it does NOT keep is the factory's `^\s*` ANCHOR: the four
+derived sinks ask "does this START with a tag my sink keeps?", `render` asks "does this
+CONTAIN a tag anywhere?". The first shipped anchored and escaped real markup that did not
+happen to OPEN with a tag — `"Intro <strong>bold</strong> tail"` reached Word, PowerPoint,
+HTML and PDF as literal `&lt;strong&gt;`. Anchoring is right for a STORAGE sink, where the
+escaped form persists; it is wrong here, where nothing is stored and every tag's text is
+kept, so the only failure mode is escaping markup that was real.
 
 ★★ **A GREEN TEST SAT THROUGH THE WHOLE REGRESSION AND THAT IS THE OTHER LESSON.**
 `doc-render-html.test.ts`'s "unwraps a non-allow-listed tag inside paragraph html but keeps
@@ -8312,6 +8353,47 @@ sanitizeRaidRichFields({description:"<h1>Risk</h1><p>detail</p>"})
 
 Probe this path with leading-tag examples and it looks safe in every case. Move the same tag one
 element to the right and the words are gone.
+
+### The leading-tag branch is not "safe" either — it re-escapes, and that undoes §107's payoff
+
+★★★ **THE BLOCK ABOVE DRAWS ONLY HALF THE CONCLUSION FROM ITS OWN OUTPUT, and the missing half is
+the one a reader will act on.** "Risk intact" is true about the WORDS and false about everything
+else: the value came out of the AI boundary as REAL MARKUP and comes back from one load as LITERAL
+TEXT. That is precisely the §107 symptom, re-created on the load path after §107 closed the write
+path. Measured 2026-08-10 through the real exported functions, same run as the block above:
+
+```
+AI write boundary stores : "<h1>Title</h1><p>body</p>"
+after ONE load (raid)    : "<p>&lt;h1&gt;Title&lt;/h1&gt;&lt;p&gt;body&lt;/p&gt;</p>"
+after ONE load (task)    : identical
+after TWO loads (raid)   : identical to one load — it escapes ONCE, it does not compound
+descriptionText BEFORE   : "Title body"
+descriptionText AFTER    : "<h1>Title</h1><p>body</p>"
+```
+
+The last two lines are the user-visible ones. `descriptionText` is what feeds search, the AI digests
+and the inline-AI preview (exports take `descriptionTextWithBreaks` through the same projection), so
+after one load a register description reads as its own raw markup rather than as its prose.
+
+★★ **PRE-EXISTING, not introduced by the §107 slice — establish this before filing anything against
+it.** `git diff 528dd5fe...HEAD -- src/app/note-log.ts` is a ONE-LINE change, the explicit `"note"`
+argument, and `NOTE_ALLOWED_TAGS` minus its `#text` member is the SAME eight tags the retired shared
+constant carried. So this path classified identically before and after. What the slice changed is
+the value ARRIVING here: the AI boundary is 11 tags wide, so it now hands the load path markup the
+load path will not keep. The pre-slice version of the same defect simply started one step earlier —
+the AI boundary escaped it too, which is §107's own opening paragraph and is not re-measured here.
+
+★ **Documents are exempt — verified, not assumed.** `sanitizeDocumentRichFields`
+(`document-rich-fields.ts`) calls `sanitizeDocumentHtml` and nothing else — no `descriptionHtml`, no
+`note` classification, no `sanitizeNoteHtml`. The same `<h1>Title</h1><p>body</p>` in a document
+paragraph comes back byte-identical. Only the seven ENTITY rich fields are affected.
+
+★★ **SCOPE, as the slice set it: stop-the-bleed only.** No repair of already-escaped stored values
+and no re-architecting of the load path — `note-log.ts` is deliberately untouched. This is recorded,
+not fixed, and it closes with the same one decision as the rest of this entry: bring classifier,
+storage and editor to ONE list. Widening the `note` sink alone would let the load path KEEP an `<h1>`
+and hand it straight to `sanitizeNoteHtml`'s `KEEP_CONTENT: false`, converting this escape back into
+the DELETION the block above measures. That is the trap, and it is why this is not a one-line fix.
 
 ★ **PRE-EXISTING, not a regression.** Do not read this as caused by §107's slice: the old shared
 8-tag `HTML_START` also matched a leading `<p>`, so a mid-value `<h1>` was already passed through and

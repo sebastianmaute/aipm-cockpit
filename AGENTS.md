@@ -1046,8 +1046,16 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `note`, `template`, `document`, `projection` (derived from `NOTE_ALLOWED_TAGS` /
   `TEMPLATE_ALLOWED_TAGS` / `DOCUMENT_ALLOWED_TAGS` twice) and `render`, which has NO list because its
   consumers keep every tag's text. `descriptionHtml` and `sanitizeRichText` REQUIRE the sink argument.
-  One shared 8-tag constant served all five and structurally could not express the rule — §107 and
-  §114 are the two defects that cost, both CLOSED 2026-08-10.
+  One shared 8-tag constant served the FOUR DERIVED sinks and structurally could not express the
+  rule — §107 and §114 are the two defects that cost, both CLOSED 2026-08-10. ★★ It did NOT serve
+  all five, and an earlier revision here said it did: the render boundary had **no classifier at
+  all** before this branch, because the three document renderers did not call `descriptionHtml` —
+  that composition was ADDED by `94b7fd21`, which is §118, and the sink it passes was narrowed to
+  `render` afterwards. So the render sink is not a constant that drifted, it is a boundary that was
+  missing. Reproduce the "four" against the PRE-BRANCH tree, where the now-RETIRED shared constant
+  still existed — `git grep -n "HTML_START\." 528dd5fe -- src` returns exactly two
+  call sites, `narrative-html.ts` (today's `note`) and `rich-text-plain.ts` `descriptionHtml`
+  (today's `note`/`template`/`document`/`projection`), and neither is a renderer.
   ★★ The tag must actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a
   value the counter measured at 11 while every reader rendered nothing. `html-start.ts` carries that
   reasoning, the `\b` guard against a short tag swallowing a longer one, and the residue it
