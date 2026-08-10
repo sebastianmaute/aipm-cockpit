@@ -66,12 +66,21 @@ const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
  *  since alternation is leftmost-first and (in every real sink) `strong` is
  *  listed before `s`, so `s` is never even tried. What `\b` actually decides is
  *  an UNLISTED tag that shares a listed one's prefix: without it, the `s`
- *  alternative matches the leading "s" of "<script>", "<section>", "<summary>"
- *  or "<strongish>" and `[^>]*>` swallows the rest of the name as if it were
+ *  alternative matches the leading "s" of "<script>", "<section>" or
+ *  "<summary>" and `[^>]*>` swallows the rest of the name as if it were
  *  attributes — misclassifying each as already-HTML. Since `s` is a member of
  *  DOCUMENT_ALLOWED_TAGS, dropping `\b` would make the document and projection
  *  sinks treat a value starting "<script...>" as already-HTML. Measured, not
  *  reasoned — see the "does not let a short tag swallow" test below.
+ *
+ *  ★ "<strongish>" belongs to the same class but reaches it by a DIFFERENT
+ *  alternative, and an earlier revision listed it beside the three above as if
+ *  it did not. Measured with `\b` removed: "<script>", "<section>" and
+ *  "<summary>" capture "s", while "<strongish>" captures "strong" — leftmost
+ *  alternation reaches `strong` first and never tries `s`. Same wrong outcome,
+ *  so `\b` is what fixes both, but a prefix-swallow is not always the SHORTEST
+ *  listed tag doing the swallowing. Do not reason about which alternative wins;
+ *  run the regex.
  *
  *  ★★★ The tag must be an OPENING tag that actually CLOSES — `[^>]*>` requires
  *  the terminating `>`. Accepting a bare opener classified a legacy PLAIN value
@@ -168,11 +177,26 @@ const SINK_RE: Record<RichTextSink, RegExp> = {
    *
    *  ★★ It is a TRADE, not a free lunch, and it is the factory's RESIDUE
    *  paragraph one step wider: prose that merely MENTIONS a terminated tag
-   *  ("we banned <a href> tags") now passes through too, and the parser eats
-   *  that fragment where escaping would have shown it. Anchored, only a value
-   *  OPENING that way was exposed. We take it for the same reason the
-   *  projection sink takes its trade — real markup is the commoner input and
-   *  its damage shows up in every rendered surface at once.
+   *  ("we banned <a href> tags") now passes through too, and what the parser
+   *  then does to that fragment is NOT uniform — measured through the real
+   *  sanitizeDocumentHtml, an UNLISTED tag is eaten ("use <div> for layout" →
+   *  "use  for layout"), a LISTED one survives whole ("we banned <hr> rules" →
+   *  unchanged), and the <a> case is the worst of the three: "we banned <a
+   *  href> tags" → 'we banned <a href=""> tags</a>', a LIVE anchor wrapping the
+   *  remainder of the paragraph. Anchored, only a value OPENING that way was
+   *  exposed. We take it for the same reason the projection sink takes its
+   *  trade — real markup is the commoner input and its damage shows up in every
+   *  rendered surface at once.
+   *
+   *  ★★★ Do NOT "restore" the anchor on the strength of that paragraph. It
+   *  compares against the ANCHORED form, which only ever existed inside this
+   *  branch; against the merge base the unanchored classifier is a
+   *  RESTORATION, not a widening. Measured at 528dd5fe, where these three
+   *  renderers called their sanitizer with no classifier at all: every value
+   *  CONTAINING a tag renders byte-identically before and after, including all
+   *  three cases above. The only behaviour change vs. the merge base is the
+   *  §118 fix ("a\nb" → two lines instead of one fused run). Re-anchoring does
+   *  not undo a trade — it reintroduces the escaped-markup defect.
    *
    *  It keeps all three guards, because it reuses the same shape: the tag must
    *  actually CLOSE (`[^>]*>`, so "<li 3 items" escapes), it must start with a

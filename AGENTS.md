@@ -1047,7 +1047,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `TEMPLATE_ALLOWED_TAGS` / `DOCUMENT_ALLOWED_TAGS` twice) and `render`, which has NO list because its
   consumers keep every tag's text. `descriptionHtml` and `sanitizeRichText` REQUIRE the sink argument.
   One shared 8-tag constant served the FOUR DERIVED sinks and structurally could not express the
-  rule — §107 and §114 are the two defects that cost, both CLOSED 2026-08-10. ★★ It did NOT serve
+  rule — §107 and §114 are the two defects that cost, both CLOSED 2026-08-10. ★★★ READ §107's CLOSED
+  NARROWLY: it means the CLASSIFIER is fixed, NOT that the payoff is delivered. The whole-object load
+  normalizer applies the `note` sink to all seven rich entity fields, so the AI's wider markup is
+  re-escaped on the next load — measured, and PRE-EXISTING rather than introduced here. Do not "finish"
+  it by widening the `note` sink: measured, that converts the escape into DELETION. §137 carries both
+  measurements. ★★ It did NOT serve
   all five, and an earlier revision here said it did: the render boundary had **no classifier at
   all** before this branch, because the three document renderers did not call `descriptionHtml` —
   that composition was ADDED by `94b7fd21`, which is §118, and the sink it passes was narrowed to
