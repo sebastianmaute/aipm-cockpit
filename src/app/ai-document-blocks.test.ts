@@ -14,9 +14,10 @@ describe("sanitizeAiDocBlocks", () => {
   // KEEP_CONTENT:false; sanitizeDocumentHtml keeps DOMPurify's default, so it
   // unwraps the tag and keeps the text). That
   // distinction only fires when DOMPurify actually SEES the tag as markup —
-  // which requires the value to start with a tag HTML_START recognises
-  // (p/br/strong/em/ul/ol/li/a). A bare "<h3>Section</h3>" does NOT start with
-  // one of those, so descriptionHtml (layer 1) treats the whole string as
+  // which requires the value to OPEN with a tag this sink keeps. `isHtmlStart`
+  // derives the "document" sink's test from DOCUMENT_ALLOWED_TAGS, which has no
+  // h3, so a bare "<h3>Section</h3>" does NOT qualify and descriptionHtml
+  // (layer 1) treats the whole string as
   // plain text and escapes it before DOMPurify ever runs — the text survives
   // for an unrelated reason and the test would pass even with the wrong
   // sanitizer wired in. Wrapping in a recognised "<p>" forces the string down

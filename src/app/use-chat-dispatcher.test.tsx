@@ -1462,7 +1462,8 @@ describe("useChatDispatcher – document tools", () => {
   });
 
   // The XSS-shaped route into the same drop. ★★ It needs the payload WRAPPED:
-  // a bare "<script>…" does not start with a tag in HTML_START, so layer 1
+  // a bare "<script>…" does not open with a tag the "document" sink keeps
+  // (`isHtmlStart`, derived from DOCUMENT_ALLOWED_TAGS), so layer 1
   // escapes it as plain text and the block SURVIVES. "<p><script>…</script>
   // </p>" is real markup, DOMPurify strips the tag and its content, and the
   // remaining "<p></p>" collapses to "" — which is what gets dropped.
@@ -1760,8 +1761,10 @@ describe("useChatDispatcher – document tools", () => {
 
   // ★★★ The SUSPECTED case from the cold review, constructed and confirmed —
   // but NOT with a bare "<script>...": that string does not start with a
-  // recognized HTML tag (rich-text-plain.ts's HTML_START set is p/br/strong/
-  // em/ul/ol/li/a), so layer 1 (sanitizeRichText) treats it as PLAIN TEXT and
+  // recognized HTML tag (`isHtmlStart` derives the "document" sink's test from
+  // DOCUMENT_ALLOWED_TAGS, which carries no `script` — and note the `\b` in
+  // `htmlStartRe` is what stops the listed `s` from matching "<script>"'s first
+  // letter), so layer 1 (sanitizeRichText) treats it as PLAIN TEXT and
   // ESCAPES it into "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>" — safe,
   // non-empty, and it survives (verified directly: sanitizeAiDocBlocks kept
   // that block). The actual empty-after-sanitize case needs the payload
@@ -1891,7 +1894,8 @@ describe("useChatDispatcher – document tools", () => {
 describe("useChatDispatcher – ai.documentWrite activity rows", () => {
   /** The exact input measured (in use-document-tools.ts's own comment) to be
    *  DROPPED by the model-input allow-list: a bare "<script>…</script>" does not
-   *  start with a tag in HTML_START, so layer 1 escapes it as plain text and the
+   *  open with a tag the "document" sink keeps (`isHtmlStart`, derived from
+   *  DOCUMENT_ALLOWED_TAGS), so layer 1 escapes it as plain text and the
    *  block survives. Wrapped in <p>, DOMPurify strips tag AND content, the
    *  paragraph empties, and the block fails the structural check. */
   const DROPPED_BLOCK = { type: "paragraph" as const, html: "<p><script>alert(1)</script></p>" };

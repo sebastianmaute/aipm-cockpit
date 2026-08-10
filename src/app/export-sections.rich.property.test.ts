@@ -20,9 +20,10 @@
 //      CONTROL — without it a richCell that projected every column would satisfy
 //      1 and 2 and still be wrong.
 //
-// ★★ Rich values must START with one of HTML_START's eight tags
-// (p|br|strong|em|ul|ol|li|a) to be recognised as HTML at all. A value opening
-// with <h3> or <blockquote> is treated as LEGACY PLAIN TEXT, escaped by
+// ★★ Rich values must OPEN with a tag the sink recognises to be read as HTML at
+// all. These cells go through descriptionTextWithBreaks, whose "projection" sink
+// derives that test from DOCUMENT_ALLOWED_TAGS (see html-start.ts), so a value
+// opening with <h3>, <table> or <span> is treated as LEGACY PLAIN TEXT, escaped by
 // plainToHtml, and the projection then decodes the escapes back — so the cell
 // legitimately contains a literal "<h3>". That is the documented storage rule,
 // not a richCell defect, so the generators below keep those tags in a NON-
@@ -199,8 +200,9 @@ function buildBlockHtml(texts: readonly string[], shape: BlockShape): string {
     .join("")}`;
 }
 
-/** Assorted inline + block markup. Each shape OPENS with an HTML_START tag (see
- *  the file header) so the value is recognised as HTML rather than escaped. */
+/** Assorted inline + block markup. Each shape OPENS with a tag the projection
+ *  sink recognises (see the file header) so the value is recognised as HTML
+ *  rather than escaped. */
 const MARKUP_SHAPES: ReadonlyArray<(a: string, b: string) => string> = [
   (a, b) => `<p><strong>${a}</strong> and <em>${b}</em></p>`,
   (a, b) => `<ul><li>${a}</li><li>${b}</li></ul>`,

@@ -67,12 +67,15 @@ describe("the paragraph schema description matches the document write boundary",
     .split(/[,/\s]+/)
     .filter(Boolean);
 
-  /** ★ Each sample LEADS with `<p>`, which is the very instruction under test:
-   *  layer 1's `HTML_START` knows only p/br/strong/em/ul/ol/li/a, so a sample
-   *  opening with `<mark>` or `<pre>` would be escaped to literal text and the
-   *  assertion would fail for the classifier's reason rather than the
-   *  allow-list's. Block-level tags sit AFTER a `<p>` for the same reason (and
-   *  because `<pre>`/`<hr>` inside a `<p>` is not parseable markup). */
+  /** ★ Each sample LEADS with `<p>`, which is the very instruction under test.
+   *  It USED to be load-bearing for a second reason too: while one shared 8-tag
+   *  classifier (p/br/strong/em/ul/ol/li/a, since retired) served every sink, a
+   *  sample opening with `<mark>` or `<pre>` would have been escaped to literal
+   *  text and the assertion would have failed for the classifier's reason rather
+   *  than the allow-list's. The "document" sink now derives its test from
+   *  `DOCUMENT_ALLOWED_TAGS` and recognises both, so only the first reason is
+   *  live. Block-level tags still sit AFTER a `<p>` because `<pre>`/`<hr>` inside
+   *  a `<p>` is not parseable markup. */
   const TAG_SAMPLE: Record<string, string> = {
     p: "<p>a</p>",
     br: "<p>a<br>b</p>",
@@ -126,7 +129,8 @@ describe("the paragraph schema description matches the document write boundary",
   // ★★★ NO LONGER LOAD-BEARING FOR SURVIVAL, and this comment used to say the
   // opposite. It claimed a value LEADING with a document-only tag fails layer 1's
   // classifier and is escaped to permanently visible literal tags. That WAS true:
-  // one shared 8-tag `HTML_START` (p/br/strong/em/ul/ol/li/a) served every sink,
+  // one shared 8-tag `HTML_START` (p/br/strong/em/ul/ol/li/a, since retired)
+  // served every sink,
   // so `<mark>`, `<pre>`, `<hr>` and the rest of the document-only set were read
   // as plain text and `plainToHtml` escaped the WHOLE value — open-followups §107
   // at the document sink, on the tags this very schema advertises.

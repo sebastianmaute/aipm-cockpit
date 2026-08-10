@@ -49,12 +49,16 @@ import { TEXTAREA_MAX } from "./sanitize";
  *  ★ Consequence worth knowing: this admits `u`/`h1`/`h2` (the template list is a
  *  superset of the note list). MID-DOCUMENT they degrade — the lean editor drops
  *  them when the field is next opened.
- *  ★★ But a value that STARTS with one never gets here as markup at all:
- *  `HTML_START` recognises only p/br/strong/em/ul/ol/li/a, so `<h1>T</h1><p>b</p>`
- *  fails the HTML test in layer 1 and `plainToHtml` escapes the WHOLE value into
- *  permanent visible tags. Same for a leading `<div>`, `<h3>` or `<!--comment-->`.
- *  That is the `HTML_START` classification family (open-followups.md §32), not
- *  something this boundary can fix — do not read "they degrade" as unconditional. */
+ *  ★★ A value that STARTS with one used to be escaped WHOLE into permanent visible
+ *  tags, because one shared 8-tag classifier (p/br/strong/em/ul/ol/li/a, since
+ *  retired) answered "is this HTML?" for every sink. Layer 1 now takes the sink and
+ *  `isHtmlStart(value, "template")` derives its test from `TEMPLATE_ALLOWED_TAGS`,
+ *  the same list layer 2 keeps, so `<h1>T</h1><p>b</p>` survives as markup
+ *  (open-followups.md §107, CLOSED 2026-08-10). A leading `<div>`, `<h3>` or
+ *  `<!--comment-->` is not on that list and is still escaped whole.
+ *  ★★ The OPPOSITE direction of the same question is a DIFFERENT and STILL-OPEN
+ *  defect — open-followups.md §32, plain prose that merely looks tag-shaped taken
+ *  for HTML. Do not read §107's closure as closing it. */
 export function sanitizeAiRichText(raw: unknown): string {
   const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, "template");
   if (!upgraded) return "";
@@ -113,26 +117,26 @@ export function sanitizeAiRichText(raw: unknown): string {
  *  callers have no such structural layer, which is where the empty rule is load
  *  bearing.
  *
- *  ★★ THE SIBLING'S `HTML_START` CAVEAT CARRIES OVER, AND ITS BLAST RADIUS IS
- *  BIGGER HERE. Layer 1 only treats a value as HTML when `HTML_START` says so,
- *  and that classifier knows only p/br/strong/em/ul/ol/li/a — so a document
- *  paragraph that STARTS with any of the nine tags this list newly allows
- *  (`<mark>`, `<s>`, `<code>`, `<pre>`, `<blockquote>`, `<sub>`, `<sup>`, `<hr>`,
- *  `<img>`) fails the test, `plainToHtml` escapes the WHOLE value, and the tags
- *  become permanent literal visible text. Measured for all nine. A `<p>`-wrapped
- *  mark stores fine; a LEADING one does not, which makes the gap easy to miss —
- *  the model's usual output shape is the one that works.
- *  ★ Deliberately NOT fixed here: widening `HTML_START` is the naive repair and
- *  it re-breaks the dashboard narrative path, whose sink is `KEEP_CONTENT: false`
- *  and therefore DELETES an unrecognised tag's text instead of unwrapping it.
- *  Deferred to its own slice.
- *  ★★ Cite §32 CAREFULLY — it is the same classifier and the OPPOSITE direction.
+ *  ★★ THE SIBLING'S CLASSIFIER CAVEAT APPLIED HERE TOO, WITH A BIGGER BLAST
+ *  RADIUS, AND IT IS NOW CLOSED. While one shared 8-tag classifier answered "is
+ *  this HTML?" for every sink, a document paragraph STARTING with any of the nine
+ *  tags this wider list adds (`<mark>`, `<s>`, `<code>`, `<pre>`, `<blockquote>`,
+ *  `<sub>`, `<sup>`, `<hr>`, `<img>`) failed the test, `plainToHtml` escaped the
+ *  WHOLE value, and the tags became permanent literal visible text — measured for
+ *  all nine (open-followups.md §114, CLOSED 2026-08-10). `isHtmlStart(value,
+ *  "document")` derives its test from `DOCUMENT_ALLOWED_TAGS`, so this
+ *  classifier cannot recognise less than layer 2 keeps.
+ *  ★ Widening the one shared constant was the naive repair and was never
+ *  available: the "note" sink (the dashboard narrative, the note log) is
+ *  `KEEP_CONTENT: false` and DELETES an unrecognised tag's text instead of
+ *  unwrapping it, so one list cannot serve both. `html-start.ts` states that rule
+ *  and its reasoning — read it there rather than re-deriving it here.
+ *  ★★ Cite §32 CAREFULLY — same question, OPPOSITE direction, and STILL OPEN.
  *  §32 is the FALSE POSITIVE (plain prose like "<a note about pricing> is
- *  attached" is taken for HTML and the pseudo-tag's words are then deleted); this
- *  is the FALSE NEGATIVE (real HTML is taken for prose and escaped). One regex,
- *  two failure modes, and §32's title covers only its own — so this direction is
- *  NOT tracked by any numbered entry today. Do not read a fix for §32 as closing
- *  this, and do not close this by pointing at §32. */
+ *  attached" is taken for HTML and the pseudo-tag's words are then deleted); what
+ *  §114 closed was the FALSE NEGATIVE (real HTML taken for prose and escaped).
+ *  Per-sink derivation closed the false negative only. Do not read a fix for §32
+ *  as closing that, and do not close §32 by pointing at §114. */
 export function sanitizeAiDocumentRichText(raw: unknown): string {
   const upgraded = sanitizeRichText(raw, MAX_HTML_TEXT_CHARS, "document");
   if (!upgraded) return "";

@@ -33,7 +33,9 @@ describe("descriptionHtml", () => {
     );
   });
 
-  // ★★★ HTML_START (shared with narrative-html) once matched a bare OPENER, so a
+  // ★★★ The retired shared `HTML_START` (it lived in narrative-html.ts) once
+  // matched a bare OPENER — `htmlStartRe`'s `[^>]*>` is what now requires the tag
+  // to actually CLOSE — so a
   // legacy plain value that merely STARTS tag-shaped passed through raw. The
   // tokenizer discards an incomplete tag at EOF, so the whole value vanished
   // from the screen, from search, from exports and from the AI digests — while

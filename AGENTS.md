@@ -1005,9 +1005,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   letter or `/` is literal text — `<p>cost < 5k</p>` projected to `"cost"`, and a value projecting to
   empty is DROPPED by `sanitizeRichText`'s empty rule). Block tags are replaced by a SPACE first;
   `&amp;` decodes LAST so `&amp;lt;` cannot double-decode. All three cost a data-integrity bug.
-  ★★ `HTML_START` (`narrative-html.ts`, SHARED with the dashboard narrative) must see the tag
-  actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a value the counter
-  measured at 11 while every reader rendered nothing.
+  ★★★ **"IS THIS STORED VALUE ALREADY HTML?" IS ANSWERED PER SINK** — `isHtmlStart(value, sink)` in
+  `html-start.ts`, whose test each sink DERIVES from its own allow-list. THE RULE: never recognise
+  LESS than your sink KEEPS (a narrower classifier escapes the WHOLE value, permanently); a WIDER one
+  is worse where the sink DELETES, since `sanitizeNoteHtml` sets `KEEP_CONTENT: false`. Five sinks —
+  `note`, `template`, `document`, `projection` (derived from `NOTE_ALLOWED_TAGS` /
+  `TEMPLATE_ALLOWED_TAGS` / `DOCUMENT_ALLOWED_TAGS` twice) and `render`, which has NO list because its
+  consumers keep every tag's text. `descriptionHtml` and `sanitizeRichText` REQUIRE the sink argument.
+  One shared 8-tag constant served all five and structurally could not express the rule — §107 and
+  §114 are the two defects that cost, both CLOSED 2026-08-10.
+  ★★ The tag must actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a
+  value the counter measured at 11 while every reader rendered nothing. `html-start.ts` carries that
+  reasoning, the `\b` guard against a short tag swallowing a longer one, and the residue it
+  deliberately does not chase — read it before touching the regex, and do not restate it here.
   ★ Counters/caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`; `capHtmlText` backs a
   truncation off one code unit rather than splitting a surrogate pair (a lone surrogate is `U+FFFD`
   on CSV/MD but survives on JSON/IDB — a backend-dependent corruption). `clipText` in
