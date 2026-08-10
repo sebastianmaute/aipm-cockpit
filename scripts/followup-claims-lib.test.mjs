@@ -4,17 +4,24 @@
 // shipped was a regex defect, and both were found by running it against the
 // real docs rather than by reading it. Each `regression:` test names what it
 // pins.
+import fs from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
-import { ABSENCE_MARKERS } from "./agents-symbols-lib.mjs";
+import { ABSENCE_MARKERS, collectIdentifiers, isGatedSymbolName } from "./agents-symbols-lib.mjs";
 import {
   ABSENCE_STATE_WORDS,
+  SWEEP_SELF_FILES,
   assertedAbsentNames,
   classify,
   fencedLines,
   isClosed,
   parseEntries,
   reproCommandsIn,
+  reproEntriesIn,
+  stripTrailingComment,
   symbolsIn,
+  toArgv,
 } from "./followup-claims-lib.mjs";
 
 const REGISTER_SAMPLE = [
@@ -116,28 +123,36 @@ describe("fencedLines / reproCommandsIn", () => {
 describe("reproCommandsIn — trailing `#` comments", () => {
   const fence = (...lines) => ["## 9. x — open", "```bash", ...lines, "```"].join("\n");
 
-  // ★★ Every line below is VERBATIM from `docs/open-followups.md`; the register
-  // line number is named per case. Reproduce the full extraction with:
-  //   node -e "const fs=require('fs');import('./scripts/followup-claims-lib.mjs').then(L=>{
-  //     for(const e of L.parseEntries(fs.readFileSync('docs/open-followups.md','utf8')))
-  //       for(const c of L.reproCommandsIn(e.body.join('\n'))) console.log(c)})"
+  // ★★ Every line below is VERBATIM from `docs/open-followups.md`, attributed
+  // by ENTRY (§N) and not by line number. ★★★ Deliberately: `check-doc-claims.mjs`
+  // ratchets `path:LINE` citations across `docs/**` and the root docs, and it
+  // does NOT scan `scripts/` — so a line number written here is an unratcheted
+  // citation into a file this very slice inserts lines into, and AGENTS.md's
+  // rule applies verbatim (an insertion invalidates every cite below it,
+  // including ones written moments earlier in the same commit). The §N plus the
+  // quoted string is self-verifying: grep the string.
+  //
+  // Enumerate today's commented lines — this is the reproduce command, and it
+  // prints the COMMENTS, which the command extractor by construction cannot:
+  //   node -e "const fs=require('fs');import('./scripts/followup-claims-lib.mjs').then(L=>{for(const l of L.fencedLines(fs.readFileSync('docs/open-followups.md','utf8'))){const e=L.splitTrailingComment(l.trim());if(e&&e.comment)console.log(e.comment)}})"
+  //
   // A synthetic `foo # bar` fixture is exactly how this class of defect survives:
   // the sibling gate's every shipped defect was a regex defect found by running
   // it against the real docs.
   const REAL_WITH_COMMENT = [
-    // docs/open-followups.md:3970-3972 (§75)
+    // §75, verbatim.
     "npx vitest run src/app/use-storage-backend.test.tsx --sequence.shuffle --sequence.seed=1  # 1 failed / 62 passed",
     "npx vitest run src/app/modern-shell.test.tsx        --sequence.shuffle --sequence.seed=1  # 3 failed / 17 passed",
     "npx vitest run src/app/use-storage-backend.test.tsx src/app/modern-shell.test.tsx         # control: 83 passed",
-    // docs/open-followups.md:5013 (§93)
+    // §93, verbatim.
     'grep -n  "Showing the first" src/app/export-pptx.ts src/app/doc-render-pptx.ts    # 3 lines — one is a comment',
-    // docs/open-followups.md:5080-5081 (§95)
+    // §95, verbatim.
     'grep -rn ":memory:" src/app/*.test.ts        # no hits',
     'grep -n "libsql" package.json                # no hits — HTTP pipeline, not a driver',
   ];
 
   const REAL_WITHOUT_COMMENT = [
-    "npm run build", // :3200-ish (§54)
+    "npm run build", // §54, verbatim
     "npx next start -p 3200", // (§54)
     "npx vitest run --sequence.shuffle --sequence.seed=1 --reporter=dot", // (§75)
     'npx playwright test e2e/a11y.spec.ts --project=chromium -g "Insights" --workers=1', // (§99)
@@ -198,7 +213,7 @@ describe("reproCommandsIn — trailing `#` comments", () => {
   it("★★ a comment may hold shell metacharacters the command may not", () => {
     // The comment never reaches the runner, so SHELL_META is applied to the
     // STRIPPED command. Not a weakening: what executes is checked more, not
-    // less. This is a REAL admission — docs/open-followups.md:4972 (§92) was
+    // less. This is a REAL admission — §92 was
     // rejected outright because the `|` in its COMMENT tripped SHELL_META, so
     // a perfectly safe command was withheld.
     expect(
@@ -208,6 +223,207 @@ describe("reproCommandsIn — trailing `#` comments", () => {
     ).toEqual(['npx vitest run src/app/document-model.test.ts -t "never snapshots"']);
     // …while meta in the COMMAND itself is still rejected.
     expect(reproCommandsIn(fence("grep -n foo src/a.ts | wc -l  # a count"))).toEqual([]);
+  });
+});
+
+describe("SWEEP_SELF_FILES", () => {
+  // ★★★ THE MIRROR OF `GATE_SELF_FILES`' TESTS, AND FOR THE SAME REASON: the
+  // tool cannot detect its own damage. Excluding too little makes this file's
+  // verbatim register quotes vouch for the names the sweep checks; excluding too
+  // much makes it scan less than it reports. Both exit 0. These tests are the
+  // only detector.
+
+  it("holds EXACTLY this sweep's three files", () => {
+    // Exact membership, not "the three are in there somewhere" — a set that
+    // grows too broad is invisible to every other assertion, because a real
+    // source file always brings identifiers of its own.
+    expect([...SWEEP_SELF_FILES].map((p) => path.basename(p)).sort()).toEqual([
+      "check-followup-claims.mjs",
+      "followup-claims-lib.mjs",
+      "followup-claims-lib.test.mjs",
+    ]);
+  });
+
+  it("names files that exist on disk", () => {
+    // A typo'd or directory-named entry excludes nothing, and would surface far
+    // later as a confusing leak of somebody else's fixture name.
+    for (const p of SWEEP_SELF_FILES) {
+      expect(fs.existsSync(p), `${p} is not on disk`).toBe(true);
+      expect(fs.statSync(p).isFile(), `${p} is not a file`).toBe(true);
+    }
+  });
+
+  it("★★★ every entry is load-bearing — each holds a gated name the scan lacks", () => {
+    // Derived, never a sentinel list: a hardcoded name stops being unique the
+    // moment an unrelated file reuses it, and the tempting repair (drop that
+    // name) leaves an entry with no separating input at all. If an entry stops
+    // contributing a gated name, its exclusion has become dead weight.
+    const known = new Set();
+    collectIdentifiers("scripts", known, SWEEP_SELF_FILES);
+    for (const file of SWEEP_SELF_FILES) {
+      const own = new Set();
+      for (const m of fs.readFileSync(file, "utf8").matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) {
+        if (!known.has(m[0]) && isGatedSymbolName(m[0])) own.add(m[0]);
+      }
+      expect(
+        own.size,
+        `${path.basename(file)} contributes no gated name the scan lacks — excluding it changes nothing`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("★★ excluding them still leaves the rest of scripts/ scanned", () => {
+    // An exclusion that swallows too much passes everything. Prove it scanned.
+    const known = new Set();
+    collectIdentifiers("scripts", known, SWEEP_SELF_FILES);
+    expect(known.size).toBeGreaterThan(500);
+    expect(known.has("stripFencedBlocks")).toBe(true);
+  });
+
+  it("★★★ quotes the register's own symbols back at it — the hazard, re-measured", () => {
+    // This is the reproduce command for the exclusion, and it does not rot: it
+    // recomputes the overlap between the gated names the OPEN entries claim and
+    // the names this harness writes into the scanned tree. Every member is a
+    // name whose deletion from `src/` this sweep would stop reporting, because
+    // its own fixture would vouch for it — silently, at exit 0.
+    //
+    // ★ An EMPTY overlap would not be reassuring, it would mean this assertion
+    // has stopped exercising anything, so it is asserted non-empty rather than
+    // pinned to a count that moves with the register.
+    const text = fs.readFileSync("docs/open-followups.md", "utf8");
+    const named = new Set();
+    for (const e of parseEntries(text).filter((x) => !isClosed(x.title))) {
+      for (const s of symbolsIn(e.body.join("\n"))) named.add(s);
+    }
+    const harness = new Set();
+    for (const f of SWEEP_SELF_FILES) {
+      for (const m of fs.readFileSync(f, "utf8").matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) {
+        harness.add(m[0]);
+      }
+    }
+    const overlap = [...named].filter((n) => harness.has(n));
+    expect(overlap.length, "the harness no longer quotes any gated register name").toBeGreaterThan(
+      0,
+    );
+    // ★★ And the exclusion must actually cover them: scanning `scripts/` WITH
+    // the harness included resolves every one of these names, which is exactly
+    // the false vouching the exclusion removes.
+    const withHarness = new Set();
+    collectIdentifiers("scripts", withHarness);
+    for (const n of overlap) {
+      expect(withHarness.has(n), `${n} is not the hazard this test claims`).toBe(true);
+    }
+  });
+
+  it("★★ `alsoExclude` actually removes names the default scan would keep", () => {
+    // The parameter is the whole fix. Without this, a `collectIdentifiers` that
+    // silently ignored its third argument would leave every test above green.
+    const withAll = new Set();
+    const withoutSelf = new Set();
+    collectIdentifiers("scripts", withAll);
+    collectIdentifiers("scripts", withoutSelf, SWEEP_SELF_FILES);
+    expect(withAll.size).toBeGreaterThan(withoutSelf.size);
+  });
+});
+
+describe("reproEntriesIn — the register's own expected outcome", () => {
+  it("★★★ keeps the trailing comment instead of discarding it", () => {
+    // ★★★ THIS IS WHY THE COMMENT IS RETAINED. docs/open-followups.md (§95),
+    // verbatim: "grep -rn \":memory:\" src/app/*.test.ts        # no hits".
+    // grep exits 1 on no match, so the register's ONLY statement that exit 1 is
+    // correct here lives in the comment — thrown away, the runner reported this
+    // intact evidence as rotted.
+    expect(reproEntriesIn('## 9. x — open\n```bash\ngrep -rn ":memory:" src/app/*.test.ts        # no hits\n```')).toEqual([
+      { cmd: 'grep -rn ":memory:" src/app/*.test.ts', comment: "# no hits" },
+    ]);
+  });
+
+  it("carries an empty comment when the line has none", () => {
+    expect(reproEntriesIn("## 9. x — open\n```bash\nnpm run build\n```")).toEqual([
+      { cmd: "npm run build", comment: "" },
+    ]);
+  });
+});
+
+describe("toArgv", () => {
+  // ★★★ THE MOST SAFETY-CRITICAL FUNCTION IN THE LIBRARY: it decides what
+  // reaches `spawnSync`. It was module-local to the CLI — a file that reads the
+  // register and `process.exit`s at import — so nothing could import it and
+  // nothing tested it, while `stripTrailingComment` beside it had ten tests.
+
+  it("tokenizes a quoted argument as ONE argument", () => {
+    // docs/open-followups.md (§93), verbatim — note the DOUBLE space after
+    // `-n`, which is what a naive `split(/\s+/)` and a naive `split(" ")`
+    // disagree about. Splitting on whitespace instead searches for `"Showing`
+    // in files named `the` and `first"`, and grep's exit 2 on the missing files
+    // was reported as a reproduce command that had gone stale.
+    expect(
+      toArgv('grep -n  "Showing the first" src/app/export-pptx.ts src/app/doc-render-pptx.ts'),
+    ).toEqual([
+      "grep",
+      "-n",
+      "Showing the first",
+      "src/app/export-pptx.ts",
+      "src/app/doc-render-pptx.ts",
+    ]);
+  });
+
+  it("★★ `\"\"` is a real empty argument, not nothing", () => {
+    // An emptiness test instead of the `started` flag drops it silently, and
+    // the child then receives a DIFFERENT command than the register shows.
+    expect(toArgv('grep -c "" src/a.ts')).toEqual(["grep", "-c", "", "src/a.ts"]);
+  });
+
+  it("★★★ returns null on an unbalanced quote rather than guessing", () => {
+    // This list is EXECUTED. Splitting a half-quoted line yields a command
+    // nobody wrote; UNRUNNABLE is the honest report.
+    expect(toArgv('grep -n "unterminated src/a.ts')).toBeNull();
+    expect(toArgv("grep -n 'unterminated src/a.ts")).toBeNull();
+  });
+
+  it("returns null on a trailing backslash, which escapes nothing", () => {
+    expect(toArgv("grep -n foo src/a.ts \\")).toBeNull();
+  });
+
+  it("returns null on an empty command", () => {
+    expect(toArgv("   ")).toBeNull();
+  });
+
+  it("a backslash is literal inside single quotes, an escape elsewhere", () => {
+    expect(toArgv("grep -n 'a\\b' src/a.ts")).toEqual(["grep", "-n", "a\\b", "src/a.ts"]);
+    expect(toArgv('grep -n "a\\"b" src/a.ts')).toEqual(["grep", "-n", 'a"b', "src/a.ts"]);
+  });
+
+  it("★★★ DIFFERENTIAL: agrees with the comment splitter on where a quote span ends", () => {
+    // The two carry SEPARATE implementations of the same POSIX quote model, and
+    // a comment asserting they "cannot disagree" enforces nothing — this does.
+    // If they part company, a `#` inside a quoted span is data to one and a
+    // comment to the other, and the command that runs is not the command the
+    // register shows.
+    const cases = [
+      'grep -n "#define" src/a.ts',
+      "grep -n '#define' src/a.ts",
+      'grep -n "a b" src/a.ts',
+      "grep -n 'a\\b' src/a.ts",
+      'grep -n "a\\"b" src/a.ts',
+      'grep -n "unterminated src/a.ts',
+      "grep -n 'unterminated src/a.ts",
+      'grep -n "closed" then "unclosed src/a.ts',
+      "grep -c foo src/a.ts",
+    ];
+    for (const c of cases) {
+      const quotingResolves = stripTrailingComment(c) !== null;
+      expect(toArgv(c) !== null, `disagreement on: ${c}`).toBe(quotingResolves);
+    }
+  });
+
+  it("★ a `*` reaches the child literally — there is no shell to expand it", () => {
+    expect(toArgv('grep -rn ":memory:" src/app/*.test.ts')).toEqual([
+      "grep",
+      "-rn",
+      ":memory:",
+      "src/app/*.test.ts",
+    ]);
   });
 });
 
@@ -267,7 +483,7 @@ describe("classify", () => {
     //   grep -n "purify.cjs.js\|lib/util/eslint.js\|version\.js" docs/open-followups.md
 
     it("a `node_modules/` cite is third-party, not repo debt", () => {
-      // docs/open-followups.md:6860 (§115), verbatim prefix.
+      // §115, verbatim prefix.
       const [entry] = parseEntries(
         "## 115. x — open\nwhich is TRUE (`node_modules/dompurify/dist/purify.cjs.js:767` — `ALLOW_DATA_ATTR =",
       );
@@ -277,7 +493,7 @@ describe("classify", () => {
     });
 
     it("a bare dependency filename is third-party too", () => {
-      // docs/open-followups.md:6875 (§115) and :2295 (§53), verbatim.
+      // §115 and §53, verbatim.
       const [entry] = parseEntries(
         "## 53. x — open\n" +
           "`ALLOW_DATA_ATTR: false` removes the `data-*` SHORT-CIRCUIT — at `purify.cjs.js:1846` the `data-*`\n" +
@@ -288,7 +504,7 @@ describe("classify", () => {
     });
 
     it("an eslint-plugin rule path is third-party", () => {
-      // docs/open-followups.md:2348-2349 (§53), verbatim.
+      // §53, verbatim.
       const [entry] = parseEntries(
         "## 53. x — open\n" +
           "- ★ Three further unguarded call sites exist in `eslint-plugin-react` — `lib/util/eslint.js:18`,\n" +

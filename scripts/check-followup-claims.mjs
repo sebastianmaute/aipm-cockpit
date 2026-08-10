@@ -22,7 +22,14 @@ import {
   resolveCandidates,
 } from "./doc-claims-lib.mjs";
 import { collectIdentifiers } from "./agents-symbols-lib.mjs";
-import { REGISTER, classify, isClosed, parseEntries } from "./followup-claims-lib.mjs";
+import {
+  REGISTER,
+  SWEEP_SELF_FILES,
+  classify,
+  isClosed,
+  parseEntries,
+  toArgv,
+} from "./followup-claims-lib.mjs";
 
 const args = process.argv.slice(2);
 const jsonAt = args.indexOf("--json");
@@ -44,7 +51,12 @@ for (const dir of ["src", "scripts", "e2e"]) {
   // An absent directory must reach the floor below as "the scan found nothing",
   // not as an ENOENT stack trace that reads like a broken register.
   try {
-    collectIdentifiers(dir, knownSymbols);
+    // ★★★ THIS SWEEP'S OWN FILES ARE EXCLUDED FROM THE TREE IT JUDGES AGAINST.
+    // Without it, `followup-claims-lib.test.mjs` — whose method is quoting
+    // register prose verbatim — vouches for the very names this tool checks.
+    // See `SWEEP_SELF_FILES` for the measurement and for why the list lives
+    // beside this gate rather than inside the symbol gate's constant.
+    collectIdentifiers(dir, knownSymbols, SWEEP_SELF_FILES);
   } catch {
     /* partial checkout — the floor is what decides whether that is survivable */
   }
@@ -77,15 +89,14 @@ if (entries.length < 50) {
 // holds must still report PATH_MISSING — that is the whole finding. So every
 // member of this index is a file that exists: the walks return real entries, and
 // `ROOT_DOCS` (a hardcoded list, not a walk) is filtered against disk.
-let docEntries = [];
-try {
-  docEntries = readdirSync("docs", { recursive: true, encoding: "utf8" });
-} catch {
-  /* no docs/ in a partial checkout — those paths then legitimately report missing */
-}
-// ★ Only the readdir is guarded. Wrapping the loop too would let one unreadable
-// entry silently truncate the index, and a short index is indistinguishable from
-// a deleted file — it reports PATH_MISSING either way.
+// ★★ UNGUARDED, on purpose. This used to sit in a `try` commented "no docs/ in
+// a partial checkout" — unreachable, because `readFileSync(REGISTER)` above
+// reads a file inside `docs/` and throws first. What the catch could actually
+// have swallowed is an unreadable `docs/`, and swallowing that is the bad
+// direction: a truncated index is indistinguishable from a deleted file — every
+// missing asset reports PATH_MISSING, a whole screen of false findings under a
+// tool that exits 0. Fail loudly instead.
+const docEntries = readdirSync("docs", { recursive: true, encoding: "utf8" });
 const docAssets = [];
 for (const f of docEntries) {
   const p = `docs/${f}`.replace(/\\/g, "/");
@@ -120,89 +131,70 @@ const env = {
 
 const results = entries.map((e) => classify(e, env));
 
-// ★★★ SPLITTING ON WHITESPACE FABRICATES DRIFT, and it fabricates it on the
-// commands most worth running. `shell: false` means nothing strips quotes, so
-// `grep -n "Showing the first" a.ts b.ts` split on `/\s+/` searches for
-// `"Showing` in files named `the` and `first"` — grep exits 2 on the missing
-// files and the runner reports a reproduce command that "no longer exits 0".
-// A gate reporting a green branch as red is the expensive direction, and this
-// one did: the register's `grep -n "Showing the first" …` reported drift under
-// the naive split and exits 0 once tokenized. ★★ It did NOT explain every
-// non-zero exit that run — some of the register's reproduce commands really
-// have gone stale — which is the point: with the bug present you cannot tell
-// the two apart, so no number here is worth quoting. Reproduce the fabricated
-// half, whose `2` is grep failing to open files named `the` and `first"`:
-//   node -e "const{spawnSync:s}=require('node:child_process');const c='grep -n \"Showing the first\" src/app/doc-render-pptx.ts'.split(/\s+/);console.log(s(c[0],c.slice(1),{encoding:'utf8'}).status)"
-//
-// Quote handling deliberately mirrors `stripTrailingComment`'s model — a
-// backslash escapes the next character except inside single quotes — so the
-// two functions cannot disagree about where a quoted span ends. Returns null on
-// unbalanced quoting; the caller then reports the command UNRUNNABLE rather
-// than spawn a guess, for the same reason that function returns null.
-// ★ A `*` reaches the child literally: there is no shell to expand it. Whether
-// it still matches is the child's business (MSYS builds glob for themselves,
-// GNU grep on Linux does not), which is one more reason a non-zero exit from
-// this runner is a lead and not a verdict.
-function toArgv(cmd) {
-  const argv = [];
-  let cur = "";
-  let started = false; // `""` is a real empty argument, so emptiness cannot end one
-  let quote = null;
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i];
-    if (ch === "\\" && quote !== "'") {
-      if (i + 1 >= cmd.length) return null; // trailing backslash escapes nothing
-      cur += cmd[++i];
-      started = true;
-      continue;
-    }
-    if (quote === null && /\s/.test(ch)) {
-      if (started) argv.push(cur);
-      cur = "";
-      started = false;
-      continue;
-    }
-    if (quote === null && (ch === "'" || ch === '"')) {
-      quote = ch;
-      started = true;
-      continue;
-    }
-    if (ch === quote) {
-      quote = null;
-      continue;
-    }
-    cur += ch;
-    started = true;
-  }
-  if (quote !== null) return null;
-  if (started) argv.push(cur);
-  return argv.length ? argv : null;
+const REPRO_TIMEOUT_MS = 60_000;
+
+/** ★★★ A NON-ZERO EXIT IS NOT AUTOMATICALLY DRIFT, AND `grep` IS THE PROOF.
+ *  Its contract is 0 = matched, 1 = no match, ≥2 = error — so for a register
+ *  line whose whole point is that nothing matches (`# no hits`), exit 1 IS the
+ *  documented outcome. Reported as drift, §95's two greps were the sweep's only
+ *  finding on the day this ran, and both were false. Measured:
+ *    grep -rn ":memory:" src/app/*.test.ts ; echo "EXIT=$?"     # EXIT=1
+ *  ★★ Scoped to `grep` alone, deliberately. Every binary has its own exit
+ *  vocabulary and guessing at one is how a real regression gets waved through;
+ *  a second entry here needs its own measurement. */
+function ranWithoutError(bin, status) {
+  if (status === 0) return true;
+  return bin === "grep" && status === 1;
 }
 
 if (runRepro) {
   for (const r of results) {
-    r.reproResults = r.repro.map((cmd) => {
+    r.reproResults = r.repro.map(({ cmd, comment }) => {
       // ★★★ `shell: false`. The command came out of a markdown file; a shell
-      // would make every metacharacter in it executable. `reproCommandsIn`
+      // would make every metacharacter in it executable. `reproEntriesIn`
       // already rejects metacharacters — this is the second layer.
       const argv = toArgv(cmd);
       if (argv === null) {
-        return { cmd, status: null, launchError: "UNPARSEABLE", stdout: "" };
+        return {
+          cmd,
+          comment,
+          bin: null,
+          status: null,
+          launchError: "UNPARSEABLE",
+          timedOut: false,
+          stdout: "",
+        };
       }
       const [bin, ...rest] = argv;
-      const out = spawnSync(bin, rest, { encoding: "utf8", timeout: 60_000, shell: false });
+      const out = spawnSync(bin, rest, {
+        encoding: "utf8",
+        timeout: REPRO_TIMEOUT_MS,
+        shell: false,
+      });
+      // ★★★ A TIMEOUT IS NOT A LAUNCH FAILURE, AND CALLING IT ONE IS A LIE WITH
+      // CONSEQUENCES. `spawnSync` reports both through `error`, so the two used
+      // to collapse into one bucket printed "not executed" — measured, a timeout
+      // gives `{ status: null, signal: "SIGTERM", error.code: "ETIMEDOUT" }`.
+      // The command ran for the full timeout and whatever it did, it did. The
+      // register carries `npm run build` and `npx next start -p 3200` (which
+      // never exits), so this is a live shape the moment either entry reopens.
+      const timedOut = out.error?.code === "ETIMEDOUT";
       return {
         cmd,
+        comment,
+        bin,
         status: out.status,
-        // ★★★ A COMMAND THAT NEVER LAUNCHED IS NOT DRIFT. On Windows `npm` and
-        // `npx` are `.cmd` shims: `shell: false` cannot start them (ENOENT), and
-        // raising `shell: true` to "fix" that is the security boundary this
-        // runner exists to hold — so those commands are UNRUNNABLE here, by
-        // design, forever. `node` and `grep` do run. Folding a launch failure in
-        // with a real non-zero exit would invent drift on every npm-scripted
-        // entry, on this platform only. Reproduce the split:
+        timedOut,
+        // ★★★ A COMMAND THAT NEVER LAUNCHED IS NOT DRIFT EITHER. On Windows
+        // `npm` and `npx` are `.cmd` shims: `shell: false` cannot start them
+        // (ENOENT), and raising `shell: true` to "fix" that is the security
+        // boundary this runner exists to hold — so those commands are
+        // UNRUNNABLE here, by design, forever. `node` and `grep` do run.
+        // Folding a launch failure in with a real non-zero exit would invent
+        // drift on every npm-scripted entry, on this platform only. Reproduce
+        // the split:
         //   node -e "const{spawnSync:s}=require('node:child_process');for(const b of ['node','npm'])console.log(b,s(b,['--version'],{shell:false}).error?.code??'ran')"
-        launchError: out.error ? (out.error.code ?? "ERROR") : null,
+        launchError: !timedOut && out.error ? (out.error.code ?? "ERROR") : null,
         stdout: (out.stdout ?? "").trim().slice(0, 400),
       };
     });
@@ -212,11 +204,29 @@ if (runRepro) {
           kind: "REPRO_UNRUNNABLE",
           detail: `${x.cmd} (${x.launchError} — not executed, verdict unchanged)`,
         });
+        continue;
       }
-    }
-    if (r.reproResults.some((x) => !x.launchError && x.status !== 0)) {
-      r.verdict = r.verdict === "CLEAN" ? "COUNT_DRIFT" : r.verdict;
-      r.problems.push({ kind: "COUNT_DRIFT", detail: "a reproduce command no longer exits 0" });
+      if (x.timedOut) {
+        r.problems.push({
+          kind: "REPRO_TIMEOUT",
+          detail: `${x.cmd} (executed, killed at ${REPRO_TIMEOUT_MS / 1000}s — side effects possible, verdict unchanged)`,
+        });
+        continue;
+      }
+      if (ranWithoutError(x.bin, x.status)) continue;
+      // ★★ The register's own trailing comment is printed beside the exit code
+      // BECAUSE IT IS THE ONLY STATEMENT OF WHAT WAS EXPECTED. Discarding it is
+      // what made the grep-exit-1 case unreadable: a bare "no longer exits 0"
+      // gives a reader nothing to compare against.
+      // ★★ The verdict is named for what was OBSERVED, not for what it implies.
+      // It was `COUNT_DRIFT`, which asserted a conclusion this runner cannot
+      // reach — a `*` is not globbed here, a working tree differs from CI, and a
+      // command can be stale in ways that still exit 0. A lead, not a verdict.
+      r.verdict = r.verdict === "CLEAN" ? "REPRO_NONZERO" : r.verdict;
+      r.problems.push({
+        kind: "REPRO_NONZERO",
+        detail: `${x.cmd} → exit ${x.status}${x.comment ? `   [register says: ${x.comment}]` : ""}`,
+      });
     }
   }
 }

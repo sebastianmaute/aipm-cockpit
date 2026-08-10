@@ -2,10 +2,40 @@
 // Pure: no `process.exit`, no `console`, no IO beyond what the caller injects —
 // so every rule below is unit-testable. Mirrors `doc-claims-lib.mjs`, whose
 // fence parser and citation resolver this file REUSES rather than re-derives.
+import path from "node:path";
+import url from "node:url";
+
 import { citesOnLine, stripFencedBlocks, THIRD_PARTY_RE } from "./doc-claims-lib.mjs";
 import { ABSENCE_MARKERS, isGatedSymbolName } from "./agents-symbols-lib.mjs";
 
 export const REGISTER = "docs/open-followups.md";
+
+/** ★★★ THIS SWEEP'S OWN FILES, EXCLUDED FROM THE TREE IT JUDGES AGAINST — the
+ *  same hazard `GATE_SELF_FILES` documents at three stars in the symbol gate,
+ *  reproduced here because the design invites it: the test file's whole method
+ *  is quoting register prose VERBATIM, so every name it quotes becomes a name
+ *  the scan finds. Measured against the pre-fix files, 2026-08-10: 19 of the
+ *  372 gated symbols the 92 open entries name were written verbatim inside these
+ *  three — among them `resetAllCols` (§7), `useFocusTrap` (§8), `csvToWorkspace`
+ *  (§28) and `ToggleButton` (§55). ★ Do not trust that pair of numbers; both
+ *  move with the register. The overlap is RE-MEASURED on every run by the
+ *  "quotes the register's own symbols back at it" test in
+ *  `followup-claims-lib.test.mjs`, which is the reproduce command.
+ *
+ *  ★★ No false CLEAN resulted, because all 19 also exist in `src/` — which is
+ *  exactly what makes it dangerous. The failure is one-way and silent: delete
+ *  one of those names from `src/` and its entry reports CLEAN forever, vouched
+ *  for by this harness's own fixture, at exit 0 either way.
+ *
+ *  ★ Derived from this module's location, never `process.cwd()`, for the reason
+ *  the sibling constant records: a cwd-relative list is correct only while an
+ *  unwritten repo-root invariant holds, and there are two consumers now. */
+const HERE = path.dirname(url.fileURLToPath(import.meta.url));
+export const SWEEP_SELF_FILES = new Set([
+  path.join(HERE, "check-followup-claims.mjs"),
+  path.join(HERE, "followup-claims-lib.mjs"),
+  path.join(HERE, "followup-claims-lib.test.mjs"),
+]);
 
 /** `## 42. Title` opens an entry. */
 export const ENTRY_RE = /^##\s+(\d+)\.\s+(.*)$/;
@@ -60,15 +90,33 @@ export function fencedLines(text) {
 /** Commands safe to execute. ★★★ NO SHELL METACHARACTERS, because the runner
  *  spawns with `shell: false` — and because a piped command reports the PIPE's
  *  exit status, so a "reproduce" that silently always passes is worse than
- *  none. Blockquote markers are stripped first. */
+ *  none. Blockquote markers are stripped first.
+ *
+ *  ★★★ IT BOUNDS A COMMAND'S SHAPE, NEVER ITS EFFECT, AND IT IS NOT A PRIVILEGE
+ *  BOUNDARY. Read as one, it would be a bad one: `npm run …` admits every script
+ *  in `package.json` including `build` and `stop`, `node scripts/…` admits every
+ *  script in that directory, and the `npx` alternative carries no end anchor, so
+ *  anything `npx` will fetch and run is in scope. What makes that acceptable is
+ *  the threat model, not the regex — this runner is opt-in (`--run-repro`), never
+ *  runs in CI, and its input is a tracked file that needs the same review access
+ *  as this script. So it is a FOOT-GUN guard: it keeps a careless reproduce line
+ *  from doing something surprising, and it must not be cited as containment.
+ *  Tightening it is a separate change, and one that has to MEASURE what it drops
+ *  from today's register first. */
 const RUNNABLE_RE = /^(?:grep\b|node -e |node scripts\/[\w.-]+|npm run [a-z0-9:_-]+$|npx [\w@/.-]+)/;
 const SHELL_META = /[|;&><`$(){}]/;
 
-/** Drop a trailing `# …` comment. ★★★ Required, not cosmetic: the runner
+/** Split a shell-ish line into the command and its trailing `# …` comment.
+ *  ★★★ Splitting, not discarding, and that distinction cost a false finding:
+ *  the comment is the REGISTER'S OWN STATEMENT of what the command is expected
+ *  to do (`# no hits`, `# 3 failed / 17 passed`). Thrown away, the runner had
+ *  nothing to compare a non-zero exit against and reported §95's two
+ *  deliberately-no-match greps as rotted evidence. Callers keep it and print it
+ *  beside the exit code.
+ *
+ *  Stripping it off the ARGV is still required, and is not cosmetic: the runner
  *  spawns with `shell: false`, so there is no shell to strip one — every token
- *  after the `#` arrives as literal argv. Register lines really do carry them
- *  (`npx vitest run … --sequence.seed=1  # 3 failed / 17 passed`); enumerate
- *  today's with the extraction command in `followup-claims-lib.test.mjs`.
+ *  after the `#` would arrive as literal argv.
  *
  *  Only a BARE `#` opens a comment — one starting a token, outside quotes — so
  *  `--color=#fff` and `grep '#define'` survive intact. Quote state is tracked
@@ -78,7 +126,7 @@ const SHELL_META = /[|;&><`$(){}]/;
  *  ★★ Returns `null` when the quoting does not resolve, and the caller DROPS
  *  that line. This list is executed: a wrongly-parsed command is worse than a
  *  missing one, so an unbalanced quote is never guessed at. */
-export function stripTrailingComment(line) {
+export function splitTrailingComment(line) {
   let inSingle = false;
   let inDouble = false;
   for (let i = 0; i < line.length; i++) {
@@ -96,30 +144,120 @@ export function stripTrailingComment(line) {
       continue;
     }
     if (ch === "#" && !inSingle && !inDouble && (i === 0 || /\s/.test(line[i - 1]))) {
-      return line.slice(0, i).trimEnd();
+      return { cmd: line.slice(0, i).trimEnd(), comment: line.slice(i).trim() };
     }
   }
-  return inSingle || inDouble ? null : line;
+  return inSingle || inDouble ? null : { cmd: line, comment: "" };
+}
+
+/** The command alone. Kept as its own export because most callers want exactly
+ *  that, and because the tests that pin the quote model were written against
+ *  this signature. */
+export function stripTrailingComment(line) {
+  return splitTrailingComment(line)?.cmd ?? null;
+}
+
+/** Tokenize a command line for `spawnSync(..., { shell: false })`.
+ *
+ *  ★★★ SPLITTING ON WHITESPACE FABRICATES DRIFT, and it fabricates it on the
+ *  commands most worth running. Nothing strips quotes without a shell, so
+ *  `grep -n "Showing the first" a.ts b.ts` split on `/\s+/` searches for
+ *  `"Showing` in files named `the` and `first"` — grep exits 2 on the missing
+ *  files and the runner reports a reproduce command that "no longer exits 0".
+ *  A gate reporting a green branch as red is the expensive direction, and this
+ *  one did: the register's `grep -n "Showing the first" …` reported drift under
+ *  the naive split and exits 0 once tokenized. ★★ It did NOT explain every
+ *  non-zero exit that run — which is the point: with the bug present you cannot
+ *  tell the two apart, so no number from that run is worth quoting. Reproduce
+ *  the fabricated half, whose `2` is grep failing to open files named `the` and
+ *  `first"`:
+ *    node -e "const{spawnSync:s}=require('node:child_process');const c='grep -n \"Showing the first\" src/app/doc-render-pptx.ts'.split(/\s+/);console.log(s(c[0],c.slice(1),{encoding:'utf8'}).status)"
+ *
+ *  ★★★ THIS IS THE MOST SAFETY-CRITICAL FUNCTION IN THIS FILE — it decides what
+ *  reaches `spawnSync`. It lives HERE, and not next to the runner, for exactly
+ *  that reason: in the CLI it was module-local to a file that reads the register
+ *  and `process.exit`s at import, so nothing could import it and nothing tested
+ *  it, while its far less dangerous sibling `stripTrailingComment` had ten tests.
+ *
+ *  Quote handling mirrors `splitTrailingComment`'s model — a backslash escapes
+ *  the next character except inside single quotes. The two agreeing about where
+ *  a quoted span ends is not a coincidence to be trusted: a DIFFERENTIAL test
+ *  pins it, because a comment claiming they "cannot disagree" enforces nothing.
+ *
+ *  Returns `null` on unbalanced quoting, on a trailing backslash that escapes
+ *  nothing, and on an empty result; the caller then reports the command
+ *  UNRUNNABLE rather than spawn a guess.
+ *  ★ A `*` reaches the child literally: there is no shell to expand it. Whether
+ *  it still matches is the child's business (MSYS builds glob for themselves,
+ *  GNU grep on Linux does not), which is one more reason a non-zero exit from
+ *  this runner is a lead and not a verdict. */
+export function toArgv(cmd) {
+  const argv = [];
+  let cur = "";
+  let started = false; // `""` is a real empty argument, so emptiness cannot end one
+  let quote = null;
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i];
+    if (ch === "\\" && quote !== "'") {
+      if (i + 1 >= cmd.length) return null; // trailing backslash escapes nothing
+      cur += cmd[++i];
+      started = true;
+      continue;
+    }
+    if (quote === null && /\s/.test(ch)) {
+      if (started) argv.push(cur);
+      cur = "";
+      started = false;
+      continue;
+    }
+    if (quote === null && (ch === "'" || ch === '"')) {
+      quote = ch;
+      started = true;
+      continue;
+    }
+    if (ch === quote) {
+      quote = null;
+      continue;
+    }
+    cur += ch;
+    started = true;
+  }
+  if (quote !== null) return null;
+  if (started) argv.push(cur);
+  return argv.length ? argv : null;
+}
+
+/** `{ cmd, comment }` per runnable fenced line. */
+export function reproEntriesIn(text) {
+  return fencedLines(text)
+    .map((l) => splitTrailingComment(l.replace(/^\s*(?:>\s?)*/, "").trim()))
+    // ★ The comment is split off BEFORE the two guards, so both judge what will
+    // actually be spawned. That is stricter, not weaker: metacharacters inside
+    // a set-aside comment can never reach the runner, while metacharacters in
+    // the command itself are still rejected.
+    .filter((e) => e !== null && RUNNABLE_RE.test(e.cmd) && !SHELL_META.test(e.cmd));
 }
 
 export function reproCommandsIn(text) {
-  return fencedLines(text)
-    .map((l) => stripTrailingComment(l.replace(/^\s*(?:>\s?)*/, "").trim()))
-    // ★ The comment is stripped BEFORE the two guards, so both judge what will
-    // actually be spawned. That is stricter, not weaker: metacharacters inside
-    // a discarded comment can never reach the runner, while metacharacters in
-    // the command itself are still rejected.
-    .filter((l) => l !== null && RUNNABLE_RE.test(l) && !SHELL_META.test(l));
+  return reproEntriesIn(text).map((e) => e.cmd);
 }
 
 /** Backticked names the symbol gate would check. Same predicate, imported —
- *  two gates disagreeing about what a symbol is would be worse than either. */
+ *  two gates disagreeing about what a symbol is would be worse than either.
+ *
+ *  ★★ DISTINCT names, like `pathsIn` beside it. The two disagreed when this
+ *  sweep first shipped, and both consequences were live on the first snapshot:
+ *  §88 printed its one missing symbol TWICE, and `counts.symbols` was a MENTION
+ *  count while
+ *  `counts.paths` was a distinct one — so the snapshot moved whenever prose
+ *  merely repeated a name, which is noise in the one artifact that exists to be
+ *  diffed. */
 export function symbolsIn(text) {
-  const out = [];
+  const out = new Set();
   for (const m of text.matchAll(/`([^`\n]+)`/g)) {
-    if (isGatedSymbolName(m[1])) out.push(m[1]);
+    if (isGatedSymbolName(m[1])) out.add(m[1]);
   }
-  return out;
+  return [...out];
 }
 
 /** Bare repo paths an entry names. Excludes anything already carrying `:LINE`
@@ -150,11 +288,11 @@ const NAME_RUN = "(?:`[^`\\n]+`(?:\\s*[/·,]\\s*|\\s+)?)+";
 
 /** ★★★ THE VOCABULARY IS THE SYMBOL GATE'S; THE GRAMMAR IS THIS REGISTER'S, AND
  *  THE DIFFERENCE IS LOAD-BEARING. `markedNear` asks whether a marker sits within
- *  PROXIMITY characters of a mention. That rule was tuned for AGENTS.md bullet
+ *  `PROXIMITY` characters of a mention. That rule was tuned for AGENTS.md bullet
  *  prose and it does NOT transfer here — measured against the real register, not
- *  reasoned: at the shared 240-char window, 54 of 957 backticked mentions across
- *  the 92 open entries sit near a marker, and 48 of those name a thing that
- *  EXISTS. Every one would have become a false "this follow-up is done".
+ *  reasoned: at the shared window, 54 of 957 backticked mentions across the 92
+ *  open entries sit near a marker, and 48 of those name a thing that EXISTS.
+ *  Every one would have become a false "this follow-up is done".
  *
  *  The cause is structural, so no window value fixes it: register entries pack
  *  many names onto one table row, and a negation routinely sits a few characters
@@ -246,7 +384,10 @@ export function classify(entry, env) {
   const symbols = symbolsIn(prose);
   const paths = pathsIn(prose);
   const cites = citesIn(entry.body.join("\n"));
-  const repro = reproCommandsIn(entry.body.join("\n"));
+  // ★★ `{ cmd, comment }`, not a bare string: the comment is the register's own
+  // statement of the expected outcome, and the runner needs it to tell a
+  // deliberate no-match from rotted evidence. See `splitTrailingComment`.
+  const repro = reproEntriesIn(entry.body.join("\n"));
   const problems = [];
 
   // ★★★ AN ENTRY THAT ASSERTS A THING IS ABSENT MUST NOT BE FLAGGED FOR ITS
