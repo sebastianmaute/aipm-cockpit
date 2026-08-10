@@ -588,16 +588,14 @@ describe("classify", () => {
 
 describe("assertedAbsentNames", () => {
   // ★★★ THE VOCABULARY IS REUSED FROM `ABSENCE_MARKERS`; THE GRAMMAR IS NOT.
-  // Measured against the real register, `markedNear`'s PROXIMITY rule does not
-  // transfer to this document: at the shared 240-char window, 54 of 957 backticked
-  // mentions in the 92 open entries sit near a marker and **48 of those name a
-  // thing that EXISTS** — every one of which would have become a false
-  // "this follow-up is done" verdict. The register packs many names onto one
-  // table row, so a negation and an unrelated live symbol routinely sit ~15 chars
-  // apart (§7's own row: "no `src/app/form-field.tsx` exists. | **A3** |
-  // `resetAllCols` chains…"). Proximity therefore cannot attribute a negation to
-  // a name here. These patterns ANCHOR instead: the marker must CAPTURE the name
-  // it negates, so attribution is exact and no window constant is involved.
+  // `markedNear`'s proximity rule does not transfer to this register, and these
+  // patterns ANCHOR instead — the marker must CAPTURE the name it negates.
+  // ★★ The measurement behind that, and the worked §7 row, live ONCE, beside
+  // `REGISTER_ABSENCE_PATTERNS` in `followup-claims-lib.mjs`. This used to be a
+  // near-verbatim second copy of it, which is the drift the very rule above
+  // exists to prevent: the two copies both restated the window's width as a
+  // literal, and the constant's own comment claimed the number appeared nowhere
+  // else in `scripts/`. It appeared here.
 
   it("derives its state words from the shared ABSENCE_MARKERS list", () => {
     // Not a second vocabulary. The SCREAMING members of the shared list are

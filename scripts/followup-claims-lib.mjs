@@ -93,10 +93,10 @@ export function fencedLines(text) {
  *  none. Blockquote markers are stripped first.
  *
  *  ★★★ IT BOUNDS A COMMAND'S SHAPE, NEVER ITS EFFECT, AND IT IS NOT A PRIVILEGE
- *  BOUNDARY. Read as one, it would be a bad one: `npm run …` admits every script
- *  in `package.json` including `build` and `stop`, `node scripts/…` admits every
- *  script in that directory, and the `npx` alternative carries no end anchor, so
- *  anything `npx` will fetch and run is in scope. What makes that acceptable is
+ *  BOUNDARY. Read as one, it would be a bad one: `npm run …` admits any script
+ *  name matching its character class — `build` and `stop` among them — the
+ *  `node scripts/…` alternative admits any file in that directory, and the `npx`
+ *  one carries no end anchor, so anything `npx` will fetch and run is in scope. What makes that acceptable is
  *  the threat model, not the regex — this runner is opt-in (`--run-repro`), never
  *  runs in CI, and its input is a tracked file that needs the same review access
  *  as this script. So it is a FOOT-GUN guard: it keeps a careless reproduce line
@@ -177,7 +177,8 @@ export function stripTrailingComment(line) {
  *  reaches `spawnSync`. It lives HERE, and not next to the runner, for exactly
  *  that reason: in the CLI it was module-local to a file that reads the register
  *  and `process.exit`s at import, so nothing could import it and nothing tested
- *  it, while its far less dangerous sibling `stripTrailingComment` had ten tests.
+ *  it — while its far less dangerous sibling `stripTrailingComment` had a whole
+ *  describe block of its own.
  *
  *  Quote handling mirrors `splitTrailingComment`'s model — a backslash escapes
  *  the next character except inside single quotes. The two agreeing about where

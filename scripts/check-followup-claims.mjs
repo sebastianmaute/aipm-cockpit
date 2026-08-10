@@ -136,8 +136,9 @@ const REPRO_TIMEOUT_MS = 60_000;
 /** ★★★ A NON-ZERO EXIT IS NOT AUTOMATICALLY DRIFT, AND `grep` IS THE PROOF.
  *  Its contract is 0 = matched, 1 = no match, ≥2 = error — so for a register
  *  line whose whole point is that nothing matches (`# no hits`), exit 1 IS the
- *  documented outcome. Reported as drift, §95's two greps were the sweep's only
- *  finding on the day this ran, and both were false. Measured:
+ *  documented outcome. Reported as drift, §95's two greps were the only DRIFT
+ *  finding this runner produced on the day it shipped — every other finding that
+ *  run came from the static pass — and both were false. Measured:
  *    grep -rn ":memory:" src/app/*.test.ts ; echo "EXIT=$?"     # EXIT=1
  *  ★★ Scoped to `grep` alone, deliberately. Every binary has its own exit
  *  vocabulary and guessing at one is how a real regression gets waved through;
