@@ -73,6 +73,37 @@ describe("the sink map", () => {
     }
   });
 
+  it("classifies a tag NO allow-list carries for render but not for document", () => {
+    // The whole point of the render sink. Its consumers keep every tag's text
+    // (KEEP_CONTENT default / the rich-line parser), so a value opening with an
+    // unlisted tag is HTML there — while "document", the widest DERIVED sink,
+    // calls the same value plain text and escapes it whole.
+    for (const html of ["<h3>Sub</h3>", "<div>Status</div>", "<table><tr><td>c</td></tr></table>"]) {
+      expect(isHtmlStart(html, "render")).toBe(true);
+      expect(isHtmlStart(html, "document")).toBe(false);
+    }
+  });
+
+  it("keeps all three guards on the render sink", () => {
+    // Recognising every TAG is not the same as recognising every "<": a value
+    // that merely starts tag-SHAPED is still plain text somebody typed, and
+    // passing it through makes the sink eat it.
+    expect(isHtmlStart("<li 3 items", "render")).toBe(false); // never closes
+    expect(isHtmlStart("<3 open", "render")).toBe(false); // not a letter
+    expect(isHtmlStart("</p> means close", "render")).toBe(false); // closing tag
+  });
+
+  it("makes render a superset of every derived sink", () => {
+    for (const sink of ["note", "template", "document", "projection"] as const) {
+      for (const tag of SINK_TAGS[sink]) {
+        if (tag === "#text") continue;
+        const html = `<${tag}>x`;
+        expect(isHtmlStart(html, sink)).toBe(true);
+        expect(isHtmlStart(html, "render")).toBe(true);
+      }
+    }
+  });
+
   it("keeps projection a superset of every real sink", () => {
     // Projection has no sink — htmlToText strips everything — so recognising more
     // costs nothing and recognising less is the entire defect. If the document

@@ -132,10 +132,34 @@ describe("renderDocumentHtml — the escaped/unescaped boundary", () => {
   // UNWRAPPED and only the words survive. That is the intended behaviour for a
   // model-authored document (structure belongs in heading/table BLOCKS), and
   // asserting only toContain("Sub") could not tell the two apart.
+  // ★★★ The `not.toContain("<h3")` assertion is satisfied by the ESCAPED form
+  // too, so it stayed green while a narrower classifier turned this very input
+  // into literal "<p>&lt;h3&gt;Sub&lt;/h3&gt;</p>" — green for the wrong
+  // reason. The escaped form has to be asserted ABSENT by name.
   it("unwraps a non-allow-listed tag inside paragraph html but keeps its text", () => {
     const html = preview([{ type: "paragraph", html: "<h3>Sub</h3>" }]);
     expect(html).toContain("Sub");
     expect(html).not.toContain("<h3");
+    expect(html).not.toContain("&lt;h3");
+  });
+
+  it("does not escape a paragraph opening with a tag the allow-list omits", () => {
+    // Every one of these opens with a tag no DERIVED sink carries, so a
+    // classifier built from an allow-list calls the whole value plain text and
+    // escapes it — strictly worse than the unwrap above, which is what the
+    // "render" sink exists to prevent.
+    for (const [input, escaped] of [
+      ["<div>Status</div>", "&lt;div"],
+      ["<table><tr><td>cell</td></tr></table>", "&lt;table"],
+      ["<h3>Sub</h3>", "&lt;h3"],
+    ]) {
+      const html = preview([{ type: "paragraph", html: input }]);
+      expect(html).not.toContain(escaped);
+    }
+    expect(preview([{ type: "paragraph", html: "<div>Status</div>" }])).toContain("Status");
+    expect(
+      preview([{ type: "paragraph", html: "<table><tr><td>cell</td></tr></table>" }]),
+    ).toContain("cell");
   });
 });
 

@@ -237,11 +237,13 @@ const HR_PARAGRAPH =
 function richParas(html: string): string {
   // ★★ UPGRADE-AWARE, per SINK. A legacy plain-text value ("a\nb") is not
   // markup, and handing it straight to the parser fused its lines into one
-  // run-on paragraph. descriptionHtml upgrades it; the "document" sink is the
-  // load-bearing argument — an earlier attempt composed this against the old
-  // shared 8-tag classifier, which did not recognise <blockquote>/<pre> and so
-  // ESCAPED a legitimately-stored document paragraph (open-followups §118).
-  return htmlToRichLines(descriptionHtml(html, "document"))
+  // run-on paragraph (open-followups §118). descriptionHtml upgrades it.
+  // ★★★ The sink is "render", NOT any allow-list-derived one: htmlToRichLines
+  // keeps the text of EVERY tag, so a derived classifier is narrower than this
+  // sink and escapes the whole value where the parser would simply have kept
+  // the words — measured, "<h3>Sub</h3>" rendered as "Sub" under no classifier
+  // and as literal "<p>&lt;h3&gt;…" under "document". See html-start.ts.
+  return htmlToRichLines(descriptionHtml(html, "render"))
     .map((line) => {
       if (line.kind === "hr") return HR_PARAGRAPH;
       const style = DOCX_LINE_STYLE[line.kind];

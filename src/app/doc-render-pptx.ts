@@ -206,11 +206,13 @@ function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
     case "paragraph":
       // One RichLine per block boundary, each carrying its own runs — the
       // parse already does the splitting the flat projection used to need.
-      // ★★ Upgrade-aware first, on the "document" sink: a legacy plain-text
-      // value is not markup, and parsing it raw fuses its lines (§118). Same
-      // composition as doc-render-docx's richParas — see the note there for why
-      // the sink argument is load-bearing.
-      return [...htmlToRichLines(descriptionHtml(block.html, "document"))];
+      // ★★ Upgrade-aware first: a legacy plain-text value is not markup, and
+      // parsing it raw fuses its lines (§118). The sink is "render" — the one
+      // that recognises every tag — because htmlToRichLines keeps the text of
+      // any tag at all, so an allow-list-derived classifier would escape the
+      // whole value instead. Same composition as doc-render-docx's richParas;
+      // the reasoning lives on html-start.ts's "render" member.
+      return [...htmlToRichLines(descriptionHtml(block.html, "render"))];
 
     case "bullets":
       return block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`);

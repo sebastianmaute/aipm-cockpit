@@ -283,6 +283,24 @@ describe("renderDocumentDocx — blocks", () => {
     expect(paraTexts(xml)).toEqual(["Report", "a", "b"]);
   });
 
+  it("keeps a paragraph opening with an unlisted tag as TEXT, not escaped markup", async () => {
+    // ★★★ The other side of the upgrade above, and the reason its classifier is
+    // the "render" sink rather than an allow-list-derived one. htmlToRichLines
+    // keeps the text of EVERY tag, so a classifier narrower than that escapes a
+    // value the parser would have read: under "document", "<h3>Sub</h3>" came
+    // out as the literal characters "<h3>Sub</h3>" in one run instead of "Sub".
+    // Asserting the LINE TEXT is what separates the two — a toContain("Sub")
+    // holds for the escaped form too.
+    for (const [html, text] of [
+      ["<h3>Sub</h3>", "Sub"],
+      ["<div>Status</div>", "Status"],
+      ["<table><tr><td>cell</td></tr></table>", "cell"],
+    ]) {
+      const xml = await documentXml(doc([{ type: "paragraph", html }]));
+      expect(paraTexts(xml)).toEqual(["Report", text]);
+    }
+  });
+
   it("keeps a literal '<' from prose as text, not markup", async () => {
     // The projection treats "<" not followed by a letter as literal text; if
     // that ever regressed, this is where the package stops opening.

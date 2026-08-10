@@ -16,8 +16,10 @@
 // "<h1>Q3</h1><p>ok</p>" rendered as just "ok" and "<div>Status</div>" rendered
 // as nothing.
 //
-// One shared constant cannot express that rule for four sinks, which is why the
-// regexes are DERIVED from each sink's own allow-list rather than hand-mirrored.
+// One shared constant cannot express that rule for five sinks, which is why four
+// of the regexes are DERIVED from their own sink's allow-list rather than
+// hand-mirrored. The fifth, "render", has no allow-list to derive from — see the
+// note on its SINK_RE member.
 //
 // ★★ DOM-FREE. This module runs inside the entity sanitizers, which execute under
 // bare node in scripts/generate-sample-workspace.ts. It imports tag arrays from
@@ -41,6 +43,9 @@ const TAG_NAME = /^[a-z][a-z0-9]*$/;
  *  needs a word character on at least one side, and there is none between "<"
  *  and ">". */
 const NEVER = /(?!)/;
+
+/** Matches ANY well-formed opening tag. The classifier for the "render" sink. */
+const ANY_TAG = /^\s*<[a-z][a-z0-9]*\b[^>]*>/i;
 
 /** Build the "already HTML?" test for one allow-list.
  *
@@ -85,7 +90,7 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
   return new RegExp(`^\\s*<(${names.join("|")})\\b[^>]*>`, "i");
 }
 
-/** Which sink the classified value is on its way to.
+/** The four sinks whose classifier is DERIVED from an allow-list.
  *
  *  ★ "projection" is NOT a sink — descriptionText/descriptionTextWithBreaks strip
  *  every tag. It takes the WIDEST list because the rule above does not bind on a
@@ -93,9 +98,13 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
  *  under-recognising emits literal "<h1>Title</h1>" as visible text into search,
  *  the AI digests and every export. It is a distinct member from "document" even
  *  though the lists are equal today, so a reader sees WHY it is widest. */
-export type RichTextSink = "note" | "template" | "document" | "projection";
+export type DerivedSink = "note" | "template" | "document" | "projection";
 
-export const SINK_TAGS: Record<RichTextSink, readonly string[]> = {
+/** Which sink the classified value is on its way to. "render" is the one member
+ *  with no allow-list behind it — see its SINK_RE entry. */
+export type RichTextSink = DerivedSink | "render";
+
+export const SINK_TAGS: Record<DerivedSink, readonly string[]> = {
   note: NOTE_ALLOWED_TAGS,
   template: TEMPLATE_ALLOWED_TAGS,
   document: DOCUMENT_ALLOWED_TAGS,
@@ -107,6 +116,31 @@ const SINK_RE: Record<RichTextSink, RegExp> = {
   template: htmlStartRe(SINK_TAGS.template),
   document: htmlStartRe(SINK_TAGS.document),
   projection: htmlStartRe(SINK_TAGS.projection),
+
+  /** ★★★ The one sink NOT derived from an allow-list, and that is FORCED rather
+   *  than lazy. Its consumers keep every tag's TEXT: sanitizeDocumentHtml runs
+   *  DOMPurify at the KEEP_CONTENT default, which UNWRAPS an unlisted tag and
+   *  keeps what is inside it, and htmlToRichLines parses whatever it is given
+   *  and keeps the text of any tag at all. By THE RULE at the top of this file
+   *  — never recognise LESS than your sink keeps — a render classifier must
+   *  therefore recognise EVERY tag. No allow-list can express that; "document"
+   *  is the widest one there is and is still too narrow.
+   *
+   *  Deriving it from a list is strictly WORSE than the sink's own fallback,
+   *  because the miss escapes the WHOLE value where the sink would merely have
+   *  unwrapped one tag. Measured on the "document" sink: "<h3>Sub</h3>"
+   *  rendered as "Sub" before and as "<p>&lt;h3&gt;Sub&lt;/h3&gt;</p>" after,
+   *  and "<div>Status</div>" and a stored <table> went the same way. The
+   *  upgrade itself is still needed here — that is open-followups §118, where a
+   *  legacy plain "a\nb" fused into one run-on line — so the answer is not to
+   *  drop the classifier but to ask the other question: "is this plain text at
+   *  all?"
+   *
+   *  It keeps all three guards, because it reuses the same shape: the tag must
+   *  actually CLOSE (`[^>]*>`, so "<li 3 items" escapes), it must start with a
+   *  LETTER (so "<3 open" escapes), and a leading CLOSING tag is not matched
+   *  (so "</p> means close" escapes). */
+  render: ANY_TAG,
 };
 
 /** True when `value` opens with a tag `sink` will keep. */

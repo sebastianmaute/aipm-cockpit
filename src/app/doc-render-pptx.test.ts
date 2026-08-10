@@ -502,6 +502,20 @@ describe("renderDocumentPptx — blocks", () => {
     expect(texts).toEqual(["a", "b"]);
   });
 
+  it("keeps a paragraph opening with an unlisted tag as TEXT, not escaped markup", async () => {
+    // ★★★ Sibling of the DOCX test of the same name. The upgrade above must not
+    // be bought by escaping real markup: htmlToRichLines keeps every tag's
+    // text, so the classifier has to be the "render" sink. Under "document",
+    // each of these came back as its own literal characters in one run.
+    for (const [html, text] of [
+      ["<h3>Sub</h3>", "Sub"],
+      ["<div>Status</div>", "Status"],
+      ["<table><tr><td>cell</td></tr></table>", "cell"],
+    ]) {
+      expect(paraInfos(await onlyContentSlide(html)).map((p) => p.text)).toEqual([text]);
+    }
+  });
+
   it("keeps a literal '<' from prose as text, not markup", async () => {
     // The projection treats "<" not followed by a letter as literal text; if
     // that regressed, this is where the package stops opening.
