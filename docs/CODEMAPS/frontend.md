@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.227.0 "Bolander" | Files scanned: 299 .tsx + 474 .ts under src/app (excl. 768 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 | App 0.228.0 "Kessel" | Files scanned: 299 .tsx + 474 .ts under src/app (excl. 768 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
