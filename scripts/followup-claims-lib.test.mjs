@@ -195,10 +195,15 @@ describe("reproCommandsIn — trailing `#` comments", () => {
   it("★★ a comment may hold shell metacharacters the command may not", () => {
     // The comment never reaches the runner, so SHELL_META is applied to the
     // STRIPPED command. Not a weakening: what executes is checked more, not
-    // less. The command itself is still rejected when IT holds meta.
-    expect(reproCommandsIn(fence("grep -n foo src/a.ts  # returns 2 (setter and read)"))).toEqual([
-      "grep -n foo src/a.ts",
-    ]);
+    // less. This is a REAL admission — docs/open-followups.md:4972 (§92) was
+    // rejected outright because the `|` in its COMMENT tripped SHELL_META, so
+    // a perfectly safe command was withheld.
+    expect(
+      reproCommandsIn(
+        fence('npx vitest run src/app/document-model.test.ts -t "never snapshots"   # 1 passed | 28 skipped'),
+      ),
+    ).toEqual(['npx vitest run src/app/document-model.test.ts -t "never snapshots"']);
+    // …while meta in the COMMAND itself is still rejected.
     expect(reproCommandsIn(fence("grep -n foo src/a.ts | wc -l  # a count"))).toEqual([]);
   });
 });

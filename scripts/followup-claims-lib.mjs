@@ -2,7 +2,7 @@
 // Pure: no `process.exit`, no `console`, no IO beyond what the caller injects —
 // so every rule below is unit-testable. Mirrors `doc-claims-lib.mjs`, whose
 // fence parser and citation resolver this file REUSES rather than re-derives.
-import { citesOnLine, stripFencedBlocks } from "./doc-claims-lib.mjs";
+import { citesOnLine, stripFencedBlocks, THIRD_PARTY_RE } from "./doc-claims-lib.mjs";
 import { isGatedSymbolName } from "./agents-symbols-lib.mjs";
 
 export const REGISTER = "docs/open-followups.md";
@@ -64,10 +64,52 @@ export function fencedLines(text) {
 const RUNNABLE_RE = /^(?:grep\b|node -e |node scripts\/[\w.-]+|npm run [a-z0-9:_-]+$|npx [\w@/.-]+)/;
 const SHELL_META = /[|;&><`$(){}]/;
 
+/** Drop a trailing `# …` comment. ★★★ Required, not cosmetic: the runner
+ *  spawns with `shell: false`, so there is no shell to strip one — every token
+ *  after the `#` arrives as literal argv. Register lines really do carry them
+ *  (`npx vitest run … --sequence.seed=1  # 3 failed / 17 passed`); enumerate
+ *  today's with the extraction command in `followup-claims-lib.test.mjs`.
+ *
+ *  Only a BARE `#` opens a comment — one starting a token, outside quotes — so
+ *  `--color=#fff` and `grep '#define'` survive intact. Quote state is tracked
+ *  POSIX-style (a backslash escapes the next character except inside single
+ *  quotes) because the register's lines are written as shell text.
+ *
+ *  ★★ Returns `null` when the quoting does not resolve, and the caller DROPS
+ *  that line. This list is executed: a wrongly-parsed command is worse than a
+ *  missing one, so an unbalanced quote is never guessed at. */
+export function stripTrailingComment(line) {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "\\" && !inSingle) {
+      i++; // escaped character, whatever it is — cannot open a quote or comment
+      continue;
+    }
+    if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (ch === "#" && !inSingle && !inDouble && (i === 0 || /\s/.test(line[i - 1]))) {
+      return line.slice(0, i).trimEnd();
+    }
+  }
+  return inSingle || inDouble ? null : line;
+}
+
 export function reproCommandsIn(text) {
   return fencedLines(text)
-    .map((l) => l.replace(/^\s*(?:>\s?)*/, "").trim())
-    .filter((l) => RUNNABLE_RE.test(l) && !SHELL_META.test(l));
+    .map((l) => stripTrailingComment(l.replace(/^\s*(?:>\s?)*/, "").trim()))
+    // ★ The comment is stripped BEFORE the two guards, so both judge what will
+    // actually be spawned. That is stricter, not weaker: metacharacters inside
+    // a discarded comment can never reach the runner, while metacharacters in
+    // the command itself are still rejected.
+    .filter((l) => l !== null && RUNNABLE_RE.test(l) && !SHELL_META.test(l));
 }
 
 /** Backticked names the symbol gate would check. Same predicate, imported —
@@ -114,6 +156,18 @@ export function classify(entry, env) {
     if (env.resolve(p).length === 0) problems.push({ kind: "PATH_MISSING", detail: p });
   }
   for (const c of cites) {
+    // ★★ A citation into a DEPENDENCY is not repo debt. Same reasoning, and the
+    // same predicate, as `doc-claims-lib.mjs`'s `thirdParty` bucket: mixing
+    // these into the number a human is meant to act on is the fastest way to
+    // get that number ignored. Classified BEFORE resolution, because it is a
+    // property of the path, not of the failure — nothing under `node_modules/`
+    // could resolve anyway (the resolver walks src/scripts/e2e only).
+    // ★ REPORTED, never dropped: they rot on any upgrade, and one of them
+    // carries a content hash in its filename, so it WILL break silently.
+    if (THIRD_PARTY_RE.test(c.citedPath)) {
+      problems.push({ kind: "CITE_THIRD_PARTY", detail: `${c.citedPath}:${c.lineNo} (dependency)` });
+      continue;
+    }
     const [resolved] = env.resolve(c.citedPath);
     if (!resolved) {
       problems.push({ kind: "CITE_BROKEN", detail: `${c.citedPath} (unresolvable)` });
@@ -126,7 +180,18 @@ export function classify(entry, env) {
   }
 
   const hasClaim = symbols.length + paths.length + cites.length + repro.length > 0;
-  const verdict = problems.length ? problems[0].kind : hasClaim ? "CLEAN" : "NO_MACHINE_CLAIM";
+  // ★★ The verdict is the first problem that is REPO debt, so a third-party
+  // cite standing earlier in an entry cannot hide the real breakage behind it —
+  // the under-reporting direction. It is only the verdict when nothing else
+  // went wrong; `problems` always carries every finding in document order.
+  const actionable = problems.find((p) => p.kind !== "CITE_THIRD_PARTY");
+  const verdict = actionable
+    ? actionable.kind
+    : problems.length
+      ? problems[0].kind
+      : hasClaim
+        ? "CLEAN"
+        : "NO_MACHINE_CLAIM";
   return {
     n: entry.n,
     title: entry.title,
