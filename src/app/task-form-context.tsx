@@ -33,6 +33,16 @@ export function emptyForm() {
     group: "",
     labels: [] as string[],
     dependencies: [] as TaskDependency[],
+    // Successor links STAGED for this modal session, applied on Save by
+    // resolveSuccessorLinks. Same `{taskId, type}` shape as a dependency, but
+    // stored the other way round: the entry names the OTHER task, and the
+    // write lands on that task, not this one.
+    //
+    // ★ Deliberately NOT hydrated from the live graph on open. Successors are
+    // derived, not stored, so listing existing ones would mix them with stored
+    // predecessors in the same chip list and give a remove button no staging
+    // story. This list is additive-only within one modal session.
+    successorLinks: [] as TaskDependency[],
     // Optional Jira-style effort, canonical MINUTES. undefined = unset.
     originalEstimateMinutes: undefined as number | undefined,
     timeSpentMinutes: undefined as number | undefined,

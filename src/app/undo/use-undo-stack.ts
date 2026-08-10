@@ -307,7 +307,98 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
   return { isPrimary: isPrimary === true, restore };
 }
 
-/** A multi-array undo: one entry whose restore reverts a primary removal AND
+/** One FIELD-LEVEL contribution to a composite undo: N rows in ONE array, each
+ *  reverted by MERGING a field patch onto the live row rather than replacing it.
+ *  ★★★ This is the difference from `CapturePart`, and it is why it exists.
+ *  `capturePart` builds WHOLE-ROW before-images, so undoing restores every field
+ *  as it stood at capture time and silently discards anything a concurrent
+ *  writer changed on those rows meanwhile (open-followups §50 — the shape that
+ *  reverts a RAID item's note log; §50 says the same sequence "very likely"
+ *  loses TASK notes too but marks that half UNVERIFIED, so do not cite this as
+ *  a known task defect). A patch merge touches only the fields the op
+ *  actually wrote. Use this whenever the op edited FIELDS; use `capturePart`
+ *  when it removed or replaced whole rows. */
+export interface CaptureFieldPart<T extends { id: number }> {
+  setter: Dispatch<SetStateAction<readonly T[]>>;
+  /** One entry per affected row. `before`/`after` hold ONLY the written fields. */
+  edits: readonly { id: number; before: Partial<T>; after: Partial<T> }[];
+  stampField?: keyof T & string;
+}
+
+/**
+ * Build a composite fragment that merges a field patch onto N rows at once.
+ *
+ * ★★ ONE setter pass for all N rows, not N passes — the whole point is that the
+ * user's single act becomes a single undo entry with a single toast, so it must
+ * also be a single state update.
+ * ★ Returns null for an empty edit list, matching `capturePart`. That makes it
+ * safe to pass straight into `captureComposite`'s `parts` (nulls are filtered,
+ * and an all-null `parts` pushes no entry) — but a caller that ALSO needs a
+ * label, a count or anything else derived from the edits still has to check the
+ * list itself first, which is why the successor call site guards on
+ * `targets.length > 0` rather than relying on this.
+ * ★★★ NEVER pass this as the FIRST fragment of a composite that also contains a
+ * `capturePart` cascade. It removes nothing, so it publishes no id-remap — and
+ * `compositeUndoRunner` falls back to fragment 0 when no fragment sets
+ * `isPrimary`, so a field part sitting first would become the nominal primary,
+ * leave `primaryRemap` empty, and silently point every `fkRemapField` cascade at
+ * stale ids with no error.
+ * ★★ "Every existing caller flags its primary" is FALSE. Of the SEVEN
+ * `captureComposite` call sites, FIVE flag one — the three in
+ * `use-reference-data.ts` and the two in `use-resource-directory.ts`. The other
+ * two, `use-budget-buckets.ts` and `use-task-submit.ts`, flag NOTHING and ride
+ * the positional fallback this paragraph calls fragile. Neither is a live defect:
+ * no fragment in either declares `fkRemapField`, so the empty remap is never read.
+ * ★★★ ENUMERATE WITH ALL THREE CALL SHAPES OR YOU WILL MISS ONE. An earlier
+ * revision of this paragraph said SIX and named only the budget caller, because
+ * its grep matched `captureComposite({` and `captureCompositeRef.current?.({`
+ * but not the OPTIONAL-call form `captureComposite?.({` — which is how
+ * `use-task-submit.ts` invokes it, i.e. it missed the very caller that motivated
+ * this function. Reproduce with all three:
+ * `grep -rn "captureComposite?\.({\|captureComposite({\|captureCompositeRef.current?.({" src/app |
+ * grep -v "\.test\." | grep -v use-undo-stack.ts` → 7. Both filters matter, and
+ * BOTH are what make that 7 stable: the unfiltered grep also sweeps the engine's
+ * own tests AND this comment, so it over-counts by however many times the
+ * patterns appear here — a number that changes every time this block is edited,
+ * which is why one is not quoted.
+ * ★★★ SO THE SHAPE WARNED ABOUT ABOVE ALREADY EXISTS — it is not hypothetical.
+ * `use-task-submit.ts` passes a lone `captureFieldPart` as `parts[0]` of an
+ * unflagged composite, and this function hardcodes `isPrimary: false`. It is
+ * benign ONLY because that composite has no cascade to remap. Adding a
+ * `capturePart` cascade to an existing single-fragment field composite is
+ * therefore a live hazard, not a future one: flag the cascade `isPrimary: true`
+ * in the same edit.
+ * ★★ Same trap waiting in `use-budget-buckets.ts`: its `parts[0]` is
+ * `use-bulk-operations`' whole-row `tasksPart`, an open-followups §50 candidate,
+ * and the obvious §50 fix swaps it for a `captureFieldPart` — reproducing this
+ * shape beside a real `capturePart`. Flag the remaining part in that same edit.
+ */
+export function captureFieldPart<T extends { id: number }>(
+  part: CaptureFieldPart<T>,
+): CompositeFragment | null {
+  const { setter, edits, stampField } = part;
+  if (edits.length === 0) return null;
+  const byId = new Map(edits.map((e) => [e.id, e]));
+  const apply = (pick: (e: (typeof edits)[number]) => Partial<T>) => {
+    setter((prev) =>
+      prev.map((row) => {
+        const edit = byId.get(row.id);
+        if (!edit) return row;
+        const merged = { ...row, ...pick(edit) } as T;
+        return stampField
+          ? ({ ...merged, [stampField]: new Date().toISOString() } as T)
+          : merged;
+      }),
+    );
+  };
+  const restore = (): (() => void) => {
+    apply((e) => e.before);
+    return () => apply((e) => e.after);
+  };
+  return { isPrimary: false, restore };
+}
+
+/** A composite undo: one entry whose restore reverts a primary removal AND
  *  every cascade edit across N arrays (e.g. deleting a role also cleared
  *  resources' roleId → both are reverted by a single undo, and re-applied by a
  *  single redo).
@@ -321,9 +412,15 @@ export interface CaptureCompositeOpts {
   /** User-facing count for the toast/badge — the PRIMARY rows the user acted
    *  on, never the incidental cascade dependents. */
   primaryCount: number;
-  /** One fragment per affected array (build via `capturePart`); nulls (arrays
-   *  that contributed nothing) are ignored. The FIRST non-null fragment is the
-   *  PRIMARY delete — its id-remap drives every cascade's `fkRemapField`. */
+  /** One fragment per affected array — `capturePart` for whole-row removals or
+   *  replacements, `captureFieldPart` for field-patch edits; nulls (arrays that
+   *  contributed nothing) are ignored. The fragment flagged `isPrimary` is the
+   *  PRIMARY delete — its id-remap drives every cascade's `fkRemapField` — and
+   *  when none is flagged the FIRST non-null fragment is assumed primary, which
+   *  a `captureFieldPart` must never be (see its doc).
+   *  ★ "Multi-array" is the common case, not a requirement: a single-array
+   *  composite is legitimate and is how a fan-out of field edits becomes ONE
+   *  undo entry instead of N. */
   parts: readonly (CompositeFragment | null)[];
   /** Entity name/title for the undo label (e.g. the deleted resource's name). */
   name?: string;

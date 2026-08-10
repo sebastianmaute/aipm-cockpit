@@ -8,6 +8,41 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.228.0] - 2026-08-10 "Kessel"
+
+### Added
+
+- **Successor linking in the task editor.** The dependency editor previously let a task
+  declare only its own predecessors. It now has a second group for successors — "these
+  tasks depend on me" — which writes the link onto each target task. Staged links are
+  checked before they are applied: a target that has been deleted, one already at the
+  20-link cap, and any link that would close a dependency cycle are all refused, and the
+  save reports how many were skipped. The cycle check sees the predecessors staged in the
+  same save, not just the stored ones, so adding a predecessor and a successor together
+  cannot sneak a cycle through.
+- Both dependency groups now have a **searchable task picker** in place of the old
+  add-row, matching on title or on `#id`.
+
+### Changed
+
+- **Linking several successors in one save is now a single undo step.** It previously
+  pushed one undo entry and one toast per target, so a single Ctrl+Z unlinked one task
+  and left the rest, and a large fan-out could push its own save's other entries off the
+  25-entry undo stack. Undo still merges only the fields the save wrote, so it cannot
+  revert an unrelated change someone else made to the same task meanwhile. One cost
+  comes with it: a fan-out onto **several** targets now shows in undo history as
+  "Edited 3 item(s)" rather than naming a task, because a single entry covering several
+  rows has no one name to carry. Linking a single successor still reads `Edit task
+  "…"`.
+
+### Removed
+
+- **The inline relations edit pencil on the Open Points table.** The dependencies cell is
+  now read-only chips; editing relations happens in the task editor. The popover wrote
+  through to the workspace immediately and had no draft to stage successor links in, so
+  it could not express the new two-directional editing without silently committing half
+  of it.
+
 ## [0.227.0] - 2026-08-09 "Bolander"
 
 ### Fixed
@@ -6024,10 +6059,6 @@ Prior feature-accretion milestone. (Quoted from `src/app/version.ts`:
 - Bidirectional Jira sync (pull + push) with conflict resolution.
 - ADF (Atlassian Document Format) ↔ notes round-tripping.
 - Resizable + collapsible workspace, resizable tasks table, header "+" task modal.
-
-## [Unreleased]
-
-_No unreleased changes._
 
 [0.10.0]: # (no tag)
 [0.9.0]: # (no tag)

@@ -36,6 +36,8 @@ export const de: Record<TranslationKey, string> = {
   blockers: "Blocker",
   taskHintGroup: "Verwandte Aufgaben unter einem gemeinsamen Namen gruppieren (z. B. Workstream oder Epic), um sie zusammenzufassen.",
   taskHintDependencies: "Aufgaben, die abgeschlossen sein müssen, bevor diese beginnen kann.",
+  taskHintSuccessors:
+    "Aufgaben hinzufügen, die erst starten können, wenn diese fertig ist. Vorhandene Nachfolger werden auf jenen Aufgaben verwaltet.",
   taskHintBlockers: "Was diese Aufgabe derzeit aufhält — wird als Hindernis angezeigt.",
   taskHintHealth: "Rot/Gelb/Grün-Status. Automatisch lassen oder manuell überschreiben.",
   notes: "Notizen",
@@ -1351,30 +1353,27 @@ export const de: Record<TranslationKey, string> = {
   labelsPlaceholder: "Label eingeben und Enter drücken",
   labelsAtCap: "Label-Limit erreicht",
 
-  depDependencies: "Abhängigkeiten",
+  depPredecessors: "Vorgänger",
+  depSuccessors: "Nachfolger",
+  depSearchPredecessors: "Vorgängeraufgaben suchen",
+  depSearchSuccessors: "Nachfolgeraufgaben suchen",
+  depSearchPlaceholder: "Aufgabe suchen, oder * für alle…",
+  depTypeForNext: "Typ für nächste Verknüpfung",
+  depTypePredecessor: "Vorgänger-Typ für nächste Verknüpfung",
+  depTypeSuccessor: "Nachfolger-Typ für nächste Verknüpfung",
+  depUnlinkPredecessor: "Vorgänger entfernen",
+  depUnlinkSuccessor: "Nachfolger entfernen",
+  depSuccessorsSkipped:
+    "{0} Nachfolger-Verknüpfung(en) wurden nicht angewendet – die Aufgabe wurde entfernt, hat ihr Abhängigkeitslimit erreicht oder würde einen Zyklus erzeugen.",
   depRelations: "Beziehungen",
-  depEditRelations: "Beziehungen bearbeiten",
   depDependsOn: "Abhängig von",
-  depAdd: "Hinzufügen",
-  depRemove: "Entfernen",
-  depType: "Abhängigkeitstyp",
-  depPickTask: "Vorgänger-Aufgabe",
-  depPickTaskPlaceholder: "Vorgänger auswählen…",
   depMissing: "fehlt",
   depHelp:
-    "Diese Aufgabe mit einer Vorgänger-Aufgabe verknüpfen. FS – Vorgänger endet vor Start dieser Aufgabe (am häufigsten). SS – beide können gleichzeitig starten. FF – beide können gleichzeitig enden. SF – Vorgänger startet vor Ende dieser Aufgabe (selten).",
+    "FS – der Vorgänger endet, bevor der Nachfolger startet (am häufigsten). SS – beide können gleichzeitig starten. FF – beide können gleichzeitig enden. SF – der Vorgänger startet, bevor der Nachfolger endet (selten).",
   depTypeFsShort: "Ende-zu-Anfang",
   depTypeSsShort: "Anfang-zu-Anfang",
   depTypeFfShort: "Ende-zu-Ende",
   depTypeSfShort: "Anfang-zu-Ende",
-  depTypeFsHelp:
-    "Ende-zu-Anfang: Diese Aufgabe kann starten, sobald der Vorgänger endet.",
-  depTypeSsHelp:
-    "Anfang-zu-Anfang: Diese Aufgabe kann starten, sobald der Vorgänger startet.",
-  depTypeFfHelp:
-    "Ende-zu-Ende: Diese Aufgabe kann enden, sobald der Vorgänger endet.",
-  depTypeSfHelp:
-    "Anfang-zu-Ende: Diese Aufgabe kann enden, sobald der Vorgänger startet.",
 
   contactsRemove: "Diesen Kontakt vergessen",
   allGroups: "Alle Gruppen",
@@ -3767,6 +3766,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlight0223: "Die Einstellungen sind übersichtlicher, und Schaltflächen, die beim Überfahren nichts anzeigten, erklären sich jetzt selbst. Betriebsleitfäden, Ansichten und Geplante Jobs stehen in der Einstellungsliste unter KI-Assistent, statt eine einzige lange Seite zu füllen; die Ansichtsbeschreibungen, die Claude liest, sind eine schlichte, überschaubare Liste; und \"Dieses Projekt\" heißt jetzt \"Überschreibungen\". Neunzehn reine Symbolschaltflächen haben eine Beschriftung beim Überfahren erhalten, dreizehn weitere eine kurze Erklärung, was sie tatsächlich bewirken - auch dann, wenn eine Aktion zusätzlich zu einer anderen Ansicht wechselt. Dreiundzwanzig selbst gebaute Schaltflächen wurden durch die gemeinsamen ersetzt, sodass Größen, Abstände und Fokusrahmen überall übereinstimmen.",
   versionHighlight0226: "Rückgängig macht jetzt mehr als einen Schritt auf einmal. Der Pfeil neben Rückgängig zeigte bisher nur einen einzelnen Eintrag; er öffnet nun den gesamten Verlauf, neueste zuerst, und beim Durchgehen der Liste werden alle Änderungen bis zu dem Eintrag markiert, auf dem Sie stehen, samt der Anzahl, die zurückgenommen wird. Beim Auswählen eines Eintrags werden sie gemeinsam als ein Schritt zurückgenommen - eine Zeile im Aktivitätsprotokoll und eine Meldung. Wiederherstellen geht einzeln zurück, oder der Wiederherstellen-Verlauf spielt mehrere auf einmal ab. Jede Schaltfläche, die einen KI-Aufruf startet, heißt während des Aufrufs Stopp und bricht ihn ab, sodass eine ungewollt gesendete Anfrage über dieselbe Schaltfläche endet, die sie gesendet hat - der Empfehlungslauf, der von selbst im Hintergrund läuft, ist noch nicht erfasst. Im Budget lässt sich eine Rollenzeile innerhalb eines Blocks zu den dahinterstehenden Personen mit ihren gebuchten und geplanten Stunden aufklappen; die gebuchten Stunden stammen aus dem Timelog-Zwischenspeicher dieses Geräts und können daher von den Ist-Werten der Rolle abweichen, und die angezeigten Personen müssen sich nicht zu diesen summieren. Und die Einstellungsliste bricht auf einem schmalen Fenster nicht mehr zu einem hohen Stapel um.",
   versionHighlight0227: "Das Schreiben in Textfeldern mit Formatierung funktioniert in der veröffentlichten App wieder richtig. Beschreibungen, Notizen und die übrigen formatierten Felder hatten einen Teil der Editor-Gestaltung verloren, sodass mehrfache Leerzeichen und Zeilenumbrüche beim Tippen zusammenfielen und der Cursor an der falschen Stelle stehen konnte. Betroffen war ausschließlich die veröffentlichte Fassung, nie eine Entwicklungsfassung - deshalb blieb es so lange unbemerkt.",
+  versionHighlight0228: "Eine Aufgabe kann jetzt festhalten, welche Aufgaben von ihr abhängen, und nicht mehr nur, wovon sie selbst abhängt. Der Abhängigkeits-Editor hat eine zweite Gruppe für Nachfolger, und beide Gruppen durchsuchen Ihre Aufgaben nach Titel oder nach #id, statt Sie eine Liste durchblättern zu lassen. Verknüpfungen werden vor dem Anwenden geprüft: eine auf eine gelöschte Aufgabe, auf eine Aufgabe mit bereits 20 Verknüpfungen oder eine, die einen Kreis bilden würde, wird abgelehnt, und das Speichern meldet Ihnen, wie viele übersprungen wurden. Mehrere Aufgaben auf einmal zu verknüpfen ist ein einziger Rückgängig-Schritt.",
   versionHighlight0222: "Ein Projekt mit mehr Dokumenten, als die App öffnen konnte, verlor sie bisher. Beim Öffnen wurde nur der erste Teil behalten und der Rest stillschweigend verworfen, und das nächste automatische Speichern schrieb diese gekürzte Liste über Ihr gespeichertes Projekt - dauerhaft, bei jeder Speicheroption. Das Limit ist jetzt fünfmal so hoch, gewöhnliche Projekte sind also gar nicht betroffen. Überschreitet ein Projekt es dennoch, sagt die App das deutlich und pausiert das Speichern, damit Ihr gespeichertes Projekt alles behält, bis Sie den Verlust mit einem Klick akzeptieren - und sie nennt Ihnen vorher, wie viel sie nicht öffnen konnte.",
   versionHighlight0217: "Abgebrochene Arbeit wirkt nicht mehr wie unerledigte Arbeit. Die Rot/Gelb/Grün-Aufteilung im Dashboard zählt eine abgebrochene Aufgabe nicht mehr als gesundes Grün — abgebrochene Arbeit wird jetzt daneben separat gezählt, und dieselbe Angabe steht auf jeder Gruppenkarte in den Berichten. In der projektübergreifenden Portfolio-Übersicht zeigt ein Projekt, dessen Umfang vollständig abgebrochen wurde, einen Strich statt \"0 %\" — das las sich wie \"noch nicht begonnen\", ausgerechnet dort, wo Projekte nebeneinander verglichen werden; es bleibt außerdem aus dem Portfolio-Durchschnitt heraus, statt ihn nach unten zu ziehen. Der Entwurf für den Lenkungsausschuss und der KI-Überblick erfahren jetzt, dass das Projekt keinen aktiven Umfang hat, statt eine nackte 0 zu bekommen. Und eine Aufgabe mit Status Erledigt, aber ohne Abschlussdatum, meldet sich jetzt als geschlossen statt als erledigt — passend zum Kreuz, das daneben ohnehin schon steht.",
   versionHighlight0215: "Trends funktioniert beim frischen Laden wieder. Die Snapshot-Aufnahme lief bisher gegen das Laden des Workspace — und gewann: Sie schrieb einen Snapshot des noch leeren Projekts, der den Zeitraum dauerhaft belegte, sodass die Diagramme „Noch nicht genug Snapshots“ neben einer vollen Snapshot-Tabelle meldeten. Die Aufnahme wartet jetzt auf den Workspace. Bereits so geschriebene Snapshots werden nicht repariert: Löschen Sie sie in der Snapshot-Tabelle und nehmen Sie erneut auf. In den Kanban-Swimlanes erscheint eine Person, deren Aufgaben teils den Namen und teils die Verknüpfung zum Verzeichnis tragen, nicht mehr als zwei identische Spuren; das Auswahlfeld für die Zuständigkeit dieser Karten ist gefüllt statt „Nicht zugewiesen“. Der Schalter „Externe ausblenden“ in Planung und Auslastung überlebt jetzt das Verlassen der Ansicht. Im Budget ist „Budgetstunden folgen Plan“ ein Umschalter wie die übrigen Bedienelemente.",

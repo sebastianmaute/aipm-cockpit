@@ -32,6 +32,8 @@ const enUS = {
   blockers: "Blockers",
   taskHintGroup: "Group related tasks under a shared name (e.g. a workstream or epic) to roll them up together.",
   taskHintDependencies: "Tasks that must finish before this one can start.",
+  taskHintSuccessors:
+    "Add tasks that cannot start until this one is done. Existing successors are managed on those tasks.",
   taskHintBlockers: "What is currently holding this task up — surfaced as an impediment.",
   taskHintHealth: "Red/Amber/Green status. Leave on auto, or override to set it manually.",
   notes: "Notes",
@@ -1365,30 +1367,30 @@ const enUS = {
   labelsPlaceholder: "Type a label and press Enter",
   labelsAtCap: "Label limit reached",
 
-  depDependencies: "Dependencies",
+  depPredecessors: "Predecessors",
+  depSuccessors: "Successors",
+  depSearchPredecessors: "Search predecessor tasks",
+  depSearchSuccessors: "Search successor tasks",
+  depSearchPlaceholder: "Type to find a task, or * for all",
+  // ★ WCAG 2.5.3: each of these must CONTAIN `depTypeForNext` (the visible
+  // caption above the select) as a substring, case-insensitively. Editing one
+  // without the other breaks that — pinned by dependencies-editor.test.tsx.
+  depTypeForNext: "Type for next link",
+  depTypePredecessor: "Predecessor type for next link",
+  depTypeSuccessor: "Successor type for next link",
+  depUnlinkPredecessor: "Remove predecessor",
+  depUnlinkSuccessor: "Remove successor",
+  depSuccessorsSkipped:
+    "{0} successor link(s) were not applied — the task was removed, is at its dependency limit, or would create a cycle.",
   depRelations: "Relations",
-  depEditRelations: "Edit relations",
   depDependsOn: "Depends on",
-  depAdd: "Add",
-  depRemove: "Remove",
-  depType: "Dependency type",
-  depPickTask: "Predecessor task",
-  depPickTaskPlaceholder: "Select a predecessor task…",
   depMissing: "missing",
   depHelp:
-    "Link this task to a predecessor. FS — predecessor finishes before this task starts (most common). SS — both can start together. FF — both can finish together. SF — predecessor starts before this task finishes (rare).",
+    "FS — the predecessor finishes before the successor starts (most common). SS — both can start together. FF — both can finish together. SF — the predecessor starts before the successor finishes (rare).",
   depTypeFsShort: "Finish-to-Start",
   depTypeSsShort: "Start-to-Start",
   depTypeFfShort: "Finish-to-Finish",
   depTypeSfShort: "Start-to-Finish",
-  depTypeFsHelp:
-    "Finish-to-Start: this task can start once the predecessor finishes.",
-  depTypeSsHelp:
-    "Start-to-Start: this task can start once the predecessor starts.",
-  depTypeFfHelp:
-    "Finish-to-Finish: this task can finish once the predecessor finishes.",
-  depTypeSfHelp:
-    "Start-to-Finish: this task can finish once the predecessor starts.",
 
   contactsRemove: "Forget this contact",
   allGroups: "All groups",
@@ -3798,6 +3800,7 @@ const enUS = {
   versionHighlight0223: "Settings is easier to navigate, and buttons that used to show nothing on hover now explain themselves. Operating guides, Views and Scheduled jobs sit under AI Assistant in the settings list instead of crowding one long page; the view descriptions Claude reads are a plain scannable list; and \"This project\" is now called \"Overrides\". Nineteen icon-only controls across the app gained a hover label, and thirteen more got a short explanation of what the control actually does - including when an action also moves you to another view. Twenty-three hand-built buttons were replaced by the shared ones, so sizes, spacing and focus rings now match everywhere.",
   versionHighlight0226: "Undo steps back through more than one change at a time. The caret beside Undo used to preview a single entry; it now opens the whole history, newest first, and moving through the list marks every change back to the one you are on, with a count of how many will be reverted. Choosing an entry reverts them together as one step - one line in the activity log and one message. Redo goes back one step at a time, or the redo history replays a run of them together. Every button that starts an AI call now reads Stop while that call is running and cancels it, so a request you did not mean to send stops from the same button that sent it - the recommendation run that happens on its own in the background is not covered yet. In Budget, a role line inside a bucket expands to the people behind it with their booked and planned hours; booked comes from this device's Timelog cache, so it can differ from the role's own actuals and the people shown need not add up to them. And the settings list no longer wraps into a tall stack on a narrow window.",
   versionHighlight0227: "Typing in any rich text box behaves correctly again in the released app. Descriptions, notes, and the other formatted fields were missing part of the editor's styling, so repeated spaces and line breaks collapsed as you typed and the cursor could sit in the wrong place. This only ever affected the released build, never a development one, which is why it went unnoticed for so long.",
+  versionHighlight0228: "A task can now record which tasks depend on it, not only which it depends on. The dependency editor has a second group for successors, and both groups search your tasks by title or by #id instead of making you scroll a list. Links are checked before they are applied: one pointing at a deleted task, at a task already carrying the maximum of 20 links, or one that would form a loop is refused, and the save tells you how many were skipped. Linking several tasks at once is a single undo step.",
   versionHighlight0222: "A project with more documents than the app could open used to lose them. Opening one kept the first batch and quietly discarded the rest, and the next automatic save wrote that shortened list back over your saved project - permanently, on every storage option. The limit is now five times higher, so ordinary projects are simply unaffected. If a project still goes over it, the app says so plainly and pauses saving, so your saved project keeps everything until you accept the loss with one click - and it tells you how much it could not open before you do.",
   versionHighlight0217: "Cancelled work stops reading as unfinished work. The Red/Amber/Green split on the dashboard no longer counts a cancelled task as healthy Green — cancelled work is now counted separately beside it, and the same clause appears on each Reports group card. In the cross-project Portfolio health table, a project whose scope has all been cancelled shows a dash instead of \"0%\", which read as \"not started yet\" on the one screen where projects are compared side by side; it is also left out of the portfolio-wide average rather than dragging it down. The steering-committee draft and the AI snapshot are told the project has no active scope instead of being handed a bare 0. And a task marked Done but carrying no completion date now announces itself as closed rather than completed, matching the cross already shown beside it.",
   versionHighlight0215: "Trends works again on a fresh load. Snapshot capture used to race the workspace load and win, writing a snapshot of an empty project that then permanently claimed its weekly bucket — the charts read \"Not enough snapshots yet\" beside a full snapshot table. Capture now waits for the workspace. Snapshots already written that way are not repaired: delete them in the Snapshots table and capture again. In the Kanban swimlanes, a person whose tasks carry their name on some rows and a directory link on others no longer appears as two identical lanes, and the assignee dropdown on those cards is populated instead of reading \"Unassigned\". The Hide-externals toggle in Planning and Workload now survives leaving the view. In Budget, \"budget hours follow plan\" is a toggle button matching the rest of the toolbar.",
