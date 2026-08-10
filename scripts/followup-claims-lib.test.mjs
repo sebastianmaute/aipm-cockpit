@@ -221,10 +221,17 @@ describe("classify", () => {
   });
 
   it("SYMBOL_MISSING names the symbol that vanished", () => {
-    const [entry] = parseEntries("## 1. x — open\nnames `migrateTaskStatus` today");
+    // ★★ The name is deliberately INERT. `env.knownSymbols` holds exactly one
+    // entry, so ANY other identifier serves as "a symbol that vanished" — the
+    // fixture's flavour is free, and that freedom is a trap. A test fixture must
+    // never reuse a name the docs discuss as ABSENT: doing so makes that name
+    // "exist" for `check-agents-symbols.mjs`, so a future doc claiming it is
+    // real would pass unchallenged. This fixture used to be the docs' canonical
+    // never-existed example and masked exactly that case.
+    const [entry] = parseEntries("## 1. x — open\nnames `vanishedHelper` today");
     const r = classify(entry, env);
     expect(r.verdict).toBe("SYMBOL_MISSING");
-    expect(r.problems[0].detail).toBe("migrateTaskStatus");
+    expect(r.problems[0].detail).toBe("vanishedHelper");
   });
 
   it("PATH_MISSING when a named file has left the tree", () => {
