@@ -12,7 +12,7 @@ import { type Task, type RaidItem } from "./types";
 import { applyStatusChange } from "./task-status";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { TASK_UNDO_GROUPS } from "./undo/field-groups";
-import type { UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
@@ -31,6 +31,7 @@ import {
 } from "./sanitize";
 import { sanitizeNoteHtml } from "./sanitize-html";
 import { describeTextCap } from "./sanitize-report";
+import { resolveSuccessorLinks, type SuccessorEdit } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
 
 export interface UseTaskSubmitArgs {
@@ -64,6 +65,9 @@ export interface UseTaskSubmitArgs {
    *  editor buffer discards any staged create-mode items. */
   onEditorDiscard?: () => void;
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Groups the successor-target edits into ONE undo entry — see
+   *  `recordSuccessorEdits`. */
+  captureComposite?: UndoStackApi["captureComposite"];
 }
 
 export function useTaskSubmit(args: UseTaskSubmitArgs): {
@@ -96,6 +100,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     onTaskCreated,
     onEditorDiscard,
     captureFieldEdit,
+    captureComposite,
   } = args;
 
   // `submitted` flips true on the first submit attempt so per-field errors can
@@ -184,21 +189,197 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
       setContacts((prev) => upsertContact(prev, assignee, email));
 
+      // A successor target is a row the user never opened, so their intent was
+      // purely ADDITIVE — unlike the own task, whose whole field list they
+      // authored and may legitimately overwrite. Apply only the entries the
+      // resolution ADDS, onto the LIVE row, and re-sanitize: a concurrent
+      // writer's edit to the same target survives instead of being clobbered by
+      // a whole array computed outside the updater. Idempotent (the sanitizer
+      // de-dupes), so a StrictMode double-invoke is safe. Mirrors how `onDelete`
+      // in use-task-row-handlers.ts rebuilds each dependent from `prev`.
+      //
+      // ★★ "Additive" hides two things. (1) THE CAP WINDOW: sanitizeDependencies
+      // iterates and BREAKS at the 20-link cap, and the live entries come FIRST
+      // here — so if a concurrent writer filled the target to 20 between resolve
+      // and commit, `added` is never reached and NOTHING is toasted, because the
+      // skipped count was computed from the snapshot where the row still had
+      // room. Do NOT "fix" that by putting `added` first: that drops a STORED
+      // entry instead of the new one, which is strictly worse. The ordering is
+      // right; the silence is the known cost. (2) It re-sanitizes the WHOLE live
+      // array, so a stored DANGLING reference on the target is stripped in the
+      // same pass. That is a repair rather than a bug, and it is self-consistent
+      // with the engine keeping `before` raw so undo restores what was stored.
+      const addSuccessorLinks = (
+        row: Task,
+        edit: SuccessorEdit,
+        liveIds: ReadonlySet<number>,
+        stamp: string,
+      ): Task => {
+        const added = edit.after.filter(
+          (a) => !edit.before.some((b) => b.taskId === a.taskId && b.type === a.type),
+        );
+        return {
+          ...row,
+          dependencies: sanitizeDependencies(
+            [...(row.dependencies ?? []), ...added],
+            liveIds,
+            row.id,
+          ),
+          localModifiedAt: stamp,
+        };
+      };
+
+      // ★ Called AFTER each branch's own-task captures, so the target entries
+      // land on top of the stack and a bare undo() peels the successor links
+      // first (the most recently-intended act). ★★ There is NOT always an
+      // own-task entry to unwind from: `captureFieldChanges` pushes nothing when
+      // no own field changed, so a successors-only save leaves ONLY these
+      // entries, and a create pushes none at all (creates are not undoable
+      // here) — the target entries then stand alone.
+      //
+      // ★★ The capture MERGES before/after onto each live row by id rather than
+      // replacing it, so it cannot revert a field this save never touched. A
+      // whole-row capture() / capturePart() would inherit open-followups §50,
+      // where undo restores a stale row — which is why the fan-out is grouped
+      // with `captureFieldPart`, the field-level fragment, rather than with the
+      // whole-row `capturePart` that `captureComposite`'s other callers use.
+      //
+      // ★★ The undo IMAGES stay snapshot-based even though the WRITE above is
+      // live: `before`/`after` are the arrays resolved from `tasksRef.current`,
+      // so undoing after a concurrent writer touched the same target reverts to
+      // the snapshot rather than to that writer's value. Accepted residue —
+      // the write itself is what data loss turns on. One known consequence,
+      // recorded as a follow-up rather than fixed here: redo can write a
+      // dangling reference (create task 5 with successor 2 → undo → delete 5 →
+      // redo merges `{taskId:5}` back).
+      // ★★ It self-heals on the next load on TWO backends only, not on all six:
+      // `dropDanglingDependencies` has exactly two PRODUCTION call sites,
+      // `csv-codecs-decode` and `markdown-codecs-decode` — reproduce with
+      // `grep -rn "dropDanglingDependencies(" src/app | grep -v "\.test\."`,
+      // which returns 4 lines: those two calls, the definition in
+      // `sanitize-core.ts`, and this comment (which names the symbol, so it
+      // matches its own grep — drop the filter and two test call sites join it).
+      // JSON maps tasks through `migrateTask` + `sanitizeNoteFields`,
+      // neither of which touches `dependencies`, and IndexedDB — the DEFAULT
+      // backend — and both Turso backends have no dangling pass at all, so there
+      // the entry persists indefinitely. An earlier revision of this line said
+      // "it self-heals on the next load" flatly, which is wrong exactly where
+      // most users are.
+      // ★ The fan-out no longer evicts its own save's own-task entries: that
+      // needed the staged list (unbounded) to out-number UNDO_CAP (25), and the
+      // whole fan-out is ONE entry now regardless of how many targets it has.
+      const recordSuccessorEdits = (
+        resolution: ReturnType<typeof resolveSuccessorLinks>,
+        nameSource: readonly Task[],
+      ) => {
+        const targets = [...resolution.edits];
+        // ★★★ ONE undo entry for the whole fan-out, not one per target. Linking
+        // four successors is ONE user act; N entries meant a single Ctrl+Z
+        // unlinked one target and left the rest, N separate "Edited 1 item(s)"
+        // toasts stacked up on one Save, and — because the staged list is
+        // unbounded while UNDO_CAP is 25 — a large fan-out evicted the OWN-TASK
+        // entries of its own save, leaving it permanently half-undoable.
+        // ★★★ `captureFieldPart`, NOT `capturePart`: the latter captures WHOLE
+        // ROWS, so undo would restore every field of each target as it stood at
+        // save time and discard anything a concurrent writer changed on them
+        // meanwhile (open-followups §50 — the shape that reverts a note log).
+        // The merge semantics that made the per-target `captureFieldEdit` safe
+        // are exactly what the field-level fragment preserves.
+        if (targets.length > 0) {
+          const firstName = nameSource.find((r) => r.id === targets[0][0])?.taskName;
+          captureComposite?.({
+            kind: "task.updated",
+            primaryCount: targets.length,
+            parts: [
+              captureFieldPart({
+                setter: setTasks,
+                edits: targets.map(([targetId, edit]) => ({
+                  id: targetId,
+                  before: { dependencies: edit.before },
+                  after: { dependencies: edit.after },
+                })),
+                stampField: "localModifiedAt",
+              }),
+            ],
+            // ★ A label naming ONE row would misdescribe a multi-target entry,
+            // so the name rides only the single-target case.
+            // ★★ KNOWN COST, measured not assumed: with no name and a non-bulk
+            // kind, `buildUndoLabel` falls through to `undoToastEdit` — so the
+            // history row for a 3-target fan-out reads "Edited 3 item(s)", with
+            // no entity word, where the single-target case reads `Edit task
+            // "Target"`. Fixing it properly needs an edit-side twin of
+            // `undoLabelDeleteCount`; adding one here would change the label of
+            // every unnamed multi-row edit capture in the app, which is well
+            // outside this change. Left as a follow-up.
+            // ★★ `kind: "bulk.edit"` is NOT the shortcut it looks like — for the
+            // multi-target case it yields the IDENTICAL string, and for the
+            // single-target one it is strictly WORSE (it would lose the name and
+            // turn `Edit task "Target"` into `Edited 1 item(s)`), because `kind`
+            // is one field shared by both branches of the ternary below.
+            // `buildUndoLabel` resolves the entity
+            // from the kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, so it
+            // returns at the `if (!key)` line with `undoToastEdit` BEFORE the
+            // `isBulk` branch is reached. That branch needs an explicit
+            // `entityKey`, and `CaptureCompositeOpts` has no such field —
+            // `captureComposite` forwards only `{ name }`. Do not "fix" the
+            // label by changing the kind; it would misreport the op in the
+            // activity feed and buy nothing.
+            name: targets.length === 1 ? firstName : undefined,
+          });
+        }
+        for (const [targetId] of targets) {
+          const name = nameSource.find((r) => r.id === targetId)?.taskName;
+          // A silent write to a row the user never opened is exactly what an
+          // audit trail is for. `diffFields` skips array-valued fields, so this
+          // names the row with no field detail — the same entry the own task's
+          // dependency edit already produces. ★ Still PER TARGET even though the
+          // undo entry is now single: the activity log records what changed, and
+          // three rows changed.
+          logActivity("task.updated", targetId, name ?? "");
+        }
+      };
+
       if (editingId !== null) {
         const stamp = new Date().toISOString();
         const updatedId = editingId;
         const prevTask = tasksRef.current.find((r) => r.id === editingId);
-        setTasks((prev) =>
-          prev.map((row) =>
-            row.id === editingId
-              ? applyStatusChange(
-                  { ...row, ...payload, localModifiedAt: stamp },
-                  form.status,
-                  today,
-                )
-              : row,
+        // ★★★ Resolve against the edited task carrying THIS SAVE's predecessors,
+        // not its stored ones — the same reason the create path resolves against
+        // a list containing the new task. The cycle walk starts at the owning
+        // task and follows its predecessors, so an unpatched row hides an edge
+        // the user is adding right now: with B already depending on C, editing A
+        // to add predecessor B and successor C in one save closes B→A→C→B, and
+        // the stale walk finds nothing to object to. The picker cannot catch it
+        // either — its `allowedIds` reads the same stored map.
+        const successors = resolveSuccessorLinks({
+          ownId: editingId,
+          links: form.successorLinks,
+          tasks: tasksRef.current.map((r) =>
+            r.id === editingId ? { ...r, dependencies: cleanDependencies } : r,
           ),
-        );
+        });
+        if (successors.skipped > 0) {
+          showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
+        }
+        // ONE functional setter for the edited task AND every successor target:
+        // they all live in the same array, so a second setTasks would be a
+        // second pass over it for no benefit.
+        setTasks((prev) => {
+          // Live ids, so the re-sanitize inside addSuccessorLinks judges
+          // dangling references against current state rather than the snapshot.
+          const liveIds = new Set(prev.map((r) => r.id));
+          return prev.map((row) => {
+            if (row.id === editingId) {
+              return applyStatusChange(
+                { ...row, ...payload, localModifiedAt: stamp },
+                form.status,
+                today,
+              );
+            }
+            const edit = successors.edits.get(row.id);
+            return edit ? addSuccessorLinks(row, edit, liveIds, stamp) : row;
+          });
+        });
         setEditingId(null);
         if (prevTask) {
           // Single-item edit, so tasksRef's row equals the mapped row — recompute
@@ -226,6 +407,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         } else {
           logActivity("task.updated", updatedId, taskName);
         }
+        recordSuccessorEdits(successors, tasksRef.current);
       } else {
         const newTask: Task = applyStatusChange(
           {
@@ -243,10 +425,46 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           form.pushToJira &&
           settings.jira.enabled &&
           !!settings.jira.projectKey;
-        const nextList = [...tasksRef.current, newTask];
+        const stamp = new Date().toISOString();
+        const withNew = [...tasksRef.current, newTask];
+        // ★★★ Resolve AFTER the mint, against a list that CONTAINS the new
+        // task. Resolving against tasksRef.current makes newId a dangling
+        // reference that sanitizeDependencies strips, so every staged link is
+        // silently dropped — green tests, no error, no links. It also lets the
+        // cycle walk see the new task's own predecessors, which is how a task
+        // staged as both predecessor and successor gets caught here.
+        const successors = resolveSuccessorLinks({
+          ownId: newId,
+          links: form.successorLinks,
+          tasks: withNew,
+        });
+        if (successors.skipped > 0) {
+          showToast("info", t(lang, "depSuccessorsSkipped", successors.skipped));
+        }
+        const newIds = new Set(withNew.map((r) => r.id));
+        const nextList =
+          successors.edits.size === 0
+            ? withNew
+            : withNew.map((row) => {
+                const edit = successors.edits.get(row.id);
+                return edit ? addSuccessorLinks(row, edit, newIds, stamp) : row;
+              });
+        // ★ Assign the PATCHED list, not `withNew` — the ref is what the next
+        // save reads, so seeding it with the unpatched array would make every
+        // following save resolve against targets that look unlinked.
+        // ★ This branch replaces the whole array rather than mapping `prev`
+        // (pre-existing: the create was always a snapshot write), so the
+        // additive merge above buys less here than on the update path. Kept
+        // identical anyway so the two paths cannot drift.
         tasksRef.current = nextList;
         setTasks(nextList);
+        // ★ Creation FIRST. Both calls are synchronous and `recordSuccessorEdits`
+        // emits a `task.updated` entry per successor target, so the other order
+        // put "Target updated" above "New task created" in the activity log —
+        // a row reported as edited by a task that did not exist yet. The update
+        // path has no such choice to make (the task already existed).
         logActivity("task.created", newId, taskName);
+        recordSuccessorEdits(successors, nextList);
         // Flush any editor-buffered RAID/links now that the parent id exists.
         onTaskCreated?.(newId);
         const linkRaidId = pendingLinkRaidIdRef.current;
@@ -301,6 +519,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       pendingLinkRaidIdRef,
       onTaskCreated,
       captureFieldEdit,
+      captureComposite,
     ],
   );
 
@@ -338,6 +557,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         group: task.group ?? "",
         labels: task.labels ?? [],
         dependencies: task.dependencies ?? [],
+        // Never hydrated from the live graph — see emptyForm()'s comment.
+        successorLinks: [],
         originalEstimateMinutes: task.originalEstimateMinutes,
         timeSpentMinutes: task.timeSpentMinutes,
         resourceId: task.resourceId,

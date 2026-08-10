@@ -191,7 +191,13 @@ describe("TaskFormModal — cancel in create mode", () => {
     // editingId is null in stubTaskForm, so isEditing=false
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.getByRole("button", { name: /cancel|abbrechen/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /add task|aufgabe hinzuf/i })).toBeInTheDocument();
+    // ★★ FULLY anchored, and both anchors are load-bearing. `InfoTooltip`
+    // renders `role="button"` with its whole hint sentence as the accessible
+    // name, and the Successors hint now begins "Add tasks that cannot start…"
+    // — so the old unanchored /add task/i matched TWO elements and this query
+    // threw. A leading `^` alone does not fix it either, since that sentence
+    // also STARTS with "Add task". Matches the submit label and nothing else.
+    expect(screen.getByRole("button", { name: /^(add task|aufgabe hinzuf.*)$/i })).toBeInTheDocument();
   });
 });
 

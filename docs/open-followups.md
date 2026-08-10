@@ -151,7 +151,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 | 105 | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell switches the parser's section mid-row and the rest of the row decodes as absent | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | open — **MEASURED**, not reasoned: `blockers: "step one\n# RAID\nstep two"` → `"step one"`. No throw, no `ImportDiag`, nothing in the UI. Affects every entity the CSV backend writes; Markdown is immune BY CONSTRUCTION (`mdEscape` turns every newline into `<br>`) — do not "simplify" that away. The property this should satisfy is `describe.skip`ped with the measurement in the comment; unskip it when fixing |
 | 106 | The Markdown codec is not a fixed point when bare CRs precede a newline — one CR is lost per save/load cycle with no edit in between | property-based coverage (`!360`, no bump) | XS | open — converges, and only ever loses CRs, so it sits well below §105. Recorded because "the stored value changed on a load that made no edit" later reads as corruption. ★ Found only at `numRuns: 1500`; the **deterministic companion is the reliable reproduction**, not the property, which is itself seed-dependent |
-| 107 | ~~`HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup~~ | property-based coverage (`!360`, no bump) | M | **CLOSED 2026-08-10** — the one shared 8-tag classifier is GONE (the name `HTML_START` is retired; it survives only in comments). `html-start.ts` derives a regex PER SINK from that sink's own allow-list, and `descriptionHtml` / `sanitizeRichText` now REQUIRE the sink with no default, so tsc enumerated every call site instead of leaving one on a silent fallback. ★★★ READ THE ENTRY TO THE END: its retraction block is the only record of why widening the shared constant was wrong, and its closure note points at **§132** — storing the model's `<h1>` as real markup is correct and it converted a visible-but-lossless defect into a silent lossy one on a path this row never mentions |
+| 107 | ~~`HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup~~ | property-based coverage (`!360`, no bump) | M | **CLOSED 2026-08-10** — the one shared 8-tag classifier is GONE (the name `HTML_START` is retired; it survives only in comments). `html-start.ts` derives a regex PER SINK from that sink's own allow-list, and `descriptionHtml` / `sanitizeRichText` now REQUIRE the sink with no default, so tsc enumerated every call site instead of leaving one on a silent fallback. ★★★ READ THE ENTRY TO THE END: its retraction block is the only record of why widening the shared constant was wrong, and its closure note points at **§137** — storing the model's `<h1>` as real markup is correct and it converted a visible-but-lossless defect into a silent lossy one on a path this row never mentions |
 | 108 | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag as well as split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | open — the value is HTML, so a raw cut lands inside a tag (`<stro`) and stores malformed markup. Copy `capHtmlText`'s project → truncate → **re-wrap**, NOT `clipText` (correct only for plain text). ★★ Do NOT route it through `sanitizeText`: that fixes the surrogate half, leaves the mid-tag cut, and makes the call site LOOK guarded — the more dangerous state. Reachability narrow, unmeasured in the wild |
 | 109 | Icon-only controls with no hover tooltip, plus one control whose accessible name comes only from its `title` | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open — full audit in [`docs/tooltip-inventory.md`](tooltip-inventory.md). ★★ Its counts are SNAPSHOTS and moved within one day; re-run the inventory's parser before quoting any as present-tense. Open surface at `9927d045`: **17** untitled icon-only controls; Class B row **B1** (the settings cog) HELD pending the modern shell's own route to Settings; five of the Gantt View menu's eight toggles carry no hint; **one name defect** — `workspace-section-chrome.tsx:165` is named by `title` alone and **axe passes it**; and 15 hardcoded-English accessible names across nine files that tsc's key-parity check structurally cannot see |
 | 110 | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control, so a circular 20px chip cannot be converted to it | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open — `raci-chip-picker.tsx`'s ✕ is the fifth of five sibling chips sharing a `h-5 w-5 rounded-full` base. ★★★ A caller `className` CANNOT reliably override: Tailwind resolves conflicting utilities by **stylesheet source order**, not class-attribute order, and `p-1` sorts after `p-0` — so this is a primitive problem, not a call-site one. A KNOWN, DELIBERATE hand-roll; do not "finish the conversion" before the primitive gets a shape/size escape hatch. ★★ jsdom has no layout, so no unit test can catch the regression — eye-verify only |
@@ -6387,11 +6387,11 @@ construction rather than by a comment asking two arrays to be edited together.
 constant was wrong, and a reader arriving from the code comments that still name `HTML_START` needs
 it.
 
-★★★ **AND CLOSING THIS OPENED SOMETHING ELSE — READ §132 BEFORE ACTING ON THIS ENTRY.** Storing a
+★★★ **AND CLOSING THIS OPENED SOMETHING ELSE — READ §137 BEFORE ACTING ON THIS ENTRY.** Storing a
 model's `<h1>` as REAL markup instead of escaped text is correct, and it converted a
 visible-but-lossless defect into a silent LOSSY one on a path this entry never mentions: the HUMAN
 save of `Task.description` runs `sanitizeNoteHtml` (8 tags, `KEEP_CONTENT: false`), which deletes the
-heading's TEXT along with its tag. Measured, with the numbers, in §132.
+heading's TEXT along with its tag. Measured, with the numbers, in §137.
 
 ---
 
@@ -8124,9 +8124,91 @@ unresolvable file · line past EOF) and 0 on each allowed case (a citation insid
 symbol-only citation · correcting an existing citation's line number in place). A future edit to the
 regex or the resolver has nothing catching a regression — re-run that mutation pass by hand.
 
+
+## 132. A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — open, cosmetic, measured
+
+`recordSuccessorEdits` (`use-task-submit.ts`) passes `name` only when it wrote exactly ONE target, so a
+fan-out onto several tasks reaches `buildUndoLabel` with no name, resolves entity `task`, and falls to the
+generic `undoToastEdit` — "Edited 3 item(s)". The single-target case still reads `Edit task "…"`.
+
+★★ The fix is NOT to change the `kind`. `kind: "bulk.edit"` produces the IDENTICAL string for the
+multi-target case ("bulk" is not in `ENTITY_KEY_SET`, so `entityKeyFromKind` returns null and
+`buildUndoLabel` returns at its `if (!key)` guard BEFORE the `isBulk` branch) and a strictly WORSE one for
+the single-target case, since `kind` is shared by both branches and switching it would drop the name.
+Reaching `isBulk` needs an explicit `entityKey`, which `CaptureCompositeOpts` does not carry.
+
+The real fix is an edit-side twin of `undoLabelDeleteCount`. Deliberately not built: it would relabel EVERY
+unnamed multi-row edit capture in the app, which is a far wider blast radius than this one call site.
+
+★ Scope: the LABEL in undo history only. The TOAST was always count-shaped (`pushEntry` composes it from
+`undoToastEdit`/`undoToastDelete` regardless of kind or name), so nothing regressed there.
+
+## 133. A redo-created dangling dependency is repaired on two of six backends — open, measured
+
+Undo of a successor fan-out restores the target arrays from images resolved at capture time. Create task 5
+with successor 2 → undo → delete 5 → redo merges `{taskId:5}` back onto task 2, pointing at a task that no
+longer exists.
+
+★★ It self-heals ONLY on CSV and Markdown loads. `dropDanglingDependencies` has exactly two production call
+sites, in `csv-codecs-decode` and `markdown-codecs-decode`. Reproduce with
+`grep -rn "dropDanglingDependencies(" src/app | grep -v ".test."` — 4 lines: those two, the definition in
+`sanitize-core.ts`, and the comment in `use-task-submit.ts` that names the symbol. JSON maps tasks through
+`migrateTask` + `sanitizeNoteFields`, neither of which touches `dependencies`; IndexedDB — the DEFAULT
+backend, since `defaultStorageConfig` is `{ kind: "browser" }` — and both Turso backends have no dangling
+pass at all. Turso shares the CSV ROW builder (`buildTaskFromObj` via `turso-schema`) but never enters the
+enclosing workspace decoder where the dangling pass runs.
+
+★ Severity is low because the consumers tolerate it: dependency rendering resolves through the live task map
+and a missing id renders nothing. It is recorded because a code comment stated flatly that it self-heals on
+the next load, which is false exactly where most users are.
+
+## 134. Two `captureComposite` callers flag no primary and ride the positional fallback — open, latent, measured
+
+`compositeUndoRunner` picks the remap source with `Math.max(0, findIndex(isPrimary))`, so an unflagged
+composite silently nominates fragment 0. Of the SEVEN call sites, five flag one; `use-budget-buckets.ts` and
+`use-task-submit.ts` flag nothing.
+
+★★★ ENUMERATE WITH ALL THREE CALL SHAPES. A grep matching only `captureComposite({` and
+`captureCompositeRef.current?.({` misses the OPTIONAL-call form `captureComposite?.({` and reports SIX. That
+error shipped in a code comment and was caught only by a cold audit; it omitted the newest caller.
+
+Neither is a live defect — no fragment in either declares `fkRemapField`, so the empty remap is never read.
+The hazard is what happens NEXT: `captureFieldPart` hardcodes `isPrimary: false`, so adding a `capturePart`
+cascade beside an existing field fragment points that cascade at stale ids with no error. `use-budget-buckets`
+is the likelier site, because its first fragment is the whole-row `tasksPart` from `use-bulk-operations` — a
+§50 candidate whose obvious fix reproduces exactly this shape. Flag the cascade `isPrimary: true` in the same
+edit.
+
+## 135. Two different-type links to one task can be staged but not removed individually — open, UI
+
+`DependencyLinkGroup` appends `{ taskId, type: pendingType }` on add with no check, so the same task can be
+staged twice under different types (FS and SS). Its remove handler filters on `taskId` ALONE, so removing
+either chip removes BOTH.
+
+★★ An exact `(taskId, type)` duplicate is NOT the problem, and a working note claiming so was wrong:
+`pushUniqueDependency` (`sanitize-core.ts`) keys its `seen` set on the id and type together, so an exact
+duplicate is collapsed at save on every backend. Only the DIFFERENT-type pair survives, and it is the one the
+remove control cannot address.
+
+★ Whether a task should be allowed two relation types to the same task at all is the open design question;
+the storage layer permits it today. Matching the remove handler on both fields is the smaller change and does
+not settle that.
+
+## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code
+
+Removing the Open Points inline relations pencil (0.228.0) left the `dependencies` branch of
+`sanitizeInlinePatch`, and its `sanitizeDependencies` call, unreachable: no `onInlinePatch` call site passes
+that key. Reproduce with
+`grep -rn "onInlinePatch(" src/app --include=*.tsx | grep -v ".test." | grep -c dependencies` → 0. The
+remaining inline cells commit `priority`, `assignee`/`assigneeEmail`/`resourceId`, and the generic
+single-field path from `useInlineCellEdit`.
+
+★ Left in place rather than deleted because it is a SANITIZER: the branch is the guard that would apply if a
+future inline affordance did patch the field, and deleting it makes reintroducing that affordance silently
+unsanitised. Recorded so a dead-code sweep does not mistake it for an oversight in either direction.
 ---
 
-## 132. The seven rich entity fields' editor cannot represent three tags their storage permits — open, step 0 of the unify-rich-text program
+## 137. The seven rich entity fields' editor cannot represent three tags their storage permits — open, step 0 of the unify-rich-text program
 
 Opened 2026-08-10 out of §107's closure. **Not a regression against §107 — it is what closing §107
 UNCOVERED**, and §107's own closure note points here.

@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import { descriptionText } from "./rich-text-projection";
@@ -22,8 +22,6 @@ import { Input, Select } from "./form-controls";
 import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
 import { effectiveAssignee } from "./resource-foundation";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
-import { DependenciesEditor } from "./dependencies-editor";
-import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 import type { Contact } from "./contacts";
 import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
@@ -86,10 +84,6 @@ const EMPTY_TASK_LOOKUP: Map<number, Task> = new Map();
 /** Inline assignee picker suggests directory resources + free text only — no
  *  contacts are threaded into the row, so a stable empty list is passed. */
 const EMPTY_CONTACTS: Contact[] = [];
-
-/** Stable empty task list for a closed relations popover (the predecessor list
- *  is only materialised while the popover is open). */
-const EMPTY_TASKS: readonly Task[] = [];
 
 export function RowContextProvider({
   value,
@@ -603,7 +597,7 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("depRelations") && (
         <Td className="text-muted-foreground">
-          <DepRelationsCell task={task} editable={inlineEditable} />
+          <DepRelationsCell task={task} />
         </Td>
       )}
       {!hiddenCols.has("estimate") && (
@@ -756,66 +750,11 @@ function DependencyChipsImpl({ deps }: DependencyChipsProps) {
 
 const DependencyChips = memo(DependencyChipsImpl);
 
-interface DepRelationsCellProps {
-  task: Task;
-  editable: boolean;
-}
-
-/** Dependency (relations) cell: read-only chips plus, for non-Jira rows, an edit
- *  button opening a popover that reuses the modal's DependenciesEditor. Edits
- *  route through the pane's sanitizing `onInlinePatch` (re-validates cycles /
- *  dangling refs). Reads the task lookup for the predecessor dropdown — same
- *  single-cell re-render scope as the chips it wraps. */
-function DepRelationsCellImpl({ task, editable }: DepRelationsCellProps) {
-  const { lang, onInlinePatch } = useTaskRowContext();
-  const tasksById = useTaskLookup();
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const close = useCallback(() => setOpen(false), []);
-  const deps = task.dependencies ?? [];
-  // Only materialise the predecessor list while the popover is open — otherwise
-  // every mounted row would re-spread the whole task Map on any edit (the cell
-  // is a lookup-context consumer). One popover open at a time ⇒ O(n), not O(rows·n).
-  const allTasks = useMemo(() => (open ? [...tasksById.values()] : EMPTY_TASKS), [open, tasksById]);
-  return (
-    <div>
-      <div className="flex items-start gap-1">
-        <DependencyChips deps={deps} />
-        {editable && (
-          <IconButton
-            ref={btnRef}
-            onClick={() => setOpen((o) => !o)}
-            label={`${t(lang, "depEditRelations")} – ${task.taskName}`}
-            title={t(lang, "depEditRelations")}
-            aria-expanded={open}
-            className="shrink-0"
-          >
-            <PencilIcon aria-hidden="true" className="h-3.5 w-3.5" />
-          </IconButton>
-        )}
-      </div>
-      {/* Portal popover escapes the table scroller's overflow clip. */}
-      {editable && (
-        <PopoverPanel
-          open={open}
-          anchorRef={btnRef}
-          onClose={close}
-          role="dialog"
-          ariaLabel={t(lang, "depEditRelations")}
-          className="w-80 p-3"
-          autoFocus={false}
-        >
-          <DependenciesEditor
-            lang={lang}
-            value={deps}
-            allTasks={allTasks}
-            ownTaskId={task.id}
-            onChange={(next) => onInlinePatch(task.id, { dependencies: next })}
-          />
-        </PopoverPanel>
-      )}
-    </div>
-  );
+/** Dependency (relations) cell: read-only chips. Editing lives in the task
+ *  modal, which is the only surface with a draft to stage successor links in —
+ *  this popover wrote through live and had none. */
+function DepRelationsCellImpl({ task }: { task: Task }) {
+  return <DependencyChips deps={task.dependencies ?? []} />;
 }
 
 const DepRelationsCell = memo(DepRelationsCellImpl);

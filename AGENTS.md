@@ -359,6 +359,36 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   is a CHARACTERIZATION of a defect already shipped (`docs/open-followups.md` §126) — it asserts the
   collision is still there and is meant to go red when §126 is fixed. Both call themselves "the only
   detector" in their own scope; neither is a gate. (Worked example + the seeded reproduction: §126.)
+  ★★★ THE GATE IS SILENT ON WCAG 2.5.3 (label-in-name) IN EVERY VIEW TOO — and here, unlike the case
+  above, THE RULE DOES EXIST, which is what makes it dangerous. axe 4.12.1 ships
+  `label-content-name-mismatch` and it DOES carry `wcag21a`, one of the four tags the spec requests, so
+  a rule listing reads as coverage. It is ALSO tagged `experimental`, and axe's default tagExclude is
+  `experimental,deprecated` — a tag-only runOnly never RUNS it, and `e2e/a11y.spec.ts` enables no rule
+  explicitly. Measured 2026-08-09 under the gate's exact four tags, not reasoned: the rule lands in NO
+  result bucket — not violations, passes, incomplete OR inapplicable — and appears only once
+  `{"label-content-name-mismatch": {enabled: true}}` is passed as an explicit rule override. Reproduce:
+  `node -e "const a=require('axe-core');const r=a.getRules(['wcag21a']).find(x=>x.ruleId==='label-content-name-mismatch');console.log(!!r, a._audit.tagExclude.join(','), r.tags.join(','))"`
+  → `true experimental,deprecated cat.semantics,wcag21a,…`. ★★ So "does `getRules(tags)` list it?" is
+  the WRONG question — ask whether it survives tagExclude. That mistake was made and corrected on
+  2026-08-09: a listing probe was read as proof the gate ran the rule. A control whose VISIBLE label is
+  not CONTAINED in its `aria-label` (2.5.3 is case-INSENSITIVE — Understanding SC 2.5.3, "Punctuation
+  and capitalization") therefore needs a UNIT test, in every view, scanned or not.
+  ★★★ CONTAINMENT, NOT PREFIX — an earlier revision of this bullet said "prefix-preserving substring"
+  and that is a STRICTER rule than the SC, so applying it literally flags conformant code: axe ends in
+  `curatedCompareWith.includes(curatedCompare)` (position-independent, punctuation- and unicode-
+  stripped), and this repo's own dependency type select passes while failing a prefix test — visible
+  "Type for next link" inside accessible "Predecessor type for next link". ★★ Front-position IS a real
+  best practice and WCAG says so — but in a NOTE attached to the SC ("A best practice is to have the
+  text of the label at the start of the name"), not in its normative text, so enforcing it as THE rule
+  flags conformant code. An earlier revision of this very paragraph cited that best practice to G208 /
+  G211 "for speech input, not 2.5.3", which is backwards twice over: those two ARE 2.5.3's own
+  sufficient techniques, and neither one mentions ordering. 2.5.3 IS the speech-input criterion.
+  ★★★ AND THE RULE CANNOT SEE A `<select>` AT ALL, so enabling it explicitly is not the fix it looks
+  like. Its `matches` admits only roles supporting name-from-content; a `<select>` without `multiple`
+  and size null-or-1 maps to `combobox`, which is not among them. Measured 2026-08-09, not reasoned:
+  `node -e 'const s=require("axe-core").commons.standards.getAriaRolesSupportingNameFromContent();console.log(s.length, "combobox:", s.includes("combobox"), "button:", s.includes("button"))'`
+  → `32 combobox: false button: true`. So for every `<select>` in the app the unit test is not merely
+  the best detector, it is the ONLY possible one, at any gate configuration.
   ★★ TOGGLE-BUTTON name/state coherence: a `<button aria-pressed>` whose VISIBLE LABEL flips to the
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
