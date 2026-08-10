@@ -35,10 +35,13 @@
 //    `knowledge_items`, i18n keys), so it trades this hole for false findings,
 //    and a gate that cries wolf gets switched off.
 // 2. PROXIMITY BLEED. An absence marker within the window suppresses ANY symbol
-//    near it, not just the one it describes — `onToggleComplete` is masked today
-//    by an unrelated "no such function exists" two lines away. No purely lexical
-//    rule separates "this marker belongs to this symbol" from "a marker is
-//    nearby".
+//    near it, not just the one it describes. The worked example was
+//    `onToggleComplete`, masked by an unrelated "no such function exists" two
+//    lines away — HISTORICAL, and left in past tense on purpose: the name has
+//    since left the docs (`grep -rn "onToggleComplete" AGENTS.md docs/AGENTS/`
+//    exits 1, no match, 2026-08-10). The hole is not historical. No purely
+//    lexical rule separates "this marker belongs to this symbol" from "a marker
+//    is nearby", so a current instance may exist and nothing here would say so.
 //
 // Both mean a GREEN run is weaker evidence than it looks: it proves no name is
 // absent EVERYWHERE, not that every claim is true. Grep before trusting a bullet.

@@ -86,20 +86,27 @@ export const ALLOWLIST = new Map([
 //   - same LINE only  -> 9 false findings, because these bullets wrap and the
 //                        marker lands on the next line ("…`pendingFlash`/" \n
 //                        "`requestFlash`… were REMOVED").
-//   - whole PARAGRAPH -> hid a REAL stale claim: `onToggleComplete` sits in a
-//                        long bullet that happens to discuss a removal
-//                        elsewhere, so the marker suppressed it.
+//   - whole PARAGRAPH -> hid a REAL stale claim: as measured when this gate
+//                        shipped, `onToggleComplete` sat in a long bullet that
+//                        happened to discuss a removal elsewhere, so the marker
+//                        suppressed it. ★ That example is HISTORICAL — the name
+//                        left the docs entirely (`grep -rn "onToggleComplete"
+//                        AGENTS.md docs/AGENTS/` exits 1, no match, 2026-08-10),
+//                        so do not go looking for it. The RULE it bought is
+//                        still live; a current example is not.
 // A marker must therefore be NEAR the mention. The window below is about two
 // wrapped lines either side — wide enough for the wrap case, narrow enough that
 // an unrelated removal later in the same bullet does not grant cover.
 //
 // ★ The CLI interpolates this constant into its failure advice rather than
-// restating the number, so the value is written on the next line and nowhere
-// else in scripts/ — change it there and the gate's advice follows. (Grep the
-// literal to confirm; the check is deliberately not quoted here, because a
-// comment naming the number would match itself and report its own text as the
-// duplicate it warns about.) A test pins the boundary with a LITERAL distance —
-// a fixture built from PROXIMITY scales with a mutation and pins nothing.
+// restating the number, so changing the value on the next line changes the
+// gate's advice with it. ★★ It said "and nowhere else in scripts/", with a grep
+// attached to confirm — and two commits later that grep returned three hits,
+// because the second gate's prose restated the number twice. A "this appears
+// exactly once" clause about a shared constant cannot be maintained and is not
+// worth the maintenance: prose elsewhere now says "the shared window" and names
+// no figure. A test pins the boundary with a LITERAL distance — a fixture built
+// from PROXIMITY scales with a mutation and pins nothing.
 export const PROXIMITY = 240;
 
 /** True when an absence marker sits within PROXIMITY chars of `index` in `doc`.
@@ -155,14 +162,30 @@ export const GATE_SELF_FILES = new Set([
   path.join(HERE, "agents-symbols-lib.test.mjs"),
 ]);
 
-export function collectIdentifiers(dir, into) {
+/** ★★★ `alsoExclude` EXISTS BECAUSE THE HOLE IS PER-CONSUMER, NOT PER-GATE.
+ *  `GATE_SELF_FILES` above is about THIS gate and stays that way. But any tool
+ *  that quotes doc prose verbatim in order to judge it has the same property —
+ *  it writes the names it is checking into the tree it checks them against — and
+ *  the second consumer (`check-followup-claims.mjs`, whose test file quotes the
+ *  register line by line) reproduced the hole exactly. Hardcoding its three
+ *  files here would put one gate's knowledge inside another's constant; passing
+ *  them in keeps each gate owning its own list.
+ *
+ *  ★★ Same silence as `GATE_SELF_FILES`: the failure is one-way and invisible.
+ *  A name deleted from `src/` goes on resolving forever because the caller's own
+ *  fixture vouches for it, and the tool exits 0 either way. The caller's test is
+ *  the only detector, which is why each list is pinned AND proved load-bearing. */
+export function collectIdentifiers(dir, into, alsoExclude = new Set()) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) collectIdentifiers(path.join(dir, entry.name), into);
+      if (!SKIP_DIRS.has(entry.name)) {
+        collectIdentifiers(path.join(dir, entry.name), into, alsoExclude);
+      }
       continue;
     }
     if (!CODE_EXT.test(entry.name)) continue;
-    if (GATE_SELF_FILES.has(path.resolve(dir, entry.name))) continue;
+    const abs = path.resolve(dir, entry.name);
+    if (GATE_SELF_FILES.has(abs) || alsoExclude.has(abs)) continue;
     const src = fs.readFileSync(path.join(dir, entry.name), "utf8");
     for (const m of src.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) into.add(m[0]);
   }
