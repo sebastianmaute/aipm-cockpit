@@ -92,12 +92,30 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
 
 /** The four sinks whose classifier is DERIVED from an allow-list.
  *
- *  ★ "projection" is NOT a sink — descriptionText/descriptionTextWithBreaks strip
- *  every tag. It takes the WIDEST list because the rule above does not bind on a
- *  strip-everything pass: over-recognising costs nothing there, while
- *  under-recognising emits literal "<h1>Title</h1>" as visible text into search,
- *  the AI digests and every export. It is a distinct member from "document" even
- *  though the lists are equal today, so a reader sees WHY it is widest. */
+ *  ★★★ "projection" is NOT a sink — descriptionText/descriptionTextWithBreaks
+ *  strip every tag, so THE RULE above (never recognise less than your sink keeps)
+ *  does not bind here and the list is a straight TRADE between two defects
+ *  instead. It takes the WIDEST list, and that is a decision, not a free lunch:
+ *
+ *    - UNDER-recognising is the §107/§114 direction — a stored "<h1>Title</h1>"
+ *      is escaped whole and emits literal "&lt;h1&gt;" as visible text into
+ *      search, the AI digests and every export.
+ *    - OVER-recognising is the §32 direction — a plain sentence that merely
+ *      OPENS tag-shaped is passed through, and the strip pass then eats that
+ *      fragment along with its angle brackets. Measured 2026-08-10 through the
+ *      real descriptionText: "<mark> means highlight in this project" projects
+ *      to "means highlight in this project" — the opening fragment DROPPED.
+ *      Widening from 8 tag names to 20 widened that surface: `code`,
+ *      `blockquote`, `s` and `h1` all behave the same way now, while "<table>
+ *      layouts are deprecated" is untouched because `table` is not on the list.
+ *
+ *  We take that trade deliberately: under-recognising is the commoner and far
+ *  louder failure (an AI-authored heading is real markup a workspace stores every
+ *  day; a sentence opening with a bare "<mark>" is rare), and its damage is
+ *  visible in every surface at once. §32 stays open and unchanged in kind.
+ *
+ *  It is a distinct member from "document" even though the lists are equal today,
+ *  so a reader sees WHY it is widest. */
 export type DerivedSink = "note" | "template" | "document" | "projection";
 
 /** Which sink the classified value is on its way to. "render" is the one member

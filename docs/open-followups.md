@@ -1153,6 +1153,25 @@ defect is unchanged in kind and now exists once per sink rather than once global
 that used to sit here was broken by that move, which is why it is gone; read the regex out of
 `htmlStartRe`, not out of this entry.
 
+★★ **THAT SLICE ALSO WIDENED THE FALSE-POSITIVE SURFACE ON ONE PATH — the PROJECTION path, from 8
+tag names to 20.** The projection classifier (`SINK_TAGS.projection`, = `DOCUMENT_ALLOWED_TAGS`)
+deliberately takes the widest list, because on a strip-everything pass the opposite direction (§107 /
+§114 — a real `<h1>` escaped whole into literal `&lt;h1&gt;` in search, the AI digests and every
+export) is commoner and louder. The trade is recorded at `DerivedSink` in `html-start.ts` and was
+taken knowingly; it does not change this defect in KIND, only in reach. Measured 2026-08-10 through
+the real `descriptionText`:
+
+| stored | projects as |
+|---|---|
+| `<mark> means highlight in this project` | `means highlight in this project` |
+| `<code> blocks are banned in the report` | `blocks are banned in the report` |
+| `<blockquote> is what we call the callout` | `is what we call the callout` |
+| `<h1> headings are numbered` | `headings are numbered` |
+| `<table> layouts are deprecated` | *(unchanged — `table` is not on the list)* |
+
+The twelve extra names are the difference between the old eight and `DOCUMENT_ALLOWED_TAGS`; the
+`<table>` row is the control proving the boundary is the list and not the regex shape.
+
 `HTML_START` is `/^\s*<(p|br|strong|em|ul|ol|li|a)\b[^>]*>/i`. `\b` matches on a following SPACE, so a
 plain sentence that merely OPENS with one of those eight words in angle brackets is classified as HTML
 and passed through verbatim — and then the `TAG` pass deletes the pseudo-tag along with its words:
@@ -8178,17 +8197,56 @@ a driver artifact (a synthetic modifier keydown may never reach ProseMirror's ke
 finding. Settling it needs a real browser. The sanitizer half above needs no probe and is measured
 regardless of how the value got there, since the AI path alone can produce all three tags.
 
-★ **Scope: `sanitizeNoteHtml` on the human save is TASK-ONLY.** The six RAID / change / milestone
-fields route their save through their DOM-free entity sanitizers, so their Path 1 does not delete.
-Their exposure is the other half — the editor cannot MAKE a `u`/`h1`/`h2`, and the lean editor's own
-commit sanitizer would delete one that arrived from the AI path the moment a human edits the field.
+★★★ **SCOPE — and the earlier sentence here was WRONG.** It said the `sanitizeNoteHtml` exposure was
+"TASK-ONLY", that the six RAID / change / milestone fields "route their save through their DOM-free
+entity sanitizers, so their Path 1 does not delete", and that "their exposure is the other half".
+It is not. `sanitizeRichFields` (`note-log.ts`) applies **`sanitizeNoteHtml(descriptionHtml(value,
+"note"))`** to every rich field it is given, and all four per-entity normalizers —
+`sanitizeNoteFields`, `sanitizeRaidRichFields`, `sanitizeChangeRichFields`,
+`sanitizeMilestoneRichFields` — are that one function with a different field list. Both whole-object
+load boundaries call all four: `jsonToWorkspace` (`workspace.ts`, every JSON load) and the IndexedDB
+load (`browser-backend.ts`, the DEFAULT backend). So **all seven rich fields are exposed on every
+load, with no human and no save involved.** Measured 2026-08-10 through the real exported
+normalizers:
 
-★ **A grep, not a claim:** three more task paths apply `sanitizeNoteHtml` to a description —
-`task-inline-patch.ts`, `bulk-operations-helpers.ts` and `task-dedup/dedup.ts`. Sweep with
-`grep -rn "sanitizeNoteHtml" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."`. Only
-the form save was measured. The dedup merge is the likeliest second instance of Path 1, because it is
-the one that reads STORED descriptions rather than a freshly-typed value; the other two sanitize an
-incoming patch, which is a different question.
+```
+sanitizeRaidRichFields({description:"<p>Intro</p><h1>Risk</h1><p>detail</p>"})
+  -> {description:"<p>Intro</p><p>detail</p>"}     "Risk" GONE
+sanitizeRaidRichFields({mitigation:"<p>a</p><u>b</u>"})
+  -> {mitigation:"<p>a</p>"}                       "b" GONE
+sanitizeChangeRichFields({impactDescription:"<p>a</p><u>b</u>"})
+  -> {impactDescription:"<p>a</p>"}                "b" GONE
+```
+
+★★ **THE NUANCE THAT MAKES IT SUBTLE, and it is how the false sentence came to be written.** The loss
+needs a value that **LEADS with an allow-listed tag and carries the disallowed one MID-VALUE**. A
+value LEADING with the disallowed tag is classified as plain text by the `"note"` sink FIRST and
+escaped whole, so its text SURVIVES:
+
+```
+sanitizeRaidRichFields({description:"<h1>Risk</h1><p>detail</p>"})
+  -> {description:"<p>&lt;h1&gt;Risk&lt;/h1&gt;&lt;p&gt;detail&lt;/p&gt;</p>"}   "Risk" intact
+```
+
+Probe this path with leading-tag examples and it looks safe in every case. Move the same tag one
+element to the right and the words are gone.
+
+★ **PRE-EXISTING, not a regression.** Do not read this as caused by §107's slice: the old shared
+8-tag `HTML_START` also matched a leading `<p>`, so a mid-value `<h1>` was already passed through and
+deleted here. What §107 changed on THIS path is nothing — `sanitizeRichFields` classified against the
+8-tag list before and against the (identical) `"note"` list after. The §107-caused half of this entry
+is the `Task.description` Path 1 above, where the AI write boundary is 11 tags wide.
+
+★ **A grep, not a claim — FIVE paths, recounted.** Four apply `sanitizeNoteHtml` to a task
+description: the form save (`use-task-submit.ts`, measured above), `task-inline-patch.ts`,
+`bulk-operations-helpers.ts` and `task-dedup/dedup.ts`. The fifth is `sanitizeRichFields`
+(`note-log.ts`), which covers all seven fields across all four entities on both load boundaries.
+Sweep with
+`grep -rn "sanitizeNoteHtml" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."`
+(it also returns the note-log ENTRY html and the display/editor sites, which are a different
+question). Of the four task paths only the form save was measured; the dedup merge is the likeliest
+second instance of Path 1, because it is the one that reads STORED descriptions rather than a
+freshly-typed value, while the other two sanitize an incoming patch.
 
 ★★ **A correction to a claim made while this was being written, kept because it is the kind that
 propagates:** `RichTextView` (which re-sanitizes with `sanitizeNoteHtml` at display) is **NOT** in

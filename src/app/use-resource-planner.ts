@@ -424,7 +424,19 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         // Both fields are rich HTML since slice B: UPGRADE (pass HTML through,
         // wrap legacy plain text) instead of escaping an already-HTML value a
         // second time, which would render markup as visible text.
-        description: descriptionHtml(item.mitigation ?? item.description ?? "", "template"),
+        // ★★★ The sink is the DESTINATION field's, never the SOURCE field's. The
+        // source is a RAID `mitigation`/`description` (a "template" field, 11
+        // tags) but the value lands in `Task.description`, whose human save runs
+        // sanitizeNoteHtml — 8 tags at KEEP_CONTENT: false, which deletes an
+        // unlisted element TOGETHER WITH its text. Classifying by the source
+        // would copy an AI-authored <h1>/<h2>/<u> through as live markup and the
+        // first human Save would silently delete those words, with no undo.
+        // Measured 2026-08-10 through the real exported sanitizers:
+        //   sanitizeNoteHtml(descriptionHtml("<h2>Plan</h2><p>steps</p>", "template"))
+        //     -> "<p>steps</p>"                 "Plan" GONE
+        //   sanitizeNoteHtml(descriptionHtml("<h2>Plan</h2><p>steps</p>", "note"))
+        //     -> escaped markup, both words intact
+        description: descriptionHtml(item.mitigation ?? item.description ?? "", "note"),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };

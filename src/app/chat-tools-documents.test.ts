@@ -152,10 +152,13 @@ describe("the paragraph schema description matches the document write boundary",
   // "<pre>/<hr> inside a <p> is not parseable" (the parser auto-closes the <p>
   // and yields a correct p/pre/p) and "bare inline content has no block to
   // render" (refuted by the DOCX/PPTX result above).
-  // ★★ The schema's own rationale in chat-tool-defs-documents.ts is now WRONG for
-  // the same reason this comment was — it tells the model the value "is stored as
-  // literal visible text" otherwise, which is the §107 behaviour this slice
-  // removed. Retargeting that string is Task 9's job, not this test's.
+  // ★ The schema's own rationale in chat-tool-defs-documents.ts USED to be wrong
+  // for the same reason this comment was — it told the model the value "is stored
+  // as literal visible text" otherwise, which is the §107 behaviour this slice
+  // removed. That clause is gone; the instruction itself stayed, for the measured
+  // reason above. Confirm with
+  // `grep -n "literal visible text" src/app/chat-tool-defs-documents.ts`
+  // (no hits).
   it("tells the model to start the value with <p>", () => {
     expect(blockDescription).toMatch(/start the value with <p>/i);
   });

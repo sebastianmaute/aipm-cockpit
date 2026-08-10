@@ -2,6 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
+import { sanitizeNoteHtml } from "./sanitize-html";
 import type { Absence, RaidItem, Resource, Role, Shift } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
@@ -985,6 +986,23 @@ describe("useResourcePlanner", () => {
         mkRaid({ mitigation: undefined, description: "<p>vendor <em>slipped</em></p>" }),
       );
       expect(created.description).toBe("<p>vendor <em>slipped</em></p>");
+    });
+
+    // ★★★ The classifier must follow the DESTINATION field, not the source. A
+    // RAID `mitigation` is a "template" field (11 tags, h1/h2/u included) but it
+    // is copied into `Task.description`, whose human save runs sanitizeNoteHtml
+    // — 8 tags at KEEP_CONTENT: false, which deletes an unlisted element
+    // TOGETHER WITH its text. Classifying by the source stores an AI-authored
+    // <h2> as live markup and the first Save silently eats the heading's words.
+    // ★ Anti-vacuity: this asserts the WORD survives the sanitizer, not merely
+    // that some string comes back. Mutation-proved — restoring "template" at the
+    // call site makes the "Plan" assertion fail while the "steps" control still
+    // passes, which is exactly the shape of the defect.
+    it("survives the human save path: sanitizeNoteHtml does not eat a heading's words", () => {
+      const created = createFrom(mkRaid({ mitigation: "<h2>Plan</h2><p>steps</p>" }));
+      const afterHumanSave = sanitizeNoteHtml(created.description);
+      expect(afterHumanSave).toContain("Plan");
+      expect(afterHumanSave).toContain("steps"); // control: the allow-listed half
     });
   });
 

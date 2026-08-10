@@ -105,9 +105,14 @@ describe("the sink map", () => {
   });
 
   it("keeps projection a superset of every real sink", () => {
-    // Projection has no sink — htmlToText strips everything — so recognising more
-    // costs nothing and recognising less is the entire defect. If the document
-    // list ever narrows, this is what catches it.
+    // Projection has no sink — htmlToText strips everything — so THE RULE does
+    // not bind and the width is a TRADE, not a free choice. Recognising less is
+    // the §107 direction (literal "&lt;h1&gt;" into search, digests and exports);
+    // recognising more is the §32 direction (a plain "<mark> means highlight in
+    // this project" projects to "means highlight in this project", fragment
+    // dropped — measured). We take the wide side because the §107 direction is
+    // commoner and louder. If the document list ever narrows, this is what
+    // catches it.
     const projection = new Set(SINK_TAGS.projection);
     for (const tags of [NOTE_ALLOWED_TAGS, TEMPLATE_ALLOWED_TAGS, DOCUMENT_ALLOWED_TAGS]) {
       for (const tag of tags) {
