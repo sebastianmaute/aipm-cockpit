@@ -8,6 +8,34 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.229.0] - 2026-08-10 "Marillier"
+
+### Fixed
+
+- **Formatted text reaching documents and exports as raw tags.** A description containing
+  bold, a link or a list arrived in Word, PowerPoint, PDF and the on-screen preview as its
+  literal markup — `&lt;strong&gt;` instead of bold — whenever the formatting did not begin
+  at the very first character. The check that decides "is this stored value already
+  formatted text?" was asking whether a value *starts* with a tag, which is the right
+  question when the answer is about to be written to disk and the wrong one at a rendering
+  boundary, where nothing is stored and every tag's text is kept either way.
+- **Multi-line plain descriptions fusing into one paragraph** in DOCX, PPTX, HTML and PDF.
+- **Assistant-written document text losing its headings and layout.** Text the assistant
+  wrote into a document was cleaned against the narrow note allow-list rather than the
+  wider document one, which unwrapped headings, tables and rules — and deleted the two
+  that carry no text of their own outright.
+- **Template import silently dropping the words inside a heading.** A captured description
+  containing `<h1>`, `<h2>` or `<u>` was recognised against the wrong list, stored as
+  markup, and then had those words deleted — not merely unstyled — by the first save.
+
+### Changed
+
+- The "is this already formatted text?" check is no longer one hardcoded list shared by
+  every caller. Each of the five destinations now derives its own test from the exact set
+  of tags that destination keeps, so a check can never recognise less than its destination
+  preserves. Existing projects are read the new way rather than converted; nothing on disk
+  is rewritten.
+
 ## [0.228.0] - 2026-08-10 "Kessel"
 
 ### Added
