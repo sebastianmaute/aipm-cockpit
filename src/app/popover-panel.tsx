@@ -21,12 +21,27 @@ const VIEWPORT_MARGIN = 8;
 /** Min px below the anchor before we flip the panel ABOVE it (covers the date /
  *  escalate panels; avoids painting a fixed panel off the bottom of the fold). */
 const MIN_SPACE_BELOW = 220;
+/** Gap between the anchor and the panel, on whichever axis they meet. */
+const ANCHOR_GAP = 4;
+
+/**
+ * Where the panel sits relative to its anchor.
+ * - `bottom-end` (default) — under the anchor, right edges aligned. Every
+ *   toolbar/row popover uses this; it drives `right` + `top`/`bottom`.
+ * - `right-start` — BESIDE the anchor, top edges aligned. For the collapsed
+ *   sidebar rail, whose 64px-wide trigger has no room beneath it. Drives
+ *   `left` + `top`.
+ * ★★ The two are mutually exclusive edge sets, not variations of one — see the
+ * clamp effect below, which branches on `pos.left !== undefined`.
+ */
+export type PopoverPlacement = "bottom-end" | "right-start";
 
 export function PopoverPanel({
   open,
   anchorRef,
   onClose,
   className = "",
+  placement = "bottom-end",
   role,
   ariaLabel,
   autoFocus = true,
@@ -37,6 +52,7 @@ export function PopoverPanel({
   onClose: () => void;
   /** Width/padding classes for the panel (e.g. "w-64 p-2"). */
   className?: string;
+  placement?: PopoverPlacement;
   role?: "dialog" | "menu";
   ariaLabel?: string;
   /** Move focus to the first control on open (default true — correct for menus).
@@ -51,22 +67,29 @@ export function PopoverPanel({
   // needing the panel width (so a `w-max` menu works too). `top` OR `bottom` is
   // set depending on whether the panel opens below or flips above the anchor.
   // null until measured.
-  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
 
   useEffect(() => {
     if (!open) return; // stale pos is harmless — the panel is gated on `open && pos`
     const anchor = anchorRef.current;
     if (!anchor) return;
     const r = anchor.getBoundingClientRect();
-    const right = Math.max(VIEWPORT_MARGIN, window.innerWidth - r.right);
-    const spaceBelow = window.innerHeight - r.bottom;
-    // Flip ABOVE the anchor when there isn't room below — otherwise a fixed panel
-    // low in the viewport paints off the fold, and the scroll-to-reveal would fire
-    // the close-on-scroll listener below (making it unreachable).
-    if (spaceBelow >= MIN_SPACE_BELOW || spaceBelow >= r.top) {
-      setPos({ right, top: r.bottom + 4 });
+    if (placement === "right-start") {
+      // Beside the anchor, top edges aligned. No flip: the only consumer is the
+      // left-hand rail, where there is always more room to the right than to the
+      // left, and the post-paint effect clamps both axes into the viewport.
+      setPos({ left: r.right + ANCHOR_GAP, top: r.top });
     } else {
-      setPos({ right, bottom: window.innerHeight - r.top + 4 });
+      const right = Math.max(VIEWPORT_MARGIN, window.innerWidth - r.right);
+      const spaceBelow = window.innerHeight - r.bottom;
+      // Flip ABOVE the anchor when there isn't room below — otherwise a fixed panel
+      // low in the viewport paints off the fold, and the scroll-to-reveal would fire
+      // the close-on-scroll listener below (making it unreachable).
+      if (spaceBelow >= MIN_SPACE_BELOW || spaceBelow >= r.top) {
+        setPos({ right, top: r.bottom + ANCHOR_GAP });
+      } else {
+        setPos({ right, bottom: window.innerHeight - r.top + ANCHOR_GAP });
+      }
     }
     // Close when an ANCESTOR scroller moves (the panel detaches from its anchor),
     // but NOT when the user scrolls a scrollable child INSIDE the panel (e.g. the
@@ -88,7 +111,7 @@ export function PopoverPanel({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onResize);
     };
-  }, [open, anchorRef, onClose]);
+  }, [open, anchorRef, onClose, placement]);
 
   // Post-paint left-edge clamp. The panel is right-aligned via CSS `right`, which
   // alone can't stop the LEFT edge going off-screen on a narrow viewport with a
@@ -102,7 +125,28 @@ export function PopoverPanel({
     const panel = panelRef.current;
     if (!panel) return;
     const rect = panel.getBoundingClientRect();
-    if (rect.left < VIEWPORT_MARGIN - 0.5) {
+    // `right-start` is positioned by its LEFT edge, so the clamp above (which
+    // shrinks `right`) does not apply. Clamp the stored coordinates — NOT the
+    // measured ones: min/max over a stored value cannot chase the panel across
+    // the screen one paint at a time, which clamping `rect.left` would.
+    // ★★ It TERMINATES, but it is not flatly idempotent and an earlier comment
+    // here claimed it was. A `fixed` element with only `left` set is
+    // shrink-to-fit within `viewportWidth - left`, so moving it leftward can
+    // GROW `rect.width` and lower the next `Math.min`, giving a third pass.
+    // `left` is monotone non-increasing and floored at `VIEWPORT_MARGIN`, so it
+    // converges rather than oscillating — the cost of an extra pass is a re-run
+    // of the autoFocus effect below, which re-focuses the first control.
+    // Unreachable for today's consumers (a `min-w-44` menu anchored at x≈0–64).
+    // ★ A panel LARGER than the viewport pins at the margin and simply
+    // overflows: there is no `max-height`/`overflow` here, so a very tall
+    // `right-start` menu would need one.
+    if (pos.left !== undefined) {
+      const left = Math.max(VIEWPORT_MARGIN, Math.min(pos.left, window.innerWidth - rect.width - VIEWPORT_MARGIN));
+      const top = Math.max(VIEWPORT_MARGIN, Math.min(pos.top ?? VIEWPORT_MARGIN, window.innerHeight - rect.height - VIEWPORT_MARGIN));
+      if (left !== pos.left || top !== pos.top) setPos((p) => (p ? { ...p, left, top } : p));
+      return;
+    }
+    if (pos.right !== undefined && rect.left < VIEWPORT_MARGIN - 0.5) {
       const maxRight = window.innerWidth - rect.width - VIEWPORT_MARGIN;
       const clampedRight = Math.max(VIEWPORT_MARGIN, maxRight);
       if (clampedRight !== pos.right) setPos((p) => (p ? { ...p, right: clampedRight } : p));
@@ -133,8 +177,15 @@ export function PopoverPanel({
   // must never produce: the panel is PORTALED, so with nothing focused the
   // user's next Tab leaves it entirely — the very failure `autoFocus` exists to
   // prevent. Programmatic `.focus()` works on a -1 element, so the fallback is
-  // functional, not cosmetic. No current consumer needs it; it is here so the
-  // next one cannot regress silently.
+  // functional, not cosmetic.
+  // ★★ `sidebar-nav.tsx`'s `CollapsedNavFlyout` IS that consumer as of the
+  // portal migration — every one of its menuitems is `tabIndex={-1}`, so this
+  // arm is the ONLY thing that lands focus in that flyout, and a test there
+  // pins it. This comment previously said no consumer needed it, which is the
+  // ordinary way a "here for the next one" note goes stale: the next one
+  // arrived and nothing pointed back here. `project-switcher.tsx`, named above
+  // as the example shape, hand-rolls with `usePopoverDismiss` and is NOT a
+  // `PopoverPanel` consumer — it illustrates the shape, not a call site.
   useEffect(() => {
     if (autoFocus && open && pos) {
       const panel = panelRef.current;
@@ -168,7 +219,7 @@ export function PopoverPanel({
       role={role}
       aria-label={ariaLabel}
       onClick={(e) => e.stopPropagation()}
-      style={{ top: pos.top, bottom: pos.bottom, right: pos.right }}
+      style={{ top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}
       className={`fixed z-[100] rounded-md border border-line bg-surface ${className}`}
     >
       {children}

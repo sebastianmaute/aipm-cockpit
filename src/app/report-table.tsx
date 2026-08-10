@@ -416,6 +416,7 @@ export function ReportCard({
   leading,
   title,
   hideToolbar = false,
+  contentRef,
   children,
 }: {
   lang: Lang;
@@ -429,6 +430,11 @@ export function ReportCard({
   /** Suppress the whole top toolbar row — the caller renders its own
    *  Print/Reset controls inside the body (e.g. the Dashboard). */
   hideToolbar?: boolean;
+  /** The card's SCROLLING element — the one with real `scrollTop`, not the
+   *  `sizeRef` shell, which is `overflow-hidden`. Exposed because a caller that
+   *  drags things inside this card has to scroll THIS div during the drag
+   *  (`useDragAutoscroll`); the window cannot scroll under the app shell. */
+  contentRef?: React.RefObject<HTMLDivElement | null>;
   children: React.ReactNode;
 }) {
   const hasLeft = !!title || !!leading;
@@ -450,7 +456,7 @@ export function ReportCard({
           </div>
         </div>
       )}
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">{children}</div>
+      <div ref={contentRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">{children}</div>
     </div>
   );
 }

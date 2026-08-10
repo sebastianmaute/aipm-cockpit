@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import {
   BucketPeopleRows, BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod, peopleBodyId,
 } from "./budget-panel-people-rows";
-import { DOT_COL_PX, TOTAL_COL_PX } from "./budget-panel-totals";
+import { DOT_COL_PX, HOURS_LINE_REM, HOURS_LINE_UNITS, HoursTd, TOTAL_COL_PX, TotalsTd } from "./budget-panel-totals";
 import type { PersonRow } from "./budget-bucket-people";
 import type { Resource } from "./types";
 
@@ -64,6 +64,50 @@ describe("BucketPeopleRows", () => {
       row({ booked: { "2026-01": Number.NaN }, bookedTotal: Number.POSITIVE_INFINITY }),
     ]);
     expect(cellTexts(container)).toEqual(["", "Adam", "— / 8", "— / 8"]);
+  });
+
+  // ★★★ THE ALIGNMENT CONTRACT. A role's period cell is a two-line stack whose
+  // figures sit in a `w-16` box that starts after a `w-14` label and a `gap-1`,
+  // i.e. the box's right edge is HOURS_LINE_UNITS from the cell's content-box left.
+  // A person's cell is a single line, so it can only line up horizontally — and
+  // it did not: it right-aligned to the WHOLE period column, which is far wider,
+  // leaving the figures stranded to the right of every box above them.
+  // ★★ jsdom has no layout, so nothing here can measure the two edges and
+  // compare. What CAN be pinned is that both derive from one number, which is
+  // why HOURS_LINE_UNITS is exported rather than spelled `31` in two files — and
+  // why the `not.toContain("text-right")` on the cell is not a style nit: with
+  // the class still on the `<td>`, the inner block aligns correctly AND the cell
+  // keeps right-anchoring it, so a fixture whose figure happens to fill the
+  // block would pass either way.
+  // ★★★ `pr-1` IS PART OF THE CONTRACT, not padding taste. The role value box
+  // is `w-16 px-1`, so its digits stop one unit short of its right edge; a block
+  // that is merely the same WIDTH puts its digits one unit further right and the
+  // column staggers by 4px at a 16px root. Width alone passing is exactly how
+  // the first cut of this shipped mis-aligned — assert both.
+  it("anchors a person's period figure to the role row's value-box column", () => {
+    const { container } = renderRows([row()]);
+    const cells = [...container.querySelectorAll("#people-1-10 td")];
+    const period = cells[3] as HTMLElement;
+    expect(period.className).not.toContain("text-right");
+    const figure = period.firstElementChild as HTMLElement;
+    expect(figure.style.width).toBe(HOURS_LINE_REM);
+    expect(figure).toHaveClass("text-right");
+    expect(figure).toHaveClass("pr-1");
+    // Over-wide pairs must eat leftwards into the label gutter rather than wrap
+    // onto a second line, which would desynchronise the row heights.
+    expect(figure).toHaveClass("whitespace-nowrap");
+  });
+
+  // The Total column already lined up, and NOT by luck: TOTAL_COL_PX was itself
+  // derived as this width plus the cell's own px-3 (124 + 24 = 148) — its
+  // docstring in `budget-panel-totals.tsx` says so. Both cells now measure from
+  // the one constant, so the two derivations cannot drift apart.
+  it("anchors a person's TOTAL figure to the same column", () => {
+    const { container } = renderRows([row()]);
+    const total = [...container.querySelectorAll("#people-1-10 td")][2] as HTMLElement;
+    const figure = total.firstElementChild as HTMLElement;
+    expect(figure.style.width).toBe(HOURS_LINE_REM);
+    expect(figure).toHaveClass("pr-1");
   });
 
   it("stays in the DOM while collapsed so aria-controls resolves", () => {
@@ -227,5 +271,57 @@ describe("PeopleDisclosureLabel", () => {
     expect(btn).toHaveAttribute("title", "Booked / planned hours");
     // The non-colour pressed marker the disclosure variant supplies.
     expect(btn.querySelector("[data-pressed-marker]")).not.toBeNull();
+  });
+});
+
+// ★★ The constant is only worth exporting if it stays TIED to the classes it
+// stands for. A bare `expect(HOURS_LINE_UNITS).toBe(31)` is a tautology — it
+// re-states the definition and would keep passing after someone widened the
+// label to `w-20`, leaving every person row out of line with no test red.
+// Pinning the classes in the same test is what makes the arithmetic falsifiable:
+// change a width and this fails, which is the prompt to update the constant.
+//
+// ★★★ BOTH ROLE CELLS, NOT JUST ONE. The first cut of this rendered `TotalsTd`
+// alone, and a review caught that `budget-panel-totals.tsx` spells the same
+// three widths FOUR times: twice in `TotalsTd` (read-only spans) and twice in
+// `HoursCell` (the editable inputs). `HoursCell` is the role cell the PERIOD
+// columns align against — the common case — so covering only `TotalsTd` left
+// the more important half of the contract unpinned: changing `HoursCell`'s
+// `w-14` would break every person period figure with the suite green.
+describe("HOURS_LINE_UNITS — the shared alignment constant", () => {
+  // 14 + 1 + 16 spacing units. Asserted against the classes below, never alone.
+  it("equals the label + gap + value-box widths in the TOTAL cell", () => {
+    const { container } = render(
+      <table><tbody><tr><TotalsTd budget={8} actual={6} lang="en-US" /></tr></tbody></table>,
+    );
+    const line = container.querySelector("td > div > div") as HTMLElement;
+    expect(line).toHaveClass("gap-1");                // 1 unit
+    expect(line.children[0]).toHaveClass("w-14");     // 14 units, label
+    expect(line.children[1]).toHaveClass("w-16");     // 16 units, value box
+    // The box's own px-1 is what the person block's `pr-1` cancels.
+    expect(line.children[1]).toHaveClass("px-1");
+    expect(HOURS_LINE_UNITS).toBe(14 + 1 + 16);
+  });
+
+  it("equals the same widths in the editable PERIOD cell", () => {
+    const { container } = render(
+      <table><tbody><tr>
+        <HoursTd
+          ariaPrefix="Jan" budget={8} actual={6} onBudget={() => {}} onActual={() => {}}
+          lang="en-US" periodEnd="2026-01-31" today="2026-01-15"
+        />
+      </tr></tbody></table>,
+    );
+    // Both figure lines (Budget over Actual) are `flex items-center gap-1` rows
+    // holding a `w-14` label span and a `w-16` input.
+    const lines = [...container.querySelectorAll("td > div > div")] as HTMLElement[];
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line).toHaveClass("gap-1");
+      expect(line.children[0]).toHaveClass("w-14");
+      expect(line.children[1]).toHaveClass("w-16");
+      expect(line.children[1]).toHaveClass("px-1");
+    }
+    expect(HOURS_LINE_UNITS).toBe(14 + 1 + 16);
   });
 });

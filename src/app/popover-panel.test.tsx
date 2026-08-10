@@ -3,7 +3,13 @@ import { useRef, useState, useCallback } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PopoverPanel } from "./popover-panel";
 
-function Harness({ onClose }: { onClose?: () => void }) {
+function Harness({
+  onClose,
+  placement,
+}: {
+  onClose?: () => void;
+  placement?: "bottom-end" | "right-start";
+}) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => { setOpen(false); onClose?.(); }, [onClose]);
@@ -12,11 +18,35 @@ function Harness({ onClose }: { onClose?: () => void }) {
       <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)}>
         trigger
       </button>
-      <PopoverPanel open={open} anchorRef={btnRef} onClose={close} role="dialog" ariaLabel="Panel" className="w-64 p-2">
+      <PopoverPanel open={open} anchorRef={btnRef} onClose={close} placement={placement} role="dialog" ariaLabel="Panel" className="w-64 p-2">
         <input aria-label="field" />
       </PopoverPanel>
     </div>
   );
+}
+
+/** jsdom has no layout, so every geometry test stubs the two rects the panel
+ *  measures — the anchor (a `<button>`) and the panel itself (a `<span>`). */
+function withRects(
+  { anchor, panel, innerWidth, innerHeight }:
+  { anchor: DOMRect; panel: DOMRect; innerWidth: number; innerHeight: number },
+  body: () => void,
+) {
+  const origW = window.innerWidth, origH = window.innerHeight;
+  const btnProto = HTMLButtonElement.prototype.getBoundingClientRect;
+  const spanProto = HTMLSpanElement.prototype.getBoundingClientRect;
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: innerWidth });
+  Object.defineProperty(window, "innerHeight", { configurable: true, value: innerHeight });
+  HTMLButtonElement.prototype.getBoundingClientRect = () => anchor;
+  HTMLSpanElement.prototype.getBoundingClientRect = () => panel;
+  try {
+    body();
+  } finally {
+    HTMLButtonElement.prototype.getBoundingClientRect = btnProto;
+    HTMLSpanElement.prototype.getBoundingClientRect = spanProto;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: origW });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: origH });
+  }
 }
 
 describe("PopoverPanel", () => {
@@ -256,5 +286,46 @@ describe("PopoverPanel", () => {
       Object.defineProperty(window, "innerWidth", { configurable: true, value: origW });
       Object.defineProperty(window, "innerHeight", { configurable: true, value: origH });
     }
+  });
+
+  // ★★ `right-start` exists for the COLLAPSED SIDEBAR RAIL, whose flyout must sit
+  // BESIDE its trigger rather than under it. It is a second geometry, not a tweak
+  // of the default: it drives `left`/`top` where `bottom-end` drives `right` and
+  // `top`/`bottom`. Asserting the unused edges are EMPTY is the load-bearing half
+  // — a placement that set `left` while leaving a stale `right` behind would
+  // stretch the panel across the viewport, and every "did it move?" assertion
+  // would still pass.
+  describe("placement=right-start", () => {
+    it("anchors to the right of the trigger, top-aligned, and sets no other edge", () => {
+      // Rail-shaped anchor: a 48px icon button at x 8..56, y 120..152.
+      const anchor = { top: 120, bottom: 152, left: 8, right: 56, width: 48, height: 32, x: 8, y: 120 } as DOMRect;
+      // Panel as it paints at left = anchor.right + 4 = 60, 176px wide (min-w-44).
+      const panel = { top: 120, bottom: 320, left: 60, right: 236, width: 176, height: 200, x: 60, y: 120 } as DOMRect;
+      withRects({ anchor, panel, innerWidth: 1280, innerHeight: 800 }, () => {
+        render(<Harness placement="right-start" />);
+        fireEvent.click(screen.getByText("trigger"));
+        const el = screen.getByRole("dialog");
+        expect(el.style.left).toBe("60px");
+        expect(el.style.top).toBe("120px");
+        expect(el.style.right).toBe("");
+        expect(el.style.bottom).toBe("");
+      });
+    });
+
+    it("clamps both axes back inside the viewport", () => {
+      // Anchor low on a NARROW viewport: opening at its top/right would paint the
+      // panel off the bottom AND off the right edge.
+      const anchor = { top: 700, bottom: 732, left: 8, right: 56, width: 48, height: 32, x: 8, y: 700 } as DOMRect;
+      const panel = { top: 700, bottom: 900, left: 60, right: 236, width: 176, height: 200, x: 60, y: 700 } as DOMRect;
+      withRects({ anchor, panel, innerWidth: 200, innerHeight: 800 }, () => {
+        render(<Harness placement="right-start" />);
+        fireEvent.click(screen.getByText("trigger"));
+        const el = screen.getByRole("dialog");
+        // left: innerWidth - width - margin = 200 - 176 - 8
+        expect(el.style.left).toBe("16px");
+        // top: innerHeight - height - margin = 800 - 200 - 8
+        expect(el.style.top).toBe("592px");
+      });
+    });
   });
 });

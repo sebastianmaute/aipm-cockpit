@@ -1,11 +1,11 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { NAV_GROUPS, navLabelKey, type AppView, type NavGroup, type NavItem } from "./nav-config";
 import { NavIcon } from "./nav-icons";
 import { CountBadge } from "./count-badge";
 import { TOUR_ANCHORS } from "./app-tour";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { PopoverPanel } from "./popover-panel";
 
 // Guided-tour spotlight anchors live on the matching nav buttons.
 const NAV_TOUR_ID: Partial<Record<AppView, string>> = {
@@ -53,11 +53,8 @@ function CollapsedNavFlyout({
   badges?: Partial<Record<AppView, number>>;
 }) {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLLIElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
-  usePopoverDismiss(open, wrapRef, close);
 
   const active = isParentActive(item, activeView);
   const label = t(lang, navLabelKey(item.view));
@@ -67,12 +64,12 @@ function CollapsedNavFlyout({
   // Parent view first, then children — every view stays reachable from the rail.
   const entries: AppView[] = [item.view, ...children.map((c) => c.view)];
 
-  // Move focus into the menu on open (first menuitem).
-  useEffect(() => {
-    if (!open) return;
-    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
-  }, [open]);
-
+  // ★★ Focus-on-open is `PopoverPanel`'s job now, and that is not a tidy-up: its
+  // `.focus({ preventScroll: true })` is load-bearing here. A bare `.focus()` on
+  // a menuitem inside the sidebar's `overflow-y-auto` box is what scrolled the
+  // 64px rail sideways and sheared the flyout's labels. The panel's all-roving
+  // fallback (`??` branch) is what lands focus at all — every menuitem below is
+  // `tabIndex={-1}`, so the tab-stop selector matches nothing.
   function onMenuKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const items = Array.from(
       e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
@@ -86,8 +83,17 @@ function CollapsedNavFlyout({
         setOpen(false);
         triggerRef.current?.focus();
         return;
+      // ★★ Tab must RETURN FOCUS, unlike the pre-portal version which just
+      // closed and let the browser continue from where the removed menuitem
+      // sat. That worked while the menu was an `absolute` child of this `<li>`
+      // — the next tab-stop was the following rail button. Portaled, the menu
+      // is appended at the END of `document.body`, so resuming from there walks
+      // straight out of the app into browser chrome (WCAG 2.4.3). Land on the
+      // trigger and let the user's NEXT Tab carry on from the rail.
       case "Tab":
+        e.preventDefault();
         setOpen(false);
+        triggerRef.current?.focus();
         return;
       case "ArrowDown": next = i < 0 ? 0 : (i + 1) % items.length; break;
       case "ArrowUp": next = i < 0 ? items.length - 1 : (i - 1 + items.length) % items.length; break;
@@ -100,7 +106,7 @@ function CollapsedNavFlyout({
   }
 
   return (
-    <li ref={wrapRef} className="relative">
+    <li className="relative">
       <button
         ref={triggerRef}
         type="button"
@@ -118,14 +124,26 @@ function CollapsedNavFlyout({
           className="absolute right-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-ui-medium-grey"
         />
       </button>
-      {open && (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label={label}
-          onKeyDown={onMenuKeyDown}
-          className="absolute left-full top-0 z-40 ml-1 min-w-44 rounded-md border border-line bg-surface p-1 shadow-[var(--shadow-card)]"
-        >
+      {/* ★★★ PORTALED, and it has to be. `sidebar.tsx` wraps the nav in
+          `overflow-y-auto`; CSS makes the other axis `auto` too, so that div is a
+          64px-wide HORIZONTAL scroll box on the collapsed rail. The panel used to
+          be `absolute left-full`, i.e. laid out at x 68..244 — outside the box,
+          where z-index cannot reach — and the browser then scrolled the box
+          sideways to reveal the focused menuitem, dragging the icon rail off
+          screen and shearing every label. `PopoverPanel` renders it `fixed` on
+          `document.body`, which no ancestor overflow can clip.
+          ★ `role="menu"` stays on the INNER div, not on the panel: it carries
+          `onMenuKeyDown`, and a React handler only sees events from its own
+          subtree — putting the role on the panel would make the menu element and
+          the key handler two different nodes. */}
+      <PopoverPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        placement="right-start"
+        className="min-w-44 p-1 shadow-[var(--shadow-card)]"
+      >
+        <div role="menu" aria-label={label} onKeyDown={onMenuKeyDown}>
           {entries.map((view) => {
             const viewActive = activeView === view;
             const badge = badges?.[view] ?? 0;
@@ -153,7 +171,7 @@ function CollapsedNavFlyout({
             );
           })}
         </div>
-      )}
+      </PopoverPanel>
       {rootBadge > 0 && (
         // Collapsed urgency dot (the numeric pill only shows when expanded).
         <span

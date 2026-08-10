@@ -280,32 +280,36 @@ describe("ReportsPanel — module gating", () => {
   });
 });
 
+function ReorderHarness({ onChange }: { onChange: (ids: AddableReportId[]) => void }) {
+  return (
+    <ReportsPanel
+      tasks={[makeTask({ id: 1, assignee: "A" })]}
+      today={TODAY}
+      holidaySet={new Set()}
+      lang="en-US"
+      raid={[]}
+      stakeholders={[]}
+      milestones={[]}
+      extraReports={["raid-report", "budget-report"]}
+      onChangeExtraReports={onChange}
+      features={[...ALL_MODULE_IDS]}
+      buckets={brBuckets}
+      plan={brPlan}
+      roles={brRoles}
+      disciplines={[{ id: 1, name: "Consulting" }]}
+      grades={[{ id: 1, name: "Junior" }]}
+      resources={[]}
+      absences={[]}
+      workdayHours={8}
+      fxRates={null}
+    />
+  );
+}
+
 describe("ReportsPanel — drag-reorder extra reports", () => {
   it("calls onChangeExtraReports with reordered array when 2nd card dragged onto 1st", () => {
     const onChange = vi.fn();
-    render(
-      <ReportsPanel
-        tasks={[makeTask({ id: 1, assignee: "A" })]}
-        today={TODAY}
-        holidaySet={new Set()}
-        lang="en-US"
-        raid={[]}
-        stakeholders={[]}
-        milestones={[]}
-        extraReports={["raid-report", "budget-report"]}
-        onChangeExtraReports={onChange}
-        features={[...ALL_MODULE_IDS]}
-        buckets={brBuckets}
-        plan={brPlan}
-        roles={brRoles}
-        disciplines={[{ id: 1, name: "Consulting" }]}
-        grades={[{ id: 1, name: "Junior" }]}
-        resources={[]}
-        absences={[]}
-        workdayHours={8}
-        fxRates={null}
-      />,
-    );
+    render(<ReorderHarness onChange={onChange} />);
 
     // Locate the two drag handles (one per extra report card, in DOM order)
     const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
@@ -319,6 +323,67 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
 
     expect(onChange).toHaveBeenCalledOnce();
     expect(onChange).toHaveBeenCalledWith(["budget-report", "raid-report"]);
+  });
+
+  // ★★★ FIREFOX REFUSES TO START A DRAG when `dragstart` sets no transfer data.
+  // The handler drives the reorder off React state (`dragId`) and never touched
+  // `dataTransfer`, so reorder was not merely awkward there — it was inert, and
+  // no test could see it because jsdom happily dispatches the whole sequence
+  // regardless. `task-kanban-board.tsx` already calls setData; this brings the
+  // reports handle in line. The payload itself is unused (the id is in state);
+  // what matters is that a payload EXISTS.
+  it("puts data on the dragstart transfer, without which Firefox never begins the drag", () => {
+    const setData = vi.fn();
+    render(<ReorderHarness onChange={vi.fn()} />);
+    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
+    fireEvent.dragStart(handles[1], { dataTransfer: { setData, effectAllowed: "" } });
+    expect(setData).toHaveBeenCalled();
+  });
+
+  // ★★ Without a visible target the user cannot tell a drop will land, which is
+  // half of "it cannot be dropped". The edge is derived from the SPLICE
+  // semantics, not guessed: `onDropOnReport` removes the dragged id first, so
+  // inserting at a LATER index lands after the target, and at an EARLIER index
+  // lands before it. A single fixed edge would be a lie in one direction.
+  it("marks which edge of the hovered card the drop will land on, per drag direction", () => {
+    render(<ReorderHarness onChange={vi.fn()} />);
+    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
+    const cards = () => screen.getAllByTestId("extra-report-card");
+
+    // Dragging the SECOND card up onto the first → lands BEFORE it.
+    fireEvent.dragStart(handles[1]);
+    fireEvent.dragOver(cards()[0]);
+    expect(cards()[0]).toHaveAttribute("data-drop-edge", "before");
+    fireEvent.dragEnd(handles[1]);
+    expect(cards()[0]).not.toHaveAttribute("data-drop-edge");
+
+    // Dragging the FIRST card down onto the second → lands AFTER it.
+    fireEvent.dragStart(handles[0]);
+    fireEvent.dragOver(cards()[1]);
+    expect(cards()[1]).toHaveAttribute("data-drop-edge", "after");
+  });
+
+  it("never marks the card being dragged as its own drop target", () => {
+    render(<ReorderHarness onChange={vi.fn()} />);
+    const handles = screen.getAllByRole("button", { name: /drag or use arrow keys to reorder/i });
+    fireEvent.dragStart(handles[0]);
+    fireEvent.dragOver(screen.getAllByTestId("extra-report-card")[0]);
+    expect(screen.getAllByTestId("extra-report-card")[0]).not.toHaveAttribute("data-drop-edge");
+  });
+
+  // ★★★ THE ONLY POSSIBLE DETECTOR for this class. axe 4.12.1 has no rule under
+  // the four tags `e2e/a11y.spec.ts` requests that flags two controls sharing an
+  // accessible name, so a green axe run over Reports — which IS a scanned view —
+  // says nothing here, at any seed size. Every other test in this describe finds
+  // its handles by the SHARED prefix and indexes `[0]`/`[1]`, so they would all
+  // stay green if the qualifier were dropped. This one goes red.
+  it("gives each reorder handle a row-unique accessible name", () => {
+    render(<ReorderHarness onChange={vi.fn()} />);
+    const names = screen
+      .getAllByRole("button", { name: /drag or use arrow keys to reorder/i })
+      .map((b) => b.getAttribute("aria-label"));
+    expect(names.length).toBeGreaterThan(1);
+    expect(new Set(names).size).toBe(names.length);
   });
 });
 

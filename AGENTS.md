@@ -1176,6 +1176,39 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ `bucketColumnTotals` takes the caller's OWN `cellBudget` as `budgetOf`, so the column sums and the
   row sums come from one accessor and cannot disagree (it honours budget-follows-plan mirroring). It is
   fed the FILTERED rows, so the totals follow the role filter — §70.
+  ★★ A ROLE CELL IS TWO LINES AND A PERSON SUB-ROW IS ONE, so they can only line up HORIZONTALLY, and
+  that alignment is arithmetic: `HOURS_LINE_UNITS` (exported from `budget-panel-totals.tsx`) is the `w-14`
+  label + `gap-1` + `w-16` value box **counted in Tailwind SPACING UNITS** (14+1+16=31), i.e. where the
+  box's RIGHT edge lands from the cell's content-box left. `budget-panel-people-rows.tsx`'s `HoursFigure`
+  right-aligns a block of exactly that width (`HOURS_LINE_REM`), so the person figures share the role's
+  value-box column. They used to carry `text-right` on the `<td>`, which anchored them to the far edge of
+  a much wider PERIOD column and stranded every figure right of the boxes above it.
+  ★★ `text-right` must therefore be ABSENT from the cell and PRESENT on the block — leaving it on both
+  renders identically for any figure that happens to fill the block and drifts for any that does not, a
+  fixture-dependent failure that survives a test suite.
+  ★★★ UNITS, NOT PIXELS, and matching the box's `px-1` with a `pr-1`. Both were review findings against a
+  first cut that used a px constant and no padding, and each broke the alignment on its own: a px block
+  only tracks rem-based `w-14`/`w-16` at a 16px root font size, and a block that is merely the same WIDTH
+  puts its digits one unit right of every role figure, because the value box's own `px-1` stops its digits
+  short. That was a visible ~4px stagger down the column — **the boxes lined up and the numbers did not**,
+  and the numbers are the only thing a reader compares. (`DOT_COL_PX`/`TOTAL_COL_PX` beside it are
+  genuinely px and predate this; the sticky-column arithmetic they drive already assumes a 16px root.)
+  ★ The bordered `HoursCell` inputs still stop 1px short of the read-only `TotalsTd` spans, since `border`
+  is px — pre-existing, between the role rows' own two spellings, and not closable from the person row.
+  ★ The Total column already lined up, and NOT by luck: `TOTAL_COL_PX` was itself derived as this width
+  plus the cell's `px-3` (124+24=148) — the docstring on `TOTAL_COL_PX` itself says so, immediately above
+  the declaration. Both now measure from the one constant, so the two derivations cannot drift apart.
+  ★★ An earlier revision here called that alignment a COINCIDENCE while that docstring sat a few lines up
+  in the same file, and its replacement then said the docstring was "130 lines above" — a distance nothing
+  ever measured (it is ~16). Two errors about one docstring, in consecutive revisions, neither touching the
+  arithmetic they surrounded. Cite the SYMBOL and read it; a line distance is unverifiable at a glance,
+  rots on the next insertion, and buys the reader nothing a `grep` would not.
+  ★ jsdom has no layout, so no test can compare the two edges — what is pinned is that both derive from
+  ONE constant, plus tests tying it to the classes in BOTH role cells. ★★ Read that scope literally:
+  `budget-panel-totals.tsx` spells the same three widths FOUR times, twice in `TotalsTd` (read-only spans)
+  and twice in `HoursCell` (the editable inputs the PERIOD columns align against). A first cut covered
+  `TotalsTd` only and claimed "change `w-14` and it goes red", which was false for the more important
+  half — changing `HoursCell`'s `w-14` broke every person period figure with the suite green.
 - **Shared sortable/resizable header cell (`SortResizeTh<K>` in `report-table.tsx`):** the
   `<th className="relative px-3 py-2[ text-right] font-medium"> + SortHeaderButton + ColumnResizeHandle`
   trio every report panel repeated per column (top cross-file jscpd clones, TD-6) is now ONE generic
