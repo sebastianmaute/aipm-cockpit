@@ -29,7 +29,8 @@
     "dup:check": "jscpd src --min-tokens 50 --ignore \"**/*.test.*,**/*.property.test.*,**/__fixtures__/**,**/i18n*.ts\" --reporters console --threshold 1.75",
     "size:check": "node scripts/check-file-sizes.mjs",
     "docs:symbols:check": "node scripts/check-agents-symbols.mjs",
-    "docs:claims:check": "node scripts/check-doc-claims.mjs"
+    "docs:claims:check": "node scripts/check-doc-claims.mjs",
+    "followups:check": "node scripts/check-followup-claims.mjs"
   },
   "scriptsDescriptions": {
     "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
@@ -53,7 +54,8 @@
     "dup:check": "Duplication gate for `src/` via jscpd — BLOCKING in CI (total duplicated-line % vs --threshold)",
     "size:check": "Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet)",
     "docs:symbols:check": "Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them)",
-    "docs:claims:check": "Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it)"
+    "docs:claims:check": "Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it)",
+    "followups:check": "Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale)"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.16.0",
