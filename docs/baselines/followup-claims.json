@@ -1,11 +1,11 @@
 {
   "generated": "2026-08-10",
-  "commit": "ec487a2eb8b0c618b8c7adb0eb874371e5ff7660",
+  "commit": "9c0c965809a09f70cbae1b384b09872aeae11353",
   "note": "Snapshot of `node scripts/check-followup-claims.mjs`, regenerate with `node scripts/check-followup-claims.mjs --json docs/baselines/followup-claims.json`. REPORTING ONLY — no gate reads this file, and a CLEAN verdict rules a claim OUT, never IN.",
   "tally": {
     "CLEAN": 80,
     "NO_MACHINE_CLAIM": 1,
-    "SYMBOL_MISSING": 8,
+    "SYMBOL_MISSING": 9,
     "PATH_THIRD_PARTY": 1,
     "CITE_THIRD_PARTY": 1,
     "PATH_MISSING": 1
@@ -1431,6 +1431,33 @@
       "counts": {
         "symbols": 17,
         "paths": 10,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 138,
+      "title": "The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured",
+      "startLine": 8429,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "markedNear"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "toArgv"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "collectIdentifiers"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 7,
         "cites": 0
       },
       "needsProbe": true
