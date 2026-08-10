@@ -243,7 +243,30 @@ console.log(`\n${Object.entries(tally).map(([k, v]) => `${k}=${v}`).join("  ")}`
 console.log(`\nEvery entry above still needs a probe. This gate rules claims OUT, never IN.`);
 
 if (jsonPath) {
-  writeFileSync(jsonPath, `${JSON.stringify({ tally, results }, null, 2)}\n`);
+  // ★★ PROVENANCE, because the file exists to be DIFFED and a diff needs two
+  // known points. Without these three fields the snapshot said nothing about
+  // when it was taken, against which tree, or how to take another — and no
+  // tracked file references it, so there was nothing to infer it from either.
+  // ★ Everything else here stays deterministic on a fixed tree: these are the
+  // only fields that move on their own, and they are DATE (not timestamp) plus
+  // sha, so re-running twice in a day is a no-op diff.
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", shell: false });
+  const snapshot = {
+    generated: new Date().toISOString().slice(0, 10),
+    commit: head.status === 0 ? head.stdout.trim() : "unknown",
+    // ★★★ NOT A RATCHET, and the distinction is the whole reason this file is
+    // safe to commit. Nothing reads it, nothing fails when it drifts, and a
+    // verdict here is never permission to close an entry — `CLEAN` means only
+    // that nothing static disproved the claim. Re-baselining it admits no debt
+    // because it gates none.
+    note:
+      "Snapshot of `node scripts/check-followup-claims.mjs`, regenerate with " +
+      "`node scripts/check-followup-claims.mjs --json docs/baselines/followup-claims.json`. " +
+      "REPORTING ONLY — no gate reads this file, and a CLEAN verdict rules a claim OUT, never IN.",
+    tally,
+    results,
+  };
+  writeFileSync(jsonPath, `${JSON.stringify(snapshot, null, 2)}\n`);
 }
 // Reporting tool, not a gate: it exits 0 with findings. Promoting it to
 // blocking is a separate decision, once its false-positive rate is known.

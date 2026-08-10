@@ -1,4 +1,7 @@
 {
+  "generated": "2026-08-10",
+  "commit": "ec487a2eb8b0c618b8c7adb0eb874371e5ff7660",
+  "note": "Snapshot of `node scripts/check-followup-claims.mjs`, regenerate with `node scripts/check-followup-claims.mjs --json docs/baselines/followup-claims.json`. REPORTING ONLY — no gate reads this file, and a CLEAN verdict rules a claim OUT, never IN.",
   "tally": {
     "CLEAN": 80,
     "NO_MACHINE_CLAIM": 1,
@@ -16,7 +19,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 49,
+        "symbols": 30,
         "paths": 3,
         "cites": 3
       },
@@ -86,7 +89,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 5,
+        "symbols": 4,
         "paths": 13,
         "cites": 0
       },
@@ -100,7 +103,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 6,
+        "symbols": 5,
         "paths": 3,
         "cites": 1
       },
@@ -114,7 +117,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 2,
         "paths": 6,
         "cites": 0
       },
@@ -156,7 +159,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 9,
+        "symbols": 7,
         "paths": 3,
         "cites": 2
       },
@@ -170,7 +173,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 3,
+        "symbols": 2,
         "paths": 0,
         "cites": 0
       },
@@ -212,7 +215,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 18,
+        "symbols": 14,
         "paths": 3,
         "cites": 0
       },
@@ -226,7 +229,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 3,
         "paths": 0,
         "cites": 0
       },
@@ -254,7 +257,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 3,
         "paths": 3,
         "cites": 0
       },
@@ -268,7 +271,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 9,
+        "symbols": 5,
         "paths": 2,
         "cites": 0
       },
@@ -282,7 +285,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 5,
+        "symbols": 4,
         "paths": 0,
         "cites": 0
       },
@@ -305,7 +308,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 12,
+        "symbols": 9,
         "paths": 3,
         "cites": 0
       },
@@ -319,7 +322,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 10,
+        "symbols": 7,
         "paths": 1,
         "cites": 4
       },
@@ -347,7 +350,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 14,
+        "symbols": 11,
         "paths": 2,
         "cites": 0
       },
@@ -361,7 +364,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 5,
+        "symbols": 4,
         "paths": 7,
         "cites": 23
       },
@@ -403,7 +406,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 3,
         "paths": 1,
         "cites": 0
       },
@@ -438,7 +441,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 17,
+        "symbols": 15,
         "paths": 6,
         "cites": 2
       },
@@ -503,7 +506,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 18,
+        "symbols": 11,
         "paths": 5,
         "cites": 0
       },
@@ -517,7 +520,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 8,
+        "symbols": 6,
         "paths": 0,
         "cites": 0
       },
@@ -570,7 +573,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 2,
         "paths": 1,
         "cites": 15
       },
@@ -612,7 +615,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 2,
+        "symbols": 1,
         "paths": 0,
         "cites": 0
       },
@@ -640,7 +643,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 9,
+        "symbols": 8,
         "paths": 4,
         "cites": 2
       },
@@ -654,7 +657,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 8,
+        "symbols": 6,
         "paths": 4,
         "cites": 4
       },
@@ -673,7 +676,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 3,
         "paths": 4,
         "cites": 5
       },
@@ -687,7 +690,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 5,
+        "symbols": 4,
         "paths": 3,
         "cites": 0
       },
@@ -715,7 +718,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 8,
+        "symbols": 6,
         "paths": 2,
         "cites": 0
       },
@@ -748,7 +751,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 6,
+        "symbols": 5,
         "paths": 3,
         "cites": 0
       },
@@ -776,7 +779,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 3,
+        "symbols": 2,
         "paths": 5,
         "cites": 0
       },
@@ -807,17 +810,13 @@
           "detail": "AiViewScopeDisclosure"
         },
         {
-          "kind": "SYMBOL_MISSING",
-          "detail": "AiViewScopeDisclosure"
-        },
-        {
           "kind": "PATH_MISSING",
           "detail": "settings-sections/ai-view-scope-disclosure.tsx"
         }
       ],
       "repro": [],
       "counts": {
-        "symbols": 2,
+        "symbols": 1,
         "paths": 5,
         "cites": 0
       },
@@ -831,7 +830,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 5,
+        "symbols": 4,
         "paths": 1,
         "cites": 0
       },
@@ -850,7 +849,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 11,
+        "symbols": 10,
         "paths": 0,
         "cites": 0
       },
@@ -864,7 +863,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 13,
+        "symbols": 10,
         "paths": 1,
         "cites": 0
       },
@@ -877,10 +876,13 @@
       "verdict": "CLEAN",
       "problems": [],
       "repro": [
-        "npx vitest run src/app/document-model.test.ts -t \"never snapshots\""
+        {
+          "cmd": "npx vitest run src/app/document-model.test.ts -t \"never snapshots\"",
+          "comment": "# 1 passed | 28 skipped"
+        }
       ],
       "counts": {
-        "symbols": 9,
+        "symbols": 6,
         "paths": 9,
         "cites": 0
       },
@@ -893,7 +895,10 @@
       "verdict": "CLEAN",
       "problems": [],
       "repro": [
-        "grep -n  \"Showing the first\" src/app/export-pptx.ts src/app/doc-render-pptx.ts"
+        {
+          "cmd": "grep -n  \"Showing the first\" src/app/export-pptx.ts src/app/doc-render-pptx.ts",
+          "comment": "# 3 lines — one is a comment"
+        }
       ],
       "counts": {
         "symbols": 0,
@@ -910,7 +915,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 7,
+        "symbols": 5,
         "paths": 1,
         "cites": 0
       },
@@ -923,8 +928,14 @@
       "verdict": "CLEAN",
       "problems": [],
       "repro": [
-        "grep -rn \":memory:\" src/app/*.test.ts",
-        "grep -n \"libsql\" package.json"
+        {
+          "cmd": "grep -rn \":memory:\" src/app/*.test.ts",
+          "comment": "# no hits"
+        },
+        {
+          "cmd": "grep -n \"libsql\" package.json",
+          "comment": "# no hits — HTTP pipeline, not a driver"
+        }
       ],
       "counts": {
         "symbols": 2,
@@ -941,7 +952,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 3,
+        "symbols": 2,
         "paths": 3,
         "cites": 0
       },
@@ -955,7 +966,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 12,
+        "symbols": 8,
         "paths": 4,
         "cites": 0
       },
@@ -969,7 +980,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 15,
+        "symbols": 9,
         "paths": 2,
         "cites": 0
       },
@@ -983,7 +994,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 11,
+        "symbols": 4,
         "paths": 1,
         "cites": 0
       },
@@ -1011,7 +1022,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 19,
+        "symbols": 10,
         "paths": 18,
         "cites": 8
       },
@@ -1025,7 +1036,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 3,
+        "symbols": 2,
         "paths": 2,
         "cites": 0
       },
@@ -1053,7 +1064,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 2,
         "paths": 1,
         "cites": 0
       },
@@ -1095,7 +1106,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 3,
         "paths": 2,
         "cites": 5
       },
@@ -1109,7 +1120,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 9,
+        "symbols": 7,
         "paths": 7,
         "cites": 0
       },
@@ -1128,7 +1139,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 20,
+        "symbols": 19,
         "paths": 4,
         "cites": 0
       },
@@ -1151,7 +1162,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 10,
+        "symbols": 7,
         "paths": 6,
         "cites": 4
       },
@@ -1179,7 +1190,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 6,
+        "symbols": 5,
         "paths": 2,
         "cites": 0
       },
@@ -1220,7 +1231,10 @@
       "verdict": "CLEAN",
       "problems": [],
       "repro": [
-        "grep -n \"loadActualsCache\" src/app/workspace-section.tsx"
+        {
+          "cmd": "grep -n \"loadActualsCache\" src/app/workspace-section.tsx",
+          "comment": ""
+        }
       ],
       "counts": {
         "symbols": 9,
@@ -1237,7 +1251,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 3,
         "paths": 2,
         "cites": 1
       },
@@ -1251,7 +1265,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 4,
+        "symbols": 3,
         "paths": 4,
         "cites": 3
       },
@@ -1265,7 +1279,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 12,
+        "symbols": 11,
         "paths": 4,
         "cites": 4
       },
@@ -1326,7 +1340,7 @@
       ],
       "repro": [],
       "counts": {
-        "symbols": 13,
+        "symbols": 7,
         "paths": 25,
         "cites": 0
       },
@@ -1340,7 +1354,7 @@
       "problems": [],
       "repro": [],
       "counts": {
-        "symbols": 13,
+        "symbols": 10,
         "paths": 1,
         "cites": 0
       },
@@ -1409,10 +1423,13 @@
       "verdict": "CLEAN",
       "problems": [],
       "repro": [
-        "npx vitest run src/app/rich-text-editor.test.tsx -t \"underline\" --reporter=dot"
+        {
+          "cmd": "npx vitest run src/app/rich-text-editor.test.tsx -t \"underline\" --reporter=dot",
+          "comment": ""
+        }
       ],
       "counts": {
-        "symbols": 31,
+        "symbols": 17,
         "paths": 10,
         "cites": 0
       },
