@@ -49,6 +49,7 @@ import path from "node:path";
 import {
   ABSENCE_MARKERS,
   ALLOWLIST,
+  PROXIMITY,
   collectIdentifiers,
   isGatedSymbolName,
   markedNear,
@@ -123,11 +124,8 @@ function main() {
         off += l.length + 1;
       }
     }
-    // ★★ Proximity is scoped to ONE file — `markedNear` is called with THIS
-    // doc's text. Concatenating the docs first would let an absence marker at
-    // the top of one file suppress a real stale claim at the bottom of the
-    // previous one — the PROXIMITY BLEED hole above, widened across file
-    // boundaries where it is even harder to spot.
+    // ★★ `markedNear` is called with THIS doc's text, never the concatenation —
+    // see its own docstring in agents-symbols-lib.mjs for why.
     lines.forEach((line, i) => {
       for (const m of line.matchAll(/`([^`\n]+)`/g)) {
         const name = m[1];
@@ -161,7 +159,7 @@ function main() {
     `\nEach is one of:\n` +
       `  - a stale claim -> fix the doc (this is what the gate is for)\n` +
       `  - a symbol you renamed -> update the doc to the new name\n` +
-      `  - deliberately absent -> say so NEAR the mention (within ~240 chars) using one of:\n` +
+      `  - deliberately absent -> say so NEAR the mention (within ~${PROXIMITY} chars) using one of:\n` +
       `      ${ABSENCE_MARKERS.slice(0, 8).join(", ")} ...\n` +
       `  - genuinely not repo code -> add it to ALLOWLIST with a reason\n`,
   );
