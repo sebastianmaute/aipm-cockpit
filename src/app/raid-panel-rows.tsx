@@ -25,6 +25,9 @@ import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { useRowSelection } from "./use-row-selection";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { NotesBadgeButton } from "./notes-badge-button";
+import { DocumentBadge } from "./document-badge";
+import { refKey, type DocRefKind } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { DataTable } from "./data-table";
 
 const categoryPillClass: Record<RaidCategory, string> = {
@@ -53,6 +56,10 @@ export interface RaidTableProps {
   raidById: Map<number, RaidItem>;
   causesIndex: Map<number, readonly RaidItem[]>;
   openEdit: (item: RaidItem) => void;
+  /** `refKey("raid", id)` → the documents referencing that item (row badge). */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+  /** Deep-link to the Documents pane filtered to this item. */
+  onOpenDocuments: (kind: DocRefKind, id: number) => void;
   onJumpToTask: (taskId: number) => void;
   /** Open the floating notes window (running note log) for a RAID item. */
   onOpenNotes: (id: number) => void;
@@ -83,6 +90,8 @@ export function RaidTable({
   raidById,
   causesIndex,
   openEdit,
+  documentsByEntity,
+  onOpenDocuments,
   onJumpToTask,
   onOpenNotes,
   effectiveCategory,
@@ -237,6 +246,12 @@ export function RaidTable({
                   {onAiEdit && aiEditEnabled?.(item) && (
                     <InlineAiEditButton lang={lang} label={item.title} onClick={() => onAiEdit(item)} />
                   )}
+                  <DocumentBadge
+                    lang={lang}
+                    count={documentsByEntity?.get(refKey("raid", item.id))?.length ?? 0}
+                    entityTitle={item.title}
+                    onOpen={() => onOpenDocuments("raid", item.id)}
+                  />
                 </span>
               </td>
               )}

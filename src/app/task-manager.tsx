@@ -48,6 +48,7 @@ import { descriptionText } from "./rich-text-projection";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
+import { indexDocumentsByEntity } from "./document-ref";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useFeaturesSync } from "./use-features-sync";
@@ -291,7 +292,7 @@ function TaskManagerInner() {
     setTimelogLinks,
     setKnowledgeItems,
     insights,
-    setInsights, setDocuments, setDocumentVersions,
+    documents, setInsights, setDocuments, setDocumentVersions,
     settingsOverrides,
     setSettingsOverrides,
     setCalendarEvents,
@@ -610,6 +611,9 @@ function TaskManagerInner() {
     () => (raidEnabled ? buildRaidByTaskIndex(raid) : new Map<number, RaidItem[]>()),
     [raid, raidEnabled],
   );
+  // ONE reverse index for the linked-documents row badge, threaded down: built
+  // per-panel it would be three indexes over one array, per-row it would rebuild.
+  const documentsByEntity = useMemo(() => indexDocumentsByEntity(documents), [documents]);
   // Same index, mirrored for the read-only "N changes" task-row badge.
   // Returns an empty map when the changes module is disabled.
   const changeByTask = useMemo(
@@ -2174,6 +2178,7 @@ function TaskManagerInner() {
       pullBusy: calendarAbsenceEnabled ? absencePull.busy : undefined,
     },
     changes,
+    documentsByEntity,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
     onCaptureChangeBulk: captureChangeBulk,

@@ -22,6 +22,9 @@ import { ChangeEditModal } from "./change-edit-modal";
 import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
+import { DocumentBadge } from "./document-badge";
+import { refKey } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
@@ -108,6 +111,11 @@ export type ChangePanelProps = EntityPaneCalendarHintsProps & {
   onAiEdit?: (item: ChangeItem) => void;
   /** Per-row gate for the ✨ button (AI enabled && !jira-synced-style predicate). */
   aiEditEnabled?: (item: ChangeItem) => boolean;
+  /** `refKey("change", id)` → the documents referencing that item, for the row
+   *  badge. Threaded from task-manager, NOT read from `useWorkspace()` here:
+   *  this panel is `memo`'d and a context consumer re-renders on ANY context
+   *  change regardless of the parent's bailout. */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -174,6 +182,7 @@ function ChangePanelBody({
   calendarPullBusy,
   onAiEdit,
   aiEditEnabled,
+  documentsByEntity,
 }: ChangePanelProps) {
   const pf = usePanelFilters();
   const hiddenSet = new Set(pf.hiddenCols ?? []);
@@ -304,7 +313,7 @@ function ChangePanelBody({
   // Deep-link: when a suggested-action chip requests opening a change, open its
   // edit modal once and clear the pending signal. Skip id 0 — the aggregate
   // change CTA only navigates to the view.
-  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { pendingOpen, clearPendingOpen, requestDocumentsForEntity } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("changes");
   useEffect(() => {
     if (pendingOpen?.view !== "changes" || pendingOpen.id === 0) return;
@@ -577,6 +586,12 @@ function ChangePanelBody({
                       {onAiEdit && aiEditEnabled?.(item) && (
                         <InlineAiEditButton lang={lang} label={item.title} onClick={() => onAiEdit(item)} />
                       )}
+                      <DocumentBadge
+                        lang={lang}
+                        count={documentsByEntity?.get(refKey("change", item.id))?.length ?? 0}
+                        entityTitle={item.title}
+                        onOpen={() => requestDocumentsForEntity("change", item.id)}
+                      />
                     </span>
                   </td>
                   )}

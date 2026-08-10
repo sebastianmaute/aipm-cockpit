@@ -8,6 +8,8 @@ import { selectFieldTier } from "../test/field-tier";
 import { RaidPanel } from "./raid-panel";
 import type { RaidPanelProps } from "./raid-panel";
 import type { RaidItem, Resource, Stakeholder } from "./types";
+import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
@@ -653,5 +655,67 @@ describe("RaidPanel search over a rich description", () => {
 
     fireEvent.change(box, { target: { value: "escalate" } });
     expect(screen.getByText("Vendor risk")).toBeInTheDocument();
+  });
+});
+
+// --- linked-documents badge ------------------------------------------------
+
+describe("RaidPanel linked-documents badge", () => {
+  /** Renders `activeTab` so the badge click is asserted on OBSERVABLE STATE —
+   *  the view the app actually switched to — not on a spied callback. */
+  function ActiveTabProbe() {
+    const { activeTab } = useWorkspaceTab();
+    return <span data-testid="active-tab">{activeTab}</span>;
+  }
+
+  function renderWithProbe(props: RaidPanelProps) {
+    return render(
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <WorkspaceTabProvider>
+            <ActiveTabProbe />
+            <RaidPanel {...props} />
+          </WorkspaceTabProvider>
+        </WorkspaceProvider>
+      </FiltersProvider>,
+    );
+  }
+
+  function doc(id: number, links: DocEntityRef[]): ProjectDocument {
+    return { id, title: `Doc ${id}`, blocks: [], createdAt: "2026-05-01T00:00:00.000Z", updatedAt: "2026-05-01T00:00:00.000Z", linkedEntities: links };
+  }
+
+  // THREE rows on purpose. Two of them carry a badge, so a name that omitted the
+  // row qualifier would collide (WCAG 2.4.6) — a unit test rendering ≥2 rows is
+  // the ONLY detector for that, axe has no rule for it at any seed size. Their
+  // counts DIFFER (2 vs 1) so a hardcoded count cannot pass either, and the
+  // third row is unreferenced so a lookup ignoring the key would show a badge.
+  const raid: RaidItem[] = [
+    makeRaidItem({ id: 1, title: "Alpha", severity: "High" }),
+    makeRaidItem({ id: 2, title: "Beta", severity: "Low" }),
+    makeRaidItem({ id: 3, title: "Gamma", severity: "Low" }),
+  ];
+  const documentsByEntity = indexDocumentsByEntity([
+    doc(10, [{ kind: "raid", id: 1 }, { kind: "raid", id: 2 }]),
+    doc(11, [{ kind: "raid", id: 1 }]),
+    // A milestone link with the SAME numeric id: ids collide across kinds, so a
+    // key built from the id alone would inflate Alpha's count to 3.
+    doc(12, [{ kind: "milestone", id: 1 }]),
+  ]);
+
+  it("badges only the referenced rows, with the real count and a row-unique name", () => {
+    renderWithProbe(makeProps({ raid, documentsByEntity }));
+    const badges = screen.getAllByRole("button", { name: /^Referenced by/ });
+    expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Referenced by 2 document(s) – Alpha",
+      "Referenced by 1 document(s) – Beta",
+    ]);
+  });
+
+  it("clicking the badge switches the app to the Documents view", () => {
+    renderWithProbe(makeProps({ raid, documentsByEntity }));
+    expect(screen.getByTestId("active-tab").textContent).toBe("dashboard");
+    fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha" }));
+    expect(screen.getByTestId("active-tab").textContent).toBe("documents");
   });
 });

@@ -17,6 +17,7 @@ import type {
   FieldChange,
 } from "./activity-log";
 import type { CalendarEvent } from "./calendar-event";
+import type { ProjectDocument } from "./document-model";
 import type { BucketCommitMeta } from "./use-budget-buckets";
 import type {
   Absence,
@@ -147,6 +148,11 @@ export interface WorkspaceSectionProps {
   /** Per-field edit undo capture (milestone panel diffs prev/next itself). */
   onCaptureFieldEdit?: import("./undo/use-undo-stack").UndoStackApi["captureFieldEdit"];
   changes: readonly ChangeItem[];
+  /** `refKey(kind, id)` → the documents referencing that entity, for the
+   *  linked-documents row badge. Built ONCE in task-manager and threaded down:
+   *  the RAID and change panels are `memo`'d, and reading `documents` from
+   *  `useWorkspace()` there would re-render both tables on ANY context change. */
+  documentsByEntity: ReadonlyMap<string, readonly ProjectDocument[]>;
   handleSaveChange: (item: ChangeItem, isNew?: boolean) => void;
   handleDeleteChange: (id: number, title: string) => void;
   /** Capture the selected changes' pre-edit images for undo before a bulk apply. */

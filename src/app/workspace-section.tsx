@@ -111,6 +111,7 @@ export function WorkspaceSection({
   onCaptureUndo,
   onCaptureFieldEdit,
   changes,
+  documentsByEntity,
   handleSaveChange,
   handleDeleteChange,
   onCaptureChangeBulk,
@@ -431,6 +432,7 @@ export function WorkspaceSection({
             lang={lang}
             tasks={tasks}
             raid={raid}
+            documentsByEntity={documentsByEntity}
             stakeholdersEnabled={stakeholdersEnabled}
             stakeholders={stakeholders}
             resources={resources}
@@ -616,6 +618,7 @@ export function WorkspaceSection({
               tasks={tasks}
               raid={raidEnabledForChanges ? raid : []}
               changes={changes}
+              documentsByEntity={documentsByEntity}
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
@@ -753,6 +756,7 @@ export function WorkspaceSection({
               lang={lang}
               today={today}
               holidaySet={holidaySet}
+              documentsByEntity={documentsByEntity}
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
               capture={onCaptureUndo}
