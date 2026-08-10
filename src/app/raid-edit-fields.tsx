@@ -107,7 +107,7 @@ export function RaidCausedByField({
           onQueryChange={setCausePickerQuery}
           onAdd={(entry) => addCausedBy(entry.id)}
           onRemove={(entry) => removeCausedBy(entry.id)}
-          onOpen={onJumpToRaid}
+          onOpen={(entry) => onJumpToRaid(entry.id)}
           // Was a placeholder alone — which is not an accessible name, so the
           // search box had none. Named now.
           searchLabel={t(lang, "raidCausedBy")}

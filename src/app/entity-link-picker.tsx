@@ -67,8 +67,11 @@ interface EntityLinkPickerProps {
    *  `code` appended. */
   clearLabel: string;
   /** Makes each chip's body a button that navigates to that entity. Omit and
-   *  the chip body is inert text — there is nowhere to go. */
-  onOpen?: (id: number) => void;
+   *  the chip body is inert text — there is nowhere to go. Takes the ENTRY,
+   *  not a bare id: a picker spanning several entity kinds has colliding ids
+   *  (a document's task#7 and raid#7 both resolve to `7`), so a caller that
+   *  needs the kind reads it off `entry.key`/`entry.code` itself. */
+  onOpen?: (entry: LinkPickerEntry) => void;
   /** Matches the surrounding form's control scale. */
   inputSize?: "xs" | "md";
 }
@@ -210,7 +213,7 @@ export function EntityLinkPicker({
             {onOpen ? (
               <button
                 type="button"
-                onClick={() => onOpen(entry.id)}
+                onClick={() => onOpen(entry)}
                 title={entry.label}
                 // Named explicitly rather than left to name-from-content:
                 // adjacent inline spans concatenate with NO separator, so the

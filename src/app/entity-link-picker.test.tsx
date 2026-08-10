@@ -130,7 +130,9 @@ describe("EntityLinkPicker", () => {
     const onOpen = vi.fn();
     const { unmount } = renderPicker({ selected: [entry(3, "Risk#3", "Vendor delay")], onOpen });
     fireEvent.click(screen.getByRole("button", { name: /risk#3 vendor delay/i }));
-    expect(onOpen).toHaveBeenCalledWith(3);
+    // Takes the ENTRY, not a bare id — a picker spanning several entity kinds
+    // has colliding ids across kinds, so the caller needs more than the id.
+    expect(onOpen).toHaveBeenCalledWith(entry(3, "Risk#3", "Vendor delay"));
     unmount();
 
     // Without onOpen the chip body is inert text — not a button that looks
