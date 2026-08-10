@@ -58,6 +58,9 @@ vi.mock("./budget-panel", () => ({
 function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSectionProps {
   return {
     today: "2030-01-01",
+    // Required on the pane contract, so a missed thread from task-manager is a
+    // typecheck error rather than a silently badge-less register.
+    documentsByEntity: new Map(),
     holidaySet: new Set<string>(),
     workspaceRef: createRef<HTMLElement | null>(),
     resetWorkspaceSize: vi.fn(),
