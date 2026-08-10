@@ -5,7 +5,10 @@
 // real docs rather than by reading it. Each `regression:` test names what it
 // pins.
 import { describe, expect, it } from "vitest";
+import { ABSENCE_MARKERS } from "./agents-symbols-lib.mjs";
 import {
+  ABSENCE_STATE_WORDS,
+  assertedAbsentNames,
   classify,
   fencedLines,
   isClosed,
@@ -324,5 +327,213 @@ describe("classify", () => {
       expect(r.problems.map((p) => p.kind)).toEqual(["CITE_THIRD_PARTY", "CITE_BROKEN"]);
       expect(r.verdict).toBe("CITE_BROKEN");
     });
+  });
+
+  describe("PATH_THIRD_PARTY", () => {
+    // A dependency PATH is exactly as unresolvable-by-design as a dependency
+    // CITE, and for the same reason: the resolver walks src/scripts/e2e, so
+    // nothing under `node_modules/` could ever resolve. Counting it as repo debt
+    // inflates the one number a human is meant to act on.
+
+    it("a `node_modules/` path is third-party, not repo debt", () => {
+      // docs/open-followups.md (§68), verbatim: the file EXISTS on disk, and the
+      // register says so in the same breath — "a dependency file, never in this
+      // repo". It was reported PATH_MISSING all the same.
+      const [entry] = parseEntries(
+        "## 68. x — open\n" +
+          "Tailwind's preflight sets `border-collapse: collapse` on every `<table>` (Tailwind's own\n" +
+          "`node_modules/tailwindcss/preflight.css`, the `table { … border-collapse: collapse; }` reset —\n" +
+          "a dependency file, never in this repo)",
+      );
+      const r = classify(entry, env);
+      expect(r.verdict).toBe("PATH_THIRD_PARTY");
+      expect(r.problems.map((p) => p.kind)).toEqual(["PATH_THIRD_PARTY"]);
+      expect(r.problems[0].detail).toContain("node_modules/tailwindcss/preflight.css");
+    });
+
+    it("★★ still REPORTS it — dependency paths rot on any upgrade", () => {
+      const [entry] = parseEntries("## 68. x — open\nsee `node_modules/tailwindcss/preflight.css`");
+      expect(classify(entry, env).problems).toHaveLength(1);
+    });
+
+    it("★★ never masks a real problem in the verdict", () => {
+      // The same under-reporting direction CITE_THIRD_PARTY already guards. A
+      // third-party path standing FIRST must not become the verdict while real
+      // repo debt sits behind it.
+      const [entry] = parseEntries(
+        "## 68. x — open\nsee `node_modules/tailwindcss/preflight.css` and `src/app/deleted.ts`",
+      );
+      const r = classify(entry, env);
+      expect(r.problems.map((p) => p.kind)).toEqual(["PATH_THIRD_PARTY", "PATH_MISSING"]);
+      expect(r.verdict).toBe("PATH_MISSING");
+    });
+  });
+});
+
+describe("assertedAbsentNames", () => {
+  // ★★★ THE VOCABULARY IS REUSED FROM `ABSENCE_MARKERS`; THE GRAMMAR IS NOT.
+  // Measured against the real register, `markedNear`'s PROXIMITY rule does not
+  // transfer to this document: at the shared 240-char window, 54 of 957 backticked
+  // mentions in the 92 open entries sit near a marker and **48 of those name a
+  // thing that EXISTS** — every one of which would have become a false
+  // "this follow-up is done" verdict. The register packs many names onto one
+  // table row, so a negation and an unrelated live symbol routinely sit ~15 chars
+  // apart (§7's own row: "no `src/app/form-field.tsx` exists. | **A3** |
+  // `resetAllCols` chains…"). Proximity therefore cannot attribute a negation to
+  // a name here. These patterns ANCHOR instead: the marker must CAPTURE the name
+  // it negates, so attribution is exact and no window constant is involved.
+
+  it("derives its state words from the shared ABSENCE_MARKERS list", () => {
+    // Not a second vocabulary. The SCREAMING members of the shared list are
+    // exactly its bare state words; a word added there flows through here.
+    expect(ABSENCE_STATE_WORDS.length).toBeGreaterThan(0);
+    for (const w of ABSENCE_STATE_WORDS) {
+      expect(ABSENCE_MARKERS.map((m) => m.toLowerCase())).toContain(w);
+    }
+  });
+
+  it("reads `no <name> exists`", () => {
+    // docs/open-followups.md (§7), verbatim — the A1 row of the "Still real" table.
+    const prose =
+      "| **A1** | `Field()` wrapper re-declared identically in `task-form-fields.tsx` + " +
+      "`project-form-fields.tsx` → extract a shared `form-field.tsx` | Both files still declare " +
+      "`function Field`; no `src/app/form-field.tsx` exists. |";
+    expect([...assertedAbsentNames(prose).keys()]).toContain("src/app/form-field.tsx");
+  });
+
+  it("reads `<name> was deleted`", () => {
+    // docs/open-followups.md (§7), verbatim.
+    const prose =
+      "★ The source document `docs/refactor-review-2026-06-19.md` was **deleted in the same " +
+      "cleanup** — it was git-tracked, so `git show HEAD:docs/refactor-review-2026-06-19.md` returns it";
+    expect([...assertedAbsentNames(prose).keys()]).toContain("docs/refactor-review-2026-06-19.md");
+  });
+
+  it("reads a list ending `are all missing`", () => {
+    // docs/open-followups.md (§44), verbatim.
+    const prose =
+      "Three blockers remain, all re-verified 2026-07-31: `graph-recurrence.ts` / " +
+      "`use-event-calendar-push.ts` / `calendar-event-pull.ts` / `use-event-calendar-pull.ts` are " +
+      "all **missing**; `CalendarEntityType` (`settings-types.ts:493`) is still";
+    const names = [...assertedAbsentNames(prose).keys()];
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "graph-recurrence.ts",
+        "use-event-calendar-push.ts",
+        "calendar-event-pull.ts",
+        "use-event-calendar-pull.ts",
+      ]),
+    );
+    // ★ The name AFTER the marker is a live claim, not part of the negated list.
+    expect(names).not.toContain("CalendarEntityType");
+  });
+
+  it("★★★ does NOT read `no <name> <noun>` — in this register that means 'not used HERE'", () => {
+    // This is the whole reason the shared marker list could not be lifted. All
+    // four lines below are VERBATIM register prose, and every one names a symbol
+    // that EXISTS; treating them as absence assertions would emit four false
+    // "the follow-up is done" verdicts. Measured: the bare `no <name>` shape
+    // matched 15 existing symbols across the register and only 2 genuinely
+    // absent ones.
+    const usageClaims = [
+      // §8 — about one file's imports, not about the repo.
+      "the file imports `useDismissable` and nothing else. There is no `useFocusTrap` import and never has been.",
+      // §120 — about one file.
+      "**There is no `signal` key in that argument object**, and the file creates no `AbortController` anywhere",
+      // §12 — a scoped statement about one tool.
+      "★ This is a read tool with no `isReadOnly` guard (correct — reads need none)",
+      // §96 — about a document, not the codebase.
+      "so a document with no `dataSection` block never loads it",
+    ];
+    for (const prose of usageClaims) {
+      expect([...assertedAbsentNames(prose).keys()]).toEqual([]);
+    }
+  });
+
+  it("★★★ does NOT read the generic prescriptive markers the shared list carries", () => {
+    // `Do NOT` / `do NOT` / `not built` fired on 20 mentions across the register,
+    // ALL of them existing code, because this register is full of prescriptive
+    // prose. They are excluded structurally — no pattern here can use a marker
+    // that does not name its own target — rather than by a curated denylist.
+    const prescriptive = [
+      // §55, verbatim — `ToggleButton` exists and is being recommended.
+      "Thirteen controls do NOT use that primitive and were left as they were. The shared `ToggleButton`",
+      // §132, verbatim — every name here is live code; only the FIX is unbuilt.
+      "The real fix is an edit-side twin of `undoLabelDeleteCount`. Deliberately not built: it would relabel",
+      // §28, verbatim — "a boundary that does not exist" is not about `csvToWorkspace`.
+      "Closing this column needs a **post-decode hook** in `csvToWorkspace` / `markdownToWorkspace` " +
+        "— but at a boundary that does not exist today",
+    ];
+    for (const prose of prescriptive) {
+      expect([...assertedAbsentNames(prose).keys()]).toEqual([]);
+    }
+  });
+});
+
+describe("classify — an entry that ASSERTS a thing is absent", () => {
+  const env = {
+    knownSymbols: new Set(["resolveEntitySave"]),
+    resolve: (p) => (p === "src/app/types.ts" ? [p] : []),
+    lineCounts: new Map([["src/app/types.ts", 900]]),
+  };
+
+  // docs/open-followups.md (§7), verbatim. The absence IS the follow-up's
+  // premise — the entry proposes extracting that shared file — so reporting
+  // "this path is missing" as rot is backwards.
+  const S7_A1 =
+    "## 7. Surviving dedup seams — open\n" +
+    "| **A1** | `Field()` wrapper re-declared identically in `task-form-fields.tsx` + " +
+    "`project-form-fields.tsx` → extract a shared `form-field.tsx` | Both files still declare " +
+    "`function Field`; no `src/app/form-field.tsx` exists. |";
+
+  it("does not report a path the entry itself says does not exist", () => {
+    const r = classify(parseEntries(S7_A1)[0], env);
+    expect(r.problems.map((p) => p.detail)).not.toContain("src/app/form-field.tsx");
+  });
+
+  it("★ suppresses the bare filename the same claim negates", () => {
+    // The A1 row names the file twice — once as the proposal (`form-field.tsx`)
+    // and once as the verified absence (`src/app/form-field.tsx`). They are one
+    // file; a suffix match keeps the two mentions from disagreeing.
+    const r = classify(parseEntries(S7_A1)[0], env);
+    expect(r.problems.map((p) => p.detail)).not.toContain("form-field.tsx");
+  });
+
+  it("★★★ ASSERTED_ABSENT_NOW_PRESENT once the thing appears", () => {
+    // SYNTHETIC BY NECESSITY, and that is a measurement, not an omission: no
+    // open entry in the register today asserts the absence of something that
+    // exists (swept 2026-08-10 — 7 anchored assertions, 7 still absent). This
+    // pins the verdict so it cannot silently become unreachable. The scenario is
+    // the real one: someone performs §7's A1 extraction and the entry is DONE.
+    const present = { ...env, resolve: (p) => (p === "src/app/form-field.tsx" ? [p] : []) };
+    const r = classify(parseEntries(S7_A1)[0], present);
+    expect(r.verdict).toBe("ASSERTED_ABSENT_NOW_PRESENT");
+    expect(r.problems[0].detail).toContain("src/app/form-field.tsx");
+  });
+
+  it("★★★ a symbol asserted absent that now resolves flips too", () => {
+    // `resolveEntitySave` is reused from this file's own env deliberately: it is
+    // already a known-present name here, so the fixture introduces no new
+    // identifier into the scanned tree.
+    const [entry] = parseEntries("## 1. x — open\nverified: no `resolveEntitySave` exists.");
+    expect(classify(entry, env).verdict).toBe("ASSERTED_ABSENT_NOW_PRESENT");
+  });
+
+  it("★★ outranks other problems in the verdict — it may mean the entry is DONE", () => {
+    // "This entry no longer applies" is the most valuable thing the sweep can
+    // say. A stale symbol name standing earlier must not hide it.
+    const [entry] = parseEntries(
+      "## 1. x — open\nnames `vanishedHelper`, and verified: no `resolveEntitySave` exists.",
+    );
+    const r = classify(entry, env);
+    expect(r.problems.map((p) => p.kind)).toContain("SYMBOL_MISSING");
+    expect(r.verdict).toBe("ASSERTED_ABSENT_NOW_PRESENT");
+  });
+
+  it("★★ a plain missing symbol is untouched by the absence logic", () => {
+    // The dangerous direction is suppression. An entry with no absence assertion
+    // must classify exactly as before.
+    const [entry] = parseEntries("## 1. x — open\nnames `vanishedHelper` today");
+    expect(classify(entry, env).verdict).toBe("SYMBOL_MISSING");
   });
 });
