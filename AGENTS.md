@@ -893,6 +893,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
   [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
   rather than a projection, and is covered further down this bullet.)
+  ★★ `html-start.ts` obeys the SAME axis and is **DOM-FREE** for the same reason — it is imported by
+  `rich-text-plain.ts`, so it reaches the entity sanitizers and runs under bare node in the sample
+  generator. It is not a `rich-text-*` module and is deliberately not counted above; it may IMPORT the
+  tag arrays from `sanitize-html.ts` but must never CALL DOMPurify. Its own header carries the rule.
   • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
   `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
   • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
