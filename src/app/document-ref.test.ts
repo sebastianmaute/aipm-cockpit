@@ -11,7 +11,25 @@ import {
 
 describe("sanitizeDocEntityRefs", () => {
   it("keeps a well-formed ref and drops the label when absent", () => {
-    expect(sanitizeDocEntityRefs([{ kind: "task", id: 7 }])).toEqual([{ kind: "task", id: 7 }]);
+    // ★★ toStrictEqual, NOT toEqual: toEqual IGNORES a key whose value is
+    // `undefined`, so it would pass against `{ kind, id, label: undefined }` —
+    // the exact shape the sparse rule exists to prevent, and the one that would
+    // break the byte-pinned goldens. Only toStrictEqual sees the missing key.
+    expect(sanitizeDocEntityRefs([{ kind: "task", id: 7 }])).toStrictEqual([{ kind: "task", id: 7 }]);
+  });
+
+  it("drops a blank or whitespace-only label rather than storing it", () => {
+    expect(sanitizeDocEntityRefs([{ kind: "task", id: 7, label: "   " }])).toStrictEqual([
+      { kind: "task", id: 7 },
+    ]);
+  });
+
+  it("truncates an over-long label and trims what the cut exposes", () => {
+    const label = `${"a".repeat(195)}${" ".repeat(20)}b`;
+    const [ref] = sanitizeDocEntityRefs([{ kind: "task", id: 7, label }]);
+    // slice-then-trim: the 200-char cut lands inside the run of spaces, and the
+    // trim removes them. trim-then-slice would keep them.
+    expect(ref.label).toBe("a".repeat(195));
   });
 
   it("drops an unknown kind rather than defaulting it", () => {
@@ -19,7 +37,31 @@ describe("sanitizeDocEntityRefs", () => {
   });
 
   it("drops a non-positive or non-finite id", () => {
-    expect(sanitizeDocEntityRefs([{ kind: "task", id: 0 }, { kind: "task", id: "x" }])).toEqual([]);
+    expect(
+      sanitizeDocEntityRefs([
+        { kind: "task", id: 0 },
+        { kind: "task", id: "x" },
+        { kind: "task", id: -1 },
+        { kind: "task", id: Infinity },
+        { kind: "task", id: NaN },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("drops a non-NUMBER id instead of coercing it", () => {
+    // ★★ A bare `Number(...)` accepts all four of these: `Number(true)` is 1,
+    // `Number("7")` and `Number(["7"])` are 7, and an object with a numeric
+    // valueOf coerces too — each one silently inventing a link to a real
+    // entity from a corrupt blob. Only `false` was rejected, and only by the
+    // accident of coercing to 0.
+    expect(
+      sanitizeDocEntityRefs([
+        { kind: "task", id: true },
+        { kind: "task", id: "7" },
+        { kind: "task", id: ["7"] },
+        { kind: "task", id: { valueOf: () => 7 } },
+      ]),
+    ).toEqual([]);
   });
 
   it("de-duplicates on (kind, id) but keeps the same id under a different kind", () => {

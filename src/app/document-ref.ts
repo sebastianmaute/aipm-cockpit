@@ -48,7 +48,13 @@ export function sanitizeDocEntityRefs(raw: unknown): DocEntityRef[] {
     if (!entry || typeof entry !== "object") continue;
     const e = entry as Record<string, unknown>;
     if (!isKind(e.kind)) continue;
-    const id = Math.floor(Number(e.id));
+    // ★★ typeof FIRST, never a bare coercion. `Number(true)` is 1 and
+    // `Number(["7"])` is 7, so coercing turns a corrupt or hostile blob into a
+    // link pointing at a REAL entity — silently, on every load path. A JSON
+    // blob written by this app always stores a number here; anything else is
+    // corruption, and dropping it is the honest read.
+    if (typeof e.id !== "number") continue;
+    const id = Math.floor(e.id);
     if (!Number.isFinite(id) || id <= 0) continue;
     const key = refKey(e.kind, id);
     if (seen.has(key)) continue;
