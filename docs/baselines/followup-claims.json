@@ -1,0 +1,1422 @@
+{
+  "tally": {
+    "CLEAN": 80,
+    "NO_MACHINE_CLAIM": 1,
+    "SYMBOL_MISSING": 8,
+    "PATH_THIRD_PARTY": 1,
+    "CITE_THIRD_PARTY": 1,
+    "PATH_MISSING": 1
+  },
+  "results": [
+    {
+      "n": 1,
+      "title": "Two dead `memo()`s in the Resources subtree — **fork open**",
+      "startLine": 186,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 49,
+        "paths": 3,
+        "cites": 3
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 3,
+      "title": "`optimize_wbs` never built — owed from R4",
+      "startLine": 349,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 4,
+      "title": "Two-tab last-writer clobber on file/IDB (audit #39) — parked, own design",
+      "startLine": 361,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 0,
+        "cites": 2
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 5,
+      "title": "No list virtualization anywhere (audit #14) — parked, own batch",
+      "startLine": 377,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 6,
+      "title": "Undo residuals (audit #11) — optional, unscheduled",
+      "startLine": 393,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 1,
+        "cites": 1
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 7,
+      "title": "Surviving dedup seams from the 2026-06 refactor review",
+      "startLine": 411,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 13,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 8,
+      "title": "`tour-overlay` claims `aria-modal` with no Tab trap — open, unguarded",
+      "startLine": 451,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 6,
+        "paths": 3,
+        "cites": 1
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 9,
+      "title": "`aria-sort` inconsistent across the four raw-`<th>` tables — open, unguarded",
+      "startLine": 492,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 6,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 10,
+      "title": "Keyboard move has no preview — band and day grid both — open",
+      "startLine": 525,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 12,
+      "title": "`list_allocations` dumps the grid; should be a scoped query — open, design",
+      "startLine": 640,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 0,
+        "cites": 2
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 13,
+      "title": "Security audit is scope-stale — open",
+      "startLine": 666,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 9,
+        "paths": 3,
+        "cites": 2
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 16,
+      "title": "Dictation flattens rich formatting — open, needs a design",
+      "startLine": 793,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 3,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 21,
+      "title": "Eye verification owed on two editors and four detail cases — open, slice B (0.209.0)",
+      "startLine": 811,
+      "verdict": "NO_MACHINE_CLAIM",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 0,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 24,
+      "title": "NAMED entities are neither decoded nor counted — open, the named tail only",
+      "startLine": 959,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 8,
+        "paths": 1,
+        "cites": 1
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 28,
+      "title": "CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary",
+      "startLine": 1014,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 18,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 30,
+      "title": "A link in a task description loses its address in document exports — open, needs a decision",
+      "startLine": 1083,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 31,
+      "title": "`sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — open, affects all four rich entities",
+      "startLine": 1112,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 32,
+      "title": "`HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small",
+      "startLine": 1143,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 33,
+      "title": "A multi-paragraph description can overflow its PPTX box — open, cosmetic",
+      "startLine": 1198,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 9,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 35,
+      "title": "`sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion",
+      "startLine": 1249,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 36,
+      "title": "Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small",
+      "startLine": 1268,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "importTemplate"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "exportTemplate"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 12,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 37,
+      "title": "`RaidItem` has NO storage-side length cap on any path — open, pre-existing",
+      "startLine": 1298,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 10,
+        "paths": 1,
+        "cites": 4
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 38,
+      "title": "`ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing",
+      "startLine": 1331,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 0,
+        "cites": 4
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 39,
+      "title": "The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed",
+      "startLine": 1372,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 14,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 40,
+      "title": "`text-ui-dark-blue` without a mode-appropriate companion — **40 sites**, open, needs its own slice",
+      "startLine": 1454,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 7,
+        "cites": 23
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 41,
+      "title": "Eye verification owed on 0.211.0, on surfaces no gate reaches — open",
+      "startLine": 1665,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 42,
+      "title": "`CalendarSyncControls` push/pull buttons carry unqualified accessible names — open, pre-existing",
+      "startLine": 1692,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 43,
+      "title": "Two \"Suggest RACI\" reporting gaps — open, both incomplete rather than wrong",
+      "startLine": 1719,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 44,
+      "title": "The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned",
+      "startLine": 1739,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "eventToGraphEvent"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "exceptionPlan"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "afterPush"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "replayExceptions"
+        },
+        {
+          "kind": "PATH_MISSING",
+          "detail": "calendar-event-attendees.ts"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 17,
+        "paths": 6,
+        "cites": 2
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 46,
+      "title": "A `<label>`-wrapped file input can never show a focus ring — pattern open",
+      "startLine": 1880,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 47,
+      "title": "`chat-panel` clicks a `display:none` file input — open, pre-existing",
+      "startLine": 1912,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 50,
+      "title": "Undo of a BULK edit reverts write-through fields — open, pre-existing, DATA LOSS",
+      "startLine": 2031,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 1,
+        "cites": 3
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 51,
+      "title": "A SECOND load-sensitive test — `use-tasks-dedup` \"on confirm\" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced",
+      "startLine": 2066,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "asyncWrapper"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "asyncUtilTimeout"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 18,
+        "paths": 5,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 52,
+      "title": "`useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate",
+      "startLine": 2193,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 8,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 53,
+      "title": "ESLint 10 is blocked upstream by `eslint-plugin-react` — open, not actionable today",
+      "startLine": 2253,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "getScope"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "contextOrFilename"
+        },
+        {
+          "kind": "CITE_THIRD_PARTY",
+          "detail": "version.js:31 (dependency)"
+        },
+        {
+          "kind": "CITE_THIRD_PARTY",
+          "detail": "lib/util/eslint.js:18 (dependency)"
+        },
+        {
+          "kind": "CITE_THIRD_PARTY",
+          "detail": "rules/forward-ref-uses-ref.js:60 (dependency)"
+        },
+        {
+          "kind": "CITE_THIRD_PARTY",
+          "detail": "rules/jsx-filename-extension.js:64 (dependency)"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 4,
+        "cites": 4
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 55,
+      "title": "Thirteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open",
+      "startLine": 2615,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 1,
+        "cites": 15
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 56,
+      "title": "`ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open",
+      "startLine": 2677,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 0,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 57,
+      "title": "The four toolbar Outlook enable-toggles carry an untested `auto` guard — open",
+      "startLine": 2709,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 59,
+      "title": "Eye verification owed on 0.212.0 — and on the two releases before it — open",
+      "startLine": 2810,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 60,
+      "title": "The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — open",
+      "startLine": 2835,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 0,
+        "paths": 2,
+        "cites": 1
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 61,
+      "title": "Three residuals from the `use-resource-planner` split, plus one pointer — open, all small",
+      "startLine": 2882,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 9,
+        "paths": 4,
+        "cites": 2
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 62,
+      "title": "Two reference-data handlers have no production consumer — open, pre-existing",
+      "startLine": 2932,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 8,
+        "paths": 4,
+        "cites": 4
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 68,
+      "title": "The budget allocation rows' `border-t` sits on the `<tr>`, where it has never painted — open",
+      "startLine": 3396,
+      "verdict": "PATH_THIRD_PARTY",
+      "problems": [
+        {
+          "kind": "PATH_THIRD_PARTY",
+          "detail": "node_modules/tailwindcss/preflight.css (dependency)"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 4,
+        "cites": 5
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 69,
+      "title": "`BrandingConfig`'s \"is this blob empty?\" question is answered in TWO places — open",
+      "startLine": 3448,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 70,
+      "title": "A budget bucket's Total column and total row silently follow the role filter — open",
+      "startLine": 3481,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 71,
+      "title": "A budget bucket evaluates `cellBudget` three times per (row, period) — open",
+      "startLine": 3500,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 8,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 79,
+      "title": "The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email — open",
+      "startLine": 4411,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 82,
+      "title": "The task-FK backfill lives in a React hook, outside the numbered migration chain — open",
+      "startLine": 4490,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "migrateWorkspaceV11"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 6,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 83,
+      "title": "Email/name disagreement in the FK backfill resolves silently to email — open",
+      "startLine": 4520,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 86,
+      "title": "AI cannot read timelog entries — deliberate, no tool exposes them",
+      "startLine": 4741,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 3,
+        "paths": 5,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 87,
+      "title": "AI cannot read the activity log — deliberate, no tool exposes it",
+      "startLine": 4763,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 3,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 88,
+      "title": "`ai-section.tsx`'s own sub-section titles are not real headings — open, a11y",
+      "startLine": 4776,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "AiViewScopeDisclosure"
+        },
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "AiViewScopeDisclosure"
+        },
+        {
+          "kind": "PATH_MISSING",
+          "detail": "settings-sections/ai-view-scope-disclosure.tsx"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 5,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 89,
+      "title": "AI cannot read absences, and the Resource-calendar view renders them beside meetings",
+      "startLine": 4808,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 90,
+      "title": "`onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open",
+      "startLine": 4833,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "RaidPanelToolbar"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 11,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 91,
+      "title": "A popout can record an undo entry and persist an activity line — open",
+      "startLine": 4856,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 13,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 92,
+      "title": "The `settings-types` ⇄ `workspace` ⇄ `document-model` cycle is a standing trap for any eval-time snapshot — open",
+      "startLine": 4878,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [
+        "npx vitest run src/app/document-model.test.ts -t \"never snapshots\""
+      ],
+      "counts": {
+        "symbols": 9,
+        "paths": 9,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 93,
+      "title": "The PPTX truncation notice is a hardcoded English frame around a LOCALIZED title — open",
+      "startLine": 5002,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [
+        "grep -n  \"Showing the first\" src/app/export-pptx.ts src/app/doc-render-pptx.ts"
+      ],
+      "counts": {
+        "symbols": 0,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 94,
+      "title": "PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)",
+      "startLine": 5042,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 7,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 95,
+      "title": "No test exercises a real Turso database on ANY path — open",
+      "startLine": 5070,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [
+        "grep -rn \":memory:\" src/app/*.test.ts",
+        "grep -n \"libsql\" package.json"
+      ],
+      "counts": {
+        "symbols": 2,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 96,
+      "title": "The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN",
+      "startLine": 5104,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 3,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 97,
+      "title": "The DOM constraint INVERTED for the document load paths — open (TRAP, safe today)",
+      "startLine": 5143,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 12,
+        "paths": 4,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 98,
+      "title": "`documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)",
+      "startLine": 5250,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 15,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 100,
+      "title": "Tab ejects focus from a portaled popover opened inside a modal — open, a11y",
+      "startLine": 5456,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 11,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 101,
+      "title": "`SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y",
+      "startLine": 5500,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 102,
+      "title": "Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet",
+      "startLine": 5534,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 19,
+        "paths": 18,
+        "cites": 8
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 104,
+      "title": "The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open",
+      "startLine": 6181,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 3,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 105,
+      "title": "CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row — open, silent data loss",
+      "startLine": 6214,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 106,
+      "title": "The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive",
+      "startLine": 6265,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 108,
+      "title": "The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open",
+      "startLine": 6433,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 109,
+      "title": "Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet",
+      "startLine": 6455,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 11,
+        "paths": 9,
+        "cites": 15
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 110,
+      "title": "`IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open",
+      "startLine": 6548,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 2,
+        "cites": 5
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 111,
+      "title": "Document row controls are named by a title that is NOT unique, and the comment says it is — open, a11y",
+      "startLine": 6587,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 9,
+        "paths": 7,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 113,
+      "title": "The documents roadmap — block editor, entity attachment, images — designed, UNIMPLEMENTED",
+      "startLine": 6677,
+      "verdict": "SYMBOL_MISSING",
+      "problems": [
+        {
+          "kind": "SYMBOL_MISSING",
+          "detail": "linkedEntities"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 20,
+        "paths": 4,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 115,
+      "title": "Two of the three sanitizers admit arbitrary `data-*` — open",
+      "startLine": 6856,
+      "verdict": "CITE_THIRD_PARTY",
+      "problems": [
+        {
+          "kind": "CITE_THIRD_PARTY",
+          "detail": "node_modules/dompurify/dist/purify.cjs.js:767 (dependency)"
+        },
+        {
+          "kind": "CITE_THIRD_PARTY",
+          "detail": "purify.cjs.js:1846 (dependency)"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 10,
+        "paths": 6,
+        "cites": 4
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 116,
+      "title": "The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision",
+      "startLine": 6928,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 0,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 117,
+      "title": "Three S3c image prerequisites, all inert today — open",
+      "startLine": 6975,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 6,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 119,
+      "title": "`<a href>` is dropped by both OOXML renderers — open",
+      "startLine": 7187,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 3,
+        "paths": 4,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 120,
+      "title": "The background insight-recommendation runner has no `AbortController` at all — open, billed",
+      "startLine": 7244,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 6,
+        "paths": 2,
+        "cites": 2
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 122,
+      "title": "The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity",
+      "startLine": 7378,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [
+        "grep -n \"loadActualsCache\" src/app/workspace-section.tsx"
+      ],
+      "counts": {
+        "symbols": 9,
+        "paths": 0,
+        "cites": 8
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 124,
+      "title": "A popover opened by a click that also scrolls its ancestor never mounts — open, UI",
+      "startLine": 7540,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 2,
+        "cites": 1
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 125,
+      "title": "Two more controls start a billed Anthropic call with no way to stop it — open, billed",
+      "startLine": 7615,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 4,
+        "paths": 4,
+        "cites": 3
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 126,
+      "title": "Two same-type Insight rows produce identically-named per-row controls, and no gate can see it — open, a11y",
+      "startLine": 7642,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 12,
+        "paths": 4,
+        "cites": 4
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 128,
+      "title": "`use-timelog-sync.ts` clears `busy` from a superseded run — open, UI",
+      "startLine": 7774,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 2,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 129,
+      "title": "Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle — open, a decision, measured",
+      "startLine": 7821,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 1,
+        "paths": 13,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 130,
+      "title": "The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured",
+      "startLine": 7872,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 0,
+        "paths": 3,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 131,
+      "title": "The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured",
+      "startLine": 7913,
+      "verdict": "PATH_MISSING",
+      "problems": [
+        {
+          "kind": "PATH_MISSING",
+          "detail": "foo.tsx"
+        }
+      ],
+      "repro": [],
+      "counts": {
+        "symbols": 13,
+        "paths": 25,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 132,
+      "title": "A multi-target successor fan-out labels as \"Edited N item(s)\" with no entity word — open, cosmetic, measured",
+      "startLine": 8169,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 13,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 133,
+      "title": "A redo-created dangling dependency is repaired on two of six backends — open, measured",
+      "startLine": 8187,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 134,
+      "title": "Two `captureComposite` callers flag no primary and ride the positional fallback — open, latent, measured",
+      "startLine": 8206,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 5,
+        "paths": 2,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 135,
+      "title": "Two different-type links to one task can be staged but not removed individually — open, UI",
+      "startLine": 8223,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 3,
+        "paths": 1,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 136,
+      "title": "The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code",
+      "startLine": 8238,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [],
+      "counts": {
+        "symbols": 6,
+        "paths": 0,
+        "cites": 0
+      },
+      "needsProbe": true
+    },
+    {
+      "n": 137,
+      "title": "The seven rich entity fields' editor cannot represent three tags their storage permits — open, step 0 of the unify-rich-text program",
+      "startLine": 8252,
+      "verdict": "CLEAN",
+      "problems": [],
+      "repro": [
+        "npx vitest run src/app/rich-text-editor.test.tsx -t \"underline\" --reporter=dot"
+      ],
+      "counts": {
+        "symbols": 31,
+        "paths": 10,
+        "cites": 0
+      },
+      "needsProbe": true
+    }
+  ]
+}
