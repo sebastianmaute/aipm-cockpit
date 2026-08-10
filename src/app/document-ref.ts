@@ -53,9 +53,13 @@ export function sanitizeDocEntityRefs(raw: unknown): DocEntityRef[] {
     // link pointing at a REAL entity — silently, on every load path. A JSON
     // blob written by this app always stores a number here; anything else is
     // corruption, and dropping it is the honest read.
-    if (typeof e.id !== "number") continue;
-    const id = Math.floor(e.id);
-    if (!Number.isFinite(id) || id <= 0) continue;
+    // ★★ INTEGER, not "floorable". Flooring 7.9 to 7 is the same defect the
+    // typeof guard above exists to stop, one step further in: it invents a link
+    // to a REAL entity out of a corrupt value. `Number.isInteger` also subsumes
+    // the finite check — NaN and Infinity both fail it.
+    if (!Number.isInteger(e.id)) continue;
+    const id = e.id as number;
+    if (id <= 0) continue;
     const key = refKey(e.kind, id);
     if (seen.has(key)) continue;
     seen.add(key);

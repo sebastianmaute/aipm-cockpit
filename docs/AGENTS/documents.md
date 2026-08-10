@@ -326,10 +326,18 @@ appends the entity's own title, and each surface's test renders ≥2 rows. `Docu
 everything as PROPS and calls no context hook — it renders inside a Kanban card, which sits outside
 `RowContextProvider`, and `useWorkspaceTab` throws without a provider.
 
-★ **Two known behaviours of the filtered state**, both accepted rather than overlooked:
-a read-only popout renders no link field AND no chips (the field is withheld rather than drawn
-inert, per the no-false-affordance rule), and the preview can show a document outside the filtered
-list, because selection still resolves against the full `documents` set.
+★★ **A `duplicate` CARRIES the references** — a copy is about the same entities as its source. That
+literal is an explicit field list and dropped them until it named them, which is the same shape as
+`sanitizeDocument` two rules above; the sparse rule applies to the copy too.
+
+★★ **While a filter is armed, selection falls back within the VISIBLE rows**, not to `documents[0]`.
+The link field is bound to `selected`, so the full-set fallback let an attach made from a filtered
+view land on a document the list was not showing — silently, and document writes have no undo. A
+test whose fixture happens to put the linked document first cannot see this; the pinning test puts
+the UNLINKED one first, deliberately.
+
+★ **One accepted behaviour:** a read-only popout renders no link field AND no chips — the field is
+withheld rather than drawn inert, per the no-false-affordance rule.
 
 ## Load/save wiring (app state)
 

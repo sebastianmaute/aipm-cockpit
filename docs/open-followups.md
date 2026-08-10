@@ -8572,9 +8572,15 @@ see from where they are standing. That needs a real answer (surface the document
 budget? a per-entity cap as well? silently pick another document?) — it is the one part of the
 design that does not fall out of the existing model.
 
-★ **Two smaller behaviours were accepted rather than overlooked**, both recorded in
-`docs/AGENTS/documents.md`: a read-only popout renders NO link chips at all (the field is withheld
-rather than drawn inert — the no-false-affordance rule), so a popout mirror cannot see what a
-document links to; and with an entity filter armed, the preview can still show a document outside
-the filtered list, because selection deliberately resolves against the full set. Either could be
-closed without touching the model.
+★ **One behaviour was accepted rather than overlooked**, recorded in `docs/AGENTS/documents.md`: a
+read-only popout renders NO link chips at all (the field is withheld rather than drawn inert — the
+no-false-affordance rule), so a popout mirror cannot see what a document links to. Closing it needs
+a read-only mode on `DocumentLinksField`, not a model change.
+
+★★ **A second one was NOT accepted — it was a defect, found by the branch's own cold review and
+fixed.** With a filter armed, selection fell back to `documents[0]`, and because the link field is
+bound to `selected`, an attach made from a filtered view could land on a document the list was not
+showing. Both existing tests happened to order the fixture so `documents[0]` was the right answer,
+which is why they were green. Recorded here because "accepted behaviour" and "undiagnosed defect"
+look identical from a green suite, and this one was written into two docs as the former before it
+was understood as the latter.

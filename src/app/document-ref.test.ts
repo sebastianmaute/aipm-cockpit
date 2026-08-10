@@ -48,6 +48,10 @@ describe("sanitizeDocEntityRefs", () => {
     ).toEqual([]);
   });
 
+  it("drops a FRACTIONAL id rather than flooring it to a real entity", () => {
+    expect(sanitizeDocEntityRefs([{ kind: "task", id: 7.9 }])).toEqual([]);
+  });
+
   it("drops a non-NUMBER id instead of coercing it", () => {
     // ★★ A bare `Number(...)` accepts all four of these: `Number(true)` is 1,
     // `Number("7")` and `Number(["7"])` are 7, and an object with a numeric

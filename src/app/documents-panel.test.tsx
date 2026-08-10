@@ -1877,4 +1877,36 @@ describe("DocumentsPanel — entity filter", () => {
     // …and it says so, rather than silently looking like a one-document project.
     expect(screen.getByRole("button", { name: CLEAR_FILTER })).toBeTruthy();
   });
+
+  // ★★★ SELECTION MUST FALL BACK WITHIN THE VISIBLE ROWS. The link field is
+  // bound to `selected`, so a fallback to `documents[0]` would let an attach
+  // made from a filtered view land on a document the list is not showing —
+  // silently, and document writes have no undo.
+  //
+  // ★★ THE ORDER OF THIS FIXTURE IS THE WHOLE TEST: the UNLINKED document is
+  // first, so `documents[0]` is the wrong answer. The two tests above put the
+  // linked one first, which makes `documents[0]` accidentally correct — they
+  // cannot see this defect at all.
+  it("selects a VISIBLE document when the filter hides the first one", () => {
+    const documents = [doc(11, "Minutes"), linkedDoc()];
+    render(
+      <PanelHost>
+        <EntityFilterTrigger kind="raid" id={3} />
+        {panelWith(documents)}
+      </PanelHost>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "arm-filter" }));
+
+    // The one visible row is the linked one…
+    expect(screen.getByRole("button", { name: "Charter" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Minutes" })).toBeNull();
+    // …and the pane's link surface is bound to THAT document, not to the hidden
+    // "Minutes". Its chips resolve against the armed entity's own reference.
+    expect(screen.getByText(t("en-US", "documentsLinkedEntities"))).toBeTruthy();
+    // Exact, not a regex: with `onOpen` wired the chip renders TWO buttons
+    // matching /R#3/ (the chip body and its remove control), so a loose matcher
+    // throws "found multiple elements" rather than asserting anything.
+    expect(screen.getByRole("button", { name: `${t("en-US", "documentsLinkedRemove")} R#3` })).toBeTruthy();
+  });
 });

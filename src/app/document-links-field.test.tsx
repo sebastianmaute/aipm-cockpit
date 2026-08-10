@@ -25,7 +25,16 @@ describe("DocumentLinksField", () => {
       <DocumentLinksField lang="en-US" refs={[{ kind: "task", id: 99, label: "Deleted task" }]} lookups={lookups} candidates={candidates} onLink={vi.fn()} onUnlink={vi.fn()} onOpenEntity={vi.fn()} />,
     );
     expect(screen.getByText("Deleted task")).toBeInTheDocument();
-    expect(container.querySelector("[data-dangling-marker]")).not.toBeNull();
+    // ★★ Assert the marker's CONTENT and its accessible name, not merely that
+    // an element carrying the attribute exists — a bare `querySelector` on the
+    // attribute is satisfied by an empty span, so it would pass with the glyph
+    // and the code deleted while the test's name still claimed to pin them.
+    const marker = container.querySelector("[data-dangling-marker]");
+    expect(marker).not.toBeNull();
+    expect(marker).toHaveTextContent("⚠");
+    expect(marker).toHaveTextContent("#99");
+    // The state must reach a screen reader, not only a hover tooltip.
+    expect(screen.getByRole("img", { name: /#99/ })).toHaveAccessibleName(/no longer exists/i);
   });
 
   it("prefers the LIVE title over a stale stored label", () => {

@@ -26,10 +26,11 @@ import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { DocumentPreview } from "./document-preview";
 import { DocumentsHistoryModal } from "./documents-history-modal";
-import { DocumentLinksField } from "./document-links-field";
 import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
-import { buildDocLinkCandidates, buildDocRefLookups, VIEW_BY_KIND } from "./document-link-sources";
-import { indexDocumentsByEntity, refKey, resolveDocRef, type DocRefKind } from "./document-ref";
+import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sources";
+import { DocumentLinksSection } from "./document-links-section";
+import { resolveDocRef } from "./document-ref";
+import { useDocumentEntityFilter } from "./use-document-entity-filter";
 import { downloadDocument, type DocFormat } from "./document-download";
 import { useColumnResize } from "./use-column-resize";
 import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
@@ -289,24 +290,13 @@ export function DocumentsPanel({
 
   const rows = useMemo(() => sortDocuments(documents, sort.key, sort.dir), [documents, sort]);
 
-  // ★★★ ARMED ELSEWHERE by `requestDocumentsForEntity`, so the FIRST render has it.
-  // SENTINEL SEED: `undefined` is "nothing handled yet", NOT `null`
-  // ("handled, and empty"). Seeding `handledFilter` from the LIVE prop is the
-  // remount-swallow trap the deep-link note above describes — arrival IS a fresh
-  // mount, so a live seed reads the request as already consumed (pinned by the
-  // test "honors a filter armed before this pane first mounted").
-  const [entityFilter, setEntityFilter] = useState<{ kind: DocRefKind; id: number } | null>(null);
-  const [handledFilter, setHandledFilter] = useState<{ kind: DocRefKind; id: number } | null | undefined>(undefined);
-  if (handledFilter !== pendingDocEntityFilter) {
-    setHandledFilter(pendingDocEntityFilter);
-    if (pendingDocEntityFilter) setEntityFilter(pendingDocEntityFilter);
-  }
-  const entityIndex = useMemo(() => indexDocumentsByEntity(documents), [documents]);
-  const visibleRows = useMemo(() => {   // filters the SORTED rows, so dismissing restores order
-    if (!entityFilter) return rows;
-    const allowed = new Set((entityIndex.get(refKey(entityFilter.kind, entityFilter.id)) ?? []).map((d) => d.id));
-    return rows.filter((d) => allowed.has(d.id));
-  }, [rows, entityFilter, entityIndex]);
+  // The request/reconcile/filter trio, incl. the sentinel-seed remount-swallow
+  // guard — see `use-document-entity-filter.ts`, which carries the reasoning.
+  const { entityFilter, visibleRows, clearEntityFilter } = useDocumentEntityFilter(
+    documents,
+    rows,
+    pendingDocEntityFilter,
+  );
   const lookups = useMemo(() => buildDocRefLookups(ws), [ws]);
   const candidates = useMemo(() => buildDocLinkCandidates(ws), [ws]);
   // ★★★ DERIVED, never a stored flag — a flag would have to be cleared on
@@ -361,7 +351,12 @@ export function DocumentsPanel({
   // pointing at nothing; falling back to the first row makes that self-healing,
   // and there is no effect to fight `react-hooks/set-state-in-effect`. Same
   // shape as `resolveEffectiveFilters` for orphaned list filters.
-  const selected = documents.find((d) => d.id === selectedId) ?? documents[0] ?? null;
+  // ★★ WHILE FILTERED, FALL BACK WITHIN THE VISIBLE ROWS. The link field below
+  // is bound to `selected`, so a fallback to `documents[0]` lets an attach made
+  // from a filtered view land on a document the list is not showing — silently,
+  // and with no undo on document writes.
+  const selectionPool = entityFilter && visibleRows.length > 0 ? visibleRows : documents;
+  const selected = selectionPool.find((d) => d.id === selectedId) ?? selectionPool[0] ?? null;
 
   // ★★★ DEEP LINK. The chat transcript's document card calls
   // `requestOpen("documents", id)` (workspace-tab-context), which switches the
@@ -444,6 +439,12 @@ export function DocumentsPanel({
     // survives. The refused-restore cases pin that ordering.
     clearRestoreRejected();
     const result = mutateDocuments(m, "user");
+    // ★★ A REFUSAL REACHES THE USER FROM HERE, not from each call site — the
+    // note above is that "a mutation returns nothing" invites a call site to
+    // discard one, and the attach path did exactly that: at MAX_LINKS_PER_DOC
+    // the engine refuses, the option stays in the dropdown (it is not linked),
+    // and clicking it did nothing, repeatedly, with nothing said.
+    if (!result.changed && result.rejected.length > 0) setRestoreRejected(result.rejected);
     freshRef.current = { from: documents, latest: result.documents };
     return result;
   }
@@ -583,7 +584,7 @@ export function DocumentsPanel({
             lang={lang}
             title={resolveDocRef(entityFilter, lookups).title || `#${entityFilter.id}`}
             isEmpty={visibleRows.length === 0}
-            onClear={() => { setEntityFilter(null); clearDocEntityFilter(); }}
+            onClear={() => { clearEntityFilter(); clearDocEntityFilter(); }}
           />
         )}
         <DocumentsList
@@ -688,19 +689,16 @@ export function DocumentsPanel({
             {restoreRejected.join("; ")}
           </p>
         )}
-        {/* ★★ HIDDEN when read-only, not rendered inert: the field has no disabled mode and
-            a no-op handler is the false affordance this repo bans. A popout shows no chips. */}
-        {selected && !isReadOnly && (
-          <DocumentLinksField
-            lang={lang}
-            refs={selected.linkedEntities ?? []}
-            lookups={lookups}
-            candidates={candidates}
-            onLink={(ref) => mutate({ kind: "link", id: selected.id, ref })}
-            onUnlink={(ref) => mutate({ kind: "unlink", id: selected.id, ref })}
-            onOpenEntity={(kind, id) => requestOpen(VIEW_BY_KIND[kind], id)}
-          />
-        )}
+        <DocumentLinksSection
+          lang={lang}
+          doc={selected}
+          lookups={lookups}
+          candidates={candidates}
+          isReadOnly={isReadOnly}
+          onLink={(docId, ref) => mutate({ kind: "link", id: docId, ref })}
+          onUnlink={(docId, ref) => mutate({ kind: "unlink", id: docId, ref })}
+          onOpenView={requestOpen}
+        />
         <DocumentPreview lang={lang} doc={selected} ws={ws} />
       </div>
 

@@ -88,10 +88,15 @@ export function DocumentLinksField({ lang, refs, lookups, candidates, onLink, on
         removeLabel={t(lang, "documentsLinkedRemove")}
         clearLabel={t(lang, "documentsLinkedClear")}
       />
-      {/* ★★ Non-colour dangling cue (WCAG 1.4.1). `title` is the accessible
-          DESCRIPTION and hover-only, so it serves a screen reader but closes
-          nothing visually; the glyph does. Mirrors ResourcePicker's
-          `data-dangling-marker`. */}
+      {/* ★★ Non-colour dangling cue (WCAG 1.4.1): the chip is styled the same
+          either way, so the GLYPH carries the state, not a tint.
+          ★★ The state must also be programmatically determinable (1.3.1), and a
+          `title` on a static span does NOT do that — it is hover-only, has no
+          keyboard path and is not reliably exposed on a non-interactive
+          element. The ResourcePicker precedent this mirrors puts the state in
+          the accessible DESCRIPTION of a BUTTON, which is exposed; this is not
+          a button. So the marker names itself, and the reference it refers to,
+          via `role="img"`. */}
       <div className="mt-1 flex flex-wrap gap-2">
         {resolved
           .filter((r) => r.dangling)
@@ -99,6 +104,8 @@ export function DocumentLinksField({ lang, refs, lookups, candidates, onLink, on
             <span
               key={refKey(ref.kind, ref.id)}
               data-dangling-marker
+              role="img"
+              aria-label={`${codeOf(ref.kind, ref.id)} – ${t(lang, "documentsLinkedDangling")}`}
               title={t(lang, "documentsLinkedDangling")}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground"
             >

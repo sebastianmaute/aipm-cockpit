@@ -923,6 +923,22 @@ describe("link / unlink", () => {
     expect(out.rejected[0]).toContain("#404");
   });
 
+  it("carries the references onto a DUPLICATE — a copy is about the same entities", () => {
+    const linked = applyDocMutation(state(), { kind: "link", id: 1, ref: { kind: "task", id: 7, label: "Kickoff" } }, ctx());
+    const out = applyDocMutation(linked, { kind: "duplicate", id: 1, title: "Charter copy" }, ctx());
+    expect(out.changed).toBe(true);
+    const copy = out.documents.find((d) => d.title === "Charter copy");
+    expect(copy?.linkedEntities).toEqual([{ kind: "task", id: 7, label: "Kickoff" }]);
+  });
+
+  it("leaves a duplicate of an UNLINKED document with no linkedEntities key", () => {
+    // The sparse rule, on the copy: an absent list must stay absent or the copy
+    // serializes differently from its source.
+    const out = applyDocMutation(state(), { kind: "duplicate", id: 1, title: "Charter copy" }, ctx());
+    const copy = out.documents.find((d) => d.title === "Charter copy");
+    expect(copy && "linkedEntities" in copy).toBe(false);
+  });
+
   // ★★★ THE CROSS-KIND CONTROL — unlink-by-(kind,id) is otherwise unpinned
   // against an id-only implementation. An `unlink` filtering on `id` alone
   // would remove BOTH refs below and every case above would still pass.

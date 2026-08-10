@@ -585,10 +585,15 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       // ★ Removing the LAST reference drops the field rather than storing `[]`
       // — the same sparse rule sanitizeDocument applies on load, applied on
       // write so the two cannot disagree and the goldens stay byte-stable.
-      const unlinked: ProjectDocument =
-        kept.length > 0
-          ? { ...target, linkedEntities: kept }
-          : { id: target.id, title: target.title, blocks: target.blocks, createdAt: target.createdAt, updatedAt: target.updatedAt };
+      // ★★ OMIT THE KEY, never re-list the fields. An explicit literal here is
+      // correct only until `ProjectDocument` gains a field, which removing the
+      // last reference would then silently erase — and no test would see it.
+      // ★ A rest-destructure would be the obvious spelling, but CI runs eslint
+      // with NO `ignoreRestSiblings`, so the unused binding is FATAL (measured,
+      // not assumed). This deletes from a FRESH copy — `target` is untouched.
+      const withoutRefs = { ...target };
+      delete (withoutRefs as { linkedEntities?: unknown }).linkedEntities;
+      const unlinked: ProjectDocument = kept.length > 0 ? { ...target, linkedEntities: kept } : withoutRefs;
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? unlinked : d));
       return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id };
     }
@@ -607,6 +612,12 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         blocks: [...target.blocks],
         createdAt: ctx.now,
         updatedAt: ctx.now,
+        // ★★ A copy is ABOUT the same entities as its source, so the references
+        // come with it. This literal is an explicit field list — the shape that
+        // silently drops a new persisted field, exactly as `sanitizeDocument`'s
+        // own comment warns — and it dropped `linkedEntities` until it named it.
+        // Sparse: an absent list stays absent (the goldens pin those bytes).
+        ...(target.linkedEntities ? { linkedEntities: target.linkedEntities } : {}),
       };
       // The version is written AGAINST THE COPY (documentId = the copy's new
       // id), holding the SOURCE's title/blocks. So a revert right after

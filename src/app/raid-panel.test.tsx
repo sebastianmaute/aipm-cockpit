@@ -664,8 +664,19 @@ describe("RaidPanel linked-documents badge", () => {
   /** Renders `activeTab` so the badge click is asserted on OBSERVABLE STATE —
    *  the view the app actually switched to — not on a spied callback. */
   function ActiveTabProbe() {
-    const { activeTab } = useWorkspaceTab();
-    return <span data-testid="active-tab">{activeTab}</span>;
+    const { activeTab, pendingDocEntityFilter } = useWorkspaceTab();
+    return (
+      <>
+        <span data-testid="active-tab">{activeTab}</span>
+        {/* ★★ The KIND matters and was unpinned: asserting only that the view
+            became "documents" is green even when a panel passes the WRONG kind
+            (the copy-paste available across three near-identical call sites
+            written in one sitting), which would filter the pane to nothing. */}
+        <span data-testid="pending-doc-filter">
+          {pendingDocEntityFilter ? `${pendingDocEntityFilter.kind}:${pendingDocEntityFilter.id}` : "none"}
+        </span>
+      </>
+    );
   }
 
   function renderWithProbe(props: RaidPanelProps) {
@@ -717,5 +728,6 @@ describe("RaidPanel linked-documents badge", () => {
     expect(screen.getByTestId("active-tab").textContent).toBe("dashboard");
     fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha" }));
     expect(screen.getByTestId("active-tab").textContent).toBe("documents");
+    expect(screen.getByTestId("pending-doc-filter").textContent).toBe("raid:1");
   });
 });
