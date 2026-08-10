@@ -39,6 +39,7 @@ import {
   type DocVersionOp,
   type DocVersionSource,
 } from "./document-versions";
+import { MAX_LINKS_PER_DOC, refKey, sanitizeDocEntityRefs, type DocEntityRef } from "./document-ref";
 
 export type DocOp =
   | { op: "append"; block: DocBlock }
@@ -53,7 +54,9 @@ export type DocMutation =
   | { kind: "duplicate"; id: number; title: string }
   | { kind: "delete"; id: number }
   | { kind: "ops"; id: number; ops: readonly DocOp[]; title?: string }
-  | { kind: "restore"; versionId: number };
+  | { kind: "restore"; versionId: number }
+  | { kind: "link"; id: number; ref: DocEntityRef }
+  | { kind: "unlink"; id: number; ref: Pick<DocEntityRef, "kind" | "id"> };
 
 export type DocState = { documents: readonly ProjectDocument[]; versions: readonly DocVersion[] };
 
@@ -170,6 +173,10 @@ function documentLimitReason(): string {
 
 function blockLimitReason(count: number): string {
   return `block limit exceeded (${count} > ${MAX_BLOCKS_PER_DOC})`;
+}
+
+function linkLimitReason(): string {
+  return `link limit reached (${MAX_LINKS_PER_DOC})`;
 }
 
 /** Would writing `next` blocks over a document that currently has `current`
@@ -545,6 +552,45 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         rejected: [],
         documentId: target.id,
       };
+    }
+
+    // ★★★ A REFERENCE IS NOT CONTENT. Both cases below write NO version
+    // (content gets versions; references and metadata do not) and both leave
+    // `updatedAt` alone — it is a displayed, sortable column, so bumping it on
+    // an attach would report a content edit that never happened. Consistent
+    // with `create`, which also writes none.
+    case "link": {
+      const target = findTarget(state.documents, m.id);
+      if (!target) return unchanged(state, [`document #${m.id} not found`]);
+      const [ref] = sanitizeDocEntityRefs([m.ref]);
+      if (!ref) return unchanged(state, ["invalid entity reference"]);
+      const current = target.linkedEntities ?? [];
+      // Idempotent: the same (kind, id) is a no-op, and a no-op must return the
+      // caller's OWN array reference — the documents slice is dirty-checked by
+      // REFERENCE equality, so a rebuilt-but-equal array forces a needless save.
+      if (current.some((r) => refKey(r.kind, r.id) === refKey(ref.kind, ref.id))) return unchanged(state);
+      if (current.length >= MAX_LINKS_PER_DOC) return unchanged(state, [linkLimitReason()]);
+      const linked: ProjectDocument = { ...target, linkedEntities: [...current, ref] };
+      const nextDocuments = state.documents.map((d) => (d.id === target.id ? linked : d));
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id };
+    }
+
+    case "unlink": {
+      const target = findTarget(state.documents, m.id);
+      if (!target) return unchanged(state, [`document #${m.id} not found`]);
+      const current = target.linkedEntities ?? [];
+      const key = refKey(m.ref.kind, m.ref.id);
+      const kept = current.filter((r) => refKey(r.kind, r.id) !== key);
+      if (kept.length === current.length) return unchanged(state, ["reference not found"]);
+      // ★ Removing the LAST reference drops the field rather than storing `[]`
+      // — the same sparse rule sanitizeDocument applies on load, applied on
+      // write so the two cannot disagree and the goldens stay byte-stable.
+      const unlinked: ProjectDocument =
+        kept.length > 0
+          ? { ...target, linkedEntities: kept }
+          : { id: target.id, title: target.title, blocks: target.blocks, createdAt: target.createdAt, updatedAt: target.updatedAt };
+      const nextDocuments = state.documents.map((d) => (d.id === target.id ? unlinked : d));
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id };
     }
 
     case "duplicate": {
