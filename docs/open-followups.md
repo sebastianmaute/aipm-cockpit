@@ -7989,3 +7989,86 @@ proving it exits 1 on each violation class (new cite to an existing path · new 
 unresolvable file · line past EOF) and 0 on each allowed case (a citation inside a fence · a
 symbol-only citation · correcting an existing citation's line number in place). A future edit to the
 regex or the resolver has nothing catching a regression — re-run that mutation pass by hand.
+
+
+## 132. A multi-target successor fan-out labels as "Edited N item(s)" with no entity word — open, cosmetic, measured
+
+`recordSuccessorEdits` (`use-task-submit.ts`) passes `name` only when it wrote exactly ONE target, so a
+fan-out onto several tasks reaches `buildUndoLabel` with no name, resolves entity `task`, and falls to the
+generic `undoToastEdit` — "Edited 3 item(s)". The single-target case still reads `Edit task "…"`.
+
+★★ The fix is NOT to change the `kind`. `kind: "bulk.edit"` produces the IDENTICAL string for the
+multi-target case ("bulk" is not in `ENTITY_KEY_SET`, so `entityKeyFromKind` returns null and
+`buildUndoLabel` returns at its `if (!key)` guard BEFORE the `isBulk` branch) and a strictly WORSE one for
+the single-target case, since `kind` is shared by both branches and switching it would drop the name.
+Reaching `isBulk` needs an explicit `entityKey`, which `CaptureCompositeOpts` does not carry.
+
+The real fix is an edit-side twin of `undoLabelDeleteCount`. Deliberately not built: it would relabel EVERY
+unnamed multi-row edit capture in the app, which is a far wider blast radius than this one call site.
+
+★ Scope: the LABEL in undo history only. The TOAST was always count-shaped (`pushEntry` composes it from
+`undoToastEdit`/`undoToastDelete` regardless of kind or name), so nothing regressed there.
+
+## 133. A redo-created dangling dependency is repaired on two of six backends — open, measured
+
+Undo of a successor fan-out restores the target arrays from images resolved at capture time. Create task 5
+with successor 2 → undo → delete 5 → redo merges `{taskId:5}` back onto task 2, pointing at a task that no
+longer exists.
+
+★★ It self-heals ONLY on CSV and Markdown loads. `dropDanglingDependencies` has exactly two production call
+sites, in `csv-codecs-decode` and `markdown-codecs-decode`. Reproduce with
+`grep -rn "dropDanglingDependencies(" src/app | grep -v ".test."` — 4 lines: those two, the definition in
+`sanitize-core.ts`, and the comment in `use-task-submit.ts` that names the symbol. JSON maps tasks through
+`migrateTask` + `sanitizeNoteFields`, neither of which touches `dependencies`; IndexedDB — the DEFAULT
+backend, since `defaultStorageConfig` is `{ kind: "browser" }` — and both Turso backends have no dangling
+pass at all. Turso shares the CSV ROW builder (`buildTaskFromObj` via `turso-schema`) but never enters the
+enclosing workspace decoder where the dangling pass runs.
+
+★ Severity is low because the consumers tolerate it: dependency rendering resolves through the live task map
+and a missing id renders nothing. It is recorded because a code comment stated flatly that it self-heals on
+the next load, which is false exactly where most users are.
+
+## 134. Two `captureComposite` callers flag no primary and ride the positional fallback — open, latent, measured
+
+`compositeUndoRunner` picks the remap source with `Math.max(0, findIndex(isPrimary))`, so an unflagged
+composite silently nominates fragment 0. Of the SEVEN call sites, five flag one; `use-budget-buckets.ts` and
+`use-task-submit.ts` flag nothing.
+
+★★★ ENUMERATE WITH ALL THREE CALL SHAPES. A grep matching only `captureComposite({` and
+`captureCompositeRef.current?.({` misses the OPTIONAL-call form `captureComposite?.({` and reports SIX. That
+error shipped in a code comment and was caught only by a cold audit; it omitted the newest caller.
+
+Neither is a live defect — no fragment in either declares `fkRemapField`, so the empty remap is never read.
+The hazard is what happens NEXT: `captureFieldPart` hardcodes `isPrimary: false`, so adding a `capturePart`
+cascade beside an existing field fragment points that cascade at stale ids with no error. `use-budget-buckets`
+is the likelier site, because its first fragment is the whole-row `tasksPart` from `use-bulk-operations` — a
+§50 candidate whose obvious fix reproduces exactly this shape. Flag the cascade `isPrimary: true` in the same
+edit.
+
+## 135. Two different-type links to one task can be staged but not removed individually — open, UI
+
+`DependencyLinkGroup` appends `{ taskId, type: pendingType }` on add with no check, so the same task can be
+staged twice under different types (FS and SS). Its remove handler filters on `taskId` ALONE, so removing
+either chip removes BOTH.
+
+★★ An exact `(taskId, type)` duplicate is NOT the problem, and a working note claiming so was wrong:
+`pushUniqueDependency` (`sanitize-core.ts`) keys its `seen` set on the id and type together, so an exact
+duplicate is collapsed at save on every backend. Only the DIFFERENT-type pair survives, and it is the one the
+remove control cannot address.
+
+★ Whether a task should be allowed two relation types to the same task at all is the open design question;
+the storage layer permits it today. Matching the remove handler on both fields is the smaller change and does
+not settle that.
+
+## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code
+
+Removing the Open Points inline relations pencil (0.228.0) left the `dependencies` branch of
+`sanitizeInlinePatch`, and its `sanitizeDependencies` call, unreachable: no `onInlinePatch` call site passes
+that key. Reproduce with
+`grep -rn "onInlinePatch(" src/app --include=*.tsx | grep -v ".test." | grep -c dependencies` → 0. The
+remaining inline cells commit `priority`, `assignee`/`assigneeEmail`/`resourceId`, and the generic
+single-field path from `useInlineCellEdit`.
+
+★ Left in place rather than deleted because it is a SANITIZER: the branch is the guard that would apply if a
+future inline affordance did patch the field, and deleting it makes reintroducing that affordance silently
+unsanitised. Recorded so a dead-code sweep does not mistake it for an oversight in either direction.
