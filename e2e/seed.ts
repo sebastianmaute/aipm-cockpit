@@ -36,6 +36,15 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       ],
       createdAt: "2026-06-01T00:00:00.000Z",
       updatedAt: "2026-06-01T00:00:00.000Z",
+      // ★★ A view being in A11Y_VIEWS is NOT the same as that view being
+      // covered: the scan only sees what this seed put in IndexedDB, so
+      // without a link the Documents scan renders an unlinked document and the
+      // chips never exist at scan time. Task #1 is the sample master's first
+      // task, present in every seeded workspace.
+      // ★ Deliberately on THIS e2e-only document rather than the sample's, so a
+      // test-only row never forces a golden regeneration. The sample's own
+      // document carries a LABELLED link, so both shapes are seeded.
+      linkedEntities: [{ kind: "task", id: 1 }],
     },
   ],
   // ★ e2e-only, for the same reason as `documents` above: the master is the
