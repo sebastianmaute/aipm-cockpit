@@ -66,18 +66,47 @@ describe("markedNear", () => {
 });
 
 describe("GATE_SELF_FILES", () => {
-  it("names both gate files, not just the CLI", () => {
-    expect(GATE_SELF_FILES.some((f) => f.endsWith("check-agents-symbols.mjs"))).toBe(true);
-    expect(GATE_SELF_FILES.some((f) => f.endsWith("agents-symbols-lib.mjs"))).toBe(true);
+  it("names all three gate files, not just the CLI", () => {
+    for (const f of [
+      "check-agents-symbols.mjs",
+      "agents-symbols-lib.mjs",
+      "agents-symbols-lib.test.mjs",
+    ]) {
+      expect(
+        GATE_SELF_FILES.some((p) => p.endsWith(f)),
+        `${f} is scanned`,
+      ).toBe(true);
+    }
   });
 
-  it("★★★ the allowlist sentinel does NOT resolve as real code", () => {
-    // `compareX` appears ONLY in ALLOWLIST. If the lib holding that allowlist
-    // is scanned, this set contains it, the allowlist entry goes dead, and the
-    // gate stops reporting the stale-claim class the entry was masking.
+  it("★★★ no sentinel name resolves as real code", () => {
+    // Every name below lives ONLY in the gate's own three files. `compareX` is
+    // an ALLOWLIST entry; the other three are doc mentions the gate suppresses
+    // via an absence marker. A leak kills the allowlist entry and turns three
+    // correct "that symbol is gone" claims into passes for the wrong reason.
+    //
+    // ★★ THE LIST IS SIZED TO THE MUTANTS, NOT TO THE HAZARD — each name is the
+    // separating input for one GATE_SELF_FILES entry, so dropping any single
+    // entry turns this red. Measured after the split, not assumed:
+    //   check-agents-symbols.mjs -> `migrateTaskStatus` — one of SEVERAL names
+    //     the CLI alone quotes, not the only one, so this list is sufficient
+    //     rather than exhaustive (deliberately uncounted: a count here rots on
+    //     every comment edit to these files). Some CLI-only name IS required:
+    //     extracting the library moved `pendingFlash`/`onTakeTour` out of the
+    //     CLI, so a list without one lets the CLI mutant survive.
+    //   agents-symbols-lib.mjs   -> `compareX`, `pendingFlash`, `onTakeTour`
+    //   this file                -> all four, which it quotes right here
+    //
+    // Re-derive rather than trust — both numbers rot as these files change.
+    // Delete ONE path.resolve line from GATE_SELF_FILES, then run
+    // `node scripts/check-agents-symbols.mjs`. Dropping THIS file's entry
+    // prints 1139/37115 where a correct tree prints 1135/37095 — exit 0 either
+    // way, which is the whole reason this test has to exist.
     const known = new Set();
     collectIdentifiers("scripts", known);
-    expect(known.has("compareX")).toBe(false);
+    for (const name of ["compareX", "pendingFlash", "onTakeTour", "migrateTaskStatus"]) {
+      expect(known.has(name), `${name} leaked into the scan`).toBe(false);
+    }
   });
 
   it("still collects ordinary identifiers from scripts/", () => {
