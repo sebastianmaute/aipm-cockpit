@@ -11,6 +11,7 @@ import { groupByStatus } from "./task-kanban";
 import { isJiraSynced } from "./jira-status-map";
 import { isReadOnlyIssue } from "./jira-projects";
 import type { JiraExtraProject } from "./settings-types";
+import type { ProjectDocument } from "./document-model";
 import { TaskKanbanCard } from "./task-kanban-card";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 
@@ -32,6 +33,12 @@ interface TaskKanbanProps {
   /** Per-task RAID / change references (same maps the table rows use). */
   raidByTask?: Map<number, RaidItem[]>;
   changeByTask?: Map<number, ChangeItem[]>;
+  /** Linked-documents reverse index (`refKey(kind, id)` → documents), the SAME
+   *  one the table rows and the registers read. Optional so lightweight
+   *  callers/tests can omit it — no badge renders without it. */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+  /** Deep-link to the Documents pane, filtered to one task. Optional, as above. */
+  onOpenDocuments?: (taskId: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   /** Deep-link to the RAID register for a task. Optional so lightweight callers
@@ -63,6 +70,8 @@ export function TaskKanban({
   jiraExtraProjects = EMPTY_EXTRA_PROJECTS,
   raidByTask,
   changeByTask,
+  documentsByEntity,
+  onOpenDocuments,
   onStatusChange,
   onEdit,
   onJumpToRaid = NOOP_JUMP_TO_RAID,
@@ -113,6 +122,8 @@ export function TaskKanban({
                     resourcesById={resourcesById}
                     raidRefs={raidByTask?.get(task.id)}
                     changeRefs={changeByTask?.get(task.id)}
+                    documentsByEntity={documentsByEntity}
+                    onOpenDocuments={onOpenDocuments}
                     onStatusChange={onStatusChange}
                     onEdit={onEdit}
                     onJumpToRaid={onJumpToRaid}

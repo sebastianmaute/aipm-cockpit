@@ -227,7 +227,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept, requestDocumentsForEntity } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -1484,6 +1484,15 @@ function TaskManagerInner() {
     sendCommTemplate: commSend.send,
   });
 
+  // Task-side twin of onJumpToRaid: arms the Documents pane's entity filter for
+  // one task. The registers call requestDocumentsForEntity directly; the task
+  // surfaces (row + Kanban card) render outside any provider they could read it
+  // from, so it is threaded down as a prop.
+  const onOpenDocuments = useCallback(
+    (taskId: number) => requestDocumentsForEntity("task", taskId),
+    [requestDocumentsForEntity],
+  );
+
   // Action-Center CTA handlers (assign / create-task / mark-done / clear-blocker
   // / draft-message / escalate / rebaseline / reschedule) extracted to
   // useActionCenterHandlers. Called AFTER useTaskRowHandlers because
@@ -2410,6 +2419,8 @@ function TaskManagerInner() {
       pushingIds={pushingIds}
       raidByTask={raidByTask}
       changeByTask={changeByTask}
+      documentsByEntity={documentsByEntity}
+      onOpenDocuments={onOpenDocuments}
       jiraEnabled={settings.jira.enabled}
       jiraSyncing={jiraSyncing}
       jiraProjectKey={settings.jira.projectKey}

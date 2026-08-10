@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TaskKanbanCard } from "./task-kanban-card";
+import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { t } from "./i18n";
 import type { RaidItem, Resource, Task } from "./types";
 
@@ -122,5 +124,73 @@ describe("TaskKanbanCard", () => {
       />,
     );
     expect(screen.queryByRole("combobox", { name: /^Assign/ })).toBeNull();
+  });
+});
+
+describe("TaskKanbanCard linked-documents badge", () => {
+  const doc = (id: number, links: DocEntityRef[]): ProjectDocument => ({
+    id,
+    title: `Doc ${id}`,
+    blocks: [],
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    linkedEntities: links,
+  });
+
+  // Built with the REAL indexer over real documents, so the (kind, id) key
+  // derivation is exercised end to end rather than stubbed. `doc(12)` is a DECOY
+  // linking raid:7 while Alpha IS task 7 — a count keyed on the bare id inflates
+  // Alpha to 3 and fails.
+  const documentsByEntity = indexDocumentsByEntity([
+    doc(10, [{ kind: "task", id: 7 }, { kind: "task", id: 8 }]),
+    doc(11, [{ kind: "task", id: 7 }]),
+    doc(12, [{ kind: "raid", id: 7 }]),
+  ]);
+
+  // THREE cards on purpose. Two carry a badge with DIFFERENT counts (2 vs 1), so
+  // a hardcoded number cannot pass and the `– <taskName>` qualifier is proved to
+  // make the name card-unique (WCAG 2.4.6 — axe has no rule for a duplicate
+  // accessible name at any seed size, so this test is the only detector).
+  function renderCards(onOpenDocuments = vi.fn()) {
+    render(
+      <>
+        {[
+          taskFix({ id: 7, taskName: "Alpha" }),
+          taskFix({ id: 8, taskName: "Beta" }),
+          taskFix({ id: 9, taskName: "Gamma" }),
+        ].map((task) => (
+          <TaskKanbanCard
+            key={task.id}
+            lang="en-US"
+            task={task}
+            today="2026-06-19"
+            holidaySet={new Set()}
+            documentsByEntity={documentsByEntity}
+            onOpenDocuments={onOpenDocuments}
+            onStatusChange={vi.fn()}
+            onEdit={vi.fn()}
+            onJumpToRaid={vi.fn()}
+          />
+        ))}
+      </>,
+    );
+    return onOpenDocuments;
+  }
+
+  it("badges only the referenced cards, with the real count and a card-unique name", () => {
+    renderCards();
+    const badges = screen.getAllByRole("button", { name: /^Referenced by/ });
+    expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Referenced by 2 document(s) – Alpha",
+      "Referenced by 1 document(s) – Beta",
+    ]);
+    // Gamma links no document → no badge at all (not a badge reading 0).
+    expect(screen.queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
+  });
+
+  it("clicking a badge opens the Documents pane for THAT task", () => {
+    const onOpenDocuments = renderCards();
+    fireEvent.click(screen.getByRole("button", { name: "Referenced by 1 document(s) – Beta" }));
+    expect(onOpenDocuments).toHaveBeenCalledWith(8);
   });
 });

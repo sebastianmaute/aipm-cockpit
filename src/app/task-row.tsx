@@ -13,6 +13,9 @@ import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
 import { NotesBadgeButton } from "./notes-badge-button";
 import { RaidBadge } from "./task-raid-badge";
+import { DocumentBadge } from "./document-badge";
+import { refKey } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { TaskStatusGlyph } from "./task-status-glyph";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
@@ -163,6 +166,12 @@ interface TaskRowProps {
   isPushing: boolean;
   raidRefs: RaidItem[] | undefined;
   changeRefs?: ChangeItem[];
+  /** Linked-documents reverse index (`refKey(kind, id)` → documents) and the
+   *  Documents deep-link. PROPS, not context — the same pair feeds the Kanban
+   *  card, which renders outside every provider a hook could read. Optional so
+   *  lightweight callers/tests can omit them; no badge renders then. */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+  onOpenDocuments?: (taskId: number) => void;
   isStriped?: boolean;
   isFlashed?: boolean;
 }
@@ -174,6 +183,8 @@ function TaskRowImpl({
   isPushing,
   raidRefs,
   changeRefs,
+  documentsByEntity,
+  onOpenDocuments,
   isStriped = false,
   isFlashed = false,
 }: TaskRowProps) {
@@ -429,6 +440,12 @@ function TaskRowImpl({
         {raidRefs && raidRefs.length > 0 && (
           <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
         )}
+        <DocumentBadge
+          lang={lang}
+          count={documentsByEntity?.get(refKey("task", task.id))?.length ?? 0}
+          entityTitle={task.taskName}
+          onOpen={() => onOpenDocuments?.(task.id)}
+        />
         {changeRefs && changeRefs.length > 0 && (
           <span
             title={t(lang, "taskRowChangesBadge", changeRefs.length)}

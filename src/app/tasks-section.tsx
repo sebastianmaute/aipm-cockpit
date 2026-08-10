@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { ArrowPathIcon, CheckCircleIcon, Cog6ToothIcon, EyeSlashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
+import type { ProjectDocument } from "./document-model";
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
@@ -132,6 +133,12 @@ export interface TasksSectionProps {
   pushingIds: Set<number>;
   raidByTask: Map<number, RaidItem[]>;
   changeByTask: Map<number, ChangeItem[]>;
+  /** The SAME reverse index the registers use (built once in task-manager), keyed
+   *  by `refKey(kind, id)` — threaded rather than pre-counted so the task and
+   *  register surfaces share one index and one key derivation. */
+  documentsByEntity: ReadonlyMap<string, readonly ProjectDocument[]>;
+  /** Deep-link to the Documents pane, filtered to this task. */
+  onOpenDocuments: (taskId: number) => void;
   // jira
   jiraEnabled: boolean;
   jiraSyncing: boolean;
@@ -214,6 +221,8 @@ export function TasksSection({
   pushingIds,
   raidByTask,
   changeByTask,
+  documentsByEntity,
+  onOpenDocuments,
   jiraEnabled,
   jiraSyncing,
   jiraProjectKey,
@@ -900,6 +909,8 @@ export function TasksSection({
           holidaySet={holidaySet}
           raidByTask={raidByTask}
           changeByTask={changeByTask}
+          documentsByEntity={documentsByEntity}
+          onOpenDocuments={onOpenDocuments}
           onSwimlaneDrop={onSwimlaneDrop}
           assignableResources={assignableResources}
           onAssign={onAssignFromCard}
@@ -926,6 +937,8 @@ export function TasksSection({
           resourcesById={resourcesById}
           raidByTask={raidByTask}
           changeByTask={changeByTask}
+          documentsByEntity={documentsByEntity}
+          onOpenDocuments={onOpenDocuments}
           onStatusChange={onStatusChange}
           onEdit={onEdit}
           onJumpToRaid={onJumpToRaid}
@@ -1018,6 +1031,8 @@ export function TasksSection({
                   isPushing={pushingIds.has(task.id)}
                   raidRefs={raidByTask.get(task.id)}
                   changeRefs={changeByTask.get(task.id)}
+                  documentsByEntity={documentsByEntity}
+                  onOpenDocuments={onOpenDocuments}
                   isStriped={i % 2 === 1}
                   isFlashed={flashId === task.id}
                 />

@@ -13,6 +13,9 @@ import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
 import { isJiraSynced } from "./jira-status-map";
 import { RaidBadge } from "./task-raid-badge";
+import { DocumentBadge } from "./document-badge";
+import { refKey } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { effectiveAssignee, resourceDisplayName } from "./resource-foundation";
@@ -32,6 +35,11 @@ interface TaskKanbanCardProps {
   resourcesById?: ReadonlyMap<number, Resource>;
   raidRefs?: RaidItem[];
   changeRefs?: ChangeItem[];
+  /** ★★ PROPS, never context: the board renders cards OUTSIDE RowContextProvider
+   *  and `useWorkspaceTab` throws without a provider. Optional so lightweight
+   *  callers/tests can omit them — no badge renders then. */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+  onOpenDocuments?: (taskId: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onJumpToRaid: (taskId: number) => void;
@@ -54,6 +62,8 @@ export function TaskKanbanCard({
   resourcesById,
   raidRefs,
   changeRefs,
+  documentsByEntity,
+  onOpenDocuments,
   onStatusChange,
   onEdit,
   onJumpToRaid,
@@ -99,6 +109,12 @@ export function TaskKanbanCard({
         {raidRefs && raidRefs.length > 0 && (
           <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
         )}
+        <DocumentBadge
+          lang={lang}
+          count={documentsByEntity?.get(refKey("task", task.id))?.length ?? 0}
+          entityTitle={task.taskName}
+          onOpen={() => onOpenDocuments?.(task.id)}
+        />
         {changeRefs && changeRefs.length > 0 && (
           <span
             title={changesLabel}
