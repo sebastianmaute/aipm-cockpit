@@ -67,12 +67,33 @@ describe("the paragraph schema description matches the document write boundary",
     .split(/[,/\s]+/)
     .filter(Boolean);
 
-  /** ★ Each sample LEADS with `<p>`, which is the very instruction under test:
-   *  layer 1's `HTML_START` knows only p/br/strong/em/ul/ol/li/a, so a sample
-   *  opening with `<mark>` or `<pre>` would be escaped to literal text and the
-   *  assertion would fail for the classifier's reason rather than the
-   *  allow-list's. Block-level tags sit AFTER a `<p>` for the same reason (and
-   *  because `<pre>`/`<hr>` inside a `<p>` is not parseable markup). */
+  /** ★ Each sample LEADS with `<p>`, which is the very instruction under test.
+   *  It USED to be load-bearing for a second reason too: while one shared 8-tag
+   *  classifier (p/br/strong/em/ul/ol/li/a, since retired) served every sink, a
+   *  sample opening with `<mark>` or `<pre>` would have been escaped to literal
+   *  text and the assertion would have failed for the classifier's reason rather
+   *  than the allow-list's. The "document" sink now derives its test from
+   *  `DOCUMENT_ALLOWED_TAGS` and recognises both, so only the first reason is
+   *  live.
+   *
+   *  ★★★ Block-level samples still sit AFTER a `<p>`, but NOT for the reason an
+   *  earlier revision of this comment gave. It said `<pre>`/`<hr>` inside a `<p>`
+   *  "is not parseable markup" — which is the exact claim the "do not restore
+   *  either" note below BANS, re-promoted from a parenthetical aside into the SOLE
+   *  stated reason — in the SAME FILE as its own ban. Measured 2026-08-10 against
+   *  jsdom and the real exported sanitizer, not reasoned:
+   *
+   *    parse "<p><pre>a</pre></p>" -> "<p></p><pre>a</pre><p></p>"  (p/pre/p)
+   *    parse "<p><hr></p>"         -> "<p></p><hr><p></p>"          (p/hr/p)
+   *    sanitizeAiDocumentRichText("<p><pre>a</pre></p>") -> "<p></p><pre>a</pre><p></p>"
+   *    sanitizeAiDocumentRichText("<p><hr></p>")         -> ""
+   *
+   *  So the parser auto-closes the `<p>` in BOTH cases and `pre` would still
+   *  satisfy the survival assertion wrapped. Exactly ONE sample needs the leading
+   *  `<p>`, and for a different reason: `hr`. `<p><hr></p>` carries no TEXT, so
+   *  `sanitizeRichText`'s drop-empty rule (`htmlTextLength(html) === 0 ? ""`)
+   *  discards the WHOLE value and the assertion sees `""`. The other block-level
+   *  samples sit after a `<p>` only to match that shape. */
   const TAG_SAMPLE: Record<string, string> = {
     p: "<p>a</p>",
     br: "<p>a<br>b</p>",
@@ -123,19 +144,54 @@ describe("the paragraph schema description matches the document write boundary",
     expect(advertisedTags).not.toContain("img");
   });
 
-  // ★★★ LOAD-BEARING, not style advice — see chat-tool-defs-documents.ts. A
-  // value LEADING with a document-only tag fails layer 1's `HTML_START` test and
-  // is escaped to permanently visible literal tags. Proven both ways below so
-  // the instruction cannot be dropped as redundant.
+  // ★★★ NO LONGER LOAD-BEARING FOR SURVIVAL, and this comment used to say the
+  // opposite. It claimed a value LEADING with a document-only tag fails layer 1's
+  // classifier and is escaped to permanently visible literal tags. That WAS true:
+  // one shared 8-tag `HTML_START` (p/br/strong/em/ul/ol/li/a, since retired)
+  // served every sink,
+  // so `<mark>`, `<pre>`, `<hr>` and the rest of the document-only set were read
+  // as plain text and `plainToHtml` escaped the WHOLE value — open-followups §107
+  // at the document sink, on the tags this very schema advertises.
+  //
+  // The classifier is now DERIVED per sink from that sink's own allow-list, so the
+  // document sink recognises every one of the 20 tags in `DOCUMENT_ALLOWED_TAGS`
+  // as an opener and a leading `<mark>` passes through as markup. The test below
+  // used to pin the escaping and now pins the survival.
+  //
+  // ★★ KEEP the instruction, but for ONE measured reason and not the two obvious
+  // ones. Measured 2026-08-09 by probe, both renderer families:
+  //   - HTML/PDF: bare inline content is emitted verbatim, so it lands between
+  //     <header> and <footer> with NO <p> around it — no paragraph semantics and
+  //     no paragraph spacing. This is the whole of what the instruction buys.
+  //   - DOCX/PPTX: `htmlToRichLines` opens a line on first text when none is
+  //     current (rich-text-runs.ts pushText), so bare and wrapped produce
+  //     BYTE-IDENTICAL RichLine[]. The wrapper is a no-op on this path.
+  // ★ Two justifications that read well and are FALSE — do not restore either:
+  // "<pre>/<hr> inside a <p> is not parseable" (the parser auto-closes the <p>
+  // and yields a correct p/pre/p) and "bare inline content has no block to
+  // render" (refuted by the DOCX/PPTX result above).
+  // ★★★ THE FIRST ONE CAME BACK. A later commit on this same branch re-promoted
+  // it into the TAG_SAMPLE comment ABOVE — in this same file, above this ban — as
+  // the SOLE reason the block-level samples are unwrapped, and it was measured and
+  // corrected a second time. Before writing any reason for those sample shapes,
+  // read that comment: the real one is `hr`'s drop-empty rule, not parseability.
+  // ★ The schema's own rationale in chat-tool-defs-documents.ts USED to be wrong
+  // for the same reason this comment was — it told the model the value "is stored
+  // as literal visible text" otherwise, which is the §107 behaviour this slice
+  // removed. That clause is gone; the instruction itself stayed, for the measured
+  // reason above. Confirm with
+  // `grep -n "literal visible text" src/app/chat-tool-defs-documents.ts`
+  // (no hits).
   it("tells the model to start the value with <p>", () => {
     expect(blockDescription).toMatch(/start the value with <p>/i);
   });
 
-  it("proves the <p> instruction is what makes a leading <mark> survive", () => {
+  it("keeps a leading document-only tag as markup, wrapped or not", () => {
     expect(sanitizeAiDocumentRichText("<p><mark>keep</mark></p>")).toContain("<mark>");
     const unwrapped = sanitizeAiDocumentRichText("<mark>keep</mark> and more");
-    expect(unwrapped).not.toContain("<mark>");
-    expect(unwrapped).toContain("&lt;mark&gt;");
+    expect(unwrapped).toContain("<mark>");
+    // The §107 regression in miniature: the whole value escaped into literal text.
+    expect(unwrapped).not.toContain("&lt;mark&gt;");
   });
 });
 

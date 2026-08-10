@@ -1,9 +1,13 @@
 // src/app/sanitize-html.ts — the DOMPurify storage-boundary sanitizers.
-// Five exports: three DOMPurify sanitizers — sanitizeTemplateHtml (comm templates,
-// meeting reports and the seven rich entity description fields), sanitizeDocumentHtml
+// Three DOMPurify sanitizers — sanitizeTemplateHtml (comm templates, meeting
+// reports and the seven rich entity description fields), sanitizeDocumentHtml
 // (documents only, a wider list) and sanitizeNoteHtml (the lean note/description
 // set) — plus htmlToText (the plain-text projection) and plainToHtml (wraps plain
-// text as lean HTML, and is deliberately DOM-free; see its own note).
+// text as lean HTML, and is deliberately DOM-free; see its own note). The three
+// sanitizers' allow-lists — TEMPLATE_ALLOWED_TAGS, DOCUMENT_ALLOWED_TAGS,
+// NOTE_ALLOWED_TAGS — are also exported, so html-start.ts can derive each sink's
+// own "is this value already HTML?" classifier from the same list that sink
+// sanitizes against, instead of a hand-maintained mirror that can drift.
 // The template TAG allow-list mirrors the Tiptap editor's schema (the only producer
 // of that HTML), so sanitizing the editor output is a defense-in-depth boundary.
 // Merge-field tokens ({{field}}) are plain text and pass through untouched.
@@ -23,7 +27,13 @@
 // removing them would erase the only pointer to why links behave this way.
 import DOMPurify from "dompurify";
 
-const ALLOWED_TAGS = ["p", "br", "strong", "em", "u", "h1", "h2", "ul", "ol", "li", "a"];
+/** The seven rich entity fields' storage allow-list (`Task.description` plus the
+ *  six in `AI_RICH_FIELDS`), plus comm templates and meeting reports.
+ *  ★ EXPORTED so html-start.ts can derive this sink's classifier from it. Adding a
+ *  tag here widens that classifier in the same edit — which is the whole point:
+ *  a classifier narrower than its sink escapes a value the sink would have kept
+ *  (open-followups §107). */
+export const TEMPLATE_ALLOWED_TAGS = ["p", "br", "strong", "em", "u", "h1", "h2", "ul", "ol", "li", "a"];
 const ALLOWED_ATTR = ["href", "target", "rel"];
 
 // SHARED by all three sanitizers below — one literal, so the three cannot drift.
@@ -36,14 +46,14 @@ const SAFE_URI_REGEXP = /^(?:https?|mailto):[^<>"]*$/i;
 
 export function sanitizeTemplateHtml(html: string): string {
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
+    ALLOWED_TAGS: TEMPLATE_ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
   });
 }
 
-/** Documents-only allow-list. WIDER than ALLOWED_TAGS on purpose, and separate
- *  from it on purpose: sanitizeTemplateHtml also serves comm templates, meeting
+/** Documents-only allow-list. WIDER than TEMPLATE_ALLOWED_TAGS on purpose, and
+ *  separate from it on purpose: sanitizeTemplateHtml also serves comm templates, meeting
  *  reports and the seven rich entity fields (`Task.description` plus the six in
  *  `AI_RICH_FIELDS`), so widening THAT list would change
  *  what a model may store everywhere — retroactively, including how already
@@ -110,8 +120,8 @@ export function sanitizeTemplateHtml(html: string): string {
  *  DOMPurify's default `DATA_URI_TAGS` — so adding `src` to the list admits
  *  `data:text/html` and `data:image/svg+xml`, both XSS vectors, bypassing
  *  `ALLOWED_URI_REGEXP` entirely. Neither is reachable today. */
-const DOCUMENT_ALLOWED_TAGS = [
-  ...ALLOWED_TAGS,
+export const DOCUMENT_ALLOWED_TAGS = [
+  ...TEMPLATE_ALLOWED_TAGS,
   "s",
   "code",
   "pre",
@@ -134,10 +144,14 @@ export function sanitizeDocumentHtml(html: string): string {
   });
 }
 
-// ★ narrative-html.ts's HTML_START mirrors this list (minus "#text"): it decides
-// whether a stored narrative is already HTML, and recognising a tag THIS list
-// omits means the sink below deletes the element and its text. Edit both together.
-const NOTE_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "a", "#text"];
+// ★★ html-start.ts DERIVES the "note" classifier from this list (its factory drops
+// "#text", which is not a tag name). It is no longer a mirror a human maintains —
+// editing this array moves the classifier in the same edit. The hazard it used to
+// warn about is still real and is now structurally prevented: recognising a tag
+// THIS list omits means the sink below deletes the element AND its text
+// (KEEP_CONTENT: false), which is why the note sink must never be classified with
+// a wider list. See open-followups §107.
+export const NOTE_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "a", "#text"];
 const NOTE_ALLOWED_ATTR = ["href", "target", "rel"];
 
 /** Storage-boundary sanitizer for task Description + note-log HTML (lean set:

@@ -21,7 +21,17 @@ vi.mock("./graph-mail", () => ({
   buildGraphMessage: (to: unknown, subject: string, html: string) => ({ to, subject, html }),
   sendMail: (token: string, msg: unknown) => sendMail(token, msg),
 }));
-vi.mock("./sanitize-html", () => ({ sanitizeTemplateHtml: (h: string) => h }));
+// ★ Spread the ACTUAL module rather than listing exports: html-start.ts reads the
+// three tag arrays at module-eval to build its per-sink classifiers, and a mock
+// that omits them throws "No X export is defined on the mock" the moment anything
+// in the graph reaches rich-text-plain. Handing it `[]` instead would be worse than
+// the throw — htmlStartRe returns its never-matching regex for an empty list, so
+// every stored value would silently classify as plain text. Only the one DOM-bound
+// function this test needs to avoid is stubbed.
+vi.mock("./sanitize-html", async (importActual) => ({
+  ...(await importActual<typeof import("./sanitize-html")>()),
+  sanitizeTemplateHtml: (h: string) => h,
+}));
 
 const resources: Resource[] = [
   { id: 1, firstName: "A", lastName: "", roleId: null, utilizationMode: "percent", utilization: {}, email: "a@x.com" },

@@ -490,6 +490,44 @@ describe("renderDocumentPptx — blocks", () => {
     expect(text).not.toContain("onetwo");
   });
 
+  it("upgrades a legacy plain-text paragraph instead of fusing its lines", async () => {
+    // Sibling of the DOCX suite's test of the same name — the composition is at
+    // THREE renderer call sites, so each needs its own pin or deleting one goes
+    // unnoticed. A hand-edited or externally-produced workspace can store
+    // {"type":"paragraph","html":"a\nb"}: neither load-path sanitizer upgrades
+    // it, so the renderer is where the newline must become a line break
+    // (open-followups §118). Asserting SEPARATE paragraphs, not "<a:br/>" —
+    // htmlToRichLines ENDS a line at the <br> plainToHtml produces.
+    const texts = paraInfos(await onlyContentSlide("a\nb")).map((p) => p.text);
+    expect(texts).toEqual(["a", "b"]);
+  });
+
+  it("keeps a paragraph opening with an unlisted tag as TEXT, not escaped markup", async () => {
+    // ★★★ Sibling of the DOCX test of the same name. The upgrade above must not
+    // be bought by escaping real markup: htmlToRichLines keeps every tag's
+    // text, so the classifier has to be the "render" sink. Under "document",
+    // each of these came back as its own literal characters in one run.
+    for (const [html, text] of [
+      ["<h3>Sub</h3>", "Sub"],
+      ["<div>Status</div>", "Status"],
+      ["<table><tr><td>cell</td></tr></table>", "cell"],
+    ]) {
+      expect(paraInfos(await onlyContentSlide(html)).map((p) => p.text)).toEqual([text]);
+    }
+  });
+
+  it("keeps markup that does not OPEN with a tag as markup", async () => {
+    // ★★★ Sibling of the DOCX test of the same name. The render classifier asks
+    // "does this CONTAIN a tag at all?", never "does it START with one" — while
+    // it was anchored, "Intro <strong>bold</strong> tail" was escaped WHOLE and
+    // PowerPoint showed the literal tag characters.
+    const xml = await onlyContentSlide("Intro <strong>bold</strong> tail");
+    // POSITIVE form: the mark reached the run that carries it. Asserting only
+    // the absence of "&lt;strong" would be satisfied by an empty slide.
+    expect(runsByText(xml).get("bold")!.attrs.b).toBe("1");
+    expect(paraInfos(xml).map((p) => p.text)).toEqual(["Intro bold tail"]);
+  });
+
   it("keeps a literal '<' from prose as text, not markup", async () => {
     // The projection treats "<" not followed by a letter as literal text; if
     // that regressed, this is where the package stops opening.

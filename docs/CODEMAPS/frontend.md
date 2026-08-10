@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 | App 0.228.0 "Kessel" | Files scanned: 299 .tsx + 474 .ts under src/app (excl. 768 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.229.0 "Marillier" | Files scanned: 318 .tsx + 518 .ts under src/app (excl. 852 test files) | Token estimate: ~1050 -->
 
 # Frontend
 

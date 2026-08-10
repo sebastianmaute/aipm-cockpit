@@ -26,7 +26,8 @@ describe("descriptionText", () => {
     expect(descriptionText("cost < 5k & rising")).toBe("cost < 5k & rising");
   });
 
-  // ★★★ The user-visible half of the HTML_START termination bug. A legacy plain
+  // ★★★ The user-visible half of the termination bug in the retired shared
+  // `HTML_START` — `htmlStartRe`'s `[^>]*>` now demands the close. A legacy plain
   // value that merely STARTS tag-shaped was passed through raw; the tokenizer
   // discards an incomplete tag at EOF, so descriptionText — the value every
   // non-DOM consumer reads, i.e. global search, the export sections and the AI
@@ -41,8 +42,9 @@ describe("descriptionText", () => {
 
   // ★ PINNED RESIDUE, not an aspiration: this one is genuinely tag-shaped AND
   // terminated, so the opening-tag heuristic cannot tell it from real markup and
-  // the sink eats the "<a href>". Asserted so that a future change to HTML_START
-  // has to confront it deliberately rather than shift it by accident.
+  // the sink eats the "<a href>". html-start.ts records it as deliberate residue;
+  // asserted here so that a future change to the classifier has to confront it
+  // rather than shift it by accident.
   it("still loses a leading token that is tag-shaped AND closed", () => {
     expect(descriptionText("<a href> tags are banned")).toBe("tags are banned");
   });
@@ -184,5 +186,25 @@ describe("description consumers use the correct projection", () => {
     };
     walk(appDir);
     expect(callers.sort()).toEqual([]);
+  });
+});
+
+describe("projection classifies at the widest list", () => {
+  it("does not emit literal markup for a value leading with a heading", () => {
+    // Before the split this projected to the visible text "<h1>Title</h1><p>body</p>"
+    // — into search results, the AI digests, and every DOCX/PPTX/XLSX/PDF export.
+    expect(descriptionText("<h1>Title</h1><p>body</p>")).toBe("Title body");
+  });
+
+  it("does not emit literal markup for a document-only leading tag", () => {
+    expect(descriptionText("<blockquote>quoted</blockquote>")).toBe("quoted");
+  });
+
+  it("keeps the export projection's block boundary as a newline", () => {
+    expect(descriptionTextWithBreaks("<h1>Title</h1><p>body</p>")).toBe("Title\nbody");
+  });
+
+  it("still escapes and projects genuine plain text unchanged", () => {
+    expect(descriptionText("cost < 5k")).toBe("cost < 5k");
   });
 });

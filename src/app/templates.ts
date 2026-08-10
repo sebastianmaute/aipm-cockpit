@@ -143,7 +143,16 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     // accident.
     // ★★ `||`, not `??`: a template carrying `description: ""` alongside a legacy
     // `notes` must fall back to the notes, and `??` only catches null/undefined.
-    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX),
+    // ★★ The sink is the DESTINATION field's, never this file's. The value lands
+    // in `Task.description`, whose human save AND whose whole-object load
+    // normalizer (`sanitizeRichFields`, note-log.ts) both run sanitizeNoteHtml —
+    // 8 tags at KEEP_CONTENT: false, which deletes an unlisted element TOGETHER
+    // WITH its text. Measured 2026-08-10 through the real exported sanitizers,
+    // on "<h2>Plan</h2><p>steps</p>" captured by templateFromWorkspace:
+    //   "template" stored: "<h2>Plan</h2><p>steps</p>" -> human Save: "<p>steps</p>"
+    //                                                     "Plan" GONE, no undo
+    //   "note"     stored: escaped markup               -> human Save: unchanged
+    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, "note"),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

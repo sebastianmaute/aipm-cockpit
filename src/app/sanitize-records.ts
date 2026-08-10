@@ -85,7 +85,7 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   const m: Milestone = { id: Math.floor(id), name, date, linkedTaskIds };
   const achievedDate = sanitizeIsoDate(o.achievedDate);
   if (achievedDate) m.achievedDate = achievedDate;
-  const description = sanitizeRichText(o.description, TEXTAREA_MAX);
+  const description = sanitizeRichText(o.description, TEXTAREA_MAX, "template");
   if (description) m.description = description;
   const localModifiedAt = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (localModifiedAt) m.localModifiedAt = localModifiedAt;
@@ -119,7 +119,7 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   const item: ChangeItem = {
     id: Math.floor(id),
     title,
-    description: sanitizeRichText(o.description, TEXTAREA_MAX),
+    description: sanitizeRichText(o.description, TEXTAREA_MAX, "template"),
     type,
     status,
     raisedDate: sanitizeIsoDate(o.raisedDate),
@@ -128,13 +128,13 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
     stakeholderIds: sanitizeIdList(o.stakeholderIds),
   };
   if (typeof o.impact === "string" && CHANGE_IMPACT_SET.has(o.impact)) item.impact = o.impact as ChangeItem["impact"];
-  const impactDesc = sanitizeRichText(o.impactDescription, TEXTAREA_MAX); if (impactDesc) item.impactDescription = impactDesc;
+  const impactDesc = sanitizeRichText(o.impactDescription, TEXTAREA_MAX, "template"); if (impactDesc) item.impactDescription = impactDesc;
   const days = toNumber(o.scheduleImpactDays); if (Number.isFinite(days) && days >= 0) item.scheduleImpactDays = days;
   const cost = toNumber(o.costImpact); if (Number.isFinite(cost) && cost >= 0) item.costImpact = cost;
   const reqBy = sanitizeText(o.requestedBy, BUDGET_NAME_MAX); if (reqBy) item.requestedBy = reqBy;
   const decBy = sanitizeText(o.decisionBy, BUDGET_NAME_MAX); if (decBy) item.decisionBy = decBy;
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
-  const notes = sanitizeRichText(o.resolutionNotes, TEXTAREA_MAX); if (notes) item.resolutionNotes = notes;
+  const notes = sanitizeRichText(o.resolutionNotes, TEXTAREA_MAX, "template"); if (notes) item.resolutionNotes = notes;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
   const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
   if (dl.length) item.knowledgeLinks = dl;
@@ -191,9 +191,9 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
     stakeholderIds: sanitizeIdList(o.stakeholderIds),
   };
 
-  const description = sanitizeRichText(o.description, TEXTAREA_MAX);
+  const description = sanitizeRichText(o.description, TEXTAREA_MAX, "template");
   if (description) item.description = description;
-  const mitigation = sanitizeRichText(o.mitigation, TEXTAREA_MAX);
+  const mitigation = sanitizeRichText(o.mitigation, TEXTAREA_MAX, "template");
   if (mitigation) item.mitigation = mitigation;
   const owner = sanitizeText(o.owner, BUDGET_NAME_MAX);
   if (owner) item.owner = owner;

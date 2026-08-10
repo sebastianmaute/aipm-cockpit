@@ -69,6 +69,12 @@ export interface RichTextEditorProps {
 // not be creatable by an invisible keystroke either.
 // The FULL variant is untouched: it has heading toolbar buttons, its sanitizer
 // allows h1/h2, and it keeps the text of anything it unwraps (KEEP_CONTENT).
+// ★★ `underline` belongs to the same family and was MISSED when the others were
+// disabled: StarterKit bundles it, NOTE_ALLOWED_TAGS has no `u`, so Mod-U left
+// the underline on screen while the commit deleted the underlined word
+// ("<u>under</u> tail" -> " tail"). It is the only one of the set reachable
+// ONLY by keystroke — no lean toolbar button and no markdown input rule — which
+// is why a sweep of the input rules did not surface it.
 const LEAN_EXTENSIONS = [
   StarterKit.configure({
     heading: false,
@@ -77,6 +83,7 @@ const LEAN_EXTENSIONS = [
     code: false,
     strike: false,
     horizontalRule: false,
+    underline: false,
   }),
 ];
 const FULL_EXTENSIONS = [StarterKit];

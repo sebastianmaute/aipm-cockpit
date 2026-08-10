@@ -923,6 +923,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
   [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
   rather than a projection, and is covered further down this bullet.)
+  ★★ `html-start.ts` obeys the SAME axis and is **DOM-FREE** for the same reason — it is imported by
+  `rich-text-plain.ts`, so it reaches the entity sanitizers and runs under bare node in the sample
+  generator. It is not a `rich-text-*` module and is deliberately not counted above; it may IMPORT the
+  tag arrays from `sanitize-html.ts` but must never CALL DOMPurify. Its own header carries the rule.
   • `rich-text-plain.ts` — **DOM-FREE**. `descriptionHtml` (upgrade), `htmlPlainProjection`,
   `htmlTextLength`, `capHtmlText`, `sanitizeRichText` (the entity sanitizers' entry point).
   • `rich-text-projection.ts` — **browser-only**. `descriptionText` (= projection ∘ `htmlToText` ∘
@@ -1035,9 +1039,32 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   letter or `/` is literal text — `<p>cost < 5k</p>` projected to `"cost"`, and a value projecting to
   empty is DROPPED by `sanitizeRichText`'s empty rule). Block tags are replaced by a SPACE first;
   `&amp;` decodes LAST so `&amp;lt;` cannot double-decode. All three cost a data-integrity bug.
-  ★★ `HTML_START` (`narrative-html.ts`, SHARED with the dashboard narrative) must see the tag
-  actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a value the counter
-  measured at 11 while every reader rendered nothing.
+  ★★★ **"IS THIS STORED VALUE ALREADY HTML?" IS ANSWERED PER SINK** — `isHtmlStart(value, sink)` in
+  `html-start.ts`, whose test each sink DERIVES from its own allow-list. THE RULE: never recognise
+  LESS than your sink KEEPS (a narrower classifier escapes the WHOLE value, permanently); a WIDER one
+  is worse where the sink DELETES, since `sanitizeNoteHtml` sets `KEEP_CONTENT: false`. Five sinks —
+  `note`, `template`, `document`, `projection` (derived from `NOTE_ALLOWED_TAGS` /
+  `TEMPLATE_ALLOWED_TAGS` / `DOCUMENT_ALLOWED_TAGS` twice) and `render`, which has NO list because its
+  consumers keep every tag's text. `descriptionHtml` and `sanitizeRichText` REQUIRE the sink argument.
+  One shared 8-tag constant served the FOUR DERIVED sinks and structurally could not express the
+  rule — §107 and §114 are the two defects that cost, both CLOSED 2026-08-10. ★★★ READ §107's CLOSED
+  NARROWLY: it means the CLASSIFIER is fixed, NOT that the payoff is delivered. The whole-object load
+  normalizer applies the `note` sink to all seven rich entity fields, so the AI's wider markup is
+  re-escaped on the next load — measured, and PRE-EXISTING rather than introduced here. Do not "finish"
+  it by widening the `note` sink: measured, that converts the escape into DELETION. §137 carries both
+  measurements. ★★ It did NOT serve
+  all five, and an earlier revision here said it did: the render boundary had **no classifier at
+  all** before this branch, because the three document renderers did not call `descriptionHtml` —
+  that composition was ADDED by `94b7fd21`, which is §118, and the sink it passes was narrowed to
+  `render` afterwards. So the render sink is not a constant that drifted, it is a boundary that was
+  missing. Reproduce the "four" against the PRE-BRANCH tree, where the now-RETIRED shared constant
+  still existed — `git grep -n "HTML_START\." 528dd5fe -- src` returns exactly two
+  call sites, `narrative-html.ts` (today's `note`) and `rich-text-plain.ts` `descriptionHtml`
+  (today's `note`/`template`/`document`/`projection`), and neither is a renderer.
+  ★★ The tag must actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a
+  value the counter measured at 11 while every reader rendered nothing. `html-start.ts` carries that
+  reasoning, the `\b` guard against a short tag swallowing a longer one, and the residue it
+  deliberately does not chase — read it before touching the regex, and do not restate it here.
   ★ Counters/caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`; `capHtmlText` backs a
   truncation off one code unit rather than splitting a surrogate pair (a lone surrogate is `U+FFFD`
   on CSV/MD but survives on JSON/IDB — a backend-dependent corruption). `clipText` in

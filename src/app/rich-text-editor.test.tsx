@@ -180,6 +180,41 @@ describe("RichTextEditor lean variant", () => {
     },
   );
 
+  // ★★ Same family as the input-rule cases above, but reachable ONLY by
+  // keystroke: StarterKit bundles the underline extension, the lean toolbar has
+  // no underline button, and NOTE_ALLOWED_TAGS has no `u` — so before
+  // `underline: false` the editor re-emitted `<u>` on every edit and the
+  // KEEP_CONTENT:false sanitizer deleted the underlined WORD with the tag.
+  it("does not re-emit an underline the lean sanitizer would delete the word with", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor
+            variant="lean"
+            value="<u>underlined</u> rest"
+            onChange={onChange}
+            label="Note"
+            lang="en-US"
+            editorRef={ref}
+          />
+          <button type="button" onClick={() => ref.current?.appendText("X")}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    const surface = await screen.findByRole("textbox", { name: "Note" });
+    // Anti-vacuity: an empty editor would satisfy `not.toContain("<u")` for free,
+    // and a never-fired onChange would leave the payload assertions unreached.
+    expect(surface.textContent).toContain("underlined");
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    const html = onChange.mock.calls.at(-1)![0] as string;
+    expect(html).toContain("underlined");
+    expect(html).not.toContain("<u");
+  });
+
   it("emits sanitized HTML through onChange when content changes via the toolbar", async () => {
     const { onChange } = setupLean();
     await screen.findByRole("textbox", { name: "Note" });

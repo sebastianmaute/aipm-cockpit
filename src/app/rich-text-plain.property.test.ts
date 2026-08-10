@@ -276,8 +276,8 @@ describe("rich-text-plain — properties", () => {
         // This upgrade runs on EVERY load of every rich field, so a
         // non-idempotent step compounds: a value re-escaped once per load would
         // reach the user as literal "&amp;amp;lt;" after a handful of saves.
-        const once = descriptionHtml(stored);
-        expect(descriptionHtml(once)).toBe(once);
+        const once = descriptionHtml(stored, "template");
+        expect(descriptionHtml(once, "template")).toBe(once);
       }),
       { numRuns: 50 },
     );
@@ -421,7 +421,7 @@ describe("rich-text-plain — properties", () => {
         // is swallowed by jsonToWorkspace's catch-all into an EMPTY workspace,
         // which then "successfully" writes near-empty files — the loudest
         // possible data loss arriving completely silently.
-        expect(typeof sanitizeRichText(raw, max)).toBe("string");
+        expect(typeof sanitizeRichText(raw, max, "template")).toBe("string");
       }),
       { numRuns: 50 },
     );
@@ -430,7 +430,7 @@ describe("rich-text-plain — properties", () => {
   test("sanitizeRichText strips control characters, respects the cap, and is idempotent", () => {
     fc.assert(
       fc.property(htmlishArb, fc.integer({ min: 0, max: 120 }), (raw, max) => {
-        const once = sanitizeRichText(raw, max);
+        const once = sanitizeRichText(raw, max, "template");
 
         // A control byte must not survive as a LITERAL, and a numeric reference
         // must not reintroduce one downstream of the raw strip: sanitizeRichText
@@ -445,7 +445,7 @@ describe("rich-text-plain — properties", () => {
 
         // Idempotent for the same reason descriptionHtml is: this is the load
         // boundary, so any drift compounds once per load rather than once ever.
-        expect(sanitizeRichText(once, max)).toBe(once);
+        expect(sanitizeRichText(once, max, "template")).toBe(once);
       }),
       { numRuns: 50 },
     );

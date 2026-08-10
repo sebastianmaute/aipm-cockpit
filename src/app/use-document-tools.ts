@@ -254,8 +254,10 @@ export function useDocumentTools(
         // ★★ THE SECOND OF THOSE TWO REASONS NEEDS A WRAPPED PAYLOAD TO
         // REPRODUCE, and a test written the obvious way never reaches the
         // branch it claims to cover. A BARE "<script>alert(1)</script>" does
-        // not start with a tag in rich-text-plain.ts's HTML_START set, so
-        // layer 1 treats it as PLAIN TEXT and ESCAPES it — the block is safe,
+        // not open with a tag the "document" sink keeps — `isHtmlStart`
+        // (html-start.ts) derives that test from `DOCUMENT_ALLOWED_TAGS`, which
+        // carries no `script` — so layer 1 treats it as PLAIN TEXT and ESCAPES
+        // it; the block is safe,
         // non-empty, and SURVIVES. "<p><script>alert(1)</script></p>" starts
         // with <p>, so DOMPurify sees real markup and strips the tag AND its
         // content, leaving "<p></p>", which the next sanitizeRichText pass's

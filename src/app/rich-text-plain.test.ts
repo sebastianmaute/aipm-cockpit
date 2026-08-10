@@ -12,31 +12,41 @@ import {
 
 describe("descriptionHtml", () => {
   it("escapes and wraps a legacy plain value", () => {
-    expect(descriptionHtml("cost < 5k & rising")).toBe("<p>cost &lt; 5k &amp; rising</p>");
+    expect(descriptionHtml("cost < 5k & rising", "template")).toBe(
+      "<p>cost &lt; 5k &amp; rising</p>",
+    );
   });
 
   it("keeps a plain value whose stray < is not a tag", () => {
-    expect(descriptionHtml("5 < 10 items")).toBe("<p>5 &lt; 10 items</p>");
-    expect(descriptionHtml("<3 open")).toBe("<p>&lt;3 open</p>");
+    expect(descriptionHtml("5 < 10 items", "template")).toBe("<p>5 &lt; 10 items</p>");
+    expect(descriptionHtml("<3 open", "template")).toBe("<p>&lt;3 open</p>");
   });
 
   it("passes through a value that already opens with an allowed tag", () => {
-    expect(descriptionHtml("<p>done</p>")).toBe("<p>done</p>");
-    expect(descriptionHtml("<strong>lead</strong> rest")).toBe("<strong>lead</strong> rest");
+    expect(descriptionHtml("<p>done</p>", "template")).toBe("<p>done</p>");
+    expect(descriptionHtml("<strong>lead</strong> rest", "template")).toBe(
+      "<strong>lead</strong> rest",
+    );
     // Attributes still close the tag, so a real opener is unaffected.
-    expect(descriptionHtml('<p class="lead">done</p>')).toBe('<p class="lead">done</p>');
+    expect(descriptionHtml('<p class="lead">done</p>', "template")).toBe(
+      '<p class="lead">done</p>',
+    );
   });
 
-  // ★★★ HTML_START (shared with narrative-html) once matched a bare OPENER, so a
+  // ★★★ The retired shared `HTML_START` (it lived in narrative-html.ts) once
+  // matched a bare OPENER — `htmlStartRe`'s `[^>]*>` is what now requires the tag
+  // to actually CLOSE — so a
   // legacy plain value that merely STARTS tag-shaped passed through raw. The
   // tokenizer discards an incomplete tag at EOF, so the whole value vanished
   // from the screen, from search, from exports and from the AI digests — while
   // htmlTextLength still measured 11 for "<li 3 items", so sanitizeRichText KEPT
   // the field and no empty-state fallback fired. Silent loss of the user's text.
   it("escapes a plain value that starts tag-shaped but never closes the tag", () => {
-    expect(descriptionHtml("<li 3 items")).toBe("<p>&lt;li 3 items</p>");
-    expect(descriptionHtml("<p ok")).toBe("<p>&lt;p ok</p>");
-    expect(descriptionHtml("<em dash - not markup")).toBe("<p>&lt;em dash - not markup</p>");
+    expect(descriptionHtml("<li 3 items", "template")).toBe("<p>&lt;li 3 items</p>");
+    expect(descriptionHtml("<p ok", "template")).toBe("<p>&lt;p ok</p>");
+    expect(descriptionHtml("<em dash - not markup", "template")).toBe(
+      "<p>&lt;em dash - not markup</p>",
+    );
   });
 
   it("escapes a value that opens with a CLOSING tag", () => {
@@ -44,22 +54,26 @@ describe("descriptionHtml", () => {
     // cannot emit one, so this is plain text the user typed. Passing it through
     // as HTML makes the sink delete the characters — the loss this guard exists
     // to prevent, in miniature.
-    expect(descriptionHtml("</p> means close")).toBe("<p>&lt;/p&gt; means close</p>");
+    expect(descriptionHtml("</p> means close", "template")).toBe(
+      "<p>&lt;/p&gt; means close</p>",
+    );
   });
 
   it("is idempotent — it runs on every load", () => {
     for (const raw of ["cost < 5k", "<p>done</p>", "", "  "]) {
-      expect(descriptionHtml(descriptionHtml(raw))).toBe(descriptionHtml(raw));
+      expect(descriptionHtml(descriptionHtml(raw, "template"), "template")).toBe(
+        descriptionHtml(raw, "template"),
+      );
     }
   });
 
   it("converts newlines to <br>", () => {
-    expect(descriptionHtml("a\nb")).toBe("<p>a<br>b</p>");
+    expect(descriptionHtml("a\nb", "template")).toBe("<p>a<br>b</p>");
   });
 
   it("returns empty for blank input", () => {
-    expect(descriptionHtml(undefined)).toBe("");
-    expect(descriptionHtml("   ")).toBe("");
+    expect(descriptionHtml(undefined, "template")).toBe("");
+    expect(descriptionHtml("   ", "template")).toBe("");
   });
 });
 
@@ -91,7 +105,9 @@ describe("htmlPlainProjection", () => {
   // newline into a <br>, so the most common shape in existing data is exactly
   // the one a boundary-blind projection jams together.
   it("treats a <br> as a word boundary — the shape every upgraded multi-line value has", () => {
-    expect(htmlPlainProjection(descriptionHtml("line one\nline two"))).toBe("line one line two");
+    expect(htmlPlainProjection(descriptionHtml("line one\nline two", "projection"))).toBe(
+      "line one line two",
+    );
   });
 
   // ★★ The HTML tokenizer only opens a tag when `<` is followed by a letter (or
@@ -266,13 +282,13 @@ describe("capHtmlText", () => {
 
 describe("sanitizeRichText", () => {
   it("upgrades, caps and rejects a non-string", () => {
-    expect(sanitizeRichText("plain", 5000)).toBe("<p>plain</p>");
-    expect(sanitizeRichText(42, 5000)).toBe("");
-    expect(sanitizeRichText(undefined, 5000)).toBe("");
+    expect(sanitizeRichText("plain", 5000, "template")).toBe("<p>plain</p>");
+    expect(sanitizeRichText(42, 5000, "template")).toBe("");
+    expect(sanitizeRichText(undefined, 5000, "template")).toBe("");
   });
 
   it("strips control characters but keeps newlines", () => {
-    expect(sanitizeRichText("a\x07b\nc", 5000)).toBe("<p>ab<br>c</p>");
+    expect(sanitizeRichText("a\x07b\nc", 5000, "template")).toBe("<p>ab<br>c</p>");
   });
 
   // ★★ A TAB is a word separator, not a stray byte: deleting it fused the words
@@ -282,7 +298,7 @@ describe("sanitizeRichText", () => {
   // renders a tab as a space, so the editor's counter measured a length the
   // stored value no longer had.
   it("keeps a tab as the word boundary it is", () => {
-    const out = sanitizeRichText("Vendor delay\tMitigation plan", 5000);
+    const out = sanitizeRichText("Vendor delay\tMitigation plan", 5000, "template");
     expect(out).toBe("<p>Vendor delay Mitigation plan</p>");
     // The counter measured the pre-sanitize value; the stored value must agree.
     expect(htmlTextLength(out)).toBe(htmlTextLength("<p>Vendor delay\tMitigation plan</p>"));
@@ -291,7 +307,7 @@ describe("sanitizeRichText", () => {
   // ★ A run collapses to ONE space, matching WS_RUN in the projection — so the
   // two still agree when a paste carries several whitespace controls in a row.
   it("collapses a run of whitespace controls to a single space", () => {
-    expect(sanitizeRichText("a\t\t\v\fb", 5000)).toBe("<p>a b</p>");
+    expect(sanitizeRichText("a\t\t\v\fb", 5000, "template")).toBe("<p>a b</p>");
   });
 
   // ★★ A value the user cleared in the editor comes back as "<p></p>", which is
@@ -301,7 +317,7 @@ describe("sanitizeRichText", () => {
   // inline-AI apply, proposal seed, bulk edit).
   it("treats a cleared editor value as absent", () => {
     for (const empty of ["<p></p>", "<p><br></p>", "<p>&nbsp;</p>", "<ul><li></li></ul>", "   "]) {
-      expect(sanitizeRichText(empty, 5000)).toBe("");
+      expect(sanitizeRichText(empty, 5000, "template")).toBe("");
     }
   });
 
@@ -309,7 +325,9 @@ describe("sanitizeRichText", () => {
   // markup and concludes there is nothing there: the visible text is what
   // counts, and here all of it lives inside a tag.
   it("keeps a value whose only content is inside markup", () => {
-    expect(sanitizeRichText("<p><strong>x</strong></p>", 5000)).toBe("<p><strong>x</strong></p>");
+    expect(sanitizeRichText("<p><strong>x</strong></p>", 5000, "template")).toBe(
+      "<p><strong>x</strong></p>",
+    );
   });
 
   // ★★ Silent data loss: an under-counting projection makes the value read as
@@ -317,7 +335,7 @@ describe("sanitizeRichText", () => {
   // gate in sanitize-records.ts then DROPS the field. Reachable from a
   // hand-edited CSV/Markdown workspace or an AI create_raid_item call.
   it("does not drop a field whose text is only a bare <", () => {
-    expect(sanitizeRichText("<p>< 5k</p>", 5000)).not.toBe("");
+    expect(sanitizeRichText("<p>< 5k</p>", 5000, "template")).not.toBe("");
   });
 
   // ★★ …and the text must survive INTACT, not merely keep the field. This is the
@@ -325,7 +343,7 @@ describe("sanitizeRichText", () => {
   // needs a following inline tag to supply the ">" a tokenizer-blind regex would
   // run to. Without the [a-zA-Z] guard this loses "< 5k " and counts 10, not 15.
   it("keeps the text around a bare < when an inline tag follows it", () => {
-    const out = sanitizeRichText("<p>Budget < 5k <em>cap</em></p>", 5000);
+    const out = sanitizeRichText("<p>Budget < 5k <em>cap</em></p>", 5000, "template");
     expect(htmlTextLength(out)).toBe("Budget < 5k cap".length);
   });
 });
@@ -383,7 +401,7 @@ describe("DOM-free guard", () => {
     const specifiers = [...code.matchAll(/(?:\bfrom|\bimport|\brequire)\s*\(?\s*["'`]([^"'`]+)["'`]/g)]
       .map((m) => m[1])
       .sort();
-    expect(specifiers).toEqual(["./narrative-html", "./sanitize-html"]);
+    expect(specifiers).toEqual(["./html-start", "./sanitize-html"]);
   });
 
   it("keeps rich-text-projection out of every DOM-free reach", () => {

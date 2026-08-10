@@ -424,7 +424,29 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         // Both fields are rich HTML since slice B: UPGRADE (pass HTML through,
         // wrap legacy plain text) instead of escaping an already-HTML value a
         // second time, which would render markup as visible text.
-        description: descriptionHtml(item.mitigation ?? item.description ?? ""),
+        // ★★★ The sink is the DESTINATION field's, never the SOURCE field's. The
+        // source is a RAID `mitigation`/`description` (a "template" field, 11
+        // tags) but the value lands in `Task.description`, whose human save runs
+        // sanitizeNoteHtml — 8 tags at KEEP_CONTENT: false, which deletes an
+        // unlisted element TOGETHER WITH its text. Classifying by the source
+        // would copy an AI-authored <h1>/<h2>/<u> through as live markup and the
+        // first human Save would silently delete those words, with no undo.
+        // ★★★ SCOPE — THE SINK CLOSES ONLY THE LEADING-TAG CASE, and an earlier
+        // wording of this comment claimed the whole class. `descriptionHtml`
+        // classifies on the value's FIRST tag, so a disallowed tag sitting
+        // MID-VALUE is invisible to it: both sinks see the leading <p>, both
+        // store the same live markup, and the save deletes the words either way.
+        // Measured 2026-08-10 through the real exported sanitizers:
+        //   A leading  "<h2>Plan</h2><p>steps</p>"
+        //     "template" stored as-is        -> save "<p>steps</p>"        Plan GONE
+        //     "note"     stored escaped      -> save unchanged             Plan KEPT  <- what this fixes
+        //   B mid-value "<p>Intro</p><h2>Plan</h2><p>steps</p>"
+        //     "template" stored as-is        -> save "<p>Intro</p><p>steps</p>"  Plan GONE
+        //     "note"     stored as-is        -> save "<p>Intro</p><p>steps</p>"  Plan GONE  <- UNCHANGED
+        // Case B needs the value SANITIZED to the destination's allow-list at the
+        // copy, not merely classified against it. Tracked in open-followups §137,
+        // which carries the same measurement and the whole-program closure.
+        description: descriptionHtml(item.mitigation ?? item.description ?? "", "note"),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };

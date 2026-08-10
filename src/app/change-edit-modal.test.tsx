@@ -341,7 +341,8 @@ describe("ChangeEditModal — rich-text description fields (slice B)", () => {
     // one. Identical for anything reachable today, because every load goes
     // through sanitizeRichText and the editors only emit "<p>…". They diverge
     // wherever descriptionHtml is NOT the identity — a legacy plain value, which
-    // HTML_START rejects, so plainToHtml escapes its angle brackets and every
+    // the "template" sink's isHtmlStart test rejects (no `b` on
+    // TEMPLATE_ALLOWED_TAGS), so plainToHtml escapes its angle brackets and every
     // "<b>" becomes three VISIBLE characters instead of a stripped inline tag.
     //
     // ★★ All three fixtures have to be NEAR THE CAP. CharCounter renders a
