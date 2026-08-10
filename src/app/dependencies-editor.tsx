@@ -185,11 +185,11 @@ export function DependencyLinkGroup({
         options={options}
         query={query}
         onQueryChange={setQuery}
-        onAdd={(id) => {
-          onChange([...links, { taskId: id, type: pendingType }]);
+        onAdd={(entry) => {
+          onChange([...links, { taskId: entry.id, type: pendingType }]);
           setQuery("");
         }}
-        onRemove={(id) => onChange(links.filter((l) => l.taskId !== id))}
+        onRemove={(entry) => onChange(links.filter((l) => l.taskId !== entry.id))}
         searchLabel={searchLabel}
         // The group's own label is already direction-unique, so the clear
         // inherits that uniqueness instead of announcing a bare "Clear" twice

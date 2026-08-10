@@ -32,7 +32,12 @@ export interface LinkPickerEntry {
   code: string;
   /** Human-readable name; truncates rather than wrapping. */
   label: string;
+  /** Stable identity when `id` alone is not unique — a picker spanning several
+   *  entity kinds has colliding ids. Defaults to `String(id)`. */
+  key?: string;
 }
+
+const entryKey = (entry: LinkPickerEntry): string => entry.key ?? String(entry.id);
 
 // Every user-facing string arrives already translated (searchLabel,
 // placeholder, removeLabel), so this component takes no `lang` and calls no
@@ -45,8 +50,8 @@ interface EntityLinkPickerProps {
   options: readonly LinkPickerEntry[];
   query: string;
   onQueryChange: (value: string) => void;
-  onAdd: (id: number) => void;
-  onRemove: (id: number) => void;
+  onAdd: (entry: LinkPickerEntry) => void;
+  onRemove: (entry: LinkPickerEntry) => void;
   /** Accessible name for the search box. A placeholder is NOT an accessible
    *  name (it fails the axe gate), so this is required, not optional. */
   searchLabel: string;
@@ -160,7 +165,7 @@ export function EntityLinkPicker({
       // field.
       if (!open || active < 0) return;
       e.preventDefault();
-      onAdd(options[active].id);
+      onAdd(options[active]);
       return;
     }
     if (e.key === "Escape") {
@@ -199,7 +204,7 @@ export function EntityLinkPicker({
         )}
         {selected.map((entry) => (
           <span
-            key={entry.id}
+            key={entryKey(entry)}
             className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
           >
             {onOpen ? (
@@ -234,7 +239,7 @@ export function EntityLinkPicker({
             )}
             <IconButton
               variant="danger"
-              onClick={() => onRemove(entry.id)}
+              onClick={() => onRemove(entry)}
               // ★ In the INERT branch (no onOpen) this remove button is the chip's only
               // focusable element, so a name of just "Unlink Risk#3" leaves a
               // screen-reader user with a code and no idea what it refers to —
@@ -306,14 +311,14 @@ export function EntityLinkPicker({
               // violation, and the keyboard path is aria-activedescendant, so
               // the button bought nothing. Mirrors global-search-box.
               <li
-                key={entry.id}
+                key={entryKey(entry)}
                 id={`${listId}-opt-${i}`}
                 role="option"
                 aria-selected={i === active}
                 // Keeps focus in the input so commit-on-blur callers don't close
                 // the editor out from under the add (ResourcePicker precedent).
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onAdd(entry.id)}
+                onClick={() => onAdd(entry)}
                 // ★★ The active row keeps `text-foreground`. `text-ui-dark-blue`
                 // is the brand NAVY, which in every dark scheme sits on a dark
                 // `--surface-muted` at ~1.0-1.2:1 — the arrowed-to option would

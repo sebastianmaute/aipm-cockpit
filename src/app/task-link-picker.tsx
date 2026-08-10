@@ -58,11 +58,11 @@ export function TaskLinkPicker({
       options={options}
       query={query}
       onQueryChange={setQuery}
-      onAdd={(id) => {
-        onAdd(id);
+      onAdd={(entry) => {
+        onAdd(entry.id);
         setQuery("");
       }}
-      onRemove={onRemove}
+      onRemove={(entry) => onRemove(entry.id)}
       searchLabel={label}
       // `label` is already row-unique per Knowledge card, so the clear inherits
       // that uniqueness instead of announcing a bare "Clear" N times.

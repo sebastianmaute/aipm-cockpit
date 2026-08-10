@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
 
 const entry = (id: number, code: string, label: string): LinkPickerEntry => ({ id, code, label });
@@ -93,7 +94,7 @@ describe("EntityLinkPicker", () => {
     renderPicker({ selected: [entry(3, "Risk#3", "A"), entry(7, "Issue#7", "B")], onRemove });
     fireEvent.click(screen.getByRole("button", { name: "Unlink Issue#7 B" }));
     expect(onRemove).toHaveBeenCalledTimes(1);
-    expect(onRemove).toHaveBeenCalledWith(7);
+    expect(onRemove).toHaveBeenCalledWith(entry(7, "Issue#7", "B"));
   });
 
   // Options are queried by the `option` role, not `button`: a row IS the
@@ -121,7 +122,7 @@ describe("EntityLinkPicker", () => {
     const onQueryChange = vi.fn();
     renderPicker({ options: [entry(9, "Risk#9", "Scope creep")], query: "scope", onAdd, onQueryChange });
     fireEvent.click(screen.getByRole("option", { name: /scope creep/i }));
-    expect(onAdd).toHaveBeenCalledWith(9);
+    expect(onAdd).toHaveBeenCalledWith(entry(9, "Risk#9", "Scope creep"));
     expect(onQueryChange).not.toHaveBeenCalled();
   });
 
@@ -231,7 +232,7 @@ describe("EntityLinkPicker", () => {
       fireEvent.keyDown(input, { key: "ArrowDown" });
       fireEvent.keyDown(input, { key: "ArrowDown" });
       fireEvent.keyDown(input, { key: "Enter" });
-      expect(onAdd).toHaveBeenCalledWith(4);
+      expect(onAdd).toHaveBeenCalledWith(entry(4, "Issue#4", "Late sign-off"));
     });
 
     // ★ These pickers live inside <form> edit modals, where a bare Enter
@@ -395,5 +396,29 @@ describe("EntityLinkPicker", () => {
       fireEvent(option, event);
       expect(event.defaultPrevented).toBe(true);
     });
+  });
+
+  it("distinguishes two entries that share an id but not a key", async () => {
+    const user = userEvent.setup();
+    const onRemove = vi.fn();
+    render(
+      <EntityLinkPicker
+        selected={[
+          { key: "task:7", id: 7, code: "#7", label: "Kickoff" },
+          { key: "raid:7", id: 7, code: "R#7", label: "Vendor delay" },
+        ]}
+        options={[]}
+        query=""
+        onQueryChange={() => {}}
+        onAdd={() => {}}
+        onRemove={onRemove}
+        searchLabel="Search"
+        placeholder="Search"
+        removeLabel="Unlink"
+        clearLabel="Clear"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Unlink R#7 Vendor delay" }));
+    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ key: "raid:7" }));
   });
 });
