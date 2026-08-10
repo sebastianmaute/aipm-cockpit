@@ -313,7 +313,9 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
  *  `capturePart` builds WHOLE-ROW before-images, so undoing restores every field
  *  as it stood at capture time and silently discards anything a concurrent
  *  writer changed on those rows meanwhile (open-followups §50 — the shape that
- *  reverts a task's note log). A patch merge touches only the fields the op
+ *  reverts a RAID item's note log; §50 says the same sequence "very likely"
+ *  loses TASK notes too but marks that half UNVERIFIED, so do not cite this as
+ *  a known task defect). A patch merge touches only the fields the op
  *  actually wrote. Use this whenever the op edited FIELDS; use `capturePart`
  *  when it removed or replaced whole rows. */
 export interface CaptureFieldPart<T extends { id: number }> {
@@ -340,8 +342,21 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `compositeUndoRunner` falls back to fragment 0 when no fragment sets
  * `isPrimary`, so a field part sitting first would become the nominal primary,
  * leave `primaryRemap` empty, and silently point every `fkRemapField` cascade at
- * stale ids with no error. All five existing composite callers flag their
- * primary explicitly, so nothing hits this today.
+ * stale ids with no error.
+ * ★★ "Every existing caller flags its primary" is FALSE and it is worth knowing
+ * which one does not: of the SIX `captureComposite` call sites — reproduce with
+ * `grep -rn "captureComposite({\|captureCompositeRef.current?.({" src/app |
+ * grep -v "\.test\." | grep -v use-undo-stack.ts` (both filters matter: the bare
+ * grep returns 17, counting this comment and the engine's own tests) — the
+ * five in `use-reference-data.ts` + `use-resource-directory.ts` flag one, and
+ * `use-budget-buckets.ts` flags NOTHING — it rides the positional fallback this
+ * paragraph calls fragile. No live defect: neither of its fragments declares
+ * `fkRemapField`, so the empty remap is never read.
+ * ★★ That matters here specifically. Its first fragment is `use-bulk-operations`'
+ * whole-row `tasksPart`, i.e. an open-followups §50 candidate, and the obvious §50
+ * fix is to swap it for a `captureFieldPart` — which would put an unflagged field
+ * part at index 0 of an unflagged composite, exactly the hazard above. Flag the
+ * remaining `capturePart` `isPrimary: true` in the same edit.
  */
 export function captureFieldPart<T extends { id: number }>(
   part: CaptureFieldPart<T>,

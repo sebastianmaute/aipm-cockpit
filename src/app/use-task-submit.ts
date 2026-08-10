@@ -251,7 +251,16 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // the write itself is what data loss turns on. One known consequence,
       // recorded as a follow-up rather than fixed here: redo can write a
       // dangling reference (create task 5 with successor 2 → undo → delete 5 →
-      // redo merges `{taskId:5}` back; it self-heals on the next load).
+      // redo merges `{taskId:5}` back).
+      // ★★ It self-heals on the next load on TWO backends only, not on all six:
+      // `dropDanglingDependencies` has exactly two call sites, `csv-codecs-decode`
+      // and `markdown-codecs-decode` (`grep -rn "dropDanglingDependencies("
+      // src/app`). JSON maps tasks through `migrateTask` + `sanitizeNoteFields`,
+      // neither of which touches `dependencies`, and IndexedDB — the DEFAULT
+      // backend — and both Turso backends have no dangling pass at all, so there
+      // the entry persists indefinitely. An earlier revision of this line said
+      // "it self-heals on the next load" flatly, which is wrong exactly where
+      // most users are.
       // ★ The fan-out no longer evicts its own save's own-task entries: that
       // needed the staged list (unbounded) to out-number UNDO_CAP (25), and the
       // whole fan-out is ONE entry now regardless of how many targets it has.
@@ -297,8 +306,16 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             // "Target"`. Fixing it properly needs an edit-side twin of
             // `undoLabelDeleteCount`; adding one here would change the label of
             // every unnamed multi-row edit capture in the app, which is well
-            // outside this change. Left as a follow-up rather than papered over
-            // by mislabelling the kind as `bulk.edit`.
+            // outside this change. Left as a follow-up.
+            // ★★ `kind: "bulk.edit"` is NOT the shortcut it looks like — it
+            // yields the IDENTICAL string. `buildUndoLabel` resolves the entity
+            // from the kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, so it
+            // returns at the `if (!key)` line with `undoToastEdit` BEFORE the
+            // `isBulk` branch is reached. That branch needs an explicit
+            // `entityKey`, and `CaptureCompositeOpts` has no such field —
+            // `captureComposite` forwards only `{ name }`. Do not "fix" the
+            // label by changing the kind; it would misreport the op in the
+            // activity feed and buy nothing.
             name: targets.length === 1 ? firstName : undefined,
           });
         }

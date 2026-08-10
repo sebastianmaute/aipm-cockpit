@@ -29,7 +29,11 @@ longer carries its own changelog comment.
   pushed one undo entry and one toast per target, so a single Ctrl+Z unlinked one task
   and left the rest, and a large fan-out could push its own save's other entries off the
   25-entry undo stack. Undo still merges only the fields the save wrote, so it cannot
-  revert an unrelated change someone else made to the same task meanwhile.
+  revert an unrelated change someone else made to the same task meanwhile. One cost
+  comes with it: a fan-out onto **several** targets now shows in undo history as
+  "Edited 3 item(s)" rather than naming a task, because a single entry covering several
+  rows has no one name to carry. Linking a single successor still reads `Edit task
+  "…"`.
 
 ### Removed
 
