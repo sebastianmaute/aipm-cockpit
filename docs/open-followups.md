@@ -8541,3 +8541,40 @@ set necessary. It is also not fixable by an allowlist: one exception invites a h
 reasoning that leaves §131's illustrative filename unsuppressed. The correct handling is what is done here —
 state the false positives in the entry that causes them. ★ Consequence for P2: an entry about the
 tooling gets no static help at all, so it needs the same behavioural probe as an a11y entry does.
+
+---
+
+## 139. The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two
+
+Documents S4 (`linkedEntities`) shipped the DOCUMENT-side door: the Documents pane has a picker
+(`DocumentLinksField`) that attaches tasks, milestones, RAID items and changes to the open document.
+The ENTITY-side door — attaching a document from inside a task/RAID/change/milestone editor — was
+designed in the same session and deliberately deferred.
+
+★★ **This was a choice, not an oversight, and the reason is the failure mode it avoids.** Shipping
+half of a two-door feature is a shape this repo has been bitten by repeatedly — the phrase "one door
+of two" recurs in this register, including inside §113 itself: the second door looks trivial, gets
+bolted on later against a
+model that was never shaped for it, and the two doors then disagree about validation, about caps and
+about what a stale reference means. Rather than ship both surfaces thinly, S4 shipped ONE surface
+completely and wrote the model so the second is additive.
+
+★ **The model is already shaped for it.** `document-ref.ts` is a LEAF module — it imports nothing
+from the app, specifically so the four entity editors can import `DocEntityRef`/`refKey` without
+pulling in `document-model.ts`, which sits in the `settings-types` ⇄ `workspace` ⇄ `document-model`
+value-import cycle (§92). `indexDocumentsByEntity` already answers the reverse question the entity
+side needs. The mutations (`link`/`unlink`) are keyed on the document id, so an entity-side call is
+the same mutation with the arguments known in the other order.
+
+★★ **What the second door still has to decide, and must not guess:** the cap is per-DOCUMENT
+(`MAX_LINKS_PER_DOC`), so attaching from the entity side can be refused by a limit the user cannot
+see from where they are standing. That needs a real answer (surface the documents remaining
+budget? a per-entity cap as well? silently pick another document?) — it is the one part of the
+design that does not fall out of the existing model.
+
+★ **Two smaller behaviours were accepted rather than overlooked**, both recorded in
+`docs/AGENTS/documents.md`: a read-only popout renders NO link chips at all (the field is withheld
+rather than drawn inert — the no-false-affordance rule), so a popout mirror cannot see what a
+document links to; and with an entity filter armed, the preview can still show a document outside
+the filtered list, because selection deliberately resolves against the full set. Either could be
+closed without touching the model.
