@@ -412,3 +412,22 @@ describe("sanitizeProjectDocuments", () => {
     expect(diag.truncatedBlocks).toBeUndefined();
   });
 });
+
+describe("sanitizeProjectDocuments — linkedEntities", () => {
+  const base = { id: 1, title: "Doc", blocks: [], createdAt: "2026-01-01T00:00:00.000Z" };
+
+  it("round-trips a valid reference through the load path", () => {
+    const [doc] = sanitizeProjectDocuments([{ ...base, linkedEntities: [{ kind: "task", id: 7, label: "Kickoff" }] }]);
+    expect(doc.linkedEntities).toEqual([{ kind: "task", id: 7, label: "Kickoff" }]);
+  });
+
+  it("omits the field entirely when there are no valid references", () => {
+    const [doc] = sanitizeProjectDocuments([{ ...base, linkedEntities: [{ kind: "nope", id: 7 }] }]);
+    expect("linkedEntities" in doc).toBe(false);
+  });
+
+  it("omits the field when it was absent", () => {
+    const [doc] = sanitizeProjectDocuments([base]);
+    expect("linkedEntities" in doc).toBe(false);
+  });
+});
