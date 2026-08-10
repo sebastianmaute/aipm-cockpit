@@ -253,9 +253,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       // dangling reference (create task 5 with successor 2 → undo → delete 5 →
       // redo merges `{taskId:5}` back).
       // ★★ It self-heals on the next load on TWO backends only, not on all six:
-      // `dropDanglingDependencies` has exactly two call sites, `csv-codecs-decode`
-      // and `markdown-codecs-decode` (`grep -rn "dropDanglingDependencies("
-      // src/app`). JSON maps tasks through `migrateTask` + `sanitizeNoteFields`,
+      // `dropDanglingDependencies` has exactly two PRODUCTION call sites,
+      // `csv-codecs-decode` and `markdown-codecs-decode` — reproduce with
+      // `grep -rn "dropDanglingDependencies(" src/app | grep -v "\.test\."`,
+      // which returns 4 lines: those two calls, the definition in
+      // `sanitize-core.ts`, and this comment (which names the symbol, so it
+      // matches its own grep — drop the filter and two test call sites join it).
+      // JSON maps tasks through `migrateTask` + `sanitizeNoteFields`,
       // neither of which touches `dependencies`, and IndexedDB — the DEFAULT
       // backend — and both Turso backends have no dangling pass at all, so there
       // the entry persists indefinitely. An earlier revision of this line said
@@ -307,8 +311,12 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             // `undoLabelDeleteCount`; adding one here would change the label of
             // every unnamed multi-row edit capture in the app, which is well
             // outside this change. Left as a follow-up.
-            // ★★ `kind: "bulk.edit"` is NOT the shortcut it looks like — it
-            // yields the IDENTICAL string. `buildUndoLabel` resolves the entity
+            // ★★ `kind: "bulk.edit"` is NOT the shortcut it looks like — for the
+            // multi-target case it yields the IDENTICAL string, and for the
+            // single-target one it is strictly WORSE (it would lose the name and
+            // turn `Edit task "Target"` into `Edited 1 item(s)`), because `kind`
+            // is one field shared by both branches of the ternary below.
+            // `buildUndoLabel` resolves the entity
             // from the kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, so it
             // returns at the `if (!key)` line with `undoToastEdit` BEFORE the
             // `isBulk` branch is reached. That branch needs an explicit

@@ -343,20 +343,35 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `isPrimary`, so a field part sitting first would become the nominal primary,
  * leave `primaryRemap` empty, and silently point every `fkRemapField` cascade at
  * stale ids with no error.
- * ★★ "Every existing caller flags its primary" is FALSE and it is worth knowing
- * which one does not: of the SIX `captureComposite` call sites — reproduce with
- * `grep -rn "captureComposite({\|captureCompositeRef.current?.({" src/app |
- * grep -v "\.test\." | grep -v use-undo-stack.ts` (both filters matter: the bare
- * grep returns 17, counting this comment and the engine's own tests) — the
- * five in `use-reference-data.ts` + `use-resource-directory.ts` flag one, and
- * `use-budget-buckets.ts` flags NOTHING — it rides the positional fallback this
- * paragraph calls fragile. No live defect: neither of its fragments declares
- * `fkRemapField`, so the empty remap is never read.
- * ★★ That matters here specifically. Its first fragment is `use-bulk-operations`'
- * whole-row `tasksPart`, i.e. an open-followups §50 candidate, and the obvious §50
- * fix is to swap it for a `captureFieldPart` — which would put an unflagged field
- * part at index 0 of an unflagged composite, exactly the hazard above. Flag the
- * remaining `capturePart` `isPrimary: true` in the same edit.
+ * ★★ "Every existing caller flags its primary" is FALSE. Of the SEVEN
+ * `captureComposite` call sites, FIVE flag one — the three in
+ * `use-reference-data.ts` and the two in `use-resource-directory.ts`. The other
+ * two, `use-budget-buckets.ts` and `use-task-submit.ts`, flag NOTHING and ride
+ * the positional fallback this paragraph calls fragile. Neither is a live defect:
+ * no fragment in either declares `fkRemapField`, so the empty remap is never read.
+ * ★★★ ENUMERATE WITH ALL THREE CALL SHAPES OR YOU WILL MISS ONE. An earlier
+ * revision of this paragraph said SIX and named only the budget caller, because
+ * its grep matched `captureComposite({` and `captureCompositeRef.current?.({`
+ * but not the OPTIONAL-call form `captureComposite?.({` — which is how
+ * `use-task-submit.ts` invokes it, i.e. it missed the very caller that motivated
+ * this function. Reproduce with all three:
+ * `grep -rn "captureComposite?\.({\|captureComposite({\|captureCompositeRef.current?.({" src/app |
+ * grep -v "\.test\." | grep -v use-undo-stack.ts` → 7. Both filters matter, and
+ * BOTH are what make that 7 stable: the unfiltered grep also sweeps the engine's
+ * own tests AND this comment, so it over-counts by however many times the
+ * patterns appear here — a number that changes every time this block is edited,
+ * which is why one is not quoted.
+ * ★★★ SO THE SHAPE WARNED ABOUT ABOVE ALREADY EXISTS — it is not hypothetical.
+ * `use-task-submit.ts` passes a lone `captureFieldPart` as `parts[0]` of an
+ * unflagged composite, and this function hardcodes `isPrimary: false`. It is
+ * benign ONLY because that composite has no cascade to remap. Adding a
+ * `capturePart` cascade to an existing single-fragment field composite is
+ * therefore a live hazard, not a future one: flag the cascade `isPrimary: true`
+ * in the same edit.
+ * ★★ Same trap waiting in `use-budget-buckets.ts`: its `parts[0]` is
+ * `use-bulk-operations`' whole-row `tasksPart`, an open-followups §50 candidate,
+ * and the obvious §50 fix swaps it for a `captureFieldPart` — reproducing this
+ * shape beside a real `capturePart`. Flag the remaining part in that same edit.
  */
 export function captureFieldPart<T extends { id: number }>(
   part: CaptureFieldPart<T>,
