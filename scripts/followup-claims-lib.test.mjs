@@ -508,7 +508,12 @@ describe("classify — an entry that ASSERTS a thing is absent", () => {
     const present = { ...env, resolve: (p) => (p === "src/app/form-field.tsx" ? [p] : []) };
     const r = classify(parseEntries(S7_A1)[0], present);
     expect(r.verdict).toBe("ASSERTED_ABSENT_NOW_PRESENT");
-    expect(r.problems[0].detail).toContain("src/app/form-field.tsx");
+    // ★ NOT `problems[0]` — this env resolves only the one file, so the row's
+    // other real filenames report PATH_MISSING ahead of it. That the verdict is
+    // still the flip is the priority tier working, and asserting a position here
+    // would pin the fixture's incidental shape instead of the behaviour.
+    const flip = r.problems.find((p) => p.kind === "ASSERTED_ABSENT_NOW_PRESENT");
+    expect(flip.detail).toContain("src/app/form-field.tsx");
   });
 
   it("★★★ a symbol asserted absent that now resolves flips too", () => {
