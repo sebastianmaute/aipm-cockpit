@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { DocumentsPanel, sortDocuments, uniqueDocumentTitle } from "./documents-panel";
 import { MAX_DOCUMENTS, MAX_TITLE_CHARS } from "./document-model";
 import { FOCUS_RING } from "./interaction-styles";
@@ -10,6 +10,7 @@ import { ToastProvider } from "./toast-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
+import type { DocRefKind } from "./document-ref";
 import { applyDocMutation, type DocMutation, type DocResult } from "./document-mutations";
 import type { DocVersion, DocVersionSource } from "./document-versions";
 import { FiltersProvider } from "./filters-context";
@@ -1765,5 +1766,115 @@ describe("DocumentsPanel — deep-link arrival affordance (scroll + flash)", () 
     expect(container.querySelector('[data-deeplink-row="51"]')?.getAttribute("class")).not.toContain(
       flashOutlineClass(true),
     );
+  });
+});
+
+// ═══ entity filter (Documents S4) ═══════════════════════════════════════════
+//
+// The Documents pane is the CONSUMER of `requestDocumentsForEntity`; a
+// DocumentBadge on a task/RAID/change/milestone row is the producer. Both cases
+// below drive the REAL provider primitive rather than a hand-built prop, so a
+// signal that never reaches the pane fails here rather than passing.
+
+/** Fires `requestDocumentsForEntity(kind, id)` from INSIDE the provider. */
+function EntityFilterTrigger({ kind, id }: { kind: DocRefKind; id: number }) {
+  const { requestDocumentsForEntity } = useWorkspaceTab();
+  return (
+    <button type="button" onClick={() => requestDocumentsForEntity(kind, id)}>
+      arm-filter
+    </button>
+  );
+}
+
+/** ★★★ THE FRESH-MOUNT HARNESS. Arming and the panel's FIRST mount land in ONE
+ *  commit, which is the production shape: `requestDocumentsForEntity` switches
+ *  the active view, and the shell renders only the active view — so the pane
+ *  mounts with the signal ALREADY present. Rendering the panel first and arming
+ *  afterwards (what `EntityFilterTrigger` alone does) exercises the UPDATE path
+ *  instead and cannot see the remount-swallow bug at all. */
+function ArmThenMount({ children }: { children: ReactNode }) {
+  const { requestDocumentsForEntity } = useWorkspaceTab();
+  const [mounted, setMounted] = useState(false);
+  if (mounted) return <>{children}</>;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        requestDocumentsForEntity("raid", 3);
+        setMounted(true);
+      }}
+    >
+      arm-then-mount
+    </button>
+  );
+}
+
+const CLEAR_FILTER = t("en-US", "documentsFilterClear");
+
+function linkedDoc(): ProjectDocument {
+  return { ...doc(10, "Charter"), linkedEntities: [{ kind: "raid", id: 3 }] };
+}
+
+function panelWith(documents: readonly ProjectDocument[]) {
+  return (
+    <DocumentsPanel
+      lang="en-US"
+      documents={documents}
+      mutateDocuments={inertMutate}
+      documentVersions={[]}
+      ws={emptyWorkspace()}
+      onResetSize={() => {}}
+    />
+  );
+}
+
+describe("DocumentsPanel — entity filter", () => {
+  it("filters the list to the armed entity, and dismissing brings the rest back", () => {
+    const documents = [linkedDoc(), doc(11, "Minutes")];
+    render(
+      <PanelHost>
+        <EntityFilterTrigger kind="raid" id={3} />
+        {panelWith(documents)}
+      </PanelHost>,
+    );
+
+    // Positive control: unfiltered, BOTH rows are listed. Without this the
+    // filtered assertion below could pass against a pane that renders nothing.
+    expect(screen.getByRole("button", { name: "Charter" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Minutes" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "arm-filter" }));
+
+    expect(screen.getByRole("button", { name: "Charter" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Minutes" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: CLEAR_FILTER }));
+
+    expect(screen.getByRole("button", { name: "Minutes" })).toBeTruthy();
+    // The banner goes with it — it is the only visible statement that the list
+    // is a subset, so leaving it up would be worse than never showing it.
+    expect(screen.queryByRole("button", { name: CLEAR_FILTER })).toBeNull();
+  });
+
+  // ★★★ THE REMOUNT-SWALLOW GUARD, and it is the case that matters. Seeding the
+  // pane's `handledFilter` from the LIVE prop instead of the `undefined`
+  // sentinel makes this red; nothing else in the file can see that difference.
+  it("HONORS a filter armed before this pane first mounted", () => {
+    const documents = [linkedDoc(), doc(11, "Minutes")];
+    render(
+      <PanelHost>
+        <ArmThenMount>{panelWith(documents)}</ArmThenMount>
+      </PanelHost>,
+    );
+
+    // The pane does not exist yet — proof the mount below really is its first.
+    expect(screen.queryByRole("button", { name: "Charter" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "arm-then-mount" }));
+
+    expect(screen.getByRole("button", { name: "Charter" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Minutes" })).toBeNull();
+    // …and it says so, rather than silently looking like a one-document project.
+    expect(screen.getByRole("button", { name: CLEAR_FILTER })).toBeTruthy();
   });
 });

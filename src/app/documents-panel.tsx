@@ -26,6 +26,10 @@ import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { DocumentPreview } from "./document-preview";
 import { DocumentsHistoryModal } from "./documents-history-modal";
+import { DocumentLinksField } from "./document-links-field";
+import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
+import { buildDocLinkCandidates, buildDocRefLookups, VIEW_BY_KIND } from "./document-link-sources";
+import { indexDocumentsByEntity, refKey, resolveDocRef, type DocRefKind } from "./document-ref";
 import { downloadDocument, type DocFormat } from "./document-download";
 import { useColumnResize } from "./use-column-resize";
 import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
@@ -254,7 +258,7 @@ export function DocumentsPanel({
   // Ambient, exactly like every other panel's — `useToastContext` defaults to a
   // no-op when no provider is above, so this adds no required wiring anywhere.
   const showToast = useToastContext();
-  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { pendingOpen, clearPendingOpen, pendingDocEntityFilter, clearDocEntityFilter, requestOpen } = useWorkspaceTab();
   // ★★★ THE ARRIVAL AFFORDANCE, and it is the SCROLL that matters here. The
   // effect below moves the SELECTION, which is invisible if the row is below
   // the fold — `documents-list` is its own `overflow-auto` box holding up to
@@ -285,6 +289,26 @@ export function DocumentsPanel({
 
   const rows = useMemo(() => sortDocuments(documents, sort.key, sort.dir), [documents, sort]);
 
+  // ★★★ ARMED ELSEWHERE by `requestDocumentsForEntity`, so the FIRST render has it.
+  // SENTINEL SEED: `undefined` is "nothing handled yet", NOT `null`
+  // ("handled, and empty"). Seeding `handledFilter` from the LIVE prop is the
+  // remount-swallow trap the deep-link note above describes — arrival IS a fresh
+  // mount, so a live seed reads the request as already consumed (pinned by the
+  // test "honors a filter armed before this pane first mounted").
+  const [entityFilter, setEntityFilter] = useState<{ kind: DocRefKind; id: number } | null>(null);
+  const [handledFilter, setHandledFilter] = useState<{ kind: DocRefKind; id: number } | null | undefined>(undefined);
+  if (handledFilter !== pendingDocEntityFilter) {
+    setHandledFilter(pendingDocEntityFilter);
+    if (pendingDocEntityFilter) setEntityFilter(pendingDocEntityFilter);
+  }
+  const entityIndex = useMemo(() => indexDocumentsByEntity(documents), [documents]);
+  const visibleRows = useMemo(() => {   // filters the SORTED rows, so dismissing restores order
+    if (!entityFilter) return rows;
+    const allowed = new Set((entityIndex.get(refKey(entityFilter.kind, entityFilter.id)) ?? []).map((d) => d.id));
+    return rows.filter((d) => allowed.has(d.id));
+  }, [rows, entityFilter, entityIndex]);
+  const lookups = useMemo(() => buildDocRefLookups(ws), [ws]);
+  const candidates = useMemo(() => buildDocLinkCandidates(ws), [ws]);
   // ★★★ DERIVED, never a stored flag — a flag would have to be cleared on
   // restore and can desync from the documents array.
   //
@@ -552,9 +576,19 @@ export function DocumentsPanel({
         isReadOnly={isReadOnly}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3">
+        {/* ★ Title falls back to `#id` — an entity deleted since the badge was clicked
+            must still name what is filtered. ★★ Clear does BOTH, or a re-visit re-applies. */}
+        {entityFilter && (
+          <DocumentEntityFilterBanner
+            lang={lang}
+            title={resolveDocRef(entityFilter, lookups).title || `#${entityFilter.id}`}
+            isEmpty={visibleRows.length === 0}
+            onClear={() => { setEntityFilter(null); clearDocEntityFilter(); }}
+          />
+        )}
         <DocumentsList
           lang={lang}
-          documents={rows}
+          documents={visibleRows}
           selectedId={selected?.id ?? null}
           onSelect={handleSelect}
           sortKey={sort.key}
@@ -653,6 +687,19 @@ export function DocumentsPanel({
           <p role="status" className="text-sm text-ui-pink">
             {restoreRejected.join("; ")}
           </p>
+        )}
+        {/* ★★ HIDDEN when read-only, not rendered inert: the field has no disabled mode and
+            a no-op handler is the false affordance this repo bans. A popout shows no chips. */}
+        {selected && !isReadOnly && (
+          <DocumentLinksField
+            lang={lang}
+            refs={selected.linkedEntities ?? []}
+            lookups={lookups}
+            candidates={candidates}
+            onLink={(ref) => mutate({ kind: "link", id: selected.id, ref })}
+            onUnlink={(ref) => mutate({ kind: "unlink", id: selected.id, ref })}
+            onOpenEntity={(kind, id) => requestOpen(VIEW_BY_KIND[kind], id)}
+          />
         )}
         <DocumentPreview lang={lang} doc={selected} ws={ws} />
       </div>
