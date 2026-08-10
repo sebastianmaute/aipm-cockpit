@@ -8425,3 +8425,119 @@ layers have to be brought into agreement in one decision: either the lean editor
 local — the NOTE LOG shares that sanitizer and `KEEP_CONTENT: false` is deliberate there), or the
 template allow-list narrows to 8 and the AI is no longer told it may emit headings. Patching one
 field at a time produces a fourth list to drift, which is the exact failure §107 and §114 record.
+
+## 138. The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured
+
+The 2026-08-10 slice that produced `scripts/check-followup-claims.mjs` (npm `followups:check`) was
+phase P0+P1 of a five-phase consolidation. **P2–P4 are not started.** The spec and plan that defined
+them are under `docs/superpowers/`, which is gitignored — so they exist on one machine and this entry
+is the only durable record. It is written to be resumable without them.
+
+★★★ **THE ORIGINATING PREMISE WAS FALSE AND MEASURING IT FIRST IS WHAT SAVED THE SLICE.** The request
+was "extract the open TODOs out of the app files into one place". This repo has **zero**
+`TODO`/`FIXME`/`HACK` markers. Open work was already centralised — here. What the code holds is not
+to-dos but CITATIONS: at the time, 289 `§NN` references across `src`/`scripts`/`e2e`, of which
+**197 pointed at CLOSED entries**. Those are provenance — the recorded reason a guard, a test or an
+odd-looking branch exists. A sweep that deleted them would have removed the justification for
+roughly two hundred guards while looking like tidying. ★★ A keyword sweep cannot separate the two
+classes and is ~97% noise here: `owed` matches `allowed`/`followed`, and `Deferred` is a
+`ChangeStatus` enum member. The separator is a criterion, not a regex — **if the work were done,
+would this sentence be deleted?** Keep the citation, strip the open-state.
+
+### What P0+P1 delivered
+
+`agents-symbols-lib.mjs` (+ its first-ever test) extracted from the blocking symbol gate, and
+`followup-claims-lib.mjs` / `check-followup-claims.mjs` / `docs/baselines/followup-claims.json` added
+beside it. ★★ **The harness rules claims OUT, never IN.** A `CLEAN` verdict means only that nothing
+static disproved the entry; every result carries `needsProbe: true` and the tool closes nothing.
+★★ `CLEAN` is additionally a WEAK signal and nearly tripped the suspect-the-harness rule: an entry
+"has a claim" whenever it names any backticked symbol, and nearly all do, so `CLEAN` collapses to
+"names at least one symbol and every name resolves". The design expected `NO_MACHINE_CLAIM` to be
+large — a11y and CSS entries no static check can judge — and it came back at 1.
+
+### The three phases that remain
+
+**P2 — probe all open entries behaviourally.** The only phase whose size is already known, and about
+60% of what is left. Read-only agents, batched; each brief must carry the entry text **verbatim**,
+because an agent told to "read §84" reads the wrong lines the moment the register shifts.
+★★★ **Distrust the verdicts.** This slice already measured what a plausible absence heuristic does
+to this file: reusing the symbol gate's proximity matcher (`markedNear` / `PROXIMITY`) to decide
+"the entry says this is absent" put **48 of 54** hits on things that EXIST — each one a false "this
+follow-up is done", which is the costliest error available here. The failure was structural, not a
+badly-sized window: §7 puts a real absence assertion 15 characters from a present symbol, and the
+motivating idiom ("no `X` exists") matches no marker at all. The fix was **anchoring** — the marker
+must capture the name it negates. Apply the same suspicion to an agent's "done".
+
+**P3 — apply the verdicts.** Cannot be sized until P2 reports. Mechanically simple, but serial: one
+file, no parallel edits.
+
+**P4 — the extraction and strip.** The unbounded one, and the reason the whole thing is deferred
+rather than half-done. Four parts: orphaned open items into this register; fold or link
+`tech-debt-register.md`; strip open-state prose out of `AGENTS.md` and `docs/AGENTS/*.md`; strip
+open-item comments from source while KEEPING the provenance citations.
+
+★★★ **P4 CARRIES AN UNRESOLVED CONFLICT AND MUST NOT PICK A SIDE SILENTLY.** The agreed scope says
+fold `tech-debt-register.md` in and delete it. The header of THIS file says the opposite in as many
+words — a different artifact class, owner-assigned and quarterly-reviewed, and merging it "would
+create two masters and guarantee drift". Both arguments are good. Whoever resumes decides it
+explicitly and rewrites the losing paragraph; leaving both standing is the drift either one warns
+about.
+
+★★ **Inserting entries here breaks every `docs/open-followups.md:LINE` citation below the insertion,
+and the doc-claims ratchet cannot see the ones in `scripts/`.** Twelve such cites were found in
+`scripts/` during P0 and converted to `§N, verbatim`; `src/` was never swept for the same shape.
+Do that sweep BEFORE P3/P4 insert anything, not after.
+
+★★ **Scope a `§`-renumber BY FILE, never by number.** Recorded independently on an earlier branch and
+it applies with full force to a phase whose whole job is renumbering.
+
+### Measured 2026-08-10, with the commands that re-derive them
+
+Numbers in a register rot; these are dated and each is falsifiable. Do not trust them, re-run them.
+
+| | measured | reproduce |
+|---|---|---|
+| entries / open | 129 / 92 | `grep -cE '^## [0-9]+\. ' docs/open-followups.md` |
+| lines inside open entries | 4721 (median 34, p90 107, max 422; 10 over 100) | the sweep's own snapshot |
+| verdict spread | `CLEAN` 80 · `SYMBOL_MISSING` 8 · `NO_MACHINE_CLAIM` 1 · `PATH_MISSING` 1 · `PATH_THIRD_PARTY` 1 · `CITE_THIRD_PARTY` 1 | `npm run followups:check` |
+| `§` citations to triage | 277 in `src` (98 files) · 49 in `scripts` · 7 in `e2e` | `grep -rno "§[0-9]" src scripts e2e \| wc -l` |
+| open-state prose in the always-loaded doc | 25 marker hits in `AGENTS.md`, 9 across the nine subsystem files | `grep -c -iE "STILL OPEN\|left open\|not fixed\|unverified" AGENTS.md docs/AGENTS/*.md` |
+| fold-in candidate | `tech-debt-register.md`, 49 lines | `wc -l docs/tech-debt-register.md` |
+
+★ The `SYMBOL_MISSING` eight were hand-checked at the time: all genuinely absent, zero false
+positives. That is a statement about those eight names, not a licence to trust the classifier.
+
+### Two harness gaps left open on purpose
+
+★★ `REPRO_NONZERO` and `REPRO_TIMEOUT` fire on nothing in today's register. They were proved
+non-decorative by temporary probes that were then reverted, so **nothing committed exercises the
+runner loop** — it lives in a CLI that `process.exit`s at import and is therefore untestable in
+place. Extracting it is the same move that made `toArgv` testable, and is the obvious next
+maintenance slice. ★ `grep` is the only binary with an exit-code exemption (exit 1 means "no match",
+which several entries expect); `git merge-base --is-ancestor` and `diff` would false-positive the
+same way and have no exemption.
+
+★★ A gate that names the symbols it hunts must exclude its own files, and BOTH gates here needed it —
+`GATE_SELF_FILES` in the symbol gate, `SWEEP_SELF_FILES` in the new one, both passed through
+`collectIdentifiers`. The second was found only by a cold review, after the first had already been
+fixed per-name on the same branch: **per-name discipline does not lift itself to the mechanism.**
+A new consumer of `collectIdentifiers` inherits this hazard and nothing will tell it so.
+
+★★★ **THE DIRECT CONSEQUENCE, AND THIS ENTRY DEMONSTRATES IT: THE SWEEP CANNOT VERIFY A CLAIM ABOUT
+ITSELF.** The two self-sets are applied together — `collectIdentifiers` always drops its own three,
+and the caller's third argument drops three more — so **six** files are invisible to the identifier
+scan, and every mixed-case name defined only in them reads as absent. This entry therefore reports
+three `SYMBOL_MISSING` of its own, all false: `markedNear`, `collectIdentifiers` and `toArgv` all
+exist. Reproduce the mechanism directly, which is the only way to see it — the tool's own output
+cannot distinguish this case from a real deletion:
+
+```bash
+node -e "Promise.all([import('./scripts/agents-symbols-lib.mjs'),import('./scripts/followup-claims-lib.mjs')]).then(([a,f])=>{const s=new Set();for(const d of ['src','scripts','e2e'])a.collectIdentifiers(d,s,f.SWEEP_SELF_FILES);console.log(['markedNear','collectIdentifiers','toArgv'].map(n=>n+'='+s.has(n)).join(' '))})"
+```
+
+★★ **This is correct behaviour and must NOT be "fixed" by narrowing either set** — that restores the
+hole where the harness's own fixtures vouch for the symbols it judges, which is what made the second
+set necessary. It is also not fixable by an allowlist: one exception invites a hundred, the same
+reasoning that leaves §131's illustrative filename unsuppressed. The correct handling is what is done here —
+state the false positives in the entry that causes them. ★ Consequence for P2: an entry about the
+tooling gets no static help at all, so it needs the same behavioural probe as an a11y entry does.
