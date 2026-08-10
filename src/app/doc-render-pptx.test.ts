@@ -516,6 +516,18 @@ describe("renderDocumentPptx — blocks", () => {
     }
   });
 
+  it("keeps markup that does not OPEN with a tag as markup", async () => {
+    // ★★★ Sibling of the DOCX test of the same name. The render classifier asks
+    // "does this CONTAIN a tag at all?", never "does it START with one" — while
+    // it was anchored, "Intro <strong>bold</strong> tail" was escaped WHOLE and
+    // PowerPoint showed the literal tag characters.
+    const xml = await onlyContentSlide("Intro <strong>bold</strong> tail");
+    // POSITIVE form: the mark reached the run that carries it. Asserting only
+    // the absence of "&lt;strong" would be satisfied by an empty slide.
+    expect(runsByText(xml).get("bold")!.attrs.b).toBe("1");
+    expect(paraInfos(xml).map((p) => p.text)).toEqual(["Intro bold tail"]);
+  });
+
   it("keeps a literal '<' from prose as text, not markup", async () => {
     // The projection treats "<" not followed by a letter as literal text; if
     // that regressed, this is where the package stops opening.

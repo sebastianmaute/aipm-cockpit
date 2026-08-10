@@ -35,6 +35,15 @@ describe("htmlStartRe", () => {
     expect(re.test("<script>x</script>")).toBe(false);
   });
 
+  it("requires the opening tag to actually CLOSE", () => {
+    // ★★★ The guard the factory's own comment documents and nothing pinned: a
+    // legacy PLAIN value that merely STARTS tag-shaped is not markup. Passed
+    // through raw, the tokenizer DISCARDS an incomplete tag at EOF, so the whole
+    // value vanishes — while a text-length count over it still reads 11, so no
+    // empty-state fallback fires either.
+    expect(htmlStartRe(["li"]).test("<li 3 items")).toBe(false);
+  });
+
   it("matches void spellings and attribute-bearing tags", () => {
     const re = htmlStartRe(["hr", "img", "a"]);
     expect(re.test("<hr/>")).toBe(true);
@@ -82,6 +91,35 @@ describe("the sink map", () => {
       expect(isHtmlStart(html, "render")).toBe(true);
       expect(isHtmlStart(html, "document")).toBe(false);
     }
+  });
+
+  it("recognises a tag ANYWHERE for render, while the derived sinks stay leading-only", () => {
+    // ★★★ The two sinks ask two DIFFERENT questions. A DERIVED sink is a STORAGE
+    // boundary: the escaped form is what gets persisted, so it asks "does this
+    // START with a tag I keep?" and treats a mid-sentence "<" conservatively.
+    // The render sink stores nothing and its consumers keep every tag's text, so
+    // the only failure mode left is escaping real markup — it therefore asks
+    // "does this CONTAIN a tag at all?". Anchoring it at the start escaped real
+    // markup that simply does not OPEN with a tag, which is how it reached Word,
+    // PowerPoint, the HTML preview and the PDF as literal "&lt;strong&gt;".
+    for (const value of ["Intro <strong>bold</strong> tail", "See <em>the plan</em>"]) {
+      expect(isHtmlStart(value, "render")).toBe(true);
+      for (const sink of ["note", "template", "document", "projection"] as const) {
+        expect(isHtmlStart(value, sink)).toBe(false);
+      }
+    }
+    // A value that DOES lead with a tag is unaffected in either direction.
+    expect(isHtmlStart("<p>leads with a tag</p>", "render")).toBe(true);
+    expect(isHtmlStart("<p>leads with a tag</p>", "document")).toBe(true);
+  });
+
+  it("still calls a value carrying no tag at all plain text at the render sink", () => {
+    // The two things the widening must NOT change. "a\nb" is open-followups
+    // §118 — no tag anywhere, so it upgrades and its newline becomes a real
+    // break instead of fusing into one run-on line. "cost < 5k" is a "<" that is
+    // not followed by a letter, i.e. literal text the tokenizer would eat.
+    expect(isHtmlStart("a\nb", "render")).toBe(false);
+    expect(isHtmlStart("cost < 5k", "render")).toBe(false);
   });
 
   it("keeps all three guards on the render sink", () => {

@@ -44,8 +44,13 @@ const TAG_NAME = /^[a-z][a-z0-9]*$/;
  *  and ">". */
 const NEVER = /(?!)/;
 
-/** Matches ANY well-formed opening tag. The classifier for the "render" sink. */
-const ANY_TAG = /^\s*<[a-z][a-z0-9]*\b[^>]*>/i;
+/** Matches a well-formed opening tag ANYWHERE in the value — the classifier for
+ *  the "render" sink, and deliberately UNANCHORED where the four derived ones
+ *  are anchored at the start. Named for what it tests: it answers "does this
+ *  CONTAIN a tag?", not "does this START with one?". See the SINK_RE member for
+ *  why that is the right question there, and `isHtmlStart` for why one function
+ *  asks two. */
+const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
 
 /** Build the "already HTML?" test for one allow-list.
  *
@@ -154,14 +159,39 @@ const SINK_RE: Record<RichTextSink, RegExp> = {
    *  drop the classifier but to ask the other question: "is this plain text at
    *  all?"
    *
+   *  ★★★ Which is why it is UNANCHORED. A leading-tag test is still the DERIVED
+   *  sinks' question, and asking it here escaped real markup that merely does
+   *  not OPEN with a tag: "Intro <strong>bold</strong> tail" reached Word,
+   *  PowerPoint, the HTML preview and the PDF as the literal characters
+   *  "&lt;strong&gt;". Nothing is stored at a render boundary, so a false NO is
+   *  the loud, permanent-looking failure and the one to avoid.
+   *
+   *  ★★ It is a TRADE, not a free lunch, and it is the factory's RESIDUE
+   *  paragraph one step wider: prose that merely MENTIONS a terminated tag
+   *  ("we banned <a href> tags") now passes through too, and the parser eats
+   *  that fragment where escaping would have shown it. Anchored, only a value
+   *  OPENING that way was exposed. We take it for the same reason the
+   *  projection sink takes its trade — real markup is the commoner input and
+   *  its damage shows up in every rendered surface at once.
+   *
    *  It keeps all three guards, because it reuses the same shape: the tag must
    *  actually CLOSE (`[^>]*>`, so "<li 3 items" escapes), it must start with a
-   *  LETTER (so "<3 open" escapes), and a leading CLOSING tag is not matched
-   *  (so "</p> means close" escapes). */
-  render: ANY_TAG,
+   *  LETTER (so "<3 open" and "cost < 5k" escape), and a CLOSING tag is never
+   *  matched (so "</p> means close" escapes). */
+  render: CONTAINS_TAG,
 };
 
-/** True when `value` opens with a tag `sink` will keep. */
+/** True when `value` is already HTML for `sink`.
+ *
+ *  ★★★ THE NAME IS ONLY HALF TRUE, because this asks TWO questions. For the
+ *  four DERIVED sinks it is "does `value` START with a tag this sink keeps?" —
+ *  a STORAGE question, where a NO escapes the whole value and that escaped form
+ *  is what gets persisted, so a mid-sentence "<" is read conservatively. For
+ *  "render" it is "does `value` CONTAIN any tag at all?" — a RENDER question,
+ *  where nothing is stored and the consumers keep every tag's text, so the only
+ *  failure mode left is escaping real markup and the leading-tag test is simply
+ *  the wrong one. The export keeps its name because callers and docs already
+ *  use it; the render regex is named for what it actually tests. */
 export function isHtmlStart(value: string, sink: RichTextSink): boolean {
   return SINK_RE[sink].test(value);
 }

@@ -301,6 +301,22 @@ describe("renderDocumentDocx — blocks", () => {
     }
   });
 
+  it("keeps markup that does not OPEN with a tag as markup", async () => {
+    // ★★★ The render classifier asks "does this CONTAIN a tag at all?", not
+    // "does it START with one". While it was anchored at the start, a value
+    // whose markup begins mid-sentence was classified plain text and escaped
+    // WHOLE, so Word showed the literal characters "<strong>bold</strong>"
+    // instead of a bold run. Same input, same three renderers, one classifier.
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "Intro <strong>bold</strong> tail" }]),
+    );
+    // POSITIVE form: the markup reached the parser and became a real run
+    // property. A `not.toContain("&lt;strong")` alone is satisfied by an empty
+    // document too.
+    expect(xml).toContain(`<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">bold</w:t></w:r>`);
+    expect(paraTexts(xml)).toEqual(["Report", "Intro bold tail"]);
+  });
+
   it("keeps a literal '<' from prose as text, not markup", async () => {
     // The projection treats "<" not followed by a letter as literal text; if
     // that ever regressed, this is where the package stops opening.

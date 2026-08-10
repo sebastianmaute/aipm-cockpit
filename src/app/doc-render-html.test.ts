@@ -161,6 +161,22 @@ describe("renderDocumentHtml — the escaped/unescaped boundary", () => {
       preview([{ type: "paragraph", html: "<table><tr><td>cell</td></tr></table>" }]),
     ).toContain("cell");
   });
+
+  it("does not escape markup that starts mid-value instead of opening the value", () => {
+    // ★★★ The render classifier asks "does this CONTAIN a tag at all?", not
+    // "does it START with one" — a storage sink asks the second question because
+    // the escaped form is what it persists, but nothing is stored here and the
+    // sink keeps every tag's text, so the only failure left is escaping real
+    // markup. While it was anchored, this arrived as literal "&lt;strong&gt;" in
+    // the preview, the print/PDF path, and (via the sibling renderers) Word and
+    // PowerPoint.
+    const html = preview([{ type: "paragraph", html: "Intro <strong>bold</strong> tail" }]);
+    // POSITIVE form first: the absence assertion below is satisfied by an empty
+    // string too.
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("Intro");
+    expect(html).not.toContain("&lt;strong");
+  });
 });
 
 describe("renderDocumentHtml — data sections", () => {
