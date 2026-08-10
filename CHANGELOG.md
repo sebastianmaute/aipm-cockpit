@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.230.0] - 2026-08-10 "Yoachim"
+
+### Fixed
+
+- **Collapsed sidebar sub-menus are reachable again.** The rail wraps its nav in `overflow-y-auto`,
+  which per CSS spec makes the other axis `auto` too — so at 64px wide it is a horizontal scroll box.
+  The flyout was `absolute left-full`, laid out entirely outside it, and z-index cannot escape
+  overflow; focus-on-open then scrolled the box sideways, dragging the icon rail off screen and
+  shearing every label. A Playwright probe measured the open panel at x = −56. It now renders through
+  `PopoverPanel`, portaled to `document.body` and positioned `fixed`.
+- **Tab out of that flyout returns to its trigger** instead of resuming at the end of the document and
+  walking out of the app into browser chrome (WCAG 2.4.3).
+- **Budget person rows line up with their role.** The hours for people assigned to a role sat against
+  the far edge of a much wider period column rather than under the role's own figures. Alignment is
+  now arithmetic from one exported constant, counted in Tailwind spacing units so it holds at any root
+  font size.
+- **Reports can be reordered to an off-screen position.** Browsers auto-scroll during a native drag,
+  but only for the document scroller, and neither main layout has one — so the drop target simply
+  could not be reached. Adds a rAF-driven autoscroll with the hot zone clamped to a third of the
+  container height, so the two edge zones cannot overlap on a short list.
+- **Each reports drag handle now names its own report** for screen readers; every handle previously
+  shared one label (WCAG 2.4.6).
+- **The drop indicator can no longer render invisible.** It pitted the `border-color` shorthand
+  against `border-top-color` at identical specificity, leaving the winner to stylesheet emit order. It
+  also moves to `--ui-green-strong`, since a 2px object carrying state owes WCAG 1.4.11's 3:1 and the
+  raw green fails that in all three light schemes.
+
 ## [0.229.0] - 2026-08-10 "Marillier"
 
 ### Fixed

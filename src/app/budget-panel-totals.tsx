@@ -41,6 +41,38 @@ import { useCommitDraft } from "./use-commit-draft";
 export const DOT_COL_PX = 28;
 export const TOTAL_COL_PX = 148;
 
+/** Width of ONE figure line inside an hours cell, in Tailwind SPACING UNITS:
+ *  the `w-14` label (14) + the `gap-1` between them (1) + the `w-16` value box
+ *  (16). Measured from the cell's content-box left edge, so the value box's
+ *  RIGHT edge lands here.
+ *
+ *  ★★ Exported because the person sub-rows (`budget-panel-people-rows.tsx`) are
+ *  a SINGLE line under a TWO-line role cell and can only line up horizontally —
+ *  they right-align a block of exactly this width so their figures share the
+ *  role's value-box column instead of drifting to the far edge of a much wider
+ *  period column, which is what they used to do.
+ *
+ *  ★★★ UNITS, NOT PIXELS, and that is the whole point. `w-14`/`w-16`/`gap-1`
+ *  are rem-based, so a px block only tracks them at a 16px root font size — a
+ *  user's larger default font or text-only zoom would scale the role line and
+ *  leave the person block behind, reproducing the exact misalignment this
+ *  exists to remove. Counting in the SAME unit as the classes holds at any root
+ *  size. (`DOT_COL_PX`/`TOTAL_COL_PX` above are genuinely px and predate this;
+ *  the sticky-column arithmetic they drive already assumes a 16px root.)
+ *
+ *  ★★ The value box carries its own `px-1`, so its DIGITS stop one unit short
+ *  of its right edge. The figure block cancels that with a matching `pr-1`,
+ *  putting both digit columns at 30 units. Aligning the boxes alone still left
+ *  a visible 4px stagger — the boxes are not what a reader compares.
+ *
+ *  Two files, one number: change `w-14`/`w-16`/`gap-1` above and this must move
+ *  with them (a test in `budget-panel-people-rows.test.tsx` pins the three
+ *  classes against it — see the caveat in that test about which cell it covers). */
+export const HOURS_LINE_UNITS = 31;
+/** The same width as a rem literal, for the inline style. Tailwind's default
+ *  `--spacing` is 0.25rem and `globals.css` does not override it. */
+export const HOURS_LINE_REM = `${HOURS_LINE_UNITS * 0.25}rem`;
+
 /** Mirrored plan hours are derived (utilization x capacity) and carry float
  *  noise such as 10.559999999999999, which the narrow input then truncates
  *  mid-number. Rounded for DISPLAY only — the stored and aggregated values are

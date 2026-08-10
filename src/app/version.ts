@@ -2,10 +2,10 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.229.0";
-export const APP_BUILD_DATE = "2026-08-10"; // 0.229.0: classify stored rich text at its destination (Marillier)
+export const APP_VERSION = "0.230.0";
+export const APP_BUILD_DATE = "2026-08-10"; // 0.230.0: unclip the collapsed-rail flyout, align budget hours, autoscroll on drag (Yoachim)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.229.x line is "Marillier" (Juliet Marillier, fantasy author).
+ *  0.230.x line is "Yoachim" (Caroline M. Yoachim, SF short-fiction author).
  *  ★★ 0.224.0 IS A PERMANENTLY DEAD NUMBER — do not reuse it. The 0.226.0 line
  *  was built and numbered 0.224.0 while unpushed; main could not wait for it,
  *  deliberately skipped 0.224.0 and shipped 0.225.0 "Walton" first, so keeping
@@ -17,7 +17,7 @@ export const APP_BUILD_DATE = "2026-08-10"; // 0.229.0: classify stored rich tex
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Marillier";
+export const APP_MILESTONE = "Yoachim";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -283,4 +283,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0227",
   "versionHighlight0228",
   "versionHighlight0229",
+  "versionHighlight0230",
 ] as const;

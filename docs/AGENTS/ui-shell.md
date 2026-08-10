@@ -185,6 +185,28 @@
   ★ TURSO_ONLY child views are pruned in TWO places: `filterNavGroups` (sidebar) AND `subTabsFor(view,
   features, onTurso)` (classic sub-tab row, pass `trends.active`) — gate BOTH for a new turso-only child,
   or it leaks into the classic sub-tab row on file backends.
+  • **★★★ THE COLLAPSED RAIL IS A 64px HORIZONTAL SCROLL BOX, so nothing positioned `absolute` inside it
+  can escape.** `sidebar.tsx` wraps `SidebarNav` in `overflow-y-auto`, and per CSS spec a non-`visible`
+  axis forces the OTHER axis's `visible` to compute as `auto` — so the wrapper scrolls horizontally too,
+  at `w-16` when collapsed. `CollapsedNavFlyout`'s panel was `absolute left-full`, laying out at roughly
+  x 68–244, entirely outside that box; `z-index` does not escape `overflow`. Worse, the on-open
+  `.focus()` made the browser scroll the box sideways to reveal the focused menuitem, dragging the icon
+  rail out of view and leaving the panel's right-hand slice over it with every label sheared
+  ("esources", "irectory"). ★★ MEASURED, not reasoned: on the pre-fix code a Playwright probe read the
+  open panel's viewport box at **x = −56** — off the left edge of the screen. There is NO CSS fix, since
+  one axis cannot be `visible` while the other is not; the panel must LEAVE the box. It now renders
+  through `PopoverPanel`, which portals to `document.body` and positions `fixed`.
+  ★★ `PopoverPanel` grew a `placement` prop for this — `"right-start"` (beside the anchor, top edges
+  aligned) beside the default `"bottom-end"`. They drive MUTUALLY EXCLUSIVE edge sets (`left`+`top` vs
+  `right`+`top`/`bottom`), which is why the post-paint clamp branches on which one is set; a placement
+  that left a stale opposite edge behind would stretch the panel across the viewport.
+  ★★ `role="menu"` stays on an INNER div, NOT on `PopoverPanel`. The div carries the arrow-key handler,
+  and a React handler only sees events from its own subtree — putting the role on the panel would make
+  "the menu element" and "the element with the key handler" two different nodes, so a keyboard test
+  firing at the menu would exercise nothing.
+  ★ Focus-on-open is `PopoverPanel`'s job now and that is load-bearing, not tidying: its
+  `.focus({ preventScroll: true })` is what stops a focus call scrolling an ancestor. Its all-roving
+  `??` fallback is also what lands focus at all here, since every flyout menuitem is `tabIndex={-1}`.
 
 ### UI shell — focus & keyboard (modern shell)
 
@@ -198,8 +220,14 @@
   ★ `Sidebar` gained `toggleAriaLabel?` so the drawer relabels its toggle as the dialog CLOSE
   (`sidebarCloseMenu`, WCAG 2.5.3), and opening the version modal from the drawer closes the drawer first
   (one trap at a time). **`CollapsedNavFlyout`** (`sidebar-nav.tsx`): a collapsed-rail parent-with-children
-  becomes an `aria-haspopup` trigger opening a `usePopoverDismiss` popover of parent+children (roving arrows/
-  Home/End, Escape→trigger) so nested views stay reachable from the icon rail; caret dot + collapsed urgency
+  becomes an `aria-haspopup` trigger opening a `PopoverPanel` (`placement="right-start"`) of parent+children
+  (roving arrows/Home/End, Escape→trigger, Tab→trigger) so nested views stay reachable from the icon rail.
+  ★★ It owns NO dismissal of its own — that moved to the panel when it was portaled; this line said
+  `usePopoverDismiss` for a release after the call was deleted from `sidebar-nav.tsx`, and BOTH doc gates
+  stayed green because the symbol still exists in nine other files. A name resolving is not a claim holding.
+  ★★ Tab must `preventDefault` and re-focus the trigger: the panel is portaled to the END of `document.body`,
+  so simply closing lets sequential navigation resume out of the app (WCAG 2.4.3) — the pre-portal version
+  could get away with a bare close because the menu sat inside the trigger's `<li>`. Caret dot + collapsed urgency
   dot (`bg-ui-medium-grey`/`bg-ui-pink`). **`resource-calendar.tsx`** is the app's FIRST `role=grid` 2-D
   roving grid (Arrow ±day/±assignee, Home/End, Ctrl+Home/End, PageUp/Down ±7; ★ clamp-on-read `focusRow/
   focusCol` so a window shrink keeps EXACTLY one tab stop; keydown guards on `document.activeElement` being a
@@ -207,6 +235,87 @@
   so Tab still escapes). Calendar sub-tab is NOT axe-scanned (Resources default sub-tab = directory).
 
 ### UI shell — surfaces & controls
+
+  • **★★★ A NATIVE HTML5 DRAG CANNOT REACH AN OFF-SCREEN DROP TARGET IN THIS APP, on any surface, unless
+  the code scrolls for it.** Browsers do auto-scroll during a drag, but that serves the DOCUMENT
+  scroller, and neither main-window layout has one: `modern-shell.tsx`'s root is `flex h-screen w-full
+  overflow-hidden`, and the classic root is an `h-screen` flex column whose `<main>` owns the scroll. So
+  every pane scrolls in a nested div. Reported against Reports (each report card is tall, so the target is
+  usually below the fold) and fixed with `use-drag-autoscroll.ts` — `useDragAutoscroll(ref, active)` plus
+  the pure `autoscrollDelta`, wired to the scroller `ReportCard` now exposes via its `contentRef` prop
+  (the `sizeRef` shell is `overflow-hidden`, so passing THAT scrolls nothing).
+  ★★ POPOUT WINDOWS ARE THE EXCEPTION, deliberately — `task-manager.tsx` renders a popout as a bare
+  `<main>` with no `h-screen`/`overflow-hidden` ("Popout windows keep the simple scrolling flow"), so it
+  HAS a document scroller and the browser's own auto-scroll works; the hook is a no-op there. `"reports"`
+  is in `REPORT_POPOUT_TABS`, so the surface this was written for behaves differently in its popout. An
+  earlier revision of this bullet said a document scroller is "never" present here, which is false in that
+  window and false about the classic root's classes.
+  ★ Other native-DnD surfaces are unwired. Do NOT trust a list here for which — a first cut named three
+  and a review found the enumeration closed a class that is open. Count them yourself:
+  `grep -rn "draggable" src/app --include=*.tsx | grep -v '\.test\.'`
+  ★★ A native drag emits no `pointermove`/`mousemove`, but `dragover` is NOT its only cursor signal — the
+  same loop fires `drag` at the SOURCE node plus `dragenter`/`dragleave` at the target, and all are
+  `DragEvent`s, which extend `MouseEvent` and so carry `clientX`/`clientY`. Driving autoscroll off `drag`
+  is a real alternative; `dragover` is chosen because it fires on the element under the cursor and bubbles
+  to the scroller, so the source need not stay mounted. Either way, scrolling directly in the handler ties
+  speed to an event rate the browser throttles and that the spec only guarantees to re-fire every 350ms
+  when the cursor holds still — the moment the user most wants it smooth. Capture the position in the
+  handler, scroll in a rAF loop.
+  ★★ Read `ref.current` INSIDE the frame loop, not once in the effect. A ref object is permanently stable,
+  so an effect keyed on `[ref, active]` never re-runs if the scroller is swapped mid-drag, and a captured
+  element goes on being scrolled after it has left the document — silently.
+  ★★ Guard the `dragleave` clear on `relatedTarget`: `dragleave` also fires crossing between CHILDREN, so
+  an unguarded clear drops the pointer at every card boundary and the scroll stutters.
+  ★★ The zone is clamped to a third of the container height. At a flat 48px the top and bottom zones
+  OVERLAP on anything under 96px tall, the pointer satisfies both tests, and whichever branch is written
+  first wins — so a drag near the bottom of a short list scrolls UP.
+  ★★★ TEST TRAP, measured: `fireEvent.dragOver(el, { clientY })` SILENTLY DROPS THE COORDINATE in jsdom —
+  a listener reading `e.clientY` gets `undefined`, so a position-driven hook looks broken in tests while
+  working in the browser. Dispatch a real `MouseEvent` named `"dragover"` instead (`DragEvent extends
+  MouseEvent`, so that is the true interface).
+  ★★ SEPARATE DEFECT found in the same area: a `dragstart` handler that sets no transfer data means
+  **Firefox never begins the drag at all**. The reports handle drove its reorder purely off React state
+  and called no `setData`, so reorder was inert there — and jsdom dispatches the whole sequence happily,
+  so no test could see it. Any new `draggable` calls `e.dataTransfer?.setData(...)` even when the payload
+  is unused. ★★ THIS IS NOT A COMPLETED SWEEP and an earlier revision read like one by naming only the
+  already-correct `task-kanban-board.tsx`. Three live `dragstart` handlers still set nothing and are
+  therefore still inert in Firefox for the identical reason — the `budget-panel.tsx` bucket handle (whose
+  handler takes no event argument at all) and both `roles-editor.tsx` sites (which set `effectAllowed`
+  only; that does NOT satisfy Firefox). Re-derive rather than trust this list:
+  `grep -rn "onDragStart" src/app --include=*.tsx | grep -v '\.test\.'` against
+  `grep -rn "setData" src/app --include=*.tsx`.
+  ★★ A per-row drag handle needs a row-UNIQUE accessible name. Reports gave every handle the same
+  `reportReorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
+  asserting the names are DISTINCT is the only detector — and note every other test in that file finds its
+  handles by the shared prefix and indexes `[0]`/`[1]`, so they all stay green when the qualifier is lost.
+  ★★ A drop indicator drawn as a border must render in BOTH states, swapping only the COLOUR. Adding the
+  border on hover grows the box and shifts every card below it, during a drag — exactly when the hit
+  target must hold still.
+  ★★★ SPELL IT WITH DISJOINT PER-SIDE COLOURS (`border-t-… border-b-transparent`), never a baseline
+  `border-transparent` with a directional layered over it — and an earlier revision of THIS line
+  recommended the second form, in the same fix round that removed it from the code. `border-transparent`
+  is the `border-color` SHORTHAND and `border-t-…` is `border-top-color`: two declarations, identical
+  specificity, different properties, so the winner is decided by Tailwind's EMIT order rather than by
+  the order they appear in the class list. The indicator would then either work or render invisible
+  depending on a detail of the generated stylesheet, and jsdom cannot see either outcome. Every branch
+  naming both edges removes the question. Colour it `--ui-green-strong`, not
+  `--ui-green`: as a 2px graphical object carrying state it owes WCAG 1.4.11's 3:1, and `--ui-green` is
+  2.17:1 on harbor-light (1.97 meridian-light, 2.48 umber-light) — it passes only on the three DARK
+  schemes, and light is the default.
+  ★★★ `--ui-green-strong` IS DERIVED PER SCHEME, NOT A FIXED HEX, and getting that wrong is how a first
+  cut of this line quoted "3.07 worst-case dark": `scheme-tokens.ts` sets it to
+  `nudgeToAa(--ui-green, --surface-muted)`, `resolveSchemeColors` is base-wins, and NO built-in scheme
+  pins it — so all six get the derived value and the `globals.css` `:root` hex is only the un-themed
+  fallback. Computing against that fallback gives a number the app never renders. Two consequences worth
+  having: the swap is HUE-PRESERVING (umber-light derives `#805f25`, still amber — it does not paint teal
+  into the amber scheme), and in every DARK scheme `nudgeToAa` exits on iteration zero and returns the
+  base unchanged, so the swap is a literal no-op there. Measured 5.30 / 6.31 / 5.86 light, 7.49 / 6.74 /
+  8.80 dark. ★ A user's CUSTOM scheme can pin `--ui-green-strong` (it is in `ADVANCED_TOKENS`), which
+  skips the derivation — out of scope, same reachability class `scheme-tokens.ts` already documents.
+  ★ Recompute rather than trust these numbers: replicate `nudgeToAa` over `builtin-schemes.ts`.
+  ★ A drop indicator must be DERIVED from the splice, not chosen: reports removes the dragged id before
+  inserting at the target's ORIGINAL index, so dropping on a LATER card lands after it and on an EARLIER
+  card lands before it. One fixed edge is correct in one direction and a lie in the other.
 
   • Steering committee panel uses the STANDARD resizable content-pane shell
   (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("aipm-cockpit:steering-size")` + `ResetSizeButton`, header OUTSIDE

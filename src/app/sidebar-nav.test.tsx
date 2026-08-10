@@ -106,6 +106,63 @@ describe("SidebarNav", () => {
       expect(document.activeElement).toBe(trigger);
     });
 
+    // ★★★ The flyout MUST NOT live inside the sidebar's scroll box. `sidebar.tsx`
+    // wraps the nav in `overflow-y-auto`, and per CSS spec a non-visible Y axis
+    // makes the X axis `auto` too — so that div is a 64px-wide HORIZONTAL scroll
+    // box when collapsed. An `absolute left-full` panel lays out at x 68..244,
+    // entirely outside it; z-index cannot escape overflow, and the on-open
+    // `.focus()` then scrolls the box sideways to chase the focused menuitem,
+    // dragging the icon rail out of view and shearing the labels ("esources",
+    // "irectory"). Portaling is the only fix — `position: fixed` on a body child
+    // is not clipped by an ancestor's overflow.
+    it("portals the flyout out of the sidebar, so no ancestor overflow can clip it", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      fireEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+      const menu = screen.getByRole("menu", { name: "Dashboard" });
+      // Not a descendant of the nav → not inside sidebar.tsx's overflow box.
+      expect(menu.closest("nav")).toBeNull();
+      // The positioned layer is a direct child of body and is `fixed`, not
+      // `absolute` — an absolute portal child would be clipped all the same.
+      const layer = menu.parentElement;
+      expect(layer?.parentElement).toBe(document.body);
+      expect(layer).toHaveClass("fixed");
+      // ★★★ Assert on the LAYER, not on `menu`. A review caught the obvious
+      // spelling — `expect(menu.className).not.toContain("absolute")` — as
+      // vacuous: the inner `<div role="menu">` carries NO className at all, so
+      // it passed trivially and would have gone on passing if the panel
+      // regressed to `absolute`, because the class would land on the parent.
+      expect(layer?.className).not.toContain("absolute");
+    });
+
+    // ★★★ Tab must LAND somewhere, and the portal is why. Pre-portal, closing
+    // without moving focus was survivable: the menu was an `absolute` child of
+    // the trigger's `<li>`, so the browser resumed sequential navigation at the
+    // next rail button. The panel now sits at the END of `document.body`, so
+    // resuming from there walks out of the app entirely (WCAG 2.4.3).
+    // ★★ jsdom implements no sequential focus navigation, so no unit test can
+    // observe where Tab would actually go — this pins the INTENT (focus is put
+    // back on the trigger) which is the part the component controls.
+    it("Tab closes the flyout and returns focus to the trigger", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      const trigger = screen.getByRole("button", { name: "Dashboard" });
+      fireEvent.click(trigger);
+      fireEvent.keyDown(screen.getByRole("menu", { name: "Dashboard" }), { key: "Tab" });
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    // The flyout's focus-on-open rests entirely on `PopoverPanel`'s all-roving
+    // `??` fallback, since every menuitem here is `tabIndex={-1}`. That fallback
+    // had no shipped consumer until this component became one, so pin it here:
+    // if it were dropped, nothing would be focused and the user's next Tab would
+    // leave the portal.
+    it("moves focus into the flyout on open", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      fireEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+      const items = screen.getAllByRole("menuitem");
+      expect(document.activeElement).toBe(items[0]);
+    });
+
     it("collapsed parent without children stays a plain nav button (no popup)", () => {
       render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
       const gantt = screen.getByRole("button", { name: "Gantt" });

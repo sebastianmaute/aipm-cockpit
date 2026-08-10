@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useDragAutoscroll } from "./use-drag-autoscroll";
 import { EmptyState } from "./empty-state";
 import { Select } from "./form-controls";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
@@ -149,6 +150,14 @@ export function ReportsPanel({
   const [labelSort, setLabelSort] = useState<GroupOrLabelSort>({ key: "total", dir: "desc" });
   const [labelFilter, setLabelFilter] = useState("");
   const [dragId, setDragId] = useState<AddableReportId | null>(null);
+  const [dragOverId, setDragOverId] = useState<AddableReportId | null>(null);
+  // The card list scrolls in ReportCard's inner div, so THAT is what has to move
+  // under the cursor during a drag — see `use-drag-autoscroll.ts` for why the
+  // browser will not do it for us here.
+  const cardsScrollRef = useRef<HTMLDivElement>(null);
+  useDragAutoscroll(cardsScrollRef, dragId !== null);
+
+  const endDrag = () => { setDragId(null); setDragOverId(null); };
 
   const onDropOnReport = (targetId: AddableReportId) => {
     if (dragId == null || dragId === targetId) return;
@@ -159,6 +168,24 @@ export function ReportsPanel({
     ids.splice(fromIdx, 1);
     ids.splice(targetIdx, 0, dragId);
     onChangeExtraReports?.(ids);
+  };
+
+  /**
+   * Which edge of `targetId` the drop will land on, or null when it is not a
+   * target at all.
+   *
+   * ★★ DERIVED FROM THE SPLICE, never chosen for looks. `onDropOnReport` removes
+   * the dragged id BEFORE inserting at the target's ORIGINAL index, so every
+   * index above the target shifts down by one: dropping on a LATER card lands
+   * after it, dropping on an EARLIER card lands before it. Marking one fixed
+   * edge would be correct in one direction and a lie in the other.
+   */
+  const dropEdgeFor = (targetId: AddableReportId): "before" | "after" | null => {
+    if (dragId == null || dragOverId !== targetId || dragId === targetId) return null;
+    const from = extraReports.indexOf(dragId);
+    const to = extraReports.indexOf(targetId);
+    if (from < 0 || to < 0) return null;
+    return from < to ? "after" : "before";
   };
 
   const moveReport = (id: AddableReportId, delta: number) => {
@@ -285,7 +312,7 @@ export function ReportsPanel({
   };
 
   return (
-    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={<>{addReportControl}{removeReportControl}</>} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
+    <ReportCard lang={lang} sizeRef={reportsRef} contentRef={cardsScrollRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={<>{addReportControl}{removeReportControl}</>} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile
           label={t(lang, "reportsTotal")}
@@ -522,13 +549,52 @@ export function ReportsPanel({
         const body = meta ? renderEmbedded(id) : null;
         if (!meta || !body) return null;
         const removeLabel = `${t(lang, "reportsRemoveReport")}: ${t(lang, meta.titleKey)}`;
+        const dropEdge = dropEdgeFor(id);
         return (
           <div
             key={id}
             data-testid="extra-report-card"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => onDropOnReport(id)}
-            className={dragId != null && dragId !== id ? "opacity-70" : undefined}
+            // ★ `data-drop-edge` is the assertable half of the indicator: the
+            // border classes below are what the user sees, but a test that read
+            // them would be pinning styling rather than the splice semantics.
+            data-drop-edge={dropEdge ?? undefined}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (dragOverId !== id) setDragOverId(id);
+            }}
+            onDrop={() => { onDropOnReport(id); endDrag(); }}
+            className={[
+              // ★★ The 2px border is ALWAYS present and only changes COLOUR.
+              // Adding `border-t-2` on hover would grow the box and shift every
+              // card below it — during a drag, which is precisely when the hit
+              // target has to hold still.
+              "border-y-2",
+              dragId != null && dragId !== id ? "opacity-70" : "",
+              // ★★ `-strong`, not `--ui-green`. As a 2px graphical object
+              // carrying state this owes WCAG 1.4.11's 3:1, and the raw green
+              // fails it in all three LIGHT schemes — 2.17:1 harbor, 1.97
+              // meridian, 2.48 umber — while passing in all three dark.
+              // ★★ `--ui-green-strong` is DERIVED PER SCHEME, not a fixed hex:
+              // `scheme-tokens.ts` runs `nudgeToAa(--ui-green, --surface-muted)`
+              // and no built-in scheme pins it, so base-wins fills all six. That
+              // makes the swap hue-preserving (umber stays amber, #805f25 — it
+              // does NOT paint teal into the amber scheme) and a literal no-op
+              // in dark, where the base already clears AA and `nudgeToAa`
+              // returns it unchanged. Measured 5.30 / 6.31 / 5.86 light and
+              // 7.49 / 6.74 / 8.80 dark.
+              // ★★★ EVERY BRANCH NAMES BOTH EDGES, so no two classes here ever
+              // target the same CSS property. The obvious spelling — a baseline
+              // `border-transparent` with `border-t-…` layered over it — pits
+              // the `border-color` SHORTHAND against `border-top-color`, and
+              // which one wins is decided by Tailwind's emit order, not by the
+              // order they are written in this array. Identical specificity, no
+              // source-order control, invisible to jsdom: the indicator would
+              // either work or render transparent depending on a detail of the
+              // generated stylesheet. Disjoint per-side colours cannot lose.
+              dropEdge === "before" ? "border-t-ui-green-strong border-b-transparent" : "",
+              dropEdge === "after" ? "border-b-ui-green-strong border-t-transparent" : "",
+              dropEdge === null ? "border-y-transparent" : "",
+            ].filter(Boolean).join(" ") || undefined}
           >
             <div className="mb-2 flex items-center justify-between gap-2 border-t border-line pt-4">
               <div className="flex items-center gap-1">
@@ -536,8 +602,16 @@ export function ReportsPanel({
                   type="button"
                   draggable
                   tabIndex={0}
-                  onDragStart={() => setDragId(id)}
-                  onDragEnd={() => setDragId(null)}
+                  // ★★ The payload is unused — the reorder reads `dragId` from
+                  // state — but Firefox will not START a drag at all unless
+                  // `dragstart` sets some transfer data, so reorder was dead
+                  // there. jsdom dispatches the sequence regardless, which is
+                  // why no test caught it.
+                  onDragStart={(e) => {
+                    e.dataTransfer?.setData("text/plain", id);
+                    setDragId(id);
+                  }}
+                  onDragEnd={endDrag}
                   onKeyDown={(e) => {
                     if (e.key === "ArrowUp") {
                       e.preventDefault();
@@ -547,7 +621,16 @@ export function ReportsPanel({
                       moveReport(id, 1);
                     }
                   }}
-                  aria-label={t(lang, "reportReorderHandle")}
+                  // ★★ Row-UNIQUE name (WCAG 2.4.6). Every handle carried the
+                  // identical "Drag or use arrow keys to reorder", so a
+                  // screen-reader user listing the buttons heard the same label
+                  // N times with nothing to say which report each moved. Reports
+                  // IS an axe-scanned view, and axe cannot see this at any seed
+                  // size — no rule under the four tags the gate requests flags
+                  // duplicate accessible names — so the qualifier has to be
+                  // written at the source. Pre-existing; fixed here because this
+                  // change already owns the element.
+                  aria-label={`${t(lang, "reportReorderHandle")} – ${t(lang, meta.titleKey)}`}
                   title={t(lang, "reportReorderHandle")}
                   className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:hidden"
                 >

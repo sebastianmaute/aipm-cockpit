@@ -1,5 +1,5 @@
 "use client";
-import { DOT_COL_PX, TOTAL_COL_PX, displayHours } from "./budget-panel-totals";
+import { DOT_COL_PX, HOURS_LINE_REM, TOTAL_COL_PX, displayHours } from "./budget-panel-totals";
 import { buildBucketPeopleRows, type PersonRow } from "./budget-bucket-people";
 import { absencesForResource, periodCapacityHours, type Period } from "./resource-capacity";
 import { ToggleButton } from "./toggle-button";
@@ -32,6 +32,43 @@ const DASH = "—";
  *  non-finite value — this closes the third state, it does not fix a seen bug. */
 const hoursText = (v: number | null): number | string =>
   v == null || !Number.isFinite(v) ? DASH : displayHours(v, true);
+
+/** One person's `booked / planned` pair, anchored to the ROLE row's value-box
+ *  column rather than to the right edge of its own cell.
+ *
+ *  ★★★ The alignment is the whole point of this component. A role's period cell
+ *  is a two-line stack (`Budget` over `Actual`) whose value boxes sit
+ *  `HOURS_LINE_UNITS` in from the cell's content-box left. A person row is ONE
+ *  line, so it cannot be level with both — but it can share their column, and it
+ *  did not: `text-right` on the `<td>` right-anchored the pair to the full period
+ *  column, which is much wider than a value box, stranding every person figure
+ *  out to the right of the boxes above it.
+ *  ★★ `text-right` therefore has to live on THIS block and be absent from the
+ *  cell. Leaving it on both looks identical for any figure that fills the block
+ *  and drifts for any that does not — the failure mode is fixture-dependent,
+ *  which is exactly the kind that survives a test suite.
+ *  ★★★ `pr-1` MIRRORS THE VALUE BOX'S OWN `px-1` and is what aligns the DIGITS
+ *  rather than the boxes. Without it the block's text sits flush at 31 units
+ *  while every role figure stops at 30 (`w-16 px-1`), leaving a 4px stagger down
+ *  the column — the boxes lined up and the numbers did not, which is the only
+ *  thing a reader actually compares. ★ The bordered `HoursCell` inputs stop a
+ *  further 1px short (`border` is px, not a spacing unit); that 1px is
+ *  pre-existing between the role rows' own inputs and spans and is not closable
+ *  from here.
+ *  ★ `whitespace-nowrap` because a pair wider than the block must overflow
+ *  leftward into the label gutter (where `text-align: right` sends it) instead
+ *  of wrapping to a second line and desynchronising the row heights. */
+function HoursFigure({ booked, planned }: { booked: number | null; planned: number | null }) {
+  return (
+    <span
+      className="block whitespace-nowrap pr-1 text-right tabular-nums"
+      style={{ width: HOURS_LINE_REM }}
+    >
+      <span className="text-foreground">{hoursText(booked)}</span>
+      <span className="text-muted-foreground"> / {hoursText(planned)}</span>
+    </span>
+  );
+}
 
 /** The disclosure contract is an id shared by two elements that live ~40 lines
  *  apart, so it is minted here instead of spelled out at both call sites — a
@@ -208,16 +245,14 @@ export function BucketPeopleRows({
             {r.name}
           </td>
           <td
-            className="sticky bg-surface px-3 py-1 text-right tabular-nums print:static"
+            className="sticky bg-surface px-3 py-1 print:static"
             style={{ left: DOT_COL_PX + roleWidth, width: TOTAL_COL_PX, minWidth: TOTAL_COL_PX }}
           >
-            <span className="text-foreground">{hoursText(r.bookedTotal)}</span>
-            <span className="text-muted-foreground"> / {hoursText(r.plannedTotal)}</span>
+            <HoursFigure booked={r.bookedTotal} planned={r.plannedTotal} />
           </td>
           {periods.map((p) => (
-            <td key={p.key} className="px-3 py-1 text-right tabular-nums">
-              <span className="text-foreground">{hoursText(r.booked[p.key] ?? null)}</span>
-              <span className="text-muted-foreground"> / {hoursText(r.planned[p.key] ?? null)}</span>
+            <td key={p.key} className="px-3 py-1">
+              <HoursFigure booked={r.booked[p.key] ?? null} planned={r.planned[p.key] ?? null} />
             </td>
           ))}
         </tr>
