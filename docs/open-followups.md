@@ -1172,12 +1172,18 @@ its own slice and probably a golden check.
 
 0.210.0 made a block boundary cost a whole `<a:p>` in PPTX instead of collapsing to whitespace.
 `pptxTextBox`'s `cyEmu` is FIXED (`2800000` on the row-fields box, sized for ~6 wrapped lines) and
-`export-pptx.ts:213` sets `<a:bodyPr wrap="square" …>` with **no** `normAutofit`/`spAutoFit` — verified,
+`pptxTextBox` (`ooxml-pptx-primitives.ts` — grep `a:bodyPr`) sets `<a:bodyPr wrap="square" …>` with **no** `normAutofit`/`spAutoFit` — verified,
 so PowerPoint will not shrink text to fit. A task with a four-paragraph description turns one meta line
 into four and pushes later fields past the bottom of the box.
 
 ★ Not a regression in kind (a long run-on line wrapped and overflowed too) but it is newly easy to hit,
 and the adjacent "cap at 6 extra fields so the text fits the slide" comment is now false.
+★★ That `bodyPr` sentence cited a line in `export-pptx.ts` until 2026-08-09 and was wrong in BOTH
+halves — the number ran past that file's 201 citable lines, and the element is no longer in it at
+all: `pptxTextBox` emits it and `export-pptx.ts` only calls the primitive. ★ The cite was EXACT
+before the extraction commit that moved it, so this is drift, not an authoring error. The doc-claims ratchet flagged
+the past-EOF half, which is the cheap one; a wrong FILE is the half no gate can see. The `cyEmu`
+cite beside it (grep `2800000`) was correct.
 ★ Byte-stability of the break-free case IS pinned; layout is not, and nothing in the release's
 verification opened a generated deck. Cheapest fix: add `<a:normAutofit/>` to that `bodyPr`, or bound the
 paragraph count per meta line. Needs an eye-check on a real deck either way.
@@ -2904,10 +2910,16 @@ two cites read `:127` and `:140` until 2026-08-05 and were six lines stale — b
 the §61 split; the sentence names both symbols, which is the durable cite. Nothing
 in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller.
 
-★ **Pre-existing, not introduced by §2's split** — they were equally dead at `0d770283`
-(`use-resource-planner.ts:710` and `:723`, returned at `:1023`/`:1025`). The move-only rule required
-carrying them across verbatim, so the split re-exported two dead handlers through a three-level
-spread rather than creating the problem.
+★ **Pre-existing, not introduced by §2's split** — both handlers were equally dead at `0d770283`,
+where `use-resource-planner.ts` still declared and re-exported them directly. Recover it with
+`git show 0d770283:src/app/use-resource-planner.ts` and grep the two names. The move-only rule
+required carrying them across verbatim, so the split re-exported two dead handlers through a
+three-level spread rather than creating the problem.
+
+★★ Those four line numbers were ACCURATE — and still had to go. They described the file at that
+commit (1042 citable lines), not at HEAD (553), so `docs:claims:check` read them as four past-EOF violations
+and could not have known better: it only ever sees the checkout. A cite pinned to a named revision
+is a real category, and the durable form is the SHA plus a symbol, never the SHA plus a number.
 
 ★★ **The role-assignment path that IS live is `handleAssignRoleById`**, which the directory picker
 uses and which never mints a role. `handleAssignResourceRole` is the older discipline×grade variant
@@ -4741,19 +4753,28 @@ Found while building the view-scoped AI prompts' Settings disclosure (`AiViewSco
 Assistant" and "Operating guides" sub-section titles in `ai-section.tsx` are styled elements, not
 headings:
 
-- `{t(lang, "aiAssistant")}` renders inside a `<span className="... text-sm font-medium ...">`
-  (`ai-section.tsx:412`).
-- `{t(lang, "aiGuidesHeading")}` renders inside a `<p className="text-sm font-medium ...">`
-  (`ai-section.tsx:603`).
+- **STILL OPEN.** `{t(lang, "aiAssistant")}` renders inside a
+  `<span className="... text-sm font-medium ...">` — grep the key in `ai-section.tsx`.
+- **CLOSED, verified 2026-08-09.** `{t(lang, "aiGuidesHeading")}` had the same defect in a `<p>`.
+  That section has since moved to `ai-guides-section.tsx`, and `settings-view.tsx` renders a shared
+  `<h2>` from the rail label instead — so the sub-section carries no heading of its own. A test in
+  `ai-guides-section.test.tsx` pins the drop ("does not render its own heading"), because re-adding
+  the `<p>` would otherwise double the heading with nothing failing.
+
+★★ Both bullets carried a line number and BOTH were wrong when this was re-checked: the surviving
+one was 227 lines off, and the closed one pointed into a file the code had left entirely. Neither
+number was ever re-read after it was written — the section was rewritten twice in between. The
+doc-claims ratchet caught only the second, and only because `ai-section.tsx` had shrunk past it; a
+227-line drift stays green forever. This is the case the "cite the SYMBOL" rule is about.
 
 A screen-reader user navigating that Settings tab by heading (NVDA/JAWS "next heading", VoiceOver
-rotor) skips both — they read as body text, not section landmarks. `AiViewScopeDisclosure` was written
-correctly from the start — a real `<h3>` for its own title — but the two pre-existing titles above it
-were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
+rotor) skips the remaining one — it reads as body text, not a section landmark. `AiViewScopeDisclosure`
+was written correctly from the start — a real `<h3>` for its own title — but the pre-existing titles
+above it were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
 sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
 `aria-sort` and §55's colour-only toggles). Fix is
-mechanical — swap both to `<h3>` with matching classes — but touches visual rhythm in a settings tab
-with no eye-verification pass scheduled, so it is recorded rather than fixed in this slice.
+mechanical — swap the remaining `<span>` to `<h3>` with matching classes — but touches visual rhythm
+in a settings tab with no eye-verification pass scheduled, so it is recorded rather than fixed here.
 
 ---
 
@@ -7711,3 +7732,260 @@ free case; it is a full accept backlog or a firewall DROP. Mapping the ambiguous
 re-opened the destructive path above, in the same function whose comment says "Refusing is the safe
 behaviour". It now resolves `true`. ★ A guard whose comment states a safety rule its code does not
 follow is worse than no guard: the comment is what the next reader checks.
+
+---
+
+## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured
+
+**Where:** `scripts/check-doc-claims.mjs`, `docs/baselines/doc-line-cites.json`, CI job `doc-claims-check`.
+
+**Why it exists.** AGENTS.md has carried "CITE THE SYMBOL, NOT A LINE RANGE" at three stars for a long
+time with NOTHING enforcing it. On 2026-08-09 a 10-line comment insertion in `src/proxy.ts` silently
+repointed six `proxy.ts:NN` citations across TWO tracked files — four of them inside
+`docs/security/threat-model.md`, including the one cited twice as the evidence that `connect-src` is
+restricted to `*.turso.io`, which came to rest on `return [`. Every one had been exact when written.
+
+**★★★ WHAT IT CANNOT DO, and no future version can.** It cannot tell you a citation still points at
+the right code, because the doc never records what was supposed to be at that line. It proves two
+things only: the cited file exists, and the cited line number is within it. **A citation silently
+shifted by an insertion still passes.** That is not a gap to be closed later — it is why the rule is
+"prefer a symbol" rather than "keep the numbers fresh".
+
+★★ MEASURED ON THE ROW THAT MOTIVATED THE GATE, not reasoned. `threat-model.md`'s server-logging row
+cited three files. TWO were wrong: `timelog/_helpers.ts` cited at line 185, past its 183 (this said
+"one past its 184" until a cold review found the gate's own line arithmetic counted the empty string
+after the trailing newline — the file has 183 citable lines, so the cite is TWO past, and a cite to
+:184 was silently passing); and
+`jira/_helpers.ts` cited at line 181, while the only `console.error` in it sits at line 117 — 64 off. The gate
+caught the first and was **silent** on the second, because being 64 lines wrong is indistinguishable
+from being right when the only question asked is "does line 181 exist". One of two. Both were also
+attached to a quoted comment — "status-only — never the token" — that **exists nowhere in the file**.
+The mitigation itself held (no proxy logs a credential); every artifact describing it had rotted.
+That row now cites a grep instead, and the gate cannot check the grep either.
+
+**★★ CONTINUATION CITES — the first cut saw a quarter of the breakage.** Docs write one path and then
+several bare line numbers. §62 read, before this pass (fenced because it is an EXAMPLE — the gate
+fired on this very paragraph when it was written as prose, which is the ratchet working):
+
+```
+(`use-resource-planner.ts:710` and `:723`, returned at `:1023`/`:1025`)
+```
+
+That is FOUR citations; the original pattern matched the first only — and all four were broken. Bare
+`` `:NNN` `` spans are now attributed to the nearest file mentioned EARLIER ON THE SAME LINE. Effect:
+496 → 551 citations seen, out-of-range 5 → 8. (56 of 156 bare spans resolve; an earlier
+wording said 37 of 150, which were the counts under the REJECTED full-cite anchor.)
+
+★★★ Two false-positive classes surfaced while building that, both caught by RUNNING it rather than
+reasoning about it, and both would have reported a green branch as red — the expensive direction:
+(a) the anchor must be the nearest preceding file MENTION, not the nearest preceding `path:LINE` — a
+colon-less `task-manager.tsx` was skipped, hanging four of its numbers on a file with 152 CITABLE
+lines (153 by `split`, and the range check is the one that matters here); (b) the
+path pattern truncated `notes-badge-button.tsx` to `.ts`, because the extension alternation tried
+`ts` first with nothing forcing the token to end, inventing phantom citations to files that do not
+exist across **25 distinct truncated paths**. ★ Quote the 25, not a total: the totals (47 against
+the tree that first measured it, 45 against `73935dab`) move with the corpus, so a bare count is
+unreproducible a week later while the distinct-path figure has held across both measurements.
+
+★★★ THAT NUMBER WAS FIRST WRITTEN AS "20", AND THE MISTAKE IS THE ONE THIS REGISTER KEEPS RECORDING:
+it was read off a display truncated at 20 lines. A `head`/`sed 1,20p` output is a FLOOR, never a
+count, and it looks exactly as rigorous as a real measurement in the sentence that quotes it. Caught
+by re-running the buggy pattern on purpose and DIFFING the totals — which is the only thing that can
+catch it, since nothing about "20" reads as wrong. Count with a counter, not with your eyes.
+The full-cite pattern was immune to (b) only because the `:` after the extension forces a backtrack.
+
+★ The 100 bare cites whose path sits on a PREVIOUS line stay OUT of scope. The form is genuinely
+ambiguous — AGENTS.md's own `` `:3000` `` is a PORT NUMBER — and a cross-line rule would have hunted
+for a source file to hang it on. A gate that invents a citation is worse than one with a documented
+blind spot.
+
+**Grandfathered debt: 3, down from 19.** Failing on pre-existing breakage would have made the gate
+unlandable, and a gate that cannot land protects nothing — but the debt was then worked off rather
+than left. All three survivors are in `findings-2026-07.md`, a DATED snapshot of a July 2026 audit
+(TWO cites past EOF, one to a file since deleted). They are deliberately NOT renumbered and the file now
+carries a banner saying so: rewriting a signed audit record to match today's tree destroys the only
+thing it is good for, which is saying what was true when it was signed.
+
+**A third bucket, `thirdParty` (10), is classified rather than counted.** Ten of the eleven original
+"unresolvable" cites pointed into dompurify / prosemirror / vitest / eslint-plugin internals —
+legitimate references to code this repo does not own and cannot fix. Counting them made the debt look
+11× worse than the ONE real broken pointer, which is the fastest way to get a number ignored. ★ Not
+harmless: they rot on any upgrade, and `vitest/dist/chunks/coverage.DM_a_rWm.js` carries a CONTENT
+HASH in its filename, so that one is guaranteed to break and nothing will announce it.
+
+**★★★ WHAT THE CLEAN-UP MEASURED — the real argument for the rule.** Every out-of-range cite in a
+LIVING doc was re-verified against the code rather than renumbered, and in every case the CLAIM was
+sound while the coordinates were not:
+
+- ONE row of `handrolled-ui-inventory.md` carried SEVEN line numbers and **FIVE were wrong**:
+  `actions-panel` off by 3, `notifications` by 6, `sidebar` and `timelog-panel` by 8 each, and the
+  caret it attributed to `chat-panel.tsx` had moved into `chat-tool-block.tsx` entirely. The gate
+  caught ONE — the only one past EOF.
+- §33's `export-pptx.ts` cite was EXACT until an extraction commit moved the element into
+  `ooxml-pptx-primitives.ts` (`git log -S 'a:bodyPr' -- src/app/export-pptx.ts`). ★★ A first
+  write of this bullet called it a wrong FILE that "never contained" the element, and used it as
+  the CONTRAST to §62's accurate-for-an-older-revision case — when it is the SAME category. The
+  gate saw only the past-EOF symptom; the drift is invisible to it either way.
+- §88's two bullets were both wrong: the surviving defect was 227 lines off, and the other pointed
+  into a file the code had left — that half turned out to be **fixed**, closed here on re-check.
+- §62's four numbers were ACCURATE, for the file at commit `0d770283` (1042 citable lines) rather
+  than at HEAD (553). A cite pinned to a named revision is a real category the gate cannot know about; the
+  durable form is the SHA plus a symbol, never the SHA plus a number.
+  ★★★ THIS NUMBER WAS "CORRECTED" IN THE WRONG DIRECTION, TWICE, AND THAT IS THE REAL LESSON.
+  It first read 1042 (from `wc -l`), was "audited" to 1043 on the reasoning that every gate counts
+  `split("\n").length`, and is 1042 again — because the same branch then FIXED this gate to count
+  CITABLE lines (`countLines`, which drops the empty string after the trailing newline and so equals
+  `wc -l` for a newline-terminated file). The audit's replacement claim was true when written and
+  falsified by a later commit in its own branch; the closing instruction it added — "use the gate's"
+  — then pointed at the number it had just called an error. ★★ There are genuinely TWO conventions
+  and neither is wrong: `check-file-sizes.mjs` counts `split("\n").length` because it asks HOW BIG a
+  file is; this gate counts `countLines` because it asks WHICH LINE NUMBERS EXIST. So the file was
+  1042 citable lines at that commit and 1043 by the size gate's measure. ★ Which is the argument for
+  the bullet above rather than against it: a SHA plus a symbol needs no convention at all.
+
+The through-line: a wrong line number is a SYMPTOM. Renumbering it preserves a claim nobody re-read —
+and §88 proves that can mean documenting an open defect that was closed months ago.
+
+**★★ EVERY NUMBER ABOVE WAS THEN RE-DERIVED BY A SCRIPT, and the audit is worth as much as the
+findings.** 28 claims, 25 clean. Of the THREE mismatches, only ONE was a real error (the 1043 above);
+the other two were bugs in the AUDITOR — it matched `ChevronDownIcon` on the IMPORT line instead of
+the JSX usage and duly reported drifts of −60 and −584 against claims that were correct. A
+verification probe is code, and carries the same defect rate as the thing it verifies. Read a
+mismatch as "one of these two is wrong", never as "the claim is wrong" — the reflex to trust the
+newer measurement is exactly how a correction round introduces errors, which this register already
+records at three stars elsewhere.
+
+**★★ The parsing is now a tested module.** `scripts/doc-claims-lib.mjs` holds the regexes and
+`citesOnLine`/`resolveCandidates`/`stripFencedBlocks`; `check-doc-claims.mjs` is a ~200-line driver.
+`vitest.config.ts` `include` gained `scripts/**/*.{test,spec}.mjs`, so the CI gates are reachable from
+the unit suite for the first time — coverage `include` stays `src/**`, so a script test raises no
+floor and gates no percentage. NINE other scripts are now testable the same way and none is tested
+yet — including two more GATE scripts (`check-agents-symbols`, `check-file-sizes`),
+`sync-script-docs` (which backs the `docs:scripts:check` prebuild gate), and ★★ `check-doc-claims`
+ITSELF: extracting the parsing left the DRIVER — the walk, the baseline diff, the reporting —
+entirely untested, so "the parsing is now a tested module" is true and is HALF the gate. An earlier
+three-item list here read as exhaustive and named three of nine; the first correction of it said
+EIGHT, dropping the driver, which is the one omission that changes what a reader concludes.
+Reproduce with `ls scripts/ scripts/*.test.*` and subtract.
+
+★★★ MUTATION-PROVED — and the first reading of the result was HALF WRONG, in the dangerous
+direction. Six injected defects, four killed at once, two survived; I classified BOTH survivors as
+equivalent mutants, concluding that `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead were
+redundant guards so removing either alone changed nothing. A cold review's differential fuzz settled
+it: dropping the ORDER changes NO outputs, dropping the LOOKAHEAD invents phantom paths —
+`` `foo.tsxx` `` anchors to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+★★ THAT EXPERIMENT NOW LIVES IN THE SUITE (`PATH_RE mutants — the two guards are NOT
+interchangeable`), and this entry used to quote its corpus size instead — "784 inputs, 336 differ".
+Nothing in the repo reproduced those figures, and a second reviewer building their own corpus got
+different ones for the same true property; that is this section's own "quote the 25, not a total"
+rule applied to the text that states the rule. Both mutants are now built from the exported
+`SOURCE_EXT`, so the property is ENFORCED rather than asserted and there is no count to go stale.
+★ Writing that pin is itself worked evidence: the first version enumerated "every
+extension-SUFFIXED input" as the expected differing set and FAILED, because the corpus builds
+`ts` + `x` as `foo.tsx` — a valid name that must not differ. Enumerating re-derived the regex's
+rules and got them wrong; asserting the PROPERTY (every difference is an invented path, and no
+accepted input is affected) is what holds.
+The lookahead mutant survived only because no test fed it an extension-SUFFIXED name — a TEST GAP,
+which I recorded as proof the code was redundant, in a comment a future contributor would read as
+licence to delete a live guard. There is now a test (".tsxx is not .tsx") and that mutant dies.
+
+★★★ THE RULE, stated correctly this time: a surviving mutant is a QUESTION, and its two answers —
+"equivalent mutant" and "missing test" — are INDISTINGUISHABLE from the harness, because both look
+like a green run. Telling them apart requires an input the suite does not contain, so you have to go
+LOOKING for one; assuming equivalence is how a guard gets deleted two releases later. ★ Reading them
+as "vacuous tests" would also have been wrong, and that was the original mistake's mirror image: the
+tests were fine, the *conclusion drawn from their silence* was not. Note also that the `.yaml` case
+sitting beside the two real truncation regressions is NOT one (`yml` is not a prefix of `yaml`, so no
+ordering can truncate it); it is relabelled as a plain positive case, because a vacuous test filed
+under "regression" is worse than no test — it is counted as cover.
+
+**★★★ A COLD REVIEW OF THE GATE FOUND FIVE REAL DEFECTS, and two of them could FAIL A GOOD BRANCH.**
+Dispatched after the tests existed, scoped to the parsing, and required to report an executed input
+and its observed output for every finding. All five were verified independently before being fixed;
+every one reproduced. ★★ This said SIX for one release while the LIST below held five, and what the
+sixth was meant to be is NOT recoverable — the review report is gone and no commit names it. Corrected
+DOWN to what is enumerated, because a count nobody can reproduce is worse than a smaller true one.
+Count the bullets; they are the authority.
+
+- **Scoped packages were counted as repo debt.** `@` was absent from the citation character classes,
+  so a line-numbered cite to `node_modules/@tiptap/core/dist/index.js` parsed as
+  `tiptap/core/dist/index.js` — the `@` split the token and took the `node_modules/` prefix with it.
+  ★ Writing that example WITH its line number tripped this very ratchet, which is the fix
+  demonstrating itself: before it, the gate could not see that citation at all.
+  `THIRD_PARTY_RE`'s `@[\w.-]+/` branch
+  was therefore UNREACHABLE from anything the parser produced, and the first person to cite a scoped
+  package in prose would have reddened the gate. ★★ Its unit tests passed throughout because they
+  feed the classifier hand-written literals and never `citesOnLine` output — a dead branch reads as
+  live when the pipeline between the two is untested. There is now a test on the composed pipeline.
+- **`stripFencedBlocks` was a six-line parity toggle with four failure modes**, three of them one
+  authoring habit away: a BLOCKQUOTED fence (`> ```bash`) was not recognised, so its contents were
+  scanned as prose — and README.md carries one TODAY, harmless only by luck of content; TILDE fences
+  were unhandled; a line containing an INLINE ``` span inverted the parity and silently swallowed
+  every line to the next fence (a mass false negative); and a NESTED fence closed the outer block,
+  leaking fenced content back out. Replaced with CommonMark's actual rule — open on a run of ≥3 of
+  one char plus an info string containing no fence char, close only on a longer-or-equal run of the
+  SAME char with nothing after it.
+- **Bare RANGES were invisible.** `` `:113-116` `` did not match, so the gate was blind to precisely
+  the form the "cite the SYMBOL, not a line RANGE" rule exists to discourage. Live in
+  `docs/security/threat-model.md`. Only the START line is range-checked.
+- **A URL with a line anchor parsed as a citation.** `https://github.com/x/y/blob/main/app.js:12`
+  became a cite to `github.com/x/y/blob/main/app.js`, which resolves to nothing — so merely LINKING
+  to code on the web would have failed the gate.
+- **The range check was off by one.** It counted `split("\n").length`, which includes the empty
+  string after a trailing newline, so a citation to exactly one past EOF passed and every failure
+  message overstated the file by one. Now `countLines`, unit-tested, and the reason the numbers in
+  this very section moved. ★ `check-file-sizes.mjs` counts the other way on purpose — that gate asks
+  how big a file is, this one asks which line numbers exist. Do not "align" them.
+
+★★ FIXING THEM MADE THE GATE STRICTER AND IT IMMEDIATELY FOUND MORE: 537 → 541 citations (four had
+been hidden by the `@` and range blind spots) and a SECOND out-of-range cite in the dated snapshot
+that the off-by-one had been passing. All four REGEX fixes are mutation-proved (4/4 killed); the fifth
+defect — the `stripFencedBlocks` rewrite — is covered by its own cases, not by a mutant, which is why
+that number is four against a five-item list. Debt is now
+1 unresolvable + 2 out-of-range, **all three in `findings-2026-07.md`** — every living doc is clean.
+
+★ WHAT THE REVIEW DID NOT FIND, which is worth as much: zero live false positives across the whole
+corpus (220 distinct cited paths), zero mis-attributions across all 56 bare-cite attributions — each
+read against its source line, including the awkward colon-less-mention cases — and no catastrophic
+backtracking (quadratic, cleanly 4× per doubling; a 50k-char line parses in ~1.8s). The
+nearest-preceding-MENTION anchor does exactly what its comment claims. ★ One accepted looseness:
+`resolveCandidates`' dotfile fallback also matches `config.ts` → the three `*.config.ts` files, and
+`route.ts` already resolves to 12 candidates, so those citations are effectively unchecked (a cite is
+only flagged when EVERY candidate is out of range). Permissive, so it cannot redden a good branch.
+
+**Deliberately NOT built: staleness detection.** The strongest available check is "was the cited file
+modified after the doc line was written", via `git blame` on the doc plus `git log` on each cited
+file — a dozen blames and one log lookup per distinct cited path (220 today), so cost is not the
+objection. **The slim CI image has no
+git** (the same constraint `check-file-sizes.mjs` records at its `readdirSync` comment). It would work
+locally and silently no-op in CI, which is the worst possible shape for a gate: green because it did
+not run. Either move it to a job on a git-bearing image, or do not build it.
+
+★ Citations inside ``` fences are ignored by design — a stack trace or a sample command is an example,
+not a claim about this repo. A citation hidden in a fence therefore escapes the ratchet. Accepted: the
+alternative is the gate firing on its own documentation.
+
+★★ **THE GATE FIRED ON THIS ENTRY, ON THE FIRST RUN, AND THAT WAS CORRECT.** A register entry about
+broken citations necessarily contains citation-shaped text, so §131's own prose examples read as three
+new `path:LINE` citations and the ratchet refused them. The temptation is to re-baseline — which would
+have admitted three new citations into the baseline and quietly defeated the only thing the gate
+checks, on the very commit that introduced it. The fix was to obey the rule instead: the examples now
+read "`timelog/_helpers.ts` cited at line 185" rather than the `path:LINE` form. Baseline unchanged at
+310 cites / 11 unresolvable / 5 out-of-range across 11 docs — the state recorded in
+`doc-line-cites.json` at that commit, and today's 541/1/2 across 12 is the live figure.
+★★ This said "496/11/5". The 11 and the 5 were right and the 496 was not: summing the baseline's own
+per-doc counts at that commit gives 310. Two right numbers beside a wrong one is the hardest shape to
+catch by reading, because the pair vouches for the third — re-derive EACH, and cite the artifact that
+holds it (`git show <sha>:docs/baselines/doc-line-cites.json`) rather than a remembered triple. ★ If you are ever about to run `--update` to make your own commit pass, that is the signal
+you are the thing being gated.
+
+★ **The parsing now has a unit test** (see above); `check-file-sizes.mjs` and
+`check-agents-symbols.mjs` still have none. ★★ This bullet read "No automated test covers this
+script" until a cold review caught it contradicting the paragraph above it in the same entry — a
+leftover from before the test landed, and read alone it told the next maintainer the opposite of
+the truth. The DRIVER (walk, baseline diff, reporting) is still untested; verification there was
+a manual mutation pass
+proving it exits 1 on each violation class (new cite to an existing path · new cite to a new path ·
+unresolvable file · line past EOF) and 0 on each allowed case (a citation inside a fence · a
+symbol-only citation · correcting an existing citation's line number in place). A future edit to the
+regex or the resolver has nothing catching a regression — re-run that mutation pass by hand.

@@ -13,7 +13,12 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     css: true,
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // ★ `scripts/` is included so the CI GATES themselves can be tested. They
+    // were unreachable from the unit suite for their whole life, and every
+    // defect the doc-claims ratchet shipped was a regex bug found only by
+    // running it against the real docs. Coverage `include` deliberately stays
+    // `src/**` below, so a script test raises no floor and gates no percentage.
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "scripts/**/*.{test,spec}.mjs"],
     // Headroom above the 5s default: the CPU-heavy property suites (fast-check,
     // 100 runs each) plus fake-indexeddb setup occasionally exceed 5s when a
     // worker is starved under full-suite parallel load on slower machines —
