@@ -215,9 +215,20 @@ describe("open-followups §114 — the nine document-only tags, one leading tag 
     ["img", '<img data-asset-id="7" alt="a"><p>b</p>'],
   ];
 
+  // ★★★ THE POSITIVE ASSERTION IS THE LOAD-BEARING ONE — `not.toContain("&lt;")`
+  // ALONE IS VACUOUS. Mutation-proved 2026-08-10: with `sanitizeAiDocumentRichText`
+  // stubbed to return `""` unconditionally, all ten tests in this describe PASSED,
+  // because the empty string contains no `&lt;` either. "Was not escaped" and "was
+  // produced at all" are two different claims and only the second one can fail on
+  // a dropped value. The `<tag[ >]` form (not a bare `<tag` substring) is
+  // deliberate: `<s` is a prefix of `<sub`, `<sup` and `<strong`, so a substring
+  // check would let the `s` case pass on output that never contained an `<s>`.
   for (const [tag, html] of cases) {
-    it(`does not escape a leading <${tag}>`, () => {
-      expect(sanitizeAiDocumentRichText(html)).not.toContain("&lt;");
+    it(`keeps a leading <${tag}> as markup`, () => {
+      const out = sanitizeAiDocumentRichText(html);
+      expect(out, `<${tag}> did not survive the write boundary`)
+        .toMatch(new RegExp(`<${tag}[ >]`));
+      expect(out).not.toContain("&lt;");
     });
   }
 

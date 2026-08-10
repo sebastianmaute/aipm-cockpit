@@ -246,6 +246,29 @@ describe("sanitizeRaidItem", () => {
     expect(sanitizeRaidItem(input)!.linkedTaskIds).toEqual([3, 7]);
   });
 
+  // --- which SINK the rich fields classify against ---
+
+  // ★★★ MUTATION-PROVED GAP: flipping all six rich-field sinks in
+  // sanitize-records.ts from "template" to "note" left 299 tests green across
+  // descriptor-drift.test.ts and seven sanitize/storage suites, because every
+  // other fixture is PLAIN TEXT — an input every sink classifies identically.
+  // Only a SEPARATING input pins the choice: `<h1>` is in the 11-tag template
+  // allow-list and NOT in the 8-tag note one, so the template sink passes it
+  // through as live markup while the note sink calls the whole value plain text
+  // and escapes it. `sanitizeRaidItem`'s destination is `sanitizeTemplateHtml`
+  // (the AI write boundary is 11 tags wide), so "template" is correct here.
+  it("classifies a RAID rich field at the template sink, not the note sink", () => {
+    const result = sanitizeRaidItem({ ...VALID, description: "<h1>Q3</h1><p>ok</p>" });
+    expect(result!.description).toBe("<h1>Q3</h1><p>ok</p>");
+    expect(result!.description).not.toContain("&lt;h1&gt;");
+  });
+
+  it("classifies a RAID mitigation at the template sink, not the note sink", () => {
+    const result = sanitizeRaidItem({ ...VALID, mitigation: "<h1>Q3</h1><p>ok</p>" });
+    expect(result!.mitigation).toBe("<h1>Q3</h1><p>ok</p>");
+    expect(result!.mitigation).not.toContain("&lt;h1&gt;");
+  });
+
   // --- optional fields omitted when empty ---
 
   it("omits description when empty", () => {
