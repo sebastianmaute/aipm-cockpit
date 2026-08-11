@@ -56,12 +56,17 @@ describe("NarrativeSummary", () => {
   });
 
   // ★★ End-to-end for the vanished-narrative defect, through the REAL pipeline
-  // (narrativeToHtml -> sanitizeNoteHtml -> RichTextView). These tags were treated
-  // as ready-to-render HTML while the sink strips them WITH their text
-  // (KEEP_CONTENT false), so the stored words were simply deleted on screen:
-  // the h1 case rendered "All good" alone, the div and blockquote cases rendered
-  // an empty card. Reachable by anyone who pasted HTML into the old plain textarea
-  // to fake formatting — where it used to show as visible literal text.
+  // (narrativeToHtml -> sanitizeRichHtml -> RichTextView). These tags were treated
+  // as ready-to-render HTML while the sink stripped them WITH their text
+  // (the retired sanitizeNoteHtml ran KEEP_CONTENT: false), so the stored words
+  // were simply deleted on screen: the h1 case rendered "All good" alone, the div
+  // and blockquote cases rendered an empty card. Reachable by anyone who pasted
+  // HTML into the old plain textarea to fake formatting.
+  // ★★ THE ASSERTION IS UNCHANGED AND THE ROUTE UNDERNEATH IT IS NOT — the test
+  // pins that the WORDS are visible, never how. h1/h3/blockquote are on
+  // RICH_ALLOWED_TAGS now, so those three survive as real markup; div is not, so
+  // narrativeToHtml still escapes that value whole and the words show as text.
+  // Both routes satisfy this test, which is the point of asserting on the words.
   it.each([
     ["<h1>Q3 status</h1><p>All good</p>", ["Q3 status", "All good"]],
     ["<div>Status text</div>", ["Status text"]],
@@ -73,15 +78,22 @@ describe("NarrativeSummary", () => {
   });
 
   // The other half: a value that DOES open with a recognised tag but sanitises to
-  // nothing. `<u>` is not in the note allow-list and KEEP_CONTENT is false, so a
-  // Word/Outlook paste collapses to `<p></p>`. Judging emptiness on the stored
-  // value called this non-empty and rendered a card holding nothing but the
-  // "Updated <date>" line — a blank status card with a timestamp.
+  // nothing. Judging emptiness on the stored value called this non-empty and
+  // rendered a card holding nothing but the "Updated <date>" line — a blank status
+  // card with a timestamp.
+  // ★★★ THE FIXTURE CHANGED AND THE PROPERTY DID NOT. It was
+  // "<p><u>underlined only</u></p>", a Word/Outlook paste that collapsed to
+  // "<p></p>" because `sanitizeNoteHtml` omitted `u` AND ran KEEP_CONTENT: false.
+  // `u` is on RICH_ALLOWED_TAGS now and that value renders in full — measured, as
+  // a real failure of this test before it was re-aimed. An element carrying no
+  // text of its own is what still empties a wrapper: measured 2026-08-11,
+  // sanitizeRichHtml("<p><script>x</script></p>") === "<p></p>", isNarrativeEmpty
+  // true. The divergence between stored and sanitised is narrower now, not gone.
   it("renders nothing when the narrative sanitises away to nothing", () => {
     const { container } = render(
       <NarrativeSummary
         lang="en-US"
-        status={{ narrative: "<p><u>underlined only</u></p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }}
+        status={{ narrative: "<p><script>x</script></p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }}
       />,
     );
     expect(container.firstChild).toBeNull();

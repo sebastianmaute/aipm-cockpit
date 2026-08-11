@@ -373,15 +373,15 @@ describe("DOM-free guard", () => {
     // ★★★ This ban is NOT redundant with the import pin below, and removing it
     // in favour of that pin (as 0.210.0 briefly did) OPENED the likelier hole:
     // `./sanitize-html` is an ALLOWED specifier — plainToHtml legitimately comes
-    // from it — and that same module exports htmlToText, sanitizeNoteHtml and
-    // sanitizeTemplateHtml, all of which CALL DOMPurify. So a call added here
+    // from it — and that same module exports htmlToText, sanitizeRichHtml and
+    // sanitizeDocumentHtml, both of which CALL DOMPurify. So a call added here
     // passes the specifier pin untouched. The two guards answer different
     // questions: this one is "does the CODE call a DOM sanitiser", the pin is
     // "can a NEW module be reached at all". Keep both.
     expect(code).not.toMatch(/dompurify/i);
     expect(code).not.toMatch(/htmlToText/);
-    expect(code).not.toMatch(/sanitizeNoteHtml/);
-    expect(code).not.toMatch(/sanitizeTemplateHtml/);
+    expect(code).not.toMatch(/sanitizeRichHtml/);
+    expect(code).not.toMatch(/sanitizeDocumentHtml/);
   });
 
   it("imports exactly the two modules it is allowed to import", () => {

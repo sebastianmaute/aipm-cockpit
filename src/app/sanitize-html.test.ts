@@ -4,61 +4,69 @@ import {
   DOCUMENT_ALLOWED_TAGS,
   RICH_ALLOWED_TAGS,
   sanitizeRichHtml,
-  sanitizeTemplateHtml,
-  sanitizeNoteHtml,
   sanitizeDocumentHtml,
   htmlToText,
   plainToHtml,
 } from "./sanitize-html";
+import * as sanitizeHtml from "./sanitize-html";
 
-describe("sanitizeTemplateHtml", () => {
-  it("drops <script> and event handlers", () => {
-    expect(sanitizeTemplateHtml("<script>alert(1)</script>")).not.toContain("script");
-    expect(sanitizeTemplateHtml('<p onclick="x()">hi</p>')).not.toContain("onclick");
-    expect(sanitizeTemplateHtml('<p onclick="x()">hi</p>')).toContain("hi");
+// ★★★ THE POINT OF THE WHOLE SLICE, asserted structurally rather than in prose.
+// Three sanitizers over two disagreeing allow-lists is what produced §137: the
+// narrow one (`sanitizeNoteHtml`, 8 tags at KEEP_CONTENT:false) DELETED the text
+// of anything the wide one admitted, at whole-object LOAD boundaries, with no
+// human and no save involved. Re-adding any of these four names — even as an
+// alias, which is the tempting "harmless" version — recreates a second list that
+// can drift from the one the classifiers derive from.
+describe("one sanitizer, not three", () => {
+  it("exports no sanitizeNoteHtml", () => {
+    expect("sanitizeNoteHtml" in sanitizeHtml).toBe(false);
   });
-  it("drops a javascript: href but keeps the link text", () => {
-    const out = sanitizeTemplateHtml('<a href="javascript:alert(1)">x</a>');
-    expect(out).not.toContain("javascript");
-    expect(out).toContain("x");
+  it("exports no sanitizeTemplateHtml", () => {
+    expect("sanitizeTemplateHtml" in sanitizeHtml).toBe(false);
   });
-  it("keeps allowed formatting marks and blocks", () => {
-    const out = sanitizeTemplateHtml("<p><strong>b</strong> <em>i</em> <u>u</u></p><h1>H</h1><ul><li>one</li></ul>");
-    expect(out).toContain("<strong>");
-    expect(out).toContain("<em>");
-    expect(out).toContain("<u>");
-    expect(out).toContain("<h1>");
-    expect(out).toContain("<li>");
+  it("exports no NOTE_ALLOWED_TAGS or TEMPLATE_ALLOWED_TAGS", () => {
+    expect("NOTE_ALLOWED_TAGS" in sanitizeHtml).toBe(false);
+    expect("TEMPLATE_ALLOWED_TAGS" in sanitizeHtml).toBe(false);
+  });
+  it("still exports the two that remain — anti-vacuity for the three above", () => {
+    // Without this, deleting the whole module's exports would turn the three
+    // negative assertions green.
+    expect("sanitizeRichHtml" in sanitizeHtml).toBe(true);
+    expect("sanitizeDocumentHtml" in sanitizeHtml).toBe(true);
+  });
+});
+
+// ★★ COVERAGE INHERITED FROM THE RETIRED `sanitizeTemplateHtml` DESCRIBE. Its
+// remaining cases ARE covered by the `sanitizeRichHtml` describes below — the mark
+// set and idempotence by "the wider allow-list", `<script>` by the KEEP_CONTENT
+// block, and a `javascript:` href by "the URI policy" — so only the cases below
+// are retargeted rather than deleted with the shim.
+// ★★★ THE EVENT-HANDLER CASE IS ONE OF THEM, and an earlier draft of this note
+// listed it as inherited. It is NOT: the only `onclick` assertion elsewhere in
+// this file is `sanitizeDocumentHtml`'s, so deleting the shim's describe without
+// this test would have left `sanitizeRichHtml` — the sanitizer guarding the seven
+// rich entity fields, the note log and the narrative — with NO event-handler
+// coverage at all. Checked by grep, not by memory.
+// ★ The retired `sanitizeNoteHtml` describe is NOT reproduced: its distinctive
+// case asserted `'<script>…</script><h1>no</h1><p>ok</p>'` === `"<p>ok</p>"`, i.e.
+// that a heading and its word were DELETED. That is the §137 behaviour itself, and
+// pinning it now would pin the defect.
+describe("sanitizeRichHtml — cases inherited from the retired template sanitizer", () => {
+  it("drops an event-handler attribute but keeps the element's text", () => {
+    expect(sanitizeRichHtml('<p onclick="x()">hi</p>')).toBe("<p>hi</p>");
   });
   it("keeps a safe http link (href preserved)", () => {
     // DOMPurify strips the cosmetic target/rel; the security-relevant part is
     // that the safe href and the anchor survive.
-    const out = sanitizeTemplateHtml('<a href="https://ok.example" target="_blank" rel="noopener noreferrer">x</a>');
+    const out = sanitizeRichHtml('<a href="https://ok.example" target="_blank" rel="noopener noreferrer">x</a>');
     expect(out).toContain('href="https://ok.example"');
     expect(out).toContain(">x</a>");
   });
   it("leaves merge-field tokens untouched", () => {
-    expect(sanitizeTemplateHtml("<p>Hi {{taskName}}</p>")).toContain("{{taskName}}");
+    expect(sanitizeRichHtml("<p>Hi {{taskName}}</p>")).toContain("{{taskName}}");
   });
   it("drops <style>", () => {
-    expect(sanitizeTemplateHtml("<style>p{}</style><p>x</p>")).not.toContain("<style>");
-  });
-});
-
-describe("sanitizeNoteHtml", () => {
-  it("keeps the lean mark set", () => {
-    const out = sanitizeNoteHtml("<p><strong>a</strong> <em>b</em></p><ul><li>x</li></ul>");
-    expect(out).toContain("<strong>a</strong>");
-    expect(out).toContain("<em>b</em>");
-    expect(out).toContain("<li>x</li>");
-  });
-  it("strips disallowed tags and scripts", () => {
-    expect(sanitizeNoteHtml('<script>alert(1)</script><h1>no</h1><p>ok</p>'))
-      .toBe("<p>ok</p>");
-  });
-  it("keeps safe links, drops javascript: urls", () => {
-    expect(sanitizeNoteHtml('<a href="https://x.io">l</a>')).toContain('href="https://x.io"');
-    expect(sanitizeNoteHtml('<a href="javascript:alert(1)">l</a>')).not.toContain("javascript");
+    expect(sanitizeRichHtml("<style>p{}</style><p>x</p>")).not.toContain("<style>");
   });
 });
 
@@ -241,11 +249,17 @@ describe("sanitizeRichHtml — the wider allow-list", () => {
   // OLD 8-tag note list, where `h1`, `u` and `blockquote` were UNLISTED and
   // KEEP_CONTENT:false deleted each word along with its tag. All three are on the
   // 21-tag rich list now, so KEEP_CONTENT never reaches them. Measured, not
-  // reasoned: re-applying the note config (KEEP_CONTENT:false + "#text") to
-  // sanitizeRichHtml leaves every one of them GREEN — only 1 of 35 tests went
-  // red, and it was the h5 one. The KEEP_CONTENT default therefore needs its own
-  // fixtures, which is the describe block below; do not read this one as covering
-  // it.
+  // reasoned: re-applying the retired note config (KEEP_CONTENT:false + "#text")
+  // to sanitizeRichHtml leaves every one of these five GREEN. The KEEP_CONTENT
+  // default therefore needs its own fixtures, which is the describe block below;
+  // do not read this one as covering it.
+  // ★★ RE-MEASURED 2026-08-11, because retiring sanitizeNoteHtml moved this
+  // file's test count and the old note quoted one: 4 of 43 go red, and ALL FOUR
+  // are in the KEEP_CONTENT describe below — which is the claim above, stated the
+  // right way round. (It read "only 1 of 35 tests went red, and it was the h5
+  // one"; neither number nor the named test survives today's tree. A count is the
+  // easiest claim to check and the easiest to leave rotting — re-run it, never
+  // adjust it by reasoning.)
   //
   // ★★ Assert with toBe, never toContain. `toContain("Title")` is satisfied by
   // "<p>&lt;h1&gt;Title&lt;/h1&gt;</p>" — the ESCAPED form a classifier miss

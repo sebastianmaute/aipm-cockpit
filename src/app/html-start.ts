@@ -14,15 +14,20 @@
 // inverts it — while the two back-references further down this file and AGENTS.md
 // all state it the way it is stated here.
 //
-// ★★ Recognising MORE is the other half of the rule, and it is worse wherever a
-// sink DELETES instead of unwrapping: sanitizeNoteHtml sets KEEP_CONTENT: false,
-// so recognising a tag it strips removes the element AND its text — a bug already
-// shipped and fixed once, where "<h1>Q3</h1><p>ok</p>" rendered as just "ok" and
-// "<div>Status</div>" rendered as nothing. ★★ That is also why the former "note"
-// and "template" members could merge into the single "rich" sink below: two lists
-// over one question only ever cost anything because the narrower of them fed a
-// deleting sanitizer (§137). Read the rule against a sink's own KEEP_CONTENT
-// policy, never against which members happen to be listed here.
+// ★★ Recognising MORE is the other half of the rule, and it USED to be the worse
+// half: it is only costly where a sink DELETES instead of unwrapping, and the
+// retired `sanitizeNoteHtml` set `KEEP_CONTENT: false`, so recognising a tag it
+// stripped removed the element AND its text — a bug shipped and fixed once, where
+// "<h1>Q3</h1><p>ok</p>" rendered as just "ok" and "<div>Status</div>" rendered as
+// nothing. ★★★ NO SINK DELETES ANY MORE. Both remaining sanitizers run DOMPurify's
+// KEEP_CONTENT default, so over-recognising now costs formatting rather than
+// words, and that asymmetry is what let the former "note" and "template" members
+// merge into the single "rich" sink below: two lists over one question only ever
+// cost anything because the narrower of them fed a deleting sanitizer (§137).
+// ★★ Do not read "no sink deletes" as licence to widen a classifier freely — the
+// "projection" member below documents a real over-recognition cost (§32) that has
+// nothing to do with KEEP_CONTENT. Read the rule against a sink's own behaviour,
+// never against which members happen to be listed here.
 //
 // One shared constant cannot express that rule for four sinks, which is why three
 // of the regexes are DERIVED from their own sink's allow-list rather than
@@ -72,10 +77,15 @@ const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
  *  an UNLISTED tag that shares a listed one's prefix: without it, the `s`
  *  alternative matches the leading "s" of "<script>", "<section>" or
  *  "<summary>" and `[^>]*>` swallows the rest of the name as if it were
- *  attributes — misclassifying each as already-HTML. Since `s` is a member of
- *  DOCUMENT_ALLOWED_TAGS, dropping `\b` would make the document and projection
- *  sinks treat a value starting "<script...>" as already-HTML. Measured, not
- *  reasoned — see the "does not let a short tag swallow" test below.
+ *  attributes — misclassifying each as already-HTML. `s` is a member of
+ *  RICH_ALLOWED_TAGS, and DOCUMENT_ALLOWED_TAGS spreads that array, so dropping
+ *  `\b` would make ALL THREE derived sinks — rich, document AND projection —
+ *  treat a value starting "<script...>" as already-HTML. ★★ "rich" is the one
+ *  that matters most: it is the STORAGE classifier for the seven rich entity
+ *  fields, so a reader asking "is the rich storage path exposed?" must read this
+ *  as YES. (It said "the document and projection sinks" while `s` lived only on
+ *  DOCUMENT_ALLOWED_TAGS, and the sentence outlived that fact by one commit.)
+ *  Measured, not reasoned — see the "does not let a short tag swallow" test below.
  *
  *  ★ "<strongish>" belongs to the same class but reaches it by a DIFFERENT
  *  alternative, and an earlier revision listed it beside the three above as if

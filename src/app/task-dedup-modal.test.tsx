@@ -5,7 +5,7 @@ import { type GroundedMergeGroup } from "./task-dedup/dedup";
 import { t } from "./i18n";
 
 // The unified description reaches this modal as HTML: dedup.ts sets it to
-// sanitizeNoteHtml(...) output. This file exists because the modal rendered it
+// sanitizeRichHtml(...) output. This file exists because the modal rendered it
 // RAW, so the user approving a DESTRUCTIVE merge read literal "<p>" markup in
 // the one screen that describes what the merge will write.
 

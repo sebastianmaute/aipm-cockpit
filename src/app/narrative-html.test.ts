@@ -22,25 +22,36 @@ describe("narrativeToHtml", () => {
     expect(narrativeToHtml("<br>then text")).toBe("<br>then text");
   });
 
-  // ★★ Tags the SINK sanitizer strips must NOT be recognised here. sanitizeNoteHtml
-  // runs KEEP_CONTENT false, so treating these as ready-to-render HTML deleted the
-  // element AND its text: `<h1>Q3 status</h1><p>All good</p>` rendered as just
-  // "All good", and a div/blockquote-wrapped narrative rendered as nothing at all.
-  // Escaped, the user still reads their text — exactly what `<pre>` always did.
-  it("escapes a legacy value opening with a tag the note sanitizer strips", () => {
-    expect(narrativeToHtml("<h1>Q3 status</h1><p>All good</p>")).toBe(
-      "<p>&lt;h1&gt;Q3 status&lt;/h1&gt;&lt;p&gt;All good&lt;/p&gt;</p>",
-    );
+  // ★★ Tags the SINK sanitizer does not KEEP must not be recognised here — the
+  // classifier is derived from RICH_ALLOWED_TAGS so the two cannot drift.
+  // ★★★ THIS TEST'S FIXTURES MOVED SIDES AND ITS PROPERTY DID NOT. It used to
+  // assert that `h1`, `blockquote` and every heading level h1-h6 were ESCAPED,
+  // because the sink was `sanitizeNoteHtml`: 8 tags at KEEP_CONTENT false, which
+  // deleted a recognised-but-unlisted element AND its text — `<h1>Q3
+  // status</h1><p>All good</p>` rendered as just "All good", a div- or
+  // blockquote-wrapped narrative as nothing at all. Escaping was the only way to
+  // save the words. Those tags are on RICH_ALLOWED_TAGS now, so h1-h4 and
+  // blockquote are real markup here and asserting the escape would pin a policy
+  // this slice deliberately removed. Measured 2026-08-11: `<h1>...` and
+  // `<blockquote>...` pass through unchanged; h5/h6, div, table and section still
+  // escape (h5/h6 are NOT on the list — headings stop at h4).
+  // The surviving property is the one that always mattered: whatever the route,
+  // the words the user typed are still in the output.
+  it("escapes a legacy value opening with a tag the rich sanitizer does not keep", () => {
     expect(narrativeToHtml("<div>Status text</div>")).toBe("<p>&lt;div&gt;Status text&lt;/div&gt;</p>");
-    expect(narrativeToHtml("<blockquote>Quoted</blockquote>")).toBe(
-      "<p>&lt;blockquote&gt;Quoted&lt;/blockquote&gt;</p>",
-    );
-    // Every heading level, not just h1 — the old pattern was h[1-6].
-    for (const n of [1, 2, 3, 4, 5, 6]) {
+    expect(narrativeToHtml("<table>Grid</table>")).toBe("<p>&lt;table&gt;Grid&lt;/table&gt;</p>");
+    expect(narrativeToHtml("<section>Body</section>")).toBe("<p>&lt;section&gt;Body&lt;/section&gt;</p>");
+    // Headings stop at h4 on RICH_ALLOWED_TAGS, so h5/h6 are still escaped while
+    // h1-h4 are markup — the boundary is what this loop pins.
+    for (const n of [5, 6]) {
       expect(narrativeToHtml(`<h${n}>Head</h${n}>`)).toBe(`<p>&lt;h${n}&gt;Head&lt;/h${n}&gt;</p>`);
     }
+    for (const n of [1, 2, 3, 4]) {
+      expect(narrativeToHtml(`<h${n}>Head</h${n}>`)).toBe(`<h${n}>Head</h${n}>`);
+    }
     // The property that actually matters: the words the user typed are still in
-    // the output. (dashboard-narrative.test.tsx asserts they survive the SINK too.)
+    // the output, on BOTH sides of that boundary.
+    // (dashboard-narrative.test.tsx asserts they survive the SINK too.)
     expect(narrativeToHtml("<h1>Q3 status</h1><p>All good</p>")).toContain("Q3 status");
     expect(narrativeToHtml("<div>Status text</div>")).toContain("Status text");
     expect(narrativeToHtml("<blockquote>Quoted</blockquote>")).toContain("Quoted");

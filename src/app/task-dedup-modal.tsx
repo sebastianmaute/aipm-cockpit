@@ -83,7 +83,7 @@ export function TaskDedupModal({
                     {g.unified.description && (
                       <span className="mt-1 block whitespace-pre-wrap text-xs text-foreground">
                         {/* ★★ PROJECT it. dedup.ts sets unified.description to
-                            sanitizeNoteHtml(...) — HTML — so rendering it raw
+                            sanitizeRichHtml(...) — HTML — so rendering it raw
                             showed the user literal "<p>...</p>" markup in the
                             preview they confirm a DESTRUCTIVE fold from. This is
                             the sixth member of the Task.description consumer

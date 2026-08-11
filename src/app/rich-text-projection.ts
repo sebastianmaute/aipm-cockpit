@@ -30,7 +30,7 @@ import { descriptionHtml, htmlPlainProjection, separateBlockBoundaries } from ".
  *  Deleting a <p> mid-token can re-splice the markup around it — "<a hre<p>f=..."
  *  becomes "<a hre f=..." — which is harmless here only because htmlToText
  *  strips ALL tags and returns text, so no re-spliced tag survives. Composed in
- *  front of sanitizeNoteHtml, which preserves an allow-list, the reasoning
+ *  front of sanitizeRichHtml, which preserves an allow-list, the reasoning
  *  breaks. The old rationale ("never removes a script/style tag, so DOMPurify
  *  still sees every element") was right about the outcome and wrong about why.
  *  ★ descriptionTextWithBreaks below is a SECOND caller and satisfies the same

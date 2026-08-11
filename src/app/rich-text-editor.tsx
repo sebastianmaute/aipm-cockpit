@@ -4,7 +4,7 @@ import type { Ref } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { Editor } from "@tiptap/react";
-import { sanitizeTemplateHtml, sanitizeNoteHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import { readCspNonce } from "./csp-nonce";
 import { isSafeHttpUrl } from "./document-link";
 import { Button } from "./button";
@@ -51,30 +51,35 @@ export interface RichTextEditorProps {
   editorRef?: Ref<RichTextEditorHandle>;
 }
 
-// ★★ The LEAN variant sanitizes with `sanitizeNoteHtml`, whose allow-list has no
-// h1-h6 / blockquote / pre / code / s / hr AND which drops a disallowed node's
-// TEXT with it (KEEP_CONTENT: false). StarterKit's markdown input rules produce
-// exactly those nodes from "# ", "> ", "```", "`x`", "~~x~~" and "--- ", so the
-// keystroke left the formatting on screen while the committed value silently lost
-// it: a whole block collapsed to "" for the block rules (typing "# Q3 highlights"
-// stored nothing at all — no error, no toast, and for the dashboard narrative
-// Save stayed disabled because `unchanged` was then true), and the marked WORD
-// vanished for the inline ones ("ship `staging` now" -> "ship  now").
-// Disabling the extensions removes the input rules at the source, so the markdown
-// punctuation now stays literal text. This is deliberately NOT a widening of
-// NOTE_ALLOWED_TAGS: that list is security-relevant and widening it would also
-// change how already-stored note HTML renders, whereas dropping an input rule
-// cannot touch stored data. It also matches the lean toolbar, which offers
+// ★★★ THE DATA-LOSS REASON THESE EXTENSIONS WERE DISABLED IS GONE, and the
+// disabling is deliberately still here. Read the history before "restoring" them.
+// The lean variant used to sanitize with `sanitizeNoteHtml`, whose 8-tag list had
+// no h1-h6 / blockquote / pre / code / s / hr / u AND which dropped a disallowed
+// node's TEXT with it (KEEP_CONTENT: false). StarterKit's markdown input rules
+// produce exactly those nodes from "# ", "> ", "```", "`x`", "~~x~~" and "--- ",
+// so the keystroke left the formatting on screen while the committed value
+// silently lost it: a whole block collapsed to "" for the block rules (typing
+// "# Q3 highlights" stored nothing at all — no error, no toast, and for the
+// dashboard narrative Save stayed disabled because `unchanged` was then true), and
+// the marked WORD vanished for the inline ones ("ship `staging` now" -> "ship
+// now"). `underline` was the same family, reachable ONLY by keystroke (no lean
+// toolbar button, no markdown input rule), which is why a sweep of the input rules
+// missed it: Mod-U left the underline on screen while the commit deleted the word.
+// ★★ Both variants now sanitize with `sanitizeRichHtml`, and NONE of those commits
+// can lose text any more. ★ Precisely: it carries all of those tags EXCEPT h5/h6
+// (RICH_ALLOWED_TAGS stops at h4), and that exception costs nothing here — it runs
+// DOMPurify's KEEP_CONTENT default, so an h5/h6 UNWRAPS and keeps its words. The
+// no-text-loss property comes from the KEEP_CONTENT policy, not from the list being
+// exhaustive; do not restate it as "carries every one of those tags", which is false. What remains is the SECOND reason, which was
+// always the durable one: the disabling matches the lean TOOLBAR, which offers
 // Bold/Italic/lists/link and nothing else — a mark with no visible control should
-// not be creatable by an invisible keystroke either.
-// The FULL variant is untouched: it has heading toolbar buttons, its sanitizer
-// allows h1/h2, and it keeps the text of anything it unwraps (KEEP_CONTENT).
-// ★★ `underline` belongs to the same family and was MISSED when the others were
-// disabled: StarterKit bundles it, NOTE_ALLOWED_TAGS has no `u`, so Mod-U left
-// the underline on screen while the commit deleted the underlined word
-// ("<u>under</u> tail" -> " tail"). It is the only one of the set reachable
-// ONLY by keystroke — no lean toolbar button and no markdown input rule — which
-// is why a sweep of the input rules did not surface it.
+// not be creatable by an invisible keystroke either. That is a UI-consistency
+// argument, not a safety one, so it is a decision a later slice may reverse; it is
+// no longer a bug fix holding data loss shut. Task 11 revisits the lean/full split
+// as a whole. ★ Widening an allow-list to solve an editor problem is still the
+// wrong move for the original reason: a list is security-relevant and changes how
+// already-STORED HTML renders, whereas dropping an input rule cannot touch stored
+// data.
 const LEAN_EXTENSIONS = [
   StarterKit.configure({
     heading: false,
@@ -128,7 +133,10 @@ export function RichTextEditor(props: RichTextEditorProps) {
   useEffect(() => { onCommitRef.current = props.onCommit; }, [props.onCommit]);
   useEffect(() => { commitOnEnterRef.current = props.commitOnEnter; }, [props.commitOnEnter]);
 
-  const sanitize = isLean ? sanitizeNoteHtml : sanitizeTemplateHtml;
+  // ★ Was `isLean ? sanitizeNoteHtml : sanitizeTemplateHtml`. Both branches now
+  // resolve to sanitizeRichHtml — the lean/full split is a TOOLBAR and EXTENSION
+  // difference, not a sanitizer one. Do not reintroduce a per-variant sanitizer.
+  const sanitize = sanitizeRichHtml;
   const minH = isLean ? "min-h-24" : "min-h-40";
 
   const editor = useEditor({

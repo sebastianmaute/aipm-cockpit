@@ -8,7 +8,7 @@ import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import { htmlToPlainText } from "./html-to-text";
 import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
@@ -143,7 +143,7 @@ export function MeetingReportPanel({
         <div
           className="min-h-40 rounded-md border border-line bg-surface p-3 text-sm"
           // Body is sanitized at write time; re-sanitize on render (defense-in-depth).
-          dangerouslySetInnerHTML={{ __html: sanitizeTemplateHtml(report?.html ?? "") }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(report?.html ?? "") }}
         />
       ) : (
         <RichTextEditor

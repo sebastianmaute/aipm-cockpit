@@ -66,6 +66,31 @@ describe("sanitizeDocumentRichFields", () => {
     expect(html).toContain("<code>x</code>");
   });
 
+  // ★★★ THE ONLY TEST THAT CAN DETECT THE ONE REMAINING WRONG SANITIZER. The
+  // three marks above stopped separating anything: DOCUMENT_ALLOWED_TAGS now
+  // SPREADS RICH_ALLOWED_TAGS, so `mark`/`s`/`code` are on both lists and the test
+  // above passes under sanitizeRichHtml too. Mutation-measured 2026-08-11 —
+  // swapping this module to sanitizeRichHtml left the whole file 9/9 GREEN. That
+  // was a MISSING TEST, not an equivalent mutant: the behaviours provably differ,
+  // the suite simply had no `<img>` at this boundary.
+  // ★★ `img` is the single tag documents add, and it is VOID — so the wrong
+  // sanitizer does not unwrap it leaving text behind, it removes the reference
+  // outright with no trace. Measured on this fixture: sanitizeRichHtml gives
+  // "<p>before  after</p>".
+  // ★ The trailing "after" is the anti-vacuity control — it separates "the img was
+  // dropped" from "the block was emptied or dropped", which capHtmlText and the
+  // empty rule can also do.
+  it("keeps an <img> reference at the LOAD boundary — the one tag documents add", () => {
+    const out = sanitizeDocumentRichFields({
+      ...base,
+      blocks: [{ type: "paragraph", html: '<p>before <img data-asset-id="7" alt="chart"> after</p>' }],
+    });
+    const html = htmlOf(out.blocks[0]);
+    expect(html).toContain('data-asset-id="7"');
+    expect(html).toContain("<img");
+    expect(html).toContain("after");
+  });
+
   it("drops a javascript: href, proving the allow-list is live and not a pass-through", () => {
     const out = sanitizeDocumentRichFields({
       ...base,

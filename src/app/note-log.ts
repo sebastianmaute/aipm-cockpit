@@ -6,7 +6,7 @@
 // per-entity sanitizer, so validation for untrusted data lives HERE.
 
 import type { NoteLogEntry } from "./types";
-import { sanitizeNoteHtml, htmlToText } from "./sanitize-html";
+import { sanitizeRichHtml, htmlToText } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 
 /** Caps — keep a hand-edited or model-supplied blob bounded. */
@@ -67,8 +67,8 @@ export function sanitizeNoteLog(raw: unknown): NoteLogEntry[] {
     const htmlSource = typeof entry.html === "string" ? entry.html.trim() : "";
     const hasHtml = htmlSource !== "";
     const html = (hasHtml
-      ? sanitizeNoteHtml(htmlSource)
-      : sanitizeNoteHtml(`<p>${escapeForHtml(text)}</p>`)
+      ? sanitizeRichHtml(htmlSource)
+      : sanitizeRichHtml(`<p>${escapeForHtml(text)}</p>`)
     ).slice(0, MAX_NOTE_HTML);
 
     if (hasHtml && !text) text = cleanText(htmlToText(html));
@@ -132,16 +132,23 @@ const MILESTONE_RICH_FIELDS = ["description"] as const satisfies readonly RichFi
  *  rich content keeps identity — several byte-stability tests depend on that.
  *
  *  ★★★ A legacy PLAIN value is UPGRADED (escaped + wrapped) by `descriptionHtml`
- *  BEFORE it is sanitized, and the order is load-bearing: `sanitizeNoteHtml` runs
- *  DOMPurify with `KEEP_CONTENT: false`, so it deletes an element outside the lean
- *  allow-list TOGETHER WITH ITS TEXT. Sanitizing plain text first therefore erases
- *  any tag-shaped fragment and its content — a stored RAID description of
- *  "risk: <b>vendor</b> delay" silently lost the word "vendor" on every JSON/IDB
- *  load. Escaping first leaves no tag for DOMPurify to strip; an already-rich value
- *  passes through `descriptionHtml` untouched, so genuinely dangerous markup is
- *  still sanitized exactly as before.
+ *  BEFORE it is sanitized, and the order is STILL load-bearing — but the damage it
+ *  prevents changed size when `sanitizeNoteHtml` was retired, so do not quote the
+ *  old wording. That sanitizer ran `KEEP_CONTENT: false` and deleted an unlisted
+ *  element TOGETHER WITH ITS TEXT, so sanitizing plain text first erased the WORD:
+ *  a stored RAID description of "risk: <b>vendor</b> delay" lost "vendor" on every
+ *  JSON/IDB load. `sanitizeRichHtml` unwraps instead, so the word now survives and
+ *  what is lost is the literal punctuation the user typed. Measured 2026-08-11 on
+ *  that same value: escape-first gives "<p>risk: &lt;b&gt;vendor&lt;/b&gt;
+ *  delay</p>" (what the user wrote), sanitize-first gives "<p>risk: vendor
+ *  delay</p>" — the "<b>" characters silently gone. ★ The order also protects a
+ *  value with no tag in it at all: "cost < 5k" escape-first is "<p>cost &lt;
+ *  5k</p>", sanitize-first is "<p>cost &amp;lt; 5k</p>" — double-escaped, and the
+ *  user reads "&lt;". Escaping first leaves no tag for DOMPurify to strip; an
+ *  already-rich value passes through `descriptionHtml` untouched, so genuinely
+ *  dangerous markup is still sanitized exactly as before.
  *
- *  ★★ DOM-BOUND: `sanitizeNoteHtml` calls DOMPurify, which binds its `window` at
+ *  ★★ DOM-BOUND: `sanitizeRichHtml` calls DOMPurify, which binds its `window` at
  *  module-eval. Nothing here may become reachable from a codec, an entity
  *  sanitizer, or anything under `scripts/` — the two whole-object load paths are
  *  the only legal callers. */
@@ -154,7 +161,7 @@ function sanitizeRichFields<T extends RichFieldCarrier>(
   for (const field of fields) {
     const value = entity[field];
     if (typeof value !== "string") continue;
-    patch[field] = sanitizeNoteHtml(descriptionHtml(value, "rich"));
+    patch[field] = sanitizeRichHtml(descriptionHtml(value, "rich"));
     touched = true;
   }
   if (Array.isArray(entity.noteLog)) {
@@ -220,7 +227,7 @@ export function addNote(
   const entry: NoteLogEntry = {
     id: nextNoteId(log),
     timestamp,
-    html: sanitizeNoteHtml(html),
+    html: sanitizeRichHtml(html),
     text,
     ...(self != null ? { authorResourceId: self } : {}),
     ...(self != null && authorName ? { authorName } : {}),
@@ -243,7 +250,7 @@ export function editNote(
     const claim = n.authorResourceId == null && self != null;
     return {
       ...n,
-      html: sanitizeNoteHtml(html),
+      html: sanitizeRichHtml(html),
       text,
       editedAt,
       ...(claim ? { authorResourceId: self, ...(authorName ? { authorName } : {}) } : {}),

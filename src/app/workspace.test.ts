@@ -74,7 +74,7 @@ describe("jsonToWorkspace sanitizes noteLog + description on load (stored XSS)",
 
   // The OTHER branch of the upgrade: a description that ALREADY starts with an
   // allow-listed tag is passed through by descriptionHtml untouched, so
-  // sanitizeNoteHtml is the ONLY thing standing between the payload and the
+  // sanitizeRichHtml is the ONLY thing standing between the payload and the
   // sink. Escaping cannot save this case — drop the sanitize and a live <img>
   // reaches the DOM (mutation-verified).
   it("strips live markup from an ALREADY-RICH malicious description", () => {

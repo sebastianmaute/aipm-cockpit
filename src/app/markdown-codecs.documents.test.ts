@@ -154,8 +154,12 @@ describe("Markdown codec — documents", () => {
     expect(block?.type).toBe("paragraph");
     const html = block?.type === "paragraph" ? block.html : "";
     // ★ BOTH halves are required. `not.toMatch(/script/i)` alone is satisfied
-    // by html === "", which is exactly what a wrongly-wired sanitizeNoteHtml
-    // (KEEP_CONTENT:false) produces — a passing test over deleted prose.
+    // by html === "", which is exactly what a DESTRUCTIVELY-wired sanitizer
+    // produces — a passing test over deleted prose. ★ The concrete instance used
+    // to be sanitizeNoteHtml (KEEP_CONTENT:false); it is retired and no sanitizer
+    // in the repo deletes text today, so the second half now guards against a
+    // future one rather than a present one. Keep it: it costs nothing and it is
+    // the only thing separating "sanitized" from "emptied".
     expect(html).not.toMatch(/script/i);
     expect(html).toContain("keep me");
   });

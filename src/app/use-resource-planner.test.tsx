@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
-import { sanitizeNoteHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import type { Absence, RaidItem, Resource, Role, Shift } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
@@ -988,19 +988,23 @@ describe("useResourcePlanner", () => {
       expect(created.description).toBe("<p>vendor <em>slipped</em></p>");
     });
 
-    // ★★★ The classifier must follow the DESTINATION field, not the source. A
-    // RAID `mitigation` is a "template" field (11 tags, h1/h2/u included) but it
-    // is copied into `Task.description`, whose human save runs sanitizeNoteHtml
-    // — 8 tags at KEEP_CONTENT: false, which deletes an unlisted element
-    // TOGETHER WITH its text. Classifying by the source stores an AI-authored
-    // <h2> as live markup and the first Save silently eats the heading's words.
-    // ★ Anti-vacuity: this asserts the WORD survives the sanitizer, not merely
-    // that some string comes back. Mutation-proved — restoring "template" at the
-    // call site makes the "Plan" assertion fail while the "steps" control still
-    // passes, which is exactly the shape of the defect.
-    it("survives the human save path: sanitizeNoteHtml does not eat a heading's words", () => {
+    // ★★★ The classifier must follow the DESTINATION field, not the source —
+    // still the rule, though the two now agree: a RAID `mitigation` and
+    // `Task.description` are both "rich" fields sanitized by `sanitizeRichHtml`,
+    // so a copied <h2> reaches storage and survives the save as a real heading.
+    // ★★ THIS TEST USED TO PROVE THE OPPOSITE MECHANISM AND THE SAME PROPERTY.
+    // The destination's save ran sanitizeNoteHtml — 8 tags at KEEP_CONTENT:
+    // false, deleting an unlisted element TOGETHER WITH its text — so the words
+    // survived only by classifying NARROWLY enough that the value stored ESCAPED
+    // and there was no live element to delete. Mutation-proved then: restoring
+    // "template" at the call site failed "Plan" while the "steps" control still
+    // passed. The defect is closed at the SINK now, not at the classifier.
+    // ★ Anti-vacuity is unchanged: this asserts the WORD survives the sanitizer,
+    // not merely that some string comes back. Both assertions are byte-identical
+    // to the version that pinned the old mechanism — the property outlived it.
+    it("survives the human save path: the rich sanitizer does not eat a heading's words", () => {
       const created = createFrom(mkRaid({ mitigation: "<h2>Plan</h2><p>steps</p>" }));
-      const afterHumanSave = sanitizeNoteHtml(created.description);
+      const afterHumanSave = sanitizeRichHtml(created.description);
       expect(afterHumanSave).toContain("Plan");
       expect(afterHumanSave).toContain("steps"); // control: the allow-listed half
     });

@@ -424,28 +424,30 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         // Both fields are rich HTML since slice B: UPGRADE (pass HTML through,
         // wrap legacy plain text) instead of escaping an already-HTML value a
         // second time, which would render markup as visible text.
-        // ★★★ The sink is the DESTINATION field's, never the SOURCE field's. The
-        // source is a RAID `mitigation`/`description` (a "template" field, 11
-        // tags) but the value lands in `Task.description`, whose human save runs
-        // sanitizeNoteHtml — 8 tags at KEEP_CONTENT: false, which deletes an
-        // unlisted element TOGETHER WITH its text. Classifying by the source
-        // would copy an AI-authored <h1>/<h2>/<u> through as live markup and the
-        // first human Save would silently delete those words, with no undo.
-        // ★★★ SCOPE — THE SINK CLOSES ONLY THE LEADING-TAG CASE, and an earlier
-        // wording of this comment claimed the whole class. `descriptionHtml`
-        // classifies on the value's FIRST tag, so a disallowed tag sitting
-        // MID-VALUE is invisible to it: both sinks see the leading <p>, both
-        // store the same live markup, and the save deletes the words either way.
-        // Measured 2026-08-10 through the real exported sanitizers:
+        // ★★★ The sink is the DESTINATION field's, never the SOURCE field's —
+        // still the rule, though source and destination now agree: both a RAID
+        // `mitigation`/`description` and `Task.description` are "rich" fields
+        // sanitized by `sanitizeRichHtml`, so there is no longer a narrower list
+        // on either side to classify against.
+        // ★★★ THIS COMMENT USED TO DESCRIBE A DEFECT THAT IS NOW CLOSED, and the
+        // measurement is kept because the CLOSURE is the non-obvious part. The
+        // destination's save ran `sanitizeNoteHtml` — 8 tags at KEEP_CONTENT:
+        // false — so an AI-authored heading copied through as live markup was
+        // silently deleted on the first human Save. Choosing the destination's
+        // (narrower) sink stored it ESCAPED instead, which saved the words but
+        // only when the disallowed tag LED the value: `descriptionHtml`
+        // classifies on the FIRST tag, so a mid-value <h2> was invisible to it
+        // and the save ate it either way. Measured 2026-08-10:
         //   A leading  "<h2>Plan</h2><p>steps</p>"
         //     "template" stored as-is        -> save "<p>steps</p>"        Plan GONE
-        //     "note"     stored escaped      -> save unchanged             Plan KEPT  <- what this fixes
+        //     "note"     stored escaped      -> save unchanged             Plan KEPT
         //   B mid-value "<p>Intro</p><h2>Plan</h2><p>steps</p>"
         //     "template" stored as-is        -> save "<p>Intro</p><p>steps</p>"  Plan GONE
-        //     "note"     stored as-is        -> save "<p>Intro</p><p>steps</p>"  Plan GONE  <- UNCHANGED
-        // Case B needs the value SANITIZED to the destination's allow-list at the
-        // copy, not merely classified against it. Tracked in open-followups §137,
-        // which carries the same measurement and the whole-program closure.
+        //     "note"     stored as-is        -> save "<p>Intro</p><p>steps</p>"  Plan GONE
+        // ★★ Case B needed the value SANITIZED to the destination's allow-list,
+        // not merely classified against it — which is what one shared sanitizer
+        // delivers. Re-measured 2026-08-11: BOTH A and B store as-is and save
+        // BYTE-IDENTICAL, heading intact. §137 CLOSED, case B included.
         description: descriptionHtml(item.mitigation ?? item.description ?? "", "rich"),
         inquiriesSent: 0,
         localModifiedAt: stamp,

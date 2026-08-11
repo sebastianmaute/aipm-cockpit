@@ -181,11 +181,20 @@ describe("RichTextEditor lean variant", () => {
   );
 
   // ★★ Same family as the input-rule cases above, but reachable ONLY by
-  // keystroke: StarterKit bundles the underline extension, the lean toolbar has
-  // no underline button, and NOTE_ALLOWED_TAGS has no `u` — so before
-  // `underline: false` the editor re-emitted `<u>` on every edit and the
-  // KEEP_CONTENT:false sanitizer deleted the underlined WORD with the tag.
-  it("does not re-emit an underline the lean sanitizer would delete the word with", async () => {
+  // keystroke: StarterKit bundles the underline extension and the lean toolbar
+  // has no underline button, so before `underline: false` the editor re-emitted
+  // `<u>` on every edit.
+  // ★★★ THE DATA-LOSS HALF OF THIS TEST'S REASON IS GONE. It used to pin that
+  // the WORD survived: the lean sink was `sanitizeNoteHtml`, whose 8-tag list had
+  // no `u` and which ran KEEP_CONTENT:false, so the re-emitted `<u>` took
+  // "underlined" with it. `u` is on RICH_ALLOWED_TAGS and both variants now
+  // sanitize with `sanitizeRichHtml`, so nothing here can lose text any more —
+  // the `toContain("underlined")` assertion below would pass with
+  // `underline: false` DELETED. What survives is the TOOLBAR-PARITY property, and
+  // `not.toContain("<u")` is the assertion that still pins it: a mark with no
+  // visible control must not be creatable by an invisible keystroke. Keep both
+  // assertions — the first is the anti-vacuity guard for the second.
+  it("does not re-emit an underline the lean toolbar offers no control for", async () => {
     const onChange = vi.fn();
     function Harness() {
       const ref = useRef<RichTextEditorHandle>(null);

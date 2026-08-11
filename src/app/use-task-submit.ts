@@ -29,7 +29,7 @@ import {
   sanitizePriority,
   sanitizeTaskName,
 } from "./sanitize";
-import { sanitizeNoteHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import { describeTextCap } from "./sanitize-report";
 import { resolveSuccessorLinks, type SuccessorEdit } from "./successor-links";
 import { hasTaskErrors, validateTaskForm, type TaskFieldErrors } from "./task-validation";
@@ -164,7 +164,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         lastUpdateDate: sanitizeIsoDate(form.lastUpdateDate) || today,
         priority: sanitizePriority(form.priority),
         blockers: sanitizeBlockers(adj.track(describeTextCap(form.blockers, TEXTAREA_MAX))),
-        description: sanitizeNoteHtml(form.description ?? ""),
+        description: sanitizeRichHtml(form.description ?? ""),
         group: sanitizeGroup(adj.track(describeTextCap(form.group, GROUP_MAX))),
         labels: sanitizeLabels(form.labels),
         dependencies: cleanDependencies,

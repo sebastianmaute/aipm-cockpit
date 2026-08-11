@@ -24,20 +24,28 @@
 // not weaken this sink in exchange. Compose it at the caller as
 // `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`.
 //
-// ★★★ sanitizeDocumentHtml, never sanitizeNoteHtml. Neither allow-list contains
-// h3/div/table, so both DELETE those tags; what differs is the TEXT inside them.
-// sanitizeNoteHtml sets KEEP_CONTENT:false and deletes the words along with the
-// tag — right for the lean note editor, catastrophic here, because a document is
-// authored by a model that legitimately emits headings and tables and its prose
-// would vanish. sanitizeDocumentHtml keeps DOMPurify's default and unwraps the
-// tag, so the words survive. (It lives in ./sanitize-html — NOT ./note-log.)
+// ★★★ sanitizeDocumentHtml, and the reason USED to be a KEEP_CONTENT difference
+// against `sanitizeNoteHtml` — an 8-tag sanitizer at KEEP_CONTENT:false that
+// deleted the words along with an unlisted tag. It is retired; both remaining
+// sanitizers keep DOMPurify's default and unwrap, so a `<div>`/`<table>` a model
+// emits loses its markup and keeps its prose either way. What still argues for
+// this one specifically is `img` (plus `data-asset-id` and the ALLOW_DATA_ATTR:
+// false / ADD_URI_SAFE_ATTR pair it forces) — the one thing on
+// DOCUMENT_ALLOWED_TAGS that is not on RICH_ALLOWED_TAGS. Do NOT "simplify" this
+// to sanitizeRichHtml: `img` is a void element, so it does not unwrap to text — it
+// vanishes outright, and a later slice's image markup would be silently dropped at
+// this boundary. (It lives in ./sanitize-html — NOT ./note-log.)
 //
-// ★★ Nor sanitizeTemplateHtml, which this sink used until the documents list
-// existed: that one is SHARED with comm templates, meeting reports and the six
-// rich entity fields, so a document's marks could only be admitted by widening
-// what every one of those consumers may store. sanitizeDocumentHtml is the same
-// list plus the document-only tags, kept separate for exactly that reason —
-// route a NEW documents sink here, and never widen the template list instead.
+// ★★ Nor the retired sanitizeTemplateHtml, which this sink used until the
+// documents list existed: that one was SHARED with comm templates, meeting reports
+// and the six rich entity fields, so a document's marks could only be admitted by
+// widening what every one of those consumers may store. That widening has since
+// happened deliberately — DOCUMENT_ALLOWED_TAGS now SPREADS RICH_ALLOWED_TAGS, so
+// the two lists differ by `img` alone and cannot disagree about a heading or a
+// blockquote again. The separate sanitizer is kept for the `img` reason above —
+// route a NEW documents sink here, and never widen RICH_ALLOWED_TAGS to admit
+// something only documents need (that array reaches every other rich surface,
+// including how already-stored HTML renders).
 //
 // ★★ dataSection resolution is IMPORTED from ./doc-data-section, not written
 // here and not taken from ./doc-render-docx. This module backs the in-app

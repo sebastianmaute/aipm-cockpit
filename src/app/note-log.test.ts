@@ -260,3 +260,59 @@ describe("sanitizeMilestoneRichFields normalises the milestone description", () 
     expect(sanitizeMilestoneRichFields(e)).toBe(e);
   });
 });
+
+// ★★★ THE §137 REGRESSION TEST. This load boundary had NO test at all over a
+// value carrying markup outside the retired 8-tag note list, which is exactly how
+// it broke: `sanitizeRichFields` ran `sanitizeNoteHtml` at `KEEP_CONTENT: false`,
+// so an element it did not allow was deleted TOGETHER WITH ITS TEXT — on every
+// JSON and IndexedDB load, with no human and no save involved, and with no undo.
+//
+// Measured at the defect (2026-08-11, through these exact exported functions):
+//   RAID description "<h1>Escalation</h1><p>ok</p>"    -> "<p>ok</p>"   "Escalation" DELETED
+//   RAID mitigation  "<blockquote>plan B</blockquote>" -> ""            field EMPTIED
+//   Task description "<h1>Title</h1><p>body</p>"       -> "<p>body</p>" "Title" DELETED
+// Twelve of the 21 rich tags lost their words that way: u s code mark sub sup pre
+// blockquote h1 h2 h3 h4.
+//
+// ★★ ASSERT THE MARKUP, NOT JUST THE WORD. Before the sink merge these values were
+// ESCAPED rather than deleted, so `toContain("Escalation")` was ALREADY true under
+// the older, milder version of this bug — a word-only assertion cannot tell the
+// fixed state from the escaped one. The `toBe` byte assertions below separate all
+// three: deleted, escaped, and passed through as real markup.
+describe("§137: the load boundary keeps markup outside the retired lean list", () => {
+  it("keeps a RAID heading and a RAID blockquote as live markup", () => {
+    const out = sanitizeRaidRichFields({
+      description: "<h1>Escalation</h1><p>ok</p>",
+      mitigation: "<blockquote>plan B</blockquote>",
+    });
+    expect(out.description).toBe("<h1>Escalation</h1><p>ok</p>");
+    expect(out.mitigation).toBe("<blockquote>plan B</blockquote>");
+  });
+
+  it("keeps a task heading as live markup", () => {
+    expect(sanitizeNoteFields({ description: "<h1>Title</h1><p>body</p>" }).description)
+      .toBe("<h1>Title</h1><p>body</p>");
+  });
+
+  it("keeps the words of every tag the merge added, on both entity paths", () => {
+    // The full set the old note list omitted. A per-tag loop rather than one
+    // fixture: the defect was per-tag, and a single combined value would go green
+    // as soon as ANY tag survived.
+    for (const tag of ["u", "s", "code", "mark", "sub", "sup", "pre", "blockquote", "h1", "h2", "h3", "h4"]) {
+      const html = `<${tag}>kept</${tag}>`;
+      expect(sanitizeNoteFields({ description: html }).description, `task <${tag}>`).toBe(html);
+      expect(sanitizeRaidRichFields({ mitigation: html }).mitigation, `raid <${tag}>`).toBe(html);
+    }
+  });
+
+  it("still strips a script from the same boundary — the merge widened markup, not attack surface", () => {
+    // Anti-regression in the other direction: the fix must not be "stop
+    // sanitizing". <div> is on no list and must still unwrap (words kept).
+    const out = sanitizeRaidRichFields({
+      description: "<h1>ok</h1><script>alert(1)</script>",
+      mitigation: "<p>a</p><div>b</div>",
+    });
+    expect(out.description).toBe("<h1>ok</h1>");
+    expect(out.mitigation).toBe("<p>a</p>b");
+  });
+});

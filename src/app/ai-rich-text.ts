@@ -2,13 +2,22 @@
 // came from a MODEL (chat tools, the inline-AI confirm replay, the
 // project-proposal seed, AI document authoring) rather than from the editor.
 //
-// TWO of them, same two layers, DIFFERENT allow-lists and different caps:
-//   • `sanitizeAiRichText`         -> `sanitizeTemplateHtml` (narrow), cap
-//     `TEXTAREA_MAX`. Guards Task.description and, via `withAiRichFields`, the
-//     six rich raid/change/milestone fields. Must NOT widen.
-//   • `sanitizeAiDocumentRichText` -> `sanitizeDocumentHtml` (wider: adds
-//     s/code/pre/blockquote/hr/mark/sub/sup/img), cap `MAX_HTML_TEXT_CHARS`.
-//     Guards model-authored document paragraph HTML only.
+// TWO of them, same two layers. ★★★ THE TAG LISTS ARE NEARLY THE SAME NOW AND THE
+// CAPS ARE NOT — read the caps as the load-bearing difference:
+//   • `sanitizeAiRichText`         -> `sanitizeRichHtml` (RICH_ALLOWED_TAGS), cap
+//     `TEXTAREA_MAX` (5 000). Guards Task.description and, via `withAiRichFields`,
+//     the six rich raid/change/milestone fields.
+//   • `sanitizeAiDocumentRichText` -> `sanitizeDocumentHtml`, cap
+//     `MAX_HTML_TEXT_CHARS` (20 000). Guards model-authored document paragraph
+//     HTML only.
+// ★★ The allow-list gap used to be nine tags (s/code/pre/blockquote/hr/mark/sub/
+// sup/img) and is now exactly ONE: `img`, since DOCUMENT_ALLOWED_TAGS spreads
+// RICH_ALLOWED_TAGS. Do not read the two as interchangeable anyway — swapping them
+// changes the CAP, and exceeding a cap does not merely shorten the value:
+// capHtmlText's truncation branch returns `plainToHtml(text.slice(...))`, which
+// FLATTENS every mark to escaped plain text. Wiring a document boundary to the
+// entity helper therefore loses `<img>` AND flattens anything over 5 000 visible
+// characters.
 //
 // ★★★ Why this exists as its own module rather than living in rich-text-plain.ts:
 // it CALLS DOMPurify, and rich-text-plain.ts must never do that — it runs inside
@@ -19,7 +28,7 @@
 // out of the DOM-free module is what preserves that guarantee.
 import { MAX_HTML_TEXT_CHARS } from "./document-model";
 import { sanitizeRichText } from "./rich-text-plain";
-import { sanitizeDocumentHtml, sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeDocumentHtml, sanitizeRichHtml } from "./sanitize-html";
 import { TEXTAREA_MAX } from "./sanitize";
 
 /** Model-supplied value -> stored rich HTML.
@@ -31,30 +40,26 @@ import { TEXTAREA_MAX } from "./sanitize";
  *     HTML as "<p>&lt;p&gt;&lt;strong&gt;…" — literal tags in the field, in every
  *     export and in the search index. It also strips control characters, caps on
  *     VISIBLE text and drops a visually-empty value.
- *  2. `sanitizeTemplateHtml` — the ALLOW-LIST. Layer 1 is DOM-free and therefore
+ *  2. `sanitizeRichHtml` — the ALLOW-LIST. Layer 1 is DOM-free and therefore
  *     cannot sanitize; on its own it persists `<script>` verbatim. Model output is
  *     influenceable by a document the user uploads, so the value gets an actual
  *     DOMPurify pass before it reaches six storage backends.
  *
- *  ★★★ `sanitizeTemplateHtml`, NOT `sanitizeNoteHtml`, and the difference is
- *  DATA LOSS. `sanitizeNoteHtml` sets `KEEP_CONTENT: false`, which deletes the
- *  TEXT inside a non-allow-listed tag along with the tag — correct for the editor
- *  (whose schema can only emit the lean set) but wrong here, because a model
- *  legitimately emits `<h3>`/`<div>`/`<table>` and the user's words would vanish
- *  silently. `sanitizeTemplateHtml` keeps default KEEP_CONTENT, so a disallowed
- *  tag is unwrapped and its text survives, while `<script>`/`<style>` are removed
- *  with their contents (DOMPurify does that regardless) and its end-anchored
- *  ALLOWED_URI_REGEXP drops a `javascript:` href.
+ *  ★★★ KEEP_CONTENT must stay at DOMPurify's DEFAULT here, and there is no longer
+ *  a sanitizer in this repo that violates that. The retired `sanitizeNoteHtml` set
+ *  it to `false`, which deleted the TEXT inside a non-allow-listed tag along with
+ *  the tag — wrong here, because a model legitimately emits `<div>`/`<table>` and
+ *  the user's words would vanish silently. `sanitizeRichHtml` unwraps instead, so a
+ *  disallowed tag loses its markup and keeps its text, while `<script>`/`<style>`
+ *  are removed with their contents (DOMPurify does that regardless) and its
+ *  end-anchored ALLOWED_URI_REGEXP drops a `javascript:` href.
  *
- *  ★ Consequence worth knowing: this admits `u`/`h1`/`h2` (the template list is a
- *  superset of the note list). MID-DOCUMENT they degrade — the lean editor drops
- *  them when the field is next opened.
- *  ★★ A value that STARTS with one used to be escaped WHOLE into permanent visible
- *  tags, because one shared 8-tag classifier (p/br/strong/em/ul/ol/li/a, since
- *  retired) answered "is this HTML?" for every sink. Layer 1 now takes the sink and
- *  `isHtmlStart(value, "template")` derives its test from `TEMPLATE_ALLOWED_TAGS`,
+ *  ★★ A value that STARTS with a tag used to be escaped WHOLE into permanent
+ *  visible tags, because one shared 8-tag classifier (p/br/strong/em/ul/ol/li/a,
+ *  since retired) answered "is this HTML?" for every sink. Layer 1 now takes the
+ *  sink and `isHtmlStart(value, "rich")` derives its test from RICH_ALLOWED_TAGS,
  *  the same list layer 2 keeps, so `<h1>T</h1><p>b</p>` survives as markup
- *  (open-followups.md §107, CLOSED 2026-08-10). A leading `<div>`, `<h3>` or
+ *  (open-followups.md §107, CLOSED 2026-08-10). A leading `<div>`, `<h5>` or
  *  `<!--comment-->` is not on that list and is still escaped whole.
  *  ★★ The OPPOSITE direction of the same question is a DIFFERENT and STILL-OPEN
  *  defect — open-followups.md §32, plain prose that merely looks tag-shaped taken
@@ -62,7 +67,7 @@ import { TEXTAREA_MAX } from "./sanitize";
 export function sanitizeAiRichText(raw: unknown): string {
   const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, "rich");
   if (!upgraded) return "";
-  const clean = sanitizeTemplateHtml(upgraded);
+  const clean = sanitizeRichHtml(upgraded);
   // The allow-list pass can empty a value whose only content was a disallowed
   // element (e.g. "<p><script>x</script></p>"), so re-apply the empty rule —
   // otherwise a phantom "<p></p>" reaches the `if (description)` gates.

@@ -54,13 +54,14 @@ describe("sanitizeAiRichText — allow-list layer", () => {
   });
 
   it("KEEPS the text inside a tag the allow-list does not cover", () => {
-    // ★★★ This is why the boundary uses sanitizeTemplateHtml and NOT
-    // sanitizeNoteHtml. sanitizeNoteHtml sets KEEP_CONTENT:false, which deletes a
-    // disallowed tag's TEXT along with the tag — right for the editor (its schema
-    // can only emit the lean set) and WRONG here, because a model legitimately
-    // emits <h3>/<div>/<table> and the user's words would vanish silently. That
-    // is the data-loss class this release exists to fix, so the boundary must not
-    // introduce a fresh instance of it.
+    // ★★★ This is why the boundary must keep DOMPurify's KEEP_CONTENT DEFAULT.
+    // The retired sanitizeNoteHtml set it to false, which deleted a disallowed
+    // tag's TEXT along with the tag — and a model legitimately emits
+    // <div>/<table>, so the user's words vanished silently. That is the data-loss
+    // class §137 closed, and this assertion is what stops a future sanitizer
+    // reintroducing it here. It is no longer pinning a CHOICE between two
+    // existing sanitizers (there is one), but the property it pins is the
+    // durable one.
     const out = sanitizeAiRichText("<p>intro</p><div>body text</div>");
     expect(out).toContain("intro");
     expect(out).toContain("body text");
@@ -77,20 +78,28 @@ describe("sanitizeAiRichText — allow-list layer", () => {
   // documents their own, wider allow-list via the sibling
   // sanitizeAiDocumentRichText. THIS function also guards the six rich entity
   // description fields (raid description/mitigation, change description/
-  // impactDescription/resolutionNotes, milestone description) — those must stay
-  // on the narrow template list. Repointing this one at sanitizeDocumentHtml, or
-  // "deduplicating" the two into one parameterised helper that defaults the wrong
-  // way, silently widens all six and NOTHING else in the suite would notice:
-  // every existing assertion here passes under the wider list too.
-  // ★★ <mark> is the probe because it is document-only. The assertion is the
-  // WRAPPED form, not the bare word: the template list unwraps the tag and keeps
-  // its text, so `toContain("emphasis")` passes either way and would be vacuous.
-  it("does NOT admit the document-only marks — the entity fields stay on the narrow list", () => {
-    const out = sanitizeAiRichText("<p><mark>emphasis</mark></p>");
-    expect(out).not.toContain("<mark");
-    // The TEXT survives (KEEP_CONTENT default unwraps rather than deletes) —
-    // proves the tag went missing by allow-list, not by the value being dropped.
-    expect(out).toContain("emphasis");
+  // impactDescription/resolutionNotes, milestone description). Repointing this
+  // one at sanitizeDocumentHtml, or "deduplicating" the two into one
+  // parameterised helper that defaults the wrong way, silently widens all six
+  // AND swaps the cap (TEXTAREA_MAX 5 000 -> MAX_HTML_TEXT_CHARS 20 000).
+  // ★★★ THE PROBE MOVED FROM <mark> TO <img>, and the reason is the whole point
+  // of this slice. <mark> was document-only against an 11-tag template list;
+  // DOCUMENT_ALLOWED_TAGS now SPREADS RICH_ALLOWED_TAGS, so the two lists differ
+  // by exactly ONE tag and <mark> survives on both. `img` is that tag — the only
+  // input left that can separate the two sanitizers at all. A test still using
+  // <mark> here would be asserting a gap that no longer exists.
+  // ★★ Anti-vacuity has to work DIFFERENTLY for `img` and this is the trap: it is
+  // a VOID element, so there is no inner text to survive the unwrap and the old
+  // "the TEXT survives" control cannot be written. The sibling text "tail" plays
+  // that role instead — it proves the tag went missing by allow-list rather than
+  // by the whole value being dropped, which capHtmlText/the empty rule can also
+  // do.
+  it("does NOT admit the document-only img — the entity fields stay on the narrow list", () => {
+    const out = sanitizeAiRichText('<p><img data-asset-id="7" alt="c">tail</p>');
+    expect(out).not.toContain("<img");
+    expect(out).toContain("tail");
+    // The separating control: the SAME input keeps its img on the document path.
+    expect(sanitizeAiDocumentRichText('<p><img data-asset-id="7" alt="c">tail</p>')).toContain("<img");
   });
 });
 
@@ -233,9 +242,16 @@ describe("open-followups §114 — the nine document-only tags, one leading tag 
   }
 
   it("does not widen the entity path: a document-only tag is still not markup there", () => {
-    // sanitizeAiRichText's sink is sanitizeTemplateHtml, which has no blockquote.
-    // Classifying it as HTML would hand the sink a tag it unwraps, so the value
-    // must still take the escape path.
-    expect(sanitizeAiRichText("<blockquote>q</blockquote>")).toContain("&lt;blockquote&gt;");
+    // ★★★ THE PROBE MOVED FROM <blockquote> TO <img>, for the reason the sibling
+    // test above spells out: `blockquote` joined RICH_ALLOWED_TAGS when the note
+    // and template lists merged, so it IS markup on the entity path now and the
+    // old assertion pinned a gap that no longer exists. `img` is the one tag
+    // DOCUMENT_ALLOWED_TAGS adds, so it is the only input that still separates
+    // the two classifiers.
+    // sanitizeAiRichText's sink is sanitizeRichHtml, which has no img, so the
+    // "rich" classifier does not recognise a leading one and the value must take
+    // the escape path — a classifier WIDER than its sink would hand the sink a
+    // tag it silently deletes (img is void: nothing unwraps).
+    expect(sanitizeAiRichText('<img data-asset-id="7" alt="c">')).toContain("&lt;img");
   });
 });

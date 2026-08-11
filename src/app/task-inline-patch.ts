@@ -14,7 +14,7 @@ import {
   sanitizePriority,
   sanitizeTaskName,
 } from "./sanitize";
-import { sanitizeNoteHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import type { Task } from "./types";
 
 export interface InlinePatchContext {
@@ -48,7 +48,7 @@ export function sanitizeInlinePatch(patch: Partial<Task>, ctx: InlinePatchContex
   if ("startDate" in patch) clean.startDate = sanitizeIsoDate(patch.startDate);
   if ("dueDate" in patch) clean.dueDate = sanitizeIsoDate(patch.dueDate);
   if ("priority" in patch) clean.priority = sanitizePriority(patch.priority);
-  if ("description" in patch) clean.description = sanitizeNoteHtml(patch.description ?? "");
+  if ("description" in patch) clean.description = sanitizeRichHtml(patch.description ?? "");
   if ("blockers" in patch) clean.blockers = sanitizeBlockers(patch.blockers);
   if ("dependencies" in patch) {
     clean.dependencies = sanitizeDependencies(patch.dependencies, ctx.knownTaskIds, ctx.ownTaskId);
