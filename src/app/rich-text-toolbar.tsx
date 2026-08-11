@@ -52,7 +52,6 @@ import {
   UnlinkIcon,
 } from "lucide-react";
 import { Button } from "./button";
-import { Select } from "./form-controls";
 import { PopoverPanel } from "./popover-panel";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import { ToggleButton } from "./toggle-button";
@@ -124,6 +123,34 @@ const HEADING_KEY: Record<HeadingLevel, TranslationKey> = {
 
 /** The `<option>` value standing for "not a heading" (a paragraph). */
 const PARAGRAPH_VALUE = "0";
+
+const HEADING_ICON: Record<HeadingLevel, ElementType> = {
+  1: Heading1Icon,
+  2: Heading2Icon,
+  3: Heading3Icon,
+  4: Heading4Icon,
+};
+
+interface HeadingMenuItem {
+  /** The value `setLevel` expects — `PARAGRAPH_VALUE` or a level as a string. */
+  value: string;
+  /** `undefined` for the paragraph entry, matching `activeLevel`'s own shape. */
+  level: HeadingLevel | undefined;
+  key: TranslationKey;
+  icon: ElementType;
+}
+
+/** Paragraph plus all four heading levels, in menu order. Computed once at
+ *  module scope — every field is static. */
+const HEADING_ITEMS: readonly HeadingMenuItem[] = [
+  { value: PARAGRAPH_VALUE, level: undefined, key: "commTplParagraph", icon: PilcrowIcon },
+  ...HEADING_LEVELS.map((level) => ({
+    value: String(level),
+    level,
+    key: HEADING_KEY[level],
+    icon: HEADING_ICON[level],
+  })),
+];
 
 export interface RichTextToolbarProps {
   editor: Editor;
@@ -216,6 +243,17 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
     else editor.chain().setHeading({ level }).run();
   }
 
+  const [headingMenuOpen, setHeadingMenuOpen] = useState(false);
+  const headingTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeHeadingMenu = useCallback(() => setHeadingMenuOpen(false), []);
+
+  function pickLevel(value: string) {
+    setLevel(value);
+    closeHeadingMenu();
+  }
+
+  const TriggerIcon = activeLevel === undefined ? PilcrowIcon : HEADING_ICON[activeLevel];
+
   return (
     // ★ flex-wrap is required, not cosmetic: fifteen controls render inside four
     // modals with tight vertical space.
@@ -237,49 +275,48 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       role={named ? "group" : undefined}
       aria-label={named ? label : undefined}
     >
-      {/* ★★ NO mousedown guard on the select, unlike every button beside it.
-          Opening the picker IS the native mousedown default, so preventing it
-          leaves a select that cannot be opened with a mouse in Chrome/Firefox —
-          a total functional break.
-          ★★★ DROPPING `.focus()` FROM `setLevel` COSTS SOMETHING, and an
-          earlier revision of this comment claimed "nothing is traded for it".
-          The COMMAND needs no DOM focus (ProseMirror keeps its selection in
-          editor state across a blur), but `.focus()` was also what returned the
-          caret to the contenteditable, and nothing else does: measured by
-          restoring it, `editor.view.focus` fires per change and at HEAD it
-          never fires. So after a MOUSE pick DOM focus stays on the <select> and
-          the next keystroke hits its native type-ahead instead of the document.
-          That is traded against the KEYBOARD path, where the same call is not a
-          nuisance but a total block — a closed <select> fires `change` on every
-          arrow keypress in Chrome and Firefox, so a chain starting `.focus()`
-          applied Heading 1 and pulled focus into the editor on the FIRST
-          ArrowDown, leaving Headings 2-4 unreachable. Do not reintroduce it
-          here; the buttons beside it are a different case, since a click is one
-          discrete commit.
-          ★ UNVERIFIED PLATFORM CAVEAT, stated because the sentence above reads
-          as universal: macOS is reported to OPEN the picker on ArrowDown rather
-          than fire `change`, which would make the keyboard block Windows/Linux
-          only. Nobody has checked, on any browser — the eye-verify should, and
-          until it does neither "everywhere" nor "Windows only" is established.
-          ★★ NO UNIT TEST IN THIS REPO CAN SEE EITHER SIDE. jsdom does not treat
-          ProseMirror's contenteditable as a focusable area, so
-          `document.activeElement` is vacuous both ways — under the
-          `.focus()`-restored mutation it still reads the outside button while
-          `view.focus` fires. The spy in rich-text-toolbar.test.tsx pins the
-          CALL, never its consequence; re-check the browser behaviour by eye. */}
-      <Select
+      <Button
+        ref={headingTriggerRef}
+        variant="secondary"
         size="xs"
+        onClick={() => setHeadingMenuOpen((open) => !open)}
         aria-label={t(lang, "commTplHeadingLevel")}
-        value={activeLevel === undefined ? PARAGRAPH_VALUE : String(activeLevel)}
-        onChange={(event) => setLevel(event.target.value)}
+        aria-expanded={headingMenuOpen}
+        title={t(lang, "commTplHeadingLevel")}
+        className="inline-flex items-center gap-1"
       >
-        <option value={PARAGRAPH_VALUE}>{t(lang, "commTplParagraph")}</option>
-        {HEADING_LEVELS.map((level) => (
-          <option key={level} value={String(level)}>
-            {t(lang, HEADING_KEY[level])}
-          </option>
-        ))}
-      </Select>
+        <TriggerIcon aria-hidden="true" className={ICON_CLASS} />
+        <ChevronDownIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
+      </Button>
+      <PopoverPanel
+        open={headingMenuOpen}
+        anchorRef={headingTriggerRef}
+        onClose={closeHeadingMenu}
+        role="dialog"
+        ariaLabel={t(lang, "commTplHeadingLevel")}
+        className="w-40 p-1"
+      >
+        <div className="flex flex-col gap-0.5">
+          {HEADING_ITEMS.map((item) => {
+            const active = item.level === activeLevel;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => pickLevel(item.value)}
+                aria-current={active ? "true" : undefined}
+                className={`flex items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-surface-muted ${
+                  active ? "font-semibold text-ui-dark-blue" : "text-foreground"
+                }`}
+              >
+                <item.icon aria-hidden="true" className={ICON_CLASS} />
+                {t(lang, item.key)}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverPanel>
+      <ToolbarDivider />
 
       {CONTROLS.map((spec, index) => (
         <Fragment key={spec.name}>
