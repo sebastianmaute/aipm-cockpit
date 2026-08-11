@@ -1,0 +1,43 @@
+{
+  "name": "Dashboard",
+  "supportsDark": false,
+  "light": {
+    "--ui-dark-blue": "#004159",
+    "--ui-green": "#84bd00",
+    "--background": "#ffffff",
+    "--surface": "#ffffff",
+    "--foreground": "#636362",
+    "--rag-red": "#d64545",
+    "--rag-amber": "#f0a020",
+    "--rag-green": "#5aa700",
+    "--ui-pink": "#e5497c",
+    "--ui-purple": "#aa4899",
+    "--ui-blue": "#60c0dd",
+    "--ui-medium-grey": "#939598",
+    "--ui-light-grey": "#e3e6e6",
+    "--surface-muted": "#e3e6e6",
+    "--line": "#e3e6e6",
+    "--table-head-bg": "#f1f3f4",
+    "--table-head-fg": "#3f4448",
+    "--table-head-accent": "#3d7a00",
+    "--segment-track-bg": "#eef1f3",
+    "--segment-active-bg": "#ffffff",
+    "--segment-active-fg": "#3d7a00",
+    "--ui-green-strong": "#4d7000",
+    "--ui-pink-strong": "#c41e5a",
+    "--ui-purple-strong": "#7a2d72",
+    "--rag-red-text": "#c0392b",
+    "--rag-amber-text": "#a96a00",
+    "--rag-green-text": "#3d7a00"
+  },
+  "structural": {
+    "--shadow-card": "0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08)",
+    "--shadow-control": "0 1px 2px rgba(0, 65, 89, 0.10)",
+    "--shadow-card-hover": "0 4px 10px rgba(0, 65, 89, 0.14), 0 2px 4px rgba(0, 65, 89, 0.10)",
+    "--gradient-kpi": "linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green))",
+    "--delta-chip-pad": "0.125rem 0.375rem",
+    "--rag-green-chip": "#e6f2d8",
+    "--rag-red-chip": "#fae9e9"
+  },
+  "branding": {}
+}
