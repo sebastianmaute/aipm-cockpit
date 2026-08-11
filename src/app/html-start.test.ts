@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DOCUMENT_ALLOWED_TAGS, RICH_ALLOWED_TAGS } from "./sanitize-html";
+import {
+  DOCUMENT_ALLOWED_TAGS,
+  RICH_ALLOWED_TAGS,
+  sanitizeDocumentHtml,
+  sanitizeRichHtml,
+} from "./sanitize-html";
 import { htmlStartRe, isHtmlStart, SINK_TAGS } from "./html-start";
 
 describe("htmlStartRe", () => {
@@ -168,6 +173,84 @@ describe("the sink map", () => {
     expect(isHtmlStart("</p> means close", "render")).toBe(false); // closing tag
   });
 
+  // ★★★ THE PROPERTY THE LIST-WIDTH TESTS STRUCTURALLY CANNOT SEE, and the gap
+  // that let §137 through every gate. Every other test in this file compares one
+  // ARRAY against another, so a change to a SANITIZER's config — the thing that
+  // decides what is actually kept — is invisible to all of them. Mutation M4 is
+  // the shape: adding `"figure"` to sanitizeRichHtml's `ALLOWED_TAGS` while
+  // leaving RICH_ALLOWED_TAGS alone left both this file and sanitize-html.test.ts
+  // green at 66/66, and a stored `<figure>…` would then be escaped WHOLE and
+  // permanently (§107/§114). This test derives BOTH sides EMPIRICALLY — it runs
+  // the real sanitizer and the real classifier over a tag universe — so it cannot
+  // degenerate into comparing an array with itself.
+  //
+  // ★★ THE DIRECTION IS `kept ⊆ recognised`, NOT equality, and that is deliberate.
+  // The rule this file states at the top is one-directional: "never recognise LESS
+  // than your sink KEEPS." Equality holds today, but asserting it would fail a
+  // legitimate future widening of a classifier — and the projection sink already
+  // documents a case where recognising MORE than a sink keeps is the chosen trade.
+  // A tag that is recognised but not kept costs formatting; a tag that is KEPT but
+  // not recognised costs the whole value, escaped, forever.
+  //
+  // ★ The universe deliberately mixes every allow-listed tag with plausible
+  // outsiders. `figure` is in it because it is M4's tag; `section`/`summary`/
+  // `script` because they share a prefix with the listed `s`; `h5`/`h6` because
+  // the heading range stops at h4.
+  const TAG_UNIVERSE = [
+    // every tag on RICH_ALLOWED_TAGS / DOCUMENT_ALLOWED_TAGS
+    "p", "br", "hr", "strong", "em", "u", "s", "code", "mark", "sub", "sup",
+    "pre", "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li", "a", "img",
+    // plausible outsiders
+    "figure", "figcaption", "section", "article", "aside", "header", "footer",
+    "main", "nav", "div", "span", "table", "thead", "tbody", "tr", "td", "th",
+    "caption", "colgroup", "col", "dl", "dt", "dd", "h5", "h6", "b", "i",
+    "small", "big", "font", "center", "script", "style", "iframe", "frame",
+    "form", "input", "button", "select", "option", "textarea", "label",
+    "svg", "math", "object", "embed", "video", "audio", "canvas", "template",
+    "noscript", "base", "meta", "link", "title", "body", "html", "head",
+  ];
+
+  /** `<T>x</T>` for a normal tag, `<T>` for a void one — a void element has no
+   *  closing tag, and writing one makes the parser emit a stray close that muddies
+   *  what "the tag survived" means. */
+  const VOID_TAGS = new Set(["br", "hr", "img", "input", "embed", "col", "base", "meta", "link"]);
+  const probeFor = (tag: string) => (VOID_TAGS.has(tag) ? `<${tag}>` : `<${tag}>x</${tag}>`);
+
+  /** Did the SANITIZER keep this tag? Matched on the tag name plus a terminator,
+   *  never a bare `<tag` prefix — a prefix is satisfied by any longer tag name
+   *  that shares it, which is the exact confusion `\b` exists to prevent in the
+   *  classifier. */
+  const keeps = (sanitize: (h: string) => string, tag: string) =>
+    new RegExp(`<${tag}(?:\\s|>|/)`, "i").test(sanitize(probeFor(tag)));
+
+  it.each([
+    ["rich", sanitizeRichHtml] as const,
+    ["document", sanitizeDocumentHtml] as const,
+  ])("%s: every tag the sanitizer KEEPS is recognised by the classifier", (sink, sanitize) => {
+    const kept: string[] = [];
+    const missed: string[] = [];
+    for (const tag of TAG_UNIVERSE) {
+      if (!keeps(sanitize, tag)) continue;
+      kept.push(tag);
+      if (!isHtmlStart(probeFor(tag), sink)) missed.push(tag);
+    }
+    // Anti-vacuity: a sanitizer that kept NOTHING would satisfy the subset check
+    // for free, and so would a universe that never hit the allow-list.
+    expect(kept.length).toBeGreaterThan(15);
+    expect(missed, `sink "${sink}" KEEPS these tags but its classifier does not recognise them, so a stored value opening with one is escaped whole and permanently (§107)`).toEqual([]);
+  });
+
+  it("the universe actually separates the sinks — otherwise the pair above is one test twice", () => {
+    // `img` is the only tag DOCUMENT_ALLOWED_TAGS adds, so it is the sole witness
+    // that the two rows of it.each are not measuring the same thing.
+    expect(keeps(sanitizeRichHtml, "img")).toBe(false);
+    expect(keeps(sanitizeDocumentHtml, "img")).toBe(true);
+    // And the universe must contain tags NEITHER sanitizer keeps, or "kept ⊆
+    // recognised" could be satisfied by a classifier that says yes to everything.
+    expect(keeps(sanitizeRichHtml, "figure")).toBe(false);
+    expect(isHtmlStart(probeFor("figure"), "rich")).toBe(false);
+  });
+
   it("makes render a superset of every derived sink", () => {
     for (const sink of ["rich", "document", "projection"] as const) {
       for (const tag of SINK_TAGS[sink]) {
@@ -188,10 +271,19 @@ describe("the sink map", () => {
     // dropped — measured). We take the wide side because the §107 direction is
     // commoner and louder. If the document list ever narrows, this is what
     // catches it.
+    // ★★★ WHAT THIS ACTUALLY CATCHES IS NARROWER THAN IT READ. It said "if the
+    // document list ever narrows, this is what catches it", and that is FALSE:
+    // measured 2026-08-11 by dropping `img` from DOCUMENT_ALLOWED_TAGS, this test
+    // stays GREEN, because `SINK_TAGS.projection` IS that array — it narrows in
+    // lockstep with the thing it is being compared against. What it can catch is
+    // projection falling below the RICH list, i.e. DOCUMENT_ALLOWED_TAGS ceasing
+    // to spread RICH_ALLOWED_TAGS (mutation-measured red). While projection and
+    // document are the same array, the document half of this loop is a tautology
+    // kept for the day they diverge.
     // ★ The loop used to run over NOTE_ALLOWED_TAGS and TEMPLATE_ALLOWED_TAGS as
-    // well. Neither backs a sink any more, and both are subsets of the rich list,
-    // so keeping them would have asserted an implied property while coupling this
-    // file to two deprecated arrays.
+    // well. Both are deleted now; both were subsets of the rich list, so keeping
+    // them would have asserted an implied property while coupling this file to
+    // two retired arrays.
     const projection = new Set(SINK_TAGS.projection);
     for (const tags of [RICH_ALLOWED_TAGS, DOCUMENT_ALLOWED_TAGS]) {
       for (const tag of tags) {
