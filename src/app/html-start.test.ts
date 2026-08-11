@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DOCUMENT_ALLOWED_TAGS,
-  NOTE_ALLOWED_TAGS,
-  TEMPLATE_ALLOWED_TAGS,
-} from "./sanitize-html";
+import { DOCUMENT_ALLOWED_TAGS, RICH_ALLOWED_TAGS } from "./sanitize-html";
 import { htmlStartRe, isHtmlStart, SINK_TAGS } from "./html-start";
 
 describe("htmlStartRe", () => {
@@ -65,20 +61,56 @@ describe("htmlStartRe", () => {
   });
 });
 
-describe("the sink map", () => {
-  it("classifies a document-only tag for document and projection, not for note or template", () => {
-    expect(isHtmlStart("<blockquote>q</blockquote>", "document")).toBe(true);
-    expect(isHtmlStart("<blockquote>q</blockquote>", "projection")).toBe(true);
-    expect(isHtmlStart("<blockquote>q</blockquote>", "template")).toBe(false);
-    expect(isHtmlStart("<blockquote>q</blockquote>", "note")).toBe(false);
+describe("the rich sink", () => {
+  it("derives from RICH_ALLOWED_TAGS", () => {
+    expect(SINK_TAGS.rich).toBe(RICH_ALLOWED_TAGS);
   });
 
-  it("classifies a template-only tag for template but never for note", () => {
-    // The note sink is KEEP_CONTENT: false — recognising a tag it strips deletes
-    // the text with it (open-followups §107).
+  it("recognises a leading heading, which the retired note sink escaped", () => {
+    expect(isHtmlStart("<h1>Title</h1><p>body</p>", "rich")).toBe(true);
+  });
+
+  it("recognises a leading blockquote", () => {
+    expect(isHtmlStart("<blockquote>quoted</blockquote>", "rich")).toBe(true);
+  });
+
+  it("still rejects plain prose", () => {
+    expect(isHtmlStart("risk: vendor delay", "rich")).toBe(false);
+  });
+
+  it("still rejects an unterminated tag-shaped prefix", () => {
+    expect(isHtmlStart("<li 3 items", "rich")).toBe(false);
+  });
+
+  it("still rejects a leading CLOSING tag", () => {
+    expect(isHtmlStart("</p> means close", "rich")).toBe(false);
+  });
+
+  it("keeps projection as its OWN member, not an alias of document", () => {
+    expect(Object.keys(SINK_TAGS).sort()).toEqual(["document", "projection", "rich"]);
+  });
+});
+
+describe("the sink map", () => {
+  it("classifies a document-only tag for document and projection, not for rich", () => {
+    // ★ The fixture was <blockquote>, which separated the old "document" list from
+    // the two lean ones. It stopped separating anything once RICH_ALLOWED_TAGS
+    // admitted it (open-followups §137) — `img` is the one tag documents still
+    // carry alone, so the relation this pins survives with a different fixture.
+    const img = '<img data-asset-id="7">';
+    expect(isHtmlStart(img, "document")).toBe(true);
+    expect(isHtmlStart(img, "projection")).toBe(true);
+    expect(isHtmlStart(img, "rich")).toBe(false);
+  });
+
+  it("classifies every tag the retired template sink carried and the note sink did not", () => {
+    // ★ This used to assert the DISAGREEMENT — "template" said HTML, "note" said
+    // plain text, over the same three values. That disagreement WAS the §137 data
+    // loss: the note sink is KEEP_CONTENT:false, so a value it called plain text
+    // had its words deleted rather than merely reformatted. The two sinks merged,
+    // so the surviving property is that the one "rich" sink recognises all three.
     for (const html of ["<h1>T</h1>", "<h2>T</h2>", "<u>T</u>"]) {
-      expect(isHtmlStart(html, "template")).toBe(true);
-      expect(isHtmlStart(html, "note")).toBe(false);
+      expect(isHtmlStart(html, "rich")).toBe(true);
     }
   });
 
@@ -109,7 +141,7 @@ describe("the sink map", () => {
     // PowerPoint, the HTML preview and the PDF as literal "&lt;strong&gt;".
     for (const value of ["Intro <strong>bold</strong> tail", "See <em>the plan</em>"]) {
       expect(isHtmlStart(value, "render")).toBe(true);
-      for (const sink of ["note", "template", "document", "projection"] as const) {
+      for (const sink of ["rich", "document", "projection"] as const) {
         expect(isHtmlStart(value, sink)).toBe(false);
       }
     }
@@ -137,7 +169,7 @@ describe("the sink map", () => {
   });
 
   it("makes render a superset of every derived sink", () => {
-    for (const sink of ["note", "template", "document", "projection"] as const) {
+    for (const sink of ["rich", "document", "projection"] as const) {
       for (const tag of SINK_TAGS[sink]) {
         if (tag === "#text") continue;
         const html = `<${tag}>x`;
@@ -156,8 +188,12 @@ describe("the sink map", () => {
     // dropped — measured). We take the wide side because the §107 direction is
     // commoner and louder. If the document list ever narrows, this is what
     // catches it.
+    // ★ The loop used to run over NOTE_ALLOWED_TAGS and TEMPLATE_ALLOWED_TAGS as
+    // well. Neither backs a sink any more, and both are subsets of the rich list,
+    // so keeping them would have asserted an implied property while coupling this
+    // file to two deprecated arrays.
     const projection = new Set(SINK_TAGS.projection);
-    for (const tags of [NOTE_ALLOWED_TAGS, TEMPLATE_ALLOWED_TAGS, DOCUMENT_ALLOWED_TAGS]) {
+    for (const tags of [RICH_ALLOWED_TAGS, DOCUMENT_ALLOWED_TAGS]) {
       for (const tag of tags) {
         if (tag === "#text") continue;
         expect(projection.has(tag)).toBe(true);
