@@ -589,3 +589,25 @@ describe("break-preserving mode", () => {
     }
   });
 });
+
+describe("BLOCK_TAG covers pre", () => {
+  it("treats a code block as a word boundary, not inert markup", () => {
+    // ★ The fixture has NO OTHER block tag around the <pre>. A first draft of
+    // this test wrapped "before"/"after" in <p>, which inserts its OWN
+    // boundary via </p><p> regardless of whether `pre` is covered — that
+    // version passed even with `pre` absent from BLOCK_TAG, silently vacuous.
+    // Isolate on `pre` alone, and assert the exact string: separateBlockBoundaries
+    // never strips non-BLOCK_TAG markup, so a substring-fuse check against the
+    // literal "<pre>...</pre>" characters can pass without exercising the tag
+    // list at all (also measured: it did).
+    expect(separateBlockBoundaries("before<pre>code</pre>after", " ")).toBe(
+      "before code after",
+    );
+  });
+
+  it("emits a newline boundary for a code block in the breaks projection", () => {
+    expect(separateBlockBoundaries("before<pre>code</pre>after", "\n")).toBe(
+      "before\ncode\nafter",
+    );
+  });
+});
