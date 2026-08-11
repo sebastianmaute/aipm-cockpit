@@ -8539,12 +8539,42 @@ bullet in that file said "Do not 'finish' it by widening the `note` sink", and t
 anyway — because it happened **one file away from the sentence**, in a commit whose subject was the
 sink merge, not the sanitizer. A prose warning is scoped to the file a reader is looking at.
 
-★★★ **The durable protection is the PROPERTY TEST, not the fixtures.** `html-start.test.ts` now pins
-`kept(sanitizer) ⊆ recognised(sink)` for every sink, derived EMPIRICALLY on both sides — it feeds
-each tag through the real sanitizer and the real classifier rather than comparing two constants.
-Before it, widening a sanitizer's `ALLOWED_TAGS` **config** without touching the exported array left
-every test green. That is the §107/§114 class exactly, and it is why this shipped mid-branch.
-★ A fixture pins the tags someone thought to list; a derived property pins the ones they did not.
+★★★ **The durable protection is TWO tests in `html-start.test.ts`, and the interesting one is NOT
+the property.** The subset property pins `kept(sanitizer) ⊆ recognised(sink)` for every sink, derived
+empirically on both sides — it feeds tags through the real sanitizer and the real classifier rather
+than comparing two constants. Before it, widening a sanitizer's `ALLOWED_TAGS` **config** without
+touching the exported array left every test green: the §107/§114 class exactly, and why this shipped
+mid-branch.
+
+★★★ **BUT A PROBE-BASED PROPERTY CAN ONLY SEE TAGS IN THE UNIVERSE IT PROBES**, so the property
+alone did not close the class — a tag added to the config but absent from the probe list never enters
+the kept-set, and the subset holds vacuously. The closing assertion is a different shape: it reads
+back the **RESOLVED `ALLOWED_TAGS` a sanitizer actually handed DOMPurify**, through an
+`uponSanitizeElement` hook, and compares it to that sink's exported array. That is
+**tag-INDEPENDENT** — it inspects the config rather than probing a universe — which is why it cannot
+be escaped by choosing an unusual tag. ★ It compares SORTED NAME SETS, not object identity; a
+reference check would pin the wrong thing (`SINK_TAGS.rich` is separately pinned by reference).
+
+★★★ **Measured, and it refutes the obvious cheaper fix — widening the probe universe.** With a
+`quux` mutant deliberately outside the universe: **1 red, the config test alone**; both behavioural
+tests stayed green. The `details`/`kbd`/`abbr`/`dfn` mutant went 0 red → 3 red. So universe-widening
+helps only for tags someone already thought of, which is the same blind spot the original defect had.
+★★ The fix originally proposed for this was itself wrong and was refuted by measurement — the claim
+that asserting `kept == RICH_ALLOWED_TAGS` catches any tag, when a tag outside the probed universe
+never enters `kept` and equality therefore still holds. **Same error class as §113's alignment
+claim**: a mechanism asserted from how it ought to behave rather than run.
+★ A fixture pins the tags someone thought to list; a probe-based property pins the ones in its
+universe; only a config read-back pins the ones nobody imagined.
+
+★★ **A SOURCE-TEXT ASSERTION TAXES THE DOCUMENTATION OF THE VERY CHANGE IT PINS.**
+`rich-text-editor.test.tsx` asserts its own source does not contain `sanitizeNoteHtml` /
+`sanitizeTemplateHtml` / `RichTextEditorVariant` / `isLean`. That is the right guard — but it cannot
+tell a live reference from a HISTORICAL NOTE, so writing "this used to run `sanitizeNoteHtml`" into
+that file turns the test RED. The note belongs here instead, and the guard should not be weakened to
+admit it. ★ `rich-text-plain.test.ts` enforces a DIFFERENT rule on its own module — comments MAY name
+DOMPurify, only a CALL is banned — so do not generalise either file's rule to the other.
+★ Consequence for this entry: prose about a retired symbol goes in the register, and a `src/` comment
+about one is only safe in a file no source-text assertion scans. Check before writing it.
 
 ★ **`html-start.ts` stated THE RULE INVERTED in its own headline** — "never recognise MORE than your
 sink KEEPS" — while its two back-references in the same file, and AGENTS.md, both said LESS.
