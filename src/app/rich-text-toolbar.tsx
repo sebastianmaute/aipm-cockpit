@@ -15,17 +15,6 @@
 // security review. Do not add a control here without widening the sanitizer first.
 
 import type { Editor } from "@tiptap/react";
-// ★★ TYPE-ONLY SIDE-EFFECT IMPORTS, and they are load-bearing. Each of these
-// three extensions declares its commands by AUGMENTING `@tiptap/core`'s
-// `Commands` interface from inside its own module, so `toggleHighlight` /
-// `toggleSuperscript` / `toggleSubscript` do not exist on `ChainedCommands`
-// until that module is part of the program. Without these lines this file
-// fails `tsc` with three TS2339s while vitest passes (the stub has no types).
-// `import type {}` is elided at emit, so nothing is pulled into the bundle —
-// the editor that mounts this toolbar owns the real runtime registration.
-import type {} from "@tiptap/extension-highlight";
-import type {} from "@tiptap/extension-subscript";
-import type {} from "@tiptap/extension-superscript";
 import { Button } from "./button";
 import { Select } from "./form-controls";
 import { t, type Lang, type TranslationKey } from "./i18n";

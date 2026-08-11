@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { useRef } from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RichTextEditor, type RichTextEditorHandle, type RichTextEditorLabels } from "./rich-text-editor";
+import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so the editor mounts.
 beforeAll(() => {
@@ -18,13 +19,6 @@ beforeAll(() => {
   if (!document.elementFromPoint) document.elementFromPoint = () => null;
 });
 
-const labels: RichTextEditorLabels = {
-  bold: "Bold", italic: "Italic", underline: "Underline",
-  heading1: "Heading 1", heading2: "Heading 2",
-  bulletList: "Bullet list", numberedList: "Numbered list",
-  link: "Link", unlink: "Remove link", linkPrompt: "Enter URL",
-};
-
 function setup(over: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) {
   const onChange = vi.fn();
   render(
@@ -32,9 +26,9 @@ function setup(over: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) 
       value="<p>Hi</p>"
       onChange={onChange}
       label="Body"
+      lang="en-US"
       mergeFields={["taskName", "dueDate"]}
       fieldLabel={(f) => (f === "taskName" ? "Task name" : "Due date")}
-      labels={labels}
       {...over}
     />,
   );
@@ -46,12 +40,20 @@ describe("RichTextEditor", () => {
     setup();
     expect(await screen.findByLabelText("Body")).toBeTruthy();
   });
+  // There is ONE editor now, so there is ONE control set: the Tiptap "Simple"
+  // template's. Headings moved from two buttons to a level <select>.
   it("renders the core toolbar buttons with accessible names", async () => {
     setup();
     await screen.findByLabelText("Body");
-    for (const name of ["Bold", "Italic", "Underline", "Heading 1", "Heading 2", "Bullet list", "Numbered list", "Link", "Remove link"]) {
+    for (const name of [
+      "Bullet list", "Numbered list", "Quote", "Code block",
+      "Bold", "Italic", "Underline", "Strikethrough", "Inline code",
+      "Highlight", "Superscript", "Subscript",
+      "Insert link", "Remove link",
+    ]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
+    expect(screen.getByRole("combobox", { name: "Text style" })).toBeTruthy();
   });
   it("renders a merge-field chip per field", async () => {
     setup();
@@ -70,10 +72,9 @@ describe("RichTextEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  // The counterpart to the lean input-rule guard below: the full variant HAS
-  // heading toolbar buttons, a sanitizer that allows h1/h2, and (unlike the lean
-  // one) it KEEPS the text of anything it unwraps — so disabling these markdown
-  // shortcuts here would be a regression, not a fix.
+  // The markdown input rules are the reason the extensions were re-enabled: the
+  // toolbar has a heading select, `sanitizeRichHtml` allows h1-h4, and it keeps
+  // the text of anything it unwraps — so "# " must reach storage as an <h1>.
   it("still turns a markdown '# ' shortcut into a heading", async () => {
     const user = userEvent.setup();
     const { onChange } = setup({ value: "" });
@@ -97,19 +98,22 @@ describe("RichTextEditor", () => {
     expect(surface.querySelector(selector)).not.toBeNull();
     if (kept) {
       expect(surface.querySelector(selector)?.textContent).toBe(kept);
-      // The template sanitizer unwraps the tag but keeps its text — no data loss,
-      // which is why the full variant needs no input-rule change.
+      // `sanitizeRichHtml` unwraps an unlisted tag but keeps its text, and all
+      // three of these tags are on its list — so the word reaches storage either
+      // way. The tag-level assertions live in the input-rule suite below.
       expect(onChange.mock.calls.at(-1)?.[0]).toContain(kept);
     }
   });
 });
 
-function setupLean(over: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) {
+/** The note-log/narrative call shape: no merge fields, commit-on-Enter available.
+ *  It renders the SAME editor and the SAME toolbar as `setup` — the lean/full
+ *  split is gone — so these cases pin the inline-surface behaviour, not a variant. */
+function setupNote(over: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) {
   const onChange = vi.fn();
   const onCommit = vi.fn();
   render(
     <RichTextEditor
-      variant="lean"
       value="<p>Hi</p>"
       onChange={onChange}
       onCommit={onCommit}
@@ -121,87 +125,84 @@ function setupLean(over: Partial<React.ComponentProps<typeof RichTextEditor>> = 
   return { onChange, onCommit };
 }
 
-describe("RichTextEditor lean variant", () => {
+describe("RichTextEditor on an inline note surface", () => {
   it("renders the editor surface with the given accessible label", async () => {
-    setupLean();
+    setupNote();
     expect(await screen.findByRole("textbox", { name: "Note" })).toBeTruthy();
   });
 
-  it("renders the lean toolbar (bold/italic/bullet/numbered/link) and nothing heavier", async () => {
-    setupLean();
+  // ★ This case used to assert the OPPOSITE — that an inline surface got a cut-down
+  // toolbar with no underline and no headings. There is one editor now, so an
+  // inline note gets the full control set; the assertion is inverted deliberately.
+  it("renders the same full control set an embedded editor gets", async () => {
+    setupNote();
     await screen.findByRole("textbox", { name: "Note" });
     for (const name of ["Bold", "Italic", "Bullet list", "Numbered list", "Insert link"]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
-    // Lean set: no underline / no headings.
-    expect(screen.queryByRole("button", { name: "Underline" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /heading/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Underline" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Text style" })).toBeTruthy();
   });
 
   it("renders the initial HTML content as text", async () => {
-    setupLean();
+    setupNote();
     const surface = await screen.findByRole("textbox", { name: "Note" });
     expect(surface.textContent).toContain("Hi");
   });
 
   it("does not emit onChange on mount (no spurious save)", async () => {
-    const { onChange } = setupLean();
+    const { onChange } = setupNote();
     await screen.findByRole("textbox", { name: "Note" });
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  // ★★ The lean sanitizer's allow-list has no h1-h6/blockquote/pre/code/s/hr and
-  // drops a disallowed node's TEXT with it, so a markdown input rule used to eat
-  // content on commit while the editor kept showing it: the whole paragraph for
-  // the BLOCK rules, and just the marked word for the INLINE ones.
+  // ★★★ THIS SUITE ASSERTED THE OPPOSITE AND WAS INVERTED DELIBERATELY. It used
+  // to pin that every markdown shortcut stayed LITERAL TEXT, because the retired
+  // 8-tag note sanitizer ran KEEP_CONTENT:false: it deleted an unlisted node
+  // together with its words, so the six extensions below were switched off to
+  // stop the input rules building nodes the commit would then eat. One allow-list
+  // and one KEEP_CONTENT-default sanitizer later, the shortcuts are the point —
+  // so each one must now reach STORAGE as its tag, not merely as its text. The
+  // tag-level assertion is what distinguishes this from the pre-fix behaviour;
+  // a text-only one would pass either way.
   it.each([
-    // typed, visible text, the word the SANITIZED commit must still carry
-    ["heading", "# Q3 highlights", "# Q3 highlights", "Q3 highlights"],
-    ["blockquote", "> quoted text", "> quoted text", "quoted text"],
-    ["code block", "```fenced", "```fenced", "fenced"],
-    ["inline code", "ship `staging` now", "ship `staging` now", "staging"],
-    ["strikethrough", "was ~~dropped~~ ok", "was ~~dropped~~ ok", "dropped"],
-    ["horizontal rule", "--- ", "---", "---"],
+    // typed, the node the editor must build, the fragment the SANITIZED commit carries
+    ["heading", "# Q3 highlights", "h1", "<h1>Q3 highlights</h1>"],
+    ["blockquote", "> quoted text", "blockquote", "<blockquote>"],
+    ["code block", "``` fenced", "pre", "<pre>"],
+    ["inline code", "ship `staging` now", "code", "<code>staging</code>"],
+    ["strikethrough", "was ~~dropped~~ ok", "s", "<s>dropped</s>"],
+    ["horizontal rule", "--- ", "hr", "<hr>"],
   ])(
-    "keeps a markdown %s shortcut as literal text instead of discarding it",
-    async (_name, typed, visible, kept) => {
+    "applies the markdown %s shortcut and commits it as markup",
+    async (_name, typed, selector, fragment) => {
       const user = userEvent.setup();
       const onChange = vi.fn();
-      render(<RichTextEditor variant="lean" value="" onChange={onChange} label="Note" lang="en-US" />);
+      render(<RichTextEditor value="" onChange={onChange} label="Note" lang="en-US" />);
       const surface = await screen.findByRole("textbox", { name: "Note" });
       await user.click(surface);
       await user.keyboard(typed);
-      expect(surface.querySelector("h1, h2, h3, blockquote, pre, code, s, hr")).toBeNull();
-      expect(surface.textContent).toContain(visible);
-      // The sanitized commit is what gets stored; "> " serializes escaped, so
-      // assert the payload survived rather than the exact source spelling.
+      expect(surface.querySelector(selector)).not.toBeNull();
       const html = (onChange.mock.calls.at(-1)?.[0] ?? "") as string;
-      expect(html).toContain(kept);
+      expect(html).toContain(fragment);
     },
   );
 
-  // ★★ Same family as the input-rule cases above, but reachable ONLY by
-  // keystroke: StarterKit bundles the underline extension and the lean toolbar
-  // has no underline button, so before `underline: false` the editor re-emitted
-  // `<u>` on every edit.
-  // ★★★ THE DATA-LOSS HALF OF THIS TEST'S REASON IS GONE. It used to pin that
-  // the WORD survived: the lean sink was `sanitizeNoteHtml`, whose 8-tag list had
-  // no `u` and which ran KEEP_CONTENT:false, so the re-emitted `<u>` took
-  // "underlined" with it. `u` is on RICH_ALLOWED_TAGS and both variants now
-  // sanitize with `sanitizeRichHtml`, so nothing here can lose text any more —
-  // the `toContain("underlined")` assertion below would pass with
-  // `underline: false` DELETED. What survives is the TOOLBAR-PARITY property, and
-  // `not.toContain("<u")` is the assertion that still pins it: a mark with no
-  // visible control must not be creatable by an invisible keystroke. Keep both
-  // assertions — the first is the anti-vacuity guard for the second.
-  it("does not re-emit an underline the lean toolbar offers no control for", async () => {
+  // ★★★ INVERTED, LIKE THE SUITE ABOVE. This case used to assert `not.toContain
+  // ("<u")` — the toolbar-parity property, when an inline surface had no
+  // underline control and the mark was reachable only by Mod-U. The toolbar now
+  // offers Underline everywhere, `u` is on RICH_ALLOWED_TAGS and the sanitizer
+  // unwraps rather than deletes, so stored underline must SURVIVE a round trip.
+  // Both assertions stay: the word one is the anti-vacuity guard for the tag one
+  // (an empty editor would satisfy a tag assertion for free in the old
+  // direction, and a lost word would satisfy neither).
+  it("round-trips a stored underline through the sanitized commit", async () => {
     const onChange = vi.fn();
     function Harness() {
       const ref = useRef<RichTextEditorHandle>(null);
       return (
         <>
           <RichTextEditor
-            variant="lean"
             value="<u>underlined</u> rest"
             onChange={onChange}
             label="Note"
@@ -214,18 +215,20 @@ describe("RichTextEditor lean variant", () => {
     }
     render(<Harness />);
     const surface = await screen.findByRole("textbox", { name: "Note" });
-    // Anti-vacuity: an empty editor would satisfy `not.toContain("<u")` for free,
-    // and a never-fired onChange would leave the payload assertions unreached.
+    // Anti-vacuity: a never-fired onChange would leave the payload assertions
+    // unreached, and an editor that dropped the mark at PARSE time would make the
+    // commit assertion say nothing about the sanitizer.
     expect(surface.textContent).toContain("underlined");
+    expect(surface.querySelector("u")).not.toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "go" }));
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const html = onChange.mock.calls.at(-1)![0] as string;
     expect(html).toContain("underlined");
-    expect(html).not.toContain("<u");
+    expect(html).toContain("<u>");
   });
 
   it("emits sanitized HTML through onChange when content changes via the toolbar", async () => {
-    const { onChange } = setupLean();
+    const { onChange } = setupNote();
     await screen.findByRole("textbox", { name: "Note" });
     fireEvent.click(screen.getByRole("button", { name: "Bullet list" }));
     expect(onChange).toHaveBeenCalled();
@@ -243,7 +246,6 @@ describe("RichTextEditor imperative handle", () => {
       return (
         <>
           <RichTextEditor
-            variant="lean"
             value="<p>Hello</p>"
             onChange={onChange}
             label="Note"
@@ -267,7 +269,7 @@ describe("RichTextEditor imperative handle", () => {
       const ref = useRef<RichTextEditorHandle>(null);
       return (
         <>
-          <RichTextEditor variant="lean" value="<p></p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
+          <RichTextEditor value="<p></p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
           <button type="button" onClick={() => ref.current?.appendText("<b>x</b>")}>go</button>
         </>
       );
@@ -284,7 +286,7 @@ describe("RichTextEditor imperative handle", () => {
 
 describe("RichTextEditor commitOnEnter", () => {
   it("with commitOnEnter, plain Enter commits and Shift+Enter does not", async () => {
-    const { onCommit } = setupLean({ commitOnEnter: true });
+    const { onCommit } = setupNote({ commitOnEnter: true });
     const surface = await screen.findByRole("textbox", { name: "Note" });
     fireEvent.keyDown(surface, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledTimes(1);
@@ -293,14 +295,14 @@ describe("RichTextEditor commitOnEnter", () => {
   });
 
   it("without commitOnEnter, Enter does not commit", async () => {
-    const { onCommit } = setupLean({ commitOnEnter: false });
+    const { onCommit } = setupNote({ commitOnEnter: false });
     const surface = await screen.findByRole("textbox", { name: "Note" });
     fireEvent.keyDown(surface, { key: "Enter" });
     expect(onCommit).not.toHaveBeenCalled();
   });
 
   it("does not commit on Enter fired during IME composition (isComposing)", async () => {
-    const { onCommit } = setupLean({ commitOnEnter: true });
+    const { onCommit } = setupNote({ commitOnEnter: true });
     const surface = await screen.findByRole("textbox", { name: "Note" });
     // Enter to confirm a CJK IME candidate must not commit the note.
     fireEvent.keyDown(surface, { key: "Enter", isComposing: true });
@@ -350,5 +352,45 @@ describe("RichTextEditor — CSP nonce on the injected Tiptap stylesheet", () =>
     expect(
       document.head.querySelector("style[data-tiptap-style]")!.hasAttribute("nonce"),
     ).toBe(false);
+  });
+});
+
+// ★★ SOURCE-TEXT ASSERTIONS, and they are weak by nature: they pin SPELLING, not
+// behaviour, and they rot silently. They are here only for facts whose only other
+// witness is a browser (a CSP nonce on an injected <style>, an extension list the
+// jsdom mount cannot distinguish). Everything provable by rendering is asserted by
+// rendering, above.
+describe("RichTextEditor — structural facts the DOM cannot show", () => {
+  const SRC = readFileSync("src/app/rich-text-editor.tsx", "utf8");
+
+  it("exposes no variant prop", () => {
+    expect(SRC).not.toContain("RichTextEditorVariant");
+    expect(SRC).not.toContain("isLean");
+  });
+
+  it("registers the Simple-template extensions", () => {
+    for (const ext of ["Highlight", "Subscript", "Superscript"]) expect(SRC).toContain(ext);
+    expect(SRC).toContain("levels: [1, 2, 3, 4]");
+  });
+
+  it("no longer disables underline, strike, code, blockquote, codeBlock or headings", () => {
+    for (const off of ["heading: false", "blockquote: false", "codeBlock: false",
+                       "code: false", "strike: false", "horizontalRule: false",
+                       "underline: false"]) {
+      expect(SRC).not.toContain(off);
+    }
+  });
+
+  it("sanitizes committed html with the one sanitizer", () => {
+    expect(SRC).toContain("sanitizeRichHtml");
+    expect(SRC).not.toContain("sanitizeNoteHtml");
+    expect(SRC).not.toContain("sanitizeTemplateHtml");
+  });
+
+  it("keeps the CSP nonce on the injected ProseMirror stylesheet", () => {
+    // The app's ONLY useEditor call, and createStyleTag dedupes on
+    // style[data-tiptap-style] — one un-nonced mount poisons every later one.
+    // Prod CSP is nonce-only on style-src-elem; dev is not (open-followups §54).
+    expect(SRC).toContain("injectNonce: readCspNonce()");
   });
 });
