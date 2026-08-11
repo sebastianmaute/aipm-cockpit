@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { applyDocMutation, type DocState } from "./document-mutations";
 import { deletedDocumentVersions } from "./document-versions";
 import { MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS, type DocBlock, type ProjectDocument } from "./document-model";
+import { MAX_LINKS_PER_DOC } from "./document-ref";
 
 const DOC: ProjectDocument = {
   id: 1,
@@ -863,5 +864,89 @@ describe("a block must be SHAPED like a block, not merely be an object", () => {
       expect(out.changed).toBe(true);
       expect(out.documents[0].blocks.at(-1)).toEqual(block);
     }
+  });
+});
+
+describe("link / unlink", () => {
+  // ★★★ A REFERENCE IS NOT CONTENT — both cases write NO version and leave
+  // `updatedAt` alone. `updatedAt` is displayed and is the default sort key,
+  // so bumping it on an attach would report a content edit that never
+  // happened.
+  it("adds the reference, writes NO version and does NOT move updatedAt", () => {
+    const out = applyDocMutation(state(), { kind: "link", id: 1, ref: { kind: "task", id: 7, label: "Kickoff" } }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].linkedEntities).toEqual([{ kind: "task", id: 7, label: "Kickoff" }]);
+    expect(out.versions).toHaveLength(0);
+    expect(out.documents[0].updatedAt).toBe(DOC.updatedAt);
+  });
+
+  // ★ A no-op must return the caller's OWN array reference — the documents
+  // slice is dirty-checked by REFERENCE equality, so a rebuilt-but-equal
+  // array forces a needless save on every backend.
+  it("is idempotent — linking the same (kind, id) again is not a change", () => {
+    const once = applyDocMutation(state(), { kind: "link", id: 1, ref: { kind: "task", id: 7 } }, ctx());
+    const twice = applyDocMutation(once, { kind: "link", id: 1, ref: { kind: "task", id: 7 } }, ctx());
+    expect(twice.changed).toBe(false);
+    expect(twice.documents).toBe(once.documents);
+  });
+
+  it("refuses past MAX_LINKS_PER_DOC with a reason", () => {
+    const full: DocState = {
+      documents: [{
+        ...DOC,
+        linkedEntities: Array.from({ length: MAX_LINKS_PER_DOC }, (_, i) => ({ kind: "task" as const, id: i + 1 })),
+      }],
+      versions: [],
+    };
+    const out = applyDocMutation(full, { kind: "link", id: 1, ref: { kind: "raid", id: 1 } }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.rejected[0]).toContain("link limit");
+  });
+
+  it("unlinks by (kind, id) and drops the field when the last one goes", () => {
+    const linked = applyDocMutation(state(), { kind: "link", id: 1, ref: { kind: "task", id: 7 } }, ctx());
+    const out = applyDocMutation(linked, { kind: "unlink", id: 1, ref: { kind: "task", id: 7 } }, ctx());
+    expect(out.changed).toBe(true);
+    expect("linkedEntities" in out.documents[0]).toBe(false);
+    expect(out.versions).toHaveLength(0);
+  });
+
+  it("unlinking an absent reference is not a change", () => {
+    const s = state();
+    const out = applyDocMutation(s, { kind: "unlink", id: 1, ref: { kind: "task", id: 7 } }, ctx());
+    expect(out.changed).toBe(false);
+    expect(out.documents).toBe(s.documents);
+  });
+
+  it("rejects an unknown document id", () => {
+    const out = applyDocMutation(state(), { kind: "link", id: 404, ref: { kind: "task", id: 7 } }, ctx());
+    expect(out.rejected[0]).toContain("#404");
+  });
+
+  it("carries the references onto a DUPLICATE — a copy is about the same entities", () => {
+    const linked = applyDocMutation(state(), { kind: "link", id: 1, ref: { kind: "task", id: 7, label: "Kickoff" } }, ctx());
+    const out = applyDocMutation(linked, { kind: "duplicate", id: 1, title: "Charter copy" }, ctx());
+    expect(out.changed).toBe(true);
+    const copy = out.documents.find((d) => d.title === "Charter copy");
+    expect(copy?.linkedEntities).toEqual([{ kind: "task", id: 7, label: "Kickoff" }]);
+  });
+
+  it("leaves a duplicate of an UNLINKED document with no linkedEntities key", () => {
+    // The sparse rule, on the copy: an absent list must stay absent or the copy
+    // serializes differently from its source.
+    const out = applyDocMutation(state(), { kind: "duplicate", id: 1, title: "Charter copy" }, ctx());
+    const copy = out.documents.find((d) => d.title === "Charter copy");
+    expect(copy && "linkedEntities" in copy).toBe(false);
+  });
+
+  // ★★★ THE CROSS-KIND CONTROL — unlink-by-(kind,id) is otherwise unpinned
+  // against an id-only implementation. An `unlink` filtering on `id` alone
+  // would remove BOTH refs below and every case above would still pass.
+  it("unlinking one kind at a shared id leaves the other kind's reference alone", () => {
+    const withTask = applyDocMutation(state(), { kind: "link", id: 1, ref: { kind: "task", id: 7 } }, ctx());
+    const withBoth = applyDocMutation(withTask, { kind: "link", id: 1, ref: { kind: "raid", id: 7 } }, ctx());
+    const out = applyDocMutation(withBoth, { kind: "unlink", id: 1, ref: { kind: "raid", id: 7 } }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].linkedEntities).toEqual([{ kind: "task", id: 7 }]);
   });
 });

@@ -9,6 +9,8 @@ import {
   type RowContextValue,
 } from "./task-row";
 import { type ChangeItem, type RaidItem, type Resource, type Task } from "./types";
+import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -1203,5 +1205,72 @@ describe("TaskRow inline cell editing", () => {
     const cell = chip.closest("td");
     expect(cell).not.toBeNull();
     expect(cell!.querySelectorAll("button")).toHaveLength(0);
+  });
+});
+
+describe("TaskRow linked-documents badge", () => {
+  const doc = (id: number, links: DocEntityRef[]): ProjectDocument => ({
+    id,
+    title: `Doc ${id}`,
+    blocks: [],
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    linkedEntities: links,
+  });
+
+  // Built with the REAL indexer over real documents, so the (kind, id) key
+  // derivation is exercised end to end rather than stubbed. `doc(12)` is a DECOY
+  // linking raid:7 while Alpha IS task 7 — a count keyed on the bare id inflates
+  // Alpha to 3 and fails.
+  const documentsByEntity = indexDocumentsByEntity([
+    doc(10, [{ kind: "task", id: 7 }, { kind: "task", id: 8 }]),
+    doc(11, [{ kind: "task", id: 7 }]),
+    doc(12, [{ kind: "raid", id: 7 }]),
+  ]);
+
+  // THREE rows on purpose. Two carry a badge with DIFFERENT counts (2 vs 1), so
+  // a hardcoded number cannot pass and the `– <taskName>` qualifier is proved to
+  // make the name row-unique (WCAG 2.4.6 — axe has no rule for a duplicate
+  // accessible name at any seed size, so this test is the only detector).
+  function renderRows(onOpenDocuments = vi.fn()) {
+    const utils = render(
+      rowWrapper({
+        context: makeContext(),
+        children: [
+          makeTask({ id: 7, taskName: "Alpha" }),
+          makeTask({ id: 8, taskName: "Beta" }),
+          makeTask({ id: 9, taskName: "Gamma" }),
+        ].map((task) => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={undefined}
+            documentsByEntity={documentsByEntity}
+            onOpenDocuments={onOpenDocuments}
+          />
+        )),
+      }),
+    );
+    return { ...utils, onOpenDocuments };
+  }
+
+  test("badges only the referenced rows, with the real count and a row-unique name", () => {
+    const { getAllByRole, queryByRole } = renderRows();
+    const badges = getAllByRole("button", { name: /^Referenced by/ });
+    expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Referenced by 2 document(s) – Alpha",
+      "Referenced by 1 document(s) – Beta",
+    ]);
+    // Gamma links no document → no badge at all (not a badge reading 0).
+    expect(queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
+  });
+
+  test("clicking a badge opens the Documents pane for THAT task", () => {
+    const { getByRole, onOpenDocuments } = renderRows();
+    fireEvent.click(getByRole("button", { name: "Referenced by 1 document(s) – Beta" }));
+    expect(onOpenDocuments).toHaveBeenCalledWith(8);
   });
 });

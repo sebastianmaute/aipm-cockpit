@@ -4,7 +4,9 @@ import { __resetMintStateForTests } from "./id-mint-session";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
-import { WorkspaceTabProvider } from "./workspace-tab-context";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { ToastProvider } from "./toast-context";
 import { MilestonesPanel } from "./milestones-panel";
 import { t } from "./i18n";
@@ -451,5 +453,82 @@ describe("achieved toggle", () => {
     expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name }));
     expect(screen.getByRole("button", { name })).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+// --- linked-documents badge ------------------------------------------------
+
+describe("MilestonesPanel linked-documents badge", () => {
+  /** Renders `activeTab` so the badge click is asserted on OBSERVABLE STATE —
+   *  the view the app actually switched to — not on a spied callback. */
+  function ActiveTabProbe() {
+    const { activeTab, pendingDocEntityFilter } = useWorkspaceTab();
+    return (
+      <>
+        <span data-testid="active-tab">{activeTab}</span>
+        {/* ★★ The KIND matters and was unpinned: asserting only that the view
+            became "documents" is green even when a panel passes the WRONG kind
+            (the copy-paste available across three near-identical call sites
+            written in one sitting), which would filter the pane to nothing. */}
+        <span data-testid="pending-doc-filter">
+          {pendingDocEntityFilter ? `${pendingDocEntityFilter.kind}:${pendingDocEntityFilter.id}` : "none"}
+        </span>
+      </>
+    );
+  }
+
+  function doc(id: number, links: DocEntityRef[]): ProjectDocument {
+    return { id, title: `Doc ${id}`, blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: links };
+  }
+
+  // THREE rows on purpose. Two carry a badge, so a name that omitted the row
+  // qualifier would collide (WCAG 2.4.6) — a unit test rendering >=2 rows is the
+  // ONLY detector, axe has no rule for it at any seed size. Their counts DIFFER
+  // (2 vs 1) so a hardcoded count cannot pass, and the third row is unreferenced
+  // so a lookup ignoring the key would badge it too.
+  const milestones = [
+    m("Alpha gate", "2026-07-01", { id: 1 }),
+    m("Beta gate", "2026-07-02", { id: 2 }),
+    m("Gamma gate", "2026-07-03", { id: 3 }),
+  ];
+  const documentsByEntity = indexDocumentsByEntity([
+    doc(10, [{ kind: "milestone", id: 1 }, { kind: "milestone", id: 2 }]),
+    doc(11, [{ kind: "milestone", id: 1 }]),
+    // Same numeric id, different kind: ids collide across kinds, so a key built
+    // from the id alone would inflate Alpha's count to 3.
+    doc(12, [{ kind: "raid", id: 1 }]),
+  ]);
+
+  function renderWithProbe() {
+    return render(
+      <>
+        <Seed milestones={milestones} />
+        <ActiveTabProbe />
+        <MilestonesPanel
+          lang="en-US"
+          today="2026-06-02"
+          holidaySet={new Set()}
+          documentsByEntity={documentsByEntity}
+        />
+      </>,
+      { wrapper },
+    );
+  }
+
+  it("badges only the referenced rows, with the real count and a row-unique name", () => {
+    renderWithProbe();
+    const badges = screen.getAllByRole("button", { name: /^Referenced by/ });
+    expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Referenced by 2 document(s) – Alpha gate",
+      "Referenced by 1 document(s) – Beta gate",
+    ]);
+  });
+
+  it("clicking the badge switches the app to the Documents view", () => {
+    renderWithProbe();
+    expect(screen.getByTestId("active-tab").textContent).toBe("dashboard");
+    fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha gate" }));
+    expect(screen.getByTestId("active-tab").textContent).toBe("documents");
+    expect(screen.getByTestId("pending-doc-filter").textContent).toBe("milestone:1");
   });
 });

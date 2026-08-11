@@ -15,6 +15,7 @@ import { groupByStatusAndPerson, UNASSIGNED_LANE, type KanbanLane } from "./task
 import { isJiraSynced } from "./jira-status-map";
 import { isReadOnlyIssue } from "./jira-projects";
 import type { JiraExtraProject } from "./settings-types";
+import type { ProjectDocument } from "./document-model";
 import { TaskKanbanCard } from "./task-kanban-card";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { INTERACTIVE } from "./interaction-styles";
@@ -40,6 +41,12 @@ interface TaskKanbanSwimlanesProps {
   /** Per-task RAID / change references (same maps the table rows use). */
   raidByTask?: Map<number, RaidItem[]>;
   changeByTask?: Map<number, ChangeItem[]>;
+  /** Linked-documents reverse index (`refKey(kind, id)` → documents), the SAME
+   *  one the table rows and the registers read. Optional so lightweight
+   *  callers/tests can omit it — no badge renders without it. */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+  /** Deep-link to the Documents pane, filtered to one task. Optional, as above. */
+  onOpenDocuments?: (taskId: number) => void;
   /** Swimlane cell drop: the cell identifies BOTH the person (lane) and the
    *  status, so one drop writes both in a single call. */
   onSwimlaneDrop: (id: number, lane: KanbanLane, status: TaskStatus) => void;
@@ -86,6 +93,8 @@ export function TaskKanbanSwimlanes({
   jiraExtraProjects = EMPTY_EXTRA_PROJECTS,
   raidByTask,
   changeByTask,
+  documentsByEntity,
+  onOpenDocuments,
   onSwimlaneDrop,
   onStatusChange,
   onEdit,
@@ -177,6 +186,8 @@ export function TaskKanbanSwimlanes({
                           resourcesById={resourcesById}
                           raidRefs={raidByTask?.get(task.id)}
                           changeRefs={changeByTask?.get(task.id)}
+                          documentsByEntity={documentsByEntity}
+                          onOpenDocuments={onOpenDocuments}
                           onStatusChange={onStatusChange}
                           onEdit={onEdit}
                           onJumpToRaid={onJumpToRaid}

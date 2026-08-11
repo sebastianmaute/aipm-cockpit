@@ -39,6 +39,7 @@ import {
   type Task,
 } from "./types";
 import type { Contact } from "./contacts";
+import type { ProjectDocument } from "./document-model";
 import type { EntityPaneCalendarHintsProps } from "./workspace-section-types";
 import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
@@ -64,6 +65,11 @@ export type RaidPanelProps = EntityPaneCalendarHintsProps & {
   lang: Lang;
   tasks: readonly Task[];
   raid: readonly RaidItem[];
+  /** `refKey("raid", id)` → the documents referencing that item, for the row
+   *  badge. Threaded from task-manager, NOT read from `useWorkspace()` here:
+   *  this panel is `memo`'d and a context consumer re-renders on ANY context
+   *  change regardless of the parent's bailout. */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
   /** When false, the Stakeholders picker in the edit modal is hidden. Default true. */
   stakeholdersEnabled?: boolean;
   /** Selectable stakeholders for the picker; empty when the module is off. */
@@ -118,6 +124,7 @@ function RaidPanelBody({
   lang,
   tasks,
   raid,
+  documentsByEntity,
   stakeholdersEnabled = true,
   stakeholders = [],
   resources,
@@ -355,7 +362,7 @@ function RaidPanelBody({
   // Deep-link: when the workspace requests opening a specific RAID item, open
   // its edit modal once and immediately clear the pending request so it does
   // not re-fire on subsequent renders.
-  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { pendingOpen, clearPendingOpen, requestDocumentsForEntity } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("raid");
   useEffect(() => {
     if (pendingOpen?.view !== "raid") return;
@@ -541,6 +548,8 @@ function RaidPanelBody({
           raidById={raidById}
           causesIndex={causesIndex}
           openEdit={openEdit}
+          documentsByEntity={documentsByEntity}
+          onOpenDocuments={requestDocumentsForEntity}
           onJumpToTask={onJumpToTask}
           onOpenNotes={onOpenNotes}
           effectiveCategory={effectiveCategory}

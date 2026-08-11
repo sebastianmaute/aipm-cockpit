@@ -48,6 +48,7 @@ import { descriptionText } from "./rich-text-projection";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
+import { indexDocumentsByEntity } from "./document-ref";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useFeaturesSync } from "./use-features-sync";
@@ -226,7 +227,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept, requestDocumentsForEntity } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -291,7 +292,7 @@ function TaskManagerInner() {
     setTimelogLinks,
     setKnowledgeItems,
     insights,
-    setInsights, setDocuments, setDocumentVersions,
+    documents, setInsights, setDocuments, setDocumentVersions,
     settingsOverrides,
     setSettingsOverrides,
     setCalendarEvents,
@@ -610,6 +611,9 @@ function TaskManagerInner() {
     () => (raidEnabled ? buildRaidByTaskIndex(raid) : new Map<number, RaidItem[]>()),
     [raid, raidEnabled],
   );
+  // ONE reverse index for the linked-documents row badge, threaded down: built
+  // per-panel it would be three indexes over one array, per-row it would rebuild.
+  const documentsByEntity = useMemo(() => indexDocumentsByEntity(documents), [documents]);
   // Same index, mirrored for the read-only "N changes" task-row badge.
   // Returns an empty map when the changes module is disabled.
   const changeByTask = useMemo(
@@ -1480,6 +1484,15 @@ function TaskManagerInner() {
     sendCommTemplate: commSend.send,
   });
 
+  // Task-side twin of onJumpToRaid: arms the Documents pane's entity filter for
+  // one task. The registers call requestDocumentsForEntity directly; the task
+  // surfaces (row + Kanban card) render outside any provider they could read it
+  // from, so it is threaded down as a prop.
+  const onOpenDocuments = useCallback(
+    (taskId: number) => requestDocumentsForEntity("task", taskId),
+    [requestDocumentsForEntity],
+  );
+
   // Action-Center CTA handlers (assign / create-task / mark-done / clear-blocker
   // / draft-message / escalate / rebaseline / reschedule) extracted to
   // useActionCenterHandlers. Called AFTER useTaskRowHandlers because
@@ -2174,6 +2187,7 @@ function TaskManagerInner() {
       pullBusy: calendarAbsenceEnabled ? absencePull.busy : undefined,
     },
     changes,
+    documentsByEntity,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
     onCaptureChangeBulk: captureChangeBulk,
@@ -2405,6 +2419,8 @@ function TaskManagerInner() {
       pushingIds={pushingIds}
       raidByTask={raidByTask}
       changeByTask={changeByTask}
+      documentsByEntity={documentsByEntity}
+      onOpenDocuments={onOpenDocuments}
       jiraEnabled={settings.jira.enabled}
       jiraSyncing={jiraSyncing}
       jiraProjectKey={settings.jira.projectKey}

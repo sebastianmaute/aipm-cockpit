@@ -26,6 +26,11 @@ import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { DocumentPreview } from "./document-preview";
 import { DocumentsHistoryModal } from "./documents-history-modal";
+import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
+import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sources";
+import { DocumentLinksSection } from "./document-links-section";
+import { resolveDocRef } from "./document-ref";
+import { useDocumentEntityFilter } from "./use-document-entity-filter";
 import { downloadDocument, type DocFormat } from "./document-download";
 import { useColumnResize } from "./use-column-resize";
 import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
@@ -254,7 +259,7 @@ export function DocumentsPanel({
   // Ambient, exactly like every other panel's — `useToastContext` defaults to a
   // no-op when no provider is above, so this adds no required wiring anywhere.
   const showToast = useToastContext();
-  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { pendingOpen, clearPendingOpen, pendingDocEntityFilter, clearDocEntityFilter, requestOpen } = useWorkspaceTab();
   // ★★★ THE ARRIVAL AFFORDANCE, and it is the SCROLL that matters here. The
   // effect below moves the SELECTION, which is invisible if the row is below
   // the fold — `documents-list` is its own `overflow-auto` box holding up to
@@ -285,6 +290,15 @@ export function DocumentsPanel({
 
   const rows = useMemo(() => sortDocuments(documents, sort.key, sort.dir), [documents, sort]);
 
+  // The request/reconcile/filter trio, incl. the sentinel-seed remount-swallow
+  // guard — see `use-document-entity-filter.ts`, which carries the reasoning.
+  const { entityFilter, visibleRows, clearEntityFilter } = useDocumentEntityFilter(
+    documents,
+    rows,
+    pendingDocEntityFilter,
+  );
+  const lookups = useMemo(() => buildDocRefLookups(ws), [ws]);
+  const candidates = useMemo(() => buildDocLinkCandidates(ws), [ws]);
   // ★★★ DERIVED, never a stored flag — a flag would have to be cleared on
   // restore and can desync from the documents array.
   //
@@ -337,7 +351,12 @@ export function DocumentsPanel({
   // pointing at nothing; falling back to the first row makes that self-healing,
   // and there is no effect to fight `react-hooks/set-state-in-effect`. Same
   // shape as `resolveEffectiveFilters` for orphaned list filters.
-  const selected = documents.find((d) => d.id === selectedId) ?? documents[0] ?? null;
+  // ★★ WHILE FILTERED, FALL BACK WITHIN THE VISIBLE ROWS. The link field below
+  // is bound to `selected`, so a fallback to `documents[0]` lets an attach made
+  // from a filtered view land on a document the list is not showing — silently,
+  // and with no undo on document writes.
+  const selectionPool = entityFilter && visibleRows.length > 0 ? visibleRows : documents;
+  const selected = selectionPool.find((d) => d.id === selectedId) ?? selectionPool[0] ?? null;
 
   // ★★★ DEEP LINK. The chat transcript's document card calls
   // `requestOpen("documents", id)` (workspace-tab-context), which switches the
@@ -420,6 +439,12 @@ export function DocumentsPanel({
     // survives. The refused-restore cases pin that ordering.
     clearRestoreRejected();
     const result = mutateDocuments(m, "user");
+    // ★★ A REFUSAL REACHES THE USER FROM HERE, not from each call site — the
+    // note above is that "a mutation returns nothing" invites a call site to
+    // discard one, and the attach path did exactly that: at MAX_LINKS_PER_DOC
+    // the engine refuses, the option stays in the dropdown (it is not linked),
+    // and clicking it did nothing, repeatedly, with nothing said.
+    if (!result.changed && result.rejected.length > 0) setRestoreRejected(result.rejected);
     freshRef.current = { from: documents, latest: result.documents };
     return result;
   }
@@ -552,9 +577,19 @@ export function DocumentsPanel({
         isReadOnly={isReadOnly}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3">
+        {/* ★ Title falls back to `#id` — an entity deleted since the badge was clicked
+            must still name what is filtered. ★★ Clear does BOTH, or a re-visit re-applies. */}
+        {entityFilter && (
+          <DocumentEntityFilterBanner
+            lang={lang}
+            title={resolveDocRef(entityFilter, lookups).title || `#${entityFilter.id}`}
+            isEmpty={visibleRows.length === 0}
+            onClear={() => { clearEntityFilter(); clearDocEntityFilter(); }}
+          />
+        )}
         <DocumentsList
           lang={lang}
-          documents={rows}
+          documents={visibleRows}
           selectedId={selected?.id ?? null}
           onSelect={handleSelect}
           sortKey={sort.key}
@@ -654,6 +689,16 @@ export function DocumentsPanel({
             {restoreRejected.join("; ")}
           </p>
         )}
+        <DocumentLinksSection
+          lang={lang}
+          doc={selected}
+          lookups={lookups}
+          candidates={candidates}
+          isReadOnly={isReadOnly}
+          onLink={(docId, ref) => mutate({ kind: "link", id: docId, ref })}
+          onUnlink={(docId, ref) => mutate({ kind: "unlink", id: docId, ref })}
+          onOpenView={requestOpen}
+        />
         <DocumentPreview lang={lang} doc={selected} ws={ws} />
       </div>
 

@@ -19,6 +19,9 @@ const MILESTONE_FILTER_DEFAULTS: PanelFiltersState = {
   hiddenCols: [],
 };
 import { MilestoneEditModal } from "./milestone-edit-modal";
+import { DocumentBadge } from "./document-badge";
+import { refKey } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
@@ -109,6 +112,11 @@ type MilestonesPanelProps = {
   onAiEdit?: (item: Milestone) => void;
   /** Gate for the per-row ✨ affordance (AI enabled, not popout, etc.). */
   aiEditEnabled?: (item: Milestone) => boolean;
+  /** `refKey("milestone", id)` → the documents referencing it, for the row badge.
+   *  Threaded from task-manager rather than read from `useWorkspace()` — this
+   *  panel is un-memoized so it would work either way, but one mechanism across
+   *  all four badge surfaces is easier to keep correct than two. */
+  documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
 };
 
 export function MilestonesPanel(props: MilestonesPanelProps) {
@@ -138,6 +146,7 @@ function MilestonesPanelBody({
   onLearnMore,
   onAiEdit,
   aiEditEnabled,
+  documentsByEntity,
 }: MilestonesPanelProps) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   // `-full` suffix: the view changed from a centered half-width pane to full
@@ -248,7 +257,7 @@ function MilestonesPanelBody({
 
   // Deep-link: when a suggested-action chip requests opening a milestone, open
   // its edit modal once and clear the pending signal.
-  const { pendingOpen, clearPendingOpen } = useWorkspaceTab();
+  const { pendingOpen, clearPendingOpen, requestDocumentsForEntity } = useWorkspaceTab();
   const { flashId, containerRef } = useDeepLinkRowFlash("milestones");
   useEffect(() => {
     if (pendingOpen?.view !== "milestones") return;
@@ -490,6 +499,12 @@ function MilestonesPanelBody({
                         {onAiEdit && aiEditEnabled?.(m) && (
                           <InlineAiEditButton lang={lang} label={m.name} onClick={() => onAiEdit(m)} />
                         )}
+                        <DocumentBadge
+                          lang={lang}
+                          count={documentsByEntity?.get(refKey("milestone", m.id))?.length ?? 0}
+                          entityTitle={m.name}
+                          onOpen={() => requestDocumentsForEntity("milestone", m.id)}
+                        />
                       </div>
                     </td>
                   )}

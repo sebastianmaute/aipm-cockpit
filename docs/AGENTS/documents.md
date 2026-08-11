@@ -278,6 +278,67 @@ block would silently drop it on the next save of any other meta slice.
 ★ `dirtyWorkspaceTables` maps a `documentVersions` reference change to `meta`, so an in-place
 mutation of the array skips the save entirely.
 
+## Entity links (`document-ref.ts`)
+
+A document names the tasks, milestones, RAID items and changes it is about, via
+`ProjectDocument.linkedEntities` — a sparse `DocEntityRef[]` of `{kind, id, label?}`.
+
+★★ **It costs nothing on the six write paths, and that is a property of WHERE it lives, not of
+anything the slice did.** `documents` is a meta-blob — one JSON row in `meta` — so a field INSIDE a
+document rides every backend for free. Contrast `documentVersions` above, which is a top-level
+`Workspace` field and therefore needed all six. Do not generalise either case: the question is
+always whether the new field sits inside an existing blob or beside it.
+
+★★★ **`sanitizeDocument` BUILDS FROM AN EXPLICIT FIELD LIST.** A persisted field it does not name
+is dropped on every load, on every backend, silently — the shape that erased RAID note logs
+(§49). Adding a field to `ProjectDocument` means adding it to that function, not only to the type.
+
+★ **Sparse on BOTH sides.** An empty list is an ABSENT key, never `[]` — `sanitizeDocEntityRefs`
+applies that on load and the `unlink` case applies it on write, so the two cannot disagree and an
+unlinked document serializes byte-identically. The goldens pin those bytes.
+
+★★ **`refKey(kind, id)`, never a bare id.** Ids collide ACROSS kinds: task #7 and risk #7 are
+different entities. Every lookup, dedupe, React key and unlink comparison goes through it. This is
+also why `LinkPickerEntry` gained an optional `key` and why `EntityLinkPicker`'s `onAdd`/`onRemove`/
+`onOpen` take the ENTRY rather than an id — a multi-kind picker cannot disambiguate otherwise.
+
+★★★ **`label` IS A TOMBSTONE AND `resolveDocRef` IS ITS ONLY READER.** It is the display source
+only when `id` no longer resolves; while the target LIVES the live title wins. Read it directly and
+a rename silently desyncs every chip and badge — the stale-name-cache class `effectivePersonEmail`
+exists to prevent. The rule is mutation-pinned in `document-ref.test.ts`: a label-first resolver
+fails that test.
+
+★★ **A REFERENCE IS NOT CONTENT.** `link` and `unlink` write NO version (content gets versions;
+references and metadata do not — consistent with `create`, which also writes none) and both LEAVE
+`updatedAt` alone. `updatedAt` is a displayed column AND the list's default sort key, so bumping it
+on an attach would report a content edit that never happened.
+
+★ **Dangling references are left in place, deliberately.** Deleting an entity does NOT prune the
+documents pointing at it, and nothing prunes at load. Both alternatives make a delete→undo round
+trip lossy — the undo restores the entity but not the links, which is the §50 shape. Leaving the
+reference is lossless, and the chip degrades to its tombstone label plus a non-colour marker
+(`data-dangling-marker`; a `title` alone is hover-only and closes nothing for WCAG 1.4.1).
+
+★★ **The badge's accessible name is row-qualified and only a unit test can prove it.** Measured
+against axe-core 4.12.1: no rule carrying the four tags `e2e/a11y.spec.ts` requests flags two
+controls sharing an accessible name, at ANY seed size, in ANY view. `DocumentBadge` therefore
+appends the entity's own title, and each surface's test renders ≥2 rows. `DocumentBadge` takes
+everything as PROPS and calls no context hook — it renders inside a Kanban card, which sits outside
+`RowContextProvider`, and `useWorkspaceTab` throws without a provider.
+
+★★ **A `duplicate` CARRIES the references** — a copy is about the same entities as its source. That
+literal is an explicit field list and dropped them until it named them, which is the same shape as
+`sanitizeDocument` two rules above; the sparse rule applies to the copy too.
+
+★★ **While a filter is armed, selection falls back within the VISIBLE rows**, not to `documents[0]`.
+The link field is bound to `selected`, so the full-set fallback let an attach made from a filtered
+view land on a document the list was not showing — silently, and document writes have no undo. A
+test whose fixture happens to put the linked document first cannot see this; the pinning test puts
+the UNLINKED one first, deliberately.
+
+★ **One accepted behaviour:** a read-only popout renders no link field AND no chips — the field is
+withheld rather than drawn inert, per the no-false-affordance rule.
+
 ## Load/save wiring (app state)
 
 ★★ `documentVersions` was implemented in the model and all six write paths **before** it was

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.230.0 "Yoachim" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.231.0 "Sargent" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 

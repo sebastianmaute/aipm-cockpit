@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useRef, useState } from 
 import { type PopoutTab, readPopoutTabFromUrl } from "./broadcast-sync";
 import { type AppView, buildHash, slugToView } from "./nav-config";
 import type { ApiMessage, DisplayItem } from "./chat-api";
+import type { DocRefKind } from "./document-ref";
 
 /** A chat conversation held in memory so it survives view-navigation remounts
  *  (the modern shell mounts one view at a time). `history` is the Anthropic wire
@@ -28,6 +29,10 @@ interface WorkspaceTabContextValue {
   pendingHelpConcept: string | null;
   requestHelpConcept: (conceptId: string) => void;
   clearHelpConcept: () => void;
+  /** Armed by a DocumentBadge; consumed by the Documents pane. */
+  pendingDocEntityFilter: { kind: DocRefKind; id: number } | null;
+  requestDocumentsForEntity: (kind: DocRefKind, id: number) => void;
+  clearDocEntityFilter: () => void;
   // In-memory per-project chat store: read at (re)mount + on project switch,
   // written on change. A ref (not state) so the whole shell doesn't re-render on
   // every chat message; ChatPanel owns the reactive copy.
@@ -78,6 +83,12 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     // No hash write: the Help view scrolls to the concept section internally.
   }, []);
   const clearHelpConcept = useCallback(() => setPendingHelpConcept(null), []);
+  const [pendingDocEntityFilter, setPendingDocEntityFilter] = useState<{ kind: DocRefKind; id: number } | null>(null);
+  const requestDocumentsForEntity = useCallback((kind: DocRefKind, id: number) => {
+    setActiveTab("documents");
+    setPendingDocEntityFilter({ kind, id });
+  }, []);
+  const clearDocEntityFilter = useCallback(() => setPendingDocEntityFilter(null), []);
   const chatConvRef = useRef<Map<string, ChatConversation>>(new Map());
   const getChatConversation = useCallback(
     (projectId: string): ChatConversation | undefined => chatConvRef.current.get(projectId),
@@ -95,7 +106,7 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     m.set(projectId, conv);
   }, []);
   return (
-    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation }}>
+    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept, pendingDocEntityFilter, requestDocumentsForEntity, clearDocEntityFilter, getChatConversation, saveChatConversation }}>
       {children}
     </WorkspaceTabContext.Provider>
   );

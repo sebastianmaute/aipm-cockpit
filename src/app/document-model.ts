@@ -28,6 +28,7 @@
 
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { capHtmlText, htmlTextLength } from "./rich-text-plain";
+import { sanitizeDocEntityRefs, type DocEntityRef } from "./document-ref";
 
 /** Bounds on what a hostile or corrupt import can force. */
 // ★★ Raised 200 -> 1000 in the §103 fix. ONE constant serves TWO doors: the
@@ -61,6 +62,9 @@ export type ProjectDocument = {
   createdAt: string;
   /** ISO timestamp. */
   updatedAt: string;
+  /** Project entities this document is about. Sparse — omitted when empty, so
+   *  an unlinked document serializes byte-identically. See document-ref.ts. */
+  linkedEntities?: readonly DocEntityRef[];
 };
 
 /** ★★★ READ THE REGISTRY AT CALL TIME, NEVER AT MODULE-EVAL — and do not
@@ -186,12 +190,19 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
     .filter((b): b is DocBlock => b !== null);
 
   const createdAt = isoOr(d.createdAt, "");
+  // ★★★ THIS FUNCTION BUILDS FROM AN EXPLICIT FIELD LIST. A field not named
+  // here is dropped on EVERY load path, silently — the shape that erased RAID
+  // note logs (open-followups §49). Adding a persisted field means adding it
+  // HERE, not only to the type.
+  const linkedEntities = sanitizeDocEntityRefs(d.linkedEntities);
   return {
     id,
     title,
     blocks,
     createdAt,
     updatedAt: isoOr(d.updatedAt, createdAt),
+    // Sparse: an empty list is an ABSENT field, not `[]` — the goldens pin bytes.
+    ...(linkedEntities.length > 0 ? { linkedEntities } : {}),
   };
 }
 

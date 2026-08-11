@@ -193,6 +193,8 @@ function makeProps(): TasksSectionProps {
     pushingIds: new Set(),
     raidByTask: new Map(),
     changeByTask: new Map(),
+    documentsByEntity: new Map(),
+    onOpenDocuments: vi.fn(),
     // jira
     jiraEnabled: false,
     jiraSyncing: false,

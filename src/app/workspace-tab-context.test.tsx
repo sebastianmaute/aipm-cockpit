@@ -56,6 +56,22 @@ describe("pendingChatSeed", () => {
   });
 });
 
+describe("requestDocumentsForEntity", () => {
+  it("switches to the documents view and arms the filter", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.requestDocumentsForEntity("raid", 3));
+    expect(result.current.activeTab).toBe("documents");
+    expect(result.current.pendingDocEntityFilter).toEqual({ kind: "raid", id: 3 });
+  });
+
+  it("clears the filter on consume", () => {
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.requestDocumentsForEntity("raid", 3));
+    act(() => result.current.clearDocEntityFilter());
+    expect(result.current.pendingDocEntityFilter).toBeNull();
+  });
+});
+
 describe("WorkspaceTabContext", () => {
   it("default activeTab is 'dashboard' and isPopout is false", () => {
     const { result } = renderHook(() => useWorkspaceTab(), { wrapper });

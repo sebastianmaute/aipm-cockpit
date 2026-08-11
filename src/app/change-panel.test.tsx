@@ -3,8 +3,10 @@ import { fireEvent, render } from "@testing-library/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
-import { WorkspaceTabProvider } from "./workspace-tab-context";
+import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { ChangePanel } from "./change-panel";
+import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
+import type { ProjectDocument } from "./document-model";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import type { ChangeItem } from "./types";
@@ -286,5 +288,75 @@ describe("Changes bulk edit", () => {
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+});
+
+// --- linked-documents badge ------------------------------------------------
+
+describe("ChangePanel linked-documents badge", () => {
+  /** Renders `activeTab` so the badge click is asserted on OBSERVABLE STATE —
+   *  the view the app actually switched to — not on a spied callback. */
+  function ActiveTabProbe() {
+    const { activeTab, pendingDocEntityFilter } = useWorkspaceTab();
+    return (
+      <>
+        <span data-testid="active-tab">{activeTab}</span>
+        {/* ★★ The KIND matters and was unpinned: asserting only that the view
+            became "documents" is green even when a panel passes the WRONG kind
+            (the copy-paste available across three near-identical call sites
+            written in one sitting), which would filter the pane to nothing. */}
+        <span data-testid="pending-doc-filter">
+          {pendingDocEntityFilter ? `${pendingDocEntityFilter.kind}:${pendingDocEntityFilter.id}` : "none"}
+        </span>
+      </>
+    );
+  }
+
+  function doc(id: number, links: DocEntityRef[]): ProjectDocument {
+    return { id, title: `Doc ${id}`, blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: links };
+  }
+
+  // THREE rows on purpose. Two carry a badge, so a name that omitted the row
+  // qualifier would collide (WCAG 2.4.6) — a unit test rendering >=2 rows is the
+  // ONLY detector, axe has no rule for it at any seed size. Their counts DIFFER
+  // (2 vs 1) so a hardcoded count cannot pass, and the third row is unreferenced
+  // so a lookup ignoring the key would badge it too.
+  const changes = [
+    ci({ id: 1, title: "Alpha scope" }),
+    ci({ id: 2, title: "Beta cost" }),
+    ci({ id: 3, title: "Gamma quality" }),
+  ];
+  const documentsByEntity = indexDocumentsByEntity([
+    doc(10, [{ kind: "change", id: 1 }, { kind: "change", id: 2 }]),
+    doc(11, [{ kind: "change", id: 1 }]),
+    // Same numeric id, different kind: ids collide across kinds, so a key built
+    // from the id alone would inflate Alpha's count to 3.
+    doc(12, [{ kind: "raid", id: 1 }]),
+  ]);
+
+  function renderWithProbe() {
+    return render(
+      <Providers>
+        <ActiveTabProbe />
+        <ChangePanel {...base} changes={changes} documentsByEntity={documentsByEntity} />
+      </Providers>,
+    );
+  }
+
+  it("badges only the referenced rows, with the real count and a row-unique name", () => {
+    const { getAllByRole } = renderWithProbe();
+    const badges = getAllByRole("button", { name: /^Referenced by/ });
+    expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Referenced by 2 document(s) – Alpha scope",
+      "Referenced by 1 document(s) – Beta cost",
+    ]);
+  });
+
+  it("clicking the badge switches the app to the Documents view", () => {
+    const { getByRole, getByTestId } = renderWithProbe();
+    expect(getByTestId("active-tab").textContent).toBe("dashboard");
+    fireEvent.click(getByRole("button", { name: "Referenced by 2 document(s) – Alpha scope" }));
+    expect(getByTestId("active-tab").textContent).toBe("documents");
+    expect(getByTestId("pending-doc-filter").textContent).toBe("change:1");
   });
 });
