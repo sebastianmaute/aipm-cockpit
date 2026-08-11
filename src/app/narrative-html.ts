@@ -13,8 +13,17 @@ import { isHtmlStart } from "./html-start";
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped.
  *
  *  ★★ The "rich" sink is not a stylistic choice — it is the list the actual sink
- *  keeps. The narrative renders through RichTextView -> `sanitizeRichHtml`, so
- *  `isHtmlStart` derives its test from RICH_ALLOWED_TAGS and the two cannot drift.
+ *  keeps. The narrative renders through RichTextView -> `sanitizeRichHtml`, whose
+ *  allow-list IS `SINK_TAGS.rich`, so the MAP from sink name to tag list cannot
+ *  drift (html-start.test.ts pins it empirically, per sanitizer).
+ *  ★★★ THAT PINS THE MAP, NOT THIS ARGUMENT, and an earlier revision of this
+ *  comment said "the two cannot drift" flatly. They can: the sink is a
+ *  hand-written string literal here and nothing checks it against the sanitizer
+ *  this value actually reaches. Measured 2026-08-11 — changing "rich" to
+ *  "document" on the line below leaves narrative-html.test.ts 14/14 AND
+ *  dashboard-narrative.test.tsx 20/20 GREEN. Bounded today (the two lists differ
+ *  by `img` alone, which a narrative has no way to contain), unbounded in shape.
+ *  open-followups §143 owns the general case.
  *  ★★ It used to name the "note" sink, and the risk it guarded was the OPPOSITE
  *  direction: `sanitizeNoteHtml` set KEEP_CONTENT: false, so a classifier WIDER
  *  than its list made the sink delete a heading together with its text — that bug

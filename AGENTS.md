@@ -1097,7 +1097,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   arrays, that input is now **byte-identical through both** (`hr` is in `RICH_ALLOWED_TAGS`). The only
   input that still differs is an `img`, which is VOID and so vanishes outright rather than unwrapping:
   `'<p>a</p><img src="x.png"><p>b</p>'` → rich `"<p>a</p><p>b</p>"` · document keeps the element.
-  Wiring a document boundary to `sanitizeAiRichText` therefore silently drops IMAGES and nothing else.
+  ★★★ THE TAG DELTA IS ONE; THE BEHAVIOUR DELTA IS NOT, and this line said "drops IMAGES and nothing
+  else" — false in the DANGEROUS direction, because two of the three differences WIDEN. Wiring a
+  document boundary to `sanitizeAiRichText` (1) drops `<img>`, (2) newly ADMITS arbitrary `data-*`,
+  since `sanitizeDocumentHtml` sets `ALLOW_DATA_ATTR: false` while `sanitizeRichHtml` keeps DOMPurify's
+  default TRUE, and (3) cuts the cap from `MAX_HTML_TEXT_CHARS` (20 000) to `TEXTAREA_MAX` (5 000) —
+  and `capHtmlText`'s truncation branch returns `plainToHtml(text.slice(...))`, so exceeding it
+  FLATTENS every mark to escaped plain text rather than merely shortening. Measured on dompurify
+  3.4.13: `rich('<p data-foo="1">a</p>')` → `<p data-foo="1">a</p>` · `doc(...)` → `<p>a</p>`.
+  `ai-rich-text.ts`'s own header states (1) and (3); nothing but this line ever claimed "nothing else".
   ★ `RICH_ALLOWED_TAGS` still guards the SEVEN rich entity fields (`Task.description` plus the six in
   `AI_RICH_FIELDS`) — but "keep it narrow" is no longer the reason to leave it alone. Widening it now
   widens DOCUMENTS in the same edit, retroactively, including how already-stored HTML renders. Details

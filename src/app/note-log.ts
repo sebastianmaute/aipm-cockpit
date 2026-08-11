@@ -149,9 +149,23 @@ const MILESTONE_RICH_FIELDS = ["description"] as const satisfies readonly RichFi
  *  dangerous markup is still sanitized exactly as before.
  *
  *  ★★ DOM-BOUND: `sanitizeRichHtml` calls DOMPurify, which binds its `window` at
- *  module-eval. Nothing here may become reachable from a codec, an entity
- *  sanitizer, or anything under `scripts/` — the two whole-object load paths are
- *  the only legal callers. */
+ *  module-eval. THIS FUNCTION and its four per-entity wrappers must not become
+ *  reachable from a codec, an entity sanitizer, or anything under `scripts/` —
+ *  the two whole-object load paths are the only legal callers.
+ *  ★★★ SCOPED TO THIS FUNCTION, NOT TO THE FILE, and an earlier revision read as
+ *  a file-level contract that the file itself violates. `sanitizeNoteLog` (above)
+ *  calls `sanitizeRichHtml` and `htmlToText` too, and IS reached from CSV,
+ *  Markdown and Turso through the exported `decodeNoteLog` — Turso via
+ *  `ENTITY_SPECS.fromObj` reusing `build*FromObj`. It survives that only because
+ *  `decodeNoteLog` wraps the call in a `try/catch`, and the catch is not a
+ *  guard: measured under bare node with no DOM,
+ *  `decodeNoteLog(JSON.stringify([{id:1,timestamp:"2026-01-01T00:00:00.000Z",
+ *  html:"<p>hi</p>",text:"hi"}]))` returns `[]` — a well-formed entry SILENTLY
+ *  discarded, no throw, no diagnostic. So in the sample generator and the fixture
+ *  flow the codecs decode every note log to empty. Recorded, not fixed, under
+ *  open-followups §28: widening the catch is the wrong repair (it is what stops a
+ *  malformed cell failing a whole load), and telling "malformed JSON" apart from
+ *  "no DOM" needs the post-decode hook that entry already owns. */
 function sanitizeRichFields<T extends RichFieldCarrier>(
   entity: T,
   fields: readonly RichFieldName[],

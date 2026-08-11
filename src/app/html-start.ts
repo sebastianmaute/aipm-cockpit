@@ -40,9 +40,24 @@
 // CALL needs a DOM.
 import { DOCUMENT_ALLOWED_TAGS, RICH_ALLOWED_TAGS } from "./sanitize-html";
 
-/** A real HTML tag name. Used to drop "#text", which is a DOMPurify allow-list
- *  member but not a tag, and would otherwise enter the alternation as literal
- *  "#text". */
+/** A real HTML tag name — the filter that keeps a non-tag out of the alternation.
+ *
+ *  ★★ ITS MOTIVATING INPUT IS NO LONGER REACHABLE FROM ANY CURRENT SINK, and this
+ *  docstring asserted otherwise ("#text, which is a DOMPurify allow-list member")
+ *  until §137 landed. `#text` lived on `NOTE_ALLOWED_TAGS` alone, and that array
+ *  was DELETED with the narrow sanitizer; every member of every `SINK_TAGS` array
+ *  today is a valid tag name, so the filter drops nothing on any live path.
+ *  Verify rather than trust this sentence:
+ *  `node -e "console.log(/['\"]#text['\"]/.test(require('fs').readFileSync('src/app/sanitize-html.ts','utf8')))"`
+ *  -> false.
+ *  ★★ KEEP IT ANYWAY, and not merely out of caution: the alternation is built by
+ *  string concatenation, so ANY non-tag member — a `#`-prefixed DOMPurify
+ *  pseudo-entry, a stray `|`, a name with a regex metacharacter — would either
+ *  corrupt the pattern or match text that is not markup. The filter is what makes
+ *  `htmlStartRe` safe to call with an arbitrary list, which is exactly what its
+ *  exported signature invites. `html-start.test.ts` still exercises the drop with
+ *  an explicit `["p", "#text"]`, so the guard is pinned even though production
+ *  cannot reach it. */
 const TAG_NAME = /^[a-z][a-z0-9]*$/;
 
 /** Never matches anything. Returned when no valid tag name survives the filter —
@@ -50,15 +65,31 @@ const TAG_NAME = /^[a-z][a-z0-9]*$/;
  *  by any word character (e.g. "<b>", "<div>") and turns every such stray angle
  *  bracket into "this is HTML". Measured: it does NOT match a bare "<>" — `\b`
  *  needs a word character on at least one side, and there is none between "<"
- *  and ">". */
+ *  and ">".
+ *
+ *  ★★ UNREACHABLE FROM ANY CURRENT SINK, for the same reason as TAG_NAME above:
+ *  with `#text` gone every `SINK_TAGS` member passes the filter, so no live list
+ *  can empty. It stays because it guards `htmlStartRe`'s EXPORTED contract, not a
+ *  sink — and the failure it prevents is the loudest one this module has, since
+ *  the degenerate regex says "already HTML" to almost everything and every such
+ *  value would then be stored raw. `html-start.test.ts` reaches it directly with
+ *  `htmlStartRe(["#text"])`. */
 const NEVER = /(?!)/;
 
 /** Matches a well-formed opening tag ANYWHERE in the value — the classifier for
- *  the "render" sink, and deliberately UNANCHORED where the four derived ones
- *  are anchored at the start. Named for what it tests: it answers "does this
- *  CONTAIN a tag?", not "does this START with one?". See the SINK_RE member for
- *  why that is the right question there, and `isHtmlStart` for why one function
- *  asks two. */
+ *  the "render" sink, and deliberately UNANCHORED where the THREE derived ones
+ *  are anchored at the start. (This line said "four" — there are four SINKS and
+ *  three DERIVED regexes; `SINK_TAGS` is the count that settles it.) Named for
+ *  what it tests: it answers "does this CONTAIN a tag?", not "does this START
+ *  with one?". See the SINK_RE member for why that is the right question there,
+ *  and `isHtmlStart` for why one function asks two.
+ *
+ *  ★★ Its `/i` flag is REPO-WIDE UNPINNED, measured 2026-08-11: dropping it
+ *  leaves 215 tests across the six files that own this sink and its three
+ *  consumers fully green, and the mutant is NOT equivalent — "Intro
+ *  <STRONG>bold</STRONG> tail" classifies `true` with the flag and `false`
+ *  without, so UPPERCASE legacy markup would be escaped into Word, PowerPoint,
+ *  the HTML preview and the PDF. Pre-existing; open-followups §141(d). */
 const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
 
 /** Build the "already HTML?" test for one allow-list.
