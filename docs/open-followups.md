@@ -173,9 +173,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 126 | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | open, a11y — WCAG 2.4.6. ★★★ **axe CANNOT catch this** — measured against axe-core 4.12.1: in the gate’s requested tagset there is NO rule that flags two buttons sharing a name (`identical-links-same-purpose` is links-only AND `wcag2aaa`, which the spec never requests). `insight-digest-card.tsx` already de-collides the identical shape — copy it. Same class as §111 |
 | 127 | ~~Two of the six AI trigger hooks still never abort on unmount~~ | split out of §121 on 2026-08-08 | S each | **CLOSED 2026-08-08** in the review round that followed — both gained the cleanup-only effect, each mutation-proved. ★★ Filed then immediately closed on purpose: a follow-up is the right home for a decision, the wrong home for a one-liner with three precedents in the same file family. ★ `use-action-analysis.ts`’s guard was measured UNREACHABLE and applied as defence-in-depth — do not quote it as a shipped defect |
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
-
 | 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
-| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | open, a11y — none of the 90 axe scans reaches any of the 12 `<RichTextEditor` mounts, for FOUR different reasons (9 behind a modal/floating window · 1 behind a non-default Settings section · 1 in an unscanned view · 1 in a collapsed `<details>`), and `grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns nothing. `change-edit-modal.tsx` mounts three editors = 45 toolbar tab stops. ★★ The refusal of `role="toolbar"` without roving tabindex is CORRECT — the tab-stop count is its price, not an argument against it |
+| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | open, a11y — none of the 90 axe scans reaches any of the 12 `<RichTextEditor` mounts, for FOUR different reasons (9 behind a modal/floating window · 1 behind a non-default Settings section · 1 in an unscanned view · 1 in a collapsed `<details>`), and `grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns nothing. `change-edit-modal.tsx` mounts up to three editors = 45 toolbar tab stops at the DEFAULT `advanced` tier, but only 30 in SIMPLE mode — its impact editor is gated by `isVisible("impact")` and `modal-fields.ts` tiers that field `advanced`. ★★ The refusal of `role="toolbar"` without roving tabindex is CORRECT — the tab-stop count is its price, not an argument against it |
 
 ★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
 Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
@@ -1087,14 +1086,17 @@ bug — the stored value came back as visible `&lt;blockquote&gt;` in every surf
 recognising the wider set is the fix, and the verbatim-storage exposure is its known price on
 exactly the three backends this entry is about. It is a defence-in-depth regression, not an
 exploitable one: every raw-HTML sink re-sanitizes. Enumerate them and check each, don't trust the
-count —
-`grep -rn "dangerouslySetInnerHTML" src/app --include=*.tsx | grep -v "\.test\."` returns six, of
-which five carry workspace or document HTML (`rich-text-view.tsx`, `comm-send-preview-modal.tsx`,
+count — and this entry then stated a wrong one in the very next clause, which is the point:
+`grep -rn "dangerouslySetInnerHTML" src/app --include=*.tsx | grep -v "\.test\."` returns **eight**
+lines, not six. TWO are PROSE, not JSX props — one in `chat-panel.tsx` and one in `markdown.tsx`,
+both comments that merely name the API to say the file does not use it. The remaining six are real
+sinks: five
+carry workspace or document HTML (`rich-text-view.tsx`, `comm-send-preview-modal.tsx`,
 `meeting-report-panel.tsx`, `document-preview.tsx`, `documents-history-modal.tsx` — the first three
 call `sanitizeRichHtml` inline, the last two render through `renderDocumentHtml` →
 `sanitizeDocumentHtml`) and the sixth is `layout.tsx`'s build-time theme script, which is not
-workspace data. Adding a SIXTH workspace sink that does not sanitize is what converts this row into
-a live vulnerability.
+workspace data. So the SUBSTANCE was right and only the count was wrong. Adding a SIXTH workspace
+sink that does not sanitize is what converts this row into a live vulnerability.
 
 ★ The same widening reaches template import through `templates.ts` `sanitizeSeedTask` — that
 boundary is **§36(a)**, which is out of scope here for the same DOM-free reason, and its door
@@ -1111,11 +1113,29 @@ decodeNoteLog(JSON.stringify([{id:1,timestamp:"2026-01-01T00:00:00.000Z",html:"<
 ```
 
 returns `[]` — a well-formed entry **silently discarded**, with no throw and no diagnostic. So on
-the codec paths `noteLog` is not "sanitized"; it is sanitized in the app and DROPPED in any bare-node
-consumer of the same codecs (the sample generator and the fixture flow both decode). ★ Not fixed
-here and deliberately not "hardened" by widening the catch: the catch is what keeps a malformed cell
-from failing a whole load, and separating "malformed JSON" from "no DOM" needs a real capability
-check, which is the same post-decode-hook work this entry already owns.
+the codec paths `noteLog` is not unconditionally "sanitized"; it is sanitized wherever a DOM exists
+and would be DROPPED in a bare-node consumer of the same codecs.
+
+★★★ **THERE IS NO SUCH CONSUMER TODAY — this is a LATENT TRAP for a future script, not a live
+drop, and that distinction is the entry's whole severity.** A first revision of this correction named
+two victims and BOTH are false:
+
+- **The sample generator does not decode.** `scripts/generate-sample-workspace.ts` installs a jsdom
+  `window`/`document` BEFORE its deferred `await import("../src/app/storage")` — its header calls
+  that a "jsdom landmine" and spells out the deferred-import ordering that avoids it — and it only
+  ever calls `jsonToWorkspace` / `workspaceToJson` / `scaleWorkspace`. It never reaches
+  `decodeNoteLog` at all, with or without a DOM.
+- **The fixture flow runs under jsdom.** It is `golden-workspace.test.ts`, which genuinely does call
+  `csvToWorkspace` / `markdownToWorkspace`, but as a vitest file under `vitest.config.ts`'s
+  `environment: "jsdom"` — so the DOM is present and the decode is real.
+
+Reproduce the scope: `grep -rn "decodeNoteLog" src scripts` gives three non-test call sites —
+`csv-codecs-core.ts`, `csv-codecs-decode.ts` and `markdown-codecs-decode.ts` — and every consumer of
+those three is a browser or jsdom path today. ★ Not fixed here and deliberately not "hardened" by
+widening the catch: the catch is what keeps a malformed cell from failing a whole load, and
+separating "malformed JSON" from "no DOM" needs a real capability check, which is the same
+post-decode-hook work this entry already owns. What the measurement buys is the WARNING: the first
+bare-node script that imports a codec loses note logs silently, and nothing will say so.
 
 ---
 
@@ -9114,8 +9134,11 @@ them and would send the next reader looking for a modal that does not exist:
 
 - **Nine behind a modal or a floating window**, and nothing in `e2e/a11y.spec.ts` opens either:
   `change-edit-modal` ×3, `raid-edit-modal` ×2, `milestone-edit-modal`, `task-form-fields` (the
-  floating `TaskFormModal`), and `note-log-panel` ×2 (mounted by `notes-window.tsx` and, inside the
-  task modal, by `task-form-fields`).
+  floating `TaskFormModal`), and `note-log-panel` ×2. ★ That ×2 is the two EDITORS INSIDE
+  `note-log-panel.tsx` — the composer and the entry editor — **not** two parents. The panel does also
+  have two PARENTS (`notes-window.tsx`, and `task-form-fields` inside the task modal), but that is a
+  different multiplicity and must not be multiplied into the nine: 3+2+1+1+2 = 9 mount SITES in
+  source, which is the unit the `<RichTextEditor` grep below counts.
 - **One behind a non-default Settings section.** `settings-view.tsx` renders
   `CommTemplatesSection` under `active === "commTemplates"`, and the scan lands on Settings' default
   section — so this one IS in a scanned VIEW and still never renders.
@@ -9147,11 +9170,31 @@ multi-editor group-naming test and pins `queryByRole("toolbar")` as NULL, and
 before that test existed, with `change-edit-modal.test.tsx` 28/28 and `raid-edit-modal.test.tsx`
 20/20 green too). What is unpinned is everything a rendered browser would show.
 
+★★ **NOT A FLAKE — a shared-worktree artefact, recorded so nobody chases one.** The cold review of
+this branch re-ran `rich-text-editor.test.tsx` and saw **1 red in 3**, which reads exactly like an
+order- or timing-dependent test. It was not: a CONCURRENT agent was editing `rich-text-toolbar.tsx`
+in the SAME working tree while the run was in flight, so the suite was reading a half-written module.
+Re-run on a quiet tree by the controller afterwards: **5/5 green**. ★ The lesson is review HYGIENE,
+not test health — a vitest run is a read of the live filesystem, so a red from a shared tree is
+evidence about the TREE, not about the code under review. Quiesce the tree (or take a worktree of
+your own) before treating an intermittent red as a finding, and never file one as a flake without a
+quiet-tree re-run.
+
 ### The tab-stop cost, recorded beside it
 
 ★★ Every one of the fifteen controls is its own tab stop, so a keyboard user crosses **15 tab stops
-per editor** to reach the text. `change-edit-modal.tsx` mounts THREE editors, so that form carries
-**45** toolbar tab stops, with no bypass mechanism.
+per editor** to reach the text. `change-edit-modal.tsx` mounts up to THREE editors, so that form
+carries **up to 45** toolbar tab stops, with no bypass mechanism.
+
+★★ **THAT COUNT IS MODE-DEPENDENT, and a flat "45" over-states it in simple mode.** Two of the three
+editors sit behind modal field-visibility gates — `isVisible("description")` and `isVisible("impact")`
+— and `modal-fields.ts` tiers `change`'s `impact` field as `advanced`, so the impact editor does NOT
+render in SIMPLE mode and the form carries **30**. Only the resolution/rationale editor is ungated.
+45 is the count at the DEFAULT tier and at `full` (`DEFAULT_TIER` in `field-visibility.ts` is
+`advanced`, so 45 is what most users see). Measured rather than read off the tier table:
+`visibleFields("change", applyTier("change", "simple"))` returns
+`["title","type","status","description"]` — no `impact` — while the same call at `advanced` and
+`full` includes it.
 
 ★★★ The refusal of `role="toolbar"` is CORRECT and must not be "fixed" by adding the role: the APG
 toolbar pattern is a keyboard CONTRACT (one tab stop for the row, roving `tabindex`, Left/Right

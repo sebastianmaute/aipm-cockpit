@@ -151,12 +151,32 @@
   purpose — which is why it is NOT in `document-model.ts`, whose DOM-free contract a source scan enforces.
   Two layers, both load-bearing: `sanitizeProjectDocuments` enforces STRUCTURE and cannot sanitize, so
   `sanitizeAiDocumentRichText` runs over `paragraph.html` first. ★★★ **`sanitizeAiDocumentRichText`, NOT its
-  sibling `sanitizeAiRichText`** — both are the same two layers, and the difference is the allow-list. The
-  sibling narrows documents to the TEMPLATE list, which UNWRAPS `mark`/`s`/`code`/`pre`/`blockquote`/`hr`/
-  `sub`/`sup` at the write, so the model's formatting is gone before storage sees it (measured:
-  `"<p><mark>keep</mark></p>"` stored as `"<p>keep</p>"`). Both symbols are real, so `docs:symbols:check` is
-  green either way and this line is the only thing standing between a new document boundary and the narrow
-  door. The sibling must STAY narrow — it guards the six rich raid/change/milestone fields.
+  sibling `sanitizeAiRichText`** — both are the same two layers, and the differences are the allow-list, the
+  data-attribute policy and the CAP.
+  ★★★ **THE REASON THIS BULLET USED TO GIVE IS DEAD, AND IT WAS FALSE IN THE REASSURING DIRECTION.** It said
+  the sibling "narrows documents to the TEMPLATE list, which UNWRAPS `mark`/`s`/`code`/`pre`/`blockquote`/
+  `hr`/`sub`/`sup` at the write", with the worked example `"<p><mark>keep</mark></p>"` stored as
+  `"<p>keep</p>"`. There is no TEMPLATE list any more, and that example is now wrong in the direction that
+  reassures: measured 2026-08-11 on dompurify 3.4.13,
+  `sanitizeAiRichText("<p><mark>keep</mark></p>")` returns `"<p><mark>keep</mark></p>"` BYTE-IDENTICAL, and
+  every one of those eight tags survives the rich allow-list — all eight are in `RICH_ALLOWED_TAGS`, which
+  `DOCUMENT_ALLOWED_TAGS` now SPREADS (`[...RICH_ALLOWED_TAGS, "img"]`), so the lists differ by ONE tag.
+  Telling a reader the sibling strips formatting it in fact KEEPS invites the opposite error — "then the
+  wider one is only a nicety". ★★ No gate could see this: the dead concept was never a backticked symbol and
+  the worked example is prose, so `docs:symbols:check` stayed green over the whole false claim while both
+  function names in it remained real.
+  ★★★ **The two still must not be swapped, for the three differences that ARE real, and only ONE of them
+  widens.** Wiring a document boundary to `sanitizeAiRichText` (a) drops `<img>` — NARROWS; it is the
+  one-tag list delta, and `img` is VOID so it vanishes rather than unwrapping; (b) newly ADMITS arbitrary
+  `data-*` — WIDENS, since `sanitizeDocumentHtml` sets `ALLOW_DATA_ATTR: false` while `sanitizeRichHtml`
+  keeps DOMPurify's default TRUE; and (c) cuts the cap from `MAX_HTML_TEXT_CHARS` (20 000) to `TEXTAREA_MAX`
+  (5 000) — NARROWS DESTRUCTIVELY, because `capHtmlText`'s truncation branch returns
+  `plainToHtml(text.slice(...))` and FLATTENS every mark to escaped plain text instead of merely shortening.
+  Both symbols are real, so `docs:symbols:check` is
+  green either way and this line is the only thing standing between a new document boundary and the wrong
+  door. ★ "The sibling must STAY narrow" is no longer a standalone instruction either: because
+  `DOCUMENT_ALLOWED_TAGS` spreads it, widening `RICH_ALLOWED_TAGS` to help documents widens the six rich
+  raid/change/milestone fields in the SAME edit, retroactively.
   ★ Apply it to the model's INPUT only, never to the
   merged/stored document — re-running an allow-list over stored bytes rewrites content the call never touched
   (same rule as `withAiRichFields`). ★ `paragraph.html` is the only `DocBlock` field reaching a render sink as

@@ -1097,15 +1097,27 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   arrays, that input is now **byte-identical through both** (`hr` is in `RICH_ALLOWED_TAGS`). The only
   input that still differs is an `img`, which is VOID and so vanishes outright rather than unwrapping:
   `'<p>a</p><img src="x.png"><p>b</p>'` → rich `"<p>a</p><p>b</p>"` · document keeps the element.
-  ★★★ THE TAG DELTA IS ONE; THE BEHAVIOUR DELTA IS NOT, and this line said "drops IMAGES and nothing
-  else" — false in the DANGEROUS direction, because two of the three differences WIDEN. Wiring a
-  document boundary to `sanitizeAiRichText` (1) drops `<img>`, (2) newly ADMITS arbitrary `data-*`,
-  since `sanitizeDocumentHtml` sets `ALLOW_DATA_ATTR: false` while `sanitizeRichHtml` keeps DOMPurify's
-  default TRUE, and (3) cuts the cap from `MAX_HTML_TEXT_CHARS` (20 000) to `TEXTAREA_MAX` (5 000) —
-  and `capHtmlText`'s truncation branch returns `plainToHtml(text.slice(...))`, so exceeding it
-  FLATTENS every mark to escaped plain text rather than merely shortening. Measured on dompurify
-  3.4.13: `rich('<p data-foo="1">a</p>')` → `<p data-foo="1">a</p>` · `doc(...)` → `<p>a</p>`.
-  `ai-rich-text.ts`'s own header states (1) and (3); nothing but this line ever claimed "nothing else".
+  ★★★ THE TAG DELTA IS ONE; THE BEHAVIOUR DELTA IS THREE, and this line said "drops IMAGES and nothing
+  else". Wiring a document boundary to `sanitizeAiRichText` (1) drops `<img>` — **NARROWS**; (2) newly
+  ADMITS arbitrary `data-*` — **WIDENS**, since `sanitizeDocumentHtml` sets `ALLOW_DATA_ATTR: false`
+  while `sanitizeRichHtml` keeps DOMPurify's default TRUE; and (3) cuts the cap from
+  `MAX_HTML_TEXT_CHARS` (20 000) to `TEXTAREA_MAX` (5 000) — **NARROWS, DESTRUCTIVELY**, because
+  `capHtmlText`'s truncation branch returns `plainToHtml(text.slice(...))`, so exceeding it FLATTENS
+  every mark to escaped plain text rather than merely shortening.
+  ★★★ EXACTLY ONE OF THE THREE WIDENS. An earlier revision of this sentence said the claim was "false in
+  the DANGEROUS direction, because two of the three differences WIDEN" — wrong in BOTH directions at
+  once, and self-refuting, since it enumerated its own counter-examples in the next clause: cutting a
+  cap is not a widening in any reading, and neither is dropping a tag. Measured 2026-08-11 on dompurify
+  3.4.13 against the two live boundaries: `rich('<p data-foo="1">a</p>')` → `<p data-foo="1">a</p>` ·
+  `doc(...)` → `<p>a</p>` (the widening); `rich('<p>a</p><img src="x.png"><p>b</p>')` →
+  `"<p>a</p><p>b</p>"` while doc keeps the element (a narrowing); and on a paragraph of 6 001 visible
+  characters carrying a `<mark>`, rich returns a 5 007-character result with the `<mark>` GONE while doc
+  returns a 6 021-character one with it intact (the destructive narrowing).
+  `ai-rich-text.ts`'s own header states (1) and (3). ★ The "nothing else" claim lived in exactly TWO
+  places — this line and the `ai-rich-text.ts` row of [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) —
+  and `811c952c` rewrote both in one change set. Reproduce:
+  `git show f83f860f:docs/CODEMAPS/data.md | grep -c "drops IMAGES and nothing else"` → **1**, and the
+  same grep over `git show f83f860f:AGENTS.md` → **1**.
   ★ `RICH_ALLOWED_TAGS` still guards the SEVEN rich entity fields (`Task.description` plus the six in
   `AI_RICH_FIELDS`) — but "keep it narrow" is no longer the reason to leave it alone. Widening it now
   widens DOCUMENTS in the same edit, retroactively, including how already-stored HTML renders. Details
