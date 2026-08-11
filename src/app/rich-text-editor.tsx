@@ -142,7 +142,11 @@ export function RichTextEditor(props: RichTextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {editor && <RichTextToolbar editor={editor} lang={lang} onAddLink={addLink} />}
+      {/* `label` names the toolbar as well as the contenteditable: several
+          surfaces mount two or three of these editors as siblings in one form
+          (the change modal has three), so without it each form carries three
+          buttons called "Bold" and three selects called "Text style". */}
+      {editor && <RichTextToolbar editor={editor} lang={lang} label={label} onAddLink={addLink} />}
       {editor && (mergeFields?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1">
           {(mergeFields ?? []).map((field) => (

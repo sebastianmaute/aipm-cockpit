@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RichTextToolbar } from "./rich-text-toolbar";
 
@@ -107,6 +107,90 @@ describe("RichTextToolbar", () => {
     const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
     btn.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
+  // Naming the row (WCAG 2.4.6 / technique ARIA17)
+  // -------------------------------------------------------------------------
+  //
+  // ★★★ THESE ARE THE ONLY DETECTOR THAT EXISTS. Measured against the installed
+  // axe-core 4.12.1: of its 105 rules, 69 carry one of the four tags
+  // `e2e/a11y.spec.ts` requests, and NOT ONE flags two controls sharing an
+  // accessible name — so the a11y gate is silent on this in every view, at
+  // every seed size, forever.
+  // ★★★ AND A SINGLE-EDITOR FIXTURE CANNOT SEE IT EITHER: with one toolbar in
+  // the DOM, `getByRole("button", { name: "Bold" })` resolves whether or not
+  // the group exists. The collision only exists with two rows mounted, which is
+  // the real shape — the change modal renders THREE editors as siblings in one
+  // form, RAID two, and the note log two. Keep the two-row test below.
+  it("names the row after the editor it acts on", () => {
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    expect(screen.getByRole("group", { name: "Description" })).toBeTruthy();
+  });
+
+  it("keeps two mounted rows apart — each control resolves inside its own group", async () => {
+    const a = makeEditor();
+    const b = makeEditor();
+    render(
+      <>
+        <RichTextToolbar editor={a.editor} lang="en-US" label="Description" onAddLink={() => {}} />
+        <RichTextToolbar editor={b.editor} lang="en-US" label="Mitigation" onAddLink={() => {}} />
+      </>,
+    );
+    // The names really are ambiguous at the flat level — that is the defect.
+    expect(screen.getAllByRole("button", { name: "Bold" })).toHaveLength(2);
+    expect(screen.getAllByRole("combobox", { name: "Text style" })).toHaveLength(2);
+
+    // …and the group boundary is what resolves them. Assert the RELATIONSHIP,
+    // not the count: two groups could both be named "Description" and every
+    // count assertion here would still pass.
+    const description = screen.getByRole("group", { name: "Description" });
+    const mitigation = screen.getByRole("group", { name: "Mitigation" });
+    const boldInDescription = within(description).getByRole("button", { name: "Bold" });
+    const boldInMitigation = within(mitigation).getByRole("button", { name: "Bold" });
+    expect(boldInDescription).not.toBe(boldInMitigation);
+    // Each group holds exactly one of each repeated control, so neither group
+    // contains the other's row.
+    expect(within(description).getAllByRole("button", { name: "Bold" })).toHaveLength(1);
+    expect(within(mitigation).getAllByRole("combobox", { name: "Text style" })).toHaveLength(1);
+
+    // The control inside a group still drives ITS OWN editor — a group that
+    // merely renamed things while both rows pointed at one editor would pass
+    // every assertion above.
+    await userEvent.click(boldInMitigation);
+    expect(b.run).toHaveBeenCalled();
+    expect(a.run).not.toHaveBeenCalled();
+  });
+
+  // ★★ `group` and NOT `toolbar`: the APG toolbar pattern is a keyboard
+  //    contract (one tab stop, roving tabindex, arrow keys between controls)
+  //    that this row does not implement — every control is its own tab stop.
+  it("does not claim the toolbar role, whose keyboard contract it does not honour", () => {
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  // ★★ An UNNAMED group is worse than no group — it announces a boundary
+  //    carrying no information. So no label means no role at all, and in
+  //    particular never a generic fallback: three sibling groups all called
+  //    "Formatting" disambiguate nothing while looking fixed.
+  it("renders no group at all when there is no name for it", () => {
+    const { editor } = makeEditor();
+    const { container } = render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    expect(screen.queryByRole("group")).toBeNull();
+    const row = container.firstElementChild;
+    expect(row?.hasAttribute("aria-label")).toBe(false);
+    expect(row?.hasAttribute("role")).toBe(false);
+    // The controls themselves are unaffected — this is a naming change only.
+    expect(screen.getByRole("button", { name: "Bold" })).toBeTruthy();
+  });
+
+  it("treats a blank label as no name, not as an empty one", () => {
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="   " onAddLink={() => {}} />);
+    expect(screen.queryByRole("group")).toBeNull();
   });
 
   // ★ The plain Buttons are a different code path from the ToggleButtons and

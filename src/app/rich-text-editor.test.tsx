@@ -35,16 +35,21 @@ function setup(over: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) 
   return { onChange };
 }
 
+// ★★ Query the surface BY ROLE, never `findByLabelText`. `label` now names two
+// things — the contenteditable AND the toolbar's `role="group"` wrapper, which
+// is what tells the fifteen repeated control names apart when a form mounts
+// several editors (see rich-text-toolbar.tsx). A label-text query matches both
+// and throws "Found multiple elements"; the role pins which one is meant.
 describe("RichTextEditor", () => {
   it("renders the editor surface with the given accessible label", async () => {
     setup();
-    expect(await screen.findByLabelText("Body")).toBeTruthy();
+    expect(await screen.findByRole("textbox", { name: "Body" })).toBeTruthy();
   });
   // There is ONE editor now, so there is ONE control set: the Tiptap "Simple"
   // template's. Headings moved from two buttons to a level <select>.
   it("renders the core toolbar buttons with accessible names", async () => {
     setup();
-    await screen.findByLabelText("Body");
+    await screen.findByRole("textbox", { name: "Body" });
     for (const name of [
       "Bullet list", "Numbered list", "Quote", "Code block",
       "Bold", "Italic", "Underline", "Strikethrough", "Inline code",
@@ -57,18 +62,18 @@ describe("RichTextEditor", () => {
   });
   it("renders a merge-field chip per field", async () => {
     setup();
-    await screen.findByLabelText("Body");
+    await screen.findByRole("textbox", { name: "Body" });
     expect(screen.getByRole("button", { name: "Task name" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Due date" })).toBeTruthy();
   });
   it("renders the initial HTML content as text", async () => {
     setup();
-    const surface = await screen.findByLabelText("Body");
+    const surface = await screen.findByRole("textbox", { name: "Body" });
     expect(surface.textContent).toContain("Hi");
   });
   it("does not emit onChange on mount (no spurious save)", async () => {
     const { onChange } = setup();
-    await screen.findByLabelText("Body");
+    await screen.findByRole("textbox", { name: "Body" });
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -78,7 +83,7 @@ describe("RichTextEditor", () => {
   it("still turns a markdown '# ' shortcut into a heading", async () => {
     const user = userEvent.setup();
     const { onChange } = setup({ value: "" });
-    const surface = await screen.findByLabelText("Body");
+    const surface = await screen.findByRole("textbox", { name: "Body" });
     await user.click(surface);
     await user.keyboard("# Full heading");
     expect(surface.querySelector("h1")?.textContent).toBe("Full heading");
@@ -92,7 +97,7 @@ describe("RichTextEditor", () => {
   ])("still applies the markdown %s shortcut", async (_name, typed, selector, kept) => {
     const user = userEvent.setup();
     const { onChange } = setup({ value: "" });
-    const surface = await screen.findByLabelText("Body");
+    const surface = await screen.findByRole("textbox", { name: "Body" });
     await user.click(surface);
     await user.keyboard(typed);
     expect(surface.querySelector(selector)).not.toBeNull();

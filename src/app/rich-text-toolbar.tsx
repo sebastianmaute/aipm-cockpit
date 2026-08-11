@@ -62,13 +62,28 @@ const PARAGRAPH_VALUE = "0";
 export interface RichTextToolbarProps {
   editor: Editor;
   lang: Lang;
+  /** The field name of the editor this row acts on — `RichTextEditor`'s own
+   *  `label`, which it also puts on the contenteditable. Names the group so the
+   *  fifteen repeated control names below are told apart by their container.
+   *  Absent (or blank) renders NO group at all: see the wrapper. */
+  label?: string;
   /** Opens the consumer's link prompt. The toolbar never owns that UI — the
    *  link flow differs per surface (modal vs inline), so it stays with the
    *  editor that mounts this row. */
   onAddLink: () => void;
 }
 
-export function RichTextToolbar({ editor, lang, onAddLink }: RichTextToolbarProps) {
+export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextToolbarProps) {
+  // ★★★ `group`, NEVER `toolbar`. The APG toolbar pattern is a KEYBOARD
+  // contract — one tab stop for the whole row, roving tabindex, Left/Right
+  // Arrow moving focus between controls — and this row implements none of it:
+  // every control is its own tab stop. Declaring a role whose interaction the
+  // widget does not honour is worse than declaring none, because it tells an AT
+  // user to press arrow keys that do nothing. `group` carries no keyboard
+  // contract and is exactly WCAG technique ARIA17 (grouping roles to identify
+  // related controls). Adding `toolbar` later means implementing roving
+  // tabindex first, which changes Tab behaviour in every editor in the app.
+  const named = label !== undefined && label.trim() !== "";
   const activeLevel = HEADING_LEVELS.find((level) => editor.isActive("heading", { level }));
 
   function setLevel(raw: string) {
@@ -80,7 +95,24 @@ export function RichTextToolbar({ editor, lang, onAddLink }: RichTextToolbarProp
   return (
     // ★ flex-wrap is required, not cosmetic: fifteen controls render inside four
     // modals with tight vertical space.
-    <div className="flex flex-wrap items-center gap-1">
+    // ★★ The group is named or ABSENT, never named generically. Three sibling
+    // groups all called "Formatting" disambiguate nothing while making the code
+    // look fixed, and an UNNAMED group is worse than none — it adds a boundary
+    // announcement carrying no information. So an editor with no label keeps
+    // the bare div. Every call site in `src/app` passes a real label today;
+    // `RichTextEditor.label` is required, so only a blank string reaches here.
+    // ★★ NOTHING GATES THIS. Measured against the installed axe-core 4.12.1:
+    // of its 105 rules, 69 carry one of the four tags `e2e/a11y.spec.ts`
+    // requests and not one flags two controls sharing an accessible name (the
+    // only adjacent rule, identical-links-same-purpose, is links-only and
+    // wcag2aaa, which the spec never asks for). The multi-editor test in
+    // rich-text-toolbar.test.tsx is the only possible detector — a
+    // single-editor fixture passes with the group deleted.
+    <div
+      className="flex flex-wrap items-center gap-1"
+      role={named ? "group" : undefined}
+      aria-label={named ? label : undefined}
+    >
       {/* ★★ NO mousedown guard on the select, unlike every button beside it.
           Opening the picker IS the native mousedown default, so preventing it
           leaves a select that cannot be opened with a mouse in Chrome/Firefox —

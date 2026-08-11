@@ -119,6 +119,11 @@ function EditorHost({ initial = "", externalNarrative }: { initial?: string; ext
   );
 }
 
+// ★★ The surface is queried BY ROLE, not by label text. `RichTextEditor`'s
+// `label` names two elements — the contenteditable AND the toolbar's
+// `role="group"` wrapper, which is what tells its fifteen repeated control
+// names apart when a form mounts several editors (rich-text-toolbar.tsx). A
+// label-text query matches both and throws "Found multiple elements".
 describe("NarrativeEditor", () => {
   it("renders the editor inside a foldable details with the Status summary label", () => {
     render(<EditorHost />);
@@ -129,7 +134,7 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    expect(await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"))).toBeTruthy();
+    expect(await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") })).toBeTruthy();
     expect(screen.getByRole("button", { name: /bold/i })).toBeTruthy();
   });
 
@@ -137,7 +142,7 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost initial="Legacy plain note" />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toContain("Legacy plain note");
   });
 
@@ -155,10 +160,10 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost initial="<p>Something</p>" />);
     await user.click(screen.getByText("Status summary"));
-    const before = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const before = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(before.textContent).toContain("Something");
     await user.click(screen.getByRole("button", { name: /clear/i }));
-    const surface = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toBe("");
     expect(screen.getByTestId("stored").textContent).toBe("");
     expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
@@ -171,7 +176,7 @@ describe("NarrativeEditor", () => {
     render(<EditorHost initial="<p>Something</p>" />);
     await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /clear/i }));
-    const surface = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("X");
     // Blur out of the editor: commit-on-blur stores the draft.
@@ -186,7 +191,7 @@ describe("NarrativeEditor", () => {
     render(<EditorHost externalNarrative="<p>External status from reload</p>" />);
     await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /external reload/i }));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toContain("External status from reload");
   });
 
@@ -202,7 +207,7 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("# Q3 highlights");
     await user.click(screen.getByText("Status summary")); // blur -> commit
@@ -217,12 +222,12 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("hello world");
     await user.keyboard("{Control>}a{/Control}");
     await user.click(screen.getByRole("button", { name: /bold/i }));
-    const after = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const after = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(after).toBe(surface); // same node: the editor was NOT remounted
     expect(after.querySelector("strong")?.textContent).toBe("hello world");
   });
@@ -231,12 +236,12 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("committed text");
     // Blur out of the editor: commit-on-blur fires and stores the draft.
     await user.click(screen.getByText("Status summary"));
-    const after = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const after = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(after).toBe(surface);
     expect(after.textContent).toContain("committed text");
   });
