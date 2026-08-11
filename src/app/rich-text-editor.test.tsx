@@ -46,7 +46,8 @@ describe("RichTextEditor", () => {
     expect(await screen.findByRole("textbox", { name: "Body" })).toBeTruthy();
   });
   // There is ONE editor now, so there is ONE control set: the Tiptap "Simple"
-  // template's. Headings moved from two buttons to a level <select>.
+  // template's. Headings are an icon-triggered menu button (rich-text-toolbar.tsx),
+  // not a level <select> — the toolbar has been icon-only since the redesign.
   it("renders the core toolbar buttons with accessible names", async () => {
     setup();
     await screen.findByRole("textbox", { name: "Body" });
@@ -58,7 +59,7 @@ describe("RichTextEditor", () => {
     ]) {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
-    expect(screen.getByRole("combobox", { name: "Text style" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Text style" })).toBeTruthy();
   });
 
   // ★★★ THE ONLY THING IN THIS FILE THAT SEES THE `label` -> TOOLBAR WIRE.
@@ -171,7 +172,7 @@ describe("RichTextEditor on an inline note surface", () => {
       expect(screen.getByRole("button", { name })).toBeTruthy();
     }
     expect(screen.getByRole("button", { name: "Underline" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Text style" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Text style" })).toBeTruthy();
   });
 
   it("renders the initial HTML content as text", async () => {
