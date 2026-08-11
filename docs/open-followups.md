@@ -9214,3 +9214,37 @@ changes what Tab does in every editor in the app, so it is its own slice with it
 (b) seed a rich-text surface into the e2e a11y run so at least one toolbar is scanned, remembering
 that a green scan still says nothing about duplicate names. ★ (b) is cheap and buys less than it
 looks like it does; (a) is the real answer.
+
+## 145. Two icon packages now coexist, and the migration decision behind it lives nowhere durable — open, a decision, measured
+
+Opened 2026-08-11 with the icon-only rich-text toolbar (`0.233.0 "Reed"`). `rich-text-toolbar.tsx`
+imports `lucide-react` for its icon set (Tiptap's own reference toolbar
+[uses it](https://template.tiptap.dev/preview/templates/simple), and it ships filled/outline pairs
+heroicons does not); every other icon in the app still comes from `@heroicons/react`. Measured, not
+assumed: `grep -rln "lucide-react" src/app --include="*.tsx" --include="*.ts"` returns exactly
+**one** file, `rich-text-toolbar.tsx`; `grep -rln "@heroicons/react" src/app` returns **75**. Both
+packages sit in `package.json` `dependencies` side by side.
+
+★ The decision to scope it to one file rather than replace heroicons app-wide was made deliberately
+during brainstorming for this slice, and the reasoning — a full app-wide icon migration is its own
+project, out of scope here — is recorded ONLY in
+`docs/superpowers/specs/2026-08-11-rich-text-toolbar-icons-design.md`. That tree is gitignored
+(`spec-location-superpowers-default`), so the decision and its rationale are invisible to anyone who
+doesn't have this local checkout — not in `AGENTS.md`, not in `docs/CODEMAPS/dependencies.md`, not
+here until this entry. `docs:symbols:check`/`docs:claims:check` cannot flag the gap either: there is
+no broken citation to catch, just a decision that was never written into a tracked file.
+
+★★ Nothing is BROKEN by the coexistence — the two packages don't conflict, and this toolbar's icons
+render correctly. The risk is a slow one: the next person adding an icon anywhere in the app now has
+two equally-real precedents to copy, and nothing in a tracked doc says which one is the default for
+new code (heroicons, by volume and by not being the one carrying a "verify against 1.31.0's real
+barrel exports" caveat in its own spec).
+
+### Closing it
+
+Either (a) write the scope decision into `docs/CODEMAPS/dependencies.md` (or a `tech-debt-register.md`
+row) so it survives outside this one contributor's local `docs/superpowers/` tree, stating plainly
+that heroicons remains the default for new code and lucide-react is scoped to
+`rich-text-toolbar.tsx` until a dedicated migration slice says otherwise; or (b) actually run the
+app-wide migration as its own brainstormed project, which retires the question rather than
+documenting it. Neither has been done — this entry is (a) done partially, by existing at all.

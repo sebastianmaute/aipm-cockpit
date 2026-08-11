@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.233.0] - 2026-08-11 "Reed"
+
+### Changed
+
+- **The rich-text toolbar is icon-only now**, grouped into six dividered clusters, matching the
+  compact look used across the rest of the app. Hovering a control still shows what it does, and
+  every control keeps its own accessible label.
+- **The heading picker is a small menu instead of a dropdown list** — click the "Text style" button
+  to choose Paragraph or Heading 1-4; the level you're already in is marked, and picking it is a
+  no-op rather than demoting the block.
+
 ## [0.232.0] - 2026-08-11 "Merril"
 
 ### Changed

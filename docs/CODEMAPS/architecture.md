@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.232.0 "Merril" | Files scanned: 1694 (src/**/*.{ts,tsx}, incl. 852 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.233.0 "Reed" | Files scanned: 1694 (src/**/*.{ts,tsx}, incl. 852 tests) | Token estimate: ~950 -->
 
 # Architecture
 
