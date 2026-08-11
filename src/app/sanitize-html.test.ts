@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import {
+  RICH_ALLOWED_TAGS,
+  sanitizeRichHtml,
   sanitizeTemplateHtml,
   sanitizeNoteHtml,
   sanitizeDocumentHtml,
@@ -193,9 +195,83 @@ describe("sanitizeDocumentHtml", () => {
     expect(sanitizeDocumentHtml("<div>kept</div>")).toContain("kept");
   });
 
-  it("does not widen the SHARED template sanitizer", () => {
-    // The guard that matters: documents gained tags, everyone else did not.
-    expect(sanitizeTemplateHtml("<p><mark>x</mark></p>")).not.toContain("<mark");
-    expect(sanitizeTemplateHtml("<blockquote>y</blockquote>")).not.toContain("<blockquote");
+  it("stays WIDER than the shared rich sanitizer", () => {
+    // ★★ This test used to read "does not widen the SHARED template sanitizer"
+    // and pinned the OPPOSITE of what it asserts now: that `mark` and
+    // `blockquote` were stripped everywhere except documents. That was the right
+    // guard while the template list was the narrow 11-tag one; the rich list
+    // admits both on purpose (open-followups §137), so the old assertions now
+    // encode a policy the code deliberately left. What is still worth pinning is
+    // the RELATION — documents must remain strictly wider — so the guard moves to
+    // the one tag documents still add alone.
+    expect(sanitizeDocumentHtml('<img data-asset-id="7">')).toContain("<img");
+    expect(sanitizeRichHtml('<img data-asset-id="7">')).not.toContain("<img");
+  });
+});
+
+describe("sanitizeRichHtml — the §137 losses become lossless", () => {
+  // Each input is one of the five cases measured in open-followups §137 through
+  // the real sanitizeNoteHtml, where KEEP_CONTENT:false deleted the WORD along
+  // with its tag. Assert the surviving WORD, never merely "no error" — a test
+  // that asserts absence passes vacuously.
+  it("keeps heading text", () => {
+    expect(sanitizeRichHtml("<h1>Title</h1><p>body</p>")).toContain("Title");
+  });
+
+  it("keeps underlined text", () => {
+    expect(sanitizeRichHtml("<u>underlined</u> rest")).toContain("underlined");
+  });
+
+  it("keeps blockquote text", () => {
+    expect(sanitizeRichHtml("<blockquote>quoted</blockquote>")).toContain("quoted");
+  });
+
+  it("keeps mid-sentence underline without eating the sentence", () => {
+    expect(sanitizeRichHtml("<p>plain <u>under</u> tail</p>")).toContain("under");
+  });
+
+  it("unwraps an UNLISTED tag but keeps its words", () => {
+    // h5 is deliberately not on the list (headings 1-4 only). Unwrap, never delete.
+    const out = sanitizeRichHtml("<p>a</p><h5>Sub</h5>");
+    expect(out).toContain("Sub");
+    expect(out).not.toContain("<h5>");
+  });
+
+  it("still strips script and its content", () => {
+    const out = sanitizeRichHtml("<p>ok</p><script>alert(1)</script>");
+    expect(out).toContain("ok");
+    expect(out).not.toContain("alert");
+    expect(out).not.toContain("<script");
+  });
+
+  it("still strips a javascript: href", () => {
+    expect(sanitizeRichHtml('<a href="javascript:alert(1)">x</a>')).not.toContain("javascript:");
+  });
+
+  it("keeps an https href", () => {
+    expect(sanitizeRichHtml('<a href="https://example.com/a">x</a>')).toContain('href="https://example.com/a"');
+  });
+
+  it("is idempotent on already-clean html", () => {
+    const clean = sanitizeRichHtml("<p>a <strong>b</strong></p>");
+    expect(sanitizeRichHtml(clean)).toBe(clean);
+  });
+
+  it("admits every tag the Simple-template toolbar can produce", () => {
+    for (const tag of ["p", "br", "hr", "strong", "em", "u", "s", "code", "pre",
+                       "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
+                       "mark", "sub", "sup", "a"]) {
+      expect(RICH_ALLOWED_TAGS).toContain(tag);
+    }
+  });
+
+  it("does NOT admit headings 5 and 6", () => {
+    expect(RICH_ALLOWED_TAGS).not.toContain("h5");
+    expect(RICH_ALLOWED_TAGS).not.toContain("h6");
+  });
+
+  it("carries no #text pseudo-entry", () => {
+    // NOTE_ALLOWED_TAGS carried "#text"; it is not a tag name and htmlStartRe drops it.
+    expect(RICH_ALLOWED_TAGS).not.toContain("#text");
   });
 });
