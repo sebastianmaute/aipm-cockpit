@@ -209,47 +209,37 @@ describe("sanitizeDocumentHtml", () => {
   });
 });
 
-describe("sanitizeRichHtml — the §137 losses become lossless", () => {
-  // Each input is one of the five cases measured in open-followups §137 through
-  // the real sanitizeNoteHtml, where KEEP_CONTENT:false deleted the WORD along
-  // with its tag. Assert the surviving WORD, never merely "no error" — a test
-  // that asserts absence passes vacuously.
-  it("keeps heading text", () => {
-    expect(sanitizeRichHtml("<h1>Title</h1><p>body</p>")).toContain("Title");
+describe("sanitizeRichHtml — the wider allow-list", () => {
+  // ★★★ THESE FIVE FIXTURES PIN THE LIST WIDTH AND NOTHING ELSE. They are the
+  // five cases open-followups §137 measured, but §137 measured them against the
+  // OLD 8-tag note list, where `h1`, `u` and `blockquote` were UNLISTED and
+  // KEEP_CONTENT:false deleted each word along with its tag. All three are on the
+  // 21-tag rich list now, so KEEP_CONTENT never reaches them. Measured, not
+  // reasoned: re-applying the note config (KEEP_CONTENT:false + "#text") to
+  // sanitizeRichHtml leaves every one of them GREEN — only 1 of 35 tests went
+  // red, and it was the h5 one. The KEEP_CONTENT default therefore needs its own
+  // fixtures, which is the describe block below; do not read this one as covering
+  // it.
+  //
+  // ★★ Assert with toBe, never toContain. `toContain("Title")` is satisfied by
+  // "<p>&lt;h1&gt;Title&lt;/h1&gt;</p>" — the ESCAPED form a classifier miss
+  // produces — so a substring assertion cannot tell markup from escaped text from
+  // bare text, which is the one distinction these fixtures exist to draw. Every
+  // output below is stable, so every assertion is exact.
+  it("keeps a heading as markup, not as escaped text", () => {
+    expect(sanitizeRichHtml("<h1>Title</h1><p>body</p>")).toBe("<h1>Title</h1><p>body</p>");
   });
 
-  it("keeps underlined text", () => {
-    expect(sanitizeRichHtml("<u>underlined</u> rest")).toContain("underlined");
+  it("keeps underlined text as markup", () => {
+    expect(sanitizeRichHtml("<u>underlined</u> rest")).toBe("<u>underlined</u> rest");
   });
 
-  it("keeps blockquote text", () => {
-    expect(sanitizeRichHtml("<blockquote>quoted</blockquote>")).toContain("quoted");
+  it("keeps a blockquote as markup", () => {
+    expect(sanitizeRichHtml("<blockquote>quoted</blockquote>")).toBe("<blockquote>quoted</blockquote>");
   });
 
-  it("keeps mid-sentence underline without eating the sentence", () => {
-    expect(sanitizeRichHtml("<p>plain <u>under</u> tail</p>")).toContain("under");
-  });
-
-  it("unwraps an UNLISTED tag but keeps its words", () => {
-    // h5 is deliberately not on the list (headings 1-4 only). Unwrap, never delete.
-    const out = sanitizeRichHtml("<p>a</p><h5>Sub</h5>");
-    expect(out).toContain("Sub");
-    expect(out).not.toContain("<h5>");
-  });
-
-  it("still strips script and its content", () => {
-    const out = sanitizeRichHtml("<p>ok</p><script>alert(1)</script>");
-    expect(out).toContain("ok");
-    expect(out).not.toContain("alert");
-    expect(out).not.toContain("<script");
-  });
-
-  it("still strips a javascript: href", () => {
-    expect(sanitizeRichHtml('<a href="javascript:alert(1)">x</a>')).not.toContain("javascript:");
-  });
-
-  it("keeps an https href", () => {
-    expect(sanitizeRichHtml('<a href="https://example.com/a">x</a>')).toContain('href="https://example.com/a"');
+  it("keeps a mid-sentence underline without eating the sentence", () => {
+    expect(sanitizeRichHtml("<p>plain <u>under</u> tail</p>")).toBe("<p>plain <u>under</u> tail</p>");
   });
 
   it("is idempotent on already-clean html", () => {
@@ -257,7 +247,23 @@ describe("sanitizeRichHtml — the §137 losses become lossless", () => {
     expect(sanitizeRichHtml(clean)).toBe(clean);
   });
 
-  it("admits every tag the Simple-template toolbar can produce", () => {
+  it("carries EXACTLY the 21 tags, no more", () => {
+    // ★★★ The membership tests below document intent; THIS one is the gate, and
+    // it is the only assertion bounding the list from ABOVE. Without it,
+    // appending "iframe", "style", "form" and "input" to RICH_ALLOWED_TAGS left
+    // the whole file green — measured. This is the app's single rich-text storage
+    // allow-list, so a silent widening is the direction that matters.
+    const expected = ["p", "br", "hr", "strong", "em", "u", "s", "code", "mark", "sub", "sup",
+                      "pre", "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li", "a"];
+    expect([...RICH_ALLOWED_TAGS].sort()).toEqual([...expected].sort());
+  });
+
+  it("admits every tag the unified allow-list must carry", () => {
+    // ★ Named for what it asserts. It used to say "every tag the Simple-template
+    // toolbar can produce", which is not true of `mark`/`sub`/`sup` — those
+    // extensions are installed but registered on no editor, so no control emits
+    // them yet. They are here because the list must cover DOCUMENT_ALLOWED_TAGS
+    // once Task 3 derives it from this array, not because a button exists.
     for (const tag of ["p", "br", "hr", "strong", "em", "u", "s", "code", "pre",
                        "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li",
                        "mark", "sub", "sup", "a"]) {
@@ -273,5 +279,67 @@ describe("sanitizeRichHtml — the §137 losses become lossless", () => {
   it("carries no #text pseudo-entry", () => {
     // NOTE_ALLOWED_TAGS carried "#text"; it is not a tag name and htmlStartRe drops it.
     expect(RICH_ALLOWED_TAGS).not.toContain("#text");
+  });
+});
+
+describe("sanitizeRichHtml — KEEP_CONTENT stays at DOMPurify's default", () => {
+  // ★★★ THIS is the §137 pin, and the block above cannot stand in for it. Every
+  // tag below is on NO allow-list, so the default (unwrap the tag, keep the
+  // words) is the only thing that can preserve the word — setting
+  // KEEP_CONTENT:false deletes the element TOGETHER WITH ITS TEXT, which is the
+  // data loss that ran on every JSON and IndexedDB load with no human and no save
+  // involved. Mutation-verified: the note config turns all four of these red.
+  //
+  // ★ The four are deliberately different SHAPES — a near-miss of a listed tag
+  // (h5 against h1-h4), a block sibling, an INLINE tag mid-sentence, and a
+  // container whose text is nested two levels down. A single fixture would pin
+  // one traversal path.
+  it("unwraps a heading just past the listed range and keeps its words", () => {
+    expect(sanitizeRichHtml("<p>a</p><h5>Sub</h5>")).toBe("<p>a</p>Sub");
+  });
+
+  it("unwraps an unlisted block and keeps its words", () => {
+    expect(sanitizeRichHtml("<p>a</p><div>kept</div>")).toBe("<p>a</p>kept");
+  });
+
+  it("unwraps an unlisted inline tag mid-sentence without eating the sentence", () => {
+    expect(sanitizeRichHtml("<p>x <span>y</span> z</p>")).toBe("<p>x y z</p>");
+  });
+
+  it("keeps text nested inside an unlisted container", () => {
+    expect(sanitizeRichHtml("<table><tr><td>cell</td></tr></table>")).toBe("cell");
+  });
+
+  it("still deletes a script AND its text — the one tag whose content must go", () => {
+    // ★ FORBID_CONTENTS, not KEEP_CONTENT: the unwrap default must not be read as
+    // "keep every tag's text". Assert the exact output — `not.toContain("<script")`
+    // alone passes while a bare `alert(1)` sits in the prose.
+    expect(sanitizeRichHtml("<p>ok</p><script>alert(1)</script>")).toBe("<p>ok</p>");
+  });
+});
+
+describe("sanitizeRichHtml — the URI policy", () => {
+  it("strips a javascript: href", () => {
+    // ★ This one does NOT pin SAFE_URI_REGEXP: DOMPurify's DEFAULT policy blocks
+    // javascript: too, so the assertion survives deleting the custom regexp.
+    // It is kept as the canonical payload; the two below are the actual pins.
+    expect(sanitizeRichHtml('<a href="javascript:alert(1)">x</a>')).toBe("<a>x</a>");
+  });
+
+  it("strips an ftp: href, which the DEFAULT policy would allow", () => {
+    expect(sanitizeRichHtml('<a href="ftp://x/y">x</a>')).toBe("<a>x</a>");
+  });
+
+  it("strips a tel: href, which the DEFAULT policy would allow", () => {
+    // ★★ Together with the ftp case this is what makes SAFE_URI_REGEXP load-bearing:
+    // both schemes are in DOMPurify's default ALLOWED_URI_REGEXP, so both assertions
+    // go red the moment the custom end-anchored https|mailto pattern is dropped.
+    expect(sanitizeRichHtml('<a href="tel:+1234">x</a>')).toBe("<a>x</a>");
+  });
+
+  it("keeps an https href", () => {
+    expect(sanitizeRichHtml('<a href="https://example.com/a">x</a>')).toBe(
+      '<a href="https://example.com/a">x</a>',
+    );
   });
 });
