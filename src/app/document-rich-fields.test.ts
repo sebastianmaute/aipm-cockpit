@@ -27,16 +27,20 @@ describe("sanitizeDocumentRichFields", () => {
   });
 
   it("KEEPS the text inside a heading tag a model legitimately emits", () => {
-    // ★★ This is the sanitizeDocumentHtml-vs-sanitizeNoteHtml distinction, and it
-    // is the only test that can see it. `h3` is in NO allow-list, so every
-    // sanitizer deletes the TAG; only KEEP_CONTENT decides whether the WORDS
-    // survive. sanitizeNoteHtml sets KEEP_CONTENT:false and would leave "".
-    // ★ It no longer isolates that swap on its own: mutation-measured 2026-08-08,
-    // the sanitizeNoteHtml swap turns THIS test and the LOAD-boundary one below
-    // red (2), while the sanitizeTemplateHtml swap turns only that one red (1) —
-    // so it is the PAIR that tells the two wrong sanitizers apart. The comment
-    // here previously claimed "this red and nothing else", which was true before
-    // the documents allow-list existed.
+    // ★★★ EVERY MECHANISM THIS COMMENT USED TO DESCRIBE IS GONE, and only the
+    // assertion is still worth having. It read: "`h3` is in NO allow-list, so
+    // every sanitizer deletes the TAG; only KEEP_CONTENT decides whether the WORDS
+    // survive — sanitizeNoteHtml sets KEEP_CONTENT:false and would leave ''", plus
+    // mutation counts of 2 red for the sanitizeNoteHtml swap and 1 for the
+    // sanitizeTemplateHtml swap. All three claims are dead:
+    //   · h3 IS allow-listed now (DOCUMENT_ALLOWED_TAGS spreads RICH_ALLOWED_TAGS),
+    //     so the tag SURVIVES here rather than being deleted;
+    //   · both named sanitizers are retired, so neither swap can be performed;
+    //   · the only swap left is sanitizeRichHtml, and it was mutation-measured at
+    //     ZERO red across this whole file until the `<img>` test below was added.
+    // What survives is a plain regression assertion that a heading's words reach
+    // storage. The test that actually isolates the sanitizer choice is the `<img>`
+    // one below — see its note, and see the module header for the measurement.
     const out = sanitizeDocumentRichFields({
       ...base,
       blocks: [{ type: "paragraph", html: "<h3>Section</h3>" }],
