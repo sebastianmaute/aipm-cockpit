@@ -280,7 +280,7 @@ describe("RichTextToolbar", () => {
     expect(bold().getAttribute("title")).toContain("Currently on");
     // ★ The non-colour marker is the sighted counterpart of the same state and
     //   is `invisible` when off, so it must have moved too.
-    expect(bold().querySelector("[data-pressed-marker]")?.className).not.toContain("invisible");
+    expect(bold().querySelector("[data-pressed-marker]")?.className).not.toContain("opacity-0");
   });
 
   it("re-reads the active heading item when the caret MOVES into a heading", async () => {

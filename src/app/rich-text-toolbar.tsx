@@ -51,16 +51,15 @@ import {
   UnderlineIcon,
   UnlinkIcon,
 } from "lucide-react";
-import { Button } from "./button";
 import { PopoverPanel } from "./popover-panel";
 import { t, type Lang, type TranslationKey } from "./i18n";
-import { ToggleButton } from "./toggle-button";
-import type { ToggleAccent } from "./toggle-button";
+import { ToolbarButton } from "./rich-text-toolbar-button";
+import type { ToolbarButtonAccent } from "./rich-text-toolbar-button";
 
 /** Shared icon sizing for every control in this toolbar (16px — one step up
  *  from GanttViewMenu's 14px menu-row icons, sized for this toolbar's primary,
  *  always-visible role rather than a secondary menu list). */
-const ICON_CLASS = "h-4 w-4 shrink-0";
+const ICON_CLASS = "h-3.5 w-3.5 shrink-0";
 
 /** One toggleable control: its label key (doubles as the accessible name AND
  *  the tooltip text, since the control is icon-only), the icon component, the
@@ -73,7 +72,7 @@ interface ControlSpec {
   key: TranslationKey;
   icon: ElementType;
   name: string;
-  accent?: ToggleAccent;
+  accent?: ToolbarButtonAccent;
   run: (editor: Editor) => void;
 }
 
@@ -171,7 +170,7 @@ export interface RichTextToolbarProps {
  *  meaning, the `role="group"` wrapper (or its absence) is what a screen
  *  reader needs. */
 function ToolbarDivider() {
-  return <div aria-hidden="true" className="mx-0.5 w-px self-stretch bg-line" />;
+  return <div aria-hidden="true" className="w-px self-stretch bg-line" />;
 }
 
 export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextToolbarProps) {
@@ -271,23 +270,21 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
     // rich-text-toolbar.test.tsx is the only possible detector — a
     // single-editor fixture passes with the group deleted.
     <div
-      className="flex flex-wrap items-center gap-1"
+      className="flex flex-wrap items-center gap-0.5"
       role={named ? "group" : undefined}
       aria-label={named ? label : undefined}
     >
-      <Button
+      <ToolbarButton
         ref={headingTriggerRef}
-        variant="secondary"
-        size="xs"
+        stateKind="disclosure"
+        active={headingMenuOpen}
         onClick={() => setHeadingMenuOpen((open) => !open)}
-        aria-label={t(lang, "commTplHeadingLevel")}
-        aria-expanded={headingMenuOpen}
+        ariaLabel={t(lang, "commTplHeadingLevel")}
         title={t(lang, "commTplHeadingLevel")}
-        className="inline-flex items-center gap-1"
       >
         <TriggerIcon aria-hidden="true" className={ICON_CLASS} />
-        <ChevronDownIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
-      </Button>
+        <ChevronDownIcon aria-hidden="true" className="h-2.5 w-2.5 shrink-0" />
+      </ToolbarButton>
       <PopoverPanel
         open={headingMenuOpen}
         anchorRef={headingTriggerRef}
@@ -321,9 +318,10 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       {CONTROLS.map((spec, index) => (
         <Fragment key={spec.name}>
           {GROUP_DIVIDER_BEFORE.has(index) && <ToolbarDivider />}
-          <ToggleButton
-            pressed={pressed[index]}
-            onToggle={() => spec.run(editor)}
+          <ToolbarButton
+            stateKind="toggle"
+            active={pressed[index]}
+            onClick={() => spec.run(editor)}
             lang={lang}
             preventFocusSteal
             accent={spec.accent}
@@ -331,31 +329,27 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
             title={t(lang, spec.key)}
           >
             <spec.icon aria-hidden="true" className={ICON_CLASS} />
-          </ToggleButton>
+          </ToolbarButton>
         </Fragment>
       ))}
 
       <ToolbarDivider />
-      <Button
-        variant="secondary"
-        size="xs"
-        onMouseDown={(event) => event.preventDefault()}
+      <ToolbarButton
+        preventFocusSteal
         onClick={onAddLink}
-        aria-label={t(lang, "commTplLink")}
+        ariaLabel={t(lang, "commTplLink")}
         title={t(lang, "commTplLink")}
       >
         <LinkIcon aria-hidden="true" className={ICON_CLASS} />
-      </Button>
-      <Button
-        variant="secondary"
-        size="xs"
-        onMouseDown={(event) => event.preventDefault()}
+      </ToolbarButton>
+      <ToolbarButton
+        preventFocusSteal
         onClick={() => editor.chain().focus().unsetLink().run()}
-        aria-label={t(lang, "commTplUnlink")}
+        ariaLabel={t(lang, "commTplUnlink")}
         title={t(lang, "commTplUnlink")}
       >
         <UnlinkIcon aria-hidden="true" className={ICON_CLASS} />
-      </Button>
+      </ToolbarButton>
     </div>
   );
 }
