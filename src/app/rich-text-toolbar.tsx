@@ -6,12 +6,13 @@
 // new dependency, used ONLY in this file — see the design spec's Scope
 // section for why the rest of the app still uses heroicons.
 //
-// ★★★ Every stateful control is the shared ToggleButton, NEVER a hand-rolled
-// aria-pressed button. The one this replaced was among the thirteen offenders in
-// open-followups §55: its ON state rode colour alone, which measures 1.03-1.22:1
-// against the unpressed border in the three DARK schemes and so fails WCAG 1.4.1.
-// ToggleButton carries a non-colour data-pressed-marker glyph. axe has no rule
-// for colour-as-sole-cue, so the unit test is the only coverage.
+// ★★★ Every stateful control is the compact ToolbarButton (rich-text-toolbar-
+// button.tsx), NEVER a hand-rolled aria-pressed button. The one this replaced
+// was among the thirteen offenders in open-followups §55: its ON state rode
+// colour alone, which measures 1.03-1.22:1 against the unpressed border in the
+// three DARK schemes and so fails WCAG 1.4.1. ToolbarButton carries a
+// non-colour data-pressed-marker glyph of its own. axe has no rule for
+// colour-as-sole-cue, so the unit test is the only coverage.
 //
 // ★ Task list and text alignment are deliberately ABSENT. Both need new HTML
 // attributes, which is a shared security boundary and gets its own slice plus a
@@ -56,18 +57,19 @@ import { t, type Lang, type TranslationKey } from "./i18n";
 import { ToolbarButton } from "./rich-text-toolbar-button";
 import type { ToolbarButtonAccent } from "./rich-text-toolbar-button";
 
-/** Shared icon sizing for every control in this toolbar (16px — one step up
- *  from GanttViewMenu's 14px menu-row icons, sized for this toolbar's primary,
- *  always-visible role rather than a secondary menu list). */
+/** Shared icon sizing for every control in this toolbar (14px — the same size
+ *  as GanttViewMenu's menu-row icons, sized for this toolbar's compact
+ *  borderless buttons). */
 const ICON_CLASS = "h-3.5 w-3.5 shrink-0";
 
 /** One toggleable control: its label key (doubles as the accessible name AND
  *  the tooltip text, since the control is icon-only), the icon component, the
  *  Tiptap node/mark name `isActive` is asked about, and the command to run.
  *  `name` doubles as the React key. */
-/** `accent` mirrors `ToggleButtonProps.accent` — omit for the default
- *  dark-blue family, set `"pink"` for the one control (Highlight) that uses
- *  the app's pink accent, matching the mockup the user approved. */
+/** `accent` mirrors `ToolbarButtonProps.accent` (`ToolbarButtonAccent`) —
+ *  omit for the default dark-blue family, set `"pink"` for the one control
+ *  (Highlight) that uses the app's pink accent, matching the mockup the user
+ *  approved. */
 interface ControlSpec {
   key: TranslationKey;
   icon: ElementType;

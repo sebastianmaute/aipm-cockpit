@@ -366,8 +366,9 @@ describe("RichTextToolbar", () => {
     expect(dividers).toHaveLength(5);
   });
 
-  // ★ The plain Buttons are a different code path from the ToggleButtons and
-  //    carry their own guard, so they need their own assertion.
+  // ★ Even though this control now shares ToolbarButton's preventFocusSteal
+  //    mechanism with the toggle controls above, it's a distinct call site
+  //    (Link/Unlink, not a mark/block toggle) and worth its own regression pin.
   it("does not steal focus from the link controls either", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
