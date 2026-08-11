@@ -152,7 +152,7 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     //   "template" stored: "<h2>Plan</h2><p>steps</p>" -> human Save: "<p>steps</p>"
     //                                                     "Plan" GONE, no undo
     //   "note"     stored: escaped markup               -> human Save: unchanged
-    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, "note"),
+    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, "rich"),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

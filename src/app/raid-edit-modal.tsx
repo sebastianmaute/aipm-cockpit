@@ -233,7 +233,7 @@ export function RaidEditModal({
    *  first matches sanitizeRichText's own composition, so a legacy plain value
    *  is measured the way the loader will measure it rather than one tag short. */
   function capRich(html: string | undefined): string {
-    const upgraded = descriptionHtml(html, "template");
+    const upgraded = descriptionHtml(html, "rich");
     adj.track(describeTextCap(htmlPlainProjection(upgraded), TEXTAREA_MAX));
     return capHtmlText(upgraded, TEXTAREA_MAX);
   }
@@ -452,7 +452,7 @@ export function RaidEditModal({
               <RichTextEditor
                 key={`${draft.id}:description`}
                 variant="lean"
-                value={descriptionHtml(draft.description, "template")}
+                value={descriptionHtml(draft.description, "rich")}
                 onChange={(html) => onChange({ ...draft, description: html || undefined })}
                 label={t(lang, "raidDescription")}
                 lang={lang}
@@ -465,7 +465,7 @@ export function RaidEditModal({
                 raw projection strips a "<b>" as inline markup the upgraded one
                 counts as three visible characters. */}
             <CharCounter
-              value={htmlPlainProjection(descriptionHtml(draft.description, "template"))}
+              value={htmlPlainProjection(descriptionHtml(draft.description, "rich"))}
               max={TEXTAREA_MAX}
               id="raid-description-counter"
               lang={lang}
@@ -622,13 +622,13 @@ export function RaidEditModal({
             <RichTextEditor
               key={`${draft.id}:mitigation`}
               variant="lean"
-              value={descriptionHtml(draft.mitigation, "template")}
+              value={descriptionHtml(draft.mitigation, "rich")}
               onChange={(html) => onChange({ ...draft, mitigation: html || undefined })}
               label={t(lang, "raidMitigation")}
               lang={lang}
             />
             <CharCounter
-              value={htmlPlainProjection(descriptionHtml(draft.mitigation, "template"))}
+              value={htmlPlainProjection(descriptionHtml(draft.mitigation, "rich"))}
               max={TEXTAREA_MAX}
               id="raid-mitigation-counter"
               lang={lang}

@@ -20,7 +20,7 @@ import { isHtmlStart } from "./html-start";
 export function narrativeToHtml(stored: string | undefined): string {
   const s = (stored ?? "").trim();
   if (!s) return "";
-  return isHtmlStart(s, "note") ? s : plainToHtml(s);
+  return isHtmlStart(s, "rich") ? s : plainToHtml(s);
 }
 
 /** Editor HTML -> the value to store. Newlines collapse to spaces: the markdown

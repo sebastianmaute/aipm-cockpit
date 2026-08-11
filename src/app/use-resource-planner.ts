@@ -446,7 +446,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         // Case B needs the value SANITIZED to the destination's allow-list at the
         // copy, not merely classified against it. Tracked in open-followups §137,
         // which carries the same measurement and the whole-program closure.
-        description: descriptionHtml(item.mitigation ?? item.description ?? "", "note"),
+        description: descriptionHtml(item.mitigation ?? item.description ?? "", "rich"),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };

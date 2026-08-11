@@ -154,7 +154,7 @@ function sanitizeRichFields<T extends RichFieldCarrier>(
   for (const field of fields) {
     const value = entity[field];
     if (typeof value !== "string") continue;
-    patch[field] = sanitizeNoteHtml(descriptionHtml(value, "note"));
+    patch[field] = sanitizeNoteHtml(descriptionHtml(value, "rich"));
     touched = true;
   }
   if (Array.isArray(entity.noteLog)) {

@@ -60,13 +60,13 @@ import { TEXTAREA_MAX } from "./sanitize";
  *  defect — open-followups.md §32, plain prose that merely looks tag-shaped taken
  *  for HTML. Do not read §107's closure as closing it. */
 export function sanitizeAiRichText(raw: unknown): string {
-  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, "template");
+  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, "rich");
   if (!upgraded) return "";
   const clean = sanitizeTemplateHtml(upgraded);
   // The allow-list pass can empty a value whose only content was a disallowed
   // element (e.g. "<p><script>x</script></p>"), so re-apply the empty rule —
   // otherwise a phantom "<p></p>" reaches the `if (description)` gates.
-  return sanitizeRichText(clean, TEXTAREA_MAX, "template");
+  return sanitizeRichText(clean, TEXTAREA_MAX, "rich");
 }
 
 /** The DOCUMENTS variant of the boundary above — model-supplied value -> stored
