@@ -298,21 +298,26 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         </Fragment>
       ))}
 
+      <ToolbarDivider />
       <Button
         variant="secondary"
         size="xs"
         onMouseDown={(event) => event.preventDefault()}
         onClick={onAddLink}
+        aria-label={t(lang, "commTplLink")}
+        title={t(lang, "commTplLink")}
       >
-        {t(lang, "commTplLink")}
+        <LinkIcon aria-hidden="true" className={ICON_CLASS} />
       </Button>
       <Button
         variant="secondary"
         size="xs"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => editor.chain().focus().unsetLink().run()}
+        aria-label={t(lang, "commTplUnlink")}
+        title={t(lang, "commTplUnlink")}
       >
-        {t(lang, "commTplUnlink")}
+        <UnlinkIcon aria-hidden="true" className={ICON_CLASS} />
       </Button>
     </div>
   );
