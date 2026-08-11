@@ -612,7 +612,6 @@ export function TaskFormFields({
               as the active dictation target for the global hold-to-talk hotkey. */}
           <div onFocus={descriptionDictationReg.onFocus} onBlur={descriptionDictationReg.onBlur}>
             <RichTextEditor
-              variant="lean"
               value={form.description}
               onChange={(html) => setForm((p) => ({ ...p, description: html }))}
               label={t(lang, "description")}

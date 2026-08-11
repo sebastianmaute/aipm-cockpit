@@ -371,7 +371,6 @@ export function ChangeEditModal({
                   every character and destroy the caret. */}
               <RichTextEditor
                 key={`${draft.id}:description`}
-                variant="lean"
                 value={descriptionHtml(draft.description, "rich")}
                 /* `description` is REQUIRED on ChangeItem (a plain string), so
                    an empty body stays "" here rather than collapsing to
@@ -459,7 +458,6 @@ export function ChangeEditModal({
                 registration wrapper — but the key is per-field all the same. */}
             <RichTextEditor
               key={`${draft.id}:impactDescription`}
-              variant="lean"
               value={descriptionHtml(draft.impactDescription, "rich")}
               onChange={(html) => update("impactDescription", html || undefined)}
               label={t(lang, "changeFieldImpactDescription")}
@@ -588,7 +586,6 @@ export function ChangeEditModal({
             {/* No dictation mic here either — bare editor, per-field key. */}
             <RichTextEditor
               key={`${draft.id}:resolutionNotes`}
-              variant="lean"
               value={descriptionHtml(draft.resolutionNotes, "rich")}
               onChange={(html) => update("resolutionNotes", html || undefined)}
               label={t(lang, "changeFieldResolution")}

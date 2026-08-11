@@ -20,21 +20,6 @@ const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.
   loading: () => <div className="min-h-40 rounded-md border border-line bg-surface-muted" />,
 });
 
-function rteLabels(lang: Lang) {
-  return {
-    bold: t(lang, "commTplBold"),
-    italic: t(lang, "commTplItalic"),
-    underline: t(lang, "commTplUnderline"),
-    heading1: t(lang, "commTplHeading1"),
-    heading2: t(lang, "commTplHeading2"),
-    bulletList: t(lang, "commTplBulletList"),
-    numberedList: t(lang, "commTplNumberedList"),
-    link: t(lang, "commTplLink"),
-    unlink: t(lang, "commTplUnlink"),
-    linkPrompt: t(lang, "commTplLinkPrompt"),
-  };
-}
-
 /** UI-facing subset of a stored MeetingReportVersion (Slice 3). */
 export interface MeetingReportVersionUi {
   id: string;
@@ -150,9 +135,7 @@ export function MeetingReportPanel({
           value={draft}
           onChange={setDraft}
           label={t(lang, "reportBody")}
-          mergeFields={[]}
-          fieldLabel={(f) => f}
-          labels={rteLabels(lang)}
+          lang={lang}
         />
       )}
 

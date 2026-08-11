@@ -205,7 +205,6 @@ export function MilestoneEditModal({
                   mounted would leave A's body in the field. */}
               <RichTextEditor
                 key={draft.id}
-                variant="lean"
                 value={descriptionHtml(draft.description, "rich")}
                 onChange={(html) => update("description", html || undefined)}
                 label={t(lang, "milestoneDescription")}

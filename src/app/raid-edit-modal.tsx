@@ -451,7 +451,6 @@ export function RaidEditModal({
                   every character and destroy the caret. */}
               <RichTextEditor
                 key={`${draft.id}:description`}
-                variant="lean"
                 value={descriptionHtml(draft.description, "rich")}
                 onChange={(html) => onChange({ ...draft, description: html || undefined })}
                 label={t(lang, "raidDescription")}
@@ -621,7 +620,6 @@ export function RaidEditModal({
                 registration wrapper — but the key is per-field all the same. */}
             <RichTextEditor
               key={`${draft.id}:mitigation`}
-              variant="lean"
               value={descriptionHtml(draft.mitigation, "rich")}
               onChange={(html) => onChange({ ...draft, mitigation: html || undefined })}
               label={t(lang, "raidMitigation")}

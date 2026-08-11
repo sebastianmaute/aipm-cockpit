@@ -126,7 +126,6 @@ export function NarrativeEditor({
         <div onBlur={commitNarrative}>
           <RichTextEditor
             key={seedNonce}
-            variant="lean"
             lang={lang}
             label={t(lang, "dashboardNarrativePlaceholder")}
             value={draftNarrative}

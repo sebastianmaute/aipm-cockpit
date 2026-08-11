@@ -190,9 +190,14 @@ describe("NarrativeEditor", () => {
     expect(surface.textContent).toContain("External status from reload");
   });
 
-  // End-to-end for the sanitizer/input-rule defect: "# " used to become an <h1>
-  // that the note sanitizer dropped content and all, so the commit stored "",
-  // Save stayed disabled (`unchanged`) and the text was silently never saved.
+  // ★ This used to assert the OPPOSITE: on the retired "lean" variant, the
+  // heading input rule was switched off (see rich-text-editor.tsx:39) precisely
+  // so "# " stayed literal text, working around the old note sanitizer's
+  // KEEP_CONTENT:false dropping an unlisted element's content wholesale. There
+  // is one editor now, markdown input rules are deliberately back on, and every
+  // surface sanitizes with sanitizeRichHtml's default KEEP_CONTENT (unwrap, keep
+  // the words) — so "# " now safely becomes a real heading and the assertion is
+  // inverted to match.
   it("stores a narrative typed with a markdown '# ' shortcut", async () => {
     const user = userEvent.setup();
     render(<EditorHost />);
@@ -201,7 +206,7 @@ describe("NarrativeEditor", () => {
     await user.click(surface);
     await user.keyboard("# Q3 highlights");
     await user.click(screen.getByText("Status summary")); // blur -> commit
-    expect(screen.getByTestId("stored").textContent).toContain("# Q3 highlights");
+    expect(screen.getByTestId("stored").textContent).toContain("<h1>Q3 highlights</h1>");
   });
 
   // The toolbar was dead: mousedown on Bold blurred the editor -> committed ->

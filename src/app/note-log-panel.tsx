@@ -98,7 +98,6 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
               hotkey (mirrors raid-edit-modal.tsx). */}
           <div onFocus={editDictationReg.onFocus} onBlur={editDictationReg.onBlur}>
             <RichTextEditor
-              variant="lean"
               value={entry.html}
               onChange={props.onChangeEditHtml}
               onCommit={() => props.onCommitEdit(entry.id)}
@@ -227,7 +226,6 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
         <div onFocus={composerDictationReg.onFocus} onBlur={composerDictationReg.onBlur}>
           <RichTextEditor
             key={composerNonce}
-            variant="lean"
             value=""
             onChange={setComposerHtml}
             onCommit={handleAdd}
