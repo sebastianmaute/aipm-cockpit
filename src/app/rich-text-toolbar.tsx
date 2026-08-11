@@ -107,6 +107,15 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   // to a change in the SELECTED value, whereas the flag re-renders
   // `RichTextEditor` and `EditorContent` on every transaction including every
   // arrow keypress.
+  // ★★★ ANY NEW `editor.` READ AT RENDER MUST JOIN THIS SELECTOR — the scoping
+  // above is exactly what makes an outsider stale. `useSyncExternalStoreWithSelector`
+  // re-renders only when the SELECTED value deep-differs, so a render-time read
+  // left outside (an `isActive("link")` disabled state for Unlink, an
+  // `editor.can()` gate) is refreshed only in the cases where some ALREADY
+  // selected value happened to move, and is stale in every other — with the
+  // suite green, since a fixture that moves a selected value hides it. Every
+  // other `editor` read in this file today is inside an event handler (setLevel
+  // twice, `spec.run(editor)`, Unlink), where it is fresh by construction.
   const { activeLevel, pressed } = useEditorState({
     editor,
     selector: ({ editor: live }) => ({
@@ -162,16 +171,28 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       {/* ★★ NO mousedown guard on the select, unlike every button beside it.
           Opening the picker IS the native mousedown default, so preventing it
           leaves a select that cannot be opened with a mouse in Chrome/Firefox —
-          a total functional break. Nothing is traded for it: `setLevel` needs no
-          `.focus()` because ProseMirror keeps its selection in editor state
-          across a blur and the command applies to that stored selection.
-          ★★ The KEYBOARD is why `.focus()` had to GO rather than merely being
-          unnecessary. A closed <select> fires `change` on every arrow keypress
-          in Chrome and Firefox, so a chain starting `.focus()` moved DOM focus
-          into the contenteditable on the FIRST ArrowDown: the user was left in
-          the editor having applied Heading 1, and could not arrow on to
-          Headings 2-4. Do not reintroduce it here — the buttons beside it are a
-          different case, since a click is one discrete commit. */}
+          a total functional break.
+          ★★★ DROPPING `.focus()` FROM `setLevel` COSTS SOMETHING, and an
+          earlier revision of this comment claimed "nothing is traded for it".
+          The COMMAND needs no DOM focus (ProseMirror keeps its selection in
+          editor state across a blur), but `.focus()` was also what returned the
+          caret to the contenteditable, and nothing else does: measured by
+          restoring it, `editor.view.focus` fires per change and at HEAD it
+          never fires. So after a MOUSE pick DOM focus stays on the <select> and
+          the next keystroke hits its native type-ahead instead of the document.
+          That is traded against the KEYBOARD path, where the same call is not a
+          nuisance but a total block — a closed <select> fires `change` on every
+          arrow keypress in Chrome and Firefox, so a chain starting `.focus()`
+          applied Heading 1 and pulled focus into the editor on the FIRST
+          ArrowDown, leaving Headings 2-4 unreachable. Do not reintroduce it
+          here; the buttons beside it are a different case, since a click is one
+          discrete commit.
+          ★★ NO UNIT TEST IN THIS REPO CAN SEE EITHER SIDE. jsdom does not treat
+          ProseMirror's contenteditable as a focusable area, so
+          `document.activeElement` is vacuous both ways — under the
+          `.focus()`-restored mutation it still reads the outside button while
+          `view.focus` fires. The spy in rich-text-toolbar.test.tsx pins the
+          CALL, never its consequence; re-check the browser behaviour by eye. */}
       <Select
         size="xs"
         aria-label={t(lang, "commTplHeadingLevel")}

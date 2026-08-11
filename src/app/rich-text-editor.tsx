@@ -150,7 +150,15 @@ export function RichTextEditor(props: RichTextEditorProps) {
       {/* `label` names the toolbar as well as the contenteditable: several
           surfaces mount two or three of these editors as siblings in one form
           (the change modal has three), so without it each form carries three
-          buttons called "Bold" and three selects called "Text style". */}
+          buttons called "Bold" and three selects called "Text style".
+          ★★ The `editor &&` guard is load-bearing for the toolbar's
+          `useEditorState`, not just cosmetic: its selector dereferences the
+          live editor unconditionally, and `EditorStateManager.getServerSnapshot()`
+          returns `{ editor: null, transactionNumber: 0 }`. Only
+          `immediatelyRender: false` keeps that unreachable, by leaving `editor`
+          null on the SSR/hydration render so the row is not mounted then —
+          flipping that flag, or hoisting the toolbar out of this guard, makes
+          hydration a TypeError. */}
       {editor && <RichTextToolbar editor={editor} lang={lang} label={label} onAddLink={addLink} />}
       {editor && (mergeFields?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1">

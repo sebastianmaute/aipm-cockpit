@@ -85,11 +85,16 @@ const NEVER = /(?!)/;
  *  and `isHtmlStart` for why one function asks two.
  *
  *  ★★ Its `/i` flag is REPO-WIDE UNPINNED, measured 2026-08-11: dropping it
- *  leaves 215 tests across the six files that own this sink and its three
- *  consumers fully green, and the mutant is NOT equivalent — "Intro
+ *  leaves the files that own this sink and its three consumers fully green
+ *  (226 passed, exit 0), and the mutant is NOT equivalent — "Intro
  *  <STRONG>bold</STRONG> tail" classifies `true` with the flag and `false`
  *  without, so UPPERCASE legacy markup would be escaped into Word, PowerPoint,
- *  the HTML preview and the PDF. Pre-existing; open-followups §141(d). */
+ *  the HTML preview and the PDF. Re-derive the count rather than trust it — an
+ *  earlier revision said 215 and named no files:
+ *    npx vitest run src/app/html-start.test.ts src/app/rich-text-plain.test.ts \
+ *      src/app/rich-text-plain.property.test.ts src/app/doc-render-docx.test.ts \
+ *      src/app/doc-render-html.test.ts src/app/doc-render-pptx.test.ts
+ *  Pre-existing; open-followups §141(d). */
 const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
 
 /** Build the "already HTML?" test for one allow-list.

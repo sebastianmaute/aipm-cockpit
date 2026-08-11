@@ -337,6 +337,20 @@ describe("RichTextToolbar", () => {
     //    every layer of this suite. An `activeElement` assertion here would be
     //    vacuous, so it is deliberately absent rather than reassuring.
     expect(focusSpy).not.toHaveBeenCalled();
+
+    // ★★ THE OTHER BRANCH, and it is the one the guard exists for: arrowing UP
+    //    out of a heading fires `change` with "0", so `setParagraph` is reached
+    //    by exactly the keyboard sequence that strands the user. Restoring
+    //    `.chain().focus()` on that branch ALONE left this file 20/20 green
+    //    until this second change was added.
+    fireEvent.change(screen.getByRole("combobox", { name: "Text style" }), {
+      target: { value: "0" },
+    });
+    expect(editor.getHTML()).toContain("<p>hello</p>");
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(focusSpy).not.toHaveBeenCalled();
   });
 
   // ★ The plain Buttons are a different code path from the ToggleButtons and

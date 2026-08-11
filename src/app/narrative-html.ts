@@ -21,7 +21,9 @@ import { isHtmlStart } from "./html-start";
  *  hand-written string literal here and nothing checks it against the sanitizer
  *  this value actually reaches. Measured 2026-08-11 — changing "rich" to
  *  "document" on the line below leaves narrative-html.test.ts 14/14 AND
- *  dashboard-narrative.test.tsx 20/20 GREEN. Bounded today (the two lists differ
+ *  dashboard-sections/dashboard-narrative.test.tsx 20/20 GREEN (the directory
+ *  is load-bearing: vitest given a path it cannot resolve runs only the file it
+ *  can and still exits 0). Bounded today (the two lists differ
  *  by `img` alone, which a narrative has no way to contain), unbounded in shape.
  *  open-followups §143 owns the general case.
  *  ★★ It used to name the "note" sink, and the risk it guarded was the OPPOSITE
