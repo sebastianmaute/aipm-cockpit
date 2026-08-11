@@ -147,6 +147,26 @@ describe("ToggleButton", () => {
     expect(screen.getByRole("button", { name: "Row" })).toHaveAttribute("title", "Base");
   });
 
+  // ★★ `preventFocusSteal` exists for toggles that act on ANOTHER element's
+  //    selection (the rich-text toolbar). It must stay OPT-IN: focus-on-click is
+  //    the native button behaviour every other consumer relies on, so the
+  //    default case is asserted here too — dropping the flag check and always
+  //    preventing would pass the first assertion alone.
+  it("only suppresses the mousedown default when preventFocusSteal is set", () => {
+    const fire = (btn: HTMLElement) => {
+      const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+      btn.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    const { rerender } = render(
+      <ToggleButton pressed={false} onToggle={() => {}} preventFocusSteal>Bold</ToggleButton>,
+    );
+    expect(fire(screen.getByRole("button", { name: "Bold" }))).toBe(true);
+
+    rerender(<ToggleButton pressed={false} onToggle={() => {}}>Bold</ToggleButton>);
+    expect(fire(screen.getByRole("button", { name: "Bold" }))).toBe(false);
+  });
+
   it("renders a leading icon and an override aria-label", () => {
     render(
       <ToggleButton pressed={false} onToggle={() => {}} ariaLabel="Detailed planning" icon={<svg data-testid="ic" aria-hidden />}>
