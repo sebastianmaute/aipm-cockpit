@@ -1,7 +1,10 @@
 "use client";
 
-// Shared toolbar for the unified rich-text editor: the Tiptap "Simple" template
-// control set, rendered as one presentational row over a live `Editor`.
+// Shared toolbar for the unified rich-text editor: icon-only controls in six
+// dividered clusters, matching the tiptap "Simple" template look
+// (https://template.tiptap.dev/preview/templates/simple). lucide-react is a
+// new dependency, used ONLY in this file — see the design spec's Scope
+// section for why the rest of the app still uses heroicons.
 //
 // ★★★ Every stateful control is the shared ToggleButton, NEVER a hand-rolled
 // aria-pressed button. The one this replaced was among the thirteen offenders in
@@ -13,43 +16,101 @@
 // ★ Task list and text alignment are deliberately ABSENT. Both need new HTML
 // attributes, which is a shared security boundary and gets its own slice plus a
 // security review. Do not add a control here without widening the sanitizer first.
+//
+// ★★ Every control here is now ICON-ONLY: the accessible name lives in
+// `ariaLabel` (and mirrored into `title` for a sighted hover tooltip), never in
+// visible text. WCAG 2.5.3 (label-in-name) does not apply to any control in this
+// file for exactly that reason — 2.5.3 only constrains a control that HAS a
+// visible label, and none of these do. The heading menu's ITEMS are the one
+// exception: they keep visible text (see the menu section below), so 2.5.3 holds
+// there by construction the same way the old flat toolbar text used to.
 
+import { useCallback, useRef, useState, Fragment } from "react";
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
+import type { ElementType } from "react";
+import {
+  BoldIcon,
+  ChevronDownIcon,
+  CodeIcon,
+  Heading1Icon,
+  Heading2Icon,
+  Heading3Icon,
+  Heading4Icon,
+  HighlighterIcon,
+  ItalicIcon,
+  LinkIcon,
+  ListIcon,
+  ListOrderedIcon,
+  PilcrowIcon,
+  QuoteIcon,
+  SquareCodeIcon,
+  StrikethroughIcon,
+  SubscriptIcon,
+  SuperscriptIcon,
+  UnderlineIcon,
+  UnlinkIcon,
+} from "lucide-react";
 import { Button } from "./button";
 import { Select } from "./form-controls";
+import { PopoverPanel } from "./popover-panel";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import { ToggleButton } from "./toggle-button";
+import type { ToggleAccent } from "./toggle-button";
 
-/** One toggleable control: its label key, the Tiptap node/mark name `isActive`
- *  is asked about, and the command to run. `name` doubles as the React key. */
+/** Shared icon sizing for every control in this toolbar (16px — one step up
+ *  from GanttViewMenu's 14px menu-row icons, sized for this toolbar's primary,
+ *  always-visible role rather than a secondary menu list). */
+const ICON_CLASS = "h-4 w-4 shrink-0";
+
+/** One toggleable control: its label key (doubles as the accessible name AND
+ *  the tooltip text, since the control is icon-only), the icon component, the
+ *  Tiptap node/mark name `isActive` is asked about, and the command to run.
+ *  `name` doubles as the React key. */
+/** `accent` mirrors `ToggleButtonProps.accent` — omit for the default
+ *  dark-blue family, set `"pink"` for the one control (Highlight) that uses
+ *  the app's pink accent, matching the mockup the user approved. */
 interface ControlSpec {
   key: TranslationKey;
+  icon: ElementType;
   name: string;
+  accent?: ToggleAccent;
   run: (editor: Editor) => void;
 }
 
+// Order matches the six-group toolbar layout below: MARKS is groups 2+3
+// (six marks, then superscript/subscript), BLOCKS is groups 4+5 (two lists,
+// then blockquote/code-block). CONTROLS concatenates them in that same
+// order so `pressed[index]` below stays index-aligned with render order.
 const MARKS: readonly ControlSpec[] = [
-  { key: "commTplBold", name: "bold", run: (e) => e.chain().focus().toggleBold().run() },
-  { key: "commTplItalic", name: "italic", run: (e) => e.chain().focus().toggleItalic().run() },
-  { key: "commTplUnderline", name: "underline", run: (e) => e.chain().focus().toggleUnderline().run() },
-  { key: "commTplStrike", name: "strike", run: (e) => e.chain().focus().toggleStrike().run() },
-  { key: "commTplCode", name: "code", run: (e) => e.chain().focus().toggleCode().run() },
-  { key: "commTplHighlight", name: "highlight", run: (e) => e.chain().focus().toggleHighlight().run() },
-  { key: "commTplSuperscript", name: "superscript", run: (e) => e.chain().focus().toggleSuperscript().run() },
-  { key: "commTplSubscript", name: "subscript", run: (e) => e.chain().focus().toggleSubscript().run() },
+  { key: "commTplBold", icon: BoldIcon, name: "bold", run: (e) => e.chain().focus().toggleBold().run() },
+  { key: "commTplItalic", icon: ItalicIcon, name: "italic", run: (e) => e.chain().focus().toggleItalic().run() },
+  { key: "commTplUnderline", icon: UnderlineIcon, name: "underline", run: (e) => e.chain().focus().toggleUnderline().run() },
+  { key: "commTplStrike", icon: StrikethroughIcon, name: "strike", run: (e) => e.chain().focus().toggleStrike().run() },
+  { key: "commTplCode", icon: CodeIcon, name: "code", run: (e) => e.chain().focus().toggleCode().run() },
+  { key: "commTplHighlight", icon: HighlighterIcon, name: "highlight", accent: "pink", run: (e) => e.chain().focus().toggleHighlight().run() },
+  { key: "commTplSuperscript", icon: SuperscriptIcon, name: "superscript", run: (e) => e.chain().focus().toggleSuperscript().run() },
+  { key: "commTplSubscript", icon: SubscriptIcon, name: "subscript", run: (e) => e.chain().focus().toggleSubscript().run() },
 ];
 
 const BLOCKS: readonly ControlSpec[] = [
-  { key: "commTplBulletList", name: "bulletList", run: (e) => e.chain().focus().toggleBulletList().run() },
-  { key: "commTplNumberedList", name: "orderedList", run: (e) => e.chain().focus().toggleOrderedList().run() },
-  { key: "commTplBlockquote", name: "blockquote", run: (e) => e.chain().focus().toggleBlockquote().run() },
-  { key: "commTplCodeBlock", name: "codeBlock", run: (e) => e.chain().focus().toggleCodeBlock().run() },
+  { key: "commTplBulletList", icon: ListIcon, name: "bulletList", run: (e) => e.chain().focus().toggleBulletList().run() },
+  { key: "commTplNumberedList", icon: ListOrderedIcon, name: "orderedList", run: (e) => e.chain().focus().toggleOrderedList().run() },
+  { key: "commTplBlockquote", icon: QuoteIcon, name: "blockquote", run: (e) => e.chain().focus().toggleBlockquote().run() },
+  { key: "commTplCodeBlock", icon: SquareCodeIcon, name: "codeBlock", run: (e) => e.chain().focus().toggleCodeBlock().run() },
 ];
 
 /** Every toggle in the row, in render order. The `pressed` array below is
  *  index-aligned with this list, so the two cannot drift. */
-const CONTROLS: readonly ControlSpec[] = [...BLOCKS, ...MARKS];
+const CONTROLS: readonly ControlSpec[] = [...MARKS, ...BLOCKS];
+
+/** Indices (into `CONTROLS`) that get a divider rendered BEFORE them — the
+ *  boundary between groups 2/3 (after the 6 marks, index 6), groups 3/4
+ *  (after superscript/subscript, index 8), and groups 4/5 (after the two
+ *  lists, index 10). The heading-trigger/marks boundary and the
+ *  marks-or-blocks/link boundary are unconditional JSX below, not part of
+ *  this set. */
+const GROUP_DIVIDER_BEFORE = new Set([6, 8, 10]);
 
 const HEADING_LEVELS = [1, 2, 3, 4] as const;
 type HeadingLevel = (typeof HEADING_LEVELS)[number];
@@ -76,6 +137,14 @@ export interface RichTextToolbarProps {
    *  link flow differs per surface (modal vs inline), so it stays with the
    *  editor that mounts this row. */
   onAddLink: () => void;
+}
+
+/** A thin vertical rule between control clusters, matching the tiptap
+ *  reference toolbar's grouping. `aria-hidden` — it carries no semantic
+ *  meaning, the `role="group"` wrapper (or its absence) is what a screen
+ *  reader needs. */
+function ToolbarDivider() {
+  return <div aria-hidden="true" className="mx-0.5 w-px self-stretch bg-line" />;
 }
 
 export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextToolbarProps) {
@@ -213,15 +282,20 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       </Select>
 
       {CONTROLS.map((spec, index) => (
-        <ToggleButton
-          key={spec.name}
-          pressed={pressed[index]}
-          onToggle={() => spec.run(editor)}
-          lang={lang}
-          preventFocusSteal
-        >
-          {t(lang, spec.key)}
-        </ToggleButton>
+        <Fragment key={spec.name}>
+          {GROUP_DIVIDER_BEFORE.has(index) && <ToolbarDivider />}
+          <ToggleButton
+            pressed={pressed[index]}
+            onToggle={() => spec.run(editor)}
+            lang={lang}
+            preventFocusSteal
+            accent={spec.accent}
+            ariaLabel={t(lang, spec.key)}
+            title={t(lang, spec.key)}
+          >
+            <spec.icon aria-hidden="true" className={ICON_CLASS} />
+          </ToggleButton>
+        </Fragment>
       ))}
 
       <Button
