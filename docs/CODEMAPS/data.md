@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.232.0 "Merril" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.233.0 "Reed" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 

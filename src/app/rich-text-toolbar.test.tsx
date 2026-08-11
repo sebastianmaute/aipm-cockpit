@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "@tiptap/react";
 import { RichTextToolbar } from "./rich-text-toolbar";
@@ -71,27 +71,49 @@ describe("RichTextToolbar", () => {
     }
   });
 
-  it("gives the heading select a real accessible name, not a visible span", () => {
+  it("gives the heading trigger a real accessible name", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
-    expect(screen.getByRole("combobox", { name: "Text style" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Text style" })).toBeTruthy();
   });
 
-  it("offers Normal plus headings 1-4 and nothing else", () => {
+  it("opens the heading menu on click, offering Normal text plus headings 1-4 and nothing else", async () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
-    const opts = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(opts).toEqual(["Normal text", "Heading 1", "Heading 2", "Heading 3", "Heading 4"]);
+    const trigger = screen.getByRole("button", { name: "Text style" });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    await userEvent.click(trigger);
+
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    const dialog = screen.getByRole("dialog", { name: "Text style" });
+    const items = within(dialog)
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+    expect(items).toEqual(["Normal text", "Heading 1", "Heading 2", "Heading 3", "Heading 4"]);
   });
 
-  // ★ The select reflects the DOCUMENT's state, so a caret inside an <h2> must
-  //   preselect "Heading 2" — a control that always reads "Normal text" would
-  //   pass every other test here.
-  it("preselects the heading level the caret sits in", () => {
+  // ★ The trigger reflects the DOCUMENT's state, so a caret inside an <h2>
+  //   must mark "Heading 2" active — a menu that always showed paragraph as
+  //   active would pass every other test here.
+  it("marks the heading level the caret sits in as the active menu item", async () => {
     const { editor } = makeEditor({ heading2: true });
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
-    const select = screen.getByRole("combobox", { name: "Text style" }) as HTMLSelectElement;
-    expect(select.value).toBe("2");
+    await userEvent.click(screen.getByRole("button", { name: "Text style" }));
+    const dialog = screen.getByRole("dialog", { name: "Text style" });
+    expect(within(dialog).getByRole("button", { name: "Heading 2" }).getAttribute("aria-current")).toBe("true");
+    expect(within(dialog).getByRole("button", { name: "Normal text" }).hasAttribute("aria-current")).toBe(false);
+  });
+
+  it("runs the heading command and closes the menu when an item is picked", async () => {
+    const { editor, run } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Text style" }));
+    await userEvent.click(screen.getByRole("button", { name: "Heading 3" }));
+
+    expect(run).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Text style" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("dialog", { name: "Text style" })).toBeNull();
   });
 
   it("reports pressed state through aria-pressed", () => {
@@ -166,7 +188,7 @@ describe("RichTextToolbar", () => {
     );
     // The names really are ambiguous at the flat level — that is the defect.
     expect(screen.getAllByRole("button", { name: "Bold" })).toHaveLength(2);
-    expect(screen.getAllByRole("combobox", { name: "Text style" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Text style" })).toHaveLength(2);
 
     // …and the group boundary is what resolves them. Assert the RELATIONSHIP,
     // not the count: two groups could both be named "Description" and every
@@ -179,7 +201,7 @@ describe("RichTextToolbar", () => {
     // Each group holds exactly one of each repeated control, so neither group
     // contains the other's row.
     expect(within(description).getAllByRole("button", { name: "Bold" })).toHaveLength(1);
-    expect(within(mitigation).getAllByRole("combobox", { name: "Text style" })).toHaveLength(1);
+    expect(within(mitigation).getAllByRole("button", { name: "Text style" })).toHaveLength(1);
 
     // The control inside a group still drives ITS OWN editor — a group that
     // merely renamed things while both rows pointed at one editor would pass
@@ -261,96 +283,87 @@ describe("RichTextToolbar", () => {
     expect(bold().querySelector("[data-pressed-marker]")?.className).not.toContain("invisible");
   });
 
-  it("re-reads the heading value when the caret MOVES into a heading", () => {
+  it("re-reads the active heading item when the caret MOVES into a heading", async () => {
     const editor = realEditor("<p>intro</p><h2>section</h2>");
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
-    const select = screen.getByRole("combobox", { name: "Text style" }) as HTMLSelectElement;
-    expect(select.value).toBe("0");
     // Position 10 sits inside the <h2> (paragraph is 0-7, heading content 8-15).
     act(() => {
       editor.commands.setTextSelection(10);
     });
-    expect(select.value).toBe("2");
+    await userEvent.click(screen.getByRole("button", { name: "Text style" }));
+    const dialog = screen.getByRole("dialog", { name: "Text style" });
+    expect(within(dialog).getByRole("button", { name: "Heading 2" }).getAttribute("aria-current")).toBe("true");
   });
 
-  // ★★★ THE CONTENT-LOSS CASE. The select DISPLAYS "Heading 2"; picking the
-  //     option already shown must be a no-op. `toggleHeading` demoted the block
-  //     instead — measured `<p>intro</p><h2>section</h2>` → `<p>intro</p><p>section</p>`.
-  it("picking the level the caret is already in does not demote the block", () => {
+  // ★★★ THE CONTENT-LOSS CASE, carried over from the native-select version.
+  //     The menu shows "Heading 2" as ACTIVE; picking it must be a no-op.
+  //     `toggleHeading` would demote the block instead — measured
+  //     `<p>intro</p><h2>section</h2>` → `<p>intro</p><p>section</p>`.
+  it("picking the level the caret is already in does not demote the block", async () => {
     const editor = realEditor("<p>intro</p><h2>section</h2>");
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
     act(() => {
       editor.commands.setTextSelection(10);
     });
-    const select = screen.getByRole("combobox", { name: "Text style" });
-    expect((select as HTMLSelectElement).value).toBe("2");
-    // Snapshot AFTER the caret move: StarterKit's trailing-node plugin appends
-    // an empty paragraph behind a document-final heading on the first
-    // transaction, which is its own behaviour and not the toolbar's.
     const before = editor.getHTML();
     expect(before).toContain("<h2>section</h2>");
 
-    fireEvent.change(select, { target: { value: "2" } });
+    await userEvent.click(screen.getByRole("button", { name: "Text style" }));
+    await userEvent.click(screen.getByRole("button", { name: "Heading 2" }));
 
     expect(editor.getHTML()).toBe(before);
-    expect((select as HTMLSelectElement).value).toBe("2");
   });
 
-  // ★★★ The mechanism behind dropping `.focus()`: a CLOSED <select> fires
-  //     `change` on every arrow keypress in Chrome/Firefox, so a chain starting
-  //     `.focus()` applied Heading 1 AND pulled DOM focus out of the select,
-  //     stranding the user in the editor with Headings 2-4 unreachable. The
-  //     command needs no DOM focus — ProseMirror keeps its selection in editor
-  //     state across a blur.
-  it("applies a level with DOM focus parked outside the editor, and leaves it there", async () => {
+  // ★ The rewritten combobox→menu tests all click a HEADING item, leaving the
+  //   `level === undefined` branch of `setLevel` (setParagraph) with no
+  //   interaction coverage at all — a click on "Normal text" that silently
+  //   did nothing (or threw) would have passed the whole suite. This pins it.
+  it("picking Normal text demotes a heading to a paragraph", async () => {
+    const editor = realEditor("<p>intro</p><h2>section</h2>");
+    render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    act(() => {
+      editor.commands.setTextSelection(10);
+    });
+    expect(editor.getHTML()).toContain("<h2>section</h2>");
+
+    await userEvent.click(screen.getByRole("button", { name: "Text style" }));
+    await userEvent.click(screen.getByRole("button", { name: "Normal text" }));
+
+    expect(editor.getHTML()).toContain("<p>section</p>");
+    expect(editor.getHTML()).not.toContain("<h2>");
+  });
+
+  // ★ `setLevel` never calls `.chain().focus()` (unchanged from the native
+  //   select's own no-focus rule — see the deleted comment this replaces in
+  //   rich-text-toolbar.tsx), so picking a menu item must not pull DOM focus
+  //   into the editor. There is no arrow-key-fires-change landmine for a menu
+  //   of buttons (that was `<select>`-specific), so this is a narrower,
+  //   simpler regression test than the one it replaces.
+  it("does not pull DOM focus into the editor when a heading item is picked", async () => {
     const editor = realEditor("<p>hello</p>");
-    render(
-      <>
-        <button type="button">outside</button>
-        <RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />
-      </>,
-    );
-    const outside = screen.getByRole("button", { name: "outside" });
-    outside.focus();
-    expect(document.activeElement).toBe(outside);
-
-    // Tiptap's `focus` command defers to requestAnimationFrame, so the spy has
-    // to survive a frame — a synchronous assertion would pass either way.
+    render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
     const focusSpy = vi.spyOn(editor.view, "focus");
-    fireEvent.change(screen.getByRole("combobox", { name: "Text style" }), {
-      target: { value: "3" },
-    });
 
-    // `toContain`: StarterKit's trailing-node plugin appends an empty paragraph
-    // behind the now document-final heading.
+    await userEvent.click(screen.getByRole("button", { name: "Text style" }));
+    await userEvent.click(screen.getByRole("button", { name: "Heading 3" }));
+
     expect(editor.getHTML()).toContain("<h3>hello</h3>");
-
-    await act(async () => {
-      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
-    });
-    // ★★ THE SPY IS THE ONLY DETECTOR HERE, and `document.activeElement` is
-    //    NOT a second one. Measured by reordering the two assertions under a
-    //    mutation that restores `.chain().focus()`: `view.focus` fires, and
-    //    `document.activeElement` STILL reads `outside` — jsdom does not treat
-    //    ProseMirror's contenteditable as a focusable area, so the real-browser
-    //    consequence (focus leaves the select mid-arrow-key) is invisible to
-    //    every layer of this suite. An `activeElement` assertion here would be
-    //    vacuous, so it is deliberately absent rather than reassuring.
-    expect(focusSpy).not.toHaveBeenCalled();
-
-    // ★★ THE OTHER BRANCH, and it is the one the guard exists for: arrowing UP
-    //    out of a heading fires `change` with "0", so `setParagraph` is reached
-    //    by exactly the keyboard sequence that strands the user. Restoring
-    //    `.chain().focus()` on that branch ALONE left this file 20/20 green
-    //    until this second change was added.
-    fireEvent.change(screen.getByRole("combobox", { name: "Text style" }), {
-      target: { value: "0" },
-    });
-    expect(editor.getHTML()).toContain("<p>hello</p>");
     await act(async () => {
       await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
     });
     expect(focusSpy).not.toHaveBeenCalled();
+  });
+
+  it("separates the six control groups with five dividers", () => {
+    const { editor } = makeEditor();
+    const { container } = render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    // Dividers are the only `aria-hidden` DIRECT children of the row besides
+    // the check-marker glyphs (which live inside each ToggleButton, not as
+    // direct row children) — querying the row's own direct-child divs by
+    // class is more robust than counting `[aria-hidden]` broadly.
+    const row = container.firstElementChild as HTMLElement;
+    const dividers = Array.from(row.children).filter((el) => el.className.includes("bg-line"));
+    expect(dividers).toHaveLength(5);
   });
 
   // ★ The plain Buttons are a different code path from the ToggleButtons and
