@@ -9122,8 +9122,9 @@ change touching every call site.
 ## 144. The new rich-text toolbar is invisible to every gate in the repo — open, a11y, measured
 
 Opened 2026-08-11 with the toolbar that `unify-rich-text-s1` shipped. Fifteen controls per editor —
-twelve `ToggleButton`s (`BLOCKS` + `MARKS`), Insert link, Remove link, and the heading `<select>` —
-and **not one of them is reachable by any automated check in this repo.**
+twelve `ToggleButton`s (`BLOCKS` + `MARKS`), Insert link, Remove link, and the heading menu trigger
+(a `<select>` when this entry was opened; replaced by an icon-triggered `PopoverPanel` menu in a
+same-day follow-up branch) — and **not one of them is reachable by any automated check in this repo.**
 
 ### Why the axe gate cannot see it
 

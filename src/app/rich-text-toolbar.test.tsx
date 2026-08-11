@@ -314,6 +314,25 @@ describe("RichTextToolbar", () => {
     expect(editor.getHTML()).toBe(before);
   });
 
+  // ★ The rewritten combobox→menu tests all click a HEADING item, leaving the
+  //   `level === undefined` branch of `setLevel` (setParagraph) with no
+  //   interaction coverage at all — a click on "Normal text" that silently
+  //   did nothing (or threw) would have passed the whole suite. This pins it.
+  it("picking Normal text demotes a heading to a paragraph", async () => {
+    const editor = realEditor("<p>intro</p><h2>section</h2>");
+    render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    act(() => {
+      editor.commands.setTextSelection(10);
+    });
+    expect(editor.getHTML()).toContain("<h2>section</h2>");
+
+    await userEvent.click(screen.getByRole("button", { name: "Text style" }));
+    await userEvent.click(screen.getByRole("button", { name: "Normal text" }));
+
+    expect(editor.getHTML()).toContain("<p>section</p>");
+    expect(editor.getHTML()).not.toContain("<h2>");
+  });
+
   // ★ `setLevel` never calls `.chain().focus()` (unchanged from the native
   //   select's own no-focus rule — see the deleted comment this replaces in
   //   rich-text-toolbar.tsx), so picking a menu item must not pull DOM focus
