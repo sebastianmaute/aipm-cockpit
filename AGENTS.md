@@ -974,7 +974,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   MULTI-editor unit test is the only possible detector — a single-editor fixture passes with the group
   deleted.
   ★ WCAG 2.5.3 does NOT apply to any control in this row — every one is icon-only (`ariaLabel` carries
-  the accessible name, `title` mirrors it as a hover tooltip; `ToggleButton` also appends the on/off
+  the accessible name, `title` mirrors it as a hover tooltip; `ToolbarButton` also appends the on/off
   state to `title`, the DESCRIPTION), and 2.5.3 only constrains a control that HAS a visible label. This
   reverses an earlier version of this bullet, which said the opposite: that 2.5.3 held BY CONSTRUCTION
   because the visible text WAS the accessible name. That was true of the pre-icon-only toolbar and of
@@ -985,9 +985,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   flat toolbar text used to. Worth stating because the gate cannot see a 2.5.3 violation either (same
   bullet above).
   ★★ EVERY BUTTON IN THE ROW SUPPRESSES THE MOUSEDOWN DEFAULT: a control that takes focus on mousedown
-  blurs the contenteditable and destroys the selection the command applies to. It arrives two ways —
-  `ToggleButton` gained an OPT-IN `preventFocusSteal` prop for the twelve toggles, and the two plain
-  `Button`s hand-roll `onMouseDown` + `preventDefault`, a separate code path with its own assertion.
+  blurs the contenteditable and destroys the selection the command applies to. `ToggleButton` carries an
+  OPT-IN `preventFocusSteal` prop for its own 25 call sites; the rich-text toolbar's separate
+  `ToolbarButton` (`rich-text-toolbar-button.tsx`) carries the identical opt-in prop for all twelve
+  toggles PLUS Link/Unlink now — one mechanism, not the two hand-rolled ones (`ToggleButton` prop vs a
+  plain `Button`'s manual `onMouseDown`+`preventDefault`) this used to describe.
   ★★ OPT-IN IS LOAD-BEARING: 25 other `<ToggleButton` call sites across 14 files rely on native
   focus-on-click, so an unconditional guard would change every toggle in the app. Both branches are
   pinned in `toggle-button.test.tsx`. Re-derive the population, don't trust the number:

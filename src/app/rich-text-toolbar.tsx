@@ -194,7 +194,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   // `onUpdate`, which core gates on `docChanged` — so a caret MOVE changes what
   // every call below would return and nothing re-renders. Measured in jsdom
   // against a real editor: caret into an existing bold run left Bold at
-  // aria-pressed="false" with ToggleButton's title still reading "Currently off
+  // aria-pressed="false" with ToolbarButton's title still reading "Currently off
   // — click to turn on" (WCAG 4.1.2 — a screen-reader user is told bold is off,
   // presses Bold to turn it on, and turns it off), and caret into an <h2> left
   // the select on "Normal text".
