@@ -185,8 +185,11 @@ describe("NoteLogPanel", () => {
     // The reason labelSuffix exists: the floating notes window and the task
     // editor's panel can be mounted at once, so without it the two composer
     // mics announce identically and so do the two edit mics (WCAG 2.4.6).
-    // The mics were the only controls in this file that ignored the suffix,
-    // and the existing mic tests pass no suffix at all — so both of them match
+    // ★★ The mics and the EDITORS beside them are now named from one const
+    // each (`composerLabel` / `editLabel`). They were spelled separately and
+    // drifted — the mics carried the suffix, the two `RichTextEditor` `label`
+    // props did not — which is the defect the two-panel test below pins.
+    // The existing mic tests pass no suffix at all, so both of them match
     // identically with the suffix applied or dropped, and neither can observe
     // this. Asserting on the suffixed names is the only thing that can.
     setup({ labelSuffix: "Task ABC" });
@@ -197,11 +200,85 @@ describe("NoteLogPanel", () => {
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1 – Task ABC` }));
-    await screen.findByRole("textbox", { name: t(EN, "edit") });
+    // ★ The editor surface carries the suffix too now — it is named from the
+    //   same const as the mic. A bare `t(EN,"edit")` here would not resolve.
+    await screen.findByRole("textbox", { name: `${t(EN, "edit")} – Task ABC` });
     expect(
       screen.getByRole("button", {
         name: `${t(EN, "dictationHold")} – ${t(EN, "edit")} – Task ABC`,
       }),
     ).toBeTruthy();
+  });
+
+  // -------------------------------------------------------------------------
+  // Two panels mounted at once — the shape `labelSuffix` exists for
+  // -------------------------------------------------------------------------
+  //
+  // ★★★ THIS IS THE ONLY TEST THAT CAN SEE THE DEFECT. Every other case in this
+  // file mounts ONE panel, where "Write a note…" resolves whether or not the
+  // suffix is applied — the assertion passes for the wrong reason. The
+  // collision exists only with both surfaces in the DOM, and axe is
+  // structurally blind to a duplicate accessible name at any seed size.
+  //
+  // ★★ THE MOUNT IS THE PRODUCTION ONE, not a contrivance: `notes-window.tsx`
+  // deliberately passes NO `labelSuffix` (its `role="dialog"` aria-label
+  // already scopes it) while `use-notes-window.ts` REQUIRES one for the task
+  // editor's inline panel. So one-with / one-without is exactly how the two
+  // surfaces appear together, and it is the pairing that must stay distinct.
+  it("keeps two mounted panels apart — the editors carry the suffix, not just the mics", async () => {
+    const shared = {
+      entries: ENTRIES,
+      onAdd: vi.fn(),
+      onEdit: vi.fn(),
+      onDelete: vi.fn(),
+      self: 1,
+      resources: RESOURCES,
+      lang: EN,
+    };
+    render(
+      <>
+        {/* the floating notes window's shape */}
+        <NoteLogPanel {...shared} />
+        {/* the task editor's inline panel */}
+        <NoteLogPanel {...shared} labelSuffix="Task ABC" />
+      </>,
+    );
+
+    // Both composers are live at once…
+    const composers = await screen.findAllByRole("textbox", {
+      name: new RegExp(t(EN, "noteLogPlaceholder")),
+    });
+    expect(composers).toHaveLength(2);
+    // …and each resolves UNIQUELY by name, which is the whole property.
+    const bareComposer = screen.getByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
+    const suffixedComposer = screen.getByRole("textbox", {
+      name: `${t(EN, "noteLogPlaceholder")} – Task ABC`,
+    });
+    expect(bareComposer).not.toBe(suffixedComposer);
+
+    // The toolbars ride the same names, so the group naming from the previous
+    // commit disambiguates here too rather than producing two identical groups.
+    expect(screen.getByRole("group", { name: t(EN, "noteLogPlaceholder") })).toBeTruthy();
+    expect(
+      screen.getByRole("group", { name: `${t(EN, "noteLogPlaceholder")} – Task ABC` }),
+    ).toBeTruthy();
+
+    // Now the entry editors — the second of the two `label` props.
+    fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1` }));
+    fireEvent.click(screen.getByRole("button", { name: `${t(EN, "edit")} – #1 – Task ABC` }));
+    const bareEditor = await screen.findByRole("textbox", { name: t(EN, "edit") });
+    const suffixedEditor = await screen.findByRole("textbox", {
+      name: `${t(EN, "edit")} – Task ABC`,
+    });
+    expect(bareEditor).not.toBe(suffixedEditor);
+
+    // All four editable surfaces announce differently. Assert the SET, not the
+    // count: four editors could carry two names each and every `not.toBe`
+    // above would still hold.
+    const names = screen
+      .getAllByRole("textbox")
+      .map((el) => el.getAttribute("aria-label"));
+    expect(names).toHaveLength(4);
+    expect(new Set(names).size).toBe(4);
   });
 });

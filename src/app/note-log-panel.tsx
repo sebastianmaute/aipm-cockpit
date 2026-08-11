@@ -62,6 +62,12 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
   const { entry, editing, self, resources, tz, lang, labelSuffix, dictation } = props;
   const canEdit = canEditNote(entry, self);
   const suffix = labelSuffix ? ` – ${labelSuffix}` : "";
+  // ★★ ONE expression for the mic AND the editor beside it. They were spelled
+  // separately and drifted: the mic carried the suffix, the editor did not, so
+  // with two panels mounted both edit surfaces — and both of their toolbars,
+  // which take this same string — announced identically (WCAG 2.4.6). Naming
+  // them from one const is what stops that recurring.
+  const editLabel = `${t(lang, "edit")}${suffix}`;
   const editEditorRef = useRef<RichTextEditorHandle>(null);
   // The editor owns its own content; append through the handle rather than
   // re-feeding `value`, which Tiptap binds only at mount (see rich-text-editor.tsx).
@@ -73,7 +79,7 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
     // NoteLogPanels can be mounted at once (the floating notes window and the
     // one inside the task editor), and without it both mics announce
     // identically — WCAG 2.4.6.
-    label: `${t(lang, "edit")}${suffix}`,
+    label: editLabel,
     onAppendFinal: (txt) => editEditorRef.current?.appendText(txt),
   });
 
@@ -102,7 +108,7 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
               onChange={props.onChangeEditHtml}
               onCommit={() => props.onCommitEdit(entry.id)}
               commitOnEnter
-              label={t(lang, "edit")}
+              label={editLabel}
               lang={lang}
               editorRef={editEditorRef}
             />
@@ -172,6 +178,9 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
 
   const tz = browserTimeZone();
   const { settings } = useSettings();
+  const composerLabel = labelSuffix
+    ? `${t(lang, "noteLogPlaceholder")} – ${labelSuffix}`
+    : t(lang, "noteLogPlaceholder");
   const composerEditorRef = useRef<RichTextEditorHandle>(null);
   // Appended through the imperative handle rather than re-feeding `value` —
   // Tiptap binds `content` only at mount, and Web Speech fires `onFinal`
@@ -184,9 +193,9 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
     // Qualified for the same reason the Add button below is: with both the
     // floating notes window and the task editor's panel open, two composer mics
     // are in the DOM at once and would otherwise share one name (WCAG 2.4.6).
-    label: labelSuffix
-      ? `${t(lang, "noteLogPlaceholder")} – ${labelSuffix}`
-      : t(lang, "noteLogPlaceholder"),
+    // ★★ ONE expression for the mic AND the composer beside it — see
+    // `editLabel` in NoteEntryRow for what a second spelling of this cost.
+    label: composerLabel,
     onAppendFinal: (txt) => composerEditorRef.current?.appendText(txt),
   });
 
@@ -230,7 +239,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             onChange={setComposerHtml}
             onCommit={handleAdd}
             commitOnEnter
-            label={t(lang, "noteLogPlaceholder")}
+            label={composerLabel}
             lang={lang}
             editorRef={composerEditorRef}
           />
