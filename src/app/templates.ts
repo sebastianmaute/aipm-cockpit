@@ -145,14 +145,23 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     // `notes` must fall back to the notes, and `??` only catches null/undefined.
     // ★★ The sink is the DESTINATION field's, never this file's. The value lands
     // in `Task.description`, whose human save AND whose whole-object load
-    // normalizer (`sanitizeRichFields`, note-log.ts) both run sanitizeNoteHtml —
-    // 8 tags at KEEP_CONTENT: false, which deletes an unlisted element TOGETHER
-    // WITH its text. Measured 2026-08-10 through the real exported sanitizers,
-    // on "<h2>Plan</h2><p>steps</p>" captured by templateFromWorkspace:
+    // normalizer (`sanitizeRichFields`, note-log.ts) both run `sanitizeRichHtml`
+    // — the same 21-tag list "rich" classifies against, so classifier and sink
+    // agree by construction and a captured heading survives as live markup.
+    // ★★★ THAT AGREEMENT IS WHAT MAKES IT SAFE, NOT THE SINK NAME. Until §137
+    // closed, both of those ran `sanitizeNoteHtml` — 8 tags at KEEP_CONTENT:
+    // false, which deleted an unlisted element TOGETHER WITH its text — and the
+    // right answer here was to classify NARROWLY so the value stored ESCAPED and
+    // had no live element to delete. Measured 2026-08-10, on
+    // "<h2>Plan</h2><p>steps</p>" captured by templateFromWorkspace:
     //   "template" stored: "<h2>Plan</h2><p>steps</p>" -> human Save: "<p>steps</p>"
     //                                                     "Plan" GONE, no undo
     //   "note"     stored: escaped markup               -> human Save: unchanged
-    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, "note"),
+    // Re-measured 2026-08-11 with one sanitizer: stored "<h2>Plan</h2><p>steps</p>"
+    // -> human Save BYTE-IDENTICAL. The heading is now kept as a heading rather
+    // than preserved as escaped text. Do not "restore" a narrower sink here — a
+    // classifier narrower than its sink escapes the whole value (§107).
+    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, "rich"),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

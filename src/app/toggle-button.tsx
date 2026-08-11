@@ -64,6 +64,18 @@ interface ToggleButtonProps {
   /** id of the region this trigger reveals. Required (and meaningful) only
    *  when `variant="disclosure"`. */
   ariaControls?: string;
+  /** ★★ Suppresses the mousedown default so the button never takes focus, for
+   *  a toggle that acts on ANOTHER element's selection — the rich-text toolbar,
+   *  where focusing the chip blurs the contenteditable and destroys the
+   *  selection every command reads, and where the commit-on-blur consumers
+   *  remount the editor between mousedown and mouseup so no click is ever
+   *  dispatched.
+   *  ★★★ OPT-IN, and it must stay opt-in. Taking focus on click is the NATIVE
+   *  button behaviour and the right default for every other consumer (gantt View
+   *  menu, settings rows, dashboard chips): a mouse user who clicks and then
+   *  presses Space would otherwise re-fire whatever held focus before. Do not
+   *  promote this to unconditional to save a prop at one call site. */
+  preventFocusSteal?: boolean;
 }
 
 export function ToggleButton({
@@ -80,6 +92,7 @@ export function ToggleButton({
   className,
   variant = "toggle",
   ariaControls,
+  preventFocusSteal,
 }: ToggleButtonProps) {
   // ★★ STATE IN THE TOOLTIP. The visible label is PINNED to what pressed=true
   //    enables, so it cannot say which state is live. The tooltip says it in
@@ -112,6 +125,7 @@ export function ToggleButton({
     <button
       type="button"
       onClick={onToggle}
+      onMouseDown={preventFocusSteal ? (e) => e.preventDefault() : undefined}
       {...(variant === "disclosure"
         ? { "aria-expanded": pressed, "aria-controls": ariaControls }
         : { "aria-pressed": pressed })}

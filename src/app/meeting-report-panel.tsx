@@ -8,7 +8,7 @@ import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import { htmlToPlainText } from "./html-to-text";
 import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
@@ -19,21 +19,6 @@ const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.
   ssr: false,
   loading: () => <div className="min-h-40 rounded-md border border-line bg-surface-muted" />,
 });
-
-function rteLabels(lang: Lang) {
-  return {
-    bold: t(lang, "commTplBold"),
-    italic: t(lang, "commTplItalic"),
-    underline: t(lang, "commTplUnderline"),
-    heading1: t(lang, "commTplHeading1"),
-    heading2: t(lang, "commTplHeading2"),
-    bulletList: t(lang, "commTplBulletList"),
-    numberedList: t(lang, "commTplNumberedList"),
-    link: t(lang, "commTplLink"),
-    unlink: t(lang, "commTplUnlink"),
-    linkPrompt: t(lang, "commTplLinkPrompt"),
-  };
-}
 
 /** UI-facing subset of a stored MeetingReportVersion (Slice 3). */
 export interface MeetingReportVersionUi {
@@ -143,16 +128,14 @@ export function MeetingReportPanel({
         <div
           className="min-h-40 rounded-md border border-line bg-surface p-3 text-sm"
           // Body is sanitized at write time; re-sanitize on render (defense-in-depth).
-          dangerouslySetInnerHTML={{ __html: sanitizeTemplateHtml(report?.html ?? "") }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(report?.html ?? "") }}
         />
       ) : (
         <RichTextEditor
           value={draft}
           onChange={setDraft}
           label={t(lang, "reportBody")}
-          mergeFields={[]}
-          fieldLabel={(f) => f}
-          labels={rteLabels(lang)}
+          lang={lang}
         />
       )}
 

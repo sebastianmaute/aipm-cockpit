@@ -56,12 +56,17 @@ describe("NarrativeSummary", () => {
   });
 
   // ★★ End-to-end for the vanished-narrative defect, through the REAL pipeline
-  // (narrativeToHtml -> sanitizeNoteHtml -> RichTextView). These tags were treated
-  // as ready-to-render HTML while the sink strips them WITH their text
-  // (KEEP_CONTENT false), so the stored words were simply deleted on screen:
-  // the h1 case rendered "All good" alone, the div and blockquote cases rendered
-  // an empty card. Reachable by anyone who pasted HTML into the old plain textarea
-  // to fake formatting — where it used to show as visible literal text.
+  // (narrativeToHtml -> sanitizeRichHtml -> RichTextView). These tags were treated
+  // as ready-to-render HTML while the sink stripped them WITH their text
+  // (the retired sanitizeNoteHtml ran KEEP_CONTENT: false), so the stored words
+  // were simply deleted on screen: the h1 case rendered "All good" alone, the div
+  // and blockquote cases rendered an empty card. Reachable by anyone who pasted
+  // HTML into the old plain textarea to fake formatting.
+  // ★★ THE ASSERTION IS UNCHANGED AND THE ROUTE UNDERNEATH IT IS NOT — the test
+  // pins that the WORDS are visible, never how. h1/h3/blockquote are on
+  // RICH_ALLOWED_TAGS now, so those three survive as real markup; div is not, so
+  // narrativeToHtml still escapes that value whole and the words show as text.
+  // Both routes satisfy this test, which is the point of asserting on the words.
   it.each([
     ["<h1>Q3 status</h1><p>All good</p>", ["Q3 status", "All good"]],
     ["<div>Status text</div>", ["Status text"]],
@@ -73,15 +78,22 @@ describe("NarrativeSummary", () => {
   });
 
   // The other half: a value that DOES open with a recognised tag but sanitises to
-  // nothing. `<u>` is not in the note allow-list and KEEP_CONTENT is false, so a
-  // Word/Outlook paste collapses to `<p></p>`. Judging emptiness on the stored
-  // value called this non-empty and rendered a card holding nothing but the
-  // "Updated <date>" line — a blank status card with a timestamp.
+  // nothing. Judging emptiness on the stored value called this non-empty and
+  // rendered a card holding nothing but the "Updated <date>" line — a blank status
+  // card with a timestamp.
+  // ★★★ THE FIXTURE CHANGED AND THE PROPERTY DID NOT. It was
+  // "<p><u>underlined only</u></p>", a Word/Outlook paste that collapsed to
+  // "<p></p>" because `sanitizeNoteHtml` omitted `u` AND ran KEEP_CONTENT: false.
+  // `u` is on RICH_ALLOWED_TAGS now and that value renders in full — measured, as
+  // a real failure of this test before it was re-aimed. An element carrying no
+  // text of its own is what still empties a wrapper: measured 2026-08-11,
+  // sanitizeRichHtml("<p><script>x</script></p>") === "<p></p>", isNarrativeEmpty
+  // true. The divergence between stored and sanitised is narrower now, not gone.
   it("renders nothing when the narrative sanitises away to nothing", () => {
     const { container } = render(
       <NarrativeSummary
         lang="en-US"
-        status={{ narrative: "<p><u>underlined only</u></p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }}
+        status={{ narrative: "<p><script>x</script></p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }}
       />,
     );
     expect(container.firstChild).toBeNull();
@@ -107,6 +119,11 @@ function EditorHost({ initial = "", externalNarrative }: { initial?: string; ext
   );
 }
 
+// ★★ The surface is queried BY ROLE, not by label text. `RichTextEditor`'s
+// `label` names two elements — the contenteditable AND the toolbar's
+// `role="group"` wrapper, which is what tells its fifteen repeated control
+// names apart when a form mounts several editors (rich-text-toolbar.tsx). A
+// label-text query matches both and throws "Found multiple elements".
 describe("NarrativeEditor", () => {
   it("renders the editor inside a foldable details with the Status summary label", () => {
     render(<EditorHost />);
@@ -117,7 +134,7 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    expect(await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"))).toBeTruthy();
+    expect(await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") })).toBeTruthy();
     expect(screen.getByRole("button", { name: /bold/i })).toBeTruthy();
   });
 
@@ -125,7 +142,7 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost initial="Legacy plain note" />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toContain("Legacy plain note");
   });
 
@@ -143,10 +160,10 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost initial="<p>Something</p>" />);
     await user.click(screen.getByText("Status summary"));
-    const before = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const before = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(before.textContent).toContain("Something");
     await user.click(screen.getByRole("button", { name: /clear/i }));
-    const surface = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toBe("");
     expect(screen.getByTestId("stored").textContent).toBe("");
     expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
@@ -159,7 +176,7 @@ describe("NarrativeEditor", () => {
     render(<EditorHost initial="<p>Something</p>" />);
     await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /clear/i }));
-    const surface = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("X");
     // Blur out of the editor: commit-on-blur stores the draft.
@@ -174,22 +191,27 @@ describe("NarrativeEditor", () => {
     render(<EditorHost externalNarrative="<p>External status from reload</p>" />);
     await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /external reload/i }));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(surface.textContent).toContain("External status from reload");
   });
 
-  // End-to-end for the sanitizer/input-rule defect: "# " used to become an <h1>
-  // that the note sanitizer dropped content and all, so the commit stored "",
-  // Save stayed disabled (`unchanged`) and the text was silently never saved.
+  // ★ This used to assert the OPPOSITE: on the retired "lean" variant, the
+  // heading input rule was switched off (see rich-text-editor.tsx:39) precisely
+  // so "# " stayed literal text, working around the old note sanitizer's
+  // KEEP_CONTENT:false dropping an unlisted element's content wholesale. There
+  // is one editor now, markdown input rules are deliberately back on, and every
+  // surface sanitizes with sanitizeRichHtml's default KEEP_CONTENT (unwrap, keep
+  // the words) — so "# " now safely becomes a real heading and the assertion is
+  // inverted to match.
   it("stores a narrative typed with a markdown '# ' shortcut", async () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("# Q3 highlights");
     await user.click(screen.getByText("Status summary")); // blur -> commit
-    expect(screen.getByTestId("stored").textContent).toContain("# Q3 highlights");
+    expect(screen.getByTestId("stored").textContent).toContain("<h1>Q3 highlights</h1>");
   });
 
   // The toolbar was dead: mousedown on Bold blurred the editor -> committed ->
@@ -200,12 +222,12 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("hello world");
     await user.keyboard("{Control>}a{/Control}");
     await user.click(screen.getByRole("button", { name: /bold/i }));
-    const after = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const after = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(after).toBe(surface); // same node: the editor was NOT remounted
     expect(after.querySelector("strong")?.textContent).toBe("hello world");
   });
@@ -214,12 +236,12 @@ describe("NarrativeEditor", () => {
     const user = userEvent.setup();
     render(<EditorHost />);
     await user.click(screen.getByText("Status summary"));
-    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("committed text");
     // Blur out of the editor: commit-on-blur fires and stores the draft.
     await user.click(screen.getByText("Status summary"));
-    const after = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    const after = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     expect(after).toBe(surface);
     expect(after.textContent).toContain("committed text");
   });

@@ -242,8 +242,8 @@ describe("RaidEditModal — rich-text description and mitigation (slice B)", () 
     // one. Identical for anything reachable today, because every load goes
     // through sanitizeRichText and the editor only emits "<p>…". They diverge
     // wherever descriptionHtml is NOT the identity — a legacy plain value, which
-    // the "template" sink's isHtmlStart test rejects (no `b` on
-    // TEMPLATE_ALLOWED_TAGS), so plainToHtml escapes its angle brackets and every
+    // the "rich" sink's isHtmlStart test rejects (no `b` on
+    // RICH_ALLOWED_TAGS — the list has `strong`, not `b`), so plainToHtml escapes its angle brackets and every
     // "<b>" becomes three VISIBLE characters instead of a stripped inline tag.
     //
     // ★★ Both fixtures have to be NEAR THE CAP. CharCounter renders a hidden

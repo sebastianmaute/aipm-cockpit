@@ -2,7 +2,7 @@
 //
 // "Is this stored value already HTML?" — one classifier per SINK.
 //
-// ★★★ THE RULE: never recognise more than your own sink KEEPS. A classifier
+// ★★★ THE RULE: never recognise LESS than your own sink KEEPS. A classifier
 // narrower than its sink escapes a value the sink would have kept, and the escape
 // covers the WHOLE value, permanently (open-followups §107 / §114). A concrete
 // case of that direction: an imported or hand-edited value opening
@@ -10,30 +10,54 @@
 // (it always emits a block wrapper) but a workspace can perfectly well store —
 // used to be classified as plain text and escaped into literal `&lt;strong&gt;`.
 // That is why a sink's list carries its INLINE members too, not just its block
-// ones. A classifier WIDER than its sink is worse where the sink deletes:
-// sanitizeNoteHtml sets KEEP_CONTENT: false, so recognising a tag it strips
-// removes the element AND its text — a bug already shipped and fixed once, where
-// "<h1>Q3</h1><p>ok</p>" rendered as just "ok" and "<div>Status</div>" rendered
-// as nothing.
+// ones. ★ An earlier revision of this line opened "never recognise MORE", which
+// inverts it — while the two back-references further down this file and AGENTS.md
+// all state it the way it is stated here.
 //
-// One shared constant cannot express that rule for five sinks, which is why four
+// ★★ Recognising MORE is the other half of the rule, and it USED to be the worse
+// half: it is only costly where a sink DELETES instead of unwrapping, and the
+// retired `sanitizeNoteHtml` set `KEEP_CONTENT: false`, so recognising a tag it
+// stripped removed the element AND its text — a bug shipped and fixed once, where
+// "<h1>Q3</h1><p>ok</p>" rendered as just "ok" and "<div>Status</div>" rendered as
+// nothing. ★★★ NO SINK DELETES ANY MORE. Both remaining sanitizers run DOMPurify's
+// KEEP_CONTENT default, so over-recognising now costs formatting rather than
+// words, and that asymmetry is what let the former "note" and "template" members
+// merge into the single "rich" sink below: two lists over one question only ever
+// cost anything because the narrower of them fed a deleting sanitizer (§137).
+// ★★ Do not read "no sink deletes" as licence to widen a classifier freely — the
+// "projection" member below documents a real over-recognition cost (§32) that has
+// nothing to do with KEEP_CONTENT. Read the rule against a sink's own behaviour,
+// never against which members happen to be listed here.
+//
+// One shared constant cannot express that rule for four sinks, which is why three
 // of the regexes are DERIVED from their own sink's allow-list rather than
-// hand-mirrored. The fifth, "render", has no allow-list to derive from — see the
+// hand-mirrored. The fourth, "render", has no allow-list to derive from — see the
 // note on its SINK_RE member.
 //
 // ★★ DOM-FREE. This module runs inside the entity sanitizers, which execute under
 // bare node in scripts/generate-sample-workspace.ts. It imports tag arrays from
 // sanitize-html.ts and calls nothing there — importing is safe, only a DOMPurify
 // CALL needs a DOM.
-import {
-  DOCUMENT_ALLOWED_TAGS,
-  NOTE_ALLOWED_TAGS,
-  TEMPLATE_ALLOWED_TAGS,
-} from "./sanitize-html";
+import { DOCUMENT_ALLOWED_TAGS, RICH_ALLOWED_TAGS } from "./sanitize-html";
 
-/** A real HTML tag name. Used to drop "#text", which is a DOMPurify allow-list
- *  member but not a tag, and would otherwise enter the alternation as literal
- *  "#text". */
+/** A real HTML tag name — the filter that keeps a non-tag out of the alternation.
+ *
+ *  ★★ ITS MOTIVATING INPUT IS NO LONGER REACHABLE FROM ANY CURRENT SINK, and this
+ *  docstring asserted otherwise ("#text, which is a DOMPurify allow-list member")
+ *  until §137 landed. `#text` lived on `NOTE_ALLOWED_TAGS` alone, and that array
+ *  was DELETED with the narrow sanitizer; every member of every `SINK_TAGS` array
+ *  today is a valid tag name, so the filter drops nothing on any live path.
+ *  Verify rather than trust this sentence:
+ *  `node -e "console.log(/['\"]#text['\"]/.test(require('fs').readFileSync('src/app/sanitize-html.ts','utf8')))"`
+ *  -> false.
+ *  ★★ KEEP IT ANYWAY, and not merely out of caution: the alternation is built by
+ *  string concatenation, so ANY non-tag member — a `#`-prefixed DOMPurify
+ *  pseudo-entry, a stray `|`, a name with a regex metacharacter — would either
+ *  corrupt the pattern or match text that is not markup. The filter is what makes
+ *  `htmlStartRe` safe to call with an arbitrary list, which is exactly what its
+ *  exported signature invites. `html-start.test.ts` still exercises the drop with
+ *  an explicit `["p", "#text"]`, so the guard is pinned even though production
+ *  cannot reach it. */
 const TAG_NAME = /^[a-z][a-z0-9]*$/;
 
 /** Never matches anything. Returned when no valid tag name survives the filter —
@@ -41,15 +65,36 @@ const TAG_NAME = /^[a-z][a-z0-9]*$/;
  *  by any word character (e.g. "<b>", "<div>") and turns every such stray angle
  *  bracket into "this is HTML". Measured: it does NOT match a bare "<>" — `\b`
  *  needs a word character on at least one side, and there is none between "<"
- *  and ">". */
+ *  and ">".
+ *
+ *  ★★ UNREACHABLE FROM ANY CURRENT SINK, for the same reason as TAG_NAME above:
+ *  with `#text` gone every `SINK_TAGS` member passes the filter, so no live list
+ *  can empty. It stays because it guards `htmlStartRe`'s EXPORTED contract, not a
+ *  sink — and the failure it prevents is the loudest one this module has, since
+ *  the degenerate regex says "already HTML" to almost everything and every such
+ *  value would then be stored raw. `html-start.test.ts` reaches it directly with
+ *  `htmlStartRe(["#text"])`. */
 const NEVER = /(?!)/;
 
 /** Matches a well-formed opening tag ANYWHERE in the value — the classifier for
- *  the "render" sink, and deliberately UNANCHORED where the four derived ones
- *  are anchored at the start. Named for what it tests: it answers "does this
- *  CONTAIN a tag?", not "does this START with one?". See the SINK_RE member for
- *  why that is the right question there, and `isHtmlStart` for why one function
- *  asks two. */
+ *  the "render" sink, and deliberately UNANCHORED where the THREE derived ones
+ *  are anchored at the start. (This line said "four" — there are four SINKS and
+ *  three DERIVED regexes; `SINK_TAGS` is the count that settles it.) Named for
+ *  what it tests: it answers "does this CONTAIN a tag?", not "does this START
+ *  with one?". See the SINK_RE member for why that is the right question there,
+ *  and `isHtmlStart` for why one function asks two.
+ *
+ *  ★★ Its `/i` flag is REPO-WIDE UNPINNED, measured 2026-08-11: dropping it
+ *  leaves the files that own this sink and its three consumers fully green
+ *  (226 passed, exit 0), and the mutant is NOT equivalent — "Intro
+ *  <STRONG>bold</STRONG> tail" classifies `true` with the flag and `false`
+ *  without, so UPPERCASE legacy markup would be escaped into Word, PowerPoint,
+ *  the HTML preview and the PDF. Re-derive the count rather than trust it — an
+ *  earlier revision said 215 and named no files:
+ *    npx vitest run src/app/html-start.test.ts src/app/rich-text-plain.test.ts \
+ *      src/app/rich-text-plain.property.test.ts src/app/doc-render-docx.test.ts \
+ *      src/app/doc-render-html.test.ts src/app/doc-render-pptx.test.ts
+ *  Pre-existing; open-followups §141(d). */
 const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
 
 /** Build the "already HTML?" test for one allow-list.
@@ -68,10 +113,15 @@ const CONTAINS_TAG = /<[a-z][a-z0-9]*\b[^>]*>/i;
  *  an UNLISTED tag that shares a listed one's prefix: without it, the `s`
  *  alternative matches the leading "s" of "<script>", "<section>" or
  *  "<summary>" and `[^>]*>` swallows the rest of the name as if it were
- *  attributes — misclassifying each as already-HTML. Since `s` is a member of
- *  DOCUMENT_ALLOWED_TAGS, dropping `\b` would make the document and projection
- *  sinks treat a value starting "<script...>" as already-HTML. Measured, not
- *  reasoned — see the "does not let a short tag swallow" test below.
+ *  attributes — misclassifying each as already-HTML. `s` is a member of
+ *  RICH_ALLOWED_TAGS, and DOCUMENT_ALLOWED_TAGS spreads that array, so dropping
+ *  `\b` would make ALL THREE derived sinks — rich, document AND projection —
+ *  treat a value starting "<script...>" as already-HTML. ★★ "rich" is the one
+ *  that matters most: it is the STORAGE classifier for the seven rich entity
+ *  fields, so a reader asking "is the rich storage path exposed?" must read this
+ *  as YES. (It said "the document and projection sinks" while `s` lived only on
+ *  DOCUMENT_ALLOWED_TAGS, and the sentence outlived that fact by one commit.)
+ *  Measured, not reasoned — see the "does not let a short tag swallow" test below.
  *
  *  ★ "<strongish>" belongs to the same class but reaches it by a DIFFERENT
  *  alternative, and an earlier revision listed it beside the three above as if
@@ -104,7 +154,17 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
   return new RegExp(`^\\s*<(${names.join("|")})\\b[^>]*>`, "i");
 }
 
-/** The four sinks whose classifier is DERIVED from an allow-list.
+/** The three sinks whose classifier is DERIVED from an allow-list.
+ *
+ *  ★★ "rich" is the ONE storage classifier for every rich surface except
+ *  documents — the seven rich entity fields (`Task.description` plus the six in
+ *  `AI_RICH_FIELDS`), note-log entries, the dashboard narrative, comm templates and
+ *  meeting reports. It replaced two members, "note" (8 tag names) and "template"
+ *  (11), which asked one question and answered it differently; because the narrow
+ *  one fed a KEEP_CONTENT:false sanitizer, the disagreement cost words on every
+ *  JSON and IndexedDB load with no human and no save involved (open-followups
+ *  §137). Do not reintroduce a second lean member: a surface that needs less
+ *  markup should render less, not classify differently.
  *
  *  ★★★ "projection" is NOT a sink — descriptionText/descriptionTextWithBreaks
  *  strip every tag, so THE RULE above (never recognise less than your sink keeps)
@@ -119,9 +179,12 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
  *      fragment along with its angle brackets. Measured 2026-08-10 through the
  *      real descriptionText: "<mark> means highlight in this project" projects
  *      to "means highlight in this project" — the opening fragment DROPPED.
- *      Widening from 8 tag names to 20 widened that surface: `code`,
- *      `blockquote`, `s` and `h1` all behave the same way now, while "<table>
- *      layouts are deprecated" is untouched because `table` is not on the list.
+ *      Widening from the 8 tag names the old "note" list carried to the 22 this
+ *      one does widened that surface: `code`, `blockquote`, `s` and `h1` all
+ *      behave the same way now, while "<table> layouts are deprecated" is
+ *      untouched because `table` is not on the list. (The count was 20 before
+ *      DOCUMENT_ALLOWED_TAGS began deriving from RICH_ALLOWED_TAGS and gained
+ *      `h3`/`h4`.)
  *
  *  We take that trade deliberately: under-recognising is the commoner and far
  *  louder failure (an AI-authored heading is real markup a workspace stores every
@@ -130,22 +193,20 @@ export function htmlStartRe(tags: readonly string[]): RegExp {
  *
  *  It is a distinct member from "document" even though the lists are equal today,
  *  so a reader sees WHY it is widest. */
-export type DerivedSink = "note" | "template" | "document" | "projection";
+export type DerivedSink = "rich" | "document" | "projection";
 
 /** Which sink the classified value is on its way to. "render" is the one member
  *  with no allow-list behind it — see its SINK_RE entry. */
 export type RichTextSink = DerivedSink | "render";
 
 export const SINK_TAGS: Record<DerivedSink, readonly string[]> = {
-  note: NOTE_ALLOWED_TAGS,
-  template: TEMPLATE_ALLOWED_TAGS,
+  rich: RICH_ALLOWED_TAGS,
   document: DOCUMENT_ALLOWED_TAGS,
   projection: DOCUMENT_ALLOWED_TAGS,
 };
 
 const SINK_RE: Record<RichTextSink, RegExp> = {
-  note: htmlStartRe(SINK_TAGS.note),
-  template: htmlStartRe(SINK_TAGS.template),
+  rich: htmlStartRe(SINK_TAGS.rich),
   document: htmlStartRe(SINK_TAGS.document),
   projection: htmlStartRe(SINK_TAGS.projection),
 
@@ -160,9 +221,12 @@ const SINK_RE: Record<RichTextSink, RegExp> = {
    *
    *  Deriving it from a list is strictly WORSE than the sink's own fallback,
    *  because the miss escapes the WHOLE value where the sink would merely have
-   *  unwrapped one tag. Measured on the "document" sink: "<h3>Sub</h3>"
-   *  rendered as "Sub" before and as "<p>&lt;h3&gt;Sub&lt;/h3&gt;</p>" after,
-   *  and "<div>Status</div>" and a stored <table> went the same way. The
+   *  unwrapped one tag. Measured on the "document" sink: "<div>Status</div>"
+   *  rendered as "Status" before and as "<p>&lt;div&gt;Status&lt;/div&gt;</p>"
+   *  after, and a stored <table> went the same way. ★ That measurement's third
+   *  case was "<h3>Sub</h3>"; h3 joined the document list when it began deriving
+   *  from RICH_ALLOWED_TAGS, so that value IS recognised there now and is no
+   *  longer an instance of the miss — the two that remain are unaffected. The
    *  upgrade itself is still needed here — that is open-followups §118, where a
    *  legacy plain "a\nb" fused into one run-on line — so the answer is not to
    *  drop the classifier but to ask the other question: "is this plain text at
@@ -208,7 +272,7 @@ const SINK_RE: Record<RichTextSink, RegExp> = {
 /** True when `value` is already HTML for `sink`.
  *
  *  ★★★ THE NAME IS ONLY HALF TRUE, because this asks TWO questions. For the
- *  four DERIVED sinks it is "does `value` START with a tag this sink keeps?" —
+ *  three DERIVED sinks it is "does `value` START with a tag this sink keeps?" —
  *  a STORAGE question, where a NO escapes the whole value and that escaped form
  *  is what gets persisted, so a mid-sentence "<" is read conservatively. For
  *  "render" it is "does `value` CONTAIN any tag at all?" — a RENDER question,

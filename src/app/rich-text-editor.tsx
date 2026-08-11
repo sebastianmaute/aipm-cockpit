@@ -3,14 +3,16 @@ import { useEffect, useImperativeHandle, useRef } from "react";
 import type { Ref } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Highlight from "@tiptap/extension-highlight";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
 import type { Editor } from "@tiptap/react";
-import { sanitizeTemplateHtml, sanitizeNoteHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import { readCspNonce } from "./csp-nonce";
 import { isSafeHttpUrl } from "./document-link";
 import { Button } from "./button";
+import { RichTextToolbar } from "./rich-text-toolbar";
 import { t, type Lang } from "./i18n";
-
-export type RichTextEditorVariant = "full" | "lean";
 
 export interface RichTextEditorHandle {
   /** Insert plain text at the caret. Used by the dictation mic — the editor
@@ -18,106 +20,55 @@ export interface RichTextEditorHandle {
   appendText(text: string): void;
 }
 
-export interface RichTextEditorLabels {
-  bold: string;
-  italic: string;
-  underline: string;
-  heading1: string;
-  heading2: string;
-  bulletList: string;
-  numberedList: string;
-  link: string;
-  unlink: string;
-  linkPrompt: string;
-}
-
 export interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   label: string;
-  /** "full" (default) = full toolbar + merge fields + template sanitizer;
-   *  "lean" = Bold/Italic/lists/link only + note sanitizer. */
-  variant?: RichTextEditorVariant;
-  /** lean: plain Enter commits instead of splitting the paragraph. */
+  /** Plain Enter commits instead of splitting the paragraph. */
   commitOnEnter?: boolean;
   onCommit?: () => void;
-  /** required for the lean variant (drives its i18n toolbar labels + link prompt). */
-  lang?: Lang;
-  /** full-variant only (omitted by lean callers). */
+  /** Drives the toolbar labels and the link prompt. */
+  lang: Lang;
+  /** Comm templates only: `{{token}}` chips rendered under the toolbar. */
   mergeFields?: readonly string[];
   fieldLabel?: (field: string) => string;
-  labels?: RichTextEditorLabels;
   /** Imperative handle for appending dictated text (React 19 ref-as-prop). */
   editorRef?: Ref<RichTextEditorHandle>;
 }
 
-// ★★ The LEAN variant sanitizes with `sanitizeNoteHtml`, whose allow-list has no
-// h1-h6 / blockquote / pre / code / s / hr AND which drops a disallowed node's
-// TEXT with it (KEEP_CONTENT: false). StarterKit's markdown input rules produce
-// exactly those nodes from "# ", "> ", "```", "`x`", "~~x~~" and "--- ", so the
-// keystroke left the formatting on screen while the committed value silently lost
-// it: a whole block collapsed to "" for the block rules (typing "# Q3 highlights"
-// stored nothing at all — no error, no toast, and for the dashboard narrative
-// Save stayed disabled because `unchanged` was then true), and the marked WORD
-// vanished for the inline ones ("ship `staging` now" -> "ship  now").
-// Disabling the extensions removes the input rules at the source, so the markdown
-// punctuation now stays literal text. This is deliberately NOT a widening of
-// NOTE_ALLOWED_TAGS: that list is security-relevant and widening it would also
-// change how already-stored note HTML renders, whereas dropping an input rule
-// cannot touch stored data. It also matches the lean toolbar, which offers
-// Bold/Italic/lists/link and nothing else — a mark with no visible control should
-// not be creatable by an invisible keystroke either.
-// The FULL variant is untouched: it has heading toolbar buttons, its sanitizer
-// allows h1/h2, and it keeps the text of anything it unwraps (KEEP_CONTENT).
-// ★★ `underline` belongs to the same family and was MISSED when the others were
-// disabled: StarterKit bundles it, NOTE_ALLOWED_TAGS has no `u`, so Mod-U left
-// the underline on screen while the commit deleted the underlined word
-// ("<u>under</u> tail" -> " tail"). It is the only one of the set reachable
-// ONLY by keystroke — no lean toolbar button and no markdown input rule — which
-// is why a sweep of the input rules did not surface it.
-const LEAN_EXTENSIONS = [
-  StarterKit.configure({
-    heading: false,
-    blockquote: false,
-    codeBlock: false,
-    code: false,
-    strike: false,
-    horizontalRule: false,
-    underline: false,
-  }),
+// ★★ THE MARKDOWN INPUT RULES ARE DELIBERATELY ON. Seven StarterKit extensions
+// used to be switched off here — heading, blockquote, the code block, inline
+// code, strike, the horizontal rule and underline — because the lean surfaces
+// sanitized with the retired 8-tag note sanitizer, which ran DOMPurify at
+// KEEP_CONTENT:false: it DELETED an unlisted element together with its text. The
+// input rules produce exactly those nodes from "# ", "> ", "```", "`x`", "~~x~~"
+// and "--- ", so the keystroke left the formatting on screen while the committed
+// value silently lost it — typing "# Q3 highlights" stored nothing at all (no
+// error, no toast, and for the dashboard narrative Save stayed disabled because
+// `unchanged` was then true). Underline was the same family, reachable only by
+// Mod-U since no lean toolbar button offered it.
+// Both reasons are gone: every surface now sanitizes with `sanitizeRichHtml` at
+// DOMPurify's DEFAULT KEEP_CONTENT (unwrap an unlisted tag, keep its words), and
+// this one toolbar carries a visible control for each of those seven bar the
+// horizontal rule — so no mark is creatable by an invisible keystroke any more.
+// ★ Headings are pinned to 1-4 because the extension's own default is 1-6, which
+// would let "##### " build an h5 that RICH_ALLOWED_TAGS (h1-h4) unwraps on the
+// way to storage. Constraining the schema keeps editor, toolbar and allow-list
+// saying the same thing rather than relying on the unwrap to be lossless.
+// ★ Exported so a test can drive a REAL editor through the same schema this
+// component mounts. The toolbar's pressed states and heading value are
+// derivations over live ProseMirror state, and a stubbed `isActive` returning a
+// frozen record pins the derivation while being structurally unable to see that
+// the derivation is never re-run — which is exactly the defect that shipped.
+export const EXTENSIONS = [
+  StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
+  Highlight,
+  Subscript,
+  Superscript,
 ];
-const FULL_EXTENSIONS = [StarterKit];
-
-const BTN = "rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted";
-const BTN_ON = "rounded-md border border-line bg-ui-dark-blue px-2 py-1 text-xs text-white";
-
-function ToolbarButton(props: { label: string; active?: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={props.label}
-      aria-pressed={props.active ?? false}
-      // ★★ A toolbar button must NEVER take focus from the contenteditable it
-      // formats. Without this, mousedown blurs the editor surface, and any
-      // consumer that commits on blur (the dashboard narrative, notes-window)
-      // re-renders — or worse, remounts — the editor BETWEEN mousedown and
-      // mouseup, so no `click` is ever dispatched and the format command never
-      // runs. Keeping focus in the editor also preserves the selection the
-      // command applies to.
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={props.onClick}
-      className={props.active ? BTN_ON : BTN}
-    >
-      {props.label}
-    </button>
-  );
-}
 
 export function RichTextEditor(props: RichTextEditorProps) {
-  const { value, onChange, label, mergeFields, fieldLabel, labels } = props;
-  const variant = props.variant ?? "full";
-  const isLean = variant === "lean";
-  const lang: Lang = props.lang ?? "en-US";
+  const { value, onChange, label, lang, mergeFields, fieldLabel } = props;
   // useEditor binds onUpdate/handleKeyDown once at mount; route the live
   // callbacks + Enter-behaviour through refs so an inline caller isn't captured
   // stale and the editor isn't torn down and rebuilt on every render.
@@ -128,11 +79,8 @@ export function RichTextEditor(props: RichTextEditorProps) {
   useEffect(() => { onCommitRef.current = props.onCommit; }, [props.onCommit]);
   useEffect(() => { commitOnEnterRef.current = props.commitOnEnter; }, [props.commitOnEnter]);
 
-  const sanitize = isLean ? sanitizeNoteHtml : sanitizeTemplateHtml;
-  const minH = isLean ? "min-h-24" : "min-h-40";
-
   const editor = useEditor({
-    extensions: isLean ? LEAN_EXTENSIONS : FULL_EXTENSIONS,
+    extensions: EXTENSIONS,
     content: value,
     immediatelyRender: false,
     // @tiptap/core injects its ProseMirror base stylesheet with
@@ -149,8 +97,10 @@ export function RichTextEditor(props: RichTextEditorProps) {
         "aria-label": label,
         role: "textbox",
         "aria-multiline": "true",
+        // ★ One height for one editor. A caller needing more room passes a
+        // class; do not reintroduce a size variant for it.
         class:
-          `${minH} w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green`,
+          `min-h-24 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green`,
       },
       handleKeyDown: (_view, event) => {
         // commitOnEnter: plain Enter commits (suppress Tiptap's paragraph split);
@@ -171,7 +121,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
         return false;
       },
     },
-    onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitize(editor.getHTML())),
+    onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitizeRichHtml(editor.getHTML())),
   });
 
   // insertContent with a TEXT NODE, not a string: a bare string is parsed as
@@ -188,8 +138,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
   );
 
   function addLink() {
-    const prompt = isLean ? t(lang, "commTplLinkPrompt") : (labels?.linkPrompt ?? "");
-    const url = window.prompt(prompt, "");
+    const url = window.prompt(t(lang, "commTplLinkPrompt"), "");
     if (!url) return;
     const trimmed = url.trim();
     if (!isSafeHttpUrl(trimmed)) return;
@@ -198,45 +147,43 @@ export function RichTextEditor(props: RichTextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {editor && isLean && (
+      {/* `label` names the toolbar as well as the contenteditable: several
+          surfaces mount two or three of these editors as siblings in one form
+          (the change modal has three), so without it each form carries three
+          buttons called "Bold" and three selects called "Text style".
+          ★★ The `editor &&` guard is load-bearing for the toolbar's
+          `useEditorState`, not just cosmetic: its selector dereferences the
+          live editor unconditionally, so mounting that row while `editor` is
+          null throws. `editor` IS null on the hydration render — but
+          ★★★ `immediatelyRender: false` IS NOT WHAT MAKES THAT SAFE, and an
+          earlier revision of this comment said flipping the flag "makes
+          hydration a TypeError". Measured against @tiptap/react 3.27.1: a
+          `hydrateRoot` probe renders `editor === null` FIRST in both settings,
+          because `useEditor`'s own `getServerSnapshot()` returns null
+          unconditionally with no reference to the flag, and `getInitialEditor`
+          forces the flag false under SSR anyway. The GUARD is the whole
+          protection: hoist the toolbar out of it and `EditorStateManager` seeds
+          its snapshot with the null it was handed, so the selector's
+          `live.isActive(...)` throws on that render. */}
+      {editor && <RichTextToolbar editor={editor} lang={lang} label={label} onAddLink={addLink} />}
+      {editor && (mergeFields?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1">
-          <ToolbarButton label={t(lang, "commTplBold")} active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
-          <ToolbarButton label={t(lang, "commTplItalic")} active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} />
-          <ToolbarButton label={t(lang, "commTplBulletList")} active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} />
-          <ToolbarButton label={t(lang, "commTplNumberedList")} active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
-          <ToolbarButton label={t(lang, "commTplLink")} active={editor.isActive("link")} onClick={addLink} />
+          {(mergeFields ?? []).map((field) => (
+            <Button
+              key={field}
+              variant="secondary"
+              size="xs"
+              // A chip must NEVER take focus from the contenteditable it writes
+              // into: mousedown would blur the surface, and a commit-on-blur
+              // consumer re-renders — or remounts — the editor between mousedown
+              // and mouseup, so no `click` is dispatched and the insert is lost.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor.chain().focus().insertContent(`{{${field}}}`).run()}
+            >
+              {fieldLabel ? fieldLabel(field) : field}
+            </Button>
+          ))}
         </div>
-      )}
-      {editor && !isLean && labels && (
-        <>
-          <div className="flex flex-wrap gap-1">
-            <ToolbarButton label={labels.bold} active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
-            <ToolbarButton label={labels.italic} active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} />
-            <ToolbarButton label={labels.underline} active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} />
-            <ToolbarButton label={labels.heading1} active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} />
-            <ToolbarButton label={labels.heading2} active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} />
-            <ToolbarButton label={labels.bulletList} active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} />
-            <ToolbarButton label={labels.numberedList} active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
-            <ToolbarButton label={labels.link} active={editor.isActive("link")} onClick={addLink} />
-            <ToolbarButton label={labels.unlink} onClick={() => editor.chain().focus().unsetLink().run()} />
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {(mergeFields ?? []).map((field) => (
-              <Button
-                key={field}
-                variant="secondary"
-                size="xs"
-                // Same reason as ToolbarButton: these chips are a SEPARATE
-                // element (the shared Button primitive), so they need the same
-                // don't-steal-focus treatment or the insert lands after a blur.
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().insertContent(`{{${field}}}`).run()}
-              >
-                {fieldLabel ? fieldLabel(field) : field}
-              </Button>
-            ))}
-          </div>
-        </>
       )}
       <EditorContent editor={editor} />
     </div>

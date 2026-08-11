@@ -27,16 +27,20 @@ describe("sanitizeDocumentRichFields", () => {
   });
 
   it("KEEPS the text inside a heading tag a model legitimately emits", () => {
-    // ★★ This is the sanitizeDocumentHtml-vs-sanitizeNoteHtml distinction, and it
-    // is the only test that can see it. `h3` is in NO allow-list, so every
-    // sanitizer deletes the TAG; only KEEP_CONTENT decides whether the WORDS
-    // survive. sanitizeNoteHtml sets KEEP_CONTENT:false and would leave "".
-    // ★ It no longer isolates that swap on its own: mutation-measured 2026-08-08,
-    // the sanitizeNoteHtml swap turns THIS test and the LOAD-boundary one below
-    // red (2), while the sanitizeTemplateHtml swap turns only that one red (1) —
-    // so it is the PAIR that tells the two wrong sanitizers apart. The comment
-    // here previously claimed "this red and nothing else", which was true before
-    // the documents allow-list existed.
+    // ★★★ EVERY MECHANISM THIS COMMENT USED TO DESCRIBE IS GONE, and only the
+    // assertion is still worth having. It read: "`h3` is in NO allow-list, so
+    // every sanitizer deletes the TAG; only KEEP_CONTENT decides whether the WORDS
+    // survive — sanitizeNoteHtml sets KEEP_CONTENT:false and would leave ''", plus
+    // mutation counts of 2 red for the sanitizeNoteHtml swap and 1 for the
+    // sanitizeTemplateHtml swap. All three claims are dead:
+    //   · h3 IS allow-listed now (DOCUMENT_ALLOWED_TAGS spreads RICH_ALLOWED_TAGS),
+    //     so the tag SURVIVES here rather than being deleted;
+    //   · both named sanitizers are retired, so neither swap can be performed;
+    //   · the only swap left is sanitizeRichHtml, and it was mutation-measured at
+    //     ZERO red across this whole file until the `<img>` test below was added.
+    // What survives is a plain regression assertion that a heading's words reach
+    // storage. The test that actually isolates the sanitizer choice is the `<img>`
+    // one below — see its note, and see the module header for the measurement.
     const out = sanitizeDocumentRichFields({
       ...base,
       blocks: [{ type: "paragraph", html: "<h3>Section</h3>" }],
@@ -64,6 +68,31 @@ describe("sanitizeDocumentRichFields", () => {
     expect(html).toContain("<mark>hi</mark>");
     expect(html).toContain("<s>gone</s>");
     expect(html).toContain("<code>x</code>");
+  });
+
+  // ★★★ THE ONLY TEST THAT CAN DETECT THE ONE REMAINING WRONG SANITIZER. The
+  // three marks above stopped separating anything: DOCUMENT_ALLOWED_TAGS now
+  // SPREADS RICH_ALLOWED_TAGS, so `mark`/`s`/`code` are on both lists and the test
+  // above passes under sanitizeRichHtml too. Mutation-measured 2026-08-11 —
+  // swapping this module to sanitizeRichHtml left the whole file 9/9 GREEN. That
+  // was a MISSING TEST, not an equivalent mutant: the behaviours provably differ,
+  // the suite simply had no `<img>` at this boundary.
+  // ★★ `img` is the single tag documents add, and it is VOID — so the wrong
+  // sanitizer does not unwrap it leaving text behind, it removes the reference
+  // outright with no trace. Measured on this fixture: sanitizeRichHtml gives
+  // "<p>before  after</p>".
+  // ★ The trailing "after" is the anti-vacuity control — it separates "the img was
+  // dropped" from "the block was emptied or dropped", which capHtmlText and the
+  // empty rule can also do.
+  it("keeps an <img> reference at the LOAD boundary — the one tag documents add", () => {
+    const out = sanitizeDocumentRichFields({
+      ...base,
+      blocks: [{ type: "paragraph", html: '<p>before <img data-asset-id="7" alt="chart"> after</p>' }],
+    });
+    const html = htmlOf(out.blocks[0]);
+    expect(html).toContain('data-asset-id="7"');
+    expect(html).toContain("<img");
+    expect(html).toContain("after");
   });
 
   it("drops a javascript: href, proving the allow-list is live and not a pass-through", () => {

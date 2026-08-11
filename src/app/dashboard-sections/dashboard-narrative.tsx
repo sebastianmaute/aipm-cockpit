@@ -8,7 +8,7 @@ import { Button } from "../button";
 import { Card } from "../card";
 import { RichTextEditor } from "../rich-text-editor";
 import { RichTextView } from "../rich-text-view";
-import { sanitizeNoteHtml } from "../sanitize-html";
+import { sanitizeRichHtml } from "../sanitize-html";
 import { isNarrativeEmpty, narrativeToHtml, normalizeNarrativeHtml } from "../narrative-html";
 import type { ProjectStatus } from "../types";
 
@@ -18,21 +18,28 @@ import type { ProjectStatus } from "../types";
  *  never put markup in the DOM.
  *
  *  ★★ Emptiness is decided on the SANITISED html, not the stored value. The two
- *  diverge whenever the sink strips an element with its text (KEEP_CONTENT is
- *  false), e.g. a Word-pasted `<p><u>text</u></p>` that sanitises to `<p></p>`:
- *  judging the pre-sanitised value called that non-empty and rendered a blank
- *  card carrying nothing but an "Updated <date>" line. Deciding on what actually
+ *  diverge whenever the sink leaves a wrapper with nothing in it, and judging the
+ *  pre-sanitised value called that non-empty and rendered a blank card carrying
+ *  nothing but an "Updated <date>" line. ★★ The ORIGINAL example no longer
+ *  reaches that state and would read as a refutation: a Word-pasted
+ *  `<p><u>text</u></p>` used to sanitise to `<p></p>` because the old
+ *  `sanitizeNoteHtml` omitted `u` AND deleted a stripped element's text
+ *  (KEEP_CONTENT: false); `u` is on RICH_ALLOWED_TAGS now and the value survives
+ *  whole. The divergence itself survives — it is just narrower, because it now
+ *  needs an element that carries no text of its own. Measured 2026-08-11 through
+ *  the real sanitizer: `<p><script>x</script></p>` -> `<p></p>` (isNarrativeEmpty
+ *  true), and `<p><img src=x></p>` the same way. Deciding on what actually
  *  reaches the DOM cannot drift from what the user sees.
  *
  *  ★ The sanitised value is then handed to RichTextView, which sanitises AGAIN.
- *  That is deliberate rather than wasteful: sanitizeNoteHtml is idempotent
+ *  That is deliberate rather than wasteful: sanitizeRichHtml is idempotent
  *  (documented in rich-text-view.tsx, and the second pass is a verified no-op on
  *  its own output), and the alternative — a prop telling the sink to trust its
  *  input — would put a bypass switch on the app's defence-in-depth boundary for
  *  every other caller too. One cheap redundant pass is the better trade. */
 export function NarrativeSummary({ lang, status }: { lang: Lang; status: ProjectStatus }) {
   const html = narrativeToHtml(status.narrative);
-  const rendered = html ? sanitizeNoteHtml(html) : "";
+  const rendered = html ? sanitizeRichHtml(html) : "";
   if (!rendered || isNarrativeEmpty(rendered)) return null;
   return (
     <Card boxed className="p-3">
@@ -119,7 +126,6 @@ export function NarrativeEditor({
         <div onBlur={commitNarrative}>
           <RichTextEditor
             key={seedNonce}
-            variant="lean"
             lang={lang}
             label={t(lang, "dashboardNarrativePlaceholder")}
             value={draftNarrative}

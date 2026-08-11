@@ -73,7 +73,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 21 | Eye verification owed: change + milestone editors, 4 detail cases | 0.209.0 (Lafferty) | S | open — a11y/visual |
 | 22 | `clipText` can split a surrogate pair (~54 call sites) | 0.209.0 (Lafferty) | M | open — needs golden regen |
 | 24 | Named entities aren't decoded — miscount + mid-entity truncation | 0.209.0 (Lafferty) | S | **open — named tail only** |
-| 28 | CSV/MD/Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 | M | open — needs a new boundary |
+| 28 | CSV/MD/Turso never DOMPurify a rich field at load | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open — needs a new boundary. ★★ The 2026-08-11 `unify-rich-text-s1` classifier move widened the door by TEN leading tags (`hr s code mark sub sup pre blockquote h3 h4`) — the measured, INTENDED price of closing §107/§137, not a new defect. Same entry also corrects its own table: the `noteLog` row is browser-only, and `decodeNoteLog` silently returns `[]` under bare node |
 | 29 | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED 0.211.1** — field removed, guard re-proved |
 | 30 | A link in a task description loses its address in document exports | 0.210.0 (Larbalestier) | M | open — needs a decision |
 | 31 | `sanitizeRichText` caps visible text, so markup bytes are unbounded | 0.210.0, pre-existing for 3 of 4 | M | open — truncates stored values |
@@ -100,7 +100,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 52 | `useColumnResize`'s v1→v2 migration pins defaults for existing users | 0.212.0 (Nayler) | M | open — deliberate; a v1 payload is a defaults SNAPSHOT, and the cheap fix is already foreclosed |
 | 53 | ESLint 10 is blocked upstream by `eslint-plugin-react` | 0.211.2 | — | open — **not actionable today**; a dated MEASUREMENT, re-measure before acting |
 | 54 | Prod-only CSP blocks ProseMirror's base CSS | pre-existing, found 0.211.2 | S–M | open — **user-visible in production**, no gate sees it |
-| 55 | Thirteen hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 13 are NOT colour-only; was 14, tier selector resolved |
+| 55 | Twelve hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 12 are NOT colour-only; was 14 (tier selector → `SegmentedControl`), then 13 (editor toolbar → `ToggleButton`, 2026-08-11) |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
 | 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half CLOSED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
@@ -151,7 +151,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
 | 105 | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell switches the parser's section mid-row and the rest of the row decodes as absent | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | open — **MEASURED**, not reasoned: `blockers: "step one\n# RAID\nstep two"` → `"step one"`. No throw, no `ImportDiag`, nothing in the UI. Affects every entity the CSV backend writes; Markdown is immune BY CONSTRUCTION (`mdEscape` turns every newline into `<br>`) — do not "simplify" that away. The property this should satisfy is `describe.skip`ped with the measurement in the comment; unskip it when fixing |
 | 106 | The Markdown codec is not a fixed point when bare CRs precede a newline — one CR is lost per save/load cycle with no edit in between | property-based coverage (`!360`, no bump) | XS | open — converges, and only ever loses CRs, so it sits well below §105. Recorded because "the stored value changed on a load that made no edit" later reads as corruption. ★ Found only at `numRuns: 1500`; the **deterministic companion is the reliable reproduction**, not the property, which is itself seed-dependent |
-| 107 | ~~`HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup~~ | property-based coverage (`!360`, no bump) | M | **CLOSED 2026-08-10** — the one shared 8-tag classifier is GONE (the name `HTML_START` is retired; it survives only in comments). `html-start.ts` derives a regex PER SINK from that sink's own allow-list, and `descriptionHtml` / `sanitizeRichText` now REQUIRE the sink with no default, so tsc enumerated every call site instead of leaving one on a silent fallback. ★★★ READ THE ENTRY TO THE END: its retraction block is the only record of why widening the shared constant was wrong, and its closure note points at **§137** — storing the model's `<h1>` as real markup is correct and it converted a visible-but-lossless defect into a silent lossy one on a path this row never mentions. ★★★ **CLOSED MEANS "THE CLASSIFIER IS FIXED", NOT "THE PAYOFF IS DELIVERED"** — the model's markup is real markup only until the NEXT LOAD. `sanitizeRichFields` (`note-log.ts`) applies the **`note`** sink to all seven rich entity fields on both whole-object load boundaries, so `<h1>Title</h1><p>body</p>` comes back as `<p>&lt;h1&gt;Title&lt;/h1&gt;…</p>` and the literal tags reappear in search, the AI digests and every export. PRE-EXISTING, not caused by this slice. Measured in **§137** |
+| 107 | ~~`HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup~~ | property-based coverage (`!360`, no bump) | M | **CLOSED 2026-08-10** — the one shared 8-tag classifier is GONE (the name `HTML_START` is retired; it survives only in comments). `html-start.ts` derives a regex PER SINK from that sink's own allow-list, and `descriptionHtml` / `sanitizeRichText` now REQUIRE the sink with no default, so tsc enumerated every call site instead of leaving one on a silent fallback. ★★★ READ THE ENTRY TO THE END: its retraction block is the only record of why widening the shared constant was wrong, and its closure note points at **§137** — storing the model's `<h1>` as real markup is correct and it converted a visible-but-lossless defect into a silent lossy one on a path this row never mentions. ★★★ THIS ROW'S LAST CLAUSE IS NOW HISTORY — it read "CLOSED MEANS 'THE CLASSIFIER IS FIXED', NOT 'THE PAYOFF IS DELIVERED'", because `sanitizeRichFields` applied the narrow **`note`** sink on both whole-object load boundaries and `<h1>Title</h1><p>body</p>` came back as `<p>&lt;h1&gt;Title&lt;/h1&gt;…</p>`. **§137 CLOSED that on 2026-08-11**: the `note` and `template` sinks merged into one `rich` sink and the narrow sanitizer is DELETED, so the payoff IS delivered for values written from now on. ★★ Values already stored escaped are NOT repaired — that residue is **§141** |
 | 108 | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag as well as split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | open — the value is HTML, so a raw cut lands inside a tag (`<stro`) and stores malformed markup. Copy `capHtmlText`'s project → truncate → **re-wrap**, NOT `clipText` (correct only for plain text). ★★ Do NOT route it through `sanitizeText`: that fixes the surrogate half, leaves the mid-tag cut, and makes the call site LOOK guarded — the more dangerous state. Reachability narrow, unmeasured in the wild |
 | 109 | Icon-only controls with no hover tooltip, plus one control whose accessible name comes only from its `title` | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open — full audit in [`docs/tooltip-inventory.md`](tooltip-inventory.md). ★★ Its counts are SNAPSHOTS and moved within one day; re-run the inventory's parser before quoting any as present-tense. Open surface at `9927d045`: **17** untitled icon-only controls; Class B row **B1** (the settings cog) HELD pending the modern shell's own route to Settings; five of the Gantt View menu's eight toggles carry no hint; **one name defect** — `workspace-section-chrome.tsx:165` is named by `title` alone and **axe passes it**; and 15 hardcoded-English accessible names across nine files that tsc's key-parity check structurally cannot see |
 | 110 | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control, so a circular 20px chip cannot be converted to it | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open — `raci-chip-picker.tsx`'s ✕ is the fifth of five sibling chips sharing a `h-5 w-5 rounded-full` base. ★★★ A caller `className` CANNOT reliably override: Tailwind resolves conflicting utilities by **stylesheet source order**, not class-attribute order, and `p-1` sorts after `p-0` — so this is a primitive problem, not a call-site one. A KNOWN, DELIBERATE hand-roll; do not "finish the conversion" before the primitive gets a shape/size escape hatch. ★★ jsdom has no layout, so no unit test can catch the regression — eye-verify only |
@@ -159,7 +159,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 112 | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout — the active parent pill stretches to the group's full height and unrelated top-level entries interleave onto a child's row | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | open — UX. Visible only there: jsdom has no layout, and the axe gate scans one desktop viewport with no rule for wrap order. ★★ This is the **COST of a deliberate choice**, not a regression against it — `display: contents` was rejected because its a11y-tree exposure is browser-version dependent and being ANNOUNCED is what the group exists to deliver; do NOT reach for it. Likely fix `basis-full`. ★ Reproduce: activate the AI Assistant branch FIRST, then narrow to 760px — narrowing first drops the rail's labels and there is no group to reflow |
 | 113 | The documents roadmap — block editor, entity attachment and images — is designed but UNIMPLEMENTED, and the design lives only in the gitignored tree | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open — §44's failure mode, pre-empted: the decisions are reproduced in full below so the roadmap survives without that tree |
 | 114 | ~~`HTML_START` does not know the nine tags `sanitizeDocumentHtml` adds, so a document paragraph LEADING with one of them is stored as escaped literal markup~~ | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED 2026-08-10** by §107's derive-per-sink split — the `document` sink derives from `DOCUMENT_ALLOWED_TAGS` (20), so all nine are recognised and the `<p>`-wrapping INSTRUCTION below is no longer the only thing standing between a model and an escaped value. Was a SECOND instance of §107's drift class, now on a THIRD list; the mechanism lives there and is NOT restated here. ★★ The common shape is covered by an INSTRUCTION, not by construction: `chat-tool-defs-documents.ts` tells the model to wrap every paragraph in `<p>` and `p` is one of the eight — so a model that ignores it and returns a whole-paragraph `<blockquote>`/`<pre>` still escapes. ★ The DIRECTION is the mild one: this ESCAPES (visible, recoverable), it does not DELETE as §32 does |
-| 115 | `ALLOW_DATA_ATTR` is left at DOMPurify's default TRUE in the other two sanitizers, so `sanitizeTemplateHtml` and `sanitizeNoteHtml` admit arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | open — `ALLOW_DATA_ATTR: false` occurs ONCE in `sanitize-html.ts`, inside `sanitizeDocumentHtml`; grep the SETTING, not the bare name, which returns three. ★★ A TWO-LINE FIX — the set of `data-*` names needing re-admission is **EMPTY**: no call site depends on one and StarterKit emits none (measured). An earlier revision said "NOT a one-line fix, enumerate first" and was wrong. No known exploit: `data-*` carries no script |
+| 115 | `ALLOW_DATA_ATTR` is left at DOMPurify's default TRUE in `sanitizeRichHtml`, which admits arbitrary `data-*` across every rich surface | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | open — ★★ RESCOPED 2026-08-11: the two sanitizers this row used to name are DELETED and replaced by ONE, so it is now a **ONE-line** fix, but the blast radius GREW (21 tags where the wider predecessor had 11). `ALLOW_DATA_ATTR: false` still occurs ONCE in `sanitize-html.ts`, inside `sanitizeDocumentHtml`; grep the SETTING, not the bare name. ★★ The re-admission set is still **EMPTY**, re-verified against the new editor — but `@tiptap/extension-highlight` emits `data-color` under `multicolor`, whose default is `false`, so one config flag would end that. No known exploit: `data-*` carries no script. **§140 owns closing this** |
 | 116 | The duplication gate compares the TOTAL duplicated-LINE percentage (1.19% vs 1.75), not the per-format token figure — and S3b is a large `.tsx` slice | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open — ★★ the gate reads ONE of the six cells the console prints: total LINES. Bisect by exit code — `npm run dup:check` exits 0 at `--threshold 1.19` and 1 at `1.18` ("found too many duplicates (1.2%)"); 1.52 and 1.60 both exit 0, ruling out total-tokens and per-format-tokens. Headroom is 0.56pp, not 0.05pp. Decide during S3b planning: refactor the top tsx clones, or raise the threshold |
 | 117 | The three traps S3c walks into the moment images go live — image-only paragraphs are deleted on load, `data-asset-id` values are entirely unvalidated, and adding `src` to the allow-list opens `data:` URIs on `img` | measured 2026-08-08 during the S3a review, all three inert today | M | open — three S3c PREREQUISITES, not live defects. ★ Each is measured with the probe in the entry, not reasoned. ★★ (a) makes the S3a rationale for allow-listing `img` FALSE as written (`sanitize-html.ts`), which is the §111 class: the comment outlives the code and the next reader stops checking |
 | 118 | ~~A legacy plain-text `paragraph.html` collapses to one line in every renderer — and the obvious fix was implemented, measured to DESTROY valid markup, and reverted~~ | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED 2026-08-10 in TWO commits, and the FIRST was wrong in a NEW way.** With the classifier split landed, composing `descriptionHtml(html, "document")` at the three renderers fixed the fusing and turned the falsification test green — but ESCAPED every paragraph opening with a tag the 20-tag list omits (`<h3>` `<div>` `<table>`, measured). ★★★ At a RENDER boundary NO allow-list-derived classifier is narrow-safe, because the sink keeps EVERY tag's text; it took a fifth, list-free `render` sink. Entry carries the before/after table |
@@ -173,6 +173,14 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 126 | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | open, a11y — WCAG 2.4.6. ★★★ **axe CANNOT catch this** — measured against axe-core 4.12.1: in the gate’s requested tagset there is NO rule that flags two buttons sharing a name (`identical-links-same-purpose` is links-only AND `wcag2aaa`, which the spec never requests). `insight-digest-card.tsx` already de-collides the identical shape — copy it. Same class as §111 |
 | 127 | ~~Two of the six AI trigger hooks still never abort on unmount~~ | split out of §121 on 2026-08-08 | S each | **CLOSED 2026-08-08** in the review round that followed — both gained the cleanup-only effect, each mutation-proved. ★★ Filed then immediately closed on purpose: a follow-up is the right home for a decision, the wrong home for a one-liner with three precedents in the same file family. ★ `use-action-analysis.ts`’s guard was measured UNREACHABLE and applied as defence-in-depth — do not quote it as a shipped defect |
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
+| 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
+| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | open, a11y — none of the 90 axe scans reaches any of the 12 `<RichTextEditor` mounts, for FOUR different reasons (9 behind a modal/floating window · 1 behind a non-default Settings section · 1 in an unscanned view · 1 in a collapsed `<details>`), and `grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns nothing. `change-edit-modal.tsx` mounts up to three editors = 45 toolbar tab stops at the DEFAULT `advanced` tier, but only 30 in SIMPLE mode — its impact editor is gated by `isVisible("impact")` and `modal-fields.ts` tiers that field `advanced`. ★★ The refusal of `role="toolbar"` without roving tabindex is CORRECT — the tab-stop count is its price, not an argument against it |
+
+★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
+Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
+The two rows above were added because a new entry with no index row is a new entry nobody finds;
+backfilling the fourteen that are missing is real work and is not done here, so do NOT read a
+present row as evidence an entry is newer or more important than an absent one.
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -1046,11 +1054,88 @@ a boundary that does not exist today — plus its own golden-stability answer.
 and easy to misread as covering `description`. It does not.
 
 ★ **What covers this today is the sink, not the load path.** None of the six fields has a display
-`dangerouslySetInnerHTML` sink: they reach `RichTextEditor` (which sanitizes with `sanitizeNoteHtml`)
+`dangerouslySetInnerHTML` sink: they reach `RichTextEditor` (which sanitizes with `sanitizeRichHtml`)
 or are projected to plain text for search, exports and AI digests. So the realized risk is bounded —
 but only because nobody has yet added a read-only rich display for one of these fields, which is
 exactly the position the defence-in-depth rule exists to prevent. `Task.description` has been in this
 state on these three backends since 0.196.0.
+
+### 2026-08-11 — the door got TEN leading tags wider, and that is the intended price of §137
+
+The `unify-rich-text-s1` branch moved the entity sanitizers' classifier from the `template` sink
+(11 tag names) to the `rich` one (21), so the set of values `descriptionHtml` recognises as
+already-HTML — and therefore passes through VERBATIM to these three backends — grew by exactly ten
+leading tags: **`hr`, `s`, `code`, `mark`, `sub`, `sup`, `pre`, `blockquote`, `h3`, `h4`**.
+★★ Re-measure that list PER TAG, never with a set-difference one-liner — one such expression
+printed 9 on its first run and 10 on three later ones, and the loop is unambiguous. Build both
+regexes with the real factory and probe `<tag>x</tag>` for every member of `SINK_TAGS.rich`,
+counting the tags where the old one says `false` and the new one says `true`:
+`htmlStartRe(OLD)` vs `htmlStartRe(SINK_TAGS.rich)`, with `OLD` =
+`["p","br","strong","em","u","h1","h2","ul","ol","li","a"]` — recover that literal with
+`git show 33ab5ec3:src/app/sanitize-html.ts | grep TEMPLATE_ALLOWED_TAGS`, and confirm the sink
+argument actually moved with `grep -n 'TEXTAREA_MAX, "' src/app/sanitize-records.ts` (six sites, all
+`"rich"` now, all `"template"` at `33ab5ec3`).
+
+Measured under bare node, no DOM:
+`sanitizeRaidItem({id:1,title:"t",description:'<blockquote>x</blockquote><img src=x onerror=alert(1)>'})`
+stores that string **verbatim**; at `33ab5ec3` the same input was escaped whole, because the
+`template` classifier answered `false` on a leading `blockquote`.
+
+★★★ **Record this as a measured TRADE, not a defect.** Escaping was the §107/§137 data-corruption
+bug — the stored value came back as visible `&lt;blockquote&gt;` in every surface at once — so
+recognising the wider set is the fix, and the verbatim-storage exposure is its known price on
+exactly the three backends this entry is about. It is a defence-in-depth regression, not an
+exploitable one: every raw-HTML sink re-sanitizes. Enumerate them and check each, don't trust the
+count — and this entry then stated a wrong one in the very next clause, which is the point:
+`grep -rn "dangerouslySetInnerHTML" src/app --include=*.tsx | grep -v "\.test\."` returns **eight**
+lines, not six. TWO are PROSE, not JSX props — one in `chat-panel.tsx` and one in `markdown.tsx`,
+both comments that merely name the API to say the file does not use it. The remaining six are real
+sinks: five
+carry workspace or document HTML (`rich-text-view.tsx`, `comm-send-preview-modal.tsx`,
+`meeting-report-panel.tsx`, `document-preview.tsx`, `documents-history-modal.tsx` — the first three
+call `sanitizeRichHtml` inline, the last two render through `renderDocumentHtml` →
+`sanitizeDocumentHtml`) and the sixth is `layout.tsx`'s build-time theme script, which is not
+workspace data. So the SUBSTANCE was right and only the count was wrong. Adding a SIXTH workspace
+sink that does not sanitize is what converts this row into a live vulnerability.
+
+★ The same widening reaches template import through `templates.ts` `sanitizeSeedTask` — that
+boundary is **§36(a)**, which is out of scope here for the same DOM-free reason, and its door
+widened by the same ten tags.
+
+### Correction 2026-08-11 — the `noteLog` row of the table above is browser-only
+
+The row reading "every `noteLog[].html` | DOMPurify'd via `decodeNoteLog`" is true **in the
+browser** and silently false without a DOM. `decodeNoteLog` → `sanitizeNoteLog` → `sanitizeRichHtml`
++ `htmlToText`, both DOM-bound, inside a `try/catch` that returns `[]`. Measured under bare node:
+
+```
+decodeNoteLog(JSON.stringify([{id:1,timestamp:"2026-01-01T00:00:00.000Z",html:"<p>hi</p>",text:"hi"}]))
+```
+
+returns `[]` — a well-formed entry **silently discarded**, with no throw and no diagnostic. So on
+the codec paths `noteLog` is not unconditionally "sanitized"; it is sanitized wherever a DOM exists
+and would be DROPPED in a bare-node consumer of the same codecs.
+
+★★★ **THERE IS NO SUCH CONSUMER TODAY — this is a LATENT TRAP for a future script, not a live
+drop, and that distinction is the entry's whole severity.** A first revision of this correction named
+two victims and BOTH are false:
+
+- **The sample generator does not decode.** `scripts/generate-sample-workspace.ts` installs a jsdom
+  `window`/`document` BEFORE its deferred `await import("../src/app/storage")` — its header calls
+  that a "jsdom landmine" and spells out the deferred-import ordering that avoids it — and it only
+  ever calls `jsonToWorkspace` / `workspaceToJson` / `scaleWorkspace`. It never reaches
+  `decodeNoteLog` at all, with or without a DOM.
+- **The fixture flow runs under jsdom.** It is `golden-workspace.test.ts`, which genuinely does call
+  `csvToWorkspace` / `markdownToWorkspace`, but as a vitest file under `vitest.config.ts`'s
+  `environment: "jsdom"` — so the DOM is present and the decode is real.
+
+Reproduce the scope: `grep -rn "decodeNoteLog" src scripts` gives three non-test call sites —
+`csv-codecs-core.ts`, `csv-codecs-decode.ts` and `markdown-codecs-decode.ts` — and every consumer of
+those three is a browser or jsdom path today. ★ Not fixed here and deliberately not "hardened" by
+widening the catch: the catch is what keeps a malformed cell from failing a whole load, and
+separating "malformed JSON" from "no DOM" needs a real capability check, which is the same
+post-decode-hook work this entry already owns. What the measurement buys is the WARNING: the first
+bare-node script that imports a codec loses note logs silently, and nothing will say so.
 
 ---
 
@@ -1085,7 +1170,7 @@ been worse than deleting it.
 Found by the adversarial sweep of 0.210.0, after that release routed `Task.description` through the
 export projection. Recorded rather than fixed, because the fix touches four renderers.
 
-`sanitizeNoteHtml` allows `<a href>`, so a description can genuinely store a link. The export
+`sanitizeRichHtml` allows `<a href>`, so a description can genuinely store a link. The export
 projection ends in `htmlToText`, which is `DOMPurify.sanitize(html, {ALLOWED_TAGS: [], ALLOWED_ATTR: []})`
 — that keeps the anchor's TEXT and drops its `href`.
 
@@ -1250,7 +1335,7 @@ derivable, derive it.
 
 Recorded from a round-5 audit; **real-world reachability is a suspicion, not established.**
 
-`sanitizeAiRichText` is `sanitizeRichText` → `sanitizeTemplateHtml` → `sanitizeRichText`. It is
+`sanitizeAiRichText` is `sanitizeRichText` → `sanitizeRichHtml` → `sanitizeRichText`. It is
 idempotent (`f(f(x)) === f(x)` on 13 probes) and the double cap is safe (DOMPurify never increases visible
 length). One divergence from a single logical pass:
 
@@ -1994,7 +2079,7 @@ can never legitimately carry one. Reproduced RED first (`expected undefined to d
 
 ★★★ **THE OBVIOUS FIX IS FORBIDDEN, AND THE REVIEWER'S PRIMARY SUGGESTION WAS IT.** "Carry `noteLog`
 through `sanitizeRaidItem` via `sanitizeNoteLog`" would close it for every present and future caller —
-and it CANNOT BE DONE. `sanitizeNoteLog` calls `sanitizeNoteHtml`, which calls DOMPurify, which binds
+and it CANNOT BE DONE. `sanitizeNoteLog` calls `sanitizeRichHtml`, which calls DOMPurify, which binds
 `window` at module-eval; the entity sanitizers run under **bare node** in
 `scripts/generate-sample-workspace.ts`, where the call throws and `jsonToWorkspace`'s catch-all
 swallows it into an EMPTY workspace that then "successfully" writes near-empty sample files. This is
@@ -2612,11 +2697,18 @@ unnoticed, not a footnote to it. Anything that needs prod-CSP coverage has to po
 
 ---
 
-## 55. Thirteen hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
+## 55. Twelve hand-rolled `aria-pressed` toggles still show their on-state by colour alone — open
 
 0.212.0 gave the shared `ToggleButton` primitive a non-colour pressed cue (a trailing check glyph).
-Thirteen controls do NOT use that primitive and were left as they were. For MOST of them the only
+Twelve controls do NOT use that primitive and were left as they were. For MOST of them the only
 visual signal that they are active is a fill or tint change — WCAG 1.4.1.
+
+★ **THIS READ *thirteen* UNTIL 2026-08-11.** The unify-rich-text slice deleted the editor toolbar's
+hand-rolled `ToolbarButton` — the entry's own "clearest and most used" case — when
+`rich-text-editor.tsx`'s toolbar moved to `rich-text-toolbar.tsx`, where every stateful control is
+the shared `ToggleButton`. That is **one** site removed, counted rather than estimated: the grep
+below returns 13 on `main` and 12 here. It is also this entry's first resolution by MIGRATION to the
+primitive rather than by adopting `role="radio"`.
 
 ★ THIS READ **fourteen** UNTIL 2026-08-06. The field-visibility tier selector
 (`modal-field-controls.tsx`) was the fourteenth, and it is RESOLVED — the control moved into the
@@ -2625,17 +2717,23 @@ modal header and its hand-rolled `aria-pressed` buttons were replaced by the sha
 paragraph proposed for the radio-like cases. Re-measure rather than trust the number:
 
 ```bash
-grep -rn "aria-pressed={" src/app --include="*.tsx" | grep -v "\.test\." | grep -v "toggle-button.tsx" | wc -l   # 13
+grep -rn "aria-pressed={" src/app --include="*.tsx" | grep -v "\.test\." | grep -v "toggle-button.tsx" | wc -l   # 12
 ```
 
-★★ TWO OF THE THIRTEEN ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
+★★ TWO OF THE TWELVE ARE NOT COLOUR-ONLY, and an earlier revision of this entry said flatly that
 all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
 flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
 `status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
-**13** callers that render it are covered and the two that destructure without it
-(`note-log-panel.tsx:68,181`) are not. Check the caller, not the grep hit.
+**13** callers that render it are covered and the two that destructure without it are not: the
+`editMic` call in `NoteEntryRow` and the `composerMic` call in `NoteLogPanel`, both in
+`note-log-panel.tsx`. Check the caller, not the grep hit.
+★★ Those two were cited BY LINE (`:68,181`) until 2026-08-11, and both were stale — the a11y
+follow-on to §137's branch (`a6e7c0c5`) inserted a shared-const declaration above each, moving them
+to 74 and 189. The CLAIM was re-verified and still holds (neither destructures `status`); only the
+numbers had rotted, which is exactly why they are now SYMBOLS. Third recorded instance in this entry
+alone of a `file:LINE` citation broken by an edit to a file the doc never opened.
 ★ That number read **four** until 2026-08-05 and understated the covered set by nine, which errs
-against this entry's own argument: `dictation-mic` is the WEAKEST of the twelve colour-only cases,
+against this entry's own argument: `dictation-mic` is the WEAKEST of the eleven colour-only cases,
 not a middling one. Re-measured — all 13 destructure the node AND render it in JSX; the 2 that do
 not destructure it are the only gap. Reproduce:
 
@@ -2647,13 +2745,23 @@ grep -rn "= useDictationMic(" src/app --include="*.tsx" | grep -v "\.test\." | g
 it has no colon. Key on the bare word, and confirm each hit RENDERS the node rather than merely
 destructuring it.
 
-`rich-text-editor.tsx:83-84` is the clearest and the most used: `BTN` and `BTN_ON` differ by
-`bg-ui-dark-blue` + `text-white` and nothing else, on the bold/italic/list buttons every task
-description and note passes through. The others: `task-form-fields.tsx:545,559` (health-override
-chips) · `create-project-wizard.tsx:308,337` (template picker) ·
-`raci-chip-picker.tsx:105` · `knowledge-panel.tsx:213` ·
-`settings-sections/comm-templates-section.tsx:335,357` (version compare) · `step0-import-panel.tsx:304`
-· `influence-interest-matrix.tsx:80` · `dictation-mic.tsx:73` · `voice-button.tsx:101`.
+★★ The entry's worst case is GONE and this paragraph used to lead with it: `rich-text-editor.tsx`'s
+`BTN`/`BTN_ON` pair differed by `bg-ui-dark-blue` + `text-white` and nothing else, on the
+bold/italic/list buttons every task description and note passes through. That toolbar was REPLACED by
+`rich-text-toolbar.tsx`, which uses the shared `ToggleButton` throughout — so the primitive's
+non-colour marker now covers the highest-traffic case in the app.
+
+The twelve that remain: `task-form-fields.tsx:576,590` (health-override chips) ·
+`create-project-wizard.tsx:308,337` (template picker) · `raci-chip-picker.tsx:107` ·
+`knowledge-panel.tsx:213` · `settings-sections/comm-templates-section.tsx:324,346` (version compare)
+· `step0-import-panel.tsx:304` · `influence-interest-matrix.tsx:80` · `dictation-mic.tsx:73` ·
+`voice-button.tsx:101`.
+★★ FOUR of those line numbers MOVED in the same slice that removed the thirteenth, and none of the
+controls changed: `task-form-fields` 545,559 → 576,590 and `comm-templates-section` 335,357 →
+324,346, because both files are `RichTextEditor` call sites and lost the `variant`/`labels` props
+(`raci-chip-picker` 105 → 107 was already stale). Re-verified against the tree 2026-08-11. This is
+AGENTS.md's own corollary — an edit that inserts or deletes lines invalidates every `file:LINE`
+citation in the file, including ones in a doc the edit never opened.
 
 ★★ NOTHING AUTOMATED WILL FLAG THESE. axe 4.12.1 ships exactly ONE rule tagged `wcag141` —
 `link-in-text-block`, which is about links against surrounding text — and nothing in axe evaluates
@@ -2669,8 +2777,10 @@ pinned-label rule may not fit, and where `role="radio"` might be the better answ
 here — the change is committed but UNRELEASED, and an earlier draft of this sentence said "in
 0.218.0", which is the commit this work sits ON TOP of; that release shipped a different a11y fix
 and a reader chasing the resolution would find nothing. Write the real version at release time or
-leave it to the date above. The editor toolbar and the two mic buttons are genuine binary toggles
-and are the natural first migration.
+leave it to the date above. ★ The editor toolbar was the first of those three and is DONE — it
+migrated to `ToggleButton` wholesale, which also settles the open question above in its favour for
+the binary cases. The two mic buttons are the remaining genuine binary toggles and are the natural
+next migration; the radio-like groups still want the `role="radio"` answer instead.
 
 ---
 
@@ -6701,17 +6811,44 @@ block-keyed renderers and per-block version before-images. Its styles are SCSS a
 `@import '_variables.scss'` into `src/app/globals.css` and installs `sass`. `starter-kit@3.27.1`
 already bundles bold/italic/**underline**/strike/code/codeBlock/blockquote/heading/horizontalRule/
 lists/link — only highlight, subscript and superscript need new packages.
+★ **DONE** — those three packages are installed and registered, and the shared toolbar
+(`rich-text-toolbar.tsx`) exposes the whole Simple control set. Nothing further is owed here.
+★★ `@tiptap/extension-list` is ALSO already a `starter-kit` dependency (reproduce:
+`node -p "Object.keys(require('./node_modules/@tiptap/starter-kit/package.json').dependencies)"`),
+so **task list needs no new package either** — it needs the ATTRIBUTE boundary (§140). Only
+`@tiptap/extension-text-align` is a genuinely new dependency.
 
-★★★ **Alignment CANNOT be markup, and this generalises.** `sanitize-html.ts` applies
-`ALLOWED_URI_REGEXP` to EVERY attribute value, not only URI-bearing ones — already why `target`/`rel`
-never survive (§38). `style="text-align:center"` and `class="…"` fail identically. Alignment becomes
-a `DocBlock` field. **No toolbar in this app may introduce a new HTML attribute** without reopening
-that regexp, which is a shared security boundary.
+★★★ **ALIGNMENT IS REPRESENTABLE AS MARKUP — an earlier revision of this bullet said it was not, and
+the mechanism it named does not apply.** `ALLOWED_URI_REGEXP` IS tested against every attribute
+value, and that IS why `target`/`rel` never survive (§38) — but `style`, `class`, `title` and `id`
+are members of DOMPurify's `DEFAULT_URI_SAFE_ATTRIBUTES`, so the value test never reaches them.
+Measured 2026-08-11 on dompurify 3.4.13 WITH CONTROLS: listing `target`/`rel` still strips them and
+listing `lang` still strips it (so the regexp was armed), while `style="text-align:center"` and
+`class="text-center"` both SURVIVE. What actually blocks alignment is the VALUE: nothing constrains
+what a surviving `style` contains — `position:fixed;inset:0;z-index:99999` passes verbatim, and these
+fields are AI-writable. ★ The same probe also passed `background:url(javascript:alert(1))` through
+untouched: DOMPurify does not parse CSS values at all. Browsers block that particular URL scheme in
+CSS, so treat it as evidence about the ABSENCE of value filtering, not as a live XSS.
+So alignment needs a value allow-list enforced by `uponSanitizeAttribute`, which is **§140**'s slice,
+not a list entry. Do not read the old claim as a reason it cannot be built.
+★★ What DOES survive from the old bullet: **no toolbar in this app may introduce a new HTML attribute
+on its own** — the attribute surface is shared by every rich field and by documents, so it is a
+security boundary and gets a designed slice plus a review, not a toolbar button.
+★ The **editor** half of S3b is now smaller than designed: the unified `RichTextEditor` (one schema,
+one toolbar, `sanitizeRichHtml`) already exists, so S3b inherits marks, headings, lists, blockquote
+and code block rather than building them.
 
 ★★★ **Documents get their own allow-list; widening the shared one is forbidden.**
-`sanitizeTemplateHtml` also serves comm templates, meeting reports and the six rich entity fields, so
-widening it changes what a model may store everywhere, retroactively. `rich-text-editor.tsx` records
-that hazard as the reason an earlier slice disabled input rules instead. ★★★ **An earlier revision
+★★★ **THE SECOND HALF OF THAT SENTENCE INVERTED, 2026-08-11 — documents no longer HAVE their own
+list in the sense meant here.** `DOCUMENT_ALLOWED_TAGS` is now `[...RICH_ALLOWED_TAGS, "img"]`: it
+SPREADS the shared array, so widening the shared one widens documents **in the same edit**, and the
+two can never disagree about a heading level again. The hazard the bullet warns about is therefore
+STRICTER now, not gone — the shared `RICH_ALLOWED_TAGS` serves comm templates, meeting reports, the
+seven rich entity fields AND documents, so widening it changes what a model may store everywhere,
+retroactively, including how already-stored HTML renders. ★ The named symbol was
+`sanitizeTemplateHtml`, RETIRED; its successor is `sanitizeRichHtml`.
+★ "`rich-text-editor.tsx` records that hazard as the reason an earlier slice disabled input rules" is
+also stale: the markdown input rules are back ON, and that file now records why. ★★★ **An earlier revision
 of this bullet added "and `HTML_START` must be DERIVED from its list" — that is UNDER-SPECIFIED to
 the point of being dangerous, and the correction now sits in §107 above: there is no single "its
 list", because ONE constant serves TWO classifiers whose sinks differ in both tag set and
@@ -6853,13 +6990,34 @@ express it — that is §118.
 
 ---
 
-## 115. Two of the three sanitizers admit arbitrary `data-*` — open
+## 115. One of the two sanitizers admits arbitrary `data-*` — open
 
-`sanitize-html.ts` exports three DOMPurify sanitizers. Only `sanitizeDocumentHtml` sets
-`ALLOW_DATA_ATTR: false`; `sanitizeTemplateHtml` and `sanitizeNoteHtml` leave DOMPurify's default,
-which is TRUE (`node_modules/dompurify/dist/purify.cjs.js:767` — `ALLOW_DATA_ATTR =
-cfg.ALLOW_DATA_ATTR !== false; // Default true`). So on those two the explicit `ALLOWED_ATTR` list is
-not the whole gate — any `data-*` attribute passes it regardless of what the list says.
+★★★ **RESCOPED 2026-08-11 by the unify-rich-text slice, and the count moved in BOTH terms — do not
+read the old title as "one got fixed".** This entry read "Two of the three sanitizers" while
+`sanitize-html.ts` exported three: `sanitizeDocumentHtml`, `sanitizeTemplateHtml` and
+`sanitizeNoteHtml`. The latter two are now DELETED and replaced by ONE, `sanitizeRichHtml`. So the
+defect is unchanged in KIND and its blast radius GREW: the surviving offender covers every rich
+surface at 21 tags where the wider of its two predecessors covered 11.
+
+`sanitize-html.ts` exports two DOMPurify sanitizers. Only `sanitizeDocumentHtml` sets
+`ALLOW_DATA_ATTR: false`; `sanitizeRichHtml` leaves DOMPurify's default, which is TRUE
+(`node_modules/dompurify/dist/purify.cjs.js` — `ALLOW_DATA_ATTR = cfg.ALLOW_DATA_ATTR !== false; //
+Default true`). So on that one the explicit `ALLOWED_ATTR` list is not the whole gate — any `data-*`
+attribute passes it regardless of what the list says.
+
+★★ **THE "EMPTY SET" ENUMERATION BELOW WAS RE-RUN AGAINST THE NEW EDITOR, 2026-08-11, and still
+holds — but its MARGIN is thinner and one config flag would end it.** The editor now registers
+`Highlight`, `Subscript` and `Superscript` on top of `StarterKit`. Scanning their dist for `data-`:
+subscript and superscript emit none, and `@tiptap/extension-highlight` emits **`data-color`** — but
+only under `multicolor`, whose default is `false`, and `rich-text-editor.tsx` registers `Highlight`
+bare. Reproduce:
+`grep -n "multicolor\|data-color" node_modules/@tiptap/extension-highlight/dist/index.js`
+— the extension returns no attributes at all when the flag is off. **Enabling `multicolor` would make
+the re-admission set non-empty and turn this into a real two-part fix.** Note that the fix is now
+literally ONE line rather than two, since there is one sanitizer left to change.
+★★ This is the second `data-*` producer sitting one config flag away; §140 carries the first
+(task list's `data-type`/`data-checked`) and OWNS closing this entry, because the attribute
+boundary has to be designed once for both.
 
 ★ Reproduce: `grep -n "ALLOW_DATA_ATTR: false" src/app/sanitize-html.ts` returns exactly one
 line. ★ Deliberately no line NUMBER: the first revision of this entry cited one, and the
@@ -6883,6 +7041,12 @@ re-admission is EMPTY.** An earlier revision said the opposite ("NOT a one-line 
 which `data-*` names those two sanitizers' call sites actually depend on"), which is the expensive
 direction: it prices a two-line change as a slice and nobody starts it. The enumeration was then
 actually run, 2026-08-08:
+
+★★ **THE FOUR BULLETS BELOW ARE THE 2026-08-08 RUN, KEPT VERBATIM — their commands name symbols that
+are now DELETED and will return nothing.** They are not renumbered to today's tree for the same
+reason a dated audit snapshot is not: rewriting a signed measurement to match the current code
+destroys the only thing it is good for. Substitute `sanitizeRichHtml` for the two retired names when
+re-running; the conclusion was re-verified above.
 
 - Every non-test call site, via `grep -rn "sanitizeTemplateHtml\|sanitizeNoteHtml" src/ scripts/ e2e/
   | grep -v "\.test\."` — including the indirect ones (`sanitizeAiRichText` → `withAiRichFields`, and
@@ -6922,6 +7086,33 @@ would lose any `data-*` a model happens to emit. That is the flag working, not a
 ★ No known exploit. `data-*` carries no script and no navigation; the concern is that the allow-list
 does not mean what it appears to mean, which is the state that produces a wrong review conclusion
 later. Recorded for that reason, not as a live vulnerability.
+
+### 2026-08-11 — what the surviving offender now spans, and why NOT to flip it in this slice
+
+The KIND is unchanged (both retired sanitizers had the default too), but say the reach out loud
+rather than leaving it at "21 tags": `sanitizeRichHtml` is the boundary for the seven rich entity
+fields (`Task.description` plus the six in `AI_RICH_FIELDS`), every `noteLog[].html`, the dashboard
+narrative, meeting reports and comm templates. A stored `<p data-x="…">` therefore persists through
+all six write paths and comes back out at a `dangerouslySetInnerHTML` sink (`RichTextView`,
+`comm-send-preview-modal.tsx`, `meeting-report-panel.tsx`). Measured on dompurify 3.4.13:
+`sanitizeRichHtml('<p data-foo="1">a</p>')` → `<p data-foo="1">a</p>` · `sanitizeDocumentHtml(...)`
+→ `<p>a</p>`. Inert today, for the reasons above.
+
+★★★ **DO NOT FLIP IT HERE, and the reason is a VERIFIED dependency rather than caution.** The
+task-list markup §140 plans depends on DOMPurify's `data-*` default: `@tiptap/extension-list` renders
+`taskList` as `<ul data-type="taskList">` and `taskItem` as `<li data-type="taskItem">`, and the
+item's `checked` attribute renders as `data-checked` **on the `li`** (its `parseHTML` reads it back
+from the same `li`). Both tags are already on `RICH_ALLOWED_TAGS`, so today the attributes survive
+purely because the flag is TRUE — flip it and a task list round-trips to a plain bullet list with
+every checkbox reset. Reproduce:
+`node -e "const s=require('fs').readFileSync('node_modules/@tiptap/extension-list/dist/index.js','utf8'); for (const m of s.matchAll(/data-type\": this.name/g)) console.log(s.slice(m.index-260, m.index+120).replace(/\n/g,' | '))"`
+and `grep -o '.\{0,60\}data-checked.\{0,40\}' node_modules/@tiptap/extension-list/dist/index.js`.
+★★ So §140 must design the attribute boundary — a NAMED `data-*` allow-list plus the
+`ADD_URI_SAFE_ATTR` exemption the mechanism note above describes — and flip the flag in the same
+change. Flipping first breaks a feature that has not shipped yet; flipping never leaves the gate
+meaning less than it looks. ★ This is the SECOND independent producer confirmed one config flag away
+(`@tiptap/extension-highlight`'s `data-color` under `multicolor` is the first), which is the argument
+for doing it once, in §140, rather than twice.
 
 ---
 
@@ -8249,7 +8440,7 @@ future inline affordance did patch the field, and deleting it makes reintroducin
 unsanitised. Recorded so a dead-code sweep does not mistake it for an oversight in either direction.
 ---
 
-## 137. The seven rich entity fields' editor cannot represent three tags their storage permits — open, step 0 of the unify-rich-text program
+## 137. The seven rich entity fields' editor cannot represent three tags their storage permits — CLOSED 2026-08-11
 
 Opened 2026-08-10 out of §107's closure. **Not a regression against §107 — it is what closing §107
 UNCOVERED**, and §107's own closure note points here.
@@ -8426,6 +8617,100 @@ local — the NOTE LOG shares that sanitizer and `KEEP_CONTENT: false` is delibe
 template allow-list narrows to 8 and the AI is no longer told it may emit headings. Patching one
 field at a time produces a fourth list to drift, which is the exact failure §107 and §114 record.
 
+### CLOSED 2026-08-11 — the unify-rich-text slice took the WIDEN branch
+
+**CLOSED** — one list (`RICH_ALLOWED_TAGS`, 21 tags), one sanitizer (`sanitizeRichHtml`, at
+DOMPurify's DEFAULT `KEEP_CONTENT` — unwrap semantics), one classifier sink (`rich`), one editor.
+`sanitizeTemplateHtml` and `sanitizeNoteHtml` are DELETED with no alias — an alias is a fourth list
+waiting to drift. `DOCUMENT_ALLOWED_TAGS` now SPREADS the rich array, so the surviving second
+sanitizer differs by exactly one tag (`img`). The five measured deletions at the top of this entry
+and the leading-tag escape are both gone, pinned by fixtures in `sanitize-html.test.ts` and
+`note-log.test.ts`.
+
+★ The editor half: `RichTextEditor` lost `variant`/`labels`/`isLean`/`ToolbarButton`, gained
+`StarterKit.configure({heading:{levels:[1,2,3,4]}})` + Highlight + Subscript + Superscript, and
+delegates to the shared `rich-text-toolbar.tsx`. Markdown input rules are back ON. `BLOCK_TAG`
+(`rich-text-plain.ts`) gained `pre`.
+
+**NOT closed by this slice, each now its own entry.** Already-escaped STORED values are not repaired
+— a value written as `&lt;h1&gt;` before this slice stays that way (**§141**). Task list and text
+alignment are unbuilt, because both need new HTML ATTRIBUTES (**§140**). §115's `data-*` default is
+unchanged and its blast radius GREW — §140 owns it.
+
+★★★ **THE ORDERING LESSON, AND IT IS THE MOST VALUABLE THING THIS SLICE LEARNED: MOVING A CLASSIFIER
+WIDER BEFORE MOVING ITS SINK CONVERTS AN ESCAPE INTO A DELETION.** Mid-branch — between the sink
+merge and the sanitizer retirement — the tree carried LIVE DATA LOSS. `note-log.ts` ran
+`sanitizeNoteHtml(descriptionHtml(value, "rich"))`: a 21-tag classifier feeding an 8-tag
+`KEEP_CONTENT:false` sanitizer, on the whole-object JSON **and** IndexedDB load path, for all seven
+rich fields. Measured at that commit:
+
+```
+RAID description "<h1>Escalation</h1><p>ok</p>"    -> "<p>ok</p>"    "Escalation" DELETED
+RAID mitigation  "<blockquote>plan B</blockquote>" -> ""             field EMPTIED
+```
+
+Twelve of the 21 tags lost their words. The OLD sink escaped these — ugly, but the words survived.
+**No test went red on any of it; a cold reviewer found it.**
+
+★★★ **AGENTS.md had already written the warning and the warning was not enough.** This entry's own
+bullet in that file said "Do not 'finish' it by widening the `note` sink", and the widening happened
+anyway — because it happened **one file away from the sentence**, in a commit whose subject was the
+sink merge, not the sanitizer. A prose warning is scoped to the file a reader is looking at.
+
+★★★ **The durable protection is TWO tests in `html-start.test.ts`, and the interesting one is NOT
+the property.** The subset property pins `kept(sanitizer) ⊆ recognised(sink)` for every sink, derived
+empirically on both sides — it feeds tags through the real sanitizer and the real classifier rather
+than comparing two constants. Before it, widening a sanitizer's `ALLOWED_TAGS` **config** without
+touching the exported array left every test green: the §107/§114 class exactly, and why this shipped
+mid-branch.
+
+★★★ **BUT A PROBE-BASED PROPERTY CAN ONLY SEE TAGS IN THE UNIVERSE IT PROBES**, so the property
+alone did not close the class — a tag added to the config but absent from the probe list never enters
+the kept-set, and the subset holds vacuously. The closing assertion is a different shape: it reads
+back the **RESOLVED `ALLOWED_TAGS` a sanitizer actually handed DOMPurify**, through an
+`uponSanitizeElement` hook, and compares it to that sink's exported array. That is
+**tag-INDEPENDENT** — it inspects the config rather than probing a universe — which is why it cannot
+be escaped by choosing an unusual tag. ★ It compares SORTED NAME SETS, not object identity; a
+reference check would pin the wrong thing (`SINK_TAGS.rich` is separately pinned by reference).
+
+★★★ **Measured, and it refutes the obvious cheaper fix — widening the probe universe.** With a
+`quux` mutant deliberately outside the universe: **1 red, the config test alone**; both behavioural
+tests stayed green. The `details`/`kbd`/`abbr`/`dfn` mutant went 0 red → 3 red. So universe-widening
+helps only for tags someone already thought of, which is the same blind spot the original defect had.
+★★ The fix originally proposed for this was itself wrong and was refuted by measurement — the claim
+that asserting `kept == RICH_ALLOWED_TAGS` catches any tag, when a tag outside the probed universe
+never enters `kept` and equality therefore still holds. **Same error class as §113's alignment
+claim**: a mechanism asserted from how it ought to behave rather than run.
+★ A fixture pins the tags someone thought to list; a probe-based property pins the ones in its
+universe; only a config read-back pins the ones nobody imagined.
+
+★★ **A THIRD INSTANCE OF THE SAME CLASS, from this branch's a11y follow-on.** The brief for the
+toolbar group naming asserted that "the editable regions are uniquely named" and scoped the fix to
+the toolbars alone. True per PANEL — and false across two MOUNTED panels, which is precisely the
+mount the fix exists for: `NoteLogPanel`'s two `RichTextEditor` `label` props ignored `labelSuffix`,
+so with the floating notes window and the task editor's inline panel both open, the composers and the
+entry editors collided, and the new toolbar groups — which take that same string — collided with
+them. A fix whose entire purpose is disambiguation would have inherited a collision its own brief
+said did not exist. Found by the implementer ENUMERATING the actual `label` at every call site
+instead of accepting the premise. Fixed in `a6e7c0c5`; the residue is **§142**.
+
+★★ **A SOURCE-TEXT ASSERTION TAXES THE DOCUMENTATION OF THE VERY CHANGE IT PINS.**
+`rich-text-editor.test.tsx` asserts its own source does not contain `sanitizeNoteHtml` /
+`sanitizeTemplateHtml` / `RichTextEditorVariant` / `isLean`. That is the right guard — but it cannot
+tell a live reference from a HISTORICAL NOTE, so writing "this used to run `sanitizeNoteHtml`" into
+that file turns the test RED. The note belongs here instead, and the guard should not be weakened to
+admit it. ★ `rich-text-plain.test.ts` enforces a DIFFERENT rule on its own module — comments MAY name
+DOMPurify, only a CALL is banned — so do not generalise either file's rule to the other.
+★ Consequence for this entry: prose about a retired symbol goes in the register, and a `src/` comment
+about one is only safe in a file no source-text assertion scans. Check before writing it.
+
+★ **`html-start.ts` stated THE RULE INVERTED in its own headline** — "never recognise MORE than your
+sink KEEPS" — while its two back-references in the same file, and AGENTS.md, both said LESS.
+Corrected on this branch. This is the **second recorded instance** of a rule being inverted inside
+its own implementation while every reference to it stayed right; the first is §107's own history.
+A rule stated once and referenced twice can disagree with itself, and the implementation is the copy
+a reader trusts.
+
 ## 138. The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured
 
 The 2026-08-10 slice that produced `scripts/check-followup-claims.mjs` (npm `followups:check`) was
@@ -8584,3 +8869,347 @@ showing. Both existing tests happened to order the fixture so `documents[0]` was
 which is why they were green. Recorded here because "accepted behaviour" and "undiagnosed defect"
 look identical from a green suite, and this one was written into two docs as the former before it
 was understood as the latter.
+
+---
+
+## 140. The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes — open
+
+Opened 2026-08-11 out of §137's closure. The unify-rich-text slice deliberately stopped at TAGS.
+Task list and text alignment were the two controls it did not build, and they share one blocker:
+each needs an HTML **attribute** the storage boundary does not currently admit, and the attribute
+surface is shared by every rich field AND by documents. That is a security boundary, so it gets a
+designed slice and its own review rather than a toolbar button.
+
+**Scope, as one decision:**
+
+1. **Task list** — `data-type="taskList"` / `data-type="taskItem"` + `data-checked`.
+2. **Text alignment** — `text-align`, via `style` (or a `class`, see below).
+3. **A VALUE allow-list**, enforced by a DOMPurify `uponSanitizeAttribute` hook. This is the part
+   that does not exist today in any form.
+4. **`ALLOW_DATA_ATTR: false` on every sanitizer**, which is what closes **§115**.
+5. A security review of the result.
+
+### The design inputs — measured, so the slice does not re-derive them
+
+★★★ **`style`, `class`, `title` and `id` are members of DOMPurify's `DEFAULT_URI_SAFE_ATTRIBUTES`
+and therefore BYPASS the `ALLOWED_URI_REGEXP` value test entirely.** `target`, `rel` and `lang` are
+not, which is why those three never survive (§38). Measured 2026-08-11 on dompurify 3.4.13 WITH
+CONTROLS — listing `target`/`rel` still strips them and listing `lang` still strips it, proving the
+regexp was armed, while `style="text-align:center"` and `class="text-center"` both survive.
+**§113 carried the opposite claim ("Alignment CANNOT be markup") and it is corrected there.**
+
+★★★ **So the blocker is the VALUE, not the attribute NAME — and nothing constrains it today.**
+A surviving `style` is passed through verbatim: `position:fixed;inset:0;z-index:99999` survives, and
+so does `background:url(javascript:alert(1))` — DOMPurify does not parse CSS values at all. These
+fields are AI-writable. **Admitting `style` without a value allow-list would be a real
+vulnerability**, which is the whole reason this is a slice with a review and not a list entry.
+★ A `class` allow-list is the cheaper alternative and worth pricing FIRST: the app already has a
+fixed palette of alignment utilities, so an allow-list of four class names is a far smaller attack
+surface than any CSS-value grammar. Decide between them explicitly.
+
+★★ **Task-list markup would survive TODAY, and only by accident.** `ALLOW_DATA_ATTR` defaults to
+TRUE and `sanitizeRichHtml` leaves it at the default — that is §115, still open. So a `data-checked`
+would pass the boundary regardless of `ALLOWED_ATTR`. ★★★ **That accident got WIDER, not narrower,
+in the §137 slice**: `sanitizeRichHtml` inherited the default from an 11-tag config and now applies
+it across **21 tags**, i.e. ten more than the config it came from. Do not build task list on top of
+the accident — fix §115 in the same slice, then re-admit `data-type`/`data-checked` by name.
+★ Re-admitting them is not just a name-list edit: setting `ALLOW_DATA_ATTR: false` removes the
+`data-*` SHORT-CIRCUIT, which drops those attributes into the value chain where `ALLOWED_URI_REGEXP`
+rejects any non-URI value. Each one kept needs `ADD_URI_SAFE_ATTR` too — §115 records that mechanism
+and `sanitizeDocumentHtml`'s `data-asset-id` is the worked precedent.
+
+★★ **Task list needs NO new package.** `@tiptap/extension-list` is already a `starter-kit`
+dependency — reproduce with
+`node -p "Object.keys(require('./node_modules/@tiptap/starter-kit/package.json').dependencies)"` —
+it is simply not registered — StarterKit does not register TaskList/TaskItem, and
+`grep -cE "TaskList|TaskItem" node_modules/@tiptap/starter-kit/dist/index.js` returns **0**. Only
+**`@tiptap/extension-text-align`** is a genuinely new dependency.
+
+★★★ **INSTALL THAT ONE AT AN EXACT VERSION — a caret range breaks the install.** The tree is
+uniformly on Tiptap **3.27.1** (core, react, starter-kit and the three extensions this slice added;
+verified 2026-08-11). `@tiptap/extension-text-align@^3.27.1` resolves to **3.29.2**, whose peer
+dependency is an EXACT pin — `{"@tiptap/core": "3.29.2"}`, not a range — against the installed
+3.27.1. Reproduce without installing anything:
+
+```bash
+npm view @tiptap/extension-text-align version           # 3.29.2
+npm view @tiptap/extension-text-align peerDependencies  # { '@tiptap/core': '3.29.2' }
+```
+
+This bit Task 1 of the §137 slice. Install `@tiptap/extension-text-align@3.27.1` explicitly, or
+upgrade the whole Tiptap tree as a deliberate separate step.
+
+★ **Sequencing note.** §113's S3b (the documents block editor) is now smaller than designed because
+the unified `RichTextEditor` already exists — but S3b wants alignment, so this entry sequences
+BEFORE it, the same way the classifier work sequenced before S3a.
+
+---
+
+## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — open
+
+Opened 2026-08-11 out of §137's closure, which was scoped stop-the-bleed: it fixed what happens to
+values written from now on and repaired nothing already stored.
+
+### (a) Already-escaped stored values are not repaired
+
+A value that passed through the old narrow classifier before §137 closed was stored **escaped** —
+`"<p>&lt;h1&gt;Title&lt;/h1&gt;…</p>"` — and stays that way. It renders as its own raw markup, and
+`descriptionText` (search, AI digests, the inline-AI preview) reads it as markup rather than prose.
+§137 measures both. The new sanitizer will not undo it, because escaping is not lossy and nothing
+distinguishes "was escaped by the old boundary" from "the user typed a literal heading tag".
+
+★★ That ambiguity IS the design problem, and it is why this is not a migration script anybody should
+write casually. A repair pass must decide what evidence licenses un-escaping a stored value, on data
+where both readings are legitimate. Price the option of doing nothing: the population may be small
+(only values that crossed an AI or import boundary between §107's closure and §137's), and it
+shrinks every time a human re-saves one.
+
+### (b) Export fidelity for the entity rich fields
+
+`htmlToRichLines` (`rich-text-runs.ts`) is the shared HTML → styled-runs parse behind
+`doc-render-docx.ts` and `doc-render-pptx.ts`, but the seven rich ENTITY fields do not route through
+it — exports take the flat `descriptionTextWithBreaks` projection. Now that those fields can carry
+headings, lists, blockquote and code blocks, the gap is visible: **heading LEVEL and list NUMBERING
+are lost** in DOCX and PPTX. Wiring the entity fields onto `htmlToRichLines` is the fix.
+
+### (c) §31's unbounded markup bytes
+
+Caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`, so markup bytes are unbounded.
+The 21-tag list makes a given amount of visible text able to carry more markup than the 8- or 11-tag
+lists did. Not a new defect — §31 — but its ceiling moved, so re-price it here.
+
+### (d) `CONTAINS_TAG`'s `/i` flag is unpinned — pre-existing, DO NOT fix opportunistically
+
+The `render` sink's classifier is `CONTAINS_TAG` (`html-start.ts`), a case-INSENSITIVE tag match.
+Dropping its `/i` leaves `html-start.test.ts` **29/29 green** (this entry said 22/22 — a wrong count
+against a correct substance; re-measure with
+`npx vitest run src/app/html-start.test.ts --reporter=dot`), and the mutant is NOT equivalent:
+without it, UPPERCASE legacy markup (`<P>`, `<STRONG>`) fails the render classifier and is ESCAPED
+into Word, PowerPoint, the HTML preview and the PDF.
+
+**ANSWERED 2026-08-11 — it is unpinned REPO-WIDE, not just in one file.** This entry asked for the
+scope to be established before anyone wrote a test; it now is. The `render` sink has exactly THREE
+production consumers — `doc-render-docx.ts`, `doc-render-html.ts`, `doc-render-pptx.ts` (enumerate
+with `grep -rn '"render"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'`) — and the
+`/i`-dropped mutant survives **215 tests across the six files that own the sink and its consumers,
+0 red**: `html-start` 29 · `doc-render-html` 26 · `doc-render-docx` 41 · `doc-render-pptx` 70 ·
+`rich-text-runs` 29 · `rich-text-projection` 20. Non-equivalence re-confirmed on the same run:
+`"Intro <STRONG>bold</STRONG> tail"` → `true` with `/i`, `false` without.
+
+★★ The harness was proved live in the same session, so the green is a real survival and not a
+mis-run: the neighbouring swap of `doc-render-html.ts`'s own sink argument (`"render"` → `"document"`)
+turns **3** tests red in that same file.
+
+★ Still recorded rather than fixed, and now for a stated reason rather than an open question: the
+input the suite lacks is a stored UPPERCASE-markup value, which no fixture in any of the six files
+carries. The one-line test is a `doc-render-html` case rendering `"Intro <STRONG>bold</STRONG> tail"`
+and asserting the markup is NOT escaped — cheap, but it belongs with §141(b)'s export-fidelity work,
+where the same three renderers are already being touched.
+
+---
+
+## 142. `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently — open
+
+Opened 2026-08-11 out of the a11y follow-on to §137's branch. The DEFECT is fixed (`a6e7c0c5`); the
+MECHANISM that let it happen is not, and cannot be seen by anything in the repo.
+
+### What `labelSuffix` is for, and what ignored it
+
+`NoteLogPanel` takes an optional `labelSuffix`, whose own docstring states the reason: *"Appended to
+the composer/row control names so two mounted surfaces never announce identical labels. axe cannot
+see a duplicate accessible name."* Two panels genuinely mount at once:
+
+- `notes-window.tsx` — the floating notes window. Passes **NO** suffix on purpose: its `role="dialog"`
+  `aria-label` already scopes everything inside it.
+- `task-form-fields.tsx` — the task editor's inline panel, fed by `use-notes-window.ts`, where the
+  suffix is documented as REQUIRED.
+
+The Add / Edit / Delete buttons and both dictation mics applied the suffix. The two `RichTextEditor`
+`label` props did **not** — so in that mount both composers announced "Write a note…" and both entry
+editors announced "Edit" (WCAG 2.4.6, on the editable regions themselves). It also defeated the
+toolbar group naming shipped one commit earlier, since those groups take this same string: the one
+mount where disambiguation matters most produced two identically-named groups.
+
+Fixed by naming each mic and the editor beside it from ONE shared const (`editLabel` /
+`composerLabel`). Two spellings of the same string sat within ten lines of each other and only one
+was ever updated — which is how it happened, and why the fix is a shared const rather than a second
+correct spelling.
+
+### The open part — nothing can detect a THIRD caller
+
+★★ The mechanism is honour-system. `labelSuffix` is OPTIONAL, so a future third mount site that
+simply omits it compiles, renders, and collides **silently**. Nothing in the repo can tell: axe is
+structurally blind to a duplicate accessible name at any seed size (see §55's neighbouring
+measurement and AGENTS.md's a11y bullet), and the type system is no help either — optional means
+optional.
+
+★ The asymmetry is worth naming, because it looks like coverage and is not: the site that is
+SUPPOSED to omit the prop is the one held structurally (`notes-window.tsx` types itself
+`Omit<NoteLogPanelProps, "labelSuffix">`, so it *cannot* pass one), while the site that MUST pass it
+is held only by a comment in `use-notes-window.ts`. The guard is on the harmless direction.
+
+★★ **The two-panel test does not close this and must not be read as if it does.** It lives inside
+`note-log-panel.test.tsx` and pins today's spellings *within* `note-log-panel.tsx` — it mounts the
+production pairing (one with a suffix, one without) and asserts the SET of the four editable
+surfaces' names has size 4, rather than merely that four exist. It cannot see a new CALLER that omits
+the prop, because it constructs the mount itself.
+
+### Why the test was necessary — the mutation result
+
+Mutation-measured in `a6e7c0c5`: dropping the suffix from the entry editor's label turns **2** tests
+red; dropping it from the composer's turns **1** red — the new two-panel test in both cases, and for
+the composer half it is the ONLY detector. Every pre-existing case in that file mounts ONE panel,
+where "Write a note…" resolves whether or not the suffix is applied, so each passes either way. That
+is the whole argument for the two-panel shape: a single-mount fixture cannot observe a collision that
+only exists when both surfaces are in the DOM.
+
+### Closing it
+
+Options, none taken: make `labelSuffix` REQUIRED on `NoteLogPanelProps` and have the window pass an
+explicit sentinel (turns the honour system into a typecheck, at the cost of a meaningless argument at
+the one site that legitimately has nothing to say); or derive the suffix inside the panel from
+something it already knows. ★ Recorded rather than fixed because the branch was already wide, and
+because the right answer depends on whether a third mount site is ever actually wanted — if it is
+not, the cheapest correct move is to keep it at two and say so in the type.
+
+---
+
+## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — open, HIGH
+
+Opened 2026-08-11 out of a cold review of `unify-rich-text-s1`. `isHtmlStart(value, sink)` is that
+slice's design centre: one classifier per sink, each DERIVED from the allow-list its sink sanitizes
+against, so a classifier can no longer be narrower than its sink (§107) or wider than a deleting one
+(§114). `html-start.test.ts` pins the MAP thoroughly and empirically, per sanitizer.
+
+**Nothing pins that any consumer passes the RIGHT sink.** The argument is a hand-written string
+literal at every call site, and `RichTextSink` is a union of four members, so every value typechecks
+everywhere. Measured swaps that leave the owning suites FULLY GREEN:
+
+| swapped call site | swap | suites run | result |
+|---|---|---|---|
+| `narrative-html.ts` `narrativeToHtml` | `"rich"` → `"document"` | `narrative-html` 14 + `dashboard-narrative` 20 | **34/34 green** |
+| `sanitize-records.ts`, all SIX entity sites | `"rich"` → `"document"` | `sanitize-records` · `sanitize-raid` · `sanitize-change` · `rich-text-plain` · `note-log` | **151/151 green** |
+| `doc-render-html.ts` `renderBlock` | `"render"` → `"document"` | `doc-render-html` 26 | **3 red** |
+
+★★ The third row is the POSITIVE CONTROL and it is why the first two greens are a real survival
+rather than a mis-run — same session, same harness, same command shape. Run it whenever you re-check
+this entry; a suite that starts reporting green for the `doc-render-html` swap means the measurement
+is broken, not that the defect closed.
+
+★★ **The mutants are NOT equivalent.** `rich` and `document` differ by `img`, which is enough to
+change `isHtmlStart`'s answer for a value opening `<img …>`. So this is a missing test, not an
+equivalent-mutant question — the distinction §131 records as the one a harness cannot make for you.
+
+★ **Blast radius is bounded TODAY and unbounded in SHAPE.** The two lists differ by one tag, and no
+entity field or dashboard narrative has any business carrying an `<img>`, so nothing observable is
+wrong right now. What is not bounded is the arrangement: a fourth sink, or any future divergence
+between `RICH_ALLOWED_TAGS` and `DOCUMENT_ALLOWED_TAGS`, lands here undetected. The six entity sites
+are the ones that matter — those are the STORAGE classifiers, where a wrong answer escapes a whole
+value permanently or passes one through raw.
+
+### Closing it
+
+★ Not a per-call-site test each (fifteen assertions nobody maintains). The cheap shapes, in order of
+appeal: (1) make the sink a BRANDED value each sanitizer hands out, so a call site cannot spell one
+it does not import; (2) one table-driven test per storage boundary that feeds a value distinguishing
+the two lists (an `<img>`-leading string today) and asserts the answer — small, but it goes stale the
+moment the lists converge again; (3) accept it and say so here. ★ Deliberately NOT fixed in the
+branch that found it: it is the branch's own design being reviewed, and the right guard is a type
+change touching every call site.
+
+---
+
+## 144. The new rich-text toolbar is invisible to every gate in the repo — open, a11y, measured
+
+Opened 2026-08-11 with the toolbar that `unify-rich-text-s1` shipped. Fifteen controls per editor —
+twelve `ToggleButton`s (`BLOCKS` + `MARKS`), Insert link, Remove link, and the heading `<select>` —
+and **not one of them is reachable by any automated check in this repo.**
+
+### Why the axe gate cannot see it
+
+The gate runs 90 scans (17 views × 5 scheme combos, plus 5 Kanban variants). Every `<RichTextEditor`
+mount is behind something a scan cannot open — but for FOUR different reasons, not one. ★★ A first
+revision of this entry said "eleven of the twelve are inside a MODAL", which is wrong for three of
+them and would send the next reader looking for a modal that does not exist:
+
+- **Nine behind a modal or a floating window**, and nothing in `e2e/a11y.spec.ts` opens either:
+  `change-edit-modal` ×3, `raid-edit-modal` ×2, `milestone-edit-modal`, `task-form-fields` (the
+  floating `TaskFormModal`), and `note-log-panel` ×2. ★ That ×2 is the two EDITORS INSIDE
+  `note-log-panel.tsx` — the composer and the entry editor — **not** two parents. The panel does also
+  have two PARENTS (`notes-window.tsx`, and `task-form-fields` inside the task modal), but that is a
+  different multiplicity and must not be multiplied into the nine: 3+2+1+1+2 = 9 mount SITES in
+  source, which is the unit the `<RichTextEditor` grep below counts.
+- **One behind a non-default Settings section.** `settings-view.tsx` renders
+  `CommTemplatesSection` under `active === "commTemplates"`, and the scan lands on Settings' default
+  section — so this one IS in a scanned VIEW and still never renders.
+- **One in a view that is not scanned at all.** `meeting-report-panel.tsx` mounts inside
+  `steering-committee-panel.tsx`, and `steering-committee` is a real nav view that `A11Y_VIEWS` does
+  not list.
+- **One inside collapsed content.** `dashboard-sections/dashboard-narrative.tsx` renders inside a
+  `<details>` with **no `open` attribute**.
+
+★★ Enumerate with the right shape or the count is wrong:
+`grep -rn "<RichTextEditor" src/app --include=*.tsx | grep -v "\.test\."` returns **fifteen** lines,
+three of which are `useRef<RichTextEditorHandle>` / `Ref<RichTextEditorHandle>` type arguments, not
+JSX. Twelve are real mounts. The `<`-prefixed grep matching a TYPE argument is the same
+count-inflation trap this file records elsewhere.
+
+And no e2e spec touches a toolbar at all:
+`grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns **nothing**.
+
+★★★ Even a scan that DID reach one would be silent on the defect the toolbar's `role="group"` exists
+to fix. Measured against the installed axe-core 4.12.1 and recorded in §126 and AGENTS.md's a11y
+bullet: of its 105 rules, 69 carry one of the four tags the spec requests, and NOT ONE flags two
+controls sharing an accessible name. So unit tests are not "the cheapest detector" here, they are the
+ONLY one — in both layers, at every seed size.
+
+★ What IS pinned, so this entry is not read as "untested": `rich-text-toolbar.test.tsx` holds the
+multi-editor group-naming test and pins `queryByRole("toolbar")` as NULL, and
+`rich-text-editor.test.tsx` now pins the `label` → toolbar wire that makes the group render at all
+(mutation-proved: cutting `label={label}` turns exactly 1 test red, and left the file 33/33 green
+before that test existed, with `change-edit-modal.test.tsx` 28/28 and `raid-edit-modal.test.tsx`
+20/20 green too). What is unpinned is everything a rendered browser would show.
+
+★★ **NOT A FLAKE — a shared-worktree artefact, recorded so nobody chases one.** The cold review of
+this branch re-ran `rich-text-editor.test.tsx` and saw **1 red in 3**, which reads exactly like an
+order- or timing-dependent test. It was not: a CONCURRENT agent was editing `rich-text-toolbar.tsx`
+in the SAME working tree while the run was in flight, so the suite was reading a half-written module.
+Re-run on a quiet tree by the controller afterwards: **five consecutive runs, 34/34 each**. ★ That
+read "5/5 green" at first, which collides with the passed-of-total notation this same entry uses
+three paragraphs up (`33/33`, `28/28`, `20/20`) and so announced a five-test file; it has 34. A run
+COUNT and a test count are not interchangeable in a register that quotes both. ★ The lesson is review HYGIENE,
+not test health — a vitest run is a read of the live filesystem, so a red from a shared tree is
+evidence about the TREE, not about the code under review. Quiesce the tree (or take a worktree of
+your own) before treating an intermittent red as a finding, and never file one as a flake without a
+quiet-tree re-run.
+
+### The tab-stop cost, recorded beside it
+
+★★ Every one of the fifteen controls is its own tab stop, so a keyboard user crosses **15 tab stops
+per editor** to reach the text. `change-edit-modal.tsx` mounts up to THREE editors, so that form
+carries **up to 45** toolbar tab stops, with no bypass mechanism.
+
+★★ **THAT COUNT IS MODE-DEPENDENT, and a flat "45" over-states it in simple mode.** Two of the three
+editors sit behind modal field-visibility gates — `isVisible("description")` and `isVisible("impact")`
+— and `modal-fields.ts` tiers `change`'s `impact` field as `advanced`, so the impact editor does NOT
+render in SIMPLE mode and the form carries **30**. Only the resolution/rationale editor is ungated.
+45 is the count at the DEFAULT tier and at `full` (`DEFAULT_TIER` in `field-visibility.ts` is
+`advanced`, so 45 is what most users see). Measured rather than read off the tier table:
+`visibleFields("change", applyTier("change", "simple"))` returns
+`["title","type","status","description"]` — no `impact` — while the same call at `advanced` and
+`full` includes it.
+
+★★★ The refusal of `role="toolbar"` is CORRECT and must not be "fixed" by adding the role: the APG
+toolbar pattern is a keyboard CONTRACT (one tab stop for the row, roving `tabindex`, Left/Right
+moving focus between controls) and this row implements none of it. Declaring a role whose interaction
+the widget does not honour tells an AT user to press arrow keys that do nothing — worse than
+declaring none. `rich-text-toolbar.test.tsx` pins the absence so the role cannot arrive without the
+behaviour. **The tab-stop count is the price of that correctness, not evidence against it.**
+
+### Closing it
+
+Two independent halves, neither taken: (a) give the row roving `tabindex` and THEN the role — which
+changes what Tab does in every editor in the app, so it is its own slice with its own eye-verify; or
+(b) seed a rich-text surface into the e2e a11y run so at least one toolbar is scanned, remembering
+that a green scan still says nothing about duplicate names. ★ (b) is cheap and buys less than it
+looks like it does; (a) is the real answer.

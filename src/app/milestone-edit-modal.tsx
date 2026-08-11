@@ -107,7 +107,7 @@ export function MilestoneEditModal({
       // inside sanitizeRichText. This modal has no adjustment tracker (it never
       // had one and shows no "N fields adjusted" toast), so the cap is applied
       // silently — matching what the loader would have done anyway.
-      description: capHtmlText(descriptionHtml(draft.description, "template"), TEXTAREA_MAX) || undefined,
+      description: capHtmlText(descriptionHtml(draft.description, "rich"), TEXTAREA_MAX) || undefined,
     });
   }
 
@@ -205,8 +205,7 @@ export function MilestoneEditModal({
                   mounted would leave A's body in the field. */}
               <RichTextEditor
                 key={draft.id}
-                variant="lean"
-                value={descriptionHtml(draft.description, "template")}
+                value={descriptionHtml(draft.description, "rich")}
                 onChange={(html) => update("description", html || undefined)}
                 label={t(lang, "milestoneDescription")}
                 lang={lang}

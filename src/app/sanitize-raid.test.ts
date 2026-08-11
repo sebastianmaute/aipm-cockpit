@@ -252,12 +252,17 @@ describe("sanitizeRaidItem", () => {
   // sanitize-records.ts from "template" to "note" left 299 tests green across
   // descriptor-drift.test.ts and seven sanitize/storage suites, because every
   // other fixture is PLAIN TEXT — an input every sink classifies identically.
-  // Only a SEPARATING input pins the choice: `<h1>` is in the 11-tag template
-  // allow-list and NOT in the 8-tag note one, so the template sink passes it
-  // through as live markup while the note sink calls the whole value plain text
-  // and escapes it. `sanitizeRaidItem`'s destination is `sanitizeTemplateHtml`
-  // (the AI write boundary is 11 tags wide), so "template" is correct here.
-  it("classifies a RAID rich field at the template sink, not the note sink", () => {
+  // Only a SEPARATING input pins the choice, and `<h1>` is one: it is on
+  // RICH_ALLOWED_TAGS, so the "rich" sink passes the value through as live
+  // markup, while any classifier that does not recognise it calls the whole
+  // value plain text and escapes it (§107). `sanitizeRaidItem`'s destination is
+  // `sanitizeRichHtml`, so "rich" is correct here.
+  // ★★ THIS USED TO PIN A CHOICE BETWEEN TWO SINKS and no longer can — it was
+  // "classifies at the template sink, not the note sink", separating an 11-tag
+  // template list from an 8-tag note one. Both are retired and there is one rich
+  // sink now, so what survives is the weaker but still load-bearing property
+  // below: a leading `<h1>` reaches storage as MARKUP and is not escaped whole.
+  it("classifies a RAID rich field at the rich sink: a leading <h1> stays markup", () => {
     const result = sanitizeRaidItem({ ...VALID, description: "<h1>Q3</h1><p>ok</p>" });
     expect(result!.description).toBe("<h1>Q3</h1><p>ok</p>");
     expect(result!.description).not.toContain("&lt;h1&gt;");

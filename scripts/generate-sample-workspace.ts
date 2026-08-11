@@ -24,7 +24,7 @@
  * jsdom landmine (read before touching the import order below): decoding via
  * `jsonToWorkspace` (re-exported by ../src/app/storage from workspace.ts)
  * re-sanitizes every task/RAID noteLog + description through
- * sanitizeNoteFields -> sanitizeNoteHtml -> DOMPurify (sanitize-html.ts).
+ * sanitizeNoteFields -> sanitizeRichHtml -> DOMPurify (sanitize-html.ts).
  * DOMPurify binds its `window` ONCE, at the moment the "dompurify" package
  * is first imported (module-eval time, not per-call) — under bare Node
  * (no DOM) that bind fails, sanitize() throws, and jsonToWorkspace's own

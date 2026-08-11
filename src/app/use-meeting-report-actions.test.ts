@@ -30,7 +30,7 @@ vi.mock("./graph-mail", () => ({
 // function this test needs to avoid is stubbed.
 vi.mock("./sanitize-html", async (importActual) => ({
   ...(await importActual<typeof import("./sanitize-html")>()),
-  sanitizeTemplateHtml: (h: string) => h,
+  sanitizeRichHtml: (h: string) => h,
 }));
 
 const resources: Resource[] = [

@@ -296,18 +296,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               label={t(lang, "commTplBody")}
               mergeFields={CATEGORY_FIELDS[category]}
               fieldLabel={(f) => t(lang, ("commTplField_" + f) as TranslationKey)}
-              labels={{
-                bold: t(lang, "commTplBold"),
-                italic: t(lang, "commTplItalic"),
-                underline: t(lang, "commTplUnderline"),
-                heading1: t(lang, "commTplHeading1"),
-                heading2: t(lang, "commTplHeading2"),
-                bulletList: t(lang, "commTplBulletList"),
-                numberedList: t(lang, "commTplNumberedList"),
-                link: t(lang, "commTplLink"),
-                unlink: t(lang, "commTplUnlink"),
-                linkPrompt: t(lang, "commTplLinkPrompt"),
-              }}
+              lang={lang}
             />
           </div>
 

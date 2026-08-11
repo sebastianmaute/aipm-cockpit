@@ -117,7 +117,7 @@ describe("description consumers use the correct projection", () => {
     "task-dedup/dedup.ts",
     "jira-api.ts",
     // ★ The SIXTH consumer, added later in the same release: the dedup modal
-    // rendered `unified.description` (sanitizeNoteHtml output) raw as text. A
+    // rendered `unified.description` (sanitizeRichHtml output) raw as text. A
     // hardcoded snapshot list goes stale the moment the branch that owns it finds
     // another consumer — if you convert a seventh, add it here in that commit.
     "task-dedup-modal.tsx",

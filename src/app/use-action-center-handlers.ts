@@ -29,7 +29,7 @@ import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
 import { isValidEmail } from "./sanitize";
 import { htmlToPlainText } from "./html-to-text";
 import { renderTemplate, buildStakeholderUpdateVars, type CommTemplateCategory } from "./comm-templates";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import { plainTextToHtml } from "./comm-send";
 import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
 import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
@@ -178,7 +178,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
           ? htmlToPlainText(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
           : t(lang, "commsEmailBodyTemplate", sh.name);
         const html = tplBody != null
-          ? sanitizeTemplateHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
+          ? sanitizeRichHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
           : plainTextToHtml(body);
         commSend.send({ to: email, subject, html, plain: body });
         void recordLearning(action, "acted");

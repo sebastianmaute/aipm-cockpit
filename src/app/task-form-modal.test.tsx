@@ -307,7 +307,13 @@ describe("inline note log (slice B)", () => {
     expect(screen.getByText("Kickoff held")).toBeInTheDocument();
     expect(screen.getByText("Charter signed")).toBeInTheDocument();
 
-    const surface = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
+    // ★ The composer carries `labelSuffix` now, exactly as the Add button below
+    //   does — the two `RichTextEditor` labels were the only controls in
+    //   `note-log-panel.tsx` that ignored it, which collided with the floating
+    //   notes window when both surfaces were mounted.
+    const surface = await screen.findByRole("textbox", {
+      name: `${t(EN, "noteLogPlaceholder")} – Draft charter`,
+    });
     await user.click(surface);
     await user.type(surface, "Fresh in-editor note");
     fireEvent.click(

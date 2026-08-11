@@ -8,6 +8,41 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.232.0] - 2026-08-11 "Merril"
+
+### Changed
+
+- **One rich-text editor, everywhere.** Task descriptions, RAID descriptions and mitigations, change
+  descriptions, impact and resolution notes, milestone descriptions, the note log, comm templates and
+  the dashboard narrative all shared an editor that behaved differently in each place — two different
+  toolbars, two different sanitizers and two different ideas of which formatting was allowed. They are
+  now one editor with one toolbar and one allow-list: headings 1-4, bold, italic, underline,
+  strikethrough, highlight, superscript, subscript, inline code, code blocks, quotes, bullet and
+  numbered lists, horizontal rules and links.
+- **Formatting is no longer discarded on save.** The narrower of the two sanitizers deleted unlisted
+  elements *together with their text*, so a quote or a heading pasted into a risk could lose its words
+  rather than merely its styling. The single sanitizer unwraps instead: an element it does not allow
+  gives up its tag and keeps what it said. Losing formatting is acceptable; losing words is not.
+- **Markdown shortcuts work while typing again** — `# ` for a heading, `> ` for a quote, ` ``` ` for a
+  code block, `- ` for a list, `--- ` for a rule.
+
+### Fixed
+
+- **The toolbar told you the wrong thing about the text your cursor was in.** Its buttons read the
+  editor's state once when the row was drawn and never again, so moving the caret into bold text left
+  "Bold" reading as off, and a screen reader announced it that way.
+- **Picking the heading level you could already see demoted the block.** With the cursor in a Heading 2
+  the control displayed "Heading 2"; choosing it toggled the heading off and turned the section into a
+  paragraph. Choosing the level shown is now a no-op, as it should be.
+- **Heading levels 2-4 could not be reached from the keyboard.** A closed dropdown fires a change on
+  every arrow keypress, and the editor pulled focus away on the first one, so the selection could never
+  travel past Heading 1.
+- **Several editors in one form no longer collide for screen-reader users.** The change modal carries
+  three rich-text fields, which meant three buttons called "Bold" and three dropdowns called "Text
+  style" with nothing to tell them apart. Each toolbar is now a labelled group naming its field.
+- **A note added while an editor was open is no longer destroyed by saving it.** Both the task and RAID
+  editors could write a stale copy of the note log back over the live one.
+
 ## [0.231.0] - 2026-08-11 "Sargent"
 
 ### Added

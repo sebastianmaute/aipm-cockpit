@@ -205,10 +205,15 @@ describe("turso — documents load", () => {
     // which is exactly what a destructively-wired sanitizer produces — so it
     // cannot tell a correct wiring from one that ate the user's prose:
     //   · "Safe body" surviving rules out the block being dropped or blanked.
-    //   · "Kept heading" surviving rules out KEEP_CONTENT:false (sanitizeNoteHtml
-    //     DELETES the text inside a non-allow-listed tag; sanitizeTemplateHtml
-    //     UNWRAPS the tag and keeps the words). h3 is on neither allow-list, so
-    //     the tag goes either way and only the TEXT distinguishes them.
+    //   · "Kept heading" surviving rules out a destructive KEEP_CONTENT:false
+    //     wiring, which would delete the text inside a tag it does not allow.
+    //     ★★ h3 USED TO BE on no allow-list, so the tag went either way and only
+    //     the TEXT could distinguish a keeping sanitizer from a deleting one.
+    //     It joined RICH_ALLOWED_TAGS (and so DOCUMENT_ALLOWED_TAGS, which
+    //     spreads it), so the `<h3>` tag itself now SURVIVES here — the fixture
+    //     no longer separates the two policies, and it does not need to, because
+    //     no sanitizer in the repo deletes text any more. The assertion is on
+    //     the WORDS and holds under either.
     const hostile: ProjectDocument = {
       ...DOC,
       blocks: [{

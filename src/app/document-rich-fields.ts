@@ -27,38 +27,38 @@
 // contract violation: compose it at the CALLER, as
 // `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`.
 //
-// ★★★ `sanitizeDocumentHtml` — NOT `sanitizeTemplateHtml`, NOT `sanitizeNoteHtml`.
-// The two wrong swaps fail in DIFFERENT ways, so neither rules the other out:
+// ★★★ `sanitizeDocumentHtml` — NOT `sanitizeRichHtml`. There is now exactly ONE
+// wrong swap available (the file exports two sanitizers), and it is far quieter
+// than the two it replaced, because the lists differ by a single tag: `img`.
 //
-//   • sanitizeTemplateHtml is what this module used until S3a, and the failure
-//     is REACH, silently and on the way IN. It is the SHARED 11-tag list that
-//     also serves comm templates, meeting reports and the six rich entity
-//     description fields, so it cannot be widened for documents' sake — that is
-//     exactly why sanitizeDocumentHtml exists. Using it HERE narrowed the LOAD
-//     boundary below what the render sink allows: a stored `<mark>`/`<s>`/
-//     `<code>` was UNWRAPPED ON READ — and the next save then persisted the loss
-//     — so doc-render-html's wider list never saw one, and its own test ("renders
-//     a document paragraph's new marks instead of stripping them",
-//     doc-render-html.test.ts) passed over HTML that could no longer reach it.
-//     ★★ ONE DOOR OF TWO — a document allow-list has to be applied at the sink
-//     AND here, or the pair that looks fixed is not.
-//   • sanitizeNoteHtml differs by DATA LOSS rather than reach. NO list allows
-//     `h3`/`div`/`table` — all three delete those TAGS. What differs is the TEXT
-//     inside them: sanitizeNoteHtml sets KEEP_CONTENT:false and deletes it along
-//     with the tag (right for the lean note editor, whose Tiptap schema can only
-//     emit the lean set), while sanitizeDocumentHtml keeps DOMPurify's default
-//     and UNWRAPS the tag so the user's words survive. A document is authored by
-//     a model, which legitimately emits headings and tables, so silently dropping
-//     their prose is unacceptable.
+//   • The failure is REACH, silently and on the way IN. This module used the
+//     since-retired `sanitizeTemplateHtml` until S3a and that narrowed the LOAD
+//     boundary below what the render sink allows: a stored `<mark>`/`<s>`/`<code>`
+//     was UNWRAPPED ON READ — and the next save persisted the loss — so
+//     doc-render-html's wider list never saw one, and its own test ("renders a
+//     document paragraph's new marks instead of stripping them") passed over HTML
+//     that could no longer reach it. ★★ ONE DOOR OF TWO — a document allow-list
+//     has to be applied at the sink AND here, or the pair that looks fixed is not.
+//   • Those eight marks are on RICH_ALLOWED_TAGS now, so the surviving swap costs
+//     only `img` — and `img` is the WORST case of this class, not the mildest,
+//     because it is VOID. An unwrapped `<div>` leaves its words behind; an
+//     unwrapped `<img>` leaves nothing at all, so the reference disappears with no
+//     trace in the text. Measured 2026-08-11 on
+//     `<p>before</p><p><img data-asset-id="7" alt="chart">tail</p>`:
+//     sanitizeDocumentHtml returns it unchanged, sanitizeRichHtml returns
+//     `<p>before</p><p>tail</p>`.
 //
-// ★ Mutation-measured 2026-08-08 against document-rich-fields.test.ts, both
-// restored byte-exactly: sanitizeTemplateHtml turns 1 test red (the LOAD-boundary
-// one), sanitizeNoteHtml turns 2 (that one AND the heading-text one). The count
-// here USED to read "exactly one test red" and meant the sanitizeNoteHtml swap —
-// true when written, false the moment the documents list existed. Re-measure it
-// rather than adjusting it by reasoning.
-// `<script>`/`<style>` are removed WITH their contents on all three (measured —
-// each returns "<p>ok</p>" for `<p>ok</p><script>alert(1)</script><style>b{x:1}</style>`),
+// ★★★ MUTATION-MEASURED 2026-08-11, and the honest number is ZERO: swapping in
+// sanitizeRichHtml here left document-rich-fields.test.ts 9/9 GREEN. That is a
+// MISSING TEST, not an equivalent mutant — the probe above proves the behaviours
+// differ, the suite simply had no `<img>` at this boundary. The earlier counts
+// (sanitizeTemplateHtml 1 red, sanitizeNoteHtml 2 red) were true against
+// sanitizers that no longer exist; do not carry a count forward across a
+// refactor, re-run it. The "keeps an <img> reference at the LOAD boundary" test
+// added alongside this note is what now kills the mutant — delete it and the only
+// remaining wrong swap goes undetected again.
+// `<script>`/`<style>` are removed WITH their contents by both (measured — each
+// returns "<p>ok</p>" for `<p>ok</p><script>alert(1)</script><style>b{x:1}</style>`),
 // and the shared end-anchored ALLOWED_URI_REGEXP drops a `javascript:` href.
 
 import type { DocBlock, ProjectDocument } from "./document-model";

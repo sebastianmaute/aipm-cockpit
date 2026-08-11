@@ -8,7 +8,7 @@ import type { SteeringCommittee, Resource } from "./types";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import { runMeetingReport } from "./committee-report/report-call";
 import { loadVersions, saveVersion } from "./committee-report-versions-store";
 import type { MeetingReportVersionUi } from "./meeting-report-panel";
@@ -92,7 +92,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     // Uniform write-time sanitization (defense-in-depth) — every body write
     // (manual save, AI draft, restore) routes through here. A NEW body is
     // unsent, so `sentAt` is intentionally dropped.
-    const clean = sanitizeTemplateHtml(html);
+    const clean = sanitizeRichHtml(html);
     deps.setSteeringCommittee((c) =>
       c
         ? {
@@ -123,7 +123,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
         return;
       }
       const subject = `${t(deps.lang, "reportStatusReport")}: ${meeting.title || meeting.date}`;
-      const html = sanitizeTemplateHtml(meeting.report.html);
+      const html = sanitizeRichHtml(meeting.report.html);
       await sendMail(token, buildGraphMessage(emails, subject, html));
       deps.setSteeringCommittee((c) =>
         c

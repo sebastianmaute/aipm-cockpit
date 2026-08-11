@@ -12,23 +12,23 @@ import {
 
 describe("descriptionHtml", () => {
   it("escapes and wraps a legacy plain value", () => {
-    expect(descriptionHtml("cost < 5k & rising", "template")).toBe(
+    expect(descriptionHtml("cost < 5k & rising", "rich")).toBe(
       "<p>cost &lt; 5k &amp; rising</p>",
     );
   });
 
   it("keeps a plain value whose stray < is not a tag", () => {
-    expect(descriptionHtml("5 < 10 items", "template")).toBe("<p>5 &lt; 10 items</p>");
-    expect(descriptionHtml("<3 open", "template")).toBe("<p>&lt;3 open</p>");
+    expect(descriptionHtml("5 < 10 items", "rich")).toBe("<p>5 &lt; 10 items</p>");
+    expect(descriptionHtml("<3 open", "rich")).toBe("<p>&lt;3 open</p>");
   });
 
   it("passes through a value that already opens with an allowed tag", () => {
-    expect(descriptionHtml("<p>done</p>", "template")).toBe("<p>done</p>");
-    expect(descriptionHtml("<strong>lead</strong> rest", "template")).toBe(
+    expect(descriptionHtml("<p>done</p>", "rich")).toBe("<p>done</p>");
+    expect(descriptionHtml("<strong>lead</strong> rest", "rich")).toBe(
       "<strong>lead</strong> rest",
     );
     // Attributes still close the tag, so a real opener is unaffected.
-    expect(descriptionHtml('<p class="lead">done</p>', "template")).toBe(
+    expect(descriptionHtml('<p class="lead">done</p>', "rich")).toBe(
       '<p class="lead">done</p>',
     );
   });
@@ -42,9 +42,9 @@ describe("descriptionHtml", () => {
   // htmlTextLength still measured 11 for "<li 3 items", so sanitizeRichText KEPT
   // the field and no empty-state fallback fired. Silent loss of the user's text.
   it("escapes a plain value that starts tag-shaped but never closes the tag", () => {
-    expect(descriptionHtml("<li 3 items", "template")).toBe("<p>&lt;li 3 items</p>");
-    expect(descriptionHtml("<p ok", "template")).toBe("<p>&lt;p ok</p>");
-    expect(descriptionHtml("<em dash - not markup", "template")).toBe(
+    expect(descriptionHtml("<li 3 items", "rich")).toBe("<p>&lt;li 3 items</p>");
+    expect(descriptionHtml("<p ok", "rich")).toBe("<p>&lt;p ok</p>");
+    expect(descriptionHtml("<em dash - not markup", "rich")).toBe(
       "<p>&lt;em dash - not markup</p>",
     );
   });
@@ -54,26 +54,26 @@ describe("descriptionHtml", () => {
     // cannot emit one, so this is plain text the user typed. Passing it through
     // as HTML makes the sink delete the characters — the loss this guard exists
     // to prevent, in miniature.
-    expect(descriptionHtml("</p> means close", "template")).toBe(
+    expect(descriptionHtml("</p> means close", "rich")).toBe(
       "<p>&lt;/p&gt; means close</p>",
     );
   });
 
   it("is idempotent — it runs on every load", () => {
     for (const raw of ["cost < 5k", "<p>done</p>", "", "  "]) {
-      expect(descriptionHtml(descriptionHtml(raw, "template"), "template")).toBe(
-        descriptionHtml(raw, "template"),
+      expect(descriptionHtml(descriptionHtml(raw, "rich"), "rich")).toBe(
+        descriptionHtml(raw, "rich"),
       );
     }
   });
 
   it("converts newlines to <br>", () => {
-    expect(descriptionHtml("a\nb", "template")).toBe("<p>a<br>b</p>");
+    expect(descriptionHtml("a\nb", "rich")).toBe("<p>a<br>b</p>");
   });
 
   it("returns empty for blank input", () => {
-    expect(descriptionHtml(undefined, "template")).toBe("");
-    expect(descriptionHtml("   ", "template")).toBe("");
+    expect(descriptionHtml(undefined, "rich")).toBe("");
+    expect(descriptionHtml("   ", "rich")).toBe("");
   });
 });
 
@@ -282,13 +282,13 @@ describe("capHtmlText", () => {
 
 describe("sanitizeRichText", () => {
   it("upgrades, caps and rejects a non-string", () => {
-    expect(sanitizeRichText("plain", 5000, "template")).toBe("<p>plain</p>");
-    expect(sanitizeRichText(42, 5000, "template")).toBe("");
-    expect(sanitizeRichText(undefined, 5000, "template")).toBe("");
+    expect(sanitizeRichText("plain", 5000, "rich")).toBe("<p>plain</p>");
+    expect(sanitizeRichText(42, 5000, "rich")).toBe("");
+    expect(sanitizeRichText(undefined, 5000, "rich")).toBe("");
   });
 
   it("strips control characters but keeps newlines", () => {
-    expect(sanitizeRichText("a\x07b\nc", 5000, "template")).toBe("<p>ab<br>c</p>");
+    expect(sanitizeRichText("a\x07b\nc", 5000, "rich")).toBe("<p>ab<br>c</p>");
   });
 
   // ★★ A TAB is a word separator, not a stray byte: deleting it fused the words
@@ -298,7 +298,7 @@ describe("sanitizeRichText", () => {
   // renders a tab as a space, so the editor's counter measured a length the
   // stored value no longer had.
   it("keeps a tab as the word boundary it is", () => {
-    const out = sanitizeRichText("Vendor delay\tMitigation plan", 5000, "template");
+    const out = sanitizeRichText("Vendor delay\tMitigation plan", 5000, "rich");
     expect(out).toBe("<p>Vendor delay Mitigation plan</p>");
     // The counter measured the pre-sanitize value; the stored value must agree.
     expect(htmlTextLength(out)).toBe(htmlTextLength("<p>Vendor delay\tMitigation plan</p>"));
@@ -307,7 +307,7 @@ describe("sanitizeRichText", () => {
   // ★ A run collapses to ONE space, matching WS_RUN in the projection — so the
   // two still agree when a paste carries several whitespace controls in a row.
   it("collapses a run of whitespace controls to a single space", () => {
-    expect(sanitizeRichText("a\t\t\v\fb", 5000, "template")).toBe("<p>a b</p>");
+    expect(sanitizeRichText("a\t\t\v\fb", 5000, "rich")).toBe("<p>a b</p>");
   });
 
   // ★★ A value the user cleared in the editor comes back as "<p></p>", which is
@@ -317,7 +317,7 @@ describe("sanitizeRichText", () => {
   // inline-AI apply, proposal seed, bulk edit).
   it("treats a cleared editor value as absent", () => {
     for (const empty of ["<p></p>", "<p><br></p>", "<p>&nbsp;</p>", "<ul><li></li></ul>", "   "]) {
-      expect(sanitizeRichText(empty, 5000, "template")).toBe("");
+      expect(sanitizeRichText(empty, 5000, "rich")).toBe("");
     }
   });
 
@@ -325,7 +325,7 @@ describe("sanitizeRichText", () => {
   // markup and concludes there is nothing there: the visible text is what
   // counts, and here all of it lives inside a tag.
   it("keeps a value whose only content is inside markup", () => {
-    expect(sanitizeRichText("<p><strong>x</strong></p>", 5000, "template")).toBe(
+    expect(sanitizeRichText("<p><strong>x</strong></p>", 5000, "rich")).toBe(
       "<p><strong>x</strong></p>",
     );
   });
@@ -335,7 +335,7 @@ describe("sanitizeRichText", () => {
   // gate in sanitize-records.ts then DROPS the field. Reachable from a
   // hand-edited CSV/Markdown workspace or an AI create_raid_item call.
   it("does not drop a field whose text is only a bare <", () => {
-    expect(sanitizeRichText("<p>< 5k</p>", 5000, "template")).not.toBe("");
+    expect(sanitizeRichText("<p>< 5k</p>", 5000, "rich")).not.toBe("");
   });
 
   // ★★ …and the text must survive INTACT, not merely keep the field. This is the
@@ -343,7 +343,7 @@ describe("sanitizeRichText", () => {
   // needs a following inline tag to supply the ">" a tokenizer-blind regex would
   // run to. Without the [a-zA-Z] guard this loses "< 5k " and counts 10, not 15.
   it("keeps the text around a bare < when an inline tag follows it", () => {
-    const out = sanitizeRichText("<p>Budget < 5k <em>cap</em></p>", 5000, "template");
+    const out = sanitizeRichText("<p>Budget < 5k <em>cap</em></p>", 5000, "rich");
     expect(htmlTextLength(out)).toBe("Budget < 5k cap".length);
   });
 });
@@ -373,15 +373,15 @@ describe("DOM-free guard", () => {
     // ★★★ This ban is NOT redundant with the import pin below, and removing it
     // in favour of that pin (as 0.210.0 briefly did) OPENED the likelier hole:
     // `./sanitize-html` is an ALLOWED specifier — plainToHtml legitimately comes
-    // from it — and that same module exports htmlToText, sanitizeNoteHtml and
-    // sanitizeTemplateHtml, all of which CALL DOMPurify. So a call added here
+    // from it — and that same module exports htmlToText, sanitizeRichHtml and
+    // sanitizeDocumentHtml, both of which CALL DOMPurify. So a call added here
     // passes the specifier pin untouched. The two guards answer different
     // questions: this one is "does the CODE call a DOM sanitiser", the pin is
     // "can a NEW module be reached at all". Keep both.
     expect(code).not.toMatch(/dompurify/i);
     expect(code).not.toMatch(/htmlToText/);
-    expect(code).not.toMatch(/sanitizeNoteHtml/);
-    expect(code).not.toMatch(/sanitizeTemplateHtml/);
+    expect(code).not.toMatch(/sanitizeRichHtml/);
+    expect(code).not.toMatch(/sanitizeDocumentHtml/);
   });
 
   it("imports exactly the two modules it is allowed to import", () => {
@@ -587,5 +587,27 @@ describe("break-preserving mode", () => {
       expect(htmlPlainProjection(input, {})).toBe(expected);
       expect(htmlPlainProjection(input, { preserveBreaks: false })).toBe(expected);
     }
+  });
+});
+
+describe("BLOCK_TAG covers pre", () => {
+  it("treats a code block as a word boundary, not inert markup", () => {
+    // ★ The fixture has NO OTHER block tag around the <pre>. A first draft of
+    // this test wrapped "before"/"after" in <p>, which inserts its OWN
+    // boundary via </p><p> regardless of whether `pre` is covered — that
+    // version passed even with `pre` absent from BLOCK_TAG, silently vacuous.
+    // Isolate on `pre` alone, and assert the exact string: separateBlockBoundaries
+    // never strips non-BLOCK_TAG markup, so a substring-fuse check against the
+    // literal "<pre>...</pre>" characters can pass without exercising the tag
+    // list at all (also measured: it did).
+    expect(separateBlockBoundaries("before<pre>code</pre>after", " ")).toBe(
+      "before code after",
+    );
+  });
+
+  it("emits a newline boundary for a code block in the breaks projection", () => {
+    expect(separateBlockBoundaries("before<pre>code</pre>after", "\n")).toBe(
+      "before\ncode\nafter",
+    );
   });
 });

@@ -48,7 +48,7 @@ const CONTROL_CHARS = /[\x00-\x08\x0e-\x1f]/g;
  *  that hit the most common shape in existing data. It reaches storage too:
  *  capHtmlText projects, truncates and re-wraps, so on overflow the fused text
  *  is what gets persisted. */
-const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|h[1-6]|blockquote|tr|td|th)\b[^>]*>/gi;
+const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>]*>/gi;
 /** The remaining (inline) tags, which project to nothing.
  *  ★★ The leading `[a-zA-Z]` models the HTML tokenizer: a `<` is only a tag
  *  opener when a letter (or `/`) follows it. A bare `<[^>]*>` ate everything

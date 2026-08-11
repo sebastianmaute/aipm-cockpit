@@ -1,15 +1,35 @@
 // src/app/sanitize-html.ts — the DOMPurify storage-boundary sanitizers.
-// Three DOMPurify sanitizers — sanitizeTemplateHtml (comm templates, meeting
-// reports and the seven rich entity description fields), sanitizeDocumentHtml
-// (documents only, a wider list) and sanitizeNoteHtml (the lean note/description
-// set) — plus htmlToText (the plain-text projection) and plainToHtml (wraps plain
-// text as lean HTML, and is deliberately DOM-free; see its own note). The three
-// sanitizers' allow-lists — TEMPLATE_ALLOWED_TAGS, DOCUMENT_ALLOWED_TAGS,
-// NOTE_ALLOWED_TAGS — are also exported, so html-start.ts can derive each sink's
-// own "is this value already HTML?" classifier from the same list that sink
-// sanitizes against, instead of a hand-maintained mirror that can drift.
-// The template TAG allow-list mirrors the Tiptap editor's schema (the only producer
-// of that HTML), so sanitizing the editor output is a defense-in-depth boundary.
+//
+// TWO DOMPurify sanitizers, and the second one exists for exactly one reason:
+//   • sanitizeRichHtml (RICH_ALLOWED_TAGS) — EVERY rich surface except documents:
+//     the seven rich entity fields (`Task.description` plus the six in
+//     `AI_RICH_FIELDS`), note-log entries, the dashboard narrative, comm templates
+//     and meeting reports. One list, one KEEP_CONTENT policy (the DEFAULT: unwrap
+//     an unlisted tag, keep its words).
+//   • sanitizeDocumentHtml — documents only. It is NOT a second policy; it is the
+//     same one plus `img` + `data-asset-id`, which forces `ALLOW_DATA_ATTR: false`
+//     and an `ADD_URI_SAFE_ATTR` exemption that no other surface needs (see its own
+//     note). Everything else about it matches sanitizeRichHtml.
+// ★★★ There used to be THREE, and the third is why §137 happened: `sanitizeNoteHtml`
+// ran an 8-tag list at `KEEP_CONTENT: false`, which DELETES an unlisted element
+// together with its text, at whole-object LOAD boundaries — no human, no save. A
+// stored "<h1>Title</h1><p>body</p>" loaded as "<p>body</p>". Do not add a third
+// sanitizer, and do not add a KEEP_CONTENT:false one at any width: losing formatting
+// beats losing words, and a surface that needs less markup should RENDER less rather
+// than sanitize differently.
+// Plus htmlToText (the plain-text projection) and plainToHtml (wraps plain text as
+// lean HTML, and is deliberately DOM-free; see its own note).
+// The allow-lists are exported so html-start.ts can derive each sink's own "is this
+// value already HTML?" classifier from the same list that sink sanitizes against,
+// instead of a hand-maintained mirror that can drift.
+// RICH_ALLOWED_TAGS is the list the Tiptap editor's schema is converged ON, so
+// sanitizing editor output is a defense-in-depth boundary rather than the only
+// gate. ★★ It DOES mirror that schema now, and this comment said the opposite
+// until the editor collapse landed: `rich-text-editor.tsx` configures
+// `StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } })`, so the editor can
+// no longer emit h5/h6 — StarterKit's own default is [1,2,3,4,5,6]. Those two
+// levels therefore reach this sanitizer only from LEGACY STORED DATA now, never
+// from a keystroke. They still UNWRAP and keep their words either way.
 // Merge-field tokens ({{field}}) are plain text and pass through untouched.
 //
 // ★★ The ATTRIBUTE lists below do NOT mirror the editor, and reading them as if
@@ -27,16 +47,48 @@
 // removing them would erase the only pointer to why links behave this way.
 import DOMPurify from "dompurify";
 
-/** The seven rich entity fields' storage allow-list (`Task.description` plus the
- *  six in `AI_RICH_FIELDS`), plus comm templates and meeting reports.
- *  ★ EXPORTED so html-start.ts can derive this sink's classifier from it. Adding a
- *  tag here widens that classifier in the same edit — which is the whole point:
- *  a classifier narrower than its sink escapes a value the sink would have kept
- *  (open-followups §107). */
-export const TEMPLATE_ALLOWED_TAGS = ["p", "br", "strong", "em", "u", "h1", "h2", "ul", "ol", "li", "a"];
+/** THE rich-text allow-list — the ONE array every rich surface is converging on:
+ *  the seven rich entity fields (`Task.description` + the six in `AI_RICH_FIELDS`),
+ *  note-log entries, the dashboard narrative, comm templates and meeting reports.
+ *
+ *  ★★★ It REPLACED two lists that disagreed — TEMPLATE_ALLOWED_TAGS (11 tags) and
+ *  NOTE_ALLOWED_TAGS (8, at KEEP_CONTENT:false) — both now deleted. They disagreed
+ *  with each other AND with the editor, and the narrow one DELETED the text of
+ *  anything the wide one admitted, on every JSON and IndexedDB load with no human
+ *  and no save involved (open-followups §137). One list is the closure; do not add
+ *  a third, and do not "temporarily" alias one — an alias is a fourth list waiting
+ *  to drift.
+ *
+ *  ★ EXPORTED so html-start.ts can derive a sink's classifier from the same array
+ *  that sink sanitizes against. `SINK_TAGS.rich` IS this array, and
+ *  `SINK_TAGS.document`/`.projection` are DOCUMENT_ALLOWED_TAGS, which spreads it —
+ *  so all three derived classifiers move when this array moves. A classifier
+ *  narrower than its sink escapes a value the sink would have kept (§107), and
+ *  `html-start.test.ts` pins that direction empirically for both sanitizers rather
+ *  than by comparing constants.
+ *
+ *  ★ `hr` is here although no toolbar control produces it, because
+ *  DOCUMENT_ALLOWED_TAGS derives from this array and documents have always allowed
+ *  `hr`. Removing it here would narrow documents in the same edit. Leave it.
+ *
+ *  ★ Headings stop at h4 because that IS the editor schema — `rich-text-editor.tsx`
+ *  passes `StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } })`, narrowing
+ *  StarterKit's own [1,2,3,4,5,6] default. ★★ This docstring read "No such
+ *  configuration exists in `src` today" until the editor collapse landed; it does
+ *  now, so h5/h6 can only arrive from LEGACY STORED DATA, not from the editor.
+ *  Either way they UNWRAP and keep their words. */
+export const RICH_ALLOWED_TAGS = [
+  "p", "br", "hr",
+  "strong", "em", "u", "s", "code", "mark", "sub", "sup",
+  "pre", "blockquote",
+  "h1", "h2", "h3", "h4",
+  "ul", "ol", "li",
+  "a",
+];
 const ALLOWED_ATTR = ["href", "target", "rel"];
 
-// SHARED by all three sanitizers below — one literal, so the three cannot drift.
+// SHARED by both sanitizers that pass it — sanitizeRichHtml and
+// sanitizeDocumentHtml — one literal, so the two cannot drift.
 // End-anchored so each storage boundary stays airtight on its own (not just behind
 // the editor's isSafeHttpUrl pre-filter): scheme must lead and no angle-brackets/
 // quotes may sneak into the value.
@@ -44,24 +96,40 @@ const ALLOWED_ATTR = ["href", "target", "rel"];
 // why `target`/`rel` can never survive (see the ★★ note above).
 const SAFE_URI_REGEXP = /^(?:https?|mailto):[^<>"]*$/i;
 
-export function sanitizeTemplateHtml(html: string): string {
+/** THE storage-boundary sanitizer for every rich surface except documents.
+ *
+ *  ★★★ KEEP_CONTENT stays at DOMPurify's DEFAULT (unwrap, keep the words). The
+ *  retired `sanitizeNoteHtml` set it to `false`, which deletes an unlisted element
+ *  TOGETHER WITH ITS TEXT, and that ran at whole-object LOAD boundaries — that was
+ *  the §137 data loss. Losing formatting beats losing words. Do not flip this. */
+export function sanitizeRichHtml(html: string): string {
   return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: TEMPLATE_ALLOWED_TAGS,
+    ALLOWED_TAGS: RICH_ALLOWED_TAGS,
     ALLOWED_ATTR,
     ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
   });
 }
 
-/** Documents-only allow-list. WIDER than TEMPLATE_ALLOWED_TAGS on purpose, and
- *  separate from it on purpose: sanitizeTemplateHtml also serves comm templates, meeting
- *  reports and the seven rich entity fields (`Task.description` plus the six in
- *  `AI_RICH_FIELDS`), so widening THAT list would change
- *  what a model may store everywhere — retroactively, including how already
- *  stored HTML renders. rich-text-editor.tsx records that hazard as the reason
- *  an earlier slice disabled input rules rather than widen a list.
+/** Documents-only allow-list, and the WIDEST — it spreads RICH_ALLOWED_TAGS and
+ *  adds exactly one tag of its own, `img`.
  *
- *  ★★ KEEP_CONTENT stays at DOMPurify's DEFAULT (unwrap, keep the words), NOT
- *  sanitizeNoteHtml's `false`. A document is prose a person will read; losing a
+ *  ★★ THE SPREAD IS THE POINT: RICH_ALLOWED_TAGS is now the only place a tag can
+ *  be added to documents, so the two lists cannot disagree about `blockquote` or a
+ *  heading level again. It also means widening RICH_ALLOWED_TAGS widens this list
+ *  in the same edit — and that array's width already reaches comm templates,
+ *  meeting reports and the seven rich entity fields (`Task.description` plus the
+ *  six in `AI_RICH_FIELDS`), retroactively, including how already stored HTML
+ *  renders. rich-text-editor.tsx records that hazard as the reason an earlier slice
+ *  disabled input rules rather than widen a list.
+ *
+ *  ★ Documents GAINED `h3` and `h4` from the derivation and lost nothing — the
+ *  hand-maintained literal it replaced carried 20 names, every one of which is on
+ *  the rich list or is `img`. sanitize-html.test.ts pins both directions against a
+ *  spelled-out copy of that old literal.
+ *
+ *  ★★ KEEP_CONTENT stays at DOMPurify's DEFAULT (unwrap, keep the words) — the
+ *  same policy sanitizeRichHtml runs, so the two sanitizers now differ ONLY in
+ *  their tag and attribute lists. A document is prose a person will read; losing a
  *  paragraph's text because it was wrapped in an unlisted tag is worse than
  *  losing its formatting.
  *
@@ -99,12 +167,15 @@ export function sanitizeTemplateHtml(html: string): string {
  *  ★ Both options are needed; deleting either one silently changes behaviour in a
  *  different direction (drop ALLOW_DATA_ATTR:false → anything goes; drop
  *  ADD_URI_SAFE_ATTR → the real attribute is stripped). Tests pin both.
- *  Scoped to documents on purpose — the other TWO sanitizers (this file exports
- *  three) keep the default and have other consumers. ★ That is its own gap, and it
- *  is a two-line fix rather than the slice an earlier note implied: the set of
- *  `data-*` names their call sites depend on was enumerated on 2026-08-08 and is
- *  EMPTY — StarterKit registers no extension that emits one. See open-followups
- *  §115 for the enumeration and the Tiptap scan.
+ *  Scoped to documents on purpose — the file exports TWO sanitizers and the other
+ *  one (sanitizeRichHtml) keeps the `ALLOW_DATA_ATTR` default and has every other
+ *  consumer. ★★ That gap is WIDER than it was before sanitizeRichHtml existed, and
+ *  was not created by it: sanitizeRichHtml inherits the old template config's
+ *  `ALLOW_DATA_ATTR` default, so it is unchanged in KIND but now covers ten more
+ *  tags. ★ It is still a two-line fix rather than the slice an
+ *  earlier note implied: the set of `data-*` names their call sites depend on was
+ *  enumerated on 2026-08-08 and is EMPTY — StarterKit registers no extension that
+ *  emits one. See open-followups §115 for the enumeration and the Tiptap scan.
  *
  *  `img` is inert until S3c ships the asset store. It is allow-listed here so this
  *  sanitizer does not strip markup a later slice writes.
@@ -120,18 +191,7 @@ export function sanitizeTemplateHtml(html: string): string {
  *  DOMPurify's default `DATA_URI_TAGS` — so adding `src` to the list admits
  *  `data:text/html` and `data:image/svg+xml`, both XSS vectors, bypassing
  *  `ALLOWED_URI_REGEXP` entirely. Neither is reachable today. */
-export const DOCUMENT_ALLOWED_TAGS = [
-  ...TEMPLATE_ALLOWED_TAGS,
-  "s",
-  "code",
-  "pre",
-  "blockquote",
-  "hr",
-  "mark",
-  "sub",
-  "sup",
-  "img",
-];
+export const DOCUMENT_ALLOWED_TAGS = [...RICH_ALLOWED_TAGS, "img"];
 const DOCUMENT_ALLOWED_ATTR = [...ALLOWED_ATTR, "data-asset-id", "alt"];
 
 export function sanitizeDocumentHtml(html: string): string {
@@ -144,34 +204,10 @@ export function sanitizeDocumentHtml(html: string): string {
   });
 }
 
-// ★★ html-start.ts DERIVES the "note" classifier from this list (its factory drops
-// "#text", which is not a tag name). It is no longer a mirror a human maintains —
-// editing this array moves the classifier in the same edit. The hazard it used to
-// warn about is still real and is now structurally prevented: recognising a tag
-// THIS list omits means the sink below deletes the element AND its text
-// (KEEP_CONTENT: false), which is why the note sink must never be classified with
-// a wider list. See open-followups §107.
-export const NOTE_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "a", "#text"];
-const NOTE_ALLOWED_ATTR = ["href", "target", "rel"];
-
-/** Storage-boundary sanitizer for task Description + note-log HTML (lean set:
- *  bold/italic/lists/links). Mirrors the Tiptap editor schema. */
-export function sanitizeNoteHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: NOTE_ALLOWED_TAGS,
-    ALLOWED_ATTR: NOTE_ALLOWED_ATTR,
-    ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
-    // Drop the TEXT of a disallowed block too (not just the tag) — DOMPurify's
-    // default unwraps an unknown element but keeps its inner text, which would
-    // leak a stray heading/table body into the lean note body.
-    KEEP_CONTENT: false,
-  });
-}
-
 /** Wrap plain text as sanitized lean HTML for the rich `description`/note body.
  *  Escapes &<>, converts newlines to <br>, wraps in a single <p>. Empty→"".
  *  The escape neutralizes every HTML metacharacter, so the only tags in the
- *  result are the <p>/<br> added here — both in the note allow-list — which makes
+ *  result are the <p>/<br> added here — both on RICH_ALLOWED_TAGS — which makes
  *  a DOMPurify pass a provable no-op. Skipping it keeps this function SSR-safe:
  *  DOMPurify needs a DOM/`window` (absent during Next server render), and this is
  *  called at module-eval time by the built-in templates. */

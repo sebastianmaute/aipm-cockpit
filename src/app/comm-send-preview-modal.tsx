@@ -1,5 +1,5 @@
 "use client";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeRichHtml } from "./sanitize-html";
 import type { CommSendRequest } from "./comm-send";
 import { Button } from "./button";
 import { Modal } from "./modal";
@@ -59,7 +59,7 @@ export function CommSendPreviewModal(props: CommSendPreviewModalProps) {
         </dl>
         <div
           className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground"
-          dangerouslySetInnerHTML={{ __html: sanitizeTemplateHtml(req.html) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(req.html) }}
         />
         <div className="flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>

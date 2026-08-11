@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.231.0 "Sargent" | Files scanned: 318 .tsx + 518 .ts under src/app (excl. 852 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.232.0 "Merril" | Files scanned: 318 .tsx + 518 .ts under src/app (excl. 852 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
@@ -76,7 +76,7 @@ itself is one shared non-modal floating window (`notes-window.tsx`) plus a `🗒
 Points and RAID rows.
 
 ★★ Rendering stored HTML is `dangerouslySetInnerHTML`, so `NoteBody` re-sanitizes at the **sink**
-(`sanitizeNoteHtml`, idempotent) rather than trusting the load path. ★★ A form must never write
+(`sanitizeRichHtml`, idempotent) rather than trusting the load path. ★★ A form must never write
 `noteLog` back — the log is write-through and owns itself, so a draft that snapshots it at
 modal-open and spreads it over the live row destroys any note added while the editor was open.
 See [data.md](data.md) for the projection rules and the DOM-free constraint.

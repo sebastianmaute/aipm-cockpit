@@ -58,7 +58,7 @@ describe("descriptor diffFields are dispatcher-writable", () => {
         const out = sanitize({ ...base, [field]: values[field] }) as Record<string, unknown> | null;
         expect(out).not.toBeNull();
         const raw = String(values[field]);
-        const want = RICH_FIELDS.has(`${entity}.${field}`) ? descriptionHtml(raw, "template") : raw;
+        const want = RICH_FIELDS.has(`${entity}.${field}`) ? descriptionHtml(raw, "rich") : raw;
         expect(String(out![field])).toBe(want);
       });
     }
