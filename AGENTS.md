@@ -954,7 +954,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `PopoverPanel`, not a `<select>`, since the icon-only redesign) — and several surfaces
   mount editors as SIBLINGS in one form: `change-edit-modal.tsx` has three, `raid-edit-modal.tsx` two,
   `note-log-panel.tsx` two (composer + entry editor). An open change modal therefore carried three
-  buttons named "Bold" and three comboboxes named "Text style", with nothing tying one to the field it
+  buttons named "Bold" and three more buttons named "Text style", with nothing tying one to the field it
   acts on (WCAG 2.4.6). The row wraps in `role="group"` + `aria-label` fed from that `label`, so the
   repeats are told apart by their container (WCAG technique ARIA17).
   ★★ NAMED OR ABSENT, never generic — a blank or missing `label` renders the bare div with NO role.
@@ -995,8 +995,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ The heading menu TRIGGER also gets no mousedown guard, but for a different reason than the
   `<select>` it replaced: opening a `PopoverPanel` is a normal click, not a native form-control picker,
   so there is no analogous "preventing default breaks the picker" failure mode to guard against. Neither
-  the trigger nor the menu items call `.chain().focus()` — `setLevel` never has — since ProseMirror keeps
-  its selection in editor state across a blur regardless of where DOM focus sits.
+  the trigger nor the menu items call `.chain().focus()` — `setLevel` dropped that call in an earlier,
+  unrelated commit (`2d99c125`) — since ProseMirror keeps its selection in editor state across a blur
+  regardless of where DOM focus sits.
   THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
   [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
