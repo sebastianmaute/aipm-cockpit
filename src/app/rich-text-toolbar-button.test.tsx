@@ -128,4 +128,23 @@ describe("ToolbarButton", () => {
     );
     expect(screen.getByRole("button", { name: "Highlight" }).className).toContain("bg-ui-pink/10");
   });
+
+  it("uses the dark-blue accent classes by default when active", () => {
+    render(
+      <ToolbarButton onClick={() => {}} ariaLabel="Bold" stateKind="toggle" active={true}>
+        <span>icon</span>
+      </ToolbarButton>,
+    );
+    expect(screen.getByRole("button", { name: "Bold" }).className).toContain("bg-ui-dark-blue/10");
+  });
+
+  it("forwards ref to the underlying button element", () => {
+    const ref = { current: null as HTMLButtonElement | null };
+    render(
+      <ToolbarButton ref={ref} onClick={() => {}} ariaLabel="Bold">
+        <span>icon</span>
+      </ToolbarButton>,
+    );
+    expect(ref.current).toBeInstanceOf(HTMLButtonElement);
+  });
 });
