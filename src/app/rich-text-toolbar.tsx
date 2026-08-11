@@ -14,6 +14,7 @@
 // attributes, which is a shared security boundary and gets its own slice plus a
 // security review. Do not add a control here without widening the sanitizer first.
 
+import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { Button } from "./button";
 import { Select } from "./form-controls";
@@ -45,6 +46,10 @@ const BLOCKS: readonly ControlSpec[] = [
   { key: "commTplBlockquote", name: "blockquote", run: (e) => e.chain().focus().toggleBlockquote().run() },
   { key: "commTplCodeBlock", name: "codeBlock", run: (e) => e.chain().focus().toggleCodeBlock().run() },
 ];
+
+/** Every toggle in the row, in render order. The `pressed` array below is
+ *  index-aligned with this list, so the two cannot drift. */
+const CONTROLS: readonly ControlSpec[] = [...BLOCKS, ...MARKS];
 
 const HEADING_LEVELS = [1, 2, 3, 4] as const;
 type HeadingLevel = (typeof HEADING_LEVELS)[number];
@@ -84,12 +89,53 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   // related controls). Adding `toolbar` later means implementing roving
   // tabindex first, which changes Tab behaviour in every editor in the app.
   const named = label !== undefined && label.trim() !== "";
-  const activeLevel = HEADING_LEVELS.find((level) => editor.isActive("heading", { level }));
 
+  // ★★★ `isActive()` IS A DERIVATION OVER LIVE EDITOR STATE, SO IT CANNOT BE
+  // READ DURING RENDER WITHOUT SUBSCRIBING TO THAT STATE. `useEditor` does not
+  // re-render on a transaction (`shouldRerenderOnTransaction` defaults to
+  // FALSE in Tiptap 3) and the editor's only other channel into React is
+  // `onUpdate`, which core gates on `docChanged` — so a caret MOVE changes what
+  // every call below would return and nothing re-renders. Measured in jsdom
+  // against a real editor: caret into an existing bold run left Bold at
+  // aria-pressed="false" with ToggleButton's title still reading "Currently off
+  // — click to turn on" (WCAG 4.1.2 — a screen-reader user is told bold is off,
+  // presses Bold to turn it on, and turns it off), and caret into an <h2> left
+  // the select on "Normal text".
+  // ★★ `useEditorState` and NOT `shouldRerenderOnTransaction: true` on the
+  // `useEditor` call: it subscribes to the editor's `transaction` event
+  // (EditorStateManager.watch) but scopes the re-render to THIS component and
+  // to a change in the SELECTED value, whereas the flag re-renders
+  // `RichTextEditor` and `EditorContent` on every transaction including every
+  // arrow keypress.
+  const { activeLevel, pressed } = useEditorState({
+    editor,
+    selector: ({ editor: live }) => ({
+      activeLevel: HEADING_LEVELS.find((level) => live.isActive("heading", { level })),
+      pressed: CONTROLS.map((spec) => live.isActive(spec.name)),
+    }),
+  });
+
+  // ★★★ `setHeading`, NEVER `toggleHeading`. A <select> says "set this level",
+  // not "flip it": picking the level the caret is ALREADY in must be a no-op.
+  // With toggle, `<p>intro</p><h2>section</h2>` + caret in the h2 + picking
+  // "Heading 2" (which is what the control DISPLAYS) demoted the block —
+  // measured output `<p>intro</p><p>section</p>`, i.e. silent content loss from
+  // choosing the option already shown. `setParagraph` is already idempotent.
+  // ★★★ AND NO `.focus()`. A CLOSED <select> fires `change` on EVERY arrow
+  // keypress in Chrome and Firefox, so `.chain().focus()` applied Heading 1 AND
+  // pulled DOM focus into the contenteditable on the first ArrowDown — the user
+  // could not arrow onward and Headings 2-4 were unreachable by keyboard.
+  // ★★ THE HALVES OF THAT ARE VERIFIED DIFFERENTLY. What IS measured here: the
+  // command needs no DOM focus (a level applies with focus parked on another
+  // element — the test below pins it), and `.chain().focus()` really does reach
+  // `view.focus()` (spied, via Tiptap's requestAnimationFrame). What is NOT
+  // measured in this repo is the arrow-key `change` firing — that is documented
+  // browser behaviour and jsdom has no <select> picker, so nothing in the unit
+  // or e2e layer can observe it. Re-check by eye before ever undoing this.
   function setLevel(raw: string) {
     const level = HEADING_LEVELS.find((candidate) => String(candidate) === raw);
-    if (level === undefined) editor.chain().focus().setParagraph().run();
-    else editor.chain().focus().toggleHeading({ level }).run();
+    if (level === undefined) editor.chain().setParagraph().run();
+    else editor.chain().setHeading({ level }).run();
   }
 
   return (
@@ -116,9 +162,16 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       {/* ★★ NO mousedown guard on the select, unlike every button beside it.
           Opening the picker IS the native mousedown default, so preventing it
           leaves a select that cannot be opened with a mouse in Chrome/Firefox —
-          a total functional break, traded against a recoverable one: the
-          commands below all start `.chain().focus()`, and ProseMirror keeps its
-          selection in editor state across a blur, so `.focus()` restores it. */}
+          a total functional break. Nothing is traded for it: `setLevel` needs no
+          `.focus()` because ProseMirror keeps its selection in editor state
+          across a blur and the command applies to that stored selection.
+          ★★ The KEYBOARD is why `.focus()` had to GO rather than merely being
+          unnecessary. A closed <select> fires `change` on every arrow keypress
+          in Chrome and Firefox, so a chain starting `.focus()` moved DOM focus
+          into the contenteditable on the FIRST ArrowDown: the user was left in
+          the editor having applied Heading 1, and could not arrow on to
+          Headings 2-4. Do not reintroduce it here — the buttons beside it are a
+          different case, since a click is one discrete commit. */}
       <Select
         size="xs"
         aria-label={t(lang, "commTplHeadingLevel")}
@@ -133,10 +186,10 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         ))}
       </Select>
 
-      {[...BLOCKS, ...MARKS].map((spec) => (
+      {CONTROLS.map((spec, index) => (
         <ToggleButton
           key={spec.name}
-          pressed={editor.isActive(spec.name)}
+          pressed={pressed[index]}
           onToggle={() => spec.run(editor)}
           lang={lang}
           preventFocusSteal

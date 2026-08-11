@@ -1,9 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Editor } from "@tiptap/react";
 import { RichTextToolbar } from "./rich-text-toolbar";
+import { EXTENSIONS } from "./rich-text-editor";
 
-// A minimal Editor stub — the toolbar must not reach past isActive() and chain().
+// ★★★ THE STUB BELOW IS STRUCTURALLY BLIND TO A WHOLE DEFECT CLASS, and one
+// shipped behind it. Its `isActive` reads a FROZEN record, so every assertion
+// over a pressed state or the heading value pins the DERIVATION and can never
+// see that the derivation is not re-run when the caret moves. 16/16 passed
+// while Bold reported "off" inside bold text and the select read "Normal text"
+// inside an <h2>. Anything about a control REACTING to editor state belongs in
+// the real-editor block at the bottom of this file; the stub stays for the
+// naming/wiring assertions, which is all it can honestly carry.
+// The `on`/`off` no-ops satisfy `useEditorState`'s transaction subscription.
 function makeEditor(active: Record<string, boolean> = {}) {
   const run = vi.fn();
   const chain = {
@@ -13,19 +23,35 @@ function makeEditor(active: Record<string, boolean> = {}) {
     toggleSuperscript: () => chain, toggleSubscript: () => chain,
     toggleBulletList: () => chain, toggleOrderedList: () => chain,
     toggleBlockquote: () => chain, toggleCodeBlock: () => chain,
-    setParagraph: () => chain, toggleHeading: () => chain,
+    setParagraph: () => chain, setHeading: () => chain,
     unsetLink: () => chain, extendMarkRange: () => chain, setLink: () => chain,
     run,
   };
-  return {
-    run,
-    editor: {
-      isActive: (name: string, attrs?: { level?: number }) =>
-        active[attrs?.level ? `${name}${attrs.level}` : name] ?? false,
-      chain: () => chain,
-    } as never,
+  const editor = {
+    isActive: (name: string, attrs?: { level?: number }) =>
+      active[attrs?.level ? `${name}${attrs.level}` : name] ?? false,
+    chain: () => chain,
+    on: () => editor,
+    off: () => editor,
   };
+  return { run, editor: editor as never };
 }
+
+// A REAL Tiptap editor over the app's own EXTENSIONS. Destroyed after each test
+// so the ProseMirror view and its transaction listeners cannot leak across.
+const live: Editor[] = [];
+function realEditor(content: string): Editor {
+  const editor = new Editor({
+    extensions: EXTENSIONS,
+    content,
+    element: document.createElement("div"),
+  });
+  live.push(editor);
+  return editor;
+}
+afterEach(() => {
+  while (live.length > 0) live.pop()?.destroy();
+});
 
 describe("RichTextToolbar", () => {
   it("renders every mark control with an accessible name", () => {
@@ -191,6 +217,126 @@ describe("RichTextToolbar", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" label="   " onAddLink={() => {}} />);
     expect(screen.queryByRole("group")).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // Live editor state — the stub above CANNOT see any of this
+  // -------------------------------------------------------------------------
+  //
+  // ★★★ These drive a REAL Tiptap editor over the app's own EXTENSIONS. Every
+  // assertion here is about the toolbar REACTING to editor state, which is a
+  // property of the subscription, not of the derivation — and a stub whose
+  // `isActive` reads a frozen record can only ever pin the derivation. Both
+  // defects below shipped with the stub suite fully green.
+
+  it("re-reads pressed state when the caret MOVES — a selection-only transaction", () => {
+    const editor = realEditor("<p>plain <strong>bold</strong></p>");
+    render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    const bold = () => screen.getByRole("button", { name: "Bold" });
+    expect(bold().getAttribute("aria-pressed")).toBe("false");
+
+    let sawDocChanged = true;
+    editor.on("transaction", ({ transaction }) => {
+      sawDocChanged = transaction.docChanged;
+    });
+    // Position 9 sits inside the bold run ("plain " is 1-7, "bold" is 7-11).
+    act(() => {
+      editor.commands.setTextSelection(9);
+    });
+
+    // ★ The DOCUMENT did not change. That is the whole point: `onUpdate` — the
+    //   editor's only other channel into React — is gated on `docChanged` by
+    //   core, so this transaction cannot reach the toolbar through it.
+    expect(sawDocChanged).toBe(false);
+    expect(editor.isActive("bold")).toBe(true);
+
+    expect(bold().getAttribute("aria-pressed")).toBe("true");
+    // ★★ WCAG 4.1.2: `title` is the accessible DESCRIPTION and rode the same
+    //    stale read. "Currently off — click to turn on" while the caret sits in
+    //    bold text tells a screen-reader user to press Bold to turn it ON,
+    //    which turns it off.
+    expect(bold().getAttribute("title")).toContain("Currently on");
+    // ★ The non-colour marker is the sighted counterpart of the same state and
+    //   is `invisible` when off, so it must have moved too.
+    expect(bold().querySelector("[data-pressed-marker]")?.className).not.toContain("invisible");
+  });
+
+  it("re-reads the heading value when the caret MOVES into a heading", () => {
+    const editor = realEditor("<p>intro</p><h2>section</h2>");
+    render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    const select = screen.getByRole("combobox", { name: "Text style" }) as HTMLSelectElement;
+    expect(select.value).toBe("0");
+    // Position 10 sits inside the <h2> (paragraph is 0-7, heading content 8-15).
+    act(() => {
+      editor.commands.setTextSelection(10);
+    });
+    expect(select.value).toBe("2");
+  });
+
+  // ★★★ THE CONTENT-LOSS CASE. The select DISPLAYS "Heading 2"; picking the
+  //     option already shown must be a no-op. `toggleHeading` demoted the block
+  //     instead — measured `<p>intro</p><h2>section</h2>` → `<p>intro</p><p>section</p>`.
+  it("picking the level the caret is already in does not demote the block", () => {
+    const editor = realEditor("<p>intro</p><h2>section</h2>");
+    render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    act(() => {
+      editor.commands.setTextSelection(10);
+    });
+    const select = screen.getByRole("combobox", { name: "Text style" });
+    expect((select as HTMLSelectElement).value).toBe("2");
+    // Snapshot AFTER the caret move: StarterKit's trailing-node plugin appends
+    // an empty paragraph behind a document-final heading on the first
+    // transaction, which is its own behaviour and not the toolbar's.
+    const before = editor.getHTML();
+    expect(before).toContain("<h2>section</h2>");
+
+    fireEvent.change(select, { target: { value: "2" } });
+
+    expect(editor.getHTML()).toBe(before);
+    expect((select as HTMLSelectElement).value).toBe("2");
+  });
+
+  // ★★★ The mechanism behind dropping `.focus()`: a CLOSED <select> fires
+  //     `change` on every arrow keypress in Chrome/Firefox, so a chain starting
+  //     `.focus()` applied Heading 1 AND pulled DOM focus out of the select,
+  //     stranding the user in the editor with Headings 2-4 unreachable. The
+  //     command needs no DOM focus — ProseMirror keeps its selection in editor
+  //     state across a blur.
+  it("applies a level with DOM focus parked outside the editor, and leaves it there", async () => {
+    const editor = realEditor("<p>hello</p>");
+    render(
+      <>
+        <button type="button">outside</button>
+        <RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />
+      </>,
+    );
+    const outside = screen.getByRole("button", { name: "outside" });
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+
+    // Tiptap's `focus` command defers to requestAnimationFrame, so the spy has
+    // to survive a frame — a synchronous assertion would pass either way.
+    const focusSpy = vi.spyOn(editor.view, "focus");
+    fireEvent.change(screen.getByRole("combobox", { name: "Text style" }), {
+      target: { value: "3" },
+    });
+
+    // `toContain`: StarterKit's trailing-node plugin appends an empty paragraph
+    // behind the now document-final heading.
+    expect(editor.getHTML()).toContain("<h3>hello</h3>");
+
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    // ★★ THE SPY IS THE ONLY DETECTOR HERE, and `document.activeElement` is
+    //    NOT a second one. Measured by reordering the two assertions under a
+    //    mutation that restores `.chain().focus()`: `view.focus` fires, and
+    //    `document.activeElement` STILL reads `outside` — jsdom does not treat
+    //    ProseMirror's contenteditable as a focusable area, so the real-browser
+    //    consequence (focus leaves the select mid-arrow-key) is invisible to
+    //    every layer of this suite. An `activeElement` assertion here would be
+    //    vacuous, so it is deliberately absent rather than reassuring.
+    expect(focusSpy).not.toHaveBeenCalled();
   });
 
   // ★ The plain Buttons are a different code path from the ToggleButtons and

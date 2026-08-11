@@ -55,7 +55,12 @@ export interface RichTextEditorProps {
 // would let "##### " build an h5 that RICH_ALLOWED_TAGS (h1-h4) unwraps on the
 // way to storage. Constraining the schema keeps editor, toolbar and allow-list
 // saying the same thing rather than relying on the unwrap to be lossless.
-const EXTENSIONS = [
+// ★ Exported so a test can drive a REAL editor through the same schema this
+// component mounts. The toolbar's pressed states and heading value are
+// derivations over live ProseMirror state, and a stubbed `isActive` returning a
+// frozen record pins the derivation while being structurally unable to see that
+// the derivation is never re-run — which is exactly the defect that shipped.
+export const EXTENSIONS = [
   StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
   Highlight,
   Subscript,
