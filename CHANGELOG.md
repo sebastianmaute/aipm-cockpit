@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.231.0] - 2026-08-11 "Sargent"
+
+### Added
+
+- **A document can name the parts of the project it is about.** The Documents view gains a "Linked
+  items" field: attach tasks, milestones, risks and changes to the open document. Those entities
+  then carry a badge reading how many documents reference them — on the Open Points table and
+  Kanban cards, and on the RAID, changes and milestones registers — and clicking it opens the
+  Documents list filtered to that entity, with a banner naming what it is filtered to.
+- **A deleted entity does not lose the link.** The reference keeps the name the entity had when it
+  was attached and is marked as no longer existing, rather than being pruned. Pruning would make a
+  delete followed by an undo lossy: the undo restores the entity but could not restore the links.
+  The stored name is only ever shown once the entity is gone — while it exists, the live name wins,
+  so a rename cannot leave a stale label behind.
+
+### Changed
+
+- Duplicating a document now carries its links to the copy — a copy is about the same things as its
+  source.
+- Attaching or removing a link does not change a document's "updated" timestamp and records no
+  version. A reference is not content: the timestamp is a visible, sortable column, so moving it
+  would report an edit to the document that never happened.
+
+### Notes
+
+- Attaching is done from the Documents view only. The reverse direction — attaching a document from
+  inside a task, risk or change editor — is designed but deliberately not built yet, so that one
+  surface ships complete rather than two ships thin; see `docs/open-followups.md` §139.
+- A read-only popout mirror shows no linked-items field and no link chips.
+
 ## [0.230.0] - 2026-08-10 "Yoachim"
 
 ### Fixed
