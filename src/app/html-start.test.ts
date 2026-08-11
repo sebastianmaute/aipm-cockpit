@@ -5,6 +5,7 @@ import {
   sanitizeDocumentHtml,
   sanitizeRichHtml,
 } from "./sanitize-html";
+import DOMPurify from "dompurify";
 import { htmlStartRe, isHtmlStart, SINK_TAGS } from "./html-start";
 
 describe("htmlStartRe", () => {
@@ -184,36 +185,84 @@ describe("the sink map", () => {
   // the real sanitizer and the real classifier over a tag universe — so it cannot
   // degenerate into comparing an array with itself.
   //
-  // ★★ THE DIRECTION IS `kept ⊆ recognised`, NOT equality, and that is deliberate.
-  // The rule this file states at the top is one-directional: "never recognise LESS
-  // than your sink KEEPS." Equality holds today, but asserting it would fail a
-  // legitimate future widening of a classifier — and the projection sink already
-  // documents a case where recognising MORE than a sink keeps is the chosen trade.
-  // A tag that is recognised but not kept costs formatting; a tag that is KEPT but
-  // not recognised costs the whole value, escaped, forever.
+  // ★★ THE CLASSIFIER DIRECTION IS `kept ⊆ recognised`, NOT equality, and that is
+  // deliberate. The rule this file states at the top is one-directional: "never
+  // recognise LESS than your sink KEEPS." Equality holds today, but asserting it
+  // would fail a legitimate future widening of a classifier — and the projection
+  // sink already documents a case where recognising MORE than a sink keeps is the
+  // chosen trade. A tag that is recognised but not kept costs formatting; a tag
+  // that is KEPT but not recognised costs the whole value, escaped, forever.
+  // ★★★ DO NOT GENERALISE THAT INTO "never assert equality here". The two tests
+  // above DO assert equality, and correctly: they compare a sanitizer's config and
+  // its behaviour against ITS OWN array, which are meant to be the same thing. The
+  // subset rule governs only the SANITIZER-to-CLASSIFIER relation. Collapsing the
+  // two ideas is how a future reader talks themselves out of the config test.
   //
-  // ★ The universe deliberately mixes every allow-listed tag with plausible
-  // outsiders. `figure` is in it because it is M4's tag; `section`/`summary`/
-  // `script` because they share a prefix with the listed `s`; `h5`/`h6` because
-  // the heading range stops at h4.
+  // ★★ SCOPE — THIS PAIR COVERS TWO SINKS, NOT FOUR, and the file has four.
+  // `render` has no allow-list to compare against; it is covered elsewhere in this
+  // file (re-deriving it from one turns two pre-existing tests red). `projection`
+  // is covered by NEITHER, which is defensible rather than an oversight: it has no
+  // sanitizer at all — descriptionText/descriptionTextWithBreaks strip every tag —
+  // so there is no "kept" set for it to be measured against. Its width is a
+  // documented TRADE, pinned by the superset test further down.
+  // ★ Known and accepted: the `it.each` rows below enumerate sinks as literals, so
+  // a future FOURTH `DerivedSink` would land here unpinned until somebody adds a
+  // row. The type level already forces half of it — `SINK_TAGS` and `SINK_RE` are
+  // `Record<DerivedSink, …>`, so a new member fails tsc until it is given a list
+  // and a regex. Only the behavioural rows would silently skip it.
+  //
+  // ★★★ THE UNIVERSE IS THE FULL HTML ELEMENT SET, and a SAMPLE of it is not good
+  // enough — that was this test's own defect, found by cold review. The first cut
+  // hand-picked ~75 "allow-listed tags plus plausible outsiders", which caught the
+  // `figure` mutant only because `figure` happened to be in the list. Measured:
+  // `[...RICH_ALLOWED_TAGS, "details", "kbd", "abbr", "dfn"]` in sanitizeRichHtml's
+  // config left this file and sanitize-html.test.ts at 68/68 GREEN, exit 0, while
+  // through the real load path every one of those four was kept by the sink and
+  // escaped whole by the classifier:
+  //   details: sanitizerKeeps=true recognised=false
+  //            -> "<p>&lt;details&gt;WORD&lt;/details&gt;</p>"
+  // That is §107 in full, with the gate green. A hand-picked universe tests the
+  // mutants you thought of.
+  // ★★ Deriving the universe from the two allow-list arrays does NOT fix it and is
+  // the tempting wrong move: the mutant tag is outside those arrays too, so it
+  // would still never be probed.
+  // ★ Intended as the standard HTML element set, plus obsolete elements
+  // (font/center/big/strike/tt/marquee/frame*) and the two foreign-content roots
+  // (svg/math), which is where a security-relevant surprise would come from.
+  // ★★ It was written out by hand and NOTHING checks it against the spec, so treat
+  // it as best-effort rather than authoritative — do not cite it as "the WHATWG
+  // index" (an earlier revision of this line did, and no one had read the index).
+  // That is safe in the one direction that matters: a MISSING element only weakens
+  // the behavioural tests, never breaks them, and the config test above is
+  // unaffected by this list entirely. Adding an element can only make things
+  // stricter, so add freely.
   const TAG_UNIVERSE = [
-    // every tag on RICH_ALLOWED_TAGS / DOCUMENT_ALLOWED_TAGS
-    "p", "br", "hr", "strong", "em", "u", "s", "code", "mark", "sub", "sup",
-    "pre", "blockquote", "h1", "h2", "h3", "h4", "ul", "ol", "li", "a", "img",
-    // plausible outsiders
-    "figure", "figcaption", "section", "article", "aside", "header", "footer",
-    "main", "nav", "div", "span", "table", "thead", "tbody", "tr", "td", "th",
-    "caption", "colgroup", "col", "dl", "dt", "dd", "h5", "h6", "b", "i",
-    "small", "big", "font", "center", "script", "style", "iframe", "frame",
-    "form", "input", "button", "select", "option", "textarea", "label",
-    "svg", "math", "object", "embed", "video", "audio", "canvas", "template",
-    "noscript", "base", "meta", "link", "title", "body", "html", "head",
+    "a", "abbr", "address", "area", "article", "aside", "audio", "b", "base",
+    "bdi", "bdo", "blockquote", "body", "br", "button", "canvas", "caption",
+    "cite", "code", "col", "colgroup", "data", "datalist", "dd", "del",
+    "details", "dfn", "dialog", "div", "dl", "dt", "em", "embed", "fieldset",
+    "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5",
+    "h6", "head", "header", "hgroup", "hr", "html", "i", "iframe", "img",
+    "input", "ins", "kbd", "label", "legend", "li", "link", "main", "map",
+    "mark", "menu", "meta", "meter", "nav", "noscript", "object", "ol",
+    "optgroup", "option", "output", "p", "param", "picture", "pre", "progress",
+    "q", "rp", "rt", "ruby", "s", "samp", "script", "search", "section",
+    "select", "slot", "small", "source", "span", "strong", "style", "sub",
+    "summary", "sup", "table", "tbody", "td", "template", "textarea", "tfoot",
+    "th", "thead", "time", "title", "tr", "track", "u", "ul", "var", "video",
+    "wbr",
+    // obsolete + foreign-content roots
+    "font", "center", "big", "strike", "tt", "marquee", "frame", "frameset",
+    "noframes", "svg", "math",
   ];
 
   /** `<T>x</T>` for a normal tag, `<T>` for a void one — a void element has no
    *  closing tag, and writing one makes the parser emit a stray close that muddies
    *  what "the tag survived" means. */
-  const VOID_TAGS = new Set(["br", "hr", "img", "input", "embed", "col", "base", "meta", "link"]);
+  const VOID_TAGS = new Set([
+    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+    "param", "source", "track", "wbr",
+  ]);
   const probeFor = (tag: string) => (VOID_TAGS.has(tag) ? `<${tag}>` : `<${tag}>x</${tag}>`);
 
   /** Did the SANITIZER keep this tag? Matched on the tag name plus a terminator,
@@ -222,6 +271,75 @@ describe("the sink map", () => {
    *  classifier. */
   const keeps = (sanitize: (h: string) => string, tag: string) =>
     new RegExp(`<${tag}(?:\\s|>|/)`, "i").test(sanitize(probeFor(tag)));
+
+  /** The RESOLVED `ALLOWED_TAGS` a sanitizer actually handed DOMPurify, read back
+   *  through an `uponSanitizeElement` hook (`data.allowedTags`).
+   *
+   *  ★★★ THIS IS THE ONLY TAG-INDEPENDENT PROBE HERE, and it is why the universe
+   *  above no longer has to be complete to close the class. Every other check in
+   *  this file samples BEHAVIOUR over a finite tag list, so it can only catch a
+   *  mutant whose tag is in that list — widen the universe as far as you like and
+   *  a config carrying a name nobody enumerated still slips through. Reading the
+   *  config asks the question directly and sees ANY added name, in the universe or
+   *  not.
+   *  ★★ MEASURED, not argued, and this is the experiment that separates the two
+   *  halves of the fix. `[...RICH_ALLOWED_TAGS, "quux"]` — a name deliberately
+   *  absent from TAG_UNIVERSE — turns exactly ONE test red: this one. Both
+   *  behavioural tests stay GREEN, because they never probe a tag nobody listed.
+   *  So widening the universe alone would NOT have closed the class; it only
+   *  raises the odds that a realistic mutant lands inside it.
+   *  ★★ The hook is GLOBAL on the DOMPurify singleton, so it is removed in a
+   *  `finally`. A leaked hook would corrupt every later sanitize in this file. */
+  function configuredTags(sanitize: (h: string) => string): string[] {
+    let seen: Record<string, unknown> | null = null;
+    DOMPurify.addHook("uponSanitizeElement", (_node, data) => {
+      if (seen === null) {
+        seen = (data as { allowedTags?: Record<string, unknown> }).allowedTags ?? null;
+      }
+    });
+    try {
+      sanitize("<p>x</p>");
+    } finally {
+      DOMPurify.removeHook("uponSanitizeElement");
+    }
+    // "#text" is added by DOMPurify itself, not by our config.
+    return Object.keys(seen ?? {}).filter((t) => t !== "#text").sort();
+  }
+
+  // ★★★ THE TAG-INDEPENDENT HALF: the config a sanitizer passes must BE its own
+  // exported array. This is what actually closes the mutation class — a widened
+  // `ALLOWED_TAGS` shows up here whatever tag it adds, so it does not depend on
+  // TAG_UNIVERSE being complete. `sanitize-html.test.ts` pins the other end (the
+  // array carries exactly the 21 names), and the subset test below pins the
+  // classifier end; together they are config == array == classifier.
+  // ★ Asserted as a SORTED NAME SET, not by reference: `toBe(RICH_ALLOWED_TAGS)`
+  // is unavailable (DOMPurify normalises the array into a lookup object) and a
+  // reference check would in any case pass for a mutated array and fail for a
+  // harmless reorder — the names are what the classifier derives from.
+  it.each([
+    ["rich", sanitizeRichHtml, RICH_ALLOWED_TAGS] as const,
+    ["document", sanitizeDocumentHtml, DOCUMENT_ALLOWED_TAGS] as const,
+  ])("%s: the ALLOWED_TAGS handed to DOMPurify IS the exported array", (sink, sanitize, array) => {
+    const configured = configuredTags(sanitize);
+    // Anti-vacuity: if the hook never fired, `configured` is [] and the compare
+    // below would still fail — but say so explicitly, because an empty result
+    // means "probe broken", not "config wrong".
+    expect(configured.length, `the uponSanitizeElement hook never fired for "${sink}"`)
+      .toBeGreaterThan(0);
+    expect(configured).toEqual([...array].filter((t) => t !== "#text").sort());
+  });
+
+  // ★★ The BEHAVIOURAL counterpart: config == array is what the sanitizer was
+  // ASKED for, this is what it actually does. They are not the same claim — a
+  // DOMPurify upgrade could start dropping a tag we still list — and this one is
+  // universe-bound, which is precisely why the config test above exists beside it.
+  it.each([
+    ["rich", sanitizeRichHtml, RICH_ALLOWED_TAGS] as const,
+    ["document", sanitizeDocumentHtml, DOCUMENT_ALLOWED_TAGS] as const,
+  ])("%s: the tags the sanitizer actually KEEPS are exactly its own array", (sink, sanitize, array) => {
+    const kept = TAG_UNIVERSE.filter((tag) => keeps(sanitize, tag)).sort();
+    expect(kept).toEqual([...array].filter((t) => t !== "#text").sort());
+  });
 
   it.each([
     ["rich", sanitizeRichHtml] as const,

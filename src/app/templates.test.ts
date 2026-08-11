@@ -108,13 +108,25 @@ describe("a captured task description survives the template round trip", () => {
   // with `expected '<p>steps</p>' to contain 'Plan'`. That defect is closed at
   // the SINK now rather than at the classifier, which is why the "Measured"
   // comment below reads as live markup instead of escaped text.
-  // ★ Anti-vacuity is unchanged and is the whole point: this asserts the WORD
-  // survives the sanitizer, not merely that some string comes back. Both
-  // assertions below are byte-identical to the version that pinned the old
-  // mechanism — the property outlived it.
-  // ★ Mirrors the RAID test of the same name in use-resource-planner.test.tsx —
-  // the identical decision, one file away.
-  it("survives the human save path: the rich sanitizer does not eat a heading's words", () => {
+  // ★★★ WHAT THIS TEST STILL HOLDS IS WEAKER THAN ITS NAME SUGGESTS, and an
+  // earlier revision of this note overstated it ("anti-vacuity is unchanged and is
+  // the whole point… the property outlived it"). It did not. Measured 2026-08-11:
+  //   · The value the OLD narrow-classifier path stored satisfies BOTH assertions
+  //     too — sanitizeRichHtml("<p>&lt;h2&gt;Plan&lt;/h2&gt;…</p>") comes back
+  //     unchanged and contains "Plan" and "steps". So the assertions cannot tell
+  //     the escaped route from the markup route.
+  //   · Filtering h1-h6 out of `SINK_TAGS.rich`, which is exactly the
+  //     classifier-narrower-than-sink regression this was written to catch, leaves
+  //     THIS FILE 14/14 GREEN while html-start.test.ts goes 4 red.
+  // So the sink/classifier choice IS guarded — one file away, not here. What this
+  // test still catches is `description` being dropped, blanked or flattened
+  // outright, which is a real regression and not nothing; it is a plain
+  // round-trip assertion, not a discriminator. Same situation and same honest
+  // write-up as `document-rich-fields.test.ts`'s heading test.
+  // ★ Renamed accordingly: it no longer claims to pin which sanitizer runs.
+  // ★ Its RAID mirror in use-resource-planner.test.tsx has the same property and
+  // the same limit.
+  it("keeps a captured heading's words through import and the human save path", () => {
     const reloaded = sanitizeTemplate({
       id: "t1",
       name: "T1",
@@ -131,7 +143,12 @@ describe("a captured task description survives the template round trip", () => {
     // "<p>&lt;h2&gt;Plan&lt;/h2&gt;&lt;p&gt;steps&lt;/p&gt;</p>" — the words
     // survived as ESCAPED TEXT instead. Same assertions, better outcome.)
     expect(afterHumanSave).toContain("Plan");
-    expect(afterHumanSave).toContain("steps"); // control: the allow-listed half
+    // ★ This was labelled "control: the allow-listed half", which is now false —
+    // under ONE 21-tag list there is no unlisted half. Measured: h2 is allow-listed,
+    // sanitizeRichHtml("<h2>x</h2>") === "<h2>x</h2>". It is a second word from a
+    // second block, so it still catches a partial drop; it no longer contrasts an
+    // allow-listed tag with a stripped one.
+    expect(afterHumanSave).toContain("steps");
   });
 });
 
