@@ -127,31 +127,51 @@ describe("renderDocumentHtml — the escaped/unescaped boundary", () => {
     expect(html).toContain("<code>x</code>");
   });
 
-  // ★★ NOT "keeps the heading tag". sanitizeDocumentHtml's allow-list has no
-  // h3/div/table, and it keeps DOMPurify's KEEP_CONTENT default, so the tag is
-  // UNWRAPPED and only the words survive. That is the intended behaviour for a
-  // model-authored document (structure belongs in heading/table BLOCKS), and
-  // asserting only toContain("Sub") could not tell the two apart.
-  // ★★★ The `not.toContain("<h3")` assertion is satisfied by the ESCAPED form
-  // too, so it stayed green while a narrower classifier turned this very input
-  // into literal "<p>&lt;h3&gt;Sub&lt;/h3&gt;</p>" — green for the wrong
-  // reason. The escaped form has to be asserted ABSENT by name.
-  it("unwraps a non-allow-listed tag inside paragraph html but keeps its text", () => {
+  // ★★★ THIS PINNED THE OPPOSITE UNTIL THE ALLOW-LISTS MERGED. While
+  // sanitizeDocumentHtml carried a list of its own, `h3` was on no list, so this
+  // input UNWRAPPED to a bare "Sub" and the test asserted exactly that.
+  // DOCUMENT_ALLOWED_TAGS now SPREADS RICH_ALLOWED_TAGS, which carries h1-h4, so
+  // the heading SURVIVES. Measured through the real renderer, not reasoned:
+  // "<h3>Sub</h3>" renders as "<h3>Sub</h3>".
+  // ★★ Assert the BYTES. The word "Sub" survives the unwrap, the keep AND the
+  // escape alike, so toContain("Sub") cannot tell the three apart — and the old
+  // `not.toContain("<h3")` was itself satisfied by the ESCAPED form, which is how
+  // it stayed green while a narrower classifier turned this very input into
+  // literal "<p>&lt;h3&gt;Sub&lt;/h3&gt;</p>". Both directions have to be named.
+  it("keeps a heading tag inside paragraph html, which the documents list now carries", () => {
     const html = preview([{ type: "paragraph", html: "<h3>Sub</h3>" }]);
-    expect(html).toContain("Sub");
-    expect(html).not.toContain("<h3");
+    expect(html).toContain("<h3>Sub</h3>");
     expect(html).not.toContain("&lt;h3");
   });
 
+  // ★★ The unwrap-keeps-the-words property the test above used to carry, moved to
+  // an input that is genuinely off every list. `h5` is the sharpest one left: the
+  // editor schema stops at h4 (`heading: { levels: [1, 2, 3, 4] }`), so h5 can only
+  // reach this sink from legacy stored data, and it is the one heading level that
+  // still unwraps. Measured: "<h5>Deep</h5>" renders as bare "Deep".
+  // ★★★ Losing the TAG and keeping the WORDS is the whole point — the retired
+  // sanitizeNoteHtml set KEEP_CONTENT:false and deleted the text along with the
+  // tag, which was the §137 data loss. Do not relax this to toContain("Deep")
+  // alone: the keep satisfies that too, so it could not see a regression that
+  // started admitting h5.
+  it("unwraps a tag no allow-list carries but keeps its text", () => {
+    const html = preview([{ type: "paragraph", html: "<h5>Deep</h5>" }]);
+    expect(html).toContain("Deep");
+    expect(html).not.toContain("<h5");
+    expect(html).not.toContain("&lt;h5");
+  });
+
   it("does not escape a paragraph opening with a tag the allow-list omits", () => {
-    // Every one of these opens with a tag no DERIVED sink carries, so a
+    // Both of these open with a tag no DERIVED sink carries — `div` and `table`
+    // are absent from SINK_TAGS.rich, .document and .projection alike — so a
     // classifier built from an allow-list calls the whole value plain text and
-    // escapes it — strictly worse than the unwrap above, which is what the
-    // "render" sink exists to prevent.
+    // escapes it, strictly worse than the unwrap above, which is what the "render"
+    // sink exists to prevent. ★ `<h3>` used to be a third row here and no longer
+    // belongs: the derivation put it ON every sink, so its not-escaped property is
+    // pinned by name in the dedicated test above, together with the bytes it keeps.
     for (const [input, escaped] of [
       ["<div>Status</div>", "&lt;div"],
       ["<table><tr><td>cell</td></tr></table>", "&lt;table"],
-      ["<h3>Sub</h3>", "&lt;h3"],
     ]) {
       const html = preview([{ type: "paragraph", html: input }]);
       expect(html).not.toContain(escaped);
