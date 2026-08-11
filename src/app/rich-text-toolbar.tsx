@@ -121,7 +121,7 @@ const HEADING_KEY: Record<HeadingLevel, TranslationKey> = {
   4: "commTplHeading4",
 };
 
-/** The `<option>` value standing for "not a heading" (a paragraph). */
+/** The menu-item value standing for "not a heading" (a paragraph). */
 const PARAGRAPH_VALUE = "0";
 
 const HEADING_ICON: Record<HeadingLevel, ElementType> = {
