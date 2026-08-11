@@ -87,7 +87,12 @@ describe("the sink map", () => {
     // (KEEP_CONTENT default / the rich-line parser), so a value opening with an
     // unlisted tag is HTML there — while "document", the widest DERIVED sink,
     // calls the same value plain text and escapes it whole.
-    for (const html of ["<h3>Sub</h3>", "<div>Status</div>", "<table><tr><td>c</td></tr></table>"]) {
+    // ★ The heading fixture was <h3> and is now <h5>: h3 stopped being unlisted
+    // the moment DOCUMENT_ALLOWED_TAGS began deriving from RICH_ALLOWED_TAGS,
+    // which carries h1-h4. h5 is the heading-shaped tag NO list carries —
+    // sanitize-html.test.ts pins that the rich list admits neither h5 nor h6, and
+    // the document list is that list plus img.
+    for (const html of ["<h5>Sub</h5>", "<div>Status</div>", "<table><tr><td>c</td></tr></table>"]) {
       expect(isHtmlStart(html, "render")).toBe(true);
       expect(isHtmlStart(html, "document")).toBe(false);
     }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import {
+  DOCUMENT_ALLOWED_TAGS,
   RICH_ALLOWED_TAGS,
   sanitizeRichHtml,
   sanitizeTemplateHtml,
@@ -128,7 +129,7 @@ describe("htmlToText", () => {
 });
 
 describe("sanitizeDocumentHtml", () => {
-  it("keeps eight of the nine tags documents add beyond the template list", () => {
+  it("keeps the extended mark and block set the rich list carries", () => {
     const html =
       "<p><s>a</s><code>b</code><mark>c</mark><sub>d</sub><sup>e</sup></p>" +
       "<pre>f</pre><blockquote>g</blockquote><hr>";
@@ -139,9 +140,12 @@ describe("sanitizeDocumentHtml", () => {
     // the prefix form of this loop still passed the whole file green (measured,
     // not reasoned). None of the eight carries an attribute here, so every one of
     // them renders with its ">" immediately after the name.
-    // ★ img is the NINTH tag documents add. It is deliberately not in this loop:
-    // what is worth pinning about it is WHICH ATTRIBUTES survive, so it gets the
-    // dedicated test below rather than a bare tag-presence check.
+    // ★ These eight reach this sanitizer through DOCUMENT_ALLOWED_TAGS' spread of
+    // RICH_ALLOWED_TAGS, so the loop is a config assertion, not a list assertion —
+    // it fails if sanitizeDocumentHtml stops passing the derived list.
+    // ★ img is the one tag documents add ON TOP of that spread. It is deliberately
+    // not in this loop: what is worth pinning about it is WHICH ATTRIBUTES survive,
+    // so it gets the dedicated test below rather than a bare tag-presence check.
     for (const tag of ["s", "code", "mark", "sub", "sup", "pre", "blockquote", "hr"]) {
       expect(out).toContain(`<${tag}>`);
     }
@@ -206,6 +210,28 @@ describe("sanitizeDocumentHtml", () => {
     // the one tag documents still add alone.
     expect(sanitizeDocumentHtml('<img data-asset-id="7">')).toContain("<img");
     expect(sanitizeRichHtml('<img data-asset-id="7">')).not.toContain("<img");
+  });
+});
+
+describe("DOCUMENT_ALLOWED_TAGS derives from RICH_ALLOWED_TAGS", () => {
+  it("is a strict superset of the rich list", () => {
+    for (const tag of RICH_ALLOWED_TAGS) expect(DOCUMENT_ALLOWED_TAGS).toContain(tag);
+  });
+
+  it("adds exactly img and nothing else", () => {
+    const extra = DOCUMENT_ALLOWED_TAGS.filter((t) => !RICH_ALLOWED_TAGS.includes(t));
+    expect(extra).toEqual(["img"]);
+  });
+
+  it("gained h3 and h4 versus the pre-slice document list and LOST nothing", () => {
+    // Pre-slice DOCUMENT_ALLOWED_TAGS, spelled literally so the assertion cannot
+    // drift with the code it guards.
+    const before = ["p","br","strong","em","u","h1","h2","ul","ol","li","a",
+                    "s","code","pre","blockquote","hr","mark","sub","sup","img"];
+    const lost = before.filter((t) => !DOCUMENT_ALLOWED_TAGS.includes(t));
+    const gained = DOCUMENT_ALLOWED_TAGS.filter((t) => !before.includes(t));
+    expect(lost).toEqual([]);
+    expect(gained.sort()).toEqual(["h3", "h4"]);
   });
 });
 

@@ -51,16 +51,16 @@ import DOMPurify from "dompurify";
  *  (open-followups §137). One list is the closure; do not add a third.
  *
  *  ★ EXPORTED so html-start.ts can derive a sink's classifier from the same array
- *  that sink sanitizes against. ★★ Nothing derives from it YET — `SINK_TAGS` still
- *  has four members (`note`/`template`/`document`/`projection`) and no `rich` one;
- *  Task 4 collapses them onto this array. A classifier narrower than its sink
- *  escapes a value the sink would have kept (§107).
+ *  that sink sanitizes against. ★★ It reaches those classifiers only INDIRECTLY so
+ *  far — `SINK_TAGS` still has four members (`note`/`template`/`document`/
+ *  `projection`) and no `rich` one, and the two document-side members pick this
+ *  array up through DOCUMENT_ALLOWED_TAGS' spread below. Task 4 collapses the
+ *  sinks onto this array directly. A classifier narrower than its sink escapes a
+ *  value the sink would have kept (§107).
  *
- *  ★ `hr` is here although no toolbar control produces it, because Task 3 will
- *  derive DOCUMENT_ALLOWED_TAGS from this array and documents have always allowed
- *  `hr`. ★★ Today that derivation runs the other way — the document list SPREADS
- *  TEMPLATE_ALLOWED_TAGS (see its own docstring below) — so removing `hr` here would
- *  not narrow documents yet. It would after Task 3. Leave it.
+ *  ★ `hr` is here although no toolbar control produces it, because
+ *  DOCUMENT_ALLOWED_TAGS derives from this array and documents have always allowed
+ *  `hr`. Removing it here would narrow documents in the same edit. Leave it.
  *
  *  ★ Headings stop at h4 as the INTENDED editor schema; Task 11 configures the
  *  editor to match. ★★ No such configuration exists in `src` today — the full
@@ -103,22 +103,16 @@ export function sanitizeRichHtml(html: string): string {
   });
 }
 
-/** The pre-§137 template allow-list, kept ONLY to hold two consumers still on the
- *  old shape until they move.
+/** The pre-§137 template allow-list, kept ONLY to hold the ONE consumer still on
+ *  the old shape until it moves.
  *
  *  ★★★ @deprecated — do NOT read a tag off this list, and do NOT "simplify" it to
- *  `= RICH_ALLOWED_TAGS`. That alias looks harmless and is not: DOCUMENT_ALLOWED_TAGS
- *  SPREADS this array, and html-start.ts derives its `template` sink from it, so one
- *  alias moves BOTH. Measured, not reasoned: DOCUMENT_ALLOWED_TAGS goes 20 entries →
- *  30 (gains h3/h4, duplicates eight names) and html-start.test.ts goes red on
- *  exactly two assertions — "classifies a document-only tag ... not for note or
- *  template" (blockquote becomes a template tag) and "classifies a tag NO allow-list
- *  carries for render but not for document" (h3 stops being unlisted once the
- *  document list inherits it). ★ The projection ⊇ every-real-sink test does NOT
- *  fail, because projection IS the document list and widens with it — a plausible
- *  third failure that measurement refutes. Both consumers go away together: Task 3
- *  derives the document list from RICH_ALLOWED_TAGS, Task 4 collapses html-start's
- *  five sinks to one `rich` sink, and Task 7 deletes this.
+ *  `= RICH_ALLOWED_TAGS`. That alias looks harmless and is not: html-start.ts derives
+ *  its `template` sink from this array, so the alias widens that classifier from 11
+ *  tag names to 21 in an edit that reads as a tidy-up. ★ It no longer moves
+ *  DOCUMENT_ALLOWED_TAGS as well — that list spreads RICH_ALLOWED_TAGS directly now,
+ *  which is why only one consumer is left. Task 4 retires the `template` sink and
+ *  Task 7 deletes this array.
  *
  *  ★★★ KEEPING THE OLD 11 HOLDS THE CLASSIFIER STILL. IT DOES NOT MAKE THE COMMIT
  *  BEHAVIOUR-NEUTRAL, and an earlier revision of this line said it did. The SINK
@@ -136,9 +130,9 @@ export function sanitizeRichHtml(html: string): string {
  *  SAFE_URI_REGEXP are untouched), so the new reach is markup, not attributes.
  *
  *  ★ What IS neutral is the classifier: a value the narrow `template` test rejects
- *  was escaped whole before this change and is escaped whole after it. Aliasing
- *  would move the classifier AND the document list in one edit — a second, separate
- *  behaviour change, which is why the old literal stays until Task 3 and Task 4. */
+ *  was escaped whole before the delegation landed and is escaped whole after it.
+ *  Aliasing would move the classifier — a second, separate behaviour change, which
+ *  is why the old literal stays until the sink itself goes. */
 export const TEMPLATE_ALLOWED_TAGS = ["p", "br", "strong", "em", "u", "h1", "h2", "ul", "ol", "li", "a"];
 
 /** @deprecated Transitional shim — Task 7 deletes this and its call sites.
@@ -149,20 +143,22 @@ export function sanitizeTemplateHtml(html: string): string {
   return sanitizeRichHtml(html);
 }
 
-/** Documents-only allow-list, and today still the WIDEST — it spreads
- *  TEMPLATE_ALLOWED_TAGS and adds nine.
+/** Documents-only allow-list, and the WIDEST — it spreads RICH_ALLOWED_TAGS and
+ *  adds exactly one tag of its own, `img`.
  *
- *  ★★ THE ARRAY IT SPREADS IS NOW DEAD WEIGHT, so read this paragraph as history
- *  until Task 3 rewires it. Widening TEMPLATE_ALLOWED_TAGS no longer changes what a
- *  model may store: `sanitizeTemplateHtml` stopped reading that array when it became
- *  a delegation to `sanitizeRichHtml`, so the array's only remaining consumers are
- *  this spread and html-start's `template` classifier. The hazard the next sentence
- *  describes was real and is now carried by RICH_ALLOWED_TAGS instead — that is the
- *  list whose width reaches comm templates, meeting reports and the seven rich
- *  entity fields (`Task.description` plus the six in `AI_RICH_FIELDS`),
- *  retroactively, including how already stored HTML renders. rich-text-editor.tsx
- *  records that hazard as the reason an earlier slice disabled input rules rather
- *  than widen a list.
+ *  ★★ THE SPREAD IS THE POINT: RICH_ALLOWED_TAGS is now the only place a tag can
+ *  be added to documents, so the two lists cannot disagree about `blockquote` or a
+ *  heading level again. It also means widening RICH_ALLOWED_TAGS widens this list
+ *  in the same edit — and that array's width already reaches comm templates,
+ *  meeting reports and the seven rich entity fields (`Task.description` plus the
+ *  six in `AI_RICH_FIELDS`), retroactively, including how already stored HTML
+ *  renders. rich-text-editor.tsx records that hazard as the reason an earlier slice
+ *  disabled input rules rather than widen a list.
+ *
+ *  ★ Documents GAINED `h3` and `h4` from the derivation and lost nothing — the
+ *  hand-maintained literal it replaced carried 20 names, every one of which is on
+ *  the rich list or is `img`. sanitize-html.test.ts pins both directions against a
+ *  spelled-out copy of that old literal.
  *
  *  ★★ KEEP_CONTENT stays at DOMPurify's DEFAULT (unwrap, keep the words), NOT
  *  sanitizeNoteHtml's `false`. A document is prose a person will read; losing a
@@ -205,10 +201,10 @@ export function sanitizeTemplateHtml(html: string): string {
  *  ADD_URI_SAFE_ATTR → the real attribute is stripped). Tests pin both.
  *  Scoped to documents on purpose — the file now exports FOUR sanitizers and the
  *  other three (sanitizeRichHtml, its sanitizeTemplateHtml delegation, and
- *  sanitizeNoteHtml) keep the default and have other consumers. ★★ The gap GREW
- *  with this commit and was not created by it: sanitizeRichHtml inherits the
- *  template config's `ALLOW_DATA_ATTR` default, so it is unchanged in KIND but now
- *  covers ten more tags. ★ It is still a two-line fix rather than the slice an
+ *  sanitizeNoteHtml) keep the default and have other consumers. ★★ The gap is WIDER
+ *  than it was before sanitizeRichHtml existed, and was not created by it:
+ *  sanitizeRichHtml inherits the old template config's `ALLOW_DATA_ATTR` default,
+ *  so it is unchanged in KIND but now covers ten more tags. ★ It is still a two-line fix rather than the slice an
  *  earlier note implied: the set of `data-*` names their call sites depend on was
  *  enumerated on 2026-08-08 and is EMPTY — StarterKit registers no extension that
  *  emits one. See open-followups §115 for the enumeration and the Tiptap scan.
@@ -227,18 +223,7 @@ export function sanitizeTemplateHtml(html: string): string {
  *  DOMPurify's default `DATA_URI_TAGS` — so adding `src` to the list admits
  *  `data:text/html` and `data:image/svg+xml`, both XSS vectors, bypassing
  *  `ALLOWED_URI_REGEXP` entirely. Neither is reachable today. */
-export const DOCUMENT_ALLOWED_TAGS = [
-  ...TEMPLATE_ALLOWED_TAGS,
-  "s",
-  "code",
-  "pre",
-  "blockquote",
-  "hr",
-  "mark",
-  "sub",
-  "sup",
-  "img",
-];
+export const DOCUMENT_ALLOWED_TAGS = [...RICH_ALLOWED_TAGS, "img"];
 const DOCUMENT_ALLOWED_ATTR = [...ALLOWED_ATTR, "data-asset-id", "alt"];
 
 export function sanitizeDocumentHtml(html: string): string {
