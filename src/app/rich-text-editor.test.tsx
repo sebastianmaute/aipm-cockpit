@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { useRef } from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor";
 
@@ -60,6 +60,30 @@ describe("RichTextEditor", () => {
     }
     expect(screen.getByRole("combobox", { name: "Text style" })).toBeTruthy();
   });
+
+  // ★★★ THE ONLY THING IN THIS FILE THAT SEES THE `label` -> TOOLBAR WIRE.
+  // `RichTextEditor` forwards `label={label}` to `RichTextToolbar` at ONE site,
+  // and that forward is the entire WCAG 2.4.6 fix: the toolbar's group is
+  // named-or-ABSENT (`rich-text-toolbar.tsx`), so a cut wire silently drops
+  // `role="group"` altogether and the fifteen repeated control names go back to
+  // being indistinguishable in a form mounting two or three editors (the change
+  // modal mounts three). Measured before this test existed: cutting the forward
+  // left this file 33/33 GREEN, and `change-edit-modal.test.tsx` (28/28) and
+  // `raid-edit-modal.test.tsx` (20/20) green too.
+  // ★★ Asserted against a DISTINCTIVE label rather than `setup()`'s shared
+  // "Body", so a hardcoded group name would fail as well as a cut wire; and
+  // asserted THROUGH a control inside the group, so a `role="group"` on some
+  // other empty wrapper could not satisfy it.
+  // ★★ NO GATE CAN SEE THIS EITHER. All twelve `<RichTextEditor` call sites
+  // render inside a modal or inside a collapsed `<details>`, so none of the 90
+  // axe scans ever reaches a toolbar (`docs/open-followups.md` §144).
+  it("names the toolbar group from the editor's own label prop", async () => {
+    setup({ label: "Impact description" });
+    await screen.findByRole("textbox", { name: "Impact description" });
+    const group = screen.getByRole("group", { name: "Impact description" });
+    expect(within(group).getByRole("button", { name: "Bold" })).toBeTruthy();
+  });
+
   it("renders a merge-field chip per field", async () => {
     setup();
     await screen.findByRole("textbox", { name: "Body" });
