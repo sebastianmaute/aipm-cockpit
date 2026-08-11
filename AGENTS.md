@@ -114,6 +114,18 @@ npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next 
                             # `.toISOString()` throws — pass `{noInvalidDate:true}` or map an integer
                             # ms range to `new Date(ms)`; the regex `/s` (dotAll) flag fails tsc
                             # (target < es2018) — use `[\s\S]` instead.
+                            # ★★ TIPTAP COMMANDS ARE TYPED BY MODULE AUGMENTATION, and this is the same
+                            # vitest-green/tsc-red shape from the other direction. Each extension
+                            # declares its own commands with `declare module '@tiptap/core'` INSIDE its
+                            # package (verify: `grep -n "declare module" node_modules/@tiptap/
+                            # extension-highlight/dist/index.d.ts`), so `toggleHighlight` /
+                            # `toggleSuperscript` / `toggleSubscript` do not exist on Tiptap's chained-
+                            # commands type (deliberately un-backticked — it is an UPSTREAM type, and
+                            # backticking it would make docs:symbols:check flag this file, which is the
+                            # gate working) until some file in the TS PROGRAM imports that module. A toolbar calling
+                            # them while only the EDITOR imports the extensions works at RUNTIME either
+                            # way — the command is registered on the live editor — so vitest is green
+                            # and only tsc objects. Run tsc after touching either file.
                             # ★ The IDE language-server's inline diagnostics are MID-EDIT snapshots —
                             # after a multi-file edit they routinely show phantom "Cannot find module"/
                             # "implicitly any" that a real `npx tsc --noEmit` (exit 0) contradicts. Trust
@@ -412,6 +424,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   come first and `props` spread after, so a caller can override it — a default, not a hard-code), so the glyph is
   out of the a11y tree in both states either way. An earlier revision of this bullet claimed the
   a11y tree was the reason — it is inert, and a test written to pin it could not fail.
+  ★★ **`preventFocusSteal` is OPT-IN, and that is load-bearing.** It suppresses the `mousedown`
+  default so the click cannot pull focus off whatever the toggle acts ON — needed by the rich-text
+  toolbar, where stealing focus from the editor collapses the selection the command is about to
+  apply. It is a prop rather than the primitive's behaviour because every OTHER toggle in the app
+  relies on native focus-on-click, so making it unconditional would change all of them at once. Both
+  branches are pinned by `toggle-button.test.tsx`; a new toggle that drives ANOTHER element's
+  selection wants it, and a self-contained one must not have it.
   ★★ `disabled` was declared on this primitive from the start but styled NOTHING until 0.212.0 — no
   call site ever passed it, so an inoperable toggle was pixel-identical to a live one. It now carries
   `disabled:cursor-not-allowed disabled:opacity-60`. ★★ THE JUSTIFICATION IS THE MEASURED FLOOR, not
@@ -857,7 +876,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   per-device `settings.selfResourceId` (honor-system, NO dropdown/auth); `canEditNote` gates edit/delete
   (`authorResourceId == null || === self`; edit CLAIMS an authorless note). Pure model in `note-log.ts`
   (`addNote`/`editNote`/`deleteNote` immutable; `sanitizeNoteLog`; `encodeNoteLog`/`decodeNoteLog`
-  JSON-in-cell for CSV/MD/Turso — mirrors `document-link.ts`). Composer = shared `RichTextEditor variant="lean"`
+  JSON-in-cell for CSV/MD/Turso — mirrors `document-link.ts`). Composer = the shared `RichTextEditor`
+  (★ it took `variant="lean"` until the unify-rich-text slice; that prop is GONE along with `labels` —
+  one editor, one toolbar, one schema everywhere)
   (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
   ★★ **`RichTextEditorHandle.appendText`** (`rich-text-editor.tsx`): Tiptap binds its `content` ONCE at mount,
   so a changed `value` prop cannot reach an already-mounted editor — dictation therefore appends imperatively
@@ -871,7 +892,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.
   RaidItem's `description?` is PRE-EXISTING (unrelated); other entities' `notes?` fields are untouched.
   ★★★ STORED-XSS defense-in-depth — noteLog `html` is `dangerouslySetInnerHTML`, guarded at THREE layers:
-  (1) SINK re-sanitize `sanitizeNoteHtml(html)` in `RichTextView` (idempotent; mirrors comm-send-preview/
+  (1) SINK re-sanitize `sanitizeRichHtml(html)` in `RichTextView` (idempotent; mirrors comm-send-preview/
   meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
   cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
   CSV/MD/Turso route `noteLog` through `decodeNoteLog` — ★★ that covers `noteLog` ONLY, and reads as
@@ -901,7 +922,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ The modal's `draft.noteLog?.length ?? 0` count still reads the stale snapshot, so it can
   under-report while the notes window is open. Cosmetic (the log itself is safe now) — left open.
   ★★★ **`sanitizeRaidItem` DROPS `noteLog` and CANNOT be taught to keep it.** It builds from an
-  explicit field list, and `sanitizeNoteLog` → `sanitizeNoteHtml` → DOMPurify is DOM-BOUND while the
+  explicit field list, and `sanitizeNoteLog` → `sanitizeRichHtml` → DOMPurify is DOM-BOUND while the
   entity sanitizers must stay DOM-free (they run under bare node in the sample generator — same
   constraint as §36(a)). So ANY caller that sanitizes an EXISTING RAID row silently erases its log.
   `use-chat-dispatcher.ts` `updateRaid` did exactly that until 0.211.1 and every AI edit to a RAID item
@@ -918,8 +939,16 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
 - **Rich-text register descriptions (0.209.0 "Lafferty"):** SIX more fields joined `Task.description`
   as rich HTML — RAID `description` + `mitigation`, Change `description` + `impactDescription` +
-  `resolutionNotes`, Milestone `description`. Same lean `RichTextEditor`, same `sanitizeNoteHtml`
-  allow-list. THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
+  `resolutionNotes`, Milestone `description`. Same `RichTextEditor`, same `sanitizeRichHtml`
+  allow-list. ★★ This bullet said "same LEAN `RichTextEditor`, same `sanitizeNoteHtml`" until the
+  unify-rich-text slice, and BOTH halves are now RETIRED symbols: there is no lean variant and no full
+  one. `RichTextEditor` lost its `variant`/`labels` props and there is ONE editor, ONE toolbar
+  (`rich-text-toolbar.tsx`) and one schema at every call site; `sanitizeRichHtml` is the one commit
+  sanitizer. Do not reintroduce a per-surface variant — a surface needing less markup should RENDER
+  less, not sanitize differently (that asymmetry WAS §137). ★ No version quoted deliberately: the
+  change is committed but UNRELEASED, and naming the release it sits ON sends a reader chasing a
+  changelog entry that describes something else.
+  THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
   [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
   rather than a projection, and is covered further down this bullet.)
@@ -1003,24 +1032,35 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   item erases its stored description and mitigation. ★ A new rich field on an AI-writable entity goes in
   `AI_RICH_FIELDS` (a test pins each list, so adding one forces the decision).
   ★★★ That helper is TWO layers and both are load-bearing: `sanitizeRichText` (upgrade-aware, DOM-free,
-  caps + drops-empty) THEN `sanitizeTemplateHtml` (the actual DOMPurify allow-list). Layer 1 alone CANNOT
+  caps + drops-empty) THEN `sanitizeRichHtml` (the actual DOMPurify allow-list). Layer 1 alone CANNOT
   sanitize — it is DOM-free by contract and `descriptionHtml` passes HTML-shaped input through verbatim,
-  so a model's `<script>` reached all six backends. ★★★ It is `sanitizeTemplateHtml`, **NOT**
-  `sanitizeNoteHtml`, and the difference is DATA LOSS: `sanitizeNoteHtml` sets `KEEP_CONTENT:false`, which
-  deletes the TEXT inside a non-allow-listed tag — right for the editor (its schema emits only the lean
-  set) and WRONG for a model, which legitimately emits `<h3>`/`<div>`/`<table>`. A test pins that
-  distinction; swapping the sanitizer fails it. ★ The helper lives in its OWN module because it calls
-  DOMPurify — putting it in `rich-text-plain.ts` would break the DOM-free guarantee that module's guard
-  exists to protect.
-  ★★ THERE IS A THIRD ALLOW-LIST AND IT IS NOT INTERCHANGEABLE: model-authored DOCUMENT paragraph HTML
-  goes through `sanitizeAiDocumentRichText` → `sanitizeDocumentHtml`, which is WIDER (adds
-  `s`/`code`/`pre`/`blockquote`/`hr`/`mark`/`sub`/`sup`/`img`). Wiring a document boundary to
-  `sanitizeAiRichText` instead silently drops all nine at the write — seven are unwrapped keeping
-  their text, and ★ the TWO VOID ones (`hr` AND `img`) vanish outright, since there is no text to
-  keep. Measured: `"<p>a</p><hr><p>b</p>"` → `"<p>a</p><p>b</p>"`. `sanitizeTemplateHtml` must stay
-  narrow because it guards the SEVEN rich entity fields — `Task.description` plus the six in
-  `AI_RICH_FIELDS`. Details in
-  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
+  so a model's `<script>` reached all six backends.
+  ★★★ THIS PARAGRAPH USED TO DRAW A DISTINCTION THAT NO LONGER EXISTS, and the retraction is the
+  point rather than the rename. It read "It is `sanitizeTemplateHtml`, **NOT** `sanitizeNoteHtml`, and
+  the difference is DATA LOSS" — a choice between two sanitizers of different widths, turning on
+  `KEEP_CONTENT:false`. **Both functions are DELETED and that policy is gone from the app.** There is
+  ONE rich sanitizer, `sanitizeRichHtml`, at DOMPurify's DEFAULT `KEEP_CONTENT` — an unlisted tag
+  UNWRAPS and keeps its words. So a model emitting `<div>`/`<table>` no longer loses the text inside
+  them on any surface, and there is no second rich sanitizer to pick wrongly. ★★ Do not read the
+  retraction as "the hazard is gone": what protected the words was the WIDTH-AND-POLICY PAIR, and the
+  live rule is now `KEEP_CONTENT` itself — flipping it to `false` at ANY width re-creates §137. Losing
+  formatting beats losing words; `sanitize-html.ts` carries that as a "do not flip this" note.
+  ★ The helper lives in its OWN module because it calls DOMPurify — putting it in `rich-text-plain.ts`
+  would break the DOM-free guarantee that module's guard exists to protect.
+  ★★ THERE IS STILL A SECOND ALLOW-LIST, BUT THE DELTA IS **ONE TAG**, NOT NINE. Model-authored
+  DOCUMENT paragraph HTML goes through `sanitizeAiDocumentRichText` → `sanitizeDocumentHtml`, and
+  `DOCUMENT_ALLOWED_TAGS` is now literally `[...RICH_ALLOWED_TAGS, "img"]` — it SPREADS the rich list,
+  so the two can no longer disagree about a heading level or `blockquote`. ★★★ The old measurement
+  here is FALSIFIED, not merely restated: it cited `"<p>a</p><hr><p>b</p>"` → `"<p>a</p><p>b</p>"` as
+  proof the narrow list ate `hr`. Re-measured 2026-08-11 on dompurify 3.4.13 against the two live
+  arrays, that input is now **byte-identical through both** (`hr` is in `RICH_ALLOWED_TAGS`). The only
+  input that still differs is an `img`, which is VOID and so vanishes outright rather than unwrapping:
+  `'<p>a</p><img src="x.png"><p>b</p>'` → rich `"<p>a</p><p>b</p>"` · document keeps the element.
+  Wiring a document boundary to `sanitizeAiRichText` therefore silently drops IMAGES and nothing else.
+  ★ `RICH_ALLOWED_TAGS` still guards the SEVEN rich entity fields (`Task.description` plus the six in
+  `AI_RICH_FIELDS`) — but "keep it narrow" is no longer the reason to leave it alone. Widening it now
+  widens DOCUMENTS in the same edit, retroactively, including how already-stored HTML renders. Details
+  in [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
   ★★ A model may send EITHER shape — never assume plain text just because the tool schema says "text".
   ★★ TEST AT THE WRITE, NOT THE TOOL CALL: the inline-AI tests spy on `runTool` and assert what reaches
   it, which is one hop short of this defect, and `descriptor-drift.test.ts` covers only the four
@@ -1041,26 +1081,35 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `&amp;` decodes LAST so `&amp;lt;` cannot double-decode. All three cost a data-integrity bug.
   ★★★ **"IS THIS STORED VALUE ALREADY HTML?" IS ANSWERED PER SINK** — `isHtmlStart(value, sink)` in
   `html-start.ts`, whose test each sink DERIVES from its own allow-list. THE RULE: never recognise
-  LESS than your sink KEEPS (a narrower classifier escapes the WHOLE value, permanently); a WIDER one
-  is worse where the sink DELETES, since `sanitizeNoteHtml` sets `KEEP_CONTENT: false`. Five sinks —
-  `note`, `template`, `document`, `projection` (derived from `NOTE_ALLOWED_TAGS` /
-  `TEMPLATE_ALLOWED_TAGS` / `DOCUMENT_ALLOWED_TAGS` twice) and `render`, which has NO list because its
-  consumers keep every tag's text. `descriptionHtml` and `sanitizeRichText` REQUIRE the sink argument.
-  One shared 8-tag constant served the FOUR DERIVED sinks and structurally could not express the
-  rule — §107 and §114 are the two defects that cost, both CLOSED 2026-08-10. ★★★ READ §107's CLOSED
-  NARROWLY: it means the CLASSIFIER is fixed, NOT that the payoff is delivered. The whole-object load
-  normalizer applies the `note` sink to all seven rich entity fields, so the AI's wider markup is
-  re-escaped on the next load — measured, and PRE-EXISTING rather than introduced here. Do not "finish"
-  it by widening the `note` sink: measured, that converts the escape into DELETION. §137 carries both
-  measurements. ★★ It did NOT serve
-  all five, and an earlier revision here said it did: the render boundary had **no classifier at
-  all** before this branch, because the three document renderers did not call `descriptionHtml` —
+  LESS than your sink KEEPS (a narrower classifier escapes the WHOLE value, permanently). ★★ The old
+  second half — "a WIDER one is worse where the sink DELETES, since `sanitizeNoteHtml` sets
+  `KEEP_CONTENT: false`" — names a RETIRED sanitizer and has no referent: nothing in the app deletes
+  content now, so
+  the rule's only live direction is the one above. Keep the deletion clause in mind as the reason
+  never to ADD a `KEEP_CONTENT:false` sanitizer, not as a description of one that exists.
+  ★★★ **THREE derived sinks plus `render`, not five** — `SINK_TAGS` is `{rich, document, projection}`
+  and `render` carries NO list because its consumers keep every tag's text. `rich` IS
+  `RICH_ALLOWED_TAGS`; `document` and `projection` are `DOCUMENT_ALLOWED_TAGS`. The retired `note` and
+  `template` sinks MERGED into `rich` — every entity call site now passes `"rich"`.
+  `descriptionHtml` and `sanitizeRichText` REQUIRE the sink argument.
+  One shared 8-tag constant served the FOUR DERIVED sinks of the time and structurally could not
+  express the rule — §107 and §114 are the two defects that cost, both CLOSED 2026-08-10.
+  ★★★ §137 IS NOW CLOSED TOO, and its trap is worth carrying because this file set it: the old text
+  here warned "do not 'finish' it by widening the `note` sink", and mid-slice exactly that happened
+  one file away — a 21-tag classifier was wired to an 8-tag `KEEP_CONTENT:false` sanitizer and the
+  whole-object load path DELETED words on all seven rich fields, with the whole suite green. Widening
+  a CLASSIFIER before its SINK converts an escape into a deletion. The durable guard is now the
+  property test in `html-start.test.ts` (`kept(sanitizer) ⊆ recognised(sink)`, derived empirically on
+  both sides), not this sentence — see §137. ★★ That shared constant did NOT serve
+  EVERY sink, and an earlier revision here said it did: the render boundary had **no classifier at
+  all** before the §107 branch, because the three document renderers did not call `descriptionHtml` —
   that composition was ADDED by `94b7fd21`, which is §118, and the sink it passes was narrowed to
   `render` afterwards. So the render sink is not a constant that drifted, it is a boundary that was
-  missing. Reproduce the "four" against the PRE-BRANCH tree, where the now-RETIRED shared constant
+  missing. Reproduce against the PRE-§107 tree, where the now-RETIRED shared constant
   still existed — `git grep -n "HTML_START\." 528dd5fe -- src` returns exactly two
-  call sites, `narrative-html.ts` (today's `note`) and `rich-text-plain.ts` `descriptionHtml`
-  (today's `note`/`template`/`document`/`projection`), and neither is a renderer.
+  call sites, `narrative-html.ts` and `rich-text-plain.ts` `descriptionHtml`, and neither is a
+  renderer. ★ Both of those now pass `"rich"`; the per-sink names that revision used to gloss them
+  (`note`/`template`) are retired, so the gloss is dropped rather than translated.
   ★★ The tag must actually CLOSE and be an OPENING tag. Accepting `"<li 3 items"` as HTML stored a
   value the counter measured at 11 while every reader rendered nothing. `html-start.ts` carries that
   reasoning, the `\b` guard against a short tag swallowing a longer one, and the residue it

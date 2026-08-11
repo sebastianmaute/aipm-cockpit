@@ -22,10 +22,14 @@
 // The allow-lists are exported so html-start.ts can derive each sink's own "is this
 // value already HTML?" classifier from the same list that sink sanitizes against,
 // instead of a hand-maintained mirror that can drift.
-// RICH_ALLOWED_TAGS is the list the Tiptap editor's schema is being converged ON
-// (Task 11 configures the editor to match), so sanitizing editor output is a
-// defense-in-depth boundary. ★ It does not mirror that schema TODAY — the editor's
-// full variant is a bare `StarterKit`, whose heading extension emits h1-h6.
+// RICH_ALLOWED_TAGS is the list the Tiptap editor's schema is converged ON, so
+// sanitizing editor output is a defense-in-depth boundary rather than the only
+// gate. ★★ It DOES mirror that schema now, and this comment said the opposite
+// until the editor collapse landed: `rich-text-editor.tsx` configures
+// `StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } })`, so the editor can
+// no longer emit h5/h6 — StarterKit's own default is [1,2,3,4,5,6]. Those two
+// levels therefore reach this sanitizer only from LEGACY STORED DATA now, never
+// from a keystroke. They still UNWRAP and keep their words either way.
 // Merge-field tokens ({{field}}) are plain text and pass through untouched.
 //
 // ★★ The ATTRIBUTE lists below do NOT mirror the editor, and reading them as if
@@ -67,11 +71,12 @@ import DOMPurify from "dompurify";
  *  DOCUMENT_ALLOWED_TAGS derives from this array and documents have always allowed
  *  `hr`. Removing it here would narrow documents in the same edit. Leave it.
  *
- *  ★ Headings stop at h4 as the INTENDED editor schema; Task 11 configures the
- *  editor to match. ★★ No such configuration exists in `src` today — the full
- *  variant is a bare `StarterKit` and its heading extension emits h1-h6, so h5/h6
- *  reach this sanitizer from the editor itself, not only from legacy data. Either
- *  way they UNWRAP and keep their words. */
+ *  ★ Headings stop at h4 because that IS the editor schema — `rich-text-editor.tsx`
+ *  passes `StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } })`, narrowing
+ *  StarterKit's own [1,2,3,4,5,6] default. ★★ This docstring read "No such
+ *  configuration exists in `src` today" until the editor collapse landed; it does
+ *  now, so h5/h6 can only arrive from LEGACY STORED DATA, not from the editor.
+ *  Either way they UNWRAP and keep their words. */
 export const RICH_ALLOWED_TAGS = [
   "p", "br", "hr",
   "strong", "em", "u", "s", "code", "mark", "sub", "sup",
