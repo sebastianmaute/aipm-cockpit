@@ -2639,8 +2639,14 @@ grep -rn "aria-pressed={" src/app --include="*.tsx" | grep -v "\.test\." | grep 
 all of them were. `voice-button.tsx:113` adds `animate-pulse` while listening (a motion cue) plus a
 flipping `title`. `dictation-mic.tsx:73` is colour-only IN THE BUTTON, but the hook also returns a
 `status` node rendering visible "Listening…/Transcribing…" text (`dictation-mic.tsx:83`) — so the
-**13** callers that render it are covered and the two that destructure without it
-(`note-log-panel.tsx:68,181`) are not. Check the caller, not the grep hit.
+**13** callers that render it are covered and the two that destructure without it are not: the
+`editMic` call in `NoteEntryRow` and the `composerMic` call in `NoteLogPanel`, both in
+`note-log-panel.tsx`. Check the caller, not the grep hit.
+★★ Those two were cited BY LINE (`:68,181`) until 2026-08-11, and both were stale — the a11y
+follow-on to §137's branch (`a6e7c0c5`) inserted a shared-const declaration above each, moving them
+to 74 and 189. The CLAIM was re-verified and still holds (neither destructures `status`); only the
+numbers had rotted, which is exactly why they are now SYMBOLS. Third recorded instance in this entry
+alone of a `file:LINE` citation broken by an edit to a file the doc never opened.
 ★ That number read **four** until 2026-08-05 and understated the covered set by nine, which errs
 against this entry's own argument: `dictation-mic` is the WEAKEST of the eleven colour-only cases,
 not a middling one. Re-measured — all 13 destructure the node AND render it in JSX; the 2 that do
@@ -8566,6 +8572,16 @@ claim**: a mechanism asserted from how it ought to behave rather than run.
 ★ A fixture pins the tags someone thought to list; a probe-based property pins the ones in its
 universe; only a config read-back pins the ones nobody imagined.
 
+★★ **A THIRD INSTANCE OF THE SAME CLASS, from this branch's a11y follow-on.** The brief for the
+toolbar group naming asserted that "the editable regions are uniquely named" and scoped the fix to
+the toolbars alone. True per PANEL — and false across two MOUNTED panels, which is precisely the
+mount the fix exists for: `NoteLogPanel`'s two `RichTextEditor` `label` props ignored `labelSuffix`,
+so with the floating notes window and the task editor's inline panel both open, the composers and the
+entry editors collided, and the new toolbar groups — which take that same string — collided with
+them. A fix whose entire purpose is disambiguation would have inherited a collision its own brief
+said did not exist. Found by the implementer ENUMERATING the actual `label` at every call site
+instead of accepting the premise. Fixed in `a6e7c0c5`; the residue is **§142**.
+
 ★★ **A SOURCE-TEXT ASSERTION TAXES THE DOCUMENTATION OF THE VERY CHANGE IT PINS.**
 `rich-text-editor.test.tsx` asserts its own source does not contain `sanitizeNoteHtml` /
 `sanitizeTemplateHtml` / `RichTextEditorVariant` / `isLean`. That is the right guard — but it cannot
@@ -8862,3 +8878,69 @@ into Word, PowerPoint, the HTML preview and the PDF.
 writing a test. ★ Recorded rather than fixed on purpose: §137's branch was already wide, and a
 surviving mutant is a QUESTION ("missing test" and "equivalent mutant" look identical from the
 harness), so it needs an input the suite does not have — which is work, not a one-liner.
+
+---
+
+## 142. `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently — open
+
+Opened 2026-08-11 out of the a11y follow-on to §137's branch. The DEFECT is fixed (`a6e7c0c5`); the
+MECHANISM that let it happen is not, and cannot be seen by anything in the repo.
+
+### What `labelSuffix` is for, and what ignored it
+
+`NoteLogPanel` takes an optional `labelSuffix`, whose own docstring states the reason: *"Appended to
+the composer/row control names so two mounted surfaces never announce identical labels. axe cannot
+see a duplicate accessible name."* Two panels genuinely mount at once:
+
+- `notes-window.tsx` — the floating notes window. Passes **NO** suffix on purpose: its `role="dialog"`
+  `aria-label` already scopes everything inside it.
+- `task-form-fields.tsx` — the task editor's inline panel, fed by `use-notes-window.ts`, where the
+  suffix is documented as REQUIRED.
+
+The Add / Edit / Delete buttons and both dictation mics applied the suffix. The two `RichTextEditor`
+`label` props did **not** — so in that mount both composers announced "Write a note…" and both entry
+editors announced "Edit" (WCAG 2.4.6, on the editable regions themselves). It also defeated the
+toolbar group naming shipped one commit earlier, since those groups take this same string: the one
+mount where disambiguation matters most produced two identically-named groups.
+
+Fixed by naming each mic and the editor beside it from ONE shared const (`editLabel` /
+`composerLabel`). Two spellings of the same string sat within ten lines of each other and only one
+was ever updated — which is how it happened, and why the fix is a shared const rather than a second
+correct spelling.
+
+### The open part — nothing can detect a THIRD caller
+
+★★ The mechanism is honour-system. `labelSuffix` is OPTIONAL, so a future third mount site that
+simply omits it compiles, renders, and collides **silently**. Nothing in the repo can tell: axe is
+structurally blind to a duplicate accessible name at any seed size (see §55's neighbouring
+measurement and AGENTS.md's a11y bullet), and the type system is no help either — optional means
+optional.
+
+★ The asymmetry is worth naming, because it looks like coverage and is not: the site that is
+SUPPOSED to omit the prop is the one held structurally (`notes-window.tsx` types itself
+`Omit<NoteLogPanelProps, "labelSuffix">`, so it *cannot* pass one), while the site that MUST pass it
+is held only by a comment in `use-notes-window.ts`. The guard is on the harmless direction.
+
+★★ **The two-panel test does not close this and must not be read as if it does.** It lives inside
+`note-log-panel.test.tsx` and pins today's spellings *within* `note-log-panel.tsx` — it mounts the
+production pairing (one with a suffix, one without) and asserts the SET of the four editable
+surfaces' names has size 4, rather than merely that four exist. It cannot see a new CALLER that omits
+the prop, because it constructs the mount itself.
+
+### Why the test was necessary — the mutation result
+
+Mutation-measured in `a6e7c0c5`: dropping the suffix from the entry editor's label turns **2** tests
+red; dropping it from the composer's turns **1** red — the new two-panel test in both cases, and for
+the composer half it is the ONLY detector. Every pre-existing case in that file mounts ONE panel,
+where "Write a note…" resolves whether or not the suffix is applied, so each passes either way. That
+is the whole argument for the two-panel shape: a single-mount fixture cannot observe a collision that
+only exists when both surfaces are in the DOM.
+
+### Closing it
+
+Options, none taken: make `labelSuffix` REQUIRED on `NoteLogPanelProps` and have the window pass an
+explicit sentinel (turns the honour system into a typecheck, at the cost of a meaningless argument at
+the one site that legitimately has nothing to say); or derive the suffix inside the panel from
+something it already knows. ★ Recorded rather than fixed because the branch was already wide, and
+because the right answer depends on whether a third mount site is ever actually wanted — if it is
+not, the cheapest correct move is to keep it at two and say so in the type.

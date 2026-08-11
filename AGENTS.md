@@ -948,6 +948,47 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   less, not sanitize differently (that asymmetry WAS §137). ★ No version quoted deliberately: the
   change is committed but UNRELEASED, and naming the release it sits ON sends a reader chasing a
   changelog entry that describes something else.
+  ★★ **THE TOOLBAR IS A NAMED `role="group"`, AND THE NAME IS THE EDITOR'S OWN `label`.**
+  `RichTextToolbar` renders FIFTEEN controls whose names repeat verbatim in every editor — eight marks
+  (`MARKS`), four blocks (`BLOCKS`), Link, Unlink, and the heading `<select>` — and several surfaces
+  mount editors as SIBLINGS in one form: `change-edit-modal.tsx` has three, `raid-edit-modal.tsx` two,
+  `note-log-panel.tsx` two (composer + entry editor). An open change modal therefore carried three
+  buttons named "Bold" and three comboboxes named "Text style", with nothing tying one to the field it
+  acts on (WCAG 2.4.6). The row wraps in `role="group"` + `aria-label` fed from that `label`, so the
+  repeats are told apart by their container (WCAG technique ARIA17).
+  ★★ NAMED OR ABSENT, never generic — a blank or missing `label` renders the bare div with NO role.
+  An unnamed group announces a boundary carrying no information, and three sibling groups all called
+  "Formatting" disambiguate nothing while making the code look fixed. Both branches are pinned.
+  ★★★ `group` AND NOT `toolbar`. The APG toolbar pattern is a KEYBOARD CONTRACT — one tab stop for the
+  whole row, roving `tabindex`, Left/Right Arrow moving focus between controls — and this row implements
+  none of it: every control is its own tab stop. Declaring a role whose interaction the widget does not
+  honour is worse than declaring none, because it tells an AT user to press arrow keys that do nothing.
+  `rich-text-toolbar.test.tsx` pins `queryByRole("toolbar")` as NULL so the role cannot be added without
+  the behaviour; adding it later means implementing roving tabindex FIRST, which changes Tab in every
+  editor in the app.
+  ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet above
+  carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
+  not one flagging two controls that share an accessible name; the only adjacent rule,
+  `identical-links-same-purpose`, is links-only and `wcag2aaa`, which the spec never asks for). The
+  MULTI-editor unit test is the only possible detector — a single-editor fixture passes with the group
+  deleted.
+  ★ WCAG 2.5.3 holds by CONSTRUCTION for the fourteen buttons: each accessible name IS its visible text
+  (the toolbar passes no `ariaLabel`, and `ToggleButton` puts state in `title`, the DESCRIPTION). The
+  `<select>` sits OUTSIDE 2.5.3 rather than satisfying it — it has an `aria-label` and no visible text
+  label, so there is no label to contain. Worth stating because the gate cannot see a 2.5.3 violation
+  either (same bullet above).
+  ★★ EVERY BUTTON IN THE ROW SUPPRESSES THE MOUSEDOWN DEFAULT: a control that takes focus on mousedown
+  blurs the contenteditable and destroys the selection the command applies to. It arrives two ways —
+  `ToggleButton` gained an OPT-IN `preventFocusSteal` prop for the twelve toggles, and the two plain
+  `Button`s hand-roll `onMouseDown` + `preventDefault`, a separate code path with its own assertion.
+  ★★ OPT-IN IS LOAD-BEARING: 25 other `<ToggleButton` call sites across 14 files rely on native
+  focus-on-click, so an unconditional guard would change every toggle in the app. Both branches are
+  pinned in `toggle-button.test.tsx`. Re-derive the population, don't trust the number:
+  `grep -rn "<ToggleButton" src/app --include="*.tsx" | grep -v "\.test\." | grep -v rich-text-toolbar | wc -l`
+  ★ The heading `<select>` deliberately gets NO guard: opening the picker IS the native mousedown
+  default, so preventing it leaves a select that cannot be opened with a mouse. It relies on the
+  commands' `.chain().focus()` restoring the ProseMirror selection instead — REASONED, NOT MEASURED
+  (jsdom has no picker, and no browser check has been run).
   THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
   [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
