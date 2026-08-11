@@ -175,7 +175,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
 
 | 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
-| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | open, a11y — all 12 `<RichTextEditor` mounts sit in a modal or a collapsed `<details>`, so none of the 90 axe scans reaches one, and `grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns nothing. `change-edit-modal.tsx` mounts three editors = 45 toolbar tab stops. ★★ The refusal of `role="toolbar"` without roving tabindex is CORRECT — the tab-stop count is its price, not an argument against it |
+| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | open, a11y — none of the 90 axe scans reaches any of the 12 `<RichTextEditor` mounts, for FOUR different reasons (9 behind a modal/floating window · 1 behind a non-default Settings section · 1 in an unscanned view · 1 in a collapsed `<details>`), and `grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns nothing. `change-edit-modal.tsx` mounts three editors = 45 toolbar tab stops. ★★ The refusal of `role="toolbar"` without roving tabindex is CORRECT — the tab-stop count is its price, not an argument against it |
 
 ★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
 Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
@@ -9108,13 +9108,22 @@ and **not one of them is reachable by any automated check in this repo.**
 ### Why the axe gate cannot see it
 
 The gate runs 90 scans (17 views × 5 scheme combos, plus 5 Kanban variants). Every `<RichTextEditor`
-mount is behind something a scan cannot open:
+mount is behind something a scan cannot open — but for FOUR different reasons, not one. ★★ A first
+revision of this entry said "eleven of the twelve are inside a MODAL", which is wrong for three of
+them and would send the next reader looking for a modal that does not exist:
 
-- Eleven of the twelve are inside a MODAL — `change-edit-modal` ×3, `raid-edit-modal` ×2,
-  `note-log-panel` ×2, `milestone-edit-modal`, `meeting-report-panel`, `comm-templates-section`,
-  `task-form-fields` — and nothing in `e2e/a11y.spec.ts` opens a modal.
-- The twelfth, `dashboard-sections/dashboard-narrative.tsx`, renders inside a `<details>` with **no
-  `open` attribute**, and collapsed content is not scanned.
+- **Nine behind a modal or a floating window**, and nothing in `e2e/a11y.spec.ts` opens either:
+  `change-edit-modal` ×3, `raid-edit-modal` ×2, `milestone-edit-modal`, `task-form-fields` (the
+  floating `TaskFormModal`), and `note-log-panel` ×2 (mounted by `notes-window.tsx` and, inside the
+  task modal, by `task-form-fields`).
+- **One behind a non-default Settings section.** `settings-view.tsx` renders
+  `CommTemplatesSection` under `active === "commTemplates"`, and the scan lands on Settings' default
+  section — so this one IS in a scanned VIEW and still never renders.
+- **One in a view that is not scanned at all.** `meeting-report-panel.tsx` mounts inside
+  `steering-committee-panel.tsx`, and `steering-committee` is a real nav view that `A11Y_VIEWS` does
+  not list.
+- **One inside collapsed content.** `dashboard-sections/dashboard-narrative.tsx` renders inside a
+  `<details>` with **no `open` attribute**.
 
 ★★ Enumerate with the right shape or the count is wrong:
 `grep -rn "<RichTextEditor" src/app --include=*.tsx | grep -v "\.test\."` returns **fifteen** lines,

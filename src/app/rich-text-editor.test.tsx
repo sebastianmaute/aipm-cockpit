@@ -74,9 +74,10 @@ describe("RichTextEditor", () => {
   // "Body", so a hardcoded group name would fail as well as a cut wire; and
   // asserted THROUGH a control inside the group, so a `role="group"` on some
   // other empty wrapper could not satisfy it.
-  // ★★ NO GATE CAN SEE THIS EITHER. All twelve `<RichTextEditor` call sites
-  // render inside a modal or inside a collapsed `<details>`, so none of the 90
-  // axe scans ever reaches a toolbar (`docs/open-followups.md` §144).
+  // ★★ NO GATE CAN SEE THIS EITHER. None of the 90 axe scans reaches ANY of the
+  // twelve `<RichTextEditor` mounts — measured, for four different reasons, and
+  // axe is blind to a duplicate accessible name even where it does scan
+  // (`docs/open-followups.md` §144 carries both).
   it("names the toolbar group from the editor's own label prop", async () => {
     setup({ label: "Impact description" });
     await screen.findByRole("textbox", { name: "Impact description" });
