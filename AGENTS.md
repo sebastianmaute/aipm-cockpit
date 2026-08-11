@@ -1112,7 +1112,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `doc(...)` → `<p>a</p>` (the widening); `rich('<p>a</p><img src="x.png"><p>b</p>')` →
   `"<p>a</p><p>b</p>"` while doc keeps the element (a narrowing); and on a paragraph of 6 001 visible
   characters carrying a `<mark>`, rich returns a 5 007-character result with the `<mark>` GONE while doc
-  returns a 6 021-character one with it intact (the destructive narrowing).
+  returns a 6 021-character one with it intact (the destructive narrowing). ★ Those two BYTE counts are
+  fixture-bound — they encode a `<mark>` of exactly two visible characters at the head of the paragraph,
+  so a different mark length moves both. The DIRECTIONS are what the rule rests on, not the numbers.
   `ai-rich-text.ts`'s own header states (1) and (3). ★ The "nothing else" claim lived in exactly TWO
   places — this line and the `ai-rich-text.ts` row of [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) —
   and `811c952c` rewrote both in one change set. Reproduce:

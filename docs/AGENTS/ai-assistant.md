@@ -173,8 +173,11 @@
   (5 000) — NARROWS DESTRUCTIVELY, because `capHtmlText`'s truncation branch returns
   `plainToHtml(text.slice(...))` and FLATTENS every mark to escaped plain text instead of merely shortening.
   Both symbols are real, so `docs:symbols:check` is
-  green either way and this line is the only thing standing between a new document boundary and the wrong
-  door. ★ "The sibling must STAY narrow" is no longer a standalone instruction either: because
+  green either way — NO gate can see the swap. ★★ It is not the ONLY warning against it though, and
+  claiming so was itself an unenumerated "only": `sanitizeAiDocumentRichText`'s own docstring ("A SEPARATE
+  FUNCTION, NOT A PARAMETER on `sanitizeAiRichText`") and AGENTS.md's ★★★ "THE TAG DELTA IS ONE; THE
+  BEHAVIOUR DELTA IS THREE" block both carry it. Three prose warnings, zero gates — which is the real
+  point, and stronger than the false one it replaces. ★ "The sibling must STAY narrow" is no longer a standalone instruction either: because
   `DOCUMENT_ALLOWED_TAGS` spreads it, widening `RICH_ALLOWED_TAGS` to help documents widens the six rich
   raid/change/milestone fields in the SAME edit, retroactively.
   ★ Apply it to the model's INPUT only, never to the

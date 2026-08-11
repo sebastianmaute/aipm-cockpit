@@ -187,6 +187,11 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
           ArrowDown, leaving Headings 2-4 unreachable. Do not reintroduce it
           here; the buttons beside it are a different case, since a click is one
           discrete commit.
+          ★ UNVERIFIED PLATFORM CAVEAT, stated because the sentence above reads
+          as universal: macOS is reported to OPEN the picker on ArrowDown rather
+          than fire `change`, which would make the keyboard block Windows/Linux
+          only. Nobody has checked, on any browser — the eye-verify should, and
+          until it does neither "everywhere" nor "Windows only" is established.
           ★★ NO UNIT TEST IN THIS REPO CAN SEE EITHER SIDE. jsdom does not treat
           ProseMirror's contenteditable as a focusable area, so
           `document.activeElement` is vacuous both ways — under the

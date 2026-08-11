@@ -9174,7 +9174,10 @@ before that test existed, with `change-edit-modal.test.tsx` 28/28 and `raid-edit
 this branch re-ran `rich-text-editor.test.tsx` and saw **1 red in 3**, which reads exactly like an
 order- or timing-dependent test. It was not: a CONCURRENT agent was editing `rich-text-toolbar.tsx`
 in the SAME working tree while the run was in flight, so the suite was reading a half-written module.
-Re-run on a quiet tree by the controller afterwards: **5/5 green**. ★ The lesson is review HYGIENE,
+Re-run on a quiet tree by the controller afterwards: **five consecutive runs, 34/34 each**. ★ That
+read "5/5 green" at first, which collides with the passed-of-total notation this same entry uses
+three paragraphs up (`33/33`, `28/28`, `20/20`) and so announced a five-test file; it has 34. A run
+COUNT and a test count are not interchangeable in a register that quotes both. ★ The lesson is review HYGIENE,
 not test health — a vitest run is a read of the live filesystem, so a red from a shared tree is
 evidence about the TREE, not about the code under review. Quiesce the tree (or take a worktree of
 your own) before treating an intermittent red as a finding, and never file one as a flake without a
