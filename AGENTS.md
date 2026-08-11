@@ -950,7 +950,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   changelog entry that describes something else.
   ★★ **THE TOOLBAR IS A NAMED `role="group"`, AND THE NAME IS THE EDITOR'S OWN `label`.**
   `RichTextToolbar` renders FIFTEEN controls whose names repeat verbatim in every editor — eight marks
-  (`MARKS`), four blocks (`BLOCKS`), Link, Unlink, and the heading `<select>` — and several surfaces
+  (`MARKS`), four blocks (`BLOCKS`), Link, Unlink, and the heading menu trigger (an icon-triggered
+  `PopoverPanel`, not a `<select>`, since the icon-only redesign) — and several surfaces
   mount editors as SIBLINGS in one form: `change-edit-modal.tsx` has three, `raid-edit-modal.tsx` two,
   `note-log-panel.tsx` two (composer + entry editor). An open change modal therefore carried three
   buttons named "Bold" and three comboboxes named "Text style", with nothing tying one to the field it
@@ -972,11 +973,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `identical-links-same-purpose`, is links-only and `wcag2aaa`, which the spec never asks for). The
   MULTI-editor unit test is the only possible detector — a single-editor fixture passes with the group
   deleted.
-  ★ WCAG 2.5.3 holds by CONSTRUCTION for the fourteen buttons: each accessible name IS its visible text
-  (the toolbar passes no `ariaLabel`, and `ToggleButton` puts state in `title`, the DESCRIPTION). The
-  `<select>` sits OUTSIDE 2.5.3 rather than satisfying it — it has an `aria-label` and no visible text
-  label, so there is no label to contain. Worth stating because the gate cannot see a 2.5.3 violation
-  either (same bullet above).
+  ★ WCAG 2.5.3 does NOT apply to any control in this row — every one is icon-only (`ariaLabel` carries
+  the accessible name, `title` mirrors it as a hover tooltip; `ToggleButton` also appends the on/off
+  state to `title`, the DESCRIPTION), and 2.5.3 only constrains a control that HAS a visible label. This
+  reverses an earlier version of this bullet, which said the opposite: that 2.5.3 held BY CONSTRUCTION
+  because the visible text WAS the accessible name. That was true of the pre-icon-only toolbar and of
+  the native `<select>` it has since replaced — the select itself already sat OUTSIDE 2.5.3 the same way
+  these buttons now do, since it too carried an `aria-label` with no visible text to contain. The one
+  place 2.5.3 still applies is the heading menu's ITEMS (`role="dialog"`, not the trigger) — those keep
+  visible text ("Heading 2" etc.) as their accessible name, holding by construction the same way the old
+  flat toolbar text used to. Worth stating because the gate cannot see a 2.5.3 violation either (same
+  bullet above).
   ★★ EVERY BUTTON IN THE ROW SUPPRESSES THE MOUSEDOWN DEFAULT: a control that takes focus on mousedown
   blurs the contenteditable and destroys the selection the command applies to. It arrives two ways —
   `ToggleButton` gained an OPT-IN `preventFocusSteal` prop for the twelve toggles, and the two plain
@@ -985,10 +992,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   focus-on-click, so an unconditional guard would change every toggle in the app. Both branches are
   pinned in `toggle-button.test.tsx`. Re-derive the population, don't trust the number:
   `grep -rn "<ToggleButton" src/app --include="*.tsx" | grep -v "\.test\." | grep -v rich-text-toolbar | wc -l`
-  ★ The heading `<select>` deliberately gets NO guard: opening the picker IS the native mousedown
-  default, so preventing it leaves a select that cannot be opened with a mouse. It relies on the
-  commands' `.chain().focus()` restoring the ProseMirror selection instead — REASONED, NOT MEASURED
-  (jsdom has no picker, and no browser check has been run).
+  ★ The heading menu TRIGGER also gets no mousedown guard, but for a different reason than the
+  `<select>` it replaced: opening a `PopoverPanel` is a normal click, not a native form-control picker,
+  so there is no analogous "preventing default breaks the picker" failure mode to guard against. Neither
+  the trigger nor the menu items call `.chain().focus()` — `setLevel` never has — since ProseMirror keeps
+  its selection in editor state across a blur regardless of where DOM focus sits.
   THREE `rich-text-*` modules, split by ONE axis — whether the code may touch a DOM.
   (★ `ai-rich-text.ts` is a FOURTH rich-text module obeying the same axis, which is why
   [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) tabulates four; it is a model-write BOUNDARY
