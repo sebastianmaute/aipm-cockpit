@@ -421,4 +421,68 @@ describe("RichTextToolbar", () => {
     expect(buttons[TOOLBAR_CONTROL_COUNT - 2].getAttribute("aria-label")).toBe("Insert link");
     expect(buttons[TOOLBAR_CONTROL_COUNT - 1].getAttribute("aria-label")).toBe("Remove link");
   });
+
+  // ★★★ THE SECOND TAB IS THE ASSERTION. A first Tab lands on control 1
+  // whether or not the roving works — only the second one distinguishes a
+  // single-tab-stop row from fifteen tab stops.
+  it("is a single tab stop: a second Tab leaves the row entirely", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(
+      <>
+        <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />
+        <button type="button">after the row</button>
+      </>,
+    );
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Text style" }));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "after the row" }));
+  });
+
+  // ★★★ THE PIN THAT CATCHES REUSING useTablistRoving, whose move ends in
+  // `target.click()`. Under that helper this ArrowRight would have run
+  // toggleBold and mutated the document. A toolbar moves focus and nothing else.
+  it("moves focus with ArrowRight and runs no command", async () => {
+    const user = userEvent.setup();
+    const { editor, run } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    await user.tab();
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Bold" }));
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("wraps with ArrowLeft and jumps with Home/End", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    await user.tab();
+    await user.keyboard("{ArrowLeft}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove link" }));
+    await user.keyboard("{Home}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Text style" }));
+    await user.keyboard("{End}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove link" }));
+  });
+
+  // ★★ A SINGLE-TOOLBAR FIXTURE CANNOT SEE THIS. change-edit-modal.tsx mounts
+  // three rows; each must rove within itself.
+  it("keeps two mounted rows roving independently", async () => {
+    const user = userEvent.setup();
+    const a = makeEditor();
+    const b = makeEditor();
+    render(
+      <>
+        <RichTextToolbar editor={a.editor} lang="en-US" label="Description" onAddLink={() => {}} />
+        <RichTextToolbar editor={b.editor} lang="en-US" label="Mitigation" onAddLink={() => {}} />
+      </>,
+    );
+    const rowB = screen.getByRole("group", { name: "Mitigation" });
+    await user.tab();
+    await user.tab(); // out of row A, into row B's single stop
+    expect(within(rowB).getByRole("button", { name: "Text style" })).toBe(document.activeElement);
+    await user.keyboard("{ArrowRight}");
+    expect(within(rowB).getByRole("button", { name: "Bold" })).toBe(document.activeElement);
+  });
 });

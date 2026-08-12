@@ -29,7 +29,7 @@
 import { useCallback, useId, useRef, useState, Fragment } from "react";
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import type { ElementType } from "react";
+import type { ElementType, KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   BoldIcon,
   ChevronDownIcon,
@@ -56,6 +56,7 @@ import { PopoverPanel } from "./popover-panel";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import { ToolbarButton } from "./rich-text-toolbar-button";
 import type { ToolbarButtonAccent } from "./rich-text-toolbar-button";
+import { moveToolbarFocus } from "./toolbar-roving";
 
 /** Shared icon sizing for every control in this toolbar (14px — the same size
  *  as GanttViewMenu's menu-row icons, sized for this toolbar's compact
@@ -268,6 +269,40 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   const headingTriggerRef = useRef<HTMLButtonElement>(null);
   const closeHeadingMenu = useCallback(() => setHeadingMenuOpen(false), []);
 
+  // ★★★ Seeded to 0 and moved by KEYBOARD ONLY — deliberately not "last
+  // clicked". Every control passes `preventFocusSteal`, which suppresses the
+  // mousedown default so the click cannot pull focus off the editor and
+  // collapse the selection the command reads. A click therefore never focuses a
+  // toolbar button, so there is no click-focus to track and the usual roving
+  // state model collapses to this.
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleRowKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
+    // `e.currentTarget` is the row this handler is attached to, so the handler
+    // is inherently per-row — the three rows change-edit-modal mounts each
+    // drive their own, with no ref needed.
+    // `:scope >` so only THIS row's own controls count. The heading menu is a
+    // PopoverPanel portaled to document.body, so its items are never in here.
+    const buttons = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>(":scope > button"),
+    );
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    // ★★★ THE PORTAL GUARD. React synthetic events bubble the REACT tree, not
+    // the DOM tree, so a keydown inside the OPEN heading menu — whose panel
+    // lives under document.body — can still arrive here. Without this, arrowing
+    // inside the menu would silently rove the row underneath it while the menu
+    // appeared to ignore the key. Returning BEFORE preventDefault is essential:
+    // the menu's own handling must still see the event. It also covers focus
+    // sitting anywhere else entirely, e.g. in the editor.
+    if (current === -1) return;
+
+    const next = moveToolbarFocus(buttons.length, current, e.key, e);
+    if (next === null) return;
+    e.preventDefault();
+    setActiveIndex(next);
+    buttons[next]?.focus();
+  }, []);
+
   function pickLevel(value: string) {
     setLevel(value);
     closeHeadingMenu();
@@ -295,6 +330,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       className="flex flex-wrap items-center gap-0.5"
       role={named ? "group" : undefined}
       aria-label={named ? label : undefined}
+      onKeyDown={handleRowKeyDown}
     >
       <ToolbarButton
         ref={headingTriggerRef}
@@ -304,6 +340,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         ariaLabel={t(lang, "commTplHeadingLevel")}
         title={t(lang, "commTplHeadingLevel")}
         ariaControls={headingMenuId}
+        tabIndex={activeIndex === HEADING_INDEX ? 0 : -1}
       >
         <TriggerIcon aria-hidden="true" className={ICON_CLASS} />
         <ChevronDownIcon aria-hidden="true" className="h-2.5 w-2.5 shrink-0" />
@@ -351,6 +388,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
             accent={spec.accent}
             ariaLabel={t(lang, spec.key)}
             title={t(lang, spec.key)}
+            tabIndex={activeIndex === index + CONTROLS_OFFSET ? 0 : -1}
           >
             <spec.icon aria-hidden="true" className={ICON_CLASS} />
           </ToolbarButton>
@@ -363,6 +401,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         onClick={onAddLink}
         ariaLabel={t(lang, "commTplLink")}
         title={t(lang, "commTplLink")}
+        tabIndex={activeIndex === LINK_INDEX ? 0 : -1}
       >
         <LinkIcon aria-hidden="true" className={ICON_CLASS} />
       </ToolbarButton>
@@ -371,6 +410,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         onClick={() => editor.chain().focus().unsetLink().run()}
         ariaLabel={t(lang, "commTplUnlink")}
         title={t(lang, "commTplUnlink")}
+        tabIndex={activeIndex === UNLINK_INDEX ? 0 : -1}
       >
         <UnlinkIcon aria-hidden="true" className={ICON_CLASS} />
       </ToolbarButton>
