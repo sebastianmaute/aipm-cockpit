@@ -111,6 +111,19 @@ describe("normalizeNarrativeHtml", () => {
   });
 });
 
+describe("narrativeToHtml — sink regression (open-followups §143)", () => {
+  // RICH_ALLOWED_TAGS and DOCUMENT_ALLOWED_TAGS differ by exactly one tag,
+  // "img" — the ONE input that tells a correct "rich" sink apart from an
+  // accidentally-swapped "document" one. Measured: swapping the sink at this
+  // call site left narrative-html.test.ts and dashboard-narrative.test.tsx
+  // both fully green before this test existed (open-followups §143).
+  it("escapes a value opening with <img> (rich sink doesn't carry it; document sink does)", () => {
+    const html = narrativeToHtml('<img src="x.png">Status update');
+    expect(html).toContain("&lt;img");
+    expect(html).not.toContain("<img");
+  });
+});
+
 describe("isNarrativeEmpty", () => {
   it("treats the editor's empty paragraph as empty", () => {
     expect(isNarrativeEmpty("<p></p>")).toBe(true);

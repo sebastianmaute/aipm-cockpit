@@ -6,7 +6,15 @@ import {
   sanitizeRichHtml,
 } from "./sanitize-html";
 import DOMPurify from "dompurify";
-import { htmlStartRe, isHtmlStart, SINK_TAGS } from "./html-start";
+import {
+  htmlStartRe,
+  isHtmlStart,
+  SINK_TAGS,
+  RICH_SINK,
+  DOCUMENT_SINK,
+  PROJECTION_SINK,
+  RENDER_SINK,
+} from "./html-start";
 
 describe("htmlStartRe", () => {
   it("drops non-tag entries so #text cannot enter the alternation", () => {
@@ -409,5 +417,14 @@ describe("the sink map", () => {
         expect(projection.has(tag)).toBe(true);
       }
     }
+  });
+});
+
+describe("branded sink constants (open-followups §143)", () => {
+  it("export the exact literal each sink name maps to", () => {
+    expect(RICH_SINK).toBe("rich");
+    expect(DOCUMENT_SINK).toBe("document");
+    expect(PROJECTION_SINK).toBe("projection");
+    expect(RENDER_SINK).toBe("render");
   });
 });

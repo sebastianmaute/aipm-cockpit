@@ -8,7 +8,7 @@
 // SINK concern (see RichTextView). DOMPurify has no DOM under bare node, where
 // the codecs run in the sample/fixture scripts.
 import { plainToHtml } from "./sanitize-html";
-import { isHtmlStart } from "./html-start";
+import { isHtmlStart, RICH_SINK } from "./html-start";
 
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped.
  *
@@ -37,7 +37,7 @@ import { isHtmlStart } from "./html-start";
 export function narrativeToHtml(stored: string | undefined): string {
   const s = (stored ?? "").trim();
   if (!s) return "";
-  return isHtmlStart(s, "rich") ? s : plainToHtml(s);
+  return isHtmlStart(s, RICH_SINK) ? s : plainToHtml(s);
 }
 
 /** Editor HTML -> the value to store. Newlines collapse to spaces: the markdown

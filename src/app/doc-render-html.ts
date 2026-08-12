@@ -58,6 +58,7 @@ import type { DocBlock, ProjectDocument } from "./document-model";
 import { resolveDataSection } from "./doc-data-section";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
+import { RENDER_SINK } from "./html-start";
 import { htmlEscape, htmlCellWithBreaks, PRINT_STYLES } from "./download";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
@@ -120,7 +121,7 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
     // narrower than the sink and escapes the whole value instead. Same
     // composition as the DOCX/PPTX renderers; see html-start.ts.
     case "paragraph":
-      return sanitizeDocumentHtml(descriptionHtml(block.html, "render"));
+      return sanitizeDocumentHtml(descriptionHtml(block.html, RENDER_SINK));
 
     case "bullets": {
       const tag = block.ordered ? "ol" : "ul";
