@@ -13,9 +13,12 @@ longer carries its own changelog comment.
 ### Changed
 
 - **Beacon is now the app's default color theme.** A fresh install now opens in Beacon — a light-only
-  palette — instead of Harbor. Existing projects and any color theme you've already chosen are
-  unaffected; this only changes the out-of-the-box look for new installs. Beacon joins Harbor,
-  Meridian and Umber as a built-in theme, selectable from the theme gallery like the others.
+  palette — instead of Harbor. Existing projects keep their data untouched, but a device that has
+  never explicitly picked a theme in Settings → Appearance will also repaint to Beacon on its next
+  load — the same fallback that has always applied to a fresh install — including losing dark mode,
+  since Beacon has no dark variant yet. Pick Harbor once in Settings → Appearance → Color scheme to
+  keep it. Beacon joins Harbor, Meridian and Umber as a built-in theme, selectable from the theme
+  gallery like the others.
 - **The rich-text edit modals open bigger.** The Task, RAID, Change and Milestone edit modals now open
   at 1280×960 by default (up from smaller sizes) to give their rich-text toolbars more room. Modals you
   have manually resized keep your own size, as before.
@@ -32,8 +35,10 @@ longer carries its own changelog comment.
 ### Notes
 
 - Internal: the rich-text sink argument (`isHtmlStart`) is now pinned to branded constants at its
-  remaining call sites instead of hand-written string literals, closing a class of copy-paste risk;
-  the floating notes-window rich-text toolbar is now included in the accessibility scan matrix; and
+  highest-risk call sites (`narrative-html.ts`, the six entity fields in `sanitize-records.ts`, and
+  `doc-render-html.ts`) instead of hand-written string literals, closing a class of copy-paste risk
+  there — other call sites still pass raw string literals by design; the floating notes-window
+  rich-text toolbar is now included in the accessibility scan matrix; and
   `NoteLogPanel`'s `labelSuffix` prop is now required (with an explicit `null` for "no suffix") so a
   future third mount site can't silently collide two identically-labelled toolbars.
 
