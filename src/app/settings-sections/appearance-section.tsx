@@ -18,6 +18,7 @@ import { BrandingImageInput } from "../branding-image-input";
 import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
 import { mergeAppliedBranding, removeScheme } from "../color-schemes";
 import { deleteSchemeAsync } from "../color-schemes-store";
+import { DEFAULT_SCHEME_ID } from "../builtin-schemes";
 import { getTursoConfig } from "../turso-config";
 
 interface AppearanceSectionProps {
@@ -37,11 +38,12 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   // the look. A dark-capable active scheme honours the theme; mockup + a
   // light-only user scheme pin light (mirrors effectiveDark → !supportsDark).
   const pinsLight = !activeSupportsDark;
-  // Built-in schemes are Harbor/Meridian/Umber; AIPM + Dashboard ship as importable
-  // theme files (Theme gallery below), so they are NOT hardcoded options here.
+  // Built-in schemes are Harbor/Meridian/Umber/Beacon; AIPM + Dashboard ship as
+  // importable theme files (Theme gallery below), so they are NOT hardcoded
+  // options here.
   const builtinSchemes = store.schemes.filter((s) => s.builtIn);
   const userSchemes = store.schemes.filter((s) => !s.builtIn);
-  const schemeValue = store.activeId ?? "harbor";
+  const schemeValue = store.activeId ?? DEFAULT_SCHEME_ID;
   // Gate the global app-name/footer inputs on scheme IDENTITY, matching the editor
   // EXACTLY (which shows its own branding inputs when !isBuiltin). Built-ins are
   // read-only in the editor, so the global inputs cover them; a USER scheme owns
