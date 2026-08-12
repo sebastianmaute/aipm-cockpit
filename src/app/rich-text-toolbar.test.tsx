@@ -412,6 +412,13 @@ describe("RichTextToolbar", () => {
     );
     const buttons = Array.from(container.querySelectorAll("button"));
     expect(buttons).toHaveLength(TOOLBAR_CONTROL_COUNT);
-    expect(buttons.filter((b) => b.disabled)).toEqual([]);
+    expect(buttons.filter((b) => b.disabled)).toHaveLength(0);
+
+    // ★★ The count alone does NOT pin the ORDER, and the order is what the
+    // roving arithmetic indexes into. Moving Link/Unlink ahead of the CONTROLS
+    // map keeps the count at 15 and would silently redirect every arrow key.
+    expect(buttons[0].getAttribute("aria-label")).toBe("Text style");
+    expect(buttons[TOOLBAR_CONTROL_COUNT - 2].getAttribute("aria-label")).toBe("Insert link");
+    expect(buttons[TOOLBAR_CONTROL_COUNT - 1].getAttribute("aria-label")).toBe("Remove link");
   });
 });

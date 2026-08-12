@@ -94,10 +94,10 @@ export function ToolbarButton({
     <button
       ref={ref}
       type="button"
-      tabIndex={tabIndex}
       onClick={onClick}
       onMouseDown={preventFocusSteal ? (e) => e.preventDefault() : undefined}
       {...stateAttrs}
+      tabIndex={tabIndex}
       aria-label={ariaLabel}
       title={fullTitle}
       className={`${BASE} ${active ? ACTIVE[accent] : INACTIVE}`}

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { moveToolbarFocus } from "./toolbar-roving";
 
-// 15 controls is the real row size (heading trigger + 12 CONTROLS + link + unlink).
+// An arbitrary row size. The engine is count-agnostic; the REAL row size is
+// pinned against the DOM by TOOLBAR_CONTROL_COUNT in rich-text-toolbar.test.tsx.
 const N = 15;
 
 describe("moveToolbarFocus", () => {

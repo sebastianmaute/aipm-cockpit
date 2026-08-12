@@ -15,14 +15,26 @@
 /** Keys this model handles. Anything else is left to bubble untouched — Tab
  *  must still escape the row, Enter/Space must still reach the control, and
  *  Up/Down must still scroll the page (the row is horizontal). */
-const HANDLED = new Set(["ArrowLeft", "ArrowRight", "Home", "End"]);
+type HandledKey = "ArrowLeft" | "ArrowRight" | "Home" | "End";
+
+const HANDLED = new Set<string>(["ArrowLeft", "ArrowRight", "Home", "End"]);
+
+// ★★ The switch below has NO `default` ON PURPOSE. Narrowed to HandledKey, tsc
+// makes it exhaustive, so adding a key to HANDLED without adding its `case`
+// fails the typecheck. A `default: return null` arm here would be unreachable
+// and would silently swallow exactly that drift instead of catching it.
+function isHandledKey(key: string): key is HandledKey {
+  return HANDLED.has(key);
+}
 
 /**
  * Next focus index for `key`, or `null` when the key is not part of this model
  * (the caller must then NOT preventDefault).
  *
- * A handled bare key ALWAYS returns an index, so the caller can preventDefault
- * unconditionally for handled keys.
+ * A handled bare key on a NON-EMPTY row always returns an index, so the caller
+ * can preventDefault whenever this returns non-null. An empty row returns null
+ * for every key — see the `count <= 0` guard, pinned by "returns null for an
+ * empty row".
  */
 export function moveToolbarFocus(
   count: number,
@@ -31,7 +43,7 @@ export function moveToolbarFocus(
   modifiers?: { altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
 ): number | null {
   if (count <= 0) return null;
-  if (!HANDLED.has(key)) return null;
+  if (!isHandledKey(key)) return null;
   // A chord belongs to the browser or the OS — Alt+Left is Back. (Shift is
   // deliberately absent: it produces no competing default here.)
   if (modifiers?.altKey || modifiers?.ctrlKey || modifiers?.metaKey) return null;
@@ -44,6 +56,5 @@ export function moveToolbarFocus(
     case "End": return count - 1;
     case "ArrowRight": return (i + 1) % count;
     case "ArrowLeft": return (i - 1 + count) % count;
-    default: return null;
   }
 }

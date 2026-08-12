@@ -121,9 +121,10 @@ const CONTROLS_OFFSET = 1;
 const LINK_INDEX = CONTROLS.length + 1;
 const UNLINK_INDEX = CONTROLS.length + 2;
 
-/** How many focusable controls the row renders. Exported so a test can pin the
- *  arithmetic against the real DOM (open-followups §144a). */
-export const TOOLBAR_CONTROL_COUNT = CONTROLS.length + 3;
+/** How many focusable controls the row renders WITH THE HEADING MENU CLOSED.
+ *  Derived from UNLINK_INDEX so the count and the indices cannot drift apart.
+ *  Exported so a test can pin the arithmetic against the real DOM (§144a). */
+export const TOOLBAR_CONTROL_COUNT = UNLINK_INDEX + 1;
 
 const HEADING_LEVELS = [1, 2, 3, 4] as const;
 type HeadingLevel = (typeof HEADING_LEVELS)[number];
