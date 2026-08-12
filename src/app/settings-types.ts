@@ -138,6 +138,19 @@ export function isAiEnabled(ai: AiConfig | undefined): boolean {
   return ai?.enabled === true && !!ai?.apiKey?.trim();
 }
 
+/** Gate for the top-bar/header AI-assistant button: returns `open` only when
+ *  AI is actually usable, `undefined` otherwise. Both header mounts
+ *  (`shell-chrome.tsx`'s classic AppHeader and `task-manager.tsx`'s modern
+ *  ModernShell) already render the button conditionally on prop presence —
+ *  this is the ONE gate both call, so a wrong AI-enabled check can't drift
+ *  between the two layouts. */
+export function aiAssistantOpener(
+  ai: AiConfig | undefined,
+  open: () => void,
+): (() => void) | undefined {
+  return isAiEnabled(ai) ? open : undefined;
+}
+
 /** The trimmed API key, but only when the AI master switch is on; "" otherwise.
  *  Feeding "" downstream makes every key-presence gate treat AI as unconfigured. */
 export function aiKeyIfEnabled(ai: AiConfig | undefined): string {

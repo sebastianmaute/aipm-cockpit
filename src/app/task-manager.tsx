@@ -111,7 +111,7 @@ import { buildGroundingIndex } from "./action-ai";
 import { executeActionCta } from "./action-cta-exec";
 import { runTool } from "./chat-tools";
 import { getTursoConfig } from "./turso-config";
-import { aiKeyIfEnabled, isAiEnabled, DEFAULT_INSIGHT_REC_INTERVAL_MIN, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, DEFAULT_INSIGHT_REC_INTERVAL_MIN, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -2835,7 +2835,7 @@ function TaskManagerInner() {
         mode={appMode}
         bannerCount={nowCount}
         onShowAlerts={() => setActiveTab("actions")}
-        onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
+        onOpenAiAssistant={aiAssistantOpener(settings.ai, () => openPopoutWindow("chat", settings.popout.reuseWindow))}
         search={
           <div className="w-44 max-w-[55vw] sm:w-72 lg:w-96">
             <GlobalSearchConnected lang={lang} />

@@ -7,7 +7,7 @@
 // load-bearing prop KEYS reaching the child. It MAY be updated freely when a diff
 // is understood (e.g. the future calendar prop-bag consolidation renames these) —
 // it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 
@@ -122,4 +122,55 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
     expect(Array.isArray(link!.buckets)).toBe(true);
     expect(typeof link!.onChange).toBe("function");
   });
+});
+
+// Isolated from the shared block above: it queries the live DOM (`screen`),
+// not the captured-props objects the other tests assert against. Those
+// objects are plain JS and survive RTL's `afterEach(cleanup)` between tests,
+// but a DOM query does not — `cleanup()` unmounts the ONE shared `beforeAll`
+// render after the FIRST test in that block runs, so a DOM-querying test
+// appended there would run against an empty document and pass (return null)
+// regardless of whether the gate under test works. Own describe, own
+// beforeAll, own mount — mirrors shell-chrome.test.tsx's pattern.
+describe("@characterization task-manager → AI Assistant button gate", () => {
+  beforeAll(async () => {
+    window.localStorage.clear();
+    seedRegistry();
+    render(<TaskManager />);
+    await screen.findByTestId("ws-section-mock");
+  }, 45000); // heavy TaskManager mount — headroom over the 20s hookTimeout under coverage load
+
+  it("hides the AI Assistant button in the modern TopBar when AI is off by default (task-manager.tsx: aiAssistantOpener(settings.ai, ...))", () => {
+    // Seeded/default settings leave AI off (defaultAiConfig has no `enabled`
+    // key → falsy, and `apiKey` is ""), so isAiEnabled(settings.ai) is false
+    // and aiAssistantOpener(settings.ai, ...) returns undefined. Unlike the
+    // WorkspaceSection/AppModals props above, ModernShell/TopBar are NOT
+    // mocked in this suite's mount, so this reads the real DOM the default
+    // (modern, non-popout) layout renders.
+    //
+    // Scoped to the TopBar's `<header>` (role "banner" — the sole top-level
+    // header in the modern, non-popout tree; WorkspaceSection is mocked out
+    // so its own "AI Assistant" tab label (i18n `tabChat`) never mounts
+    // here, and sidebar-nav has no control sharing this accessible name) —
+    // querying unscoped risks a "found multiple elements" throw the moment
+    // any other live surface happens to share the same accessible name,
+    // which would fail this test for the wrong reason.
+    const header = screen.getByRole("banner");
+    expect(within(header).queryByRole("button", { name: "AI Assistant" })).toBeNull();
+  });
+
+  // The "enabled → button present" half of this gate is deliberately NOT
+  // re-verified here with a second full TaskManager mount (this file's own
+  // beforeAll comment above: "heavy TaskManager mount"). It is already
+  // covered at the pure-logic level by settings-types.test.ts's
+  // aiAssistantOpener tests, at the classic-mount level by
+  // shell-chrome.test.tsx's enabled case (the identical call against a real
+  // settings object), and at the modern-mount level by top-bar.test.tsx
+  // (ModernShell forwards onOpenAiAssistant straight to TopBar, which
+  // renders the button whenever the prop is defined — see modern-shell.tsx).
+  // The only slice those three don't reach is whether task-manager.tsx's own
+  // one-line call site still reads `aiAssistantOpener(settings.ai, ...)` —
+  // this test's disabled-case assertion already fails hard if that line
+  // reverts to an unconditional opener (or otherwise always shows the
+  // button).
 });
