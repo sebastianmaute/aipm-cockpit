@@ -9312,12 +9312,58 @@ is still the real answer** — this entry stays open for it.
 ### (a) CLOSED 2026-08-12 — the roving-tabindex keyboard contract
 
 **What shipped, in commit order:** the pure engine `toolbar-roving.ts` `moveToolbarFocus(count, index,
-key, modifiers)` (tsc-exhaustive over a `HandledKey` union, no `default:` arm — adding a key to
-`HANDLED` without its `case` now fails the typecheck instead of silently returning `null`); the roving
+key, modifiers)` (tsc-exhaustive over a `HandledKey` union, no `default:` arm); the roving
 `activeIndex` state + `handleRowKeyDown` + `tabIndex` wiring on all fifteen controls in
 `rich-text-toolbar.tsx`; THEN `role={named ? "toolbar" : undefined}` (was `"group"`). That order is the
 whole point — the role change is a consequence of the behaviour existing, not the other way round.
 **Tab stops: 15 → 1 per row.**
+
+★★★ **A COLD REVIEW OF THE FINISHED, ALL-GATES-GREEN BRANCH REFUTED TWO OF ITS OWN CLAIMS.** Both had
+been written into code comments AND into this entry as settled fact, and every gate passed over both.
+
+(1) **"tsc-exhaustive" was FALSE, and it failed in the worst direction.** `HANDLED` was
+`new Set<string>(...)`, declared independently of the `HandledKey` union, so adding `"PageDown"` to it
+without a `case` compiled clean (measured: `TSC_EXIT=0`). `isHandledKey` then returns true for a key the
+switch cannot match, the switch falls off its end returning **`undefined`** — not `null` — and the
+caller's `if (next === null) return` does NOT catch it. Result: `preventDefault` fires, `activeIndex`
+becomes `undefined`, every `activeIndex === N ? 0 : -1` yields `-1`, and **the entire row silently
+leaves the tab order** with a green typecheck and a green suite. The union half of the claim was always
+true (widening `HandledKey` without a `case` is TS2366); the half the comment actually named was not.
+Fixed by typing the set `Set<HandledKey>` and casting only at the `.has` lookup — a `ReadonlySet<HandledKey>`
+annotation alone does NOT compile, because `.has` then rejects a `string`. ★ No test can catch this
+class: the suite's unhandled-key list is hardcoded and the property test draws only from the four
+handled keys. The TYPE is the only detector, which is why it has to be a real one.
+
+(2) **`TOOLBAR_CONTROL_COUNT` could drift from the DOM after all.** The runtime walks
+`:scope > button` (direct children); the count test walked `container.querySelectorAll("button")`
+(descendants). Wrapping one control in a bare `<span>` left the file **31/31 GREEN** while the widget
+broke — 14 controls in the arrow order, "Insert link" unreachable by arrow, and `End` focusing "Remove
+link" while "Insert link" held the tab stop. Focus and the tab stop on two different controls is the
+exact thing that test claims to prevent. The test now reads the row through the runtime's own selector
+and additionally asserts descendant-count === child-count. Re-measured after the fix: the same mutant
+goes **0 red → 1 red**. ★ The durable rule: **a test that pins a runtime invariant must query the DOM
+the way the runtime does.** A different selector is a different claim.
+
+★★ **A THIRD defect was functional, not documentary: the tab stop moved on KEYDOWN ONLY.** The state
+model was justified in-comment by "every control passes `preventFocusSteal`, so a click never focuses a
+toolbar button". The heading trigger deliberately omits it — `rich-text-toolbar-button.tsx` says so, and
+the slice's own tests filter that control out for that reason — so the premise was contradicted three
+files over. Measured: Tab in, ArrowRight ×2 (tab stop → Italic), click the trigger twice to open and
+close its menu; focus lands on the trigger while the tab stop stays on Italic, so the next Tab moves
+**within** the row. Two tab stops, on a mixed mouse/keyboard path, i.e. this very item's defect
+reopened. Fixed with the APG shape — a row-level `onFocus` that syncs `activeIndex` from the focused
+control — which covers click, programmatic focus, and any future control that opts out, rather than
+only the route the keydown handler knows. Pinned by "keeps one tab stop after a click focuses the
+heading trigger", which carries a vacuity guard (it asserts the click actually focused the trigger
+first) and turns **1 red** when the `onFocus` wiring is deleted.
+
+★ **NOT fixed here, deliberately:** Escape inside the heading menu drops focus to `document.body`
+rather than returning it to the trigger, leaving the row arrow-dead. It is PRE-EXISTING (`PopoverPanel`
+has never restored focus) and the tempting one-liner — focus the trigger from `closeHeadingMenu` — is
+WRONG: that callback carries no reason and fires for Escape, outside-click AND resize alike, so it
+would steal focus on an outside click. A correct fix needs a reason on `PopoverPanel.onClose`, which is
+a shared primitive with many consumers and does not belong in an a11y slice for one row. Recorded as
+its own item rather than half-fixed.
 
 **Mutation counts, exactly as measured (not "mutation-proved" — the numbers):**
 - Portal guard (`if (current === -1) return;` inside `handleRowKeyDown`) — **1 red**, scoped to the
@@ -9334,15 +9380,29 @@ whole point — the role change is a consequence of the behaviour existing, not 
 
 **Blast radius of the `group` → `toolbar` role flip, the real shape (not predicted, discovered by
 RUNNING the suite): 6 `getByRole`/`queryByRole("group", …)` assertions across 4 tests in 3 files.**
-Two of the four tests were in the ORIGINAL dispatch plan (the pinned-null test, the two-row roving
-test); the other two — `"names the row after the editor it acts on"` (1 assertion) and
-`"keeps two mounted rows apart — each control resolves inside its own group"` (2 assertions) — were
-NOT named in the plan and were only found by running the file. The two consumer files each carried
-one more test: `rich-text-editor.test.tsx` `"names the toolbar group from the editor's own label
-prop"` (1 assertion) and `note-log-panel.test.tsx` `"keeps two mounted panels apart — the editors
-carry the suffix, not just the mics"` (2 assertions in one test). ★ The durable lesson: enumerating
-test titles for a role rename undercounts — grep the retiring role string
-(`getByRole("group"` / `queryByRole("group"`) across the file and its known consumers instead.
+The four are: `rich-text-toolbar.test.tsx` `"names the row after the editor it acts on"` (1) and
+`"keeps two mounted rows apart — each control resolves inside its own group"` (2);
+`rich-text-editor.test.tsx` `"names the toolbar group from the editor's own label prop"` (1); and
+`note-log-panel.test.tsx` `"keeps two mounted panels apart — the editors carry the suffix, not just
+the mics"` (2 in one test). NONE was named in the original dispatch plan; all four were found by
+running the file.
+★★★ **8 `("group")` ASSERTIONS EXISTED AT BASE AND ONLY 6 BROKE — the gap is the lesson, not a
+rounding error.** The other two (`"renders no group at all when there is no name for it"`,
+`"treats a blank label as no name, not as an empty one"`) assert `queryByRole("group")` is NULL, and
+an UNNAMED row renders no role under either regime, so they passed unchanged through the flip and
+still sit at HEAD. So the two obvious methods disagree in opposite directions: enumerating test
+TITLES from memory undercounts (it produced 4, and 2 of those carried none of the 6), while grepping
+the retiring role string overcounts (it produces 8). Grep is still the right tool — it is the only
+one that cannot silently miss a call site — but its hits need triage: an assertion that the role is
+ABSENT is role-agnostic and survives a rename.
+★★ An earlier revision of this paragraph credited two of the four to the ORIGINAL dispatch plan
+("the pinned-null test, the two-row roving test"). Both were false: the pinned-null test asserted
+`queryByRole("toolbar")`, never `("group")`, and the two-row roving test DID NOT EXIST at base — this
+slice added it. A cold reviewer then "verified the figure exactly right" while quoting a command
+(`grep 'byRole("group"'`) that CANNOT match `getByRole("group"` — lowercase `b` against a capital
+`B` — so the confirmation was luck, not measurement, and it confirmed a headline that was right for
+reasons neither of us had checked. Reproduce with the correct case:
+`git show <base>:src/app/<f>.test.tsx | grep -c 'ByRole("group"'`
 
 **Browser-level proof:** `e2e/rich-text-toolbar-keyboard.spec.ts` reuses (b)'s reachable mount (the
 floating notes window off Open Points' notes badge) to drive a REAL browser: focuses the heading
@@ -9382,3 +9442,35 @@ that heroicons remains the default for new code and lucide-react is scoped to
 `rich-text-toolbar.tsx` until a dedicated migration slice says otherwise; or (b) actually run the
 app-wide migration as its own brainstormed project, which retires the question rather than
 documenting it. Neither has been done — this entry is (a) done partially, by existing at all.
+
+## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
+
+Found by a cold review of the §144(a) branch, deliberately NOT fixed there. PRE-EXISTING and app-wide:
+`PopoverPanel` has never returned focus to its trigger, and the §144(a) diff does not change that.
+
+Measured on the rich-text toolbar's heading menu, primary keyboard path:
+
+```
+Tab -> "Text style"   Enter -> focus on "Normal text" (menu item)   Escape ->
+  document.activeElement = BODY, inside row? false
+  ArrowRight -> still BODY (the row's portal guard correctly refuses to act)
+```
+
+So a keyboard user who opens a style menu and changes their mind is dumped to the top of the
+document, and the toolbar they were in goes arrow-dead. WCAG 2.4.3 (focus order) at minimum.
+
+★★★ **THE OBVIOUS ONE-LINE FIX IS WRONG, which is why this is an entry and not a commit.** Focusing
+the trigger from the caller's `closeHeadingMenu` looks right and is not: `PopoverPanel.onClose` takes
+NO reason and is invoked identically for Escape, for an outside click, and for a window resize
+(`popover-panel.tsx` — the dismiss hook, the outside-click listener, and the resize listener all call
+the same bare callback). Restoring focus unconditionally would therefore YANK FOCUS BACK TO THE
+TRIGGER when the user clicks somewhere else entirely — a worse bug than the one being fixed, and one
+that would land on every consumer of the primitive at once.
+
+### Closing it
+
+Give `onClose` a reason (`"escape" | "outside" | "resize"`) and restore focus on `"escape"` only —
+the APG rule, and the only variant that distinguishes intent. That is a change to a SHARED primitive
+with many call sites, so it wants its own slice with a sweep of every consumer, not a rider on a
+single row's a11y work. ★ Until then, do not add a focus-restore to any individual consumer: one
+consumer restoring focus while its siblings do not is a worse inconsistency than the uniform gap.

@@ -949,15 +949,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   less, not sanitize differently (that asymmetry WAS §137). ★ No version quoted deliberately: the
   change is committed but UNRELEASED, and naming the release it sits ON sends a reader chasing a
   changelog entry that describes something else.
-  ★★ **THE TOOLBAR IS A NAMED `role="group"`, AND THE NAME IS THE EDITOR'S OWN `label`.**
+  ★★ **THE TOOLBAR IS A NAMED `role="toolbar"`, AND THE NAME IS THE EDITOR'S OWN `label`.**
   `RichTextToolbar` renders FIFTEEN controls whose names repeat verbatim in every editor — eight marks
   (`MARKS`), four blocks (`BLOCKS`), Link, Unlink, and the heading menu trigger (an icon-triggered
   `PopoverPanel`, not a `<select>`, since the icon-only redesign) — and several surfaces
   mount editors as SIBLINGS in one form: `change-edit-modal.tsx` has three, `raid-edit-modal.tsx` two,
   `note-log-panel.tsx` two (composer + entry editor). An open change modal therefore carried three
   buttons named "Bold" and three more buttons named "Text style", with nothing tying one to the field it
-  acts on (WCAG 2.4.6). The row wraps in `role="group"` + `aria-label` fed from that `label`, so the
-  repeats are told apart by their container (WCAG technique ARIA17).
+  acts on (WCAG 2.4.6). The row wraps in a NAMED landmark + `aria-label` fed from that `label`, so the
+  repeats are told apart by their container (WCAG technique ARIA17). ★ The ROLE on that wrapper was
+  `group` until 0.236.0 and is `toolbar` now — see the ★★★ note below for why the flip had to wait for
+  the keyboard contract. ARIA17 works the same either way; the containment is what disambiguates.
   ★★ NAMED OR ABSENT, never generic — a blank or missing `label` renders the bare div with NO role.
   An unnamed group announces a boundary carrying no information, and three sibling groups all called
   "Formatting" disambiguate nothing while making the code look fixed. Both branches are pinned.
@@ -971,18 +973,25 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   followed it. ★★ `rich-text-toolbar.test.tsx` used to pin `queryByRole("toolbar")` as NULL; it now
   pins the OPPOSITE, and a reader who remembers only the old rule will try to revert this. ★★★ The two
   must move together in BOTH directions: if the roving handler or the `tabIndex={-1}` wiring is ever
-  removed, the role goes back to `group` in the SAME commit. ★ A NEW control added to this row joins
-  the roving order automatically — the indices derive from `CONTROLS.length` via
-  `TOOLBAR_CONTROL_COUNT`, pinned against the real DOM by a unit test that also pins the ORDER of the
-  heading trigger and the two link controls — but a control that renders `disabled` does NOT, since
-  the engine has no skip-disabled logic (nothing in this row is ever disabled today, and a test pins
-  that so adding one forces the decision).
+  removed, the role goes back to `group` in the SAME commit.
+  ★★ THERE ARE TWO WAYS TO ADD A CONTROL AND ONLY ONE IS AUTOMATIC. A new `CONTROLS` entry needs
+  nothing: `LINK_INDEX`/`UNLINK_INDEX` derive from `CONTROLS.length` DIRECTLY, and
+  `TOOLBAR_CONTROL_COUNT` derives from `UNLINK_INDEX` — the count follows the indices, never the
+  reverse — all pinned against the real DOM by a unit test that also pins the ORDER of the heading
+  trigger and the two link controls. A HAND-WRITTEN JSX button (Link and Unlink are exactly that)
+  joins the ARROW order automatically, since the handler re-queries `:scope > button` live, but NOT
+  the `tabIndex` wiring, which is a per-control `activeIndex === <CONST> ? 0 : -1` you must add by
+  hand. Miss it and the button stays natively tabbable — a SECOND tab stop, i.e. the exact defect
+  §144(a) closed, reopened one control at a time. The control-count test catches it.
+  ★ A control that renders `disabled` joins NEITHER order, since the engine has no skip-disabled
+  logic (nothing in this row is ever disabled today, and a test pins that so adding one forces the
+  decision).
   ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet above
   carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
   not one flagging two controls that share an accessible name; the only adjacent rule,
   `identical-links-same-purpose`, is links-only and `wcag2aaa`, which the spec never asks for). The
-  MULTI-editor unit test is the only possible detector — a single-editor fixture passes with the group
-  deleted.
+  MULTI-editor unit test is the only possible detector — a single-editor fixture passes with the
+  wrapper's role and name deleted outright.
   ★ WCAG 2.5.3 does NOT apply to any control in this row — every one is icon-only (`ariaLabel` carries
   the accessible name, `title` mirrors it as a hover tooltip; `ToolbarButton` also appends the on/off
   state to `title`, the DESCRIPTION), and 2.5.3 only constrains a control that HAS a visible label. This

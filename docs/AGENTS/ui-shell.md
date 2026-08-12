@@ -233,8 +233,14 @@
   focusCol` so a window shrink keeps EXACTLY one tab stop; keydown guards on `document.activeElement` being a
   `[data-cell]` so the assignee row-header keeps its own arrow keys; `default: return` before `preventDefault`
   so Tab still escapes). Calendar sub-tab is NOT axe-scanned (Resources default sub-tab = directory).
-  ★★★ **The rich-text toolbar (`role="toolbar"`, open-followups §144(a)) is the app's SECOND roving-tabindex
-  widget, and it deliberately does NOT share `use-focus-trap.ts` or the resource-calendar grid's model.** The
+  ★★★ **The rich-text toolbar (`role="toolbar"`, open-followups §144(a)) is one of SEVERAL roving-tabindex
+  widgets — `use-tablist-roving.ts`, `band-roving.ts`, `segmented-control.tsx` and the `resource-calendar.tsx`
+  grid above all predate it — and it deliberately shares NONE of their models, nor `use-focus-trap.ts`.**
+  ★ Deliberately no ordinal: an earlier revision here called it "the app's SECOND", which was wrong by at
+  least three and read as though it followed the `role=grid` line directly above — a different axis (2-D grid
+  vs 1-D row). Count the `*-roving.ts` files plus the hand-rolled `tabIndex={… ? 0 : -1}` sites before
+  writing any such number:
+  `ls src/app/*roving*.ts; grep -ln "tabIndex={.*? 0 : -1}" src/app/*.tsx`. The
   pure engine is `toolbar-roving.ts` `moveToolbarFocus(count, index, key, modifiers)` — one tab stop per row
   (14 of 15 controls carry `tabIndex={-1}`); Left/Right move within the row and WRAP at either end; Home/End
   jump straight to the first/last control; a chord (Alt/Ctrl/Meta) is left alone so it falls through to the
