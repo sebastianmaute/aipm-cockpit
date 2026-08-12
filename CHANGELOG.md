@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.236.0] - 2026-08-12 "Sheldon"
+
+### Changed
+
+- **The formatting toolbar is now a single tab stop.** Reaching the text of a description used to
+  mean pressing Tab past fifteen formatting buttons, and a change record with three rich-text fields
+  put dozens of them between you and the Save button. The toolbar is now one stop: Tab moves past the
+  whole row, and Left/Right arrows — plus Home and End — move between the buttons once you are inside
+  it. Focusing a button no longer applies it; you still press Enter or Space. Screen readers now
+  announce the row as a toolbar, which they deliberately were not told before, because the arrow-key
+  navigation that announcement promises did not exist until now.
+
 ## [0.235.0] - 2026-08-12 "Lackey"
 
 ### Changed
