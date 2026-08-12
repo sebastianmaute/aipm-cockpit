@@ -281,8 +281,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★ `EditModalShell` (the resizable/draggable panel + `ModalHeader` + backdrop, in `modal.tsx`) is now used by ALL
   SIX edit-modals — change/raid/stakeholder + absence/milestone/resource (adopted 0.190.39). It takes defaulted
   `widthClassName`/`formClassName` (defaults = the wide 720px two-column form), so a modal overrides ONLY when it
-  diverges (the three newly-migrated ones pass a 560px width; milestone passes a single-column form). Changing a
-  default here shifts every non-overriding adopter — keep the defaults == the pre-0.190.39 hardcoded values.
+  diverges — today that is every one but stakeholder: absence/resource still pass the narrower 560px width,
+  while change/raid/milestone now pass a wide 1280px width (change/raid used to rely on the 720px default;
+  milestone used to pass the narrower 560px, and still keeps its single-column form). Changing a default here
+  shifts every non-overriding adopter — keep the defaults == the pre-0.190.39 hardcoded values.
 - **Stakeholder Influence/Interest map drag:** `stakeholder-map-panel.tsx` chips drag between the 2×2 quadrants
   (native HTML5 DnD, no lib). Pure i18n-free `applyQuadrantMove(s, quadrant)` in `stakeholders.ts` uses
   **preserve-Medium**: high side → "High"; low side demotes only a "High" → "Medium", keeps existing Medium/Low;

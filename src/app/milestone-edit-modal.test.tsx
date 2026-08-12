@@ -317,3 +317,15 @@ describe("MilestoneEditModal — field wrappers", () => {
     expectNoLabelBoundToButton();
   });
 });
+
+describe("milestone-edit-modal panel size", () => {
+  it("opens at 1280x960, keeping the existing resize floor and viewport cap", () => {
+    renderWith({ id: 1, name: "M1", date: "2026-06-01" });
+    const panel = document.querySelector("[data-modal-panel]");
+    expect(panel?.className).toContain("w-[1280px]");
+    expect(panel?.className).toContain("h-[960px]");
+    expect(panel?.className).toContain("min-w-[320px]");
+    expect(panel?.className).toContain("min-h-[380px]");
+    expect(panel?.className).toContain("max-h-[95vh]");
+  });
+});

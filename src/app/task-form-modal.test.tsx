@@ -364,3 +364,20 @@ describe("inline note log (slice B)", () => {
     expect(reached).toBe(true);
   });
 });
+
+describe("task-form-modal panel size", () => {
+  beforeEach(() => {
+    stubTaskForm();
+  });
+
+  it("opens at 1280x960, keeping the existing resize floor and viewport cap", () => {
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    const panel = document.querySelector("[data-modal-panel]");
+    expect(panel?.className).toContain("w-[1280px]");
+    expect(panel?.className).toContain("h-[960px]");
+    expect(panel?.className).toContain("min-w-[460px]");
+    expect(panel?.className).toContain("min-h-[480px]");
+    expect(panel?.className).toContain("max-w-[95vw]");
+    expect(panel?.className).toContain("max-h-[95vh]");
+  });
+});

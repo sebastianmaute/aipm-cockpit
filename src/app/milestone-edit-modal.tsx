@@ -140,9 +140,13 @@ export function MilestoneEditModal({
       dragHandleProps={handleProps}
       onDragReset={dragReset}
       sizeKey="aipm-cockpit:modal-size:milestone-edit"
-      widthClassName="w-[560px] min-w-[320px]"
-      /* Shorter than the shell's 720px default — single-column form, ~9 rows. */
-      heightClassName="h-[600px] min-h-[380px] max-h-[95vh]"
+      // Opens at 1280x960 — the description RichTextEditor toolbar needs the
+      // room. min stays 320/380 so a resize can still shrink it; max-h stays
+      // 95vh, which correctly clamps the 960px default DOWN on a short
+      // viewport (unlike min-height, `height` vs `max-height` always
+      // resolves to the smaller one).
+      widthClassName="w-[1280px] min-w-[320px]"
+      heightClassName="h-[960px] min-h-[380px] max-h-[95vh]"
       formClassName="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5"
     >
           {/* ★★ `htmlFor` is LOAD-BEARING — the dictation mic is a real
