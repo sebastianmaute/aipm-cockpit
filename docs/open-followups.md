@@ -9134,13 +9134,65 @@ is explicit that it is not the type change the entry asked for:** *"This does no
 impossible — a caller can still import the wrong constant — but it removes the 'typo a string
 literal' failure mode and makes the intended sink searchable."* `RichTextSink` is still the plain
 union `"rich" | "document" | "projection" | "render"`, not an opaque/branded type, so nothing stops a
-call site from writing `"render"` by hand instead of importing `RENDER_SINK` — and several still do:
+call site from writing `"render"` by hand instead of importing `RENDER_SINK` — and MOST still do:
 `doc-render-docx.ts` and `doc-render-pptx.ts` (the two OOXML renderers — `doc-render-html.ts` was the
 one HTML renderer converted, they were not), `ai-rich-text.ts` (all four model-write boundaries),
 `note-log.ts`, `templates.ts`, and `use-resource-planner.ts`'s RAID mirror all still pass a raw
 literal — unconverted BY DESIGN, matching the CHANGELOG's "highest-risk call sites" framing, not an
 oversight. The real type-level guard (option (1) as originally scoped, or option (2)'s per-boundary
 table test for the remaining sites) is still open.
+
+### 2026-08-12 — ONE PAIR IS AN EQUIVALENT MUTANT AFTER ALL, and it is the pair nothing converted
+
+★★★ **The ★★ "the mutants are NOT equivalent" claim above is true for the pairs it measured and
+FALSE for one it never tried.** `document` ↔ `projection` is indistinguishable **by construction**,
+so for that pair "equivalent mutant" is the ANSWER, not the open question §131 says a harness cannot
+decide for you. The proof is three lines of the source, not a sample:
+
+* `SINK_TAGS.projection` and `SINK_TAGS.document` are the **same array reference**
+  (`DOCUMENT_ALLOWED_TAGS` — and that array is itself `[...RICH_ALLOWED_TAGS, "img"]`).
+* `SINK_RE` derives each member as `htmlStartRe(SINK_TAGS[sink])`.
+* `htmlStartRe` is a pure function of the array's contents, so the two regexes have identical
+  `source` and identical flags.
+
+Therefore **no input distinguishes them, for all inputs, permanently** — as long as the two keep
+deriving from one list. Confirmed empirically alongside the construction argument: a probe over every
+tag in the widest list plus the mid-string, unlisted-tag and non-markup shapes reports `0`
+distinguishing inputs for that pair, against `<img>`-leading for `rich` ↔ `document` and mid-string
+tags for anything ↔ `render`.
+
+★★★ **Branded constants cannot help here, so this is not a "convert the rest" item.** Importing
+`DOCUMENT_SINK` where `PROJECTION_SINK` belongs is exactly as swappable as the literal was, and
+exactly as green. It is the one pair where option (1) and option (2) BOTH fail — (2)'s per-boundary
+table test needs a distinguishing value, and none exists.
+
+★★ **And that pair is 100% unconverted.** `rich-text-projection.ts` holds both `"projection"` sites
+and `ai-rich-text.ts` holds both `"document"` sites; none of the four was touched. So the conversion
+went to the pairs a fixture CAN catch and left untouched the only pair a fixture never can.
+
+★★ **The enumeration above is INCOMPLETE — it names 9 of the 25 unconverted sites**, which is why
+"several" is now "MOST". Missing entirely: the three edit modals (`change-edit-modal.tsx` 7 sites,
+`raid-edit-modal.tsx` 5, `milestone-edit-modal.tsx` 2) and `rich-text-projection.ts` (2) — 16 sites,
+the largest block of them. Those are display/upgrade boundaries rather than storage classifiers,
+which is a fair reason to deprioritise them and not a reason to omit them from a list that reads as
+exhaustive. Counts, and the command that produces them (run it — 8 + 25 = 33 must hold):
+
+```bash
+# still raw literals: 25
+git grep -nE 'descriptionHtml\(|sanitizeRichText\(|isHtmlStart\(' -- 'src/app/*.ts' 'src/app/*.tsx' \
+  | grep -v '\.test\.' | grep -E '"(rich|document|projection|render)"' | grep -vE ':[0-9]+: *\*' | grep -c .
+# converted to constants: 8
+git grep -nE 'RICH_SINK|DOCUMENT_SINK|PROJECTION_SINK|RENDER_SINK' -- 'src/app/*.ts' 'src/app/*.tsx' \
+  | grep -v '\.test\.' | grep -vE 'export const|import ' | grep -c .
+```
+
+★ **What would actually close the undetectable pair**, in ascending cost: (a) a CONSTRUCTION test —
+assert `SINK_TAGS.projection` is `SINK_TAGS.document` and that `htmlStartRe` yields the same `source`
+for both, which pins the PREMISE rather than a behaviour and goes red the moment they diverge, at
+which point a fixture becomes possible and should be written; or (b) containment — collapse the sink
+literal to one line per boundary behind named functions, so confusing the two requires editing one
+module rather than passing a different string at any of 33 sites. (a) is a handful of lines and is
+the honest minimum: it converts an untestable pair into a tested premise. Neither is done.
 
 ---
 
