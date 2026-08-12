@@ -70,14 +70,19 @@ describe("EditModalShell height axis", () => {
   });
 });
 
-// The shell's 720px default suits the WIDE, long forms (change / raid /
-// stakeholder). The four NARROW consumers are much shorter, and at 720px they
-// open with visible dead space under the form — the very defect the height axis
-// was added to remove. Each therefore pins its own height, and this guard stops
-// one silently reverting to the default.
+// The shell's 720px default now suits only stakeholder-edit-modal (the sole
+// remaining consumer that passes neither heightClassName nor widthClassName).
+// change-edit-modal and raid-edit-modal pin their own 1280x960 override, and
+// milestone-edit-modal joined them (moved from a 600px pinned height to the
+// same 1280x960 override as part of the rich-text-bearing modals going
+// 1280x960) — which is WHY it is no longer one of the NARROW consumers below.
+// The three remaining NARROW consumers are much shorter than 720px would
+// give them, and at 720px they'd open with visible dead space under the
+// form — the very defect the height axis was added to remove. Each pins its
+// own (shorter) height, and this guard stops one silently reverting to the
+// 720px default.
 const NARROW_CONSUMERS = [
   "absence-edit-modal",
-  "milestone-edit-modal",
   "resource-edit-modal",
   "calendar-event-modal",
 ] as const;
@@ -88,10 +93,10 @@ describe("narrow EditModalShell consumers pin their own height", () => {
     src: readFileSync(join(process.cwd(), "src/app", `${name}.tsx`), "utf8"),
   }));
 
-  test("the scan reads all four files and they really use the shell", () => {
+  test("the scan reads all three files and they really use the shell", () => {
     // Proof the scan works before anything is concluded from it: a typo'd path
     // or a renamed file would otherwise make every assertion below vacuous.
-    expect(sources).toHaveLength(4);
+    expect(sources).toHaveLength(3);
     for (const { name, src } of sources) {
       expect(src.length, `${name} read empty`).toBeGreaterThan(500);
       expect(src, `${name} no longer renders EditModalShell`).toContain("<EditModalShell");
