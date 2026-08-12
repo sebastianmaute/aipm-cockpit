@@ -29,12 +29,13 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 // the user loads. The matrix therefore runs on the three BUILT-IN schemes,
 // scanning three distinct palettes instead of two. All three are dark-capable;
 // Umber runs light-only to hold the combo count at five.
-// ★ 5 combos × 17 views + 5 Kanban variants = 90 scans, plus the one non-scan
-// guard below = 91 tests. MEASURE it in the same commit that changes A11Y_VIEWS
-// rather than deriving it — this comment said 85 for as long as the list said 16
-// views, and nothing gates a count. Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 91 total
-//   …then `grep -c "a11y:"` over that output       # 90 scans
+// ★ 5 combos × 17 views + 5 Kanban variants + 1 notes-window toolbar scan = 91
+// scans, plus the one non-scan guard below = 92 tests. MEASURE it in the same
+// commit that changes A11Y_VIEWS or adds a scan rather than deriving it — this
+// comment said 85 for as long as the list said 16 views, and nothing gates a
+// count. Reproduce (no browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 92 total
+//   …then `grep -c "a11y:"` over that output       # 91 scans
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -174,3 +175,45 @@ for (const combo of COMBOS) {
     expect(blocking, `Kanban board a11y violations:\n${summary}`).toEqual([]);
   });
 }
+
+// open-followups §144(b): seed one RichTextEditor toolbar into the a11y run.
+// Every one of the app's 12 mounts sits behind a modal, an unscanned nav view,
+// a non-default Settings section, or a closed <details> — none is reachable by
+// the A11Y_VIEWS loop above. This is the cheapest reachable one: the floating
+// notes window, opened from a seeded task's notes badge on Open Points.
+// ★ A green scan here does NOT prove no duplicate accessible names exist —
+// axe cannot see that at any seed size (open-followups §144, §126, AGENTS.md's
+// a11y bullet). It only proves this ONE toolbar clears the structural rules.
+test("a11y: harbor-light — Open Points (Notes window rich-text toolbar)", async ({ page }) => {
+  await page.addInitScript(seedScript(COMBOS[0]));
+
+  await gotoApp(page);
+  await openView(page, "Open Points");
+  // DOM-click the notes badge (mirrors the Kanban-board test above) so the
+  // auto-launched guided tour overlay can't intercept a real pointer click.
+  // Assert it was found so a missing/renamed button fails loudly instead of
+  // silently scanning the Open Points table (a no-op duplicate of the
+  // existing "Open Points" scan).
+  const clickedNotesBadge = await page.evaluate(() => {
+    const btn = document.querySelector(
+      'button[aria-label="Notes log – Design SSO architecture"]',
+    );
+    if (!btn) return false;
+    (btn as HTMLElement).click();
+    return true;
+  });
+  expect(clickedNotesBadge, "Notes badge button not found on Open Points").toBe(true);
+  await waitForViewSettled(page);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+
+  const blocking = results.violations.filter(
+    (v) => v.impact === "critical" || v.impact === "serious",
+  );
+  const summary = blocking
+    .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
+    .join("\n");
+  expect(blocking, `Notes window a11y violations:\n${summary}`).toEqual([]);
+});
