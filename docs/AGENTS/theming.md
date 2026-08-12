@@ -90,9 +90,11 @@
   theme display name), `Acme`/`AIPM-consult` (host/email), `AIPM-logo`/`AIPM-icon` (asset classes),
   and the legacy `CiStyle` union members `"AIPM"`/`"mockup"` (`style-ci.ts` — vestigial: `data-style` is
   the constant `"custom"` now, and NO live scheme carries either id). NO key migration — a stored/
-  exported scheme with legacy `--AIPM-*` color keys drops to the Harbor fallback (no active users).
+  exported scheme with legacy `--AIPM-*` color keys drops to the default-scheme fallback (Beacon) (no active users).
   • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** AIPM + Mockup
-  LEFT the code built-ins entirely. `BUILTIN_SCHEMES` = **[harbor, meridian, umber]** only, and a theme is
+  LEFT the code built-ins entirely. `BUILTIN_SCHEMES` = **[harbor, meridian, umber, beacon]** (Beacon added
+  as the fresh-install default; it is LIGHT-ONLY — no `dark` map — and pins light mode via the same
+  supportsDark-driven mechanism a light-only USER scheme already used), and a theme is
   now a FILE THE USER LOADS in the full portable format (light/dark/`structural`/branding/pinned AA tokens).
   ★★★ CORRECTED 2026-07-30 — earlier revisions of this bullet claimed AIPM and Mockup "ship as
   `public/themes/AIPM.json` + `mockup.json`" and that the gallery "fetches `/themes/*.json`". **There is no
@@ -100,26 +102,27 @@
   path** (verified: `find . -name AIPM.json` → nothing; `public/` holds only logos, the manifest and `sw.js`).
   The in-app **Theme gallery** (`theme-gallery.tsx`, mounted in `AppearanceSection` beside the scheme editor)
   is a FILE-UPLOAD importer (`accept="application/json,.json"`) → widened `importScheme` → `addScheme` +
-  `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber;
+  `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber/Beacon (Beacon is the DEFAULT selection);
   `e2e/a11y.spec.ts`'s own comment states it plainly: "AIPM and Dashboard no longer exist in the app in any
   form — a theme is a file the user loads." Do not re-add a claim that any theme is bundled. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
-  Harbor-falls-back via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
+  falls back to the default scheme (Beacon) via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
   **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
   structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
   (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
-  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs its 5-combo
-  matrix on the THREE BUILT-INS — harbor light+dark, meridian light+dark, umber light — resolving each map
-  node-side at seed time. ★ Umber-DARK is deliberately unscanned to hold the count at five, so 5 of the 6
-  built-in combos are covered, not all of them (`SCHEME_SEED` carries `UMBER_DARK` and the matrix omits it). — The Phase-2 text below still describes
+  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs its 6-combo
+  matrix on the FOUR BUILT-INS — harbor light+dark, meridian light+dark, umber light, beacon light —
+  resolving each map node-side at seed time. ★ Umber-DARK is deliberately unscanned to hold the count down;
+  Beacon has no dark variant to scan. — The Phase-2 text below still describes
   the MECHANISM (data-style/scheme apply/structural), just not the built-in ROSTER.
   • **Scheme-driven color schemes (Phase 2 — AIPM + Mockup ARE built-in schemes):** the AIPM/mockup/custom
   `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;
   `CiStyle.style` is always `"custom"` in normal operation). AIPM + Mockup JOINED Harbor/Meridian/Umber as
   READ-ONLY BUILT-IN schemes → FIVE built-ins in `BUILTIN_SCHEMES` (`builtin-schemes.ts`; ids
-  `"AIPM"`/`"mockup"`/`"harbor"`/`"meridian"`/`"umber"`, undeletable via `BUILTIN_SCHEME_IDS`). Harbor stays
-  the fresh-install DEFAULT (`DEFAULT_SCHEME_ID`). A scheme carries `{ light, dark?, supportsDark, structural?,
+  `"AIPM"`/`"mockup"`/`"harbor"`/`"meridian"`/`"umber"`, undeletable via `BUILTIN_SCHEME_IDS`). Harbor was the
+  fresh-install DEFAULT at the time (`DEFAULT_SCHEME_ID`) — no longer true, see the RELEASE A bullet above;
+  Beacon is default now. A scheme carries `{ light, dark?, supportsDark, structural?,
   builtIn? }` (user ids `"u-<n>"`); apply is INLINE `documentElement.style.setProperty` (the legal runtime
   mechanism — NEVER a Tailwind class, so palette-sweep is untouched). ★★ STRUCTURAL (NON-color) token group:
   `ColorScheme.structural?` = 7 tokens (the `--shadow-card/-control/-card-hover` family + `--gradient-kpi`,
