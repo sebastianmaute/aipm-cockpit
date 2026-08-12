@@ -29,7 +29,11 @@
 import { useCallback, useId, useRef, useState, Fragment } from "react";
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import type { ElementType, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type {
+  ElementType,
+  FocusEvent as ReactFocusEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   BoldIcon,
   ChevronDownIcon,
@@ -270,13 +274,45 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   const headingTriggerRef = useRef<HTMLButtonElement>(null);
   const closeHeadingMenu = useCallback(() => setHeadingMenuOpen(false), []);
 
-  // ★★★ Seeded to 0 and moved by KEYBOARD ONLY — deliberately not "last
-  // clicked". Every control passes `preventFocusSteal`, which suppresses the
-  // mousedown default so the click cannot pull focus off the editor and
-  // collapse the selection the command reads. A click therefore never focuses a
-  // toolbar button, so there is no click-focus to track and the usual roving
-  // state model collapses to this.
+  // Which control holds the row's single tab stop. The DOM is the source of
+  // truth for MOVEMENT (the keydown handler reads document.activeElement); this
+  // exists only to decide which button renders tabIndex=0.
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // ★★★ THE TAB STOP FOLLOWS FOCUS, AND IT HAS TO — an earlier revision moved
+  // it on KEYDOWN ONLY, justified by "every control passes preventFocusSteal,
+  // so a click never focuses a toolbar button". That premise is FALSE: the
+  // heading trigger deliberately omits `preventFocusSteal` (opening a popover
+  // is not a mark command, so there is no editor selection to protect), and
+  // `rich-text-toolbar-button.tsx` documents the omission. Measured
+  // consequence: Tab in, ArrowRight twice (tab stop → Italic), then click the
+  // heading trigger twice to open and close its menu — focus lands on the
+  // trigger while the tab stop is still on Italic, so the next Tab moves focus
+  // WITHIN the row instead of leaving it. Two tab stops, i.e. the exact defect
+  // §144(a) exists to close, on a mixed mouse/keyboard path.
+  // ★ This is also the APG-recommended shape: it covers every route into a
+  // control — click, programmatic .focus(), a future control that opts out of
+  // preventFocusSteal — rather than only the one the keydown handler knows.
+  // ★★ The `=== -1` bail is the same portal guard the keydown handler needs and
+  // for the same reason: React focus events bubble the REACT tree, so focusing
+  // an item in the portaled heading menu fires this with a target that is not
+  // one of the row's own children. Without it the tab stop would chase the menu.
+  // ★ Typed at HTMLElement, not HTMLDivElement: React types a FocusEvent's
+  // `target` as `EventTarget & <the generic>`, so a HTMLDivElement handler
+  // claims the target IS the row and comparing it to a button is a tsc error
+  // ("no overlap"). Widening the generic keeps the comparison honest without an
+  // assertion. Contravariance still lets this sit on the row's onFocus.
+  const syncActiveIndex = useCallback((e: ReactFocusEvent<HTMLElement>) => {
+    const buttons = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>(":scope > button"),
+    );
+    // Compared by identity rather than cast: React types a FocusEvent's
+    // `target` as the ROW element, so `indexOf` would need a double assertion
+    // through `unknown` to compile — which would also silence a genuine mistake.
+    const focused = buttons.findIndex((button) => button === e.target);
+    if (focused === -1) return;
+    setActiveIndex(focused);
+  }, []);
 
   const handleRowKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
     // `e.currentTarget` is the row this handler is attached to, so the handler
@@ -333,6 +369,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       role={named ? "toolbar" : undefined}
       aria-label={named ? label : undefined}
       onKeyDown={handleRowKeyDown}
+      onFocus={syncActiveIndex}
     >
       <ToolbarButton
         ref={headingTriggerRef}
