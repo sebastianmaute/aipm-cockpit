@@ -242,7 +242,7 @@ describe("color-schemes store", () => {
     addScheme("Mine", { "--ui-green": "#123456" }, {}); // → u-1
     expect(setActive("u-1").activeId).toBe("u-1");
     expect(setActive(null).activeId).toBeNull();
-    // An unknown id is persisted as-is here (reconcileBuiltins maps it to Harbor),
+    // An unknown id is persisted as-is here (reconcileBuiltins maps it to the default scheme),
     // not nulled — otherwise a built-in id would be stripped the same way.
     expect(setActive("nope").activeId).toBe("nope");
   });

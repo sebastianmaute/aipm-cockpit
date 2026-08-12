@@ -40,7 +40,10 @@ function Probe() {
 describe("ThemeProvider", () => {
   test("applies .dark when the stored theme is dark", () => {
     localStorage.setItem(THEME_STORAGE_KEY, "dark");
-    // Phase 2: a dark-capable scheme is always active (Harbor default).
+    // Simulates a dark-capable scheme being active (the actual default,
+    // Beacon, is light-only and would set this to "0" — this test targets
+    // ThemeProvider's own .dark-class logic directly via the DOM attribute,
+    // independent of which scheme is actually the app default).
     document.documentElement.setAttribute("data-scheme-dark", "1");
     render(<ThemeProvider><Probe /></ThemeProvider>);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
@@ -91,7 +94,10 @@ describe("ThemeProvider", () => {
   test("system mode follows matchMedia and reacts to OS changes", () => {
     systemDark = true;
     localStorage.setItem(THEME_STORAGE_KEY, "system");
-    // Phase 2: a dark-capable scheme is always active (Harbor default).
+    // Simulates a dark-capable scheme being active (the actual default,
+    // Beacon, is light-only and would set this to "0" — this test targets
+    // ThemeProvider's own .dark-class logic directly via the DOM attribute,
+    // independent of which scheme is actually the app default).
     document.documentElement.setAttribute("data-scheme-dark", "1");
     render(<ThemeProvider><Probe /></ThemeProvider>);
     expect(document.documentElement.classList.contains("dark")).toBe(true);

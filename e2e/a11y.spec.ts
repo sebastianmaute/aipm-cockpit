@@ -86,7 +86,7 @@ test("guard: the served app is this checkout", async ({ page }) => {
 // flag, the resolved color map, the structural map, AND the scheme store's
 // activeId — the latter is essential because post-mount use-style.syncScheme
 // re-resolves from aipm-cockpit:color-schemes and would otherwise snap back to the
-// Harbor default, repainting a scan under the wrong palette.
+// default scheme, repainting a scan under the wrong palette.
 function seedScript(combo: (typeof COMBOS)[number]): string {
   const spec = SCHEME_SEED[combo.scheme];
   const useDark = combo.dark && !!spec.dark;
