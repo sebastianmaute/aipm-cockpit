@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "@tiptap/react";
-import { RichTextToolbar } from "./rich-text-toolbar";
+import { RichTextToolbar, TOOLBAR_CONTROL_COUNT } from "./rich-text-toolbar";
 import { EXTENSIONS } from "./rich-text-editor";
 
 // ★★★ THE STUB BELOW IS STRUCTURALLY BLIND TO A WHOLE DEFECT CLASS, and one
@@ -396,5 +396,22 @@ describe("RichTextToolbar", () => {
     const buttons = Array.from(container.querySelectorAll("button"));
     expect(buttons.filter((b) => b.tabIndex === 0)).toHaveLength(1);
     expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(buttons.length - 1);
+  });
+
+  // ★ Pins the index arithmetic against the DOM. The constants below are
+  // derived from CONTROLS.length rather than hardcoded, and this is what stops
+  // them drifting from the JSX if a control is added or removed.
+  // ★★ It ALSO pins the no-disabled invariant: no control in this row is ever
+  // disabled today, which is why the roving engine needs no skip-disabled
+  // logic. Adding a disabled control turns this red and forces that decision
+  // rather than silently breaking the arrow order.
+  it("has TOOLBAR_CONTROL_COUNT enabled buttons and no disabled one", () => {
+    const { editor } = makeEditor();
+    const { container } = render(
+      <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />,
+    );
+    const buttons = Array.from(container.querySelectorAll("button"));
+    expect(buttons).toHaveLength(TOOLBAR_CONTROL_COUNT);
+    expect(buttons.filter((b) => b.disabled)).toEqual([]);
   });
 });

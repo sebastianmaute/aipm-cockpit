@@ -112,6 +112,19 @@ const CONTROLS: readonly ControlSpec[] = [...MARKS, ...BLOCKS];
  *  this set. */
 const GROUP_DIVIDER_BEFORE = new Set([6, 8, 10]);
 
+// Roving-tabindex positions, in DOM order: the heading trigger leads, then the
+// twelve CONTROLS, then Insert link and Remove link. Derived from
+// CONTROLS.length rather than hardcoded, so adding a mark or block cannot
+// silently desync the arithmetic from the JSX below.
+const HEADING_INDEX = 0;
+const CONTROLS_OFFSET = 1;
+const LINK_INDEX = CONTROLS.length + 1;
+const UNLINK_INDEX = CONTROLS.length + 2;
+
+/** How many focusable controls the row renders. Exported so a test can pin the
+ *  arithmetic against the real DOM (open-followups §144a). */
+export const TOOLBAR_CONTROL_COUNT = CONTROLS.length + 3;
+
 const HEADING_LEVELS = [1, 2, 3, 4] as const;
 type HeadingLevel = (typeof HEADING_LEVELS)[number];
 
