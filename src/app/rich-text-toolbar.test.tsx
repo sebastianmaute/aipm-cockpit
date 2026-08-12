@@ -510,4 +510,27 @@ describe("RichTextToolbar", () => {
     await user.keyboard("{ArrowRight}");
     expect(document.activeElement).toBe(firstItem);
   });
+
+  // ★★ activeIndex is keyboard-only BECAUSE no control takes focus on click.
+  // A control missing preventFocusSteal would both steal the editor selection
+  // its command reads AND desync the roving state, so pin the whole row rather
+  // than the two controls the older tests happened to cover.
+  it("suppresses the mousedown default on every control that runs a command", () => {
+    const { editor } = makeEditor();
+    const { container } = render(
+      <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />,
+    );
+    const buttons = Array.from(container.querySelectorAll("button"));
+    // The heading trigger deliberately omits it — opening a popover does not
+    // blur the contenteditable the way a mark command's focus does.
+    const commandButtons = buttons.filter(
+      (b) => b.getAttribute("aria-label") !== "Text style",
+    );
+    expect(commandButtons).toHaveLength(TOOLBAR_CONTROL_COUNT - 1);
+    for (const button of commandButtons) {
+      const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+      button.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    }
+  });
 });
