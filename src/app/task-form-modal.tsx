@@ -119,7 +119,11 @@ export function TaskFormModal({
         }}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex h-[900px] max-h-[95vh] min-h-[480px] w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface dark:border-line dark:bg-surface"
+        // Opens at 1280x960 — the description RichTextEditor toolbar needs
+        // the room. min-w/min-h stay 460/480 so a resize can still shrink
+        // it; max-w/max-h stay 95vw/95vh, which correctly clamp the
+        // 1280x960 default DOWN on a smaller viewport.
+        className="relative flex h-[960px] max-h-[95vh] min-h-[480px] w-[1280px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface dark:border-line dark:bg-surface"
       >
         <ModalHeader
           lang={lang}

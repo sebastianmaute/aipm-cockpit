@@ -9074,7 +9074,7 @@ not, the cheapest correct move is to keep it at two and say so in the type.
 
 ---
 
-## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — open, HIGH
+## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — HALF CLOSED 2026-08-12, highest-risk sites only
 
 Opened 2026-08-11 out of a cold review of `unify-rich-text-s1`. `isHtmlStart(value, sink)` is that
 slice's design centre: one classifier per sink, each DERIVED from the allow-list its sink sanitizes
@@ -9117,9 +9117,34 @@ moment the lists converge again; (3) accept it and say so here. ★ Deliberately
 branch that found it: it is the branch's own design being reviewed, and the right guard is a type
 change touching every call site.
 
+### What actually closed (2026-08-12) — a weaker version of option (1)
+
+`html-start.ts` now exports four `as const` string constants — `RICH_SINK`, `DOCUMENT_SINK`,
+`PROJECTION_SINK`, `RENDER_SINK` — and the STORAGE-critical call sites the entry's own blast-radius
+paragraph singled out ("the six entity sites are the ones that matter") now import and pass them
+instead of hand-writing the literal: `narrative-html.ts` (1 site), all six entity fields in
+`sanitize-records.ts`, and `doc-render-html.ts`'s `renderBlock` (1 site) — **8 call sites across 4
+files** (the fourth being `html-start.ts` itself, where the constants are defined). Each conversion is
+pinned by a regression test asserting the ORIGINAL string-literal swap that used to leave the suite
+green now goes red (`html-start.test.ts` `describe("branded sink constants (open-followups §143)")`,
+`narrative-html.test.ts` and `sanitize-records.test.ts`, both `describe(...(open-followups §143))`).
+
+★★ **This is option (1) in NAME only — read `html-start.ts`'s own docstring on the constants, which
+is explicit that it is not the type change the entry asked for:** *"This does not make a WRONG sink
+impossible — a caller can still import the wrong constant — but it removes the 'typo a string
+literal' failure mode and makes the intended sink searchable."* `RichTextSink` is still the plain
+union `"rich" | "document" | "projection" | "render"`, not an opaque/branded type, so nothing stops a
+call site from writing `"render"` by hand instead of importing `RENDER_SINK` — and several still do:
+`doc-render-docx.ts` and `doc-render-pptx.ts` (the two OOXML renderers — `doc-render-html.ts` was the
+one HTML renderer converted, they were not), `ai-rich-text.ts` (all four model-write boundaries),
+`note-log.ts`, `templates.ts`, and `use-resource-planner.ts`'s RAID mirror all still pass a raw
+literal — unconverted BY DESIGN, matching the CHANGELOG's "highest-risk call sites" framing, not an
+oversight. The real type-level guard (option (1) as originally scoped, or option (2)'s per-boundary
+table test for the remaining sites) is still open.
+
 ---
 
-## 144. The new rich-text toolbar is invisible to every gate in the repo — open, a11y, measured
+## 144. The new rich-text toolbar is invisible to every gate in the repo — (b) CLOSED 2026-08-12, (a) open, a11y, measured
 
 Opened 2026-08-11 with the toolbar that `unify-rich-text-s1` shipped. Fifteen controls per editor —
 twelve `ToggleButton`s (`BLOCKS` + `MARKS`), Insert link, Remove link, and the heading menu trigger
@@ -9214,6 +9239,23 @@ changes what Tab does in every editor in the app, so it is its own slice with it
 (b) seed a rich-text surface into the e2e a11y run so at least one toolbar is scanned, remembering
 that a green scan still says nothing about duplicate names. ★ (b) is cheap and buys less than it
 looks like it does; (a) is the real answer.
+
+### (b) CLOSED 2026-08-12 — the cheap half only
+
+`e2e/a11y.spec.ts` adds `"a11y: harbor-light — Open Points (Notes window rich-text toolbar)"`, which
+seeds a task, DOM-clicks its notes badge on Open Points to open the floating notes window
+(`notes-window.tsx`), and runs the same `wcag2a wcag2aa wcag21a wcag21aa` axe scan the 90-scan matrix
+runs elsewhere — asserting zero critical/serious violations. The comment directly above the test cites
+this entry by number and repeats, in place, the warning this entry itself carries: a green result
+proves this ONE toolbar clears the structural rules, not that no duplicate accessible name exists —
+axe cannot see that at any seed size (§55, §126, AGENTS.md's a11y bullet).
+
+★ This closes exactly what (b) promised and nothing more: one of the toolbar's twelve real mounts
+(§144's own count, from the corrected `<RichTextEditor` enumeration above) is now reachable by a gate;
+the other eleven — the nine behind a modal/floating window, the one behind a non-default Settings
+section, the one on the unscanned `steering-committee` view, and the one inside a closed `<details>` —
+are exactly as unreachable as before. **(a), the roving-`tabindex` keyboard contract, is UNCHANGED and
+is still the real answer** — this entry stays open for it.
 
 ## 145. Two icon packages now coexist, and the migration decision behind it lives nowhere durable — open, a decision, measured
 

@@ -199,6 +199,16 @@ export type DerivedSink = "rich" | "document" | "projection";
  *  with no allow-list behind it — see its SINK_RE entry. */
 export type RichTextSink = DerivedSink | "render";
 
+/** Branded constants for each sink, so a call site imports a name instead of
+ *  hand-writing the string literal (open-followups §143). This does not make
+ *  a WRONG sink impossible — a caller can still import the wrong constant —
+ *  but it removes the "typo a string literal" failure mode and makes the
+ *  intended sink searchable. */
+export const RICH_SINK = "rich" as const;
+export const DOCUMENT_SINK = "document" as const;
+export const PROJECTION_SINK = "projection" as const;
+export const RENDER_SINK = "render" as const;
+
 export const SINK_TAGS: Record<DerivedSink, readonly string[]> = {
   rich: RICH_ALLOWED_TAGS,
   document: DOCUMENT_ALLOWED_TAGS,

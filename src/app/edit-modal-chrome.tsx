@@ -40,9 +40,11 @@ interface EditModalShellProps {
   /** Extra panel classes appended after the shared panel chrome (e.g. a
    *  `max-h-[95vh]` cap on a tall start-aligned modal). */
   panelClassName?: string;
-  /** Panel width classes. Default `"w-[720px] min-w-[460px]"` (the wide
-   *  change/raid/stakeholder modals); the narrower register modals
-   *  (absence/milestone/resource) pass `"w-[560px] min-w-[320px]"`. */
+  /** Panel width classes. Default `"w-[720px] min-w-[460px]"` — only
+   *  stakeholder still relies on it now. absence/calendar-event/resource pass
+   *  the narrower `"w-[560px] min-w-[320px]"`; change/raid/milestone pass a
+   *  wide `"w-[1280px] ..."` (change/raid keep `min-w-[460px]`, milestone
+   *  `min-w-[320px]`). */
   widthClassName?: string;
   /** Panel height classes. Default `"h-[720px] min-h-[420px] max-h-[95vh]"` —
    *  `useResizable` needs a class-based default height or a dragged height opens

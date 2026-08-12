@@ -16,7 +16,7 @@ import { ActionMenus } from "./action-menus";
 import { GlobalSearchConnected } from "./global-search-box";
 import { DisplayTzSwitcher } from "./display-tz-switcher";
 import { useDisplayTimezone } from "./display-timezone-context";
-import { defaultExportConfig } from "./settings-types";
+import { aiAssistantOpener, defaultExportConfig } from "./settings-types";
 
 function DisplayTzSwitcherConnected({ lang, additionalTimezones }: { lang: Lang; additionalTimezones: readonly string[] }) {
   const ctx = useDisplayTimezone();
@@ -135,7 +135,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       settings={settings}
       setSettings={setSettings}
       lang={lang}
-      onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
+      onOpenAiAssistant={aiAssistantOpener(settings.ai, () => openPopoutWindow("chat", settings.popout.reuseWindow))}
       currentView={activeTab}
       onAskClaude={(body) => requestChat(body, true)}
       projectSwitcher={projectSwitcher}

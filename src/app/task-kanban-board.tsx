@@ -60,6 +60,15 @@ const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
 const EMPTY_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
+/** Status column sizing, shared with task-kanban-swimlanes.tsx's
+ *  STATUS_COL_CLASS so board and swimlane views cannot drift apart.
+ *  min-w-64 (256px) is today's fixed width, kept as a floor; max-w-[25rem]
+ *  (400px) stops columns sprawling on an ultrawide monitor with only 2-3
+ *  statuses; flex-1 distributes leftover container width evenly between
+ *  those bounds. Below the floor, the existing overflow-x-auto on the
+ *  container takes over exactly as it does today. */
+export const KANBAN_STATUS_COL_CLASS = "min-w-64 max-w-[25rem] flex-1 shrink-0";
+
 export function TaskKanban({
   lang,
   tasks,
@@ -94,7 +103,7 @@ export function TaskKanban({
             const raw = e.dataTransfer.getData("text/plain");
             if (raw) onStatusChange(Number(raw), status);
           }}
-          className="flex w-64 shrink-0 flex-col rounded-xl border border-line bg-surface"
+          className={`flex ${KANBAN_STATUS_COL_CLASS} flex-col rounded-xl border border-line bg-surface`}
         >
           <h3 className="flex items-center justify-between border-b border-line px-3 py-2 text-sm font-medium text-foreground">
             <span>{t(lang, statusLabelKey(status))}</span>

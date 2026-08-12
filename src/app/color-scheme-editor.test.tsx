@@ -39,7 +39,7 @@ describe("ColorSchemeEditor", () => {
   });
 
   it("hides per-scheme branding fields for a read-only built-in (no duplicate app-name)", () => {
-    // Fresh store → Harbor (built-in) active; the global app-name input in
+    // Fresh store → the default built-in is active; the global app-name input in
     // AppearanceSection covers built-ins, so the editor must not also show one.
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
     expect(screen.queryByLabelText("App name")).not.toBeInTheDocument();
@@ -52,7 +52,7 @@ describe("ColorSchemeEditor", () => {
   });
 
   it("marks the active built-in scheme read-only (rename/delete disabled)", () => {
-    // Fresh store → Harbor (built-in) is the active scheme.
+    // Fresh store → the default built-in is the active scheme.
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
     expect(screen.getByText(/save as new to customise/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^rename$/i })).toBeDisabled();

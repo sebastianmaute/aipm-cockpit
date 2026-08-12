@@ -8,6 +8,40 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.235.0] - 2026-08-12 "Lackey"
+
+### Changed
+
+- **Beacon is now the app's default color theme.** A fresh install now opens in Beacon — a light-only
+  palette — instead of Harbor. Existing projects keep their data untouched, but a device that has
+  never explicitly picked a theme in Settings → Appearance will also repaint to Beacon on its next
+  load — the same fallback that has always applied to a fresh install — including losing dark mode,
+  since Beacon has no dark variant yet. Pick Harbor once in Settings → Appearance → Color scheme to
+  keep it. Beacon joins Harbor, Meridian and Umber as a built-in theme, selectable from the theme
+  gallery like the others.
+- **The rich-text edit modals open bigger.** The Task, RAID, Change and Milestone edit modals now open
+  at 1280×960 by default (up from smaller sizes) to give their rich-text toolbars more room. Modals you
+  have manually resized keep your own size, as before.
+- **Kanban status columns now fill the screen.** Board and swimlane status columns flex to use the
+  available width (down to a 256px floor, up to a 400px ceiling) instead of sitting at a fixed 256px,
+  so a wide window no longer leaves dead space beside a handful of columns.
+
+### Fixed
+
+- **The AI Assistant top-bar button now correctly hides when AI is disabled** — either the AI master
+  switch is off or no API key is configured. Previously it stayed visible and clickable, unlike every
+  other AI-gated control in the app.
+
+### Notes
+
+- Internal: the rich-text sink argument (`isHtmlStart`) is now pinned to branded constants at its
+  highest-risk call sites (`narrative-html.ts`, the six entity fields in `sanitize-records.ts`, and
+  `doc-render-html.ts`) instead of hand-written string literals, closing a class of copy-paste risk
+  there — other call sites still pass raw string literals by design; the floating notes-window
+  rich-text toolbar is now included in the accessibility scan matrix; and
+  `NoteLogPanel`'s `labelSuffix` prop is now required (with an explicit `null` for "no suffix") so a
+  future third mount site can't silently collide two identically-labelled toolbars.
+
 ## [0.234.0] - 2026-08-12 "Anders"
 
 ### Changed

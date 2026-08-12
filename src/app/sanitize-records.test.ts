@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeSteeringCommittee, sanitizeRaidItem } from "./sanitize";
+import { sanitizeSteeringCommittee, sanitizeRaidItem, sanitizeMilestone, sanitizeChangeItem } from "./sanitize";
 
 const baseRaid = {
   id: 1,
@@ -78,5 +78,43 @@ describe("sanitizeSteeringCommittee — per-meeting report", () => {
       infoSchedules: [],
     })!;
     expect(out.meetings[0].report?.html).toHaveLength(100_000);
+  });
+});
+
+describe("entity rich-field sink regression (open-followups §143)", () => {
+  // Same probe as narrative-html: RICH_ALLOWED_TAGS and DOCUMENT_ALLOWED_TAGS
+  // differ by exactly "img". Measured: swapping "rich" -> "document" at these
+  // six call sites left every owning suite (151/151) green before this test
+  // existed.
+  const IMG_INPUT = '<img src="x.png">Status';
+
+  it("sanitizeMilestone escapes an <img>-leading description", () => {
+    const m = sanitizeMilestone({ id: 1, name: "M1", date: "2026-01-01", description: IMG_INPUT });
+    expect(m?.description).toContain("&lt;img");
+    expect(m?.description).not.toContain("<img");
+  });
+
+  it("sanitizeChangeItem escapes <img>-leading description/impactDescription/resolutionNotes", () => {
+    const c = sanitizeChangeItem({
+      id: 1,
+      title: "C1",
+      description: IMG_INPUT,
+      impactDescription: IMG_INPUT,
+      resolutionNotes: IMG_INPUT,
+    });
+    expect(c?.description).toContain("&lt;img");
+    expect(c?.description).not.toContain("<img");
+    expect(c?.impactDescription).toContain("&lt;img");
+    expect(c?.impactDescription).not.toContain("<img");
+    expect(c?.resolutionNotes).toContain("&lt;img");
+    expect(c?.resolutionNotes).not.toContain("<img");
+  });
+
+  it("sanitizeRaidItem escapes <img>-leading description/mitigation", () => {
+    const r = sanitizeRaidItem({ id: 1, title: "R1", description: IMG_INPUT, mitigation: IMG_INPUT });
+    expect(r?.description).toContain("&lt;img");
+    expect(r?.description).not.toContain("<img");
+    expect(r?.mitigation).toContain("&lt;img");
+    expect(r?.mitigation).not.toContain("<img");
   });
 });

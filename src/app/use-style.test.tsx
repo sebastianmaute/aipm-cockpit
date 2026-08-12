@@ -71,9 +71,11 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
   });
 
   it("swaps to the DARK sub-map when toggling theme on a dark-capable scheme", () => {
-    // Fresh store → Harbor (dark-capable) is the default active scheme.
+    // Beacon (light-only) is the default active scheme now, so a dark-capable
+    // scheme must be activated explicitly rather than relying on a fresh store.
     localStorage.setItem(STYLE_STORAGE_KEY, "custom");
     localStorage.setItem(THEME_STORAGE_KEY, "light");
+    setActive("harbor");
     function ThemeToggle() {
       const { setTheme } = useTheme();
       return (

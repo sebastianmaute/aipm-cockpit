@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
 import { resolveSchemeColors } from "./scheme-tokens";
-import { HARBOR_DARK, HARBOR_LIGHT } from "./builtin-schemes";
+import { BEACON_LIGHT } from "./builtin-schemes";
 
 const src = readFileSync(join(process.cwd(), "src/app/boot-theme-script.ts"), "utf8");
 
@@ -57,21 +57,22 @@ describe("no-flash boot script — runtime behaviour", () => {
   };
   const root = () => document.documentElement;
 
-  it("fresh install (empty storage, system light) → Harbor light, no .dark", () => {
+  it("fresh install (empty storage, system light) → Beacon light, no .dark", () => {
     runBoot();
     expect(root().getAttribute("data-style")).toBe("custom");
-    expect(root().getAttribute("data-scheme-dark")).toBe("1");
+    expect(root().getAttribute("data-scheme-dark")).toBe("0");
     expect(root().classList.contains("dark")).toBe(false);
-    expect(root().style.getPropertyValue("--surface")).toBe(resolveSchemeColors(HARBOR_LIGHT)["--surface"]);
-    expect(root().style.getPropertyValue("--ui-dark-blue")).toBe("#153a5c"); // Harbor light base
+    expect(root().style.getPropertyValue("--surface")).toBe(resolveSchemeColors(BEACON_LIGHT)["--surface"]);
+    expect(root().style.getPropertyValue("--ui-dark-blue")).toBe("#003459"); // Beacon light base
   });
 
-  it("fresh install with system dark → Harbor dark + .dark", () => {
+  it("fresh install with system dark → STILL Beacon light, no .dark (light-only default forces light)", () => {
     systemDark = true;
     runBoot();
     expect(root().getAttribute("data-style")).toBe("custom");
-    expect(root().classList.contains("dark")).toBe(true);
-    expect(root().style.getPropertyValue("--surface")).toBe(resolveSchemeColors(HARBOR_DARK)["--surface"]);
+    expect(root().getAttribute("data-scheme-dark")).toBe("0");
+    expect(root().classList.contains("dark")).toBe(false);
+    expect(root().style.getPropertyValue("--surface")).toBe(resolveSchemeColors(BEACON_LIGHT)["--surface"]);
   });
 
   it("light-only scheme (supports-dark unset) pins light and applies the mirrored map", () => {

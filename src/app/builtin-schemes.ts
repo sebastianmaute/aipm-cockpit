@@ -1,5 +1,8 @@
-// Code-owned built-in color schemes (Harbor / Meridian / Umber). Each ships a
-// light+dark pair over the 21 editable tokens. Harbor is the fresh-install
+// Code-owned built-in color schemes (Harbor / Meridian / Umber / Beacon).
+// Harbor/Meridian/Umber each ship a light+dark pair over the 21 editable
+// tokens; Beacon is LIGHT-ONLY (no dark map) — the app's generic
+// supportsDark-driven mechanism (style-ci.effectiveDark + use-theme's
+// apply()) pins light mode whenever it's active. Beacon is the fresh-install
 // default. Pure (no DOM). Built-ins are undeletable + refreshed from code on
 // every load (reconcile). AIPM and Mockup are no longer code built-ins — they
 // ship as importable theme files the user supplies (Settings → Appearance →
@@ -64,13 +67,30 @@ export const UMBER_DARK: SchemeColorMap = {
   "--segment-active-bg": "#6a5a45", "--segment-active-fg": "#f6efe4",
 };
 
+// ── Beacon ───────────────────────────────────────────────────────────────
+// Light-only — ported from public/themes/beacon.json's 21 base tokens (the
+// file's own 6 additional pinned "-strong"/"-text" tokens are intentionally
+// dropped: every other built-in relies on runtime AA derivation
+// (deriveAaVariants in scheme-tokens.ts) rather than pinning those, and
+// builtin-schemes.test.ts enforces "exactly 21 tokens, no extras" for every
+// built-in map).
+export const BEACON_LIGHT: SchemeColorMap = {
+  "--ui-dark-blue": "#003459", "--ui-green": "#68bd00", "--background": "#ffffff", "--surface": "#ffffff",
+  "--foreground": "#646461", "--rag-red": "#d95842", "--rag-amber": "#f4c11c", "--rag-green": "#41a700",
+  "--ui-pink": "#e84663", "--ui-purple": "#ae448c", "--ui-blue": "#5daee0", "--ui-medium-grey": "#929499",
+  "--ui-light-grey": "#e2e6e7", "--surface-muted": "#e2e6e7", "--line": "#e2e6e7", "--table-head-bg": "#f1f3f4",
+  "--table-head-fg": "#3e4349", "--table-head-accent": "#2b7a00", "--segment-track-bg": "#eef1f3",
+  "--segment-active-bg": "#ffffff", "--segment-active-fg": "#2b7a00",
+};
+
 export const BUILTIN_SCHEMES: readonly ColorScheme[] = [
   { id: "harbor", name: "Harbor", builtIn: true, supportsDark: true, light: HARBOR_LIGHT, dark: HARBOR_DARK, branding: {} },
   { id: "meridian", name: "Meridian", builtIn: true, supportsDark: true, light: MERIDIAN_LIGHT, dark: MERIDIAN_DARK, branding: {} },
   { id: "umber", name: "Umber", builtIn: true, supportsDark: true, light: UMBER_LIGHT, dark: UMBER_DARK, branding: {} },
+  { id: "beacon", name: "Beacon", builtIn: true, supportsDark: false, light: BEACON_LIGHT, branding: {} },
 ] as const;
 
-export const DEFAULT_SCHEME_ID = "harbor";
+export const DEFAULT_SCHEME_ID = "beacon";
 export const BUILTIN_SCHEME_IDS: ReadonlySet<string> = new Set(BUILTIN_SCHEMES.map((s) => s.id));
 
 /** A fresh copy of a built-in scheme (defensive — callers must not mutate the
@@ -89,8 +109,8 @@ function cloneBuiltin(s: ColorScheme): ColorScheme {
  *  re-seeded from code (name/maps/supportsDark refreshed on upgrade, never
  *  persisted-stale), user schemes are kept as-is, and any persisted copy of a
  *  built-in id is dropped in favour of the code version. `activeId` is
- *  preserved when it still resolves, else falls back to Harbor. Mirrors
- *  use-operating-guides.reconcileBuiltins. */
+ *  preserved when it still resolves, else falls back to the default (Beacon).
+ *  Mirrors use-operating-guides.reconcileBuiltins. */
 export function reconcileBuiltins(store: SchemeStore): SchemeStore {
   const userSchemes = store.schemes.filter((s) => !s.builtIn && !BUILTIN_SCHEME_IDS.has(s.id));
   const schemes = [...BUILTIN_SCHEMES.map(cloneBuiltin), ...userSchemes];
@@ -98,7 +118,7 @@ export function reconcileBuiltins(store: SchemeStore): SchemeStore {
   return { schemes, activeId };
 }
 
-/** The active scheme (by `activeId`), falling back to Harbor. */
+/** The active scheme (by `activeId`), falling back to the default (Beacon). */
 export function activeSchemeOf(store: SchemeStore): ColorScheme {
   return (
     store.schemes.find((s) => s.id === store.activeId) ??

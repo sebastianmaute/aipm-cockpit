@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN } from "./settings-types";
+import { describe, it, expect, vi } from "vitest";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener } from "./settings-types";
 
 describe("sanitizeSelfResourceId", () => {
   it("keeps a positive integer id", () => {
@@ -164,5 +164,25 @@ describe("sanitizeAiConfig insightRecommendations", () => {
     expect(
       sanitizeAiConfig({ insightRecommendations: "yes" as unknown as boolean }).insightRecommendations,
     ).toBe(false);
+  });
+});
+
+describe("aiAssistantOpener", () => {
+  it("returns undefined when AI is disabled (master switch off)", () => {
+    const open = vi.fn();
+    expect(aiAssistantOpener(defaultAiConfig, open)).toBeUndefined();
+  });
+
+  it("returns undefined when the master switch is on but no API key is set", () => {
+    const open = vi.fn();
+    const ai = { ...defaultAiConfig, enabled: true, apiKey: "" };
+    expect(aiAssistantOpener(ai, open)).toBeUndefined();
+  });
+
+  it("returns the opener when AI is enabled with a key", () => {
+    const open = vi.fn();
+    const ai = { ...defaultAiConfig, enabled: true, apiKey: "test-key" };
+    const opener = aiAssistantOpener(ai, open);
+    expect(opener).toBe(open);
   });
 });

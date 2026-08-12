@@ -4,7 +4,7 @@ import { AppearanceSection } from "./appearance-section";
 import { CiStyleProvider } from "../use-style";
 import { STYLE_STORAGE_KEY } from "../style-ci";
 import { defaultSettings, type Settings } from "../settings-types";
-import { addScheme, loadSchemes } from "../color-schemes";
+import { addScheme, loadSchemes, setActive } from "../color-schemes";
 import { t } from "../i18n";
 
 function renderSection(
@@ -128,7 +128,10 @@ describe("AppearanceSection scheme control", () => {
   });
 
   it("a dark-capable built-in (Harbor) keeps the Theme control enabled with no light-only note", () => {
-    renderSection({}, "custom"); // fresh store → Harbor active (dark-capable)
+    // Beacon (light-only) is the default now, so activate Harbor explicitly
+    // rather than relying on what a fresh store happens to default to.
+    setActive("harbor");
+    renderSection({}, "custom");
     expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).not.toBeDisabled();
     expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();

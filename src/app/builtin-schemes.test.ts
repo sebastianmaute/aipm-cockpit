@@ -8,15 +8,19 @@ import {
   resolveActiveScheme,
   HARBOR_DARK,
   HARBOR_LIGHT,
+  BEACON_LIGHT,
 } from "./builtin-schemes";
 import type { ColorScheme, SchemeStore } from "./color-schemes";
+import type { SchemeColorMap } from "./scheme-apply";
 import { CORE_TOKENS, ADVANCED_TOKENS } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
 
-// The three code-owned built-ins are pure-seed (exactly the 21 editable tokens,
-// dark-capable, designed AA-clean). AIPM/Mockup are no longer code built-ins —
+// The four code-owned built-ins are pure-seed (exactly the 21 editable tokens,
+// designed AA-clean). Beacon is the first LIGHT-ONLY built-in — it carries no
+// `dark` map and the app's generic pin-light mechanism forces light mode
+// whenever it's the active scheme. AIPM/Mockup are no longer code built-ins —
 // they ship as importable theme files.
-const BUILTIN_IDS = ["harbor", "meridian", "umber"] as const;
+const BUILTIN_IDS = ["harbor", "meridian", "umber", "beacon"] as const;
 
 const ALL_TOKENS = [...CORE_TOKENS, ...ADVANCED_TOKENS].map((t) => t.token);
 
@@ -29,13 +33,16 @@ const userScheme = (id: string, name: string): ColorScheme => ({
 });
 
 describe("BUILTIN_SCHEMES", () => {
-  it("ships harbor, meridian, umber — all code-owned, dark-capable; harbor is default", () => {
-    expect(BUILTIN_SCHEMES.map((s) => s.id)).toEqual(["harbor", "meridian", "umber"]);
+  it("ships harbor, meridian, umber, beacon — all code-owned; beacon is the only light-only one; beacon is default", () => {
+    expect(BUILTIN_SCHEMES.map((s) => s.id)).toEqual(["harbor", "meridian", "umber", "beacon"]);
     for (const s of BUILTIN_SCHEMES) expect(s.builtIn).toBe(true);
-    for (const s of BUILTIN_SCHEMES) expect(s.supportsDark).toBe(true);
-    for (const s of BUILTIN_SCHEMES) expect(Boolean(s.dark)).toBe(true);
-    expect(DEFAULT_SCHEME_ID).toBe("harbor");
-    expect([...BUILTIN_SCHEME_IDS].sort()).toEqual(["harbor", "meridian", "umber"]);
+    for (const s of BUILTIN_SCHEMES) {
+      const expectDark = s.id !== "beacon";
+      expect(s.supportsDark, s.id).toBe(expectDark);
+      expect(Boolean(s.dark), s.id).toBe(expectDark);
+    }
+    expect(DEFAULT_SCHEME_ID).toBe("beacon");
+    expect([...BUILTIN_SCHEME_IDS].sort()).toEqual(["beacon", "harbor", "meridian", "umber"]);
     // AIPM / Mockup are no longer code built-ins.
     expect(BUILTIN_SCHEME_IDS.has("AIPM")).toBe(false);
     expect(BUILTIN_SCHEME_IDS.has("mockup")).toBe(false);
@@ -53,7 +60,7 @@ describe("BUILTIN_SCHEMES", () => {
 
   it("built-in maps contain EXACTLY the 21 editable tokens (no extras)", () => {
     for (const s of BUILTIN_SCHEMES) {
-      for (const map of [s.light, s.dark!]) {
+      for (const map of [s.light, ...(s.dark ? [s.dark] : [])]) {
         expect(Object.keys(map).sort()).toEqual([...ALL_TOKENS].sort());
       }
     }
@@ -62,7 +69,9 @@ describe("BUILTIN_SCHEMES", () => {
   it("built-in maps (light AND dark) pass WCAG AA on all checked pairs", () => {
     const failures: string[] = [];
     for (const s of BUILTIN_SCHEMES) {
-      for (const [mode, map] of [["light", s.light], ["dark", s.dark!]] as const) {
+      const modes: Array<["light" | "dark", SchemeColorMap]> = [["light", s.light]];
+      if (s.dark) modes.push(["dark", s.dark]);
+      for (const [mode, map] of modes) {
         for (const pair of checkSchemePairs(map)) {
           if (!pair.passesAa) failures.push(`${s.id}/${mode}/${pair.id}=${pair.ratio}`);
         }
@@ -77,16 +86,16 @@ describe("BUILTIN_SCHEMES", () => {
 });
 
 describe("reconcileBuiltins", () => {
-  it("seeds all built-ins into an empty store and defaults activeId to harbor", () => {
+  it("seeds all built-ins into an empty store and defaults activeId to beacon", () => {
     const out = reconcileBuiltins({ schemes: [], activeId: null });
-    expect(out.schemes.map((s) => s.id)).toEqual(["harbor", "meridian", "umber"]);
-    expect(out.activeId).toBe("harbor");
+    expect(out.schemes.map((s) => s.id)).toEqual(["harbor", "meridian", "umber", "beacon"]);
+    expect(out.activeId).toBe("beacon");
   });
 
   it("keeps user schemes and preserves a still-valid user activeId", () => {
     const store: SchemeStore = { schemes: [userScheme("u-1", "Mine")], activeId: "u-1" };
     const out = reconcileBuiltins(store);
-    expect(out.schemes.map((s) => s.id)).toEqual(["harbor", "meridian", "umber", "u-1"]);
+    expect(out.schemes.map((s) => s.id)).toEqual(["harbor", "meridian", "umber", "beacon", "u-1"]);
     expect(out.activeId).toBe("u-1");
   });
 
@@ -95,14 +104,14 @@ describe("reconcileBuiltins", () => {
     expect(out.activeId).toBe("umber");
   });
 
-  it("falls back to harbor for an orphaned AIPM activeId", () => {
+  it("falls back to beacon for an orphaned AIPM activeId", () => {
     const out = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
-    expect(out.activeId).toBe("harbor");
+    expect(out.activeId).toBe("beacon");
   });
 
-  it("falls back to harbor when activeId no longer resolves", () => {
+  it("falls back to beacon when activeId no longer resolves", () => {
     const out = reconcileBuiltins({ schemes: [], activeId: "u-99" });
-    expect(out.activeId).toBe("harbor");
+    expect(out.activeId).toBe("beacon");
   });
 
   it("refreshes a stale persisted built-in copy from code (drops the stored one)", () => {
@@ -143,8 +152,14 @@ describe("resolveActiveScheme / activeSchemeOf", () => {
     expect(resolveActiveScheme(store, true)).toEqual({ "--ui-green": "#123456" });
   });
 
-  it("falls back to Harbor when activeId is unknown", () => {
+  it("falls back to the light map for the light-only BUILT-IN Beacon, even in dark mode", () => {
+    const store = reconcileBuiltins({ schemes: [], activeId: "beacon" });
+    expect(resolveActiveScheme(store, true)).toEqual(BEACON_LIGHT);
+    expect(resolveActiveScheme(store, false)).toEqual(BEACON_LIGHT);
+  });
+
+  it("falls back to Beacon when activeId is unknown", () => {
     const store: SchemeStore = { schemes: [...BUILTIN_SCHEMES], activeId: "nope" };
-    expect(activeSchemeOf(store).id).toBe("harbor");
+    expect(activeSchemeOf(store).id).toBe("beacon");
   });
 });

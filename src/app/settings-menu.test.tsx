@@ -10,6 +10,7 @@ import { SettingsMenu } from "./settings-menu";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { defaultSettings, type Settings } from "./settings-types";
+import { setActive } from "./color-schemes";
 import { t } from "./i18n";
 
 // SettingsMenu embeds TemplatesSection, which reads the live workspace
@@ -100,7 +101,16 @@ describe("SettingsMenu popout toggle", () => {
 });
 
 describe("SettingsMenu theme control", () => {
+  // SettingsMenu embeds the real AppearanceSection, which disables the theme
+  // radio group whenever the active scheme is light-only (pinsLight). Beacon
+  // (light-only) is now the app's default, so this test needs an explicit
+  // dark-capable scheme to exercise the dark-mode-toggle behavior it's
+  // actually testing (mirrors appearance-section.test.tsx / use-style.test.tsx).
+  // vitest.setup.ts's global afterEach already clears localStorage after
+  // every test — no local cleanup hook needed here.
+
   it("renders Light/Dark/System and selecting one calls setTheme", () => {
+    setActive("harbor");
     render(<SettingsMenu {...makeProps()} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settings") }));
     expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();

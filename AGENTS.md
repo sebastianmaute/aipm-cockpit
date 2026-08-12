@@ -454,13 +454,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
   `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **17** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 5 scheme
-  COMBOS × 17 + 5 Kanban-board variants = **90** axe scans, plus ONE non-scan guard test (asserts the
-  served app's `data-app-version` matches this checkout, open-followups §58) — **91** tests total in the
-  spec file. ★ Don't derive these three numbers, MEASURE them, in the same commit that changes the list:
-  `npx playwright test e2e/a11y.spec.ts --list` prints the total (no browsers needed, and it also proves
-  `e2e/seed.ts`'s module-level sample read still resolves), and `grep -c "a11y:"` over that output splits
-  scans from the guard.
+  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 6 scheme
+  COMBOS (harbor/meridian/umber/beacon, Beacon light-only) × 17 + 6 Kanban-board variants (one per combo)
+  + 1 notes-window rich-text-toolbar scan (harbor-light only, hardcoded) = **109** axe scans, plus ONE
+  non-scan guard test (asserts the served app's `data-app-version` matches this checkout, open-followups
+  §58) — **110** tests total in the spec file. ★ Don't derive these numbers, MEASURE them, in the same
+  commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
+  browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and
+  `grep -c "a11y:"` over that output splits scans from the guard.
   ★★ A VIEW IN THE LIST IS NOT THE SAME AS A VIEW BEING COVERED — the scan only sees what the e2e seed
   put in IndexedDB, and `e2e/seed.ts` seeds from two HARDCODED lists. A slice absent from them renders
   its EMPTY STATE at scan time, so the run is green over a panel with no rows, no per-row controls and

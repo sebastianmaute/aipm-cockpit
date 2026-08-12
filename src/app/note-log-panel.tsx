@@ -49,8 +49,10 @@ interface NoteEntryRowProps {
   lang: Lang;
   dictation: Settings["dictation"];
   /** Appended to this row's control names when two surfaces are mounted at
-   *  once; absent leaves the names byte-identical to the single-mount case. */
-  labelSuffix?: string;
+   *  once. Required (open-followups §142): `null` is the explicit "no
+   *  suffix" sentinel, so a future third mount site cannot silently collide
+   *  by omitting the prop — it must typecheck a real choice. */
+  labelSuffix: string | null;
   onStartEdit: (entry: NoteLogEntry) => void;
   onChangeEditHtml: (html: string) => void;
   onCommitEdit: (id: number) => void;
@@ -162,8 +164,10 @@ export interface NoteLogPanelProps {
   resources: readonly Resource[];
   lang: Lang;
   /** Appended to the composer/row control names so two mounted surfaces never
-   *  announce identical labels. axe cannot see a duplicate accessible name. */
-  labelSuffix?: string;
+   *  announce identical labels. axe cannot see a duplicate accessible name.
+   *  Required (open-followups §142): `null` is the explicit "no suffix"
+   *  sentinel — see `notes-window.tsx`. */
+  labelSuffix: string | null;
 }
 
 export function NoteLogPanel(props: NoteLogPanelProps) {

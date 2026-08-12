@@ -272,6 +272,14 @@ export function ChangeEditModal({
       dragHandleProps={handleProps}
       onDragReset={dragReset}
       sizeKey="aipm-cockpit:modal-size:change-edit"
+      // Opens at 1280x960 — three RichTextEditor toolbars need the room.
+      // min stays the shell default (460/420) so a resize can still shrink
+      // it; max-w/max-h stay the shell default (95vw/95vh), which correctly
+      // clamps the 1280x960 default DOWN on a narrower viewport (unlike
+      // min-width/min-height, `width` vs `max-width` always resolves to the
+      // smaller one).
+      widthClassName="w-[1280px] min-w-[460px]"
+      heightClassName="h-[960px] min-h-[420px] max-h-[95vh]"
     >
           {/* Title */}
           {/* ★★ `htmlFor` is LOAD-BEARING — the dictation mic is a real

@@ -296,6 +296,13 @@ export function RaidEditModal({
       sizeKey="aipm-cockpit:modal-size:raid-edit"
       align="start"
       backdropScroll
+      // Opens at 1280x960 — two RichTextEditor toolbars need the room. min
+      // stays the shell default (460/420) so a resize can still shrink it;
+      // max-w/max-h stay the shell default (95vw/95vh), which correctly
+      // clamps the 1280x960 default DOWN on a narrower viewport (see
+      // change-edit-modal.tsx for the width-vs-max-width CSS reasoning).
+      widthClassName="w-[1280px] min-w-[460px]"
+      heightClassName="h-[960px] min-h-[420px] max-h-[95vh]"
     >
           {isVisible("category") && (
           <div className="flex flex-col gap-1 text-sm">

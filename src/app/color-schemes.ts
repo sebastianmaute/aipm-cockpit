@@ -108,7 +108,7 @@ export function loadSchemes(): SchemeStore {
     // Preserve the persisted activeId as-is (incl. a built-in id like "harbor"
     // that is NOT in the raw store). reconcileBuiltins is the SOLE validator of
     // activeId against the merged (built-in + user) list — a stale/unknown id
-    // resolves to the Harbor default there. Validating here would strip every
+    // resolves to the default scheme there. Validating here would strip every
     // built-in selection on read.
     const activeId =
       typeof parsed.activeId === "string"
@@ -189,7 +189,7 @@ export function setActive(id: string | null): SchemeStore {
   const cur = loadSchemes();
   // Persist any non-empty scheme id (built-in or user) as-is — built-ins are not
   // in the raw store, so validating here would drop them. reconcileBuiltins is
-  // the sole validator (unknown id → Harbor default).
+  // the sole validator (unknown id → the default scheme).
   const next: SchemeStore = { ...cur, activeId: typeof id === "string" && id ? id : null };
   saveSchemes(next);
   return next;
