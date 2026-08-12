@@ -4,6 +4,7 @@ import {
   HARBOR_DARK, HARBOR_LIGHT,
   MERIDIAN_DARK, MERIDIAN_LIGHT,
   UMBER_DARK, UMBER_LIGHT,
+  BEACON_LIGHT,
 } from "../src/app/builtin-schemes";
 import { resolveSchemeColors } from "../src/app/scheme-tokens";
 import type { SchemeColorMap } from "../src/app/scheme-apply";
@@ -26,22 +27,29 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 };
 
 // AIPM and Dashboard no longer exist in the app in any form — a theme is a file
-// the user loads. The matrix therefore runs on the three BUILT-IN schemes,
-// scanning three distinct palettes instead of two. All three are dark-capable;
-// Umber runs light-only to hold the combo count at five.
-// ★ 5 combos × 17 views + 5 Kanban variants + 1 notes-window toolbar scan = 91
-// scans, plus the one non-scan guard below = 92 tests. MEASURE it in the same
-// commit that changes A11Y_VIEWS or adds a scan rather than deriving it — this
-// comment said 85 for as long as the list said 16 views, and nothing gates a
-// count. Reproduce (no browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 92 total
-//   …then `grep -c "a11y:"` over that output       # 91 scans
+// the user loads. The matrix runs on the four BUILT-IN schemes. Harbor/
+// Meridian/Umber are dark-capable (Umber runs light-only here to hold the
+// combo count down); Beacon is LIGHT-ONLY by design (the app's default) and
+// has no dark combo to add — there is nothing to scan.
+// ★ 6 combos × 17 views = 102, + the Kanban-board scan below (ONE PER COMBO,
+// its own `for (const combo of COMBOS)` loop — it scales with the combo count,
+// it is NOT a fixed 5) = 108, + 1 notes-window toolbar scan (harbor-light
+// only, hardcoded — does NOT scale with combo count) = 109 scans, plus the one
+// non-scan guard below = 110 tests. MEASURE it in the same commit that changes
+// A11Y_VIEWS or adds a scan rather than deriving it — this comment said 85 for
+// as long as the list said 16 views, and a beacon-added-combo draft of this
+// very comment still said "108 scans / 109 tests" by carrying forward the
+// pre-beacon "5 Kanban variants" instead of re-measuring. Reproduce (no
+// browsers needed):
+//   npx playwright test e2e/a11y.spec.ts --list   # 110 total
+//   …then `grep -c "a11y:"` over that output       # 109 scans
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
   { scheme: "meridian", dark: false },
   { scheme: "meridian", dark: true  },
   { scheme: "umber",    dark: false },
+  { scheme: "beacon",   dark: false },
 ] as const;
 
 // Per-scheme maps, resolved node-side at seed time (mirrors how the app persists
@@ -53,6 +61,7 @@ const SCHEME_SEED: Record<
   harbor:   { light: HARBOR_LIGHT,   dark: HARBOR_DARK },
   meridian: { light: MERIDIAN_LIGHT, dark: MERIDIAN_DARK },
   umber:    { light: UMBER_LIGHT,    dark: UMBER_DARK },
+  beacon:   { light: BEACON_LIGHT },
 };
 
 const comboLabel = (combo: (typeof COMBOS)[number]): string =>
@@ -99,7 +108,7 @@ function seedScript(combo: (typeof COMBOS)[number]): string {
   return [
     `localStorage.setItem("aipm-cockpit-style", "custom");`,
     `localStorage.setItem("aipm-cockpit-theme", ${JSON.stringify(combo.dark ? "dark" : "light")});`,
-    `localStorage.setItem("aipm-cockpit-scheme-supports-dark", "1");`,
+    `localStorage.setItem("aipm-cockpit-scheme-supports-dark", ${JSON.stringify(spec.dark ? "1" : "0")});`,
     `localStorage.setItem("aipm-cockpit-active-scheme-colors", ${JSON.stringify(JSON.stringify(map))});`,
     `localStorage.setItem("aipm-cockpit-active-scheme-structural", ${JSON.stringify(JSON.stringify({}))});`,
     `localStorage.setItem("aipm-cockpit:color-schemes", ${JSON.stringify(JSON.stringify(store))});`,
