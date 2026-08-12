@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   render as rtlRender,
   screen,
@@ -106,9 +106,8 @@ describe("SettingsMenu theme control", () => {
   // (light-only) is now the app's default, so this test needs an explicit
   // dark-capable scheme to exercise the dark-mode-toggle behavior it's
   // actually testing (mirrors appearance-section.test.tsx / use-style.test.tsx).
-  afterEach(() => {
-    localStorage.clear();
-  });
+  // vitest.setup.ts's global afterEach already clears localStorage after
+  // every test — no local cleanup hook needed here.
 
   it("renders Light/Dark/System and selecting one calls setTheme", () => {
     setActive("harbor");
