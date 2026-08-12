@@ -417,9 +417,24 @@ describe("RichTextToolbar", () => {
     const { container } = render(
       <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />,
     );
-    const buttons = Array.from(container.querySelectorAll("button"));
+    // ★★★ READ THE ROW THROUGH THE SELECTOR THE RUNTIME USES. The handler walks
+    // `:scope > button` (DIRECT children); an earlier revision of this test
+    // counted `container.querySelectorAll("button")` (DESCENDANTS), and the two
+    // disagree the moment any control gains a wrapper element. Measured: wrap
+    // the Insert-link button in a bare <span> and this file stayed 31/31 GREEN
+    // while the widget broke — 14 controls in the arrow order instead of 15,
+    // "Insert link" unreachable by arrow, and `End` focusing "Remove link" while
+    // "Insert link" held the tab stop. Focus and the tab stop on two different
+    // controls is precisely what this test claims to prevent.
+    const row = container.querySelector<HTMLElement>('[role="toolbar"]');
+    if (row === null) throw new Error("toolbar row not found");
+    const buttons = Array.from(row.querySelectorAll<HTMLButtonElement>(":scope > button"));
     expect(buttons).toHaveLength(TOOLBAR_CONTROL_COUNT);
     expect(buttons.filter((b) => b.disabled)).toHaveLength(0);
+
+    // ★★ And fail LOUDLY on nesting rather than silently counting one fewer:
+    // any descendant button that is not a direct child is the drift above.
+    expect(row.querySelectorAll("button")).toHaveLength(buttons.length);
 
     // ★★ The count alone does NOT pin the ORDER, and the order is what the
     // roving arithmetic indexes into. Moving Link/Unlink ahead of the CONTROLS
@@ -443,6 +458,42 @@ describe("RichTextToolbar", () => {
     );
     await user.tab();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Text style" }));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "after the row" }));
+  });
+
+  // ★★★ THE MIXED MOUSE/KEYBOARD PATH, which a keyboard-only test cannot reach.
+  // The heading trigger is the ONE control that omits `preventFocusSteal`, so it
+  // is the one control a click can focus. Before this pin, the tab stop moved on
+  // KEYDOWN ONLY: arrowing to Italic and then clicking the trigger left focus on
+  // the trigger while the tab stop stayed on Italic, so the next Tab moved
+  // focus WITHIN the row — two tab stops, the exact defect §144(a) closes.
+  // ★★ Both clicks matter. One opens the menu (focus goes to a portaled item);
+  // the second closes it and returns focus to the trigger, which is the state
+  // that desynced. Deleting the row's onFocus handler turns this red.
+  it("keeps one tab stop after a click focuses the heading trigger", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(
+      <>
+        <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />
+        <button type="button">after the row</button>
+      </>,
+    );
+    await user.tab();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    const italic = screen.getByRole("button", { name: /^Italic/ });
+    expect(document.activeElement).toBe(italic);
+
+    const trigger = screen.getByRole("button", { name: "Text style" });
+    await user.click(trigger);
+    await user.click(trigger);
+    // Vacuity guard: if the click never focused the trigger there is no desync
+    // to detect and the Tab assertion below would pass for the wrong reason.
+    expect(document.activeElement).toBe(trigger);
+    expect(trigger.tabIndex).toBe(0);
+    expect(italic.tabIndex).toBe(-1);
+
     await user.tab();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "after the row" }));
   });

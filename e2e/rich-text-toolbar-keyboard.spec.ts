@@ -28,6 +28,18 @@ test("rich-text toolbar is one tab stop and arrows move within it", async ({ pag
 
   await page.getByRole("button", { name: "Text style" }).first().focus();
 
+  // ★★★ THE ROW MUST BE REACHABLE, and .focus() alone cannot show that — it
+  // succeeds on a tabIndex=-1 element. Without this assertion the spec passes
+  // unchanged in the one state that would make the whole feature unreachable:
+  // every control at -1, so no Tab can ever enter the row. That state is not
+  // hypothetical — it is exactly what a drifted `HANDLED` set produced
+  // (undefined activeIndex → every ternary yields -1), and this spec is the
+  // layer meant to backstop it.
+  const entryTabIndex = await page.evaluate(
+    () => (document.activeElement as HTMLElement | null)?.tabIndex ?? null,
+  );
+  expect(entryTabIndex, "the focused control must be the row's tab stop").toBe(0);
+
   // Tag the row the focused control belongs to, so the Tab assertion below
   // cannot accidentally test a different toolbar.
   const tagged = await page.evaluate(() => {
