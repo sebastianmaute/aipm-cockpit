@@ -79,11 +79,11 @@ describe("RichTextEditor", () => {
   // twelve `<RichTextEditor` mounts — measured, for four different reasons, and
   // axe is blind to a duplicate accessible name even where it does scan
   // (`docs/open-followups.md` §144 carries both).
-  it("names the toolbar group from the editor's own label prop", async () => {
+  it("names the toolbar from the editor's own label prop", async () => {
     setup({ label: "Impact description" });
     await screen.findByRole("textbox", { name: "Impact description" });
-    const group = screen.getByRole("group", { name: "Impact description" });
-    expect(within(group).getByRole("button", { name: "Bold" })).toBeTruthy();
+    const toolbar = screen.getByRole("toolbar", { name: "Impact description" });
+    expect(within(toolbar).getByRole("button", { name: "Bold" })).toBeTruthy();
   });
 
   it("renders a merge-field chip per field", async () => {
