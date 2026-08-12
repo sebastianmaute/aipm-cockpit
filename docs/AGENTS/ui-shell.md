@@ -240,11 +240,15 @@
   least three and read as though it followed the `role=grid` line directly above — a different axis (2-D grid
   vs 1-D row). Count the `*-roving.ts` engines plus the hand-rolled `tabIndex={… ? 0 : -1}` sites before
   writing any such number:
-  `ls src/app/*roving*.ts; grep -ln "tabIndex={.*? 0 : -1}" src/app/*.tsx`
-  ★★ Read that output at the right GRANULARITY — it lists the files carrying the ternary, which for the
+  `ls src/app/*roving*.ts | grep -v test; grep -ln "tabIndex={.*? 0 : -1}" src/app/*.tsx | grep -v test`
+  ★★ BOTH HALVES NEED THE `grep -v test` and an earlier revision of this line had neither — the raw `ls`
+  returns FIVE lines for THREE engines (`band-roving.test.ts` and `toolbar-roving.test.ts` are tests), and
+  the raw grep likewise includes `use-tablist-roving.test.tsx`. A reader following the instruction
+  literally got the exact over-count this note exists to prevent.
+  ★★ Read the output at the right GRANULARITY too — it lists the files carrying the ternary, which for the
   resource calendar are `resource-calendar-band.tsx` and `resource-calendar-rows.tsx`, NOT the
   `resource-calendar.tsx` orchestrator that declares the `role="grid"` itself. Counting output lines gives
-  you spellings, not widgets. The
+  you spellings, not widgets — which is the same error as the ordinal this note replaced, one level down. The
   pure engine is `toolbar-roving.ts` `moveToolbarFocus(count, index, key, modifiers)` — one tab stop per row
   (14 of 15 controls carry `tabIndex={-1}`); Left/Right move within the row and WRAP at either end; Home/End
   jump straight to the first/last control; a chord (Alt/Ctrl/Meta) is left alone so it falls through to the

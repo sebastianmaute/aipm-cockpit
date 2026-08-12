@@ -362,8 +362,13 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
     // requests and not one flags two controls sharing an accessible name (the
     // only adjacent rule, identical-links-same-purpose, is links-only and
     // wcag2aaa, which the spec never asks for). The multi-editor test in
-    // rich-text-toolbar.test.tsx is the only possible detector — a
-    // single-editor fixture passes with the role deleted.
+    // rich-text-toolbar.test.tsx is the only possible detector OF THE
+    // COLLISION: two controls sharing a name is not a property one editor has,
+    // so no single-editor fixture can express it.
+    // ★★ Do NOT restate that as "a single-editor fixture passes with the role
+    // deleted" — measured false, that mutation turns 5 tests red, 3 of them
+    // single-editor, because other tests pin the role ITSELF. A detector for
+    // "is the role there" is not a detector for "do two names collide".
     <div
       className="flex flex-wrap items-center gap-0.5"
       role={named ? "toolbar" : undefined}

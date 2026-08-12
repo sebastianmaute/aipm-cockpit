@@ -956,10 +956,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   mount editors as SIBLINGS in one form: `change-edit-modal.tsx` has three, `raid-edit-modal.tsx` two,
   `note-log-panel.tsx` two (composer + entry editor). An open change modal therefore carried three
   buttons named "Bold" and three more buttons named "Text style", with nothing tying one to the field it
-  acts on (WCAG 2.4.6). The row wraps in a NAMED landmark + `aria-label` fed from that `label`, so the
-  repeats are told apart by their container (WCAG technique ARIA17). ★ The ROLE on that wrapper was
-  `group` until 0.236.0 and is `toolbar` now — see the ★★★ note below for why the flip had to wait for
-  the keyboard contract. ARIA17 works the same either way; the containment is what disambiguates.
+  acts on (WCAG 2.4.6). The row wraps in a NAMED container — `role="toolbar"` + `aria-label` fed from
+  that `label` — so the repeats are told apart by their container. ★ The ROLE was `group` until 0.236.0
+  and is `toolbar` now; see the ★★★ note below for why the flip had to wait for the keyboard contract.
+  ★★ NEITHER ROLE IS A LANDMARK and the containment argument does NOT rest on WCAG technique ARIA17,
+  though an earlier revision of this line said both. `toolbar` and `group` are both ARIA `structure`
+  roles, so neither appears in a landmarks rotor
+  (`node -e 'const a=require("axe-core");console.log(a.commons.aria.getRoleType("toolbar"),
+  a.commons.aria.getRoleType("group"))'` → `structure structure`), and ARIA17's Tests Procedure names
+  only `group` and `radiogroup` — so the citation was valid in the `group` era and did NOT survive the
+  flip. The disambiguation stands on its own: a named container is what AT announces around the
+  repeats. ★ Both errors were introduced BY a correction that reached for a more general word to avoid
+  naming the retired role — the sentence it replaced was accurate.
   ★★ NAMED OR ABSENT, never generic — a blank or missing `label` renders the bare div with NO role.
   An unnamed group announces a boundary carrying no information, and three sibling groups all called
   "Formatting" disambiguate nothing while making the code look fixed. Both branches are pinned.
@@ -978,7 +986,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   nothing: `LINK_INDEX`/`UNLINK_INDEX` derive from `CONTROLS.length` DIRECTLY, and
   `TOOLBAR_CONTROL_COUNT` derives from `UNLINK_INDEX` — the count follows the indices, never the
   reverse — all pinned against the real DOM by a unit test that also pins the ORDER of the heading
-  trigger and the two link controls. A HAND-WRITTEN JSX button (Link and Unlink are exactly that)
+  trigger and the two link controls. A HAND-WRITTEN JSX button (there are THREE — the heading trigger,
+  Link and Unlink; the fourth `<ToolbarButton` site is the `CONTROLS.map`, so verify with
+  `grep -n "<ToolbarButton" src/app/rich-text-toolbar.tsx` rather than trusting this count)
   joins the ARROW order automatically, since the handler re-queries `:scope > button` live, but NOT
   the `tabIndex` wiring, which is a per-control `activeIndex === <CONST> ? 0 : -1` you must add by
   hand. Miss it and the button stays natively tabbable — a SECOND tab stop, i.e. the exact defect
@@ -990,8 +1000,16 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
   not one flagging two controls that share an accessible name; the only adjacent rule,
   `identical-links-same-purpose`, is links-only and `wcag2aaa`, which the spec never asks for). The
-  MULTI-editor unit test is the only possible detector — a single-editor fixture passes with the
-  wrapper's role and name deleted outright.
+  MULTI-editor unit test is the only possible detector OF THE COLLISION — two controls sharing a name
+  is not a property one editor has, so no single-editor fixture can express it at any assertion count.
+  ★★ STATE THAT AS THE COLLISION, NOT AS "a single-editor fixture passes with the role deleted" — two
+  successive revisions of this line said the latter and BOTH were false, the second measurably so.
+  Deleting `role` + `aria-label` from the wrapper turns **5** tests red, THREE of them single-editor
+  (`npx vitest run src/app/rich-text-toolbar.test.tsx --reporter=dot` after removing both attributes).
+  That is a different mutation from the one the sentence is about: other tests pin the role ITSELF, so
+  they fire on a single editor — including one made single-editor-sensitive by the very commit that
+  wrote the false claim. A detector for "is the role there" is not a detector for "do two names
+  collide", and conflating them is what made the sentence checkable and wrong.
   ★ WCAG 2.5.3 does NOT apply to any control in this row — every one is icon-only (`ariaLabel` carries
   the accessible name, `title` mirrors it as a hover tooltip; `ToolbarButton` also appends the on/off
   state to `title`, the DESCRIPTION), and 2.5.3 only constrains a control that HAS a visible label. This
