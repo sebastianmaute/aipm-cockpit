@@ -13,6 +13,10 @@
 
 <sub>The landing dashboard, loaded from the bundled demo project.</sub>
 
+![A guided tour of AI PM Cockpit: dashboard, next actions, Gantt, budget and the Claude assistant](public/demos/demo-aipm-cockpit.webm)
+
+<sub>Guided product tour (no audio). If your viewer does not play it inline, [download the clip](public/demos/demo-aipm-cockpit.webm).</sub>
+
 ---
 
 ## Why AI PM Cockpit
