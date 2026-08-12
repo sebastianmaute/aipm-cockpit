@@ -174,7 +174,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 127 | ~~Two of the six AI trigger hooks still never abort on unmount~~ | split out of §121 on 2026-08-08 | S each | **CLOSED 2026-08-08** in the review round that followed — both gained the cleanup-only effect, each mutation-proved. ★★ Filed then immediately closed on purpose: a follow-up is the right home for a decision, the wrong home for a one-liner with three precedents in the same file family. ★ `use-action-analysis.ts`’s guard was measured UNREACHABLE and applied as defence-in-depth — do not quote it as a shipped defect |
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
 | 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
-| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | open, a11y — none of the 90 axe scans reaches any of the 12 `<RichTextEditor` mounts, for FOUR different reasons (9 behind a modal/floating window · 1 behind a non-default Settings section · 1 in an unscanned view · 1 in a collapsed `<details>`), and `grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns nothing. `change-edit-modal.tsx` mounts up to three editors = 45 toolbar tab stops at the DEFAULT `advanced` tier, but only 30 in SIMPLE mode — its impact editor is gated by `isVisible("impact")` and `modal-fields.ts` tiers that field `advanced`. ★★ The refusal of `role="toolbar"` without roving tabindex is CORRECT — the tab-stop count is its price, not an argument against it |
+| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED 2026-08-12** — (b) closed the a11y-gate reachability gap; (a) built the roving-tabindex keyboard contract in `toolbar-roving.ts` + `rich-text-toolbar.tsx` and flipped `role="group"` to `role="toolbar"`, cutting the row from 15 tab stops to 1. Mutation-proved (portal guard 1 red, `tabIndex` ternary 3 red) and browser-proved (`e2e/rich-text-toolbar-keyboard.spec.ts`). Full closing detail in the entry below |
 
 ★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
 Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
@@ -9134,7 +9134,7 @@ is explicit that it is not the type change the entry asked for:** *"This does no
 impossible — a caller can still import the wrong constant — but it removes the 'typo a string
 literal' failure mode and makes the intended sink searchable."* `RichTextSink` is still the plain
 union `"rich" | "document" | "projection" | "render"`, not an opaque/branded type, so nothing stops a
-call site from writing `"render"` by hand instead of importing `RENDER_SINK` — and several still do:
+call site from writing `"render"` by hand instead of importing `RENDER_SINK` — and MOST still do:
 `doc-render-docx.ts` and `doc-render-pptx.ts` (the two OOXML renderers — `doc-render-html.ts` was the
 one HTML renderer converted, they were not), `ai-rich-text.ts` (all four model-write boundaries),
 `note-log.ts`, `templates.ts`, and `use-resource-planner.ts`'s RAID mirror all still pass a raw
@@ -9142,9 +9142,61 @@ literal — unconverted BY DESIGN, matching the CHANGELOG's "highest-risk call s
 oversight. The real type-level guard (option (1) as originally scoped, or option (2)'s per-boundary
 table test for the remaining sites) is still open.
 
+### 2026-08-12 — ONE PAIR IS AN EQUIVALENT MUTANT AFTER ALL, and it is the pair nothing converted
+
+★★★ **The ★★ "the mutants are NOT equivalent" claim above is true for the pairs it measured and
+FALSE for one it never tried.** `document` ↔ `projection` is indistinguishable **by construction**,
+so for that pair "equivalent mutant" is the ANSWER, not the open question §131 says a harness cannot
+decide for you. The proof is three lines of the source, not a sample:
+
+* `SINK_TAGS.projection` and `SINK_TAGS.document` are the **same array reference**
+  (`DOCUMENT_ALLOWED_TAGS` — and that array is itself `[...RICH_ALLOWED_TAGS, "img"]`).
+* `SINK_RE` derives each member as `htmlStartRe(SINK_TAGS[sink])`.
+* `htmlStartRe` is a pure function of the array's contents, so the two regexes have identical
+  `source` and identical flags.
+
+Therefore **no input distinguishes them, for all inputs, permanently** — as long as the two keep
+deriving from one list. Confirmed empirically alongside the construction argument: a probe over every
+tag in the widest list plus the mid-string, unlisted-tag and non-markup shapes reports `0`
+distinguishing inputs for that pair, against `<img>`-leading for `rich` ↔ `document` and mid-string
+tags for anything ↔ `render`.
+
+★★★ **Branded constants cannot help here, so this is not a "convert the rest" item.** Importing
+`DOCUMENT_SINK` where `PROJECTION_SINK` belongs is exactly as swappable as the literal was, and
+exactly as green. It is the one pair where option (1) and option (2) BOTH fail — (2)'s per-boundary
+table test needs a distinguishing value, and none exists.
+
+★★ **And that pair is 100% unconverted.** `rich-text-projection.ts` holds both `"projection"` sites
+and `ai-rich-text.ts` holds both `"document"` sites; none of the four was touched. So the conversion
+went to the pairs a fixture CAN catch and left untouched the only pair a fixture never can.
+
+★★ **The enumeration above is INCOMPLETE — it names 9 of the 25 unconverted sites**, which is why
+"several" is now "MOST". Missing entirely: the three edit modals (`change-edit-modal.tsx` 7 sites,
+`raid-edit-modal.tsx` 5, `milestone-edit-modal.tsx` 2) and `rich-text-projection.ts` (2) — 16 sites,
+the largest block of them. Those are display/upgrade boundaries rather than storage classifiers,
+which is a fair reason to deprioritise them and not a reason to omit them from a list that reads as
+exhaustive. Counts, and the command that produces them (run it — 8 + 25 = 33 must hold):
+
+```bash
+# still raw literals: 25
+git grep -nE 'descriptionHtml\(|sanitizeRichText\(|isHtmlStart\(' -- 'src/app/*.ts' 'src/app/*.tsx' \
+  | grep -v '\.test\.' | grep -E '"(rich|document|projection|render)"' | grep -vE ':[0-9]+: *\*' | grep -c .
+# converted to constants: 8
+git grep -nE 'RICH_SINK|DOCUMENT_SINK|PROJECTION_SINK|RENDER_SINK' -- 'src/app/*.ts' 'src/app/*.tsx' \
+  | grep -v '\.test\.' | grep -vE 'export const|import ' | grep -c .
+```
+
+★ **What would actually close the undetectable pair**, in ascending cost: (a) a CONSTRUCTION test —
+assert `SINK_TAGS.projection` is `SINK_TAGS.document` and that `htmlStartRe` yields the same `source`
+for both, which pins the PREMISE rather than a behaviour and goes red the moment they diverge, at
+which point a fixture becomes possible and should be written; or (b) containment — collapse the sink
+literal to one line per boundary behind named functions, so confusing the two requires editing one
+module rather than passing a different string at any of 33 sites. (a) is a handful of lines and is
+the honest minimum: it converts an untestable pair into a tested premise. Neither is done.
+
 ---
 
-## 144. The new rich-text toolbar is invisible to every gate in the repo — (b) CLOSED 2026-08-12, (a) open, a11y, measured
+## 144. The new rich-text toolbar is invisible to every gate in the repo — CLOSED 2026-08-12, a11y, measured
 
 Opened 2026-08-11 with the toolbar that `unify-rich-text-s1` shipped. Fifteen controls per editor —
 twelve `ToggleButton`s (`BLOCKS` + `MARKS`), Insert link, Remove link, and the heading menu trigger
@@ -9257,6 +9309,106 @@ section, the one on the unscanned `steering-committee` view, and the one inside 
 are exactly as unreachable as before. **(a), the roving-`tabindex` keyboard contract, is UNCHANGED and
 is still the real answer** — this entry stays open for it.
 
+### (a) CLOSED 2026-08-12 — the roving-tabindex keyboard contract
+
+**What shipped, in commit order:** the pure engine `toolbar-roving.ts` `moveToolbarFocus(count, index,
+key, modifiers)` (tsc-exhaustive over a `HandledKey` union, no `default:` arm); the roving
+`activeIndex` state + `handleRowKeyDown` + `tabIndex` wiring on all fifteen controls in
+`rich-text-toolbar.tsx`; THEN `role={named ? "toolbar" : undefined}` (was `"group"`). That order is the
+whole point — the role change is a consequence of the behaviour existing, not the other way round.
+**Tab stops: 15 → 1 per row.**
+
+★★★ **A COLD REVIEW OF THE FINISHED, ALL-GATES-GREEN BRANCH REFUTED TWO OF ITS OWN CLAIMS.** Both had
+been written into code comments AND into this entry as settled fact, and every gate passed over both.
+
+(1) **"tsc-exhaustive" was FALSE, and it failed in the worst direction.** `HANDLED` was
+`new Set<string>(...)`, declared independently of the `HandledKey` union, so adding `"PageDown"` to it
+without a `case` compiled clean (measured: `TSC_EXIT=0`). `isHandledKey` then returns true for a key the
+switch cannot match, the switch falls off its end returning **`undefined`** — not `null` — and the
+caller's `if (next === null) return` does NOT catch it. Result: `preventDefault` fires, `activeIndex`
+becomes `undefined`, every `activeIndex === N ? 0 : -1` yields `-1`, and **the entire row silently
+leaves the tab order** with a green typecheck and a green suite. The union half of the claim was always
+true (widening `HandledKey` without a `case` is TS2366); the half the comment actually named was not.
+Fixed by typing the set `Set<HandledKey>` and casting only at the `.has` lookup — a `ReadonlySet<HandledKey>`
+annotation alone does NOT compile, because `.has` then rejects a `string`. ★ No test can catch this
+class: the suite's unhandled-key list is hardcoded and the property test draws only from the four
+handled keys. The TYPE is the only detector, which is why it has to be a real one.
+
+(2) **`TOOLBAR_CONTROL_COUNT` could drift from the DOM after all.** The runtime walks
+`:scope > button` (direct children); the count test walked `container.querySelectorAll("button")`
+(descendants). Wrapping one control in a bare `<span>` left the file **31/31 GREEN** while the widget
+broke — 14 controls in the arrow order, "Insert link" unreachable by arrow, and `End` focusing "Remove
+link" while "Insert link" held the tab stop. Focus and the tab stop on two different controls is the
+exact thing that test claims to prevent. The test now reads the row through the runtime's own selector
+and additionally asserts descendant-count === child-count. Re-measured after the fix: the same mutant
+goes **0 red → 1 red**. ★ The durable rule: **a test that pins a runtime invariant must query the DOM
+the way the runtime does.** A different selector is a different claim.
+
+★★ **A THIRD defect was functional, not documentary: the tab stop moved on KEYDOWN ONLY.** The state
+model was justified in-comment by "every control passes `preventFocusSteal`, so a click never focuses a
+toolbar button". The heading trigger deliberately omits it — `rich-text-toolbar-button.tsx` says so, and
+the slice's own tests filter that control out for that reason — so the premise was contradicted three
+files over. Measured: Tab in, ArrowRight ×2 (tab stop → Italic), click the trigger twice to open and
+close its menu; focus lands on the trigger while the tab stop stays on Italic, so the next Tab moves
+**within** the row. Two tab stops, on a mixed mouse/keyboard path, i.e. this very item's defect
+reopened. Fixed with the APG shape — a row-level `onFocus` that syncs `activeIndex` from the focused
+control — which covers click, programmatic focus, and any future control that opts out, rather than
+only the route the keydown handler knows. Pinned by "keeps one tab stop after a click focuses the
+heading trigger", which carries a vacuity guard (it asserts the click actually focused the trigger
+first) and turns **1 red** when the `onFocus` wiring is deleted.
+
+★ **NOT fixed here, deliberately:** Escape inside the heading menu drops focus to `document.body`
+rather than returning it to the trigger, leaving the row arrow-dead. It is PRE-EXISTING (`PopoverPanel`
+has never restored focus) and the tempting one-liner — focus the trigger from `closeHeadingMenu` — is
+WRONG: that callback carries no reason and fires for Escape, outside-click AND resize alike, so it
+would steal focus on an outside click. A correct fix needs a reason on `PopoverPanel.onClose`, which is
+a shared primitive with many consumers and does not belong in an a11y slice for one row. Recorded as
+its own item rather than half-fixed.
+
+**Mutation counts, exactly as measured (not "mutation-proved" — the numbers):**
+- Portal guard (`if (current === -1) return;` inside `handleRowKeyDown`) — **1 red**, scoped to the
+  single heading-menu-open test (`"does not rove while the heading menu is open"`) to isolate it from
+  unrelated noise from the pending role flip at the time it was run. A vacuity check ran first:
+  `document.activeElement` was asserted to equal the focused menu item BEFORE the `ArrowRight` press,
+  confirming focus had genuinely reached the portaled menu — so the 1-red result could not have been a
+  false negative from a test that never exercised the guard.
+- `tabIndex` ternary on the `CONTROLS.map` control (mutated to a bare `tabIndex={0}`) — **3 red**
+  (`"puts every control but the active one out of the tab order"`,
+  `"is a single tab stop: a second Tab leaves the row entirely"`,
+  `"keeps two mounted rows roving independently"`). Both mutations were restored before committing;
+  `git diff --stat` confirmed no stray leftovers.
+
+**Blast radius of the `group` → `toolbar` role flip, the real shape (not predicted, discovered by
+RUNNING the suite): 6 `getByRole`/`queryByRole("group", …)` assertions across 4 tests in 3 files.**
+The four are: `rich-text-toolbar.test.tsx` `"names the row after the editor it acts on"` (1) and
+`"keeps two mounted rows apart — each control resolves inside its own group"` (2);
+`rich-text-editor.test.tsx` `"names the toolbar group from the editor's own label prop"` (1); and
+`note-log-panel.test.tsx` `"keeps two mounted panels apart — the editors carry the suffix, not just
+the mics"` (2 in one test). NONE was named in the original dispatch plan; all four were found by
+running the file.
+★★★ **8 `("group")` ASSERTIONS EXISTED AT BASE AND ONLY 6 BROKE — the gap is the lesson, not a
+rounding error.** The other two (`"renders no group at all when there is no name for it"`,
+`"treats a blank label as no name, not as an empty one"`) assert `queryByRole("group")` is NULL, and
+an UNNAMED row renders no role under either regime, so they passed unchanged through the flip and
+still sit at HEAD. So the two obvious methods disagree in opposite directions: enumerating test
+TITLES from memory undercounts (it produced 4, and 2 of those carried none of the 6), while grepping
+the retiring role string overcounts (it produces 8). Grep is still the right tool — it is the only
+one that cannot silently miss a call site — but its hits need triage: an assertion that the role is
+ABSENT is role-agnostic and survives a rename.
+★★ An earlier revision of this paragraph credited two of the four to the ORIGINAL dispatch plan
+("the pinned-null test, the two-row roving test"). Both were false: the pinned-null test asserted
+`queryByRole("toolbar")`, never `("group")`, and the two-row roving test DID NOT EXIST at base — this
+slice added it. A cold reviewer then "verified the figure exactly right" while quoting a command
+(`grep 'byRole("group"'`) that CANNOT match `getByRole("group"` — lowercase `b` against a capital
+`B` — so the confirmation was luck, not measurement, and it confirmed a headline that was right for
+reasons neither of us had checked. Reproduce with the correct case:
+`git show <base>:src/app/<f>.test.tsx | grep -c 'ByRole("group"'`
+
+**Browser-level proof:** `e2e/rich-text-toolbar-keyboard.spec.ts` reuses (b)'s reachable mount (the
+floating notes window off Open Points' notes badge) to drive a REAL browser: focuses the heading
+trigger, asserts `ArrowRight` moves focus to Bold without changing `.ProseMirror`'s content, and
+asserts one `Tab` leaves the tagged toolbar row entirely. Passed on the first run.
+
 ## 145. Two icon packages now coexist, and the migration decision behind it lives nowhere durable — open, a decision, measured
 
 Opened 2026-08-11 with the icon-only rich-text toolbar (`0.233.0 "Reed"`). `rich-text-toolbar.tsx`
@@ -9290,3 +9442,35 @@ that heroicons remains the default for new code and lucide-react is scoped to
 `rich-text-toolbar.tsx` until a dedicated migration slice says otherwise; or (b) actually run the
 app-wide migration as its own brainstormed project, which retires the question rather than
 documenting it. Neither has been done — this entry is (a) done partially, by existing at all.
+
+## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
+
+Found by a cold review of the §144(a) branch, deliberately NOT fixed there. PRE-EXISTING and app-wide:
+`PopoverPanel` has never returned focus to its trigger, and the §144(a) diff does not change that.
+
+Measured on the rich-text toolbar's heading menu, primary keyboard path:
+
+```
+Tab -> "Text style"   Enter -> focus on "Normal text" (menu item)   Escape ->
+  document.activeElement = BODY, inside row? false
+  ArrowRight -> still BODY (the row's portal guard correctly refuses to act)
+```
+
+So a keyboard user who opens a style menu and changes their mind is dumped to the top of the
+document, and the toolbar they were in goes arrow-dead. WCAG 2.4.3 (focus order) at minimum.
+
+★★★ **THE OBVIOUS ONE-LINE FIX IS WRONG, which is why this is an entry and not a commit.** Focusing
+the trigger from the caller's `closeHeadingMenu` looks right and is not: `PopoverPanel.onClose` takes
+NO reason and is invoked identically for Escape, for an outside click, and for a window resize
+(`popover-panel.tsx` — the dismiss hook, the outside-click listener, and the resize listener all call
+the same bare callback). Restoring focus unconditionally would therefore YANK FOCUS BACK TO THE
+TRIGGER when the user clicks somewhere else entirely — a worse bug than the one being fixed, and one
+that would land on every consumer of the primitive at once.
+
+### Closing it
+
+Give `onClose` a reason (`"escape" | "outside" | "resize"`) and restore focus on `"escape"` only —
+the APG rule, and the only variant that distinguishes intent. That is a change to a SHARED primitive
+with many call sites, so it wants its own slice with a sweep of every consumer, not a rider on a
+single row's a11y work. ★ Until then, do not add a focus-restore to any individual consumer: one
+consumer restoring focus while its siblings do not is a worse inconsistency than the uniform gap.

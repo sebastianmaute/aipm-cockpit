@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "@tiptap/react";
-import { RichTextToolbar } from "./rich-text-toolbar";
+import { RichTextToolbar, TOOLBAR_CONTROL_COUNT } from "./rich-text-toolbar";
 import { EXTENSIONS } from "./rich-text-editor";
 
 // ★★★ THE STUB BELOW IS STRUCTURALLY BLIND TO A WHOLE DEFECT CLASS, and one
@@ -179,10 +179,10 @@ describe("RichTextToolbar", () => {
   it("names the row after the editor it acts on", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
-    expect(screen.getByRole("group", { name: "Description" })).toBeTruthy();
+    expect(screen.getByRole("toolbar", { name: "Description" })).toBeTruthy();
   });
 
-  it("keeps two mounted rows apart — each control resolves inside its own group", async () => {
+  it("keeps two mounted rows apart — each control resolves inside its own toolbar", async () => {
     const a = makeEditor();
     const b = makeEditor();
     render(
@@ -195,15 +195,15 @@ describe("RichTextToolbar", () => {
     expect(screen.getAllByRole("button", { name: "Bold" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Text style" })).toHaveLength(2);
 
-    // …and the group boundary is what resolves them. Assert the RELATIONSHIP,
-    // not the count: two groups could both be named "Description" and every
-    // count assertion here would still pass.
-    const description = screen.getByRole("group", { name: "Description" });
-    const mitigation = screen.getByRole("group", { name: "Mitigation" });
+    // …and the toolbar boundary is what resolves them. Assert the
+    // RELATIONSHIP, not the count: two toolbars could both be named
+    // "Description" and every count assertion here would still pass.
+    const description = screen.getByRole("toolbar", { name: "Description" });
+    const mitigation = screen.getByRole("toolbar", { name: "Mitigation" });
     const boldInDescription = within(description).getByRole("button", { name: "Bold" });
     const boldInMitigation = within(mitigation).getByRole("button", { name: "Bold" });
     expect(boldInDescription).not.toBe(boldInMitigation);
-    // Each group holds exactly one of each repeated control, so neither group
+    // Each toolbar holds exactly one of each repeated control, so neither one
     // contains the other's row.
     expect(within(description).getAllByRole("button", { name: "Bold" })).toHaveLength(1);
     expect(within(mitigation).getAllByRole("button", { name: "Text style" })).toHaveLength(1);
@@ -216,22 +216,28 @@ describe("RichTextToolbar", () => {
     expect(a.run).not.toHaveBeenCalled();
   });
 
-  // ★★ `group` and NOT `toolbar`: the APG toolbar pattern is a keyboard
-  //    contract (one tab stop, roving tabindex, arrow keys between controls)
-  //    that this row does not implement — every control is its own tab stop.
-  it("does not claim the toolbar role, whose keyboard contract it does not honour", () => {
+  // ★★ The refusal this replaces was CORRECT for as long as it stood: the APG
+  // toolbar role is a KEYBOARD CONTRACT (one tab stop, roving tabindex,
+  // Left/Right between controls), and declaring it without the behaviour tells
+  // an AT user to press arrow keys that do nothing. The price was 15 tab stops
+  // per editor and up to 45 in change-edit-modal. §144(a) built the contract,
+  // so the role follows it — that order is the whole point, and this test now
+  // pins the opposite of what it used to.
+  it("claims the toolbar role, whose keyboard contract it now honours", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
-    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(screen.getByRole("toolbar", { name: "Description" })).toBeTruthy();
+    expect(screen.queryByRole("group")).toBeNull();
   });
 
-  // ★★ An UNNAMED group is worse than no group — it announces a boundary
+  // ★★ An UNNAMED toolbar is worse than no toolbar — it announces a boundary
   //    carrying no information. So no label means no role at all, and in
-  //    particular never a generic fallback: three sibling groups all called
+  //    particular never a generic fallback: three sibling toolbars all called
   //    "Formatting" disambiguate nothing while looking fixed.
-  it("renders no group at all when there is no name for it", () => {
+  it("renders no role at all when there is no name for it", () => {
     const { editor } = makeEditor();
     const { container } = render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    expect(screen.queryByRole("toolbar")).toBeNull();
     expect(screen.queryByRole("group")).toBeNull();
     const row = container.firstElementChild;
     expect(row?.hasAttribute("aria-label")).toBe(false);
@@ -243,6 +249,7 @@ describe("RichTextToolbar", () => {
   it("treats a blank label as no name, not as an empty one", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" label="   " onAddLink={() => {}} />);
+    expect(screen.queryByRole("toolbar")).toBeNull();
     expect(screen.queryByRole("group")).toBeNull();
   });
 
@@ -381,6 +388,200 @@ describe("RichTextToolbar", () => {
       const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
       screen.getByRole("button", { name }).dispatchEvent(ev);
       expect(ev.defaultPrevented).toBe(true);
+    }
+  });
+
+  // ★★ `<button>` is NATIVELY tabbable, so marking one control tabIndex={0}
+  // does nothing on its own — every other control stays reachable and the
+  // tab-stop count is unchanged. The -1 on the other fourteen is the line the
+  // whole slice's user-visible claim rests on.
+  it("puts every control but the active one out of the tab order", () => {
+    const { editor } = makeEditor();
+    const { container } = render(
+      <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />,
+    );
+    const buttons = Array.from(container.querySelectorAll("button"));
+    expect(buttons.filter((b) => b.tabIndex === 0)).toHaveLength(1);
+    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(buttons.length - 1);
+  });
+
+  // ★ Pins the index arithmetic against the DOM. The constants below are
+  // derived from CONTROLS.length rather than hardcoded, and this is what stops
+  // them drifting from the JSX if a control is added or removed.
+  // ★★ It ALSO pins the no-disabled invariant: no control in this row is ever
+  // disabled today, which is why the roving engine needs no skip-disabled
+  // logic. Adding a disabled control turns this red and forces that decision
+  // rather than silently breaking the arrow order.
+  it("has TOOLBAR_CONTROL_COUNT enabled buttons and no disabled one", () => {
+    const { editor } = makeEditor();
+    const { container } = render(
+      <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />,
+    );
+    // ★★★ READ THE ROW THROUGH THE SELECTOR THE RUNTIME USES. The handler walks
+    // `:scope > button` (DIRECT children); an earlier revision of this test
+    // counted `container.querySelectorAll("button")` (DESCENDANTS), and the two
+    // disagree the moment any control gains a wrapper element. Measured: wrap
+    // the Insert-link button in a bare <span> and this file stayed 31/31 GREEN
+    // while the widget broke — 14 controls in the arrow order instead of 15,
+    // "Insert link" unreachable by arrow, and `End` focusing "Remove link" while
+    // "Insert link" held the tab stop. Focus and the tab stop on two different
+    // controls is precisely what this test claims to prevent.
+    const row = container.querySelector<HTMLElement>('[role="toolbar"]');
+    if (row === null) throw new Error("toolbar row not found");
+    const buttons = Array.from(row.querySelectorAll<HTMLButtonElement>(":scope > button"));
+    expect(buttons).toHaveLength(TOOLBAR_CONTROL_COUNT);
+    expect(buttons.filter((b) => b.disabled)).toHaveLength(0);
+
+    // ★★ And fail LOUDLY on nesting rather than silently counting one fewer:
+    // any descendant button that is not a direct child is the drift above.
+    expect(row.querySelectorAll("button")).toHaveLength(buttons.length);
+
+    // ★★ The count alone does NOT pin the ORDER, and the order is what the
+    // roving arithmetic indexes into. Moving Link/Unlink ahead of the CONTROLS
+    // map keeps the count at 15 and would silently redirect every arrow key.
+    expect(buttons[0].getAttribute("aria-label")).toBe("Text style");
+    expect(buttons[TOOLBAR_CONTROL_COUNT - 2].getAttribute("aria-label")).toBe("Insert link");
+    expect(buttons[TOOLBAR_CONTROL_COUNT - 1].getAttribute("aria-label")).toBe("Remove link");
+  });
+
+  // ★★★ THE SECOND TAB IS THE ASSERTION. A first Tab lands on control 1
+  // whether or not the roving works — only the second one distinguishes a
+  // single-tab-stop row from fifteen tab stops.
+  it("is a single tab stop: a second Tab leaves the row entirely", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(
+      <>
+        <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />
+        <button type="button">after the row</button>
+      </>,
+    );
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Text style" }));
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "after the row" }));
+  });
+
+  // ★★★ THE MIXED MOUSE/KEYBOARD PATH, which a keyboard-only test cannot reach.
+  // The heading trigger is the ONE control that omits `preventFocusSteal`, so it
+  // is the one control a click can focus. Before this pin, the tab stop moved on
+  // KEYDOWN ONLY: arrowing to Italic and then clicking the trigger left focus on
+  // the trigger while the tab stop stayed on Italic, so the next Tab moved
+  // focus WITHIN the row — two tab stops, the exact defect §144(a) closes.
+  // ★★ Both clicks matter. One opens the menu (focus goes to a portaled item);
+  // the second closes it and returns focus to the trigger, which is the state
+  // that desynced. Deleting the row's onFocus handler turns this red.
+  it("keeps one tab stop after a click focuses the heading trigger", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(
+      <>
+        <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />
+        <button type="button">after the row</button>
+      </>,
+    );
+    await user.tab();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    const italic = screen.getByRole("button", { name: /^Italic/ });
+    expect(document.activeElement).toBe(italic);
+
+    const trigger = screen.getByRole("button", { name: "Text style" });
+    await user.click(trigger);
+    await user.click(trigger);
+    // Vacuity guard: if the click never focused the trigger there is no desync
+    // to detect and the Tab assertion below would pass for the wrong reason.
+    expect(document.activeElement).toBe(trigger);
+    expect(trigger.tabIndex).toBe(0);
+    expect(italic.tabIndex).toBe(-1);
+
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "after the row" }));
+  });
+
+  // ★★★ THE PIN THAT CATCHES REUSING useTablistRoving, whose move ends in
+  // `target.click()`. Under that helper this ArrowRight would have run
+  // toggleBold and mutated the document. A toolbar moves focus and nothing else.
+  it("moves focus with ArrowRight and runs no command", async () => {
+    const user = userEvent.setup();
+    const { editor, run } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    await user.tab();
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Bold" }));
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("wraps with ArrowLeft and jumps with Home/End", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    await user.tab();
+    await user.keyboard("{ArrowLeft}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove link" }));
+    await user.keyboard("{Home}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Text style" }));
+    await user.keyboard("{End}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove link" }));
+  });
+
+  // ★★ A SINGLE-TOOLBAR FIXTURE CANNOT SEE THIS. change-edit-modal.tsx mounts
+  // three rows; each must rove within itself.
+  it("keeps two mounted rows roving independently", async () => {
+    const user = userEvent.setup();
+    const a = makeEditor();
+    const b = makeEditor();
+    render(
+      <>
+        <RichTextToolbar editor={a.editor} lang="en-US" label="Description" onAddLink={() => {}} />
+        <RichTextToolbar editor={b.editor} lang="en-US" label="Mitigation" onAddLink={() => {}} />
+      </>,
+    );
+    const rowB = screen.getByRole("toolbar", { name: "Mitigation" });
+    await user.tab();
+    await user.tab(); // out of row A, into row B's single stop
+    expect(within(rowB).getByRole("button", { name: "Text style" })).toBe(document.activeElement);
+    await user.keyboard("{ArrowRight}");
+    expect(within(rowB).getByRole("button", { name: "Bold" })).toBe(document.activeElement);
+  });
+
+  // ★★★ Pins the portal guard. PopoverPanel renders through createPortal to
+  // document.body, but React synthetic events bubble the REACT tree, so this
+  // ArrowRight can reach the row's onKeyDown even though the focused menu item
+  // is nowhere inside the row in the DOM. Without the guard the row would rove
+  // underneath the open menu.
+  it("does not rove while the heading menu is open", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    const trigger = screen.getByRole("button", { name: "Text style" });
+    await user.click(trigger);
+    const menu = await screen.findByRole("dialog", { name: "Text style" });
+    const firstItem = within(menu).getAllByRole("button")[0];
+    act(() => firstItem.focus());
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(firstItem);
+  });
+
+  // ★★ activeIndex is keyboard-only BECAUSE no control takes focus on click.
+  // A control missing preventFocusSteal would both steal the editor selection
+  // its command reads AND desync the roving state, so pin the whole row rather
+  // than the two controls the older tests happened to cover.
+  it("suppresses the mousedown default on every control that runs a command", () => {
+    const { editor } = makeEditor();
+    const { container } = render(
+      <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />,
+    );
+    const buttons = Array.from(container.querySelectorAll("button"));
+    // The heading trigger deliberately omits it — opening a popover does not
+    // blur the contenteditable the way a mark command's focus does.
+    const commandButtons = buttons.filter(
+      (b) => b.getAttribute("aria-label") !== "Text style",
+    );
+    expect(commandButtons).toHaveLength(TOOLBAR_CONTROL_COUNT - 1);
+    for (const button of commandButtons) {
+      const event = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+      button.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
     }
   });
 });

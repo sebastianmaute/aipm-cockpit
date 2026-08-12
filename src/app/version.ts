@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.235.0";
-export const APP_BUILD_DATE = "2026-08-12"; // 0.235.0: Beacon becomes the default color theme; rich-text edit modals open bigger; Kanban columns flex-fill; the AI Assistant button now hides correctly when AI is off (Lackey)
+export const APP_VERSION = "0.236.0";
+export const APP_BUILD_DATE = "2026-08-12"; // 0.236.0: the rich-text formatting toolbar is now a single tab stop with arrow-key navigation between its buttons (Sheldon)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.235.x line is "Lackey" (Mercedes Lackey, prolific fantasy author).
  *  0.234.x was "Anders" (Charlie Jane Anders, contemporary SF/fantasy author).
@@ -19,7 +19,7 @@ export const APP_BUILD_DATE = "2026-08-12"; // 0.235.0: Beacon becomes the defau
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Lackey";
+export const APP_MILESTONE = "Sheldon";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
