@@ -179,10 +179,10 @@ describe("RichTextToolbar", () => {
   it("names the row after the editor it acts on", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
-    expect(screen.getByRole("group", { name: "Description" })).toBeTruthy();
+    expect(screen.getByRole("toolbar", { name: "Description" })).toBeTruthy();
   });
 
-  it("keeps two mounted rows apart — each control resolves inside its own group", async () => {
+  it("keeps two mounted rows apart — each control resolves inside its own toolbar", async () => {
     const a = makeEditor();
     const b = makeEditor();
     render(
@@ -195,15 +195,15 @@ describe("RichTextToolbar", () => {
     expect(screen.getAllByRole("button", { name: "Bold" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Text style" })).toHaveLength(2);
 
-    // …and the group boundary is what resolves them. Assert the RELATIONSHIP,
-    // not the count: two groups could both be named "Description" and every
-    // count assertion here would still pass.
-    const description = screen.getByRole("group", { name: "Description" });
-    const mitigation = screen.getByRole("group", { name: "Mitigation" });
+    // …and the toolbar boundary is what resolves them. Assert the
+    // RELATIONSHIP, not the count: two toolbars could both be named
+    // "Description" and every count assertion here would still pass.
+    const description = screen.getByRole("toolbar", { name: "Description" });
+    const mitigation = screen.getByRole("toolbar", { name: "Mitigation" });
     const boldInDescription = within(description).getByRole("button", { name: "Bold" });
     const boldInMitigation = within(mitigation).getByRole("button", { name: "Bold" });
     expect(boldInDescription).not.toBe(boldInMitigation);
-    // Each group holds exactly one of each repeated control, so neither group
+    // Each toolbar holds exactly one of each repeated control, so neither one
     // contains the other's row.
     expect(within(description).getAllByRole("button", { name: "Bold" })).toHaveLength(1);
     expect(within(mitigation).getAllByRole("button", { name: "Text style" })).toHaveLength(1);
@@ -216,22 +216,28 @@ describe("RichTextToolbar", () => {
     expect(a.run).not.toHaveBeenCalled();
   });
 
-  // ★★ `group` and NOT `toolbar`: the APG toolbar pattern is a keyboard
-  //    contract (one tab stop, roving tabindex, arrow keys between controls)
-  //    that this row does not implement — every control is its own tab stop.
-  it("does not claim the toolbar role, whose keyboard contract it does not honour", () => {
+  // ★★ The refusal this replaces was CORRECT for as long as it stood: the APG
+  // toolbar role is a KEYBOARD CONTRACT (one tab stop, roving tabindex,
+  // Left/Right between controls), and declaring it without the behaviour tells
+  // an AT user to press arrow keys that do nothing. The price was 15 tab stops
+  // per editor and up to 45 in change-edit-modal. §144(a) built the contract,
+  // so the role follows it — that order is the whole point, and this test now
+  // pins the opposite of what it used to.
+  it("claims the toolbar role, whose keyboard contract it now honours", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
-    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(screen.getByRole("toolbar", { name: "Description" })).toBeTruthy();
+    expect(screen.queryByRole("group")).toBeNull();
   });
 
-  // ★★ An UNNAMED group is worse than no group — it announces a boundary
+  // ★★ An UNNAMED toolbar is worse than no toolbar — it announces a boundary
   //    carrying no information. So no label means no role at all, and in
-  //    particular never a generic fallback: three sibling groups all called
+  //    particular never a generic fallback: three sibling toolbars all called
   //    "Formatting" disambiguate nothing while looking fixed.
-  it("renders no group at all when there is no name for it", () => {
+  it("renders no role at all when there is no name for it", () => {
     const { editor } = makeEditor();
     const { container } = render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
+    expect(screen.queryByRole("toolbar")).toBeNull();
     expect(screen.queryByRole("group")).toBeNull();
     const row = container.firstElementChild;
     expect(row?.hasAttribute("aria-label")).toBe(false);
@@ -243,6 +249,7 @@ describe("RichTextToolbar", () => {
   it("treats a blank label as no name, not as an empty one", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" label="   " onAddLink={() => {}} />);
+    expect(screen.queryByRole("toolbar")).toBeNull();
     expect(screen.queryByRole("group")).toBeNull();
   });
 
@@ -478,11 +485,29 @@ describe("RichTextToolbar", () => {
         <RichTextToolbar editor={b.editor} lang="en-US" label="Mitigation" onAddLink={() => {}} />
       </>,
     );
-    const rowB = screen.getByRole("group", { name: "Mitigation" });
+    const rowB = screen.getByRole("toolbar", { name: "Mitigation" });
     await user.tab();
     await user.tab(); // out of row A, into row B's single stop
     expect(within(rowB).getByRole("button", { name: "Text style" })).toBe(document.activeElement);
     await user.keyboard("{ArrowRight}");
     expect(within(rowB).getByRole("button", { name: "Bold" })).toBe(document.activeElement);
+  });
+
+  // ★★★ Pins the portal guard. PopoverPanel renders through createPortal to
+  // document.body, but React synthetic events bubble the REACT tree, so this
+  // ArrowRight can reach the row's onKeyDown even though the focused menu item
+  // is nowhere inside the row in the DOM. Without the guard the row would rove
+  // underneath the open menu.
+  it("does not rove while the heading menu is open", async () => {
+    const user = userEvent.setup();
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    const trigger = screen.getByRole("button", { name: "Text style" });
+    await user.click(trigger);
+    const menu = await screen.findByRole("dialog", { name: "Text style" });
+    const firstItem = within(menu).getAllByRole("button")[0];
+    act(() => firstItem.focus());
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(firstItem);
   });
 });
