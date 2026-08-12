@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.234.0";
-export const APP_BUILD_DATE = "2026-08-12"; // 0.234.0: compact borderless rich-text toolbar buttons (Anders)
+export const APP_VERSION = "0.235.0";
+export const APP_BUILD_DATE = "2026-08-12"; // 0.235.0: Beacon becomes the default color theme; rich-text edit modals open bigger; Kanban columns flex-fill; the AI Assistant button now hides correctly when AI is off (Lackey)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.234.x line is "Anders" (Charlie Jane Anders, contemporary SF/fantasy author).
+ *  0.235.x line is "Lackey" (Mercedes Lackey, prolific fantasy author).
+ *  0.234.x was "Anders" (Charlie Jane Anders, contemporary SF/fantasy author).
  *  0.233.x was "Reed" (Robert Reed, prolific SF short-fiction author).
  *  ★★ 0.224.0 IS A PERMANENTLY DEAD NUMBER — do not reuse it. The 0.226.0 line
  *  was built and numbered 0.224.0 while unpushed; main could not wait for it,
@@ -18,7 +19,7 @@ export const APP_BUILD_DATE = "2026-08-12"; // 0.234.0: compact borderless rich-
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Anders";
+export const APP_MILESTONE = "Lackey";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -289,4 +290,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0232",
   "versionHighlight0233",
   "versionHighlight0234",
+  "versionHighlight0235",
 ] as const;
