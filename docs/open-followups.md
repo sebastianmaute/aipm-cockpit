@@ -174,7 +174,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 127 | ~~Two of the six AI trigger hooks still never abort on unmount~~ | split out of §121 on 2026-08-08 | S each | **CLOSED 2026-08-08** in the review round that followed — both gained the cleanup-only effect, each mutation-proved. ★★ Filed then immediately closed on purpose: a follow-up is the right home for a decision, the wrong home for a one-liner with three precedents in the same file family. ★ `use-action-analysis.ts`’s guard was measured UNREACHABLE and applied as defence-in-depth — do not quote it as a shipped defect |
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
 | 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
-| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | open, a11y — none of the 90 axe scans reaches any of the 12 `<RichTextEditor` mounts, for FOUR different reasons (9 behind a modal/floating window · 1 behind a non-default Settings section · 1 in an unscanned view · 1 in a collapsed `<details>`), and `grep -rn 'commTplBold\|rich-text\|Text style\|Highlight' e2e/` returns nothing. `change-edit-modal.tsx` mounts up to three editors = 45 toolbar tab stops at the DEFAULT `advanced` tier, but only 30 in SIMPLE mode — its impact editor is gated by `isVisible("impact")` and `modal-fields.ts` tiers that field `advanced`. ★★ The refusal of `role="toolbar"` without roving tabindex is CORRECT — the tab-stop count is its price, not an argument against it |
+| 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED 2026-08-12** — (b) closed the a11y-gate reachability gap; (a) built the roving-tabindex keyboard contract in `toolbar-roving.ts` + `rich-text-toolbar.tsx` and flipped `role="group"` to `role="toolbar"`, cutting the row from 15 tab stops to 1. Mutation-proved (portal guard 1 red, `tabIndex` ternary 3 red) and browser-proved (`e2e/rich-text-toolbar-keyboard.spec.ts`). Full closing detail in the entry below |
 
 ★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
 Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
@@ -9196,7 +9196,7 @@ the honest minimum: it converts an untestable pair into a tested premise. Neithe
 
 ---
 
-## 144. The new rich-text toolbar is invisible to every gate in the repo — (b) CLOSED 2026-08-12, (a) open, a11y, measured
+## 144. The new rich-text toolbar is invisible to every gate in the repo — CLOSED 2026-08-12, a11y, measured
 
 Opened 2026-08-11 with the toolbar that `unify-rich-text-s1` shipped. Fifteen controls per editor —
 twelve `ToggleButton`s (`BLOCKS` + `MARKS`), Insert link, Remove link, and the heading menu trigger
@@ -9308,6 +9308,46 @@ the other eleven — the nine behind a modal/floating window, the one behind a n
 section, the one on the unscanned `steering-committee` view, and the one inside a closed `<details>` —
 are exactly as unreachable as before. **(a), the roving-`tabindex` keyboard contract, is UNCHANGED and
 is still the real answer** — this entry stays open for it.
+
+### (a) CLOSED 2026-08-12 — the roving-tabindex keyboard contract
+
+**What shipped, in commit order:** the pure engine `toolbar-roving.ts` `moveToolbarFocus(count, index,
+key, modifiers)` (tsc-exhaustive over a `HandledKey` union, no `default:` arm — adding a key to
+`HANDLED` without its `case` now fails the typecheck instead of silently returning `null`); the roving
+`activeIndex` state + `handleRowKeyDown` + `tabIndex` wiring on all fifteen controls in
+`rich-text-toolbar.tsx`; THEN `role={named ? "toolbar" : undefined}` (was `"group"`). That order is the
+whole point — the role change is a consequence of the behaviour existing, not the other way round.
+**Tab stops: 15 → 1 per row.**
+
+**Mutation counts, exactly as measured (not "mutation-proved" — the numbers):**
+- Portal guard (`if (current === -1) return;` inside `handleRowKeyDown`) — **1 red**, scoped to the
+  single heading-menu-open test (`"does not rove while the heading menu is open"`) to isolate it from
+  unrelated noise from the pending role flip at the time it was run. A vacuity check ran first:
+  `document.activeElement` was asserted to equal the focused menu item BEFORE the `ArrowRight` press,
+  confirming focus had genuinely reached the portaled menu — so the 1-red result could not have been a
+  false negative from a test that never exercised the guard.
+- `tabIndex` ternary on the `CONTROLS.map` control (mutated to a bare `tabIndex={0}`) — **3 red**
+  (`"puts every control but the active one out of the tab order"`,
+  `"is a single tab stop: a second Tab leaves the row entirely"`,
+  `"keeps two mounted rows roving independently"`). Both mutations were restored before committing;
+  `git diff --stat` confirmed no stray leftovers.
+
+**Blast radius of the `group` → `toolbar` role flip, the real shape (not predicted, discovered by
+RUNNING the suite): 6 `getByRole`/`queryByRole("group", …)` assertions across 4 tests in 3 files.**
+Two of the four tests were in the ORIGINAL dispatch plan (the pinned-null test, the two-row roving
+test); the other two — `"names the row after the editor it acts on"` (1 assertion) and
+`"keeps two mounted rows apart — each control resolves inside its own group"` (2 assertions) — were
+NOT named in the plan and were only found by running the file. The two consumer files each carried
+one more test: `rich-text-editor.test.tsx` `"names the toolbar group from the editor's own label
+prop"` (1 assertion) and `note-log-panel.test.tsx` `"keeps two mounted panels apart — the editors
+carry the suffix, not just the mics"` (2 assertions in one test). ★ The durable lesson: enumerating
+test titles for a role rename undercounts — grep the retiring role string
+(`getByRole("group"` / `queryByRole("group"`) across the file and its known consumers instead.
+
+**Browser-level proof:** `e2e/rich-text-toolbar-keyboard.spec.ts` reuses (b)'s reachable mount (the
+floating notes window off Open Points' notes badge) to drive a REAL browser: focuses the heading
+trigger, asserts `ArrowRight` moves focus to Bold without changing `.ProseMirror`'s content, and
+asserts one `Tab` leaves the tagged toolbar row entirely. Passed on the first run.
 
 ## 145. Two icon packages now coexist, and the migration decision behind it lives nowhere durable — open, a decision, measured
 

@@ -961,13 +961,22 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ NAMED OR ABSENT, never generic — a blank or missing `label` renders the bare div with NO role.
   An unnamed group announces a boundary carrying no information, and three sibling groups all called
   "Formatting" disambiguate nothing while making the code look fixed. Both branches are pinned.
-  ★★★ `group` AND NOT `toolbar`. The APG toolbar pattern is a KEYBOARD CONTRACT — one tab stop for the
-  whole row, roving `tabindex`, Left/Right Arrow moving focus between controls — and this row implements
-  none of it: every control is its own tab stop. Declaring a role whose interaction the widget does not
-  honour is worse than declaring none, because it tells an AT user to press arrow keys that do nothing.
-  `rich-text-toolbar.test.tsx` pins `queryByRole("toolbar")` as NULL so the role cannot be added without
-  the behaviour; adding it later means implementing roving tabindex FIRST, which changes Tab in every
-  editor in the app.
+  ★★★ `toolbar` NOW, AND `group` UNTIL 0.236.0 — the flip is the point, not the endpoint. The APG
+  toolbar pattern is a KEYBOARD CONTRACT (one tab stop for the row, roving `tabindex`, Left/Right
+  moving focus between controls), and until §144(a) this row honoured none of it, so it correctly
+  declared `group`: a role whose interaction the widget does not implement tells an AT user to press
+  arrow keys that do nothing, which is worse than declaring no role at all. **The refusal was right
+  for as long as it stood, and it was not free** — it cost 15 tab stops per editor. §144(a) built the
+  contract in `toolbar-roving.ts` plus the `tabIndex` wiring in `rich-text-toolbar.tsx`, so the role
+  followed it. ★★ `rich-text-toolbar.test.tsx` used to pin `queryByRole("toolbar")` as NULL; it now
+  pins the OPPOSITE, and a reader who remembers only the old rule will try to revert this. ★★★ The two
+  must move together in BOTH directions: if the roving handler or the `tabIndex={-1}` wiring is ever
+  removed, the role goes back to `group` in the SAME commit. ★ A NEW control added to this row joins
+  the roving order automatically — the indices derive from `CONTROLS.length` via
+  `TOOLBAR_CONTROL_COUNT`, pinned against the real DOM by a unit test that also pins the ORDER of the
+  heading trigger and the two link controls — but a control that renders `disabled` does NOT, since
+  the engine has no skip-disabled logic (nothing in this row is ever disabled today, and a test pins
+  that so adding one forces the decision).
   ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet above
   carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
   not one flagging two controls that share an accessible name; the only adjacent rule,
