@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { NoteLogPanel } from "./note-log-panel";
+import { NoteLogPanel, type NoteLogPanelProps } from "./note-log-panel";
 import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
 
@@ -64,6 +64,7 @@ function setup(over: Partial<React.ComponentProps<typeof NoteLogPanel>> = {}) {
       self={1}
       resources={RESOURCES}
       lang="en-US"
+      labelSuffix={null}
       {...over}
     />,
   );
@@ -238,7 +239,7 @@ describe("NoteLogPanel", () => {
     render(
       <>
         {/* the floating notes window's shape */}
-        <NoteLogPanel {...shared} />
+        <NoteLogPanel {...shared} labelSuffix={null} />
         {/* the task editor's inline panel */}
         <NoteLogPanel {...shared} labelSuffix="Task ABC" />
       </>,
@@ -280,5 +281,23 @@ describe("NoteLogPanel", () => {
       .map((el) => el.getAttribute("aria-label"));
     expect(names).toHaveLength(4);
     expect(new Set(names).size).toBe(4);
+  });
+});
+
+describe("NoteLogPanelProps.labelSuffix (open-followups §142)", () => {
+  it("is required at the type level — a third mount site must explicitly decide (tsc-only check)", () => {
+    // @ts-expect-error — labelSuffix is required (string | null); omitting it
+    // must fail to compile. Enforced by `npx tsc --noEmit` — vitest ignores
+    // this directive and this test always passes at runtime either way.
+    const props: NoteLogPanelProps = {
+      entries: [],
+      onAdd: () => {},
+      onEdit: () => {},
+      onDelete: () => {},
+      self: null,
+      resources: [],
+      lang: "en-US",
+    };
+    expect(props).toBeTruthy();
   });
 });

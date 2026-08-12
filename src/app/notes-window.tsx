@@ -107,10 +107,13 @@ export function NotesWindow(props: NotesWindowProps) {
         </div>
       </div>
 
-      {/* ★ NO `labelSuffix`: this window's `role="dialog"` aria-label already
-          announces the entity, so its row controls are unambiguous within it —
-          and adding one would change every existing accessible name. The
-          in-editor mount is the surface that needs to disambiguate. */}
+      {/* ★ Explicit `null` sentinel (open-followups §142): this window's
+          `role="dialog"` aria-label already announces the entity, so its row
+          controls are unambiguous within it — adding a real suffix would
+          change every existing accessible name. `labelSuffix` is now a
+          required prop specifically so a future third mount site cannot
+          omit it and collide silently; this is the "no suffix" case, made
+          explicit rather than implicit. */}
       <NoteLogPanel
         entries={entries}
         onAdd={onAdd}
@@ -119,6 +122,7 @@ export function NotesWindow(props: NotesWindowProps) {
         self={self}
         resources={resources}
         lang={lang}
+        labelSuffix={null}
       />
     </div>
   );
