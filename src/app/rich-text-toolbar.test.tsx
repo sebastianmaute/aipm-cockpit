@@ -87,6 +87,11 @@ describe("RichTextToolbar", () => {
 
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     const dialog = screen.getByRole("dialog", { name: "Text style" });
+    // The trigger's aria-controls must reference the panel that actually
+    // opened, not a fabricated string — the real regression the two ids
+    // being wired via a shared useId() prevents.
+    expect(trigger.getAttribute("aria-controls")).toBe(dialog.id);
+    expect(dialog.id).toBeTruthy();
     const items = within(dialog)
       .getAllByRole("button")
       .map((b) => b.textContent);
@@ -147,7 +152,7 @@ describe("RichTextToolbar", () => {
   // ★★ Every control acts on the editor's SELECTION. Taking focus on mousedown
   //    blurs the contenteditable and destroys it — and the commit-on-blur
   //    consumers remount the editor between mousedown and mouseup, so no click
-  //    is ever dispatched. The guard lives in ToggleButton behind an opt-in prop.
+  //    is ever dispatched. The guard lives in ToolbarButton behind an opt-in prop.
   it("does not steal focus from the editor surface", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
@@ -279,8 +284,8 @@ describe("RichTextToolbar", () => {
     //    which turns it off.
     expect(bold().getAttribute("title")).toContain("Currently on");
     // ★ The non-colour marker is the sighted counterpart of the same state and
-    //   is `invisible` when off, so it must have moved too.
-    expect(bold().querySelector("[data-pressed-marker]")?.className).not.toContain("invisible");
+    //   carries `opacity-0` when off, so it must have moved too.
+    expect(bold().querySelector("[data-pressed-marker]")?.className).not.toContain("opacity-0");
   });
 
   it("re-reads the active heading item when the caret MOVES into a heading", async () => {
@@ -358,7 +363,7 @@ describe("RichTextToolbar", () => {
     const { editor } = makeEditor();
     const { container } = render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
     // Dividers are the only `aria-hidden` DIRECT children of the row besides
-    // the check-marker glyphs (which live inside each ToggleButton, not as
+    // the pressed-marker bars (which live inside each ToolbarButton, not as
     // direct row children) — querying the row's own direct-child divs by
     // class is more robust than counting `[aria-hidden]` broadly.
     const row = container.firstElementChild as HTMLElement;
@@ -366,8 +371,9 @@ describe("RichTextToolbar", () => {
     expect(dividers).toHaveLength(5);
   });
 
-  // ★ The plain Buttons are a different code path from the ToggleButtons and
-  //    carry their own guard, so they need their own assertion.
+  // ★ Even though this control now shares ToolbarButton's preventFocusSteal
+  //    mechanism with the toggle controls above, it's a distinct call site
+  //    (Link/Unlink, not a mark/block toggle) and worth its own regression pin.
   it("does not steal focus from the link controls either", () => {
     const { editor } = makeEditor();
     render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);

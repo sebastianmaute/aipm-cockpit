@@ -6,12 +6,13 @@
 // new dependency, used ONLY in this file — see the design spec's Scope
 // section for why the rest of the app still uses heroicons.
 //
-// ★★★ Every stateful control is the shared ToggleButton, NEVER a hand-rolled
-// aria-pressed button. The one this replaced was among the thirteen offenders in
-// open-followups §55: its ON state rode colour alone, which measures 1.03-1.22:1
-// against the unpressed border in the three DARK schemes and so fails WCAG 1.4.1.
-// ToggleButton carries a non-colour data-pressed-marker glyph. axe has no rule
-// for colour-as-sole-cue, so the unit test is the only coverage.
+// ★★★ Every stateful control is the compact ToolbarButton (rich-text-toolbar-
+// button.tsx), NEVER a hand-rolled aria-pressed button. The one this replaced
+// was among the thirteen offenders in open-followups §55: its ON state rode
+// colour alone, which measures 1.03-1.22:1 against the unpressed border in the
+// three DARK schemes and so fails WCAG 1.4.1. ToolbarButton carries a
+// non-colour data-pressed-marker glyph of its own. axe has no rule for
+// colour-as-sole-cue, so the unit test is the only coverage.
 //
 // ★ Task list and text alignment are deliberately ABSENT. Both need new HTML
 // attributes, which is a shared security boundary and gets its own slice plus a
@@ -25,7 +26,7 @@
 // exception: they keep visible text (see the menu section below), so 2.5.3 holds
 // there by construction the same way the old flat toolbar text used to.
 
-import { useCallback, useRef, useState, Fragment } from "react";
+import { useCallback, useId, useRef, useState, Fragment } from "react";
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import type { ElementType } from "react";
@@ -51,29 +52,29 @@ import {
   UnderlineIcon,
   UnlinkIcon,
 } from "lucide-react";
-import { Button } from "./button";
 import { PopoverPanel } from "./popover-panel";
 import { t, type Lang, type TranslationKey } from "./i18n";
-import { ToggleButton } from "./toggle-button";
-import type { ToggleAccent } from "./toggle-button";
+import { ToolbarButton } from "./rich-text-toolbar-button";
+import type { ToolbarButtonAccent } from "./rich-text-toolbar-button";
 
-/** Shared icon sizing for every control in this toolbar (16px — one step up
- *  from GanttViewMenu's 14px menu-row icons, sized for this toolbar's primary,
- *  always-visible role rather than a secondary menu list). */
-const ICON_CLASS = "h-4 w-4 shrink-0";
+/** Shared icon sizing for every control in this toolbar (14px — the same size
+ *  as GanttViewMenu's menu-row icons, sized for this toolbar's compact
+ *  borderless buttons). */
+const ICON_CLASS = "h-3.5 w-3.5 shrink-0";
 
 /** One toggleable control: its label key (doubles as the accessible name AND
  *  the tooltip text, since the control is icon-only), the icon component, the
  *  Tiptap node/mark name `isActive` is asked about, and the command to run.
  *  `name` doubles as the React key. */
-/** `accent` mirrors `ToggleButtonProps.accent` — omit for the default
- *  dark-blue family, set `"pink"` for the one control (Highlight) that uses
- *  the app's pink accent, matching the mockup the user approved. */
+/** `accent` mirrors `ToolbarButtonProps.accent` (`ToolbarButtonAccent`) —
+ *  omit for the default dark-blue family, set `"pink"` for the one control
+ *  (Highlight) that uses the app's pink accent, matching the mockup the user
+ *  approved. */
 interface ControlSpec {
   key: TranslationKey;
   icon: ElementType;
   name: string;
-  accent?: ToggleAccent;
+  accent?: ToolbarButtonAccent;
   run: (editor: Editor) => void;
 }
 
@@ -171,7 +172,7 @@ export interface RichTextToolbarProps {
  *  meaning, the `role="group"` wrapper (or its absence) is what a screen
  *  reader needs. */
 function ToolbarDivider() {
-  return <div aria-hidden="true" className="mx-0.5 w-px self-stretch bg-line" />;
+  return <div aria-hidden="true" className="w-px self-stretch bg-line" />;
 }
 
 export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextToolbarProps) {
@@ -186,6 +187,12 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   // tabindex first, which changes Tab behaviour in every editor in the app.
   const named = label !== undefined && label.trim() !== "";
 
+  // useId, not a literal string: change-edit-modal mounts up to three
+  // RichTextEditor siblings, and a hardcoded id would collide across them
+  // (duplicate DOM ids — invalid HTML and an aria-controls that points at
+  // the wrong panel).
+  const headingMenuId = useId();
+
   // ★★★ `isActive()` IS A DERIVATION OVER LIVE EDITOR STATE, SO IT CANNOT BE
   // READ DURING RENDER WITHOUT SUBSCRIBING TO THAT STATE. `useEditor` does not
   // re-render on a transaction (`shouldRerenderOnTransaction` defaults to
@@ -193,7 +200,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   // `onUpdate`, which core gates on `docChanged` — so a caret MOVE changes what
   // every call below would return and nothing re-renders. Measured in jsdom
   // against a real editor: caret into an existing bold run left Bold at
-  // aria-pressed="false" with ToggleButton's title still reading "Currently off
+  // aria-pressed="false" with ToolbarButton's title still reading "Currently off
   // — click to turn on" (WCAG 4.1.2 — a screen-reader user is told bold is off,
   // presses Bold to turn it on, and turns it off), and caret into an <h2> left
   // the select on "Normal text".
@@ -271,29 +278,29 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
     // rich-text-toolbar.test.tsx is the only possible detector — a
     // single-editor fixture passes with the group deleted.
     <div
-      className="flex flex-wrap items-center gap-1"
+      className="flex flex-wrap items-center gap-0.5"
       role={named ? "group" : undefined}
       aria-label={named ? label : undefined}
     >
-      <Button
+      <ToolbarButton
         ref={headingTriggerRef}
-        variant="secondary"
-        size="xs"
+        stateKind="disclosure"
+        active={headingMenuOpen}
         onClick={() => setHeadingMenuOpen((open) => !open)}
-        aria-label={t(lang, "commTplHeadingLevel")}
-        aria-expanded={headingMenuOpen}
+        ariaLabel={t(lang, "commTplHeadingLevel")}
         title={t(lang, "commTplHeadingLevel")}
-        className="inline-flex items-center gap-1"
+        ariaControls={headingMenuId}
       >
         <TriggerIcon aria-hidden="true" className={ICON_CLASS} />
-        <ChevronDownIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
-      </Button>
+        <ChevronDownIcon aria-hidden="true" className="h-2.5 w-2.5 shrink-0" />
+      </ToolbarButton>
       <PopoverPanel
         open={headingMenuOpen}
         anchorRef={headingTriggerRef}
         onClose={closeHeadingMenu}
         role="dialog"
         ariaLabel={t(lang, "commTplHeadingLevel")}
+        id={headingMenuId}
         className="w-40 p-1"
       >
         <div className="flex flex-col gap-0.5">
@@ -321,9 +328,10 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
       {CONTROLS.map((spec, index) => (
         <Fragment key={spec.name}>
           {GROUP_DIVIDER_BEFORE.has(index) && <ToolbarDivider />}
-          <ToggleButton
-            pressed={pressed[index]}
-            onToggle={() => spec.run(editor)}
+          <ToolbarButton
+            stateKind="toggle"
+            active={pressed[index]}
+            onClick={() => spec.run(editor)}
             lang={lang}
             preventFocusSteal
             accent={spec.accent}
@@ -331,31 +339,27 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
             title={t(lang, spec.key)}
           >
             <spec.icon aria-hidden="true" className={ICON_CLASS} />
-          </ToggleButton>
+          </ToolbarButton>
         </Fragment>
       ))}
 
       <ToolbarDivider />
-      <Button
-        variant="secondary"
-        size="xs"
-        onMouseDown={(event) => event.preventDefault()}
+      <ToolbarButton
+        preventFocusSteal
         onClick={onAddLink}
-        aria-label={t(lang, "commTplLink")}
+        ariaLabel={t(lang, "commTplLink")}
         title={t(lang, "commTplLink")}
       >
         <LinkIcon aria-hidden="true" className={ICON_CLASS} />
-      </Button>
-      <Button
-        variant="secondary"
-        size="xs"
-        onMouseDown={(event) => event.preventDefault()}
+      </ToolbarButton>
+      <ToolbarButton
+        preventFocusSteal
         onClick={() => editor.chain().focus().unsetLink().run()}
-        aria-label={t(lang, "commTplUnlink")}
+        ariaLabel={t(lang, "commTplUnlink")}
         title={t(lang, "commTplUnlink")}
       >
         <UnlinkIcon aria-hidden="true" className={ICON_CLASS} />
-      </Button>
+      </ToolbarButton>
     </div>
   );
 }

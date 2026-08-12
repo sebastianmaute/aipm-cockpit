@@ -44,6 +44,7 @@ export function PopoverPanel({
   placement = "bottom-end",
   role,
   ariaLabel,
+  id,
   autoFocus = true,
   children,
 }: {
@@ -55,6 +56,9 @@ export function PopoverPanel({
   placement?: PopoverPlacement;
   role?: "dialog" | "menu";
   ariaLabel?: string;
+  /** For a trigger's aria-controls to reference (e.g. a ToolbarButton with
+   *  stateKind="disclosure"). Omit when nothing points at this panel. */
+  id?: string;
   /** Move focus to the first control on open (default true — correct for menus).
    *  Set false when the first control is destructive (e.g. a one-click "remove")
    *  so opening the panel can't land focus on it; focus then stays on the trigger,
@@ -216,6 +220,7 @@ export function PopoverPanel({
   return createPortal(
     <span
       ref={panelRef}
+      id={id}
       role={role}
       aria-label={ariaLabel}
       onClick={(e) => e.stopPropagation()}
