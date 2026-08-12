@@ -87,6 +87,11 @@ describe("RichTextToolbar", () => {
 
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     const dialog = screen.getByRole("dialog", { name: "Text style" });
+    // The trigger's aria-controls must reference the panel that actually
+    // opened, not a fabricated string — the real regression the two ids
+    // being wired via a shared useId() prevents.
+    expect(trigger.getAttribute("aria-controls")).toBe(dialog.id);
+    expect(dialog.id).toBeTruthy();
     const items = within(dialog)
       .getAllByRole("button")
       .map((b) => b.textContent);

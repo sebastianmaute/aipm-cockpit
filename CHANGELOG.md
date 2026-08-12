@@ -8,6 +8,20 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.234.0] - 2026-08-12 "Anders"
+
+### Changed
+
+- **The rich-text toolbar's buttons are smaller and borderless**, matching the compact look of the
+  tiptap "Simple" editor template. A pressed or open control now shows a small dot under its icon
+  instead of a checkmark — the shared bordered `ToggleButton` used elsewhere in the app (Gantt's View
+  menu, Settings rows) is unchanged.
+
+### Fixed
+
+- The heading-menu button's `aria-controls` now points at the menu it actually opens, instead of
+  going unwired to nothing a screen reader could find.
+
 ## [0.233.0] - 2026-08-11 "Reed"
 
 ### Changed
