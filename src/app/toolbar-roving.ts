@@ -17,14 +17,27 @@
  *  Up/Down must still scroll the page (the row is horizontal). */
 type HandledKey = "ArrowLeft" | "ArrowRight" | "Home" | "End";
 
-const HANDLED = new Set<string>(["ArrowLeft", "ArrowRight", "Home", "End"]);
+// ★★★ THE ELEMENT TYPE IS LOAD-BEARING — do NOT relax it to `Set<string>`.
+// This set and the `HandledKey` union have to be tied together or the guard
+// below is a LIE. Typed `Set<string>`, adding "PageDown" here without adding it
+// to HandledKey compiles clean (measured: TSC_EXIT=0), `isHandledKey` returns
+// true for a key the switch has no `case` for, and the switch falls off its end
+// returning `undefined` — which is not `null`, so the caller's `=== null` bail
+// does NOT catch it. It then calls preventDefault, sets activeIndex to
+// undefined, and EVERY control's `activeIndex === N ? 0 : -1` yields -1: the
+// whole row silently drops out of the tab order, with a green typecheck and a
+// green suite. Typed `Set<HandledKey>`, the same edit fails at the literal.
+const HANDLED = new Set<HandledKey>(["ArrowLeft", "ArrowRight", "Home", "End"]);
 
 // ★★ The switch below has NO `default` ON PURPOSE. Narrowed to HandledKey, tsc
-// makes it exhaustive, so adding a key to HANDLED without adding its `case`
-// fails the typecheck. A `default: return null` arm here would be unreachable
-// and would silently swallow exactly that drift instead of catching it.
+// makes it exhaustive, so widening HandledKey without adding its `case` fails
+// the typecheck (TS2366 — the function stops returning on every path). A
+// `default: return null` arm would be unreachable and would silently swallow
+// exactly that drift instead of catching it.
+// ★ The cast is what lets a `string` be looked up in a `Set<HandledKey>`; it is
+// narrowing-only and cannot admit an unlisted key.
 function isHandledKey(key: string): key is HandledKey {
-  return HANDLED.has(key);
+  return (HANDLED as ReadonlySet<string>).has(key);
 }
 
 /**
