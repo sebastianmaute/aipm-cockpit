@@ -26,7 +26,7 @@
 // exception: they keep visible text (see the menu section below), so 2.5.3 holds
 // there by construction the same way the old flat toolbar text used to.
 
-import { useCallback, useRef, useState, Fragment } from "react";
+import { useCallback, useId, useRef, useState, Fragment } from "react";
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import type { ElementType } from "react";
@@ -187,6 +187,12 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   // tabindex first, which changes Tab behaviour in every editor in the app.
   const named = label !== undefined && label.trim() !== "";
 
+  // useId, not a literal string: change-edit-modal mounts up to three
+  // RichTextEditor siblings, and a hardcoded id would collide across them
+  // (duplicate DOM ids — invalid HTML and an aria-controls that points at
+  // the wrong panel).
+  const headingMenuId = useId();
+
   // ★★★ `isActive()` IS A DERIVATION OVER LIVE EDITOR STATE, SO IT CANNOT BE
   // READ DURING RENDER WITHOUT SUBSCRIBING TO THAT STATE. `useEditor` does not
   // re-render on a transaction (`shouldRerenderOnTransaction` defaults to
@@ -283,6 +289,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         onClick={() => setHeadingMenuOpen((open) => !open)}
         ariaLabel={t(lang, "commTplHeadingLevel")}
         title={t(lang, "commTplHeadingLevel")}
+        ariaControls={headingMenuId}
       >
         <TriggerIcon aria-hidden="true" className={ICON_CLASS} />
         <ChevronDownIcon aria-hidden="true" className="h-2.5 w-2.5 shrink-0" />
@@ -293,6 +300,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         onClose={closeHeadingMenu}
         role="dialog"
         ariaLabel={t(lang, "commTplHeadingLevel")}
+        id={headingMenuId}
         className="w-40 p-1"
       >
         <div className="flex flex-col gap-0.5">

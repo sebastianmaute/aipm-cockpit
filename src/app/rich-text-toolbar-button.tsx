@@ -14,19 +14,24 @@
 
 import type { ReactNode, Ref } from "react";
 import { type Lang, t } from "./i18n";
+import { FOCUS_RING } from "./interaction-styles";
 
 export type ToolbarButtonAccent = "dark-blue" | "pink";
 export type ToolbarButtonStateKind = "toggle" | "disclosure" | "action";
 
 const BASE =
-  "relative inline-flex h-6 min-w-6 shrink-0 items-center justify-center gap-0.5 rounded-lg px-1 focus:outline-none focus:ring-2";
+  "relative inline-flex h-6 min-w-6 shrink-0 items-center justify-center gap-0.5 rounded-lg px-1";
 
-const INACTIVE = "text-foreground hover:bg-surface-muted focus:ring-ui-green";
+// Byte-identical to FOCUS_RING, so reuse it directly rather than hand-rolling
+// outline-none/ring-2/ring-ui-green again.
+const INACTIVE = `text-foreground hover:bg-surface-muted ${FOCUS_RING}`;
 
+// ACTIVE needs a per-accent ring colour, so it can't reuse FOCUS_RING (which
+// hardcodes ring-ui-green) — only outline-none/ring-2 are shared with it.
 const ACTIVE: Record<ToolbarButtonAccent, string> = {
   "dark-blue":
-    "bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
-  pink: "bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:ring-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
+    "bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:outline-none focus:ring-2 focus:ring-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
+  pink: "bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:outline-none focus:ring-2 focus:ring-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
 };
 
 type StateAttrs =
