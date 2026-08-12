@@ -59,6 +59,11 @@ export interface ToolbarButtonProps {
   preventFocusSteal?: boolean;
   /** id of the region this trigger reveals — "disclosure" kind only. */
   ariaControls?: string;
+  /** Roving tabindex position: 0 for the row's single tab stop, -1 for every
+   *  other control. Required for the row's `role="toolbar"` keyboard contract
+   *  (open-followups §144a) — a `<button>` is natively tabbable, so omitting
+   *  the -1 leaves all fifteen controls in the tab order. */
+  tabIndex?: number;
   ref?: Ref<HTMLButtonElement>;
   children: ReactNode;
 }
@@ -73,6 +78,7 @@ export function ToolbarButton({
   accent = "dark-blue",
   preventFocusSteal,
   ariaControls,
+  tabIndex,
   ref,
   children,
 }: ToolbarButtonProps) {
@@ -88,6 +94,7 @@ export function ToolbarButton({
     <button
       ref={ref}
       type="button"
+      tabIndex={tabIndex}
       onClick={onClick}
       onMouseDown={preventFocusSteal ? (e) => e.preventDefault() : undefined}
       {...stateAttrs}

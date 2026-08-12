@@ -383,4 +383,18 @@ describe("RichTextToolbar", () => {
       expect(ev.defaultPrevented).toBe(true);
     }
   });
+
+  // ★★ `<button>` is NATIVELY tabbable, so marking one control tabIndex={0}
+  // does nothing on its own — every other control stays reachable and the
+  // tab-stop count is unchanged. The -1 on the other fourteen is the line the
+  // whole slice's user-visible claim rests on.
+  it("puts every control but the active one out of the tab order", () => {
+    const { editor } = makeEditor();
+    const { container } = render(
+      <RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />,
+    );
+    const buttons = Array.from(container.querySelectorAll("button"));
+    expect(buttons.filter((b) => b.tabIndex === 0)).toHaveLength(1);
+    expect(buttons.filter((b) => b.tabIndex === -1)).toHaveLength(buttons.length - 1);
+  });
 });
