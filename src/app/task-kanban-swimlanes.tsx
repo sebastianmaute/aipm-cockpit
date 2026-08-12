@@ -12,6 +12,7 @@ import { type Lang, t } from "./i18n";
 import { TASK_STATUSES, type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
 import { groupByStatusAndPerson, UNASSIGNED_LANE, type KanbanLane } from "./task-kanban";
+import { KANBAN_STATUS_COL_CLASS } from "./task-kanban-board";
 import { isJiraSynced } from "./jira-status-map";
 import { isReadOnlyIssue } from "./jira-projects";
 import type { JiraExtraProject } from "./settings-types";
@@ -80,7 +81,9 @@ const EMPTY_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
 const LANE_COL_CLASS = "w-40 shrink-0";
-const STATUS_COL_CLASS = "w-64 shrink-0";
+// Shared with task-kanban-board.tsx so the board and swimlane views cannot
+// drift apart on status-column width.
+const STATUS_COL_CLASS = KANBAN_STATUS_COL_CLASS;
 
 export function TaskKanbanSwimlanes({
   lang,

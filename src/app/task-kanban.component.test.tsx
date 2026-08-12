@@ -140,3 +140,14 @@ describe("TaskKanban", () => {
     expect(screen.queryByRole("button", { name: /ask claude/i })).not.toBeInTheDocument();
   });
 });
+
+describe("TaskKanban column sizing", () => {
+  it("status columns carry the shared flex-fill class (min 256px, max 400px, growing)", () => {
+    render(<TaskKanban lang="en-US" tasks={[]} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
+    const col = screen.getByTestId("kanban-col-To Do");
+    expect(col.className).toContain("min-w-64");
+    expect(col.className).toContain("max-w-[25rem]");
+    expect(col.className).toContain("flex-1");
+    expect(col.className).toContain("shrink-0");
+  });
+});

@@ -138,3 +138,27 @@ describe("TaskKanbanSwimlanes", () => {
     ).not.toThrow();
   });
 });
+
+describe("TaskKanbanSwimlanes column sizing", () => {
+  it("status cells carry the shared flex-fill class from task-kanban-board", () => {
+    render(
+      <TaskKanbanSwimlanes
+        lang="en-US"
+        tasks={[]}
+        resourcesById={new Map()}
+        extraLaneIds={[]}
+        onSwimlaneDrop={vi.fn()}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onRemoveLane={vi.fn()}
+        assignableResources={[]}
+        onAssign={vi.fn()}
+      />,
+    );
+    const cell = screen.getByTestId("swimlane-cell-unassigned-To Do");
+    expect(cell.className).toContain("min-w-64");
+    expect(cell.className).toContain("max-w-[25rem]");
+    expect(cell.className).toContain("flex-1");
+    expect(cell.className).toContain("shrink-0");
+  });
+});
