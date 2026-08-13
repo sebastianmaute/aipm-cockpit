@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { useRef } from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor";
+import { Editor } from "@tiptap/core";
+import { RichTextEditor, EXTENSIONS, type RichTextEditorHandle } from "./rich-text-editor";
+import { sanitizeRichHtml } from "./sanitize-html";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so the editor mounts.
 beforeAll(() => {
@@ -423,5 +425,31 @@ describe("RichTextEditor — structural facts the DOM cannot show", () => {
     // style[data-tiptap-style] — one un-nonced mount poisons every later one.
     // Prod CSP is nonce-only on style-src-elem; dev is not (open-followups §54).
     expect(SRC).toContain("injectNonce: readCspNonce()");
+  });
+});
+
+describe("alignment is stored as data-align, never as style (§140)", () => {
+  it("serializes a centred paragraph with data-align and no style attribute", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>hello</p>" });
+    editor.chain().selectAll().setTextAlign("center").run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(html).toContain('data-align="center"');
+    expect(html).not.toContain("style=");
+  });
+
+  it("round-trips a stored data-align back into editor state", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: '<p data-align="right">hi</p>' });
+    const active = editor.isActive({ textAlign: "right" });
+    editor.destroy();
+    expect(active).toBe(true);
+  });
+
+  it("survives the storage boundary unchanged", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>hello</p>" });
+    editor.chain().selectAll().setTextAlign("justify").run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(sanitizeRichHtml(html)).toBe(html);
   });
 });

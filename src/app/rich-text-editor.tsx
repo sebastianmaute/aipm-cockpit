@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
+import TextAlign from "@tiptap/extension-text-align";
 import type { Editor } from "@tiptap/react";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { readCspNonce } from "./csp-nonce";
@@ -65,6 +66,39 @@ export const EXTENSIONS = [
   Highlight,
   Subscript,
   Superscript,
+  // ★★★ REWIRED TO `data-align`, NOT the stock `style="text-align:…"`.
+  // The storage boundary admits an attribute VALUE only from a fixed set
+  // (sanitize-html.ts ATTR_VALUES). `style` survives DOMPurify — it is in
+  // DEFAULT_URI_SAFE_ATTRIBUTES, so ALLOWED_URI_REGEXP never tests it — but
+  // nothing parses a CSS value, so admitting `style` would let AI-writable
+  // fields carry `position:fixed;inset:0;z-index:99999`. A 4-member string set
+  // is a guard that cannot be widened a declaration at a time. §140.
+  // ★ Only parseHTML/renderHTML change; the alignments filter, the commands
+  // (setTextAlign / unsetTextAlign / toggleTextAlign) and the Mod-Shift-l/e/r/j
+  // shortcuts are the stock extension's and are used as-is.
+  // ★ `types` MUST be set — the extension's own default is [], i.e. inert.
+  TextAlign.extend({
+    addGlobalAttributes() {
+      return [
+        {
+          types: this.options.types,
+          attributes: {
+            textAlign: {
+              default: this.options.defaultAlignment,
+              parseHTML: (element: HTMLElement) => {
+                const alignment = element.getAttribute("data-align") ?? "";
+                return this.options.alignments.includes(alignment)
+                  ? alignment
+                  : this.options.defaultAlignment;
+              },
+              renderHTML: (attributes: { textAlign?: string | null }) =>
+                attributes.textAlign ? { "data-align": attributes.textAlign } : {},
+            },
+          },
+        },
+      ];
+    },
+  }).configure({ types: ["heading", "paragraph"] }),
 ];
 
 export function RichTextEditor(props: RichTextEditorProps) {
