@@ -41,7 +41,7 @@ No two project leads track the same things, so the cockpit bends to fit: see wor
 
 ### Built to be trusted
 
-Not a prototype, and not shelfware: the cockpit is **already in active friendly-user testing**, exercised against real projects by real project leads rather than sitting behind a demo. It is backed by 9,100+ automated tests with enforced coverage floors, a WCAG accessibility gate (axe across 16 views × 5 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: no server stores your data or credentials (the handful of API routes are stateless proxies to services you configure), so the browser profile is the security boundary (see [Security Model](#security-model)).
+Not a prototype, and not shelfware: the cockpit is **already in active friendly-user testing**, exercised against real projects by real project leads rather than sitting behind a demo. It is backed by 9,100+ automated tests with enforced coverage floors, a WCAG accessibility gate (axe across 17 views × 5 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: no server stores your data or credentials (the handful of API routes are stateless proxies to services you configure), so the browser profile is the security boundary (see [Security Model](#security-model)).
 
 ### See it in a minute
 
