@@ -342,9 +342,12 @@
   `clampStep` (re-exported from `app-tour`), `summarizeBackendSetup`). ★ NO dedicated Timelog/M365 step:
   step 1 reuses the WHOLE `IntegrationsSection` (which already renders storage+Turso+M365+Timelog), so a
   separate step would duplicate the form. Step bodies: IntegrationsSection, AiSection, JiraSettingsSection;
-  threads the SAME `settings`+`onChangeSettings` — no new persistence path. ★ Wizard passes
-  `IntegrationsSection hidePortfolioSwitch` so the portfolio "Save & switch" `window.location.reload()`
-  can't nuke a create-project draft. Shared `WizardStepIndicator` (`wizard-step-indicator.tsx`) de-dups
+  threads the SAME `settings`+`onChangeSettings` — no new persistence path. ★ `hidePortfolioSwitch` on
+  `BackendSetupWizard` is CALLER-CONTROLLED, not a hardcoded pass-through: the Settings launch passes it
+  `true`, since the portfolio "Save & switch" `window.location.reload()` would abandon a real open project
+  without migrating it; the empty-state launch (no project open yet — nothing to abandon) passes nothing,
+  so the switch IS shown there, which is how a user points a fresh/wiped device at a Turso database that
+  already holds a project. Shared `WizardStepIndicator` (`wizard-step-indicator.tsx`) de-dups
   the two wizards' step rails. Two launch points: Settings → Integrations ("Run setup wizard" button) and
   the new-project empty-state window's "Backend setup" section (alongside "Configure database / M365"),
   both gated `{wizardOpen && …}` (fresh mount per open → step resets). NOT launched from inside the
