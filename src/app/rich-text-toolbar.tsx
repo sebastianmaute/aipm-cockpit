@@ -14,9 +14,13 @@
 // non-colour data-pressed-marker glyph of its own. axe has no rule for
 // colour-as-sole-cue, so the unit test is the only coverage.
 //
-// ★ Task list and text alignment are deliberately ABSENT. Both need new HTML
-// attributes, which is a shared security boundary and gets its own slice plus a
-// security review. Do not add a control here without widening the sanitizer first.
+// ★ Task list and text alignment ARE here as of §140, which widened the storage
+// boundary to admit `data-align`, `data-type` and `data-checked` under a value
+// allow-list (sanitize-html.ts ATTR_VALUES). The rule that produced the earlier
+// absence still stands: no toolbar in this app may introduce a new HTML
+// attribute on its own — the attribute surface is shared by every rich field
+// AND by documents, so it is a security boundary that gets a designed slice and
+// a review, never a toolbar button.
 //
 // ★★ Every control here is now ICON-ONLY: the accessible name lives in
 // `ariaLabel` (and mirrored into `title` for a sighted hover tooltip), never in
@@ -35,6 +39,10 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
+  AlignCenterIcon,
+  AlignJustifyIcon,
+  AlignLeftIcon,
+  AlignRightIcon,
   BoldIcon,
   ChevronDownIcon,
   CodeIcon,
@@ -45,6 +53,7 @@ import {
   HighlighterIcon,
   ItalicIcon,
   LinkIcon,
+  ListChecksIcon,
   ListIcon,
   ListOrderedIcon,
   PilcrowIcon,
@@ -80,6 +89,16 @@ interface ControlSpec {
   icon: ElementType;
   name: string;
   accent?: ToolbarButtonAccent;
+  /** Overrides the default `editor.isActive(spec.name)` pressed-state query.
+   *  ★ Alignment needs this because it is an ATTRIBUTE query
+   *  (`isActive({ textAlign })`), not a node/mark NAME. `name` then serves only
+   *  as the React key.
+   *  ★★★ It is evaluated inside the `useEditorState` selector below and must
+   *  stay there — the selector scopes re-render to a change in the SELECTED
+   *  value, so any render-time `editor.` read left outside is refreshed only
+   *  when some already-selected value happens to move, and is stale otherwise,
+   *  with the suite green. */
+  active?: (editor: Editor) => boolean;
   run: (editor: Editor) => void;
 }
 
@@ -101,24 +120,39 @@ const MARKS: readonly ControlSpec[] = [
 const BLOCKS: readonly ControlSpec[] = [
   { key: "commTplBulletList", icon: ListIcon, name: "bulletList", run: (e) => e.chain().focus().toggleBulletList().run() },
   { key: "commTplNumberedList", icon: ListOrderedIcon, name: "orderedList", run: (e) => e.chain().focus().toggleOrderedList().run() },
+  { key: "commTplTaskList", icon: ListChecksIcon, name: "taskList", run: (e) => e.chain().focus().toggleTaskList().run() },
   { key: "commTplBlockquote", icon: QuoteIcon, name: "blockquote", run: (e) => e.chain().focus().toggleBlockquote().run() },
   { key: "commTplCodeBlock", icon: SquareCodeIcon, name: "codeBlock", run: (e) => e.chain().focus().toggleCodeBlock().run() },
 ];
 
+/** Text alignment. `toggleTextAlign` is the stock command and already UNSETS
+ *  when the caret is at that alignment, which is exactly 4-toggle-button
+ *  semantics — do not hand-roll a set/unset branch.
+ *  ★ Four inline toggles rather than a popover menu: a second PopoverPanel in
+ *  this row would double the reach of open-followups §146 (Escape from a menu
+ *  drops focus at document.body) on the very surface §144(a) built the keyboard
+ *  contract for. The heading menu stays this row's only popover. */
+const ALIGN: readonly ControlSpec[] = [
+  { key: "commTplAlignLeft", icon: AlignLeftIcon, name: "align-left", active: (e) => e.isActive({ textAlign: "left" }), run: (e) => e.chain().focus().toggleTextAlign("left").run() },
+  { key: "commTplAlignCenter", icon: AlignCenterIcon, name: "align-center", active: (e) => e.isActive({ textAlign: "center" }), run: (e) => e.chain().focus().toggleTextAlign("center").run() },
+  { key: "commTplAlignRight", icon: AlignRightIcon, name: "align-right", active: (e) => e.isActive({ textAlign: "right" }), run: (e) => e.chain().focus().toggleTextAlign("right").run() },
+  { key: "commTplAlignJustify", icon: AlignJustifyIcon, name: "align-justify", active: (e) => e.isActive({ textAlign: "justify" }), run: (e) => e.chain().focus().toggleTextAlign("justify").run() },
+];
+
 /** Every toggle in the row, in render order. The `pressed` array below is
  *  index-aligned with this list, so the two cannot drift. */
-const CONTROLS: readonly ControlSpec[] = [...MARKS, ...BLOCKS];
+const CONTROLS: readonly ControlSpec[] = [...MARKS, ...BLOCKS, ...ALIGN];
 
-/** Indices (into `CONTROLS`) that get a divider rendered BEFORE them — the
- *  boundary between groups 2/3 (after the 6 marks, index 6), groups 3/4
- *  (after superscript/subscript, index 8), and groups 4/5 (after the two
- *  lists, index 10). The heading-trigger/marks boundary and the
- *  marks-or-blocks/link boundary are unconditional JSX below, not part of
- *  this set. */
-const GROUP_DIVIDER_BEFORE = new Set([6, 8, 10]);
+/** Dividers BEFORE these `CONTROLS` indices. MARKS occupy 0-7 (divider at 6
+ *  splits the six marks from superscript/subscript); BLOCKS occupy 8-12
+ *  (divider at 8 opens the group, at 11 splits the three lists from
+ *  blockquote/code-block); ALIGN occupies 13-16 (divider at 13 opens it). The
+ *  heading-trigger/marks boundary and the controls/link boundary are
+ *  unconditional JSX below, not part of this set. */
+const GROUP_DIVIDER_BEFORE = new Set([6, 8, 11, 13]);
 
 // Roving-tabindex positions, in DOM order: the heading trigger leads, then the
-// twelve CONTROLS, then Insert link and Remove link. Derived from
+// seventeen CONTROLS, then Insert link and Remove link. Derived from
 // CONTROLS.length rather than hardcoded, so adding a mark or block cannot
 // silently desync the arithmetic from the JSX below.
 const HEADING_INDEX = 0;
@@ -177,7 +211,7 @@ export interface RichTextToolbarProps {
   lang: Lang;
   /** The field name of the editor this row acts on — `RichTextEditor`'s own
    *  `label`, which it also puts on the contenteditable. Names the group so the
-   *  fifteen repeated control names below are told apart by their container.
+   *  twenty repeated control names below are told apart by their container.
    *  Absent (or blank) renders NO group at all: see the wrapper. */
   label?: string;
   /** Opens the consumer's link prompt. The toolbar never owns that UI — the
@@ -243,7 +277,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
     editor,
     selector: ({ editor: live }) => ({
       activeLevel: HEADING_LEVELS.find((level) => live.isActive("heading", { level })),
-      pressed: CONTROLS.map((spec) => live.isActive(spec.name)),
+      pressed: CONTROLS.map((spec) => (spec.active ? spec.active(live) : live.isActive(spec.name))),
     }),
   });
 
@@ -348,7 +382,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   const TriggerIcon = activeLevel === undefined ? PilcrowIcon : HEADING_ICON[activeLevel];
 
   return (
-    // ★ flex-wrap is required, not cosmetic: fifteen controls render inside four
+    // ★ flex-wrap is required, not cosmetic: twenty controls render inside four
     // modals with tight vertical space.
     // ★★ The toolbar is named or ABSENT, never named generically. Three sibling
     // toolbars all called "Formatting" disambiguate nothing while making the

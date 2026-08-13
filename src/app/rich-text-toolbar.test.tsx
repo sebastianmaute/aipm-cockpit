@@ -23,13 +23,24 @@ function makeEditor(active: Record<string, boolean> = {}) {
     toggleSuperscript: () => chain, toggleSubscript: () => chain,
     toggleBulletList: () => chain, toggleOrderedList: () => chain,
     toggleBlockquote: () => chain, toggleCodeBlock: () => chain,
+    toggleTaskList: () => chain, toggleTextAlign: () => chain,
     setParagraph: () => chain, setHeading: () => chain,
     unsetLink: () => chain, extendMarkRange: () => chain, setLink: () => chain,
     run,
   };
   const editor = {
-    isActive: (name: string, attrs?: { level?: number }) =>
-      active[attrs?.level ? `${name}${attrs.level}` : name] ?? false,
+    // ★ Two call shapes: a NAME (+ optional level) for marks/blocks, and an
+    // ATTRS OBJECT for alignment (`isActive({ textAlign })`). Keying the object
+    // form off its single entry keeps one lookup table for both — without this
+    // branch the object stringifies to "[object Object]" and every alignment
+    // pressed-state assertion passes vacuously.
+    isActive: (name: string | Record<string, string>, attrs?: { level?: number }) => {
+      if (typeof name === "object") {
+        const [k, v] = Object.entries(name)[0] ?? [];
+        return active[`${k}:${v}`] ?? false;
+      }
+      return active[attrs?.level ? `${name}${attrs.level}` : name] ?? false;
+    },
     chain: () => chain,
     on: () => editor,
     off: () => editor,
@@ -366,7 +377,9 @@ describe("RichTextToolbar", () => {
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it("separates the six control groups with five dividers", () => {
+  // §140 added the ALIGN group, so this went 6 groups/5 dividers -> 7/6:
+  // heading trigger | 6 marks | sup+sub | 3 lists | quote+code | align | links.
+  it("separates the seven control groups with six dividers", () => {
     const { editor } = makeEditor();
     const { container } = render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
     // Dividers are the only `aria-hidden` DIRECT children of the row besides
@@ -375,7 +388,7 @@ describe("RichTextToolbar", () => {
     // class is more robust than counting `[aria-hidden]` broadly.
     const row = container.firstElementChild as HTMLElement;
     const dividers = Array.from(row.children).filter((el) => el.className.includes("bg-line"));
-    expect(dividers).toHaveLength(5);
+    expect(dividers).toHaveLength(6);
   });
 
   // ★ Even though this control now shares ToolbarButton's preventFocusSteal
@@ -583,5 +596,38 @@ describe("RichTextToolbar", () => {
       button.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
     }
+  });
+});
+
+describe("task list + alignment controls (§140)", () => {
+  it("exposes the task-list and four alignment controls by accessible name", () => {
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    for (const name of ["Task list", "Align left", "Align center", "Align right", "Justify"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+  });
+
+  // ★ A deliberate change-detector, and NOT redundant with the existing
+  // "has TOOLBAR_CONTROL_COUNT enabled buttons" test. That one compares the DOM
+  // against the DERIVED constant, so both sides move together when a control is
+  // added and it stays green — it pins the WIRING, not the number. This pins the
+  // number, so adding a control is a conscious edit here.
+  it("renders exactly twenty controls", () => {
+    expect(TOOLBAR_CONTROL_COUNT).toBe(20);
+  });
+
+  it("reports alignment pressed state through the attrs-object query", () => {
+    const { editor } = makeEditor({ "textAlign:center": true });
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    expect(screen.getByRole("button", { name: "Align center" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Align left" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("runs the alignment command on click", async () => {
+    const { editor, run } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Align right" }));
+    expect(run).toHaveBeenCalled();
   });
 });
