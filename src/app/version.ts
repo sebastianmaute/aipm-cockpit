@@ -2,10 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.236.0";
-export const APP_BUILD_DATE = "2026-08-12"; // 0.236.0: the rich-text formatting toolbar is now a single tab stop with arrow-key navigation between its buttons (Sheldon)
+export const APP_VERSION = "0.237.0";
+export const APP_BUILD_DATE = "2026-08-13"; // 0.237.0: the rich-text editor now supports task lists and text alignment, stored under a value-guarded attribute boundary (Attanasio)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.235.x line is "Lackey" (Mercedes Lackey, prolific fantasy author).
+ *  0.236.x line was "Sheldon" — no bio recorded for it here; not asserting one
+ *  now rather than guessing (a wrong guess is worse than a gap).
+ *  0.235.x was "Lackey" (Mercedes Lackey, prolific fantasy author).
  *  0.234.x was "Anders" (Charlie Jane Anders, contemporary SF/fantasy author).
  *  0.233.x was "Reed" (Robert Reed, prolific SF short-fiction author).
  *  ★★ 0.224.0 IS A PERMANENTLY DEAD NUMBER — do not reuse it. The 0.226.0 line
@@ -19,7 +21,7 @@ export const APP_BUILD_DATE = "2026-08-12"; // 0.236.0: the rich-text formatting
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Sheldon";
+export const APP_MILESTONE = "Attanasio";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -291,4 +293,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0233",
   "versionHighlight0234",
   "versionHighlight0235",
+  "versionHighlightTaskListAlign",
 ] as const;
