@@ -2,11 +2,13 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.237.0";
-export const APP_BUILD_DATE = "2026-08-13"; // 0.237.0: the rich-text editor now supports task lists and text alignment, stored under a value-guarded attribute boundary (Attanasio)
+export const APP_VERSION = "0.238.0";
+export const APP_BUILD_DATE = "2026-08-13"; // 0.238.0: the rich-text editor now supports task lists and text alignment, stored under a value-guarded attribute boundary (Attanasio)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.236.x line was "Sheldon" — no bio recorded for it here; not asserting one
- *  now rather than guessing (a wrong guess is worse than a gap).
+ *  0.238.x line is "Attanasio" (A.A. Attanasio, SF/fantasy author).
+ *  0.237.x was "Roberson" (Chris Roberson, SF/fantasy author).
+ *  0.236.x was "Sheldon" (the rich-text toolbar's keyboard contract slice —
+ *  no bio recorded for it here; not asserting one now rather than guessing).
  *  0.235.x was "Lackey" (Mercedes Lackey, prolific fantasy author).
  *  0.234.x was "Anders" (Charlie Jane Anders, contemporary SF/fantasy author).
  *  0.233.x was "Reed" (Robert Reed, prolific SF short-fiction author).
@@ -16,7 +18,10 @@ export const APP_BUILD_DATE = "2026-08-13"; // 0.237.0: the rich-text editor now
  *  0.224.0 would have meant a release commit naming a version no build ever
  *  reported. The gap is the record of why.
  *  ★ Fetch before bumping. 0.221.0 "Kavan" shipped on main while the 0.222.0
- *  branch was in review and forced a renumber at merge time. A codename
+ *  branch was in review and forced a renumber at merge time — and it happened
+ *  AGAIN here: this branch's own bump (0.237.0 "Attanasio") collided with
+ *  0.236.0 "Sheldon" AND 0.237.0 "Roberson" both landing on main first while
+ *  it sat unpushed, forcing a renumber to 0.238.0 at merge time. A codename
  *  is unique per minor line and no gate here checks either the number or the
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
@@ -293,5 +298,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0233",
   "versionHighlight0234",
   "versionHighlight0235",
+  "versionHighlight0237",
   "versionHighlightTaskListAlign",
 ] as const;

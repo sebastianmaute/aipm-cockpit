@@ -96,6 +96,14 @@ export interface BackendSetupWizardProps {
    *  (Settings launch). Absent from the create-project launch (no existing
    *  workspace to migrate). */
   onMigrateToTurso?: () => void;
+  /** Hide the "Portfolio storage mode" switch inside the Storage step. Set this
+   *  when a real project is already open elsewhere in the app (Settings) — a
+   *  blind mode switch does not migrate that project, it just points the app at
+   *  a different (possibly empty) portfolio and reloads, abandoning the open
+   *  one. Leave it unset on a pre-project surface (nothing to abandon), so the
+   *  switch is reachable to load a project that already exists in a configured
+   *  Turso database. */
+  hidePortfolioSwitch?: boolean;
 }
 
 export function BackendSetupWizard({
@@ -105,6 +113,7 @@ export function BackendSetupWizard({
   onChangeSettings,
   onClose,
   onMigrateToTurso,
+  hidePortfolioSwitch,
 }: BackendSetupWizardProps) {
   const [step, setStep] = useState(0);
   // Primary (Next/Finish) button is always present; focus it after a Skip so
@@ -170,7 +179,7 @@ export function BackendSetupWizard({
               settings={settings}
               onChange={onChangeSettings}
               onMigrateToTurso={onMigrateToTurso}
-              hidePortfolioSwitch
+              hidePortfolioSwitch={hidePortfolioSwitch}
               hideJira
             />
           )}

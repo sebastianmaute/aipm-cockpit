@@ -497,6 +497,7 @@ export function SettingsView(props: SettingsViewProps) {
         onChangeSettings={onChange}
         onClose={() => setWizardOpen(false)}
         onMigrateToTurso={props.onMigrateToTurso}
+        hidePortfolioSwitch
       />
     )}
     <VersionInfoModal lang={lang} open={showVersion} onClose={() => setShowVersion(false)} />
