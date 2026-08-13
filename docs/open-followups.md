@@ -6990,7 +6990,7 @@ express it — that is §118.
 
 ---
 
-## 115. One of the two sanitizers admits arbitrary `data-*` — open
+## 115. One of the two sanitizers admits arbitrary `data-*` — CLOSED 2026-08-13 by §140
 
 ★★★ **RESCOPED 2026-08-11 by the unify-rich-text slice, and the count moved in BOTH terms — do not
 read the old title as "one got fixed".** This entry read "Two of the three sanitizers" while
@@ -7114,6 +7114,22 @@ meaning less than it looks. ★ This is the SECOND independent producer confirme
 (`@tiptap/extension-highlight`'s `data-color` under `multicolor` is the first), which is the argument
 for doing it once, in §140, rather than twice.
 
+### CLOSED 2026-08-13 by §140
+
+`sanitizeRichHtml` now sets `ALLOW_DATA_ATTR: false` (`src/app/sanitize-html.ts`), closing the
+short-circuit this entry is about. Measured on the current code: `sanitizeRichHtml('<p
+data-foo="1">a</p>')` → `<p>a</p>`, matching `sanitizeDocumentHtml`'s output — the offender this
+entry named is gone, not merely narrowed.
+
+★★★ **THIS ENTRY'S OWN ANALYSIS SAID THE FIX WAS TWO LINES BECAUSE THE RE-ADMISSION SET WAS EMPTY, AND
+THAT REASONING DID NOT SURVIVE §140.** By the time the flag was flipped, the set was no longer empty —
+§140 needed to re-admit exactly the three names task list and alignment depend on
+(`data-align`/`data-type`/`data-checked`), plus wire each through `ADD_URI_SAFE_ATTR` (this entry's own
+mechanism note, ★★ above) and guard every one with a VALUE predicate, not just a name. So the actual
+fix was the whole §140 slice — a literal `ATTR_VALUES` table plus a lazily-registered
+`uponSanitizeAttribute` hook — not the two-line change this entry predicted for the empty-set case.
+Recorded so a reader who remembers "two lines" does not go looking for a change that small.
+
 ---
 
 ## 116. The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision
@@ -7163,7 +7179,7 @@ clones, or raise the threshold with a recorded justification — not against a r
 
 ---
 
-## 117. Three S3c image prerequisites, all inert today — open
+## 117. Three S3c image prerequisites, all inert today — (b) CLOSED 2026-08-13 by §140, (a) and (c) still open
 
 ★ ONE entry rather than three because all three share a trigger: they become live the
 moment S3c wires the asset store, and whoever implements it needs the whole checklist.
@@ -7205,12 +7221,12 @@ uses, so "visible text" would have to learn that a void element counts as conten
 `sanitizeBlock` needs an image-aware arm. Either way it changes what an empty paragraph
 means on all six write paths.
 
-### (b) `data-asset-id` values are entirely unvalidated
+### (b) `data-asset-id` values are entirely unvalidated — CLOSED 2026-08-13 by §140
 
 `ADD_URI_SAFE_ATTR: ["data-asset-id"]` exempts the attribute from the value chain
 altogether — which is the whole reason it is there (`ALLOWED_URI_REGEXP` is tested
-against EVERY attribute value, so an opaque id fails it). The cost is that NOTHING
-checks the value. Measured:
+against EVERY attribute value, so an opaque id fails it). The cost was that NOTHING
+checked the value. Measured, on the PRE-§140 code:
 
 | input | output |
 |---|---|
@@ -7218,11 +7234,21 @@ checks the value. Measured:
 | `<p data-asset-id="javascript:alert(1)">x</p>` | **unchanged, verbatim** |
 | `<p data-asset-id='a&quot;b<c'>x</p>` | **unchanged** — a raw `<` survives in the value |
 
-★★ "Opaque key" is NOT the same as "safe to interpolate". Harmless today because nothing
-reads it, and both OOXML renderers escape everything they emit. It stops being harmless
-the moment the value is used to build a URL, a filesystem path, a lookup key, or is
-concatenated into markup. The consumer must validate the SHAPE it expects at the point of
-use; the sanitizer deliberately does not and cannot.
+★★ "Opaque key" is NOT the same as "safe to interpolate". Harmless at the time because nothing
+read it, and both OOXML renderers escape everything they emit. It would have stopped being harmless
+the moment the value was used to build a URL, a filesystem path, a lookup key, or was
+concatenated into markup.
+
+★★★ **CLOSED, not deferred to the consumer.** §140's `ATTR_VALUES` table (`sanitize-html.ts`) now
+guards `data-asset-id` with a conservative charset/length predicate —
+`/^[A-Za-z0-9_-]{1,64}$/` — applied through the SAME `uponSanitizeAttribute` hook that guards
+`data-align`/`data-type`/`data-checked`. Deliberately silent on FORMAT (admits uuid, ulid, nanoid, a
+content hash or an integer, so it cannot constrain whatever id a future images slice mints) and strict
+on CHARSET and LENGTH (rejects empty, whitespace, quotes, angle brackets, path separators and 65+
+chars). Re-measured on the current code: `sanitizeDocumentHtml('<img data-asset-id="javascript:alert(1)">')`
+drops the attribute; `sanitizeDocumentHtml('<img data-asset-id="a1-B2_c3">')` keeps it verbatim.
+A future images slice inherits this guard for free — it does not need to invent its own validation,
+only to widen `ATTR_VALUES`' predicate if the id shape it mints ever needs a wider charset.
 
 ### (c) Adding `src` opens `data:` URIs on `img`, bypassing the URI allow-list
 
@@ -8872,7 +8898,7 @@ was understood as the latter.
 
 ---
 
-## 140. The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes — open
+## 140. The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes — CLOSED 2026-08-13
 
 Opened 2026-08-11 out of §137's closure. The unify-rich-text slice deliberately stopped at TAGS.
 Task list and text alignment were the two controls it did not build, and they share one blocker:
@@ -8943,6 +8969,57 @@ upgrade the whole Tiptap tree as a deliberate separate step.
 the unified `RichTextEditor` already exists — but S3b wants alignment, so this entry sequences
 BEFORE it, the same way the classifier work sequenced before S3a.
 
+### CLOSED 2026-08-13 — the decisions taken
+
+This entry's spec (`docs/superpowers/specs/2026-08-13-attribute-boundary-140-design.md`) is
+gitignored and local-only. Reproducing the decisions here, because the durable record is this file,
+not the spec.
+
+★ **`data-align`, not `style` or `class`.** §113's correction already established `style`/`class`
+both survive DOMPurify unparsed (DEFAULT_URI_SAFE_ATTRIBUTES). A `class` allow-list (the four
+alignment utilities) was priced as the cheaper alternative and rejected anyway: a `data-*` attribute
+under a VALUE allow-list is a guard that cannot be widened one declaration at a time the way a CSS
+grammar or a growing class list can — `ATTR_VALUES["data-align"]` is a closed 4-member string set,
+full stop. `data-align` also composes with the SAME mechanism task list already needed
+(`data-type`/`data-checked`), so one hook covers both controls instead of two different guard shapes.
+
+★ **The chain, and why each link is load-bearing.** `ALLOW_DATA_ATTR: false` on `sanitizeRichHtml` is
+simultaneously the §115 fix AND the precondition that makes `ATTR_VALUES` reachable — the default
+`true` SHORT-CIRCUITS every `data-*` past both the name test and the value test, so the hook would
+never be asked about a kept name if the flag stayed on. Turning it off drops the three kept names
+(`data-align`/`data-type`/`data-checked`) into the value chain, where `ALLOWED_URI_REGEXP` is tested
+against EVERY attribute value and rejects any non-URI — so each kept name ALSO needs
+`ADD_URI_SAFE_ATTR`, or it is stripped outright regardless of `ATTR_VALUES`. That exemption in turn
+skips the value test, which is exactly why the `ATTR_VALUES` table has to exist: it is the only
+remaining guard on these values. Three links, none optional: turn off the short-circuit, re-exempt
+the URI test, then guard the value with the table.
+
+★ **The hook is registered LAZILY, never at module eval.** `DOMPurify.addHook` is `undefined` with no
+DOM and throws a `TypeError`; `sanitize-html.ts` is module-eval-reachable under Next SSR
+(`templates-builtin.ts` imports `plainToHtml` from here and calls it at module scope building the
+built-in templates), so a top-level registration would 500 every page. `ensureAttrHook()` guards this
+with a one-time flag. A source scan enforces it — comments may name the API, code may not call it at
+top level.
+
+★★★ **THE TASKITEM FINDING THIS ENTRY NEVER HAD, and it is the reason the tag list did not grow.**
+Stock `TaskItem.renderHTML` emits `<li><label><input type="checkbox"><span></span></label><div>…</div></li>`
+— four tags beyond `RICH_ALLOWED_TAGS`, spreading into `DOCUMENT_ALLOWED_TAGS`, plus an
+`<input type=checkbox>` whose only sibling is an empty `<span>` — axe-critical in an `A11Y_VIEWS`
+member. TaskItem separately declares `addNodeView`, and a nodeView is EDITOR-ONLY — `getHTML()`
+serializes through `renderHTML`, never the nodeView. So overriding `renderHTML` alone (to emit only
+`data-type="taskItem" data-checked="…"`) costs nothing in editor UX: the editor keeps Tiptap's own
+interactive labelled checkbox, and storage gets markup needing zero new tags. This entry priced the
+attribute boundary as the whole cost of task list; the real cost turned out to be one `renderHTML`
+override, found only by reading the extension's source rather than assuming the stock markup had to
+ship.
+
+★ Alignment: `TextAlign.extend({ addGlobalAttributes() {...} })` rewires `parseHTML`/`renderHTML` to
+read/write `data-align` instead of the stock `style="text-align:…"`; the alignments filter, commands
+and keyboard shortcuts are the stock extension's, unchanged.
+
+★ Fidelity reach, as shipped: in-app CSS, standalone HTML/PDF, and a plain-text `[x]`/`[ ]` prefix for
+flat exports. DOCX and PPTX are the STATED gap — see §141(b), extended below, not silently deferred.
+
 ---
 
 ## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — open
@@ -8971,6 +9048,19 @@ shrinks every time a human re-saves one.
 it — exports take the flat `descriptionTextWithBreaks` projection. Now that those fields can carry
 headings, lists, blockquote and code blocks, the gap is visible: **heading LEVEL and list NUMBERING
 are lost** in DOCX and PPTX. Wiring the entity fields onto `htmlToRichLines` is the fix.
+
+**Extended 2026-08-13 by §140.** The entity rich fields can now also carry TASK LISTS and TEXT
+ALIGNMENT, and this gap grew to cover both, for two different structural reasons. Alignment is a
+PARAGRAPH-level property and `htmlToRichLines` returns styled RUNS — a run has no paragraph to hang an
+alignment off — so this needs a new LINE-level field on that type, plus a mapping in
+`doc-render-docx.ts` and `doc-render-pptx.ts` (DOCX: `<w:pPr><w:jc w:val="…"/></w:pPr>`; PPTX: the
+paragraph's `algn` attribute). Task items need the equivalent of the `[x]`/`[ ]` marker
+`markTaskItems` (`rich-text-plain.ts`) already gives the flat projections — plain characters, since
+neither renderer has a checkbox glyph today.
+
+§140 shipped in-app CSS, standalone HTML/PDF and the flat-text `[x]`/`[ ]` prefix for both features.
+**DOCX and PPTX are the stated gap, not a silent omission** — recorded here so the next reader does
+not assume export parity because the in-app and web fidelity landed.
 
 ### (c) §31's unbounded markup bytes
 
@@ -9474,3 +9564,36 @@ the APG rule, and the only variant that distinguishes intent. That is a change t
 with many call sites, so it wants its own slice with a sweep of every consumer, not a rider on a
 single row's a11y work. ★ Until then, do not add a focus-restore to any individual consumer: one
 consumer restoring focus while its siblings do not is a worse inconsistency than the uniform gap.
+
+---
+
+## 147. Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit
+
+Opened 2026-08-13 out of §140's closure. `TaskItem.renderHTML` (`rich-text-editor.tsx`) stores task
+items as `<li data-type="taskItem" data-checked="…">` with no `<input>` — the editor's Tiptap nodeView
+supplies the real, labelled checkbox, and every READ-ONLY surface (`RichTextView`, standalone
+HTML/PDF) renders the state as a `::before` glyph (`globals.css` / `doc-render-html.ts`
+`DOCUMENT_PAGE_STYLES`): ☐ / ☑ (`\2610` / `\2611`), driven by `[data-checked="true"]`.
+
+★★ **This was the RIGHT trade for the alternative it avoided.** Storing the stock markup
+(`<input type=checkbox>` with an empty sibling `<span>`) would have shipped an axe-CRITICAL unlabeled
+form control in Documents, an `A11Y_VIEWS` member. A generated `::before` glyph has no accessible-name
+problem because it is not a form control at all — `content` on a pseudo-element is exposed to the
+accessibility tree as a CHARACTER, not as a semantic state.
+
+★ **The limit, stated precisely.** A screen-reader user hears the glyph's Unicode NAME (something
+like "ballot box" / "ballot box with check", browser-dependent) rather than "checked" / "not checked".
+That is strictly better than an unlabeled `<input>` (which announces nothing at all, or announces
+"checkbox" with no name), but it is not equivalent to a real checkbox's `aria-checked` announcement.
+
+★ **Candidate fix, not adopted:** CSS Generated Content's `content: "☑" / "checked"` alt-text syntax
+(a string literal after the glyph, announced instead of the glyph's own name) is the closest match —
+but browser support is uneven (`content` alt-text is a relatively recent addition to the spec and
+support varies across the engines this app targets), so adopting it needs a compatibility check this
+entry does not do.
+
+★★★ **NO GATE CAN SEE THIS.** axe-core has no rule that inspects generated pseudo-element content for
+semantic meaning, and the app's own axe scan of Documents renders whatever the e2e seed contains — no
+task list is seeded, so a green Documents scan says nothing about this either way (same class as the
+`A11Y_VIEWS` seeding gap AGENTS.md already records). The only way to know this is stated behaviour is
+to read this entry or the code comment beside the CSS rule.
