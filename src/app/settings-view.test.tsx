@@ -1,9 +1,9 @@
 // src/app/settings-view.test.tsx
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SettingsView } from "./settings-view";
-import { defaultSettings } from "./settings-types";
+import { defaultSettings, defaultIntegrations, defaultTursoIntegrations } from "./settings-types";
 import { t } from "./i18n";
 
 vi.mock("./jira-settings", () => ({ JiraSettingsSection: () => <div>jira-stub</div> }));
@@ -42,6 +42,33 @@ describe("SettingsView", () => {
     for (const key of ["settingsSectionMode", "settingsSectionTemplates", "settingsSectionNotifications", "settingsSectionNextActions", "settingsSectionExport"] as const) {
       expect(screen.queryByRole("button", { name: t("en-US", key) })).toBeNull();
     }
+  });
+
+  it("Run setup wizard from Settings keeps the portfolio-mode switch hidden (an open project would be abandoned, not migrated, by a blind switch)", () => {
+    // Turso must be enabled for the config block (which contains the switch)
+    // to render at all — otherwise a null assertion below would be vacuous.
+    const settings = {
+      ...defaultSettings,
+      integrations: {
+        ...defaultIntegrations,
+        turso: { ...defaultTursoIntegrations, enabled: true },
+      },
+    };
+    render(<SettingsView {...makeProps({ settings })} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionIntegrations") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "setupWizardRun") }));
+    // Settings' own Integrations tab already renders a second, unhidden
+    // IntegrationsSection behind the modal — scope to the wizard dialog so
+    // this only asserts on the modal's own copy.
+    const dialog = within(screen.getByRole("dialog"));
+    // The rest of the Turso config block (e.g. the URL field) IS visible —
+    // only the portfolio-mode switch specifically stays hidden.
+    expect(
+      dialog.getByPlaceholderText(t("en-US", "integrationsTursoUrlPlaceholder")),
+    ).toBeInTheDocument();
+    expect(
+      dialog.queryByRole("combobox", { name: t("en-US", "portfolioModeLabel") }),
+    ).toBeNull();
   });
 
   it("expert mode reveals the advanced sections", () => {

@@ -6,7 +6,7 @@ import { ProjectEmptyState } from "./project-empty-state";
 import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
-import { defaultSettings } from "./settings-types";
+import { defaultSettings, defaultIntegrations, defaultTursoIntegrations } from "./settings-types";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -119,6 +119,38 @@ describe("ProjectEmptyState", () => {
     expect(screen.getAllByRole("dialog")).toHaveLength(2);
     expect(
       screen.getByText(t("en-US", "setupWizardTitle")),
+    ).toBeInTheDocument();
+  });
+
+  /** The switch lives inside the Turso config block, which only renders once
+   *  Turso storage is enabled — `onChangeSettings` is a plain mock here (not
+   *  wired back into a re-render), so enabling it via a checkbox click would
+   *  be a no-op; pass it pre-enabled instead. */
+  function tursoEnabledSettings() {
+    return {
+      ...defaultSettings,
+      integrations: {
+        ...defaultIntegrations,
+        turso: { ...defaultTursoIntegrations, enabled: true },
+      },
+    };
+  }
+
+  it("shows the portfolio-mode switch inside the Configure-database modal (so an existing Turso project can be loaded, not just a new one created)", () => {
+    setup({ settings: tursoEnabledSettings() });
+    fireEvent.click(
+      screen.getByRole("button", { name: /configure database \/ m365/i }),
+    );
+    expect(
+      screen.getByRole("combobox", { name: t("en-US", "portfolioModeLabel") }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the portfolio-mode switch inside the guided setup wizard", () => {
+    setup({ settings: tursoEnabledSettings() });
+    fireEvent.click(screen.getByRole("button", { name: /run setup wizard/i }));
+    expect(
+      screen.getByRole("combobox", { name: t("en-US", "portfolioModeLabel") }),
     ).toBeInTheDocument();
   });
 
