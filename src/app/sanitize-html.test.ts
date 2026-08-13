@@ -443,6 +443,57 @@ describe("attribute value allow-list (§140)", () => {
       .not.toContain("data-asset-id");
   });
 
+  // ★★★ THE PROTOTYPE-CHAIN REGRESSION. The first cut of this slice looked the
+  // name up with a bare `ATTR_VALUES[data.attrName]` truthiness test, so
+  // `__proto__` resolved to `Object.prototype` — truthy, NOT callable — and the
+  // hook threw `TypeError: isAllowedValue is not a function` instead of
+  // returning inert. That throw is swallowed by `jsonToWorkspace`'s catch into
+  // `emptyWorkspace()`, so one such attribute in any rich field silently emptied
+  // a whole workspace on load.
+  // ★★ These must assert BOTH "no throw" AND "attribute dropped". A
+  // `not.toThrow()` alone would pass if the guard let the attribute survive, and
+  // a `not.toContain` alone reports a THROWN test rather than a clear failure.
+  describe("prototype-chain attribute names", () => {
+    // ★★★ Only `constructor` and `__proto__` can actually reach the lookup:
+    // HTML lowercases attribute names before the hook sees them, and those are
+    // the only two of Object.prototype's 12 own members that survive lowercasing
+    // intact. The other three below arrive as "valueof"/"tostring"/
+    // "hasownproperty" and are absent from the prototype too — they are here to
+    // pin the CLASS, and they would pass even on the broken code. That is
+    // deliberate and is why `__proto__` is asserted separately and first.
+    const PROTO_NAMES = ["__proto__", "constructor", "valueOf", "toString", "hasOwnProperty"];
+
+    it("drops __proto__ without throwing, on both sanitizers", () => {
+      expect(() => sanitizeRichHtml('<p __proto__="x">hi</p>')).not.toThrow();
+      expect(sanitizeRichHtml('<p __proto__="x">hi</p>')).toBe("<p>hi</p>");
+      expect(() => sanitizeDocumentHtml('<p __proto__="x">hi</p>')).not.toThrow();
+      expect(sanitizeDocumentHtml('<p __proto__="x">hi</p>')).toBe("<p>hi</p>");
+    });
+
+    it("drops __proto__ on a NESTED element, not just the outer one", () => {
+      // ★★ A top-level-only fixture would pass against a guard that covered only
+      // the outer element. DOMPurify walks every node, so the hook fires per
+      // element — this is the shape a real stored description would carry.
+      const html = "<p>hello <strong __proto__=\"x\">world</strong></p>";
+      expect(() => sanitizeRichHtml(html)).not.toThrow();
+      expect(sanitizeRichHtml(html)).toBe("<p>hello <strong>world</strong></p>");
+      expect(() => sanitizeDocumentHtml(html)).not.toThrow();
+    });
+
+    it("drops every prototype-shaped name without throwing", () => {
+      for (const name of PROTO_NAMES) {
+        expect(() => sanitizeRichHtml(`<p ${name}="x">hi</p>`)).not.toThrow();
+        expect(sanitizeRichHtml(`<p ${name}="x">hi</p>`)).toBe("<p>hi</p>");
+      }
+    });
+
+    it("still admits a real listed attribute — anti-vacuity for the loop above", () => {
+      // Without this, a guard that rejected EVERYTHING would turn the whole
+      // describe green while breaking the feature the slice exists to ship.
+      expect(sanitizeRichHtml('<p data-align="center">x</p>')).toBe('<p data-align="center">x</p>');
+    });
+  });
+
   it("cannot WIDEN the boundary — a table name absent from the rich list is dropped", () => {
     // ★★★ The security property that makes ATTR_VALUES safe to add at all.
     // `uponSanitizeAttribute` fires BEFORE the name test, and the hook only ever
@@ -482,6 +533,13 @@ describe("the value-allow-list hook is registered lazily, never at module eval",
     // ★ Brace DEPTH, not indentation: a formatting change must not be able to
     // turn this guard green or red. Depth > 0 means the call sits inside some
     // block, which is the only property that keeps it off the module-eval path.
+    // ★★ KNOWN LIMIT — this counter has NO string/regex-literal awareness: it
+    // counts every { and } in the stripped source, wherever it sits. It balances
+    // today (the only brace-bearing literal, /^[A-Za-z0-9_-]{1,64}$/, is itself
+    // balanced), so the depths are real. But an UNBALANCED brace inside a string
+    // or regex literal would skew every depth after it and could in principle
+    // invert this guard in either direction. If you are staring at an
+    // inexplicable pass or fail here, that is the first thing to check.
     const depths: number[] = [];
     let depth = 0;
     for (let i = 0; i < code.length; i += 1) {

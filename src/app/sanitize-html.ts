@@ -155,9 +155,34 @@ function ensureAttrHook(): void {
   if (attrHookRegistered) return;
   attrHookRegistered = true;
   DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
-    const isAllowedValue = ATTR_VALUES[data.attrName];
-    if (!isAllowedValue) return;
-    if (!isAllowedValue(data.attrValue)) data.keepAttr = false;
+    // ★★★ `Object.hasOwn` FIRST — a bare `ATTR_VALUES[name]` truthiness test is
+    // a PROTOTYPE-CHAIN LOOKUP, and it shipped that way in the first cut of this
+    // slice. `ATTR_VALUES["__proto__"]` is not `undefined`: it resolves to
+    // `Object.prototype`, which is TRUTHY but NOT CALLABLE, so the "absent →
+    // return inert" line never runs and the next line throws
+    // `TypeError: isAllowedValue is not a function`.
+    //
+    // ★★★ THE THROW IS SILENT DATA LOSS, which is why this is worth six lines of
+    // comment. `sanitizeRichHtml` runs inside `jsonToWorkspace`'s try, whose
+    // catch returns `emptyWorkspace()` — so ONE `__proto__=` attribute anywhere
+    // in a rich field (`Task.description`, note-log html, the six
+    // `AI_RICH_FIELDS`) makes a whole JSON workspace load as EMPTY, with no
+    // error surfaced. It also throws at RENDER time through RichTextView's
+    // `dangerouslySetInnerHTML`, and on the IDB load path.
+    //
+    // ★★ ONLY TWO NAMES CAN REACH THIS AT ALL, and the reason is not obvious:
+    // HTML lowercases attribute names before the hook sees them (measured — the
+    // hook receives "hasownproperty", "valueof", "tostring"), so of
+    // `Object.prototype`'s 12 own members exactly TWO survive intact —
+    // `constructor` and `__proto__`. `constructor` resolves to `Object`, which
+    // IS callable and returns truthy, so it merely wastes a call and is then
+    // dropped by the name test; `__proto__` is the one that crashes. Everything
+    // else lowercases into a name the prototype does not carry.
+    //
+    // Do not "simplify" this back to a truthiness check. Reproduce the class:
+    //   node -e "console.log(typeof ({})['__proto__'])"   // object, not function
+    if (!Object.hasOwn(ATTR_VALUES, data.attrName)) return;
+    if (!ATTR_VALUES[data.attrName](data.attrValue)) data.keepAttr = false;
   });
 }
 
