@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useImperativeHandle, useRef } from "react";
+import { useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import type { Ref } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -62,6 +62,18 @@ export interface RichTextEditorProps {
 // derivations over live ProseMirror state, and a stubbed `isActive` returning a
 // frozen record pins the derivation while being structurally unable to see that
 // the derivation is never re-run — which is exactly the defect that shipped.
+// ★ Named so the mount can reconfigure THIS entry by identity without
+// restructuring EXTENSIONS (see the a11y.checkboxLabel wiring below).
+export const TASK_ITEM = TaskItem.extend({
+  renderHTML({ HTMLAttributes, node }) {
+    return [
+      "li",
+      { ...HTMLAttributes, "data-type": "taskItem", "data-checked": String(node.attrs.checked === true) },
+      0,
+    ];
+  },
+});
+
 export const EXTENSIONS = [
   StarterKit.configure({ heading: { levels: [1, 2, 3, 4] } }),
   Highlight,
@@ -121,15 +133,7 @@ export const EXTENSIONS = [
   // ★ The read-only consequence is handled in globals.css (a ::before glyph)
   // and in rich-text-plain.ts's markTaskItems (the "[x] " export prefix) —
   // both later tasks.
-  TaskItem.extend({
-    renderHTML({ HTMLAttributes, node }) {
-      return [
-        "li",
-        { ...HTMLAttributes, "data-type": "taskItem", "data-checked": String(node.attrs.checked === true) },
-        0,
-      ];
-    },
-  }),
+  TASK_ITEM,
 ];
 
 export function RichTextEditor(props: RichTextEditorProps) {
@@ -144,8 +148,37 @@ export function RichTextEditor(props: RichTextEditorProps) {
   useEffect(() => { onCommitRef.current = props.onCommit; }, [props.onCommit]);
   useEffect(() => { commitOnEnterRef.current = props.commitOnEnter; }, [props.commitOnEnter]);
 
+  // ★★ Tiptap's TaskItem nodeView hardcodes an ENGLISH accessible name for its
+  // checkbox (`Task item checkbox for …`, extension-list task-item/index.js).
+  // The extension exposes an `a11y.checkboxLabel` option for exactly this, so
+  // the label is localized HERE — the only place `lang` is in scope. EXTENSIONS
+  // stays a module-level const (tests and the schema import it); only the
+  // taskItem entry is reconfigured, matched by identity.
+  // ★★★ The label interpolates the item's OWN text. Several checkboxes in one
+  // editor would otherwise share one accessible name — a WCAG 2.4.6 failure the
+  // axe gate cannot see at ANY seed size (AGENTS.md), so a flat "Task item
+  // checkbox" would be a REGRESSION on Tiptap's default, which is at least
+  // row-unique. Blank items fall back to the shared `none` string.
+  // ★ useEditor binds its options at mount, so a lang change relabels on the
+  // next mount, not immediately. Acceptable: switching language re-renders the
+  // shell, and the memo only exists to keep the array identity stable.
+  const extensions = useMemo(
+    () =>
+      EXTENSIONS.map((ext) =>
+        ext === TASK_ITEM
+          ? TASK_ITEM.configure({
+              a11y: {
+                checkboxLabel: (node) =>
+                  t(lang, "commTplTaskCheckbox", node.textContent || t(lang, "none")),
+              },
+            })
+          : ext,
+      ),
+    [lang],
+  );
+
   const editor = useEditor({
-    extensions: EXTENSIONS,
+    extensions,
     content: value,
     immediatelyRender: false,
     // @tiptap/core injects its ProseMirror base stylesheet with

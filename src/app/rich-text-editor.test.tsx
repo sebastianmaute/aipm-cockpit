@@ -454,6 +454,32 @@ describe("alignment is stored as data-align, never as style (§140)", () => {
   });
 });
 
+describe("the task-item checkbox carries a localized, row-unique name (§140)", () => {
+  // ★ The nodeView owns the EDITING DOM, so this is the only layer that can see
+  // the label — getHTML() serializes through renderHTML and has no checkbox at
+  // all. Mounting the component (not a bare Editor) is therefore the point.
+  const TWO_ITEMS =
+    '<ul data-type="taskList">' +
+    '<li data-type="taskItem" data-checked="false"><p>Milk</p></li>' +
+    '<li data-type="taskItem" data-checked="false"><p>Bread</p></li>' +
+    "</ul>";
+
+  it("names each checkbox after its own item, in the active language", async () => {
+    setup({ value: TWO_ITEMS });
+    await waitFor(() => {
+      expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(2);
+    });
+    const names = [...document.querySelectorAll('input[type="checkbox"]')].map((el) =>
+      el.getAttribute("aria-label"),
+    );
+    // Localized (Tiptap's default is the English "Task item checkbox for …"),
+    // and DISTINCT — two identical names here is the WCAG 2.4.6 collision the
+    // axe gate cannot detect at any seed size.
+    expect(names).toEqual(["Task item – Milk", "Task item – Bread"]);
+    expect(new Set(names).size).toBe(2);
+  });
+});
+
 describe("task list serializes without a form control (§140)", () => {
   it("emits only data attributes — no input, label, span or div", () => {
     const editor = new Editor({ extensions: EXTENSIONS, content: "<p>buy milk</p>" });
