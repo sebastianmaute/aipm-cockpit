@@ -2437,6 +2437,7 @@ const enUS = {
   commTplAlignJustify: "Justify",
   commTplTaskList: "Task list",
   commTplTaskCheckbox: "Task item – {0}",
+  commTplTaskCheckboxEmpty: "empty task item",
   commTplVersions: "Versions",
   commTplSaveVersion: "Save version",
   commTplVersionNamePrompt: "Name this version",

@@ -158,7 +158,13 @@ export function RichTextEditor(props: RichTextEditorProps) {
   // editor would otherwise share one accessible name — a WCAG 2.4.6 failure the
   // axe gate cannot see at ANY seed size (AGENTS.md), so a flat "Task item
   // checkbox" would be a REGRESSION on Tiptap's default, which is at least
-  // row-unique. Blank items fall back to the shared `none` string.
+  // row-unique. A BLANK item gets its own `commTplTaskCheckboxEmpty` wording
+  // rather than a bare trailing dash — Tiptap's default does the same, and
+  // dropping it would make the localized label worse than the English one.
+  // ★★ `.configure()` returns a NEW instance and must not mutate the shared
+  // TASK_ITEM: several editors mount at once (change-edit-modal has three), so
+  // a mutating configure would leak one field's language into its siblings.
+  // Pinned by a test that mounts an en-US and a de editor together.
   // ★ useEditor binds its options at mount, so a lang change relabels on the
   // next mount, not immediately. Acceptable: switching language re-renders the
   // shell, and the memo only exists to keep the array identity stable.
@@ -169,7 +175,11 @@ export function RichTextEditor(props: RichTextEditorProps) {
           ? TASK_ITEM.configure({
               a11y: {
                 checkboxLabel: (node) =>
-                  t(lang, "commTplTaskCheckbox", node.textContent || t(lang, "none")),
+                  t(
+                    lang,
+                    "commTplTaskCheckbox",
+                    node.textContent || t(lang, "commTplTaskCheckboxEmpty"),
+                  ),
               },
             })
           : ext,

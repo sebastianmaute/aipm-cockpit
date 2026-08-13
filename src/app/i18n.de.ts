@@ -2416,6 +2416,7 @@ export const de: Record<TranslationKey, string> = {
   commTplAlignJustify: "Blocksatz",
   commTplTaskList: "Aufgabenliste",
   commTplTaskCheckbox: "Aufgabe – {0}",
+  commTplTaskCheckboxEmpty: "leere Aufgabe",
   commTplVersions: "Versionen",
   commTplSaveVersion: "Version speichern",
   commTplVersionNamePrompt: "Diese Version benennen",

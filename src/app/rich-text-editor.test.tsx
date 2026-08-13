@@ -4,8 +4,9 @@ import { useRef } from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "@tiptap/core";
-import { RichTextEditor, EXTENSIONS, type RichTextEditorHandle } from "./rich-text-editor";
+import { RichTextEditor, EXTENSIONS, TASK_ITEM, type RichTextEditorHandle } from "./rich-text-editor";
 import { sanitizeRichHtml } from "./sanitize-html";
+import { loadI18n } from "./i18n";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so the editor mounts.
 beforeAll(() => {
@@ -463,6 +464,50 @@ describe("the task-item checkbox carries a localized, row-unique name (§140)", 
     '<li data-type="taskItem" data-checked="false"><p>Milk</p></li>' +
     '<li data-type="taskItem" data-checked="false"><p>Bread</p></li>' +
     "</ul>";
+
+  it("names a BLANK item with its own wording, not a bare trailing dash", async () => {
+    setup({ value: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul>' });
+    await waitFor(() => {
+      expect(document.querySelector('input[type="checkbox"]')).not.toBeNull();
+    });
+    expect(document.querySelector('input[type="checkbox"]')?.getAttribute("aria-label")).toBe(
+      "Task item – empty task item",
+    );
+  });
+
+  // ★★★ THE LEAK TEST. `.configure()` must return a NEW instance rather than
+  // mutating the shared TASK_ITEM — several editors mount at once in this app
+  // (change-edit-modal has three), so a mutating configure would give the LAST
+  // mounted editor's language to all of them. Two editors, two languages, one
+  // render: the only shape that can observe it.
+  it("does not leak one editor's language into another mounted beside it", async () => {
+    await loadI18n("de");
+    render(
+      <>
+        <RichTextEditor value={TWO_ITEMS} onChange={() => {}} label="EN body" lang="en-US" />
+        <RichTextEditor value={TWO_ITEMS} onChange={() => {}} label="DE body" lang="de" />
+      </>,
+    );
+    await waitFor(() => {
+      expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(4);
+    });
+    const names = [...document.querySelectorAll('input[type="checkbox"]')].map((el) =>
+      el.getAttribute("aria-label"),
+    );
+    expect(names).toEqual([
+      "Task item – Milk",
+      "Task item – Bread",
+      "Aufgabe – Milk",
+      "Aufgabe – Bread",
+    ]);
+    // ★★ `.configure()` returns a NEW instance — the property that makes the
+    // four labels above possible. Asserted by IDENTITY, not by inspecting
+    // `TASK_ITEM.options`: `options` is a GETTER returning a fresh spread of
+    // `addOptions()` on every access (@tiptap/core Extendable), so an
+    // `expect(TASK_ITEM.options.a11y).toBeUndefined()` can never fail whatever
+    // configure does — a mutation test proved that assertion vacuous.
+    expect(TASK_ITEM.configure({})).not.toBe(TASK_ITEM);
+  });
 
   it("names each checkbox after its own item, in the active language", async () => {
     setup({ value: TWO_ITEMS });
