@@ -12,7 +12,12 @@ import { t } from "./i18n";
 // ---------------------------------------------------------------------------
 
 vi.mock("./settings-sections/integrations-section", () => ({
-  IntegrationsSection: () => <div data-testid="integrations-section">Integrations</div>,
+  IntegrationsSection: ({ hidePortfolioSwitch }: { hidePortfolioSwitch?: boolean }) => (
+    <div data-testid="integrations-section">
+      Integrations
+      <span data-testid="portfolio-switch-hidden">{String(!!hidePortfolioSwitch)}</span>
+    </div>
+  ),
 }));
 
 vi.mock("./settings-sections/ai-section", () => ({
@@ -90,6 +95,16 @@ describe("BackendSetupWizard", () => {
     expect(screen.getByTestId("integrations-section")).toBeInTheDocument();
     // Step indicator should mark step 1
     expect(screen.getByText(/1\. /)).toBeInTheDocument();
+  });
+
+  it("shows the portfolio-mode switch by default (hidePortfolioSwitch not passed)", () => {
+    setup();
+    expect(screen.getByTestId("portfolio-switch-hidden")).toHaveTextContent("false");
+  });
+
+  it("hides the portfolio-mode switch when hidePortfolioSwitch is passed", () => {
+    setup({ hidePortfolioSwitch: true });
+    expect(screen.getByTestId("portfolio-switch-hidden")).toHaveTextContent("true");
   });
 
   it("Back is disabled on the first step", () => {

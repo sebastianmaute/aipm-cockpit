@@ -283,7 +283,6 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setConfigOpen(false)}
-          hidePortfolioSwitch
         />
       )}
 

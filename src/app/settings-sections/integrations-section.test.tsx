@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import { IntegrationsSection } from "./integrations-section";
 import { ConfirmProvider } from "../confirm-dialog";
+import { t } from "../i18n";
 import {
   defaultSettings,
   defaultIntegrations,
@@ -40,6 +41,32 @@ function tursoSettings(authToken: string) {
     },
   };
 }
+
+describe("IntegrationsSection portfolio-mode load hint", () => {
+  it("shows a hint naming the load action when Turso is configured", () => {
+    render(
+      <IntegrationsSection lang="en-US" settings={tursoSettings("test-token")} onChange={() => {}} />,
+    );
+    expect(
+      screen.getByText(/already have a project stored in this database/i),
+    ).toBeInTheDocument();
+  });
+
+  it("hides that hint when Turso is enabled but not yet configured (URL set, no token)", () => {
+    // Turso must stay enabled so the config block itself renders — otherwise
+    // the hint's absence would be explained by the whole block being gone,
+    // not by the tursoConfigured check this test means to exercise.
+    render(
+      <IntegrationsSection lang="en-US" settings={tursoSettings("")} onChange={() => {}} />,
+    );
+    expect(
+      screen.getByText(t("en-US", "portfolioModeTursoNeedsConfig")),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/already have a project stored in this database/i),
+    ).toBeNull();
+  });
+});
 
 // ★★ The four per-entity calendar rows had NO test at all — the two below cover
 //    the enable control, whose `auto:false`-on-disable behaviour AGENTS.md calls
