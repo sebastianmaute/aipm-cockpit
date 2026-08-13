@@ -643,6 +643,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               </Select>
             </label>
             <FieldHint className="mt-1">{t(lang, "portfolioModeHelp")}</FieldHint>
+            {tursoConfigured && (
+              <FieldHint className="mt-1">{t(lang, "portfolioModeTursoLoadHint")}</FieldHint>
+            )}
             {!tursoConfigured && (
               <Banner severity="error" className="mt-1">{t(lang, "portfolioModeTursoNeedsConfig")}</Banner>
             )}
