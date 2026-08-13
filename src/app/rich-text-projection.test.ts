@@ -208,3 +208,27 @@ describe("projection classifies at the widest list", () => {
     expect(descriptionText("cost < 5k")).toBe("cost < 5k");
   });
 });
+
+describe("task-item state in the plain-text projections (§140)", () => {
+  const TASKS =
+    '<ul data-type="taskList">' +
+    '<li data-type="taskItem" data-checked="true"><p>done thing</p></li>' +
+    '<li data-type="taskItem" data-checked="false"><p>open thing</p></li>' +
+    "</ul>";
+
+  it("marks task state in the flat export projection", () => {
+    const out = descriptionTextWithBreaks(TASKS);
+    expect(out).toContain("[x] done thing");
+    expect(out).toContain("[ ] open thing");
+  });
+
+  it("marks task state in the search/AI projection too — one implementation", () => {
+    const out = descriptionText(TASKS);
+    expect(out).toContain("[x] done thing");
+    expect(out).toContain("[ ] open thing");
+  });
+
+  it("leaves non-task HTML byte-identical", () => {
+    expect(descriptionText("<p>plain</p><p>text</p>")).toBe("plain text");
+  });
+});

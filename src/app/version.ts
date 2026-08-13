@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.237.0";
-export const APP_BUILD_DATE = "2026-08-13"; // 0.237.0: an existing Turso-stored project can now be reached from the pre-project empty state (Roberson)
+export const APP_VERSION = "0.238.0";
+export const APP_BUILD_DATE = "2026-08-13"; // 0.238.0: the rich-text editor now supports task lists and text alignment, stored under a value-guarded attribute boundary (Attanasio)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.237.x line is "Roberson" (Chris Roberson, SF/fantasy author).
+ *  0.238.x line is "Attanasio" (A.A. Attanasio, SF/fantasy author).
+ *  0.237.x was "Roberson" (Chris Roberson, SF/fantasy author).
  *  0.236.x was "Sheldon" (the rich-text toolbar's keyboard contract slice —
  *  no bio recorded for it here; not asserting one now rather than guessing).
  *  0.235.x was "Lackey" (Mercedes Lackey, prolific fantasy author).
@@ -18,13 +19,14 @@ export const APP_BUILD_DATE = "2026-08-13"; // 0.237.0: an existing Turso-stored
  *  reported. The gap is the record of why.
  *  ★ Fetch before bumping. 0.221.0 "Kavan" shipped on main while the 0.222.0
  *  branch was in review and forced a renumber at merge time — and it happened
- *  AGAIN here: this branch's own bump collided with 0.236.0 "Sheldon" landing
- *  on main first, forcing a second renumber to 0.237.0 at merge time. A
- *  codename is unique per minor line and no gate here checks either the
- *  number or the name — the only defence is looking at CHANGELOG.md first.
- *  ★★ Match the NAME, not the dash: older CHANGELOG entries use an em-dash and
- *  newer ones a hyphen, so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Roberson";
+ *  AGAIN here: this branch's own bump (0.237.0 "Attanasio") collided with
+ *  0.236.0 "Sheldon" AND 0.237.0 "Roberson" both landing on main first while
+ *  it sat unpushed, forcing a renumber to 0.238.0 at merge time. A codename
+ *  is unique per minor line and no gate here checks either the number or the
+ *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
+ *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
+ *  so a dash-anchored grep reports used names as free. */
+export const APP_MILESTONE = "Attanasio";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -297,4 +299,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0234",
   "versionHighlight0235",
   "versionHighlight0237",
+  "versionHighlightTaskListAlign",
 ] as const;

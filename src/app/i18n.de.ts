@@ -2410,6 +2410,13 @@ export const de: Record<TranslationKey, string> = {
   commTplHighlight: "Hervorhebung",
   commTplSuperscript: "Hochgestellt",
   commTplSubscript: "Tiefgestellt",
+  commTplAlignLeft: "Linksbündig",
+  commTplAlignCenter: "Zentriert",
+  commTplAlignRight: "Rechtsbündig",
+  commTplAlignJustify: "Blocksatz",
+  commTplTaskList: "Aufgabenliste",
+  commTplTaskCheckbox: "Aufgabe – {0}",
+  commTplTaskCheckboxEmpty: "leere Aufgabe",
   commTplVersions: "Versionen",
   commTplSaveVersion: "Version speichern",
   commTplVersionNamePrompt: "Diese Version benennen",
@@ -3803,6 +3810,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlight0211: "Symbolleisten-Politur: Drucken, Push/Pull und andere gemeinsam genutzte Bedienelemente verwenden jetzt einheitliche, symbolgeführte Schaltflächen in jedem Bereich, und mehrere Ein-/Ausblenden-Schalter zeigen ihren Zustand deutlicher an. Offene Punkte hat sein Bearbeiten-Menü und die Standard-Reihenfolge der Symbolleiste zurückerhalten. Die RACI-Matrix kann jetzt Zuordnungen anhand von Stakeholder-Titeln und Meilensteinen per KI vorschlagen – jede vorgeschlagene Zelle wird vor der Übernahme geprüft. Diktieren funktioniert jetzt auch im Rich-Text-Notizeditor und im Notizprotokoll.",
   versionHighlight02023: "Barrierefreiheit: Verknüpfungsfelder sind jetzt echte Comboboxen (Pfeiltasten, Enter zum Hinzufügen, Escape zum Schließen), sortierbare Tabellenüberschriften geben ihre Sortierrichtung an, Termine im Kalender lassen sich per Tastatur verschieben (Alt+Pfeil zum Verschieben, Enter zum Bestätigen), und violetter Text erfüllt beim Überfahren mit der Maus in allen Themes den AA-Kontrast.",
   versionHighlight0202: "Kalender: Abwesenheiten lassen sich jetzt per Ziehen verschieben, per Ziehen über Zeilen neu zuweisen und durch Ziehen am Rand in der Länge anpassen — mit Tastatur-Äquivalent (Alt+Pfeil zum Verschieben, Alt+Umschalt+Pfeil zur Größenänderung) und einstufigem Rückgängig; außerdem bringt eine neue Termin-Entität tägliche/wöchentliche/monatliche Wiederholung, Ausnahmen zum Überspringen oder Verschieben einzelner Termine, ein Terminband im Kalender, einen Editor und eine Serienliste mit — gespeichert über alle Speicher-Backends hinweg und standardmäßig im Export enthalten.",
+  versionHighlightTaskListAlign: "Rich-Text-Formatierung: Beschreibungen von Aufgaben, RAID-Einträgen, Änderungen und Meilensteinen sowie das Notizprotokoll unterstützen jetzt Checklisten (über die Schaltfläche \"Aufgabenliste\") und Textausrichtung (linksbündig/zentriert/rechtsbündig/Blocksatz) zusätzlich zu den bisherigen Textauszeichnungen und Überschriften. Beim Export als Klartext bleiben Kontrollkästchen und Ausrichtung so gut wie möglich erhalten – ein erledigter Punkt wird mit \"[x]\" markiert, ein offener mit \"[ ]\".",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",

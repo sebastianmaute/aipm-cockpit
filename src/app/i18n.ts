@@ -2431,6 +2431,13 @@ const enUS = {
   commTplHighlight: "Highlight",
   commTplSuperscript: "Superscript",
   commTplSubscript: "Subscript",
+  commTplAlignLeft: "Align left",
+  commTplAlignCenter: "Align center",
+  commTplAlignRight: "Align right",
+  commTplAlignJustify: "Justify",
+  commTplTaskList: "Task list",
+  commTplTaskCheckbox: "Task item – {0}",
+  commTplTaskCheckboxEmpty: "empty task item",
   commTplVersions: "Versions",
   commTplSaveVersion: "Save version",
   commTplVersionNamePrompt: "Name this version",
@@ -3837,6 +3844,7 @@ const enUS = {
   versionHighlight0211: "Toolbar polish: Print, push/pull and other shared controls now use consistent icon-first buttons across every pane, and several hide/show toggles read their state more clearly. Open Points regained its Edit menu and its standard toolbar order. The RACI matrix can now suggest assignments with AI from stakeholder titles and milestones — review each proposed cell before applying. Dictation now works inside the rich-text note editor and the note log composer.",
   versionHighlight02023: "Accessibility: link pickers are proper comboboxes (arrow keys, Enter to add, Escape to dismiss), sortable table headers announce their sort direction, calendar meetings can be rescheduled from the keyboard (Alt+Arrow to move, Enter to confirm), and purple text now clears AA contrast on hover in every theme.",
   versionHighlight0202: "Calendar: absences drag to reschedule, drag across rows to reassign, and edge-drag to resize — with a keyboard equivalent (Alt+Arrow to move, Alt+Shift+Arrow to resize) and single-entry undo; and a new recurring-meetings entity brings daily/weekly/monthly recurrence, per-occurrence skip and move exceptions, a meetings band, an editor, and an all-series list, persisted across every storage backend and exported by default.",
+  versionHighlightTaskListAlign: "Rich-text formatting: task/RAID/change/milestone descriptions and the note log now support checklists (with a Task list button) and text alignment (left/center/right/justify) alongside the existing marks and headings. Both export as plain text with checkbox and alignment preserved as best they can be — a checked item is prefixed \"[x]\", an unchecked one \"[ ]\".",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

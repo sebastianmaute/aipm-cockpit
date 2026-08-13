@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.238.0] - 2026-08-13 "Attanasio"
+
+### Added
+
+- **Task lists and text alignment in every rich-text field.** Task, RAID, change and milestone
+  descriptions, and the note log, now support checklists (a new Task list toolbar button) and
+  left/center/right/justify alignment, alongside the existing marks, headings and lists. Checked
+  items and alignment carry through to the printed/exported HTML and PDF. A plain-text export
+  (search, AI digests, downloads) shows a checked item as "[x]" and an open one as "[ ]" rather than
+  dropping the state. DOCX and PPTX exports do not yet carry heading-level list numbering, task-item
+  state or alignment for these fields — tracked as an open item.
+
+### Notes
+
+- Internal: the rich-text storage boundary now admits exactly four `data-*` attributes
+  (`data-align`, `data-type`, `data-checked`, `data-asset-id`) under a value allow-list enforced by a
+  DOMPurify hook, closing a pre-existing gap where one of the two sanitizers admitted any `data-*`
+  attribute regardless of value.
+
 ## [0.237.0] - 2026-08-13 "Roberson"
 
 ### Fixed

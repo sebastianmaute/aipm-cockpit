@@ -23,13 +23,24 @@ function makeEditor(active: Record<string, boolean> = {}) {
     toggleSuperscript: () => chain, toggleSubscript: () => chain,
     toggleBulletList: () => chain, toggleOrderedList: () => chain,
     toggleBlockquote: () => chain, toggleCodeBlock: () => chain,
+    toggleTaskList: () => chain, toggleTextAlign: () => chain,
     setParagraph: () => chain, setHeading: () => chain,
     unsetLink: () => chain, extendMarkRange: () => chain, setLink: () => chain,
     run,
   };
   const editor = {
-    isActive: (name: string, attrs?: { level?: number }) =>
-      active[attrs?.level ? `${name}${attrs.level}` : name] ?? false,
+    // ★ Two call shapes: a NAME (+ optional level) for marks/blocks, and an
+    // ATTRS OBJECT for alignment (`isActive({ textAlign })`). Keying the object
+    // form off its single entry keeps one lookup table for both — without this
+    // branch the object stringifies to "[object Object]" and every alignment
+    // pressed-state assertion passes vacuously.
+    isActive: (name: string | Record<string, string>, attrs?: { level?: number }) => {
+      if (typeof name === "object") {
+        const [k, v] = Object.entries(name)[0] ?? [];
+        return active[`${k}:${v}`] ?? false;
+      }
+      return active[attrs?.level ? `${name}${attrs.level}` : name] ?? false;
+    },
     chain: () => chain,
     on: () => editor,
     off: () => editor,
@@ -220,7 +231,10 @@ describe("RichTextToolbar", () => {
   // toolbar role is a KEYBOARD CONTRACT (one tab stop, roving tabindex,
   // Left/Right between controls), and declaring it without the behaviour tells
   // an AT user to press arrow keys that do nothing. The price was 15 tab stops
-  // per editor and up to 45 in change-edit-modal. §144(a) built the contract,
+  // per editor and up to 45 in change-edit-modal, AT THE §144(a) COUNT — §140
+  // raised the per-editor total to 20 (60 in change-edit-modal's three
+  // editors), so read "15"/"45" here as a dated record of the count AT THE
+  // TIME OF THE FLIP, not a live figure. §144(a) built the contract,
   // so the role follows it — that order is the whole point, and this test now
   // pins the opposite of what it used to.
   it("claims the toolbar role, whose keyboard contract it now honours", () => {
@@ -366,7 +380,9 @@ describe("RichTextToolbar", () => {
     expect(focusSpy).not.toHaveBeenCalled();
   });
 
-  it("separates the six control groups with five dividers", () => {
+  // §140 added the ALIGN group, so this went 6 groups/5 dividers -> 7/6:
+  // heading trigger | 6 marks | sup+sub | 3 lists | quote+code | align | links.
+  it("separates the seven control groups with six dividers", () => {
     const { editor } = makeEditor();
     const { container } = render(<RichTextToolbar editor={editor} lang="en-US" onAddLink={() => {}} />);
     // Dividers are the only `aria-hidden` DIRECT children of the row besides
@@ -375,7 +391,7 @@ describe("RichTextToolbar", () => {
     // class is more robust than counting `[aria-hidden]` broadly.
     const row = container.firstElementChild as HTMLElement;
     const dividers = Array.from(row.children).filter((el) => el.className.includes("bg-line"));
-    expect(dividers).toHaveLength(5);
+    expect(dividers).toHaveLength(6);
   });
 
   // ★ Even though this control now shares ToolbarButton's preventFocusSteal
@@ -420,12 +436,16 @@ describe("RichTextToolbar", () => {
     // ★★★ READ THE ROW THROUGH THE SELECTOR THE RUNTIME USES. The handler walks
     // `:scope > button` (DIRECT children); an earlier revision of this test
     // counted `container.querySelectorAll("button")` (DESCENDANTS), and the two
-    // disagree the moment any control gains a wrapper element. Measured: wrap
-    // the Insert-link button in a bare <span> and this file stayed 31/31 GREEN
-    // while the widget broke — 14 controls in the arrow order instead of 15,
-    // "Insert link" unreachable by arrow, and `End` focusing "Remove link" while
-    // "Insert link" held the tab stop. Focus and the tab stop on two different
-    // controls is precisely what this test claims to prevent.
+    // disagree the moment any control gains a wrapper element. Measured, dated:
+    // AT THE §144(a) COUNT (15 controls, 31 tests in this file — both since
+    // grown to 20 and 36 by §140), wrapping the Insert-link button in a bare
+    // <span> stayed 31/31 GREEN while the widget broke — 14 controls in the
+    // arrow order instead of 15, "Insert link" unreachable by arrow, and `End`
+    // focusing "Remove link" while "Insert link" held the tab stop. The
+    // MECHANISM this pins is unaffected by the count moving; read the numbers
+    // as a snapshot of when it was measured, not as today's totals. Focus and
+    // the tab stop on two different controls is precisely what this test
+    // claims to prevent.
     const row = container.querySelector<HTMLElement>('[role="toolbar"]');
     if (row === null) throw new Error("toolbar row not found");
     const buttons = Array.from(row.querySelectorAll<HTMLButtonElement>(":scope > button"));
@@ -438,7 +458,7 @@ describe("RichTextToolbar", () => {
 
     // ★★ The count alone does NOT pin the ORDER, and the order is what the
     // roving arithmetic indexes into. Moving Link/Unlink ahead of the CONTROLS
-    // map keeps the count at 15 and would silently redirect every arrow key.
+    // map keeps the count at 20 and would silently redirect every arrow key.
     expect(buttons[0].getAttribute("aria-label")).toBe("Text style");
     expect(buttons[TOOLBAR_CONTROL_COUNT - 2].getAttribute("aria-label")).toBe("Insert link");
     expect(buttons[TOOLBAR_CONTROL_COUNT - 1].getAttribute("aria-label")).toBe("Remove link");
@@ -446,7 +466,7 @@ describe("RichTextToolbar", () => {
 
   // ★★★ THE SECOND TAB IS THE ASSERTION. A first Tab lands on control 1
   // whether or not the roving works — only the second one distinguishes a
-  // single-tab-stop row from fifteen tab stops.
+  // single-tab-stop row from twenty tab stops.
   it("is a single tab stop: a second Tab leaves the row entirely", async () => {
     const user = userEvent.setup();
     const { editor } = makeEditor();
@@ -583,5 +603,38 @@ describe("RichTextToolbar", () => {
       button.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
     }
+  });
+});
+
+describe("task list + alignment controls (§140)", () => {
+  it("exposes the task-list and four alignment controls by accessible name", () => {
+    const { editor } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    for (const name of ["Task list", "Align left", "Align center", "Align right", "Justify"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+  });
+
+  // ★ A deliberate change-detector, and NOT redundant with the existing
+  // "has TOOLBAR_CONTROL_COUNT enabled buttons" test. That one compares the DOM
+  // against the DERIVED constant, so both sides move together when a control is
+  // added and it stays green — it pins the WIRING, not the number. This pins the
+  // number, so adding a control is a conscious edit here.
+  it("renders exactly twenty controls", () => {
+    expect(TOOLBAR_CONTROL_COUNT).toBe(20);
+  });
+
+  it("reports alignment pressed state through the attrs-object query", () => {
+    const { editor } = makeEditor({ "textAlign:center": true });
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    expect(screen.getByRole("button", { name: "Align center" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Align left" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("runs the alignment command on click", async () => {
+    const { editor, run } = makeEditor();
+    render(<RichTextToolbar editor={editor} lang="en-US" label="Description" onAddLink={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Align right" }));
+    expect(run).toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "0.237.0",
+  "version": "0.238.0",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
@@ -61,8 +61,10 @@
     "@azure/msal-browser": "^5.16.0",
     "@heroicons/react": "^2.2.0",
     "@tiptap/extension-highlight": "^3.27.1",
+    "@tiptap/extension-list": "^3.27.1",
     "@tiptap/extension-subscript": "^3.27.1",
     "@tiptap/extension-superscript": "^3.27.1",
+    "@tiptap/extension-text-align": "^3.27.1",
     "@tiptap/react": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
     "date-holidays": "^3.28.0",

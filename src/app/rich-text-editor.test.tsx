@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { useRef } from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor";
+import { Editor } from "@tiptap/core";
+import { RichTextEditor, EXTENSIONS, TASK_ITEM, type RichTextEditorHandle } from "./rich-text-editor";
+import { sanitizeRichHtml } from "./sanitize-html";
+import { loadI18n } from "./i18n";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so the editor mounts.
 beforeAll(() => {
@@ -423,5 +426,133 @@ describe("RichTextEditor — structural facts the DOM cannot show", () => {
     // style[data-tiptap-style] — one un-nonced mount poisons every later one.
     // Prod CSP is nonce-only on style-src-elem; dev is not (open-followups §54).
     expect(SRC).toContain("injectNonce: readCspNonce()");
+  });
+});
+
+describe("alignment is stored as data-align, never as style (§140)", () => {
+  it("serializes a centred paragraph with data-align and no style attribute", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>hello</p>" });
+    editor.chain().selectAll().setTextAlign("center").run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(html).toContain('data-align="center"');
+    expect(html).not.toContain("style=");
+  });
+
+  it("round-trips a stored data-align back into editor state", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: '<p data-align="right">hi</p>' });
+    const active = editor.isActive({ textAlign: "right" });
+    editor.destroy();
+    expect(active).toBe(true);
+  });
+
+  it("survives the storage boundary unchanged", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>hello</p>" });
+    editor.chain().selectAll().setTextAlign("justify").run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(sanitizeRichHtml(html)).toBe(html);
+  });
+});
+
+describe("the task-item checkbox carries a localized, row-unique name (§140)", () => {
+  // ★ The nodeView owns the EDITING DOM, so this is the only layer that can see
+  // the label — getHTML() serializes through renderHTML and has no checkbox at
+  // all. Mounting the component (not a bare Editor) is therefore the point.
+  const TWO_ITEMS =
+    '<ul data-type="taskList">' +
+    '<li data-type="taskItem" data-checked="false"><p>Milk</p></li>' +
+    '<li data-type="taskItem" data-checked="false"><p>Bread</p></li>' +
+    "</ul>";
+
+  it("names a BLANK item with its own wording, not a bare trailing dash", async () => {
+    setup({ value: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p></p></li></ul>' });
+    await waitFor(() => {
+      expect(document.querySelector('input[type="checkbox"]')).not.toBeNull();
+    });
+    expect(document.querySelector('input[type="checkbox"]')?.getAttribute("aria-label")).toBe(
+      "Task item – empty task item",
+    );
+  });
+
+  // ★★★ THE LEAK TEST. `.configure()` must return a NEW instance rather than
+  // mutating the shared TASK_ITEM — several editors mount at once in this app
+  // (change-edit-modal has three), so a mutating configure would give the LAST
+  // mounted editor's language to all of them. Two editors, two languages, one
+  // render: the only shape that can observe it.
+  it("does not leak one editor's language into another mounted beside it", async () => {
+    await loadI18n("de");
+    render(
+      <>
+        <RichTextEditor value={TWO_ITEMS} onChange={() => {}} label="EN body" lang="en-US" />
+        <RichTextEditor value={TWO_ITEMS} onChange={() => {}} label="DE body" lang="de" />
+      </>,
+    );
+    await waitFor(() => {
+      expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(4);
+    });
+    const names = [...document.querySelectorAll('input[type="checkbox"]')].map((el) =>
+      el.getAttribute("aria-label"),
+    );
+    expect(names).toEqual([
+      "Task item – Milk",
+      "Task item – Bread",
+      "Aufgabe – Milk",
+      "Aufgabe – Bread",
+    ]);
+    // ★★ `.configure()` returns a NEW instance — the property that makes the
+    // four labels above possible. Asserted by IDENTITY, not by inspecting
+    // `TASK_ITEM.options`: `options` is a GETTER returning a fresh spread of
+    // `addOptions()` on every access (@tiptap/core Extendable), so an
+    // `expect(TASK_ITEM.options.a11y).toBeUndefined()` can never fail whatever
+    // configure does — a mutation test proved that assertion vacuous.
+    expect(TASK_ITEM.configure({})).not.toBe(TASK_ITEM);
+  });
+
+  it("names each checkbox after its own item, in the active language", async () => {
+    setup({ value: TWO_ITEMS });
+    await waitFor(() => {
+      expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(2);
+    });
+    const names = [...document.querySelectorAll('input[type="checkbox"]')].map((el) =>
+      el.getAttribute("aria-label"),
+    );
+    // Localized (Tiptap's default is the English "Task item checkbox for …"),
+    // and DISTINCT — two identical names here is the WCAG 2.4.6 collision the
+    // axe gate cannot detect at any seed size.
+    expect(names).toEqual(["Task item – Milk", "Task item – Bread"]);
+    expect(new Set(names).size).toBe(2);
+  });
+});
+
+describe("task list serializes without a form control (§140)", () => {
+  it("emits only data attributes — no input, label, span or div", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>buy milk</p>" });
+    editor.chain().selectAll().toggleTaskList().run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(html).toContain('data-type="taskList"');
+    expect(html).toContain('data-type="taskItem"');
+    expect(html).toContain('data-checked="false"');
+    for (const tag of ["<input", "<label", "<span", "<div"]) {
+      expect(html).not.toContain(tag);
+    }
+  });
+
+  it("survives the storage boundary unchanged", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>buy milk</p>" });
+    editor.chain().selectAll().toggleTaskList().run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(sanitizeRichHtml(html)).toBe(html);
+  });
+
+  it("round-trips a checked item", () => {
+    const stored =
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>done</p></li></ul>';
+    const editor = new Editor({ extensions: EXTENSIONS, content: stored });
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(html).toContain('data-checked="true"');
   });
 });

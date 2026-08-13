@@ -10,7 +10,12 @@
 // its value through descriptionText. DOM consumers use RichTextView.
 import { htmlToText, plainToHtml } from "./sanitize-html";
 import { appendDictation } from "./dictation-engine";
-import { descriptionHtml, htmlPlainProjection, separateBlockBoundaries } from "./rich-text-plain";
+import {
+  descriptionHtml,
+  htmlPlainProjection,
+  markTaskItems,
+  separateBlockBoundaries,
+} from "./rich-text-plain";
 
 /** Stored value -> plain text, upgrading a legacy plain value on the way so a
  *  never-edited record projects identically to an edited one.
@@ -37,7 +42,7 @@ import { descriptionHtml, htmlPlainProjection, separateBlockBoundaries } from ".
  *  precondition — it too composes in front of htmlToText. */
 export function descriptionText(stored: string | undefined): string {
   return htmlPlainProjection(
-    htmlToText(separateBlockBoundaries(descriptionHtml(stored, "projection"))),
+    htmlToText(separateBlockBoundaries(markTaskItems(descriptionHtml(stored, "projection")))),
   );
 }
 
@@ -60,7 +65,7 @@ export function descriptionText(stored: string | undefined): string {
  *  the two functions that were told to keep it. */
 export function descriptionTextWithBreaks(stored: string | undefined): string {
   return htmlPlainProjection(
-    htmlToText(separateBlockBoundaries(descriptionHtml(stored, "projection"), "\n"), {
+    htmlToText(separateBlockBoundaries(markTaskItems(descriptionHtml(stored, "projection")), "\n"), {
       preserveBreaks: true,
     }),
     { preserveBreaks: true },

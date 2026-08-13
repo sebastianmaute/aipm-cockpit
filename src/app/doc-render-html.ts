@@ -80,7 +80,15 @@ export type DocHtmlMode = "preview" | "standalone";
  *  reads badly. No colours here — the palette stays entirely PRINT_STYLES'. */
 const DOCUMENT_PAGE_STYLES = `
     @page { size: A4 portrait; margin: 18mm 16mm; }
-    .page-break { break-after: page; page-break-after: always; height: 0; }`;
+    .page-break { break-after: page; page-break-after: always; height: 0; }
+    [data-align="left"] { text-align: left; }
+    [data-align="center"] { text-align: center; }
+    [data-align="right"] { text-align: right; }
+    [data-align="justify"] { text-align: justify; }
+    ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+    li[data-type="taskItem"] { display: flex; gap: 0.5rem; }
+    li[data-type="taskItem"]::before { content: "\\2610"; }
+    li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611"; }`;
 
 /** ONE table renderer for both the `table` block and a resolved dataSection.
  *
