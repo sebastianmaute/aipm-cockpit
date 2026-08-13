@@ -257,11 +257,11 @@ describe("NoteLogPanel", () => {
     });
     expect(bareComposer).not.toBe(suffixedComposer);
 
-    // The toolbars ride the same names, so the group naming from the previous
-    // commit disambiguates here too rather than producing two identical groups.
-    expect(screen.getByRole("group", { name: t(EN, "noteLogPlaceholder") })).toBeTruthy();
+    // The toolbars ride the same names, so the toolbar naming disambiguates
+    // here too rather than producing two identically-named toolbars.
+    expect(screen.getByRole("toolbar", { name: t(EN, "noteLogPlaceholder") })).toBeTruthy();
     expect(
-      screen.getByRole("group", { name: `${t(EN, "noteLogPlaceholder")} – Task ABC` }),
+      screen.getByRole("toolbar", { name: `${t(EN, "noteLogPlaceholder")} – Task ABC` }),
     ).toBeTruthy();
 
     // Now the entry editors — the second of the two `label` props.

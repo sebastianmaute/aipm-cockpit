@@ -233,6 +233,36 @@
   focusCol` so a window shrink keeps EXACTLY one tab stop; keydown guards on `document.activeElement` being a
   `[data-cell]` so the assignee row-header keeps its own arrow keys; `default: return` before `preventDefault`
   so Tab still escapes). Calendar sub-tab is NOT axe-scanned (Resources default sub-tab = directory).
+  ★★★ **The rich-text toolbar (`role="toolbar"`, open-followups §144(a)) is one of SEVERAL roving-tabindex
+  widgets — `use-tablist-roving.ts`, `band-roving.ts`, `segmented-control.tsx` and the `resource-calendar.tsx`
+  grid above all predate it — and it deliberately shares NONE of their models, nor `use-focus-trap.ts`.**
+  ★ Deliberately no ordinal: an earlier revision here called it "the app's SECOND", which was wrong by at
+  least three and read as though it followed the `role=grid` line directly above — a different axis (2-D grid
+  vs 1-D row). Count the `*-roving.ts` engines plus the hand-rolled `tabIndex={… ? 0 : -1}` sites before
+  writing any such number:
+  `ls src/app/*roving*.ts | grep -v test; grep -ln "tabIndex={.*? 0 : -1}" src/app/*.tsx | grep -v test`
+  ★★ BOTH HALVES NEED THE `grep -v test` and an earlier revision of this line had neither — the raw `ls`
+  returns FIVE lines for THREE engines (`band-roving.test.ts` and `toolbar-roving.test.ts` are tests), and
+  the raw grep likewise includes `use-tablist-roving.test.tsx`. A reader following the instruction
+  literally got the exact over-count this note exists to prevent.
+  ★★ Read the output at the right GRANULARITY too — it lists the files carrying the ternary, which for the
+  resource calendar are `resource-calendar-band.tsx` and `resource-calendar-rows.tsx`, NOT the
+  `resource-calendar.tsx` orchestrator that declares the `role="grid"` itself. Counting output lines gives
+  you spellings, not widgets — which is the same error as the ordinal this note replaced, one level down. The
+  pure engine is `toolbar-roving.ts` `moveToolbarFocus(count, index, key, modifiers)` — one tab stop per row
+  (14 of 15 controls carry `tabIndex={-1}`); Left/Right move within the row and WRAP at either end; Home/End
+  jump straight to the first/last control; a chord (Alt/Ctrl/Meta) is left alone so it falls through to the
+  browser or OS (Alt+Left is Back). ★★ **Activation never follows focus** — arrowing across the row moves
+  focus and runs no command, unlike the tablist-style roving hook whose move ends in a `target.click()`; doing
+  that here would fire Bold/Italic/Quote on every keypress and mutate the user's document. ★★★ **THE PORTAL
+  GUARD.** The heading-level trigger opens a `PopoverPanel` that `createPortal`s to `document.body`, but React
+  synthetic events bubble the REACT tree, not the DOM tree — so a keydown fired while focus sits inside that
+  OPEN menu still reaches the row's `onKeyDown` even though the menu item is nowhere inside the row in the
+  DOM. Without an explicit guard (bail out when `document.activeElement` is not one of the row's own direct
+  `<button>` children), arrowing inside the menu would silently rove the toolbar underneath it. Proven, not
+  just reasoned: a mutation that deleted the guard turned exactly one test red (the heading-menu-open pin in
+  `rich-text-toolbar.test.tsx`), and a vacuity check on that same test confirmed focus had genuinely reached
+  the menu item before the arrow press, so a green run there could not have hidden a broken guard.
 
 ### UI shell — surfaces & controls
 

@@ -29,7 +29,11 @@
 import { useCallback, useId, useRef, useState, Fragment } from "react";
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import type { ElementType } from "react";
+import type {
+  ElementType,
+  FocusEvent as ReactFocusEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   BoldIcon,
   ChevronDownIcon,
@@ -56,6 +60,7 @@ import { PopoverPanel } from "./popover-panel";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import { ToolbarButton } from "./rich-text-toolbar-button";
 import type { ToolbarButtonAccent } from "./rich-text-toolbar-button";
+import { moveToolbarFocus } from "./toolbar-roving";
 
 /** Shared icon sizing for every control in this toolbar (14px — the same size
  *  as GanttViewMenu's menu-row icons, sized for this toolbar's compact
@@ -111,6 +116,20 @@ const CONTROLS: readonly ControlSpec[] = [...MARKS, ...BLOCKS];
  *  marks-or-blocks/link boundary are unconditional JSX below, not part of
  *  this set. */
 const GROUP_DIVIDER_BEFORE = new Set([6, 8, 10]);
+
+// Roving-tabindex positions, in DOM order: the heading trigger leads, then the
+// twelve CONTROLS, then Insert link and Remove link. Derived from
+// CONTROLS.length rather than hardcoded, so adding a mark or block cannot
+// silently desync the arithmetic from the JSX below.
+const HEADING_INDEX = 0;
+const CONTROLS_OFFSET = 1;
+const LINK_INDEX = CONTROLS.length + 1;
+const UNLINK_INDEX = CONTROLS.length + 2;
+
+/** How many focusable controls the row renders WITH THE HEADING MENU CLOSED.
+ *  Derived from UNLINK_INDEX so the count and the indices cannot drift apart.
+ *  Exported so a test can pin the arithmetic against the real DOM (§144a). */
+export const TOOLBAR_CONTROL_COUNT = UNLINK_INDEX + 1;
 
 const HEADING_LEVELS = [1, 2, 3, 4] as const;
 type HeadingLevel = (typeof HEADING_LEVELS)[number];
@@ -176,15 +195,16 @@ function ToolbarDivider() {
 }
 
 export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextToolbarProps) {
-  // ★★★ `group`, NEVER `toolbar`. The APG toolbar pattern is a KEYBOARD
-  // contract — one tab stop for the whole row, roving tabindex, Left/Right
-  // Arrow moving focus between controls — and this row implements none of it:
-  // every control is its own tab stop. Declaring a role whose interaction the
-  // widget does not honour is worse than declaring none, because it tells an AT
-  // user to press arrow keys that do nothing. `group` carries no keyboard
-  // contract and is exactly WCAG technique ARIA17 (grouping roles to identify
-  // related controls). Adding `toolbar` later means implementing roving
-  // tabindex first, which changes Tab behaviour in every editor in the app.
+  // ★★★ `toolbar`, and ONLY because the row now honours the contract. The APG
+  // toolbar pattern is a KEYBOARD contract — one tab stop for the row, roving
+  // tabindex, Left/Right moving focus between controls — and until §144(a) this
+  // row implemented none of it, so it correctly declared `group` instead:
+  // declaring a role whose interaction the widget does not honour is worse than
+  // declaring none, because it tells an AT user to press arrow keys that do
+  // nothing. The contract now lives in handleRowKeyDown + the tabIndex wiring
+  // below. If either is ever removed, this must go back to `group` in the same
+  // commit.
+  // ★★ Named or ABSENT, never named generically — see the wrapper's comment.
   const named = label !== undefined && label.trim() !== "";
 
   // useId, not a literal string: change-edit-modal mounts up to three
@@ -254,6 +274,72 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   const headingTriggerRef = useRef<HTMLButtonElement>(null);
   const closeHeadingMenu = useCallback(() => setHeadingMenuOpen(false), []);
 
+  // Which control holds the row's single tab stop. The DOM is the source of
+  // truth for MOVEMENT (the keydown handler reads document.activeElement); this
+  // exists only to decide which button renders tabIndex=0.
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // ★★★ THE TAB STOP FOLLOWS FOCUS, AND IT HAS TO — an earlier revision moved
+  // it on KEYDOWN ONLY, justified by "every control passes preventFocusSteal,
+  // so a click never focuses a toolbar button". That premise is FALSE: the
+  // heading trigger deliberately omits `preventFocusSteal` (opening a popover
+  // is not a mark command, so there is no editor selection to protect), and
+  // `rich-text-toolbar-button.tsx` documents the omission. Measured
+  // consequence: Tab in, ArrowRight twice (tab stop → Italic), then click the
+  // heading trigger twice to open and close its menu — focus lands on the
+  // trigger while the tab stop is still on Italic, so the next Tab moves focus
+  // WITHIN the row instead of leaving it. Two tab stops, i.e. the exact defect
+  // §144(a) exists to close, on a mixed mouse/keyboard path.
+  // ★ This is also the APG-recommended shape: it covers every route into a
+  // control — click, programmatic .focus(), a future control that opts out of
+  // preventFocusSteal — rather than only the one the keydown handler knows.
+  // ★★ The `=== -1` bail is the same portal guard the keydown handler needs and
+  // for the same reason: React focus events bubble the REACT tree, so focusing
+  // an item in the portaled heading menu fires this with a target that is not
+  // one of the row's own children. Without it the tab stop would chase the menu.
+  // ★ Typed at HTMLElement, not HTMLDivElement: React types a FocusEvent's
+  // `target` as `EventTarget & <the generic>`, so a HTMLDivElement handler
+  // claims the target IS the row and comparing it to a button is a tsc error
+  // ("no overlap"). Widening the generic keeps the comparison honest without an
+  // assertion. Contravariance still lets this sit on the row's onFocus.
+  const syncActiveIndex = useCallback((e: ReactFocusEvent<HTMLElement>) => {
+    const buttons = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>(":scope > button"),
+    );
+    // Compared by identity rather than cast: React types a FocusEvent's
+    // `target` as the ROW element, so `indexOf` would need a double assertion
+    // through `unknown` to compile — which would also silence a genuine mistake.
+    const focused = buttons.findIndex((button) => button === e.target);
+    if (focused === -1) return;
+    setActiveIndex(focused);
+  }, []);
+
+  const handleRowKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
+    // `e.currentTarget` is the row this handler is attached to, so the handler
+    // is inherently per-row — the three rows change-edit-modal mounts each
+    // drive their own, with no ref needed.
+    // `:scope >` so only THIS row's own controls count. The heading menu is a
+    // PopoverPanel portaled to document.body, so its items are never in here.
+    const buttons = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>(":scope > button"),
+    );
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    // ★★★ THE PORTAL GUARD. React synthetic events bubble the REACT tree, not
+    // the DOM tree, so a keydown inside the OPEN heading menu — whose panel
+    // lives under document.body — can still arrive here. Without this, arrowing
+    // inside the menu would silently rove the row underneath it while the menu
+    // appeared to ignore the key. Returning BEFORE preventDefault is essential:
+    // the menu's own handling must still see the event. It also covers focus
+    // sitting anywhere else entirely, e.g. in the editor.
+    if (current === -1) return;
+
+    const next = moveToolbarFocus(buttons.length, current, e.key, e);
+    if (next === null) return;
+    e.preventDefault();
+    setActiveIndex(next);
+    buttons[next]?.focus();
+  }, []);
+
   function pickLevel(value: string) {
     setLevel(value);
     closeHeadingMenu();
@@ -264,23 +350,31 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
   return (
     // ★ flex-wrap is required, not cosmetic: fifteen controls render inside four
     // modals with tight vertical space.
-    // ★★ The group is named or ABSENT, never named generically. Three sibling
-    // groups all called "Formatting" disambiguate nothing while making the code
-    // look fixed, and an UNNAMED group is worse than none — it adds a boundary
-    // announcement carrying no information. So an editor with no label keeps
-    // the bare div. Every call site in `src/app` passes a real label today;
-    // `RichTextEditor.label` is required, so only a blank string reaches here.
+    // ★★ The toolbar is named or ABSENT, never named generically. Three sibling
+    // toolbars all called "Formatting" disambiguate nothing while making the
+    // code look fixed, and an UNNAMED toolbar is worse than none — it adds a
+    // boundary announcement carrying no information. So an editor with no label
+    // keeps the bare div. Every call site in `src/app` passes a real label
+    // today; `RichTextEditor.label` is required, so only a blank string reaches
+    // here.
     // ★★ NOTHING GATES THIS. Measured against the installed axe-core 4.12.1:
     // of its 105 rules, 69 carry one of the four tags `e2e/a11y.spec.ts`
     // requests and not one flags two controls sharing an accessible name (the
     // only adjacent rule, identical-links-same-purpose, is links-only and
     // wcag2aaa, which the spec never asks for). The multi-editor test in
-    // rich-text-toolbar.test.tsx is the only possible detector — a
-    // single-editor fixture passes with the group deleted.
+    // rich-text-toolbar.test.tsx is the only possible detector OF THE
+    // COLLISION: two controls sharing a name is not a property one editor has,
+    // so no single-editor fixture can express it.
+    // ★★ Do NOT restate that as "a single-editor fixture passes with the role
+    // deleted" — measured false, that mutation turns 5 tests red, 3 of them
+    // single-editor, because other tests pin the role ITSELF. A detector for
+    // "is the role there" is not a detector for "do two names collide".
     <div
       className="flex flex-wrap items-center gap-0.5"
-      role={named ? "group" : undefined}
+      role={named ? "toolbar" : undefined}
       aria-label={named ? label : undefined}
+      onKeyDown={handleRowKeyDown}
+      onFocus={syncActiveIndex}
     >
       <ToolbarButton
         ref={headingTriggerRef}
@@ -290,6 +384,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         ariaLabel={t(lang, "commTplHeadingLevel")}
         title={t(lang, "commTplHeadingLevel")}
         ariaControls={headingMenuId}
+        tabIndex={activeIndex === HEADING_INDEX ? 0 : -1}
       >
         <TriggerIcon aria-hidden="true" className={ICON_CLASS} />
         <ChevronDownIcon aria-hidden="true" className="h-2.5 w-2.5 shrink-0" />
@@ -337,6 +432,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
             accent={spec.accent}
             ariaLabel={t(lang, spec.key)}
             title={t(lang, spec.key)}
+            tabIndex={activeIndex === index + CONTROLS_OFFSET ? 0 : -1}
           >
             <spec.icon aria-hidden="true" className={ICON_CLASS} />
           </ToolbarButton>
@@ -349,6 +445,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         onClick={onAddLink}
         ariaLabel={t(lang, "commTplLink")}
         title={t(lang, "commTplLink")}
+        tabIndex={activeIndex === LINK_INDEX ? 0 : -1}
       >
         <LinkIcon aria-hidden="true" className={ICON_CLASS} />
       </ToolbarButton>
@@ -357,6 +454,7 @@ export function RichTextToolbar({ editor, lang, label, onAddLink }: RichTextTool
         onClick={() => editor.chain().focus().unsetLink().run()}
         ariaLabel={t(lang, "commTplUnlink")}
         title={t(lang, "commTplUnlink")}
+        tabIndex={activeIndex === UNLINK_INDEX ? 0 : -1}
       >
         <UnlinkIcon aria-hidden="true" className={ICON_CLASS} />
       </ToolbarButton>

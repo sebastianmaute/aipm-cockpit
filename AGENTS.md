@@ -949,31 +949,67 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   less, not sanitize differently (that asymmetry WAS §137). ★ No version quoted deliberately: the
   change is committed but UNRELEASED, and naming the release it sits ON sends a reader chasing a
   changelog entry that describes something else.
-  ★★ **THE TOOLBAR IS A NAMED `role="group"`, AND THE NAME IS THE EDITOR'S OWN `label`.**
+  ★★ **THE TOOLBAR IS A NAMED `role="toolbar"`, AND THE NAME IS THE EDITOR'S OWN `label`.**
   `RichTextToolbar` renders FIFTEEN controls whose names repeat verbatim in every editor — eight marks
   (`MARKS`), four blocks (`BLOCKS`), Link, Unlink, and the heading menu trigger (an icon-triggered
   `PopoverPanel`, not a `<select>`, since the icon-only redesign) — and several surfaces
   mount editors as SIBLINGS in one form: `change-edit-modal.tsx` has three, `raid-edit-modal.tsx` two,
   `note-log-panel.tsx` two (composer + entry editor). An open change modal therefore carried three
   buttons named "Bold" and three more buttons named "Text style", with nothing tying one to the field it
-  acts on (WCAG 2.4.6). The row wraps in `role="group"` + `aria-label` fed from that `label`, so the
-  repeats are told apart by their container (WCAG technique ARIA17).
+  acts on (WCAG 2.4.6). The row wraps in a NAMED container — `role="toolbar"` + `aria-label` fed from
+  that `label` — so the repeats are told apart by their container. ★ The ROLE was `group` until 0.236.0
+  and is `toolbar` now; see the ★★★ note below for why the flip had to wait for the keyboard contract.
+  ★★ NEITHER ROLE IS A LANDMARK and the containment argument does NOT rest on WCAG technique ARIA17,
+  though an earlier revision of this line said both. `toolbar` and `group` are both ARIA `structure`
+  roles, so neither appears in a landmarks rotor
+  (`node -e 'const a=require("axe-core");console.log(a.commons.aria.getRoleType("toolbar"),
+  a.commons.aria.getRoleType("group"))'` → `structure structure`), and ARIA17's Tests Procedure names
+  only `group` and `radiogroup` — so the citation was valid in the `group` era and did NOT survive the
+  flip. The disambiguation stands on its own: a named container is what AT announces around the
+  repeats. ★ Both errors were introduced BY a correction that reached for a more general word to avoid
+  naming the retired role — the sentence it replaced was accurate.
   ★★ NAMED OR ABSENT, never generic — a blank or missing `label` renders the bare div with NO role.
   An unnamed group announces a boundary carrying no information, and three sibling groups all called
   "Formatting" disambiguate nothing while making the code look fixed. Both branches are pinned.
-  ★★★ `group` AND NOT `toolbar`. The APG toolbar pattern is a KEYBOARD CONTRACT — one tab stop for the
-  whole row, roving `tabindex`, Left/Right Arrow moving focus between controls — and this row implements
-  none of it: every control is its own tab stop. Declaring a role whose interaction the widget does not
-  honour is worse than declaring none, because it tells an AT user to press arrow keys that do nothing.
-  `rich-text-toolbar.test.tsx` pins `queryByRole("toolbar")` as NULL so the role cannot be added without
-  the behaviour; adding it later means implementing roving tabindex FIRST, which changes Tab in every
-  editor in the app.
+  ★★★ `toolbar` NOW, AND `group` UNTIL 0.236.0 — the flip is the point, not the endpoint. The APG
+  toolbar pattern is a KEYBOARD CONTRACT (one tab stop for the row, roving `tabindex`, Left/Right
+  moving focus between controls), and until §144(a) this row honoured none of it, so it correctly
+  declared `group`: a role whose interaction the widget does not implement tells an AT user to press
+  arrow keys that do nothing, which is worse than declaring no role at all. **The refusal was right
+  for as long as it stood, and it was not free** — it cost 15 tab stops per editor. §144(a) built the
+  contract in `toolbar-roving.ts` plus the `tabIndex` wiring in `rich-text-toolbar.tsx`, so the role
+  followed it. ★★ `rich-text-toolbar.test.tsx` used to pin `queryByRole("toolbar")` as NULL; it now
+  pins the OPPOSITE, and a reader who remembers only the old rule will try to revert this. ★★★ The two
+  must move together in BOTH directions: if the roving handler or the `tabIndex={-1}` wiring is ever
+  removed, the role goes back to `group` in the SAME commit.
+  ★★ THERE ARE TWO WAYS TO ADD A CONTROL AND ONLY ONE IS AUTOMATIC. A new `CONTROLS` entry needs
+  nothing: `LINK_INDEX`/`UNLINK_INDEX` derive from `CONTROLS.length` DIRECTLY, and
+  `TOOLBAR_CONTROL_COUNT` derives from `UNLINK_INDEX` — the count follows the indices, never the
+  reverse — all pinned against the real DOM by a unit test that also pins the ORDER of the heading
+  trigger and the two link controls. A HAND-WRITTEN JSX button (there are THREE — the heading trigger,
+  Link and Unlink; the fourth `<ToolbarButton` site is the `CONTROLS.map`, so verify with
+  `grep -n "<ToolbarButton" src/app/rich-text-toolbar.tsx` rather than trusting this count)
+  joins the ARROW order automatically, since the handler re-queries `:scope > button` live, but NOT
+  the `tabIndex` wiring, which is a per-control `activeIndex === <CONST> ? 0 : -1` you must add by
+  hand. Miss it and the button stays natively tabbable — a SECOND tab stop, i.e. the exact defect
+  §144(a) closed, reopened one control at a time. The control-count test catches it.
+  ★ A control that renders `disabled` joins NEITHER order, since the engine has no skip-disabled
+  logic (nothing in this row is ever disabled today, and a test pins that so adding one forces the
+  decision).
   ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet above
   carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
   not one flagging two controls that share an accessible name; the only adjacent rule,
   `identical-links-same-purpose`, is links-only and `wcag2aaa`, which the spec never asks for). The
-  MULTI-editor unit test is the only possible detector — a single-editor fixture passes with the group
-  deleted.
+  MULTI-editor unit test is the only possible detector OF THE COLLISION — two controls sharing a name
+  is not a property one editor has, so no single-editor fixture can express it at any assertion count.
+  ★★ STATE THAT AS THE COLLISION, NOT AS "a single-editor fixture passes with the role deleted" — two
+  successive revisions of this line said the latter and BOTH were false, the second measurably so.
+  Deleting `role` + `aria-label` from the wrapper turns **5** tests red, THREE of them single-editor
+  (`npx vitest run src/app/rich-text-toolbar.test.tsx --reporter=dot` after removing both attributes).
+  That is a different mutation from the one the sentence is about: other tests pin the role ITSELF, so
+  they fire on a single editor — including one made single-editor-sensitive by the very commit that
+  wrote the false claim. A detector for "is the role there" is not a detector for "do two names
+  collide", and conflating them is what made the sentence checkable and wrong.
   ★ WCAG 2.5.3 does NOT apply to any control in this row — every one is icon-only (`ariaLabel` carries
   the accessible name, `title` mirrors it as a hover tooltip; `ToolbarButton` also appends the on/off
   state to `title`, the DESCRIPTION), and 2.5.3 only constrains a control that HAS a visible label. This
