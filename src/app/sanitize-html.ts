@@ -112,8 +112,22 @@ const ATTR_VALUES: Readonly<Record<string, (value: string) => boolean>> = {
 
 /** The three names task list and alignment need. Kept separate from
  *  ALLOWED_ATTR's own literal only so the ADD_URI_SAFE_ATTR lists below can
- *  reuse it — every name here must appear in BOTH places or it is stripped. */
-const GUARDED_DATA_ATTR = ["data-align", "data-type", "data-checked"] as const;
+ *  reuse it — every name here must appear in BOTH places or it is stripped.
+ *
+ *  ★★★ ADDING A NAME HERE WITHOUT AN `ATTR_VALUES` PREDICATE OPENS THE BOUNDARY,
+ *  and it does so SILENTLY. This array auto-propagates into `ALLOWED_ATTR` and
+ *  into BOTH `ADD_URI_SAFE_ATTR` spreads, so a name added here alone: passes the
+ *  name test, is exempted from `ALLOWED_URI_REGEXP` by that exemption, and is
+ *  then IGNORED by the hook (`Object.hasOwn` is false → early return). Net
+ *  effect: the attribute survives carrying a completely unconstrained value.
+ *  That is the same failure the `ADD_URI_SAFE_ATTR` comment below warns about,
+ *  reached by an ADDITION rather than a deletion — the direction the
+ *  "cannot WIDEN the boundary" test does NOT cover.
+ *  ★ EXPORTED for that reason only: `sanitize-html.test.ts` loops over this
+ *  array and asserts every name rejects a hostile value THROUGH the real
+ *  sanitizer, so a name with no predicate — or a predicate that accepts
+ *  everything — fails. Do not consume it elsewhere. */
+export const GUARDED_DATA_ATTR = ["data-align", "data-type", "data-checked"] as const;
 
 let attrHookRegistered = false;
 

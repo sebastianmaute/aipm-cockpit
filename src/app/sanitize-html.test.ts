@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   DOCUMENT_ALLOWED_TAGS,
+  GUARDED_DATA_ATTR,
   RICH_ALLOWED_TAGS,
   sanitizeRichHtml,
   sanitizeDocumentHtml,
@@ -415,7 +416,12 @@ describe("attribute value allow-list (§140)", () => {
   // predicate to `() => true` passed all 61 tests. The table entry was
   // effectively unpinned — any future edit could have widened it silently.
   it("drops data-type at a value outside the task-list pair", () => {
-    expect(sanitizeRichHtml('<ul data-type="orderedList"><li>x</li></ul>'))
+    // ★★ The illegal value is deliberately HOSTILE, not a plausible node type.
+    // An earlier cut used "orderedList" — which is a REAL Tiptap node name, so
+    // the moment a later slice wants to admit it this test becomes a false
+    // blocker asserting that a value we now want is rejected. Pick something no
+    // future extension could ever legitimately emit.
+    expect(sanitizeRichHtml('<ul data-type="javascript:alert(1)"><li>x</li></ul>'))
       .toBe("<ul><li>x</li></ul>");
   });
 
@@ -443,9 +449,37 @@ describe("attribute value allow-list (§140)", () => {
     expect(sanitizeRichHtml('<p data-foo="1">x</p>')).toBe("<p>x</p>");
   });
 
-  it("still keeps href, which is guarded by ALLOWED_URI_REGEXP not by the table", () => {
-    expect(sanitizeRichHtml('<a href="https://example.com">x</a>'))
-      .toContain('href="https://example.com"');
+  it("still keeps href ALONGSIDE a guarded data-*, so the two mechanisms coexist", () => {
+    // ★ A review flagged the original form of this test — a bare
+    // `href="https://example.com"` assertion — as redundant with "keeps an https
+    // href" in the URI-policy describe, which asserts the same thing with an
+    // exact `toBe`. It was. Rather than delete it, it now asserts what the other
+    // one cannot: that `ALLOW_DATA_ATTR: false` + `ADD_URI_SAFE_ATTR` did not
+    // disturb the URI-regexp path, with BOTH kinds of attribute on one element.
+    expect(sanitizeRichHtml('<a href="https://example.com" data-align="center">x</a>'))
+      .toBe('<a href="https://example.com" data-align="center">x</a>');
+  });
+
+  // ★★★ STEP B — the sync gap, and the direction "cannot WIDEN the boundary"
+  // does NOT cover. That test guards a name in ATTR_VALUES but missing from
+  // ALLOWED_ATTR (correctly stripped). The reverse is what bites: a name added
+  // to GUARDED_DATA_ATTR without a predicate auto-propagates into ALLOWED_ATTR
+  // and both ADD_URI_SAFE_ATTR spreads, passes the name test, is exempted from
+  // ALLOWED_URI_REGEXP, and is then skipped by the hook — surviving with a
+  // totally unconstrained value.
+  // ★★ Asserted BEHAVIOURALLY, through the real sanitizer, rather than by
+  // comparing the two lists' shapes. A shape test ("every GUARDED name is a key
+  // of ATTR_VALUES") would pass for a name whose predicate is `() => true`;
+  // this fails for that too, because what it actually pins is "a hostile value
+  // does not survive on this name".
+  it("value-constrains EVERY GUARDED_DATA_ATTR name — a name with no predicate cannot slip in", () => {
+    // Rejected by all three predicates, and not a plausible future node type.
+    const HOSTILE = "javascript:alert(1)";
+    // Anti-vacuity: an empty array would pass the loop without asserting a thing.
+    expect(GUARDED_DATA_ATTR.length).toBeGreaterThan(0);
+    for (const name of GUARDED_DATA_ATTR) {
+      expect(sanitizeRichHtml(`<p ${name}="${HOSTILE}">x</p>`)).toBe("<p>x</p>");
+    }
   });
 
   // §117(b): data-asset-id is exempted from every value test by
