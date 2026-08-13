@@ -144,6 +144,48 @@ export function separateBlockBoundaries(html: string, sep: " " | "\n" = " "): st
   return html.replace(BLOCK_TAG, sep);
 }
 
+/** Visible markers for a task item's checked state, used by the plain-text
+ *  projections so a flat export states the state instead of dropping it.
+ *  ONE definition — both projections call the same helper, so they cannot
+ *  drift into two spellings. */
+export const TASK_MARK_CHECKED = "[x] ";
+export const TASK_MARK_UNCHECKED = "[ ] ";
+
+/** Replaces a task item's opening tag with its state marker.
+ *
+ *  ★★ DOM-FREE, like everything else in this module — it runs inside the entity
+ *  sanitizers' call graph, which executes under bare node in the sample
+ *  generator. Regex, not DOMParser.
+ *
+ *  ★★★ The markers land in a String.replace REPLACEMENT position, where `` $` ``
+ *  and `$&` are special. Both constants above are literal square brackets and an
+ *  x/space, so neither contains "$" — do NOT parameterise this with a
+ *  caller-supplied string without escaping "$" first. (Same trap as
+ *  `separateBlockBoundaries`' `sep`, which is typed to two literals for it.)
+ *
+ *  ★ Applied ONLY at the two projection sites, never inside
+ *  htmlPlainProjection: that one feeds htmlTextLength -> capHtmlText ->
+ *  sanitizeRichText -> all six backends, so a prefix there would move stored
+ *  caps and every byte-stability fixture.
+ *
+ *  ★★★ IT ALSO SWALLOWS THE ITEM'S LEADING `<p>`, and that is not tidying. A
+ *  task item's content sits in a paragraph (`<li …><p>text</p></li>`), which
+ *  `separateBlockBoundaries` then replaces with the separator — so in the
+ *  EXPORT projection, whose separator is "\n", the marker was severed from its
+ *  own text: `[x]\ndone thing`, a checkbox on one line and the task on the
+ *  next. Measured, not predicted. Consuming the opening tag here (it runs
+ *  BEFORE separateBlockBoundaries and is the only place that still sees it)
+ *  keeps marker and text on one line; the item's CLOSING tags still become a
+ *  boundary, so items stay on separate lines. The collapsed projection was
+ *  never affected — its separator is a space — which is exactly why one
+ *  projection can look right while the other is broken. */
+export function markTaskItems(html: string): string {
+  return html.replace(
+    /<li\b[^>]*\bdata-type\s*=\s*"taskItem"[^>]*>\s*(?:<p\b[^>]*>)?/gi,
+    (tag) => (/\bdata-checked\s*=\s*"true"/i.test(tag) ? TASK_MARK_CHECKED : TASK_MARK_UNCHECKED),
+  );
+}
+
 /** A stored value -> HTML. Already-HTML passes through; legacy plain text is
  *  escaped and wrapped. Idempotent — this runs on every load.
  *
