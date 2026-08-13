@@ -137,6 +137,30 @@ table:has(> .aipm-cockpit-thead) {
   border-top-right-radius: 0.75rem;
 }
 
+/* §140 — rich-text attributes. Deliberately attribute selectors, not Tailwind
+   utilities: Tailwind v4 emits a utility only if it finds the class name while
+   scanning repo files, and `text-justify` appears ZERO times in src/ (verified
+   by grep), so a class-based alignment would silently have no rule for one of
+   its four values. An attribute selector has no such dependency. */
+[data-align="left"] { text-align: left; }
+[data-align="center"] { text-align: center; }
+[data-align="right"] { text-align: right; }
+[data-align="justify"] { text-align: justify; }
+
+/* Task list. The stored markup carries NO <input> on purpose (see
+   rich-text-editor.tsx TaskItem) — the editor's nodeView supplies the real
+   checkbox, and read-only surfaces get this glyph.
+   ★ The item's content sits DIRECTLY in the <li> (the renderHTML override drops
+   the stock <div> wrapper), so there is no wrapper element to target.
+   ★★ KNOWN LIMIT, recorded in open-followups: generated content is exposed to
+   the accessibility tree as a character name, not as "checked". This avoided an
+   axe-critical UNLABELED CONTROL; it does not make read-only announcement
+   equivalent to a real checkbox. */
+ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+li[data-type="taskItem"] { display: flex; gap: 0.5rem; }
+li[data-type="taskItem"]::before { content: "\2610"; }
+li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
+
 /* Print: DIN A4 page, strip surface chrome, preserve semantic accents.
    See docs/superpowers/specs/2026-05-28-print-reports-design.md. */
 @media print {

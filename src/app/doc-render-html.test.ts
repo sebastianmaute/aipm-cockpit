@@ -238,6 +238,12 @@ describe("renderDocumentHtml — modes", () => {
     expect(html).toMatch(/\.page-break\s*\{/);
   });
 
+  it("emits the task-list and alignment rules in standalone mode", () => {
+    const html = renderDocumentHtml(doc([]), ws, "en-US", "standalone");
+    expect(html).toContain('[data-align="center"]');
+    expect(html).toContain('li[data-type="taskItem"]');
+  });
+
   it("preview is a bare fragment with no <style> block at all", () => {
     // The absence that matters is the whole stylesheet, not just one rule: a
     // fragment is injected into a page that already has its own styles.
