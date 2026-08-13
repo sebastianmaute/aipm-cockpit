@@ -198,7 +198,12 @@ export function ProjectsPanel({
             </Button>
           )}
           {!isTurso && tursoConfigured && (
-            <Button variant="secondary" size="sm" onClick={() => setTursoPickerOpen(true)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setTursoPickerOpen(true)}
+              title={t(lang, "projectLoadFromTursoHint")}
+            >
               {t(lang, "projectLoadFromTurso")}
             </Button>
           )}

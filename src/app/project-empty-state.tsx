@@ -200,7 +200,11 @@ export function ProjectEmptyState({
                     file mode only (Turso mode already lists archived projects
                     and has its own picker via the mode selector). */}
                 {mode === "file" && tursoConfigured && (
-                  <Button variant="secondary" onClick={() => setTursoPickerOpen(true)}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setTursoPickerOpen(true)}
+                    title={t(lang, "projectLoadFromTursoHint")}
+                  >
                     {t(lang, "projectLoadFromTurso")}
                   </Button>
                 )}
