@@ -104,6 +104,9 @@ export interface BackendSetupWizardProps {
    *  switch is reachable to load a project that already exists in a configured
    *  Turso database. */
   hidePortfolioSwitch?: boolean;
+  /** Forwarded to IntegrationsSection: use the "Switch portfolio" label. Set
+   *  on pre-project surfaces (empty state, create-project flow). */
+  noCurrentProject?: boolean;
 }
 
 export function BackendSetupWizard({
@@ -114,6 +117,7 @@ export function BackendSetupWizard({
   onClose,
   onMigrateToTurso,
   hidePortfolioSwitch,
+  noCurrentProject,
 }: BackendSetupWizardProps) {
   const [step, setStep] = useState(0);
   // Primary (Next/Finish) button is always present; focus it after a Skip so
@@ -180,6 +184,7 @@ export function BackendSetupWizard({
               onChange={onChangeSettings}
               onMigrateToTurso={onMigrateToTurso}
               hidePortfolioSwitch={hidePortfolioSwitch}
+              noCurrentProject={noCurrentProject}
               hideJira
             />
           )}

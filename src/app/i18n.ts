@@ -3720,6 +3720,7 @@ const enUS = {
   portfolioModeSwitchNote: "This reloads the app to show the selected portfolio. Your current project stays in its own storage and is NOT moved — switch only after you've created or migrated the project where you want it.",
   portfolioModeTursoLoadHint: "Already have a project stored in this database? Switch to Turso above, then load it from the project list.",
   portfolioModeSwitchConfirm: "Save & switch portfolio",
+  portfolioModeSwitchConfirmNoProject: "Switch portfolio",
   projectsArchived: "Archived projects",
   projectsShowArchived: "Show archived",
   projectsArchive: "Archive",

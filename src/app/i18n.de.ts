@@ -3686,6 +3686,7 @@ export const de: Record<TranslationKey, string> = {
   portfolioModeSwitchNote: "Dies lädt die App neu, um das ausgewählte Portfolio anzuzeigen. Ihr aktuelles Projekt bleibt in seinem eigenen Speicher und wird NICHT verschoben — wechseln Sie erst, wenn Sie das Projekt dort angelegt oder migriert haben.",
   portfolioModeTursoLoadHint: "Bereits ein Projekt in dieser Datenbank gespeichert? Oben zu Turso wechseln und es dann aus der Projektliste laden.",
   portfolioModeSwitchConfirm: "Speichern & Portfolio wechseln",
+  portfolioModeSwitchConfirmNoProject: "Portfolio wechseln",
   projectsArchived: "Archivierte Projekte",
   projectsShowArchived: "Archiv anzeigen",
   projectsArchive: "Archivieren",

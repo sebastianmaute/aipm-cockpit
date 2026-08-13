@@ -53,6 +53,12 @@ interface IntegrationsSectionProps {
    *  in-progress create-project draft and switching app-wide storage mid-setup
    *  is out of scope — that stays an advanced action in the flat Settings panel. */
   hidePortfolioSwitch?: boolean;
+  /** Use the "Switch portfolio" label instead of "Save & switch portfolio" on
+   *  the confirm button — set when this section is reached from a pre-project
+   *  surface (empty state, create-project flow), where "Save" would otherwise
+   *  read as saving a project that does not exist. Cosmetic only: it changes
+   *  no behavior, just which i18n key the confirm button renders. */
+  noCurrentProject?: boolean;
   /** Hide the Jira block. Set by the setup wizard, which has a dedicated Jira
    *  step — without this Jira would render twice (storage step + jira step). */
   hideJira?: boolean;
@@ -150,7 +156,7 @@ function CalendarSyncEntityRow({
   );
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira, noCurrentProject }: IntegrationsSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const confirm = useConfirm();
   // Busy flags for the two genuinely-async buttons (M365 sign-in, portfolio
@@ -659,7 +665,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   disabled={switchBusy}
                   aria-busy={switchBusy}
                 >
-                  {t(lang, "portfolioModeSwitchConfirm")}
+                  {t(lang, noCurrentProject ? "portfolioModeSwitchConfirmNoProject" : "portfolioModeSwitchConfirm")}
                 </Button>
               </div>
             )}
