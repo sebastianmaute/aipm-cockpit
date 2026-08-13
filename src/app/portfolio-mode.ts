@@ -55,8 +55,9 @@ export function saveCurrentTursoProjectId(id: string | null): void {
 
 /** Switch the portfolio to Turso and land directly on `projectId` after
  *  reload — the "load an existing Turso project" shortcut used by the
- *  TursoProjectPicker. Same three writes `confirmPortfolioModeSwitch`
- *  (integrations-section.tsx) already does when switching TO Turso, plus
+ *  TursoProjectPicker. Same two writes `confirmPortfolioModeSwitch`
+ *  (integrations-section.tsx) already does when switching TO Turso
+ *  (`savePortfolioMode` + `writeSettings`), plus a third write
  *  pre-selecting which project to land on. Left as a plain export here
  *  rather than folded into that function: that one also handles the
  *  switch-AWAY-from-turso branch, which this shortcut has no reason to know
