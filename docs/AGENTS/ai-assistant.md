@@ -165,18 +165,28 @@
   wider one is only a nicety". ★★ No gate could see this: the dead concept was never a backticked symbol and
   the worked example is prose, so `docs:symbols:check` stayed green over the whole false claim while both
   function names in it remained real.
-  ★★★ **The two still must not be swapped, for the three differences that ARE real, and only ONE of them
-  widens.** Wiring a document boundary to `sanitizeAiRichText` (a) drops `<img>` — NARROWS; it is the
-  one-tag list delta, and `img` is VOID so it vanishes rather than unwrapping; (b) newly ADMITS arbitrary
-  `data-*` — WIDENS, since `sanitizeDocumentHtml` sets `ALLOW_DATA_ATTR: false` while `sanitizeRichHtml`
-  keeps DOMPurify's default TRUE; and (c) cuts the cap from `MAX_HTML_TEXT_CHARS` (20 000) to `TEXTAREA_MAX`
-  (5 000) — NARROWS DESTRUCTIVELY, because `capHtmlText`'s truncation branch returns
-  `plainToHtml(text.slice(...))` and FLATTENS every mark to escaped plain text instead of merely shortening.
+  ★★★ **The two still must not be swapped — and §140 (2026-08-13) CLOSED the one difference that used to
+  widen.** Before §140, `sanitizeRichHtml` kept DOMPurify's default `ALLOW_DATA_ATTR: true`, so wiring a
+  document boundary to it newly admitted arbitrary `data-*` — the widening third of the old list. §140
+  turned that default off on `sanitizeRichHtml` too, under the same `ATTR_VALUES` value allow-list
+  `sanitizeDocumentHtml` already used, so an UNLISTED `data-*` is now dropped identically by both:
+  measured, `sanitizeRichHtml('<p data-foo="1">a</p>')` → `<p>a</p>`, `sanitizeDocumentHtml(...)` →
+  `<p>a</p>`. That row did not narrow — it is GONE.
+  ★★★ **TWO differences survive, and NEITHER widens.** Wiring a document boundary to `sanitizeAiRichText`
+  (a) drops `<img>` — NARROWS; it is the one-tag list delta, and `img` is VOID so it vanishes rather than
+  unwrapping; and (b) cuts the cap from `MAX_HTML_TEXT_CHARS` (20 000) to `TEXTAREA_MAX` (5 000) — NARROWS
+  DESTRUCTIVELY, because `capHtmlText`'s truncation branch returns `plainToHtml(text.slice(...))` and
+  FLATTENS every mark to escaped plain text instead of merely shortening.
+  ★ A third, NARROWER `data-*` difference remains and is not a revival of the closed one:
+  `sanitizeDocumentHtml` additionally admits `data-asset-id` (§117b, a future images slice) under its own
+  charset/length predicate — one bounded, value-guarded name, not the unconstrained pass-through the
+  closed row described. `sanitizeRichHtml` does not carry that name at all: measured,
+  `sanitizeRichHtml('<p data-asset-id="a1-B2">x</p>')` → `<p>x</p>`, `sanitizeDocumentHtml(...)` → keeps it.
   Both symbols are real, so `docs:symbols:check` is
-  green either way — NO gate can see the swap. ★★ It is not the ONLY warning against it though, and
-  claiming so was itself an unenumerated "only": `sanitizeAiDocumentRichText`'s own docstring ("A SEPARATE
-  FUNCTION, NOT A PARAMETER on `sanitizeAiRichText`") and AGENTS.md's ★★★ "THE TAG DELTA IS ONE; THE
-  BEHAVIOUR DELTA IS THREE" block both carry it. Three prose warnings, zero gates — which is the real
+  green either way — NO gate can see any of this. ★★ It is not the ONLY warning against swapping them
+  though, and claiming so was itself an unenumerated "only": `sanitizeAiDocumentRichText`'s own docstring
+  ("A SEPARATE FUNCTION, NOT A PARAMETER on `sanitizeAiRichText`") and AGENTS.md's ★★★ "THE TAG DELTA IS
+  ONE; THE BEHAVIOUR DELTA IS TWO" block both carry it. Two prose warnings, zero gates — which is the real
   point, and stronger than the false one it replaces. ★ "The sibling must STAY narrow" is no longer a standalone instruction either: because
   `DOCUMENT_ALLOWED_TAGS` spreads it, widening `RICH_ALLOWED_TAGS` to help documents widens the six rich
   raid/change/milestone fields in the SAME edit, retroactively.

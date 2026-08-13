@@ -231,7 +231,10 @@ describe("RichTextToolbar", () => {
   // toolbar role is a KEYBOARD CONTRACT (one tab stop, roving tabindex,
   // Left/Right between controls), and declaring it without the behaviour tells
   // an AT user to press arrow keys that do nothing. The price was 15 tab stops
-  // per editor and up to 45 in change-edit-modal. §144(a) built the contract,
+  // per editor and up to 45 in change-edit-modal, AT THE §144(a) COUNT — §140
+  // raised the per-editor total to 20 (60 in change-edit-modal's three
+  // editors), so read "15"/"45" here as a dated record of the count AT THE
+  // TIME OF THE FLIP, not a live figure. §144(a) built the contract,
   // so the role follows it — that order is the whole point, and this test now
   // pins the opposite of what it used to.
   it("claims the toolbar role, whose keyboard contract it now honours", () => {
@@ -433,12 +436,16 @@ describe("RichTextToolbar", () => {
     // ★★★ READ THE ROW THROUGH THE SELECTOR THE RUNTIME USES. The handler walks
     // `:scope > button` (DIRECT children); an earlier revision of this test
     // counted `container.querySelectorAll("button")` (DESCENDANTS), and the two
-    // disagree the moment any control gains a wrapper element. Measured: wrap
-    // the Insert-link button in a bare <span> and this file stayed 31/31 GREEN
-    // while the widget broke — 14 controls in the arrow order instead of 15,
-    // "Insert link" unreachable by arrow, and `End` focusing "Remove link" while
-    // "Insert link" held the tab stop. Focus and the tab stop on two different
-    // controls is precisely what this test claims to prevent.
+    // disagree the moment any control gains a wrapper element. Measured, dated:
+    // AT THE §144(a) COUNT (15 controls, 31 tests in this file — both since
+    // grown to 20 and 36 by §140), wrapping the Insert-link button in a bare
+    // <span> stayed 31/31 GREEN while the widget broke — 14 controls in the
+    // arrow order instead of 15, "Insert link" unreachable by arrow, and `End`
+    // focusing "Remove link" while "Insert link" held the tab stop. The
+    // MECHANISM this pins is unaffected by the count moving; read the numbers
+    // as a snapshot of when it was measured, not as today's totals. Focus and
+    // the tab stop on two different controls is precisely what this test
+    // claims to prevent.
     const row = container.querySelector<HTMLElement>('[role="toolbar"]');
     if (row === null) throw new Error("toolbar row not found");
     const buttons = Array.from(row.querySelectorAll<HTMLButtonElement>(":scope > button"));
@@ -451,7 +458,7 @@ describe("RichTextToolbar", () => {
 
     // ★★ The count alone does NOT pin the ORDER, and the order is what the
     // roving arithmetic indexes into. Moving Link/Unlink ahead of the CONTROLS
-    // map keeps the count at 15 and would silently redirect every arrow key.
+    // map keeps the count at 20 and would silently redirect every arrow key.
     expect(buttons[0].getAttribute("aria-label")).toBe("Text style");
     expect(buttons[TOOLBAR_CONTROL_COUNT - 2].getAttribute("aria-label")).toBe("Insert link");
     expect(buttons[TOOLBAR_CONTROL_COUNT - 1].getAttribute("aria-label")).toBe("Remove link");
@@ -459,7 +466,7 @@ describe("RichTextToolbar", () => {
 
   // ★★★ THE SECOND TAB IS THE ASSERTION. A first Tab lands on control 1
   // whether or not the roving works — only the second one distinguishes a
-  // single-tab-stop row from fifteen tab stops.
+  // single-tab-stop row from twenty tab stops.
   it("is a single tab stop: a second Tab leaves the row entirely", async () => {
     const user = userEvent.setup();
     const { editor } = makeEditor();

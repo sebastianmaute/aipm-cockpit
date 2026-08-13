@@ -950,8 +950,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   change is committed but UNRELEASED, and naming the release it sits ON sends a reader chasing a
   changelog entry that describes something else.
   ★★ **THE TOOLBAR IS A NAMED `role="toolbar"`, AND THE NAME IS THE EDITOR'S OWN `label`.**
-  `RichTextToolbar` renders FIFTEEN controls whose names repeat verbatim in every editor — eight marks
-  (`MARKS`), four blocks (`BLOCKS`), Link, Unlink, and the heading menu trigger (an icon-triggered
+  `RichTextToolbar` renders TWENTY controls whose names repeat verbatim in every editor — eight marks
+  (`MARKS`), five blocks (`BLOCKS`, task list joined it in §140), four alignments (`ALIGN`, also §140),
+  Link, Unlink, and the heading menu trigger (an icon-triggered
   `PopoverPanel`, not a `<select>`, since the icon-only redesign) — and several surfaces
   mount editors as SIBLINGS in one form: `change-edit-modal.tsx` has three, `raid-edit-modal.tsx` two,
   `note-log-panel.tsx` two (composer + entry editor). An open change modal therefore carried three
@@ -1145,25 +1146,37 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   arrays, that input is now **byte-identical through both** (`hr` is in `RICH_ALLOWED_TAGS`). The only
   input that still differs is an `img`, which is VOID and so vanishes outright rather than unwrapping:
   `'<p>a</p><img src="x.png"><p>b</p>'` → rich `"<p>a</p><p>b</p>"` · document keeps the element.
-  ★★★ THE TAG DELTA IS ONE; THE BEHAVIOUR DELTA IS THREE, and this line said "drops IMAGES and nothing
-  else". Wiring a document boundary to `sanitizeAiRichText` (1) drops `<img>` — **NARROWS**; (2) newly
-  ADMITS arbitrary `data-*` — **WIDENS**, since `sanitizeDocumentHtml` sets `ALLOW_DATA_ATTR: false`
-  while `sanitizeRichHtml` keeps DOMPurify's default TRUE; and (3) cuts the cap from
-  `MAX_HTML_TEXT_CHARS` (20 000) to `TEXTAREA_MAX` (5 000) — **NARROWS, DESTRUCTIVELY**, because
-  `capHtmlText`'s truncation branch returns `plainToHtml(text.slice(...))`, so exceeding it FLATTENS
-  every mark to escaped plain text rather than merely shortening.
-  ★★★ EXACTLY ONE OF THE THREE WIDENS. An earlier revision of this sentence said the claim was "false in
-  the DANGEROUS direction, because two of the three differences WIDEN" — wrong in BOTH directions at
-  once, and self-refuting, since it enumerated its own counter-examples in the next clause: cutting a
-  cap is not a widening in any reading, and neither is dropping a tag. Measured 2026-08-11 on dompurify
-  3.4.13 against the two live boundaries: `rich('<p data-foo="1">a</p>')` → `<p data-foo="1">a</p>` ·
-  `doc(...)` → `<p>a</p>` (the widening); `rich('<p>a</p><img src="x.png"><p>b</p>')` →
-  `"<p>a</p><p>b</p>"` while doc keeps the element (a narrowing); and on a paragraph of 6 001 visible
+  ★★★ THE TAG DELTA IS ONE; THE BEHAVIOUR DELTA WAS THREE AND §140 CLOSED THE ONE THAT WIDENED. This line
+  used to say "drops IMAGES and nothing else", then enumerated three differences with exactly one
+  widening — that widening one no longer exists. It was: wiring a document boundary to
+  `sanitizeAiRichText` newly ADMITTED arbitrary `data-*`, because `sanitizeRichHtml` kept DOMPurify's
+  default `ALLOW_DATA_ATTR: true` while `sanitizeDocumentHtml` already set it `false`. §140 (2026-08-13)
+  turned that default off on `sanitizeRichHtml` too, under the same `ATTR_VALUES` value allow-list
+  `sanitizeDocumentHtml` already used. Measured on the current code: `sanitizeRichHtml('<p
+  data-foo="1">a</p>')` → `<p>a</p>`, matching `sanitizeDocumentHtml(...)` → `<p>a</p>` — the row did not
+  narrow, it is GONE.
+  ★★★ TWO DIFFERENCES SURVIVE AND NEITHER WIDENS. Wiring a document boundary to `sanitizeAiRichText`
+  (1) drops `<img>` — **NARROWS**; and (2) cuts the cap from `MAX_HTML_TEXT_CHARS` (20 000) to
+  `TEXTAREA_MAX` (5 000) — **NARROWS, DESTRUCTIVELY**, because `capHtmlText`'s truncation branch returns
+  `plainToHtml(text.slice(...))`, so exceeding it FLATTENS every mark to escaped plain text rather than
+  merely shortening. Measured 2026-08-11 on dompurify 3.4.13 against the two live boundaries (unchanged
+  by §140, re-verified on the current tree): `rich('<p>a</p><img src="x.png"><p>b</p>')` →
+  `"<p>a</p><p>b</p>"` while doc keeps the element (the narrowing); and on a paragraph of 6 001 visible
   characters carrying a `<mark>`, rich returns a 5 007-character result with the `<mark>` GONE while doc
   returns a 6 021-character one with it intact (the destructive narrowing). ★ Those two BYTE counts are
   fixture-bound — they encode a `<mark>` of exactly two visible characters at the head of the paragraph,
   so a different mark length moves both. The DIRECTIONS are what the rule rests on, not the numbers.
-  `ai-rich-text.ts`'s own header states (1) and (3). ★ The "nothing else" claim lived in exactly TWO
+  `ai-rich-text.ts`'s own header states both — it never enumerated the data-* row in the first place, so
+  it needed no correction. ★ A third, NARROWER data-* difference remains and is not a revival of the
+  closed row: `sanitizeDocumentHtml` additionally admits `data-asset-id` (§117b, a future images slice)
+  under its own charset/length predicate, and `sanitizeRichHtml` does not carry that name at all —
+  measured, `sanitizeRichHtml('<p data-asset-id="a1-B2">x</p>')` → `<p>x</p>`,
+  `sanitizeDocumentHtml(...)` → keeps it. One bounded, value-guarded name is not the unconstrained
+  pass-through the closed row described.
+  ★ An earlier revision of this sentence said the pre-§140 claim was "false in the DANGEROUS direction,
+  because two of the three differences WIDEN" — wrong in BOTH directions at once, and self-refuting,
+  since it enumerated its own counter-examples in the next clause: cutting a cap is not a widening in any
+  reading, and neither is dropping a tag. ★ The "nothing else" claim lived in exactly TWO
   places — this line and the `ai-rich-text.ts` row of [`docs/CODEMAPS/data.md`](docs/CODEMAPS/data.md) —
   and `811c952c` rewrote both in one change set. Reproduce:
   `git show f83f860f:docs/CODEMAPS/data.md | grep -c "drops IMAGES and nothing else"` → **1**, and the
