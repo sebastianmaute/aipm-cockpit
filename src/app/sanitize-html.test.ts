@@ -410,6 +410,28 @@ describe("attribute value allow-list (§140)", () => {
     expect(sanitizeRichHtml(html)).toBe(html);
   });
 
+  // ★★★ FOUND BY MUTATION, NOT BY READING. Every other table entry had a
+  // negative test; `data-type` had only the positive one, so widening its
+  // predicate to `() => true` passed all 61 tests. The table entry was
+  // effectively unpinned — any future edit could have widened it silently.
+  it("drops data-type at a value outside the task-list pair", () => {
+    expect(sanitizeRichHtml('<ul data-type="orderedList"><li>x</li></ul>'))
+      .toBe("<ul><li>x</li></ul>");
+  });
+
+  it("is case-sensitive on the data-type VALUE — attribute values are not lowercased", () => {
+    // ★★ Worth pinning separately because the asymmetry is genuinely surprising
+    // and bit this slice once already: HTML lowercases attribute NAMES before a
+    // sanitizer hook sees them, but NOT attribute VALUES. So "taskList" keeps
+    // its capital L and matches, while "tasklist" is a different string and must
+    // be rejected. A reader who assumes values are normalised the way names are
+    // would "fix" the table by lower-casing it and silently widen the boundary.
+    expect(sanitizeRichHtml('<ul data-type="tasklist"><li>x</li></ul>'))
+      .toBe("<ul><li>x</li></ul>");
+    expect(sanitizeRichHtml('<ul data-type="taskList"><li>x</li></ul>'))
+      .toBe('<ul data-type="taskList"><li>x</li></ul>');
+  });
+
   it("drops data-checked at a non-boolean value", () => {
     expect(sanitizeRichHtml('<li data-type="taskItem" data-checked="maybe">x</li>'))
       .toBe('<li data-type="taskItem">x</li>');
