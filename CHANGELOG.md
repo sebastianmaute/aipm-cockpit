@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.236.0] - 2026-08-13 "Roberson"
+
+### Fixed
+
+- **An existing project stored in a Turso database can now be loaded from the pre-project setup
+  screen.** Previously, after a local-storage wipe or on a new device, entering Turso credentials
+  there offered only "Create a new project" (which mints a brand-new, empty project) or "Load from
+  file" — there was no way to reach a project that already exists in the configured database. The
+  storage-mode switch that surfaces real Turso projects is now shown on both pre-project entry points
+  (the "Configure database" dialog and the guided setup wizard); Settings keeps it hidden while a
+  project is already open, since switching there does not migrate that project. A hint next to the
+  switch now names the load action directly once Turso is configured.
+
 ## [0.235.0] - 2026-08-12 "Lackey"
 
 ### Changed
