@@ -453,3 +453,35 @@ describe("alignment is stored as data-align, never as style (§140)", () => {
     expect(sanitizeRichHtml(html)).toBe(html);
   });
 });
+
+describe("task list serializes without a form control (§140)", () => {
+  it("emits only data attributes — no input, label, span or div", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>buy milk</p>" });
+    editor.chain().selectAll().toggleTaskList().run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(html).toContain('data-type="taskList"');
+    expect(html).toContain('data-type="taskItem"');
+    expect(html).toContain('data-checked="false"');
+    for (const tag of ["<input", "<label", "<span", "<div"]) {
+      expect(html).not.toContain(tag);
+    }
+  });
+
+  it("survives the storage boundary unchanged", () => {
+    const editor = new Editor({ extensions: EXTENSIONS, content: "<p>buy milk</p>" });
+    editor.chain().selectAll().toggleTaskList().run();
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(sanitizeRichHtml(html)).toBe(html);
+  });
+
+  it("round-trips a checked item", () => {
+    const stored =
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>done</p></li></ul>';
+    const editor = new Editor({ extensions: EXTENSIONS, content: stored });
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(html).toContain('data-checked="true"');
+  });
+});

@@ -7,6 +7,7 @@ import Highlight from "@tiptap/extension-highlight";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 import TextAlign from "@tiptap/extension-text-align";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import type { Editor } from "@tiptap/react";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { readCspNonce } from "./csp-nonce";
@@ -99,6 +100,36 @@ export const EXTENSIONS = [
       ];
     },
   }).configure({ types: ["heading", "paragraph"] }),
+  TaskList,
+  // ★★★ renderHTML IS OVERRIDDEN AND THE NODEVIEW IS NOT. Read this before
+  // "simplifying" it back to the stock extension.
+  // The stock renderHTML emits
+  //   <li data-type="taskItem" data-checked="…">
+  //     <label><input type="checkbox"><span></span></label><div>…</div>
+  //   </li>
+  // — four tags (label/input/span/div) and two attrs (type/checked) beyond
+  // RICH_ALLOWED_TAGS, on a list that SPREADS into DOCUMENT_ALLOWED_TAGS. And an
+  // <input type=checkbox> whose only sibling is an empty <span> has no
+  // accessible name, i.e. an axe-critical failure in Documents (an A11Y_VIEWS
+  // member).
+  // ★★ Overriding renderHTML costs NOTHING in editor UX, which is the whole
+  // reason this is cheap: TaskItem also declares addNodeView, and the nodeView
+  // owns the EDITING DOM (it builds the checkbox and sets checkbox.ariaLabel).
+  // NodeViews are editor-only; getHTML() serializes through renderHTML. So the
+  // editor keeps Tiptap's interactive labelled checkbox while storage gets
+  // markup that needs zero new tags.
+  // ★ The read-only consequence is handled in globals.css (a ::before glyph)
+  // and in rich-text-plain.ts's markTaskItems (the "[x] " export prefix) —
+  // both later tasks.
+  TaskItem.extend({
+    renderHTML({ HTMLAttributes, node }) {
+      return [
+        "li",
+        { ...HTMLAttributes, "data-type": "taskItem", "data-checked": String(node.attrs.checked === true) },
+        0,
+      ];
+    },
+  }),
 ];
 
 export function RichTextEditor(props: RichTextEditorProps) {
