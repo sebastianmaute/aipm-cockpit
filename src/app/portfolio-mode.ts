@@ -5,6 +5,8 @@
 // contacts.ts (typeof-window guard + try/catch).
 
 import { isSafeMode } from "./safe-mode";
+import { type Settings } from "./settings-types";
+import { writeSettings } from "./use-settings";
 
 export type PortfolioMode = "file" | "turso";
 
@@ -49,4 +51,19 @@ export function saveCurrentTursoProjectId(id: string | null): void {
   } catch {
     // Quota / disabled storage — silently drop.
   }
+}
+
+/** Switch the portfolio to Turso and land directly on `projectId` after
+ *  reload — the "load an existing Turso project" shortcut used by the
+ *  TursoProjectPicker. Same three writes `confirmPortfolioModeSwitch`
+ *  (integrations-section.tsx) already does when switching TO Turso, plus
+ *  pre-selecting which project to land on. Left as a plain export here
+ *  rather than folded into that function: that one also handles the
+ *  switch-AWAY-from-turso branch, which this shortcut has no reason to know
+ *  about. */
+export function commitTursoPortfolioSwitch(settings: Settings, projectId: string): void {
+  savePortfolioMode("turso");
+  saveCurrentTursoProjectId(projectId);
+  writeSettings({ ...settings, storageConfig: { kind: "turso" } });
+  window.location.reload();
 }
