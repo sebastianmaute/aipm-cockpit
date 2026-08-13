@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   DOCUMENT_ALLOWED_TAGS,
   RICH_ALLOWED_TAGS,
@@ -381,5 +383,115 @@ describe("sanitizeRichHtml — the URI policy", () => {
     expect(sanitizeRichHtml('<a href="https://example.com/a">x</a>')).toBe(
       '<a href="https://example.com/a">x</a>',
     );
+  });
+});
+
+describe("attribute value allow-list (§140)", () => {
+  it("keeps data-align at each of the four legal values", () => {
+    for (const v of ["left", "center", "right", "justify"]) {
+      expect(sanitizeRichHtml(`<p data-align="${v}">x</p>`)).toBe(`<p data-align="${v}">x</p>`);
+    }
+  });
+
+  it("drops data-align at an illegal value", () => {
+    expect(sanitizeRichHtml('<p data-align="middle">x</p>')).toBe("<p>x</p>");
+  });
+
+  it("drops a compound data-align that smuggles a second declaration", () => {
+    expect(sanitizeRichHtml('<p data-align="justify;position:fixed">x</p>')).toBe("<p>x</p>");
+  });
+
+  it("is case-sensitive — upper case is not a legal alignment", () => {
+    expect(sanitizeRichHtml('<p data-align="CENTER">x</p>')).toBe("<p>x</p>");
+  });
+
+  it("keeps the task-list attributes at their legal values", () => {
+    const html = '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>x</p></li></ul>';
+    expect(sanitizeRichHtml(html)).toBe(html);
+  });
+
+  it("drops data-checked at a non-boolean value", () => {
+    expect(sanitizeRichHtml('<li data-type="taskItem" data-checked="maybe">x</li>'))
+      .toBe('<li data-type="taskItem">x</li>');
+  });
+
+  // THIS ASSERTION IS THE §115 FIX. Before this slice sanitizeRichHtml kept
+  // every data-* attribute, because ALLOW_DATA_ATTR defaults to TRUE.
+  it("drops an unlisted data-* attribute", () => {
+    expect(sanitizeRichHtml('<p data-foo="1">x</p>')).toBe("<p>x</p>");
+  });
+
+  it("still keeps href, which is guarded by ALLOWED_URI_REGEXP not by the table", () => {
+    expect(sanitizeRichHtml('<a href="https://example.com">x</a>'))
+      .toContain('href="https://example.com"');
+  });
+
+  // §117(b): data-asset-id is exempted from every value test by
+  // ADD_URI_SAFE_ATTR, so the table is the only thing that can guard it.
+  it("keeps a well-formed data-asset-id on the document boundary", () => {
+    expect(sanitizeDocumentHtml('<img data-asset-id="a1-B2_c3" alt="x">'))
+      .toContain('data-asset-id="a1-B2_c3"');
+  });
+
+  it("drops a data-asset-id with an illegal character", () => {
+    expect(sanitizeDocumentHtml('<img data-asset-id="a/../b" alt="x">'))
+      .not.toContain("data-asset-id");
+  });
+
+  it("drops a data-asset-id longer than 64 characters", () => {
+    expect(sanitizeDocumentHtml(`<img data-asset-id="${"a".repeat(65)}" alt="x">`))
+      .not.toContain("data-asset-id");
+  });
+
+  it("cannot WIDEN the boundary — a table name absent from the rich list is dropped", () => {
+    // ★★★ The security property that makes ATTR_VALUES safe to add at all.
+    // `uponSanitizeAttribute` fires BEFORE the name test, and the hook only ever
+    // sets keepAttr=false — so a name on the TABLE but off ALLOWED_ATTR must
+    // still be stripped. `data-asset-id` is exactly that on the rich boundary:
+    // the table accepts "abc", DOCUMENT_ALLOWED_ATTR lists it, ALLOWED_ATTR does
+    // not. A carrier tag that IS on the rich list is required — asserting this
+    // with <img> would pass for the unrelated reason that img is not a rich tag.
+    expect(sanitizeRichHtml('<p data-asset-id="abc">x</p>')).toBe("<p>x</p>");
+    // ...and the same name DOES survive on the boundary that lists it, so the
+    // assertion above cannot pass merely because the value was rejected.
+    expect(sanitizeDocumentHtml('<img data-asset-id="abc">')).toContain('data-asset-id="abc"');
+  });
+});
+
+// ★★★ The hook that backs the table above must be registered LAZILY. With no DOM
+// `DOMPurify.addHook` is `undefined` and a top-level call throws a TypeError, and
+// this module IS module-eval-reachable during Next SSR: templates-builtin.ts
+// imports `plainToHtml` from here and calls it while building the built-in
+// templates. A top-level registration is therefore a 500 on every page.
+// ★ Comments are STRIPPED before the scan (the strip-then-ban shape the other
+// source guards in this repo use), so the module can name the landmine in prose
+// while its CODE stays unable to reach addHook at module eval.
+describe("the value-allow-list hook is registered lazily, never at module eval", () => {
+  const code = readFileSync(join(import.meta.dirname, "sanitize-html.ts"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+
+  it("strips comments before scanning", () => {
+    // Proves the strip works — otherwise both assertions below pass vacuously on
+    // a file whose code was never examined.
+    expect(code).not.toMatch(/NEVER CALL DOMPurify\.addHook AT MODULE EVAL/);
+    expect(code).toMatch(/export function sanitizeRichHtml/);
+  });
+
+  it("calls addHook only from inside a function body", () => {
+    // ★ Brace DEPTH, not indentation: a formatting change must not be able to
+    // turn this guard green or red. Depth > 0 means the call sits inside some
+    // block, which is the only property that keeps it off the module-eval path.
+    const depths: number[] = [];
+    let depth = 0;
+    for (let i = 0; i < code.length; i += 1) {
+      if (code.startsWith("addHook", i)) depths.push(depth);
+      if (code[i] === "{") depth += 1;
+      else if (code[i] === "}") depth -= 1;
+    }
+    // Anti-vacuity: an empty `depths` passes the loop below on a file that lost
+    // the hook entirely, or on a wrong read path.
+    expect(depths.length).toBeGreaterThan(0);
+    for (const d of depths) expect(d).toBeGreaterThan(0);
   });
 });

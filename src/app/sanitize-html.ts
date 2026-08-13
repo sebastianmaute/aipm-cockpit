@@ -85,7 +85,83 @@ export const RICH_ALLOWED_TAGS = [
   "ul", "ol", "li",
   "a",
 ];
-const ALLOWED_ATTR = ["href", "target", "rel"];
+/** The four `data-*` attributes this app admits, each with the FULL set of
+ *  values it may carry. This literal IS the policy — §140.
+ *
+ *  ★★★ WHY A TABLE AND NOT A CSS GRAMMAR. Alignment could have ridden `style`
+ *  (which survives DOMPurify: `style` is in DEFAULT_URI_SAFE_ATTRIBUTES, so
+ *  ALLOWED_URI_REGEXP never sees it). It was rejected because nothing parses a
+ *  CSS value — `position:fixed;inset:0;z-index:99999` passes verbatim — and
+ *  these fields are AI-writable. A guard over CSS can be widened one
+ *  declaration at a time until it is a CSS allow-list; a guard over a 4-member
+ *  string set cannot drift that way.
+ *
+ *  ★ Lower-case only, deliberately tighter than necessary: Tiptap emits
+ *  lower-case, so accepting "CENTER" would widen the set for nothing.
+ *
+ *  ★ `data-asset-id` is strict on CHARSET and LENGTH and deliberately silent on
+ *  FORMAT — it admits uuid, ulid, nanoid, a content hash or an integer, so it
+ *  cannot constrain whatever id the images slice mints, while rejecting empty,
+ *  whitespace, quotes, angle brackets, path separators and 65+ chars. §117(b). */
+const ATTR_VALUES: Readonly<Record<string, (value: string) => boolean>> = {
+  "data-align": (v) => v === "left" || v === "center" || v === "right" || v === "justify",
+  "data-type": (v) => v === "taskList" || v === "taskItem",
+  "data-checked": (v) => v === "true" || v === "false",
+  "data-asset-id": (v) => /^[A-Za-z0-9_-]{1,64}$/.test(v),
+};
+
+/** The three names task list and alignment need. Kept separate from
+ *  ALLOWED_ATTR's own literal only so the ADD_URI_SAFE_ATTR lists below can
+ *  reuse it — every name here must appear in BOTH places or it is stripped. */
+const GUARDED_DATA_ATTR = ["data-align", "data-type", "data-checked"] as const;
+
+let attrHookRegistered = false;
+
+/** Registers the value-allow-list hook exactly once, LAZILY.
+ *
+ *  ★★★ NEVER CALL DOMPurify.addHook AT MODULE EVAL. With no DOM it is
+ *  `undefined` and calling it throws a TypeError — measured 2026-08-13 under
+ *  bare node on dompurify 3.4.13, not reasoned: `typeof addHook` is
+ *  "undefined" and the call reports "DOMPurify.addHook is not a function".
+ *  And this module IS module-eval-reachable during Next SSR:
+ *  `templates-builtin.ts` imports `plainToHtml` from here and calls it from the
+ *  top-level `MINIMAL_TASKS` initializer. A top-level registration is a 500 on
+ *  every page. `sanitize-html.test.ts` carries a source scan that enforces this
+ *  by brace DEPTH, so a reformat can neither satisfy nor break it.
+ *
+ *  ★★ The hook is INERT for any attribute not in ATTR_VALUES, which is what
+ *  makes ONE globally-registered hook safe for every DOMPurify.sanitize call in
+ *  this file — sanitizeRichHtml, sanitizeDocumentHtml and htmlToText's
+ *  strip-everything projection. ★ NAMED rather than counted: an earlier
+ *  revision of this line said "all four", and there are THREE. This file is
+ *  also the only NON-TEST module in `src` that imports dompurify, so those
+ *  three calls are the hook's entire production blast radius (`html-start.test.ts`
+ *  imports it too, against its own local instance). Re-derive rather than trust
+ *  it — anchored at line start so this very comment cannot match itself, which
+ *  is how the last such claim went stale unnoticed:
+ *    grep -rn "^import .*dompurify" src/ --include=*.ts --include=*.tsx
+ *
+ *  ★★ THE HOOK CAN ONLY REMOVE, NEVER ADD, and that is what makes ATTR_VALUES a
+ *  pure tightening rather than a second way in. `uponSanitizeAttribute` fires
+ *  BEFORE the name test, so leaving `keepAttr` alone does not survive a name
+ *  the ALLOWED_ATTR list omits. So a name must be on BOTH the table and the list
+ *  to survive — the table can never widen the boundary on its own. Pinned by
+ *  "cannot WIDEN the boundary" in sanitize-html.test.ts, which uses
+ *  `data-asset-id` on a `<p>`: it is on the table and on DOCUMENT_ALLOWED_ATTR
+ *  but NOT on ALLOWED_ATTR. ★ The carrier tag must be one the rich list admits —
+ *  an `<img>` would be dropped as a TAG, so that assertion would pass for a
+ *  reason unrelated to the attribute name test. */
+function ensureAttrHook(): void {
+  if (attrHookRegistered) return;
+  attrHookRegistered = true;
+  DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+    const isAllowedValue = ATTR_VALUES[data.attrName];
+    if (!isAllowedValue) return;
+    if (!isAllowedValue(data.attrValue)) data.keepAttr = false;
+  });
+}
+
+const ALLOWED_ATTR = ["href", "target", "rel", ...GUARDED_DATA_ATTR];
 
 // SHARED by both sanitizers that pass it — sanitizeRichHtml and
 // sanitizeDocumentHtml — one literal, so the two cannot drift.
@@ -103,9 +179,28 @@ const SAFE_URI_REGEXP = /^(?:https?|mailto):[^<>"]*$/i;
  *  TOGETHER WITH ITS TEXT, and that ran at whole-object LOAD boundaries — that was
  *  the §137 data loss. Losing formatting beats losing words. Do not flip this. */
 export function sanitizeRichHtml(html: string): string {
+  ensureAttrHook();
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: RICH_ALLOWED_TAGS,
     ALLOWED_ATTR,
+    // ★★★ §115. The default is TRUE, which SHORT-CIRCUITS every data-*
+    // attribute past both the name test and the value test — so the explicit
+    // ALLOWED_ATTR list was not the whole gate, and the hook above would never
+    // have been asked about a data-checked. Turning it off is simultaneously
+    // the §115 fix and the precondition for ATTR_VALUES to be reachable.
+    ALLOW_DATA_ATTR: false,
+    // ★★ Turning it off drops these three into the VALUE chain, where
+    // ALLOWED_URI_REGEXP is tested against EVERY attribute value (not only
+    // URI-bearing ones) and rejects any non-URI. So each kept name needs the
+    // exemption HERE as well as the entry in ALLOWED_ATTR — measured 2026-08-13
+    // on dompurify 3.4.13, not reasoned: with this line deleted and nothing else
+    // changed, `<p data-align="center">x</p>` sanitizes to `<p>x</p>`. That is
+    // the same value-shaped stripping `target="_blank"` already suffers.
+    // ★★★ The exemption is also why the ATTR_VALUES table HAS to exist: it skips
+    // the value test outright, so the table is the only remaining guard on these
+    // values. Deleting the table does not fall back to a weaker check — it falls
+    // back to NO check.
+    ADD_URI_SAFE_ATTR: [...GUARDED_DATA_ATTR],
     ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
   });
 }
@@ -195,11 +290,12 @@ export const DOCUMENT_ALLOWED_TAGS = [...RICH_ALLOWED_TAGS, "img"];
 const DOCUMENT_ALLOWED_ATTR = [...ALLOWED_ATTR, "data-asset-id", "alt"];
 
 export function sanitizeDocumentHtml(html: string): string {
+  ensureAttrHook();
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: DOCUMENT_ALLOWED_TAGS,
     ALLOWED_ATTR: DOCUMENT_ALLOWED_ATTR,
     ALLOW_DATA_ATTR: false,
-    ADD_URI_SAFE_ATTR: ["data-asset-id"],
+    ADD_URI_SAFE_ATTR: ["data-asset-id", ...GUARDED_DATA_ATTR],
     ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
   });
 }
