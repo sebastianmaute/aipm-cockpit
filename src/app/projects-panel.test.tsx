@@ -203,6 +203,22 @@ describe("ProjectsPanel", () => {
     expect(onExportCurrent).toHaveBeenCalledWith("xlsx");
   });
 
+  it("closes the export menu on outside click", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Export project" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("closes the export menu on Escape", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Export project" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
   it("hides 'Move to Turso' when Turso is not configured", () => {
     setup();
     expect(screen.queryByRole("button", { name: "Move to Turso" })).toBeNull();
