@@ -19,7 +19,8 @@ import {
 } from "./types";
 import type { ExportConfig, SettingsOverrides } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
-import { type Workspace, sanitizeProjectStatus, sanitizeActivityLog } from "./workspace";
+import { type Workspace, sanitizeProjectStatus } from "./workspace";
+import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import {

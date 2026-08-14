@@ -573,15 +573,6 @@ export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
   return out;
 }
 
-/** ★★ MOVED to activity-log.ts, which owns the entry shape, the per-entry
- *  rules and the cap this was built from — re-exported here because four codec
- *  modules import it from THIS one (browser-backend · csv-codecs-config ·
- *  markdown-codecs-core · turso-schema; JSON is this file's own path). Read
- *  `sanitizeActivityEntry`'s landmine before tightening it: this boundary feeds
- *  app state the autosave writes straight back, so a drop is a DELETE on the
- *  shared project, not a display filter. */
-export { sanitizeActivityLog };
-
 /** Thrown by `jsonToWorkspace(text, { strict: true })` when the input is
  *  present-but-corrupt (parse failure) or structurally not a workspace
  *  (non-object / missing tasks|raid). The strict load paths let this

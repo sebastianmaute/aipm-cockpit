@@ -42,7 +42,8 @@ import {
 import type { CalendarEvent } from "./calendar-event";
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
-import { type Workspace, sanitizeProjectStatus, sanitizeActivityLog } from "./workspace";
+import { type Workspace, sanitizeProjectStatus } from "./workspace";
+import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
 import {
   type ImportDiag,
@@ -314,7 +315,7 @@ export function markdownToActivityLog(md: string): ActivityEntry[] | undefined {
   const m = /## Activity Log\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
   if (!m) return undefined;
   try {
-    // sanitizeActivityLog (workspace.ts) is DOM-free — no second rich-field
+    // sanitizeActivityLog (activity-log.ts) is DOM-free — no second rich-field
     // pass needed, unlike markdownToDocuments above.
     const log = sanitizeActivityLog(JSON.parse(m[1]));
     return log.length ? log : undefined;

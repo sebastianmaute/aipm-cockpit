@@ -17,8 +17,9 @@ import {
   decodeRatesMap,
 } from "./csv-codecs";
 import {
-  emptyWorkspace, migrateWorkspaceV10, sanitizeProjectStatus, sanitizeActivityLog, type Workspace,
+  emptyWorkspace, migrateWorkspaceV10, sanitizeProjectStatus, type Workspace,
 } from "./workspace";
+import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {

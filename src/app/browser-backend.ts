@@ -85,8 +85,8 @@ import {
   type Workspace,
   emptyWorkspace,
   migrateWorkspaceV10,
-  sanitizeActivityLog,
 } from "./workspace";
+import { sanitizeActivityLog } from "./activity-log";
 
 /**
  * Browser-local persistence backed by IndexedDB record stores (one row per
