@@ -553,8 +553,7 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     expect(props.tursoMode).toBe(false);
   });
 
-  // ★★★ THIS is the test that pins the `mode` disjunct — mutation-verified
-  // (see VERIFY section in the commit this landed with). With valid Turso
+  // ★★★ THIS is the test that pins the `mode` disjunct. With valid Turso
   // credentials and `storageConfig.kind` NOT "turso" (isolating the storage
   // signal via `tursoConfiguredSettingsBrowserStorage`), setting `mode` alone
   // to "turso" must turn tursoMode ON. Deleting `mode === "turso" ||` from the
@@ -566,6 +565,26 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     await screen.findByTestId("chat-panel");
     const props = chatPanelMock.props.at(-1)!;
     expect(props.tursoMode).toBe(true);
+  });
+
+  // ★★★ The MIRROR of the test above, and the row this suite was missing: it
+  // isolates the `storageConfig.kind` disjunct the way that one isolates
+  // `mode`. `tursoConfiguredSettings` carries `storageConfig.kind === "turso"`,
+  // so with `mode: "file"` only the STORAGE signal can carry the gate open.
+  // Deleting `settings.storageConfig.kind === "turso" ||` turns this test RED
+  // while the mode=turso test above stays green — the same two-direction
+  // structure the `mode` pair has.
+  // ★★ This is also the row that refutes "file mode is byte-identical to
+  // before this branch": a single-DB Turso STORAGE user sitting on mode=file
+  // DOES get the sidebar and multi-thread persistence. AGENTS.md said
+  // otherwise until this test was written.
+  it("mode=file, storageConfig.kind==='turso', with Turso credentials configured: ChatPanel receives tursoMode true", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettings);
+    render(<WorkspaceSection {...makeProps({ mode: "file" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+    expect(props.tursoMode).toBe(true);
+    expect(props.tursoConfig).not.toBeNull();
   });
 
   it("mode=turso with NO Turso credentials configured: ChatPanel receives tursoMode false", async () => {

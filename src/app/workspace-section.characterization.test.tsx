@@ -33,10 +33,18 @@ vi.mock("./use-settings", () => ({
       holidayCountries: [],
       resources: { workdayHours: 8 },
       popout: { reuseWindow: false },
-      // `storageConfig` is REQUIRED on Settings, and workspace-section reads
-      // `settings.storageConfig.kind` unguarded (mirroring task-manager's
-      // trendsActive). Omitting it here made this mock the only place the field
-      // was absent, so dropping the source's defensive `?.` crashed this file.
+      // `storageConfig` is REQUIRED on Settings (`settings-types.ts` declares
+      // it non-optional), and workspace-section reads `settings.storageConfig
+      // .kind` unguarded — mirroring task-manager's `trendsActive`, which ORs
+      // the same two signals and is also unguarded. Omitting it here left this
+      // as the only settings mock that RENDERS WorkspaceSection without the
+      // field, so dropping the source's defensive `?.` crashed this file.
+      // ★ Not "the only mock missing the field", which is what this comment
+      // said first: 12 of the 14 `vi.mock("./use-settings")` files still omit
+      // it. None of the 12 render this component, so none are affected — the
+      // narrower claim is the true one. Re-derive both numbers rather than
+      // trusting them: `grep -rl 'vi.mock("./use-settings")' src/app` for the
+      // population, `grep -L storageConfig` over that list for the omitters.
       storageConfig: { kind: "browser" as const },
       features: ["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"],
     },
