@@ -20,13 +20,16 @@ export const threadsSelect = (projectId: string): SqlStmt[] => [
   { sql: `SELECT * FROM chat_threads WHERE project_id = ? ORDER BY updated_at DESC`, args: [txt(projectId)] },
 ];
 
-/** Upsert via delete-then-insert (mirrors the workspace save's own
- *  delete-then-insert-all convention) rather than an SQL upsert clause. */
+/** Upsert as ONE atomic `INSERT OR REPLACE`, never a delete-then-insert pair.
+ *  `runTursoPipeline` only opens a server-side transaction when the pipeline's
+ *  FIRST statement is literally `BEGIN` (see its `isTransactional` check) —
+ *  every other statement list, this one included, autocommits statement by
+ *  statement. A standalone DELETE followed by a separate INSERT would leave a
+ *  real window where the thread is gone if the INSERT then failed. */
 export function upsertThreadStatements(th: ChatThread): SqlStmt[] {
   return [
-    { sql: `DELETE FROM chat_threads WHERE id = ?`, args: [txt(th.id)] },
     {
-      sql: `INSERT INTO chat_threads (id,project_id,name,created_at,updated_at,history_json,display_json) VALUES (?,?,?,?,?,?,?)`,
+      sql: `INSERT OR REPLACE INTO chat_threads (id,project_id,name,created_at,updated_at,history_json,display_json) VALUES (?,?,?,?,?,?,?)`,
       args: [
         txt(th.id), txt(th.projectId), txt(th.name), txt(th.createdAt), txt(th.updatedAt),
         txt(JSON.stringify(th.history)), txt(JSON.stringify(th.display)),
