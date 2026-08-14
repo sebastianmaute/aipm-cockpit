@@ -25,3 +25,25 @@ export function reorderIds<Id>(ids: readonly Id[], dragId: Id, targetId: Id): Id
   next.splice(to, 0, dragId);
   return next;
 }
+
+/**
+ * Which edge of `targetId` a drop will land on, or null when the pair is not a
+ * valid drop.
+ *
+ * ★★ DERIVED FROM THE SPLICE, never chosen for looks. Because `reorderIds`
+ * removes the dragged id BEFORE inserting at the target's original index, every
+ * index above the target shifts down by one: dropping on a LATER item lands
+ * after it, dropping on an EARLIER item lands before it. Marking one fixed edge
+ * would be correct in one direction and a lie in the other.
+ */
+export function dropEdgeFor<Id>(
+  ids: readonly Id[],
+  dragId: Id,
+  targetId: Id,
+): "before" | "after" | null {
+  if (dragId === targetId) return null;
+  const from = ids.indexOf(dragId);
+  const to = ids.indexOf(targetId);
+  if (from < 0 || to < 0) return null;
+  return from < to ? "after" : "before";
+}
