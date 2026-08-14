@@ -87,20 +87,18 @@ describe("appendActivity", () => {
   });
 
   test("mints a fresh id independent of the input array's existing ids", () => {
-    // Characterization of the CURRENT (deviceId-counter) minting: unlike the
-    // retired per-log counter, the new id never derives from the array's
-    // contents, so it is unrelated to (and never equal to) any existing id —
-    // including a deliberately out-of-order / non-monotonic input.
-    const withHighId = [entry(5)];
-    const one = appendActivity(withHighId, "task.updated")[1];
-    expect(one.id).not.toBe("5");
-    expect(one.id).toMatch(/^[A-Za-z0-9_-]+-\d+$/);
-
-    const withOutOfOrderIds = [entry(5), entry(2)];
-    const two = appendActivity(withOutOfOrderIds, "task.updated")[2];
-    expect(two.id).not.toBe("5");
-    expect(two.id).not.toBe("2");
-    expect(two.id).toMatch(/^[A-Za-z0-9_-]+-\d+$/);
+    // ★ Asserted as "the counter advanced by exactly 1", NOT as "the id differs
+    //   from some literal". A `.not.toBe("5")` here is a TAUTOLOGY — a minted id
+    //   is `<deviceId>-<session>-<counter>` and can never equal a bare digit
+    //   string — so an earlier version of this test stayed GREEN under a
+    //   mutation deriving the id ENTIRELY from the input array's length, which
+    //   is the exact property this test is named for. The counter is always
+    //   the LAST `-`-delimited segment, regardless of how many segments (id
+    //   format subject to change) precede it.
+    const counterOf = (id: string) => Number(id.split("-").pop());
+    const first = appendActivity([], "task.created", "T-1");
+    const second = appendActivity([entry(5), entry(9)], "task.created", "T-2");
+    expect(counterOf(second[second.length - 1].id) - counterOf(first[0].id)).toBe(1);
   });
 
   test("caps at MAX entries, dropping the oldest", () => {
