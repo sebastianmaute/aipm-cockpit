@@ -1,6 +1,7 @@
 import { describe, it, test, expect } from "vitest";
 import { SCHEMA_DDL, TABLE_NAMES, selectStatements, workspaceToStatements, rowsToWorkspace, dirtyWorkspaceTables, type PipelineResultLike } from "./turso-schema";
 import { emptyWorkspace } from "./storage";
+import type { ActivityEntry } from "./activity-log";
 
 function resultsFromStatements(stmts: { sql: string; args?: { value?: string }[] }[]): PipelineResultLike[] {
   const byTable: Record<string, { cols: string[]; rows: { value: string }[][] }> = {};
@@ -262,5 +263,47 @@ describe("turso features (meta KV)", () => {
     const ws2 = { ...emptyWorkspace(), features: [] as const };
     const back2 = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws2)));
     expect(back2.features).toEqual([]); // explicit empty preserved
+  });
+});
+
+describe("turso activityLog (meta KV)", () => {
+  const sampleLog: ActivityEntry[] = [
+    { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
+  ];
+
+  it("writes activityLog as a meta row", () => {
+    const ws = { ...emptyWorkspace(), activityLog: sampleLog };
+    const stmts = workspaceToStatements(ws);
+    const metaInsert = stmts.find(
+      (s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "activityLog"),
+    );
+    expect(metaInsert).toBeDefined();
+    expect(metaInsert!.args!.some((a) => a.value === JSON.stringify(sampleLog))).toBe(true);
+  });
+
+  it("marks meta dirty when activityLog changes by reference", () => {
+    const prev = { ...emptyWorkspace(), activityLog: [] as ActivityEntry[] };
+    const next = { ...prev, activityLog: sampleLog };
+    expect(dirtyWorkspaceTables(prev, next).has("meta")).toBe(true);
+  });
+
+  it("keeps activityLog OUT of TABLE_NAMES (it rides meta, no table of its own)", () => {
+    expect(TABLE_NAMES).not.toContain("activityLog");
+    expect(TABLE_NAMES).not.toContain("activity_log");
+  });
+
+  it("round-trips activityLog via rowsToWorkspace", () => {
+    const ws = { ...emptyWorkspace(), activityLog: sampleLog };
+    const back = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(back.activityLog).toEqual(sampleLog);
+  });
+
+  it("omits the activityLog meta row when the log is empty", () => {
+    const ws = { ...emptyWorkspace(), activityLog: [] as ActivityEntry[] };
+    const stmts = workspaceToStatements(ws);
+    const metaInsert = stmts.find(
+      (s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "activityLog"),
+    );
+    expect(metaInsert).toBeUndefined();
   });
 });
