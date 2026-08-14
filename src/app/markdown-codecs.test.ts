@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus, EVENTS_MD_COLUMNS } from "./markdown-codecs";
 import { EVENTS_CSV_COLUMNS } from "./csv-codecs-core";
-import { emptyWorkspace } from "./workspace";
+import { emptyWorkspace, type Workspace } from "./workspace";
 import { defaultExportConfig } from "./settings-types";
 
 describe("markdown fieldVisibility section", () => {
@@ -162,5 +162,19 @@ describe("calendar events markdown", () => {
   // different thing (outlookEventId survives the round-trip), not column parity.
   it("EVENTS_MD_COLUMNS covers the same keys, in the same order, as EVENTS_CSV_COLUMNS", () => {
     expect(EVENTS_MD_COLUMNS.map((c) => c.key)).toEqual([...EVENTS_CSV_COLUMNS]);
+  });
+});
+
+describe("activity log markdown", () => {
+  it("round-trips activityLog through Markdown storage", () => {
+    const log = [
+      { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+    ];
+    const ws = { ...emptyWorkspace(), activityLog: log } as Workspace;
+    expect(markdownToWorkspace(workspaceToMarkdown(ws)).activityLog).toEqual(log);
+  });
+
+  it("omits the section entirely when the log is empty", () => {
+    expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Activity Log");
   });
 });

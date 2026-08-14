@@ -65,6 +65,7 @@ import {
   markdownToDocuments,
   markdownToDocumentVersions,
   markdownToInsights,
+  markdownToActivityLog,
   markdownToSettingsOverrides,
   mdUnescape,
   splitMdRow,
@@ -360,6 +361,12 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   if (docVersions) ws.documentVersions = docVersions;
   const so = markdownToSettingsOverrides(md);
   if (so) ws.settingsOverrides = so;
+  // Whole-md scan, same shape as documents/documentVersions above: "## Activity
+  // Log" is not a heading splitMarkdownSections knows, so its lines stay
+  // wherever they landed — harmless, since the block is emitted last and its
+  // lines never look like a table row.
+  const activityLog = markdownToActivityLog(md);
+  if (activityLog) ws.activityLog = activityLog;
   return migrateWorkspaceV10(ws);
 }
 
