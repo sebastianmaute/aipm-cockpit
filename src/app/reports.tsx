@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useDragAutoscroll } from "./use-drag-autoscroll";
+import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { EmptyState } from "./empty-state";
 import { Select } from "./form-controls";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
@@ -149,53 +149,16 @@ export function ReportsPanel({
   const [groupFilter, setGroupFilter] = useState("");
   const [labelSort, setLabelSort] = useState<GroupOrLabelSort>({ key: "total", dir: "desc" });
   const [labelFilter, setLabelFilter] = useState("");
-  const [dragId, setDragId] = useState<AddableReportId | null>(null);
-  const [dragOverId, setDragOverId] = useState<AddableReportId | null>(null);
   // The card list scrolls in ReportCard's inner div, so THAT is what has to move
   // under the cursor during a drag — see `use-drag-autoscroll.ts` for why the
-  // browser will not do it for us here.
+  // browser will not do it for us here. The hook drives the autoscroll itself.
   const cardsScrollRef = useRef<HTMLDivElement>(null);
-  useDragAutoscroll(cardsScrollRef, dragId !== null);
 
-  const endDrag = () => { setDragId(null); setDragOverId(null); };
-
-  const onDropOnReport = (targetId: AddableReportId) => {
-    if (dragId == null || dragId === targetId) return;
-    const ids = [...extraReports];
-    const fromIdx = ids.indexOf(dragId);
-    const targetIdx = ids.indexOf(targetId);
-    if (fromIdx < 0 || targetIdx < 0) return;
-    ids.splice(fromIdx, 1);
-    ids.splice(targetIdx, 0, dragId);
-    onChangeExtraReports?.(ids);
-  };
-
-  /**
-   * Which edge of `targetId` the drop will land on, or null when it is not a
-   * target at all.
-   *
-   * ★★ DERIVED FROM THE SPLICE, never chosen for looks. `onDropOnReport` removes
-   * the dragged id BEFORE inserting at the target's ORIGINAL index, so every
-   * index above the target shifts down by one: dropping on a LATER card lands
-   * after it, dropping on an EARLIER card lands before it. Marking one fixed
-   * edge would be correct in one direction and a lie in the other.
-   */
-  const dropEdgeFor = (targetId: AddableReportId): "before" | "after" | null => {
-    if (dragId == null || dragOverId !== targetId || dragId === targetId) return null;
-    const from = extraReports.indexOf(dragId);
-    const to = extraReports.indexOf(targetId);
-    if (from < 0 || to < 0) return null;
-    return from < to ? "after" : "before";
-  };
-
-  const moveReport = (id: AddableReportId, delta: number) => {
-    const ids = [...extraReports];
-    const i = ids.indexOf(id);
-    const j = i + delta;
-    if (i < 0 || j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-    onChangeExtraReports?.(ids);
-  };
+  const reorder = useListReorderDnd<AddableReportId>({
+    ids: extraReports,
+    onReorder: (ids) => onChangeExtraReports?.(ids),
+    scrollRef: cardsScrollRef,
+  });
 
   const resetAllReports = () => {
     inquiry.resetColWidths();
@@ -549,7 +512,7 @@ export function ReportsPanel({
         const body = meta ? renderEmbedded(id) : null;
         if (!meta || !body) return null;
         const removeLabel = `${t(lang, "reportsRemoveReport")}: ${t(lang, meta.titleKey)}`;
-        const dropEdge = dropEdgeFor(id);
+        const dropEdge = reorder.dropEdgeFor(id);
         return (
           <div
             key={id}
@@ -558,18 +521,14 @@ export function ReportsPanel({
             // border classes below are what the user sees, but a test that read
             // them would be pinning styling rather than the splice semantics.
             data-drop-edge={dropEdge ?? undefined}
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (dragOverId !== id) setDragOverId(id);
-            }}
-            onDrop={() => { onDropOnReport(id); endDrag(); }}
+            {...reorder.itemProps(id)}
             className={[
               // ★★ The 2px border is ALWAYS present and only changes COLOUR.
               // Adding `border-t-2` on hover would grow the box and shift every
               // card below it — during a drag, which is precisely when the hit
               // target has to hold still.
               "border-y-2",
-              dragId != null && dragId !== id ? "opacity-70" : "",
+              reorder.isDragging && reorder.dragId !== id ? "opacity-70" : "",
               // ★★ `-strong`, not `--ui-green`. As a 2px graphical object
               // carrying state this owes WCAG 1.4.11's 3:1, and the raw green
               // fails it in all three LIGHT schemes — 2.17:1 harbor, 1.97
@@ -600,27 +559,8 @@ export function ReportsPanel({
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  draggable
                   tabIndex={0}
-                  // ★★ The payload is unused — the reorder reads `dragId` from
-                  // state — but Firefox will not START a drag at all unless
-                  // `dragstart` sets some transfer data, so reorder was dead
-                  // there. jsdom dispatches the sequence regardless, which is
-                  // why no test caught it.
-                  onDragStart={(e) => {
-                    e.dataTransfer?.setData("text/plain", id);
-                    setDragId(id);
-                  }}
-                  onDragEnd={endDrag}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      moveReport(id, -1);
-                    } else if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      moveReport(id, 1);
-                    }
-                  }}
+                  {...reorder.handleProps(id)}
                   // ★★ Row-UNIQUE name (WCAG 2.4.6). Every handle carried the
                   // identical "Drag or use arrow keys to reorder", so a
                   // screen-reader user listing the buttons heard the same label
