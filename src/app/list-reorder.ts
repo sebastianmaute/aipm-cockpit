@@ -15,7 +15,7 @@
 
 /** Reorder `ids` by moving `dragId` into `targetId`'s slot. Returns the SAME
  *  array reference on a no-op, so callers can skip a commit cheaply. */
-export function reorderIds<Id>(ids: readonly Id[], dragId: Id, targetId: Id): Id[] | readonly Id[] {
+export function reorderIds<Id>(ids: readonly Id[], dragId: Id, targetId: Id): readonly Id[] {
   if (dragId === targetId) return ids;
   const from = ids.indexOf(dragId);
   const to = ids.indexOf(targetId);

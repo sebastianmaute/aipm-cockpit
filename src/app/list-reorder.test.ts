@@ -61,7 +61,7 @@ describe("dropEdgeFor", () => {
     // together so they cannot drift apart.
     for (const [drag, target] of [["A", "C"], ["D", "B"], ["B", "D"], ["C", "A"]] as const) {
       const edge = dropEdgeFor(ids, drag, target);
-      const next = reorderIds(ids, drag, target) as string[];
+      const next = reorderIds(ids, drag, target);
       const landedAt = next.indexOf(drag);
       const targetAt = next.indexOf(target);
       expect(edge).toBe(landedAt > targetAt ? "after" : "before");
