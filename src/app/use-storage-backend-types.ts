@@ -1,4 +1,3 @@
-import type { ActivityEntry } from "./activity-log";
 import type { Lang, t } from "./i18n";
 import type { ProjectsRegistry } from "./projects-registry";
 import type { Settings } from "./settings-types";
@@ -27,8 +26,10 @@ export interface UseStorageBackendArgs {
    *  a mirror: it receives live state, forwards nothing, and must NOT persist.
    *  ★ Claimed popouts "forward their own edits via BroadcastChannel" until 2026-08-06. */
   isPopout: boolean;
-  activityLog: ActivityEntry[];
-  setActivityLog: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
+  // ★ `activityLog`/`setActivityLog` were args until the log became workspace
+  // data — the hook now reads BOTH from `useWorkspace()`, so there is ONE
+  // source. Re-adding them here would let the broadcast and the save see
+  // different arrays.
   showToast: (kind: "info" | "error" | "success", text: string) => void;
   setStorageConfig: (config: StorageConfig) => void;
   /** Reports the outcome of a load/save so the caller can drive the storage

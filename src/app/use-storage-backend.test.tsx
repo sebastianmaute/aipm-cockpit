@@ -120,8 +120,6 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
     lang: "en-US" as Lang,
     hydrated: true,
     isPopout: false,
-    activityLog: [] as ActivityEntry[],
-    setActivityLog: vi.fn(),
     showToast,
     setStorageConfig: setStorageConfigGlobal,
     ...overrides,
@@ -132,8 +130,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog };
   };
 }
 
@@ -314,6 +312,65 @@ describe("useStorageBackend — save effect", () => {
         documents: [expect.objectContaining({ id: 1, title: "Status report" })],
       }),
     );
+  });
+
+  it("persists an ACTIVITY-LOG-ONLY change — the autosave deps-array guard", async () => {
+    // ★★★ Same shape as the documents-only test above, for the same reason: the
+    // save effect's dependency array decides whether a change re-triggers a
+    // save. Omit `activityLog` there and the log persists on the FIRST save that
+    // some other slice happens to trigger and never again — a quick manual test
+    // looks correct while the audit trail silently stops updating. Mutation-
+    // checked: dropping `activityLog` from the deps array turns THIS test red
+    // (nothing else in the suite noticed).
+    // Nothing but `activityLog` may be mutated below — that is the whole point.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-a-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+      ] as ActivityEntry[]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityLog: [expect.objectContaining({ id: "dev-a-1", kind: "task.created" })],
+      }),
+    );
+  });
+
+  it("MERGES a loaded activity log with entries appended locally — never replaces", async () => {
+    // ★★★ The load handler is deliberately `setActivityLog(prev =>
+    // mergeActivityLogs(prev, workspace.activityLog))`, NOT the `?? []` replace
+    // its `documents`/`documentVersions` neighbours use. The log is an
+    // append-only audit trail: a replace drops every entry this device already
+    // holds. Mutation-checked — swapping the merge for
+    // `setActivityLog(workspace.activityLog ?? [])` turns this test red on the
+    // LOCAL entry (nothing else in the suite noticed).
+    mockBackend.load.mockResolvedValue({
+      tasks: [], raid: [], absences: [], shifts: [],
+      activityLog: [
+        { id: "dev-b-1", timestamp: "2026-08-14T08:00:00.000Z", kind: "task.created", args: [2, "Remote"] },
+      ],
+    });
+    const { result } = renderBackend();
+
+    // Seed a LOCAL entry before the load resolves — the in-flight-append case.
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-a-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.updated", args: [1, "Local"] },
+      ] as ActivityEntry[]);
+    });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.activityLog.map((e) => e.id)).toEqual(["dev-b-1", "dev-a-1"]);
   });
 
   it("restores documents from a loaded workspace", async () => {

@@ -24,6 +24,7 @@ import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
 import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { mergeActivityLogs } from "./activity-log-merge";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
@@ -56,7 +57,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setSteeringCommittee,
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
-    insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions,
+    insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents,
   } = useWorkspace();
@@ -228,6 +229,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
     setInsights(workspace.insights); setDocuments(workspace.documents ?? []); setDocumentVersions(workspace.documentVersions ?? []);
+    // ★★★ MERGE, not `?? []` like its two neighbours above — a later reader WILL try to make it
+    // consistent with them. The log is an append-only audit trail, so a replace drops entries
+    // appended locally while the load was in flight AND every entry this device holds that the
+    // loaded workspace never saw. `mergeActivityLogs` unions by id, sorts by timestamp and caps to
+    // the newest; the setter is functional so a concurrent append survives too.
+    setActivityLog((prev) => mergeActivityLogs(prev, workspace.activityLog));
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -369,14 +376,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Single-writer rule: the main window owns persistence. ★★★ A popout does
     // NOT save and does NOT forward edits — `canSend = !args.isPopout` below
     // disables every outbound broadcast, so an edit escaping the read-only
-    // guards stays popout-LOCAL, EXCEPT the activity log (`use-activity-log`
-    // writes localStorage with no isPopout check — §91). `canSend` is the
-    // authority, not this prose: two earlier versions of it were wrong in
+    // guards stays popout-LOCAL — the activity log INCLUDED now that it is a
+    // workspace slice (it used to escape via `use-activity-log`'s own
+    // localStorage write, which had no isPopout check — §91; that writer is
+    // gone). `canSend` is the authority, not this prose: two earlier versions of it were wrong in
     // opposite directions and both reached a commit message. Saving from both
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
-    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents } as Workspace;
+    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog } as Workspace;
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -419,7 +427,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }).then(() => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog }).then(() => {
         emitOutcome(null);
       }).catch((err) => {
         emitOutcome(err);
@@ -476,7 +484,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend, loadWasTruncated]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog, args.hydrated, args.isPopout, backend, loadWasTruncated]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -492,7 +500,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("changes", changes, setChanges, canSend);
   useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend);
   useBroadcastSync("documents", documents, setDocuments, canSend); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend); // ★ PAIRED on one line: this file sits AT the 800-line ratchet (check-file-sizes.mjs counts split("\n").length = wc -l + 1), so splitting these re-breaks the gate. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", args.activityLog, args.setActivityLog, canSend);
+  useBroadcastSync("activityLog", activityLog, setActivityLog, canSend); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, canSend);
@@ -503,7 +511,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
+      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       await refreshBackendStatus();
       emitToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -591,7 +599,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
+      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
       suppressNextLoadRef.current = true;
       emitStorageConfig(newConfig);
       emitToast("info", t(langRef.current, "storageConvertedToast", label));
@@ -622,7 +630,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the file handlers above. Must NOT be memoized or it would capture stale
   // state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog };
   }
 
   // Persist the registry AND surface the change to the caller so its observable
