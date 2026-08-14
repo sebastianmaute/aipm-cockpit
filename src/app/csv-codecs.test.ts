@@ -157,6 +157,21 @@ describe("csv activityLog section", () => {
     { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
   ];
 
+  it("emits no activity section when the log is undefined", () => {
+    // emptyWorkspace() leaves activityLog unset — the "absent" path through
+    // the emission guard, distinct from an explicit empty array below.
+    expect(workspaceToCsv(emptyWorkspace())).not.toContain(CSV_SECTION_ACTIVITY);
+  });
+
+  it("emits no activity section when the log is empty", () => {
+    // ★ Pins the non-empty emission gate. Without this the golden CSV
+    //   fixtures are the only thing that would notice a regression here, and
+    //   they would report it as an unexplained byte diff a task later, not as
+    //   the gate bug it actually is.
+    const ws = { ...emptyWorkspace(), activityLog: [] };
+    expect(workspaceToCsv(ws)).not.toContain(CSV_SECTION_ACTIVITY);
+  });
+
   it("round-trips activityLog through CSV storage", () => {
     const ws = { ...emptyWorkspace(), activityLog: log };
     expect(csvToWorkspace(workspaceToCsv(ws)).activityLog).toEqual(log);
