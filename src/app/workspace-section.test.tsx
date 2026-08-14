@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import type React from "react";
 import { WorkspaceProvider } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
@@ -16,6 +16,7 @@ import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityEntry } from "./activity-log";
 import type { Absence, Shift } from "./types";
 import { saveActualsCache } from "./timelog-actuals-store";
+import type { FeatureModuleId } from "./feature-modules";
 
 vi.mock("./use-settings", () => ({
   useSettings: vi.fn(() => ({
@@ -36,7 +37,16 @@ vi.mock("./use-settings", () => ({
   })),
 }));
 
-vi.mock("./chat-panel", () => ({ ChatPanel: () => <div data-testid="chat-panel" /> }));
+// Records the props it was handed so the Turso wiring below can be asserted
+// end to end — mirrors the budgetPanelMock capture pattern below (`vi.hoisted`
+// because `vi.mock` factories are hoisted above every const in this file).
+const chatPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./chat-panel", () => ({
+  ChatPanel: (p: Record<string, unknown>) => {
+    chatPanelMock.props.push(p);
+    return <div data-testid="chat-panel" />;
+  },
+}));
 vi.mock("./reports", () => ({ ReportsPanel: () => <div data-testid="reports-panel" /> }));
 vi.mock("./gantt", () => ({ GanttPanel: () => <div data-testid="gantt-panel" /> }));
 vi.mock("./raid-panel", () => ({ RaidPanel: () => <div data-testid="raid-panel" /> }));
@@ -419,5 +429,88 @@ describe("WorkspaceSection — budget people-row actuals wiring", () => {
     // The control: with nothing seeded the assertion above would pass against a
     // hardcoded `{}`, so this pins that the empty case is the EMPTY one.
     expect((await renderAtBudget()).actualsByBucket).toEqual({});
+  });
+});
+
+describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
+  // Full `Settings`-shaped fixture (same minimal shape the module-disabled
+  // test above builds) with Turso credentials configured under
+  // `integrations.turso`, per the AGENTS.md "New Turso credentials live under
+  // settings.integrations?.turso?.{databaseUrl,authToken}" convention already
+  // followed by portfolio-health-panel.tsx / projects-panel.tsx.
+  const tursoConfiguredSettings = {
+    settings: {
+      language: "en-US" as const,
+      ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
+      jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", extraProjects: [], issueTypes: [], assigneeMode: "currentUser" as const, assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
+      notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false }, desktopUrgent: { enabled: false } },
+      holidayCountries: [],
+      resources: { workdayHours: 8 },
+      popout: { reuseWindow: false },
+      storageConfig: { kind: "turso" as const },
+      layout: "modern" as const,
+      features: ["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"] as FeatureModuleId[],
+      integrations: {
+        turso: { enabled: true, databaseUrl: "https://sample-org.turso.io", authToken: "sample-token" },
+      },
+    },
+    setSettings: vi.fn(),
+    hydrated: true,
+    i18nReady: true,
+    lang: "en-US" as const,
+  };
+
+  // Same shape, but with NO Turso credentials configured — used both for the
+  // "no credentials" test and to restore the mock after each test in this
+  // block runs (this file has no global beforeEach/afterEach mock reset, so a
+  // custom mockReturnValue here would otherwise leak into later tests, same
+  // trap flagged in the module-disabled test above).
+  const settingsWithoutTurso = {
+    ...tursoConfiguredSettings,
+    settings: {
+      ...tursoConfiguredSettings.settings,
+      storageConfig: { kind: "browser" as const },
+      integrations: undefined,
+    },
+  };
+
+  beforeEach(() => {
+    chatPanelMock.props.length = 0;
+    vi.mocked(useSettings).mockReturnValue(settingsWithoutTurso);
+  });
+
+  afterEach(() => {
+    vi.mocked(useSettings).mockReturnValue(settingsWithoutTurso);
+  });
+
+  it("mode=turso + configured Turso credentials: ChatPanel receives tursoMode true and a non-null tursoConfig", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettings);
+    render(<WorkspaceSection {...makeProps({ mode: "turso" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+    expect(props.tursoMode).toBe(true);
+    expect(props.tursoConfig).not.toBeNull();
+  });
+
+  // ★ This is the test that matters — it pins that the `mode` half of the gate
+  // is load-bearing. With the SAME Turso-configured settings fixture as above,
+  // switching only `mode` to "file" must turn tursoMode off. Without this test,
+  // deleting `mode === "turso" &&` from the gate would leave every other test green.
+  it("mode=file with the SAME Turso-configured settings: ChatPanel receives tursoMode false", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettings);
+    render(<WorkspaceSection {...makeProps({ mode: "file" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+    expect(props.tursoMode).toBe(false);
+  });
+
+  it("mode=turso with NO Turso credentials configured: ChatPanel receives tursoMode false", async () => {
+    // `settingsWithoutTurso` (set in beforeEach) has no `integrations.turso`,
+    // so getTursoConfig resolves to null — pins the `chatTursoConfig !== null`
+    // half of the gate independently of the `mode` half above.
+    render(<WorkspaceSection {...makeProps({ mode: "turso" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+    expect(props.tursoMode).toBe(false);
   });
 });

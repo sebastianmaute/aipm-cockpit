@@ -42,6 +42,7 @@ import {
   resolveTimezone,
 } from "./timezone";
 import { useEffectiveSettings } from "./use-effective-settings";
+import { getTursoConfig } from "./turso-config";
 import {
   ResourceDirectory,
 } from "./resource-directory";
@@ -284,6 +285,17 @@ export function WorkspaceSection({
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
   // with the modern shell's inset edge (matching the Tasks pane exactly).
   const effectiveTz = resolveTimezone(effectiveSettings.timezone, project?.operatingTimezone);
+  // Mirrors the per-component getTursoConfig(settings...) pattern already used by
+  // portfolio-health-panel.tsx / projects-panel.tsx — each Turso-gated surface
+  // resolves its own config from settings rather than threading a shared
+  // pre-computed object down. Gate on BOTH `mode` and `chatTursoConfig !== null`
+  // (not just storageConfig.kind) per this repo's Turso-gating rule: the kind
+  // can be set while the config is unset or quarantined.
+  const chatTursoConfig = getTursoConfig(
+    settings.integrations?.turso?.databaseUrl,
+    settings.integrations?.turso?.authToken,
+  );
+  const chatTursoMode = mode === "turso" && chatTursoConfig !== null;
   const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
   const panelScrollClass = fullBleed
     ? "min-h-0 flex-1 overflow-y-auto"
@@ -364,6 +376,8 @@ export function WorkspaceSection({
             projectId={currentProjectId ?? "default"}
             getChatConversation={getChatConversation}
             saveChatConversation={saveChatConversation}
+            tursoMode={chatTursoMode}
+            tursoConfig={chatTursoConfig}
           />
         </div>
 
