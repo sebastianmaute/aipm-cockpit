@@ -281,8 +281,9 @@ function wsWithActivityLog(activityLog: unknown): string {
 // suite (Task 12, activity-log-workspace-data): the log is validated on load
 // by `sanitizeActivityLog` now (called from `jsonToWorkspace`), not by the
 // localStorage-only `isActivityEntry`/`normalizeEntryChanges` that used to
-// gate `loadActivityLog`. Most properties carried over unchanged; two did
-// NOT — see the two tests marked REGRESSION below.
+// gate `loadActivityLog`. Every property carried over EXCEPT the unknown-kind
+// rule, which was deliberately inverted for shared workspace data — see the
+// forward-compat test below.
 describe("activityLog sanitize-and-cap on load", () => {
   it.each([
     ["non-array (string)", "x"],
@@ -306,17 +307,45 @@ describe("activityLog sanitize-and-cap on load", () => {
     expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["1", "9"]);
   });
 
-  // ★★★ REGRESSION vs the retired loadActivityLog: its `isActivityEntry`
-  // validator also rejected an entry whose `kind` was not a known
-  // ActivityKind. `sanitizeActivityLog` (workspace.ts) does not check `kind`
-  // at all — only id/timestamp/args-shape — so a bogus kind now SURVIVES a
-  // workspace load. Pinned here rather than silently dropped; see the
-  // Task 12 report for the recommended follow-up.
-  it("REGRESSION: keeps an entry whose `kind` is not a known ActivityKind", () => {
+  // ★★★ DELIBERATE divergence from the retired loadActivityLog, whose
+  // `isActivityEntry` dropped an entry whose `kind` was not a known
+  // ActivityKind. That was right for a device-local localStorage blob and is
+  // WRONG for shared workspace data: the loaded log becomes app state and the
+  // autosave writes it straight back, so an older client dropping a kind a
+  // newer release added would DELETE those entries from the shared project.
+  // An unknown but well-formed (string) kind is therefore KEPT verbatim and
+  // rendered generically by the panel — see `activityMessageKey`.
+  it("keeps an entry whose `kind` is not a known ActivityKind (forward-compat)", () => {
     const ws = jsonToWorkspace(
       wsWithActivityLog([{ id: "2", timestamp: "2026-06-02T00:00:00.000Z", kind: "not.a.kind", args: [] }]),
     );
     expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["2"]);
+    expect(ws.activityLog?.[0].kind).toBe("not.a.kind");
+  });
+
+  // The other half of forward-compat: a field a NEWER release added to
+  // ActivityEntry must survive an older client's load+save round trip, so the
+  // sanitizer passes an untouched entry through by REFERENCE rather than
+  // rebuilding it from a known-field list.
+  it("preserves an unknown extra key on an otherwise-valid entry", () => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([
+        { id: "2", timestamp: "2026-06-02T00:00:00.000Z", kind: "task.created", args: [], futureField: 7 },
+      ]),
+    );
+    expect((ws.activityLog?.[0] as unknown as { futureField?: number }).futureField).toBe(7);
+  });
+
+  // Malformed — not forward-compat. A non-string `kind` has no honest
+  // rendering (`activityGroupOf` calls `kind.startsWith`), so it is dropped.
+  it.each([
+    ["missing kind", { id: "b", timestamp: "2026-06-02T00:00:00.000Z", args: ["Y"] }],
+    ["numeric kind", { id: "c", timestamp: "2026-06-02T00:00:00.000Z", kind: 42, args: ["Z"] }],
+    ["null kind", { id: "d", timestamp: "2026-06-02T00:00:00.000Z", kind: null, args: ["Z"] }],
+  ])("drops an entry with a malformed kind: %s", (_label, bad) => {
+    const good = { id: "ok", timestamp: "2026-06-02T00:00:00.000Z", kind: "task.created", args: [] };
+    const ws = jsonToWorkspace(wsWithActivityLog([bad, good]));
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["ok"]);
   });
 
   it("caps a too-large activityLog to the newest ACTIVITY_MAX_ENTRIES", () => {
@@ -347,19 +376,37 @@ describe("activityLog sanitize-and-cap on load", () => {
     expect(ws.activityLog?.[0].changes).toEqual(changes);
   });
 
-  // ★★★ REGRESSION vs the retired loadActivityLog: its `normalizeEntryChanges`
-  // stripped a malformed `changes` payload before it ever reached the UI.
-  // `sanitizeActivityLog` does not validate `changes` at all, so a malformed
-  // payload now survives a workspace load verbatim — a real crash risk, since
-  // `activity-log-panel.tsx` renders `entry.changes.map(...)` and a truthy
-  // non-array `changes` (e.g. a non-empty string) has no `.map`. Pinned here
-  // rather than silently dropped; see the Task 12 report.
-  it("REGRESSION: does not strip a malformed `changes` payload", () => {
+  // A malformed `changes` payload is CORRUPTION, not forward-compat: the
+  // panel renders `entry.changes.map(...)` and `c.field`/`c.from`/`c.to` as
+  // React children, so a non-array — or an array of non-FieldChange objects —
+  // throws. The rest of the entry is still a real audit record, so the payload
+  // is stripped and the entry KEPT (the retired `normalizeEntryChanges` did
+  // the same).
+  it.each([
+    ["non-array (string)", "nope"],
+    ["non-array (object)", { field: "a", from: "b", to: "c" }],
+    ["array of non-objects", ["nope"]],
+    ["array of wrong-shaped objects", [{ field: 1, from: null }]],
+    ["array with one bad element", [{ field: "a", from: "b", to: "c" }, { field: 1 }]],
+  ])("strips a malformed `changes` payload but keeps the entry: %s", (_label, changes) => {
     const ws = jsonToWorkspace(
       wsWithActivityLog([
-        { id: "1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: [], changes: "nope" },
+        { id: "1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: ["T"], changes },
       ]),
     );
-    expect((ws.activityLog ?? [])[0]?.changes).toBe("nope");
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["1"]);
+    expect((ws.activityLog ?? [])[0]?.changes).toBeUndefined();
+    // The rest of the record survives the strip.
+    expect((ws.activityLog ?? [])[0]?.args).toEqual(["T"]);
+  });
+
+  it("keeps a well-formed `changes` payload untouched", () => {
+    const changes = [{ field: "owner", from: "Ada", to: "Grace" }];
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([
+        { id: "1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: [], changes },
+      ]),
+    );
+    expect((ws.activityLog ?? [])[0]?.changes).toEqual(changes);
   });
 });

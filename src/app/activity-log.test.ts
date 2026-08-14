@@ -143,12 +143,12 @@ describe("dropLegacyActivityLog", () => {
 // not a per-device localStorage blob. The properties these tests used to pin
 // were moved to workspace.test.ts's "activityLog sanitize-and-cap on load"
 // describe, which exercises the same validation/capping through
-// `sanitizeActivityLog` (called from `jsonToWorkspace`) — EXCEPT two
-// properties that genuinely did NOT carry over (see the two REGRESSION
-// tests in that file: `sanitizeActivityLog` validates neither `kind` nor a
-// malformed `changes` payload, unlike this file's retired `isActivityEntry`/
-// `normalizeEntryChanges`). Flagged in the Task 12 report, not silently
-// dropped.
+// `sanitizeActivityLog` (called from `jsonToWorkspace`) — which now delegates
+// the per-entry rules to `sanitizeActivityEntry` in this module, the successor
+// to the retired `isActivityEntry`/`normalizeEntryChanges`. ONE property was
+// deliberately inverted rather than carried over: an unknown-but-well-formed
+// `kind` is KEPT, because dropping it from SHARED workspace data propagates
+// the deletion on the next autosave. See that function's landmine.
 
 describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both locales", () => {
   const NEW_KINDS: ActivityKind[] = [
@@ -277,10 +277,11 @@ describe("appendActivityEntry + changes round-trip (#22)", () => {
 
   // "a changes-bearing entry survives a save/load round-trip" and "drops a
   // malformed changes payload on load" (localStorage-specific) moved to
-  // workspace.test.ts's "activityLog sanitize-and-cap on load" describe — the
-  // first still holds through `jsonToWorkspace`/`workspaceToJson`; the second
-  // does NOT (see the REGRESSION test there — `sanitizeActivityLog` does not
-  // validate `changes` shape, unlike the retired `normalizeEntryChanges`).
+  // workspace.test.ts's "activityLog sanitize-and-cap on load" describe. Both
+  // still hold through `jsonToWorkspace`/`workspaceToJson`: `sanitizeChanges`
+  // moved here beside `sanitizeActivityEntry`, so a malformed payload is
+  // stripped on the workspace load boundary exactly as `normalizeEntryChanges`
+  // stripped it on the localStorage one.
 });
 
 describe("globally unique ids", () => {

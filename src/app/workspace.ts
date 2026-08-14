@@ -43,7 +43,7 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
-import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
+import { ACTIVITY_MAX_ENTRIES, sanitizeActivityEntry, type ActivityEntry } from "./activity-log";
 import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
@@ -573,18 +573,22 @@ export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
   return out;
 }
 
-/** DOM-free. Drops malformed entries; caps to the newest ACTIVITY_MAX_ENTRIES. */
+/**
+ * DOM-free. Drops malformed entries, strips a malformed per-entry `changes`
+ * payload, and caps to the newest ACTIVITY_MAX_ENTRIES.
+ *
+ * ★★ The per-entry rules live in `sanitizeActivityEntry` (activity-log.ts,
+ * which owns the entry shape) — including the deliberate decision to KEEP an
+ * unknown-but-well-formed `kind` rather than drop it. Read the landmine on
+ * that function before tightening anything here: this boundary feeds app state
+ * that the autosave writes straight back, so a drop here is a DELETE on the
+ * shared project, not a display filter.
+ */
 export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
   if (!Array.isArray(v)) return [];
-  const valid = v.filter(
-    (e): e is ActivityEntry =>
-      !!e &&
-      typeof e === "object" &&
-      typeof (e as ActivityEntry).id === "string" &&
-      (e as ActivityEntry).id.length > 0 &&
-      typeof (e as ActivityEntry).timestamp === "string" &&
-      Array.isArray((e as ActivityEntry).args),
-  );
+  const valid = v
+    .map((e) => sanitizeActivityEntry(e))
+    .filter((e): e is ActivityEntry => e !== null);
   return valid.length > ACTIVITY_MAX_ENTRIES ? valid.slice(-ACTIVITY_MAX_ENTRIES) : valid;
 }
 

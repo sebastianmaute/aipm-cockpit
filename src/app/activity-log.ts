@@ -160,6 +160,20 @@ export function humanizeFieldName(field: string): string {
     .trim();
 }
 
+function isFieldChange(v: unknown): v is FieldChange {
+  if (!v || typeof v !== "object") return false;
+  const c = v as Partial<FieldChange>;
+  return typeof c.field === "string" && typeof c.from === "string" && typeof c.to === "string";
+}
+
+/** Validate a persisted `changes` payload; returns undefined when malformed.
+ *  Rejects the WHOLE payload on one bad element rather than filtering: a
+ *  partial diff reads as a complete one, which is worse than no diff. */
+function sanitizeChanges(v: unknown): readonly FieldChange[] | undefined {
+  if (!Array.isArray(v) || v.length === 0 || !v.every(isFieldChange)) return undefined;
+  return v.slice(0, MAX_FIELD_CHANGES) as FieldChange[];
+}
+
 const ACTIVITY_STORAGE_KEY = "aipm-cockpit:activity-log";
 export const ACTIVITY_MAX_ENTRIES = 500;
 
@@ -301,6 +315,61 @@ export function activityGroupOf(kind: ActivityKind): ActivityGroup {
   if (kind.startsWith("bulk.")) return "bulk";
   if (kind.startsWith("jira.")) return "jira";
   return "general";
+}
+
+/**
+ * Translation key formatting a stored `kind`, or null when THIS build does not
+ * know it — an entry written by a newer release, which is kept rather than
+ * dropped (see `sanitizeActivityEntry`) and rendered generically.
+ *
+ * ★★ The own-property check is load-bearing, not defensive noise: a bare
+ * `ACTIVITY_KIND_TO_KEY[kind]` resolves `kind: "toString"` to
+ * `Function.prototype.toString`, `t()` then looks that up in the dict, misses,
+ * and throws on `undefined.replace` — the same full-screen crash an unknown
+ * kind used to cause.
+ */
+export function activityMessageKey(kind: string): TranslationKey | null {
+  return Object.prototype.hasOwnProperty.call(ACTIVITY_KIND_TO_KEY, kind)
+    ? ACTIVITY_KIND_TO_KEY[kind as ActivityKind]
+    : null;
+}
+
+/**
+ * Per-entry validation for the workspace LOAD boundary (`sanitizeActivityLog`
+ * in workspace.ts). Returns null for an entry to drop. DOM-free.
+ *
+ * ★★★ AN UNKNOWN-BUT-WELL-FORMED (string) `kind` IS KEPT ON PURPOSE, unlike
+ * the retired localStorage-era `isActivityEntry`, which dropped it. That was
+ * right for a device-local blob and is WRONG here: the log is shared workspace
+ * data now, the loaded value becomes app state, and the autosave writes that
+ * state straight back to the backend — so an older client dropping a kind a
+ * newer release added would DELETE those entries from the shared project. A
+ * generic render (`activityMessageKey` → null → the `activityUnknownKind`
+ * fallback) is strictly better than silent cross-version data loss.
+ *
+ * ★ A non-string / absent `kind` is CORRUPTION rather than forward-compat and
+ * IS dropped — `activityGroupOf` calls `kind.startsWith`, and there is nothing
+ * honest to display. A malformed `changes` payload is stripped while the entry
+ * itself is kept: the audit record is still real, only its diff detail is not.
+ *
+ * ★ An untouched entry is returned BY REFERENCE and a repaired one is built by
+ * SPREAD, never from a known-field list — a field a newer release adds to
+ * `ActivityEntry` must survive an older client's load+save round trip for the
+ * same reason the unknown kind must.
+ */
+export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
+  if (!v || typeof v !== "object") return null;
+  const e = v as { id?: unknown; timestamp?: unknown; kind?: unknown; args?: unknown; changes?: unknown };
+  if (typeof e.id !== "string" || e.id.length === 0) return null;
+  if (typeof e.timestamp !== "string") return null;
+  if (typeof e.kind !== "string") return null;
+  if (!Array.isArray(e.args)) return null;
+  if (e.changes === undefined) return v as ActivityEntry;
+  const changes = sanitizeChanges(e.changes);
+  if (changes) return { ...(v as ActivityEntry), changes };
+  const stripped: Record<string, unknown> = { ...(v as object) };
+  delete stripped.changes;
+  return stripped as unknown as ActivityEntry;
 }
 
 /**

@@ -2090,6 +2090,7 @@ export const de: Record<TranslationKey, string> = {
   undoToastDelete: "{0} Element(e) gelöscht",
   undoToastEdit: "{0} Element(e) bearbeitet",
   activityRedo: "Wiederholen: {0} Element(e) erneut angewendet",
+  activityUnknownKind: "Unbekannte Aktivität ({0})",
   redo: "Wiederholen",
   redoTooltip: "Letzte Änderung wiederholen",
   redoRestored: "{0} Element(e) wiederholt",

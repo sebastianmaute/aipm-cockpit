@@ -2100,6 +2100,11 @@ const enUS = {
   activityAiTaskDedup: "AI deduplicated {0} task(s)",
   activityUndo: "Undo: restored {0} item(s)",
   activityRedo: "Redo: reapplied {0} item(s)",
+  // Fallback message for an entry whose `kind` this build does not know —
+  // written by a NEWER release sharing the same project. The entry is kept
+  // (dropping it would delete it from the shared project on the next save),
+  // so the raw kind is shown to keep the record auditable.
+  activityUnknownKind: "Unrecognized activity ({0})",
   undo: "Undo",
   undoTooltip: "Undo last change",
   undoRestored: "Restored {0} item(s)",

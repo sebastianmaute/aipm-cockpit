@@ -18,10 +18,11 @@
 
 import { memo, useMemo, useState } from "react";
 import {
-  ACTIVITY_KIND_TO_KEY,
   type ActivityEntry,
   type ActivityGroup,
+  type ActivityKind,
   activityGroupOf,
+  activityMessageKey,
   humanizeFieldName,
 } from "./activity-log";
 import { type Lang, t } from "./i18n";
@@ -106,13 +107,29 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   // Precompute the rendered message and the group once per entries/lang
   // change so the filter+sort passes below don't redo i18n interpolation
   // on every keystroke.
+  // ★★★ EVERY LOOKUP HERE IS GUARDED, and this is not belt-and-braces: a throw
+  // in this map is not a blank panel — page.tsx wraps the app in the top-level
+  // ErrorBoundary, so ONE bad stored entry gives the user the full-screen
+  // "App crashed" page every time they open Activity, until the project data
+  // is repaired by hand. The log is shared workspace data (a hand-edited JSON
+  // file, a Turso row, a device on a different build), so `sanitizeActivityLog`
+  // is the boundary but must not be the ONLY thing standing between stored
+  // bytes and a crash. Measured before the guards: an unknown kind threw
+  // "Cannot read properties of undefined (reading 'replace')" and a non-string
+  // one threw "kind.startsWith is not a function".
   const enriched = useMemo(
     () =>
-      entries.map((e) => ({
-        entry: e,
-        message: t(lang, ACTIVITY_KIND_TO_KEY[e.kind], ...e.args),
-        group: activityGroupOf(e.kind),
-      })),
+      entries.map((e) => {
+        const kind = typeof e.kind === "string" ? e.kind : "";
+        const key = activityMessageKey(kind);
+        return {
+          entry: e,
+          message: key
+            ? t(lang, key, ...(Array.isArray(e.args) ? e.args : []))
+            : t(lang, "activityUnknownKind", kind),
+          group: activityGroupOf(kind as ActivityKind),
+        };
+      }),
     [entries, lang],
   );
 
@@ -324,7 +341,9 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   </td>
                   <td className="px-3 py-2 text-foreground">
                     {message}
-                    {entry.changes && entry.changes.length > 0 && (
+                    {/* Array.isArray, not truthiness: a stored non-array
+                        `changes` (e.g. a string) is truthy and has no `.map`. */}
+                    {Array.isArray(entry.changes) && entry.changes.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {entry.changes.map((c) => (
                           <li key={c.field} className="text-xs text-muted-foreground">

@@ -78,6 +78,46 @@ describe("ActivityLogPanel", () => {
     expect(screen.getByText("2026-08-01")).toBeInTheDocument();
   });
 
+  // ★★★ THE ASSERTION THAT MATTERS. The activity log is shared workspace data
+  // now — a hand-edited JSON file, a Turso row, or a log synced from a device
+  // running a different build. `sanitizeActivityLog` is the load boundary, but
+  // a throw HERE is not a blank panel: page.tsx wraps the app in the top-level
+  // ErrorBoundary, so the user gets the full-screen "App crashed" page EVERY
+  // time they open the Activity view, until the data is repaired by hand.
+  // Each shape below was measured to throw before the fix:
+  //   unknown kind + args  → "Cannot read properties of undefined (reading 'replace')"
+  //   kind: 42             → "kind.startsWith is not a function"
+  //   changes: "not-an-array" → "entry.changes.map is not a function"
+  // The panel is therefore defensive INDEPENDENTLY of the sanitizer: these
+  // entries are fed in raw, exactly as a bypassed/older boundary would.
+  it("does not throw on a hostile stored log (unknown, missing, non-string kind; bad changes)", () => {
+    const hostile = [
+      { id: "a", timestamp: "2026-05-28T10:00:00.000Z", kind: "totally.bogus", args: ["X"] },
+      { id: "b", timestamp: "2026-05-28T10:00:00.000Z", args: ["Y"] },
+      { id: "c", timestamp: "2026-05-28T10:00:00.000Z", kind: 42, args: ["Z"] },
+      { id: "d", timestamp: "2026-05-28T10:00:00.000Z", kind: "toString", args: ["W"] },
+      {
+        id: "e",
+        timestamp: "2026-05-28T10:00:00.000Z",
+        kind: "task.updated",
+        args: [],
+        changes: "not-an-array",
+      },
+    ] as unknown as ActivityEntry[];
+    expect(() =>
+      renderPanel(<ActivityLogPanel lang="en-US" entries={hostile} onClear={() => {}} />),
+    ).not.toThrow();
+    // Positive observable: the unknown kind is rendered, not silently blanked —
+    // the raw kind stays visible so the record is still auditable.
+    expect(screen.getAllByText("totally.bogus").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(t("en-US", "activityUnknownKind", "totally.bogus")),
+    ).toBeInTheDocument();
+    // `toString` is an INHERITED key on ACTIVITY_KIND_TO_KEY — a plain lookup
+    // returns Function.prototype.toString and t() then throws.
+    expect(screen.getByText(t("en-US", "activityUnknownKind", "toString"))).toBeInTheDocument();
+  });
+
   it("renders timestamps in the display timezone (not the raw ISO)", () => {
     // 2026-05-28T10:00:00Z in Asia/Kolkata (+5:30) is 15:30 → "03:30 PM".
     renderPanel(<ActivityLogPanel lang="en-US" entries={[entry({ id: "1" })]} onClear={() => {}} />);
