@@ -49,13 +49,17 @@ describe("chat-threads-store", () => {
     expect(stmts.some((s: { sql: string }) => /^DELETE FROM chat_threads WHERE id = \?$/i.test(s.sql))).toBe(false);
   });
 
-  it("deleteThread prepends DDL and deletes by id", async () => {
-    await deleteThread(cfg, "t1");
+  it("deleteThread prepends DDL and deletes scoped by id AND project (never id alone)", async () => {
+    await deleteThread(cfg, "t1", "p");
     const stmts = (runTursoPipeline as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
     expect(stmts.some((s: { sql: string }) => /CREATE TABLE IF NOT EXISTS chat_threads/i.test(s.sql))).toBe(true);
-    const del = stmts.find((s: { sql: string }) => /DELETE FROM chat_threads WHERE id = \?/i.test(s.sql));
+    // Regression: an id-only `DELETE ... WHERE id = ?` (no project_id predicate) would
+    // let a stale/mismatched id delete another project's thread. Pinning the FULL sql
+    // (not just a substring match) means dropping the "AND project_id = ?" clause fails
+    // this assertion outright, not just the args check below.
+    const del = stmts.find((s: { sql: string }) => /^DELETE FROM chat_threads WHERE id = \? AND project_id = \?$/i.test(s.sql));
     expect(del).toBeTruthy();
-    expect(del.args[0].value).toBe("t1");
+    expect(del.args.map((a: { value: string }) => a.value)).toEqual(["t1", "p"]);
   });
 
   it("loadThreads selects by project, newest-first, and decodes rows incl. JSON columns", async () => {
