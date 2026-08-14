@@ -3,6 +3,9 @@ import { useState, type DragEvent, type KeyboardEvent, type RefObject } from "re
 import { dropEdgeFor as edgeOf, reorderIds } from "./list-reorder";
 import { useDragAutoscroll } from "./use-drag-autoscroll";
 
+/** Stable stand-in for a consumer that passes no `scrollRef` — see the call. */
+const NO_SCROLLER: RefObject<HTMLElement | null> = { current: null };
+
 export interface ListReorderOptions<Id> {
   /** The CURRENT order. The hook is controlled — it never owns the list. */
   ids: readonly Id[];
@@ -80,10 +83,12 @@ export function useListReorderDnd<Id>({
   const [dragId, setDragId] = useState<Id | null>(null);
   const [dragOverId, setDragOverId] = useState<Id | null>(null);
 
-  // ★ A ref object is permanently stable, so passing `undefined` through is
-  // safe: the hook below no-ops on a null current. Called unconditionally —
-  // hooks may not sit behind a branch.
-  useDragAutoscroll(scrollRef ?? { current: null }, dragId !== null);
+  // ★ Called unconditionally — hooks may not sit behind a branch. The fallback
+  // is the module-level NO_SCROLLER rather than a fresh `{ current: null }`
+  // literal, which would be a new identity every render and so would tear down
+  // and re-run `useDragAutoscroll`'s `[ref, active]` effect on every render of
+  // every consumer that passes no `scrollRef`.
+  useDragAutoscroll(scrollRef ?? NO_SCROLLER, dragId !== null);
 
   const endDrag = () => { setDragId(null); setDragOverId(null); };
 
