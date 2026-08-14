@@ -17,8 +17,17 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 
 /** Shared chrome for the two `≡` reorder handles. A native button so it is
- *  keyboard-focusable without an ARIA role; the hook's ArrowUp/ArrowDown handler
- *  sits on the row/item and catches the bubbled keydown. */
+ *  keyboard-focusable without an ARIA role.
+ *
+ *  ★★★ `handleProps` BELONGS ON THIS BUTTON, NEVER ON THE ROW/ITEM. It carries
+ *  the hook's `onKeyDown`, which `preventDefault()`s ArrowUp/ArrowDown and
+ *  reorders — and React synthetic keydown bubbles from EVERY descendant. On the
+ *  container it swallowed the arrow keys of the four `<input type="number">`
+ *  rate cells (native spinner step), the Hours/Days `SegmentedControl` (an APG
+ *  radiogroup that handles the same keys and does not stop propagation, so ONE
+ *  ArrowDown wrote the basis AND reordered the row) and the RefList rename
+ *  input's caret movement. Only `itemProps` (the drop target) goes on the
+ *  container. Same split as `reports.tsx` and `budget-panel.tsx`. */
 const REORDER_HANDLE_CLASS =
   "cursor-move select-none text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green";
 
@@ -266,26 +275,26 @@ export function RolesEditor({
                 // The rate inputs sit in bare <td>s with no per-row header, so
                 // each needs an explicit name carrying its row + column context.
                 const rowCtx = `${disciplineName} / ${gradeName}`;
-                // The whole row is the drag source (there is no separate handle
-                // element), so BOTH prop bags land on the <tr>; the `≡` is only
-                // the affordance + the keyboard entry point, and it renders
-                // only while the hook is live (see `disabled` above).
+                // The `≡` is the drag source AND the keyboard entry point, so
+                // `handleProps` lands on IT (see REORDER_HANDLE_CLASS); the row
+                // is only the drop target. The handle renders only while the
+                // hook is live (see `disabled` above).
                 const reorderable = !sort;
                 return (
                 <tr
                   key={r.id}
                   {...roleOrder.itemProps(r.id)}
-                  {...roleOrder.handleProps(r.id)}
                 >
                   <td className="px-3 py-2">
                     {reorderable && (
-                      // ★★ Row-UNIQUE name (WCAG 2.4.6): N identical "Drag to
-                      // reorder" handles is a fail axe cannot see at any seed
-                      // size, so the qualifier is written at the source.
+                      // ★★ Row-UNIQUE name (WCAG 2.4.6): N identical reorder
+                      // handles is a fail axe cannot see at any seed size, so
+                      // the qualifier is written at the source.
                       <button
                         type="button"
-                        aria-label={`${t(lang, "reorderHint")} – ${rowCtx}`}
-                        title={t(lang, "reorderHint")}
+                        {...roleOrder.handleProps(r.id)}
+                        aria-label={`${t(lang, "reportReorderHandle")} – ${rowCtx}`}
+                        title={t(lang, "reportReorderHandle")}
                         className={`mr-1 ${REORDER_HANDLE_CLASS}`}
                       >≡</button>
                     )}
@@ -385,16 +394,17 @@ function RefList({
         {items.map((it) => (
           <li
             key={it.id}
-            // The whole item is the drag source, so both prop bags land here.
+            // Drop target only — `handleProps` goes on the `≡` below, because
+            // this item also holds the rename input (see REORDER_HANDLE_CLASS).
             {...itemOrder.itemProps(it.id)}
-            {...itemOrder.handleProps(it.id)}
             className="flex items-center gap-1"
           >
             {/* ★★ Row-UNIQUE name (WCAG 2.4.6) — see the rate-card handle. */}
             <button
               type="button"
-              aria-label={`${t(lang, "reorderHint")} – ${it.name}`}
-              title={t(lang, "reorderHint")}
+              {...itemOrder.handleProps(it.id)}
+              aria-label={`${t(lang, "reportReorderHandle")} – ${it.name}`}
+              title={t(lang, "reportReorderHandle")}
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
             >≡</button>
             <input defaultValue={it.name}

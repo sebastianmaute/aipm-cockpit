@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { RolesEditor } from "./roles-editor";
 import { t } from "./i18n";
@@ -37,7 +37,7 @@ function renderEditor(currency = "EUR") {
 
 // ★ TWO rows minimum. A row-unique-name test cannot render a collision on a
 // one-row fixture, so it would pass on broken code.
-function renderTwoRoles() {
+function renderTwoRoles(onReorderRoles: (ids: number[]) => void = noop) {
   return render(
     <RolesEditor
       lang="en-US" currency="EUR" workdayHours={8}
@@ -47,12 +47,16 @@ function renderTwoRoles() {
       ]}
       disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
       grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
-      onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+      onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={onReorderRoles}
       onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
       onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
     />,
   );
 }
+
+/** The `≡` handle inside a given rate-card row — the ONLY drag source and the
+ *  only keyboard reorder entry point (see the H1 test below). */
+const handleIn = (row: HTMLElement) => within(row).getByRole("button", { name: /reorder/i });
 
 describe("RolesEditor rate-card table", () => {
   it("renders rate-card rows in the manual `order` sequence when unsorted, and fires onReorderRoles on drop", () => {
@@ -79,8 +83,10 @@ describe("RolesEditor rate-card table", () => {
     expect(bodyRows[0].textContent).toContain("Eng"); // role 2: Eng/Junior
     expect(bodyRows[1].textContent).toContain("Ops"); // role 3: Ops/Senior
     // Drag role id 1 (last) onto the first row → onReorderRoles gets a new id order.
+    // The drag starts on the row's `≡` handle (the row itself is the DROP
+    // target only — see the arrow-key test at the bottom of this file).
     const dt = { effectAllowed: "", getData: () => "", setData: () => {} };
-    fireEvent.dragStart(bodyRows[2], { dataTransfer: dt });
+    fireEvent.dragStart(handleIn(bodyRows[2]), { dataTransfer: dt });
     fireEvent.drop(bodyRows[0], { dataTransfer: dt });
     expect(onReorderRoles).toHaveBeenCalledTimes(1);
     // Ids in view order are [2,3,1]; dragging id 1 UPWARD onto id 2 lands it in
@@ -275,8 +281,63 @@ describe("RolesEditor rate-card table", () => {
     renderTwoRoles();
     const rows = screen.getAllByRole("row").slice(1); // drop the header row
     const setData = vi.fn();
-    fireEvent.dragStart(rows[0], { dataTransfer: { setData, effectAllowed: "" } });
+    fireEvent.dragStart(handleIn(rows[0]), { dataTransfer: { setData, effectAllowed: "" } });
     expect(setData).toHaveBeenCalled();
+  });
+
+  // ★★★ REGRESSION (H1). `handleProps` carries the hook's `onKeyDown`, which
+  // `preventDefault()`s ArrowUp/ArrowDown and reorders. React synthetic keydown
+  // bubbles from EVERY descendant, so spreading that bag on the <tr> (as this
+  // file first did) hijacked the arrow keys of every control inside the row —
+  // the four number-input rate spinners, the Hours/Days SegmentedControl (an
+  // APG radiogroup that handles the same keys and does NOT stopPropagation, so
+  // one ArrowDown produced TWO persisted writes) and the RefList rename caret.
+  // The bag now sits on the `≡` button alone.
+  it("does not reorder when an arrow key is pressed on a rate input inside the row", () => {
+    const onReorderRoles = vi.fn();
+    renderTwoRoles(onReorderRoles);
+    const rows = screen.getAllByRole("row").slice(1); // drop the header row
+
+    // POSITIVE observable first: without it a handle that reorders nothing at
+    // all would satisfy the negative assertions below for the wrong reason.
+    fireEvent.keyDown(handleIn(rows[0]), { key: "ArrowDown" });
+    expect(onReorderRoles).toHaveBeenCalledTimes(1);
+    onReorderRoles.mockClear();
+
+    // Arrow keys on the rate cells are the native number-input spinner.
+    const rateInputs = within(rows[0]).getAllByRole("spinbutton");
+    expect(rateInputs.length).toBeGreaterThan(0);
+    for (const input of rateInputs) {
+      fireEvent.keyDown(input, { key: "ArrowUp" });
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+    }
+    expect(onReorderRoles).not.toHaveBeenCalled();
+
+    // Same for the Hours/Days basis control, which owns these keys itself.
+    const basis = within(rows[0]).getByRole("radiogroup");
+    fireEvent.keyDown(basis, { key: "ArrowDown" });
+    expect(onReorderRoles).not.toHaveBeenCalled();
+  });
+
+  it("does not reorder a reference list when an arrow key is pressed in its rename input", () => {
+    const onReorderDisciplines = vi.fn();
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={roles} disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
+        grades={grades}
+        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop}
+        onReorderDisciplines={onReorderDisciplines}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    const item = screen.getByDisplayValue("Engineering").closest("li")!;
+    fireEvent.keyDown(handleIn(item), { key: "ArrowDown" });
+    expect(onReorderDisciplines).toHaveBeenCalledTimes(1); // positive observable
+    onReorderDisciplines.mockClear();
+    fireEvent.keyDown(screen.getByDisplayValue("Engineering"), { key: "ArrowDown" });
+    expect(onReorderDisciplines).not.toHaveBeenCalled();
   });
 
   it("gives every reorder handle a row-unique accessible name (WCAG 2.4.6)", () => {
