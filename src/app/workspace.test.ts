@@ -253,3 +253,19 @@ describe("isWorkspaceEmpty excludes activityLog (inverse of the documents rule)"
     expect(isWorkspaceEmpty(ws)).toBe(true);
   });
 });
+
+describe("activityLog JSON write path", () => {
+  it("round-trips activityLog through JSON", () => {
+    const log = [
+      { id: "dev1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+    ];
+    const ws = { ...emptyWorkspace(), activityLog: log };
+    const back = jsonToWorkspace(workspaceToJson(ws));
+    expect(back.activityLog).toEqual(log);
+  });
+
+  it("omits the activityLog key entirely when the log is empty", () => {
+    const ws = { ...emptyWorkspace(), activityLog: [] };
+    expect(JSON.parse(workspaceToJson(ws))).not.toHaveProperty("activityLog");
+  });
+});

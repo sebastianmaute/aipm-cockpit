@@ -43,6 +43,7 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
+import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
@@ -132,6 +133,13 @@ export type Workspace = {
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
    *  Sanitized by sanitizeInsights. */
   insights?: readonly Insight[];
+  /** Per-project audit trail. Meta-blob (like insights/documents), storage-only
+   *  — deliberately absent from EXPORT_SECTION_KEYS, because an export would
+   *  carry `changes` (old and new values for up to 12 fields per update), which
+   *  does not belong in a document handed to a client. Optional & additive:
+   *  undefined/empty serializes to nothing (byte-stable). Sanitized by
+   *  sanitizeActivityLog. */
+  activityLog?: readonly ActivityEntry[];
   /** AI- and user-authored project documents (canonical block model; the
    *  .docx/.pptx/.html/.pdf bytes are rendered on demand and never stored).
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
@@ -520,6 +528,10 @@ export function workspaceToJson(ws: Workspace): string {
       // of an `insights` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
       ...(ws.insights && ws.insights.length ? { insights: ws.insights } : {}),
+      // Additive: only present when activity entries exist, so legacy files
+      // stay free of an `activityLog` key. JSON is the complete round-trip, so
+      // this is always emitted (storage AND export) when present.
+      ...(ws.activityLog && ws.activityLog.length ? { activityLog: ws.activityLog } : {}),
       // Additive: only present when documents exist, so legacy files stay free
       // of a `documents` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
@@ -559,6 +571,21 @@ export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
   const narrative = str(r.narrative); if (narrative) out.narrative = narrative;
   const narrativeUpdatedAt = str(r.narrativeUpdatedAt); if (narrativeUpdatedAt) out.narrativeUpdatedAt = narrativeUpdatedAt;
   return out;
+}
+
+/** DOM-free. Drops malformed entries; caps to the newest ACTIVITY_MAX_ENTRIES. */
+export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
+  if (!Array.isArray(v)) return [];
+  const valid = v.filter(
+    (e): e is ActivityEntry =>
+      !!e &&
+      typeof e === "object" &&
+      typeof (e as ActivityEntry).id === "string" &&
+      (e as ActivityEntry).id.length > 0 &&
+      typeof (e as ActivityEntry).timestamp === "string" &&
+      Array.isArray((e as ActivityEntry).args),
+  );
+  return valid.length > ACTIVITY_MAX_ENTRIES ? valid.slice(-ACTIVITY_MAX_ENTRIES) : valid;
 }
 
 /** Thrown by `jsonToWorkspace(text, { strict: true })` when the input is
@@ -671,6 +698,11 @@ export function jsonToWorkspace(
     if (p.insights !== undefined) {
       const ins = sanitizeInsights(p.insights);
       if (ins.length) raw.insights = ins;
+    }
+    // Additive: sanitize incoming activity-log entries when present.
+    if (p.activityLog !== undefined) {
+      const log = sanitizeActivityLog(p.activityLog);
+      if (log.length) raw.activityLog = log;
     }
     // Additive: sanitize incoming documents when present. TWO passes, in this
     // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free
