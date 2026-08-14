@@ -216,9 +216,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setRaid(workspace.raid ?? []); setAbsences(workspace.absences ?? []); setShifts(workspace.shifts ?? []);
     setResources(workspace.resources ?? []); setRoles(workspace.roles ?? []); setDisciplines(workspace.disciplines ?? []); setGrades(workspace.grades ?? []);
     if (workspace.plan) setPlan(workspace.plan);
-    setBudgets(workspace.budgets ?? []);
-    setFxRates(workspace.fxRates ?? null);
-    setStatus(workspace.status ?? {});
+    setBudgets(workspace.budgets ?? []); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
     setProject(workspace.project);
     setFieldVisibility(workspace.fieldVisibility);
     setFeatures(workspace.features);
