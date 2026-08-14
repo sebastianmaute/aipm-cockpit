@@ -3,10 +3,11 @@ import { describe, it, expect } from "vitest";
 import {
   workspaceToCsv, csvToWorkspace, statusToCsv, csvToStatus,
   calendarEventsToCsv, csvToCalendarEvents, EVENTS_CSV_COLUMNS,
+  CSV_SECTION_ACTIVITY,
 } from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import { workspaceToJson, jsonToWorkspace, emptyWorkspace } from "./workspace";
-import { defaultExportConfig } from "./settings-types";
+import { defaultExportConfig, EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Task } from "./types";
 
 describe("csv fieldVisibility section", () => {
@@ -148,5 +149,27 @@ describe("calendar events CSV", () => {
     const off = { ...defaultExportConfig, calendarEvents: false };
     expect(workspaceToCsv(ws, on)).toContain("# CALENDAR EVENTS");
     expect(workspaceToCsv(ws, off)).not.toContain("# CALENDAR EVENTS");
+  });
+});
+
+describe("csv activityLog section", () => {
+  const log = [
+    { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+  ];
+
+  it("round-trips activityLog through CSV storage", () => {
+    const ws = { ...emptyWorkspace(), activityLog: log };
+    expect(csvToWorkspace(workspaceToCsv(ws)).activityLog).toEqual(log);
+  });
+
+  it("is STORAGE-ONLY: present without a config, absent with one", () => {
+    const ws = { ...emptyWorkspace(), activityLog: log };
+    expect(workspaceToCsv(ws)).toContain(CSV_SECTION_ACTIVITY);
+    // A document export must never carry the audit trail.
+    expect(workspaceToCsv(ws, defaultExportConfig)).not.toContain(CSV_SECTION_ACTIVITY);
+  });
+
+  it("keeps activityLog out of EXPORT_SECTION_KEYS", () => {
+    expect(EXPORT_SECTION_KEYS).not.toContain("activityLog");
   });
 });
