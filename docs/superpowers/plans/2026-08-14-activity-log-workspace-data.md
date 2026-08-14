@@ -4,7 +4,14 @@
 
 **Goal:** Promote the activity log from a per-device `localStorage` blob to a persisted `Workspace.activityLog` meta-blob, so the audit trail is per-project, survives a device change and an app reset, and can be merged across devices without silent history loss.
 
-**Architecture:** `activityLog` becomes an optional `Workspace` field persisted as a JSON meta-blob on all six write paths, mirroring `insights` / `documents` exactly. Entry ids become globally unique (`"<deviceId>-<counter>"`) so two devices reconcile by union rather than last-write-wins. The slice is storage-only (absent from `EXPORT_SECTION_KEYS`) and — unlike `documents` — deliberately **excluded** from `isWorkspaceEmpty`.
+**Architecture:** `activityLog` becomes an optional `Workspace` field persisted as a JSON meta-blob on all six write paths, mirroring `insights` / `documents` exactly. Entry ids become globally unique (`"<deviceId>-<session>-<counter>"`) so two devices reconcile by union rather than last-write-wins. The slice is storage-only (absent from `EXPORT_SECTION_KEYS`) and — unlike `documents` — deliberately **excluded** from `isWorkspaceEmpty`.
+
+★★★ **Task 2 correction, found in review and measured.** This plan originally specified a two-part
+`"<deviceId>-<counter>"` id. That is broken: `counter` is module scope, `deviceId` is `localStorage`,
+so a reload resets one and restores the other and every session re-mints `<dev>-1`. Different entries
+share an id, the merge unions by id, one is silently dropped — and it is a regression, since the
+pre-slice code derived from the log's tail and never repeated. The third segment is minted once per
+module evaluation and never persisted. See the spec's "The id needs a SESSION segment" section.
 
 **Tech Stack:** TypeScript, React 19, Next 16, vitest, fast-check (property tests), Turso (libSQL), IndexedDB.
 

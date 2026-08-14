@@ -44,8 +44,8 @@ Each was an explicit fork; the rejected options are recorded because the reasons
 
 ```ts
 export interface ActivityEntry {
-  /** Globally unique: `"<deviceId>-<counter>"`. Was a number, monotonic only
-   *  within one device's log — which is exactly why two devices collide. */
+  /** Globally unique: `"<deviceId>-<session>-<counter>"`. Was a number, monotonic
+   *  only within one device's log — which is exactly why two devices collide. */
   id: string;
   timestamp: string;                    // unchanged, ISO 8601 UTC
   kind: ActivityKind;
@@ -65,6 +65,31 @@ harmless, because the only property required of it is non-collision with other d
 Mint with `crypto.randomUUID()` where available, falling back to a timestamp-plus-random string.
 `getDeviceId()` is called from append paths (event handlers), never from a component render body —
 the repo's `react-hooks` purity rule makes `Date.now()` / `Math.random()` in a render body fatal.
+
+### ★★★ The id needs a SESSION segment, not just device + counter
+
+An earlier revision of this spec specified `"<deviceId>-<counter>"`. **That is broken, and the way it
+breaks is the exact loss this slice exists to prevent.** `counter` is module scope while `deviceId` is
+in `localStorage`, so a page reload resets the counter and restores the device id — every session
+re-mints `<dev>-1`, `<dev>-2`, … Two genuinely different entries then share an id, `mergeActivityLogs`
+unions by id, and one is silently discarded. Cross-device collision solved, cross-session collision
+introduced.
+
+Measured, not reasoned — a `vi.resetModules()` probe (module scope resets, `localStorage` does not)
+against the implemented two-part scheme:
+
+```
+deviceA= 7ca1936d  deviceB= 7ca1936d
+session1 id= 7ca1936d-1  session2 id= 7ca1936d-1  COLLIDES= true
+```
+
+It is also a **regression** against the pre-slice code, which derived the id from the log's tail and
+therefore never repeated within a device. `activity-log-panel.tsx` renders `<tr key={entry.id}>`, so
+the duplicates surface as duplicate React keys before they ever reach the merge.
+
+So a third segment is minted once per module evaluation and **never persisted** — persisting it would
+just make it a second device id, when the whole point is that it changes on every load. It is pinned by
+a reload test using `vi.resetModules()`; the two-part scheme cannot pass that test.
 
 ### The `id` type change
 
