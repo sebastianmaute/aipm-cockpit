@@ -38,17 +38,18 @@ export function upsertThreadStatements(th: ChatThread): SqlStmt[] {
   ];
 }
 
-/** An id alone must never be sufficient to delete a thread across projects — every id
+/** An id alone must never be sufficient to delete a thread across projects. Every id
  *  reaching this today comes from a project-scoped list (`threadsSelect`), so nothing
- *  is exploitable yet, but a future caller (a bulk-cleanup script, a new AI tool, a
- *  recovery path) could delete cross-project by construction if the id-only shape were
- *  the only one on offer. `projectId` is OPTIONAL only so the one existing call site
- *  (`use-chat-threads.ts`, owned elsewhere as of this fix) keeps typechecking without a
- *  migration — pass it at every NEW call site, and prefer migrating the old one too. */
-export function deleteThreadStatements(id: string, projectId?: string): SqlStmt[] {
-  return projectId === undefined
-    ? [{ sql: `DELETE FROM chat_threads WHERE id = ?`, args: [txt(id)] }]
-    : [{ sql: `DELETE FROM chat_threads WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] }];
+ *  was exploitable, but a future caller (a bulk-cleanup script, a new AI tool, a
+ *  recovery path) could delete cross-project by construction if an id-only shape were
+ *  on offer. ★ `projectId` is REQUIRED deliberately: it landed optional so the then-open
+ *  call site kept typechecking, but an optional security parameter whose default is the
+ *  UNSCOPED statement is a trap — it reads as protection while every caller that forgets
+ *  it silently opts out. The scoping is now unconditional and cannot be omitted. */
+export function deleteThreadStatements(id: string, projectId: string): SqlStmt[] {
+  return [
+    { sql: `DELETE FROM chat_threads WHERE id = ? AND project_id = ?`, args: [txt(id), txt(projectId)] },
+  ];
 }
 
 /** Delete all but the newest `keep` threads for one project (by updated_at). */

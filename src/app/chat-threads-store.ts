@@ -25,6 +25,6 @@ export async function saveThread(config: TursoConfig | null, th: ChatThread): Pr
   ]);
 }
 
-export async function deleteThread(config: TursoConfig | null, id: string, projectId?: string): Promise<void> {
+export async function deleteThread(config: TursoConfig | null, id: string, projectId: string): Promise<void> {
   await runTursoPipeline(config, [...ddl(), ...deleteThreadStatements(id, projectId)]);
 }
