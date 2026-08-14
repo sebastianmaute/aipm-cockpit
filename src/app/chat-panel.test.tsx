@@ -5,6 +5,8 @@ import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
+import { loadThreads, saveThread } from "./chat-threads-store";
+import type { ChatThread } from "./chat-threads";
 import { t } from "./i18n";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import type { ToolDispatcher } from "./chat-tools";
@@ -18,6 +20,12 @@ import { sealPassphrase } from "./secrets";
 // button (mirrors note-log-panel.test.tsx / task-form-fields.dictation.test.tsx
 // — jsdom has no SpeechRecognition ctor, so getCtor() is null and the button
 // is normally suppressed).
+vi.mock("./chat-threads-store", () => ({
+  loadThreads: vi.fn(async () => []),
+  saveThread: vi.fn(async () => undefined),
+  deleteThread: vi.fn(async () => undefined),
+}));
+
 vi.mock("./use-push-to-talk", () => ({
   usePushToTalk: () => ({
     listening: false,
@@ -1106,6 +1114,191 @@ describe("conversation persistence across navigation (in-memory per-project stor
     rerender(<ChatPanel {...base} projectId="p2" />);
     expect(screen.getByText("from p2")).toBeInTheDocument();
     expect(screen.queryByText("from p1")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Turso thread persistence (task 5): state, fetch-on-mount and the persistence
+// effect only — no ChatThreadList sidebar UI yet (task 6 wires that).
+// ---------------------------------------------------------------------------
+describe("ChatPanel — Turso thread persistence", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    // vi.restoreAllMocks() only restores vi.spyOn spies — it does NOT clear
+    // call history on the plain vi.fn()s from the vi.mock("./chat-threads-store")
+    // factory above, so loadThreads/saveThread/deleteThread call counts would
+    // otherwise accumulate across this describe block's tests.
+    vi.clearAllMocks();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  function renderChatPanel(extra: Record<string, unknown> = {}) {
+    return render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+        {...extra}
+      />,
+    );
+  }
+
+  it("does not fetch threads in file mode (tursoMode omitted) — existing behavior untouched", () => {
+    renderChatPanel({});
+    expect(loadThreads).not.toHaveBeenCalled();
+  });
+
+  it("fetches this project's threads on mount when tursoMode is true and adopts the most recent one", async () => {
+    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: "t1",
+        projectId: "default",
+        name: "Prior chat",
+        createdAt: "c",
+        updatedAt: "u",
+        history: [],
+        display: [{ kind: "user", text: "hi" }],
+      },
+    ] satisfies ChatThread[]);
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    await screen.findByText("hi");
+    expect(loadThreads).toHaveBeenCalledWith({}, "default");
+  });
+
+  it("saves a new thread after the first turn completes, auto-named from the first message", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "assistant reply" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+    const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    // Let the initial (empty) thread-list fetch settle before sending — else
+    // its own setDisplay([])/setHistory([]) can race and wipe the just-sent
+    // user message, which is a timing artifact of this test's synchronous
+    // send, not something this task's guard is meant to cover (Step 6 guards
+    // an in-flight SEND against a thread switch, not the initial mount load
+    // racing a send that started before it resolved).
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await loadThreadsMock.mock.results[0]!.value;
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "Plan the Q1 review" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(saveThread).toHaveBeenCalled());
+    const saved = (saveThread as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1] as ChatThread;
+    expect(saved.name).toBe("Plan the Q1 review");
+    expect(saved.projectId).toBe("default");
+  });
+
+  // ---------------------------------------------------------------------
+  // Step 6's mid-send guard. There is no thread-switch UI to drive in THIS
+  // task (ChatThreadList/selectThread's DOM wiring is task 6), so this test
+  // exercises the same activeThreadId transition through the one path that
+  // IS reachable today: the fetch-on-mount effect (step 5) resolving to a
+  // different thread WHILE a send is still in flight. That is a genuine
+  // activeThreadId change mid-send — exactly what Step 6 guards against —
+  // it just arrives via the initial-load race rather than a sidebar click.
+  // ---------------------------------------------------------------------
+  it("a mid-send activeThreadId change does not let the in-flight reply corrupt the newly active thread", async () => {
+    let resolveLoadThreads!: (threads: ChatThread[]) => void;
+    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveLoadThreads = res;
+      }),
+    );
+    let resolveFetch!: (r: Response) => void;
+    const pendingFetch = new Promise<Response>((res) => {
+      resolveFetch = res;
+    });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "stale question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // Mid-send: the thread list resolves and adopts a DIFFERENT thread than
+    // the one this send started on (activeThreadId was null at send-start).
+    resolveLoadThreads([
+      {
+        id: "t-other",
+        projectId: "default",
+        name: "Other thread",
+        createdAt: "c",
+        updatedAt: "u",
+        history: [],
+        display: [{ kind: "user", text: "other thread content" }],
+      },
+    ] satisfies ChatThread[]);
+    await screen.findByText("other thread content");
+
+    // Now the stale send's reply lands.
+    resolveFetch({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "STALE REPLY LEAK" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
+    // The stale reply must never appear...
+    expect(screen.queryByText("STALE REPLY LEAK")).toBeNull();
+    // ...and the newly active thread's own content must survive untouched —
+    // not clobbered by a spurious "Stopped" note from the stale send (the
+    // switchedAway check in Step 6's edit #2).
+    expect(screen.getByText("other thread content")).toBeInTheDocument();
+    expect(screen.queryByText("Stopped")).toBeNull();
+  });
+
+  it("a mid-send activeThreadId change also suppresses the catch-block error note (Step 6's edit #3)", async () => {
+    let resolveLoadThreads!: (threads: ChatThread[]) => void;
+    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveLoadThreads = res;
+      }),
+    );
+    let rejectFetch!: (reason: unknown) => void;
+    const pendingFetch = new Promise<Response>((_res, rej) => {
+      rejectFetch = rej;
+    });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "stale question 2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    resolveLoadThreads([
+      {
+        id: "t-other2",
+        projectId: "default",
+        name: "Other thread 2",
+        createdAt: "c",
+        updatedAt: "u",
+        history: [],
+        display: [{ kind: "user", text: "other thread content 2" }],
+      },
+    ] satisfies ChatThread[]);
+    await screen.findByText("other thread content 2");
+
+    // A genuine network error (not AbortError) on the stale send — proves the
+    // catch block's suppression, not just the AbortError branch.
+    rejectFetch(new Error("network down"));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
+    expect(screen.getByText("other thread content 2")).toBeInTheDocument();
+    // No error banner from the stale send leaks onto the newly active thread.
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 
