@@ -8,6 +8,7 @@ import { CostUnknownNotice } from "./budget-cost-notice";
 import { bucketPercentComplete } from "./budget-earned-value";
 import { describeClamp } from "./sanitize-report";
 import { generatePeriods, type Period } from "./resource-capacity";
+import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod } from "./budget-panel-people-rows";
 import type { ActualsByBucket } from "./timelog-actuals";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -236,7 +237,6 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const { ref: budgetRef, reset: resetBudgetSize } = useResizable("aipm-cockpit:budget-size");
 
-  const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
   const [bucketFilter, setBucketFilter] = useState("");
@@ -346,28 +346,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
     );
   };
 
-  // Pointer drop: move `dragId` to where `targetId` currently sits.
-  const onDropOnBucket = (targetId: number) => {
-    if (dragId == null || dragId === targetId) return;
-    const ids = sortedBucketIds();
-    const fromIdx = ids.indexOf(dragId);
-    const targetIdx = ids.indexOf(targetId);
-    if (fromIdx < 0 || targetIdx < 0) return;
-    ids.splice(fromIdx, 1);
-    ids.splice(targetIdx, 0, dragId);
-    applyBucketOrder(ids);
-  };
-
-  // Keyboard reorder: swap a bucket with its neighbour (delta -1 = up, +1 = down),
-  // so the drag handle's ArrowUp/ArrowDown lets keyboard users reorder too.
-  const moveBucket = (id: number, delta: number) => {
-    const ids = sortedBucketIds();
-    const i = ids.indexOf(id);
-    const j = i + delta;
-    if (i < 0 || j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-    applyBucketOrder(ids);
-  };
+  // ★ `sortedBucketIds()` builds a fresh array every render. That is fine here —
+  // the hook holds no memo on `ids` — and it keeps the order the rows render in
+  // and the order the drag commits against derived from one expression.
+  const bucketOrder = useListReorderDnd<number>({
+    ids: sortedBucketIds(),
+    onReorder: applyBucketOrder,
+  });
 
   const disciplineNamesFor = (ids: readonly number[]) =>
     ids.map((id) => props.disciplines.find((d) => d.id === id)?.name).filter((n): n is string => !!n);
@@ -479,10 +464,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
           return (
             <div
               key={br.bucketId}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => onDropOnBucket(br.bucketId)}
+              {...bucketOrder.itemProps(br.bucketId)}
               className={`rounded-xl border p-4 ${
-                dragId != null && dragId !== br.bucketId
+                bucketOrder.isDragging && bucketOrder.dragId !== br.bucketId
                   ? "border-ui-dark-blue/60"
                   : "border-line"
               }`}
@@ -491,18 +475,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    draggable
-                    onDragStart={() => setDragId(br.bucketId)}
-                    onDragEnd={() => setDragId(null)}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        moveBucket(br.bucketId, -1);
-                      } else if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        moveBucket(br.bucketId, 1);
-                      }
-                    }}
+                    {...bucketOrder.handleProps(br.bucketId)}
                     aria-label={t(lang, "budgetReorderHandle")}
                     title={t(lang, "budgetReorderHandle")}
                     className="cursor-grab select-none rounded leading-none text-muted-foreground hover:text-ui-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green active:cursor-grabbing dark:hover:text-ui-light-grey"

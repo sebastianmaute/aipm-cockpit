@@ -61,6 +61,18 @@ describe("BudgetPanel", () => {
     expect(next.find((b) => b.name === "DEV")!.order).toBe(0);
   });
 
+  test("the reorder handle sets drag transfer data — Firefox will not start a drag without it", () => {
+    // ★ Was missing before the panel adopted `useListReorderDnd`: `onDragStart`
+    // took no event argument at all, so bucket reorder was simply dead in
+    // Firefox. jsdom dispatches the whole drag sequence regardless, so only a
+    // test that spies on `setData` can see the difference.
+    render(<BudgetPanel {...props} buckets={twoBuckets()} />);
+    const handles = screen.getAllByRole("button", { name: /reorder bucket/i });
+    const setData = vi.fn();
+    fireEvent.dragStart(handles[0], { dataTransfer: { setData, effectAllowed: "" } });
+    expect(setData).toHaveBeenCalled();
+  });
+
   // The control is the shared ToggleButton primitive, NOT a bare checkbox: it
   // is a binary display/behaviour switch sitting in a toolbar of toggle chips,
   // and the primitive is what carries the non-colour pressed marker and the
