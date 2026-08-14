@@ -476,7 +476,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   <button
                     type="button"
                     {...bucketOrder.handleProps(br.bucketId)}
-                    aria-label={t(lang, "budgetReorderHandle")}
+                    // ★★ Bucket-UNIQUE name (WCAG 2.4.6). Every handle carried
+                    // the identical "Reorder bucket — …", so a screen-reader
+                    // user listing the buttons heard the same label N times
+                    // with nothing to say which bucket each moved. Budget IS an
+                    // axe-scanned view and axe cannot see this at ANY seed size
+                    // — no rule under the four tags the gate requests flags
+                    // duplicate accessible names — so the qualifier is written
+                    // at the source and pinned by a unit test.
+                    aria-label={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
                     title={t(lang, "budgetReorderHandle")}
                     className="cursor-grab select-none rounded leading-none text-muted-foreground hover:text-ui-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green active:cursor-grabbing dark:hover:text-ui-light-grey"
                   >

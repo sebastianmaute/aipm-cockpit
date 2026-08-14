@@ -73,6 +73,23 @@ describe("BudgetPanel", () => {
     expect(setData).toHaveBeenCalled();
   });
 
+  test("gives every bucket reorder handle a bucket-unique accessible name (WCAG 2.4.6)", () => {
+    // ★ Needs ≥2 buckets, or the collision cannot render and this passes on
+    // broken code. Budget IS an axe-scanned view, but axe cannot detect two
+    // controls sharing an accessible name in ANY view at ANY seed size — no
+    // rule under the four tags `e2e/a11y.spec.ts` requests flags it — so this
+    // unit test is the only possible detector.
+    render(<BudgetPanel {...props} buckets={twoBuckets()} />);
+    const names = screen
+      .getAllByRole("button", { name: /reorder bucket/i })
+      .map((el) => el.getAttribute("aria-label"));
+    expect(names.length).toBe(2);
+    expect(new Set(names).size).toBe(names.length);
+    // …and each one names ITS bucket, not merely some distinct suffix.
+    expect(names.some((n) => n?.includes("PAM"))).toBe(true);
+    expect(names.some((n) => n?.includes("DEV"))).toBe(true);
+  });
+
   // The control is the shared ToggleButton primitive, NOT a bare checkbox: it
   // is a binary display/behaviour switch sitting in a toolbar of toggle chips,
   // and the primitive is what carries the non-colour pressed marker and the
