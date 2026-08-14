@@ -33,6 +33,11 @@ vi.mock("./use-settings", () => ({
       holidayCountries: [],
       resources: { workdayHours: 8 },
       popout: { reuseWindow: false },
+      // `storageConfig` is REQUIRED on Settings, and workspace-section reads
+      // `settings.storageConfig.kind` unguarded (mirroring task-manager's
+      // trendsActive). Omitting it here made this mock the only place the field
+      // was absent, so dropping the source's defensive `?.` crashed this file.
+      storageConfig: { kind: "browser" as const },
       features: ["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"],
     },
     setSettings: vi.fn(),
