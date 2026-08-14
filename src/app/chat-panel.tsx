@@ -51,8 +51,7 @@ import {
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
-import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
-import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
+import { useChatThreads } from "./use-chat-threads";
 
 /** A staged upload: the Anthropic content block plus display metadata. */
 type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
@@ -212,62 +211,12 @@ function ChatPanelInner({
   // Latest committed projectId, read by the in-flight send to detect a mid-send
   // project switch (so its trailing writes can't land on the new project).
   const projectIdRef = useRef(projectId);
-  // Turso-only multi-thread state. `threads` holds each thread's FULL
-  // ChatThread (incl. history/display) so switching between them is instant
-  // with no second Turso round-trip — see the design's "already-fetched copy"
-  // note. Always empty/unused in file mode.
-  const [threads, setThreads] = useState<ChatThread[]>([]);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  // Read by ChatThreadList (wired in Task 6) to show a fetch/save/delete
-  // failure banner; write-only from this task's perspective.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [threadsError, setThreadsError] = useState(false);
-  // Latest committed activeThreadId, read by the in-flight send to detect a
-  // mid-send THREAD switch — same shape/purpose as projectIdRef above, which
-  // only ever covered a project switch. Without this, switching to a different
-  // thread while a send is in flight does nothing to stop that send: it isn't
-  // cancelled, isn't aborted, and its replies keep writing into whatever
-  // history/display the user has since switched to — silently corrupting the
-  // NEWLY selected thread with the OLD thread's reply. Step 6 below extends
-  // submitPrompt's own stale()/switchedAway checks to use this ref too; this
-  // effect only keeps it current and aborts an in-flight send on a real change.
-  const threadIdRef = useRef(activeThreadId);
-  useEffect(() => {
-    const prev = threadIdRef.current;
-    threadIdRef.current = activeThreadId;
-    if (prev !== activeThreadId) {
-      cancelledRef.current = true;
-      abortRef.current?.abort();
-    }
-  }, [activeThreadId]);
-  // Turso mode: (re)fetch this project's thread list on mount and on project
-  // switch, then adopt the most-recently-updated thread (or the empty state).
-  // File mode never runs this — Step 4's render-time reconcile is its path.
-  useEffect(() => {
-    if (!tursoMode) return;
-    let cancelled = false;
-    loadThreads(tursoConfig, projectId)
-      .then((loaded) => {
-        if (cancelled) return;
-        setThreadsError(false);
-        setThreads(loaded);
-        const next = loaded[0] ?? null;
-        setActiveThreadId(next?.id ?? null);
-        setHistory(next?.history ?? []);
-        setDisplay(next?.display ?? []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setThreadsError(true);
-        setThreads([]);
-        setActiveThreadId(null);
-        setHistory([]);
-        setDisplay([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tursoMode, projectId, tursoConfig]);
+  // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
+  // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
+  // below reads only .activeThreadId/.threadIdRef.
+  const chatThreads = useChatThreads({
+    tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
+  });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
   const { record: recordUsage } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
@@ -362,9 +311,9 @@ function ChatPanelInner({
     // subsequent state write is skipped — the reply can't corrupt the new
     // project's or thread's conversation.
     const sendProjectId = projectId;
-    const sendThreadId = activeThreadId;
+    const sendThreadId = chatThreads.activeThreadId;
     const stale = () =>
-      cancelledRef.current || projectIdRef.current !== sendProjectId || threadIdRef.current !== sendThreadId;
+      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
 
     // With attachments the user turn is a multimodal content array (text first,
     // then each document/image block); otherwise a plain string.
@@ -519,7 +468,7 @@ function ChatPanelInner({
       // If the user switched project or thread mid-send, this run belongs to
       // another conversation now showing on screen — don't write its notes or
       // history onto the current one (billing is still recorded).
-      const switchedAway = projectIdRef.current !== sendProjectId || threadIdRef.current !== sendThreadId;
+      const switchedAway = projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
       if (!switchedAway) {
         if (cancelledRef.current) {
           // Stopped by the user — append a neutral note, no error state.
@@ -555,7 +504,7 @@ function ChatPanelInner({
       const errName = err instanceof Error ? err.name : (err as { name?: string }).name;
       // Suppress when the user switched project or thread mid-send (the abort/
       // error belongs to the old conversation, not the one now on screen).
-      if (projectIdRef.current === sendProjectId && threadIdRef.current === sendThreadId) {
+      if (projectIdRef.current === sendProjectId && chatThreads.threadIdRef.current === sendThreadId) {
         if (errName === "AbortError") {
           setDisplay((prev) => [
             ...prev,
@@ -692,98 +641,6 @@ function ChatPanelInner({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submitPrompt();
-    }
-  }
-
-  // Persist the just-settled turn (success, error, or cancel) to Turso. Fires
-  // exactly once per submitPrompt() call, on the busy=true→false transition —
-  // NOT on every history/display change (that would rewrite the whole thread
-  // row, incl. every prior attachment placeholder, on each intermediate
-  // setDisplay inside a turn). `history`/`display` are the FINAL, just-committed
-  // state for the render this effect runs in: submitPrompt's `finally` block
-  // (which calls setBusy(false)) always runs in the same async continuation as
-  // the try/catch block's own last setHistory/setDisplay call, so React 18's
-  // automatic batching commits them together in one render — this effect never
-  // sees a stale mid-turn snapshot. Deliberately depends on [busy] ONLY (with
-  // the lint escape hatch already used elsewhere in this file, e.g. the
-  // chatSeed effect above) so it can't refire on the frequent history/display
-  // churn WHILE busy stays true.
-  const prevBusyRef = useRef(busy);
-  useEffect(() => {
-    const wasBusy = prevBusyRef.current;
-    prevBusyRef.current = busy;
-    if (!tursoMode || !wasBusy || busy) return;
-    const id = activeThreadId ?? newThreadId();
-    setActiveThreadId((prev) => prev ?? id);
-    const existing = threads.find((th) => th.id === id);
-    const now = new Date().toISOString();
-    const thread: ChatThread = {
-      id,
-      projectId,
-      name: existing?.name ?? deriveThreadName(display),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      history: stripAttachmentsForPersistence(history),
-      display,
-    };
-    setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
-    saveThread(tursoConfig, thread).catch(() => setThreadsError(true));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy]);
-
-  // The four handlers below are wired onto ChatThreadList's props in Task 6
-  // (this task adds no JSX). Each is genuinely dead code until then, which
-  // ESLint's no-unused-vars correctly flags — silenced per-function rather
-  // than left unused, so the split-commit review stays exact per the plan.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function selectThread(id: string) {
-    if (id === activeThreadId) return;
-    const target = threads.find((th) => th.id === id);
-    setActiveThreadId(id);
-    setHistory(target?.history ?? []);
-    setDisplay(target?.display ?? []);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function newThread() {
-    setActiveThreadId(newThreadId());
-    setHistory([]);
-    setDisplay([]);
-    // No row inserted yet — the busy-transition effect above inserts it once
-    // the first turn completes (mirrors "no row until first save" in the design).
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async function renameThread(id: string, name: string) {
-    const target = threads.find((th) => th.id === id);
-    if (!target) return;
-    const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
-    setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
-    try {
-      await saveThread(tursoConfig, updated);
-    } catch {
-      setThreadsError(true);
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async function requestDeleteThread(id: string) {
-    const target = threads.find((th) => th.id === id);
-    if (!target) return;
-    const displayName = target.name || t(lang, "chatThreadUntitled");
-    if (!(await confirm({ message: t(lang, "chatThreadDeleteConfirm", displayName), tone: "danger" }))) return;
-    const remaining = threads.filter((th) => th.id !== id);
-    setThreads(remaining);
-    if (activeThreadId === id) {
-      const next = remaining[0] ?? null;
-      setActiveThreadId(next?.id ?? null);
-      setHistory(next?.history ?? []);
-      setDisplay(next?.display ?? []);
-    }
-    try {
-      await deleteThreadRow(tursoConfig, id);
-    } catch {
-      setThreadsError(true);
     }
   }
 
