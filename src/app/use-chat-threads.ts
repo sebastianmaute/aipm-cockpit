@@ -116,6 +116,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     }
   }, [activeThreadId, cancelledRef, abortRef]);
 
+  // Monotonic write counter + the latest sequence number ISSUED per thread id.
+  // The counter never resets (a single number, not per key), so clearing the
+  // map on a project switch cannot make a NEW write collide with a still
+  // in-flight OLD one — an id reused after the clear gets a strictly higher
+  // number, and the pre-clear write's own number can never match again.
+  const persistSeqRef = useRef(0);
+  const latestSeqRef = useRef<Map<string, number>>(new Map());
+
   // Fire a Turso WRITE (save or delete), tracking it as the retry target
   // (keyed by the thread id it targets) on failure and clearing just THAT
   // key on success — the error banner only clears once nothing is left
@@ -125,13 +133,29 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // thread id; two writes on the SAME thread (e.g. a rename immediately
   // followed by a delete) intentionally collapse to one retry slot — the
   // later write already supersedes the earlier one's intent.
+  //
+  // ★★ ONLY THE LATEST WRITE ISSUED FOR A KEY MAY SETTLE THAT KEY. Both of a
+  // thread's writes share one key, so without this an EARLIER write resolving
+  // LAST would delete a LATER write's retry thunk and clear the banner. That
+  // interleaving is reachable: ensureThreadForSend's save (the user's message
+  // alone) is issued at send time and the busy-persist save (the full turn) at
+  // settle time, so a slow first save resolving after the second one REJECTS
+  // dropped the full-turn retry — the server kept only the question, the
+  // assistant's reply was never persisted, and the user was never told.
+  // A superseded call therefore returns without touching either the retry map
+  // or the banner; the write that owns the key decides both.
   function runPersist(key: string, action: () => Promise<void>): void {
+    const seq = (persistSeqRef.current += 1);
+    latestSeqRef.current.set(key, seq);
+    const owns = () => latestSeqRef.current.get(key) === seq;
     action()
       .then(() => {
+        if (!owns()) return;
         pendingRetryRef.current.delete(key);
         setThreadsError(pendingRetryRef.current.size > 0);
       })
       .catch(() => {
+        if (!owns()) return;
         pendingRetryRef.current.set(key, () => runPersist(key, action));
         setThreadsError(true);
       });
@@ -144,12 +168,39 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     if (!tursoMode) return;
     // Any pending WRITE retries from a previous project/mount no longer
     // apply once we start a fresh fetch for (possibly) a different project.
+    // `latestSeqRef` is cleared with them (its counter is global and never
+    // resets, so this cannot make a later write collide with an older one).
     pendingRetryRef.current.clear();
+    latestSeqRef.current.clear();
     let cancelled = false;
+    // The active thread as it stood when this fetch STARTED. If it has changed
+    // by the time the fetch resolves, something adopted a thread mid-flight —
+    // ensureThreadForSend minting one for a send that began before this fetch
+    // settled (reachable in production: chat-panel.tsx's `chatSeed` effect
+    // auto-sends from a MOUNT effect, in the same commit that starts this
+    // fetch), or a "New chat" / thread click.
+    const startedOn = threadIdRef.current;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         if (cancelled) return;
         setThreadsError(false);
+        if (threadIdRef.current !== startedOn) {
+          // MERGE, not bail. `loaded` cannot contain a thread minted after the
+          // fetch was issued, so assigning it verbatim would drop that row from
+          // the list, clobber `activeThreadId`, wipe history/display, and — via
+          // the threadIdRef sync effect seeing a change — abort the very send
+          // that minted it, making the user's message vanish from the UI while
+          // its row sat in Turso. Bailing outright would instead discard the
+          // server's OTHER threads, leaving the sidebar showing only the new
+          // one. So keep the locally-held rows (newest — they were created just
+          // now) ahead of the fetched ones, and leave the active thread and its
+          // history/display exactly as the adopting caller set them.
+          setThreads((prev) => [
+            ...prev.filter((th) => !loaded.some((l) => l.id === th.id)),
+            ...loaded,
+          ]);
+          return;
+        }
         setThreads(loaded);
         const next = loaded[0] ?? null;
         setActiveThreadId(next?.id ?? null);
@@ -159,6 +210,12 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .catch(() => {
         if (cancelled) return;
         setThreadsError(true);
+        // Same mid-flight adoption guard as the success branch, and the reset
+        // here is the MORE destructive of the two: `setThreads([])` would drop
+        // the just-minted row from the list outright while its save is already
+        // on its way to Turso. A failed FETCH says nothing about a thread this
+        // client just created, so leave it — and the send it belongs to — alone.
+        if (threadIdRef.current !== startedOn) return;
         setThreads([]);
         setActiveThreadId(null);
         setHistory([]);
@@ -277,15 +334,32 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // ADOPT it as the active thread before inserting the row, so a switch-away
   // has nothing left to abandon.
   //
-  // Returns the resolved thread id (existing, newly minted, or null in file
-  // mode) — the CALLER (submitPrompt in chat-panel.tsx) captures its OWN
-  // `sendThreadId` FROM THIS RETURN VALUE, never from `activeThreadId` read
-  // before calling this. Reading it beforehand would still see the pre-mint
-  // `null`, and once this function adopts the minted id every later
+  // Returns the resolved thread id — the existing active one, or the one just
+  // minted and adopted. The CALLER (submitPrompt in chat-panel.tsx) captures
+  // its OWN `sendThreadId` FROM THIS RETURN VALUE, never from `activeThreadId`
+  // read before calling this. Reading it beforehand would still see the
+  // pre-mint `null`, and once this function adopts the minted id every later
   // `threadIdRef.current !== sendThreadId` guard in that send would then see
   // the new id and wrongly treat the send it just started as already stale.
+  //
+  // ★★ IN FILE MODE IT RETURNS `threadIdRef.current` — the CURRENT ref value,
+  // NOT `null`. There is no thread concept in file mode, so the caller's three
+  // staleness guards must be INERT there, and returning the live ref is what
+  // makes them inert: `threadIdRef.current !== sendThreadId` is false at
+  // capture time and nothing in file mode ever writes that ref again (its sync
+  // effect only fires on an `activeThreadId` change, and the only writers of
+  // that — the two fetch flows, selectThread/newThread/requestDeleteThread —
+  // are all either `tursoMode`-guarded or reachable only from the sidebar,
+  // which renders inside `{tursoMode && …}`). Returning a hardcoded `null`
+  // instead is NOT equivalent, and was a live regression: a panel that was in
+  // Turso mode and then had `tursoMode` flip false (a Turso→File project
+  // switch — `panel-chat` in workspace-section.tsx is mounted unconditionally
+  // with `hidden=`, no `key`, so it never remounts) keeps the OLD Turso thread
+  // id in `threadIdRef`, nothing resets it, and `stale()` was therefore true on
+  // its FIRST evaluation — which is the send loop's first statement. Every
+  // file-mode send became a silent no-op: no API call, no reply, no error.
   function ensureThreadForSend(sentHistory: ApiMessage[], sentDisplay: DisplayItem[]): string | null {
-    if (!tursoMode) return null;
+    if (!tursoMode) return threadIdRef.current;
     const id = activeThreadId ?? newThreadId();
     if (activeThreadId === null) {
       // Keep threadIdRef in lockstep with the mint SYNCHRONOUSLY, not only

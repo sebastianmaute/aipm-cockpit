@@ -1197,21 +1197,41 @@ describe("ChatPanel — Turso thread persistence", () => {
   });
 
   // ---------------------------------------------------------------------
-  // Step 6's mid-send guard. There is no thread-switch UI to drive in THIS
-  // task (ChatThreadList/selectThread's DOM wiring is task 6), so this test
-  // exercises the same activeThreadId transition through the one path that
-  // IS reachable today: the fetch-on-mount effect (step 5) resolving to a
-  // different thread WHILE a send is still in flight. That is a genuine
-  // activeThreadId change mid-send — exactly what Step 6 guards against —
-  // it just arrives via the initial-load race rather than a sidebar click.
+  // Step 6's mid-send guard: a THREAD SWITCH while a send is in flight must
+  // not let that send's reply land on the newly selected thread.
+  //
+  // ★★ These two tests used to drive the switch through the fetch-on-mount
+  // effect resolving to a different thread mid-send, because the sidebar did
+  // not exist yet when they were written (their old comment said so). That
+  // proxy is no longer valid: the mount fetch now DETECTS a thread adopted
+  // while it was in flight and merges instead of adopting, precisely so it
+  // cannot orphan a send that started first — see use-chat-threads.ts's
+  // fetch effect. So they drive the real sidebar switch instead, which is
+  // the transition the guard is actually about.
   // ---------------------------------------------------------------------
+  const TWO_THREADS: ChatThread[] = [
+    {
+      id: "t-a",
+      projectId: "default",
+      name: "Thread A",
+      createdAt: "c",
+      updatedAt: "u2",
+      history: [],
+      display: [{ kind: "user", text: "thread A content" }],
+    },
+    {
+      id: "t-b",
+      projectId: "default",
+      name: "Thread B",
+      createdAt: "c",
+      updatedAt: "u1",
+      history: [],
+      display: [{ kind: "user", text: "thread B content" }],
+    },
+  ];
+
   it("a mid-send activeThreadId change does not let the in-flight reply corrupt the newly active thread", async () => {
-    let resolveLoadThreads!: (threads: ChatThread[]) => void;
-    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      new Promise<ChatThread[]>((res) => {
-        resolveLoadThreads = res;
-      }),
-    );
+    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(TWO_THREADS);
     let resolveFetch!: (r: Response) => void;
     const pendingFetch = new Promise<Response>((res) => {
       resolveFetch = res;
@@ -1219,24 +1239,15 @@ describe("ChatPanel — Turso thread persistence", () => {
     vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    // Thread A (first in the fetched list) is adopted on mount; send from it.
+    await screen.findByText("thread A content");
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "stale question" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    // Mid-send: the thread list resolves and adopts a DIFFERENT thread than
-    // the one this send started on (activeThreadId was null at send-start).
-    resolveLoadThreads([
-      {
-        id: "t-other",
-        projectId: "default",
-        name: "Other thread",
-        createdAt: "c",
-        updatedAt: "u",
-        history: [],
-        display: [{ kind: "user", text: "other thread content" }],
-      },
-    ] satisfies ChatThread[]);
-    await screen.findByText("other thread content");
+    // Mid-send: the user clicks a DIFFERENT thread in the sidebar.
+    fireEvent.click(screen.getByRole("button", { name: 'Open "Thread B"' }));
+    await screen.findByText("thread B content");
 
     // Now the stale send's reply lands.
     resolveFetch({
@@ -1256,17 +1267,12 @@ describe("ChatPanel — Turso thread persistence", () => {
     // ...and the newly active thread's own content must survive untouched —
     // not clobbered by a spurious "Stopped" note from the stale send (the
     // switchedAway check in Step 6's edit #2).
-    expect(screen.getByText("other thread content")).toBeInTheDocument();
+    expect(screen.getByText("thread B content")).toBeInTheDocument();
     expect(screen.queryByText("Stopped")).toBeNull();
   });
 
   it("a mid-send activeThreadId change also suppresses the catch-block error note (Step 6's edit #3)", async () => {
-    let resolveLoadThreads!: (threads: ChatThread[]) => void;
-    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce(
-      new Promise<ChatThread[]>((res) => {
-        resolveLoadThreads = res;
-      }),
-    );
+    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(TWO_THREADS);
     let rejectFetch!: (reason: unknown) => void;
     const pendingFetch = new Promise<Response>((_res, rej) => {
       rejectFetch = rej;
@@ -1274,29 +1280,20 @@ describe("ChatPanel — Turso thread persistence", () => {
     vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
 
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    await screen.findByText("thread A content");
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "stale question 2" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    resolveLoadThreads([
-      {
-        id: "t-other2",
-        projectId: "default",
-        name: "Other thread 2",
-        createdAt: "c",
-        updatedAt: "u",
-        history: [],
-        display: [{ kind: "user", text: "other thread content 2" }],
-      },
-    ] satisfies ChatThread[]);
-    await screen.findByText("other thread content 2");
+    fireEvent.click(screen.getByRole("button", { name: 'Open "Thread B"' }));
+    await screen.findByText("thread B content");
 
     // A genuine network error (not AbortError) on the stale send — proves the
     // catch block's suppression, not just the AbortError branch.
     rejectFetch(new Error("network down"));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
-    expect(screen.getByText("other thread content 2")).toBeInTheDocument();
+    expect(screen.getByText("thread B content")).toBeInTheDocument();
     // No error banner from the stale send leaks onto the newly active thread.
     expect(screen.queryByRole("alert")).toBeNull();
   });
@@ -1325,6 +1322,15 @@ describe("ChatPanel — Turso thread persistence", () => {
   // bail left uncovered: the message got no row and no recovery path if the
   // user switched threads before the reply landed.
   // -------------------------------------------------------------------
+  //
+  // MUTATION-PROVED, 2026-08-14, by TWO separate mutants: (a) restoring the
+  // old `activeThreadId === null` bail in ensureThreadForSend, and (b)
+  // deleting its call site here (`const sendThreadId =
+  // chatThreads.ensureThreadForSend(…)` → `= chatThreads.activeThreadId`).
+  // Each turns this test AND the "saves the new thread's row before the model
+  // reply resolves" test below red — 2 red in this file per mutant — because
+  // `saveThread` is never called before the New-chat click, so the row (and
+  // therefore the sidebar entry) never exists.
   it("a fresh project's first-ever message survives clicking New chat before the reply lands (Finding 1)", async () => {
     let resolveFetch!: (r: Response) => void;
     const pendingFetch = new Promise<Response>((res) => {
@@ -1371,14 +1377,6 @@ describe("ChatPanel — Turso thread persistence", () => {
     expect(screen.getByText("first ever message")).toBeInTheDocument();
   });
 
-  // Mutation-verify: restoring the old `activeThreadId === null` bail in
-  // ensureThreadForSend turns the test above red — `saveThread` is never
-  // called before the New-chat click, so the row (and thus the sidebar
-  // entry) never exists. See the task's VERIFY step for before/after counts.
-  it("mutation check: an early null-activeThreadId bail would drop the fresh project's first message — caught above", () => {
-    expect(true).toBe(true);
-  });
-
   // -------------------------------------------------------------------
   // Review Finding 2 (HIGH): deleting the ensureThreadForSend call site left
   // all pre-existing tests green, because the only assertion anywhere was
@@ -1386,6 +1384,12 @@ describe("ChatPanel — Turso thread persistence", () => {
   // the busy-persist settle effect satisfies on its own. This pins the EARLY
   // save specifically: it must have already happened while the model call is
   // still pending, which only ensureThreadForSend's call site can produce.
+  //
+  // MUTATION-PROVED, 2026-08-14: replacing that call site with the
+  // pre-3b1e962b `const sendThreadId = chatThreads.activeThreadId;` turns
+  // this test red — saveThread is never called while the fetch is pending,
+  // only once it settles via the busy-persist effect. (It turns 2 tests red
+  // in this file; the other is the Finding-1 test above.)
   // -------------------------------------------------------------------
   it("saves the new thread's row before the model reply resolves — pins the ensureThreadForSend call site (Finding 2)", async () => {
     let resolveFetch!: (r: Response) => void;
@@ -1423,14 +1427,83 @@ describe("ChatPanel — Turso thread persistence", () => {
     await waitFor(() => expect(screen.getByText("reply")).toBeInTheDocument());
   });
 
-  // Mutation-verify: deleting the
-  // `chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);`
-  // call site in chat-panel.tsx's submitPrompt turns the test above red —
-  // saveThread is never called while the fetch is still pending (only once
-  // it settles, via the busy-persist effect). See the task's VERIFY step for
-  // before/after counts.
-  it("mutation check: deleting the ensureThreadForSend call site is caught above", () => {
-    expect(true).toBe(true);
+  // -------------------------------------------------------------------
+  // Round-4 Finding 1 (HIGH, a regression): `tursoMode` flipping to FALSE on
+  // a LIVE panel — a Turso→File project switch, where `panel-chat` in
+  // workspace-section.tsx is mounted unconditionally with `hidden=` and no
+  // `key`, so it never remounts — left the OLD Turso thread id in
+  // threadIdRef (nothing resets activeThreadId on that flip) while
+  // ensureThreadForSend returned a hardcoded `null`. `stale()` was therefore
+  // true on its FIRST evaluation, which is the send loop's first statement:
+  // no API call, no reply, no error, no banner. Every file-mode send after
+  // such a switch was a silent no-op.
+  //
+  // ★ TEST TRAP: this MUST be a rerender, never a second render. A remount
+  // reseeds threadIdRef to null, the old `return null` then MATCHES it, and
+  // the test passes with the fix reverted — i.e. vacuous.
+  // -------------------------------------------------------------------
+  it("still sends after tursoMode flips to false on a live (never remounted) panel", async () => {
+    (loadThreads as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      {
+        id: "t1",
+        projectId: "default",
+        name: "Prior chat",
+        createdAt: "c",
+        updatedAt: "u",
+        history: [],
+        display: [{ kind: "user", text: "prior message" }],
+      },
+    ] satisfies ChatThread[]);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "file mode reply" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+
+    // Hoisted so `tursoMode` is the ONLY prop that changes across the
+    // rerender (a fresh {} each call would also churn the fetch effect's
+    // tursoConfig dependency).
+    const tursoConfig = {} as never;
+    const dispatcher = makeDispatcher();
+    const onAcceptConsent = vi.fn();
+    const panel = (tursoMode: boolean) => (
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={dispatcher}
+        onAcceptConsent={onAcceptConsent}
+        tursoMode={tursoMode}
+        tursoConfig={tursoConfig}
+      />
+    );
+
+    const { rerender } = render(panel(true));
+    // Turso mode adopted t1, so threadIdRef now holds "t1" — the stale value
+    // the file-mode send used to trip over.
+    await screen.findByText("prior message");
+
+    rerender(panel(false));
+    // Same panel, file mode now: the sidebar is gone but the ref is not.
+    expect(screen.queryByRole("button", { name: "New chat" })).not.toBeInTheDocument();
+
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "file mode question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // The model call really happened — the send loop was not short-circuited
+    // by the stale-thread guard before its first callClaude.
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter((c) => String(c[0]).includes("/v1/messages")),
+      ).toHaveLength(1),
+    );
+    // ...and the reply reached the transcript.
+    expect(await screen.findByText("file mode reply")).toBeInTheDocument();
   });
 });
 
