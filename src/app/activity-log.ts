@@ -163,7 +163,7 @@ function sanitizeChanges(v: unknown): readonly FieldChange[] | undefined {
 }
 
 const ACTIVITY_STORAGE_KEY = "aipm-cockpit:activity-log";
-const ACTIVITY_MAX_ENTRIES = 500;
+export const ACTIVITY_MAX_ENTRIES = 500;
 
 /** Maps each kind to the translation key whose template formats the entry. */
 export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
