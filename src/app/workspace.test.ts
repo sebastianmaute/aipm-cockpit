@@ -7,6 +7,7 @@ import {
   WorkspaceParseError,
   type Workspace,
 } from "./workspace";
+import { ACTIVITY_MAX_ENTRIES } from "./activity-log";
 
 /** Render a STORED value the way a sink would and assert nothing live survives.
  *  Deliberately does NOT re-sanitize: the subject is the LOAD boundary, and the
@@ -267,5 +268,98 @@ describe("activityLog JSON write path", () => {
   it("omits the activityLog key entirely when the log is empty", () => {
     const ws = { ...emptyWorkspace(), activityLog: [] };
     expect(JSON.parse(workspaceToJson(ws))).not.toHaveProperty("activityLog");
+  });
+});
+
+/** Envelope with the minimum jsonToWorkspace requires (`tasks`/`raid` arrays)
+ *  plus an arbitrary `activityLog` value under test. */
+function wsWithActivityLog(activityLog: unknown): string {
+  return JSON.stringify({ tasks: [], raid: [], activityLog });
+}
+
+// Moved from activity-log.test.ts's retired loadActivityLog/saveActivityLog
+// suite (Task 12, activity-log-workspace-data): the log is validated on load
+// by `sanitizeActivityLog` now (called from `jsonToWorkspace`), not by the
+// localStorage-only `isActivityEntry`/`normalizeEntryChanges` that used to
+// gate `loadActivityLog`. Most properties carried over unchanged; two did
+// NOT — see the two tests marked REGRESSION below.
+describe("activityLog sanitize-and-cap on load", () => {
+  it.each([
+    ["non-array (string)", "x"],
+    ["non-array (number)", 5],
+    ["non-array (object)", {}],
+  ])("drops a non-array activityLog value: %s", (_label, value) => {
+    const ws = jsonToWorkspace(wsWithActivityLog(value));
+    expect(ws.activityLog).toBeUndefined();
+  });
+
+  it("drops entries missing id/timestamp/args-shape or with an empty id, keeps the rest", () => {
+    const mixed = [
+      { id: "1", timestamp: "2026-06-02T00:00:00.000Z", kind: "task.created", args: [] }, // valid
+      { id: "3", kind: "task.created", args: [] }, // missing timestamp
+      { id: "4", timestamp: "t", kind: "task.created", args: "nope" }, // args not array
+      { timestamp: "t", kind: "task.created", args: [] }, // missing id
+      { id: "", timestamp: "t", kind: "task.created", args: [] }, // empty-string id
+      { id: "9", timestamp: "2026-06-02T00:00:00.000Z", kind: "jira.sync", args: [] }, // valid
+    ];
+    const ws = jsonToWorkspace(wsWithActivityLog(mixed));
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["1", "9"]);
+  });
+
+  // ★★★ REGRESSION vs the retired loadActivityLog: its `isActivityEntry`
+  // validator also rejected an entry whose `kind` was not a known
+  // ActivityKind. `sanitizeActivityLog` (workspace.ts) does not check `kind`
+  // at all — only id/timestamp/args-shape — so a bogus kind now SURVIVES a
+  // workspace load. Pinned here rather than silently dropped; see the
+  // Task 12 report for the recommended follow-up.
+  it("REGRESSION: keeps an entry whose `kind` is not a known ActivityKind", () => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([{ id: "2", timestamp: "2026-06-02T00:00:00.000Z", kind: "not.a.kind", args: [] }]),
+    );
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["2"]);
+  });
+
+  it("caps a too-large activityLog to the newest ACTIVITY_MAX_ENTRIES", () => {
+    const big = Array.from({ length: ACTIVITY_MAX_ENTRIES + 100 }, (_, i) => ({
+      id: String(i + 1),
+      timestamp: "2026-06-02T00:00:00.000Z",
+      kind: "task.created" as const,
+      args: [],
+    }));
+    const ws = jsonToWorkspace(wsWithActivityLog(big));
+    expect(ws.activityLog).toHaveLength(ACTIVITY_MAX_ENTRIES);
+    expect(ws.activityLog?.[0].id).toBe("101"); // "1".."100" dropped
+  });
+
+  it("rejects a legacy numeric-id entry (globally-unique STRING ids only)", () => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([{ id: 1, timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] }]),
+    );
+    expect(ws.activityLog).toBeUndefined();
+  });
+
+  it("round-trips a changes-bearing entry", () => {
+    const changes = [{ field: "owner", from: "Ada", to: "Grace" }];
+    const log = [
+      { id: "dev1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "raid.updated" as const, args: [5], changes },
+    ];
+    const ws = jsonToWorkspace(workspaceToJson({ ...emptyWorkspace(), activityLog: log }));
+    expect(ws.activityLog?.[0].changes).toEqual(changes);
+  });
+
+  // ★★★ REGRESSION vs the retired loadActivityLog: its `normalizeEntryChanges`
+  // stripped a malformed `changes` payload before it ever reached the UI.
+  // `sanitizeActivityLog` does not validate `changes` at all, so a malformed
+  // payload now survives a workspace load verbatim — a real crash risk, since
+  // `activity-log-panel.tsx` renders `entry.changes.map(...)` and a truthy
+  // non-array `changes` (e.g. a non-empty string) has no `.map`. Pinned here
+  // rather than silently dropped; see the Task 12 report.
+  it("REGRESSION: does not strip a malformed `changes` payload", () => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([
+        { id: "1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: [], changes: "nope" },
+      ]),
+    );
+    expect((ws.activityLog ?? [])[0]?.changes).toBe("nope");
   });
 });

@@ -4,11 +4,9 @@ import {
   activityGroupOf,
   appendActivity,
   appendActivityEntry,
-  clearActivityLog,
   diffFields,
+  dropLegacyActivityLog,
   humanizeFieldName,
-  loadActivityLog,
-  saveActivityLog,
   type ActivityEntry,
   type ActivityKind,
 } from "./activity-log";
@@ -111,66 +109,46 @@ describe("appendActivity", () => {
   });
 });
 
-describe("loadActivityLog / saveActivityLog round-trip", () => {
-  test("returns [] when nothing is stored", () => {
-    expect(loadActivityLog()).toEqual([]);
+describe("dropLegacyActivityLog", () => {
+  test("deletes the pre-upgrade local log on first use and never imports it", () => {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([{ id: 1, timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["OLD"] }]),
+    );
+    dropLegacyActivityLog();
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
-  test("round-trips saved entries", () => {
-    const entries = [entry(1, "task.created"), entry(2, "raid.created")];
-    saveActivityLog(entries);
-    expect(loadActivityLog()).toEqual(entries);
+  test("is a no-op when nothing was stored", () => {
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(() => dropLegacyActivityLog()).not.toThrow();
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
-  test("saveActivityLog caps to the last MAX before writing", () => {
-    const entries = Array.from({ length: MAX + 50 }, (_, i) => entry(i + 1)); // "1".."550"
-    saveActivityLog(entries);
-    const loaded = loadActivityLog();
-    expect(loaded).toHaveLength(MAX);
-    expect(loaded[0].id).toBe("51"); // "1".."50" dropped
-  });
-
-  test("clearActivityLog empties the store", () => {
-    saveActivityLog([entry(1)]);
-    clearActivityLog();
-    expect(loadActivityLog()).toEqual([]);
+  test("swallows a localStorage failure (non-fatal)", () => {
+    window.localStorage.setItem(STORAGE_KEY, "[]");
+    const removeSpy = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("disabled");
+    });
+    try {
+      expect(() => dropLegacyActivityLog()).not.toThrow();
+    } finally {
+      removeSpy.mockRestore();
+    }
   });
 });
 
-describe("loadActivityLog — defensive parsing", () => {
-  test.each([
-    ["non-array JSON (string)", '"x"'],
-    ["non-array JSON (number)", "5"],
-    ["non-array JSON (object)", "{}"],
-    ["malformed JSON", "{not json"],
-  ])("returns [] for %s", (_label, raw) => {
-    window.localStorage.setItem(STORAGE_KEY, raw);
-    expect(loadActivityLog()).toEqual([]);
-  });
-
-  test("filters out entries that fail validation, keeping valid ones", () => {
-    const mixed = [
-      entry(1, "task.created"), // valid
-      { id: "2", timestamp: "t", kind: "not.a.kind", args: [] }, // bad kind
-      { id: "3", kind: "task.created", args: [] }, // missing timestamp
-      { id: "4", timestamp: "t", kind: "task.created", args: "nope" }, // args not array
-      { timestamp: "t", kind: "task.created", args: [] }, // missing id
-      { id: "", timestamp: "t", kind: "task.created", args: [] }, // empty-string id
-      entry(9, "jira.sync"), // valid
-    ];
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mixed));
-    const loaded = loadActivityLog();
-    expect(loaded.map((e) => e.id)).toEqual(["1", "9"]);
-  });
-
-  test("caps a too-large stored array to the last MAX", () => {
-    const big = Array.from({ length: MAX + 100 }, (_, i) => entry(i + 1)); // "1".."600"
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(big));
-    const loaded = loadActivityLog();
-    expect(loaded).toHaveLength(MAX);
-    expect(loaded[0].id).toBe("101"); // "1".."100" dropped
-  });
-});
+// ★★★ loadActivityLog/saveActivityLog/clearActivityLog were REMOVED — the
+// activity log is workspace data now (persisted via the six write paths),
+// not a per-device localStorage blob. The properties these tests used to pin
+// were moved to workspace.test.ts's "activityLog sanitize-and-cap on load"
+// describe, which exercises the same validation/capping through
+// `sanitizeActivityLog` (called from `jsonToWorkspace`) — EXCEPT two
+// properties that genuinely did NOT carry over (see the two REGRESSION
+// tests in that file: `sanitizeActivityLog` validates neither `kind` nor a
+// malformed `changes` payload, unlike this file's retired `isActivityEntry`/
+// `normalizeEntryChanges`). Flagged in the Task 12 report, not silently
+// dropped.
 
 describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both locales", () => {
   const NEW_KINDS: ActivityKind[] = [
@@ -297,26 +275,12 @@ describe("appendActivityEntry + changes round-trip (#22)", () => {
     expect("changes" in e).toBe(false);
   });
 
-  test("a changes-bearing entry survives a save/load round-trip", () => {
-    const changes = [{ field: "owner", from: "Ada", to: "Grace" }];
-    const log = appendActivityEntry([], "raid.updated", [5], changes);
-    saveActivityLog(log);
-    const loaded = loadActivityLog();
-    expect(loaded[0].changes).toEqual(changes);
-  });
-
-  test("drops a malformed changes payload on load (validation)", () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify([
-        { id: "1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: [], changes: "nope" },
-      ]),
-    );
-    const loaded = loadActivityLog();
-    // Entry is still valid (changes is optional) but the bad payload is dropped.
-    expect(loaded).toHaveLength(1);
-    expect(loaded[0].changes).toBeUndefined();
-  });
+  // "a changes-bearing entry survives a save/load round-trip" and "drops a
+  // malformed changes payload on load" (localStorage-specific) moved to
+  // workspace.test.ts's "activityLog sanitize-and-cap on load" describe — the
+  // first still holds through `jsonToWorkspace`/`workspaceToJson`; the second
+  // does NOT (see the REGRESSION test there — `sanitizeActivityLog` does not
+  // validate `changes` shape, unlike the retired `normalizeEntryChanges`).
 });
 
 describe("globally unique ids", () => {
@@ -334,13 +298,10 @@ describe("globally unique ids", () => {
     expect(a[0].id).not.toBe(b[0].id);
   });
 
-  test("rejects a legacy numeric-id entry on load", () => {
-    window.localStorage.setItem(
-      "aipm-cockpit:activity-log",
-      JSON.stringify([{ id: 1, timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] }]),
-    );
-    expect(loadActivityLog()).toEqual([]);
-  });
+  // "rejects a legacy numeric-id entry on load" moved to workspace.test.ts's
+  // "activityLog sanitize-and-cap on load" describe — `sanitizeActivityLog`
+  // holds the same `typeof id === "string"` check the retired
+  // `isActivityEntry` did.
 
   test("does not re-mint the same id after a module reload", async () => {
     // ★ A reload resets module scope (counter, sessionNonce) but NOT localStorage

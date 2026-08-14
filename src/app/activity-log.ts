@@ -160,18 +160,6 @@ export function humanizeFieldName(field: string): string {
     .trim();
 }
 
-function isFieldChange(v: unknown): v is FieldChange {
-  if (!v || typeof v !== "object") return false;
-  const c = v as Partial<FieldChange>;
-  return typeof c.field === "string" && typeof c.from === "string" && typeof c.to === "string";
-}
-
-/** Validate a persisted `changes` payload; returns undefined when malformed. */
-function sanitizeChanges(v: unknown): readonly FieldChange[] | undefined {
-  if (!Array.isArray(v) || v.length === 0 || !v.every(isFieldChange)) return undefined;
-  return v.slice(0, MAX_FIELD_CHANGES) as FieldChange[];
-}
-
 const ACTIVITY_STORAGE_KEY = "aipm-cockpit:activity-log";
 export const ACTIVITY_MAX_ENTRIES = 500;
 
@@ -303,10 +291,6 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "redo": "activityRedo",
 };
 
-const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(
-  Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[],
-);
-
 /** Top-level grouping derived from the kind string prefix. Used by the
  *  Activity panel's group filter (All / Tasks / RAID / Bulk / Jira / General). */
 export type ActivityGroup = "tasks" | "raid" | "bulk" | "jira" | "general";
@@ -319,61 +303,14 @@ export function activityGroupOf(kind: ActivityKind): ActivityGroup {
   return "general";
 }
 
-function isActivityKind(v: unknown): v is ActivityKind {
-  return typeof v === "string" && ACTIVITY_KINDS.has(v as ActivityKind);
-}
-
-/** Strip a malformed `changes` payload from an otherwise-valid entry. */
-function normalizeEntryChanges(e: ActivityEntry): ActivityEntry {
-  const changes = sanitizeChanges((e as { changes?: unknown }).changes);
-  if (changes) return { ...e, changes };
-  if ((e as { changes?: unknown }).changes === undefined) return e;
-  // A malformed changes payload was present — rebuild without it.
-  return { id: e.id, timestamp: e.timestamp, kind: e.kind, args: e.args };
-}
-
-function isActivityEntry(v: unknown): v is ActivityEntry {
-  if (!v || typeof v !== "object") return false;
-  const e = v as Partial<ActivityEntry>;
-  return (
-    typeof e.id === "string" &&
-    e.id.length > 0 &&
-    typeof e.timestamp === "string" &&
-    isActivityKind(e.kind) &&
-    Array.isArray(e.args)
-  );
-}
-
-export function loadActivityLog(): ActivityEntry[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(ACTIVITY_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const valid = parsed.filter(isActivityEntry).map(normalizeEntryChanges);
-    return valid.length > ACTIVITY_MAX_ENTRIES
-      ? valid.slice(-ACTIVITY_MAX_ENTRIES)
-      : valid;
-  } catch {
-    return [];
-  }
-}
-
-export function saveActivityLog(entries: readonly ActivityEntry[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    const capped =
-      entries.length > ACTIVITY_MAX_ENTRIES
-        ? entries.slice(-ACTIVITY_MAX_ENTRIES)
-        : entries;
-    window.localStorage.setItem(ACTIVITY_STORAGE_KEY, JSON.stringify(capped));
-  } catch {
-    // localStorage full / disabled — non-fatal; user just won't see history.
-  }
-}
-
-export function clearActivityLog(): void {
+/**
+ * Removes the pre-upgrade device-local log. The entries are NOT imported: the
+ * old key was a single global stream with no project id, so on a device that
+ * had opened several projects every entry would be mis-attributed to whichever
+ * project happened to be open. Dropping is the only honest option — recorded in
+ * CHANGELOG.md and surfaced as a version highlight.
+ */
+export function dropLegacyActivityLog(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(ACTIVITY_STORAGE_KEY);
