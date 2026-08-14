@@ -15,7 +15,7 @@ function snap(capturedAt: string, pct: number): SnapshotRecord {
 
 let nextId = 1;
 function ev(timestamp: string, kind: ActivityEntry["kind"]): ActivityEntry {
-  return { id: nextId++, timestamp, kind, args: [] };
+  return { id: String(nextId++), timestamp, kind, args: [] };
 }
 
 describe("computeCompletionTrend", () => {

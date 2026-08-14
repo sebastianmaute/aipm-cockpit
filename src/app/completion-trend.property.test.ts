@@ -22,7 +22,7 @@ describe("computeCompletionTrend properties", () => {
         (raw, done, totalRaw) => {
           const base = Date.UTC(2026, 0, 1);
           const activity: ActivityEntry[] = raw.map((r, i) => ({
-            id: i + 1,
+            id: String(i + 1),
             timestamp: new Date(base + r.ms).toISOString(),
             kind: r.k as ActivityEntry["kind"],
             args: [],

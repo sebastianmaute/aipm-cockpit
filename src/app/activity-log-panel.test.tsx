@@ -26,7 +26,7 @@ function renderPanel(ui: React.ReactNode) {
 
 function entry(p: Partial<ActivityEntry>): ActivityEntry {
   return {
-    id: 1,
+    id: "1",
     timestamp: "2026-05-28T10:00:00.000Z",
     kind: "task.created",
     args: ["Task A"],
@@ -35,8 +35,8 @@ function entry(p: Partial<ActivityEntry>): ActivityEntry {
 }
 
 const entries: ActivityEntry[] = [
-  entry({ id: 1, kind: "task.created", args: ["Task A"] }),
-  entry({ id: 2, kind: "task.updated", args: ["Task B"] }),
+  entry({ id: "1", kind: "task.created", args: ["Task A"] }),
+  entry({ id: "2", kind: "task.updated", args: ["Task B"] }),
 ];
 
 describe("ActivityLogPanel — toolbar order", () => {
@@ -59,7 +59,7 @@ describe("ActivityLogPanel", () => {
         lang="en-US"
         entries={[
           entry({
-            id: 9,
+            id: "9",
             kind: "raid.updated",
             args: [5, "R", "Risk"],
             changes: [
@@ -80,7 +80,7 @@ describe("ActivityLogPanel", () => {
 
   it("renders timestamps in the display timezone (not the raw ISO)", () => {
     // 2026-05-28T10:00:00Z in Asia/Kolkata (+5:30) is 15:30 → "03:30 PM".
-    renderPanel(<ActivityLogPanel lang="en-US" entries={[entry({ id: 1 })]} onClear={() => {}} />);
+    renderPanel(<ActivityLogPanel lang="en-US" entries={[entry({ id: "1" })]} onClear={() => {}} />);
     const time = screen.getByText(/05\/28\/2026/);
     expect(time.textContent).toContain("03:30");
     expect(time.textContent).not.toContain("2026-05-28T10:00:00.000Z");

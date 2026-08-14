@@ -77,16 +77,20 @@ export interface FieldChange {
 }
 
 export interface ActivityEntry {
-  /** Monotonic id within the current log; not a timestamp. Used as a React key. */
-  id: number;
-  /** ISO 8601 UTC timestamp captured at append time. */
+  /** Globally unique: `"<deviceId>-<counter>"`. Was a number, monotonic only
+   *  within ONE device's log — which is exactly why two devices collided once
+   *  the log became shared workspace data. */
+  id: string;
+  /** ISO 8601 UTC timestamp captured at append time. Always `toISOString()`
+   *  shape: `mergeActivityLogs` sorts these with a LEXICOGRAPHIC compare, and
+   *  because it caps by slicing the head after sorting, a wrongly-ordered value
+   *  is permanently dropped rather than merely misplaced. */
   timestamp: string;
   kind: ActivityKind;
   /** Positional args interpolated into the i18n message at render time. */
   args: (string | number)[];
   /** Optional per-field diff for UPDATE events (audit detail). Omitted when the
-   *  update produced no field changes. Per-device only (localStorage) — NOT a
-   *  persisted Workspace field, excluded from exports/Turso. */
+   *  update produced no field changes. */
   changes?: readonly FieldChange[];
 }
 
@@ -164,6 +168,49 @@ function sanitizeChanges(v: unknown): readonly FieldChange[] | undefined {
 
 const ACTIVITY_STORAGE_KEY = "aipm-cockpit:activity-log";
 export const ACTIVITY_MAX_ENTRIES = 500;
+
+const DEVICE_ID_KEY = "aipm-cockpit:device-id";
+
+let deviceIdCache: string | null = null;
+let counter = 0;
+
+/**
+ * Per-device identifier, minted once and reused. NOT a secret — it must never
+ * join the `SecretId` union. `clearAppConfig()` wipes it; a regenerated id is
+ * harmless, because the only property required of it is non-collision with
+ * other devices.
+ *
+ * ★ Called from event handlers only, never a component render body — the
+ * react-hooks purity rule makes `Date.now()` / `Math.random()` there fatal.
+ */
+export function getDeviceId(): string {
+  if (deviceIdCache) return deviceIdCache;
+  if (typeof window === "undefined") {
+    // SSR: no localStorage to persist into. Mint an ephemeral id for this
+    // render only — never cached, so a real client call still hydrates from
+    // (or seeds) localStorage on its own.
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  }
+  let id: string | null = null;
+  try {
+    id = window.localStorage.getItem(DEVICE_ID_KEY);
+  } catch {
+    // localStorage disabled — fall through and mint an ephemeral id.
+  }
+  if (!id) {
+    id =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID().slice(0, 8)
+        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    try {
+      window.localStorage.setItem(DEVICE_ID_KEY, id);
+    } catch {
+      // non-fatal: an ephemeral id still cannot collide with another device.
+    }
+  }
+  deviceIdCache = id;
+  return id;
+}
 
 /** Maps each kind to the translation key whose template formats the entry. */
 export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
@@ -257,7 +304,8 @@ function isActivityEntry(v: unknown): v is ActivityEntry {
   if (!v || typeof v !== "object") return false;
   const e = v as Partial<ActivityEntry>;
   return (
-    typeof e.id === "number" &&
+    typeof e.id === "string" &&
+    e.id.length > 0 &&
     typeof e.timestamp === "string" &&
     isActivityKind(e.kind) &&
     Array.isArray(e.args)
@@ -327,7 +375,7 @@ export function appendActivityEntry(
   changes?: readonly FieldChange[],
 ): ActivityEntry[] {
   const entry: ActivityEntry = {
-    id: current.length > 0 ? current[current.length - 1].id + 1 : 1,
+    id: `${getDeviceId()}-${++counter}`,
     timestamp: new Date().toISOString(),
     kind,
     args,

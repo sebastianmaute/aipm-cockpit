@@ -4,7 +4,7 @@ import type { ActivityEntry } from "./activity-log";
 import type { Task } from "./types";
 
 function entry(id: number, timestamp: string, kind: ActivityEntry["kind"]): ActivityEntry {
-  return { id, timestamp, kind, args: [] };
+  return { id: String(id), timestamp, kind, args: [] };
 }
 function task(id: number, dueDate: string): Task {
   return { id, dueDate, completedDate: undefined } as unknown as Task;
