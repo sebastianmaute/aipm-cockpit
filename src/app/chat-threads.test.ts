@@ -1,5 +1,5 @@
 // src/app/chat-threads.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { deriveThreadName, stripAttachmentsForPersistence, newThreadId, THREAD_NAME_MAX } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
 
@@ -69,6 +69,23 @@ describe("stripAttachmentsForPersistence", () => {
     ];
     expect(stripAttachmentsForPersistence(history)).toEqual(history);
   });
+
+  it("leaves tool_use and tool_result blocks untouched", () => {
+    const history: ApiMessage[] = [
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Let me check that." },
+          { type: "tool_use", id: "toolu_01", name: "list_tasks", input: { status: "open" } },
+        ],
+      },
+      {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "toolu_01", content: "[]", is_error: false }],
+      },
+    ];
+    expect(stripAttachmentsForPersistence(history)).toEqual(history);
+  });
 });
 
 describe("newThreadId", () => {
@@ -77,5 +94,15 @@ describe("newThreadId", () => {
     const b = newThreadId();
     expect(a).not.toBe(b);
     expect(a.length).toBeGreaterThan(0);
+  });
+
+  it("falls back to a timestamped random id when crypto.randomUUID is unavailable", () => {
+    vi.stubGlobal("crypto", undefined);
+    try {
+      const id = newThreadId();
+      expect(id).toMatch(/^thread-\d+-[a-z0-9]+$/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
