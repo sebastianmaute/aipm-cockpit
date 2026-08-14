@@ -285,17 +285,17 @@ export function WorkspaceSection({
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
   // with the modern shell's inset edge (matching the Tasks pane exactly).
   const effectiveTz = resolveTimezone(effectiveSettings.timezone, project?.operatingTimezone);
-  // Mirrors the per-component getTursoConfig(settings...) pattern already used by
-  // portfolio-health-panel.tsx / projects-panel.tsx — each Turso-gated surface
-  // resolves its own config from settings rather than threading a shared
-  // pre-computed object down. Gate on BOTH `mode` and `chatTursoConfig !== null`
-  // (not just storageConfig.kind) per this repo's Turso-gating rule: the kind
-  // can be set while the config is unset or quarantined.
-  const chatTursoConfig = getTursoConfig(
-    settings.integrations?.turso?.databaseUrl,
-    settings.integrations?.turso?.authToken,
-  );
-  const chatTursoMode = mode === "turso" && chatTursoConfig !== null;
+  // Mirrors portfolio-health-panel.tsx's getTursoConfig(settings...) pattern.
+  // FRESH object every call — memoize on the credential strings, or an unstable
+  // identity re-fires useChatThreads' fetch effect (dep array), wiping the chat.
+  // Hoisted to locals: exhaustive-deps rejects an `obj.member` dependency.
+  const tursoUrl = settings.integrations?.turso?.databaseUrl;
+  const tursoToken = settings.integrations?.turso?.authToken;
+  const chatTursoConfig = useMemo(() => getTursoConfig(tursoUrl, tursoToken), [tursoUrl, tursoToken]);
+  // Gate on BOTH signals (Turso storage OR Turso portfolio `mode`) AND
+  // `chatTursoConfig !== null`, mirroring task-manager.tsx's `trendsActive` —
+  // `storageConfig?.` guards this file's own tests, which mock a partial settings shape.
+  const chatTursoMode = (settings.storageConfig?.kind === "turso" || mode === "turso") && chatTursoConfig !== null;
   const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
   const panelScrollClass = fullBleed
     ? "min-h-0 flex-1 overflow-y-auto"
