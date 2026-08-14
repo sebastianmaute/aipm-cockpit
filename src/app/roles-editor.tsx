@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { currencySymbol } from "./resource-cost";
 import type { Discipline, Grade, Role } from "./types";
@@ -14,6 +14,13 @@ import { SegmentedControl } from "./segmented-control";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { useListReorderDnd } from "./use-list-reorder-dnd";
+
+/** Shared chrome for the two `≡` reorder handles. A native button so it is
+ *  keyboard-focusable without an ARIA role; the hook's ArrowUp/ArrowDown handler
+ *  sits on the row/item and catches the bubbled keydown. */
+const REORDER_HANDLE_CLASS =
+  "cursor-move select-none text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -68,7 +75,6 @@ export function RolesEditor({
   onAddGrade, onRenameGrade, onDeleteGrade, onReorderGrades,
   onResetSize,
 }: RolesEditorProps) {
-  const draggedRoleIdRef = useRef<number | null>(null);
   const curSymbol = currencySymbol(currency, localeFor(lang));
   const [newDiscipline, setNewDiscipline] = useState("");
   const [newGrade, setNewGrade] = useState("");
@@ -107,6 +113,15 @@ export function RolesEditor({
       return sort.dir === "asc" ? cmp : -cmp;
     });
   }, [roles, disciplines, grades, sort]);
+
+  // Drag reorder only in the default (unsorted) view — dragging a column-sorted
+  // view would fight the sort, so the hook is disabled rather than the caller
+  // re-implementing a `reorderable ? … : undefined` on every prop.
+  const roleOrder = useListReorderDnd<number>({
+    ids: sortedRoles.map((r) => r.id),
+    onReorder: onReorderRoles,
+    disabled: !!sort,
+  });
 
   // Render one rate cell. Per role, only the unit matching `rateBasis` (default
   // "hour") is editable; the sibling unit is read-only + auto-derived. Editing a
@@ -251,30 +266,28 @@ export function RolesEditor({
                 // The rate inputs sit in bare <td>s with no per-row header, so
                 // each needs an explicit name carrying its row + column context.
                 const rowCtx = `${disciplineName} / ${gradeName}`;
-                // Drag reorder only in the default (unsorted) view — dragging a
-                // column-sorted view would fight the sort.
+                // The whole row is the drag source (there is no separate handle
+                // element), so BOTH prop bags land on the <tr>; the `≡` is only
+                // the affordance + the keyboard entry point, and it renders
+                // only while the hook is live (see `disabled` above).
                 const reorderable = !sort;
                 return (
                 <tr
                   key={r.id}
-                  draggable={reorderable}
-                  onDragStart={reorderable ? (e) => { draggedRoleIdRef.current = r.id; e.dataTransfer.effectAllowed = "move"; } : undefined}
-                  onDragOver={reorderable ? (e) => { e.preventDefault(); } : undefined}
-                  onDrop={reorderable ? (e) => {
-                    e.preventDefault();
-                    const fromId = draggedRoleIdRef.current;
-                    if (fromId === null || fromId === r.id) return;
-                    const ids = sortedRoles.map((x) => x.id).filter((id) => id !== fromId);
-                    const dropIdx = ids.indexOf(r.id);
-                    ids.splice(dropIdx, 0, fromId);
-                    onReorderRoles(ids);
-                    draggedRoleIdRef.current = null;
-                  } : undefined}
-                  onDragEnd={reorderable ? () => { draggedRoleIdRef.current = null; } : undefined}
+                  {...roleOrder.itemProps(r.id)}
+                  {...roleOrder.handleProps(r.id)}
                 >
                   <td className="px-3 py-2">
                     {reorderable && (
-                      <span title={t(lang, "reorderHint")} aria-hidden className="mr-1 cursor-move select-none text-muted-foreground">≡</span>
+                      // ★★ Row-UNIQUE name (WCAG 2.4.6): N identical "Drag to
+                      // reorder" handles is a fail axe cannot see at any seed
+                      // size, so the qualifier is written at the source.
+                      <button
+                        type="button"
+                        aria-label={`${t(lang, "reorderHint")} – ${rowCtx}`}
+                        title={t(lang, "reorderHint")}
+                        className={`mr-1 ${REORDER_HANDLE_CLASS}`}
+                      >≡</button>
                     )}
                     {disciplineName}
                   </td>
@@ -359,7 +372,10 @@ function RefList({
   setAddValue: (v: string) => void;
   onAdd: () => void;
 }) {
-  const draggedIdRef = useRef<number | null>(null);
+  const itemOrder = useListReorderDnd<number>({
+    ids: items.map((it) => it.id),
+    onReorder,
+  });
   const confirm = useConfirm();
 
   return (
@@ -369,31 +385,18 @@ function RefList({
         {items.map((it) => (
           <li
             key={it.id}
-            draggable
-            onDragStart={(e) => {
-              draggedIdRef.current = it.id;
-              e.dataTransfer.effectAllowed = "move";
-            }}
-            onDragOver={(e) => { e.preventDefault(); }}
-            onDrop={(e) => {
-              e.preventDefault();
-              const fromId = draggedIdRef.current;
-              if (fromId === null || fromId === it.id) return;
-              const ids = items.map((x) => x.id);
-              const filtered = ids.filter((id) => id !== fromId);
-              const dropIdx = filtered.indexOf(it.id);
-              filtered.splice(dropIdx, 0, fromId);
-              onReorder(filtered);
-              draggedIdRef.current = null;
-            }}
-            onDragEnd={() => { draggedIdRef.current = null; }}
+            // The whole item is the drag source, so both prop bags land here.
+            {...itemOrder.itemProps(it.id)}
+            {...itemOrder.handleProps(it.id)}
             className="flex items-center gap-1"
           >
-            <span
+            {/* ★★ Row-UNIQUE name (WCAG 2.4.6) — see the rate-card handle. */}
+            <button
+              type="button"
+              aria-label={`${t(lang, "reorderHint")} – ${it.name}`}
               title={t(lang, "reorderHint")}
-              className="cursor-move select-none px-1 text-muted-foreground"
-              aria-hidden={true}
-            >≡</span>
+              className={`px-1 ${REORDER_HANDLE_CLASS}`}
+            >≡</button>
             <input defaultValue={it.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== it.name) onRename(it.id, e.target.value); }}
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />

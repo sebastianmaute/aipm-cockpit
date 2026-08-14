@@ -35,6 +35,25 @@ function renderEditor(currency = "EUR") {
   );
 }
 
+// ★ TWO rows minimum. A row-unique-name test cannot render a collision on a
+// one-row fixture, so it would pass on broken code.
+function renderTwoRoles() {
+  return render(
+    <RolesEditor
+      lang="en-US" currency="EUR" workdayHours={8}
+      roles={[
+        { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
+        { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
+      ]}
+      disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
+      grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
+      onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+      onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+      onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+    />,
+  );
+}
+
 describe("RolesEditor rate-card table", () => {
   it("renders rate-card rows in the manual `order` sequence when unsorted, and fires onReorderRoles on drop", () => {
     const orderedRoles: Role[] = [
@@ -64,7 +83,11 @@ describe("RolesEditor rate-card table", () => {
     fireEvent.dragStart(bodyRows[2], { dataTransfer: dt });
     fireEvent.drop(bodyRows[0], { dataTransfer: dt });
     expect(onReorderRoles).toHaveBeenCalledTimes(1);
-    expect(onReorderRoles.mock.calls[0][0][0]).toBe(1); // dropped id lands first
+    // Ids in view order are [2,3,1]; dragging id 1 UPWARD onto id 2 lands it in
+    // id 2's slot → [1,2,3]. Upward drags are unaffected by the move to the
+    // shared `reorderIds` splice; a DOWNWARD drag now lands the item in the
+    // target's slot instead of before it (see list-reorder.ts).
+    expect(onReorderRoles.mock.calls[0][0]).toEqual([1, 2, 3]);
   });
 
   it("shows the project currency symbol next to the rate fields, not a hard-coded €", () => {
@@ -222,40 +245,14 @@ describe("RolesEditor rate-card table", () => {
   });
 
   it("gives each row's basis radios a row-unique accessible name (WCAG 2.4.6)", () => {
-    render(
-      <RolesEditor
-        lang="en-US" currency="EUR" workdayHours={8}
-        roles={[
-          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
-          { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
-        ]}
-        disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
-        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
-        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
-        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
-        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
-      />,
-    );
+    renderTwoRoles();
     // Two rows → two distinct "Hours" radios, each qualified by its row context.
     expect(screen.getByRole("radio", { name: "Engineering / Senior — Hours" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Design / Junior — Hours" })).toBeInTheDocument();
   });
 
   it("gives each row's delete button a row-unique accessible name (WCAG 2.4.6)", () => {
-    render(
-      <RolesEditor
-        lang="en-US" currency="EUR" workdayHours={8}
-        roles={[
-          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
-          { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
-        ]}
-        disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
-        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
-        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
-        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
-        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
-      />,
-    );
+    renderTwoRoles();
     // A bare "Delete" repeated per row is a WCAG 2.4.6 fail; each is now qualified
     // by its discipline / grade row context.
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior` })).toBeInTheDocument();
@@ -269,5 +266,28 @@ describe("RolesEditor rate-card table", () => {
     renderEditor();
     const expected = `${t("en-US", "delete")} – Engineering / Senior`;
     expect(screen.getByRole("button", { name: expected })).toHaveAttribute("title", expected);
+  });
+
+  it("sets drag transfer data on dragstart — Firefox will not start a drag without it", () => {
+    // ★ Was missing at BOTH drag sites in this file: the old handlers set only
+    // `effectAllowed`. jsdom dispatches the whole drag sequence regardless, so
+    // a setData spy is the only thing that can catch the omission.
+    renderTwoRoles();
+    const rows = screen.getAllByRole("row").slice(1); // drop the header row
+    const setData = vi.fn();
+    fireEvent.dragStart(rows[0], { dataTransfer: { setData, effectAllowed: "" } });
+    expect(setData).toHaveBeenCalled();
+  });
+
+  it("gives every reorder handle a row-unique accessible name (WCAG 2.4.6)", () => {
+    // ★ Needs ≥2 rows per list, or the collision cannot render and this passes
+    // on broken code. axe cannot detect duplicate accessible names at ANY seed
+    // size, in any view — this test is the only possible detector.
+    renderTwoRoles();
+    const names = screen
+      .getAllByRole("button", { name: /reorder/i })
+      .map((el) => el.getAttribute("aria-label"));
+    expect(names.length).toBeGreaterThan(1);
+    expect(new Set(names).size).toBe(names.length);
   });
 });
