@@ -774,12 +774,26 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   forgot (modern default is the easy miss). Popout `legacyTree` branch renders NO header, so header
   controls correctly never appear in popouts.
 - **Remount-swallow (parent request/nonce → conditionally-mounted child):** modern shell renders ONLY
-  the active view; workspace-section renders ONLY the active tabpanel — so a view MOUNTS FRESH each
-  visit. A child consuming a parent "request"/nonce prop must NOT seed its last-seen/handled ref from the
+  the active view; workspace-section renders only the active tabpanel FOR MOST PANELS — so such a view
+  MOUNTS FRESH each visit. A child consuming a parent "request"/nonce prop must NOT seed its
+  last-seen/handled ref from the
   LIVE prop (`useRef(prop)`/`useState(prop)`) — a fresh mount sees prop===seed and silently SWALLOWS a
   pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must CLEAR (consume) or
   monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view learning deep-link AND
   milestones-panel `openCreateNonce` (Gantt "Add milestone").
+  ★★★ **TWO PANELS ARE THE EXCEPTION AND THIS BULLET USED TO DENY IT** — it said flatly that
+  workspace-section "renders ONLY the active tabpanel", which is true of 27 of its 29 tabpanels and
+  FALSE for `panel-chat` and `panel-raid`: those two are mounted UNCONDITIONALLY and merely
+  `hidden={activeTab !== …}`, with no `key`, so they NEVER remount on navigation and their state
+  survives every tab switch. Reproduce the split rather than trusting these numbers —
+  `grep -c 'role="tabpanel"' src/app/workspace-section.tsx` against
+  `grep -n -B4 'hidden={activeTab' src/app/workspace-section.tsx`, which also names the two.
+  ★★ The direction of the error is what makes it expensive: for those two the danger is the OPPOSITE of
+  remount-swallow. A fresh mount cannot be relied on to clear anything, so state that is only valid
+  under some condition (a mode flag, a project id) must be reset EXPLICITLY when that condition ends —
+  nothing will do it for you. That is exactly how a retained chat thread id survived a Turso→file
+  switch and silently killed every subsequent send (fixed on the chat-thread branch; see the AI
+  Assistant sidebar bullet). Before writing either guard, check which of the two shapes your panel is.
 - **Task editor is ONE floating surface now:** ALL layouts (modern DEFAULT, classic, popout) use the shared
   floating `TaskFormModal` (draggable/resizable/reset; its own `ModalHeader` title+✕). The former modern
   full-page `TaskEditView` (ModernShell `editView` slot / `useEditView`) was RETIRED — modern no longer
@@ -1516,14 +1530,32 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   which it records a landmine for.
 - **AI Assistant chat-thread sidebar is Turso-ONLY.** `chat-panel.tsx` mounts `ChatThreadSidebar`
   (`chat-thread-sidebar.tsx`, over `chat-thread-list.tsx`) only inside `{tursoMode && (...)}`, and
-  `tursoMode` is fed from `workspace-section.tsx`'s `chatTursoMode = (settings.storageConfig?.kind ===
+  `tursoMode` is fed from `workspace-section.tsx`'s `chatTursoMode = (settings.storageConfig.kind ===
   "turso" || mode === "turso") && chatTursoConfig !== null`. ★★ The OR is load-bearing, and this bullet
   used to say `mode === "turso"` alone: `mode` here is the multi-project Turso-PICKER flag
   (`workspace-section-types.ts` `mode: "file" | "turso"`), not `settings.storageConfig.kind` (the
   single-DB Turso STORAGE backend) — gating on `mode` alone silently gave a user on single-project Turso
   storage no chat persistence. Mirrors `task-manager.tsx`'s `trendsActive`, which ORs the identical two
-  signals for Snapshots/Trends. FILE mode is byte-identical to before this branch: no sidebar, no
-  multi-thread persistence.
+  signals for Snapshots/Trends, and reads `settings.storageConfig` unguarded for the same reason — the
+  field is non-optional on `Settings`, so a `?.` here would only mask a broken fixture.
+  ★★★ "FILE MODE" DOES NOT MEAN "UNCHANGED", and this bullet asserted it did — it read "FILE mode is
+  byte-identical to before this branch: no sidebar, no multi-thread persistence." That sentence was true
+  of the ORIGINAL gate (`mode === "turso"` alone) and was carried over verbatim when the OR was added
+  two lines above it, which is the whole failure: `mode === "file"` with single-DB Turso STORAGE and a
+  usable config satisfies the first disjunct, so the sidebar mounts and threads persist. The panel is
+  byte-identical to before this branch only when NEITHER signal is Turso, or when `chatTursoConfig` is
+  null. Pinned by the `mode=file, storageConfig.kind==='turso'` test in `workspace-section.test.tsx`,
+  which is the mirror of the one pinning the `mode` disjunct.
+  ★★★ AND THE FORMULA ABOVE WAS WRONG UNTIL NOW FOR A SECOND REASON WORTH RECORDING: it was quoted with
+  a `?.` that the source does not have. The commit that CORRECTED this paragraph was followed by the
+  VERY NEXT commit on the branch removing the `?.` from `workspace-section.tsx` — so the correction was
+  re-staled one commit after it landed, by its own review round, before anything merged. (Reproduce:
+  `git log --oneline --reverse <base>..HEAD` puts the docs commit immediately before the test commit,
+  and `git log -S'storageConfig?.kind === "turso" || mode' -- src/app/workspace-section.tsx` names the
+  second one as the remover.)
+  `docs:symbols:check` cannot see this (it proves only that a mixed-case NAME exists, and
+  `storageConfig` exists either way). A correction is a NEW claim: re-check it against the tree at the
+  END of the round, not at the moment you wrote it.
   ★★ "AI Assistant" IS in axe `A11Y_VIEWS`, but `e2e/seed.ts` seeds FILE mode, so the gate never renders
   this sidebar — same blind spot class as the other Turso-gated views and the Resources → Calendar
   sub-tab above. Compounding it, axe has no rule that flags two controls sharing an accessible name
