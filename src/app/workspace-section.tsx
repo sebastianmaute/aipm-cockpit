@@ -293,9 +293,9 @@ export function WorkspaceSection({
   const tursoToken = settings.integrations?.turso?.authToken;
   const chatTursoConfig = useMemo(() => getTursoConfig(tursoUrl, tursoToken), [tursoUrl, tursoToken]);
   // Gate on BOTH signals (Turso storage OR Turso portfolio `mode`) AND
-  // `chatTursoConfig !== null`, mirroring task-manager.tsx's `trendsActive` —
-  // `storageConfig?.` guards this file's own tests, which mock a partial settings shape.
-  const chatTursoMode = (settings.storageConfig?.kind === "turso" || mode === "turso") && chatTursoConfig !== null;
+  // `chatTursoConfig !== null` — mirrors task-manager.tsx's `trendsActive`,
+  // which reads storageConfig.kind unguarded; storageConfig is non-optional.
+  const chatTursoMode = (settings.storageConfig.kind === "turso" || mode === "turso") && chatTursoConfig !== null;
   const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
   const panelScrollClass = fullBleed
     ? "min-h-0 flex-1 overflow-y-auto"

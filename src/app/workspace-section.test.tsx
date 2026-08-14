@@ -28,6 +28,12 @@ vi.mock("./use-settings", () => ({
       holidayCountries: [],
       resources: { workdayHours: 8 },
       popout: { reuseWindow: false },
+      // Required (non-optional) on the real `Settings` type — included here so
+      // `workspace-section.tsx` can read `settings.storageConfig.kind` with no
+      // `?.` guard, matching task-manager.tsx's `trendsActive` precedent. Kept
+      // at "browser" (not "turso") so this ambient default stays a non-Turso
+      // fixture, as every test relying on it implicitly assumes.
+      storageConfig: { kind: "browser" as const },
       features: ["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"],
     },
     setSettings: vi.fn(),
@@ -530,17 +536,36 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     expect(props.tursoConfig).not.toBeNull();
   });
 
-  // ★ This is the test that matters — it pins that the `mode` half of the gate
-  // is load-bearing. With valid Turso credentials and `storageConfig.kind`
-  // NOT "turso" (so that signal can't carry it), switching only `mode` to
-  // "file" must turn tursoMode off. Without this test, deleting
-  // `mode === "turso" ||` from the gate would leave every other test green.
+  // ★ Pins that with valid Turso credentials but NEITHER OR-operand set to
+  // "turso" (mode=file, storageConfig.kind=browser), tursoMode stays false —
+  // i.e. `chatTursoConfig !== null` alone can't carry the gate open.
+  // ★★ Mutation-measured, and this is NOT the test that pins the `mode`
+  // disjunct: deleting `mode === "turso" ||` from the gate leaves THIS test
+  // green, because both OR operands are already false here — the mutated and
+  // real gates agree. The `mode` disjunct is pinned by the next test below,
+  // which sets mode="turso" while keeping storageConfig.kind!=="turso" so
+  // only the `mode` signal can carry the result.
   it("mode=file, storageConfig.kind!=='turso', with Turso credentials configured: ChatPanel receives tursoMode false", async () => {
     vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettingsBrowserStorage);
     render(<WorkspaceSection {...makeProps({ mode: "file" })} />, { wrapper: Wrapper });
     await screen.findByTestId("chat-panel");
     const props = chatPanelMock.props.at(-1)!;
     expect(props.tursoMode).toBe(false);
+  });
+
+  // ★★★ THIS is the test that pins the `mode` disjunct — mutation-verified
+  // (see VERIFY section in the commit this landed with). With valid Turso
+  // credentials and `storageConfig.kind` NOT "turso" (isolating the storage
+  // signal via `tursoConfiguredSettingsBrowserStorage`), setting `mode` alone
+  // to "turso" must turn tursoMode ON. Deleting `mode === "turso" ||` from the
+  // gate turns this test RED; the test above stays green under that same
+  // mutation (see its comment) — the two together cover both directions.
+  it("mode=turso, storageConfig.kind!=='turso', with Turso credentials configured: ChatPanel receives tursoMode true", async () => {
+    vi.mocked(useSettings).mockReturnValue(tursoConfiguredSettingsBrowserStorage);
+    render(<WorkspaceSection {...makeProps({ mode: "turso" })} />, { wrapper: Wrapper });
+    await screen.findByTestId("chat-panel");
+    const props = chatPanelMock.props.at(-1)!;
+    expect(props.tursoMode).toBe(true);
   });
 
   it("mode=turso with NO Turso credentials configured: ChatPanel receives tursoMode false", async () => {
