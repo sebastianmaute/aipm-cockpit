@@ -53,6 +53,21 @@ describe("ChatThreadList", () => {
     expect(screen.getByText("Untitled chat")).toBeInTheDocument();
   });
 
+  it("renders the thread rows inside a role=list container (Tailwind Preflight strips native list semantics)", () => {
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("list")).toBeInTheDocument();
+  });
+
   it("calls onSelect with the clicked thread's id", () => {
     const onSelect = vi.fn();
     render(
@@ -140,5 +155,134 @@ describe("ChatThreadList", () => {
     fireEvent.change(input, { target: { value: "  Q2 budget  " } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(onRename).toHaveBeenCalledWith("a", "Q2 budget");
+  });
+
+  it("does not double-commit when blur fires after an Enter commit (real-browser node-removal blur)", () => {
+    // jsdom does not fire a native blur when the focused element is removed
+    // from the DOM (unlike real browsers, per the HTML spec's unfocusing
+    // steps), so this cannot reproduce the browser hazard end-to-end here.
+    // It instead pins the GUARD directly: fire Enter (which commits and
+    // unmounts the input), then fire blur explicitly on the same node and
+    // assert onRename still only fired once. This fails against the
+    // unguarded code and passes against the guarded code.
+    const onRename = vi.fn();
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={onRename}
+        onDelete={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: 'Rename "Q1 budget"' }));
+    const input = screen.getByRole("textbox", { name: 'Rename "Q1 budget"' });
+    fireEvent.change(input, { target: { value: "Q2 budget" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.blur(input);
+    expect(onRename).toHaveBeenCalledTimes(1);
+    expect(onRename).toHaveBeenCalledWith("a", "Q2 budget");
+  });
+
+  it("cancels the rename on Escape without calling onRename", () => {
+    const onRename = vi.fn();
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={onRename}
+        onDelete={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: 'Rename "Q1 budget"' }));
+    const input = screen.getByRole("textbox", { name: 'Rename "Q1 budget"' });
+    fireEvent.change(input, { target: { value: "Q2 budget" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: 'Rename "Q1 budget"' })).not.toBeInTheDocument();
+  });
+
+  it("falls back to Untitled chat for a whitespace-only name, in both the visible text and every control's accessible name", () => {
+    const whitespaceThread: ChatThread = { ...threadA, id: "c", name: "   " };
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[whitespaceThread]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Untitled chat")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Open "Untitled chat"' })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Rename "Untitled chat"' })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Delete "Untitled chat"' })).toBeInTheDocument();
+  });
+
+  it("keeps the active-state marker out of the accessibility tree", () => {
+    // The marker (Dot with no `label`) must stay aria-hidden — it renders
+    // role="img" ONLY when Dot receives a `label`, so asserting no "img" role
+    // exists anywhere pins that this call site never adds one. Mutation-
+    // proved: giving the Dot a `label` (or any change that drops its
+    // aria-hidden) turns this red.
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA, threadB]}
+        activeThreadId={threadA.id}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("marks the active row with aria-current and leaves it off the inactive row", () => {
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA, threadB]}
+        activeThreadId={threadA.id}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const activeButton = screen.getByRole("button", { name: 'Open "Q1 budget"' });
+    const inactiveButton = screen.getByRole("button", { name: 'Open "Untitled chat"' });
+    expect(activeButton).toHaveAttribute("aria-current", "true");
+    expect(inactiveButton).not.toHaveAttribute("aria-current");
+  });
+
+  it("gives the Rename and Delete controls row-unique accessible names across two threads", () => {
+    // Tests 5/6 above render a single thread each, so a name collision on
+    // Rename/Delete would go undetected there — a getByRole exact-name match
+    // THROWS on multiple matches, which is what makes this a collision
+    // detector, so resolving both names for both threads is the assertion.
+    render(
+      <ChatThreadList
+        lang="en-US"
+        threads={[threadA, threadB]}
+        activeThreadId={null}
+        onSelect={vi.fn()}
+        onNew={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: 'Rename "Q1 budget"' })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Rename "Untitled chat"' })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Delete "Q1 budget"' })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: 'Delete "Untitled chat"' })).toBeInTheDocument();
   });
 });

@@ -11,7 +11,7 @@
 // The row-unique accessible names (WCAG 2.4.6) and the non-colour active
 // marker (WCAG 1.4.1) below are pinned ONLY by chat-thread-list.test.tsx.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
@@ -33,11 +33,16 @@ export interface ChatThreadListProps {
   className?: string;
 }
 
-/** A blank `ChatThread.name` (not yet auto-derived — see chat-threads.ts
- *  `deriveThreadName`) falls back to the translated "Untitled chat" for both
- *  the visible row text and every per-row control's accessible name. */
+/** A blank OR whitespace-only `ChatThread.name` (not yet auto-derived — see
+ *  chat-threads.ts `deriveThreadName`) falls back to the translated
+ *  "Untitled chat" for both the visible row text and every per-row control's
+ *  accessible name. Trims before the fallback check (and returns the TRIMMED
+ *  name, not the raw one) so a name that is merely whitespace never renders a
+ *  blank-looking row with a non-empty accessible name — mirrors
+ *  `commitRename`, which also trims before falling back. */
 function displayName(lang: Lang, name: string): string {
-  return name || t(lang, "chatThreadUntitled");
+  const trimmed = name.trim();
+  return trimmed.length > 0 ? trimmed : t(lang, "chatThreadUntitled");
 }
 
 export function ChatThreadList({
@@ -52,18 +57,35 @@ export function ChatThreadList({
 }: ChatThreadListProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
+  // Double-commit guard (mirrors use-inline-cell-edit.ts): Enter calls
+  // commitRename, which clears renamingId and unmounts the focused <Input>.
+  // Per the HTML spec's unfocusing steps, removing a focused element fires a
+  // native blur — so the still-attached onBlur handler runs commitRename a
+  // SECOND time for one keypress. jsdom does not implement node-removal blur
+  // (so this never reproduces in the unit suite), but real browsers do. A ref
+  // — not renamingId state, which is stale inside the same tick's closures —
+  // tracks the row actually being renamed; once cleared, a second commit for
+  // that id is a no-op. Not reused via useInlineCellEdit: that hook's
+  // `InlineField` union is task-row-cell-specific (a fixed set of column
+  // names), not an id-keyed row rename — the guard here is the same shape,
+  // sized to this component instead.
+  const renamingIdRef = useRef<string | null>(null);
 
   function startRename(th: ChatThread) {
+    renamingIdRef.current = th.id;
     setRenamingId(th.id);
     setDraftName(th.name);
   }
 
   function commitRename(id: string) {
-    onRename(id, draftName.trim() || t(lang, "chatThreadUntitled"));
+    if (renamingIdRef.current !== id) return; // double-commit guard (blur after Enter)
+    renamingIdRef.current = null;
     setRenamingId(null);
+    onRename(id, draftName.trim() || t(lang, "chatThreadUntitled"));
   }
 
   function cancelRename() {
+    renamingIdRef.current = null;
     setRenamingId(null);
   }
 
@@ -77,7 +99,10 @@ export function ChatThreadList({
       {threads.length === 0 ? (
         <EmptyState title={t(lang, "chatThreadEmptyTitle")} description={t(lang, "chatThreadEmptyBody")} compact />
       ) : (
-        <ul className="flex flex-col gap-0.5">
+        // Tailwind v4 Preflight sets `list-style: none` on every ul/ol, which
+        // makes Safari/VoiceOver drop list/listitem semantics — role="list"
+        // restores them (precedent: sidebar-nav.tsx, comm-template-diff-view.tsx).
+        <ul role="list" className="flex flex-col gap-0.5">
           {threads.map((th) => {
             const name = displayName(lang, th.name);
             const isActive = th.id === activeThreadId;
@@ -104,7 +129,7 @@ export function ChatThreadList({
                     className="w-full"
                   />
                 ) : (
-                  <div className="group flex items-center gap-1 rounded-md hover:bg-surface-muted">
+                  <div className="flex items-center gap-1 rounded-md hover:bg-surface-muted">
                     <button
                       type="button"
                       onClick={() => onSelect(th.id)}
