@@ -7,7 +7,7 @@
 // name, at any seed size; a unit test rendering >=2 rows is the only
 // possible detector, which is why test 1 renders both threads.
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ChatThreadList } from "./chat-thread-list";
 import type { ChatThread } from "./chat-threads";
 
@@ -157,14 +157,34 @@ describe("ChatThreadList", () => {
     expect(onRename).toHaveBeenCalledWith("a", "Q2 budget");
   });
 
-  it("does not double-commit when blur fires after an Enter commit (real-browser node-removal blur)", () => {
+  it("does not double-commit when blur fires after an Enter commit (double-commit guard)", () => {
     // jsdom does not fire a native blur when the focused element is removed
     // from the DOM (unlike real browsers, per the HTML spec's unfocusing
-    // steps), so this cannot reproduce the browser hazard end-to-end here.
-    // It instead pins the GUARD directly: fire Enter (which commits and
-    // unmounts the input), then fire blur explicitly on the same node and
-    // assert onRename still only fired once. This fails against the
-    // unguarded code and passes against the guarded code.
+    // steps), so the real-browser hazard this guard defends against cannot be
+    // reproduced end-to-end here — see the guard's own comment in
+    // chat-thread-list.tsx. An EARLIER version of this test fired Enter and
+    // blur as two separate `fireEvent` calls; each `fireEvent` call is
+    // individually wrapped in `act()`, which flushes React's pending
+    // `setRenamingId(null)` and unmounts the <Input> BEFORE the blur was
+    // dispatched — so the explicit `fireEvent.blur(input)` landed on an
+    // already-detached node. React 19 wires `onBlur` via a delegated
+    // listener on the root container, so a detached node has no path to it,
+    // and the second `commitRename` call never happened — guard or no
+    // guard. That version passed at 13/13 with the guard line deleted from
+    // the source (verified by hand); it could not fail.
+    //
+    // This version wraps BOTH `fireEvent` calls in one explicit outer
+    // `act()`. React's `act()` tracks nesting and only the OUTERMOST call
+    // flushes pending work, so the inner per-`fireEvent` act() calls do not
+    // commit the unmount between the two dispatches — both events reach the
+    // still-mounted <Input> in the same synchronous scope, which is exactly
+    // how the guard is meant to be exercised: `commitRename`'s ref-clearing
+    // is a plain synchronous mutation (not tied to React's commit), so the
+    // second (blur-triggered) call already sees the ref the first
+    // (Enter-triggered) call cleared, regardless of whether the DOM has
+    // physically unmounted yet. Mutation-proved: deleting the guard line
+    // turns this test RED — `onRename` called 2 times instead of 1 (verified
+    // by hand, same procedure as above).
     const onRename = vi.fn();
     render(
       <ChatThreadList
@@ -180,8 +200,10 @@ describe("ChatThreadList", () => {
     fireEvent.click(screen.getByRole("button", { name: 'Rename "Q1 budget"' }));
     const input = screen.getByRole("textbox", { name: 'Rename "Q1 budget"' });
     fireEvent.change(input, { target: { value: "Q2 budget" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-    fireEvent.blur(input);
+    act(() => {
+      fireEvent.keyDown(input, { key: "Enter" });
+      fireEvent.blur(input);
+    });
     expect(onRename).toHaveBeenCalledTimes(1);
     expect(onRename).toHaveBeenCalledWith("a", "Q2 budget");
   });

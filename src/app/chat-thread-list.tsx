@@ -61,14 +61,23 @@ export function ChatThreadList({
   // commitRename, which clears renamingId and unmounts the focused <Input>.
   // Per the HTML spec's unfocusing steps, removing a focused element fires a
   // native blur — so the still-attached onBlur handler runs commitRename a
-  // SECOND time for one keypress. jsdom does not implement node-removal blur
-  // (so this never reproduces in the unit suite), but real browsers do. A ref
-  // — not renamingId state, which is stale inside the same tick's closures —
-  // tracks the row actually being renamed; once cleared, a second commit for
-  // that id is a no-op. Not reused via useInlineCellEdit: that hook's
-  // `InlineField` union is task-row-cell-specific (a fixed set of column
-  // names), not an id-keyed row rename — the guard here is the same shape,
-  // sized to this component instead.
+  // SECOND time for one keypress. jsdom does not implement node-removal blur,
+  // so that exact real-browser sequence cannot be reproduced end-to-end in
+  // the unit suite — but real browsers do fire it. A ref — not renamingId
+  // state, which is stale inside the same tick's closures — tracks the row
+  // actually being renamed; once cleared, a second commit for that id is a
+  // no-op. Not reused via useInlineCellEdit: that hook's `InlineField` union
+  // is task-row-cell-specific (a fixed set of column names), not an id-keyed
+  // row rename — the guard here is the same shape, sized to this component
+  // instead.
+  //
+  // ★ chat-thread-list.test.tsx DOES pin this guard directly, via a
+  // different mechanism than literal node-removal blur: it fires the Enter
+  // keydown and the blur inside one explicit outer `act()`, which keeps
+  // React's flush (and therefore the <Input>'s unmount) from landing between
+  // the two dispatches, so both reach the still-mounted node in one
+  // synchronous scope — see that test's comment for the mutation proof
+  // (guard deleted ⇒ test goes RED, onRename called twice).
   const renamingIdRef = useRef<string | null>(null);
 
   function startRename(th: ChatThread) {
