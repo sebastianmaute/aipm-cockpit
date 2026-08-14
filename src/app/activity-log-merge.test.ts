@@ -20,6 +20,12 @@ describe("mergeActivityLogs", () => {
     expect(merged.map((e) => e.id)).toEqual(["dev1-1", "dev1-2", "dev2-1"]);
   });
 
+  it("resolves a duplicate id in favour of b (the later side)", () => {
+    const a = [{ ...entry("dev1-2", "2026-08-02T00:00:00.000Z"), args: ["FROM-A"] }];
+    const b = [{ ...entry("dev1-2", "2026-08-02T00:00:00.000Z"), args: ["FROM-B"] }];
+    expect(mergeActivityLogs(a, b)[0].args).toEqual(["FROM-B"]);
+  });
+
   it("sorts by timestamp ascending regardless of input order", () => {
     const a = [entry("dev1-9", "2026-08-09T00:00:00.000Z")];
     const b = [entry("dev1-1", "2026-08-01T00:00:00.000Z")];
@@ -44,6 +50,8 @@ describe("mergeActivityLogs", () => {
   it("returns a NEW array even when one side is empty (reference-equality dirty check)", () => {
     const a = [entry("dev1-1", "2026-08-01T00:00:00.000Z")];
     expect(mergeActivityLogs(a, [])).not.toBe(a);
+    const b = [entry("dev2-1", "2026-08-02T00:00:00.000Z")];
+    expect(mergeActivityLogs([], b)).not.toBe(b);
   });
 
   it("agrees on membership regardless of argument order, and never exceeds the cap", () => {
@@ -56,8 +64,10 @@ describe("mergeActivityLogs", () => {
             raw.map(([id, ms]) => entry(id, new Date(ms).toISOString()));
           const ab = mergeActivityLogs(toEntries(rawA), toEntries(rawB));
           const ba = mergeActivityLogs(toEntries(rawB), toEntries(rawA));
-          expect(new Set(ab.map((e) => e.id))).toEqual(new Set(ba.map((e) => e.id)));
-          expect(ab.length).toBeLessThanOrEqual(ACTIVITY_MAX_ENTRIES);
+          const expectedIds = new Set([...rawA, ...rawB].map(([id]) => id));
+          expect(new Set(ab.map((e) => e.id))).toEqual(expectedIds);
+          expect(new Set(ba.map((e) => e.id))).toEqual(expectedIds);
+          expect(ab.length).toBe(Math.min(expectedIds.size, ACTIVITY_MAX_ENTRIES));
         },
       ),
     );
