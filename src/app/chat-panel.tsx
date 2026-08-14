@@ -52,6 +52,7 @@ import { AiHttpError, classifyAiError } from "./ai-errors";
 import { ToolBlock } from "./chat-tool-block";
 import type { TursoConfig } from "./turso-config";
 import { useChatThreads } from "./use-chat-threads";
+import { ChatThreadSidebar } from "./chat-thread-sidebar";
 
 /** A staged upload: the Anthropic content block plus display metadata. */
 type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
@@ -648,6 +649,21 @@ function ChatPanelInner({
     // Centered half-size card, top-anchored. The corner drags to a custom size
     // (persisted via useResizable); ResetSizeButton restores the default.
     <div ref={chatRef} className={CHAT_PANE_CLASS}>
+    <div className="flex h-full min-h-0 flex-1 gap-3">
+      {tursoMode && (
+        <ChatThreadSidebar
+          lang={lang}
+          threads={chatThreads.threads}
+          activeThreadId={chatThreads.activeThreadId}
+          error={chatThreads.threadsError}
+          onRetry={chatThreads.retryLoad}
+          onSelect={chatThreads.selectThread}
+          onNew={chatThreads.newThread}
+          onRename={chatThreads.renameThread}
+          onDelete={chatThreads.requestDeleteThread}
+        />
+      )}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <Select
           size="xs"
@@ -891,6 +907,8 @@ function ChatPanelInner({
         </div>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatAttachmentHint")}</p>
+      </div>
+    </div>
     </div>
   );
 }

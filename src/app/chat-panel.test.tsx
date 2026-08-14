@@ -1300,6 +1300,21 @@ describe("ChatPanel — Turso thread persistence", () => {
     // No error banner from the stale send leaks onto the newly active thread.
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  // -------------------------------------------------------------------
+  // Task 6: the sidebar itself. Everything above this point predates the
+  // sidebar UI; these two pin that the tursoMode gate — the one thing that
+  // could silently regress file mode — actually gates rendering.
+  // -------------------------------------------------------------------
+  it("renders no sidebar in file mode (tursoMode omitted) — existing behavior untouched", () => {
+    renderChatPanel({});
+    expect(screen.queryByRole("button", { name: "New chat" })).not.toBeInTheDocument();
+  });
+
+  it("renders the thread sidebar when tursoMode is true", () => {
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    expect(screen.getByRole("button", { name: "New chat" })).toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
