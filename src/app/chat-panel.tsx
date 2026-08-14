@@ -214,7 +214,7 @@ function ChatPanelInner({
   const projectIdRef = useRef(projectId);
   // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
   // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
-  // below reads only .activeThreadId/.threadIdRef.
+  // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
   const chatThreads = useChatThreads({
     tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
   });
@@ -337,7 +337,12 @@ function ChatPanelInner({
       atts.length > 0
         ? [text, ...atts.map((a) => `📎 ${a.name}`)].filter(Boolean).join("\n")
         : text;
-    setDisplay((prev) => [...prev, { kind: "user", text: displayText }]);
+    const userDisplayItem: DisplayItem = { kind: "user", text: displayText };
+    setDisplay((prev) => [...prev, userDisplayItem]);
+    // Insert+save a row for a brand-new thread NOW, not once the turn
+    // settles — else a mid-send switch to another thread loses this message
+    // with no recovery path (see ensureThreadForSend's doc comment).
+    chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
 
     const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides);
     const messages = newHistory.slice();

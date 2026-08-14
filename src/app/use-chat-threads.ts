@@ -15,10 +15,12 @@
 //
 // ChatPanel still owns: history/display/busy state, submitPrompt (incl. its
 // stale()/switchedAway checks, which read this hook's `activeThreadId` and
-// `threadIdRef`), projectIdRef, cancelledRef, abortRef, and the render-time
-// seenProjectId reconcile. This hook owns only the THREAD half: the thread
-// list, the active thread, fetch/save/rename/delete, and the ref that lets an
-// in-flight send detect it was switched away from.
+// `threadIdRef`, and its call to `ensureThreadForSend` right after the user's
+// turn is committed locally), projectIdRef, cancelledRef, abortRef, and the
+// render-time seenProjectId reconcile. This hook owns only the THREAD half:
+// the thread list, the active thread, fetch/save/rename/delete, the ref that
+// lets an in-flight send detect it was switched away from, and the retry
+// action for a failed fetch/save.
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
@@ -61,9 +63,31 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // note. Always empty/unused in file mode.
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  // Read by ChatThreadList (wired in Task 6) to show a fetch/save/delete
-  // failure banner.
+  // Read by ChatThreadSidebar to show a fetch/save/rename/delete failure
+  // banner.
   const [threadsError, setThreadsError] = useState(false);
+  // Holds a thunk that re-issues whatever Turso WRITE (save or delete) last
+  // failed — see runPersist. retryLoad() prefers this over a fresh fetch:
+  // clicking "Retry" after a failed SAVE must re-send that same payload, not
+  // pull whatever the server already has (which by definition excludes the
+  // failed write) and stomp the live conversation with it — that was the
+  // destructive bug this hook used to have. Left null whenever nothing is
+  // outstanding (a write just succeeded, or the only failure on record is the
+  // initial FETCH, which has no payload to replay — see retryLoad).
+  const pendingRetryRef = useRef<(() => void) | null>(null);
+  // Mirrors the latest COMMITTED `threads` value. requestDeleteThread awaits
+  // a confirm() dialog before acting — the `threads` closure captured at
+  // call time is stale by the time that await resolves if anything else
+  // (the busy-persist effect settling, a rename) wrote to `threads` while
+  // the dialog was open. Reading this ref afterward, instead of capturing a
+  // value via a setState updater's side effect, avoids relying on React
+  // invoking that updater synchronously (it does not always) — updaters are
+  // supposed to be pure, and a value assigned inside one for later use
+  // outside it is not reliably available right after the setter call.
+  const threadsRef = useRef(threads);
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
   // Latest committed activeThreadId, read by the in-flight send to detect a
   // mid-send THREAD switch — same shape/purpose as ChatPanel's own
   // projectIdRef, which only ever covered a project switch. Without this,
@@ -84,11 +108,31 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     }
   }, [activeThreadId, cancelledRef, abortRef]);
 
+  // Fire a Turso WRITE (save or delete), tracking it as the retry target on
+  // failure and clearing both the pending retry and the error banner on any
+  // success. Shared by the busy-persist effect, ensureThreadForSend,
+  // renameThread and requestDeleteThread so "Retry" means the same thing
+  // everywhere — redo exactly the write that just failed.
+  function runPersist(action: () => Promise<void>): void {
+    action()
+      .then(() => {
+        pendingRetryRef.current = null;
+        setThreadsError(false);
+      })
+      .catch(() => {
+        pendingRetryRef.current = () => runPersist(action);
+        setThreadsError(true);
+      });
+  }
+
   // Turso mode: (re)fetch this project's thread list on mount and on project
   // switch, then adopt the most-recently-updated thread (or the empty state).
   // File mode never runs this — ChatPanel's render-time reconcile is its path.
   useEffect(() => {
     if (!tursoMode) return;
+    // A pending WRITE retry from a previous project/mount no longer applies
+    // once we start a fresh fetch for (possibly) a different project.
+    pendingRetryRef.current = null;
     let cancelled = false;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
@@ -113,10 +157,20 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     };
   }, [tursoMode, projectId, tursoConfig, setHistory, setDisplay]);
 
-  // Manual re-fetch for Task 6's retry banner. Not effect-bound — a plain
-  // function invoked from a click handler — so it needs none of the mount
-  // effect's cancellation tracking.
+  // The banner's single retry action. If a save or delete failed,
+  // `pendingRetryRef` holds a thunk that re-issues exactly that write —
+  // retry must NEVER fall back to reloading in that case, since the server
+  // by definition does not have what just failed to save, and overwriting
+  // the live conversation with it would destroy the very thing the banner is
+  // trying to rescue. Only when nothing is pending — meaning the FAILURE ON
+  // RECORD was the initial fetch itself, whose own catch branch above already
+  // reset history/display to empty — is a reload both correct and safe:
+  // there is no live conversation left to lose.
   function retryLoad(): void {
+    if (pendingRetryRef.current) {
+      pendingRetryRef.current();
+      return;
+    }
     if (!tursoMode) return;
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
@@ -168,9 +222,49 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       display,
     };
     setThreads((prev) => [thread, ...prev.filter((th) => th.id !== id)]);
-    saveThread(tursoConfig, thread).catch(() => setThreadsError(true));
+    runPersist(() => saveThread(tursoConfig, thread));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy]);
+
+  // Called by ChatPanel's submitPrompt right after it commits the user's turn
+  // into history/display, before awaiting the model. A brand-new thread
+  // (minted by newThread(), not yet in `threads`) normally gets no row until
+  // its first turn SETTLES (the busy-persist effect above) — deliberately,
+  // to avoid a write for every intermediate state during a turn. But that
+  // means if the user switches to a DIFFERENT thread before the reply lands,
+  // selectThread() overwrites history/display with the other thread's
+  // content and aborts this send; when it then finishes (via the abort's
+  // finally), the busy-persist effect reads whatever is THEN
+  // active/displayed — the OTHER thread, unchanged — and saves that. The
+  // abandoned new thread's just-sent message is never captured anywhere: a
+  // real, silent loss of user-authored content. Inserting (and saving) a
+  // minimal row for the new thread the instant its first send starts closes
+  // that window — the message already has a durable home before there is any
+  // chance to switch away from it. No-ops (and costs nothing) once the
+  // thread already has a row, so every later turn is still exactly one save,
+  // matching this hook's write-amplification design.
+  function ensureThreadForSend(sentHistory: ApiMessage[], sentDisplay: DisplayItem[]): void {
+    if (!tursoMode || activeThreadId === null) return;
+    // No await happened between this render and this call (ChatPanel invokes
+    // it synchronously, right after committing the user's turn) — the
+    // `threads` closure is still fresh, so it's safe to decide "does this
+    // thread already have a row" from it directly, unlike requestDeleteThread
+    // below (which awaits a confirm dialog first).
+    if (threads.some((th) => th.id === activeThreadId)) return;
+    const id = activeThreadId;
+    const now = new Date().toISOString();
+    const inserted: ChatThread = {
+      id,
+      projectId,
+      name: deriveThreadName(sentDisplay),
+      createdAt: now,
+      updatedAt: now,
+      history: stripAttachmentsForPersistence(sentHistory),
+      display: sentDisplay,
+    };
+    setThreads((prev) => (prev.some((th) => th.id === id) ? prev : [inserted, ...prev]));
+    runPersist(() => saveThread(tursoConfig, inserted));
+  }
 
   function selectThread(id: string) {
     if (id === activeThreadId) return;
@@ -184,40 +278,43 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     setActiveThreadId(newThreadId());
     setHistory([]);
     setDisplay([]);
-    // No row inserted yet — the busy-transition effect above inserts it once
-    // the first turn completes (mirrors "no row until first save" in the design).
+    // No row inserted yet — ensureThreadForSend (on the first send) or the
+    // busy-persist effect (once that turn settles) inserts it.
   }
 
-  async function renameThread(id: string, name: string) {
+  function renameThread(id: string, name: string): void {
     const target = threads.find((th) => th.id === id);
     if (!target) return;
     const updated: ChatThread = { ...target, name, updatedAt: new Date().toISOString() };
     setThreads((prev) => prev.map((th) => (th.id === id ? updated : th)));
-    try {
-      await saveThread(tursoConfig, updated);
-    } catch {
-      setThreadsError(true);
-    }
+    runPersist(() => saveThread(tursoConfig, updated));
   }
 
-  async function requestDeleteThread(id: string) {
+  async function requestDeleteThread(id: string): Promise<void> {
     const target = threads.find((th) => th.id === id);
     if (!target) return;
     const displayName = target.name || t(lang, "chatThreadUntitled");
     if (!(await confirm({ message: t(lang, "chatThreadDeleteConfirm", displayName), tone: "danger" }))) return;
-    const remaining = threads.filter((th) => th.id !== id);
-    setThreads(remaining);
-    if (activeThreadId === id) {
+    // `threads`/`activeThreadId` above were captured at render time, BEFORE
+    // this await — a concurrent write (the busy-persist effect settling, or
+    // a rename) while the confirm dialog was open must not be clobbered by
+    // reverting to that stale snapshot. `threadsRef`/`threadIdRef` mirror the
+    // latest COMMITTED state (kept fresh by their own sync effects) — read
+    // those instead of relying on a setState updater's side effect (React
+    // does not guarantee an updater runs synchronously before the next
+    // line — updaters are meant to be pure).
+    const remaining = threadsRef.current.filter((th) => th.id !== id);
+    setThreads((prev) => prev.filter((th) => th.id !== id));
+    if (threadIdRef.current === id) {
       const next = remaining[0] ?? null;
       setActiveThreadId(next?.id ?? null);
       setHistory(next?.history ?? []);
       setDisplay(next?.display ?? []);
     }
-    try {
-      await deleteThreadRow(tursoConfig, id);
-    } catch {
-      setThreadsError(true);
-    }
+    // Scope the delete by project (defense-in-depth against a project-id
+    // collision in the id space) — `target` was resolved from `threads`
+    // before the confirm await and still carries the row's own projectId.
+    runPersist(() => deleteThreadRow(tursoConfig, id, target.projectId));
   }
 
   return {
@@ -227,6 +324,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     setThreadsError,
     setThreads,
     threadIdRef,
+    ensureThreadForSend,
     selectThread,
     newThread,
     renameThread,
