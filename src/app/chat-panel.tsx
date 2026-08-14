@@ -307,14 +307,10 @@ function ChatPanelInner({
     cancelledRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
-    // Bind this send to the project AND thread it started on. If the user
-    // switches project or thread mid-send, `stale()` becomes true and every
-    // subsequent state write is skipped — the reply can't corrupt the new
-    // project's or thread's conversation.
+    // Bind this send to the project it started on. The THREAD half of this
+    // binding (`sendThreadId`) is captured further down, only after
+    // ensureThreadForSend has resolved — see the comment there.
     const sendProjectId = projectId;
-    const sendThreadId = chatThreads.activeThreadId;
-    const stale = () =>
-      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
 
     // With attachments the user turn is a multimodal content array (text first,
     // then each document/image block); otherwise a plain string.
@@ -341,8 +337,20 @@ function ChatPanelInner({
     setDisplay((prev) => [...prev, userDisplayItem]);
     // Insert+save a row for a brand-new thread NOW, not once the turn
     // settles — else a mid-send switch to another thread loses this message
-    // with no recovery path (see ensureThreadForSend's doc comment).
-    chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
+    // with no recovery path (see ensureThreadForSend's doc comment). This
+    // ALSO covers the case where no thread was active yet at all (a fresh
+    // Turso project) — ensureThreadForSend mints and adopts an id itself in
+    // that case.
+    //
+    // `sendThreadId` is captured from the RETURN VALUE, not from
+    // `chatThreads.activeThreadId` read earlier — reading it before this
+    // call would still see the pre-mint `null` on a fresh project's first
+    // send, and every `threadIdRef.current !== sendThreadId` guard below
+    // would then wrongly see the newly-adopted id as a mismatch and treat
+    // this send as already stale (see ensureThreadForSend's own comment).
+    const sendThreadId = chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
+    const stale = () =>
+      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
 
     const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides);
     const messages = newHistory.slice();

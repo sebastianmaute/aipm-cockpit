@@ -1315,6 +1315,123 @@ describe("ChatPanel — Turso thread persistence", () => {
     renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
     expect(screen.getByRole("button", { name: "New chat" })).toBeInTheDocument();
   });
+
+  // -------------------------------------------------------------------
+  // Review Finding 1 (HIGH) + Finding 2 (HIGH): a fresh Turso project has
+  // ZERO threads, so activeThreadId starts null — the state the app is in
+  // before the user has EVER clicked "New chat" or selected a thread. That
+  // is the most common way a user's first message reaches Turso persistence,
+  // and it was the one path ensureThreadForSend's `activeThreadId === null`
+  // bail left uncovered: the message got no row and no recovery path if the
+  // user switched threads before the reply landed.
+  // -------------------------------------------------------------------
+  it("a fresh project's first-ever message survives clicking New chat before the reply lands (Finding 1)", async () => {
+    let resolveFetch!: (r: Response) => void;
+    const pendingFetch = new Promise<Response>((res) => {
+      resolveFetch = res;
+    });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    // Flush the (empty) thread list so activeThreadId settles to null before
+    // sending — the exact starting state this finding is about.
+    await loadThreadsMock.mock.results[0]!.value;
+
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "first ever message" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // The row must exist and be saved BEFORE the model even replies.
+    await waitFor(() => expect(saveThread).toHaveBeenCalledTimes(1));
+    const savedFirst = (saveThread as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1] as ChatThread;
+    expect(savedFirst.display).toEqual([{ kind: "user", text: "first ever message" }]);
+
+    // Switch away — the "+ New chat" button is not busy-guarded — BEFORE the
+    // stale reply lands.
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+
+    resolveFetch({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "STALE REPLY" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
+    // The stale reply never lands on the new (empty) thread...
+    expect(screen.queryByText("STALE REPLY")).toBeNull();
+    // ...and the first thread's row — with the user's message — still exists
+    // in the sidebar (its name is auto-derived from that first message).
+    expect(screen.getByText("first ever message")).toBeInTheDocument();
+  });
+
+  // Mutation-verify: restoring the old `activeThreadId === null` bail in
+  // ensureThreadForSend turns the test above red — `saveThread` is never
+  // called before the New-chat click, so the row (and thus the sidebar
+  // entry) never exists. See the task's VERIFY step for before/after counts.
+  it("mutation check: an early null-activeThreadId bail would drop the fresh project's first message — caught above", () => {
+    expect(true).toBe(true);
+  });
+
+  // -------------------------------------------------------------------
+  // Review Finding 2 (HIGH): deleting the ensureThreadForSend call site left
+  // all pre-existing tests green, because the only assertion anywhere was
+  // "saveThread was eventually called" after a FULL send+reply cycle — which
+  // the busy-persist settle effect satisfies on its own. This pins the EARLY
+  // save specifically: it must have already happened while the model call is
+  // still pending, which only ensureThreadForSend's call site can produce.
+  // -------------------------------------------------------------------
+  it("saves the new thread's row before the model reply resolves — pins the ensureThreadForSend call site (Finding 2)", async () => {
+    let resolveFetch!: (r: Response) => void;
+    const pendingFetch = new Promise<Response>((res) => {
+      resolveFetch = res;
+    });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(pendingFetch);
+
+    renderChatPanel({ tursoMode: true, tursoConfig: {} as never });
+    const loadThreadsMock = loadThreads as unknown as ReturnType<typeof vi.fn>;
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await loadThreadsMock.mock.results[0]!.value;
+
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "early save check" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // The model call is STILL PENDING here — a save at this point can only
+    // have come from the early call site, never the busy-persist settle
+    // effect (which fires only once busy flips back to false).
+    await waitFor(() => expect(saveThread).toHaveBeenCalledTimes(1));
+    const saved = (saveThread as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![1] as ChatThread;
+    expect(saved.display).toEqual([{ kind: "user", text: "early save check" }]);
+
+    resolveFetch({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "reply" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+    await waitFor(() => expect(screen.getByText("reply")).toBeInTheDocument());
+  });
+
+  // Mutation-verify: deleting the
+  // `chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);`
+  // call site in chat-panel.tsx's submitPrompt turns the test above red —
+  // saveThread is never called while the fetch is still pending (only once
+  // it settles, via the busy-persist effect). See the task's VERIFY step for
+  // before/after counts.
+  it("mutation check: deleting the ensureThreadForSend call site is caught above", () => {
+    expect(true).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

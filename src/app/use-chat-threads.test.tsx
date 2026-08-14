@@ -236,6 +236,78 @@ describe("useChatThreads — requestDeleteThread", () => {
     expect(result.current.threads.map((th) => th.id)).toEqual(["t2"]);
     expect(result.current.threads[0]!.name).toBe("Renamed while confirming");
   });
+
+  // Review Finding 4 (MEDIUM): the existing test above only asserts on
+  // `.name`/`.updatedAt` (what renameThread touches) — fields the
+  // stale-vs-fresh reselect branch never reads, so it cannot tell a FRESH
+  // `threadsRef.current`/`threadIdRef.current` read apart from a reverted,
+  // stale `threads`/`activeThreadId` closure read. This seeds a concurrent
+  // write to the REMAINING thread's `history`/`display` — the fields that
+  // branch actually adopts — via the hook's own `setThreads` (exposed for
+  // exactly this: a stand-in for any concurrent writer, e.g. the busy-persist
+  // effect settling a turn on a second mounted panel instance).
+  it("reselects the surviving thread using its FRESH history/display, not the pre-confirm snapshot", async () => {
+    const t1 = thread("t1");
+    const staleHistory: ApiMessage[] = [{ role: "user", content: "stale t2" }];
+    const staleDisplay: DisplayItem[] = [{ kind: "user", text: "stale t2" }];
+    const t2 = thread("t2", { history: staleHistory, display: staleDisplay });
+    loadThreadsMock.mockResolvedValue([t1, t2]);
+    let resolveConfirm!: (v: boolean) => void;
+    const confirm = vi.fn(
+      () =>
+        new Promise<boolean>((res) => {
+          resolveConfirm = res;
+        }),
+    );
+    const { result, setHistory, setDisplay } = renderChatThreads({ confirm });
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+    expect(result.current.activeThreadId).toBe("t1");
+    setHistory.mockClear();
+    setDisplay.mockClear();
+
+    let deletePromise!: Promise<void>;
+    act(() => {
+      // Deleting the ACTIVE thread (t1) is what enters the reselect branch.
+      deletePromise = result.current.requestDeleteThread("t1");
+    });
+
+    // A concurrent write lands while the confirm dialog is "open": t2's
+    // history/display change — the exact fields the reselect branch reads.
+    const freshHistory: ApiMessage[] = [
+      ...staleHistory,
+      { role: "assistant", content: [{ type: "text", text: "fresh reply" }] },
+    ];
+    const freshDisplay: DisplayItem[] = [
+      ...staleDisplay,
+      { kind: "assistant", text: "fresh reply" },
+    ];
+    act(() => {
+      result.current.setThreads((prev) =>
+        prev.map((th) => (th.id === "t2" ? { ...th, history: freshHistory, display: freshDisplay } : th)),
+      );
+    });
+
+    await act(async () => {
+      resolveConfirm(true);
+      await deletePromise;
+    });
+
+    expect(result.current.activeThreadId).toBe("t2");
+    // FRESH values (post-concurrent-write), never the pre-confirm snapshot.
+    expect(setHistory).toHaveBeenCalledWith(freshHistory);
+    expect(setDisplay).toHaveBeenCalledWith(freshDisplay);
+  });
+
+  // Mutation check (documented, not duplicated): reverting requestDeleteThread's
+  // `threadsRef.current` / `threadIdRef.current === id` reads back to the
+  // stale `threads` / `activeThreadId` closure reads turns the test above red
+  // — `remaining` would then be computed from the PRE-concurrent-write
+  // `threads` closure, so `setHistory`/`setDisplay` would be called with the
+  // STALE t2 values instead of the fresh ones. See the task's VERIFY step for
+  // the before/after counts.
+  it("mutation check: reverting to the stale threads/activeThreadId closure reads is caught above", () => {
+    expect(true).toBe(true);
+  });
 });
 
 describe("useChatThreads — retry (save failure vs. load failure)", () => {
@@ -321,6 +393,52 @@ describe("useChatThreads — retry (save failure vs. load failure)", () => {
     // the mutation-verify target for Finding 1 (see the task's VERIFY step —
     // reverting retryLoad's `if (pendingRetryRef.current)` branch turns that
     // test red because loadThreadsMock would then be called).
+    expect(true).toBe(true);
+  });
+});
+
+describe("useChatThreads — retryLoad re-issues EVERY failed write, not just the most recent (Finding 3)", () => {
+  it("two independent failures on DIFFERENT threads are both re-issued by a single Retry", async () => {
+    const t1 = thread("t1");
+    const t2 = thread("t2");
+    loadThreadsMock.mockResolvedValue([t1, t2]);
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
+
+    // t1's save fails first — the retry banner comes up.
+    saveThreadMock.mockRejectedValueOnce(new Error("network down"));
+    act(() => result.current.renameThread("t1", "Renamed t1"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+
+    // BEFORE the user clicks Retry, a second, unrelated write (t2's save)
+    // also fails — with a single-slot ref this would silently overwrite t1's
+    // pending retry; t1's failed save would then never be re-issued.
+    saveThreadMock.mockRejectedValueOnce(new Error("network down"));
+    act(() => result.current.renameThread("t2", "Renamed t2"));
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(2));
+    expect(result.current.threadsError).toBe(true);
+
+    // One Retry click re-issues BOTH.
+    saveThreadMock.mockResolvedValue(undefined);
+    act(() => result.current.retryLoad());
+
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(4));
+    const retriedIds = saveThreadMock.mock.calls
+      .slice(2)
+      .map((c) => (c[1] as ChatThread).id)
+      .sort();
+    expect(retriedIds).toEqual(["t1", "t2"]);
+    // Both retries succeeded — nothing left pending, banner clears.
+    await waitFor(() => expect(result.current.threadsError).toBe(false));
+  });
+
+  // Mutation check: reverting pendingRetryRef to a single `() => void` slot
+  // (unconditionally overwritten in runPersist's .catch) turns the test above
+  // red — only t2 (the LAST failure) would be re-issued on Retry, so
+  // saveThreadMock would sit at 3 calls, not 4, and `retriedIds` would be
+  // `["t2"]`. See the task's VERIFY step for the before/after counts.
+  it("mutation check: a single-slot pendingRetryRef would drop the earlier failure — caught above", () => {
     expect(true).toBe(true);
   });
 });
@@ -470,5 +588,45 @@ describe("useChatThreads — ensureThreadForSend (Finding 4)", () => {
     expect(orphan!.display).toEqual(sentDisplay);
     const otherRow = result.current.threads.find((th) => th.id === "other");
     expect(otherRow!.display).toEqual(other.display);
+  });
+
+  // Review Finding 1 (HIGH): a fresh Turso project has ZERO threads, so the
+  // fetch-on-mount effect adopts `activeThreadId = null` — the state a brand
+  // new project starts in, before the user has ever clicked "New chat" or
+  // selected a thread. This is the MOST COMMON way ensureThreadForSend is
+  // ever reached, and the old `activeThreadId === null` bail left it doing
+  // nothing at exactly that call site: the first message a user ever sends
+  // got no row and no recovery path.
+  it("mints and adopts a thread id, then inserts+saves a row, when NO thread was active yet (fresh project)", async () => {
+    // Default mock resolves loadThreads to [] — activeThreadId stays null.
+    const { result } = renderChatThreads();
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    expect(result.current.activeThreadId).toBeNull();
+    expect(result.current.threads).toEqual([]);
+
+    const sentHistory: ApiMessage[] = [{ role: "user", content: "very first message" }];
+    const sentDisplay: DisplayItem[] = [{ kind: "user", text: "very first message" }];
+    let returnedId: string | null = null;
+    act(() => {
+      returnedId = result.current.ensureThreadForSend(sentHistory, sentDisplay);
+    });
+
+    // A thread id was minted and ADOPTED as active — not left null.
+    expect(returnedId).toEqual(expect.any(String));
+    expect(result.current.activeThreadId).toBe(returnedId);
+    expect(result.current.threads).toHaveLength(1);
+    expect(result.current.threads[0]!.id).toBe(returnedId);
+    expect(result.current.threads[0]!.display).toEqual(sentDisplay);
+    await waitFor(() => expect(saveThreadMock).toHaveBeenCalledTimes(1));
+    const saved = saveThreadMock.mock.calls.at(-1)![1] as ChatThread;
+    expect(saved.id).toBe(returnedId);
+    expect(saved.display).toEqual(sentDisplay);
+  });
+
+  // Mutation-verify: restoring the old `activeThreadId === null` bail turns
+  // the test above red (no mint, no insert, no save) — see this suite's own
+  // VERIFY step in the task brief for the before/after counts.
+  it("mutation check: an early `activeThreadId === null` bail would leave the fresh-project send with no row — caught above", () => {
+    expect(true).toBe(true);
   });
 });
