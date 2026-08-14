@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   ACTIVITY_KIND_TO_KEY,
   activityGroupOf,
@@ -18,6 +18,7 @@ import { t } from "./i18n";
 // Mirrors the module-private constants. Kept here so the raw-localStorage
 // injection tests (invalid-entry filtering) can target the real key.
 const STORAGE_KEY = "aipm-cockpit:activity-log";
+const DEVICE_ID_KEY = "aipm-cockpit:device-id";
 const MAX = 500;
 
 // Accepts a number for call-site brevity (most callers just need a sequence
@@ -341,5 +342,70 @@ describe("globally unique ids", () => {
       JSON.stringify([{ id: 1, timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] }]),
     );
     expect(loadActivityLog()).toEqual([]);
+  });
+
+  test("does not re-mint the same id after a module reload", async () => {
+    // ★ A reload resets module scope (counter, sessionNonce) but NOT localStorage
+    //   (deviceId). Without the session nonce both sessions mint `<dev>-1`.
+    // ★★ Deliberately reset BEFORE the first import too, not only before the
+    // second: by the time this test runs, earlier tests in this file have
+    // already driven the shared static-import module's `counter` well past 0.
+    // Without this leading reset, `first`'s counter differs from `second`'s
+    // fresh-module counter (1) purely from that pollution, so the assertion
+    // stays green even with the session nonce removed from the mint — i.e. it
+    // pins nothing. Measured: with the leading `vi.resetModules()` omitted,
+    // `M-reload` (removing `getSessionNonce()` from the id template) does NOT
+    // turn this test red.
+    vi.resetModules();
+    const first = (await import("./activity-log")).appendActivity([], "task.created", "T-1");
+    vi.resetModules();
+    const second = (await import("./activity-log")).appendActivity([], "task.created", "T-2");
+    expect(second[0].id).not.toBe(first[0].id);
+  });
+});
+
+describe("getDeviceId", () => {
+  test("first call writes the device id key; a second call returns the same value", async () => {
+    // A fresh module instance so `deviceIdCache` isn't already warm from an
+    // earlier test — otherwise the cached-return branch short-circuits before
+    // ever touching localStorage and this assertion would be vacuous.
+    vi.resetModules();
+    const fresh = await import("./activity-log");
+    expect(window.localStorage.getItem(DEVICE_ID_KEY)).toBeNull();
+    const first = fresh.getDeviceId();
+    expect(window.localStorage.getItem(DEVICE_ID_KEY)).toBe(first);
+    const second = fresh.getDeviceId();
+    expect(second).toBe(first);
+  });
+
+  test("reuses a pre-seeded localStorage value verbatim", async () => {
+    window.localStorage.setItem(DEVICE_ID_KEY, "seeded-device-id");
+    // A fresh module instance so `deviceIdCache` isn't already warm from an
+    // earlier test/call in this file — forces the read-from-storage path.
+    vi.resetModules();
+    const fresh = await import("./activity-log");
+    expect(fresh.getDeviceId()).toBe("seeded-device-id");
+  });
+
+  test("still returns a stable non-empty id when localStorage throws", async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("disabled");
+    });
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("disabled");
+    });
+    try {
+      vi.resetModules();
+      const fresh = await import("./activity-log");
+      const first = fresh.getDeviceId();
+      expect(first).toBeTruthy();
+      expect(typeof first).toBe("string");
+      // Stable within the session: the in-memory cache still serves it even
+      // though every localStorage read/write throws.
+      expect(fresh.getDeviceId()).toBe(first);
+    } finally {
+      getItemSpy.mockRestore();
+      setItemSpy.mockRestore();
+    }
   });
 });

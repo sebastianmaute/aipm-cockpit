@@ -21,7 +21,8 @@ export { ACTIVITY_MAX_ENTRIES };
  * Union by `id`, sorted by `timestamp` ascending, capped to the newest
  * ACTIVITY_MAX_ENTRIES. `b` wins on a duplicate id — arbitrary but total, and
  * duplicate ids carry identical payloads by construction (the id encodes the
- * minting device and its counter).
+ * minting device, its per-session nonce, and the counter — see
+ * `ActivityEntry.id` in `activity-log.ts` for why the nonce is required).
  *
  * ALWAYS returns a new array: the workspace dirty check is reference equality
  * (`prev.activityLog !== next.activityLog`), so returning an input unchanged

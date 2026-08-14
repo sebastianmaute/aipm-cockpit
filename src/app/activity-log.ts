@@ -77,9 +77,15 @@ export interface FieldChange {
 }
 
 export interface ActivityEntry {
-  /** Globally unique: `"<deviceId>-<counter>"`. Was a number, monotonic only
-   *  within ONE device's log — which is exactly why two devices collided once
-   *  the log became shared workspace data. */
+  /** Globally unique: `"<deviceId>-<sessionNonce>-<counter>"`. Was a number,
+   *  monotonic only within ONE device's log — which is exactly why two
+   *  devices collided once the log became shared workspace data. The middle
+   *  segment exists because `deviceId` is persisted (localStorage) while the
+   *  counter is module scope: a page reload restores the SAME device id but
+   *  resets the counter to 0, so `"<deviceId>-<counter>"` alone re-mints
+   *  `<dev>-1` on every reload and two different entries collide. The
+   *  per-session nonce is minted fresh each module evaluation and never
+   *  persisted, so a reload can no longer repeat a prior session's ids. */
   id: string;
   /** ISO 8601 UTC timestamp captured at append time. Always `toISOString()`
    *  shape: `mergeActivityLogs` sorts these with a LEXICOGRAPHIC compare, and
@@ -172,7 +178,16 @@ export const ACTIVITY_MAX_ENTRIES = 500;
 const DEVICE_ID_KEY = "aipm-cockpit:device-id";
 
 let deviceIdCache: string | null = null;
+let sessionNonce: string | null = null;
 let counter = 0;
+
+/** Short random token. Not cryptographic — the only property required is
+ *  non-collision between devices and between sessions on one device. */
+function mintToken(): string {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID().slice(0, 8)
+    : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
 
 /**
  * Per-device identifier, minted once and reused. NOT a secret — it must never
@@ -189,7 +204,7 @@ export function getDeviceId(): string {
     // SSR: no localStorage to persist into. Mint an ephemeral id for this
     // render only — never cached, so a real client call still hydrates from
     // (or seeds) localStorage on its own.
-    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    return mintToken();
   }
   let id: string | null = null;
   try {
@@ -198,10 +213,7 @@ export function getDeviceId(): string {
     // localStorage disabled — fall through and mint an ephemeral id.
   }
   if (!id) {
-    id =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID().slice(0, 8)
-        : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    id = mintToken();
     try {
       window.localStorage.setItem(DEVICE_ID_KEY, id);
     } catch {
@@ -210,6 +222,26 @@ export function getDeviceId(): string {
   }
   deviceIdCache = id;
   return id;
+}
+
+/**
+ * Per-SESSION token, minted once per module evaluation and never persisted.
+ *
+ * ★★★ This exists because `counter` is module scope while `deviceId` is in
+ * localStorage: a reload resets the counter but restores the device id, so
+ * `"<deviceId>-<counter>"` alone re-mints `<dev>-1` on every page load. Two
+ * genuinely different entries then share an id, `mergeActivityLogs` unions by
+ * id, and one of them is silently discarded — the exact loss this whole slice
+ * exists to prevent, moved from cross-device to cross-session. Measured with a
+ * `vi.resetModules()` probe before this was added; pinned by the
+ * "does not re-mint the same id after a module reload" test.
+ *
+ * ★ Deliberately NOT persisted. Persisting it would make it a second device id;
+ * the point is that it changes on every load.
+ */
+function getSessionNonce(): string {
+  if (!sessionNonce) sessionNonce = mintToken();
+  return sessionNonce;
 }
 
 /** Maps each kind to the translation key whose template formats the entry. */
@@ -375,7 +407,7 @@ export function appendActivityEntry(
   changes?: readonly FieldChange[],
 ): ActivityEntry[] {
   const entry: ActivityEntry = {
-    id: `${getDeviceId()}-${++counter}`,
+    id: `${getDeviceId()}-${getSessionNonce()}-${++counter}`,
     timestamp: new Date().toISOString(),
     kind,
     args,
