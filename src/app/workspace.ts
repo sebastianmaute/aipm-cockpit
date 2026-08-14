@@ -191,6 +191,16 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //    existing project. See docs/open-followups.md §98.
     && (ws.documents?.length ?? 0) === 0
     && (ws.documentVersions?.length ?? 0) === 0;
+    // ★★★ activityLog is deliberately ABSENT here, INVERTING the documents rule
+    //     directly above. The log is auto-appended by ordinary use, so counting
+    //     it would make a workspace with log entries and NO user records read as
+    //     non-empty — slipping past this guard and letting a transient empty
+    //     backend read replace a populated project. That converts a data-loss
+    //     guard into a data-loss vector. Pinned by workspace.test.ts
+    //     ("ONLY activity entries is still EMPTY"). Do not "complete" the
+    //     documents precedent by adding it.
+    //     Same reasoning keeps it out of nonEmptyCollectionCount /
+    //     workspaceRecordCount (SAVE-time mass-deletion thresholds, §98).
 }
 
 /** Number of user collections that hold at least one record. Used by the

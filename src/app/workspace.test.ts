@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { emptyWorkspace, jsonToWorkspace, workspaceToJson, WorkspaceParseError } from "./workspace";
+import {
+  emptyWorkspace,
+  isWorkspaceEmpty,
+  jsonToWorkspace,
+  workspaceToJson,
+  WorkspaceParseError,
+  type Workspace,
+} from "./workspace";
 
 /** Render a STORED value the way a sink would and assert nothing live survives.
  *  Deliberately does NOT re-sanitize: the subject is the LOAD boundary, and the
@@ -227,5 +234,22 @@ describe("workspace features (per-project)", () => {
   it("sanitizes junk feature ids on read", () => {
     const raw = JSON.stringify({ ...JSON.parse(workspaceToJson(emptyWorkspace())), features: ["raid", "nope"] });
     expect(jsonToWorkspace(raw).features).toEqual(["raid"]);
+  });
+});
+
+describe("isWorkspaceEmpty excludes activityLog (inverse of the documents rule)", () => {
+  it("a workspace holding ONLY activity entries is still EMPTY (inverse of documents)", () => {
+    // ★ documents deliberately COUNT toward non-empty; activityLog must NOT.
+    //   The log is auto-appended by ordinary use, so counting it would let a
+    //   transient empty backend read replace a populated project — turning a
+    //   data-loss GUARD into a data-loss VECTOR. See the comment at the
+    //   isWorkspaceEmpty call site.
+    const ws = {
+      tasks: [],
+      activityLog: [
+        { id: "dev1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+      ],
+    } as unknown as Workspace;
+    expect(isWorkspaceEmpty(ws)).toBe(true);
   });
 });
