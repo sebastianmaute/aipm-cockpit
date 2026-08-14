@@ -43,7 +43,7 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
-import { ACTIVITY_MAX_ENTRIES, sanitizeActivityEntry, type ActivityEntry } from "./activity-log";
+import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
 import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
@@ -573,24 +573,14 @@ export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
   return out;
 }
 
-/**
- * DOM-free. Drops malformed entries, strips a malformed per-entry `changes`
- * payload, and caps to the newest ACTIVITY_MAX_ENTRIES.
- *
- * ★★ The per-entry rules live in `sanitizeActivityEntry` (activity-log.ts,
- * which owns the entry shape) — including the deliberate decision to KEEP an
- * unknown-but-well-formed `kind` rather than drop it. Read the landmine on
- * that function before tightening anything here: this boundary feeds app state
- * that the autosave writes straight back, so a drop here is a DELETE on the
- * shared project, not a display filter.
- */
-export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
-  if (!Array.isArray(v)) return [];
-  const valid = v
-    .map((e) => sanitizeActivityEntry(e))
-    .filter((e): e is ActivityEntry => e !== null);
-  return valid.length > ACTIVITY_MAX_ENTRIES ? valid.slice(-ACTIVITY_MAX_ENTRIES) : valid;
-}
+/** ★★ MOVED to activity-log.ts, which owns the entry shape, the per-entry
+ *  rules and the cap this was built from — re-exported here because four codec
+ *  modules import it from THIS one (browser-backend · csv-codecs-config ·
+ *  markdown-codecs-core · turso-schema; JSON is this file's own path). Read
+ *  `sanitizeActivityEntry`'s landmine before tightening it: this boundary feeds
+ *  app state the autosave writes straight back, so a drop is a DELETE on the
+ *  shared project, not a display filter. */
+export { sanitizeActivityLog };
 
 /** Thrown by `jsonToWorkspace(text, { strict: true })` when the input is
  *  present-but-corrupt (parse failure) or structurally not a workspace

@@ -335,8 +335,25 @@ export function activityMessageKey(kind: string): TranslationKey | null {
 }
 
 /**
- * Per-entry validation for the workspace LOAD boundary (`sanitizeActivityLog`
- * in workspace.ts). Returns null for an entry to drop. DOM-free.
+ * The workspace LOAD boundary for the whole log, re-exported from workspace.ts
+ * (its historical home) so the six backends' imports are unchanged. DOM-free —
+ * it runs under bare node in `scripts/generate-sample-workspace.ts`. Drops
+ * malformed entries, strips a malformed per-entry `changes` payload, and caps
+ * to the newest ACTIVITY_MAX_ENTRIES.
+ *
+ * ★ It lives HERE rather than in workspace.ts because every part it is built
+ * from — the entry shape, the per-entry rules, the cap — is owned by this
+ * module; the version in workspace.ts was a shell importing all three back.
+ */
+export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
+  if (!Array.isArray(v)) return [];
+  const valid = v.map((e) => sanitizeActivityEntry(e)).filter((e): e is ActivityEntry => e !== null);
+  return valid.length > ACTIVITY_MAX_ENTRIES ? valid.slice(-ACTIVITY_MAX_ENTRIES) : valid;
+}
+
+/**
+ * Per-entry validation behind `sanitizeActivityLog` above. Returns null for an
+ * entry to drop. DOM-free.
  *
  * ★★★ AN UNKNOWN-BUT-WELL-FORMED (string) `kind` IS KEPT ON PURPOSE, unlike
  * the retired localStorage-era `isActivityEntry`, which dropped it. That was
