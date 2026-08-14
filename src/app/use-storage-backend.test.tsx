@@ -1435,6 +1435,56 @@ describe("useStorageBackend — project flows", () => {
     expect(setStorageConfig).toHaveBeenCalledWith(targetConfig);
   });
 
+  it("switchToProject REPLACES activityLog with the target's — project A's entries never reach project B", async () => {
+    // ★★★ CROSS-PROJECT CONTAMINATION. `applyWorkspace` merges the loaded log
+    // into `prev`, which on a SWITCH is the OUTGOING project's log — so project
+    // A's entries (including `changes` payloads carrying its old/new field
+    // values) followed the user into project B and the autosave persisted them
+    // there. Once saved, nothing distinguishes an imported A-entry from a native
+    // B-entry, so it is unrecoverable.
+    // ★★ The merge itself is CORRECT for a same-project load/reload and must
+    // stay — see "MERGES a loaded activity log …" in the save-effect describe.
+    // The two tests together are the specification; neither alone is sufficient.
+    const targetId = "target-log";
+    saveRegistry(
+      addProject(loadRegistry(), { id: targetId, name: "Target", code: "T", storageConfig: { kind: "browser" } }, false),
+    );
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn().mockResolvedValue({
+        ...emptyWorkspace(),
+        activityLog: [
+          { id: "devB-s1-1", timestamp: "2026-08-14T08:00:00.000Z", kind: "task.created", args: ["B-task"] },
+        ],
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Target"),
+    };
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    // Project A is open and holds an entry naming one of ITS tasks.
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "devA-s1-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: ["A-secret-task"] },
+      ] as ActivityEntry[]);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.switchToProject(targetId); });
+    await act(async () => { await Promise.resolve(); });
+
+    // BOTH directions: an absence-only assertion passes if the log ends up empty
+    // for an unrelated reason (a failed load, a guard early-return).
+    const ids = result.current.activityLog.map((e) => e.id);
+    expect(ids).toContain("devB-s1-1");
+    expect(ids).not.toContain("devA-s1-1");
+    expect(ids).toEqual(["devB-s1-1"]);
+  });
+
   it("switchToProject is a no-op when the target id is the current project", async () => {
     const targetId = "current-proj";
     saveRegistry(

@@ -191,7 +191,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
   // way. No side-effects beyond the setState calls.
-  const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset") => {
+  // ★★★ `logMode` DEFAULTS TO "replace": the CONTAMINATING direction must be asked for EXPLICITLY. A
+  // caller that forgets it loses at worst an in-flight local append (bounded, same-project); the other
+  // default loses another project's audit trail into this one, unrecoverably once saved.
+  // ★ SEPARATE from `seedMode` because the initial load is "reset" + "merge" — one flag cannot carry
+  // both ("different id space?" vs "same project I already hold state for?"). See the branch below.
+  const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -208,13 +213,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // versioned chain. Idempotent and reference-preserving: a workspace needing
     // nothing keeps its array identity.
     setTasks(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []));
-    setRaid(workspace.raid ?? []);
-    setAbsences(workspace.absences ?? []);
-    setShifts(workspace.shifts ?? []);
-    setResources(workspace.resources ?? []);
-    setRoles(workspace.roles ?? []);
-    setDisciplines(workspace.disciplines ?? []);
-    setGrades(workspace.grades ?? []);
+    setRaid(workspace.raid ?? []); setAbsences(workspace.absences ?? []); setShifts(workspace.shifts ?? []);
+    setResources(workspace.resources ?? []); setRoles(workspace.roles ?? []); setDisciplines(workspace.disciplines ?? []); setGrades(workspace.grades ?? []);
     if (workspace.plan) setPlan(workspace.plan);
     setBudgets(workspace.budgets ?? []);
     setFxRates(workspace.fxRates ?? null);
@@ -229,12 +229,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
     setInsights(workspace.insights); setDocuments(workspace.documents ?? []); setDocumentVersions(workspace.documentVersions ?? []);
-    // ★★★ MERGE, not `?? []` like its two neighbours above — a later reader WILL try to make it
-    // consistent with them. The log is an append-only audit trail, so a replace drops entries
-    // appended locally while the load was in flight AND every entry this device holds that the
-    // loaded workspace never saw. `mergeActivityLogs` unions by id, sorts by timestamp and caps to
-    // the newest; the setter is functional so a concurrent append survives too.
-    setActivityLog((prev) => mergeActivityLogs(prev, workspace.activityLog));
+    // ★★★ TWO BRANCHES, unlike the always-replace `documents` neighbours above — a later reader WILL try
+    // to make it consistent with them. Do NOT, in either direction. MERGE (same-project load/reload): the
+    // log is append-only, so replacing drops entries appended locally while the load was in flight;
+    // `mergeActivityLogs` unions by id, sorts by timestamp, caps to the newest. REPLACE (switch/create/
+    // load-from-file): `prev` is the OUTGOING project's log, so merging carries its entries — including
+    // `changes` payloads holding its old/new field values — into the target project, unrecoverably.
+    setActivityLog((prev) => (logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -337,7 +338,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           emitOutcome(null);
           return;
         }
-        applyWorkspace(workspace);
+        applyWorkspace(workspace, "reset", "merge"); // "merge": SAME project — keep appends made while this load was in flight.
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the flag would describe the workspace that is actually live.
         suppressNextSaveRef.current = true;
@@ -766,7 +767,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       }
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
-      applyWorkspace(workspace, "raise");
+      applyWorkspace(workspace, "raise", "merge"); // "merge": SAME project — a reload must not drop this device's entries.
       truncationOps.reportFor(backend);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
