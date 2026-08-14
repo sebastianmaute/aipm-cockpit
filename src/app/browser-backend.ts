@@ -79,11 +79,13 @@ const KV_SETTINGS_OVERRIDES_KEY = "settingsOverrides";
 const KV_CALENDAR_EVENTS_KEY = "calendarEvents";
 const KV_DOCUMENTS_KEY = "documents";
 const KV_DOCUMENT_VERSIONS_KEY = "documentVersions";
+const KV_ACTIVITY_LOG_KEY = "activityLog";
 import {
   type StorageBackend,
   type Workspace,
   emptyWorkspace,
   migrateWorkspaceV10,
+  sanitizeActivityLog,
 } from "./workspace";
 
 /**
@@ -159,6 +161,7 @@ export class BrowserBackend implements StorageBackend {
     let calendarEvents: Workspace["calendarEvents"] | undefined;
     let documents: Workspace["documents"] | undefined;
     let documentVersions: Workspace["documentVersions"] | undefined;
+    let activityLog: Workspace["activityLog"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -189,6 +192,7 @@ export class BrowserBackend implements StorageBackend {
         idbCalendarEvents,
         idbDocuments,
         idbDocumentVersions,
+        idbActivityLog,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -216,6 +220,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_CALENDAR_EVENTS_KEY),
         idbGet(KV_DOCUMENTS_KEY),
         idbGet(KV_DOCUMENT_VERSIONS_KEY),
+        idbGet(KV_ACTIVITY_LOG_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -297,6 +302,12 @@ export class BrowserBackend implements StorageBackend {
         }));
         documentVersions = versions.length ? versions : undefined;
       }
+      // Optional list: junk/empty entries sanitize to [] → keep undefined, so a
+      // cleared log reads as absent rather than as an empty array.
+      {
+        const log = sanitizeActivityLog(idbActivityLog);
+        activityLog = log.length ? log : undefined;
+      }
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -338,6 +349,7 @@ export class BrowserBackend implements StorageBackend {
     if (calendarEvents) raw.calendarEvents = calendarEvents;
     if (documents) raw.documents = documents;
     if (documentVersions) raw.documentVersions = documentVersions;
+    if (activityLog) raw.activityLog = activityLog;
     const ws = migrateWorkspaceV10(raw);
 
     try {
@@ -494,6 +506,10 @@ export class BrowserBackend implements StorageBackend {
       ws.documentVersions && ws.documentVersions.length
         ? idbSet(KV_DOCUMENT_VERSIONS_KEY, ws.documentVersions)
         : idbDelete(KV_DOCUMENT_VERSIONS_KEY),
+      // Delete-on-absent so a cleared log doesn't linger and reload stale.
+      ws.activityLog && ws.activityLog.length
+        ? idbSet(KV_ACTIVITY_LOG_KEY, ws.activityLog)
+        : idbDelete(KV_ACTIVITY_LOG_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's
