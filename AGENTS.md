@@ -1514,6 +1514,22 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
   before touching version history, deleted documents, or any "add a field to the six write paths" task,
   which it records a landmine for.
+- **AI Assistant chat-thread sidebar is Turso-ONLY.** `chat-panel.tsx` mounts `ChatThreadSidebar`
+  (`chat-thread-sidebar.tsx`, over `chat-thread-list.tsx`) only inside `{tursoMode && (...)}`, and
+  `tursoMode` is fed from `workspace-section.tsx`'s `chatTursoMode = mode === "turso" && chatTursoConfig
+  !== null` — the same Turso-gating rule as elsewhere in this file (config, not just kind). FILE mode is
+  byte-identical to before this branch: no sidebar, no multi-thread persistence.
+  ★★ "AI Assistant" IS in axe `A11Y_VIEWS`, but `e2e/seed.ts` seeds FILE mode, so the gate never renders
+  this sidebar — same blind spot class as the other Turso-gated views and the Resources → Calendar
+  sub-tab above. Compounding it, axe has no rule that flags two controls sharing an accessible name
+  (measured elsewhere in this file) — so even a scanned run could not catch a row-label collision here.
+  `chat-thread-list.test.tsx` / `chat-thread-sidebar.test.tsx` are therefore the ONLY coverage this
+  surface will ever have; do not read a green axe run as covering it, and eye-verify against a real
+  Turso project before shipping any change to this surface.
+  ★ The `chat_threads` table is deliberately OUT of `TABLE_NAMES` (else a workspace save's per-table
+  DELETE sweep wipes it); its upsert is a single atomic `INSERT OR REPLACE`, never a delete-then-insert
+  pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
+  `stripAttachmentsForPersistence` strips attachment bytes before a thread is written.
 
 ## Subsystem reference — deeper detail, loaded on demand
 
