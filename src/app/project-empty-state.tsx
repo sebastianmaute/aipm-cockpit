@@ -23,6 +23,8 @@
 import { useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
 import { BackendSetupWizard } from "./backend-setup-wizard";
+import { TursoProjectPicker } from "./turso-project-picker";
+import { getTursoConfig } from "./turso-config";
 import { AiSection } from "./settings-sections/ai-section";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
@@ -98,6 +100,7 @@ export function ProjectEmptyState({
   const [configOpen, setConfigOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
+  const [tursoPickerOpen, setTursoPickerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:create-modal-size");
 
@@ -112,6 +115,11 @@ export function ProjectEmptyState({
   };
 
   const handleBackToChoices = () => setView("choices");
+
+  const tursoConfigured = !!getTursoConfig(
+    settings.integrations?.turso?.databaseUrl,
+    settings.integrations?.turso?.authToken,
+  );
 
   const titleKey = view === "create" ? "projectsNew" : "projectsEmptyTitle";
   const TITLE_ID = "project-empty-state-title";
@@ -188,6 +196,18 @@ export function ProjectEmptyState({
                 <Button variant="secondary" onClick={onLoadFromFile}>
                   {t(lang, "projectsEmptyLoad")}
                 </Button>
+                {/* Load an existing project from a configured Turso database —
+                    file mode only (Turso mode already lists archived projects
+                    and has its own picker via the mode selector). */}
+                {mode === "file" && tursoConfigured && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setTursoPickerOpen(true)}
+                    title={t(lang, "projectLoadFromTursoHint")}
+                  >
+                    {t(lang, "projectLoadFromTurso")}
+                  </Button>
+                )}
                 {/* Explore a demo project — guided-tour entry point. Rendered
                     only when a demo-load handler is wired (empty-state only). */}
                 {onLoadDemo && (
@@ -305,6 +325,14 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setWizardOpen(false)}
+        />
+      )}
+
+      {tursoPickerOpen && (
+        <TursoProjectPicker
+          lang={lang}
+          settings={settings}
+          onClose={() => setTursoPickerOpen(false)}
         />
       )}
 

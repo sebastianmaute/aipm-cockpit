@@ -36,6 +36,7 @@ import { ProjectEditModal, ProjectModalShell } from "./project-edit-modal";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { type Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
+import { TursoProjectPicker } from "./turso-project-picker";
 import { ResetSizeButton } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { useConfirm } from "./confirm-dialog";
@@ -140,6 +141,7 @@ export function ProjectsPanel({
   const [showArchived, setShowArchived] = useState(false);
   const [hardDeleteTarget, setHardDeleteTarget] =
     useState<ProjectRegistryEntry | null>(null);
+  const [tursoPickerOpen, setTursoPickerOpen] = useState(false);
 
   const isTurso = mode === "turso";
 
@@ -193,6 +195,16 @@ export function ProjectsPanel({
           {!isTurso && (
             <Button variant="secondary" size="sm" onClick={onLoadFromFile}>
               {t(lang, "projectSwitcherLoadFile")}
+            </Button>
+          )}
+          {!isTurso && tursoConfigured && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setTursoPickerOpen(true)}
+              title={t(lang, "projectLoadFromTursoHint")}
+            >
+              {t(lang, "projectLoadFromTurso")}
             </Button>
           )}
           {!isTurso && tursoConfigured && currentProject && (
@@ -409,6 +421,14 @@ export function ProjectsPanel({
             setHardDeleteTarget(null);
           }}
           onCancel={() => setHardDeleteTarget(null)}
+        />
+      )}
+
+      {tursoPickerOpen && (
+        <TursoProjectPicker
+          lang={lang}
+          settings={settings}
+          onClose={() => setTursoPickerOpen(false)}
         />
       )}
 
