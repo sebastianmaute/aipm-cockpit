@@ -2584,7 +2584,10 @@ function TaskManagerInner() {
   // beside the project switcher (passed as projectSwitcherTrailing); the classic
   // AppHeader wires its own copy beside the switcher under the title. Both sites
   // must render it (dual-header rule) or it disappears in whichever layout is missed.
-  const askClaudeEl = (
+  // Gated on isAiEnabled(settings.ai) — same check as the sibling
+  // onOpenAiAssistant control (aiAssistantOpener) — so it hides while AI is off
+  // or unconfigured instead of opening a chat that can't answer.
+  const askClaudeEl = isAiEnabled(settings.ai) ? (
     <span data-tour-id={TOUR_ANCHORS.askClaude}>
       <AskClaudeMenu
         lang={lang}
@@ -2592,7 +2595,7 @@ function TaskManagerInner() {
         onAsk={(body) => requestChat(body, true)}
       />
     </span>
-  );
+  ) : null;
 
   // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
