@@ -79,10 +79,19 @@ import * as tursoPortfolioMod from "./turso-portfolio";
 // TursoLockTimeoutError must be exported by the mock too: storage-error.ts
 // (used unmocked by the hook's save-failure path) instanceof-checks against
 // whatever this module exports.
+// ★ `vi.mock` factories are HOISTED above every import, so the factory cannot
+//   close over a plain `const` declared below it (TDZ). `vi.hoisted` is the
+//   supported way to share a value with one. The registry is purely additive —
+//   it records instances and changes no mock behaviour.
+const tursoInstances = vi.hoisted(() => [] as { save: ReturnType<typeof vi.fn> }[]);
 vi.mock("./turso-backend", () => ({
   TursoBackend: class {
     kind = "turso" as const;
-    constructor(public config: unknown, public projectId: string) {}
+    constructor(public config: unknown, public projectId: string) {
+      // Class fields below initialise on `this` before this body runs, and the
+      // assertion reads the recorded object long after construction either way.
+      tursoInstances.push(this as unknown as { save: ReturnType<typeof vi.fn> });
+    }
     load = vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
     save = vi.fn().mockResolvedValue(undefined);
     isReady = vi.fn().mockResolvedValue(true);
@@ -891,6 +900,113 @@ describe("useStorageBackend — broadcast send gating", () => {
   });
 });
 
+// ── Activity log reaches every workspace-assembly site ───────────────────────
+// The log is assembled into a `Workspace` literal at NINE sites in
+// use-storage-backend.ts. The save effect and the storage-switch conversion are
+// covered by their own tests; the three below were each mutation-checked as
+// unpinned — dropping `activityLog` from any of them left the file at 104/104.
+describe("useStorageBackend — activity log write paths", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue("f.json");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("registers an `activityLog` broadcast-sync channel", () => {
+    // ★ The autosave writes the WHOLE workspace, so a tab that never hears
+    //   another tab's log entries writes its own stale log back over them.
+    //   Only the CHANNEL NAME ties the two tabs together — a typo desyncs them
+    //   silently, with no error on either side.
+    renderBackend();
+    const kinds = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(kinds).toContain("activityLog");
+  });
+
+  it("onPickStorageFile writes the activity log to the newly picked file", async () => {
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(undefined),
+    );
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.activityLog).toHaveLength(0);
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-d-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+      ] as ActivityEntry[]);
+    });
+    // Isolate the handler's own write from the debounced autosave (fake timers
+    // are never advanced here, so nothing else can call save).
+    mockBackend.save.mockClear();
+
+    await act(async () => { await result.current.onPickStorageFile(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityLog: [expect.objectContaining({ id: "dev-d-1", kind: "task.created" })],
+      }),
+    );
+  });
+
+  it("migrateCurrentProjectToTurso carries the activity log into the new Turso project", async () => {
+    // ★★★ This is the only externally-reachable consumer of the internal
+    //   `currentWorkspace()` assembler (it is NOT on the hook's return, so it
+    //   cannot be called directly). Migration copies the live workspace
+    //   VERBATIM into a brand-new Turso project and then reloads the app onto
+    //   it, so a slice missing from that assembler is lost with no way back.
+    const meta = { name: "Gemini", code: "GE" } as never;
+    mockBackend.load.mockResolvedValue({ project: meta, tasks: [], raid: [], absences: [], shifts: [] });
+    const args = makeArgs({
+      settings: {
+        storageConfig: { kind: "browser" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    });
+
+    // Stub reload — jsdom's is a no-op that warns.
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload: vi.fn() },
+    });
+
+    try {
+      const { result } = renderBackend(args);
+      await act(async () => { await Promise.resolve(); });
+
+      // Control: the slice starts empty, so the assertion below cannot pass by accident.
+      expect(result.current.activityLog).toHaveLength(0);
+      await act(async () => {
+        result.current.setActivityLog([
+          { id: "dev-e-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+        ] as ActivityEntry[]);
+      });
+
+      tursoInstances.length = 0;
+      await act(async () => { await result.current.migrateCurrentProjectToTurso(); });
+      await act(async () => { await Promise.resolve(); });
+
+      // Exactly one TursoBackend is constructed by the migration — the target.
+      expect(tursoInstances).toHaveLength(1);
+      expect(tursoInstances[0].save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activityLog: [expect.objectContaining({ id: "dev-e-1", kind: "task.created" })],
+        }),
+      );
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    }
+  });
+});
+
 // ── Change Log persistence bridge (regression: changes must round-trip) ───────
 // These exercise the REAL bridge wiring in useStorageBackend — the save effect's
 // backend.save() payload, the load effect's setChanges, and the broadcast call.
@@ -1107,6 +1223,49 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     expect(setStorageConfig).toHaveBeenCalledWith({ kind: "turso" });
     // success path must also fire the "converted" info toast
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("carries the activity log across a storage conversion", async () => {
+    // ★★★ The conversion writes to a DIFFERENT backend and `emitStorageConfig`
+    //   then repoints the app AT that copy, so a slice missing from THIS
+    //   `guardedWrite` payload is not merely unsaved — the source is abandoned
+    //   and the audit trail is gone permanently. The test above asserts only
+    //   that `targetSave` FIRED, so dropping `activityLog` from the payload
+    //   left this whole path green; assert the CONTENT, not the call count.
+    const targetSave = vi.fn().mockResolvedValue(undefined);
+    const targetBackend = {
+      kind: "turso",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: targetSave,
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Turso: x"),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValueOnce(targetBackend);
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.activityLog).toHaveLength(0);
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-c-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+      ] as ActivityEntry[]);
+    });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    expect(targetSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityLog: [expect.objectContaining({ id: "dev-c-1", kind: "task.created" })],
+      }),
+    );
   });
 
   it("suppress-load: after a successful switch backend.load is NOT called when the load effect re-runs with the suppress flag set", async () => {
