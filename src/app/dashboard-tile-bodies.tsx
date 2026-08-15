@@ -14,10 +14,17 @@
  * own suite. The plan asked for the old JSX verbatim; that is the one place it
  * was wrong about the shipped components.
  *
- * ★ ONE DOCUMENTED EXCEPTION: `InsightsCard` keeps its own `Card` + heading,
- * because `insights-panel.tsx` renders it too and would lose them. It therefore
- * still double-titles inside its tile — a follow-up, not something to fix by
- * forking the component here.
+ * ★★ THERE IS NO EXCEPTION, and this header claimed one. It read "`InsightsCard`
+ * keeps its own `Card` + heading, because `insights-panel.tsx` renders it too" —
+ * `insights-panel.tsx` renders its OWN list and only shares the
+ * `insightsCardTitle` string, so `buildTileBodies` was and is the component's
+ * sole call site (`grep -rn "InsightsCard" src --include="*.tsx" |
+ * grep -v "\.test\."`). The card is unboxed and un-titled like every other body.
+ *
+ * ★ The ONE body that still carries a heading is `RaidRegisterCard`, and the
+ * test is the TEXT, not the component: its "Top open RAID" differs from its
+ * chrome title "RAID register", so it disambiguates. `InsightsCard`'s heading
+ * was byte-identical to its chrome title in both dictionaries, so it went.
  *
  * ★ A PLAIN BUILDER, not a `use*` hook: it calls nothing, it only assembles JSX
  * from live render-scope values (same shape as `buildShellChrome`). It lives in
