@@ -1558,7 +1558,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `fieldVisibility` are also absent from the restore fan-out. An earlier revision said "the one slice",
   which sends a reader who diffs the funnels either to distrust the doc or to "complete the pattern" on
   the other two. Re-derive rather than trust this line: extract the setter names from `applyWorkspace`
-  and from `applyRestoredWorkspace` and `comm` them.
+  and from `applyRestoredWorkspace` and `comm` them. ★★ That diff returns FOUR names, not three — the
+  fourth is `setLoadedBackend`, which is the load GATE (`workspaceLoaded` derives from it), not a
+  workspace slice, and the comment above `applyRestoredWorkspace` already says the restore funnel
+  deliberately omits it. Three SLICES, four NAMES; a reader who stops at the count will think this line
+  is wrong. ★ A range that stops at `setCalendarEvents` hides it and returns three — `setLoadedBackend`
+  is deliberately the LAST call in `applyWorkspace`, so end the range at the function's close brace.
   ★★ AND "deliberately omitted ⇒ preserved" is true of `activityLog` ALONE — do not read it as a
   property of restore. `getVersionPayload` captures 18 slices while `applyRestoredWorkspace` fans out
   24, so `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
