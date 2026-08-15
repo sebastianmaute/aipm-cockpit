@@ -70,9 +70,12 @@ describe("resizeTile", () => {
   });
 
   it("clamps a value above the tile's max", () => {
-    // raid maxH is 4
-    const next = resizeTile(layout(), "raid", "h", 4);
-    expect(next.board.find((t) => t.id === "raid")!.h).toBe(4);
+    // ★★ THE VALUE HAS TO EXCEED THE LIMIT. This read `resizeTile(layout(),
+    // "raid", "h", 4)` against a raid whose maxH IS 4 — nothing was clamped, it
+    // duplicated the test above byte for byte, and deleting `Math.min(hi, …)`
+    // from `clampSpan` left it green. `kpi` is maxH 3, so 4 is genuinely over.
+    const next = resizeTile(layout(), "kpi", "h", 4);
+    expect(next.board.find((t) => t.id === "kpi")!.h).toBe(3);
   });
 
   it("clamps a value below the tile's min", () => {

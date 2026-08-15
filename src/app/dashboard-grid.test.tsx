@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { H_CLASS, W_CLASS } from "./dashboard-grid";
 import { DashboardTile } from "./dashboard-tile";
@@ -7,9 +9,14 @@ import { DashboardShelf } from "./dashboard-shelf";
 import type { DashboardTileId } from "./dashboard-tiles";
 
 describe("span class tables", () => {
-  it("emits literal class strings, never interpolated ones", () => {
-    // ★ Tailwind v4 scans SOURCE for class candidates. `col-span-${w}` emits no
-    // CSS at all, so these tables must hold whole literal strings.
+  it("resolves to the class strings the grid expects at runtime", () => {
+    // ★★★ THIS CANNOT SEE AN INTERPOLATION, and it used to claim it could
+    // ("emits literal class strings, never interpolated ones"). A runtime
+    // assertion reads the PRODUCED string, and `col-span-1 lg:col-span-${2}`
+    // produces a byte-identical one — the test stays green while Tailwind, which
+    // scans SOURCE for candidates, emits no rule at all and every tile silently
+    // renders one column wide. The real detectors are the SOURCE scan below (the
+    // source form) and `e2e/dashboard-grid.spec.ts` (the resulting geometry).
     for (const v of Object.values(W_CLASS)) expect(v).toMatch(/^col-span-1( lg:col-span-\d)?( xl:col-span-\d)?$/);
     for (const v of Object.values(H_CLASS)) expect(v).toMatch(/^row-span-\d$/);
   });
@@ -22,6 +29,56 @@ describe("span class tables", () => {
   it("does not clamp height", () => {
     expect(H_CLASS[3]).toBe("row-span-3");
   });
+});
+
+/**
+ * The SOURCE FORM of the two span tables — the one property no runtime
+ * assertion can reach.
+ *
+ * ★★★ TAILWIND v4 SCANS SOURCE, NOT VALUES. An interpolated `col-span-${w}`
+ * emits no CSS, so every tile falls back to one implicit column — and because
+ * the resulting STRING is identical, every runtime assertion above stays green
+ * and jsdom has no layout to notice. Reading the file back and scanning the
+ * table bodies is the only unit-layer detector; `e2e/dashboard-grid.spec.ts`
+ * catches the same defect one layer down, by measuring the geometry.
+ *
+ * Same pattern as the DOM-free guards in `rich-text-plain.test.ts` and
+ * `document-model.test.ts`: strip comments first, then scan CODE — this file's
+ * own docstring says `col-span-${w}` twice, and an unstripped scan would fail
+ * against perfectly correct source.
+ */
+describe("span class tables (source form)", () => {
+  const code = readFileSync(join(import.meta.dirname, "dashboard-grid.tsx"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+
+  it("strips comments before scanning", () => {
+    // ★ Not ceremony: `dashboard-grid.tsx`'s own header warns against
+    // `col-span-${w}` in prose. Without the strip every assertion below would
+    // fail on correct code — and a scan tuned to pass ANYWAY would be blind.
+    expect(code).not.toContain("col-span-${w}");
+    expect(code).toMatch(/export const W_CLASS/);
+    expect(code).toMatch(/export const H_CLASS/);
+  });
+
+  /** The `{...}` body of one exported table, from the stripped source. */
+  const tableBody = (name: string): string => {
+    const m = code.match(new RegExp(`export const ${name}[^=]*=\\s*\\{([^}]*)\\}`));
+    expect(m, `${name} is not an object literal in the source`).not.toBeNull();
+    return m![1];
+  };
+
+  for (const name of ["W_CLASS", "H_CLASS"]) {
+    it(`holds ${name} as whole double-quoted literals, never a template`, () => {
+      const body = tableBody(name);
+      expect(body).not.toContain("${");
+      expect(body).not.toContain("`");
+      const values = [...body.matchAll(/^\s*\d\s*:\s*(.+?),\s*$/gm)].map((m) => m[1]);
+      expect(values).toHaveLength(4);          // one per TileSpan; a miss means the regex drifted
+      // Only class characters between the quotes — an interpolation cannot pass.
+      for (const v of values) expect(v).toMatch(/^"[a-z0-9:\- ]+"$/);
+    });
+  }
 });
 
 function twoTiles(readOnly = false) {
