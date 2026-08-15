@@ -11,6 +11,11 @@
  * nothing else. A test pins the exceptions.
  */
 
+// ★ TYPE-ONLY, and that is what keeps the "i18n-free" promise above true: the
+// import is erased at compile time, so nothing here pulls the dictionaries into
+// a bare node process. A VALUE import from `./i18n` would break that.
+import type { TranslationKey } from "./i18n";
+
 export type TileSpan = 1 | 2 | 3 | 4;
 
 export type DashboardTileId =
@@ -37,16 +42,15 @@ export interface TileSpec {
   /**
    * i18n key for the tile's title in the chrome header.
    *
-   * ★★ THIS SHOULD BE `TranslationKey` (`i18n.ts` exports it as
-   * `keyof typeof enUS`), and it is deliberately `string` ONLY until the four
-   * keys below exist: `dashboardKpiTile`, `dashboardInsights`,
-   * `dashboardRaidRegister`, `dashboardTrends`. Typing it as `TranslationKey`
-   * before they are added makes this file fail `tsc` outright. The commit that
-   * adds those EN/DE strings must tighten this in the same change — then
-   * `t(lang, spec.labelKey)` needs no cast and a typo becomes a build error,
-   * which is the whole reason the catalogue holds keys rather than strings.
+   * ★★ THIS IS `TranslationKey` (`i18n.ts` exports it as `keyof typeof enUS`),
+   * tightened from `string` once the last four keys landed —
+   * `dashboardKpiTile`, `dashboardInsights`, `dashboardRaidRegister`,
+   * `dashboardTrends`. So `t(lang, spec.labelKey)` needs no cast and a typo is
+   * a build error, which is the whole reason the catalogue holds keys rather
+   * than strings. Do NOT widen it back to `string` to add a tile: add the key
+   * to BOTH dicts first, or `tsc` is telling you the tile has no title.
    */
-  labelKey: string;
+  labelKey: TranslationKey;
   w: TileSpan;
   h: TileSpan;
   minW: TileSpan;
