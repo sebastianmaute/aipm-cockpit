@@ -48,12 +48,23 @@ deliberately makes no class-string assertion at all.
 plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no `ResizeObserver`, no
 JavaScript anywhere in the feature; height does not clamp, so a tall tile stays tall.
 
-★★ **The row unit is a density class, and only ONE of its two values is measured.** `dc.tileRow` is
-`auto-rows-[80px]` comfortable / `auto-rows-[64px]` compact (`dashboard-density.ts`). The e2e geometry
+★★ **The row unit is a density class, and only ONE of its two values is GATED.** `dc.tileRow` is
+`auto-rows-[80px]` comfortable / `auto-rows-[72px]` compact (`dashboard-density.ts`). The e2e geometry
 spec pins the 80px value twice — the container's `grid-auto-rows` AND a real h:2 tile's box, since
-`H_CLASS` is a second literal table Tailwind must also have emitted. The 64px compact value is pinned
-only as a class STRING by `dashboard-density.test.ts`, i.e. in the layer that cannot see CSS. Treat
-compact row height as eye-verified, not gated.
+`H_CLASS` is a second literal table Tailwind must also have emitted. The 72px compact value is pinned
+only as a class STRING by `dashboard-density.test.ts`, i.e. in the layer that cannot see CSS — so a
+compact-only Tailwind emission failure is caught by nothing. ★★ Both values are now MEASURED, which is
+a different property from gated: 72 replaced a provisional 64 on 2026-08-15 after a seeded Chromium
+measurement of every tile at 64/72/80/88. `dashboard-density.ts`'s own test carries the numbers and
+the two rejected alternatives — read it before moving either value.
+
+★★★ **DO NOT READ A SCROLLBAR ON A COMPACT TILE AS A ROW-UNIT DEFECT.** The tile body is
+`min-h-0 flex-1 overflow-auto p-2` (`dashboard-tile.tsx`), so nothing ever clips or spills — over-tall
+content becomes an inner scroll container. And **6 of 9 rendering tiles already overflow at the
+shipped comfortable/80** (measured, default catalogue board, 1600px, e2e seed: `burn` 507px over,
+`insights` 239, `upcoming` 133). Inner scrolling is this design's normal mode, not something compact
+introduced, and no row unit fixes those three — fitting `burn` at h:2 would take a ~340px unit, which
+is what per-axis resize is for. Measure comfortable before calling anything a regression.
 
 ★★ **TWO CHROMIUM MEASUREMENTS FROM THIS BRANCH'S REVIEW, both about assertions that LOOK sufficient:**
 • `grid-auto-flow: row dense` COMPUTES as `"dense"`, not `"row dense"` — a `toHaveCSS("grid-auto-flow",

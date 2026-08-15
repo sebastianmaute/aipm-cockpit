@@ -6,9 +6,26 @@
  * importable from a bare node process.
  *
  * ★★ `minH: 1` IS ALMOST ALWAYS WRONG. Tile chrome (grip, title, ⋮, bottom
- * border) costs a fixed ~26px off every tile regardless of height, so at the
- * 80px row unit a h:1 tile has roughly 54px of body. That fits a sparkline and
- * nothing else. A test pins the exceptions.
+ * border) costs a fixed amount off every tile regardless of height, so a h:1
+ * tile fits a sparkline and nothing else. A test pins the exceptions.
+ *
+ * ★★ THAT FIXED COST IS 37px, NOT THE ~26px THIS DOCSTRING CLAIMED, and the
+ * old figure made every h:1 estimate derived from it ~11px optimistic (it put
+ * a h:1 body at the 80px unit near 54px; it is nearer 41px). Measured in
+ * Chromium on 2026-08-15, not reasoned: the header row's own
+ * `getBoundingClientRect().height` is 37 at every row unit and both densities,
+ * and a h:2 tile at the 80px unit measures section 176 = chrome 37 + body 137 +
+ * 2px section borders. Re-measure rather than trusting this line — the
+ * `text-sm` title and `py-1` padding are what set it, so a chrome restyle
+ * moves it.
+ *
+ * ★ A per-tile `h` default was CONSIDERED AND REJECTED as the fix for compact
+ * density overflow: `kpi` and `milestones` both fit with zero overflow at h:3
+ * even at a 64px unit, so raising their defaults would have solved it without
+ * touching the row unit. It was rejected because these defaults are shared —
+ * it would change the board for COMFORTABLE users to fix a COMPACT-only
+ * problem. The row unit moved instead (`dashboard-density.ts`, which carries
+ * the measurements). Revisit only if a per-density default ever exists.
  */
 
 // ★ TYPE-ONLY, and that is what keeps the "i18n-free" promise above true: the

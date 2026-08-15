@@ -22,7 +22,7 @@ export interface DensityClasses {
 }
 
 const COMFORTABLE: DensityClasses = { outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", sectionGap: "gap-4", tileRow: "auto-rows-[80px]" };
-const COMPACT: DensityClasses = { outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", sectionGap: "gap-2", tileRow: "auto-rows-[64px]" };
+const COMPACT: DensityClasses = { outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", sectionGap: "gap-2", tileRow: "auto-rows-[72px]" };
 
 /** Spacing classes for the given density. Defaults to comfortable. */
 export function densityClasses(density: DashboardDensity): DensityClasses {
