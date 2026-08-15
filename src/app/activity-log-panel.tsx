@@ -95,16 +95,40 @@ interface RowChange {
 }
 
 /**
- * Total, non-throwing coercion for one stored cell of a `changes` entry.
- * Only primitives carry honest audit detail; anything else (an object, a
- * function, a symbol) becomes "" rather than a `String()` call that would
- * either throw or render "[object Object]" into the audit trail.
+ * Total, non-throwing coercion for one stored display value — a cell of a
+ * `changes` entry, or an element of `args`.
+ *
+ * It KEEPS exactly three types: string, number, boolean. EVERYTHING else
+ * becomes "" — objects, functions, arrays, AND the remaining primitives
+ * (symbol, bigint, null, undefined), none of which carries honest audit
+ * detail. ★ An earlier docstring said "anything else (an object, a function, a
+ * symbol)", which reads as an exhaustive list AND miscategorises a symbol as
+ * non-primitive: `typeof Symbol() === "symbol"` is a primitive, and bigint /
+ * null / undefined were simply missing. Describe the KEPT set — it is closed
+ * and checkable; the rejected set is not.
+ *
+ * "" rather than a `String()` call, because `String()` on these either THROWS
+ * (`String(Symbol())` → TypeError; `String({toString: 1})` → "Cannot convert
+ * object to primitive value") or renders "[object Object]" into the audit
+ * trail, and neither is a thing to show a user reading a change history.
  */
 function changeText(v: unknown): string {
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "";
 }
+
+/**
+ * Mirrors `MAX_FIELD_CHANGES` in `activity-log.ts` — the per-entry cap the LOAD
+ * BOUNDARY applies to a stored `changes` payload.
+ *
+ * ★ Deliberately a local copy, not an import: that constant is module-private
+ * there and this slice does not own `activity-log.ts`. The panel must never be
+ * the WIDER of the two, so if the boundary's cap changes, change this with it —
+ * on the bypassed-boundary path this is the only cap there is, and without it a
+ * stored 10,000-element payload rendered 10,000 <li>.
+ */
+const MAX_RENDERED_CHANGES = 12;
 
 /**
  * Row-level normalisation of a stored `changes` payload — the same reasoning as
@@ -119,11 +143,16 @@ function changeText(v: unknown): string {
  * ★ A null/non-object ELEMENT is dropped (there is nothing to render), while a
  * malformed CELL is coerced — a diff whose field name is a number is still a
  * real audit record and its from/to values are still worth showing.
+ *
+ * ★★ The result is capped at `MAX_RENDERED_CHANGES`, mirroring the load
+ * boundary's own per-entry cap. It counts KEPT rows, not input elements, so a
+ * payload padded with nulls cannot push real diffs past the limit.
  */
 function normalizeChanges(v: unknown): RowChange[] {
   if (!Array.isArray(v)) return [];
   const rows: RowChange[] = [];
   for (const c of v) {
+    if (rows.length >= MAX_RENDERED_CHANGES) break;
     if (!c || typeof c !== "object") continue;
     const raw = c as { field?: unknown; from?: unknown; to?: unknown };
     rows.push({ field: changeText(raw.field), from: changeText(raw.from), to: changeText(raw.to) });
@@ -168,18 +197,32 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   // search query was typed, and `kind.localeCompare` threw whenever the numeric
   // kind landed in the comparator's receiver position (a 2-entry fixture can
   // miss that: V8's small-array sort may only ever put the string there).
+  // ★★ `timestamp` OBEYS THE SAME RULE and did not until this row carried it —
+  // the comparator read `a.entry.timestamp.localeCompare(...)` raw, and since
+  // "timestamp" is the DEFAULT sortKey that threw on FIRST RENDER with ≥2
+  // entries, no interaction required. Both cells below read the row too.
+  // ★★★ `args` IS THE ONE SHAPE THE LOAD BOUNDARY DOES NOT COVER, so this is
+  // the only guard it has anywhere. `sanitizeActivityEntry` drops an entry whose
+  // `kind`/`timestamp` is not a string and strips a malformed `changes`, but for
+  // args it checks `Array.isArray(e.args)` ALONE and never inspects the
+  // ELEMENTS. `t()` interpolates with `String(a)`, so a stored
+  // `args: [{toString: 1}]` threw "Cannot convert object to primitive value"
+  // (a non-callable own `toString` makes ToPrimitive fall through to
+  // Object.prototype.valueOf, which hands back the object) on a FULLY SANITIZED
+  // log, from every backend — not merely on a bypassed boundary like the rest.
   const enriched = useMemo(
     () =>
       entries.map((e) => {
         const kind = typeof e.kind === "string" ? e.kind : "";
+        const timestamp = typeof e.timestamp === "string" ? e.timestamp : "";
         const key = activityMessageKey(kind);
+        const args = Array.isArray(e.args) ? e.args.map(changeText) : [];
         return {
           entry: e,
           kind,
+          timestamp,
           changes: normalizeChanges(e.changes),
-          message: key
-            ? t(lang, key, ...(Array.isArray(e.args) ? e.args : []))
-            : t(lang, "activityUnknownKind", kind),
+          message: key ? t(lang, key, ...args) : t(lang, "activityUnknownKind", kind),
           group: activityGroupOf(kind as ActivityKind),
         };
       }),
@@ -204,7 +247,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     const sorted = result.slice().sort((a, b) => {
       let cmp: number;
       if (sortKey === "timestamp") {
-        cmp = a.entry.timestamp.localeCompare(b.entry.timestamp);
+        // The COERCED timestamp, not `entry.timestamp` — see `enriched`.
+        cmp = a.timestamp.localeCompare(b.timestamp);
       } else if (sortKey === "kind") {
         cmp = a.kind.localeCompare(b.kind);
       } else {
@@ -381,11 +425,14 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               </tr>
             </>}
           >
-              {visible.map(({ entry, kind, message, changes }) => (
+              {visible.map(({ entry, kind, timestamp, message, changes }) => (
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
-                    <time dateTime={entry.timestamp}>
-                      {formatDisplayTimestamp(entry.timestamp, displayTz, lang, { withSeconds: true })}
+                    {/* The COERCED timestamp, not `entry.timestamp` — same rule
+                        as `kind` below; a stored object reaches `dateTime` and
+                        the formatter otherwise. */}
+                    <time dateTime={timestamp}>
+                      {formatDisplayTimestamp(timestamp, displayTz, lang, { withSeconds: true })}
                     </time>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-muted-foreground">
@@ -396,7 +443,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   <td className="px-3 py-2 text-foreground">
                     {message}
                     {/* Already normalised by `normalizeChanges` (non-array
-                        payload → [], hostile elements dropped or coerced). */}
+                        payload → [], hostile elements dropped or coerced, and
+                        the list capped at MAX_RENDERED_CHANGES). */}
                     {changes.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {changes.map((c, i) => (
