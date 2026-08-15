@@ -108,7 +108,7 @@ export interface ActivityEntry {
 }
 
 /** Max field-changes recorded per entry, and max chars per value. */
-const MAX_FIELD_CHANGES = 12;
+export const MAX_FIELD_CHANGES = 12;
 const MAX_FIELD_VALUE_LEN = 120;
 
 /** Fields never worth diffing: identity + auto-managed bookkeeping. */

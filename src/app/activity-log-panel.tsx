@@ -21,6 +21,7 @@ import {
   type ActivityEntry,
   type ActivityGroup,
   type ActivityKind,
+  MAX_FIELD_CHANGES,
   activityGroupOf,
   activityMessageKey,
   humanizeFieldName,
@@ -119,18 +120,6 @@ function changeText(v: unknown): string {
 }
 
 /**
- * Mirrors `MAX_FIELD_CHANGES` in `activity-log.ts` — the per-entry cap the LOAD
- * BOUNDARY applies to a stored `changes` payload.
- *
- * ★ Deliberately a local copy, not an import: that constant is module-private
- * there and this slice does not own `activity-log.ts`. The panel must never be
- * the WIDER of the two, so if the boundary's cap changes, change this with it —
- * on the bypassed-boundary path this is the only cap there is, and without it a
- * stored 10,000-element payload rendered 10,000 <li>.
- */
-const MAX_RENDERED_CHANGES = 12;
-
-/**
  * Row-level normalisation of a stored `changes` payload — the same reasoning as
  * the `kind` coercion in `enriched`: `sanitizeActivityLog` strips these shapes
  * at the load boundary, but the panel must not be the ONLY thing between
@@ -144,7 +133,7 @@ const MAX_RENDERED_CHANGES = 12;
  * malformed CELL is coerced — a diff whose field name is a number is still a
  * real audit record and its from/to values are still worth showing.
  *
- * ★★ The result is capped at `MAX_RENDERED_CHANGES`, mirroring the load
+ * ★★ The result is capped at `MAX_FIELD_CHANGES`, mirroring the load
  * boundary's own per-entry cap. It counts KEPT rows, not input elements, so a
  * payload padded with nulls cannot push real diffs past the limit.
  */
@@ -152,7 +141,7 @@ function normalizeChanges(v: unknown): RowChange[] {
   if (!Array.isArray(v)) return [];
   const rows: RowChange[] = [];
   for (const c of v) {
-    if (rows.length >= MAX_RENDERED_CHANGES) break;
+    if (rows.length >= MAX_FIELD_CHANGES) break;
     if (!c || typeof c !== "object") continue;
     const raw = c as { field?: unknown; from?: unknown; to?: unknown };
     rows.push({ field: changeText(raw.field), from: changeText(raw.from), to: changeText(raw.to) });
@@ -444,7 +433,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     {message}
                     {/* Already normalised by `normalizeChanges` (non-array
                         payload → [], hostile elements dropped or coerced, and
-                        the list capped at MAX_RENDERED_CHANGES). */}
+                        the list capped at MAX_FIELD_CHANGES). */}
                     {changes.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
                         {changes.map((c, i) => (

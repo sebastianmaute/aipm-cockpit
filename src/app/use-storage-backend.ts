@@ -278,9 +278,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
   //     ★ That "28" is the likeliest claim here to rot (it read 25 until a review
-  //     measured it) — re-derive it with a `^  `-ANCHORED sed range over
-  //     `applyWorkspace`; unanchored, this comment's own copy of the pattern opens
-  //     a second range and inflates the very count it is checking.
+  //     measured it) — re-derive it with the sed commands in AGENTS.md's activity-log
+  //     bullet. Anchor the START on `const applyWorkspace = `: a bare `applyWorkspace`
+  //     match opens 572 lines early and reports 31, silently, with no error.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();
