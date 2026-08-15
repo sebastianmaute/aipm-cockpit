@@ -217,12 +217,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setResources(workspace.resources ?? []); setRoles(workspace.roles ?? []); setDisciplines(workspace.disciplines ?? []); setGrades(workspace.grades ?? []);
     if (workspace.plan) setPlan(workspace.plan);
     setBudgets(workspace.budgets ?? []); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
-    setProject(workspace.project);
-    setFieldVisibility(workspace.fieldVisibility);
-    setFeatures(workspace.features);
-    setMilestones(workspace.milestones ?? []);
-    setChanges(workspace.changes ?? []);
-    setStakeholders(workspace.stakeholders ?? []);
+    setProject(workspace.project); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
+    setMilestones(workspace.milestones ?? []); setChanges(workspace.changes ?? []); setStakeholders(workspace.stakeholders ?? []);
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
@@ -281,13 +277,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     this is the hook's OWN state, so there is no superseded-run result a
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
-  //     ★ That "28" is the claim in this comment most likely to rot — it read
-  //     25 until a review measured it. Re-derive it rather than trust it:
-  //       sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts \
-  //         | grep -oE 'set[A-Za-z0-9_]+\(' | wc -l
-  //     The `^  ` anchor is load-bearing, not tidiness: without it this
-  //     comment's own copy of the start pattern opens a SECOND sed range and
-  //     inflates the count it is meant to check.
+  //     ★ That "28" is the likeliest claim here to rot (it read 25 until a review
+  //     measured it) — re-derive it with a `^  `-ANCHORED sed range over
+  //     `applyWorkspace`; unanchored, this comment's own copy of the pattern opens
+  //     a second range and inflates the very count it is checking.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();
