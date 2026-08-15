@@ -351,4 +351,41 @@ describe("RolesEditor rate-card table", () => {
     expect(names.length).toBeGreaterThan(1);
     expect(new Set(names).size).toBe(names.length);
   });
+
+  it("does not reorder on a drop while a column sort is active", () => {
+    // ★★ The product rule behind `disabled: !!sort` — a drag must not fight the
+    // sort, because the drop would rewrite `order` against positions the user
+    // is not looking at.
+    // ★★★ THE DRAG MUST BE STARTED BEFORE THE SORT and that is not a contrived
+    // sequence, it is the only one that can TEST the flag: a sorted rate card
+    // renders no `≡` at all (`reorderable = !sort` gates the button), so a test
+    // that merely renders sorted and fires a drop passes with `disabled` flipped
+    // to false — there is no live `dragId` for the drop to commit. Starting the
+    // drag first leaves one in hook state across the re-render, so the ONLY
+    // thing standing between it and a reorder is `disabled`.
+    const onReorderRoles = vi.fn();
+    renderTwoRoles(onReorderRoles);
+    const dt = { effectAllowed: "", getData: () => "", setData: () => {} };
+    const dataRows = () => screen.getAllByRole("row").slice(1, 3);
+
+    // POSITIVE observable: the identical sequence reorders while unsorted.
+    fireEvent.dragStart(handleIn(dataRows()[1]), { dataTransfer: dt });
+    fireEvent.drop(dataRows()[0], { dataTransfer: dt });
+    expect(onReorderRoles).toHaveBeenCalledTimes(1);
+    onReorderRoles.mockClear();
+
+    fireEvent.dragStart(handleIn(dataRows()[1]), { dataTransfer: dt });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "rolesDiscipline") }));
+    // Sorted by discipline: "Design" (id 2) now leads, so row 1 is a DIFFERENT
+    // id from the dragged one — a same-id drop is a no-op in the hook and would
+    // make this pass for the wrong reason.
+    fireEvent.drop(dataRows()[1], { dataTransfer: dt });
+    expect(onReorderRoles).not.toHaveBeenCalled();
+    // …and no handle survives the sort in the RATE CARD, so the keyboard path is
+    // gone too. Scoped per row: the discipline/grade reference lists below carry
+    // their own handles, which stay live and would mask this.
+    for (const row of dataRows()) {
+      expect(within(row).queryByRole("button", { name: /reorder/i })).toBeNull();
+    }
+  });
 });

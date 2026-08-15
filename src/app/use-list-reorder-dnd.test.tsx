@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 
 /** Minimal consumer: a list of three items with a handle each. */
-function Harness({ onReorder, keyboard = true }: { onReorder: (ids: string[]) => void; keyboard?: boolean }) {
+function Harness({ onReorder, keyboard = true, disabled = false }: { onReorder: (ids: string[]) => void; keyboard?: boolean; disabled?: boolean }) {
   const [ids, setIds] = useState(["A", "B", "C"]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dnd = useListReorderDnd<string>({
@@ -12,6 +12,7 @@ function Harness({ onReorder, keyboard = true }: { onReorder: (ids: string[]) =>
     onReorder: (next) => { setIds(next); onReorder(next); },
     scrollRef,
     keyboard,
+    disabled,
   });
   return (
     <div ref={scrollRef}>
@@ -111,6 +112,34 @@ describe("useListReorderDnd", () => {
   it("wires no key handler when keyboard is disabled", () => {
     const onReorder = vi.fn();
     render(<Harness onReorder={onReorder} keyboard={false} />);
+    fireEvent.keyDown(screen.getByLabelText("Move C"), { key: "ArrowUp" });
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it("wires neither a drag source nor a drop target when disabled", () => {
+    // ★ `disabled` is what keeps a drag from fighting an active column sort
+    // (roles-editor passes `disabled: !!sort`). Both prop bags go empty, so
+    // there is nothing to assert POSITIVELY about the drop — the guard against
+    // a vacuous pass is `draggable`/`setData`, which the enabled tests above
+    // exercise on the very same harness with the same sequence.
+    const onReorder = vi.fn();
+    render(<Harness onReorder={onReorder} disabled />);
+    const handle = screen.getByLabelText("Move A");
+    expect(handle).not.toHaveAttribute("draggable");
+    const dt = dataTransfer();
+    fireEvent.dragStart(handle, { dataTransfer: dt });
+    fireEvent.dragOver(screen.getByTestId("item-C"));
+    fireEvent.drop(screen.getByTestId("item-C"));
+    expect(dt.setData).not.toHaveBeenCalled();
+    expect(screen.getByTestId("item-C")).not.toHaveAttribute("data-drop-edge");
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it("wires no arrow-key reorder when disabled", () => {
+    // ★ Separate from the drag path: `keyboard` defaults to true, so a
+    // `disabled` that only stripped the drag props would leave ArrowUp live.
+    const onReorder = vi.fn();
+    render(<Harness onReorder={onReorder} disabled />);
     fireEvent.keyDown(screen.getByLabelText("Move C"), { key: "ArrowUp" });
     expect(onReorder).not.toHaveBeenCalled();
   });
