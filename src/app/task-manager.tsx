@@ -2580,13 +2580,10 @@ function TaskManagerInner() {
         dataTourId: TOUR_ANCHORS.projectSwitcher,
       };
 
-  // Ask-Claude pill. In the modern layout it sits in the TopBar's LEFT cluster
-  // beside the project switcher (passed as projectSwitcherTrailing); the classic
-  // AppHeader wires its own copy beside the switcher under the title. Both sites
-  // must render it (dual-header rule) or it disappears in whichever layout is missed.
-  // Gated on isAiEnabled(settings.ai) — same check as the sibling
-  // onOpenAiAssistant control (aiAssistantOpener) — so it hides while AI is off
-  // or unconfigured instead of opening a chat that can't answer.
+  // Ask-Claude pill. Modern layout puts it in the TopBar's LEFT cluster beside the project
+  // switcher (as projectSwitcherTrailing); classic AppHeader wires its own copy beside the
+  // switcher under the title. BOTH sites must render it (dual-header rule) and BOTH gate on
+  // isAiEnabled — aiAssistantOpener's check — so it cannot open a chat that has no answerer.
   const askClaudeEl = isAiEnabled(settings.ai) ? (
     <span data-tour-id={TOUR_ANCHORS.askClaude}>
       <AskClaudeMenu
