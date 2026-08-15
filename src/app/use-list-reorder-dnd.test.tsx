@@ -56,6 +56,43 @@ function PairHarness({ onMove, onReorder }: { onMove: (a: string, b: string) => 
   );
 }
 
+/**
+ * A consumer whose drop REMOVES the dragged item, so the handle that owns
+ * `onDragEnd` unmounts and that event can never reach React's root container.
+ * This is the dashboard's shelf-drop shape, and without `endDrag` the hook has
+ * no way back to a resting state.
+ */
+function RemoveOnDropHarness({ callEndDrag }: { callEndDrag: boolean }) {
+  const [ids, setIds] = useState(["A", "B", "C"]);
+  const dnd = useListReorderDnd<string>({ ids, onReorder: setIds });
+  return (
+    <div>
+      <output data-testid="dragging">{String(dnd.isDragging)}</output>
+      <output data-testid="order">{ids.join(",")}</output>
+      <button type="button" onClick={() => setIds((prev) => (prev.includes("A") ? prev : [...prev, "A"]))}>
+        restore A
+      </button>
+      <div
+        data-testid="sink"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (dnd.dragId === null) return;
+          setIds((prev) => prev.filter((i) => i !== dnd.dragId));
+          if (callEndDrag) dnd.endDrag();
+        }}
+      >
+        sink
+      </div>
+      {ids.map((id) => (
+        <div key={id} data-testid={`item-${id}`} data-drop-edge={dnd.dropEdgeFor(id) ?? undefined} {...dnd.itemProps(id)}>
+          <button type="button" aria-label={`Move ${id}`} {...dnd.handleProps(id)}>grip</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const dataTransfer = () => ({ setData: vi.fn(), effectAllowed: "" });
 
 describe("useListReorderDnd", () => {
@@ -163,5 +200,54 @@ describe("useListReorderDnd", () => {
     fireEvent.drop(screen.getByTestId("item-C"));
     expect(onMove).toHaveBeenCalledWith("A", "C");
     expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it("ends a drag from OUTSIDE, for a consumer whose drop unmounts the handle", () => {
+    // ★★★ `onDragEnd` lives on the HANDLE. A drop that removes the dragged item
+    // detaches that node, and a detached node's events never reach React's root
+    // container — so the hook's own `endDrag` never runs and the drag state is
+    // stuck true for the rest of the session. `endDrag` is the escape hatch.
+    render(<RemoveOnDropHarness callEndDrag />);
+    fireEvent.dragStart(screen.getByLabelText("Move A"), { dataTransfer: dataTransfer() });
+    fireEvent.dragOver(screen.getByTestId("item-C"));
+    expect(screen.getByTestId("dragging").textContent).toBe("true");
+
+    fireEvent.drop(screen.getByTestId("sink"));
+    expect(screen.queryByTestId("item-A")).toBeNull();     // the handle really did unmount
+    expect(screen.getByTestId("dragging").textContent).toBe("false");
+  });
+
+  it("does not reorder on a LATER drop once the drag was ended from outside", () => {
+    // ★★★ The worst consequence of a stuck `dragId`, and the only one still
+    // reachable after the removed item comes back: `itemProps.onDragOver`
+    // unconditionally calls `preventDefault`, so every item stays a drop target
+    // for any drag. While the item is gone `commit` is a safe no-op — but once
+    // the user restores it, dropping ANYTHING on an item reorders one the user
+    // never picked up.
+    // ★ A version of this test that asserted `previewOrder` and `dropEdgeFor`
+    // straight after the sink drop was written first and DISCARDED: with the
+    // dragged id absent from `ids`, both return the resting value whether or not
+    // the drag was ended, so it passed against the unfixed hook.
+    render(<RemoveOnDropHarness callEndDrag />);
+    fireEvent.dragStart(screen.getByLabelText("Move A"), { dataTransfer: dataTransfer() });
+    fireEvent.drop(screen.getByTestId("sink"));
+    fireEvent.click(screen.getByText("restore A"));
+    expect(screen.getByTestId("order").textContent).toBe("B,C,A");
+
+    fireEvent.dragOver(screen.getByTestId("item-B"));
+    fireEvent.drop(screen.getByTestId("item-B"));
+    expect(screen.getByTestId("order").textContent).toBe("B,C,A");
+  });
+
+  it("stays stuck when the consumer does NOT call endDrag — the defect this closes", () => {
+    // ★★ The positive observable for the two tests above: the same harness with
+    // the call omitted keeps `isDragging` true forever, which is what makes them
+    // non-vacuous. Without this, both would pass against a hook that resets its
+    // state on any re-render.
+    render(<RemoveOnDropHarness callEndDrag={false} />);
+    fireEvent.dragStart(screen.getByLabelText("Move A"), { dataTransfer: dataTransfer() });
+    fireEvent.drop(screen.getByTestId("sink"));
+    expect(screen.queryByTestId("item-A")).toBeNull();
+    expect(screen.getByTestId("dragging").textContent).toBe("true");
   });
 });

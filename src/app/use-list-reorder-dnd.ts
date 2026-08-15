@@ -42,6 +42,25 @@ export interface ListReorderDnd<Id> {
     onDragOver?: (e: DragEvent<HTMLElement>) => void;
     onDrop?: (e: DragEvent<HTMLElement>) => void;
   };
+  /**
+   * Return the hook to rest without a `dragend`.
+   *
+   * ★★★ NEEDED WHENEVER A DROP UNMOUNTS THE DRAGGED ITEM. `onDragEnd` is wired
+   * to the HANDLE, so removing the item detaches the node that owns it and the
+   * event never reaches React's root container — the hook's own reset never
+   * runs and `dragId` is stuck for the rest of the session. Three things then
+   * misbehave at once: `isDragging` stays true (the dashboard shelf's
+   * `onDragEnter` tray guard pops open on any stray dragEnter),
+   * `useDragAutoscroll` stays active and its `tick` re-arms
+   * `requestAnimationFrame` unconditionally (an unbounded rAF loop plus
+   * lingering listeners), and — once the removed item is restored — every
+   * `itemProps.onDragOver` still calls `preventDefault`, so dropping anything
+   * on an item reorders one the user never picked up.
+   *
+   * ★ A consumer whose drop LEAVES the item mounted needs none of this: the
+   * browser fires `dragend` on the handle and the hook resets itself.
+   */
+  endDrag: () => void;
   /** Spread onto the DRAG HANDLE for `id`. */
   handleProps: (id: Id) => {
     draggable?: boolean;
@@ -109,6 +128,7 @@ export function useListReorderDnd<Id>({
   return {
     dragId,
     isDragging: dragId !== null,
+    endDrag,
     dropEdgeFor: (id) => (dragId === null || dragOverId !== id ? null : edgeOf(ids, dragId, id)),
     previewOrder: dragId !== null && dragOverId !== null ? reorderIds(ids, dragId, dragOverId) : ids,
     itemProps: (id) =>

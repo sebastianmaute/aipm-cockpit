@@ -338,6 +338,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
           const dragged = reorder.dragId;
           if (dragged === null) return;
           arrangement.hide(dragged);
+          // ★★★ HIDING UNMOUNTS THE TILE WHOSE GRIP OWNS `onDragEnd`, and a
+          // detached node's events never reach React's root container — so the
+          // hook's own reset would never run and `dragId` would stay set for the
+          // rest of the session. `endDrag` is the primitive's escape hatch for
+          // exactly this; see its docstring for the three things a stuck dragId
+          // breaks.
+          reorder.endDrag();
           const spec = tileById(dragged);
           if (spec) setAnnouncement(t(lang, "dashboardTileHidden", t(lang, spec.labelKey)));
         },

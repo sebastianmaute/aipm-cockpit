@@ -827,6 +827,35 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(announced).toContain(t(EN, "dashboardTileMoved", title, "2", String(before.length)));
   });
 
+  it("ends the drag when a tile is dropped onto the shelf", () => {
+    // ★★★ Hiding UNMOUNTS the tile whose grip owns `onDragEnd`, and a detached
+    // node's events never reach React's root container — so nothing would reset
+    // the hook's `dragId`. The observable is the shelf's own `isDragging` guard:
+    // with the drag stuck true, a stray `dragEnter` pops the tray open, which is
+    // exactly what `dashboard-grid.test.tsx`'s "leaves the tray shut when a
+    // pointer wanders in with nothing being dragged" test pins at the component.
+    render(<DashboardPanel {...fullProps} projectId="p-grid-shelfdrop" />, { wrapper });
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    fireEvent.drop(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) }));
+    expect(screen.queryByTestId("tile-progress")).toBeNull();     // the grip really did unmount
+
+    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) });
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+    fireEvent.dragEnter(shelf);
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("leaves the tray open to a REAL drag, so the test above is not vacuous", () => {
+    // ★ The positive observable: the same dragEnter DOES open the tray while a
+    // drag is genuinely in flight. Without this, the assertion above would pass
+    // against a shelf whose guard was broken shut.
+    render(<DashboardPanel {...fullProps} projectId="p-grid-shelfopen" />, { wrapper });
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) });
+    fireEvent.dragEnter(shelf);
+    expect(shelf).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("renders the RAID register (Top open RAID) BEFORE the Progress card in DOM order", () => {
     render(<DashboardPanel {...fullProps} projectId="p-grid-order" />, { wrapper });
     const registers = screen.getByText("Top open RAID");
