@@ -6,8 +6,16 @@
  * cells. That is what keeps every operation here an array operation, and it is
  * also why a user cannot leave a deliberate hole — dense backfills.
  *
- * Every function returns the SAME object reference on a no-op, so callers can
- * skip a persist cheaply.
+ * ★★ THE FOUR MUTATORS RETURN THE SAME OBJECT REFERENCE ON A NO-OP, so callers
+ * can skip a persist cheaply — `moveTile` · `hideTile` · `restoreTile` ·
+ * `resizeTile`, each pinned by its own "returns the same object" test.
+ * **`reconcile` IS NOT ONE OF THEM** and never has been: it allocates a fresh
+ * `{v, board, hidden}` on EVERY non-null input, identical content or not. That
+ * costs nothing today because both of its call sites are LOADS (`readLayout`,
+ * reached from the lazy `useState` initialiser and from the project-switch
+ * render reconcile), which discard the input anyway — but a persist-skip built
+ * on `next !== stored` would fire on every load. So do not build one, and do
+ * not read the mutators' contract as covering it.
  */
 import { reorderIds } from "./list-reorder";
 import { DASHBOARD_TILES, tileById, type DashboardTileId, type TileSpan } from "./dashboard-tiles";

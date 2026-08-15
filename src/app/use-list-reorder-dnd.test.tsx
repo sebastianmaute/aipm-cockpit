@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
-import { useListReorderDnd } from "./use-list-reorder-dnd";
+import { useListReorderDnd, type ListReorderOptions } from "./use-list-reorder-dnd";
 
 /** Minimal consumer: a list of three items with a handle each. */
 function Harness({ onReorder, keyboard = true, disabled = false }: { onReorder: (ids: string[]) => void; keyboard?: boolean; disabled?: boolean }) {
@@ -41,10 +41,24 @@ function PreviewHarness() {
   );
 }
 
-/** Supplies onMove instead of onReorder. */
+/**
+ * Supplies onMove AND onReorder, to pin `commit`'s precedence.
+ *
+ * ★★ THE DOUBLE CAST IS DELIBERATE AND MUST NOT BE REMOVED BY "FIXING" THE TYPE.
+ * `ListReorderOptions` is a discriminated union whose arms carry `?: never`, so
+ * passing both is a build error — exactly what that union exists to say, and
+ * `as ListReorderOptions<string>` alone is rejected too (TS2352: the shapes do
+ * not overlap). The runtime branch it guards (`if (onMove) … else
+ * onReorder?.()`) is still defensive code an untyped/`any` caller can reach, so
+ * this pins it from OUTSIDE the contract rather than deleting the only coverage
+ * it has. Loosening the union to "at least one" would let this compile as
+ * written — and would give back the "both" footgun the union exists to close.
+ */
 function PairHarness({ onMove, onReorder }: { onMove: (a: string, b: string) => void; onReorder: (ids: string[]) => void }) {
   const ids = ["A", "B", "C"];
-  const dnd = useListReorderDnd<string>({ ids, onMove, onReorder });
+  const dnd = useListReorderDnd<string>(
+    { ids, onMove, onReorder } as unknown as ListReorderOptions<string>,
+  );
   return (
     <div>
       {ids.map((id) => (

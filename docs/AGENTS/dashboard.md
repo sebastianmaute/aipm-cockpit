@@ -27,8 +27,12 @@ outlived its markup by ~87 releases, which is what the header of this file warns
 ★★★ **ORDER IS THE ENTIRE PLACEMENT MODEL.** `DashboardGrid` renders `grid grid-cols-1 lg:grid-cols-2
 xl:grid-cols-4 grid-flow-row-dense`, so an ordered list of `PlacedTile` `{id,w,h}` resolves into cells
 and there are no coordinates to store — every operation in `dashboard-layout.ts` (`moveTile` ·
-`hideTile` · `restoreTile` · `resizeTile` · `reconcile`) is an array operation, and each returns the
-SAME object reference on a no-op so a caller can skip a persist cheaply. ★★ A user therefore CANNOT
+`hideTile` · `restoreTile` · `resizeTile` · `reconcile`) is an array operation. ★★ THE FIRST FOUR
+return the SAME object reference on a no-op, so a caller can skip a persist cheaply; **`reconcile` DOES
+NOT** and never did — it allocates a fresh `{v, board, hidden}` on every non-null input, identical
+content or not. Harmless today (both of its call sites are loads), but a persist-skip written against
+`next !== stored` would fire on every one of them. This sentence used to lump all five together, which
+is exactly the claim someone would build that skip on. ★★ A user therefore CANNOT
 leave a deliberate hole: `dense` backfills it with the next tile that fits. ★★ That is also why the
 panel renders the reorder hook's `previewOrder` rather than the stored board and draws NO edge drop
 indicator — dense re-places everything after a move, so an edge marker would routinely point at a slot
@@ -72,11 +76,33 @@ is what per-axis resize is for. Measure comfortable before calling anything a re
 asserts nothing on it (`grep -n autoFlow e2e/dashboard-grid.spec.ts` → ONE hit, the collection); dense is
 proved by measuring a backfill instead.
 • dropping `xl:grid-cols-4` still yields FOUR `gridTemplateColumns` entries, as IMPLICIT tracks — so a
-length-only `toHaveLength(4)` passes against that mutant, and what actually kills it is the equal-width
-check plus the tracks-plus-gaps-vs-`contentWidth` sum beside it. ★★ The spec's own inline comment claims
-the opposite ("a `grid-cols-4` that Tailwind failed to emit would leave a single implicit `auto` track,
-which the length check already catches"). One of the two is wrong and this file cannot settle it: delete
-the class and run that spec before relying on either sentence.
+length-only `toHaveLength(4)` passes against that mutant. Measured under it:
+`"19.3594px 19.3594px 575.641px 575.641px"`. The template does not collapse to one track, because the
+w:4 tile's own `xl:col-span-4` reaches past the two explicit `lg:grid-cols-2` tracks and grid
+MANUFACTURES two implicit ones to hold it. What kills the mutant is the EQUAL-WIDTH loop in the same
+test (delta 556.28px), plus the w:2 half-width assertion in "emitted the width-span utilities" — TWO of
+the five tests, each on its second assertion. ★★★ AND THE TRACKS-PLUS-GAPS SUM DOES **NOT** KILL IT,
+which is the surprise and which an earlier revision of this bullet got wrong in both directions: implicit
+tracks are content-sized, so the row still tiles the content box exactly — 1238.0008px against a 1238px
+box, a 0.0008px delta well inside the spec's 1.5 tolerance. That assertion is kept because it pins a
+DIFFERENT failure (four tracks that do not fill the box), never as a second detector for this one.
+★★ The spec used to carry an inline comment claiming the opposite ("a `grid-cols-4` that Tailwind failed
+to emit would leave a single implicit `auto` track, which the length check already catches") and this
+file then declared the contradiction unsettled and told the reader to go run the mutant. It was settled
+by running it; the spec's comments now carry the measurement at each assertion, and the work does not
+need redoing.
+
+★★ **HIDE→RESTORE DISCARDS A RESIZE, ON PURPOSE — it is a decision, not an oversight, and nothing but
+this paragraph says so.** `restoreTile` splices the tile back at its CATALOGUE default `{w, h}`
+(`spec.w`/`spec.h`), never at the size it carried when it was hidden, because `hideTile` drops the whole
+`PlacedTile` and keeps only the id on the shelf — the size is gone before restore is reached. So a user
+who widens `burn` to w:2, hides it and restores it gets w:1 back. `dashboard-layout.test.ts` pins this
+("appends a hidden tile to the board at its catalogue default size"), so a change of mind has to go
+through that test rather than sliding in. ★ Preserving it would mean shelving the `PlacedTile` instead
+of the id, which changes the stored shape (`hidden: DashboardTileId[]`) and therefore
+`dashboard-layout-store.ts`'s validation, `reconcile`'s de-duplication and every stored blob in the
+field. Not worth it for a lost span — but say so out loud, because "I resized that and it came back
+wrong" reads as a bug to whoever hits it.
 
 ★★★ **A GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED.** `reconcile` takes ONE argument for exactly
 that reason, and `dashboard-layout.test.ts` pins its arity so the parameter cannot creep back: a

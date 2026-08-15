@@ -309,22 +309,29 @@
   so no test could see it. Any new `draggable` calls `e.dataTransfer?.setData(...)` even when the payload
   is unused. ★★ THE SWEEP IS NOW COMPLETE FOR THE REORDER FAMILY, and an earlier revision of this line
   named three live offenders that no longer exist — the `budget-panel.tsx` bucket handle and both
-  `roles-editor.tsx` sites. All four reorder surfaces (the Reports cards, the budget buckets, and the
-  rate card plus the reference lists in `roles-editor.tsx`) take their drag props from
-  `useListReorderDnd`, and the HOOK owns the `setData` call. That is the point of the extraction:
-  remembering it stopped being a per-site decision, so a fifth call site cannot get it wrong.
+  `roles-editor.tsx` sites. All FIVE reorder surfaces (the Reports cards, the budget buckets, the rate
+  card plus the reference lists in `roles-editor.tsx`, and the Dashboard tile grid) take their drag
+  props from `useListReorderDnd`, and the HOOK owns the `setData` call. That is the point of the
+  extraction: remembering it stopped being a per-site decision, so a sixth call site cannot get it
+  wrong. ★ The Dashboard was the first ADOPTER rather than one of the four the extraction lifted, and
+  it is why the hook grew `onMove` (a pair, not a resulting list) and `endDrag`.
   ★★ RE-DERIVE RATHER THAN TRUST THIS PARAGRAPH — AND KNOW WHAT THE COMMANDS CANNOT SEE:
   `grep -rn "onDragStart" src/app --include=*.tsx | grep -v '\.test\.'` against
   `grep -rn "setData" src/app --include=*.tsx`.
-  The first returns 13 lines and NOT ONE of the four hook-driven surfaces is among them: the hook is a
-  `.ts` file, which `--include=*.tsx` never reaches, and its consumers spread `handleProps(id)` instead
-  of writing a handler. So a surface's ABSENCE from that grep now carries two opposite meanings the
-  greps cannot separate — routed through the hook (correct), or carrying no drag at all. What it still
-  enumerates is the INLINE handlers, and each of those does pair with a `setData` in the second grep:
-  gantt rows, the resource-calendar band and its rows, the stakeholder map, and both kanban surfaces.
-  The remaining five hits are not handlers at all: three are `drag-handle.tsx` merely FORWARDING an
-  `onDragStart` prop on behalf of its callers (type, destructure, JSX), and two are comments, one in
-  each gantt file. ★ Add `--include=*.ts` before concluding anything about the hook itself.
+  The first returns 15 lines (measured 2026-08-15 — this said 13, from before the Dashboard adopted the
+  hook) and NOT ONE of the five hook-driven surfaces is among them: the hook is a `.ts` file, which
+  `--include=*.tsx` never reaches, and its consumers spread `handleProps(id)` instead of writing a
+  handler. So a surface's ABSENCE from that grep now carries two opposite meanings the greps cannot
+  separate — routed through the hook (correct), or carrying no drag at all. What it still enumerates is
+  the INLINE handlers — EIGHT of the 15 — and each of those does pair with a `setData` in the second
+  grep, which returns exactly eight non-test hits: gantt rows (1), the resource-calendar band (1) and
+  its rows (3), the stakeholder map (1), and both kanban surfaces (1 each). The remaining SEVEN hits are
+  not handlers at all: FOUR are a component merely FORWARDING an `onDragStart` prop on behalf of its
+  callers (`drag-handle.tsx`'s type, destructure and JSX, plus `dashboard-tile.tsx`'s `TileHandleProps`
+  type), and THREE are comments — one in each gantt file and one in `dashboard-tile.tsx`.
+  ★ Add `--include=*.ts` before concluding anything about the hook itself: that is where its five call
+  sites live (`grep -rn "useListReorderDnd<" src/app --include=*.tsx | grep -v '\.test\.'` finds them —
+  `budget-panel.tsx`, `reports.tsx`, `roles-editor.tsx` twice, `dashboard-panel.tsx`).
   ★★ A per-row drag handle needs a row-UNIQUE accessible name. Reports gave every handle the same
   `reorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
   asserting the names are DISTINCT is the only detector — and note every other test in that file finds its

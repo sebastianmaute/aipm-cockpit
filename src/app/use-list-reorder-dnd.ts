@@ -6,17 +6,9 @@ import { useDragAutoscroll } from "./use-drag-autoscroll";
 /** Stable stand-in for a consumer that passes no `scrollRef` — see the call. */
 const NO_SCROLLER: RefObject<HTMLElement | null> = { current: null };
 
-export interface ListReorderOptions<Id> {
+interface ListReorderCommon<Id> {
   /** The CURRENT order. The hook is controlled — it never owns the list. */
   ids: readonly Id[];
-  /** Called with the next order. Not called for a no-op reorder. Optional only
-   *  when `onMove` is supplied instead. */
-  onReorder?: (ids: Id[]) => void;
-  /** Called with the PAIR instead of the resulting list. Consumers whose state
-   *  is richer than an id list (the dashboard stores a size per tile) commit
-   *  through this, so the hook never has to reconstruct their objects. Exactly
-   *  one of `onReorder` / `onMove` must be supplied. */
-  onMove?: (dragId: Id, targetId: Id) => void;
   /** Scroller to edge-auto-scroll during a drag. Omit for none. */
   scrollRef?: RefObject<HTMLElement | null>;
   /** ArrowUp/ArrowDown reorder on the handle. Default true. Pass false when the
@@ -27,6 +19,26 @@ export interface ListReorderOptions<Id> {
    *  fight the sort). Default false. */
   disabled?: boolean;
 }
+
+/**
+ * ★★★ EXACTLY ONE OF `onReorder` / `onMove`, ENFORCED BY THE TYPE. Both were
+ * plain optional members while this docstring already claimed "exactly one", so
+ * a consumer supplying NEITHER compiled cleanly and every reorder — drag and
+ * arrow-key alike — was silently dropped: `commit` computes the next order and
+ * then calls nothing. Nothing else could catch it, because a hook that quietly
+ * does nothing renders and tests exactly like one whose list happens not to move.
+ * The `?: never` arms also forbid supplying BOTH, which is what makes the claim
+ * true in both directions rather than only the dangerous one.
+ */
+type ListReorderCommit<Id> =
+  /** Called with the next order. Not called for a no-op reorder. */
+  | { onReorder: (ids: Id[]) => void; onMove?: never }
+  /** Called with the PAIR instead of the resulting list. Consumers whose state
+   *  is richer than an id list (the dashboard stores a size per tile) commit
+   *  through this, so the hook never has to reconstruct their objects. */
+  | { onMove: (dragId: Id, targetId: Id) => void; onReorder?: never };
+
+export type ListReorderOptions<Id> = ListReorderCommon<Id> & ListReorderCommit<Id>;
 
 export interface ListReorderDnd<Id> {
   dragId: Id | null;
