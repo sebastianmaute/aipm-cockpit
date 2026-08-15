@@ -1,7 +1,6 @@
 "use client";
 
 import { KpiGradientBar, Tile } from "../report-table";
-import { Card } from "../card";
 import { type Lang, t } from "../i18n";
 import { TrendArrow } from "../trend-arrow";
 import { hasNoActiveScope, type DashboardModel } from "../dashboard";
@@ -18,11 +17,14 @@ interface DashboardKpiStripProps {
 }
 
 /** Standalone "at a glance" KPI card: completion % · overdue · open RAID.
- *  Extracted from DashboardHero so it can be a first-class masonry item. */
+ *
+ *  ★ NO BOX OF ITS OWN — the arrangeable tile chrome (`dashboard-tile.tsx`)
+ *  draws the border and the title ("At a glance"). A `Card boxed` here would
+ *  nest a second bordered surface inside the first. */
 export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
   return (
-    <Card boxed className={dc.cardPad}>
+    <div className={dc.cardPad}>
       <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
         <Tile
           label={noActiveScope ? t(lang, "dashboardNoActiveScope") : t(lang, "dashboardKpiComplete")}
@@ -56,6 +58,6 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
         />
       </div>
-    </Card>
+    </div>
   );
 }

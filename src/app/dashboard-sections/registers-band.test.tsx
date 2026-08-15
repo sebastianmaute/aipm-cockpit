@@ -57,7 +57,7 @@ describe("RaidRegisterCard", () => {
 });
 
 describe("UpcomingCard", () => {
-  it("renders Upcoming heading and an overdue task button", () => {
+  it("renders the two sub-headings and an overdue task button, and NO heading of its own", () => {
     render(
       <UpcomingCard
         lang="en-US"
@@ -66,7 +66,13 @@ describe("UpcomingCard", () => {
         onOpenTask={() => {}}
       />,
     );
-    expect(screen.getByText("Upcoming & overdue")).toBeInTheDocument();
+    // ★ The card no longer titles itself: the arrangeable tile chrome
+    // (`dashboard-tile.tsx`) renders "Upcoming & overdue" from the catalogue's
+    // `dashboardUpcoming` key — the same key this card used to render — so
+    // keeping it would stack two identical headings in two nested boxes.
+    expect(screen.queryByText("Upcoming & overdue")).toBeNull();
+    expect(screen.getByText("Overdue")).toBeInTheDocument();
+    expect(screen.getByText("Due soon")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Fix the bug/ })).toBeInTheDocument();
   });
 

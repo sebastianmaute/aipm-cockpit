@@ -205,8 +205,14 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
       />,
       { wrapper },
     );
+    // The boxed card is now the arrangeable TILE CHROME (a <section>), not a
+    // <div> the body drew itself — the body no longer boxes or titles itself at
+    // all, or the tile would stack two identical "Progress" headings inside two
+    // nested borders.
     const heading = screen.getByText("Progress");
-    expect(heading.closest("div.rounded-lg")).not.toBeNull();
+    const tile = heading.closest("section.rounded-lg");
+    expect(tile).not.toBeNull();
+    expect(tile!.getAttribute("data-testid")).toBe("tile-progress");
   });
 });
 
@@ -732,33 +738,97 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
 
 });
 
-describe("DashboardPanel masonry cockpit", () => {
-  it("renders the cards inside one lg:columns-2 multicolumn flow", () => {
-    render(<DashboardPanel {...fullProps} />, { wrapper });
-    const progress = screen.getByText("Progress");
-    // Walk up to the masonry container. (jsdom's selector engine rejects the
-    // escaped-colon Tailwind class as a CSS selector, so match via className.)
-    let masonry: HTMLElement | null = progress.parentElement;
-    while (masonry && !masonry.className.includes("lg:columns-2")) {
-      masonry = masonry.parentElement;
-    }
-    expect(masonry).not.toBeNull();
-    expect(masonry!.className).toContain("columns-1");
-    // Progress, Milestones + Changes all live in the SAME masonry flow.
-    expect(masonry!.textContent).toContain("Milestones");
-    expect(masonry!.textContent).toContain("Changes");
+// ★★ EVERY TEST HERE NEEDS ITS OWN `projectId`. `useDashboardLayout` keys its
+// stored arrangement on it, so a shared id would let one test's hide leak into
+// the next. (The 400ms debounce means nothing is actually written inside a
+// synchronous test — the effect's cleanup clears the timer on unmount — but the
+// isolation must not rest on that timing.)
+const EN = "en-US" as const;
+const grip = (title: string) => `${t(EN, "reorderHandle")} – ${title}`;
+const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
+
+describe("DashboardPanel arrangeable tile grid", () => {
+  it("renders the cards as tiles inside one dense grid", () => {
+    const { container } = render(<DashboardPanel {...fullProps} projectId="p-grid-flow" />, { wrapper });
+    const grid = container.querySelector('[data-testid="dashboard-grid"]');
+    expect(grid).not.toBeNull();
+    // Order is the whole placement model — `grid-auto-flow: row dense` resolves
+    // the ordered list into cells, which is why nothing stores coordinates.
+    expect(grid!.className).toContain("grid-flow-row-dense");
+    expect(grid!.querySelectorAll('[data-testid^="tile-"]').length).toBeGreaterThan(0);
+    // Progress, Milestones + Changes all live in the SAME grid.
+    expect(grid!.textContent).toContain("Milestones");
+    expect(grid!.textContent).toContain("Changes");
   });
 
-  it("wraps masonry cards in break-inside-avoid containers", () => {
-    const { container } = render(<DashboardPanel {...fullProps} />, { wrapper });
-    const wrappers = Array.from(container.querySelectorAll("div")).filter((el) =>
-      el.className.includes("break-inside-avoid"),
-    );
-    expect(wrappers.length).toBeGreaterThan(0);
+  it("gives each tile the span classes its catalogue entry declares", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-grid-span" />, { wrapper });
+    // `progress` is w:2 h:2 in DASHBOARD_TILES, and the classes must be WHOLE
+    // literals — an interpolated `col-span-${w}` emits no CSS at all, and jsdom
+    // has no layout to notice.
+    const tile = screen.getByTestId("tile-progress");
+    expect(tile.className).toContain("lg:col-span-2");
+    expect(tile.className).toContain("row-span-2");
+  });
+
+  it("qualifies every per-tile control with that tile's title", () => {
+    // WCAG 2.4.6, and the axe gate cannot see a duplicate accessible name in any
+    // view at any seed size — a multi-tile render is the only possible detector.
+    render(<DashboardPanel {...fullProps} projectId="p-grid-names" />, { wrapper });
+    expect(screen.getByRole("button", { name: grip("Progress") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: grip("Milestones") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: kebab("Progress") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: kebab("Milestones") })).toBeInTheDocument();
+  });
+
+  it("renders no grip, menu, shelf or reset in a popout (read-only)", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-grid-popout" isPopout />, { wrapper });
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: grip("Progress") })).toBeNull();
+    expect(screen.queryByRole("button", { name: kebab("Progress") })).toBeNull();
+    expect(screen.queryByText(t(EN, "dashboardResetLayout"))).toBeNull();
+    expect(screen.queryByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeNull();
+  });
+
+  it("hides a tile from the ⋮ menu onto the shelf, announces it, and restores it", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-hide" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    // PopoverPanel owns the dismissal protocol and portals the panel to <body>.
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+
+    expect(screen.queryByTestId("tile-progress")).toBeNull();
+    const announced = screen.getAllByRole("status").map((el) => el.textContent);
+    expect(announced).toContain(t(EN, "dashboardTileHidden", "Progress"));
+
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "dashboardTileRestore")} – Progress` }));
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+  });
+
+  it("moves a tile earlier from the ⋮ menu and announces its new position", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-move" />, { wrapper });
+    const before = Array.from(document.querySelectorAll('[data-testid^="tile-"]'))
+      .map((el) => el.getAttribute("data-testid"));
+    const target = before[2]!;                       // never index 0 — Move earlier is disabled there
+    const title = screen.getByTestId(target).getAttribute("aria-label")!;
+
+    await user.click(screen.getByRole("button", { name: kebab(title) }));
+    const menu = screen.getByRole("dialog", { name: kebab(title) });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileMoveEarlier") }));
+
+    const after = Array.from(document.querySelectorAll('[data-testid^="tile-"]'))
+      .map((el) => el.getAttribute("data-testid"));
+    expect(after.indexOf(target)).toBe(1);
+    expect(after).toHaveLength(before.length);
+    const announced = screen.getAllByRole("status").map((el) => el.textContent);
+    expect(announced).toContain(t(EN, "dashboardTileMoved", title, "2", String(before.length)));
   });
 
   it("renders the RAID register (Top open RAID) BEFORE the Progress card in DOM order", () => {
-    render(<DashboardPanel {...fullProps} />, { wrapper });
+    render(<DashboardPanel {...fullProps} projectId="p-grid-order" />, { wrapper });
     const registers = screen.getByText("Top open RAID");
     const progress = screen.getByText("Progress");
     expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

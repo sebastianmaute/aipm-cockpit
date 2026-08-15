@@ -1,40 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ReportCard, Section, Tile } from "./report-table";
-import { Card } from "./card";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
-import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
-import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
-import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
-import { type Lang, t, localeFor, type TranslationKey } from "./i18n";
-import { RagDot } from "./rag-dot";
+import { type Lang, t, localeFor } from "./i18n";
 import type { Health } from "./health";
-import { ratioHealth } from "./budget-health";
-import { changeImpactRag } from "./change-log";
-import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, ChangeItem, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
-import { RagBadge } from "./rag-badge";
-import { BurndownCharts } from "./burndown-chart";
-import { BurndownChainWarning } from "./budget-chain-warning";
 import type { SuggestedAction } from "./next-actions/types";
 import type { InsightActions } from "./insights/insight";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
-import { VarianceSummary } from "./variance-summary";
 import type { VarianceRow, SnapshotRecord } from "./snapshot";
 import { useLandingDelta } from "./use-landing-delta";
 import { buildGreeting, type RagScope } from "./dashboard-delta";
 import { DashboardDeltaStrip } from "./dashboard-delta-strip";
 import { computeCompletionTrend } from "./completion-trend";
-import { Sparkline } from "./sparkline";
 import { bucketMilestonesByHorizon } from "./milestones";
-import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { computeCoaching, type SettingsSectionId } from "./dashboard-coaching";
-import { INTERACTIVE } from "./interaction-styles";
-import { EmptyState } from "./empty-state";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { DashboardTipCard } from "./dashboard-tip-card";
 import { DigestCardConnected } from "./digest/digest-card-connected";
@@ -42,8 +27,18 @@ import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { type AppView } from "./nav-config";
 import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
 import { DashboardHero } from "./dashboard-sections/dashboard-hero";
-import { InsightsCard } from "./dashboard-sections/insights-card";
 import type { Insight, InsightEntityRef } from "./insights/insight";
+import { Button } from "./button";
+import { PopoverPanel } from "./popover-panel";
+import { DashboardGrid } from "./dashboard-grid";
+import { DashboardTile, type TileDragProps } from "./dashboard-tile";
+import { DashboardTileMenu } from "./dashboard-tile-menu";
+import { DashboardShelf } from "./dashboard-shelf";
+import { buildTileBodies } from "./dashboard-tile-bodies";
+import { useDashboardLayout } from "./use-dashboard-layout";
+import { useListReorderDnd } from "./use-list-reorder-dnd";
+import { tileById, type DashboardTileId, type TileGateInput } from "./dashboard-tiles";
+import type { PlacedTile } from "./dashboard-layout";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -87,15 +82,6 @@ interface DashboardPanelProps {
   onCancelInsightRecommendation?: () => void;
   insightAiEnabled?: boolean;
 }
-
-const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
-  Proposed: "changeStatusProposed",
-  "Under Review": "changeStatusUnderReview",
-  Approved: "changeStatusApproved",
-  Rejected: "changeStatusRejected",
-  Implemented: "changeStatusImplemented",
-  Deferred: "changeStatusDeferred",
-};
 
 export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask, topActions, onOpenAction } = props;
@@ -236,6 +222,126 @@ export function DashboardPanel(props: DashboardPanelProps) {
     }
   };
 
+  // ── Arrangeable tile grid ───────────────────────────────────────────────────
+  // ★★ THE GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED. `useDashboardLayout`
+  // deliberately takes no `gate` — a gated-off tile keeps its stored position, so
+  // switching Budget off and on again does not lose the burn tile's place. The
+  // old masonry's inline conditions (`topActions?.length`, `activeInsightCount`,
+  // …) live here now instead of wrapping the JSX.
+  const gate: TileGateInput = {
+    showRaid,
+    showBudget,
+    showChanges,
+    showMilestones,
+    tursoActive: !!props.tursoActive,
+    hasTopActions: !!topActions?.length,
+    hasInsights: activeInsightCount > 0,
+    // ★ `&& !noActiveScope` is NOT in the plan and is load-bearing: the old card
+    // carried both conditions, and dropping the second would put a flat 0%
+    // trajectory beside a completion tile reading "No active scope".
+    hasCompletionTrend: completionSeries.length >= 2 && !noActiveScope,
+  };
+  const arrangement = useDashboardLayout({
+    projectId: props.projectId ?? "default",
+    isPopout: props.isPopout,
+  });
+  // Hoisted: `react-hooks/exhaustive-deps` rejects an `obj.member` dependency,
+  // and the reorder hook reads this on every render anyway.
+  const layout = arrangement.layout;
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const boardIds = layout.board.map((p) => p.id);
+  const reorder = useListReorderDnd<DashboardTileId>({
+    ids: boardIds,
+    // ★ onMove, NOT onReorder: the board stores a size per tile, so a bare id
+    // list cannot express the state. The pair form lets the layout engine own
+    // the mutation and keep each tile's w/h.
+    onMove: arrangement.move,
+    scrollRef: gridScrollRef,
+    keyboard: false, // the ⋮ menu is this surface's keyboard reorder path
+    disabled: arrangement.readOnly,
+  });
+
+  const bodies = buildTileBodies({
+    lang, dc, model,
+    trends,
+    money,
+    currency: props.plan.currency || "EUR",
+    noActiveScope,
+    completionSeries,
+    milestoneBuckets,
+    varianceRows,
+    allInsights,
+    openInsightEntity,
+    topActions,
+    showRaid,
+    tursoActive: !!props.tursoActive,
+    isPopout: props.isPopout,
+    insightActions: props.insightActions,
+    insightGeneratingId: props.insightGeneratingId,
+    onCancelInsightRecommendation: props.onCancelInsightRecommendation,
+    insightAiEnabled: props.insightAiEnabled,
+    onNavigate: props.onNavigate,
+    onOpenRaid,
+    onOpenTask,
+    onOpenMilestone: props.onOpenMilestone,
+    onOpenChange: props.onOpenChange,
+    onOpenAction,
+  });
+
+  // ★★ RENDER previewOrder, NOT layout.board. The grid packs densely, so an edge
+  // marker on the drop target would routinely point at a slot the tile does not
+  // end up in. Rendering the would-be result makes the board reflow under the
+  // cursor. `previewOrder === boardIds` at rest, so this costs nothing.
+  const sizeById = new Map(layout.board.map((p) => [p.id, p] as const));
+  const visible: PlacedTile[] = reorder.previewOrder
+    .map((id) => sizeById.get(id))
+    .filter((p): p is PlacedTile =>
+      p !== undefined && (tileById(p.id)?.gate(gate) ?? false) && bodies[p.id] != null);
+  const visibleIds = visible.map((p) => p.id);
+
+  const [menu, setMenu] = useState<{ id: DashboardTileId; index: number; count: number } | null>(null);
+  // PopoverPanel anchors off a ref; `DashboardTile` hands us the trigger ELEMENT,
+  // so it is parked here on open (an event handler, never render).
+  const menuAnchorRef = useRef<HTMLElement | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const [announcement, setAnnouncement] = useState("");
+  const menuSpec = menu ? tileById(menu.id) : undefined;
+  const menuSize = menu ? sizeById.get(menu.id) : undefined;
+
+  // ★★ THE MENU SPEAKS IN DELTAS, THE ENGINE IN TARGET IDS — translate here.
+  // ★★ AND OVER THE **VISIBLE** ORDER, not `layout.board`: the plan indexed the
+  // stored board while the menu disables its commands on the visible index, so a
+  // gated-off tile sitting between two visible ones would have made "Move
+  // earlier" swap with something the user cannot see (no visible change at all).
+  const moveByDelta = (id: DashboardTileId, delta: -1 | 1 | "first") => {
+    const i = visibleIds.indexOf(id);
+    if (i < 0) return;
+    const j = delta === "first" ? 0 : i + delta;
+    if (j === i || j < 0 || j >= visibleIds.length) return;
+    arrangement.move(id, visibleIds[j]);
+    const spec = tileById(id);
+    if (!spec) return;
+    setAnnouncement(
+      t(lang, "dashboardTileMoved", t(lang, spec.labelKey), String(j + 1), String(visibleIds.length)),
+    );
+  };
+
+  // Dropping a tile on the shelf hides it. The GRID owns decoding the drag —
+  // `DashboardShelf` takes `dropProps` and never inspects a dataTransfer itself.
+  const shelfDropProps: TileDragProps = arrangement.readOnly
+    ? {}
+    : {
+        onDragOver: (e) => e.preventDefault(),
+        onDrop: (e) => {
+          e.preventDefault();
+          const dragged = reorder.dragId;
+          if (dragged === null) return;
+          arrangement.hide(dragged);
+          const spec = tileById(dragged);
+          if (spec) setAnnouncement(t(lang, "dashboardTileHidden", t(lang, spec.labelKey)));
+        },
+      };
+
   return (
     <ReportCard
       lang={lang}
@@ -301,272 +407,103 @@ export function DashboardPanel(props: DashboardPanelProps) {
           showChanges={showChanges}
         />
 
-        {/* Masonry — variable-height cards pack via column-fill: balance.
-            Order = priority-first (top of column 1 = most important). */}
-        <div className={`columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`}>
-          <div className={`break-inside-avoid ${dc.cardGap}`}>
-            <DashboardKpiStrip lang={lang} model={model} trends={trends} onNavigate={props.onNavigate} dc={dc} />
-          </div>
-          {topActions?.length ? (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              <DashboardTopActions lang={lang} topActions={topActions} onOpenAction={onOpenAction} dc={dc} />
-            </div>
-          ) : null}
-          {activeInsightCount > 0 ? (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              <InsightsCard
-                insights={allInsights}
+        {/* The arrangeable tile grid — REPLACES the fixed masonry flow. Order is
+            the whole placement model (`grid-auto-flow: row dense`), so there are
+            no coordinates: drag to reorder, ⋮ to resize/hide. */}
+        <DashboardGrid dc={dc} scrollRef={gridScrollRef}>
+          {visible.map((p, i) => {
+            const spec = tileById(p.id)!;
+            return (
+              <DashboardTile
+                key={p.id}
+                id={p.id}
+                title={t(lang, spec.labelKey)}
+                w={p.w}
+                h={p.h}
                 lang={lang}
-                dc={dc}
-                actions={props.insightActions}
-                generatingId={props.insightGeneratingId}
-                onCancelGenerate={props.onCancelInsightRecommendation}
-                aiEnabled={props.insightAiEnabled}
-                onOpen={openInsightEntity}
-                isPopout={props.isPopout}
-              />
+                readOnly={arrangement.readOnly}
+                dragProps={reorder.itemProps(p.id)}
+                handleProps={reorder.handleProps(p.id)}
+                onOpenMenu={(anchor) => {
+                  menuAnchorRef.current = anchor;
+                  setMenu({ id: p.id, index: i, count: visible.length });
+                }}
+              >
+                {bodies[p.id]}
+              </DashboardTile>
+            );
+          })}
+        </DashboardGrid>
+
+        {/* Popout is READ-ONLY: no shelf, no reset, no menu — and the tile
+            chrome drops its own grip and ⋮ on the same flag. */}
+        {!arrangement.readOnly && (
+          <div className="print:hidden">
+            <div className="flex justify-end">
+              <Button variant="ghost" size="xs" onClick={arrangement.reset}>
+                {t(lang, "dashboardResetLayout")}
+              </Button>
             </div>
-          ) : null}
-          {showRaid && (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              <RaidRegisterCard lang={lang} topRaid={model.topRaid} onOpenRaid={onOpenRaid} showRaid={showRaid} />
-            </div>
-          )}
-          <div className={`break-inside-avoid ${dc.cardGap}`}>
-            <UpcomingCard lang={lang} overdue={model.overdue} dueSoon={model.dueSoon} onOpenTask={onOpenTask} />
+            <DashboardShelf
+              lang={lang}
+              // flatMap, not map + `!`: `reconcile` drops unknown ids from
+              // `hidden`, but a stale id would otherwise throw on the title.
+              hidden={layout.hidden.flatMap((id) => {
+                const spec = tileById(id);
+                return spec ? [{ id, title: t(lang, spec.labelKey) }] : [];
+              })}
+              onRestore={arrangement.restore}
+              dropProps={shelfDropProps}
+              isDragging={reorder.isDragging}
+            />
           </div>
-          <div className={`break-inside-avoid ${dc.cardGap}`}>
-            <Section title={t(lang, "dashboardProgress")} boxed>
-              <div className="flex flex-wrap gap-2">
-                <Tile
-                  label={noActiveScope
-                    ? t(lang, "dashboardNoActiveScope")
-                    : t(lang, "dashboardPercentComplete", String(model.progress.percent))}
-                  value={noActiveScope
-                    ? t(lang, "dashboardAllCancelled", String(model.progress.total))
-                    : t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.inScope))}
-                  onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                  activateLabel={noActiveScope
-                    ? `${t(lang, "dashboardNoActiveScope")} – ${t(lang, "dashboardOpenTasksView")}`
-                    : `${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
-                />
-                <Tile
-                  label="R / A / G" hint={t(lang, "dashboardRagHint")}
-                  value={
-                    <span className="inline-flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1"><RagDot level="R" />{model.progress.counts.R}</span>
-                      <span className="inline-flex items-center gap-1"><RagDot level="A" />{model.progress.counts.A}</span>
-                      <span className="inline-flex items-center gap-1"><RagDot level="G" />{model.progress.counts.G}</span>
-                      {/* ★ Conditional on > 0 — "✕ 0" on every healthy project is
-                          noise. ★ The glyph is aria-hidden with an sr-only
-                          companion: a bare "✕" announces inconsistently across
-                          screen readers, and unlike the three RagDots it cannot
-                          lean on the tile's own "R / A / G" label for meaning. */}
-                      {model.progress.outOfScope > 0 && (
-                        <span className="inline-flex items-center gap-1">
-                          <span aria-hidden="true" className="text-muted-foreground">✕</span>
-                          <span className="sr-only">{t(lang, "dashboardOutOfScopeCount")}</span>
-                          {model.progress.outOfScope}
-                        </span>
-                      )}
-                    </span>
-                  }
-                  onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                  activateLabel={`R / A / G – ${t(lang, "dashboardOpenTasksView")}`}
-                />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
-            </Section>
-          </div>
-          {/* Trends — masonry card after Progress; Turso-only. Clicking jumps to the Trends view. */}
-          {props.tursoActive ? (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              {(() => {
-                const trendsBody = (
-                  <>
-                    <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-                      {t(lang, "navTrends")}
-                    </h3>
-                    {varianceRows.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">{t(lang, "dashboardTrendsNoBaseline")}</p>
-                    ) : (
-                      <VarianceSummary variance={varianceRows} lang={lang} />
-                    )}
-                  </>
-                );
-                return props.onNavigate ? (
-                  <button
-                    type="button"
-                    aria-label={t(lang, "dashboardOpenTrendsView")}
-                    onClick={() => props.onNavigate!("trends")}
-                    className={`block w-full rounded-lg border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-ui-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
-                  >
-                    {trendsBody}
-                  </button>
-                ) : (
-                  <Card boxed className={dc.cardPad}>
-                    {trendsBody}
-                  </Card>
-                );
-              })()}
-            </div>
-          ) : null}
-          {showBudget && (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              <Section title={t(lang, "dashboardBudgetBurn")} boxed>
-                {model.burn ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Tile
-                      label={t(lang, "dashboardSubBudget")} hint={t(lang, "dashboardBudgetHint")}
-                      value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
-                      rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
-                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                      activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                    />
-                    <Tile
-                      label="h" hint={t(lang, "dashboardHoursHint")}
-                      value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
-                      rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
-                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                      activateLabel={`${t(lang, "resourcesUtilModeHours")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
-                )}
-                {model.evm.coverage.withEstimate > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Tile
-                      label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
-                      value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
-                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                      activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                    />
-                    <Tile
-                      label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
-                      value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
-                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                      activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                    />
-                  </div>
-                ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
-                )}
-                {model.burndown ? (
-                  <div className="mt-3">
-                    <BurndownChainWarning lang={lang} chain={model.bucketChain} />
-                    <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
-                  </div>
-                ) : null}
-                {model.burn ? (
-                  <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
-                ) : null}
-              </Section>
-            </div>
-          )}
-          {showMilestones && (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              <Section title={t(lang, "dashboardMilestones")} boxed>
-                <MilestoneHorizonStrip lang={lang} buckets={milestoneBuckets} onOpenMilestone={props.onOpenMilestone} />
-              </Section>
-            </div>
-          )}
-          {showChanges && (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              <Section title={t(lang, "dashboardChangesHeading")} boxed>
-                <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                  {t(lang, "dashboardChangesPending", String(model.changes.pending))}
-                </p>
-                {model.topChanges.length === 0 ? (
-                  <EmptyState compact title={t(lang, "dashboardChangesEmpty")} />
-                ) : (
-                  <ul className="space-y-1 text-sm">
-                    {model.topChanges.map((c) => {
-                      const content = (
-                        <>
-                          <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
-                          <span className="text-muted-foreground">#{c.id}</span>
-                          <span className="font-medium">{c.title}</span>
-                          <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
-                        </>
-                      );
-                      return (
-                        <li key={c.id}>
-                          {props.onOpenChange ? (
-                            <button
-                              type="button"
-                              aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
-                              onClick={() => props.onOpenChange!(c.id)}
-                              className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
-                            >
-                              {content}
-                            </button>
-                          ) : (
-                            <span className="flex items-center gap-2">{content}</span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </Section>
-            </div>
-          )}
-          {/* Completion-trend sparkline — self-hides without >= 2 points, and
-              is suppressed outright when there is no active scope. It renders
-              directly beneath the completion tile, so an all-cancelled project
-              would otherwise show a flat 0% trajectory under a tile reading
-              "No active scope": the same one-screen disagreement the
-              at-a-glance KPI card had to be fixed for. ★ "Beneath" is reading
-              order, not adjacency — this is a `column-fill: balance` multicolumn
-              flow, so which cards sit next to which depends on the viewport and
-              nothing here can promise a neighbour.
-              ★ The snapshot-fed series does NOT go to
-              zero on its own — `fromSnapshots` reads each record's stored
-              `pctComplete` and never consults `inScope` — so this is a real
-              suppression on that path, not a no-op dressed up as a guard. */}
-          {completionSeries.length >= 2 && !noActiveScope && (
-            <div className={`break-inside-avoid ${dc.cardGap}`}>
-              {(() => {
-                const sparkBody = (
-                  <>
-                    <div className="mb-1 flex items-baseline justify-between">
-                      <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {t(lang, "dashboardCompletionTrend")}
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
-                      </span>
-                    </div>
-                    <Sparkline
-                      points={completionSeries}
-                      ariaLabel={t(
-                        lang,
-                        "dashboardCompletionTrendAria",
-                        completionSeries[completionSeries.length - 1].percent,
-                        completionSeries[0].percent,
-                        completionSeries.length,
-                      )}
-                    />
-                  </>
-                );
-                const trendView = props.tursoActive ? "trends" : "open-points";
-                return props.onNavigate ? (
-                  <button
-                    type="button"
-                    aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
-                    onClick={() => props.onNavigate!(trendView)}
-                    className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-ui-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
-                  >
-                    {sparkBody}
-                  </button>
-                ) : (
-                  <div className={`rounded border border-line bg-surface shadow-[var(--shadow-card)] ${dc.cardPad}`}>{sparkBody}</div>
-                );
-              })()}
-            </div>
-          )}
-        </div>
+        )}
+
+        {/* ★ `PopoverPanel` owns the shared dismissal protocol (Escape via
+            `useDismissable` → the dismissal stack, outside-click across both the
+            anchor and the portaled panel, close-on-scroll, focus-first-control).
+            The menu content improvises none of it. `onClose` is a `useCallback`
+            because the panel re-subscribes its listeners on an unstable one. */}
+        {menu && menuSpec && menuSize && !arrangement.readOnly && (
+          <PopoverPanel
+            open
+            anchorRef={menuAnchorRef}
+            onClose={closeMenu}
+            role="dialog"
+            ariaLabel={`${t(lang, "actionMoreActions")} – ${t(lang, menuSpec.labelKey)}`}
+            className="w-56 p-1"
+          >
+            <DashboardTileMenu
+              lang={lang}
+              tileId={menu.id}
+              title={t(lang, menuSpec.labelKey)}
+              w={menuSize.w}
+              h={menuSize.h}
+              index={menu.index}
+              count={menu.count}
+              onResize={(axis, v) => {
+                arrangement.resize(menu.id, axis, v);
+                // `menuSize` is this render's value, so the axis NOT being set
+                // reads correctly as its current one.
+                setAnnouncement(t(lang, "dashboardTileResized",
+                  t(lang, menuSpec.labelKey),
+                  String(axis === "w" ? v : menuSize.w),
+                  String(axis === "h" ? v : menuSize.h)));
+              }}
+              onMove={(delta) => moveByDelta(menu.id, delta)}
+              onHide={() => {
+                arrangement.hide(menu.id);
+                setAnnouncement(t(lang, "dashboardTileHidden", t(lang, menuSpec.labelKey)));
+              }}
+              onClose={closeMenu}
+            />
+          </PopoverPanel>
+        )}
+
+        {/* ★ Not decoration: the ⋮ menu is this surface's keyboard reorder path,
+            and without an announcement a keyboard user gets no feedback that
+            anything moved, resized or was hidden. */}
+        <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
 
         {/* Tier 3 — folded status-summary editor */}
         <NarrativeEditor lang={lang} status={status} setStatus={setStatus} />
