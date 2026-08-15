@@ -14,6 +14,7 @@ import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
 import { migratePlaintextSecrets, readDeviceSecret, probeDeviceSecretReadable } from "./secrets-store";
+import { dropLegacyActivityLog } from "./activity-log";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
 
@@ -205,6 +206,12 @@ export function useSettings(): {
 
   // Load settings from localStorage once on mount; lift hydrated + i18nReady gates.
   useEffect(() => {
+    // One-time cleanup of the pre-upgrade device-local activity log (now
+    // workspace data, persisted via the six write paths — see activity-log.ts).
+    // Unconditional and independent of SETTINGS_KEY / safe mode: it touches a
+    // different localStorage key and cannot re-brick the boot either way.
+    dropLegacyActivityLog();
+
     let cancelled = false;
 
     // Safe mode: ignore persisted settings entirely. Boot the default settings

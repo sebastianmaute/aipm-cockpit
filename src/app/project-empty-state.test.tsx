@@ -8,6 +8,13 @@ import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { defaultSettings, defaultIntegrations, defaultTursoIntegrations } from "./settings-types";
 
+// TursoProjectPicker fetches the project list on mount — stub it so the
+// picker-opening test doesn't trigger a real network call / unresolved
+// promise warning.
+vi.mock("./turso-portfolio", () => ({
+  listProjects: vi.fn().mockResolvedValue([]),
+}));
+
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
   { name: "Carol White", email: "carol@example.com" },
@@ -372,5 +379,40 @@ describe("start-window logo", () => {
     // (the `-` makes a word boundary), so it would pass against the broken class
     // list and pin nothing at all.
     expect(img!.className).toMatch(/(?:^|\s)h-\d/);
+  });
+});
+
+describe("ProjectEmptyState — Load from Turso", () => {
+  it("hides the button when Turso is not configured", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+  });
+
+  it("hides the button when the portfolio is already on Turso", () => {
+    setup({
+      mode: "turso",
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultIntegrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+  });
+
+  it("shows the button in file mode once Turso is configured, and opens the picker", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultIntegrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load from Turso" }));
+    expect(screen.getByRole("dialog", { name: "Load a Turso project" })).toBeInTheDocument();
   });
 });

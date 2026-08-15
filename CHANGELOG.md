@@ -8,6 +8,57 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.239.0] - 2026-08-15 "Rusch"
+
+### Added
+
+- **AI Assistant conversations are now saved as threads.** On Turso projects the assistant gains a
+  sidebar listing your past conversations: each one is kept with the project, can be renamed or
+  deleted, and picking one restores it where you left off. Threads belong to the project, so a
+  conversation started on one device is there on the next. File-mode projects are unchanged — the
+  sidebar needs a database to store threads in, so it appears only when the project has one.
+- **You can open an existing Turso project directly, without setting up storage first.** A
+  Load-from-Turso button now sits both on the pre-project empty state and in the Projects view, so
+  connecting to a project someone else created no longer means walking through storage settings to
+  get there.
+
+### Changed
+
+- **The activity log is now part of the project, not of the browser it was recorded in.** It used to
+  live in one device-local browser store shared by every project you opened on that device. It is now
+  ordinary project data: it travels with the project across devices and across every storage backend
+  (JSON file, CSV, Markdown, IndexedDB, and both Turso layouts), it survives an app reset or a change
+  of device, and entries recorded on two devices are reconciled into a single stream when the project
+  is loaded.
+- **The log is stored but never exported.** It is written on all six storage paths and is deliberately
+  absent from every export and from generated documents — an entry can record the old and new values
+  of up to twelve fields per update, which is internal audit detail rather than something to hand to a
+  client. There is no export toggle for it, by design.
+- **An unfamiliar activity type is now shown generically instead of breaking the view.** If a project
+  is opened in an older build than the one that wrote it, activity kinds that build does not know are
+  displayed as "Unrecognized activity (<kind>)" and are preserved on save, so an older client can no
+  longer drop them from the shared project.
+
+### Removed
+
+- **Activity history recorded before this version is not carried forward.** The old store was a single
+  global stream with no project attribution, so on a device that had opened more than one project every
+  entry would have been assigned to whichever project happened to be open at upgrade time. Importing it
+  would have produced a plausible-looking but wrong audit trail, so it is discarded instead; the old
+  browser key is removed on first start after the upgrade. Logging begins again immediately, per
+  project. Nothing else is affected — tasks, RAID, and every other register are untouched.
+
+### Fixed
+
+- **The Ask Claude button no longer appears when AI is switched off.** It used to render regardless of
+  whether AI was enabled or configured, so it could open a chat that had no way to answer. It now
+  follows the same rule as the AI Assistant button beside it and stays hidden until AI is available.
+- **The export menu in the Projects view now closes when you click away or press Escape.** It
+  previously stayed open until the button was clicked a second time.
+- **The portfolio-switch confirmation no longer offers to "switch" when nothing is loaded.** With no
+  project open there is nothing to switch away from, and the button is now labelled for what it
+  actually does.
+
 ## [0.238.0] - 2026-08-13 "Attanasio"
 
 ### Added

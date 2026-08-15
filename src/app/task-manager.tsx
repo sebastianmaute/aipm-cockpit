@@ -205,7 +205,7 @@ const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
-  const { activityLog, setActivityLog, logActivity, logActivityChanges, handleClearActivityLog } =
+  const { activityLog, logActivity, logActivityChanges, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
@@ -460,7 +460,7 @@ function TaskManagerInner() {
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
-  } = useStorageBackend({ settings, lang, hydrated, isPopout, activityLog, setActivityLog, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
+  } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
   // truncated load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
@@ -1048,15 +1048,15 @@ function TaskManagerInner() {
 
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
   // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
+  // ★★ `activityLog` is DELIBERATELY MISSING, and missing STRUCTURALLY: no `setActivityLog` binding exists
+  // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why
+  // that matters — and why it does NOT generalise to the other six slices here — see AGENTS.md.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
-    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
-    setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []);
-    setSettingsOverrides(w.settingsOverrides);
-    setCalendarEvents(w.calendarEvents);
+    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems); setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []); setSettingsOverrides(w.settingsOverrides); setCalendarEvents(w.calendarEvents);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
@@ -2580,11 +2580,11 @@ function TaskManagerInner() {
         dataTourId: TOUR_ANCHORS.projectSwitcher,
       };
 
-  // Ask-Claude pill. In the modern layout it sits in the TopBar's LEFT cluster
-  // beside the project switcher (passed as projectSwitcherTrailing); the classic
-  // AppHeader wires its own copy beside the switcher under the title. Both sites
-  // must render it (dual-header rule) or it disappears in whichever layout is missed.
-  const askClaudeEl = (
+  // Ask-Claude pill. Modern layout puts it in the TopBar's LEFT cluster beside the project
+  // switcher (as projectSwitcherTrailing); classic AppHeader wires its own copy beside the
+  // switcher under the title. BOTH sites must render it (dual-header rule) and BOTH gate on
+  // isAiEnabled — aiAssistantOpener's check — so it cannot open a chat that has no answerer.
+  const askClaudeEl = isAiEnabled(settings.ai) ? (
     <span data-tour-id={TOUR_ANCHORS.askClaude}>
       <AskClaudeMenu
         lang={lang}
@@ -2592,7 +2592,7 @@ function TaskManagerInner() {
         onAsk={(body) => requestChat(body, true)}
       />
     </span>
-  );
+  ) : null;
 
   // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
   // built together in buildShellChrome so a new top-bar control lands in BOTH.

@@ -6,10 +6,12 @@ import {
   archiveProjectStatement, restoreProjectStatement, hardDeleteProjectStatements,
   rowsToProjectList, PROJECTS_TABLE, selectProjectStatement,
 } from "./turso-tenant-schema";
-import { TABLE_NAMES, rowsToWorkspace } from "./turso-schema";
+import { TABLE_NAMES, rowsToWorkspace, workspaceToStatements } from "./turso-schema";
 import { emptyWorkspace, PROJECT_CSV_COLUMNS, buildProjectFromObj } from "./storage";
 import type { ProjectMeta } from "./types";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import type { ActivityEntry } from "./activity-log";
+import type { Workspace } from "./workspace";
 
 function meta(): ProjectMeta {
   return {
@@ -240,6 +242,94 @@ describe("turso-tenant-schema", () => {
     const list = rowsToProjectList({ type: "ok", response: { type: "execute", result: { cols, rows } } });
     expect(list).toHaveLength(1);
     expect(list[0].meta.name).toBe(m.name);
+  });
+});
+
+describe("turso-tenant-schema — activityLog (meta KV, tenant path)", () => {
+  const sampleLog: ActivityEntry[] = [
+    { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
+  ];
+
+  it("writes activityLog as a meta row on the tenant path", () => {
+    const ws = { ...emptyWorkspace(), activityLog: sampleLog };
+    const stmts = tenantWorkspaceToStatements(ws, "p1");
+    const metaInsert = stmts.find(
+      (s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "activityLog"),
+    );
+    expect(metaInsert).toBeDefined();
+    expect(metaInsert!.args!.some((a) => a.value === JSON.stringify(sampleLog))).toBe(true);
+    expect(metaInsert!.args?.[metaInsert!.args.length - 1]).toEqual({ type: "text", value: "p1" });
+  });
+
+  it("omits the activityLog meta row when the log is empty on the tenant path", () => {
+    const ws = { ...emptyWorkspace(), activityLog: [] as ActivityEntry[] };
+    const stmts = tenantWorkspaceToStatements(ws, "p1");
+    const metaInsert = stmts.find(
+      (s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "activityLog"),
+    );
+    expect(metaInsert).toBeUndefined();
+  });
+
+  it("round-trips activityLog via rowsToWorkspace on the tenant path", () => {
+    const ws = { ...emptyWorkspace(), activityLog: sampleLog };
+    const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));
+    const decoded = rowsToWorkspace(results);
+    expect(decoded.activityLog).toEqual(sampleLog);
+  });
+});
+
+describe("turso-tenant-schema — meta-key parity (class guard)", () => {
+  // Build a workspace populated with every meta-blob slice both writers may
+  // emit, so the emitted KEY SETS can be compared directly. We don't care
+  // about decode-correctness here (that's covered elsewhere) — only that
+  // both writers agree on *which keys* a fully-populated workspace produces.
+  // Casts are used for slices whose full entity shape is irrelevant to a
+  // truthy/length check (`timelogLinks`, `knowledgeItems`, `insights`,
+  // `documents`, `documentVersions`, `settingsOverrides`).
+  function buildMetaFixtureWorkspace(): Workspace {
+    return {
+      ...emptyWorkspace(),
+      fieldVisibility: { task: { fields: ["taskName"] } },
+      features: ["raid"],
+      steeringCommittee: {
+        name: "Board", memberResourceIds: [1],
+        meetings: [{ id: 1, date: "2026-07-10", title: "July" }],
+        infoSchedules: [{ id: 1, label: "Pack", leadDays: 3 }],
+      },
+      timelogLinks: { anything: true } as unknown as Workspace["timelogLinks"],
+      knowledgeItems: [{ id: "k1" }] as unknown as Workspace["knowledgeItems"],
+      insights: [{ id: "i1" }] as unknown as Workspace["insights"],
+      documents: [{ id: "d1" }] as unknown as Workspace["documents"],
+      documentVersions: [{ id: "v1" }] as unknown as Workspace["documentVersions"],
+      activityLog: [
+        { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
+      ],
+      settingsOverrides: { timezone: {} } as unknown as Workspace["settingsOverrides"],
+    };
+  }
+
+  // Most `meta` rows are `INSERT INTO meta (key, value) VALUES (?, ?)` with the
+  // key as args[0] — but the single-tenant writer's `schema_version` row
+  // inlines the key literally (`VALUES ('schema_version', ?)`, ONE arg: the
+  // value only), so args[0] there is the VALUE, not the key. Handle both shapes.
+  function metaKeysOf(stmts: SqlStmt[]): Set<string> {
+    const keys = new Set<string>();
+    for (const s of stmts) {
+      if (!s.sql.startsWith("INSERT INTO meta")) continue;
+      const literalKey = s.sql.match(/VALUES\s*\(\s*'([^']+)'/);
+      if (literalKey) { keys.add(literalKey[1]); continue; }
+      const k = s.args?.[0]?.value;
+      if (typeof k === "string") keys.add(k);
+    }
+    return keys;
+  }
+
+  it("every meta key the single-tenant writer emits is also emitted by the tenant writer", () => {
+    const ws = buildMetaFixtureWorkspace();
+    const singleKeys = metaKeysOf(workspaceToStatements(ws));
+    const tenantKeys = metaKeysOf(tenantWorkspaceToStatements(ws, "p1"));
+    const missing = [...singleKeys].filter((k) => !tenantKeys.has(k));
+    expect(missing).toEqual([]);
   });
 });
 

@@ -151,6 +151,7 @@ export function CreateProjectForm({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setConfigOpen(false)}
+          noCurrentProject
         />
       )}
     </>

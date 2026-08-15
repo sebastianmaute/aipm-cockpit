@@ -9,6 +9,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import type { ChangeItem, Milestone, RaidItem, Task } from "./types";
+import type { ActivityEntry } from "./activity-log";
 
 const ctl = vi.hoisted(() => ({
   failStore: null as string | null,
@@ -253,6 +254,29 @@ describe("BrowserBackend parallel IDB save/load", () => {
 
     const loaded = await new BrowserBackend().load();
     expect(loaded.documentVersions).toBeUndefined();
+  });
+
+  it("round-trips activityLog through IndexedDB", async () => {
+    const log: ActivityEntry[] = [
+      { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
+    ];
+    const backend = new BrowserBackend();
+    await backend.save({ ...emptyWorkspace(), activityLog: log });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.activityLog).toEqual(log);
+  });
+
+  it("deletes the stored activityLog when it is cleared, so it cannot reload stale", async () => {
+    const log: ActivityEntry[] = [
+      { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] },
+    ];
+    const backend = new BrowserBackend();
+    await backend.save({ ...emptyWorkspace(), activityLog: log });
+    await backend.save({ ...emptyWorkspace(), activityLog: [] });
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.activityLog).toBeUndefined();
   });
 
   it("second save of an unchanged workspace emits empty deltas (baselines advanced)", async () => {

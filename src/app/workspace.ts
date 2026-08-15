@@ -43,6 +43,7 @@ import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
+import { sanitizeActivityLog, type ActivityEntry } from "./activity-log";
 import { sanitizeProjectDocuments, type DocTruncationDiag, type ProjectDocument } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions, type DocVersion } from "./document-versions";
@@ -132,6 +133,13 @@ export type Workspace = {
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
    *  Sanitized by sanitizeInsights. */
   insights?: readonly Insight[];
+  /** Per-project audit trail. Meta-blob (like insights/documents), storage-only
+   *  — deliberately absent from EXPORT_SECTION_KEYS, because an export would
+   *  carry `changes` (old and new values for up to 12 fields per update), which
+   *  does not belong in a document handed to a client. Optional & additive:
+   *  undefined/empty serializes to nothing (byte-stable). Sanitized by
+   *  sanitizeActivityLog. */
+  activityLog?: readonly ActivityEntry[];
   /** AI- and user-authored project documents (canonical block model; the
    *  .docx/.pptx/.html/.pdf bytes are rendered on demand and never stored).
    *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
@@ -191,6 +199,16 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //    existing project. See docs/open-followups.md §98.
     && (ws.documents?.length ?? 0) === 0
     && (ws.documentVersions?.length ?? 0) === 0;
+    // ★★★ activityLog is deliberately ABSENT here, INVERTING the documents rule
+    //     directly above. The log is auto-appended by ordinary use, so counting
+    //     it would make a workspace with log entries and NO user records read as
+    //     non-empty — slipping past this guard and letting a transient empty
+    //     backend read replace a populated project. That converts a data-loss
+    //     guard into a data-loss vector. Pinned by workspace.test.ts
+    //     ("ONLY activity entries is still EMPTY"). Do not "complete" the
+    //     documents precedent by adding it.
+    //     Same reasoning keeps it out of nonEmptyCollectionCount /
+    //     workspaceRecordCount (SAVE-time mass-deletion thresholds, §98).
 }
 
 /** Number of user collections that hold at least one record. Used by the
@@ -510,6 +528,10 @@ export function workspaceToJson(ws: Workspace): string {
       // of an `insights` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
       ...(ws.insights && ws.insights.length ? { insights: ws.insights } : {}),
+      // Additive: only present when activity entries exist, so legacy files
+      // stay free of an `activityLog` key. JSON is the complete round-trip, so
+      // this is always emitted (storage AND export) when present.
+      ...(ws.activityLog && ws.activityLog.length ? { activityLog: ws.activityLog } : {}),
       // Additive: only present when documents exist, so legacy files stay free
       // of a `documents` key. JSON is the complete round-trip, so this is
       // always emitted (storage AND export) when present.
@@ -661,6 +683,11 @@ export function jsonToWorkspace(
     if (p.insights !== undefined) {
       const ins = sanitizeInsights(p.insights);
       if (ins.length) raw.insights = ins;
+    }
+    // Additive: sanitize incoming activity-log entries when present.
+    if (p.activityLog !== undefined) {
+      const log = sanitizeActivityLog(p.activityLog);
+      if (log.length) raw.activityLog = log;
     }
     // Additive: sanitize incoming documents when present. TWO passes, in this
     // order: sanitizeProjectDocuments enforces the STRUCTURE (and is DOM-free

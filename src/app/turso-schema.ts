@@ -19,6 +19,7 @@ import {
 import {
   emptyWorkspace, migrateWorkspaceV10, sanitizeProjectStatus, type Workspace,
 } from "./workspace";
+import { sanitizeActivityLog } from "./activity-log";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
 import {
@@ -211,6 +212,15 @@ export function rowsToWorkspace(
       // malformed — leave undefined
     }
   }
+  const logRow = rowObjects(byTable.get("meta")).find((r) => r.key === "activityLog");
+  if (logRow?.value) {
+    try {
+      const log = sanitizeActivityLog(JSON.parse(logRow.value));
+      if (log.length) ws.activityLog = log;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   // Documents ride `meta` as one JSON blob — no table of their own, so
   // TABLE_NAMES stays untouched. TWO passes, in this order: the structural
   // sanitizer is DOM-FREE and cannot strip markup, so the rich-field allow-list
@@ -301,6 +311,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.timelogLinks !== next.timelogLinks) dirty.add("meta");
   if (prev.knowledgeItems !== next.knowledgeItems) dirty.add("meta");
   if (prev.insights !== next.insights) dirty.add("meta");
+  if (prev.activityLog !== next.activityLog) dirty.add("meta");
   if (prev.documents !== next.documents) dirty.add("meta");
   if (prev.documentVersions !== next.documentVersions) dirty.add("meta");
   if (prev.settingsOverrides !== next.settingsOverrides) dirty.add("meta");
@@ -398,6 +409,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "insights" },
           { type: "text", value: JSON.stringify(ws.insights) },
+        ],
+      });
+    }
+    if (ws.activityLog && ws.activityLog.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "activityLog" },
+          { type: "text", value: JSON.stringify(ws.activityLog) },
         ],
       });
     }

@@ -1,19 +1,15 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
-import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { t } from "./i18n";
-import { loadActivityLog } from "./activity-log";
+import * as dashboardModule from "./dashboard";
+import type { ActivityEntry } from "./activity-log";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
-
-vi.mock("./activity-log", async (orig) => ({
-  ...(await orig<typeof import("./activity-log")>()),
-  loadActivityLog: vi.fn(() => []),
-}));
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -690,7 +686,6 @@ describe("DashboardPanel density (slice #8)", () => {
 
 describe("DashboardPanel click-through parity (slice #9)", () => {
   afterEach(() => {
-    vi.mocked(loadActivityLog).mockReturnValue([]);
     localStorage.clear();
   });
 
@@ -934,5 +929,57 @@ describe("DashboardPanel completion tile", () => {
     renderDashboardWithTasks([]);
     expect(screen.getByText(t("en-US", "dashboardPercentComplete", "0"))).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "dashboardNoActiveScope"))).toBeNull();
+  });
+});
+
+describe("DashboardPanel activity log source (activity-log-workspace-data, task 11)", () => {
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  // Seeds the WORKSPACE's activityLog through the real setter — the only path
+  // a live project ever populates it through (use-storage-backend's merge on
+  // load, or use-activity-log's append). A localStorage write is the LEGACY
+  // path this test proves the panel no longer reads.
+  function Seed({ activityLog }: { activityLog: readonly ActivityEntry[] }) {
+    const { setActivityLog } = useWorkspace();
+    useEffect(() => {
+      setActivityLog(activityLog);
+    }, [activityLog, setActivityLog]);
+    return null;
+  }
+
+  it("reads the activity log from the workspace, not localStorage", () => {
+    window.localStorage.setItem(
+      "aipm-cockpit:activity-log",
+      JSON.stringify([
+        { id: "legacy-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["OLD"] },
+      ]),
+    );
+    const workspaceEntry: ActivityEntry = {
+      id: "dev1-s1-1",
+      timestamp: "2026-08-02T00:00:00.000Z",
+      kind: "task.created",
+      args: ["NEW"],
+    };
+    const buildSpy = vi.spyOn(dashboardModule, "buildDashboardInput");
+
+    render(
+      <>
+        <Seed activityLog={[workspaceEntry]} />
+        <DashboardPanel {...fullProps} />
+      </>,
+      { wrapper },
+    );
+
+    const lastCall = buildSpy.mock.calls.at(-1);
+    expect(lastCall).toBeDefined();
+    const ctxArg = lastCall![1];
+    // Positive: the panel's computation ran on the WORKSPACE-seeded entry.
+    expect(ctxArg.activity).toEqual([workspaceEntry]);
+    // Negative: the legacy localStorage entry never reached it — this is what
+    // makes the assertion above non-vacuous (an empty `activity` would also
+    // pass a bare "OLD is absent" check).
+    expect(ctxArg.activity.some((e) => e.args.includes("OLD"))).toBe(false);
   });
 });

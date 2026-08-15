@@ -43,6 +43,8 @@ import type { CalendarEvent } from "./calendar-event";
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
+import { sanitizeActivityLog } from "./activity-log";
+import type { ActivityEntry } from "./activity-log";
 import {
   type ImportDiag,
   PROJECT_CSV_COLUMNS,
@@ -287,6 +289,36 @@ export function markdownToInsights(md: string): Insight[] | undefined {
   try {
     const ins = sanitizeInsights(JSON.parse(m[1]));
     return ins.length ? ins : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Activity log persists the same way as documents/insights above — a fenced
+ *  json blob, not a table — for the same reason: an entry is a flat but
+ *  internal-shape record with no table pattern to copy.
+ *
+ *  ★ STORAGE-ONLY, unlike insightsToMarkdown just above: an entry's `changes`
+ *  carries old/new values for up to 12 fields per update, an internal audit
+ *  trail that does not belong in a document handed to a client. There is no
+ *  `activityLog` key in EXPORT_SECTION_KEYS and none should be added — gated
+ *  by `config === undefined` at the emit site below, same as documents.
+ *
+ *  ★★ Same fence-collision argument as documentsToMarkdown: JSON.stringify
+ *  escapes U+000A as the two characters \ and n, so no character a user's
+ *  args/change values can contain puts a ``` at column 0. */
+export function activityLogToMarkdown(log: readonly ActivityEntry[]): string {
+  return ["## Activity Log", "", "```json", JSON.stringify(log, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToActivityLog(md: string): ActivityEntry[] | undefined {
+  const m = /## Activity Log\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    // sanitizeActivityLog (activity-log.ts) is DOM-free — no second rich-field
+    // pass needed, unlike markdownToDocuments above.
+    const log = sanitizeActivityLog(JSON.parse(m[1]));
+    return log.length ? log : undefined;
   } catch {
     return undefined;
   }
@@ -627,6 +659,12 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // existed (the golden fixtures pin those bytes).
   if (config === undefined && ws.documentVersions && ws.documentVersions.length)
     mdParts.push(documentVersionsToMarkdown(ws.documentVersions));
+  // Activity log — STORAGE-ONLY, same gate as documents/documentVersions above:
+  // an entry's `changes` is an internal audit trail, not a user-facing export.
+  // Emitted only when present, so a log-less workspace serializes byte-for-byte
+  // as it did before the field existed (the golden fixtures pin those bytes).
+  if (config === undefined && ws.activityLog && ws.activityLog.length)
+    mdParts.push(activityLogToMarkdown(ws.activityLog));
   const out = mdParts.join("\n");
   return out;
 }

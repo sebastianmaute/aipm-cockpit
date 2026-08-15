@@ -233,8 +233,9 @@ export function partitionUpcoming(
 }
 
 /** Last `limit` activity entries, newest first. Assumes `entries` is in
- *  chronological (oldest-first) order, which is the contract of
- *  loadActivityLog() / appendActivity (they append to the end). */
+ *  chronological (oldest-first) order, which is the contract of the
+ *  workspace's `activityLog` slice / appendActivity (they append to the
+ *  end). */
 export function recentActivity(
   entries: readonly ActivityEntry[],
   limit: number = DASHBOARD_DEFAULTS.recentActivity,

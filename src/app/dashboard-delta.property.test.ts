@@ -11,7 +11,7 @@ const isoArb = fc.integer({ min: 0, max: 4_102_444_800_000 }).map((ms) => new Da
 
 const activityArb = fc.array(
   fc.record({
-    id: fc.integer({ min: 1, max: 100000 }),
+    id: fc.integer({ min: 1, max: 100000 }).map((n) => String(n)),
     timestamp: isoArb,
     kind: fc.constantFrom(...KINDS),
     args: fc.constant([] as (string | number)[]),

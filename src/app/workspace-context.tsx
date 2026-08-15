@@ -50,6 +50,7 @@ import type { DocVersion, DocVersionSource } from "./document-versions";
 import { mintId } from "./id-mint-session";
 import type { SettingsOverrides } from "./settings-types";
 import type { CalendarEvent } from "./calendar-event";
+import type { ActivityEntry } from "./activity-log";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
  *  the `Workspace` sections handed to storage, and the Turso dirty-table save
@@ -153,6 +154,18 @@ interface WorkspaceValue {
 
   calendarEvents: readonly CalendarEvent[] | undefined;
   setCalendarEvents: Dispatch<SetStateAction<readonly CalendarEvent[] | undefined>>;
+
+  /** ★ NON-optional (`[]` when empty), like `documents` — every writer appends
+   *  through a functional setter (`setActivityLog(prev => appendActivity(prev,
+   *  …))`), so an `undefined` state would throw. Byte-stability is unaffected:
+   *  the serializers emit the section only when `length > 0`.
+   *  ★★ The audit trail is PROJECT data now, not per-device: it lives here so
+   *  the save effect persists it across all six write paths and a load can
+   *  reconcile it (`mergeActivityLogs`). An in-place `push` would keep the
+   *  array identity and the save effect's reference-equality dirty check would
+   *  skip the write — hence the readonly type, as for every slice above. */
+  activityLog: readonly ActivityEntry[];
+  setActivityLog: Dispatch<SetStateAction<readonly ActivityEntry[]>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -184,6 +197,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [documentVersions, setDocumentVersions] = useState<readonly DocVersion[]>([]);
   const [settingsOverrides, setSettingsOverrides] = useState<Readonly<SettingsOverrides> | undefined>(undefined);
   const [calendarEvents, setCalendarEvents] = useState<readonly CalendarEvent[] | undefined>(undefined);
+  const [activityLog, setActivityLog] = useState<readonly ActivityEntry[]>([]);
 
   // ★★★ THE BEFORE-IMAGE CANNOT BE COMPUTED INSIDE A FUNCTIONAL SETTER.
   // `documents` and `documentVersions` are two separate setters, and the
@@ -450,6 +464,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       mutateDocuments,
       settingsOverrides, setSettingsOverrides,
       calendarEvents, setCalendarEvents,
+      activityLog, setActivityLog,
     }),
     [
       tasks,
@@ -486,6 +501,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       mutateDocuments,
       settingsOverrides,
       calendarEvents,
+      activityLog,
     ],
   );
 

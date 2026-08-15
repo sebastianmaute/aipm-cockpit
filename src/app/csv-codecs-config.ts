@@ -20,6 +20,8 @@ import {
 import type { ExportConfig, SettingsOverrides } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
+import { sanitizeActivityLog } from "./activity-log";
+import type { ActivityEntry } from "./activity-log";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import {
   CSV_SECTION_ABSENCES,
@@ -45,6 +47,7 @@ import {
   CSV_SECTION_SETTINGS_OVERRIDES,
   CSV_SECTION_DOCUMENTS,
   CSV_SECTION_DOCUMENT_VERSIONS,
+  CSV_SECTION_ACTIVITY,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -339,6 +342,35 @@ export function csvToDocumentVersions(
       }).blocks,
     }));
     return versions.length ? versions : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Activity log encoder / decoder ------------------------------------------
+//
+// Same single `config,<json>` row shape as documents / documentVersions above,
+// and STORAGE-ONLY for the same reason: there is no `activityLog` key in
+// EXPORT_SECTION_KEYS, so emission is gated purely on the array being non-empty
+// (AND `config === undefined`, the same explicit storage-only gate documents
+// and documentVersions use) rather than routed through the export
+// `enabled(...)` allowlist.
+//
+// ★ Deliberate asymmetry: the log IS stored on every backend and is NEVER
+// exported. An entry carries `changes` — old and new values for up to 12
+// fields per update — which is an internal audit trail and does not belong in
+// a document handed to a client.
+
+export function activityLogToCsv(log: readonly ActivityEntry[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(log), neutralize)].join(",");
+}
+
+export function csvToActivityLog(text: string): ActivityEntry[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    const log = sanitizeActivityLog(JSON.parse(rows[0][1]));
+    return log.length ? log : undefined;
   } catch {
     return undefined;
   }
@@ -684,5 +716,11 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // are unchanged — golden-workspace.test pins them.
   if (config === undefined && ws.documentVersions && ws.documentVersions.length)
     csvPush(CSV_SECTION_DOCUMENT_VERSIONS, documentVersionsToCsv(ws.documentVersions, neutralize));
+  // Activity log — STORAGE-ONLY, same `config === undefined` gate as documents /
+  // documentVersions just above: it is an internal audit trail, not user-facing
+  // content. Emitted last so an activity-less workspace's bytes are unchanged —
+  // golden-workspace.test pins them.
+  if (config === undefined && ws.activityLog && ws.activityLog.length)
+    csvPush(CSV_SECTION_ACTIVITY, activityLogToCsv(ws.activityLog, neutralize));
   return parts.join("\r\n");
 }

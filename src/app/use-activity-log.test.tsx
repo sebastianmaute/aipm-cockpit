@@ -1,14 +1,28 @@
-// src/app/use-activity-log.test.ts
+// src/app/use-activity-log.test.tsx
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
+import { FiltersProvider } from "./filters-context";
+import { WorkspaceProvider } from "./workspace-context";
 import { useActivityLog } from "./use-activity-log";
 
 // handleClearActivityLog no longer confirms here — the branded confirm lives in
 // the panel (which renders under ConfirmProvider; this hook runs above it). The
 // hook just performs the wipe. See activity-log-panel.test.tsx for the confirm
 // flow.
+// ★ The hook owns no state now — the log is a WorkspaceProvider slice, so every
+// render needs the provider (FiltersProvider is WorkspaceProvider's own
+// dependency, mirroring workspace-context.test.tsx's wrapper).
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+
 function renderLog() {
-  return renderHook(() => useActivityLog());
+  return renderHook(() => useActivityLog(), { wrapper });
 }
 
 describe("useActivityLog", () => {
@@ -26,6 +40,20 @@ describe("useActivityLog", () => {
         result.current.logActivity("task.created", 1, "Test task");
       });
       expect(result.current.activityLog).toHaveLength(1);
+    });
+
+    it("appending an activity entry produces a NEW array (reference-equality dirty check)", () => {
+      // ★ NOT a red-first test — the hook was already functional-setter based,
+      // so this passed before the lift too. It is a REGRESSION GUARD: the save
+      // effect's dirty check is reference equality on the workspace slice, so an
+      // in-place push would keep the identity and silently skip every save.
+      const { result } = renderLog();
+      const before = result.current.activityLog;
+      act(() => {
+        result.current.logActivity("task.created", "T-1");
+      });
+      expect(result.current.activityLog).not.toBe(before);
+      expect(result.current.activityLog).toHaveLength(before.length + 1);
     });
 
     it("calling logActivity twice appends two entries", () => {
