@@ -16,6 +16,32 @@
  * Re-saving an existing project deletes and re-adds its key so it moves to the
  * end; without that, the first 50 projects a user ever opened would be pinned
  * forever and the 51st could never be stored.
+ *
+ * ★★ THAT RESTS ON PROJECT IDS NOT BEING INTEGER-LIKE, and they are not — this
+ * is recorded so nobody re-derives the worry. `Object.keys` lists canonical
+ * integer-index keys FIRST, in ASCENDING NUMERIC order, ahead of every string
+ * key: with ids like `"1"`, `"2"`, … the delete-and-re-add would move nothing
+ * and the cap would evict the LOWEST-NUMBERED project rather than the least
+ * recently used. Every id that reaches here is a `crypto.randomUUID()` — file
+ * mode mints one at all three `addProject` sites in `use-storage-file-ops.ts`,
+ * Turso at both mint sites in `use-storage-turso-ops.ts` — plus the literal
+ * `"default"` fallback `DashboardPanel` passes when it has no project id. A UUID
+ * always contains hyphens and hex letters, so none of them can be integer-like.
+ * Reproduce: `grep -rn "const id = crypto.randomUUID()" src/app/use-storage-file-ops.ts
+ * src/app/use-storage-turso-ops.ts` (five hits). ★ A future id scheme that mints
+ * bare decimal strings would silently break the recency rule with nothing to say
+ * so — prefix it, or replace insertion order with a stored timestamp.
+ *
+ * ★★ A DOWNGRADE→UPGRADE ROUND TRIP LOSES THE ARRANGEMENT, PERMANENTLY, and that
+ * is accepted rather than unnoticed. `isLayout` rejects any `v` that is not
+ * exactly 1, so a blob written by a FUTURE version reads as absent, `reconcile`
+ * hands back `DEFAULT_LAYOUT`, and the first mutation writes a `v: 1` layout over
+ * the newer one — the old arrangement is gone, not merely ignored. Accepted
+ * because this is a preference, not data (the same reason a quota failure is
+ * swallowed below), and because the alternative — preserving an unreadable blob
+ * under a side key — buys a user who downgrades once something nobody has asked
+ * for. A future `v: 2` should MIGRATE a `v: 1` blob rather than reject it, which
+ * costs the same round trip in the other direction.
  */
 import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { DashboardLayout } from "./dashboard-layout";

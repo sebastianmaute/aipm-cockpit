@@ -32,8 +32,27 @@ function readLayout(projectId: string): DashboardLayout {
  *
  * ★★ THE INITIAL READ IS A LAZY `useState`, not an effect. A `useEffect` that
  * called `setState` would violate the repo's banned `react-hooks/
- * set-state-in-effect` rule. A lazy initialiser is the one shape that satisfies
- * both that rule and the purity rule.
+ * set-state-in-effect` rule.
+ *
+ * ★★★ THERE IS A SECOND STORAGE READ AND IT IS IN THE **RENDER BODY** — this
+ * paragraph used to end "a lazy initialiser is the one shape that satisfies both
+ * that rule and the purity rule", which the project-switch reconcile below
+ * falsifies: it calls `readLayout(projectId)` → `loadLayout` → `localStorage`
+ * straight from render. That is ACCEPTED here, deliberately, and the argument is
+ * not "no gate complains" — `eslint-plugin-react-hooks` (7.1.1 here; check with
+ * `node -e "console.log(require('eslint-plugin-react-hooks/package.json').version)"`)
+ * bans `Date.now()`, `Math.random()` and `new Date()` in a render body and has
+ * no idea what `localStorage` is, so no gate will EVER flag this. The argument is
+ * that the read is IDEMPOTENT and CONDITIONAL: it runs only on the render where
+ * `projectId` actually changed, and the only writer of that key is `saveLayout`,
+ * which runs from an effect — so React discarding and re-running this render
+ * yields the same layout, which is exactly what the purity rule protects.
+ * ★★ The alternative is not a lazy initialiser (that shape cannot see a CHANGED
+ * prop at all) but an effect, which is the banned rule and would additionally
+ * render one frame of the OLD project's arrangement before correcting itself.
+ * ★ Do not generalise this into licence for storage reads in render elsewhere:
+ * an UNCONDITIONAL one would re-read on every render, and one whose key another
+ * render-phase writer touches would not be idempotent.
  *
  * ★★★ THE PROJECT ID AND THE LAYOUT ARE **ONE** STATE OBJECT, and that is the
  * whole fix for a real cross-write. `DashboardPanel` is NOT remounted on a
