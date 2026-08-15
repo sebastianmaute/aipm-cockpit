@@ -23,31 +23,17 @@ import { t, type Lang } from "./i18n";
  * DEPARTS FROM THE PLAN, which asked for them disabled. The selection is a
  * `SegmentedControl` (the repo's radio-style primitive) and it has no per-option
  * `disabled` — only a whole-control one. Forking it to add one was not on the
- * table, and hand-rolling `aria-checked` buttons would lose the APG roving,
- * the sole-tab-stop and the non-colour selected state the primitive carries.
+ * table, and hand-rolling `aria-checked` buttons would lose the APG roving, the
+ * sole-tab-stop and the non-colour selected state the primitive carries.
  *
- * ★★★ THE STRINGS ARE PROPS, NOT `t(lang, …)` CALLS. Every key the plan named
- * for this menu — `dashboardTileWidth`, `dashboardTileHeight`,
- * `dashboardTileFixedAt`, `dashboardTileMoveEarlier`/`MoveLater`/`MoveFirst`,
- * `dashboardTileHide` — is ABSENT from `i18n.ts`, and `t()`'s `key` is typed
- * from the EN dict, so naming one is a tsc error AND renders `undefined`. A
- * later task owns the additions; the call site passes them in until then.
- * `lang` is still real: the menu's own accessible name reuses
- * `actionMoreActions`, matching the ⋮ trigger in `dashboard-tile.tsx`.
+ * ★ The menu's own name reuses `actionMoreActions` rather than a dedicated
+ * `dashboardTileOptions` key, matching the ⋮ trigger in `dashboard-tile.tsx`
+ * and `task-row.tsx`'s existing convention. Same for the grip's `reorderHandle`.
  *
  * ★ The move commands are the Dashboard's keyboard reorder path. The drag
  * primitive's own arrow-key option stays off here — a second keyboard path for
  * one action is redundant.
  */
-export interface TileMenuLabels {
-  width: string;
-  height: string;
-  fixedAt: (n: TileSpan) => string;
-  moveEarlier: string;
-  moveLater: string;
-  moveFirst: string;
-  hide: string;
-}
 
 /** `SegmentedControl` is generic over a STRING union, so spans cross as text. */
 type SpanValue = "1" | "2" | "3" | "4";
@@ -64,22 +50,22 @@ function spansBetween(lo: TileSpan, hi: TileSpan): TileSpan[] {
  * and can only be exercised here.
  */
 export function TileAxisGroup({
-  label, tileTitle, fixedLabel, value, lo, hi, onPick,
+  lang, axis, tileTitle, value, lo, hi, onPick,
 }: {
-  label: string;
+  lang: Lang;
+  axis: "w" | "h";
   tileTitle: string;
-  /** Rendered INSTEAD of the chooser when the axis cannot be changed. */
-  fixedLabel: string;
   value: TileSpan;
   lo: TileSpan;
   hi: TileSpan;
   onPick: (v: TileSpan) => void;
 }) {
+  const label = t(lang, axis === "w" ? "dashboardTileWidth" : "dashboardTileHeight");
   return (
     <div className="px-2 py-1">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       {lo === hi ? (
-        <p className="text-xs text-muted-foreground">{fixedLabel}</p>
+        <p className="text-xs text-muted-foreground">{t(lang, "dashboardTileFixedAt", lo)}</p>
       ) : (
         <SegmentedControl<SpanValue>
           value={String(value) as SpanValue}
@@ -97,7 +83,7 @@ export function TileAxisGroup({
 }
 
 export function DashboardTileMenu({
-  lang, tileId, title, w, h, index, count, labels, onResize, onMove, onHide, onClose,
+  lang, tileId, title, w, h, index, count, onResize, onMove, onHide, onClose,
 }: {
   lang: Lang;
   tileId: DashboardTileId;
@@ -107,7 +93,6 @@ export function DashboardTileMenu({
   /** Position of this tile in the visible board, for the move commands. */
   index: number;
   count: number;
-  labels: TileMenuLabels;
   onResize: (axis: "w" | "h", value: TileSpan) => void;
   onMove: (delta: -1 | 1 | "first") => void;
   onHide: () => void;
@@ -118,24 +103,20 @@ export function DashboardTileMenu({
   const command = "w-full justify-start text-left";
   return (
     <div aria-label={`${t(lang, "actionMoreActions")} – ${title}`} className="flex min-w-52 flex-col">
-      <TileAxisGroup
-        label={labels.width} tileTitle={title} fixedLabel={labels.fixedAt(spec.minW)}
-        value={w} lo={spec.minW} hi={spec.maxW} onPick={(v) => onResize("w", v)}
-      />
-      <TileAxisGroup
-        label={labels.height} tileTitle={title} fixedLabel={labels.fixedAt(spec.minH)}
-        value={h} lo={spec.minH} hi={spec.maxH} onPick={(v) => onResize("h", v)}
-      />
+      <TileAxisGroup lang={lang} axis="w" tileTitle={title} value={w}
+        lo={spec.minW} hi={spec.maxW} onPick={(v) => onResize("w", v)} />
+      <TileAxisGroup lang={lang} axis="h" tileTitle={title} value={h}
+        lo={spec.minH} hi={spec.maxH} onPick={(v) => onResize("h", v)} />
       <hr className="my-1 border-line" />
       <Button variant="ghost" size="xs" className={command} disabled={index === 0}
-        onClick={() => { onMove(-1); onClose(); }}>{labels.moveEarlier}</Button>
+        onClick={() => { onMove(-1); onClose(); }}>{t(lang, "dashboardTileMoveEarlier")}</Button>
       <Button variant="ghost" size="xs" className={command} disabled={index >= count - 1}
-        onClick={() => { onMove(1); onClose(); }}>{labels.moveLater}</Button>
+        onClick={() => { onMove(1); onClose(); }}>{t(lang, "dashboardTileMoveLater")}</Button>
       <Button variant="ghost" size="xs" className={command} disabled={index === 0}
-        onClick={() => { onMove("first"); onClose(); }}>{labels.moveFirst}</Button>
+        onClick={() => { onMove("first"); onClose(); }}>{t(lang, "dashboardTileMoveFirst")}</Button>
       <hr className="my-1 border-line" />
       <Button variant="ghost" size="xs" className={command}
-        onClick={() => { onHide(); onClose(); }}>{labels.hide}</Button>
+        onClick={() => { onHide(); onClose(); }}>{t(lang, "dashboardTileHide")}</Button>
     </div>
   );
 }

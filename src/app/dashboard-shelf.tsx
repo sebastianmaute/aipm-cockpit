@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Button } from "./button";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { t, type Lang } from "./i18n";
 import type { TileDragProps } from "./dashboard-tile";
 import type { DashboardTileId } from "./dashboard-tiles";
 
@@ -29,32 +30,26 @@ import type { DashboardTileId } from "./dashboard-tiles";
  * when the drop target has to exist: hiding the FIRST tile by drag needs
  * somewhere to drop it.
  *
- * ★★★ THE THREE STRINGS ARE PROPS, NOT `t(lang, …)` CALLS, and there is no
- * `lang` prop at all. `dashboardShelfCount`, `dashboardShelfEmpty` and
- * `dashboardTileRestore` are all ABSENT from `i18n.ts`; `t()`'s `key` is typed
- * from the EN dict, so naming one is a tsc error and renders `undefined`. A
- * later task owns the additions. `lang` is not carried in the meantime because
- * a destructured prop that nothing reads is FATAL at `--max-warnings=0`.
+ * ★★ THE SHELF TAKES NO `onHide`. The plan had one, unused, to be wired later —
+ * but a destructured prop nothing reads is FATAL at `--max-warnings=0` (no
+ * `argsIgnorePattern` in this repo). The grid owns the drop instead and passes
+ * its handlers as `dropProps`, mirroring `TileDragProps` on `dashboard-tile.tsx`;
+ * the shelf never decodes a drag itself.
  */
-export interface ShelfLabels {
-  hiddenCount: (n: number) => string;
-  empty: string;
-  restore: string;
-}
-
 const TRAY_ID = "dashboard-shelf-tray";
 
 export function DashboardShelf({
-  hidden, labels, onRestore, dropProps, isDragging,
+  lang, hidden, onRestore, dropProps, isDragging,
 }: {
+  lang: Lang;
   hidden: { id: DashboardTileId; title: string }[];
-  labels: ShelfLabels;
   onRestore: (id: DashboardTileId) => void;
   /** The grid's own drop handlers — the shelf never decodes the drag itself. */
   dropProps: TileDragProps;
   isDragging: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const restore = t(lang, "dashboardTileRestore");
   return (
     <div className="mt-2 flex flex-col items-end print:hidden">
       <button
@@ -66,7 +61,7 @@ export function DashboardShelf({
         {...dropProps}
         className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
       >
-        <span aria-hidden>{open ? "▾" : "▸"}</span> {labels.hiddenCount(hidden.length)}
+        <span aria-hidden>{open ? "▾" : "▸"}</span> {t(lang, "dashboardShelfCount", hidden.length)}
       </button>
       <div
         id={TRAY_ID}
@@ -75,7 +70,7 @@ export function DashboardShelf({
         className="mt-1 w-full rounded-md border border-dashed border-line bg-surface-muted p-2"
       >
         {hidden.length === 0 ? (
-          <p className="text-xs italic text-muted-foreground">{labels.empty}</p>
+          <p className="text-xs italic text-muted-foreground">{t(lang, "dashboardShelfEmpty")}</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {hidden.map((h) => (
@@ -84,15 +79,17 @@ export function DashboardShelf({
                 {/* ★★ The tile title is in the accessible name because N chips
                     render at once and N identical "Restore" buttons is a WCAG
                     2.4.6 failure the axe gate cannot see, in any view, at any
-                    seed size. */}
+                    seed size.
+                    ★ WCAG 2.5.3 holds by CONTAINMENT: the visible label
+                    "Restore" is contained in "Restore – <tile>". */}
                 <Button
                   variant="ghost"
                   size="xs"
-                  aria-label={`${labels.restore} – ${h.title}`}
+                  aria-label={`${restore} – ${h.title}`}
                   onClick={() => onRestore(h.id)}
                   className="rounded-full border border-line"
                 >
-                  {labels.restore}
+                  {restore}
                 </Button>
               </li>
             ))}

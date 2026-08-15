@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { H_CLASS, W_CLASS } from "./dashboard-grid";
 import { DashboardTile } from "./dashboard-tile";
-import { DashboardTileMenu, TileAxisGroup, type TileMenuLabels } from "./dashboard-tile-menu";
-import { DashboardShelf, type ShelfLabels } from "./dashboard-shelf";
+import { DashboardTileMenu, TileAxisGroup } from "./dashboard-tile-menu";
+import { DashboardShelf } from "./dashboard-shelf";
+import type { DashboardTileId } from "./dashboard-tiles";
 
 describe("span class tables", () => {
   it("emits literal class strings, never interpolated ones", () => {
@@ -87,19 +88,6 @@ describe("DashboardTile", () => {
   });
 });
 
-// ★ The nine strings below are PROPS, not `t(lang, …)` calls: every i18n key the
-// plan named for this menu is absent from `i18n.ts` and a later task owns the
-// additions. See the module docstring on `dashboard-tile-menu.tsx`.
-const MENU_LABELS: TileMenuLabels = {
-  width: "Width",
-  height: "Height",
-  fixedAt: (n) => `Fixed at ${n}`,
-  moveEarlier: "Move earlier",
-  moveLater: "Move later",
-  moveFirst: "Move to first",
-  hide: "Hide",
-};
-
 function menuFor(
   id: "raid" | "trends",
   extra: { index?: number; count?: number; onResize?: (a: "w" | "h", v: number) => void } = {},
@@ -113,7 +101,6 @@ function menuFor(
       h={2}
       index={extra.index ?? 1}
       count={extra.count ?? 3}
-      labels={MENU_LABELS}
       onResize={extra.onResize ?? (() => {})}
       onMove={() => {}}
       onHide={() => {}}
@@ -160,7 +147,7 @@ describe("DashboardTileMenu", () => {
     // component directly. A row of buttons with every value but one disabled
     // reads as a broken control, which is why nothing is rendered instead.
     render(
-      <TileAxisGroup label="Height" tileTitle="RAID register" fixedLabel="Fixed at 2" value={2} lo={2} hi={2} onPick={() => {}} />,
+      <TileAxisGroup lang="en-US" axis="h" tileTitle="RAID register" value={2} lo={2} hi={2} onPick={() => {}} />,
     );
     expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.queryAllByRole("radio")).toHaveLength(0);
@@ -210,28 +197,22 @@ describe("DashboardTileMenu", () => {
   });
 });
 
-const SHELF_LABELS: ShelfLabels = {
-  hiddenCount: (n) => `${n} hidden`,
-  empty: "No hidden tiles",
-  restore: "Restore",
-};
-
-const HIDDEN = [
-  { id: "raid" as const, title: "RAID register" },
-  { id: "burn" as const, title: "Budget burn" },
+const HIDDEN: { id: DashboardTileId; title: string }[] = [
+  { id: "raid", title: "RAID register" },
+  { id: "burn", title: "Budget burn" },
 ];
 
 function shelf(
   opts: {
-    hidden?: { id: "raid" | "burn"; title: string }[];
+    hidden?: { id: DashboardTileId; title: string }[];
     isDragging?: boolean;
-    onRestore?: (id: "raid" | "burn") => void;
+    onRestore?: (id: DashboardTileId) => void;
   } = {},
 ) {
   return render(
     <DashboardShelf
+      lang="en-US"
       hidden={opts.hidden ?? HIDDEN}
-      labels={SHELF_LABELS}
       onRestore={opts.onRestore ?? (() => {})}
       dropProps={{}}
       isDragging={opts.isDragging ?? false}
@@ -306,6 +287,6 @@ describe("DashboardShelf", () => {
     shelf({ hidden: [] });
     expect(toggle()).toHaveTextContent("0");
     fireEvent.click(toggle());
-    expect(screen.getByText("No hidden tiles")).toBeInTheDocument();
+    expect(screen.getByText("Nothing hidden")).toBeInTheDocument();
   });
 });
