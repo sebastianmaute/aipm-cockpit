@@ -1048,8 +1048,17 @@ function TaskManagerInner() {
 
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
   // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
-  // ★★ `activityLog` is DELIBERATELY MISSING: `getVersionPayload` carries none, so
-  // `setActivityLog(w.activityLog ?? [])` here blanks the audit trail on EVERY restore (AGENTS.md).
+  // ★★ `activityLog` is DELIBERATELY MISSING, and today it is missing STRUCTURALLY: there is no
+  // `setActivityLog` binding anywhere in this file. What this component destructures off
+  // `useActivityLog()` is the VALUE plus three helpers (two appenders and a clear), none of them a
+  // setter — that hook deliberately returns none (see its own comment), so the blanking line cannot be written
+  // here without FIRST bringing a setter into scope — the mistake announces itself instead of
+  // landing silently. An earlier revision quoted that line as though it were already writable,
+  // which understates the guarantee.
+  // The warning is for whoever destructures the setter off `useWorkspace()` and brings it into scope:
+  // `getVersionPayload` carries no `activityLog`, so fanning it out blanks the audit trail on EVERY
+  // restore (AGENTS.md). ★ That reasoning does NOT generalise — the payload carries 18 slices while
+  // this callback fans out 24, so the other six ARE set from a payload that never held them.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);

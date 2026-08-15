@@ -268,7 +268,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
   //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
-  //     `applyWorkspace`'s 25 setters and `onOpenStorageFile`'s raw ones are
+  //     `applyWorkspace`'s 28 setters and `onOpenStorageFile`'s raw ones are
   //     still unguarded, deliberately, because every one of them sits inside a
   //     `try` whose `catch` calls only guarded emitters. Three of the eight
   //     call sites await this function outside any `try`: the load effect's
@@ -281,6 +281,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     this is the hook's OWN state, so there is no superseded-run result a
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
+  //     ★ That "28" is the claim in this comment most likely to rot — it read
+  //     25 until a review measured it. Re-derive it rather than trust it:
+  //       sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts \
+  //         | grep -oE 'set[A-Za-z0-9_]+\(' | wc -l
+  //     The `^  ` anchor is load-bearing, not tidiness: without it this
+  //     comment's own copy of the start pattern opens a SECOND sed range and
+  //     inflates the count it is meant to check.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();

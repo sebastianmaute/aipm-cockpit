@@ -12,7 +12,8 @@ import { useWorkspace } from "./workspace-context";
 
 /** ★★ The log is WORKSPACE state now, not per-device localStorage — this hook
  *  owns no state of its own. It hydrated from and wrote back to
- *  `localStorage["aipm-cockpit:activity"]` until the activityLog-as-workspace-data
+ *  `localStorage["aipm-cockpit:activity-log"]` (`ACTIVITY_STORAGE_KEY` in
+ *  `activity-log.ts`) until the activityLog-as-workspace-data
  *  slice; both effects (and the `clearActivityLog` storage wipe in
  *  `handleClearActivityLog`) were REMOVED, because a second writer would fight
  *  the storage backend's own save for the same entries. Persistence is the save

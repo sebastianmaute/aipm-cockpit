@@ -590,10 +590,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ `activityLog` ("Activity log" below) is the CONTRASTING worked example, and the cheaper shape is the
   reason: a **meta-blob** slice has no `ENTITY_SPECS` row, so it buys nothing and needs all six written by
   hand — and the Turso TENANT path was the one missed, caught in review rather than by any gate.
-  ★ `entity-persistence-registry.test.ts` DOES carry meta-blob round-trips (`documents`,
-  `documentVersions`, `activityLog`) — but only over the two TEXT backends, CSV and Markdown. Neither
-  Turso layout, nor JSON, nor IndexedDB is exercised there, so a green run says nothing about four of the
-  six. Count to six yourself.
+  ★ `entity-persistence-registry.test.ts` carries meta-blob round-trips at DIFFERENT widths, so read the
+  row you need rather than the file's name: `documents` CSV + Markdown, `documentVersions` CSV + Markdown
+  + JSON (`sanitizeDocumentVersions` plus a rich-field pass makes JSON a real filter there — the file's
+  own comment says so), `activityLog` CSV + Markdown only. For `activityLog` neither Turso layout, nor
+  JSON, nor IndexedDB is exercised there, so a green run says nothing about four of the six; its JSON
+  path is pinned separately in `workspace.test.ts` ("round-trips activityLog through JSON"). ★★ An
+  earlier revision of this line said "only over the two TEXT backends … nor JSON", which was false about
+  the very file it was describing — that file imports `jsonToWorkspace` and calls the exception out.
+  Count to six yourself, per slice.
 - **New COLUMN on existing entity** (e.g. `Milestone.outlookEventId`): add to entity's
   `*_CSV_COLUMNS` (in `csv-codecs-core.ts` — covers CSV **and** Turso single+tenant, DDL/insert
   derive from it; also extend that entity's `*FieldToString`/`build*FromObj` THERE), plus the
@@ -1548,8 +1553,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the contaminating branch — check the TYPE, not the call text.
   ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
-  `activityLog`, so fanning it out would blank the audit trail on every version restore. This is the one
-  slice where the two funnels are meant to disagree.
+  `activityLog`, so fanning it out would blank the audit trail on every version restore.
+  ★★ It is ONE OF THREE slices on which the two funnels disagree, NOT the only one — `features` and
+  `fieldVisibility` are also absent from the restore fan-out. An earlier revision said "the one slice",
+  which sends a reader who diffs the funnels either to distrust the doc or to "complete the pattern" on
+  the other two. Re-derive rather than trust this line: extract the setter names from `applyWorkspace`
+  and from `applyRestoredWorkspace` and `comm` them.
+  ★★ AND "deliberately omitted ⇒ preserved" is true of `activityLog` ALONE — do not read it as a
+  property of restore. `getVersionPayload` captures 18 slices while `applyRestoredWorkspace` fans out
+  24, so `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
+  `calendarEvents` are each SET from a payload that never carried them — i.e. blanked on every version
+  restore, by exactly the mechanism omitting `activityLog` avoids. PRE-EXISTING, not introduced by the
+  activity-log slice and deliberately not fixed by it; recorded here only so the omission above stops
+  reading as a guarantee about everything else the funnel touches.
   ★★ **Entry ids are `"<deviceId>-<sessionNonce>-<counter>"`.** The middle segment is load-bearing:
   `getDeviceId` persists its value in `localStorage` (`DEVICE_ID_KEY`) while the counter is module
   scope, so `"<deviceId>-<counter>"` re-mints the same id on every reload and `mergeActivityLogs` (which
