@@ -207,7 +207,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
   // Insights review card (#6B SP1). Insights live in the live workspace state
   // (mirrors `status`); the card self-hides when none are active, and the
-  // masonry wrapper is gated on the same count to avoid a dead cardGap margin.
+  // `hasInsights` tile gate below reads the SAME count so the tile does not
+  // render an empty frame. (It used to gate a masonry wrapper's `cardGap`
+  // margin; there is no masonry and no wrapper any more.)
   const allInsights: readonly Insight[] = insights ?? [];
   const activeInsightCount = allInsights.filter(
     (i) => i.status === "active" || i.status === "acknowledged",

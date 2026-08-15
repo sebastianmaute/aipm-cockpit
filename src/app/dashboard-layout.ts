@@ -103,8 +103,12 @@ export function resizeTile(
  * ★★ A GATED-OFF TILE IS KEPT, NOT DROPPED, AND THAT IS WHY THIS TAKES NO
  * `TileGateInput`. A gate decides what RENDERS, never what is STORED —
  * otherwise switching Budget off and on again would lose the burn tile's
- * position permanently. The render layer filters (`liveTiles`); this does not,
- * and with no gate in scope it cannot be made to. The plan carried a `_gate`
+ * position permanently. The render layer filters — `dashboard-panel.tsx` tests
+ * each placed tile's own `spec.gate(gate)` — and this does not, nor can it with
+ * no gate in scope. (`liveTiles` in `dashboard-tiles.ts` expresses the same
+ * filter but is currently called by NOTHING: `grep -rn "liveTiles(" src e2e`.
+ * Two comments named it as the render-layer filter; it is not one yet.)
+ * The plan carried a `_gate`
  * parameter to document that; eslint rejects it (this repo has no
  * `argsIgnorePattern`, and CI runs `--max-warnings=0`), so the absence of the
  * parameter carries the point instead.

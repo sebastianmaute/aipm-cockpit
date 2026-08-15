@@ -13,24 +13,111 @@
 
 ### Dashboard landing cockpit
 
-**Layout = single masonry (CSS multicol, NOT a fixed grid).** `dashboard-panel.tsx` stays a thin
-orchestrator (data derivation + the `computeDashboard` memo) and renders three zones: a full-width
-HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardTipCard` ·
-`DashboardHero`) → ONE
-masonry flow → a full-width FOOTER (`NarrativeEditor` · Recent-activity `<details>`).
-★★ The masonry is a CSS multicolumn container — `columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`
-(default `column-fill: balance` equalises column heights) — NOT `grid-cols-*`. Each card is wrapped in
-`<div className="break-inside-avoid ${dc.cardGap}">` so no card splits across a column. This REPLACED the
-old fixed `lg:grid-cols-2` bento, whose `items-start` + wildly uneven card heights trapped large
-wide-screen voids (huge whitespace under the short KPI/Progress cards). ★★ Masonry only kills voids when
-`#cards > #cols` (two cards in two columns is one-per-column = the void stays) — that is WHY the hero was
-re-split: its KPI strip + Top-actions had to join the same flow as the other short/tall cards. Reading
-order is column-major (top→bottom per column); cards are ordered priority-first. New density key
-`dc.cardGap` (`mb-4` comfortable / `mb-2` compact) is the inter-card vertical margin (multicol ignores
-`gap`/`space-y` between items). The Trends widget (`props.tursoActive`-gated `VarianceSummary`) is a masonry
-card placed directly after Progress and is itself a click-through button → navigates to the Trends view
-(`onNavigate("trends")`); the footer holds only the status-summary + recent-activity
-`<details>`. ★ Tip-of-the-day (`DashboardTipCard`, `dashboard-tip-card.tsx` + pure English-only `tips.ts`)
+**Layout = an ORDERED, user-arrangeable grid. NOT masonry any more, and NOT coordinates.**
+`dashboard-panel.tsx` stays a thin orchestrator (data derivation + the `computeDashboard` memo) and
+renders three zones: a full-width HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` ·
+`DashboardCoachingCard` · `DashboardTipCard` · `DigestCardConnected` · `DashboardHero`) → the
+arrangeable tile grid (`DashboardGrid`, the reset-arrangement button, `DashboardShelf`) → a full-width
+FOOTER (`NarrativeEditor`). ★ The footer was described here as `NarrativeEditor` **plus a
+Recent-activity `<details>`** — nothing has rendered one since 0.151.0. `dashboard.ts` still computes
+`recentActivity` and both dictionaries still carry `dashboardRecentActivity`, but no component consumes
+either (`grep -rln "dashboardRecentActivity" src/app --include="*.tsx"` returns nothing). A dead claim
+outlived its markup by ~87 releases, which is what the header of this file warns about.
+
+★★★ **ORDER IS THE ENTIRE PLACEMENT MODEL.** `DashboardGrid` renders `grid grid-cols-1 lg:grid-cols-2
+xl:grid-cols-4 grid-flow-row-dense`, so an ordered list of `PlacedTile` `{id,w,h}` resolves into cells
+and there are no coordinates to store — every operation in `dashboard-layout.ts` (`moveTile` ·
+`hideTile` · `restoreTile` · `resizeTile` · `reconcile`) is an array operation, and each returns the
+SAME object reference on a no-op so a caller can skip a persist cheaply. ★★ A user therefore CANNOT
+leave a deliberate hole: `dense` backfills it with the next tile that fits. ★★ That is also why the
+panel renders the reorder hook's `previewOrder` rather than the stored board and draws NO edge drop
+indicator — dense re-places everything after a move, so an edge marker would routinely point at a slot
+the tile does not land in. Drag comes from the shared `useListReorderDnd` primitive; the ⋮ menu's move
+commands are this surface's keyboard path (the primitive's own arrow-key option is off — `keyboard:
+false`).
+
+★★★ **`W_CLASS`/`H_CLASS` (`dashboard-grid.tsx`) MUST STAY WHOLE LITERAL STRINGS, AND NO UNIT TEST CAN
+SEE A VIOLATION.** Tailwind v4 builds its stylesheet by scanning source for class-name candidates, so an
+interpolated `col-span-${w}` emits NO CSS and every tile silently renders one column wide. jsdom has no
+layout engine, so `dashboard-grid.test.tsx` can only assert that a class STRING was rendered, never that
+Tailwind emitted a rule for it. `e2e/dashboard-grid.spec.ts` is the ONLY detector in the repo — it reads
+computed geometry (`getComputedStyle` on the container, `getBoundingClientRect` on real tiles) and
+deliberately makes no class-string assertion at all.
+
+★ **The responsive clamp lives ENTIRELY in the width table** — `W_CLASS`'s literal `lg:`/`xl:` variants
+plus the container's own `lg:grid-cols-2 xl:grid-cols-4`. No width measurement, no `ResizeObserver`, no
+JavaScript anywhere in the feature; height does not clamp, so a tall tile stays tall.
+
+★★ **The row unit is a density class, and only ONE of its two values is measured.** `dc.tileRow` is
+`auto-rows-[80px]` comfortable / `auto-rows-[64px]` compact (`dashboard-density.ts`). The e2e geometry
+spec pins the 80px value twice — the container's `grid-auto-rows` AND a real h:2 tile's box, since
+`H_CLASS` is a second literal table Tailwind must also have emitted. The 64px compact value is pinned
+only as a class STRING by `dashboard-density.test.ts`, i.e. in the layer that cannot see CSS. Treat
+compact row height as eye-verified, not gated.
+
+★★ **TWO CHROMIUM MEASUREMENTS FROM THIS BRANCH'S REVIEW, both about assertions that LOOK sufficient:**
+• `grid-auto-flow: row dense` COMPUTES as `"dense"`, not `"row dense"` — a `toHaveCSS("grid-auto-flow",
+"row dense")` would fail against correct code. The spec's `gridMetrics` still collects `autoFlow` but
+asserts nothing on it (`grep -n autoFlow e2e/dashboard-grid.spec.ts` → ONE hit, the collection); dense is
+proved by measuring a backfill instead.
+• dropping `xl:grid-cols-4` still yields FOUR `gridTemplateColumns` entries, as IMPLICIT tracks — so a
+length-only `toHaveLength(4)` passes against that mutant, and what actually kills it is the equal-width
+check plus the tracks-plus-gaps-vs-`contentWidth` sum beside it. ★★ The spec's own inline comment claims
+the opposite ("a `grid-cols-4` that Tailwind failed to emit would leave a single implicit `auto` track,
+which the length check already catches"). One of the two is wrong and this file cannot settle it: delete
+the class and run that spec before relying on either sentence.
+
+★★★ **A GATE DECIDES WHAT RENDERS, NEVER WHAT IS STORED.** `reconcile` takes ONE argument for exactly
+that reason, and `dashboard-layout.test.ts` pins its arity so the parameter cannot creep back: a
+gated-off tile KEEPS its stored position, so switching Budget off and on again does not lose the burn
+tile's place. `useDashboardLayout` has no `gate` option either. Filtering happens at RENDER, in
+`dashboard-panel.tsx`, against each tile's own `gate` from the catalogue. ★★ Three comments
+(`dashboard-layout.ts`, `use-dashboard-layout.ts`, `e2e/seed-content.spec.ts`) say "the render layer
+filters (`liveTiles`)" — `liveTiles` is a real export, so `docs:symbols:check` is green over that
+sentence, but NOTHING CALLS IT (`grep -rn "liveTiles(" src e2e` finds no call site). Wire it or drop the
+claim; a green symbol gate is not coverage of a claim.
+
+★★ **THE TILE CHROME OWNS THE FRAME AND THE TITLE** — `dashboard-tile.tsx` draws the bordered
+`<section>` and renders the `<h3>` — so a body in `dashboard-tile-bodies.tsx` must be UNBOXED and
+UN-TITLED, or it stacks two borders and two identical headings. The catalogue's `labelKey`s were chosen
+to match the headings these cards used to carry themselves. ★★ THE TEST IS THE TEXT, NOT THE COMPONENT:
+`RaidRegisterCard` keeps its `Section` heading because "Top open RAID" DIFFERS from its chrome title
+"RAID register", while `InsightsCard`'s heading was byte-identical to `dashboardInsights` in BOTH
+dictionaries and was removed. ★★ That header used to record a "ONE DOCUMENTED EXCEPTION" for
+`InsightsCard`, on the grounds that `insights-panel.tsx` renders it too. It does not — that panel
+renders its own list and merely shares the `insightsCardTitle` string — and the tile double-titled on an
+axe-scanned view for as long as the false premise stood.
+
+★★ **THE ARRANGEMENT IS PER-DEVICE, PER-PROJECT localStorage — NOT a `Workspace` field**, so none of the
+six write paths change and no codec, DDL or golden fixture is touched. `dashboard-layout-store.ts` keeps
+one `{[projectId]: layout}` map under `DASHBOARD_LAYOUT_KEY`, capped at `MAX_PROJECTS` with
+insertion-order recency, over `device-store.ts`'s `readDeviceJson`/`writeDeviceJson` envelope — the same
+shape as `landing-state.ts`, so `clearAppConfig`'s `aipm-cockpit:*` sweep already clears it. A write
+failure (quota, private mode) is swallowed on purpose: the arrangement is a preference, not data.
+★ Popout is READ-ONLY (`readOnly` from `useDashboardLayout`) — no grips, no ⋮, no shelf, no persist.
+
+★★ **PER-TILE CONTROL NAMES MUST BE TILE-UNIQUE, AND THE AXE GATE CANNOT SEE A COLLISION AT ANY SEED
+SIZE** (AGENTS.md carries the measurement: no rule under the four tags `e2e/a11y.spec.ts` requests flags
+two controls sharing an accessible name). Every tile renders the same grip, the same ⋮ and the same size
+chooser, so each of those names carries the tile title; and inside ONE ⋮ menu both axes offer a value
+labelled "2", so `optionAriaLabel` has to carry the axis as well as the tile. Dashboard IS in axe
+`A11Y_VIEWS`, and the unit tests are still the only possible detector for this class.
+
+★ **An axis where `min === max` renders NO chooser** — `TileAxisGroup` shows a static "fixed at N" line,
+because a row of values with all but one disabled reads as a broken control. No catalogue tile pins an
+axis today, so that branch is reachable ONLY through the exported `TileAxisGroup`, which is why it is
+exported. ★ Values outside a tile's own limits are not rendered rather than disabled: `SegmentedControl`
+has no per-option `disabled`, and forking it would have cost the APG roving, the sole tab stop and the
+non-colour selected state.
+
+★ **The abandoned bento is still worth knowing**, because it is why dense packing matters: a fixed
+`lg:grid-cols-2` grid with `items-start` and wildly uneven card heights trapped large wide-screen voids
+under the short KPI/Progress cards. The multicolumn masonry that replaced it killed the voids but owned
+the order; the arrangeable grid keeps dense packing AND hands the order to the user.
+
+The Trends widget (`props.tursoActive`-gated `VarianceSummary`) is now the `trends` tile and is still a
+click-through button → navigates to the Trends view (`onNavigate("trends")`).
+★ Tip-of-the-day (`DashboardTipCard`, `dashboard-tip-card.tsx` + pure English-only `tips.ts`)
 is a dismissable headline card that rotates one tip per day; per-device `aipm-cockpit:tip-state` (next/dismiss),
 popout read-only, day captured via lazy `useState` (purity — no `Date.now()` in render).
 ★★ **Digest email (`use-digest.ts` + `digest/digest-mail-sender.ts`):** `createDigestMailSender`'s CONTRACT is
@@ -54,7 +141,7 @@ The presentational slices:
   `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
 - `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the 3 "at a glance" KPI tiles
   (complete % · overdue · open RAID; overdue and open-RAID always carry a `TrendArrow`, completion
-  carries one only outside the no-active-scope state below); a standalone masonry card. Uses a
+  carries one only outside the no-active-scope state below); the body of the `kpi` tile. Uses a
   `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
   ★★★ **NEVER RE-DERIVE "is this project all cancelled" — call `hasNoActiveScope(progress)`
   (`dashboard.ts`), or `tasksHaveNoActiveScope(tasks)` when you hold only tasks.** Both go through the
@@ -76,21 +163,30 @@ The presentational slices:
   and that returns Green for anything finished. So an all-cancelled project reads "No active scope"
   next to "G 2".
 - `dashboard-sections/dashboard-top-actions.tsx` (`DashboardTopActions`) — the ranked Top-actions queue;
-  returns `null` when `!topActions?.length`, and the PANEL also gates its `break-inside-avoid` wrapper on
-  `topActions?.length` so an empty queue leaves no dead `dc.cardGap` margin in the flow.
+  returns `null` when `!topActions?.length`. ★★ The panel no longer gates a wrapper on that: the old
+  `break-inside-avoid` masonry wrapper is gone and the condition moved into `TileGateInput`
+  (`hasTopActions`), so an empty queue means the whole `topActions` TILE does not render. The other
+  inline masonry conditions moved the same way (`hasInsights`, `hasCompletionTrend`).
 - `dashboard-sections/registers-band.tsx` — split into `RaidRegisterCard` (gated on `showRaid`) +
-  `UpcomingCard`, two standalone masonry cards; the old combined `RegistersBand` wrapper was RETIRED.
+  `UpcomingCard`, the bodies of the `raid` and `upcoming` tiles; the old combined `RegistersBand` wrapper
+  was RETIRED.
 - `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (headline, read-only saved text,
   renders null when empty) + `NarrativeEditor` (footer folded `<details>`, owns the draft + autogrow + the
   render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
-★ ALL tier/card spacing uses `dc.*` density classes (`dc.outer`/`sectionGap`/`cardGap`/`cardPad`/`kpiGap`),
-never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`. `DashboardPanelProps` is unchanged by the reorg (the ~30
-test/caller sites were untouched).
+★ ALL tier/card spacing uses `dc.*` density classes, never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
+`DashboardPanelProps` is unchanged by the reorg (the ~30 test/caller sites were untouched).
+★★ `DensityClasses` has SIX fields and one of them is DEAD: `cardGap` (`mb-4`/`mb-2`) was the
+masonry's inter-card margin and now has no production consumer — `grep -rn "cardGap" src | grep -v
+"\.test\."` returns only its own declaration in `dashboard-density.ts` and one stale comment in
+`dashboard-panel.tsx`. `dashboard-density.test.ts` still asserts its value, so nothing goes red; do not
+read that test as evidence the field is used. Removing it is a follow-up, not a claim about today.
 
 The Dashboard (`dashboard-panel.tsx`, owns `computeDashboard`) opens with a greeting + "since you last
-looked" delta strip, then the ranked top-actions queue (promoted ABOVE the health band), with the four
-RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosure. Dashboard IS in axe
-`A11Y_VIEWS`. Built as slices:
+looked" delta strip, with the four RAG `OverrideSelect`s folded into a `<details>` "Adjust health
+ratings" disclosure inside `DashboardHero`. ★★ This used to add "then the ranked top-actions queue
+(promoted ABOVE the health band)" — top-actions is a TILE now, so it sits in the grid BELOW the hero,
+and a user can move it anywhere or hide it. Nothing in the headline zone is ranked any more. Dashboard
+IS in axe `A11Y_VIEWS`. Built as slices:
 
 - **Delta strip:** pure i18n-free `dashboard-delta.ts` (`computeDelta` diffs the activity log by
   `timestamp > lastVisitAt` + a prior RAG snapshot → `DeltaResult`; `buildGreeting`); per-project
@@ -191,13 +287,15 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   exposes `completed`+`total`. i18n EN+DE.
 - **Density toggle ("fit more on screen"):** per-device Comfortable/Compact, SPACING ONLY (no
   font/palette/contrast change). Pure i18n-free `dashboard-density.ts` `densityClasses(d)` →
-  `{outer,kpiGap,cardPad,sectionGap}` class strings — comfortable REPRODUCES the current literals
-  (`space-y-4`/`gap-2`/`p-3`/`gap-4`, a no-op for existing users), compact tightens
-  (`space-y-2`/`gap-1`/`p-2`/`gap-2`). `sectionGap` drives the two-column section grids
-  (Progress+Budget, Milestones+Changes) so compact mode compresses them too. ★ Any NEW
-  spacing on a cockpit slice MUST use a `dc.*` class (`outer`/`kpiGap`/`cardPad`/`sectionGap`),
-  NOT a literal `gap-*`/`space-y-*`/`p-*` — a literal ignores compact mode (bit the two section
-  grids: they stayed `gap-4` while everything else compressed).
+  `{outer,kpiGap,cardPad,sectionGap,cardGap,tileRow}` class strings — comfortable REPRODUCES the original
+  literals (`space-y-4`/`gap-2`/`p-3`/`gap-4`, a no-op for existing users), compact tightens
+  (`space-y-2`/`gap-1`/`p-2`/`gap-2`). ★★ `sectionGap` NO LONGER drives "the two-column section grids
+  (Progress+Budget, Milestones+Changes)" — those grids went with the masonry, and its ONLY consumer today
+  is the tile grid's gap (`grep -rn "dc.sectionGap" src` → one hit, `dashboard-grid.tsx`). `tileRow` is
+  the newer key and drives that same grid's row unit; `cardGap` is dead (see above). ★ Any NEW
+  spacing on a cockpit slice MUST use a `dc.*` class,
+  NOT a literal `gap-*`/`space-y-*`/`p-*` — a literal ignores compact mode (it bit the two section
+  grids of the day: they stayed `gap-4` while everything else compressed).
   `DashboardPanel` takes `density?` (default `"comfortable"`). ★★ ONE control now (the on-panel toggle was
   REMOVED): the SOLE density control is a `SegmentedControl<DashboardDensity>` in `AppearanceSection`
   (Settings→General), writing `settings.dashboardDensity?` (per-device, persisted via
