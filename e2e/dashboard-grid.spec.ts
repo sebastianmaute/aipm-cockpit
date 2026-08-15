@@ -56,11 +56,22 @@ test.describe("dashboard grid geometry", () => {
   test("resolves to four equal column tracks at xl", async ({ page }) => {
     const m = await gridMetrics(page);
     expect(m.tracks).toHaveLength(4);
-    // Equal tracks — a `grid-cols-4` that Tailwind failed to emit would leave a
-    // single implicit `auto` track, which the length check already catches; this
-    // additionally rules out a partially-applied template.
+    // ★★★ THE EQUAL-WIDTH LOOP IS THE ONLY ASSERTION IN THIS TEST THAT CATCHES A
+    // MISSING `xl:grid-cols-4`, AND NEITHER OF THE OTHER TWO HELPS. Measured, not
+    // reasoned — delete `xl:grid-cols-4` from `dashboard-grid.tsx`, restart the
+    // dev server so Tailwind cannot serve a stale sheet, and read the computed
+    // style: `gridTemplateColumns` is "19.3594px 19.3594px 575.641px 575.641px".
+    // FOUR entries, so `toHaveLength(4)` PASSES. The template does not collapse
+    // to one track, because the w:4 tile's own `xl:col-span-4` spans past the two
+    // explicit `lg:grid-cols-2` tracks and grid MANUFACTURES two implicit ones to
+    // hold it. Only these unequal widths give it away (delta 556.28px).
     for (const w of m.tracks) expect(Math.abs(w - m.tracks[0])).toBeLessThan(1);
-    // The four tracks plus three gaps must account for the whole content box.
+    // ★★ …and the sum below does NOT catch it either, which is the surprise:
+    // implicit tracks are content-sized, so the row still tiles the content box
+    // exactly. Measured under the same mutant: 1238.0008px of tracks+gaps against
+    // a 1238px content box, a 0.0008px delta well inside this 1.5 tolerance. It
+    // is kept because it pins a DIFFERENT failure (a template that resolves to
+    // four tracks not filling the box), not as a second detector for this one.
     const spanned = m.tracks.reduce((a, b) => a + b, 0) + 3 * m.colGap;
     expect(Math.abs(spanned - m.contentWidth)).toBeLessThan(1.5);
   });
@@ -95,6 +106,13 @@ test.describe("dashboard grid geometry", () => {
     // `W_CLASS` were built by interpolation, Tailwind would emit no rule, every
     // tile would fall back to a single implicit column, and this is the only
     // assertion in the repo that would notice.
+    //
+    // ★★ It is ALSO a second, independent detector for a missing container
+    // template — measured under the `xl:grid-cols-4` mutant described above, the
+    // w:2 line fails (upcoming renders 54.72px against an expected 611px) while
+    // the w:4 line PASSES (kpi still fills 1238px, because its span reaches the
+    // implicit tracks). So of the five tests here that mutant turns exactly TWO
+    // red, each on its second assertion: 3 passed / 2 failed.
     const m = await gridMetrics(page);
     const kpi = await tileBox(page, "kpi");           // catalogue default w: 4
     const upcoming = await tileBox(page, "upcoming"); // catalogue default w: 2
