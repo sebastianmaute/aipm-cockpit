@@ -19,10 +19,12 @@ export interface DensityClasses {
   sectionGap: string;
   /** Bottom margin between masonry cards in the cockpit grid. */
   cardGap: string;
+  /** Height of one grid row unit in the arrangeable tile grid. */
+  tileRow: string;
 }
 
-const COMFORTABLE: DensityClasses = { outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", sectionGap: "gap-4", cardGap: "mb-4" };
-const COMPACT: DensityClasses = { outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", sectionGap: "gap-2", cardGap: "mb-2" };
+const COMFORTABLE: DensityClasses = { outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", sectionGap: "gap-4", cardGap: "mb-4", tileRow: "auto-rows-[80px]" };
+const COMPACT: DensityClasses = { outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", sectionGap: "gap-2", cardGap: "mb-2", tileRow: "auto-rows-[64px]" };
 
 /** Spacing classes for the given density. Defaults to comfortable. */
 export function densityClasses(density: DashboardDensity): DensityClasses {
