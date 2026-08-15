@@ -7,6 +7,7 @@ import {
   diffFields,
   dropLegacyActivityLog,
   humanizeFieldName,
+  sanitizeActivityEntry,
   type ActivityEntry,
   type ActivityKind,
 } from "./activity-log";
@@ -282,6 +283,38 @@ describe("appendActivityEntry + changes round-trip (#22)", () => {
   // moved here beside `sanitizeActivityEntry`, so a malformed payload is
   // stripped on the workspace load boundary exactly as `normalizeEntryChanges`
   // stripped it on the localStorage one.
+});
+
+describe("sanitizeActivityEntry — forward compatibility", () => {
+  // ★★★ THE STRIP PATH IS A SPREAD-AND-DELETE, NEVER A REBUILD, and only this
+  // test can tell the two apart: rebuilding `{id, timestamp, kind, args}` from
+  // the known-field list passes every other assertion in the suite while
+  // silently DROPPING any field a newer release added. Concretely — release N+1
+  // adds `ActivityEntry.actor`; an N client loads a shared project whose entry
+  // carries `actor` AND a malformed `changes`; the rebuild drops `actor` and
+  // the next autosave writes the truncated entry back over everyone's copy.
+  // Same reasoning as the unknown-`kind` rule on the same function: an older
+  // client must never delete what it does not understand.
+  test("keeps an unknown field while stripping a malformed `changes`", () => {
+    const stored = {
+      id: "e1",
+      timestamp: "2026-06-02T00:00:00.000Z",
+      kind: "task.updated",
+      args: ["T"],
+      actor: "a-future-field",
+      changes: "not-an-array",
+    };
+    const out = sanitizeActivityEntry(stored) as ActivityEntry & { actor?: string };
+    expect(out).not.toBeNull();
+    // The forward-compat half: the unknown field survives the repair.
+    expect(out.actor).toBe("a-future-field");
+    // The repair half: the malformed payload is gone, not merely falsy.
+    expect("changes" in out).toBe(false);
+    // The known fields are untouched by the spread.
+    expect(out.id).toBe("e1");
+    expect(out.kind).toBe("task.updated");
+    expect(out.args).toEqual(["T"]);
+  });
 });
 
 describe("globally unique ids", () => {

@@ -39,6 +39,27 @@ const entries: ActivityEntry[] = [
   entry({ id: "2", kind: "task.updated", args: ["Task B"] }),
 ];
 
+/**
+ * Every stored shape the panel must survive without throwing, fed in RAW —
+ * exactly as a bypassed or older `sanitizeActivityLog` would leave them. A
+ * factory (not a const) so a test that sorts or filters cannot leak a mutated
+ * array into the next one.
+ */
+function hostileEntries(): ActivityEntry[] {
+  const at = "2026-05-28T10:00:00.000Z";
+  return [
+    { id: "a", timestamp: at, kind: "totally.bogus", args: ["X"] },
+    { id: "b", timestamp: at, args: ["Y"] },
+    { id: "c", timestamp: at, kind: 42, args: ["Z"] },
+    { id: "d", timestamp: at, kind: "toString", args: ["W"] },
+    { id: "e", timestamp: at, kind: "task.updated", args: [], changes: "not-an-array" },
+    { id: "f", timestamp: at, kind: { a: 1 }, args: [] },
+    { id: "g", timestamp: at, kind: "task.updated", args: [], changes: [{ field: 7, from: "older", to: "newer" }] },
+    { id: "h", timestamp: at, kind: "task.updated", args: [], changes: [null] },
+    { id: "i", timestamp: at, kind: "task.updated", args: [], changes: [{ field: "status", from: { x: 1 }, to: ["y"] }] },
+  ] as unknown as ActivityEntry[];
+}
+
 describe("ActivityLogPanel — toolbar order", () => {
   // Clear log leads; Print · reset-columns · reset-size stay one trailing
   // group. Clear used to sit after the resets, splitting them from Print.
@@ -88,25 +109,22 @@ describe("ActivityLogPanel", () => {
   //   unknown kind + args  → "Cannot read properties of undefined (reading 'replace')"
   //   kind: 42             → "kind.startsWith is not a function"
   //   changes: "not-an-array" → "entry.changes.map is not a function"
+  //   kind: {a:1}          → "Objects are not valid as a React child"
+  //   changes: [{field: 7}] → "field.replace is not a function"
+  //   changes: [null]      → "Cannot read properties of null (reading 'field')"
   // The panel is therefore defensive INDEPENDENTLY of the sanitizer: these
   // entries are fed in raw, exactly as a bypassed/older boundary would.
+  // ★ The last three were still live AFTER the first four were fixed, because
+  //   the coercion sat inside the MESSAGE lookup only — see `hostileEntries`
+  //   below, reused by the search + sort tests that cover the other consumers.
   it("does not throw on a hostile stored log (unknown, missing, non-string kind; bad changes)", () => {
-    const hostile = [
-      { id: "a", timestamp: "2026-05-28T10:00:00.000Z", kind: "totally.bogus", args: ["X"] },
-      { id: "b", timestamp: "2026-05-28T10:00:00.000Z", args: ["Y"] },
-      { id: "c", timestamp: "2026-05-28T10:00:00.000Z", kind: 42, args: ["Z"] },
-      { id: "d", timestamp: "2026-05-28T10:00:00.000Z", kind: "toString", args: ["W"] },
-      {
-        id: "e",
-        timestamp: "2026-05-28T10:00:00.000Z",
-        kind: "task.updated",
-        args: [],
-        changes: "not-an-array",
-      },
-    ] as unknown as ActivityEntry[];
     expect(() =>
-      renderPanel(<ActivityLogPanel lang="en-US" entries={hostile} onClear={() => {}} />),
+      renderPanel(<ActivityLogPanel lang="en-US" entries={hostileEntries()} onClear={() => {}} />),
     ).not.toThrow();
+    // The coerced-cell path: a non-string `field` still renders its diff rather
+    // than dropping the audit detail (7 → "7" through humanizeFieldName).
+    expect(screen.getByText("7")).toBeInTheDocument();
+    expect(screen.getByText("newer")).toBeInTheDocument();
     // Positive observable: the unknown kind is rendered, not silently blanked —
     // the raw kind stays visible so the record is still auditable.
     expect(screen.getAllByText("totally.bogus").length).toBeGreaterThan(0);
@@ -116,6 +134,56 @@ describe("ActivityLogPanel", () => {
     // `toString` is an INHERITED key on ACTIVITY_KIND_TO_KEY — a plain lookup
     // returns Function.prototype.toString and t() then throws.
     expect(screen.getByText(t("en-US", "activityUnknownKind", "toString"))).toBeInTheDocument();
+  });
+
+  // ★★ THE SEARCH MATCHER IS A SECOND CONSUMER OF `kind`, and the test above
+  // cannot reach it: the default view has NO query, so `matcher` is null and the
+  // filter is skipped entirely. `buildMatcher`'s literal mode calls
+  // `h.toLowerCase()`, so a raw `kind: 42` threw "h.toLowerCase is not a
+  // function" the moment a single character was typed — from a panel that had
+  // rendered fine.
+  it("does not throw when a query is typed against a non-string kind", async () => {
+    const user = userEvent.setup();
+    renderPanel(<ActivityLogPanel lang="en-US" entries={hostileEntries()} onClear={() => {}} />);
+    // By ROLE, not by label: the search-mode SegmentedControl carries the same
+    // aria-label, so getByLabelText matches two elements.
+    const search = screen.getByRole("searchbox");
+    await user.type(search, "bogus");
+    // Positive observable: the query really ran (matching row kept, others gone).
+    expect(screen.getAllByText("totally.bogus").length).toBeGreaterThan(0);
+    expect(screen.queryByText(t("en-US", "activityUnknownKind", "toString"))).toBeNull();
+  });
+
+  // ★★ THE SORT COMPARATOR IS THE THIRD, and it needs ≥3 entries: with two,
+  // V8's small-array sort may only ever put the STRING in the receiver position,
+  // so `a.entry.kind.localeCompare(...)` never runs on the number and the test
+  // passes over a live defect. Number.prototype has no localeCompare.
+  it("sorts by Kind across a mix of string and numeric kinds", async () => {
+    const user = userEvent.setup();
+    const at = "2026-05-28T10:00:00.000Z";
+    const mixed = [
+      { id: "s1", timestamp: at, kind: "zeta.kind", args: [] },
+      { id: "n1", timestamp: at, kind: 42, args: [] },
+      { id: "s2", timestamp: at, kind: "alpha.kind", args: [] },
+      { id: "n2", timestamp: at, kind: 7, args: [] },
+      { id: "s3", timestamp: at, kind: "mid.kind", args: [] },
+    ] as unknown as ActivityEntry[];
+    renderPanel(<ActivityLogPanel lang="en-US" entries={mixed} onClear={() => {}} />);
+    const kindHeader = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent?.startsWith(t("en-US", "activityHeaderKind")));
+    expect(kindHeader).toBeDefined();
+    await user.click(kindHeader!);
+    // Positive observable: the string kinds really are in ascending order, so
+    // the comparator ran rather than being skipped.
+    const rendered = screen
+      .getAllByRole("row")
+      .map((r) => r.textContent ?? "")
+      .filter((txt) => txt.includes(".kind"));
+    const order = rendered.map((txt) =>
+      ["alpha.kind", "mid.kind", "zeta.kind"].find((k) => txt.includes(k)),
+    );
+    expect(order).toEqual(["alpha.kind", "mid.kind", "zeta.kind"]);
   });
 
   it("renders timestamps in the display timezone (not the raw ISO)", () => {

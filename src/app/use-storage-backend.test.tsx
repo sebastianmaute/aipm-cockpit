@@ -936,10 +936,19 @@ describe("useStorageBackend — broadcast send gating", () => {
 });
 
 // ── Activity log reaches every workspace-assembly site ───────────────────────
-// The log is assembled into a `Workspace` literal at NINE sites in
-// use-storage-backend.ts. The save effect and the storage-switch conversion are
-// covered by their own tests; the three below were each mutation-checked as
-// unpinned — dropping `activityLog` from any of them left the file at 104/104.
+// The log is assembled into a `Workspace` literal at FIVE sites in
+// use-storage-backend.ts — re-count, don't trust this number:
+//     grep -cE "\{ *tasks, *raid" src/app/use-storage-backend.ts
+// The save effect and the storage-switch conversion are covered by their own
+// tests; the three below cover the remaining three, each of which was
+// mutation-checked as unpinned when it was written (dropping `activityLog` from
+// it turned no test in this file red).
+// ★ 2 + 3 = 5. An earlier revision of this comment said NINE in the same breath
+//   as "the save effect and the switch … the three below", contradicting itself
+//   one clause later, and quoted a "104/104" pass total that matched no commit
+//   (`grep -cE "^\s*it\(" ` gives 103 at 15a0e93c and 109 today). A suite total
+//   rots on the next added test and names no test — quote the mutation and the
+//   test it turns red, never a pass count.
 describe("useStorageBackend — activity log write paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -2113,6 +2122,49 @@ describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
     mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 5, taskName: "Fresh" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
     await act(async () => { await result.current.reloadCurrentProject(); });
     expect(showToast).toHaveBeenCalledWith("success", expect.any(String));
+  });
+
+  // ★★★ THE PAIR TO "MERGES a loaded activity log …" IN THE SAVE-EFFECT
+  // DESCRIBE, and both sites need their own test: `applyWorkspace`'s `logMode`
+  // defaults to "replace", so each of the two callers that want "merge" opts in
+  // separately and a flip at ONE of them is invisible to the other's test.
+  // Measured before this test existed: flipping `reloadCurrentProject`'s
+  // `applyWorkspace(workspace, "raise", "merge")` to "replace" left the whole
+  // file GREEN, while the same flip on the mount-load site turned its sibling
+  // red. `reloadCurrentProject` drives the truncated-load banner and the
+  // storage-error recovery click, so a replace there silently drops every entry
+  // this device appended since the last successful save — and the next autosave
+  // persists the shortened log. Exactly the audit loss the merge exists to stop.
+  it("MERGES a loaded activity log on reloadCurrentProject — never replaces (pairs with the load-effect test)", async () => {
+    // The backend's copy is as of the last successful save: it holds dev-b-1 only.
+    const remote = {
+      tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+      activityLog: [
+        { id: "dev-b-1", timestamp: "2026-08-14T08:00:00.000Z", kind: "task.created", args: [2, "Remote"] },
+      ],
+    };
+    // A task is required for BOTH loads: `isWorkspaceEmpty` deliberately
+    // EXCLUDES activityLog, so a log-only workspace reads as empty and the
+    // reload would take the confirm/refuse branch instead of applying at all.
+    mockBackend.load.mockResolvedValueOnce(remote);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount load applies dev-b-1
+    expect(result.current.activityLog.map((e) => e.id)).toEqual(["dev-b-1"]);
+
+    // This device appends an entry that the backend has never seen.
+    await act(async () => {
+      result.current.setActivityLog([
+        ...result.current.activityLog,
+        { id: "dev-a-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.updated", args: [1, "Local"] },
+      ] as ActivityEntry[]);
+    });
+
+    mockBackend.load.mockResolvedValueOnce(remote); // re-read still returns dev-b-1 only
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    // Merge keeps the local append; a replace would leave ["dev-b-1"].
+    expect(result.current.activityLog.map((e) => e.id)).toEqual(["dev-b-1", "dev-a-1"]);
   });
 
   it("shows an error toast and leaves data untouched when the reload throws", async () => {

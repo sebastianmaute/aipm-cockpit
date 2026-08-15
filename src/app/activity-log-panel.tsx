@@ -87,6 +87,50 @@ function buildMatcher(query: string, mode: SearchMode): Matcher | null {
   }
 }
 
+/** A row's `changes` payload after normalisation — every field is a string. */
+interface RowChange {
+  field: string;
+  from: string;
+  to: string;
+}
+
+/**
+ * Total, non-throwing coercion for one stored cell of a `changes` entry.
+ * Only primitives carry honest audit detail; anything else (an object, a
+ * function, a symbol) becomes "" rather than a `String()` call that would
+ * either throw or render "[object Object]" into the audit trail.
+ */
+function changeText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return "";
+}
+
+/**
+ * Row-level normalisation of a stored `changes` payload — the same reasoning as
+ * the `kind` coercion in `enriched`: `sanitizeActivityLog` strips these shapes
+ * at the load boundary, but the panel must not be the ONLY thing between
+ * hostile stored bytes and the full-screen ErrorBoundary page. Measured to
+ * throw before this guard: a non-array payload → "entry.changes.map is not a
+ * function"; a `null` element → "Cannot read properties of null (reading
+ * 'field')"; a non-string `field` → "field.replace is not a function" inside
+ * `humanizeFieldName`.
+ *
+ * ★ A null/non-object ELEMENT is dropped (there is nothing to render), while a
+ * malformed CELL is coerced — a diff whose field name is a number is still a
+ * real audit record and its from/to values are still worth showing.
+ */
+function normalizeChanges(v: unknown): RowChange[] {
+  if (!Array.isArray(v)) return [];
+  const rows: RowChange[] = [];
+  for (const c of v) {
+    if (!c || typeof c !== "object") continue;
+    const raw = c as { field?: unknown; from?: unknown; to?: unknown };
+    rows.push({ field: changeText(raw.field), from: changeText(raw.from), to: changeText(raw.to) });
+  }
+  return rows;
+}
+
 function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const { displayTz } = useDisplayTimezone();
   const confirm = useConfirm();
@@ -117,6 +161,13 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   // bytes and a crash. Measured before the guards: an unknown kind threw
   // "Cannot read properties of undefined (reading 'replace')" and a non-string
   // one threw "kind.startsWith is not a function".
+  // ★★ COERCE ONCE, HERE, AND READ THE ROW EVERYWHERE ELSE. An earlier cut
+  // coerced `kind` only for the message lookup and left the search matcher, the
+  // sort comparator and the rendered cell reading the RAW `entry.kind` — so a
+  // stored `kind: 42` still threw `h.toLowerCase is not a function` the moment a
+  // search query was typed, and `kind.localeCompare` threw whenever the numeric
+  // kind landed in the comparator's receiver position (a 2-entry fixture can
+  // miss that: V8's small-array sort may only ever put the string there).
   const enriched = useMemo(
     () =>
       entries.map((e) => {
@@ -124,6 +175,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         const key = activityMessageKey(kind);
         return {
           entry: e,
+          kind,
+          changes: normalizeChanges(e.changes),
           message: key
             ? t(lang, key, ...(Array.isArray(e.args) ? e.args : []))
             : t(lang, "activityUnknownKind", kind),
@@ -145,8 +198,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     }
     if (matcher && !matcher.invalid) {
       result = result.filter(
-        (row) =>
-          matcher.test(row.message) || matcher.test(row.entry.kind),
+        (row) => matcher.test(row.message) || matcher.test(row.kind),
       );
     }
     const sorted = result.slice().sort((a, b) => {
@@ -154,7 +206,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       if (sortKey === "timestamp") {
         cmp = a.entry.timestamp.localeCompare(b.entry.timestamp);
       } else if (sortKey === "kind") {
-        cmp = a.entry.kind.localeCompare(b.entry.kind);
+        cmp = a.kind.localeCompare(b.kind);
       } else {
         cmp = a.message.localeCompare(b.message);
       }
@@ -329,7 +381,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               </tr>
             </>}
           >
-              {visible.map(({ entry, message }) => (
+              {visible.map(({ entry, kind, message, changes }) => (
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                     <time dateTime={entry.timestamp}>
@@ -337,16 +389,19 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     </time>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                    {entry.kind}
+                    {/* The COERCED kind, not `entry.kind` — a stored object
+                        renders as "Objects are not valid as a React child". */}
+                    {kind}
                   </td>
                   <td className="px-3 py-2 text-foreground">
                     {message}
-                    {/* Array.isArray, not truthiness: a stored non-array
-                        `changes` (e.g. a string) is truthy and has no `.map`. */}
-                    {Array.isArray(entry.changes) && entry.changes.length > 0 && (
+                    {/* Already normalised by `normalizeChanges` (non-array
+                        payload → [], hostile elements dropped or coerced). */}
+                    {changes.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
-                        {entry.changes.map((c) => (
-                          <li key={c.field} className="text-xs text-muted-foreground">
+                        {changes.map((c, i) => (
+                          // Index-qualified key: a coerced field can repeat.
+                          <li key={`${i}-${c.field}`} className="text-xs text-muted-foreground">
                             <span className="font-medium">{humanizeFieldName(c.field)}</span>
                             {": "}
                             <span className="sr-only">{t(lang, "activityChangeFrom")} </span>
