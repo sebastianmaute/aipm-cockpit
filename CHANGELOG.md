@@ -8,6 +8,34 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.239.0] - 2026-08-15 "Rusch"
+
+### Changed
+
+- **The activity log is now part of the project, not of the browser it was recorded in.** It used to
+  live in one device-local browser store shared by every project you opened on that device. It is now
+  ordinary project data: it travels with the project across devices and across every storage backend
+  (JSON file, CSV, Markdown, IndexedDB, and both Turso layouts), it survives an app reset or a change
+  of device, and entries recorded on two devices are reconciled into a single stream when the project
+  is loaded.
+- **The log is stored but never exported.** It is written on all six storage paths and is deliberately
+  absent from every export and from generated documents — an entry can record the old and new values
+  of up to twelve fields per update, which is internal audit detail rather than something to hand to a
+  client. There is no export toggle for it, by design.
+- **An unfamiliar activity type is now shown generically instead of breaking the view.** If a project
+  is opened in an older build than the one that wrote it, activity kinds that build does not know are
+  displayed as "Unrecognized activity (<kind>)" and are preserved on save, so an older client can no
+  longer drop them from the shared project.
+
+### Removed
+
+- **Activity history recorded before this version is not carried forward.** The old store was a single
+  global stream with no project attribution, so on a device that had opened more than one project every
+  entry would have been assigned to whichever project happened to be open at upgrade time. Importing it
+  would have produced a plausible-looking but wrong audit trail, so it is discarded instead; the old
+  browser key is removed on first start after the upgrade. Logging begins again immediately, per
+  project. Nothing else is affected — tasks, RAID, and every other register are untouched.
+
 ## [0.238.0] - 2026-08-13 "Attanasio"
 
 ### Added

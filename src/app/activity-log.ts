@@ -1,11 +1,18 @@
-// Activity log — chronological record of CRUD-ish user actions, persisted to
-// localStorage so it survives reloads but stays out of the workspace export
-// path. The user instruction was "non-persistent, not written to file, just
-// local storage" — interpreted as: keep entries in this browser only, never
-// in any CSV/MD/JSON file the user might export or share.
+// Activity log — chronological record of CRUD-ish user actions. It is
+// PER-PROJECT WORKSPACE DATA now (`Workspace.activityLog`), persisted as a
+// meta-blob on all six write paths; it was a per-device localStorage blob until
+// the activity-log-workspace-data slice, and `dropLegacyActivityLog` below
+// removes that old key.
 //
-// Capped at ACTIVITY_MAX_ENTRIES; oldest entries are dropped on overflow so
-// the localStorage value can't grow unbounded.
+// ★★ STORED ON EVERY BACKEND, EXPORTED ON NONE — the two are separate
+// questions and the original device-local design conflated them. There is no
+// `activityLog` key in EXPORT_SECTION_KEYS, and the CSV/Markdown emit sites
+// gate on `config === undefined`, so the log never reaches a document handed to
+// a client: an entry's `changes` carries old/new values for up to
+// MAX_FIELD_CHANGES fields, which is internal audit detail.
+//
+// Capped at ACTIVITY_MAX_ENTRIES; oldest entries are dropped on overflow so a
+// long-lived project's stored blob can't grow unbounded.
 
 import type { TranslationKey } from "./i18n";
 

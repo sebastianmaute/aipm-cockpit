@@ -587,6 +587,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
+  ★★ `activityLog` ("Activity log" below) is the CONTRASTING worked example, and the cheaper shape is the
+  reason: a **meta-blob** slice has no `ENTITY_SPECS` row, so it buys nothing and needs all six written by
+  hand — and the Turso TENANT path was the one missed, caught in review rather than by any gate.
+  ★ `entity-persistence-registry.test.ts` DOES carry meta-blob round-trips (`documents`,
+  `documentVersions`, `activityLog`) — but only over the two TEXT backends, CSV and Markdown. Neither
+  Turso layout, nor JSON, nor IndexedDB is exercised there, so a green run says nothing about four of the
+  six. Count to six yourself.
 - **New COLUMN on existing entity** (e.g. `Milestone.outlookEventId`): add to entity's
   `*_CSV_COLUMNS` (in `csv-codecs-core.ts` — covers CSV **and** Turso single+tenant, DDL/insert
   derive from it; also extend that entity's `*FieldToString`/`build*FromObj` THERE), plus the
@@ -1514,6 +1521,52 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
   before touching version history, deleted documents, or any "add a field to the six write paths" task,
   which it records a landmine for.
+- **Activity log (`Workspace.activityLog`):** per-project audit trail, promoted from a per-device
+  `localStorage` blob. Persists via the **meta-blob** pattern (one JSON row in `meta`, like
+  `insights`/`documents`), NOT `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` because it
+  has no table, **not** because it is non-workspace data. ★★ **STORAGE-ONLY on every path**: no
+  `activityLog` key in `EXPORT_SECTION_KEYS`, and the CSV and Markdown emit sites gate on
+  `config === undefined` rather than routing through the export `enabled(...)` allow-list. An entry's
+  `changes` carries old/new values for up to `MAX_FIELD_CHANGES` (12) fields per update — internal
+  audit detail that must never reach a document handed to a client. Do not add an export key.
+  ★★★ **`isWorkspaceEmpty` deliberately EXCLUDES it, INVERTING the `documents` rule directly above.**
+  The log is auto-appended by ordinary use, so counting it would make a project with log entries and no
+  user records read as non-empty — letting a transient empty backend read replace a populated project,
+  i.e. turning a data-loss guard into a data-loss vector. Same reasoning keeps it out of
+  `nonEmptyCollectionCount`/`workspaceRecordCount`. Pinned by `workspace.test.ts` ("a workspace holding
+  ONLY activity entries is still EMPTY (inverse of documents)"). Do not "complete" the documents
+  precedent.
+  ★★★ **`applyWorkspace`'s `logMode` has TWO branches and they are not interchangeable.** MERGE
+  (same-project load/reload) unions by id via `mergeActivityLogs` so entries appended while a load was
+  in flight survive; REPLACE (project switch/create/load-from-file) stops the outgoing project's trail
+  leaking into the target. **The default is REPLACE — the contaminating direction must be asked for
+  explicitly.** ★★ Those switch/create/load-from-file sites do NOT hide from a bare
+  `grep "applyWorkspace("` — they spell it `deps.applyWorkspace(ws)` and the grep finds all six. What
+  hides is the ARGUMENT: the deps contract in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` is
+  typed `(ws: Workspace) => void`, one parameter, so those call sites structurally CANNOT pass a
+  `logMode` and silently take the default. Widening that contract is what would let one of them opt into
+  the contaminating branch — check the TYPE, not the call text.
+  ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
+  `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
+  `activityLog`, so fanning it out would blank the audit trail on every version restore. This is the one
+  slice where the two funnels are meant to disagree.
+  ★★ **Entry ids are `"<deviceId>-<sessionNonce>-<counter>"`.** The middle segment is load-bearing:
+  `getDeviceId` persists its value in `localStorage` (`DEVICE_ID_KEY`) while the counter is module
+  scope, so `"<deviceId>-<counter>"` re-mints the same id on every reload and `mergeActivityLogs` (which
+  unions by id) silently discards one of two real entries. ★ Minted inside a `setState` functional
+  updater (`useActivityLog`), which React double-invokes under StrictMode — the counter is gap-tolerant
+  by design and must never be treated as a dense sequence number.
+  ★★ **An unknown-but-string `kind` is KEPT, not dropped** (`sanitizeActivityEntry`), unlike the retired
+  localStorage-era validator: the log is shared workspace data and the autosave writes loaded state
+  straight back, so an older client dropping a kind a newer release added would DELETE those entries
+  from the shared project. Rendering falls back to `activityUnknownKind` via `activityMessageKey`, whose
+  `hasOwnProperty` check is required — a bare index resolves `kind: "toString"` to a `Function` prototype
+  method, `t()` then misses it in the dict and throws on `undefined.replace`, crashing the app through
+  the top-level `ErrorBoundary`. ★ A non-string or absent `kind` IS dropped: `activityGroupOf` calls
+  `kind.startsWith` and there is nothing honest to display.
+  ★ **`mergeActivityLogs` NARROWS the loss window, it does not close it.** An entry appended on device A
+  between B's load and B's save is still lost; closing it needs append-level writes the meta-blob shape
+  cannot express. Do not record as solved.
 
 ## Subsystem reference — deeper detail, loaded on demand
 
