@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { H_CLASS, W_CLASS } from "./dashboard-grid";
 import { DashboardTile } from "./dashboard-tile";
 import { DashboardTileMenu, TileAxisGroup, type TileMenuLabels } from "./dashboard-tile-menu";
+import { DashboardShelf, type ShelfLabels } from "./dashboard-shelf";
 
 describe("span class tables", () => {
   it("emits literal class strings, never interpolated ones", () => {
@@ -206,5 +207,105 @@ describe("DashboardTileMenu", () => {
     const names = screen.getAllByRole("radio").map((b) => b.getAttribute("aria-label"));
     expect(names.every((n) => n && (n.includes("RAID register") || n.includes("Trends")))).toBe(true);
     expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+const SHELF_LABELS: ShelfLabels = {
+  hiddenCount: (n) => `${n} hidden`,
+  empty: "No hidden tiles",
+  restore: "Restore",
+};
+
+const HIDDEN = [
+  { id: "raid" as const, title: "RAID register" },
+  { id: "burn" as const, title: "Budget burn" },
+];
+
+function shelf(
+  opts: {
+    hidden?: { id: "raid" | "burn"; title: string }[];
+    isDragging?: boolean;
+    onRestore?: (id: "raid" | "burn") => void;
+  } = {},
+) {
+  return render(
+    <DashboardShelf
+      hidden={opts.hidden ?? HIDDEN}
+      labels={SHELF_LABELS}
+      onRestore={opts.onRestore ?? (() => {})}
+      dropProps={{}}
+      isDragging={opts.isDragging ?? false}
+    />,
+  );
+}
+
+const toggle = () => screen.getByRole("button", { name: /hidden/i });
+
+describe("DashboardShelf", () => {
+  it("summarises the hidden count on a collapsed disclosure", () => {
+    shelf();
+    expect(toggle()).toHaveAttribute("aria-expanded", "false");
+    expect(toggle()).toHaveTextContent("2");
+  });
+
+  it("opens the tray on click", () => {
+    shelf();
+    fireEvent.click(toggle());
+    expect(toggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("opens the tray when a drag enters the collapsed button", () => {
+    // ★ Without this the user must open the tray BEFORE picking a tile up — a
+    // sequence that cannot be discovered mid-drag.
+    shelf({ isDragging: true });
+    fireEvent.dragEnter(toggle());
+    expect(toggle()).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("leaves the tray shut when a pointer wanders in with nothing being dragged", () => {
+    // ★★ Pins the `isDragging` guard. Without it this test is the only thing
+    // between the shelf and a tray that pops open on a stray dragEnter, and the
+    // happy-path test above passes either way — it is vacuous on its own.
+    shelf({ isDragging: false });
+    fireEvent.dragEnter(toggle());
+    expect(toggle()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("gives every Restore button a tile-unique accessible name", () => {
+    // ★★ Two chips minimum, or the collision cannot render. axe cannot detect
+    // duplicate accessible names in any view at any seed size.
+    shelf();
+    fireEvent.click(toggle());
+    const names = screen.getAllByRole("button", { name: /restore/i }).map((b) => b.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+  });
+
+  it("restores a tile from the tray through a keyboard-reachable button", () => {
+    // ★★ The button IS the keyboard path. Dragging a chip back is the mouse
+    // shortcut; without this a keyboard user who hid a tile could never get it
+    // back.
+    const onRestore = vi.fn();
+    shelf({ onRestore });
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getAllByRole("button", { name: /restore/i })[0]);
+    expect(onRestore).toHaveBeenCalledWith("raid");
+  });
+
+  it("keeps the aria-controls target mounted while collapsed", () => {
+    // ★★ `hidden`-toggled, never conditionally rendered: an aria-controls that
+    // points at nothing is a dangling reference. Same shape as
+    // `action-reasons.tsx`.
+    shelf();
+    const target = document.getElementById(toggle().getAttribute("aria-controls")!);
+    expect(target).not.toBeNull();
+    expect(target).toHaveAttribute("hidden");
+  });
+
+  it("still offers the disclosure when nothing is hidden, so a drag has a target", () => {
+    shelf({ hidden: [] });
+    expect(toggle()).toHaveTextContent("0");
+    fireEvent.click(toggle());
+    expect(screen.getByText("No hidden tiles")).toBeInTheDocument();
   });
 });
