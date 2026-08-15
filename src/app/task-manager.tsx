@@ -1048,6 +1048,14 @@ function TaskManagerInner() {
 
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
   // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
+  //
+  // ★★ `activityLog` is DELIBERATELY MISSING from this fan-out — do not "complete"
+  // it by adding `setActivityLog(w.activityLog ?? [])`. `getVersionPayload` above
+  // captures an explicit field list that carries no `activityLog`, so every
+  // restorable snapshot has none; fanning it out here would set the live log to
+  // `[]` (or the restored snapshot's own, blob-less shape) on EVERY version
+  // restore and wipe the whole audit trail. Omitting it is what preserves the
+  // log across a restore, which is what an audit trail is for.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);

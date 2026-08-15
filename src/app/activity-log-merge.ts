@@ -30,10 +30,11 @@ export { ACTIVITY_MAX_ENTRIES };
  *
  * ★ The comparator is a LEXICOGRAPHIC string compare, which equals chronological
  * order only while every timestamp is `toISOString()` shape (fixed-width, UTC
- * `Z`). Nothing enforces that — `isActivityEntry` checks only `typeof === "string"`
- * — and because the cap slices off the HEAD after sorting, a wrongly-ordered
- * entry (e.g. a `+02:00` offset) is not merely misplaced, it is permanently
- * dropped. Every writer in the app uses `toISOString()`; a new one must too.
+ * `Z`). Nothing enforces that — `sanitizeActivityEntry` checks only
+ * `typeof === "string"` — and because the cap slices off the HEAD after
+ * sorting, a wrongly-ordered entry (e.g. a `+02:00` offset) is not merely
+ * misplaced, it is permanently dropped. Every writer in the app uses
+ * `toISOString()`; a new one must too.
  * ★ Ties (equal timestamps) compare 0 and `Array.prototype.sort` is stable, so
  * they keep Map insertion order: `a`'s entries in `a`'s order, then `b`-only
  * entries. Deterministic — two devices appending in the same millisecond do not

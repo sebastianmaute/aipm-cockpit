@@ -335,11 +335,10 @@ export function activityMessageKey(kind: string): TranslationKey | null {
 }
 
 /**
- * The workspace LOAD boundary for the whole log, re-exported from workspace.ts
- * (its historical home) so the six backends' imports are unchanged. DOM-free —
- * it runs under bare node in `scripts/generate-sample-workspace.ts`. Drops
- * malformed entries, strips a malformed per-entry `changes` payload, and caps
- * to the newest ACTIVITY_MAX_ENTRIES.
+ * The workspace LOAD boundary for the whole log. DOM-free — it runs under
+ * bare node in `scripts/generate-sample-workspace.ts`. Drops malformed
+ * entries, strips a malformed per-entry `changes` payload, and caps to the
+ * newest ACTIVITY_MAX_ENTRIES.
  *
  * ★ It lives HERE rather than in workspace.ts because every part it is built
  * from — the entry shape, the per-entry rules, the cap — is owned by this
