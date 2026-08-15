@@ -177,11 +177,13 @@ The presentational slices:
   render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
 ★ ALL tier/card spacing uses `dc.*` density classes, never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`.
 `DashboardPanelProps` is unchanged by the reorg (the ~30 test/caller sites were untouched).
-★★ `DensityClasses` has SIX fields and one of them is DEAD: `cardGap` (`mb-4`/`mb-2`) was the
-masonry's inter-card margin and now has no production consumer — `grep -rn "cardGap" src | grep -v
-"\.test\."` returns only its own declaration in `dashboard-density.ts` and one stale comment in
-`dashboard-panel.tsx`. `dashboard-density.test.ts` still asserts its value, so nothing goes red; do not
-read that test as evidence the field is used. Removing it is a follow-up, not a claim about today.
+★★ `DensityClasses` has FIVE fields — `{outer, kpiGap, cardPad, sectionGap, tileRow}`. A sixth,
+`cardGap` (`mb-4`/`mb-2`), was the masonry's inter-card margin and is REMOVED along with it. It
+outlived the masonry for one release because `dashboard-density.test.ts` still asserted its value, so
+nothing went red — a test over a dead field is not evidence the field is used. ★ The two surviving
+`toEqual` assertions pin the WHOLE object, so re-adding a field there is a red test rather than silent
+regrowth; keep them exact-shape rather than per-key. Re-derive the count, don't trust it:
+`grep -c ": string;" src/app/dashboard-density.ts`.
 
 The Dashboard (`dashboard-panel.tsx`, owns `computeDashboard`) opens with a greeting + "since you last
 looked" delta strip, with the four RAG `OverrideSelect`s folded into a `<details>` "Adjust health
@@ -289,12 +291,12 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   exposes `completed`+`total`. i18n EN+DE.
 - **Density toggle ("fit more on screen"):** per-device Comfortable/Compact, SPACING ONLY (no
   font/palette/contrast change). Pure i18n-free `dashboard-density.ts` `densityClasses(d)` →
-  `{outer,kpiGap,cardPad,sectionGap,cardGap,tileRow}` class strings — comfortable REPRODUCES the original
+  `{outer,kpiGap,cardPad,sectionGap,tileRow}` class strings — comfortable REPRODUCES the original
   literals (`space-y-4`/`gap-2`/`p-3`/`gap-4`, a no-op for existing users), compact tightens
   (`space-y-2`/`gap-1`/`p-2`/`gap-2`). ★★ `sectionGap` NO LONGER drives "the two-column section grids
   (Progress+Budget, Milestones+Changes)" — those grids went with the masonry, and its ONLY consumer today
   is the tile grid's gap (`grep -rn "dc.sectionGap" src` → one hit, `dashboard-grid.tsx`). `tileRow` is
-  the newer key and drives that same grid's row unit; `cardGap` is dead (see above). ★ Any NEW
+  the newer key and drives that same grid's row unit; `cardGap` is REMOVED (see above). ★ Any NEW
   spacing on a cockpit slice MUST use a `dc.*` class,
   NOT a literal `gap-*`/`space-y-*`/`p-*` — a literal ignores compact mode (it bit the two section
   grids of the day: they stayed `gap-4` while everything else compressed).
