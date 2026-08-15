@@ -43,6 +43,16 @@ describe("useDashboardLayout", () => {
     expect(loadLayout("p1")!.hidden).toContain("raid");
   });
 
+  it("writes nothing for a project the user never touched", async () => {
+    // ★ Pins the `dirty` guard. Without it, merely mounting persists the
+    // reconciled default over storage. The positive observable is the test
+    // above: mutate-then-persist DOES write, so this is not vacuously green.
+    vi.useFakeTimers();
+    render(<Harness />);
+    await act(async () => { vi.advanceTimersByTime(1000); });
+    expect(loadLayout("p1")).toBeNull();
+  });
+
   it("does not persist in a popout", async () => {
     vi.useFakeTimers();
     render(<Harness isPopout />);
