@@ -293,8 +293,8 @@ export function RolesEditor({
                       <button
                         type="button"
                         {...roleOrder.handleProps(r.id)}
-                        aria-label={`${t(lang, "reportReorderHandle")} – ${rowCtx}`}
-                        title={t(lang, "reportReorderHandle")}
+                        aria-label={`${t(lang, "reorderHandle")} – ${rowCtx}`}
+                        title={t(lang, "reorderHandle")}
                         className={`mr-1 ${REORDER_HANDLE_CLASS}`}
                       >≡</button>
                     )}
@@ -403,8 +403,8 @@ function RefList({
             <button
               type="button"
               {...itemOrder.handleProps(it.id)}
-              aria-label={`${t(lang, "reportReorderHandle")} – ${it.name}`}
-              title={t(lang, "reportReorderHandle")}
+              aria-label={`${t(lang, "reorderHandle")} – ${it.name}`}
+              title={t(lang, "reorderHandle")}
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
             >≡</button>
             <input defaultValue={it.name}

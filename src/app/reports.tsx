@@ -570,8 +570,8 @@ export function ReportsPanel({
                   // duplicate accessible names — so the qualifier has to be
                   // written at the source. Pre-existing; fixed here because this
                   // change already owns the element.
-                  aria-label={`${t(lang, "reportReorderHandle")} – ${t(lang, meta.titleKey)}`}
-                  title={t(lang, "reportReorderHandle")}
+                  aria-label={`${t(lang, "reorderHandle")} – ${t(lang, meta.titleKey)}`}
+                  title={t(lang, "reorderHandle")}
                   className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:hidden"
                 >
                   ⠿

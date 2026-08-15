@@ -519,7 +519,7 @@ export const de: Record<TranslationKey, string> = {
   budgetRemoveBucket: "Budget-Topf entfernen",
   budgetRemoveBucketConfirm: "Diesen Budget-Topf entfernen? Berechnungen, die darauf basieren, werden auf 0 zurückgesetzt.",
   budgetReorderHandle: "Topf umsortieren — ziehen oder mit den Pfeiltasten ↑/↓ verschieben",
-  reportReorderHandle: "Ziehen oder mit Pfeiltasten sortieren",
+  reorderHandle: "Ziehen oder mit den Pfeiltasten ↑/↓ verschieben",
   snapshotSelectRow: "Snapshot {0} auswählen",
   budgetEditBucket: "Budget-Topf bearbeiten",
   budgetStartDate: "Startdatum",
@@ -1732,7 +1732,6 @@ export const de: Record<TranslationKey, string> = {
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
   resourcesUnassignedRole: "keine Rolle",
 
-  reorderHint: "Zum Umsortieren ziehen",
   rolesConfirmDeleteRef: "Eintrag entfernen? Rollen, die ihn verwenden, werden n/a mit Sätzen 0.",
   rolesRateCard: "Satztabelle",
   rolesDiscipline: "Disziplin",

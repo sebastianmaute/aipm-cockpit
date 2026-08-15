@@ -516,7 +516,9 @@ const enUS = {
   budgetRemoveBucket: "Remove bucket",
   budgetRemoveBucketConfirm: "Remove this budget bucket? Calculations based on it will reset to 0.",
   budgetReorderHandle: "Reorder bucket — drag, or focus and use the up/down arrow keys",
-  reportReorderHandle: "Drag or use arrow keys to reorder",
+  // Feature-NEUTRAL on purpose: shared by the Reports cards and both Settings
+  // reference lists. Do not re-name it after any one surface.
+  reorderHandle: "Drag or use arrow keys to reorder",
   snapshotSelectRow: "Select snapshot {0}",
   budgetEditBucket: "Edit bucket",
   budgetStartDate: "Start date",
@@ -1746,7 +1748,6 @@ const enUS = {
   resourcesWorkdayHours: "Hours per work day",
   resourcesUnassignedRole: "no role",
 
-  reorderHint: "Drag to reorder",
   rolesConfirmDeleteRef: "Remove this entry? Roles using it become n/a with zero rates.",
   rolesRateCard: "Rate card",
   rolesDiscipline: "Discipline",

@@ -315,9 +315,14 @@
   `grep -rn "onDragStart" src/app --include=*.tsx | grep -v '\.test\.'` against
   `grep -rn "setData" src/app --include=*.tsx`.
   ★★ A per-row drag handle needs a row-UNIQUE accessible name. Reports gave every handle the same
-  `reportReorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
+  `reorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
   asserting the names are DISTINCT is the only detector — and note every other test in that file finds its
   handles by the shared prefix and indexes `[0]`/`[1]`, so they all stay green when the qualifier is lost.
+  ★ That key is deliberately FEATURE-NEUTRAL and is shared by Reports and both Settings reference lists.
+  It was named after Reports until the roles-editor adopted it, which made "tighten the Reports wording"
+  a silent rewrite of two unrelated Settings surfaces; the old Reports-specific spelling was renamed away
+  and must not come back. Its German says *verschieben*, never *sortieren* — the rate-card grip sits
+  beside four genuinely sortable column headers, so "sort" is the one word it may not use.
   ★★ A drop indicator drawn as a border must render in BOTH states, swapping only the COLOUR. Adding the
   border on hover grows the box and shifts every card below it, during a drag — exactly when the hit
   target must hold still.
