@@ -42,6 +42,7 @@ import {
   resolveTimezone,
 } from "./timezone";
 import { useEffectiveSettings } from "./use-effective-settings";
+import { getTursoConfig } from "./turso-config";
 import {
   ResourceDirectory,
 } from "./resource-directory";
@@ -284,6 +285,17 @@ export function WorkspaceSection({
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
   // with the modern shell's inset edge (matching the Tasks pane exactly).
   const effectiveTz = resolveTimezone(effectiveSettings.timezone, project?.operatingTimezone);
+  // Mirrors portfolio-health-panel.tsx's getTursoConfig(settings...) pattern.
+  // FRESH object every call — memoize on the credential strings, or an unstable
+  // identity re-fires useChatThreads' fetch effect (dep array), wiping the chat.
+  // Hoisted to locals: exhaustive-deps rejects an `obj.member` dependency.
+  const tursoUrl = settings.integrations?.turso?.databaseUrl;
+  const tursoToken = settings.integrations?.turso?.authToken;
+  const chatTursoConfig = useMemo(() => getTursoConfig(tursoUrl, tursoToken), [tursoUrl, tursoToken]);
+  // Gate on BOTH signals (Turso storage OR Turso portfolio `mode`) AND
+  // `chatTursoConfig !== null` — mirrors task-manager.tsx's `trendsActive`,
+  // which reads storageConfig.kind unguarded; storageConfig is non-optional.
+  const chatTursoMode = (settings.storageConfig.kind === "turso" || mode === "turso") && chatTursoConfig !== null;
   const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
   const panelScrollClass = fullBleed
     ? "min-h-0 flex-1 overflow-y-auto"
@@ -364,6 +376,8 @@ export function WorkspaceSection({
             projectId={currentProjectId ?? "default"}
             getChatConversation={getChatConversation}
             saveChatConversation={saveChatConversation}
+            tursoMode={chatTursoMode}
+            tursoConfig={chatTursoConfig}
           />
         </div>
 

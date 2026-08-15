@@ -50,6 +50,9 @@ import {
 } from "./chat-api";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { ToolBlock } from "./chat-tool-block";
+import type { TursoConfig } from "./turso-config";
+import { useChatThreads } from "./use-chat-threads";
+import { ChatThreadSidebar } from "./chat-thread-sidebar";
 
 /** A staged upload: the Anthropic content block plus display metadata. */
 type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
@@ -72,6 +75,8 @@ function ChatPanelImpl({
   projectId = "default",
   getChatConversation,
   saveChatConversation,
+  tursoMode = false,
+  tursoConfig = null,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -86,6 +91,11 @@ function ChatPanelImpl({
   /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
    *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
   onConfigureAi?: () => void;
+  /** Turso-only multi-thread sidebar + persistence. False/null (the default)
+   *  in file mode and in tests/popouts that don't pass them — chat behaves
+   *  exactly as before: one ephemeral in-memory conversation, no sidebar. */
+  tursoMode?: boolean;
+  tursoConfig?: TursoConfig | null;
 } & ChatConversationStoreProps) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
@@ -105,6 +115,8 @@ function ChatPanelImpl({
       projectId={projectId}
       getChatConversation={getChatConversation}
       saveChatConversation={saveChatConversation}
+      tursoMode={tursoMode}
+      tursoConfig={tursoConfig}
     />
   );
 }
@@ -138,6 +150,8 @@ function ChatPanelInner({
   projectId = "default",
   getChatConversation,
   saveChatConversation,
+  tursoMode = false,
+  tursoConfig = null,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -151,6 +165,8 @@ function ChatPanelInner({
   /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
    *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
   onConfigureAi?: () => void;
+  tursoMode?: boolean;
+  tursoConfig?: TursoConfig | null;
 } & ChatConversationStoreProps) {
   const confirm = useConfirm();
   // Restore this project's in-memory conversation on (re)mount — the modern
@@ -168,9 +184,14 @@ function ChatPanelInner({
   const [seenProjectId, setSeenProjectId] = useState(projectId);
   if (projectId !== seenProjectId) {
     setSeenProjectId(projectId);
-    const next = getChatConversation?.(projectId);
-    setHistory(next?.history ?? []);
-    setDisplay(next?.display ?? []);
+    // Turso mode resets history/display asynchronously via the thread-list
+    // fetch effect below (it needs an await, so it can't be a synchronous
+    // render-time reconcile) — skip the file-mode in-memory-cache path here.
+    if (!tursoMode) {
+      const next = getChatConversation?.(projectId);
+      setHistory(next?.history ?? []);
+      setDisplay(next?.display ?? []);
+    }
   }
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
@@ -191,6 +212,12 @@ function ChatPanelInner({
   // Latest committed projectId, read by the in-flight send to detect a mid-send
   // project switch (so its trailing writes can't land on the new project).
   const projectIdRef = useRef(projectId);
+  // Turso thread state (deps-object hook, AGENTS.md rule 1). Kept as one
+  // object — most fields wire onto ChatThreadList in Task 6; submitPrompt
+  // below reads .activeThreadId/.threadIdRef and calls .ensureThreadForSend.
+  const chatThreads = useChatThreads({
+    tursoMode, tursoConfig, projectId, lang, busy, history, display, setHistory, setDisplay, cancelledRef, abortRef, confirm,
+  });
   const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
   const { record: recordUsage } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
@@ -280,11 +307,10 @@ function ChatPanelInner({
     cancelledRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
-    // Bind this send to the project it started on. If the user switches project
-    // mid-send, `stale()` becomes true and every subsequent state write is
-    // skipped — the reply can't corrupt the new project's conversation.
+    // Bind this send to the project it started on. The THREAD half of this
+    // binding (`sendThreadId`) is captured further down, only after
+    // ensureThreadForSend has resolved — see the comment there.
     const sendProjectId = projectId;
-    const stale = () => cancelledRef.current || projectIdRef.current !== sendProjectId;
 
     // With attachments the user turn is a multimodal content array (text first,
     // then each document/image block); otherwise a plain string.
@@ -307,7 +333,24 @@ function ChatPanelInner({
       atts.length > 0
         ? [text, ...atts.map((a) => `📎 ${a.name}`)].filter(Boolean).join("\n")
         : text;
-    setDisplay((prev) => [...prev, { kind: "user", text: displayText }]);
+    const userDisplayItem: DisplayItem = { kind: "user", text: displayText };
+    setDisplay((prev) => [...prev, userDisplayItem]);
+    // Insert+save a row for a brand-new thread NOW, not once the turn
+    // settles — else a mid-send switch to another thread loses this message
+    // with no recovery path (see ensureThreadForSend's doc comment). This
+    // ALSO covers the case where no thread was active yet at all (a fresh
+    // Turso project) — ensureThreadForSend mints and adopts an id itself in
+    // that case.
+    //
+    // `sendThreadId` is captured from the RETURN VALUE, not from
+    // `chatThreads.activeThreadId` read earlier — reading it before this
+    // call would still see the pre-mint `null` on a fresh project's first
+    // send, and every `threadIdRef.current !== sendThreadId` guard below
+    // would then wrongly see the newly-adopted id as a mismatch and treat
+    // this send as already stale (see ensureThreadForSend's own comment).
+    const sendThreadId = chatThreads.ensureThreadForSend(newHistory, [...display, userDisplayItem]);
+    const stale = () =>
+      cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
 
     const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides);
     const messages = newHistory.slice();
@@ -436,10 +479,10 @@ function ChatPanelInner({
         break;
       }
 
-      // If the user switched project mid-send, this run belongs to another
-      // project now showing a different conversation — don't write its notes or
+      // If the user switched project or thread mid-send, this run belongs to
+      // another conversation now showing on screen — don't write its notes or
       // history onto the current one (billing is still recorded).
-      const switchedAway = projectIdRef.current !== sendProjectId;
+      const switchedAway = projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
       if (!switchedAway) {
         if (cancelledRef.current) {
           // Stopped by the user — append a neutral note, no error state.
@@ -473,9 +516,9 @@ function ChatPanelInner({
       // a user-initiated stop, not a real error. Check .name directly because
       // DOMException may not be instanceof Error across jsdom/Node boundaries.
       const errName = err instanceof Error ? err.name : (err as { name?: string }).name;
-      // Suppress when the user switched project mid-send (the abort/error belongs
-      // to the old project's conversation, not the one now on screen).
-      if (projectIdRef.current === sendProjectId) {
+      // Suppress when the user switched project or thread mid-send (the abort/
+      // error belongs to the old conversation, not the one now on screen).
+      if (projectIdRef.current === sendProjectId && chatThreads.threadIdRef.current === sendThreadId) {
         if (errName === "AbortError") {
           setDisplay((prev) => [
             ...prev,
@@ -619,6 +662,21 @@ function ChatPanelInner({
     // Centered half-size card, top-anchored. The corner drags to a custom size
     // (persisted via useResizable); ResetSizeButton restores the default.
     <div ref={chatRef} className={CHAT_PANE_CLASS}>
+    <div className="flex h-full min-h-0 flex-1 gap-3">
+      {tursoMode && (
+        <ChatThreadSidebar
+          lang={lang}
+          threads={chatThreads.threads}
+          activeThreadId={chatThreads.activeThreadId}
+          error={chatThreads.threadsError}
+          onRetry={chatThreads.retryLoad}
+          onSelect={chatThreads.selectThread}
+          onNew={chatThreads.newThread}
+          onRename={chatThreads.renameThread}
+          onDelete={chatThreads.requestDeleteThread}
+        />
+      )}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <Select
           size="xs"
@@ -862,6 +920,8 @@ function ChatPanelInner({
         </div>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatAttachmentHint")}</p>
+      </div>
+    </div>
     </div>
   );
 }
