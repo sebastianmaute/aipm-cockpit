@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.238.0";
-export const APP_BUILD_DATE = "2026-08-13"; // 0.238.0: the rich-text editor now supports task lists and text alignment, stored under a value-guarded attribute boundary (Attanasio)
+export const APP_VERSION = "0.239.0";
+export const APP_BUILD_DATE = "2026-08-15"; // 0.239.0: the activity log is per-project workspace data, AI Assistant chats persist as Turso threads, and an existing Turso project can be opened directly (Rusch)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.238.x line is "Attanasio" (A.A. Attanasio, SF/fantasy author).
+ *  0.239.x line is "Rusch" (Kristine Kathryn Rusch, prolific SF/fantasy author).
+ *  0.238.x was "Attanasio" (A.A. Attanasio, SF/fantasy author).
  *  0.237.x was "Roberson" (Chris Roberson, SF/fantasy author).
  *  0.236.x was "Sheldon" (the rich-text toolbar's keyboard contract slice —
  *  no bio recorded for it here; not asserting one now rather than guessing).
@@ -26,7 +27,7 @@ export const APP_BUILD_DATE = "2026-08-13"; // 0.238.0: the rich-text editor now
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Attanasio";
+export const APP_MILESTONE = "Rusch";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -300,4 +301,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlight0235",
   "versionHighlight0237",
   "versionHighlightTaskListAlign",
+  "versionHighlightActivityWorkspace",
 ] as const;

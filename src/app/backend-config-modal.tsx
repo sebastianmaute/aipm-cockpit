@@ -30,6 +30,9 @@ export interface BackendConfigModalProps {
    *  migrate — switching the portfolio can only reload into a different (empty)
    *  portfolio, so the switch is a footgun there. */
   hidePortfolioSwitch?: boolean;
+  /** Forwarded to IntegrationsSection: use the "Switch portfolio" label. Set
+   *  on pre-project surfaces (empty state, create-project flow). */
+  noCurrentProject?: boolean;
   /** Body override. When provided, render this instead of IntegrationsSection
    *  (e.g. the AI-assistant config surface renders AiSection here). */
   children?: React.ReactNode;
@@ -42,6 +45,7 @@ export function BackendConfigModal({
   onChangeSettings,
   onClose,
   hidePortfolioSwitch,
+  noCurrentProject,
   children,
 }: BackendConfigModalProps) {
   const TITLE_ID = "backend-config-modal-title";
@@ -71,6 +75,7 @@ export function BackendConfigModal({
               settings={settings}
               onChange={onChangeSettings}
               hidePortfolioSwitch={hidePortfolioSwitch}
+              noCurrentProject={noCurrentProject}
             />
           )}
         </div>

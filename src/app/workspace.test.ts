@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { emptyWorkspace, jsonToWorkspace, workspaceToJson, WorkspaceParseError } from "./workspace";
+import {
+  emptyWorkspace,
+  isWorkspaceEmpty,
+  jsonToWorkspace,
+  workspaceToJson,
+  WorkspaceParseError,
+  type Workspace,
+} from "./workspace";
+import { ACTIVITY_MAX_ENTRIES } from "./activity-log";
 
 /** Render a STORED value the way a sink would and assert nothing live survives.
  *  Deliberately does NOT re-sanitize: the subject is the LOAD boundary, and the
@@ -227,5 +235,178 @@ describe("workspace features (per-project)", () => {
   it("sanitizes junk feature ids on read", () => {
     const raw = JSON.stringify({ ...JSON.parse(workspaceToJson(emptyWorkspace())), features: ["raid", "nope"] });
     expect(jsonToWorkspace(raw).features).toEqual(["raid"]);
+  });
+});
+
+describe("isWorkspaceEmpty excludes activityLog (inverse of the documents rule)", () => {
+  it("a workspace holding ONLY activity entries is still EMPTY (inverse of documents)", () => {
+    // ★ documents deliberately COUNT toward non-empty; activityLog must NOT.
+    //   The log is auto-appended by ordinary use, so counting it would let a
+    //   transient empty backend read replace a populated project — turning a
+    //   data-loss GUARD into a data-loss VECTOR. See the comment at the
+    //   isWorkspaceEmpty call site.
+    const ws = {
+      tasks: [],
+      activityLog: [
+        { id: "dev1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+      ],
+    } as unknown as Workspace;
+    expect(isWorkspaceEmpty(ws)).toBe(true);
+  });
+});
+
+describe("activityLog JSON write path", () => {
+  it("round-trips activityLog through JSON", () => {
+    const log = [
+      { id: "dev1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+    ];
+    const ws = { ...emptyWorkspace(), activityLog: log };
+    const back = jsonToWorkspace(workspaceToJson(ws));
+    expect(back.activityLog).toEqual(log);
+  });
+
+  it("omits the activityLog key entirely when the log is empty", () => {
+    const ws = { ...emptyWorkspace(), activityLog: [] };
+    expect(JSON.parse(workspaceToJson(ws))).not.toHaveProperty("activityLog");
+  });
+});
+
+/** Envelope with the minimum jsonToWorkspace requires (`tasks`/`raid` arrays)
+ *  plus an arbitrary `activityLog` value under test. */
+function wsWithActivityLog(activityLog: unknown): string {
+  return JSON.stringify({ tasks: [], raid: [], activityLog });
+}
+
+// Moved from activity-log.test.ts's retired loadActivityLog/saveActivityLog
+// suite (Task 12, activity-log-workspace-data): the log is validated on load
+// by `sanitizeActivityLog` now (called from `jsonToWorkspace`), not by the
+// localStorage-only `isActivityEntry`/`normalizeEntryChanges` that used to
+// gate `loadActivityLog`. Every property carried over EXCEPT the unknown-kind
+// rule, which was deliberately inverted for shared workspace data — see the
+// forward-compat test below.
+describe("activityLog sanitize-and-cap on load", () => {
+  it.each([
+    ["non-array (string)", "x"],
+    ["non-array (number)", 5],
+    ["non-array (object)", {}],
+  ])("drops a non-array activityLog value: %s", (_label, value) => {
+    const ws = jsonToWorkspace(wsWithActivityLog(value));
+    expect(ws.activityLog).toBeUndefined();
+  });
+
+  it("drops entries missing id/timestamp/args-shape or with an empty id, keeps the rest", () => {
+    const mixed = [
+      { id: "1", timestamp: "2026-06-02T00:00:00.000Z", kind: "task.created", args: [] }, // valid
+      { id: "3", kind: "task.created", args: [] }, // missing timestamp
+      { id: "4", timestamp: "t", kind: "task.created", args: "nope" }, // args not array
+      { timestamp: "t", kind: "task.created", args: [] }, // missing id
+      { id: "", timestamp: "t", kind: "task.created", args: [] }, // empty-string id
+      { id: "9", timestamp: "2026-06-02T00:00:00.000Z", kind: "jira.sync", args: [] }, // valid
+    ];
+    const ws = jsonToWorkspace(wsWithActivityLog(mixed));
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["1", "9"]);
+  });
+
+  // ★★★ DELIBERATE divergence from the retired loadActivityLog, whose
+  // `isActivityEntry` dropped an entry whose `kind` was not a known
+  // ActivityKind. That was right for a device-local localStorage blob and is
+  // WRONG for shared workspace data: the loaded log becomes app state and the
+  // autosave writes it straight back, so an older client dropping a kind a
+  // newer release added would DELETE those entries from the shared project.
+  // An unknown but well-formed (string) kind is therefore KEPT verbatim and
+  // rendered generically by the panel — see `activityMessageKey`.
+  it("keeps an entry whose `kind` is not a known ActivityKind (forward-compat)", () => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([{ id: "2", timestamp: "2026-06-02T00:00:00.000Z", kind: "not.a.kind", args: [] }]),
+    );
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["2"]);
+    expect(ws.activityLog?.[0].kind).toBe("not.a.kind");
+  });
+
+  // The other half of forward-compat: a field a NEWER release added to
+  // ActivityEntry must survive an older client's load+save round trip, so the
+  // sanitizer passes an untouched entry through by REFERENCE rather than
+  // rebuilding it from a known-field list.
+  it("preserves an unknown extra key on an otherwise-valid entry", () => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([
+        { id: "2", timestamp: "2026-06-02T00:00:00.000Z", kind: "task.created", args: [], futureField: 7 },
+      ]),
+    );
+    expect((ws.activityLog?.[0] as unknown as { futureField?: number }).futureField).toBe(7);
+  });
+
+  // Malformed — not forward-compat. A non-string `kind` has no honest
+  // rendering (`activityGroupOf` calls `kind.startsWith`), so it is dropped.
+  it.each([
+    ["missing kind", { id: "b", timestamp: "2026-06-02T00:00:00.000Z", args: ["Y"] }],
+    ["numeric kind", { id: "c", timestamp: "2026-06-02T00:00:00.000Z", kind: 42, args: ["Z"] }],
+    ["null kind", { id: "d", timestamp: "2026-06-02T00:00:00.000Z", kind: null, args: ["Z"] }],
+  ])("drops an entry with a malformed kind: %s", (_label, bad) => {
+    const good = { id: "ok", timestamp: "2026-06-02T00:00:00.000Z", kind: "task.created", args: [] };
+    const ws = jsonToWorkspace(wsWithActivityLog([bad, good]));
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["ok"]);
+  });
+
+  it("caps a too-large activityLog to the newest ACTIVITY_MAX_ENTRIES", () => {
+    const big = Array.from({ length: ACTIVITY_MAX_ENTRIES + 100 }, (_, i) => ({
+      id: String(i + 1),
+      timestamp: "2026-06-02T00:00:00.000Z",
+      kind: "task.created" as const,
+      args: [],
+    }));
+    const ws = jsonToWorkspace(wsWithActivityLog(big));
+    expect(ws.activityLog).toHaveLength(ACTIVITY_MAX_ENTRIES);
+    expect(ws.activityLog?.[0].id).toBe("101"); // "1".."100" dropped
+  });
+
+  it("rejects a legacy numeric-id entry (globally-unique STRING ids only)", () => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([{ id: 1, timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["T-1"] }]),
+    );
+    expect(ws.activityLog).toBeUndefined();
+  });
+
+  it("round-trips a changes-bearing entry", () => {
+    const changes = [{ field: "owner", from: "Ada", to: "Grace" }];
+    const log = [
+      { id: "dev1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "raid.updated" as const, args: [5], changes },
+    ];
+    const ws = jsonToWorkspace(workspaceToJson({ ...emptyWorkspace(), activityLog: log }));
+    expect(ws.activityLog?.[0].changes).toEqual(changes);
+  });
+
+  // A malformed `changes` payload is CORRUPTION, not forward-compat: the
+  // panel renders `entry.changes.map(...)` and `c.field`/`c.from`/`c.to` as
+  // React children, so a non-array — or an array of non-FieldChange objects —
+  // throws. The rest of the entry is still a real audit record, so the payload
+  // is stripped and the entry KEPT (the retired `normalizeEntryChanges` did
+  // the same).
+  it.each([
+    ["non-array (string)", "nope"],
+    ["non-array (object)", { field: "a", from: "b", to: "c" }],
+    ["array of non-objects", ["nope"]],
+    ["array of wrong-shaped objects", [{ field: 1, from: null }]],
+    ["array with one bad element", [{ field: "a", from: "b", to: "c" }, { field: 1 }]],
+  ])("strips a malformed `changes` payload but keeps the entry: %s", (_label, changes) => {
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([
+        { id: "1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: ["T"], changes },
+      ]),
+    );
+    expect((ws.activityLog ?? []).map((e) => e.id)).toEqual(["1"]);
+    expect((ws.activityLog ?? [])[0]?.changes).toBeUndefined();
+    // The rest of the record survives the strip.
+    expect((ws.activityLog ?? [])[0]?.args).toEqual(["T"]);
+  });
+
+  it("keeps a well-formed `changes` payload untouched", () => {
+    const changes = [{ field: "owner", from: "Ada", to: "Grace" }];
+    const ws = jsonToWorkspace(
+      wsWithActivityLog([
+        { id: "1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: [], changes },
+      ]),
+    );
+    expect((ws.activityLog ?? [])[0]?.changes).toEqual(changes);
   });
 });

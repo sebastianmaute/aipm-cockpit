@@ -396,3 +396,36 @@ describe("entity persistence registry — documentVersions survive every text ba
     expect(back.documentVersions).toEqual(seedVersions().documentVersions);
   });
 });
+
+// Activity log (audit trail, promoted from a per-device localStorage blob to
+// a workspace meta-blob slice) — same shape as documents/documentVersions
+// above: it rides as a fenced JSON blob (Markdown) / one `config,<json>` row
+// (CSV), STORAGE-ONLY. There is deliberately no `activityLog` key in
+// EXPORT_SECTION_KEYS — an entry's `changes` carries old/new field values, an
+// internal audit trail that does not belong in a document handed to a client.
+//
+// ★ The seed includes a `changes` entry so the assertion cannot pass on a
+// backend that kept `id`/`timestamp`/`kind`/`args` but silently dropped the
+// nested field-diff array.
+describe("entity persistence registry — activityLog survives every text backend", () => {
+  const seedActivity = (): Workspace => ({
+    ...emptyWorkspace(),
+    activityLog: [{
+      id: "dev1-s1-1",
+      timestamp: "2026-08-01T00:00:00.000Z",
+      kind: "task.updated",
+      args: ["T-1"],
+      changes: [{ field: "status", from: "To Do", to: "In Progress" }],
+    }],
+  });
+
+  it("activityLog survives the CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(seedActivity()));
+    expect(back.activityLog).toEqual(seedActivity().activityLog);
+  });
+
+  it("activityLog survives the Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(seedActivity()));
+    expect(back.activityLog).toEqual(seedActivity().activityLog);
+  });
+});

@@ -16,7 +16,7 @@ import { ActionMenus } from "./action-menus";
 import { GlobalSearchConnected } from "./global-search-box";
 import { DisplayTzSwitcher } from "./display-tz-switcher";
 import { useDisplayTimezone } from "./display-timezone-context";
-import { aiAssistantOpener, defaultExportConfig } from "./settings-types";
+import { aiAssistantOpener, defaultExportConfig, isAiEnabled } from "./settings-types";
 
 function DisplayTzSwitcherConnected({ lang, additionalTimezones }: { lang: Lang; additionalTimezones: readonly string[] }) {
   const ctx = useDisplayTimezone();
@@ -137,7 +137,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       lang={lang}
       onOpenAiAssistant={aiAssistantOpener(settings.ai, () => openPopoutWindow("chat", settings.popout.reuseWindow))}
       currentView={activeTab}
-      onAskClaude={(body) => requestChat(body, true)}
+      onAskClaude={isAiEnabled(settings.ai) ? (body) => requestChat(body, true) : undefined}
       projectSwitcher={projectSwitcher}
       trailing={
         <div className="flex items-center gap-2">

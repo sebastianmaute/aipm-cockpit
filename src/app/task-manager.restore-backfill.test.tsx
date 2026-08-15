@@ -17,10 +17,14 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
+import type { ActivityEntry } from "./activity-log";
 import type { Task } from "./types";
 import type { Workspace } from "./workspace";
 
 let applyRestored: ((w: Workspace) => void) | null = null;
+// Captured from the workspace context so a test can seed the log the same way
+// `logActivity` would, without needing the real hook plumbing.
+let setActivityLogRef: ((v: readonly ActivityEntry[]) => void) | null = null;
 
 // Capture the callback task-manager hands the version-history hook. This is the
 // only way in — `applyRestoredWorkspace` is not exported, and mounting the real
@@ -45,6 +49,7 @@ vi.mock("./workspace-section", async (importOriginal) => {
     ...(await importOriginal<typeof import("./workspace-section")>()),
     WorkspaceSection: () => {
       const ws = useWorkspace();
+      setActivityLogRef = ws.setActivityLog;
       return (
         <div>
           <div data-testid="ws-fks">
@@ -52,6 +57,9 @@ vi.mock("./workspace-section", async (importOriginal) => {
           </div>
           <div data-testid="ws-doc-versions">
             {ws.documentVersions.map((v) => `${v.id}:${v.source}:${v.op}`).join(",")}
+          </div>
+          <div data-testid="ws-activity-log">
+            {ws.activityLog.map((e) => e.id).join(",")}
           </div>
         </div>
       );
@@ -88,6 +96,7 @@ const restored = (): Workspace => ({
 beforeEach(() => {
   __resetMintStateForTests();
   applyRestored = null;
+  setActivityLogRef = null;
   window.localStorage.clear();
   window.localStorage.setItem(
     "aipm-cockpit:projects",
@@ -129,5 +138,36 @@ describe("task-manager → applyRestoredWorkspace", () => {
       () => expect(screen.getByTestId("ws-doc-versions")).toHaveTextContent("11:ai:restored"),
       { timeout: 40000 },
     );
+  }, 45000);
+
+  it("preserves the activity log across a version restore", async () => {
+    // `restored()` carries no `activityLog` field at all, so a fan-out that
+    // "completed the pattern" with `setActivityLog(w.activityLog ?? [])` would
+    // reset the live log to `[]` here. `applyRestoredWorkspace` deliberately
+    // omits activityLog (see task-manager.tsx) — a version restore must leave
+    // whatever the log already held untouched.
+    render(<TaskManager />);
+    await screen.findByTestId("ws-activity-log", undefined, { timeout: 40000 });
+    await waitFor(() => expect(applyRestored).not.toBeNull(), { timeout: 40000 });
+    await waitFor(() => expect(setActivityLogRef).not.toBeNull(), { timeout: 40000 });
+
+    const seeded: ActivityEntry = {
+      id: "dev-1-1", timestamp: "2026-01-01T00:00:00.000Z", kind: "task.created", args: ["T1"],
+    };
+    act(() => setActivityLogRef!([seeded]));
+    await waitFor(
+      () => expect(screen.getByTestId("ws-activity-log")).toHaveTextContent("dev-1-1"),
+      { timeout: 40000 },
+    );
+
+    act(() => applyRestored!(restored()));
+
+    // Give the restore a tick to (mis)apply, then assert the seeded entry is
+    // still there — a regression would flip this to empty.
+    await waitFor(
+      () => expect(screen.getByTestId("ws-fks")).toHaveTextContent("1:42"),
+      { timeout: 40000 },
+    );
+    expect(screen.getByTestId("ws-activity-log")).toHaveTextContent("dev-1-1");
   }, 45000);
 });

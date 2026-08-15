@@ -43,6 +43,16 @@ describe("useSettings", () => {
       expect(result.current.i18nReady).toBe(true);
     });
 
+    it("drops the pre-upgrade device-local activity log on mount (activity-log-workspace-data, task 12)", async () => {
+      localStorage.setItem(
+        "aipm-cockpit:activity-log",
+        JSON.stringify([{ id: 1, timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created", args: ["OLD"] }]),
+      );
+      renderHook(() => useSettings());
+      await act(async () => {});
+      expect(localStorage.getItem("aipm-cockpit:activity-log")).toBeNull();
+    });
+
     it("loads and merges saved settings from localStorage on mount", async () => {
       localStorage.setItem(
         SETTINGS_KEY,

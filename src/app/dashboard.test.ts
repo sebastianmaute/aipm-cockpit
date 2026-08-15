@@ -185,9 +185,9 @@ describe("partitionUpcoming", () => {
 describe("recentActivity", () => {
   it("returns the last N entries, newest first", () => {
     const entries: ActivityEntry[] = Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1, timestamp: `2026-06-0${(i % 9) + 1}T00:00:00.000Z`, kind: "task.created", args: [],
+      id: String(i + 1), timestamp: `2026-06-0${(i % 9) + 1}T00:00:00.000Z`, kind: "task.created", args: [],
     }));
-    expect(recentActivity(entries, 3).map((e) => e.id)).toEqual([10, 9, 8]);
+    expect(recentActivity(entries, 3).map((e) => e.id)).toEqual(["10", "9", "8"]);
   });
 });
 

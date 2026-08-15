@@ -79,10 +79,19 @@ import * as tursoPortfolioMod from "./turso-portfolio";
 // TursoLockTimeoutError must be exported by the mock too: storage-error.ts
 // (used unmocked by the hook's save-failure path) instanceof-checks against
 // whatever this module exports.
+// ★ `vi.mock` factories are HOISTED above every import, so the factory cannot
+//   close over a plain `const` declared below it (TDZ). `vi.hoisted` is the
+//   supported way to share a value with one. The registry is purely additive —
+//   it records instances and changes no mock behaviour.
+const tursoInstances = vi.hoisted(() => [] as { save: ReturnType<typeof vi.fn> }[]);
 vi.mock("./turso-backend", () => ({
   TursoBackend: class {
     kind = "turso" as const;
-    constructor(public config: unknown, public projectId: string) {}
+    constructor(public config: unknown, public projectId: string) {
+      // Class fields below initialise on `this` before this body runs, and the
+      // assertion reads the recorded object long after construction either way.
+      tursoInstances.push(this as unknown as { save: ReturnType<typeof vi.fn> });
+    }
     load = vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
     save = vi.fn().mockResolvedValue(undefined);
     isReady = vi.fn().mockResolvedValue(true);
@@ -109,6 +118,41 @@ const mockBackend = {
   describe: vi.fn().mockResolvedValue("mock-file.json"),
 };
 
+// ★★★ `mockBackend` is a MODULE-LEVEL const, built once and shared by every test
+//     in this file — and `vi.clearAllMocks()` (which most describes call) is
+//     `mockClear`, so it wipes CALL HISTORY but leaves the IMPLEMENTATION and the
+//     once-queue in place. Two tests therefore poison `save` for everything that
+//     runs after them, permanently:
+//       • "shows toast on save error" sets `mockRejectedValue(new Error("disk
+//         full"))` — NOT `…Once` — and never restores it.
+//       • three tests install an `order.push(...)` `mockImplementation`.
+//     No hook ever put it back; the file was green only because two LATER tests
+//     happen to call `mockResolvedValue(undefined)` in their own bodies, so the
+//     SOURCE ORDER alone kept the poison away from anything that would notice.
+//     Under `--sequence.shuffle` that ordering is gone and "still emits a save
+//     outcome after StrictMode's remount" got the "disk full" rejection instead
+//     of a clean save — it asserts the outcome is `null`, i.e. that the save
+//     SUCCEEDED, so it is the one test in the file that cannot survive a
+//     poisoned `save`. Reproduce WITHOUT shuffle, and with every test added by
+//     the activityLog write-path commit skipped:
+//       npx vitest run src/app/use-storage-backend.test.tsx \
+//         -t "shows toast on save error|still emits a save outcome after StrictMode"
+//     → 1 passed, 1 failed, 106 skipped.
+// ★★ `mockReset()` (not `mockClear`) is what is needed: it drops the
+//     implementation AND drains the once-queue, exactly as the `createBackend`
+//     drain in the onRequestStorageSwitch describe does for the same reason. The
+//     `mockResolvedValue` below then re-establishes the module default, so every
+//     test starts from the same state no matter what ran before it.
+// ★ Deliberately NOT `vi.resetAllMocks()` — that would wipe `load`/`isReady`/
+//     `describe` too, and the describes that never re-establish those rely on the
+//     defaults declared above. Only `save` is reset here because only `save` has
+//     a measured cross-test leak; widening this without a measurement would trade
+//     one latent order-dependence for another. See open-followups §75.
+beforeEach(() => {
+  mockBackend.save.mockReset();
+  mockBackend.save.mockResolvedValue(undefined);
+});
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const showToast = vi.fn();
 
@@ -120,8 +164,6 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
     lang: "en-US" as Lang,
     hydrated: true,
     isPopout: false,
-    activityLog: [] as ActivityEntry[],
-    setActivityLog: vi.fn(),
     showToast,
     setStorageConfig: setStorageConfigGlobal,
     ...overrides,
@@ -132,8 +174,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog };
   };
 }
 
@@ -314,6 +356,65 @@ describe("useStorageBackend — save effect", () => {
         documents: [expect.objectContaining({ id: 1, title: "Status report" })],
       }),
     );
+  });
+
+  it("persists an ACTIVITY-LOG-ONLY change — the autosave deps-array guard", async () => {
+    // ★★★ Same shape as the documents-only test above, for the same reason: the
+    // save effect's dependency array decides whether a change re-triggers a
+    // save. Omit `activityLog` there and the log persists on the FIRST save that
+    // some other slice happens to trigger and never again — a quick manual test
+    // looks correct while the audit trail silently stops updating. Mutation-
+    // checked: dropping `activityLog` from the deps array turns THIS test red
+    // (nothing else in the suite noticed).
+    // Nothing but `activityLog` may be mutated below — that is the whole point.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-a-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+      ] as ActivityEntry[]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityLog: [expect.objectContaining({ id: "dev-a-1", kind: "task.created" })],
+      }),
+    );
+  });
+
+  it("MERGES a loaded activity log with entries appended locally — never replaces", async () => {
+    // ★★★ The load handler is deliberately `setActivityLog(prev =>
+    // mergeActivityLogs(prev, workspace.activityLog))`, NOT the `?? []` replace
+    // its `documents`/`documentVersions` neighbours use. The log is an
+    // append-only audit trail: a replace drops every entry this device already
+    // holds. Mutation-checked — swapping the merge for
+    // `setActivityLog(workspace.activityLog ?? [])` turns this test red on the
+    // LOCAL entry (nothing else in the suite noticed).
+    mockBackend.load.mockResolvedValue({
+      tasks: [], raid: [], absences: [], shifts: [],
+      activityLog: [
+        { id: "dev-b-1", timestamp: "2026-08-14T08:00:00.000Z", kind: "task.created", args: [2, "Remote"] },
+      ],
+    });
+    const { result } = renderBackend();
+
+    // Seed a LOCAL entry before the load resolves — the in-flight-append case.
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-a-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.updated", args: [1, "Local"] },
+      ] as ActivityEntry[]);
+    });
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.activityLog.map((e) => e.id)).toEqual(["dev-b-1", "dev-a-1"]);
   });
 
   it("restores documents from a loaded workspace", async () => {
@@ -834,6 +935,140 @@ describe("useStorageBackend — broadcast send gating", () => {
   });
 });
 
+// ── Activity log reaches every workspace-assembly site ───────────────────────
+// The log is assembled into a `Workspace` literal at FIVE sites in
+// use-storage-backend.ts — re-count, don't trust this number:
+//     grep -cE "\{ *tasks, *raid" src/app/use-storage-backend.ts
+// FOUR of the five are real write paths and each is pinned by exactly ONE named
+// test. The fifth is pinned by none and cannot be. Measured by mutation — delete
+// `, activityLog` from one literal, run this file, record what goes red — and the
+// site is named by its ENCLOSING BINDING, never a line number, which the next
+// insertion into that file silently invalidates:
+//   doSave()'s backend.save(…)     → "persists an ACTIVITY-LOG-ONLY change …"
+//   onPickStorageFile's guardedWrite
+//                                  → "onPickStorageFile writes the activity log …"
+//   onRequestStorageSwitch's guardedWrite
+//                                  → "carries the activity log across a storage conversion"
+//   currentWorkspace()'s return    → "migrateCurrentProjectToTurso carries the activity log …"
+//   the save effect's `outgoing`   → nothing, and see below
+// ★★ `outgoing` IS NOT A WRITE PATH — it is never handed to a backend. Its only
+//   two readers are nonEmptyCollectionCount(outgoing) and
+//   workspaceRecordCount(outgoing), and NEITHER counter looks at `activityLog`:
+//   workspace.ts excludes it from both on purpose, so an auto-appended log entry
+//   can never move the mass-deletion thresholds. Dropping the key there leaves
+//   every test in this file green (measured). That is not a coverage gap to
+//   close — a test pinning it would have to assert on a value no consumer reads.
+// ★ An earlier revision said "the three below cover the remaining three", which
+//   is arithmetic dressed as a mapping: this describe holds three tests and one
+//   of them ("registers an `activityLog` broadcast-sync channel") pins a CHANNEL
+//   NAME, not a Workspace literal — so 2 + 3 never reached 5. The same revision
+//   called its "104/104" pass total one that "matched no commit"; it was STALE,
+//   not fictional. `grep -cE "^\s*it\("` over this file returns 104 at 9eb32db5
+//   and the comment was authored at 15e95f09, where it already stood at 108.
+//   A suite total rots on the next added test and names no test — quote the
+//   mutation and the test it turns red, never a pass count.
+describe("useStorageBackend — activity log write paths", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    mockBackend.isReady.mockResolvedValue(true);
+    mockBackend.describe.mockResolvedValue("f.json");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("registers an `activityLog` broadcast-sync channel", () => {
+    // ★ The autosave writes the WHOLE workspace, so a tab that never hears
+    //   another tab's log entries writes its own stale log back over them.
+    //   Only the CHANNEL NAME ties the two tabs together — a typo desyncs them
+    //   silently, with no error on either side.
+    renderBackend();
+    const kinds = (useBroadcastSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(kinds).toContain("activityLog");
+  });
+
+  it("onPickStorageFile writes the activity log to the newly picked file", async () => {
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(undefined),
+    );
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.activityLog).toHaveLength(0);
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-d-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+      ] as ActivityEntry[]);
+    });
+    // Isolate the handler's own write from the debounced autosave (fake timers
+    // are never advanced here, so nothing else can call save).
+    mockBackend.save.mockClear();
+
+    await act(async () => { await result.current.onPickStorageFile(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityLog: [expect.objectContaining({ id: "dev-d-1", kind: "task.created" })],
+      }),
+    );
+  });
+
+  it("migrateCurrentProjectToTurso carries the activity log into the new Turso project", async () => {
+    // ★★★ This is the only externally-reachable consumer of the internal
+    //   `currentWorkspace()` assembler (it is NOT on the hook's return, so it
+    //   cannot be called directly). Migration copies the live workspace
+    //   VERBATIM into a brand-new Turso project and then reloads the app onto
+    //   it, so a slice missing from that assembler is lost with no way back.
+    const meta = { name: "Gemini", code: "GE" } as never;
+    mockBackend.load.mockResolvedValue({ project: meta, tasks: [], raid: [], absences: [], shifts: [] });
+    const args = makeArgs({
+      settings: {
+        storageConfig: { kind: "browser" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    });
+
+    // Stub reload — jsdom's is a no-op that warns.
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload: vi.fn() },
+    });
+
+    try {
+      const { result } = renderBackend(args);
+      await act(async () => { await Promise.resolve(); });
+
+      // Control: the slice starts empty, so the assertion below cannot pass by accident.
+      expect(result.current.activityLog).toHaveLength(0);
+      await act(async () => {
+        result.current.setActivityLog([
+          { id: "dev-e-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+        ] as ActivityEntry[]);
+      });
+
+      tursoInstances.length = 0;
+      await act(async () => { await result.current.migrateCurrentProjectToTurso(); });
+      await act(async () => { await Promise.resolve(); });
+
+      // Exactly one TursoBackend is constructed by the migration — the target.
+      expect(tursoInstances).toHaveLength(1);
+      expect(tursoInstances[0].save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activityLog: [expect.objectContaining({ id: "dev-e-1", kind: "task.created" })],
+        }),
+      );
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    }
+  });
+});
+
 // ── Change Log persistence bridge (regression: changes must round-trip) ───────
 // These exercise the REAL bridge wiring in useStorageBackend — the save effect's
 // backend.save() payload, the load effect's setChanges, and the broadcast call.
@@ -1050,6 +1285,49 @@ describe("useStorageBackend — onRequestStorageSwitch", () => {
     expect(setStorageConfig).toHaveBeenCalledWith({ kind: "turso" });
     // success path must also fire the "converted" info toast
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("carries the activity log across a storage conversion", async () => {
+    // ★★★ The conversion writes to a DIFFERENT backend and `emitStorageConfig`
+    //   then repoints the app AT that copy, so a slice missing from THIS
+    //   `guardedWrite` payload is not merely unsaved — the source is abandoned
+    //   and the audit trail is gone permanently. The test above asserts only
+    //   that `targetSave` FIRED, so dropping `activityLog` from the payload
+    //   left this whole path green; assert the CONTENT, not the call count.
+    const targetSave = vi.fn().mockResolvedValue(undefined);
+    const targetBackend = {
+      kind: "turso",
+      load: vi.fn().mockResolvedValue(emptyWorkspace()),
+      save: targetSave,
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Turso: x"),
+    };
+    createBackendMock
+      .mockReturnValueOnce(mockBackend)
+      .mockReturnValueOnce(targetBackend);
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    // Control: the slice starts empty, so the assertion below cannot pass by accident.
+    expect(result.current.activityLog).toHaveLength(0);
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "dev-c-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: [1, "T1"] },
+      ] as ActivityEntry[]);
+    });
+
+    await act(async () => {
+      await result.current.onRequestStorageSwitch("turso");
+    });
+
+    expect(targetSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityLog: [expect.objectContaining({ id: "dev-c-1", kind: "task.created" })],
+      }),
+    );
   });
 
   it("suppress-load: after a successful switch backend.load is NOT called when the load effect re-runs with the suppress flag set", async () => {
@@ -1376,6 +1654,56 @@ describe("useStorageBackend — project flows", () => {
     // Target data applied + config repointed at the target.
     expect(result.current.tasks[0]?.id).toBe(555);
     expect(setStorageConfig).toHaveBeenCalledWith(targetConfig);
+  });
+
+  it("switchToProject REPLACES activityLog with the target's — project A's entries never reach project B", async () => {
+    // ★★★ CROSS-PROJECT CONTAMINATION. `applyWorkspace` merges the loaded log
+    // into `prev`, which on a SWITCH is the OUTGOING project's log — so project
+    // A's entries (including `changes` payloads carrying its old/new field
+    // values) followed the user into project B and the autosave persisted them
+    // there. Once saved, nothing distinguishes an imported A-entry from a native
+    // B-entry, so it is unrecoverable.
+    // ★★ The merge itself is CORRECT for a same-project load/reload and must
+    // stay — see "MERGES a loaded activity log …" in the save-effect describe.
+    // The two tests together are the specification; neither alone is sufficient.
+    const targetId = "target-log";
+    saveRegistry(
+      addProject(loadRegistry(), { id: targetId, name: "Target", code: "T", storageConfig: { kind: "browser" } }, false),
+    );
+    const targetBackend = {
+      kind: "browser",
+      load: vi.fn().mockResolvedValue({
+        ...emptyWorkspace(),
+        activityLog: [
+          { id: "devB-s1-1", timestamp: "2026-08-14T08:00:00.000Z", kind: "task.created", args: ["B-task"] },
+        ],
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("Target"),
+    };
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(targetBackend);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    // Project A is open and holds an entry naming one of ITS tasks.
+    await act(async () => {
+      result.current.setActivityLog([
+        { id: "devA-s1-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.created", args: ["A-secret-task"] },
+      ] as ActivityEntry[]);
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.switchToProject(targetId); });
+    await act(async () => { await Promise.resolve(); });
+
+    // BOTH directions: an absence-only assertion passes if the log ends up empty
+    // for an unrelated reason (a failed load, a guard early-return).
+    const ids = result.current.activityLog.map((e) => e.id);
+    expect(ids).toContain("devB-s1-1");
+    expect(ids).not.toContain("devA-s1-1");
+    expect(ids).toEqual(["devB-s1-1"]);
   });
 
   it("switchToProject is a no-op when the target id is the current project", async () => {
@@ -1812,6 +2140,49 @@ describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
     mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 5, taskName: "Fresh" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
     await act(async () => { await result.current.reloadCurrentProject(); });
     expect(showToast).toHaveBeenCalledWith("success", expect.any(String));
+  });
+
+  // ★★★ THE PAIR TO "MERGES a loaded activity log …" IN THE SAVE-EFFECT
+  // DESCRIBE, and both sites need their own test: `applyWorkspace`'s `logMode`
+  // defaults to "replace", so each of the two callers that want "merge" opts in
+  // separately and a flip at ONE of them is invisible to the other's test.
+  // Measured before this test existed: flipping `reloadCurrentProject`'s
+  // `applyWorkspace(workspace, "raise", "merge")` to "replace" left the whole
+  // file GREEN, while the same flip on the mount-load site turned its sibling
+  // red. `reloadCurrentProject` drives the truncated-load banner and the
+  // storage-error recovery click, so a replace there silently drops every entry
+  // this device appended since the last successful save — and the next autosave
+  // persists the shortened log. Exactly the audit loss the merge exists to stop.
+  it("MERGES a loaded activity log on reloadCurrentProject — never replaces (pairs with the load-effect test)", async () => {
+    // The backend's copy is as of the last successful save: it holds dev-b-1 only.
+    const remote = {
+      tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+      activityLog: [
+        { id: "dev-b-1", timestamp: "2026-08-14T08:00:00.000Z", kind: "task.created", args: [2, "Remote"] },
+      ],
+    };
+    // A task is required for BOTH loads: `isWorkspaceEmpty` deliberately
+    // EXCLUDES activityLog, so a log-only workspace reads as empty and the
+    // reload would take the confirm/refuse branch instead of applying at all.
+    mockBackend.load.mockResolvedValueOnce(remote);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount load applies dev-b-1
+    expect(result.current.activityLog.map((e) => e.id)).toEqual(["dev-b-1"]);
+
+    // This device appends an entry that the backend has never seen.
+    await act(async () => {
+      result.current.setActivityLog([
+        ...result.current.activityLog,
+        { id: "dev-a-1", timestamp: "2026-08-14T09:00:00.000Z", kind: "task.updated", args: [1, "Local"] },
+      ] as ActivityEntry[]);
+    });
+
+    mockBackend.load.mockResolvedValueOnce(remote); // re-read still returns dev-b-1 only
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    // Merge keeps the local append; a replace would leave ["dev-b-1"].
+    expect(result.current.activityLog.map((e) => e.id)).toEqual(["dev-b-1", "dev-a-1"]);
   });
 
   it("shows an error toast and leaves data untouched when the reload throws", async () => {

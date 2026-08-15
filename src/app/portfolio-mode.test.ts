@@ -1,16 +1,27 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   loadPortfolioMode,
   savePortfolioMode,
   loadCurrentTursoProjectId,
   saveCurrentTursoProjectId,
+  commitTursoPortfolioSwitch,
   MODE_KEY,
   CURRENT_TURSO_PROJECT_KEY,
 } from "./portfolio-mode";
 import { __resetSafeModeCache } from "./safe-mode";
+import { defaultSettings } from "./settings-types";
+import { SETTINGS_KEY } from "./use-settings";
 
 describe("portfolio-mode", () => {
+  const originalLocation = window.location;
+
   beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
+  });
 
   it("defaults to 'file' when nothing is stored", () => {
     expect(loadPortfolioMode()).toBe("file");
@@ -32,6 +43,20 @@ describe("portfolio-mode", () => {
     expect(loadCurrentTursoProjectId()).toBe("p1");
     saveCurrentTursoProjectId(null);
     expect(loadCurrentTursoProjectId()).toBeNull();
+  });
+
+  it("commitTursoPortfolioSwitch persists mode, project id, and storageConfig, then reloads", () => {
+    const reloadSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, reload: reloadSpy },
+    });
+    commitTursoPortfolioSwitch(defaultSettings, "p1");
+    expect(loadPortfolioMode()).toBe("turso");
+    expect(loadCurrentTursoProjectId()).toBe("p1");
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+    const persisted = JSON.parse(window.localStorage.getItem(SETTINGS_KEY)!);
+    expect(persisted.storageConfig).toEqual({ kind: "turso" });
   });
 });
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { computeDelta, type DeltaResult, type LandingState, type RagScope } from "./dashboard-delta";
 import { computeMetricTrends, type MetricKey, type MetricTrend } from "./dashboard-trends";
 import { loadLandingState, saveLandingState } from "./landing-state";
-import { loadActivityLog } from "./activity-log";
+import type { ActivityEntry } from "./activity-log";
 import type { Health } from "./health";
 import type { Task } from "./types";
 
@@ -31,16 +31,22 @@ export function useLandingDelta(args: {
   overdue: readonly Task[];
   today: string;
   isPopout: boolean;
+  /** The workspace's activity log — passed in rather than read from storage,
+   *  so this hook has no I/O of its own; the caller (dashboard-panel) sources
+   *  it from `useWorkspace()`. */
+  activity: readonly ActivityEntry[];
 }): LandingDelta {
-  const { projectId, currentRag, currentMetrics, overdue, today, isPopout } = args;
+  const { projectId, currentRag, currentMetrics, overdue, today, isPopout, activity } = args;
 
   // Capture the delta + KPI trends ONCE at mount from the PRIOR snapshot — before
-  // advancing. Lazy initializer keeps loadLandingState/loadActivityLog out of the
-  // render body and avoids set-state-in-effect.
+  // advancing. Lazy initializer keeps loadLandingState out of the render body
+  // and avoids set-state-in-effect. `activity` is a mount-time snapshot, same
+  // as the rest of this initializer's inputs — a later change to the workspace
+  // log does not retroactively revise "what changed since your last visit".
   const [result] = useState<LandingDelta>(() => {
     const prior = loadLandingState(projectId);
     return {
-      delta: computeDelta({ prior, activity: loadActivityLog(), currentRag, overdue, today }),
+      delta: computeDelta({ prior, activity, currentRag, overdue, today }),
       trends: computeMetricTrends(prior.metrics, currentMetrics),
     };
   });

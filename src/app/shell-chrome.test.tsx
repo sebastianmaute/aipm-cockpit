@@ -62,4 +62,18 @@ describe("buildShellChrome — AI assistant button gate", () => {
     render(<>{appHeaderEl}</>, { wrapper: Wrapper });
     expect(screen.getByRole("button", { name: "AI Assistant" })).toBeInTheDocument();
   });
+
+  it("omits the Ask Claude pill from the classic AppHeader when AI is disabled", () => {
+    const { appHeaderEl } = buildShellChrome(makeDeps());
+    render(<>{appHeaderEl}</>, { wrapper: Wrapper });
+    expect(screen.queryByRole("button", { name: "Ask Claude" })).toBeNull();
+  });
+
+  it("renders the Ask Claude pill in the classic AppHeader when AI is enabled with a key", () => {
+    const { appHeaderEl } = buildShellChrome(
+      makeDeps({ settings: { ...defaultSettings, ai: { ...defaultSettings.ai, enabled: true, apiKey: "test-key" } } }),
+    );
+    render(<>{appHeaderEl}</>, { wrapper: Wrapper });
+    expect(screen.getByRole("button", { name: "Ask Claude" })).toBeInTheDocument();
+  });
 });

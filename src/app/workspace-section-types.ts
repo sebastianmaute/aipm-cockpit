@@ -171,7 +171,10 @@ export interface WorkspaceSectionProps {
   /** Open the floating notes window (running note log) for a RAID item. Threaded
    *  to the RAID panel (row badge + edit modal). */
   onOpenNotes: (id: number) => void;
-  activityLog: ActivityEntry[];
+  // ★ `readonly` since the log became a WorkspaceProvider slice — the state is
+  // readonly there so an updater must replace the array rather than mutate it
+  // (the save effect's dirty check is reference equality).
+  activityLog: readonly ActivityEntry[];
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges: (
     kind: ActivityKind,

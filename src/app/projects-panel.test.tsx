@@ -8,6 +8,12 @@ const { confirmMock } = vi.hoisted(() => ({ confirmMock: { result: true } }));
 vi.mock("./confirm-dialog", () => ({
   useConfirm: () => () => Promise.resolve(confirmMock.result),
 }));
+// TursoProjectPicker fetches the project list on mount — stub it so the
+// picker-opening test doesn't trigger a real network call / unresolved
+// promise warning (mirrors project-empty-state.test.tsx).
+vi.mock("./turso-portfolio", () => ({
+  listProjects: vi.fn().mockResolvedValue([]),
+}));
 import { type Contact } from "./contacts";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
@@ -203,6 +209,22 @@ describe("ProjectsPanel", () => {
     expect(onExportCurrent).toHaveBeenCalledWith("xlsx");
   });
 
+  it("closes the export menu on outside click", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Export project" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("closes the export menu on Escape", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Export project" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
   it("hides 'Move to Turso' when Turso is not configured", () => {
     setup();
     expect(screen.queryByRole("button", { name: "Move to Turso" })).toBeNull();
@@ -292,5 +314,40 @@ describe("ProjectsPanel turso mode", () => {
     expect(
       screen.queryByRole("button", { name: /^archive$/i }),
     ).toBeNull();
+  });
+});
+
+describe("ProjectsPanel — Load from Turso", () => {
+  it("hides the button when Turso is not configured", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+  });
+
+  it("hides the button while already in turso mode", () => {
+    setup({
+      mode: "turso",
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    expect(screen.queryByRole("button", { name: "Load from Turso" })).toBeNull();
+  });
+
+  it("shows the button in file mode once Turso is configured, and opens the picker", () => {
+    setup({
+      settings: {
+        ...defaultSettings,
+        integrations: {
+          ...defaultSettings.integrations,
+          turso: { enabled: true, databaseUrl: "libsql://db-org.turso.io", authToken: "tok" },
+        },
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load from Turso" }));
+    expect(screen.getByRole("dialog", { name: "Load a Turso project" })).toBeInTheDocument();
   });
 });

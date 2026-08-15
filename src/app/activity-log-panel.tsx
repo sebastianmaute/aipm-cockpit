@@ -18,10 +18,12 @@
 
 import { memo, useMemo, useState } from "react";
 import {
-  ACTIVITY_KIND_TO_KEY,
   type ActivityEntry,
   type ActivityGroup,
+  type ActivityKind,
+  MAX_FIELD_CHANGES,
   activityGroupOf,
+  activityMessageKey,
   humanizeFieldName,
 } from "./activity-log";
 import { type Lang, t } from "./i18n";
@@ -86,6 +88,67 @@ function buildMatcher(query: string, mode: SearchMode): Matcher | null {
   }
 }
 
+/** A row's `changes` payload after normalisation — every field is a string. */
+interface RowChange {
+  field: string;
+  from: string;
+  to: string;
+}
+
+/**
+ * Total, non-throwing coercion for one stored display value — a cell of a
+ * `changes` entry, or an element of `args`.
+ *
+ * It KEEPS exactly three types: string, number, boolean. EVERYTHING else
+ * becomes "" — objects, functions, arrays, AND the remaining primitives
+ * (symbol, bigint, null, undefined), none of which carries honest audit
+ * detail. ★ An earlier docstring said "anything else (an object, a function, a
+ * symbol)", which reads as an exhaustive list AND miscategorises a symbol as
+ * non-primitive: `typeof Symbol() === "symbol"` is a primitive, and bigint /
+ * null / undefined were simply missing. Describe the KEPT set — it is closed
+ * and checkable; the rejected set is not.
+ *
+ * "" rather than a `String()` call, because `String()` on these either THROWS
+ * (`String(Symbol())` → TypeError; `String({toString: 1})` → "Cannot convert
+ * object to primitive value") or renders "[object Object]" into the audit
+ * trail, and neither is a thing to show a user reading a change history.
+ */
+function changeText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return "";
+}
+
+/**
+ * Row-level normalisation of a stored `changes` payload — the same reasoning as
+ * the `kind` coercion in `enriched`: `sanitizeActivityLog` strips these shapes
+ * at the load boundary, but the panel must not be the ONLY thing between
+ * hostile stored bytes and the full-screen ErrorBoundary page. Measured to
+ * throw before this guard: a non-array payload → "entry.changes.map is not a
+ * function"; a `null` element → "Cannot read properties of null (reading
+ * 'field')"; a non-string `field` → "field.replace is not a function" inside
+ * `humanizeFieldName`.
+ *
+ * ★ A null/non-object ELEMENT is dropped (there is nothing to render), while a
+ * malformed CELL is coerced — a diff whose field name is a number is still a
+ * real audit record and its from/to values are still worth showing.
+ *
+ * ★★ The result is capped at `MAX_FIELD_CHANGES`, mirroring the load
+ * boundary's own per-entry cap. It counts KEPT rows, not input elements, so a
+ * payload padded with nulls cannot push real diffs past the limit.
+ */
+function normalizeChanges(v: unknown): RowChange[] {
+  if (!Array.isArray(v)) return [];
+  const rows: RowChange[] = [];
+  for (const c of v) {
+    if (rows.length >= MAX_FIELD_CHANGES) break;
+    if (!c || typeof c !== "object") continue;
+    const raw = c as { field?: unknown; from?: unknown; to?: unknown };
+    rows.push({ field: changeText(raw.field), from: changeText(raw.from), to: changeText(raw.to) });
+  }
+  return rows;
+}
+
 function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const { displayTz } = useDisplayTimezone();
   const confirm = useConfirm();
@@ -106,13 +169,52 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   // Precompute the rendered message and the group once per entries/lang
   // change so the filter+sort passes below don't redo i18n interpolation
   // on every keystroke.
+  // ★★★ EVERY LOOKUP HERE IS GUARDED, and this is not belt-and-braces: a throw
+  // in this map is not a blank panel — page.tsx wraps the app in the top-level
+  // ErrorBoundary, so ONE bad stored entry gives the user the full-screen
+  // "App crashed" page every time they open Activity, until the project data
+  // is repaired by hand. The log is shared workspace data (a hand-edited JSON
+  // file, a Turso row, a device on a different build), so `sanitizeActivityLog`
+  // is the boundary but must not be the ONLY thing standing between stored
+  // bytes and a crash. Measured before the guards: an unknown kind threw
+  // "Cannot read properties of undefined (reading 'replace')" and a non-string
+  // one threw "kind.startsWith is not a function".
+  // ★★ COERCE ONCE, HERE, AND READ THE ROW EVERYWHERE ELSE. An earlier cut
+  // coerced `kind` only for the message lookup and left the search matcher, the
+  // sort comparator and the rendered cell reading the RAW `entry.kind` — so a
+  // stored `kind: 42` still threw `h.toLowerCase is not a function` the moment a
+  // search query was typed, and `kind.localeCompare` threw whenever the numeric
+  // kind landed in the comparator's receiver position (a 2-entry fixture can
+  // miss that: V8's small-array sort may only ever put the string there).
+  // ★★ `timestamp` OBEYS THE SAME RULE and did not until this row carried it —
+  // the comparator read `a.entry.timestamp.localeCompare(...)` raw, and since
+  // "timestamp" is the DEFAULT sortKey that threw on FIRST RENDER with ≥2
+  // entries, no interaction required. Both cells below read the row too.
+  // ★★★ `args` IS THE ONE SHAPE THE LOAD BOUNDARY DOES NOT COVER, so this is
+  // the only guard it has anywhere. `sanitizeActivityEntry` drops an entry whose
+  // `kind`/`timestamp` is not a string and strips a malformed `changes`, but for
+  // args it checks `Array.isArray(e.args)` ALONE and never inspects the
+  // ELEMENTS. `t()` interpolates with `String(a)`, so a stored
+  // `args: [{toString: 1}]` threw "Cannot convert object to primitive value"
+  // (a non-callable own `toString` makes ToPrimitive fall through to
+  // Object.prototype.valueOf, which hands back the object) on a FULLY SANITIZED
+  // log, from every backend — not merely on a bypassed boundary like the rest.
   const enriched = useMemo(
     () =>
-      entries.map((e) => ({
-        entry: e,
-        message: t(lang, ACTIVITY_KIND_TO_KEY[e.kind], ...e.args),
-        group: activityGroupOf(e.kind),
-      })),
+      entries.map((e) => {
+        const kind = typeof e.kind === "string" ? e.kind : "";
+        const timestamp = typeof e.timestamp === "string" ? e.timestamp : "";
+        const key = activityMessageKey(kind);
+        const args = Array.isArray(e.args) ? e.args.map(changeText) : [];
+        return {
+          entry: e,
+          kind,
+          timestamp,
+          changes: normalizeChanges(e.changes),
+          message: key ? t(lang, key, ...args) : t(lang, "activityUnknownKind", kind),
+          group: activityGroupOf(kind as ActivityKind),
+        };
+      }),
     [entries, lang],
   );
 
@@ -128,16 +230,16 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     }
     if (matcher && !matcher.invalid) {
       result = result.filter(
-        (row) =>
-          matcher.test(row.message) || matcher.test(row.entry.kind),
+        (row) => matcher.test(row.message) || matcher.test(row.kind),
       );
     }
     const sorted = result.slice().sort((a, b) => {
       let cmp: number;
       if (sortKey === "timestamp") {
-        cmp = a.entry.timestamp.localeCompare(b.entry.timestamp);
+        // The COERCED timestamp, not `entry.timestamp` — see `enriched`.
+        cmp = a.timestamp.localeCompare(b.timestamp);
       } else if (sortKey === "kind") {
-        cmp = a.entry.kind.localeCompare(b.entry.kind);
+        cmp = a.kind.localeCompare(b.kind);
       } else {
         cmp = a.message.localeCompare(b.message);
       }
@@ -312,22 +414,31 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               </tr>
             </>}
           >
-              {visible.map(({ entry, message }) => (
+              {visible.map(({ entry, kind, timestamp, message, changes }) => (
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
-                    <time dateTime={entry.timestamp}>
-                      {formatDisplayTimestamp(entry.timestamp, displayTz, lang, { withSeconds: true })}
+                    {/* The COERCED timestamp, not `entry.timestamp` — same rule
+                        as `kind` below; a stored object reaches `dateTime` and
+                        the formatter otherwise. */}
+                    <time dateTime={timestamp}>
+                      {formatDisplayTimestamp(timestamp, displayTz, lang, { withSeconds: true })}
                     </time>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-muted-foreground">
-                    {entry.kind}
+                    {/* The COERCED kind, not `entry.kind` — a stored object
+                        renders as "Objects are not valid as a React child". */}
+                    {kind}
                   </td>
                   <td className="px-3 py-2 text-foreground">
                     {message}
-                    {entry.changes && entry.changes.length > 0 && (
+                    {/* Already normalised by `normalizeChanges` (non-array
+                        payload → [], hostile elements dropped or coerced, and
+                        the list capped at MAX_FIELD_CHANGES). */}
+                    {changes.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
-                        {entry.changes.map((c) => (
-                          <li key={c.field} className="text-xs text-muted-foreground">
+                        {changes.map((c, i) => (
+                          // Index-qualified key: a coerced field can repeat.
+                          <li key={`${i}-${c.field}`} className="text-xs text-muted-foreground">
                             <span className="font-medium">{humanizeFieldName(c.field)}</span>
                             {": "}
                             <span className="sr-only">{t(lang, "activityChangeFrom")} </span>

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { useWorkspace } from "./workspace-context";
-import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t, localeFor } from "./i18n";
 import type { Health } from "./health";
 import type { Absence, BudgetBucket, ChangeItem, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
@@ -89,13 +88,11 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus, insights } = useWorkspace();
+  const { status, setStatus, insights, activityLog: activity } = useWorkspace();
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
 
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, props.plan.currency || "EUR", locale);
-
-  const [activity] = useState<ActivityEntry[]>(() => loadActivityLog());
 
   const model = useMemo(
     () =>
@@ -171,6 +168,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     overdue: model.overdue,
     today,
     isPopout: props.isPopout ?? false,
+    activity,
   });
   // Hour captured once (lazy) to keep `new Date()` out of the render body.
   const [greetHour] = useState(() => new Date().getHours());

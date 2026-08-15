@@ -13,6 +13,7 @@ const METRICS = { complete: 50, overdue: 4, openRaid: 3 };
 function Harness({ projectId, isPopout }: { projectId: string; isPopout: boolean }) {
   const { delta, trends } = useLandingDelta({
     projectId, currentRag: RAG, currentMetrics: METRICS, overdue: [], today: "2026-06-21", isPopout,
+    activity: [],
   });
   return (
     <>

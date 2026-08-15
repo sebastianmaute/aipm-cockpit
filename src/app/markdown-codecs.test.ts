@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus, EVENTS_MD_COLUMNS } from "./markdown-codecs";
 import { EVENTS_CSV_COLUMNS } from "./csv-codecs-core";
-import { emptyWorkspace } from "./workspace";
+import { emptyWorkspace, type Workspace } from "./workspace";
 import { defaultExportConfig } from "./settings-types";
 
 describe("markdown fieldVisibility section", () => {
@@ -162,5 +162,46 @@ describe("calendar events markdown", () => {
   // different thing (outlookEventId survives the round-trip), not column parity.
   it("EVENTS_MD_COLUMNS covers the same keys, in the same order, as EVENTS_CSV_COLUMNS", () => {
     expect(EVENTS_MD_COLUMNS.map((c) => c.key)).toEqual([...EVENTS_CSV_COLUMNS]);
+  });
+});
+
+describe("activity log markdown", () => {
+  const log = [
+    { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+  ];
+
+  it("round-trips activityLog through Markdown storage", () => {
+    const ws = { ...emptyWorkspace(), activityLog: log } as Workspace;
+    expect(markdownToWorkspace(workspaceToMarkdown(ws)).activityLog).toEqual(log);
+  });
+
+  it("omits the section entirely when the log is absent", () => {
+    // emptyWorkspace() leaves activityLog unset — the "absent" path through
+    // the emission guard, distinct from an explicit empty array below.
+    expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Activity Log");
+  });
+
+  it("omits the section when the log is an explicit empty array", () => {
+    // ★ Pins the non-empty half of the gate (`ws.activityLog.length`). The
+    //   absent case above exercises only `ws.activityLog &&`, so without this
+    //   the length check can be deleted with the whole suite green — the
+    //   golden fixtures would then report it as an unexplained byte diff a
+    //   task later, not as the gate bug it actually is.
+    const ws = { ...emptyWorkspace(), activityLog: [] } as Workspace;
+    expect(workspaceToMarkdown(ws)).not.toContain("## Activity Log");
+  });
+
+  it("is STORAGE-ONLY: present without a config, absent with one", () => {
+    // ★ The audit trail is persisted on every backend but must NEVER reach a
+    //   user-facing document export: an entry's `changes` field carries the
+    //   old AND new values for up to 12 fields per update — internal audit
+    //   detail that must not appear in a document handed to a client. Markdown
+    //   implements that by gating emission on `config === undefined` (no
+    //   config = storage; a config = document export). Deleting that clause
+    //   ships the trail in every client-facing export; this test is what
+    //   catches it. CSV pins the same invariant in csv-codecs.test.ts.
+    const ws = { ...emptyWorkspace(), activityLog: log } as Workspace;
+    expect(workspaceToMarkdown(ws)).toContain("## Activity Log");
+    expect(workspaceToMarkdown(ws, defaultExportConfig)).not.toContain("## Activity Log");
   });
 });

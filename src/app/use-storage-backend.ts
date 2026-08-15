@@ -24,6 +24,7 @@ import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
 import { loadCurrentTursoProjectId } from "./portfolio-mode";
 import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { mergeActivityLogs } from "./activity-log-merge";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
@@ -56,7 +57,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setSteeringCommittee,
     timelogLinks, setTimelogLinks,
     knowledgeItems, setKnowledgeItems,
-    insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions,
+    insights, setInsights, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog,
     settingsOverrides, setSettingsOverrides,
     calendarEvents, setCalendarEvents,
   } = useWorkspace();
@@ -190,7 +191,12 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
   // way. No side-effects beyond the setState calls.
-  const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset") => {
+  // ★★★ `logMode` DEFAULTS TO "replace": the CONTAMINATING direction must be asked for EXPLICITLY. A
+  // caller that forgets it loses at worst an in-flight local append (bounded, same-project); the other
+  // default loses another project's audit trail into this one, unrecoverably once saved.
+  // ★ SEPARATE from `seedMode` because the initial load is "reset" + "merge" — one flag cannot carry
+  // both ("different id space?" vs "same project I already hold state for?"). See the branch below.
+  const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset", logMode: "merge" | "replace" = "replace") => {
     // ★★★ NO MIGRATION HAS EVER BACK-FILLED `Task.resourceId` FOR A REAL
     // PROJECT, on any backend. Two near-misses make it look otherwise and both
     // were written into an earlier version of this comment before being
@@ -207,27 +213,23 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // versioned chain. Idempotent and reference-preserving: a workspace needing
     // nothing keeps its array identity.
     setTasks(backfillTaskResourceFks(workspace.resources ?? [], workspace.tasks ?? []));
-    setRaid(workspace.raid ?? []);
-    setAbsences(workspace.absences ?? []);
-    setShifts(workspace.shifts ?? []);
-    setResources(workspace.resources ?? []);
-    setRoles(workspace.roles ?? []);
-    setDisciplines(workspace.disciplines ?? []);
-    setGrades(workspace.grades ?? []);
+    setRaid(workspace.raid ?? []); setAbsences(workspace.absences ?? []); setShifts(workspace.shifts ?? []);
+    setResources(workspace.resources ?? []); setRoles(workspace.roles ?? []); setDisciplines(workspace.disciplines ?? []); setGrades(workspace.grades ?? []);
     if (workspace.plan) setPlan(workspace.plan);
-    setBudgets(workspace.budgets ?? []);
-    setFxRates(workspace.fxRates ?? null);
-    setStatus(workspace.status ?? {});
-    setProject(workspace.project);
-    setFieldVisibility(workspace.fieldVisibility);
-    setFeatures(workspace.features);
-    setMilestones(workspace.milestones ?? []);
-    setChanges(workspace.changes ?? []);
-    setStakeholders(workspace.stakeholders ?? []);
+    setBudgets(workspace.budgets ?? []); setFxRates(workspace.fxRates ?? null); setStatus(workspace.status ?? {});
+    setProject(workspace.project); setFieldVisibility(workspace.fieldVisibility); setFeatures(workspace.features);
+    setMilestones(workspace.milestones ?? []); setChanges(workspace.changes ?? []); setStakeholders(workspace.stakeholders ?? []);
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
     setKnowledgeItems(workspace.knowledgeItems);
     setInsights(workspace.insights); setDocuments(workspace.documents ?? []); setDocumentVersions(workspace.documentVersions ?? []);
+    // ★★★ TWO BRANCHES, unlike the always-replace `documents` neighbours above — a later reader WILL try
+    // to make it consistent with them. Do NOT, in either direction. MERGE (same-project load/reload): the
+    // log is append-only, so replacing drops entries appended locally while the load was in flight;
+    // `mergeActivityLogs` unions by id, sorts by timestamp, caps to the newest. REPLACE (switch/create/
+    // load-from-file): `prev` is the OUTGOING project's log, so merging carries its entries — including
+    // `changes` payloads holding its old/new field values — into the target project, unrecoverably.
+    setActivityLog((prev) => (logMode === "merge" ? mergeActivityLogs(prev, workspace.activityLog) : (workspace.activityLog ?? [])));
     setSettingsOverrides(workspace.settingsOverrides);
     setCalendarEvents(workspace.calendarEvents);
     // Seed the session id-minter's high-water from the loaded set so the next
@@ -262,7 +264,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
   //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
-  //     `applyWorkspace`'s 25 setters and `onOpenStorageFile`'s raw ones are
+  //     `applyWorkspace`'s 28 setters and `onOpenStorageFile`'s raw ones are
   //     still unguarded, deliberately, because every one of them sits inside a
   //     `try` whose `catch` calls only guarded emitters. Three of the eight
   //     call sites await this function outside any `try`: the load effect's
@@ -275,6 +277,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     this is the hook's OWN state, so there is no superseded-run result a
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
+  //     ★ That "28" is the likeliest claim here to rot (it read 25 until a review
+  //     measured it) — re-derive it with the sed commands in AGENTS.md's activity-log
+  //     bullet. Anchor the START on `const applyWorkspace = `: a bare `applyWorkspace`
+  //     match opens 572 lines early and reports 31, silently, with no error.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();
@@ -330,7 +336,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           emitOutcome(null);
           return;
         }
-        applyWorkspace(workspace);
+        applyWorkspace(workspace, "reset", "merge"); // "merge": SAME project — keep appends made while this load was in flight.
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the flag would describe the workspace that is actually live.
         suppressNextSaveRef.current = true;
@@ -369,14 +375,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // Single-writer rule: the main window owns persistence. ★★★ A popout does
     // NOT save and does NOT forward edits — `canSend = !args.isPopout` below
     // disables every outbound broadcast, so an edit escaping the read-only
-    // guards stays popout-LOCAL, EXCEPT the activity log (`use-activity-log`
-    // writes localStorage with no isPopout check — §91). `canSend` is the
-    // authority, not this prose: two earlier versions of it were wrong in
+    // guards stays popout-LOCAL — the activity log INCLUDED now that it is a
+    // workspace slice (it used to escape via `use-activity-log`'s own
+    // localStorage write, which had no isPopout check — §91; that writer is
+    // gone). `canSend` is the authority, not this prose: two earlier versions of it were wrong in
     // opposite directions and both reached a commit message. Saving from both
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
-    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents } as Workspace;
+    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog } as Workspace;
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -419,7 +426,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }).then(() => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog }).then(() => {
         emitOutcome(null);
       }).catch((err) => {
         emitOutcome(err);
@@ -476,7 +483,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, args.hydrated, args.isPopout, backend, loadWasTruncated]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog, args.hydrated, args.isPopout, backend, loadWasTruncated]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -492,7 +499,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   useBroadcastSync("changes", changes, setChanges, canSend);
   useBroadcastSync("stakeholders", stakeholders, setStakeholders, canSend);
   useBroadcastSync("documents", documents, setDocuments, canSend); useBroadcastSync("documentVersions", documentVersions, setDocumentVersions, canSend); // ★ PAIRED on one line: this file sits AT the 800-line ratchet (check-file-sizes.mjs counts split("\n").length = wc -l + 1), so splitting these re-breaks the gate. They must also stay in step: the autosave writes the WHOLE workspace, so a tab holding a stale half overwrites the other tab's work — the same reason `documents` is synced. ★ Secondary: `deletedDocumentVersions` derives tombstones from BOTH slices, and `documents-panel.tsx` renders that list (its deleted-documents section and the toolbar count), so a desynced tab produces a WRONG visible list with Restore buttons on it — an observable symptom, not a latent one.
-  useBroadcastSync("activityLog", args.activityLog, args.setActivityLog, canSend);
+  useBroadcastSync("activityLog", activityLog, setActivityLog, canSend); // ★ Now the WORKSPACE slice, not a per-device arg: the autosave writes the WHOLE workspace, so a tab holding a stale log would overwrite the other tab's entries — the same reason `documents` is synced above. `mergeActivityLogs` cannot cover this; it runs on LOAD, not on a broadcast.
   // `project` (ProjectMeta | undefined) so a main-window project switch live-updates
   // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, canSend);
@@ -503,7 +510,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
+      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
       await refreshBackendStatus();
       emitToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -591,7 +598,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
+      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
       suppressNextLoadRef.current = true;
       emitStorageConfig(newConfig);
       emitToast("info", t(langRef.current, "storageConvertedToast", label));
@@ -622,7 +629,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the file handlers above. Must NOT be memoized or it would capture stale
   // state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, activityLog };
   }
 
   // Persist the registry AND surface the change to the caller so its observable
@@ -758,7 +765,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       }
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
-      applyWorkspace(workspace, "raise");
+      applyWorkspace(workspace, "raise", "merge"); // "merge": SAME project — a reload must not drop this device's entries.
       truncationOps.reportFor(backend);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();

@@ -587,6 +587,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
+  ★★ `activityLog` ("Activity log" below) is the CONTRASTING worked example, and the cheaper shape is the
+  reason: a **meta-blob** slice has no `ENTITY_SPECS` row, so it buys nothing and needs all six written by
+  hand — and the Turso TENANT path was the one missed, caught in review rather than by any gate.
+  ★ `entity-persistence-registry.test.ts` carries meta-blob round-trips at DIFFERENT widths, so read the
+  row you need rather than the file's name: `documents` CSV + Markdown, `documentVersions` CSV + Markdown
+  + JSON (`sanitizeDocumentVersions` plus a rich-field pass makes JSON a real filter there — the file's
+  own comment says so), `activityLog` CSV + Markdown only. For `activityLog` neither Turso layout, nor
+  JSON, nor IndexedDB is exercised there, so a green run says nothing about four of the six; its JSON
+  path is pinned separately in `workspace.test.ts` ("round-trips activityLog through JSON"). ★★ An
+  earlier revision of this line said "only over the two TEXT backends … nor JSON", which was false about
+  the very file it was describing — that file imports `jsonToWorkspace` and calls the exception out.
+  Count to six yourself, per slice.
 - **New COLUMN on existing entity** (e.g. `Milestone.outlookEventId`): add to entity's
   `*_CSV_COLUMNS` (in `csv-codecs-core.ts` — covers CSV **and** Turso single+tenant, DDL/insert
   derive from it; also extend that entity's `*FieldToString`/`build*FromObj` THERE), plus the
@@ -774,12 +786,26 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   forgot (modern default is the easy miss). Popout `legacyTree` branch renders NO header, so header
   controls correctly never appear in popouts.
 - **Remount-swallow (parent request/nonce → conditionally-mounted child):** modern shell renders ONLY
-  the active view; workspace-section renders ONLY the active tabpanel — so a view MOUNTS FRESH each
-  visit. A child consuming a parent "request"/nonce prop must NOT seed its last-seen/handled ref from the
+  the active view; workspace-section renders only the active tabpanel FOR MOST PANELS — so such a view
+  MOUNTS FRESH each visit. A child consuming a parent "request"/nonce prop must NOT seed its
+  last-seen/handled ref from the
   LIVE prop (`useRef(prop)`/`useState(prop)`) — a fresh mount sees prop===seed and silently SWALLOWS a
   pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must CLEAR (consume) or
   monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view learning deep-link AND
   milestones-panel `openCreateNonce` (Gantt "Add milestone").
+  ★★★ **TWO PANELS ARE THE EXCEPTION AND THIS BULLET USED TO DENY IT** — it said flatly that
+  workspace-section "renders ONLY the active tabpanel", which is true of 27 of its 29 tabpanels and
+  FALSE for `panel-chat` and `panel-raid`: those two are mounted UNCONDITIONALLY and merely
+  `hidden={activeTab !== …}`, with no `key`, so they NEVER remount on navigation and their state
+  survives every tab switch. Reproduce the split rather than trusting these numbers —
+  `grep -c 'role="tabpanel"' src/app/workspace-section.tsx` against
+  `grep -n -B4 'hidden={activeTab' src/app/workspace-section.tsx`, which also names the two.
+  ★★ The direction of the error is what makes it expensive: for those two the danger is the OPPOSITE of
+  remount-swallow. A fresh mount cannot be relied on to clear anything, so state that is only valid
+  under some condition (a mode flag, a project id) must be reset EXPLICITLY when that condition ends —
+  nothing will do it for you. That is exactly how a retained chat thread id survived a Turso→file
+  switch and silently killed every subsequent send (fixed on the chat-thread branch; see the AI
+  Assistant sidebar bullet). Before writing either guard, check which of the two shapes your panel is.
 - **Task editor is ONE floating surface now:** ALL layouts (modern DEFAULT, classic, popout) use the shared
   floating `TaskFormModal` (draggable/resizable/reset; its own `ModalHeader` title+✕). The former modern
   full-page `TaskEditView` (ModernShell `editView` slot / `useEditView`) was RETIRED — modern no longer
@@ -1514,6 +1540,126 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
   before touching version history, deleted documents, or any "add a field to the six write paths" task,
   which it records a landmine for.
+- **Activity log (`Workspace.activityLog`):** per-project audit trail, promoted from a per-device
+  `localStorage` blob. Persists via the **meta-blob** pattern (one JSON row in `meta`, like
+  `insights`/`documents`), NOT `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` because it
+  has no table, **not** because it is non-workspace data. ★★ **STORAGE-ONLY on every path**: no
+  `activityLog` key in `EXPORT_SECTION_KEYS`, and the CSV and Markdown emit sites gate on
+  `config === undefined` rather than routing through the export `enabled(...)` allow-list. An entry's
+  `changes` carries old/new values for up to `MAX_FIELD_CHANGES` (12) fields per update — internal
+  audit detail that must never reach a document handed to a client. Do not add an export key.
+  ★★★ **`isWorkspaceEmpty` deliberately EXCLUDES it, INVERTING the `documents` rule directly above.**
+  The log is auto-appended by ordinary use, so counting it would make a project with log entries and no
+  user records read as non-empty — letting a transient empty backend read replace a populated project,
+  i.e. turning a data-loss guard into a data-loss vector. Same reasoning keeps it out of
+  `nonEmptyCollectionCount`/`workspaceRecordCount`. Pinned by `workspace.test.ts` ("a workspace holding
+  ONLY activity entries is still EMPTY (inverse of documents)"). Do not "complete" the documents
+  precedent.
+  ★★★ **`applyWorkspace`'s `logMode` has TWO branches and they are not interchangeable.** MERGE
+  (same-project load/reload) unions by id via `mergeActivityLogs` so entries appended while a load was
+  in flight survive; REPLACE (project switch/create/load-from-file) stops the outgoing project's trail
+  leaking into the target. **The default is REPLACE — the contaminating direction must be asked for
+  explicitly.** ★★ Those switch/create/load-from-file sites do NOT hide from a bare
+  `grep "applyWorkspace("` — they spell it `deps.applyWorkspace(ws)` and the grep finds all six. What
+  hides is the ARGUMENT: the deps contract in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` is
+  typed `(ws: Workspace) => void`, one parameter, so those call sites structurally CANNOT pass a
+  `logMode` and silently take the default. Widening that contract is what would let one of them opt into
+  the contaminating branch — check the TYPE, not the call text.
+  ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
+  `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
+  `activityLog`, so fanning it out would blank the audit trail on every version restore.
+  ★★ It is ONE OF THREE slices on which the two funnels disagree, NOT the only one — `features` and
+  `fieldVisibility` are also absent from the restore fan-out. An earlier revision said "the one slice",
+  which sends a reader who diffs the funnels either to distrust the doc or to "complete the pattern" on
+  the other two. Re-derive rather than trust this line: extract the setter names from `applyWorkspace`
+  and from `applyRestoredWorkspace` and `comm` them. ★★ That diff returns FOUR names, not three — the
+  fourth is `setLoadedBackend`, which is the load GATE (`workspaceLoaded` derives from it), not a
+  workspace slice, and the comment above `applyRestoredWorkspace` already says the restore funnel
+  deliberately omits it. Three SLICES, four NAMES; a reader who stops at the count will think this line
+  is wrong. ★ A range that stops at `setCalendarEvents` hides it and returns three — `setLoadedBackend`
+  is deliberately the LAST call in `applyWorkspace`, so end the range at the function's close brace.
+  ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
+  ("extract the setter names … and `comm` them") while the code comment that carried the real command
+  lost it to a size-ratchet condense — and prose describing a command is not a command. It cannot go
+  back there: `use-storage-backend.ts` stands at 798 of the 800-line cap (`size:check` counts `wc -l`
+  plus one), and this file is outside that gate's `src` walk, so the command lives here.
+  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **28**
+  `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
+  `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
+  → `setActivityLog(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(`
+  ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
+  `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
+  `^  };$` end anchor there runs 616 lines and reports 38. And the first command's start pattern needs
+  the `const … = ` prefix: a bare `applyWorkspace` match starts at an earlier mention, spans 572 lines
+  and reports 31. ★ Its `^  ` anchor is DORMANT today and still worth keeping: the code comment that
+  used to quote this command sat inside the very file it greps, so its own copy of the start pattern
+  opened a second range (unanchored: 32 setters over 90 lines at `4cd14c14^`). That copy is gone, the
+  file now holds one occurrence, and anchored and unanchored both return 28 — so the hazard is quoting
+  a command in the file it scans, not the anchor by itself.
+  ★★ AND "deliberately omitted ⇒ preserved" is true of `activityLog` ALONE — do not read it as a
+  property of restore. `getVersionPayload` captures 18 slices while `applyRestoredWorkspace` fans out
+  24, so `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
+  `calendarEvents` are each SET from a payload that never carried them — i.e. blanked on every version
+  restore, by exactly the mechanism omitting `activityLog` avoids. PRE-EXISTING, not introduced by the
+  activity-log slice and deliberately not fixed by it; recorded here only so the omission above stops
+  reading as a guarantee about everything else the funnel touches.
+  ★★ **Entry ids are `"<deviceId>-<sessionNonce>-<counter>"`.** The middle segment is load-bearing:
+  `getDeviceId` persists its value in `localStorage` (`DEVICE_ID_KEY`) while the counter is module
+  scope, so `"<deviceId>-<counter>"` re-mints the same id on every reload and `mergeActivityLogs` (which
+  unions by id) silently discards one of two real entries. ★ Minted inside a `setState` functional
+  updater (`useActivityLog`), which React double-invokes under StrictMode — the counter is gap-tolerant
+  by design and must never be treated as a dense sequence number.
+  ★★ **An unknown-but-string `kind` is KEPT, not dropped** (`sanitizeActivityEntry`), unlike the retired
+  localStorage-era validator: the log is shared workspace data and the autosave writes loaded state
+  straight back, so an older client dropping a kind a newer release added would DELETE those entries
+  from the shared project. Rendering falls back to `activityUnknownKind` via `activityMessageKey`, whose
+  `hasOwnProperty` check is required — a bare index resolves `kind: "toString"` to a `Function` prototype
+  method, `t()` then misses it in the dict and throws on `undefined.replace`, crashing the app through
+  the top-level `ErrorBoundary`. ★ A non-string or absent `kind` IS dropped: `activityGroupOf` calls
+  `kind.startsWith` and there is nothing honest to display.
+  ★ **`mergeActivityLogs` NARROWS the loss window, it does not close it.** An entry appended on device A
+  between B's load and B's save is still lost; closing it needs append-level writes the meta-blob shape
+  cannot express. Do not record as solved.
+- **AI Assistant chat-thread sidebar is Turso-ONLY.** `chat-panel.tsx` mounts `ChatThreadSidebar`
+  (`chat-thread-sidebar.tsx`, over `chat-thread-list.tsx`) only inside `{tursoMode && (...)}`, and
+  `tursoMode` is fed from `workspace-section.tsx`'s `chatTursoMode = (settings.storageConfig.kind ===
+  "turso" || mode === "turso") && chatTursoConfig !== null`. ★★ The OR is load-bearing, and this bullet
+  used to say `mode === "turso"` alone: `mode` here is the multi-project Turso-PICKER flag
+  (`workspace-section-types.ts` `mode: "file" | "turso"`), not `settings.storageConfig.kind` (the
+  single-DB Turso STORAGE backend) — gating on `mode` alone silently gave a user on single-project Turso
+  storage no chat persistence. Mirrors `task-manager.tsx`'s `trendsActive`, which ORs the identical two
+  signals for Snapshots/Trends, and reads `settings.storageConfig` unguarded for the same reason — the
+  field is non-optional on `Settings`, so a `?.` here would only mask a broken fixture.
+  ★★★ "FILE MODE" DOES NOT MEAN "UNCHANGED", and this bullet asserted it did — it read "FILE mode is
+  byte-identical to before this branch: no sidebar, no multi-thread persistence." That sentence was true
+  of the ORIGINAL gate (`mode === "turso"` alone) and was carried over verbatim when the OR was added
+  two lines above it, which is the whole failure: `mode === "file"` with single-DB Turso STORAGE and a
+  usable config satisfies the first disjunct, so the sidebar mounts and threads persist. The panel is
+  byte-identical to before this branch only when NEITHER signal is Turso, or when `chatTursoConfig` is
+  null. Pinned by the `mode=file, storageConfig.kind==='turso'` test in `workspace-section.test.tsx`,
+  which is the mirror of the one pinning the `mode` disjunct.
+  ★★★ AND THE FORMULA ABOVE WAS WRONG UNTIL NOW FOR A SECOND REASON WORTH RECORDING: it was quoted with
+  a `?.` that the source does not have. The commit that CORRECTED this paragraph was followed by the
+  VERY NEXT commit on the branch removing the `?.` from `workspace-section.tsx` — so the correction was
+  re-staled one commit after it landed, by its own review round, before anything merged. (Reproduce:
+  `git log --oneline --reverse <base>..HEAD` puts the docs commit immediately before the test commit,
+  and `git log -S'storageConfig?.kind === "turso" || mode' -- src/app/workspace-section.tsx` names the
+  second one as the remover.)
+  `docs:symbols:check` cannot see this (it proves only that a mixed-case NAME exists, and
+  `storageConfig` exists either way). A correction is a NEW claim: re-check it against the tree at the
+  END of the round, not at the moment you wrote it.
+  ★★ "AI Assistant" IS in axe `A11Y_VIEWS`, but `e2e/seed.ts` seeds FILE mode, so the gate never renders
+  this sidebar — same blind spot class as the other Turso-gated views and the Resources → Calendar
+  sub-tab above. Compounding it, axe has no rule that flags two controls sharing an accessible name
+  (measured elsewhere in this file) — so even a scanned run could not catch a row-label collision here.
+  `chat-thread-list.test.tsx` / `chat-thread-sidebar.test.tsx` are therefore the ONLY coverage this
+  surface will ever have; do not read a green axe run as covering it, and eye-verify against a real
+  Turso project before shipping any change to this surface.
+  ★ The `chat_threads` table is deliberately OUT of `TABLE_NAMES` (else a workspace save's per-table
+  DELETE sweep wipes it); its upsert is a single atomic `INSERT OR REPLACE`, never a delete-then-insert
+  pair, because `runTursoPipeline` only opens a transaction when the first statement is literal `BEGIN`.
+  `stripAttachmentsForPersistence` strips attachment bytes before a thread is written. `deleteThreadStatements`
+  requires `projectId` (not just an id) so a delete can never reach across projects.
 
 ## Subsystem reference — deeper detail, loaded on demand
 

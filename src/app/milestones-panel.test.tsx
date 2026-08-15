@@ -12,11 +12,6 @@ import { MilestonesPanel } from "./milestones-panel";
 import { t } from "./i18n";
 import type { Milestone } from "./types";
 
-vi.mock("./activity-log", async (orig) => ({
-  ...(await orig<typeof import("./activity-log")>()),
-  loadActivityLog: () => [],
-}));
-
 // Milestone ids are minted from session-scoped state; reset it before each test
 // so the id-mint-race draft ("nextId([1]) = 2") stays deterministic.
 beforeEach(() => {

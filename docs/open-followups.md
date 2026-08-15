@@ -9597,3 +9597,46 @@ semantic meaning, and the app's own axe scan of Documents renders whatever the e
 task list is seeded, so a green Documents scan says nothing about this either way (same class as the
 `A11Y_VIEWS` seeding gap AGENTS.md already records). The only way to know this is stated behaviour is
 to read this entry or the code comment beside the CSS rule.
+
+## 148. `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — open, correctness, measured
+
+Opened 2026-08-14 out of the chat-thread-persistence branch's fourth review round. It is the SAME
+defect that round fixed in the mount-fetch effect, one function down, left unfixed deliberately to
+keep a review-round diff reviewable.
+
+`use-chat-threads.ts` `retryLoad` has two branches. When `pendingRetryRef` is non-empty it replays the
+failed WRITES and returns — that half is fine. When the map is empty (i.e. the initial FETCH is what
+failed, so there is no payload to replay) it re-runs `loadThreads` and then assigns the result
+unconditionally:
+
+```
+.then((loaded) => { setThreads(loaded); const next = loaded[0] ?? null;
+                    setActiveThreadId(next?.id ?? null); setHistory(…); setDisplay(…); })
+.catch(() => { setThreads([]); setActiveThreadId(null); setHistory([]); setDisplay([]); })
+```
+
+The mount-fetch effect now captures `const startedOn = threadIdRef.current;` before its own
+`loadThreads` and MERGES (`.then`) or skips the reset (`.catch`) when the ref moved while the request
+was in flight. `retryLoad` does neither. So a send started between the Retry click and the response
+mints a thread via `ensureThreadForSend`, that row IS written to Turso, and then the resolving reload
+drops it from `threads`, clobbers `activeThreadId`, wipes history/display, and — because the
+`threadIdRef` sync effect sees the id change — aborts the in-flight send. The user's message vanishes
+from the UI while existing server-side. The `.catch` path is the more destructive of the two, exactly
+as in the fixed effect.
+
+★★ **Narrower reachability than the fixed one, which is why it was deferred rather than shipped.** It
+needs the INITIAL fetch to have failed (otherwise `pendingRetryRef` is non-empty and the first branch
+returns before reaching here), AND a send to start between the click and the resolve. The mount-fetch
+case had no such precondition — `chat-panel.tsx`'s `chatSeed` effect auto-sends from a MOUNT effect,
+so "Analyze with AI" raced it every time.
+
+### Closing it
+
+Hoist the guard rather than copying it: both call sites want "if the active thread changed while my
+request was in flight, do not overwrite it". A shared helper taking `startedOn` and returning
+merge-or-replace would make the two impossible to drift apart. ★ Do NOT close this by making
+`retryLoad` reuse the effect's body wholesale — the effect also clears `pendingRetryRef`/`latestSeqRef`
+on project switch, which `retryLoad` must not do.
+
+★ A test for this needs the failed-initial-fetch precondition set up explicitly; a fixture whose
+`pendingRetryRef` is non-empty never reaches the branch and passes whichever way it is written.

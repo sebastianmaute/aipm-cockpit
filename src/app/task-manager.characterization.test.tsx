@@ -174,3 +174,25 @@ describe("@characterization task-manager → AI Assistant button gate", () => {
   // reverts to an unconditional opener (or otherwise always shows the
   // button).
 });
+
+// Own describe + own beforeAll + own mount — the block above's beforeAll
+// render is unmounted by RTL's global afterEach(cleanup) once its first test
+// runs, so a second DOM-querying test appended there would query an empty
+// `<body>` (getByRole throws instead of silently returning null — this is
+// how a vacuous version of this test was caught while writing it).
+describe("@characterization task-manager → Ask Claude pill gate", () => {
+  beforeAll(async () => {
+    window.localStorage.clear();
+    seedRegistry();
+    render(<TaskManager />);
+    await screen.findByTestId("ws-section-mock");
+  }, 45000);
+
+  it("hides the Ask Claude pill in the modern TopBar when AI is off by default (task-manager.tsx: askClaudeEl gated on isAiEnabled(settings.ai))", () => {
+    // Seeded/default settings leave AI off (same as the AI Assistant gate
+    // above), so askClaudeEl resolves to null and the pill (i18n
+    // `aiAskClaude`, "Ask Claude") must not render in either header mount.
+    const header = screen.getByRole("banner");
+    expect(within(header).queryByRole("button", { name: "Ask Claude" })).toBeNull();
+  });
+});
