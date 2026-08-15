@@ -303,6 +303,7 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setConfigOpen(false)}
+          noCurrentProject
         />
       )}
 
@@ -325,6 +326,7 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setWizardOpen(false)}
+          noCurrentProject
         />
       )}
 

@@ -68,6 +68,42 @@ describe("IntegrationsSection portfolio-mode load hint", () => {
   });
 });
 
+describe("IntegrationsSection portfolio switch label", () => {
+  it("shows the default 'Save & switch portfolio' label when a project is loaded", () => {
+    render(
+      <IntegrationsSection lang="en-US" settings={tursoSettings("test-token")} onChange={() => {}} />,
+    );
+    fireEvent.change(
+      screen.getByRole("combobox", { name: t("en-US", "portfolioModeLabel") }),
+      { target: { value: "turso" } },
+    );
+    expect(
+      screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a 'Switch portfolio' label instead when noCurrentProject is set", () => {
+    render(
+      <IntegrationsSection
+        lang="en-US"
+        settings={tursoSettings("test-token")}
+        onChange={() => {}}
+        noCurrentProject
+      />,
+    );
+    fireEvent.change(
+      screen.getByRole("combobox", { name: t("en-US", "portfolioModeLabel") }),
+      { target: { value: "turso" } },
+    );
+    expect(
+      screen.getByRole("button", { name: t("en-US", "portfolioModeSwitchConfirmNoProject") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "portfolioModeSwitchConfirm") }),
+    ).toBeNull();
+  });
+});
+
 // ★★ The four per-entity calendar rows had NO test at all — the two below cover
 //    the enable control, whose `auto:false`-on-disable behaviour AGENTS.md calls
 //    load-bearing (re-enabling would otherwise silently reactivate auto-sync) and

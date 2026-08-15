@@ -26,7 +26,7 @@
 // local state is which modal is open and (in create mode) the chosen file
 // format for the new project.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
@@ -40,6 +40,7 @@ import { TursoProjectPicker } from "./turso-project-picker";
 import { ResetSizeButton } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { useConfirm } from "./confirm-dialog";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
@@ -138,6 +139,8 @@ export function ProjectsPanel({
   );
   const { ref: paneSizeRef, reset: resetPaneSize } = useResizable("aipm-cockpit:projects-pane-size");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(exportMenuId !== null, exportMenuRef, () => setExportMenuId(null));
   const [showArchived, setShowArchived] = useState(false);
   const [hardDeleteTarget, setHardDeleteTarget] =
     useState<ProjectRegistryEntry | null>(null);
@@ -285,7 +288,7 @@ export function ProjectsPanel({
                             {t(lang, "projectsEdit")}
                           </Button>
 
-                          <div className="relative">
+                          <div className="relative" ref={exportMenuRef}>
                             <Button
                               variant="secondary"
                               size="sm"
