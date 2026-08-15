@@ -96,3 +96,59 @@ export function resizeTile(
   board[i] = { ...board[i], [axis]: next };
   return { ...layout, board };
 }
+
+/**
+ * Bring a stored layout up to date with the current catalogue.
+ *
+ * ★★ A GATED-OFF TILE IS KEPT, NOT DROPPED, AND THAT IS WHY THIS TAKES NO
+ * `TileGateInput`. A gate decides what RENDERS, never what is STORED —
+ * otherwise switching Budget off and on again would lose the burn tile's
+ * position permanently. The render layer filters (`liveTiles`); this does not,
+ * and with no gate in scope it cannot be made to. The plan carried a `_gate`
+ * parameter to document that; eslint rejects it (this repo has no
+ * `argsIgnorePattern`, and CI runs `--max-warnings=0`), so the absence of the
+ * parameter carries the point instead.
+ *
+ * ★★ A NEW TILE LANDS AFTER ITS NEAREST PRESENT CATALOGUE PREDECESSOR, not at
+ * the end. Appending would dump every newly shipped tile at the bottom of every
+ * existing user's board, where its author's intended priority is lost.
+ *
+ * ★ Sizes are clamped PER AXIS, never reset to the default: a stored height
+ * that is still legal survives a width that is not.
+ */
+export function reconcile(stored: DashboardLayout | null): DashboardLayout {
+  if (!stored) return DEFAULT_LAYOUT;
+
+  const known = new Map(DASHBOARD_TILES.map((t) => [t.id, t]));
+  const hidden = stored.hidden.filter((id) => known.has(id));
+  const hiddenSet = new Set(hidden);
+
+  // 1. keep what still exists, clamped, minus anything also marked hidden
+  const board: PlacedTile[] = [];
+  for (const p of stored.board) {
+    const spec = known.get(p.id);
+    if (!spec || hiddenSet.has(p.id)) continue;
+    if (board.some((b) => b.id === p.id)) continue;          // storage held a duplicate
+    board.push({
+      id: p.id,
+      w: clampSpan(p.w, spec.minW, spec.maxW),
+      h: clampSpan(p.h, spec.minH, spec.maxH),
+    });
+  }
+
+  // 2. insert anything the catalogue has that storage did not
+  const present = new Set(board.map((b) => b.id));
+  DASHBOARD_TILES.forEach((spec, catIdx) => {
+    if (present.has(spec.id) || hiddenSet.has(spec.id)) return;
+    // nearest preceding catalogue neighbour that IS on the board
+    let at = 0;
+    for (let i = catIdx - 1; i >= 0; i--) {
+      const j = board.findIndex((b) => b.id === DASHBOARD_TILES[i].id);
+      if (j >= 0) { at = j + 1; break; }
+    }
+    board.splice(at, 0, { id: spec.id, w: spec.w, h: spec.h });
+    present.add(spec.id);
+  });
+
+  return { v: 1, board, hidden };
+}
