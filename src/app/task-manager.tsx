@@ -1048,23 +1048,15 @@ function TaskManagerInner() {
 
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
   // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
-  //
-  // ★★ `activityLog` is DELIBERATELY MISSING from this fan-out — do not "complete"
-  // it by adding `setActivityLog(w.activityLog ?? [])`. `getVersionPayload` above
-  // captures an explicit field list that carries no `activityLog`, so every
-  // restorable snapshot has none; fanning it out here would set the live log to
-  // `[]` (or the restored snapshot's own, blob-less shape) on EVERY version
-  // restore and wipe the whole audit trail. Omitting it is what preserves the
-  // log across a restore, which is what an audit trail is for.
+  // ★★ `activityLog` is DELIBERATELY MISSING: `getVersionPayload` carries none, so
+  // `setActivityLog(w.activityLog ?? [])` here blanks the audit trail on EVERY restore (AGENTS.md).
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
-    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
-    setInsights(w.insights); setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []);
-    setSettingsOverrides(w.settingsOverrides);
-    setCalendarEvents(w.calendarEvents);
+    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems); setInsights(w.insights);
+    setDocuments(w.documents ?? []); setDocumentVersions(w.documentVersions ?? []); setSettingsOverrides(w.settingsOverrides); setCalendarEvents(w.calendarEvents);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
