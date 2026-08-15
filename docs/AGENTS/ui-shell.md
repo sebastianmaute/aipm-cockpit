@@ -307,13 +307,24 @@
   **Firefox never begins the drag at all**. The reports handle drove its reorder purely off React state
   and called no `setData`, so reorder was inert there — and jsdom dispatches the whole sequence happily,
   so no test could see it. Any new `draggable` calls `e.dataTransfer?.setData(...)` even when the payload
-  is unused. ★★ THIS IS NOT A COMPLETED SWEEP and an earlier revision read like one by naming only the
-  already-correct `task-kanban-board.tsx`. Three live `dragstart` handlers still set nothing and are
-  therefore still inert in Firefox for the identical reason — the `budget-panel.tsx` bucket handle (whose
-  handler takes no event argument at all) and both `roles-editor.tsx` sites (which set `effectAllowed`
-  only; that does NOT satisfy Firefox). Re-derive rather than trust this list:
+  is unused. ★★ THE SWEEP IS NOW COMPLETE FOR THE REORDER FAMILY, and an earlier revision of this line
+  named three live offenders that no longer exist — the `budget-panel.tsx` bucket handle and both
+  `roles-editor.tsx` sites. All four reorder surfaces (the Reports cards, the budget buckets, and the
+  rate card plus the reference lists in `roles-editor.tsx`) take their drag props from
+  `useListReorderDnd`, and the HOOK owns the `setData` call. That is the point of the extraction:
+  remembering it stopped being a per-site decision, so a fifth call site cannot get it wrong.
+  ★★ RE-DERIVE RATHER THAN TRUST THIS PARAGRAPH — AND KNOW WHAT THE COMMANDS CANNOT SEE:
   `grep -rn "onDragStart" src/app --include=*.tsx | grep -v '\.test\.'` against
   `grep -rn "setData" src/app --include=*.tsx`.
+  The first returns 13 lines and NOT ONE of the four hook-driven surfaces is among them: the hook is a
+  `.ts` file, which `--include=*.tsx` never reaches, and its consumers spread `handleProps(id)` instead
+  of writing a handler. So a surface's ABSENCE from that grep now carries two opposite meanings the
+  greps cannot separate — routed through the hook (correct), or carrying no drag at all. What it still
+  enumerates is the INLINE handlers, and each of those does pair with a `setData` in the second grep:
+  gantt rows, the resource-calendar band and its rows, the stakeholder map, and both kanban surfaces.
+  The remaining five hits are not handlers at all: three are `drag-handle.tsx` merely FORWARDING an
+  `onDragStart` prop on behalf of its callers (type, destructure, JSX), and two are comments, one in
+  each gantt file. ★ Add `--include=*.ts` before concluding anything about the hook itself.
   ★★ A per-row drag handle needs a row-UNIQUE accessible name. Reports gave every handle the same
   `reorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
   asserting the names are DISTINCT is the only detector — and note every other test in that file finds its
