@@ -856,6 +856,31 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(shelf).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("drops a hidden tile from the shelf once its module gate goes off", async () => {
+    // ★★ The shelf offered tiles that could not be restored: it tested only that
+    // the id was a known tile, so hiding Budget burn and then switching Budget
+    // off left a chip whose Restore made the chip vanish with nothing appearing
+    // (the board's own gate filter dropped it again), and the "N hidden" count
+    // included it. Storage stays gate-free — the chip must come BACK when the
+    // module is switched on again, which the last two assertions pin.
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <DashboardPanel {...fullProps} projectId="p-grid-gate" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Budget burn") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Budget burn") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
+    const chip = `${t(EN, "dashboardTileRestore")} – Budget burn`;
+    expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
+
+    rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" showBudget={false} />);
+    expect(screen.queryByRole("button", { name: chip })).toBeNull();
+    expect(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeInTheDocument();
+
+    rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" />);
+    expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
+  });
+
   it("renders the RAID register (Top open RAID) BEFORE the Progress card in DOM order", () => {
     render(<DashboardPanel {...fullProps} projectId="p-grid-order" />, { wrapper });
     const registers = screen.getByText("Top open RAID");

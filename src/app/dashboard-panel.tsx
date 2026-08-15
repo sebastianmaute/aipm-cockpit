@@ -294,10 +294,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // end up in. Rendering the would-be result makes the board reflow under the
   // cursor. `previewOrder === boardIds` at rest, so this costs nothing.
   const sizeById = new Map(layout.board.map((p) => [p.id, p] as const));
+  // ★★ ONE predicate for "would this tile actually render?", shared by the board
+  // AND the shelf. Two copies drifted: the shelf tested only that the id was a
+  // known tile, so a GATED-OFF hidden tile still listed a chip, counted toward
+  // "N hidden", and offered a Restore that made the chip vanish with nothing
+  // appearing — the board's own filter dropped it again. Storage stays gate-free
+  // on purpose (`useDashboardLayout` takes no `gate`): a gate decides what
+  // RENDERS, never what is STORED, so the hidden tile keeps its place and
+  // reappears on the shelf the moment its module is switched back on.
+  const isRenderable = (id: DashboardTileId): boolean =>
+    (tileById(id)?.gate(gate) ?? false) && bodies[id] != null;
   const visible: PlacedTile[] = reorder.previewOrder
     .map((id) => sizeById.get(id))
-    .filter((p): p is PlacedTile =>
-      p !== undefined && (tileById(p.id)?.gate(gate) ?? false) && bodies[p.id] != null);
+    .filter((p): p is PlacedTile => p !== undefined && isRenderable(p.id));
   const visibleIds = visible.map((p) => p.id);
 
   const [menu, setMenu] = useState<{ id: DashboardTileId; index: number; count: number } | null>(null);
@@ -456,9 +465,12 @@ export function DashboardPanel(props: DashboardPanelProps) {
               lang={lang}
               // flatMap, not map + `!`: `reconcile` drops unknown ids from
               // `hidden`, but a stale id would otherwise throw on the title.
+              // ★★ Filtered by `isRenderable`, the SAME predicate the board
+              // uses — the shelf must never offer a tile that restoring cannot
+              // bring back.
               hidden={layout.hidden.flatMap((id) => {
                 const spec = tileById(id);
-                return spec ? [{ id, title: t(lang, spec.labelKey) }] : [];
+                return spec && isRenderable(id) ? [{ id, title: t(lang, spec.labelKey) }] : [];
               })}
               onRestore={arrangement.restore}
               dropProps={shelfDropProps}
