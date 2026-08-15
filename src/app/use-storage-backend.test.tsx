@@ -118,6 +118,41 @@ const mockBackend = {
   describe: vi.fn().mockResolvedValue("mock-file.json"),
 };
 
+// ★★★ `mockBackend` is a MODULE-LEVEL const, built once and shared by every test
+//     in this file — and `vi.clearAllMocks()` (which most describes call) is
+//     `mockClear`, so it wipes CALL HISTORY but leaves the IMPLEMENTATION and the
+//     once-queue in place. Two tests therefore poison `save` for everything that
+//     runs after them, permanently:
+//       • "shows toast on save error" sets `mockRejectedValue(new Error("disk
+//         full"))` — NOT `…Once` — and never restores it.
+//       • three tests install an `order.push(...)` `mockImplementation`.
+//     No hook ever put it back; the file was green only because two LATER tests
+//     happen to call `mockResolvedValue(undefined)` in their own bodies, so the
+//     SOURCE ORDER alone kept the poison away from anything that would notice.
+//     Under `--sequence.shuffle` that ordering is gone and "still emits a save
+//     outcome after StrictMode's remount" got the "disk full" rejection instead
+//     of a clean save — it asserts the outcome is `null`, i.e. that the save
+//     SUCCEEDED, so it is the one test in the file that cannot survive a
+//     poisoned `save`. Reproduce WITHOUT shuffle, and with every test added by
+//     the activityLog write-path commit skipped:
+//       npx vitest run src/app/use-storage-backend.test.tsx \
+//         -t "shows toast on save error|still emits a save outcome after StrictMode"
+//     → 1 passed, 1 failed, 106 skipped.
+// ★★ `mockReset()` (not `mockClear`) is what is needed: it drops the
+//     implementation AND drains the once-queue, exactly as the `createBackend`
+//     drain in the onRequestStorageSwitch describe does for the same reason. The
+//     `mockResolvedValue` below then re-establishes the module default, so every
+//     test starts from the same state no matter what ran before it.
+// ★ Deliberately NOT `vi.resetAllMocks()` — that would wipe `load`/`isReady`/
+//     `describe` too, and the describes that never re-establish those rely on the
+//     defaults declared above. Only `save` is reset here because only `save` has
+//     a measured cross-test leak; widening this without a measurement would trade
+//     one latent order-dependence for another. See open-followups §75.
+beforeEach(() => {
+  mockBackend.save.mockReset();
+  mockBackend.save.mockResolvedValue(undefined);
+});
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 const showToast = vi.fn();
 
