@@ -30,9 +30,14 @@ and there are no coordinates to store — every operation in `dashboard-layout.t
 `hideTile` · `restoreTile` · `resizeTile` · `reconcile`) is an array operation. ★★ THE FIRST FOUR
 return the SAME object reference on a no-op, so a caller can skip a persist cheaply; **`reconcile` DOES
 NOT** and never did — it allocates a fresh `{v, board, hidden}` on every non-null input, identical
-content or not. Harmless today (both of its call sites are loads), but a persist-skip written against
-`next !== stored` would fire on every one of them. This sentence used to lump all five together, which
-is exactly the claim someone would build that skip on. ★★ A user therefore CANNOT
+content or not. Harmless today, because its ONE production call site is a load — `readLayout` in
+`use-dashboard-layout.ts` — but a persist-skip written against `next !== stored` would fire on every
+load. This sentence used to lump all five together, which is exactly the claim someone would build that
+skip on. ★ It then said "both of its call sites are loads": the TWO call sites are `readLayout`'s (the
+lazy `useState` initialiser and the project-switch render reconcile), not `reconcile`'s, and a reader
+goes hunting for a second caller that does not exist —
+`grep -rn "reconcile(" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'` returns the
+declaration plus one call (measured 2026-08-15). ★★ A user therefore CANNOT
 leave a deliberate hole: `dense` backfills it with the next tile that fits. ★★ That is also why the
 panel renders the reorder hook's `previewOrder` rather than the stored board and draws NO edge drop
 indicator — dense re-places everything after a move, so an edge marker would routinely point at a slot
@@ -108,13 +113,30 @@ wrong" reads as a bug to whoever hits it.
 that reason, and `dashboard-layout.test.ts` pins its arity so the parameter cannot creep back: a
 gated-off tile KEEPS its stored position, so switching Budget off and on again does not lose the burn
 tile's place. `useDashboardLayout` has no `gate` option either. Filtering happens at RENDER, in
-`dashboard-panel.tsx`, against each tile's own `gate` from the catalogue — INLINE, with no shared
-helper. ★★ There was one: a catalogue-order `liveTiles(gate)` export in `dashboard-tiles.ts`, which
+`dashboard-panel.tsx`, against each tile's own `gate` from the catalogue, through ONE shared
+`isRenderable` predicate consumed by the board AND the shelf. ★★ IT WAS INLINE IN TWO PLACES AND THEY
+DRIFTED — this bullet said "INLINE, with no shared helper" and went on saying it after the drift was
+fixed. The shelf tested only that the id was a KNOWN tile, so a gated-off HIDDEN tile still listed a
+chip, counted toward "N hidden", and offered a Restore that made the chip vanish with nothing appearing
+— the board's own filter dropped it again. ★ The visible consequence of the fix is that the shelf's
+count now SHRINKS when a module is switched off: a hidden tile whose gate is off leaves the shelf too,
+and comes back the moment the module returns (storage is still gate-free, so it keeps its place).
+★★ There was an earlier shared helper too: a catalogue-order `liveTiles(gate)` export in `dashboard-tiles.ts`, which
 three comments here named as "the render layer filter" while NOTHING called it. It is DELETED. The
 claim survived review because `liveTiles` was a real export and `docs:symbols:check` only proves a
 backticked NAME exists, never that a claim about it is true — a green symbol gate is not coverage of a
 claim. ★ Do not reintroduce it: the panel filters PLACEMENTS in board order and additionally requires
 a rendered body, so a catalogue-order list is a different function, not a shareable one.
+★★ THAT SECOND CONJUNCT IS REDUNDANT AT EVERY TILE TODAY — it is not, as this file and the predicate's
+own docstring both used to say, a safety net. `buildTileBodies` builds TEN of its eleven bodies as
+React ELEMENTS unconditionally, and an element whose component renders `null` is still non-null, so
+`bodies[id] != null` cannot see it; the eleventh, `completionTrend`, is the one ternary, and its gate
+(`hasCompletionTrend` = `completionSeries.length >= 2 && !noActiveScope`) is STRICTLY STRONGER than the
+body's own `length >= 2`, so the gate has already excluded every null case. Count the two shapes:
+`awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx | grep -cE '^    [a-zA-Z]+: \('`
+returns 10 against 11 keys (measured 2026-08-15). It is KEPT as the other half of a two-sided contract
+— a body that turns conditional without its gate following would otherwise render empty tile chrome —
+but NOTHING enforces the redundancy, so a new tile still has to get its gate right.
 
 ★★ **THE TILE CHROME OWNS THE FRAME AND THE TITLE** — `dashboard-tile.tsx` draws the bordered
 `<section>` and renders the `<h3>` — so a body in `dashboard-tile-bodies.tsx` must be UNBOXED and

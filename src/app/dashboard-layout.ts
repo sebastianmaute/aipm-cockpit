@@ -11,11 +11,15 @@
  * `resizeTile`, each pinned by its own "returns the same object" test.
  * **`reconcile` IS NOT ONE OF THEM** and never has been: it allocates a fresh
  * `{v, board, hidden}` on EVERY non-null input, identical content or not. That
- * costs nothing today because both of its call sites are LOADS (`readLayout`,
- * reached from the lazy `useState` initialiser and from the project-switch
- * render reconcile), which discard the input anyway — but a persist-skip built
- * on `next !== stored` would fire on every load. So do not build one, and do
- * not read the mutators' contract as covering it.
+ * costs nothing today because its ONE production call site is a LOAD —
+ * `readLayout` in `use-dashboard-layout.ts`, which discards the input anyway.
+ * ★ The TWO call sites belong to `readLayout`, not to this function: the lazy
+ * `useState` initialiser and the project-switch render reconcile. An earlier
+ * revision here attributed both to `reconcile`, which sends a reader looking for
+ * a second caller that does not exist (`grep -rn "reconcile(" src/app --include=*.ts
+ * --include=*.tsx | grep -v '\.test\.'` returns the declaration and one call).
+ * A persist-skip built on `next !== stored` would fire on every load, so do not
+ * build one, and do not read the mutators' contract as covering it.
  */
 import { reorderIds } from "./list-reorder";
 import { DASHBOARD_TILES, tileById, type DashboardTileId, type TileSpan } from "./dashboard-tiles";

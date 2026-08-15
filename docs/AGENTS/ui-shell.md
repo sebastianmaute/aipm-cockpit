@@ -324,14 +324,21 @@
   handler. So a surface's ABSENCE from that grep now carries two opposite meanings the greps cannot
   separate — routed through the hook (correct), or carrying no drag at all. What it still enumerates is
   the INLINE handlers — EIGHT of the 15 — and each of those does pair with a `setData` in the second
-  grep, which returns exactly eight non-test hits: gantt rows (1), the resource-calendar band (1) and
+  grep. ★★ THAT SECOND GREP NEEDS THE TEST FILTER THIS LINE USED TO OMIT — as quoted above it returns
+  **35**; with `| grep -v '\.test\.'` appended it returns eight (measured 2026-08-15). The enumeration
+  was right and the command was not, which is the worse way round: a reader runs it, gets 35, and
+  distrusts a correct list. Eight non-test hits: gantt rows (1), the resource-calendar band (1) and
   its rows (3), the stakeholder map (1), and both kanban surfaces (1 each). The remaining SEVEN hits are
   not handlers at all: FOUR are a component merely FORWARDING an `onDragStart` prop on behalf of its
   callers (`drag-handle.tsx`'s type, destructure and JSX, plus `dashboard-tile.tsx`'s `TileHandleProps`
   type), and THREE are comments — one in each gantt file and one in `dashboard-tile.tsx`.
-  ★ Add `--include=*.ts` before concluding anything about the hook itself: that is where its five call
-  sites live (`grep -rn "useListReorderDnd<" src/app --include=*.tsx | grep -v '\.test\.'` finds them —
-  `budget-panel.tsx`, `reports.tsx`, `roles-editor.tsx` twice, `dashboard-panel.tsx`).
+  ★ ALL FIVE CALL SITES ARE `.tsx`, and an earlier revision of this line said the opposite — "add
+  `--include=*.ts` before concluding anything about the hook itself: that is where its five call sites
+  live", refuted by the command in its own parenthetical.
+  `grep -rn "useListReorderDnd<" src/app --include=*.tsx | grep -v '\.test\.'` returns all five
+  (`budget-panel.tsx`, `reports.tsx`, `roles-editor.tsx` twice, `dashboard-panel.tsx`); the same grep at
+  `--include=*.ts` returns ONE line, the hook's own `export function` in `use-list-reorder-dnd.ts`. So
+  `--include=*.ts` is what you add to reach the DEFINITION — never the call sites (measured 2026-08-15).
   ★★ A per-row drag handle needs a row-UNIQUE accessible name. Reports gave every handle the same
   `reorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
   asserting the names are DISTINCT is the only detector — and note every other test in that file finds its

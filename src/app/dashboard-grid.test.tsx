@@ -43,9 +43,14 @@ describe("span class tables", () => {
  * catches the same defect one layer down, by measuring the geometry.
  *
  * Same pattern as the DOM-free guards in `rich-text-plain.test.ts` and
- * `document-model.test.ts`: strip comments first, then scan CODE — this file's
- * own docstring says `col-span-${w}` twice, and an unstripped scan would fail
- * against perfectly correct source.
+ * `document-model.test.ts`: strip comments first, then scan CODE. ★ The strip
+ * is needed because of the file being SCANNED, not this one: the scan reads
+ * `dashboard-grid.tsx`, whose own header warns against `col-span-${w}` — once,
+ * in prose (`grep -c 'col-span-\${w}' src/app/dashboard-grid.tsx`). An
+ * unstripped scan would fail against perfectly correct source. An earlier
+ * revision of this docstring blamed "this file's own docstring", which is a
+ * different file and a different count, and would leave anyone verifying the
+ * claim measuring the wrong thing.
  */
 describe("span class tables (source form)", () => {
   const code = readFileSync(join(import.meta.dirname, "dashboard-grid.tsx"), "utf8")

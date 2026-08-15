@@ -311,6 +311,23 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // on purpose (`useDashboardLayout` takes no `gate`): a gate decides what
   // RENDERS, never what is STORED, so the hidden tile keeps its place and
   // reappears on the shelf the moment its module is switched back on.
+  //
+  // ★★★ THE `bodies[id] != null` HALF IS REDUNDANT AT EVERY TILE TODAY — do not
+  // read it as a safety net, which is what this comment used to call it. TEN of
+  // the eleven bodies are React ELEMENTS built unconditionally, and an element
+  // whose component renders `null` is still a non-null element, so the check
+  // cannot see it. The eleventh, `completionTrend`, is the one ternary
+  // (`… >= 2 ? (…) : null`) — and its gate, `hasCompletionTrend`, is
+  // `completionSeries.length >= 2 && !noActiveScope`, i.e. STRICTLY STRONGER
+  // than the body's own condition, so the gate has already excluded every input
+  // that would make the body null. Count the two shapes with:
+  //   awk '/^export function buildTileBodies/,0' src/app/dashboard-tile-bodies.tsx \
+  //     | grep -cE '^    [a-zA-Z]+: \('
+  // (10, against 11 keys total.) ★★ It is KEPT as the second half of a two-sided
+  // contract: a body that becomes conditional without its gate following would
+  // otherwise render empty tile chrome — a frame and a heading over nothing.
+  // NOTHING ENFORCES THE REDUNDANCY, so a new tile still has to get its gate
+  // right; this predicate only stops the failure being visible.
   const isRenderable = (id: DashboardTileId): boolean =>
     (tileById(id)?.gate(gate) ?? false) && bodies[id] != null;
   const visible: PlacedTile[] = reorder.previewOrder
