@@ -35,9 +35,8 @@ export interface DashboardLayoutApi {
  * `reconcile` takes ONE argument because a gate decides what RENDERS, never what
  * is STORED — a gated-off tile keeps its stored position so switching Budget off
  * and on again does not lose it. The render layer filters (`dashboard-panel.tsx`
- * tests each placed tile's own gate; the equivalent `liveTiles` helper is
- * exported but uncalled); this hook does not, so a `gate` option would be unused
- * here, and an unused option
+ * tests each placed tile's own gate, inline — there is no shared helper); this
+ * hook does not, so a `gate` option would be unused here, and an unused option
  * is fatal at `--max-warnings=0`.
  *
  * ★ Popout is read-only — it never persists, mirroring `use-landing-delta`.

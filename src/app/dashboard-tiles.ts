@@ -80,8 +80,3 @@ export const DASHBOARD_TILES: readonly TileSpec[] = [
 export function tileById(id: DashboardTileId): TileSpec | undefined {
   return DASHBOARD_TILES.find((t) => t.id === id);
 }
-
-/** The tiles that exist for this project, in catalogue order. */
-export function liveTiles(gate: TileGateInput): readonly TileSpec[] {
-  return DASHBOARD_TILES.filter((t) => t.gate(gate));
-}

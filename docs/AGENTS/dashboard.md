@@ -71,11 +71,13 @@ the class and run that spec before relying on either sentence.
 that reason, and `dashboard-layout.test.ts` pins its arity so the parameter cannot creep back: a
 gated-off tile KEEPS its stored position, so switching Budget off and on again does not lose the burn
 tile's place. `useDashboardLayout` has no `gate` option either. Filtering happens at RENDER, in
-`dashboard-panel.tsx`, against each tile's own `gate` from the catalogue. ★★ Three comments
-(`dashboard-layout.ts`, `use-dashboard-layout.ts`, `e2e/seed-content.spec.ts`) say "the render layer
-filters (`liveTiles`)" — `liveTiles` is a real export, so `docs:symbols:check` is green over that
-sentence, but NOTHING CALLS IT (`grep -rn "liveTiles(" src e2e` finds no call site). Wire it or drop the
-claim; a green symbol gate is not coverage of a claim.
+`dashboard-panel.tsx`, against each tile's own `gate` from the catalogue — INLINE, with no shared
+helper. ★★ There was one: a catalogue-order `liveTiles(gate)` export in `dashboard-tiles.ts`, which
+three comments here named as "the render layer filter" while NOTHING called it. It is DELETED. The
+claim survived review because `liveTiles` was a real export and `docs:symbols:check` only proves a
+backticked NAME exists, never that a claim about it is true — a green symbol gate is not coverage of a
+claim. ★ Do not reintroduce it: the panel filters PLACEMENTS in board order and additionally requires
+a rendered body, so a catalogue-order list is a different function, not a shareable one.
 
 ★★ **THE TILE CHROME OWNS THE FRAME AND THE TITLE** — `dashboard-tile.tsx` draws the bordered
 `<section>` and renders the `<h3>` — so a body in `dashboard-tile-bodies.tsx` must be UNBOXED and

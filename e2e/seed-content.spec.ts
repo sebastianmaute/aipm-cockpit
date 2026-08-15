@@ -137,8 +137,9 @@ test("seeded timelog project links reach the app, not just IndexedDB", async ({ 
 });
 
 // ★★ The Dashboard's board is the newest instance of this file's whole premise.
-// It is in A11Y_VIEWS, but its tiles are GATED — `liveTiles` drops any tile whose
-// gate is off, and several gates read seeded workspace data. A board that renders
+// It is in A11Y_VIEWS, but its tiles are GATED — `dashboard-panel.tsx` drops any
+// placed tile whose own `spec.gate(gate)` is off (an inline filter, no shared
+// helper), and several gates read seeded workspace data. A board that renders
 // ONE tile, or none, still scans green: there would be no per-tile controls left
 // for axe to look at, and the six Dashboard scans would report an improvement.
 //

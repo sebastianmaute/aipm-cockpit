@@ -105,9 +105,11 @@ export function resizeTile(
  * otherwise switching Budget off and on again would lose the burn tile's
  * position permanently. The render layer filters — `dashboard-panel.tsx` tests
  * each placed tile's own `spec.gate(gate)` — and this does not, nor can it with
- * no gate in scope. (`liveTiles` in `dashboard-tiles.ts` expresses the same
- * filter but is currently called by NOTHING: `grep -rn "liveTiles(" src e2e`.
- * Two comments named it as the render-layer filter; it is not one yet.)
+ * no gate in scope. ★ That filter is INLINE in the panel and there is no shared
+ * helper for it. A catalogue-order `liveTiles(gate)` export briefly existed here
+ * and was DELETED unused: the panel filters PLACEMENTS in board order and also
+ * requires a rendered body, so a catalogue-order list is not the same function
+ * and cannot be substituted for it. Do NOT reintroduce one.
  * The plan carried a `_gate`
  * parameter to document that; eslint rejects it (this repo has no
  * `argsIgnorePattern`, and CI runs `--max-warnings=0`), so the absence of the
