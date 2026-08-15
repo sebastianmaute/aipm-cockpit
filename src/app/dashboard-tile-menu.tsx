@@ -102,7 +102,14 @@ export function DashboardTileMenu({
   if (!spec) return null;
   const command = "w-full justify-start text-left";
   return (
-    <div aria-label={`${t(lang, "actionMoreActions")} – ${title}`} className="flex min-w-52 flex-col">
+    // ★★ NO `aria-label` HERE. This div has no role, so it maps to `generic`,
+    // on which ARIA PROHIBITS a name — and the name it carried was a duplicate
+    // anyway: `dashboard-panel.tsx` passes the identical string to
+    // `PopoverPanel`'s `ariaLabel`, which lands on the `role="dialog"` wrapping
+    // this content. ★ No gate can see the prohibited attribute: axe 4.12.1's
+    // `aria-prohibited-attr` is `wcag2a`, but a div WITH content lands in
+    // `incomplete`, and `e2e/a11y.spec.ts` reads `results.violations` only.
+    <div className="flex min-w-52 flex-col">
       <TileAxisGroup lang={lang} axis="w" tileTitle={title} value={w}
         lo={spec.minW} hi={spec.maxW} onPick={(v) => onResize("w", v)} />
       <TileAxisGroup lang={lang} axis="h" tileTitle={title} value={h}

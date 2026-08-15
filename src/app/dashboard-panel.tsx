@@ -309,6 +309,19 @@ export function DashboardPanel(props: DashboardPanelProps) {
     .filter((p): p is PlacedTile => p !== undefined && isRenderable(p.id));
   const visibleIds = visible.map((p) => p.id);
 
+  // ★★★ HIDING AND RESTORING BOTH DESTROY THE CONTROL THE USER JUST PRESSED, so
+  // one of them has to say where focus goes or the browser drops it on `<body>`.
+  // Hide is pressed inside the ⋮ popover, which unmounts along with the tile it
+  // was anchored to; Restore is pressed on a chip that the same click removes.
+  // `PopoverPanel` does NOT restore focus to its anchor on close (it focuses the
+  // first control on OPEN only), so nothing else was going to catch either case.
+  // The shelf disclosure is the destination for both: it is the one node in that
+  // subtree that never unmounts, it is where the hidden tile now lives, and it
+  // is the route back. The `.focus()` is safe to call synchronously because the
+  // toggle is already mounted and stays mounted across the state update.
+  const shelfToggleRef = useRef<HTMLButtonElement | null>(null);
+  const focusShelfToggle = () => shelfToggleRef.current?.focus();
+
   const [menu, setMenu] = useState<{ id: DashboardTileId; index: number; count: number } | null>(null);
   // PopoverPanel anchors off a ref; `DashboardTile` hands us the trigger ELEMENT,
   // so it is parked here on open (an event handler, never render).
@@ -472,9 +485,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 const spec = tileById(id);
                 return spec && isRenderable(id) ? [{ id, title: t(lang, spec.labelKey) }] : [];
               })}
-              onRestore={arrangement.restore}
+              onRestore={(id) => { arrangement.restore(id); focusShelfToggle(); }}
               dropProps={shelfDropProps}
               isDragging={reorder.isDragging}
+              toggleRef={shelfToggleRef}
             />
           </div>
         )}
@@ -514,6 +528,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               onHide={() => {
                 arrangement.hide(menu.id);
                 setAnnouncement(t(lang, "dashboardTileHidden", t(lang, menuSpec.labelKey)));
+                focusShelfToggle();
               }}
               onClose={closeMenu}
             />

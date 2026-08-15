@@ -807,6 +807,43 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
   });
 
+  it("lands focus on the shelf disclosure after hiding, instead of dropping it on <body>", async () => {
+    // ★★★ HIDING DESTROYS THE CONTROL THAT WAS PRESSED. Hide lives inside the ⋮
+    // popover, which is anchored to the tile's own ⋮ trigger — hiding unmounts
+    // BOTH, and `PopoverPanel` restores focus to nothing on close (it focuses
+    // the first control on OPEN only). Focus therefore fell to `<body>` and a
+    // keyboard user who had just navigated the menu was stranded at the top of
+    // the document, with no route back to the tile they had put on the shelf.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-hide-focus" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+
+    expect(screen.queryByTestId("tile-progress")).toBeNull();      // the trigger really did unmount
+    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) });
+    expect(document.activeElement).toBe(shelf);
+  });
+
+  it("lands focus back on the shelf disclosure after restoring a tile", async () => {
+    // ★★ THE MIRROR CASE, and the chip is the wrong destination for it: the
+    // Restore button the user pressed is removed by that very click, and the
+    // remaining chips shift underneath them. The disclosure is the one node in
+    // the shelf that survives both directions.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-restore-focus" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "dashboardTileRestore")} – Progress` }));
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) }),
+    );
+  });
+
   it("moves a tile earlier from the ⋮ menu and announces its new position", async () => {
     const user = userEvent.setup();
     render(<DashboardPanel {...fullProps} projectId="p-grid-move" />, { wrapper });

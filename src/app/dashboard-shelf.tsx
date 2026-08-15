@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { Button } from "./button";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { t, type Lang } from "./i18n";
@@ -39,7 +39,7 @@ import type { DashboardTileId } from "./dashboard-tiles";
 const TRAY_ID = "dashboard-shelf-tray";
 
 export function DashboardShelf({
-  lang, hidden, onRestore, dropProps, isDragging,
+  lang, hidden, onRestore, dropProps, isDragging, toggleRef,
 }: {
   lang: Lang;
   hidden: { id: DashboardTileId; title: string }[];
@@ -47,12 +47,22 @@ export function DashboardShelf({
   /** The grid's own drop handlers — the shelf never decodes the drag itself. */
   dropProps: TileDragProps;
   isDragging: boolean;
+  /** ★★ THE ONE NODE IN THIS SUBTREE THAT NEVER UNMOUNTS, exposed so the panel
+   *  can land focus on it after hide/restore. Both of those actions destroy the
+   *  control the user just pressed — the ⋮ menu's Hide button goes with the tile,
+   *  a chip's Restore button goes with the chip — and with nothing focused the
+   *  browser drops to `<body>`, stranding the keyboard user mid-task. The chip
+   *  list is the wrong target because its length changes underneath them; the
+   *  disclosure is stable in both directions. Optional, so the component still
+   *  renders standalone in its own tests. */
+  toggleRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const [open, setOpen] = useState(false);
   const restore = t(lang, "dashboardTileRestore");
   return (
     <div className="mt-2 flex flex-col items-end print:hidden">
       <button
+        ref={toggleRef}
         type="button"
         aria-expanded={open}
         aria-controls={TRAY_ID}
