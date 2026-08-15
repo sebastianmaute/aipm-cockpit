@@ -1,5 +1,5 @@
 "use client";
-import type { ReactNode, RefObject } from "react";
+import type { ReactNode } from "react";
 import type { DensityClasses } from "./dashboard-density";
 import type { TileSpan } from "./dashboard-tiles";
 
@@ -40,24 +40,32 @@ export const H_CLASS: Record<TileSpan, string> = {
  *
  * ★ Spacing comes from the density classes, never from a literal `gap-*`: a
  * literal would ignore compact mode.
+ *
+ * ★★★ THIS RENDERS **NO SCROLLER OF ITS OWN**, and re-adding one is the defect
+ * it used to have. It wrapped the grid in `min-h-0 overflow-y-auto` and handed
+ * that div to `useListReorderDnd` as the drag `scrollRef` — but the wrapper is a
+ * block-level child of a plain block, so it sizes to its content,
+ * `scrollHeight === clientHeight`, and `useDragAutoscroll`'s `scrollTop +=`
+ * could never move it. Dragging a tile toward the bottom of a long board did
+ * nothing. The real scroller is the enclosing `ReportCard`'s own `contentRef`
+ * (that prop's docstring says so, and `reports.tsx` wires it the same way), so
+ * the panel passes ONE ref to both the card and the hook. Nesting a second
+ * scroller here would not merely be redundant — it would take the drag
+ * autoscroll back to the element that cannot scroll.
  */
 export function DashboardGrid({
   dc,
-  scrollRef,
   children,
 }: {
   dc: DensityClasses;
-  scrollRef?: RefObject<HTMLDivElement | null>;
   children: ReactNode;
 }) {
   return (
-    <div ref={scrollRef} className="min-h-0 overflow-y-auto">
-      <div
-        data-testid="dashboard-grid"
-        className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 grid-flow-row-dense ${dc.tileRow} ${dc.sectionGap}`}
-      >
-        {children}
-      </div>
+    <div
+      data-testid="dashboard-grid"
+      className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 grid-flow-row-dense ${dc.tileRow} ${dc.sectionGap}`}
+    >
+      {children}
     </div>
   );
 }

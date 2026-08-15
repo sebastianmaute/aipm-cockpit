@@ -15,6 +15,25 @@ vi.mock("./activity-log", async (orig) => ({
   loadActivityLog: vi.fn(() => []),
 }));
 
+/**
+ * The `scrollRef` every render hands `useListReorderDnd`, captured through a
+ * PASS-THROUGH spy so the real hook still runs and every other test in this
+ * file is unaffected. There is no other seam: the ref is created and consumed
+ * entirely inside `DashboardPanel`, and jsdom has no layout, so nothing can
+ * observe the resulting scroll.
+ */
+const reorderScrollRefs: (React.RefObject<HTMLElement | null> | undefined)[] = [];
+vi.mock("./use-list-reorder-dnd", async (orig) => {
+  const actual = await orig<typeof import("./use-list-reorder-dnd")>();
+  return {
+    ...actual,
+    useListReorderDnd: (opts: Parameters<typeof actual.useListReorderDnd>[0]) => {
+      reorderScrollRefs.push(opts.scrollRef);
+      return actual.useListReorderDnd(opts);
+    },
+  };
+});
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <FiltersProvider>
@@ -44,6 +63,54 @@ describe("DashboardPanel", () => {
       { wrapper },
     );
     expect(container).toBeTruthy();
+  });
+
+  it("autoscrolls the CARD's scroller during a drag, with no nested scroller under it", () => {
+    // ★★★ THE REF MUST REACH THE ONE ELEMENT THAT CAN ACTUALLY SCROLL.
+    // `ReportCard` is `flex h-full min-h-0 flex-col overflow-hidden`, so its
+    // `contentRef` child (`min-h-0 flex-1 overflow-y-auto`) has a BOUNDED height
+    // and a real `scrollTop`. `DashboardGrid` used to wrap itself in its own
+    // `overflow-y-auto` div and hand THAT to the hook — a block-level child of a
+    // plain block, which sizes to its content, so `scrollHeight === clientHeight`
+    // and `useDragAutoscroll`'s `scrollTop +=` could never move it. Dragging a
+    // tile toward the bottom of a long board did nothing.
+    //
+    // ★★ jsdom HAS NO LAYOUT, so no assertion anywhere can watch the scroll
+    // happen. Identity is the whole of what is checkable: the ref the hook
+    // autoscrolls is the same node `ReportCard` scrolls. The second half is a
+    // separate defect — a re-added wrapper would be a NESTED scroller, which
+    // swallows the wheel and takes the drag back to a dead element.
+    reorderScrollRefs.length = 0;
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    // `hideToolbar` is set, so the card's content div is its only child.
+    const card = document.querySelector(".print-root")!;
+    const content = card.firstElementChild as HTMLElement;
+    expect(content.className).toMatch(/overflow-y-auto/);
+
+    const captured = reorderScrollRefs.at(-1);
+    expect(captured, "the panel passes no scrollRef at all").toBeDefined();
+    expect(captured!.current).toBe(content);
+
+    const grid = screen.getByTestId("dashboard-grid");
+    expect(content.contains(grid)).toBe(true);
+    for (let el: HTMLElement | null = grid; el && el !== content; el = el.parentElement) {
+      expect(String(el.className), `${el.tagName} nests a second scroller`).not.toMatch(/overflow-/);
+    }
   });
 
   it("renders lettered RAG badges on the status pills", () => {

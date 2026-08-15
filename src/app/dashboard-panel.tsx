@@ -249,7 +249,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
   // Hoisted: `react-hooks/exhaustive-deps` rejects an `obj.member` dependency,
   // and the reorder hook reads this on every render anyway.
   const layout = arrangement.layout;
-  const gridScrollRef = useRef<HTMLDivElement>(null);
+  // ★★★ THE DRAG AUTOSCROLLER IS THE **CARD'S** CONTENT DIV, NOT ANYTHING THE
+  // GRID OWNS. `ReportCard` is `flex h-full min-h-0 flex-col overflow-hidden`
+  // and its `contentRef` div is the `min-h-0 flex-1 overflow-y-auto` child — the
+  // one element in this subtree with a bounded height and therefore a real
+  // `scrollTop`. `DashboardGrid` used to wrap itself in its own
+  // `overflow-y-auto` div and hand THAT to the hook; a block-level child of a
+  // plain block sizes to its content, so `scrollHeight === clientHeight` and
+  // `useDragAutoscroll`'s `scrollTop +=` was a permanent no-op. One ref goes to
+  // both the card and the hook, exactly as `reports.tsx` does it.
+  const cardScrollRef = useRef<HTMLDivElement>(null);
   const boardIds = layout.board.map((p) => p.id);
   const reorder = useListReorderDnd<DashboardTileId>({
     ids: boardIds,
@@ -257,7 +266,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     // list cannot express the state. The pair form lets the layout engine own
     // the mutation and keep each tile's w/h.
     onMove: arrangement.move,
-    scrollRef: gridScrollRef,
+    scrollRef: cardScrollRef,
     keyboard: false, // the ⋮ menu is this surface's keyboard reorder path
     disabled: arrangement.readOnly,
   });
@@ -407,6 +416,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     <ReportCard
       lang={lang}
       sizeRef={sizeRef}
+      contentRef={cardScrollRef}
       onResetSize={resetSize}
       hideToolbar
     >
@@ -471,7 +481,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
         {/* The arrangeable tile grid — REPLACES the fixed masonry flow. Order is
             the whole placement model (`grid-auto-flow: row dense`), so there are
             no coordinates: drag to reorder, ⋮ to resize/hide. */}
-        <DashboardGrid dc={dc} scrollRef={gridScrollRef}>
+        <DashboardGrid dc={dc}>
           {visible.map((p, i) => {
             const spec = tileById(p.id)!;
             return (
