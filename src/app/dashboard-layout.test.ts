@@ -59,3 +59,34 @@ describe("restoreTile", () => {
     expect(restoreTile(l, "kpi")).toBe(l);
   });
 });
+
+import { resizeTile } from "./dashboard-layout";
+
+describe("resizeTile", () => {
+  it("sets one axis without touching the other", () => {
+    const next = resizeTile(layout(), "raid", "h", 4);
+    expect(next.board.find((t) => t.id === "raid")).toEqual({ id: "raid", w: 2, h: 4 });
+  });
+
+  it("clamps a value above the tile's max", () => {
+    // raid maxH is 4
+    const next = resizeTile(layout(), "raid", "h", 4);
+    expect(next.board.find((t) => t.id === "raid")!.h).toBe(4);
+  });
+
+  it("clamps a value below the tile's min", () => {
+    // kpi minW is 2
+    const next = resizeTile(layout(), "kpi", "w", 1);
+    expect(next.board.find((t) => t.id === "kpi")!.w).toBe(2);
+  });
+
+  it("returns the same object when the value does not change", () => {
+    const l = layout();
+    expect(resizeTile(l, "raid", "w", 2)).toBe(l);
+  });
+
+  it("returns the same object for a tile not on the board", () => {
+    const l = layout();
+    expect(resizeTile(l, "burn", "w", 2)).toBe(l);
+  });
+});

@@ -65,3 +65,34 @@ export function restoreTile(
   board.splice(at, 0, { id, w: spec.w, h: spec.h });
   return { ...layout, board, hidden: layout.hidden.filter((h) => h !== id) };
 }
+
+/** Clamp `v` into `[lo, hi]`, keeping the TileSpan type. */
+function clampSpan(v: number, lo: TileSpan, hi: TileSpan): TileSpan {
+  return Math.max(lo, Math.min(hi, Math.round(v))) as TileSpan;
+}
+
+/**
+ * Set one axis of one tile, clamped to that tile's own limits.
+ *
+ * ★ The axes are INDEPENDENT by design. A single named-preset list conflated
+ * them, so "taller, same width" was only expressible where the table happened
+ * to hold that combination.
+ */
+export function resizeTile(
+  layout: DashboardLayout,
+  id: DashboardTileId,
+  axis: "w" | "h",
+  value: number,
+): DashboardLayout {
+  const i = layout.board.findIndex((t) => t.id === id);
+  if (i < 0) return layout;
+  const spec = tileById(id);
+  if (!spec) return layout;
+  const next = axis === "w"
+    ? clampSpan(value, spec.minW, spec.maxW)
+    : clampSpan(value, spec.minH, spec.maxH);
+  if (layout.board[i][axis] === next) return layout;
+  const board = [...layout.board];
+  board[i] = { ...board[i], [axis]: next };
+  return { ...layout, board };
+}
