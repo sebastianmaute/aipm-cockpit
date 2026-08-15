@@ -939,16 +939,34 @@ describe("useStorageBackend — broadcast send gating", () => {
 // The log is assembled into a `Workspace` literal at FIVE sites in
 // use-storage-backend.ts — re-count, don't trust this number:
 //     grep -cE "\{ *tasks, *raid" src/app/use-storage-backend.ts
-// The save effect and the storage-switch conversion are covered by their own
-// tests; the three below cover the remaining three, each of which was
-// mutation-checked as unpinned when it was written (dropping `activityLog` from
-// it turned no test in this file red).
-// ★ 2 + 3 = 5. An earlier revision of this comment said NINE in the same breath
-//   as "the save effect and the switch … the three below", contradicting itself
-//   one clause later, and quoted a "104/104" pass total that matched no commit
-//   (`grep -cE "^\s*it\(" ` gives 103 at 15a0e93c and 109 today). A suite total
-//   rots on the next added test and names no test — quote the mutation and the
-//   test it turns red, never a pass count.
+// FOUR of the five are real write paths and each is pinned by exactly ONE named
+// test. The fifth is pinned by none and cannot be. Measured by mutation — delete
+// `, activityLog` from one literal, run this file, record what goes red — and the
+// site is named by its ENCLOSING BINDING, never a line number, which the next
+// insertion into that file silently invalidates:
+//   doSave()'s backend.save(…)     → "persists an ACTIVITY-LOG-ONLY change …"
+//   onPickStorageFile's guardedWrite
+//                                  → "onPickStorageFile writes the activity log …"
+//   onRequestStorageSwitch's guardedWrite
+//                                  → "carries the activity log across a storage conversion"
+//   currentWorkspace()'s return    → "migrateCurrentProjectToTurso carries the activity log …"
+//   the save effect's `outgoing`   → nothing, and see below
+// ★★ `outgoing` IS NOT A WRITE PATH — it is never handed to a backend. Its only
+//   two readers are nonEmptyCollectionCount(outgoing) and
+//   workspaceRecordCount(outgoing), and NEITHER counter looks at `activityLog`:
+//   workspace.ts excludes it from both on purpose, so an auto-appended log entry
+//   can never move the mass-deletion thresholds. Dropping the key there leaves
+//   every test in this file green (measured). That is not a coverage gap to
+//   close — a test pinning it would have to assert on a value no consumer reads.
+// ★ An earlier revision said "the three below cover the remaining three", which
+//   is arithmetic dressed as a mapping: this describe holds three tests and one
+//   of them ("registers an `activityLog` broadcast-sync channel") pins a CHANNEL
+//   NAME, not a Workspace literal — so 2 + 3 never reached 5. The same revision
+//   called its "104/104" pass total one that "matched no commit"; it was STALE,
+//   not fictional. `grep -cE "^\s*it\("` over this file returns 104 at 9eb32db5
+//   and the comment was authored at 15e95f09, where it already stood at 108.
+//   A suite total rots on the next added test and names no test — quote the
+//   mutation and the test it turns red, never a pass count.
 describe("useStorageBackend — activity log write paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();

@@ -1564,6 +1564,24 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   deliberately omits it. Three SLICES, four NAMES; a reader who stops at the count will think this line
   is wrong. ★ A range that stops at `setCalendarEvents` hides it and returns three — `setLoadedBackend`
   is deliberately the LAST call in `applyWorkspace`, so end the range at the function's close brace.
+  ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
+  ("extract the setter names … and `comm` them") while the code comment that carried the real command
+  lost it to a size-ratchet condense — and prose describing a command is not a command. It cannot go
+  back there: `use-storage-backend.ts` stands at 798 of the 800-line cap (`size:check` counts `wc -l`
+  plus one), and this file is outside that gate's `src` walk, so the command lives here.
+  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **28**
+  `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
+  `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
+  → `setActivityLog(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(`
+  ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
+  `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
+  `^  };$` end anchor there runs 616 lines and reports 38. And the first command's start pattern needs
+  the `const … = ` prefix: a bare `applyWorkspace` match starts at an earlier mention, spans 572 lines
+  and reports 31. ★ Its `^  ` anchor is DORMANT today and still worth keeping: the code comment that
+  used to quote this command sat inside the very file it greps, so its own copy of the start pattern
+  opened a second range (unanchored: 32 setters over 90 lines at `4cd14c14^`). That copy is gone, the
+  file now holds one occurrence, and anchored and unanchored both return 28 — so the hazard is quoting
+  a command in the file it scans, not the anchor by itself.
   ★★ AND "deliberately omitted ⇒ preserved" is true of `activityLog` ALONE — do not read it as a
   property of restore. `getVersionPayload` captures 18 slices while `applyRestoredWorkspace` fans out
   24, so `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
