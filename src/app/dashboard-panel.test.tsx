@@ -864,6 +864,50 @@ describe("DashboardPanel arrangeable tile grid", () => {
     expect(announced).toContain(t(EN, "dashboardTileMoved", title, "2", String(before.length)));
   });
 
+  it("returns focus to the moved tile's own ⋮ trigger, so the next move needs no re-navigation", async () => {
+    // ★★★ THE ⋮ MENU IS THIS SURFACE'S ENTIRE KEYBOARD REORDER PATH (the drag
+    // primitive's arrow-key option is deliberately off here), so where focus
+    // lands after a move IS the feature. The popover closes on every move
+    // command and `PopoverPanel` restores focus to nothing on close, so focus
+    // fell to `<body>` and a keyboard user had to navigate back to the tile
+    // between every single press.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-move-focus" />, { wrapper });
+    const before = Array.from(document.querySelectorAll('[data-testid^="tile-"]'))
+      .map((el) => el.getAttribute("data-testid"));
+    const target = before[2]!;                       // never index 0 — Move earlier is disabled there
+    const title = screen.getByTestId(target).getAttribute("aria-label")!;
+
+    await user.click(screen.getByRole("button", { name: kebab(title) }));
+    const menu = screen.getByRole("dialog", { name: kebab(title) });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileMoveEarlier") }));
+
+    // The tile survives a move — only the popover goes — so the destination is
+    // the trigger the user opened, found by TILE IDENTITY rather than by a node
+    // captured before the reorder.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: kebab(title) }));
+  });
+
+  it("keeps focus on the size control through a resize, WITHOUT any focus machinery", async () => {
+    // ★★ RESIZE IS NOT THE MOVE CASE AND MUST NOT BE "FIXED" LIKE ONE. The size
+    // radios do NOT close the popover (`TileAxisGroup`'s onPick calls onResize
+    // and nothing else), so the control the user pressed is still mounted and
+    // keeps focus by itself — and the popover is portaled, so the tile
+    // re-rendering at its new span cannot disturb it. Measured before writing
+    // the move fix, precisely so no machinery was added for a defect that is
+    // not there. This test is the pin: if a future change makes resize close the
+    // menu, it goes red and the decision gets made deliberately.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-resize-focus" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    const taller = within(menu).getByRole("radio", { name: /height 3/i });
+    await user.click(taller);
+
+    expect(screen.getByRole("dialog", { name: kebab("Progress") })).toBeInTheDocument();  // still open
+    expect(document.activeElement).toBe(taller);
+  });
+
   it("ends the drag when a tile is dropped onto the shelf", () => {
     // ★★★ Hiding UNMOUNTS the tile whose grip owns `onDragEnd`, and a detached
     // node's events never reach React's root container — so nothing would reset

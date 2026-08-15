@@ -44,7 +44,7 @@ export interface TileHandleProps {
  * `budget-panel.tsx` rather than inventing a third shape.
  */
 export function DashboardTile({
-  id, title, w, h, lang, readOnly, dragProps, handleProps, onOpenMenu, children,
+  id, title, w, h, lang, readOnly, dragProps, handleProps, onOpenMenu, menuButtonRef, children,
 }: {
   id: DashboardTileId;
   title: string;
@@ -56,6 +56,13 @@ export function DashboardTile({
   handleProps: TileHandleProps;
   /** Receives the trigger itself, so the caller can anchor its popover on it. */
   onOpenMenu: (anchor: HTMLElement) => void;
+  /** ★★ Registers the ⋮ trigger against this tile's ID, so the caller can find
+   *  it again LATER — after a move has closed the popover and re-rendered the
+   *  board. `onOpenMenu` cannot serve that: it hands over a node captured
+   *  before the reorder, and focusing a node the commit has replaced or
+   *  detached is a silent no-op. Called with `null` on unmount, so the caller's
+   *  map cannot accumulate detached nodes. */
+  menuButtonRef?: (el: HTMLButtonElement | null) => void;
   children: ReactNode;
 }) {
   const moveLabel = `${t(lang, "reorderHandle")} – ${title}`;
@@ -89,6 +96,7 @@ export function DashboardTile({
         </h3>
         {!readOnly && (
           <button
+            ref={menuButtonRef}
             type="button"
             aria-haspopup="menu"
             aria-label={menuLabel}

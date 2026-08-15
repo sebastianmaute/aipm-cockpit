@@ -142,6 +142,33 @@ chooser, so each of those names carries the tile title; and inside ONE ⋮ menu 
 labelled "2", so `optionAriaLabel` has to carry the axis as well as the tile. Dashboard IS in axe
 `A11Y_VIEWS`, and the unit tests are still the only possible detector for this class.
 
+★★★ **EVERY ⋮ COMMAND THAT CLOSES THE POPOVER MUST SAY WHERE FOCUS GOES, AND THE DESTINATION IS NOT THE
+SAME FOR ALL OF THEM.** `PopoverPanel` focuses the first control on OPEN and restores focus to nothing on
+close — there is no focus-restore in it, `use-dismissable.ts` or `dismissal-stack.ts` — so a command that
+unmounts the panel drops focus on `<body>` unless the panel puts it somewhere. That stranded a keyboard
+user at the top of the document after using the menu that IS this surface's keyboard path (the drag
+primitive's own arrow keys are off here, `keyboard: false`). Three cases, each measured:
+• **Hide** → the shelf disclosure. The ⋮ trigger it was anchored to goes with the tile, and the shelf is
+  where the tile now lives. `DashboardShelf` takes a `toggleRef` for it — the one node in that subtree
+  that never unmounts.
+• **Restore** → the shelf disclosure again. The chip's own Restore button is removed by the click that
+  restores, and the remaining chips shift, so the chip list is the wrong target in both directions.
+• **Move** (earlier / later / first) → **the moved tile's own ⋮ trigger**, so a second press needs no
+  re-navigation. ★★ TWO THINGS MAKE THIS DIFFERENT FROM THE OTHER TWO. It fires from a `useEffect` keyed
+  on a fresh request object, NOT from the handler: React reorders a keyed list by MOVING the existing DOM
+  nodes and moving a focused element blurs it, so a synchronous focus would be undone by the very
+  re-render the move causes. And it resolves the trigger by TILE ID through a ref map
+  (`menuButtonRef` on `DashboardTile`), never through `menuAnchorRef` — that holds a node captured
+  BEFORE the reorder, and focusing a stale node is a silent no-op, i.e. the same defect one level down.
+  ★★★ jsdom CANNOT TELL THE TWO APART: the synchronous version passes the unit test. Measured, so do not
+  "simplify" it back on the strength of a green suite.
+★★ **RESIZE IS NOT IN THAT LIST AND MUST NOT BE ADDED TO IT.** `TileAxisGroup`'s `onPick` calls
+`onResize` and nothing else, so the size radios do NOT close the popover; the pressed control stays
+mounted and keeps focus by itself, and the panel is portaled so the tile re-rendering at its new span
+cannot disturb it. Verified before the move fix was written, precisely so no machinery was added for a
+defect that is not there, and pinned by a test that goes red if a future change makes resize close the
+menu.
+
 ★ **An axis where `min === max` renders NO chooser** — `TileAxisGroup` shows a static "fixed at N" line,
 because a row of values with all but one disabled reads as a broken control. No catalogue tile pins an
 axis today, so that branch is reachable ONLY through the exported `TileAxisGroup`, which is why it is

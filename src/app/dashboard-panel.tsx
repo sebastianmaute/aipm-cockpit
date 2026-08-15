@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReportCard } from "./report-table";
 import { buildDashboardInput, computeDashboard, hasNoActiveScope } from "./dashboard";
 import { useWorkspace } from "./workspace-context";
@@ -322,6 +322,36 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const shelfToggleRef = useRef<HTMLButtonElement | null>(null);
   const focusShelfToggle = () => shelfToggleRef.current?.focus();
 
+  // ★★★ A MOVE IS THE OTHER HALF OF THE SAME DEFECT, AND IT NEEDS A DIFFERENT
+  // MECHANISM. The move commands close the popover too, but the TILE survives —
+  // so the right destination is the tile's own ⋮ trigger, which keeps the user
+  // on the thing they just acted on and lets them press again without
+  // re-navigating. That is the entire point of the ⋮ being this surface's
+  // keyboard reorder path (`useListReorderDnd` is constructed with
+  // `keyboard: false` precisely because this menu IS that path).
+  //
+  // ★★★ IT MUST FIRE AFTER THE COMMIT, NOT IN THE HANDLER. React reorders a
+  // keyed list by MOVING the existing DOM nodes, and moving a focused element
+  // blurs it — so focusing synchronously inside `moveByDelta` would be undone
+  // by the very re-render the move causes. jsdom cannot tell the two apart
+  // (measured: the naive version passes the test), which is exactly why this is
+  // written the safe way rather than the way a green test would license.
+  //
+  // ★★ AND IT RESOLVES BY TILE IDENTITY, NOT A CAPTURED NODE. `menuAnchorRef`
+  // holds the element the menu was opened from — a node from BEFORE the
+  // reorder. Focusing a detached node is a silent no-op, i.e. this same defect
+  // one level down. The map is keyed by tile id and re-registered by React on
+  // every commit, so it is current by the time this effect runs.
+  //
+  // ★ A fresh object per request, never a bare id: two consecutive moves of the
+  // SAME tile must both re-run this, and `setState` with an equal id would not.
+  const triggerRefs = useRef(new Map<DashboardTileId, HTMLButtonElement>());
+  const [focusAfterMove, setFocusAfterMove] = useState<{ id: DashboardTileId } | null>(null);
+  useEffect(() => {
+    if (focusAfterMove === null) return;
+    triggerRefs.current.get(focusAfterMove.id)?.focus();
+  }, [focusAfterMove]);
+
   const [menu, setMenu] = useState<{ id: DashboardTileId; index: number; count: number } | null>(null);
   // PopoverPanel anchors off a ref; `DashboardTile` hands us the trigger ELEMENT,
   // so it is parked here on open (an event handler, never render).
@@ -342,6 +372,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
     const j = delta === "first" ? 0 : i + delta;
     if (j === i || j < 0 || j >= visibleIds.length) return;
     arrangement.move(id, visibleIds[j]);
+    setFocusAfterMove({ id });
     const spec = tileById(id);
     if (!spec) return;
     setAnnouncement(
@@ -457,6 +488,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 onOpenMenu={(anchor) => {
                   menuAnchorRef.current = anchor;
                   setMenu({ id: p.id, index: i, count: visible.length });
+                }}
+                menuButtonRef={(el) => {
+                  if (el) triggerRefs.current.set(p.id, el);
+                  else triggerRefs.current.delete(p.id);
                 }}
               >
                 {bodies[p.id]}
