@@ -120,8 +120,15 @@ export function reconcile(stored: DashboardLayout | null): DashboardLayout {
   if (!stored) return DEFAULT_LAYOUT;
 
   const known = new Map(DASHBOARD_TILES.map((t) => [t.id, t]));
-  const hidden = stored.hidden.filter((id) => known.has(id));
-  const hiddenSet = new Set(hidden);
+  // ★★ `hidden` NEEDS ITS OWN DE-DUPLICATION, not just the board's. The board
+  // loop below collapses a repeated id because it checks what it has already
+  // pushed; nothing did the same for the shelf, so a stored `["kpi","kpi"]`
+  // — which `hideTile` cannot produce but a merged/hand-edited/older blob can —
+  // came straight back out and the shelf rendered the same tile twice, with
+  // duplicate React keys. Found by the "exactly once" property test, not by
+  // review. Set preserves insertion order, so the shelf order survives.
+  const hiddenSet = new Set(stored.hidden.filter((id) => known.has(id)));
+  const hidden = [...hiddenSet];
 
   // 1. keep what still exists, clamped, minus anything also marked hidden
   const board: PlacedTile[] = [];

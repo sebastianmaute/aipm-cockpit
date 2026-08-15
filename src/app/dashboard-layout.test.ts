@@ -156,6 +156,19 @@ describe("reconcile", () => {
     expect(next.board.map((t) => t.id)).not.toContain("raid");
   });
 
+  it("collapses a duplicate id inside hidden, not just on the board", () => {
+    // ★ Found by the "exactly once" property test. `hideTile` cannot produce
+    // this, but a merged or hand-edited blob can, and the shelf then rendered
+    // the same tile twice under duplicate React keys.
+    const stored = { v: 1 as const, board: [], hidden: ["kpi" as const, "kpi" as const] };
+    expect(reconcile(stored).hidden.filter((id) => id === "kpi")).toHaveLength(1);
+  });
+
+  it("collapses a duplicate id on the board", () => {
+    const stored = { v: 1 as const, board: [{ id: "kpi" as const, w: 4 as const, h: 2 as const }, { id: "kpi" as const, w: 2 as const, h: 3 as const }], hidden: [] };
+    expect(reconcile(stored).board.filter((t) => t.id === "kpi")).toHaveLength(1);
+  });
+
   it("returns the default layout for null", () => {
     expect(reconcile(null).board.length).toBe(DASHBOARD_TILES.length);
   });
