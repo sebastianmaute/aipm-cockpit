@@ -476,6 +476,20 @@ export interface StorageBackend {
    */
   lastImportDroppedRows?: number;
   /**
+   * Optional: whether the LAST {@link load} hit an unterminated quote while
+   * decoding a **CSV** import. Distinct from
+   * {@link StorageBackend.lastImportDroppedRows} — a dropped row was malformed
+   * and rejected, whereas unbalanced quoting ABSORBS rows into one cell so they
+   * are never counted at all.
+   *
+   * ★ CSV ONLY — `lastImportDroppedRows` above also covers MD; this does not.
+   * `splitCsvSections` (csv-codecs-decode.ts) is the sole writer of
+   * `diag.unterminatedQuote`; `markdownToWorkspace` never sets it. So on MD —
+   * as on JSON — it is permanently `false`, NOT evidence of good quoting.
+   * Verify (assignment form): `grep -rn "diag\.unterminatedQuote =" src/app`.
+   */
+  lastImportUnterminatedQuote?: boolean;
+  /**
    * Optional: what the LAST {@link load} silently discarded to stay inside the
    * document caps. `entries` counts raw array entries past MAX_DOCUMENTS (an
    * upper bound — see DocTruncationDiag); `blocks` counts blocks past

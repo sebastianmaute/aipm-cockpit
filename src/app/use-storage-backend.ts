@@ -536,6 +536,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     await promise;
     try {
       const loaded = await backend.load(); // ★ NO reportFor: this path applies tasks+raid ONLY, never the loaded documents — raising the flag would warn about documents the user still has, lowering it would clear a warning that is still true of the live ones.
+      // ★★★ THAT ALSO SUPPRESSES IMPORT DIAGNOSTICS (dropped rows, unbalanced quotes), because both ride `reportFor` — and the truncation reason above does NOT carry over, so do not read it as covering this. `droppedRows` is a WORKSPACE-WIDE count bumped for EVERY section at FIVE sites across BOTH codec families — 3 CSV + 2 Markdown, and a CSV-only grep undercounts it (`grep -rn "droppedRows[+][+]" src/app --include=*.ts | grep -v "\.test\."` — bracketed so this comment is not itself a hit) — and the lines below apply `loaded.tasks` + `loaded.raid` LIVE, so a malformed CSV *or Markdown* file can land here having silently lost TASK or RAID rows the user is never told about. This is a KNOWN GAP, not a justified suppression: the two signals share one call, and splitting them (report the import loss without touching the §103 documents flag) is the fix — deliberately NOT done as part of a toast-ordering change. ★ Whoever does it must fire the `storageOpenedToast` below BEFORE the report; see the landmine on `TruncationOps.reportFor`. (One line — this file sits at the 800-line ratchet.)
       if (
         tasks.length > 0 &&
         !window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))
@@ -766,13 +767,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
       applyWorkspace(workspace, "raise", "merge"); // "merge": SAME project — a reload must not drop this device's entries.
+      // Confirm the manual recovery action succeeded (a bare re-render gives no feedback that the reload actually re-read the backend).
+      // ★★ BEFORE `reportFor`, not after — single-slot surface, see the landmine there. Safe to hoist past the await: `refreshBackendStatus` swallows every error, so this cannot report success over a status check that blew up.
+      emitToast("success", t(langRef.current, "reloadProjectSuccess"));
       truncationOps.reportFor(backend);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
       emitOutcome(null);
-      // Confirm the manual recovery action succeeded (a bare re-render gives no
-      // feedback that the reload actually re-read the backend).
-      emitToast("success", t(langRef.current, "reloadProjectSuccess"));
     } catch (err) {
       // onStorageOutcome raises the sticky banner; the toast is the transient
       // acknowledgement of THIS click (reload has no other toast path).

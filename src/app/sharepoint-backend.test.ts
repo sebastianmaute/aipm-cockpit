@@ -209,6 +209,36 @@ describe("SharePointBackend", () => {
     expect(ws.raid).toEqual([]);
   });
 
+  // ★★ THE 404 SHORT-CIRCUIT USED TO SKIP THE IMPORT-FLAG RESET, so a load of
+  // a file that had since been DELETED re-published the PREVIOUS load's
+  // `unterminatedQuote: true` and warned about an unclosed quotation mark in a
+  // file that no longer exists.
+  //
+  // ★★★ EACH FLAG NEEDS ITS OWN POSITIVE OBSERVABLE, and the fixture is what
+  // supplies it. An earlier fixture here carried the unterminated quote ALONE,
+  // so `lastImportDroppedRows` measured 0 on the DIRTY load already (measured,
+  // not reasoned) — the trailing `toBe(0)` then checked a value that had never
+  // left its default and could not tell "the 404 reset it" from "nothing ever
+  // set it". The id-less row is what makes that half real: it is dropped by the
+  // decoder, so the dirty load genuinely reports a non-zero count. Mirrors
+  // `DIRTY_CSV` in `local-file-backend.test.ts`. Mutate the FIXTURE, not just
+  // the code, when checking whether an absence assertion still bites.
+  const DIRTY_CSV =
+    '# TASKS\r\nid,taskName,blockers\r\n,No id at all,\r\n7,T7,"never closed';
+
+  it("load 404 clears the import flags a previous CSV load set", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.text(DIRTY_CSV)));
+    const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
+    await be.load();
+    expect(be.lastImportUnterminatedQuote).toBe(true);
+    expect(be.lastImportDroppedRows).toBeGreaterThan(0);
+
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    await be.load();
+    expect(be.lastImportUnterminatedQuote).toBe(false);
+    expect(be.lastImportDroppedRows).toBe(0);
+  });
+
   it("load 401 throws StorageNotReadyError with reauthenticate hint", async () => {
     server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 401 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);

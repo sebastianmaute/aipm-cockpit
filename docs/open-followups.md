@@ -149,7 +149,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
 | 103 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
 | 104 | `ai.documentWrite` activity rows are now written, but `activityViewOf` has NO production caller, so clicking one still navigates nowhere | AI document authoring S2 (`d7f1e0b9`) | S to wire, but the placement is a decision | open — the ROUTING FUNCTION was never called from production, so emitting the rows did NOT light the path up. Anyone who sees the rows start appearing will reasonably assume the deep-link works |
-| 105 | CSV section markers are matched on RAW LINES, so a newline inside a quoted cell switches the parser's section mid-row and the rest of the row decodes as absent | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | open — **MEASURED**, not reasoned: `blockers: "step one\n# RAID\nstep two"` → `"step one"`. No throw, no `ImportDiag`, nothing in the UI. Affects every entity the CSV backend writes; Markdown is immune BY CONSTRUCTION (`mdEscape` turns every newline into `<br>`) — do not "simplify" that away. The property this should satisfy is `describe.skip`ped with the measurement in the comment; unskip it when fixing |
+| 105 | ~~CSV section markers are matched on RAW LINES, so a newline inside a quoted cell switches the parser's section mid-row and the rest of the row decodes as absent~~ | property-based coverage (`!360`, no bump), found by `codec-roundtrip.property.test.ts` | M — silent data loss | **CLOSED 2026-08-16** — was **MEASURED**, not reasoned: `blockers: "step one\n# RAID\nstep two"` → `"step one"`, with no throw, no `ImportDiag` and nothing in the UI, across every entity the CSV backend writes. Fixed by `splitCsvLines` (`csv-line-scan.ts`), which breaks a line only outside a quoted cell; the property is now LIVE (the `describe.skip` this row used to point at is gone — the only remaining skip in `codec-roundtrip.property.test.ts` is §106's unrelated Markdown fixed-point one). ★ Markdown was immune BY CONSTRUCTION all along (`mdEscape` turns every newline into `<br>`) — do not "simplify" that away |
 | 106 | The Markdown codec is not a fixed point when bare CRs precede a newline — one CR is lost per save/load cycle with no edit in between | property-based coverage (`!360`, no bump) | XS | open — converges, and only ever loses CRs, so it sits well below §105. Recorded because "the stored value changed on a load that made no edit" later reads as corruption. ★ Found only at `numRuns: 1500`; the **deterministic companion is the reliable reproduction**, not the property, which is itself seed-dependent |
 | 107 | ~~`HTML_START` (8 tags) and `sanitizeTemplateHtml`'s `ALLOWED_TAGS` (11) disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup~~ | property-based coverage (`!360`, no bump) | M | **CLOSED 2026-08-10** — the one shared 8-tag classifier is GONE (the name `HTML_START` is retired; it survives only in comments). `html-start.ts` derives a regex PER SINK from that sink's own allow-list, and `descriptionHtml` / `sanitizeRichText` now REQUIRE the sink with no default, so tsc enumerated every call site instead of leaving one on a silent fallback. ★★★ READ THE ENTRY TO THE END: its retraction block is the only record of why widening the shared constant was wrong, and its closure note points at **§137** — storing the model's `<h1>` as real markup is correct and it converted a visible-but-lossless defect into a silent lossy one on a path this row never mentions. ★★★ THIS ROW'S LAST CLAUSE IS NOW HISTORY — it read "CLOSED MEANS 'THE CLASSIFIER IS FIXED', NOT 'THE PAYOFF IS DELIVERED'", because `sanitizeRichFields` applied the narrow **`note`** sink on both whole-object load boundaries and `<h1>Title</h1><p>body</p>` came back as `<p>&lt;h1&gt;Title&lt;/h1&gt;…</p>`. **§137 CLOSED that on 2026-08-11**: the `note` and `template` sinks merged into one `rich` sink and the narrow sanitizer is DELETED, so the payoff IS delivered for values written from now on. ★★ Values already stored escaped are NOT repaired — that residue is **§141** |
 | 108 | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag as well as split a surrogate pair | split out of §22 rather than folded in — same shape, strictly larger problem | S | open — the value is HTML, so a raw cut lands inside a tag (`<stro`) and stores malformed markup. Copy `capHtmlText`'s project → truncate → **re-wrap**, NOT `clipText` (correct only for plain text). ★★ Do NOT route it through `sanitizeText`: that fixes the surrogate half, leaves the mid-tag cut, and makes the call site LOOK guarded — the more dangerous state. Reachability narrow, unmeasured in the wild |
@@ -175,12 +175,29 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
 | 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
 | 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED 2026-08-12** — (b) closed the a11y-gate reachability gap; (a) built the roving-tabindex keyboard contract in `toolbar-roving.ts` + `rich-text-toolbar.tsx` and flipped `role="group"` to `role="toolbar"`, cutting the row from 15 tab stops to 1. Mutation-proved (portal guard 1 red, `tabIndex` ternary 3 red) and browser-proved (`e2e/rich-text-toolbar-keyboard.spec.ts`). Full closing detail in the entry below |
+| 150 | A BALANCED pair of stray quotes MISLABELS rows across a CSV section boundary instead of losing them | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open, **UNDECIDABLE — no fix is proposed**. A severity regression of §105's fix, not a new failure: the same file lost the same rows before it. Measured — one `"` in a task cell and one in a later milestone cell make quote state carry across the `# MILESTONES` marker, so milestones 6 and 7 import as TASKS (`taskName` `M6`/`M7`) and `milestones` comes back EMPTY. Silent on both sides of the fix (`droppedRows` 0, `unterminatedQuote` false). Needs a hand-edited/truncated/foreign file — `csvEscape` doubles every `"`, so a file we wrote cannot exhibit it |
+| 151 | "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted in eight places | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open, DOC-INTEGRITY — the generator installs JSDOM before its dynamic `import`, so the stated rationale for several DOM-free rules is dead. ★★★ **NOT a licence to delete those rules** — a rule with a false rationale can still be correct, and `csv-line-scan.ts` already re-grounded itself on a different argument. The stakes are §36(a) and §49, where the false claim is the reason an allow-list pass is NOT applied to a model-writable field; neither has been probed |
+| 152 | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports NO import loss, because the import signal and the §103 documents flag ride ONE call | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | open — the one load path of six with no `reportFor`, and its stated reason (documents-only, so neither raising nor lowering the flag would be true) is CORRECT for truncation and does NOT carry over to import diagnostics. Fix is to split the two signals. ★★ Even split, `droppedRows` is WORKSPACE-WIDE (FIVE increment sites — 3 CSV + 2 Markdown — no section attribution), so the count cannot say whether the lost rows were the tasks/RAID this path APPLIES or a section it DISCARDS. ★ Not in conflict with §103's "two loads deliberately do NOT report": that counts non-reporting EXITS, this counts load SITES |
 
-★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
-Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
-The two rows above were added because a new entry with no index row is a new entry nobody finds;
-backfilling the fourteen that are missing is real work and is not done here, so do NOT read a
-present row as evidence an entry is newer or more important than an absent one.
+★★ **The table's CONTIGUOUS run stops at §128 and has done since 2026-08-08.** Past that only §143,
+§144, §150, §151 and §152 carry an index row; §129–§142 and §145–§149 carry none.
+Reproduce: `for n in $(seq 129 152); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`
+— 24 entries, 5 rows, **19 missing**. Those four rows were added because a new entry with no index row
+is a new entry nobody finds; backfilling the nineteen that are missing is real work and is not done
+here, so do NOT read a present row as evidence an entry is newer or more important than an absent one.
+
+★★★ **THIS PARAGRAPH IS FALSIFIED BY EVERY ROW ADDED ABOVE IT, AND HAS ALREADY BEEN SO ONCE.** Its
+counts and its `seq` range are transcribed, not derived, so adding one row silently makes three
+statements wrong at once (the range, the row count, the missing count). §150's row did exactly that —
+it left this paragraph reading "two rows above", "fourteen missing" and a range ending at 144, all
+three false, and the paragraph went unchanged in the commit that broke it. ★★★ **§152's row then did
+it AGAIN, in a commit whose author had read this paragraph** — the range stayed at 151 and the count
+at "23 entries, 4 rows", both false the moment the row landed, and it was a cold REVIEW that caught it
+rather than the instruction sitting directly beneath the row. Three instances now. An instruction a
+reader must remember to obey is not a guard; treat this paragraph as the standing candidate for a real
+gate. **If you add a row above,
+re-run the command in this paragraph and rewrite every number it prints.** Nothing gates this:
+`docs:claims:check` only checks `path:LINE` citations, of which this paragraph has none.
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -3215,8 +3232,15 @@ and reserve a number for the heading, where one is unavoidable. When you must ch
 ★★ `snapshot.ts:211` (`pctComplete`) IS IN BOTH BUCKETS AND AN EARLIER REVISION FILED IT ONLY UNDER
 THIS ONE. The same assignment feeds the persisted snapshot AND the LIVE current-snapshot that
 `computeVariance` diffs against the baseline, so it reaches two rendered surfaces:
-`dashboard-panel.tsx:378` `VarianceSummary` (the Turso-gated Trends card in the dashboard masonry,
-which sits DIRECTLY AFTER the Progress `<Section>`) and the Trends view (`trends-panel.tsx`).
+`VarianceSummary` (declared in `variance-summary.tsx`, rendered by `dashboard-tile-bodies.tsx` as
+the body of the Turso-gated `trends` TILE) and the Trends view (`trends-panel.tsx`). ★ It used to be
+cited here as `dashboard-panel.tsx` line 378 (deliberately NOT written in `path:LINE` form — the
+ratchet would parse a citation this very sentence exists to retract), described as "the Turso-gated
+Trends card in the dashboard masonry, which sits DIRECTLY AFTER the Progress `<Section>`" — all
+three halves went stale in 0.240.0 when the
+arrangeable grid replaced the masonry (`git log -S VarianceSummary -- src/app/dashboard-panel.tsx`
+names the commit). The position claim cannot be repaired, only dropped: the grid is user-ordered, so
+the tile sits wherever that project's stored layout puts it.
 `computeVariance` (`snapshot.ts`) builds that row with `worseIfLower`, so a project baselined at 40%
 whose remaining work is then all cancelled rendered **"Percent complete −40%"** beside an AMBER dot,
 one card below a tile reading "No active scope" — delivery announced as having gone backwards on a
@@ -6321,32 +6345,47 @@ one-door-of-two shape this slice hit six times.
 
 ---
 
-## 105. CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row — open, silent data loss
+## 105. CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row — CLOSED 2026-08-16
 
-**Where:** `csv-codecs-decode.ts` `splitCsvSections`.
+**Where:** `csv-codecs-decode.ts` `splitCsvSections` — the block below is the **PRE-FIX** code, kept
+to show the defect; the quoted first line is today `const { lines, unterminatedQuote } = splitCsvLines(csv);`.
 
 ```ts
-const lines = csv.split(/\r?\n/);          // raw split, BEFORE any tokenizing
+const lines = csv.split(/\r?\n/);          // PRE-FIX: raw split, BEFORE any tokenizing
 for (const line of lines) {
   const trimmed = line.trimStart();
   // … 13-line comment elided — it is the one discussed below …
   if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
-  // …25 more markers
+  // …26 more markers
 ```
 
-★ Count reproduce: `grep -c "trimmed.startsWith(CSV_SECTION" src/app/csv-codecs-decode.ts` → **26**,
-so 25 follow the one shown. (An earlier revision of this entry said "24 more", derived by eye.)
+★ Count reproduce: `grep -c "trimmed.startsWith(CSV_SECTION" src/app/csv-codecs-decode.ts` → **27**,
+so 26 follow the one shown. (An earlier revision of this entry said "24 more", derived by eye.)
 
 The section splitter runs over **physical text lines**, before the CSV tokenizer. A quoted cell
 legitimately contains newlines, so its continuation lands on its own physical line — and if that
 continuation begins with a section marker, `startsWith` fires and the parser switches section
 **mid-row**. The remainder of the row is appended to the wrong buffer and decodes as absent.
 
-**Measured, not reasoned** (found by `codec-roundtrip.property.test.ts`):
+**Measured, not reasoned** (four tasks, one carrying the hostile value):
 
 ```
-blockers: "step one\n# RAID\nstep two"   →   "step one"
+tasks in  : 4      tasks out : 1      ids out : [1]
+blockers  : "step one"              droppedRows : 0
 ```
+
+★★ THE ORIGINAL ENTRY'S FIXTURE HAD ONE TASK AND THAT HID THE REAL DAMAGE. It
+reported only `blockers` truncating. Tasks 2–4 are destroyed outright, and a
+one-task fixture passes against a fix that still misroutes the rest.
+
+★★★ THE ROWS ARE ABSORBED, NOT REJECTED, which is why `droppedRows` was 0
+despite `decodeCsvSection` counting every reject. The split leaves an orphan `"`
+at the head of the next buffer; `parseCsv` reads it as an opening quote and
+swallows the entire rest of the section into ONE cell, which `decodeCsvSection`
+then takes as its header row — so `build` is never called and nothing is ever
+rejected. Any detector built on reject-counting, or on "rows found vs entities
+produced", is structurally blind to this class. Two such detectors were designed
+and discarded before the unterminated-quote signal was measured.
 
 Silent: no throw, no `ImportDiag` entry, nothing in the UI. `trimStart()` means leading whitespace
 does not protect the value either.
@@ -6366,9 +6405,23 @@ and any imported / AI-written / backend-converted workspace can carry a newline 
 mechanism is proven; the claim that a UI writer actually puts a newline in `blockers` is argued, not
 traced — settle that before pricing a fix.
 
-**Pinned:** `codec-roundtrip.property.test.ts` holds the property this SHOULD satisfy, `describe.skip`ped
-with the measurement in the comment. Confirmed to fail by unskipping before the claim was made.
-Unskip it when fixing.
+**Fixed** by `splitCsvLines` (`csv-line-scan.ts`), which splits on a break only
+when outside a quoted cell. ★★ Its `text.replace(/\r?\n/g, "\r\n")` first step
+is LOAD-BEARING: the old raw-split/rejoin turned a newline inside a quoted cell
+into CRLF by accident, and the live round-trip property pins that
+(`taskName: csvNewlines(v.taskName)`), so a splitter that keeps the cell intact
+without normalizing first turns those tests red. ★ A bare `\r` is deliberately
+untouched — `split(/\r?\n/)` did not break on one either, and normalizing it
+would collide with §106.
+
+**Reachability, now traced** (the entry previously flagged this as argued):
+`blockers` is a `<textarea>` in `task-form-fields.tsx`, an inline textarea in
+`task-row.tsx` (`renderInlineTextarea`), and an AI-writable field via
+`use-chat-dispatcher.ts`. Pressing Enter is sufficient.
+
+**Pinned:** `codec-roundtrip.property.test.ts` holds the property this satisfies, live and
+unskipped since `3de672bb`, alongside a losslessness property and a no-line-ends-mid-quote
+property.
 
 ---
 
@@ -9680,6 +9733,321 @@ shape is the inverse: find tests that reach the real clock at all (a component c
 internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock in each. ★ Running
 the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
 per-test-file, so this needs a harness-level option rather than a one-off command.
+
+## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured
+
+Opened 2026-08-16 out of the cold review of the branch that closes §105.
+
+★★★ **THIS IS A SEVERITY REGRESSION OF §105's FIX, NOT A NEW FAILURE.** The same file lost the same
+rows before the branch. What changed is that silent LOSS became silent MISLABELLING — rows enter the
+workspace as the wrong entity type. Do not read it as damage the branch introduced from nothing.
+
+**Where:** `splitCsvSections` (`csv-codecs-decode.ts`) now segments the document with the quote-aware
+`splitCsvLines` (`csv-line-scan.ts`). Quote state therefore carries across the WHOLE file, where the
+physical `csv.split(/\r?\n/)` it replaced reset it at every line. The branch already handles the
+UNBALANCED case by falling back to that physical split for routing — an unbalanced quote is proof the
+file is malformed, and one stray `"` in an early section would otherwise swallow every later marker.
+**A BALANCED pair of stray quotes is not covered and cannot be.**
+
+★ **Reachability: a hand-edited, truncated or foreign file only.** `csvEscape` wraps any cell
+containing a `"` and doubles every quote inside it, so a file our own encoder wrote can never carry a
+stray one. This is the same reachability envelope the `unterminatedQuote` doc comment already states
+for its own signal.
+
+### Measured
+
+Fixture built by encoding a one-task / three-milestone workspace with `workspaceToCsv`, then
+TEXTUALLY replacing two plain cell values — `blockers` on the task and `description` on milestone 5 —
+to model a hand edit. Tasks header elided here (28 columns); the milestones section is verbatim:
+
+```
+# TASKS
+id,taskName,…,blockers,…,noteLog
+1,T1,,,,2026-01-01,,,Medium,To Do,a"b,,,,,,,,,,,,,,,,,
+
+# MILESTONES
+id,name,date,description,achievedDate,linkedTaskIds,localModifiedAt,knowledgeLinks,outlookEventId
+5,M5,2026-02-01,c"d,,,,,
+6,M6,2026-03-01,,,,,,
+7,M7,2026-04-01,,,,,,
+```
+
+The `"` in `a"b` opens a quote; the `"` in `c"d` closes it. Everything between — including the
+`# MILESTONES` marker line and the milestones header — is swallowed into one cell.
+
+```
+AFTER  (this branch)      task ids [1, 6, 7]   taskName ["T1","M6","M7"]   milestones []
+                          diag {"droppedRows":0,"unterminatedQuote":false}
+BEFORE (physical split)   task ids [1]         taskName ["T1"]             milestones [5]
+                          diag {"droppedRows":0,"unterminatedQuote":true}
+```
+
+★★ **The BEFORE half was measured through the branch's OWN fallback, not from an old checkout.** The
+pre-branch routing IS `csv.split(/\r?\n/)`, so appending a third stray quote (`JUNK,"UNCLOSED`) after
+the last section flips `unterminatedQuote` and takes that branch, leaving the physical routing of the
+tasks and milestones text byte-identical.
+
+★★★ **SO THE BEFORE ROW'S `unterminatedQuote: true` IS AN ARTEFACT OF THE MEASUREMENT, NOT A
+PRE-BRANCH SIGNAL — and it could not have been anything else.** That flag is what SELECTS the
+physical-split branch, so any run reaching the BEFORE routing has it set by construction. An earlier
+revision of this entry printed one `diag, BOTH {"droppedRows":0,"unterminatedQuote":false}` line, which
+contradicted this very paragraph and sent anyone re-running the recipe looking for the error in the
+wrong half. The conclusion is unchanged: `unterminatedQuote` **did not exist before the branch**, so
+the genuine pre-fix diagnostic was `droppedRows` alone — 0 on both sides. Both states are fully
+silent; the fix neither added nor removed a signal here.
+
+★ Put the junk somewhere that neither counts nor is measured. Measured, all three shapes: a bare
+`JUNK,"UNCLOSED` line → `droppedRows` 0; a `# STAKEHOLDERS` marker followed by that one junk line →
+also **0**, because the lone line is consumed as the section HEADER; the marker + a real header row +
+the junk row → **1**, the junk row having gone through `decodeCsvSection`. Only the third shape moves
+the counter, and it would have been read as a pre-branch diagnostic that does not exist. The bare line
+is what the numbers above were taken with.
+
+### Why no fix is proposed
+
+**It is undecidable at the byte level.** A legitimately quoted cell containing marker-shaped text and
+a stray quote that swallowed a real marker are BYTE-IDENTICAL. There is nothing for a parser to
+condition on.
+
+★★★ **DO NOT close this with a "the two splits disagree" warning.** A well-formed file legitimately
+carrying a marker-shaped line inside a quoted cell — precisely the §105 shape this branch exists to
+fix — produces exactly that divergence. The warning would therefore fire on the file we just fixed,
+on every correct import, which is worse than the silence it replaces.
+
+★★ **And do not reach for a heuristic** ("a marker line inside a quote is suspicious", "a section
+that came back empty while a neighbour grew"). §105 already recorded two detectors designed and
+discarded for this family — reject-counting and rows-found-vs-entities-produced — both structurally
+blind because the rows are ABSORBED rather than rejected. A heuristic here does not merely fail to
+detect; it mis-detects the legitimate case, and there is no input that separates the two.
+
+★ The honest options are all outside the parser: refuse to import a CSV whose quotes are stray by
+some external check, or accept the class. Neither is scoped here.
+
+### The autosave interaction
+
+Nothing stops the mislabelled workspace being written back over its source. `mayCommitAfterTruncation`
+gates on `loadWasTruncated` only, so import diagnostics never block a save — and here there is no
+diagnostic to block on: `reportImportDiagnostics` fires on `droppedRows` or `unterminatedQuote`, and
+both are falsy. The milestone rows are gone from `milestones` and present as tasks by the time the
+first ordinary save runs.
+
+★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
+not an independent defect.
+
+## 151. "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted as a live rationale in eight places — open, needs a probe
+
+Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
+applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
+
+**The claim.** A DOM-free rule on a module is justified by "a DOMPurify call here would throw, because
+`scripts/generate-sample-workspace.ts` runs this under bare node, and `jsonToWorkspace`'s catch-all
+would swallow the throw into a near-empty sample file."
+
+**The claim is false about the generator.** `generate-sample-workspace.ts` constructs a `JSDOM` and
+`Object.assign`s `window`/`document` onto `globalThis` BEFORE its dynamic
+`await import("../src/app/storage")` — its own comment says the install exists so the DOM-bound
+sanitizers downstream work. It is also the only script that imports `src/app` at all; the other
+`scripts/*.mjs` files merely NAME the path inside comments and doc-gate fixtures.
+
+### Measured
+
+```
+$ grep -rln "src/app" scripts/
+scripts/check-followup-claims.mjs      <- comment text only
+scripts/doc-claims-lib.mjs             <- comment text only
+scripts/doc-claims-lib.test.mjs        <- comment text only
+scripts/followup-claims-lib.mjs        <- comment text only
+scripts/followup-claims-lib.test.mjs   <- comment text only
+scripts/generate-sample-workspace.ts   <- the only real importer; installs JSDOM first
+```
+
+Posture of every site, classified BY READING it — the sweep below only produces candidates:
+
+| Where | Posture |
+|---|---|
+| `csv-line-scan.ts` | RETRACTS (added 2026-08-16, this branch) |
+| `document-model.ts` | RETRACTS |
+| `document-versions.ts` | RETRACTS, and cites the other two |
+| `document-rich-fields.ts` | RETRACTS ("obsolete") — ★★ and does NOT contain the phrase, see below |
+| §97 (this file) | RETRACTS, scoped to the DOCUMENT load paths only |
+| AGENTS.md, four separate bullets | ASSERTS |
+| §28 (this file) | ASSERTS — "out of scope by construction" |
+| §36(a) (this file) | ASSERTS — the stated REASON the boundary cannot be added |
+| §49 (this file) | ASSERTS — "the obvious fix is forbidden" |
+
+Candidate sweep, flattening whitespace first — the phrase WRAPS ACROSS LINES in several headers, so a
+plain `grep "bare node"` under-reports, and it is hyphenated in one place:
+
+`node -e 'const fs=require("node:fs");for(const f of process.argv.slice(1))if(/bare[- ]?node/i.test(fs.readFileSync(f,"utf8").replace(/\s+/g," ")))console.log(f)' AGENTS.md docs/open-followups.md src/app/*.ts`
+
+★★★ **RUN IT, THEN READ EVERY HIT — AND DO NOT TREAT ITS OUTPUT AS THE POPULATION IN EITHER
+DIRECTION.** Verified 2026-08-16: it returns 22 paths, of which most mention bare node for unrelated
+reasons, and it **MISSES `document-rich-fields.ts` ENTIRELY** — that header retracts the identical
+rationale phrased as "a DOMPurify call would throw for want of a DOM", never using the words. So the
+phrase is not the concept, a phrase sweep cannot enumerate this cluster, and the table above was built
+by reading rather than by grepping. This is the same trap recorded against the register elsewhere: a
+`grep -c` returning fewer hits than expected is not evidence of absence.
+
+### Why this is NOT "go delete the rule"
+
+★★★ **A RULE WITH A FALSE RATIONALE CAN STILL BE A CORRECT RULE, AND DELETING A LIVE GUARD BECAUSE
+ITS STATED REASON IS WRONG IS HOW GUARDS DIE.** Each asserting site needs its OWN probe before
+anything moves, because the sites do not share a mechanism:
+
+- `csv-line-scan.ts` already re-grounded itself on a different argument entirely (it is the shared
+  zero-import LEAF beneath both CSV scanners, so any dependency is inherited by every decode path).
+  Its DOM-free rule survives the retraction untouched.
+- `document-rich-fields.ts` states the opposite conclusion for its own case — that composing the
+  DOM-bound pass at the caller is "a normal change, not a contract violation".
+- §36(a) and §49 are the ones with real stakes: in both, the false claim is the reason an allow-list
+  pass is NOT applied to a model-writable field. If the rationale is dead there too, those are live
+  security gaps rather than accepted ones. **Neither has been probed.** The fixture flow is a second
+  consumer named alongside the generator in §28 and has not been checked at all.
+
+★★ Note the asymmetry that makes this expensive: the four retractions sit in SOURCE headers a reader
+opens only once they already know to look, while the eight assertions sit in AGENTS.md — the
+always-loaded file — and in the register, which is what someone reads while PLANNING. The false
+version is on the path of least resistance in both directions.
+
+★ Deliberately NOT done here: this branch owns a CSV fix, and rewriting a sanitizer rationale in
+AGENTS.md on the back of it would be an unrelated change to the one always-loaded file. §97 already
+demonstrates the shape a scoped, measured retraction takes — copy that, per site, with a probe.
+
+## 152. `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — open, the two signals need splitting
+
+Found by the cold review of the branch closing §105, 2026-08-16. **Not introduced by that branch** —
+it is the residue of the fix that took `lastImportDroppedRows` from one reporting call site to five.
+
+`TruncationOps.reportFor` (`use-load-truncation.ts`) carries **two independent signals on one call**:
+the §103 documents-truncation flag, and the CSV/Markdown import diagnostics (`lastImportDroppedRows`,
+`lastImportUnterminatedQuote`). Bundling them is what stopped the import signal drifting away from the
+load paths. But it also means a path that must NOT touch the truncation flag cannot report an import
+loss either.
+
+★★★ **DO NOT RELY ON THE `reportFor`-PER-`load()` CENSUS TO CATCH A NEW PATH — IT CANNOT SEE THE FILE
+THIS ENTRY IS ABOUT.** The census (`use-load-truncation.test.ts`) source-scans a hardcoded `OPS_FILES`
+list holding `use-storage-file-ops.ts` and `use-storage-turso-ops.ts` ONLY, so `use-storage-backend.ts`
+— which holds THREE of the six load sites, including `onOpenStorageFile` — is never read, and it sits
+at 3 loads / 2 reports green today. Reproduce both halves:
+
+```
+grep -n "OPS_FILES *=" src/app/use-load-truncation.test.ts
+for f in src/app/use-storage-backend.ts src/app/use-storage-file-ops.ts src/app/use-storage-turso-ops.ts; do
+  echo "$f loads=$(grep -o '\.load()' $f | wc -l) reports=$(grep -o 'reportFor(' $f | wc -l)"; done
+```
+
+★★ It is also a TOKEN count, not a reachability proof, so it says nothing about whether a `reportFor`
+present in the source is reached at runtime. What actually pins the five reporting paths is
+behavioural: `24687cd7` "test(storage): pin import-diagnostic reachability on all five reportFor
+paths", whose mutation result `use-storage-backend.test.tsx` records beside the same warning about
+this census. An earlier revision of THIS entry credited the census with the protection — a claim the
+branch's own test comment already refuted, one file away.
+
+`onOpenStorageFile` (`use-storage-backend.ts`) is that path, and the only one of the six load sites
+that APPLY a workspace to render scope with no `reportFor`. Enumerate the SITES — a `reportFor` grep
+structurally cannot, since the path in question is the one that does not appear in it:
+
+```
+grep -rnE "await (backend|target|targetBackend)\.load\(\)" src/app --include=*.ts | grep -v "\.test\."
+grep -rn "reportFor(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+★★ **A BARE `grep "\.load()"` IS THE WRONG COMMAND AND AN EARLIER REVISION HERE SHIPPED IT** — it
+returns **15**, because `store.load()`, the action-learning store and several comments all match, and
+it was quoted under a sentence claiming seven. Anchoring on `await` and on the three receiver names
+returns exactly the 7 real call sites with no comment noise. Re-run it rather than trusting the number.
+
+★ The second returns **6** lines and they are NOT the six paths — one is a comment in
+`local-file-backend.ts` quoting that very command, so it is 5 reporting call sites plus a self-match.
+A grep matching its own documentation is a recurring trap in this repo; read the hits, do not count
+them.
+
+★★ THE FIRST RETURNS **7**, and the extra one is correctly out of scope: `use-portfolio-health.ts`
+loads other projects' workspaces to compute portfolio health and never applies one to render scope,
+which is exactly the qualifier `TruncationOps.reportFor`'s own docstring uses ("every `backend.load()`
+whose workspace is APPLIED to render scope"). Six is the count of APPLYING sites, not of `.load()`
+calls.
+
+★★★ **§103 SAYS "TWO LOADS DELIBERATELY DO NOT REPORT" AND IS NOT IN CONFLICT WITH THE "ONE OF SIX"
+HERE — the two entries count different things, and a reader who spots the mismatch without this note
+concludes one of them is wrong.** §152 counts load SITES; §103 counts non-reporting EXITS. The mount
+effect's empty-load REFUSAL branch returns before the `reportFor` further down the same site, so that
+one site has both a reporting and a non-reporting exit.
+
+★★ That refusal is therefore a SECOND place import diagnostics are suppressed, and this entry did not
+mention it. It matters on its own terms: a file malformed enough that every row is dropped decodes to
+an EMPTY workspace, the refusal fires to protect the live project, the user is told "kept current
+data", and nothing anywhere says rows were dropped. Whoever splits the signals should decide that case
+deliberately rather than inherit it.
+
+**Its stated reason is correct, and correct only for truncation.** The handler applies `loaded.tasks`
+and `loaded.raid` and nothing else — absences and shifts are deliberately not restored, and documents
+never are — so raising the flag would warn about documents the user still holds, and lowering it would
+clear a warning that is still true of the live ones. Neither describes the workspace that is live.
+★★★ That argument does **not** carry over to import diagnostics, and reading the suppression as
+justified for both is the trap: the rows this path drops MAY INCLUDE the tasks and RAID it is about to
+apply. ★ "May include", not "are precisely" — the counter is bumped for every section, so a drop
+confined to milestones raises it too, and this path discards milestones. That is weaker than the
+overclaim an earlier revision made here and is still more than enough to defeat a truncation-only
+justification.
+
+**Measured — FIVE increment sites, not three, and the two that are easiest to miss are the Markdown
+ones.** `droppedRows` is bumped into **one workspace-wide counter with no section attribution**:
+
+```
+grep -rn "droppedRows[+][+]" src/app --include=*.ts | grep -v "\.test\."
+```
+
+→ `csv-codecs-decode.ts` ×3, `markdown-codecs-core.ts` ×1, `markdown-codecs-decode.ts` ×1. All five sit
+in row loops, though only `csvToTasks` is per-ENTITY — the other two CSV sites are generic collectors
+shared across entities, and both Markdown sites iterate rows of whatever table they were handed.
+
+★★★ **A CSV-ONLY GREP IS THE TRAP, AND THIS ENTRY FELL INTO IT.** The first revision cited
+`grep -c "diag.droppedRows++" src/app/csv-codecs-decode.ts` → 3 under a sentence saying "the decoders",
+and the command was honest about its own scope while the sentence was not. `onOpenStorageFile` reaches
+Markdown as readily as CSV (`local-file-backend.ts` branches
+`this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag)`), and the repo
+already warns about this scope split in two places — `local-file-backend.ts` and `workspace.ts` both
+carry a "CSV ONLY, despite `lastImportDroppedRows` above covering CSV *and* MD" note about the sibling
+`lastImportUnterminatedQuote` field. Undercounting here understates the per-section-attribution work
+below and would ship Markdown unattributed.
+
+So a malformed CSV **or Markdown** file opened through this handler can silently lose task or RAID rows
+with nothing shown at all — `reportImportDiagnostics` is the sole reader of both import fields and its
+only output is a toast, so a suppressed call leaves no banner and no `logDiag` trail either.
+
+### The fix, and the part of it that is not a fix
+
+Split the two signals: report the import loss without touching the §103 documents flag. That is small
+and mechanical.
+
+★★ **It does not close the whole finding.** Because the counter is workspace-wide, even a split report
+says "N rows were dropped" without saying whether those rows were the tasks/RAID this path APPLIES or
+a section it DISCARDS — and the two are different losses with different remedies. Per-section
+attribution is a separate, larger change to `ImportDiag` and **all five** decoder sites that write it,
+across BOTH codec families. Do not record §152 as closed on the strength of the split alone.
+
+★★★ **Whoever does it must fire `storageOpenedToast` BEFORE the report, never after.** The toast
+surface is single-slot (`useToast` holds a `useState<Toast | null>`; `showToast` REPLACES it, with no
+queue and no stacking — it clears the pause ref and calls `setToast(...)`), so of two calls in one
+stretch only the LAST is seen. Putting a diagnostic in front
+of a confirmation is exactly the defect the §105 branch's own fix round shipped and had to undo — the
+warning was raised, overwritten, and lost, with the suite green because the test asserted `showToast`
+had been CALLED rather than reading the surviving toast. Assert on the LAST call.
+
+★ `use-storage-backend.ts` stands at **799** lines against the hard 800 cap (it is not in
+`docs/baselines/file-sizes.json`, so the cap applies rather than a baseline, and `size:check` counts
+`wc -l` plus one). That is one line of headroom — which is why the gap is recorded there as a single
+long comment line and why any real fix has to extract rather than inline. Re-read the number, do not
+trust this line:
+
+```
+node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+```
+
+★ Deliberately NOT done on the branch that found it: that branch owns a CSV quoting fix, and the
+review round that surfaced this was a toast-ORDERING fix. Splitting a signal channel on the back of an
+ordering change is how an ordering change acquires a behavioural regression.
 
 ## 153. `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks — narrowed by a brand, not closed
 

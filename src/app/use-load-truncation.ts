@@ -29,8 +29,32 @@ type ShowToast = (kind: "info" | "error" | "success", text: string) => void;
 export interface TruncationOps {
   /** Record the outcome of a just-finished load. Call after EVERY
    *  `backend.load()` whose workspace is APPLIED to render scope — including
-   *  clean ones, because this both raises AND lowers the flag. */
-  reportFor: (backend: Pick<StorageBackend, "lastLoadTruncation">) => void;
+   *  clean ones, because this both raises AND lowers the flag.
+   *
+   *  ★★ IT ALSO CARRIES IMPORT DIAGNOSTICS. `lastImportDroppedRows` used to be
+   *  read at ONE call site while this channel had five, so four load paths
+   *  reported nothing however many rows vanished. Both signals ride one call so
+   *  they cannot drift apart, and the `reportFor`-per-`load()` census in this
+   *  file's test is what catches a new path that forgets.
+   *
+   *  ★★★ A NEW CALL SITE MUST FIRE ITS OWN "loaded"/"switched"/"reloaded" TOAST
+   *  BEFORE CALLING THIS, NEVER AFTER. The toast surface is SINGLE-SLOT —
+   *  `useToast` (`use-toast.ts`) holds a `useState<Toast | null>` and `showToast`
+   *  is a bare `setToast(...)` — so of two calls in one stretch only the LAST is
+   *  ever seen, and an `await` in between does not help: the second still
+   *  replaces the first. Centralising the dropped-rows warning here put it in
+   *  FRONT of four call sites' own confirmations and every one of them
+   *  overwrote it; the toast was raised, discarded, and nothing was left. The
+   *  confirmation is the disposable half (it carries no remedy, and on a clean
+   *  load this call shows nothing, so it still paints) — the diagnostic is not.
+   *  ★ Ordering is the whole fix, so a test asserting `showToast` was CALLED
+   *  cannot see the defect. Assert on the LAST call. */
+  reportFor: (
+    backend: Pick<
+      StorageBackend,
+      "lastLoadTruncation" | "lastImportDroppedRows" | "lastImportUnterminatedQuote"
+    >,
+  ) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
    *  while a truncated load is unresolved. Skipping is the safe outcome: the
    *  source still holds the documents that were not loaded, and a flush is by
@@ -265,8 +289,46 @@ export function useLoadTruncation(
     return true;
   };
 
+  /**
+   * ★★★ ONE COMPOSED TOAST, BECAUSE THE SURFACE IS SINGLE-SLOT. `useToast`
+   * (`use-toast.ts`) holds a `useState<Toast | null>` and `showToast` is a bare
+   * `setToast(...)` — it REPLACES, there is no queue and no stacking. So two
+   * `showToast` calls in one synchronous tick leave only the LAST one visible.
+   *
+   * ★★ An earlier revision fired these as two separate toasts and the comment
+   * there asserted that was deliberate, "so both can be shown". The surface
+   * makes that impossible: on a file that both dropped rows AND ended mid-quote,
+   * the dropped-rows toast was created and instantly overwritten, and unlike
+   * truncation it has no persistent banner to fall back on — the row count was
+   * simply lost.
+   *
+   * ★ Both strings are complete sentences in EN and DE (`i18n.ts` /
+   * `i18n.de.ts`), so joining the applicable ones with a single space is the
+   * whole composition and needs no new key. It is a JOIN, never an `else`: the
+   * two are different losses with different remedies, so neither may be dropped
+   * when both hold.
+   */
+  const reportImportDiagnostics = (
+    backend: Pick<StorageBackend, "lastImportDroppedRows" | "lastImportUnterminatedQuote">,
+  ) => {
+    const dropped = backend.lastImportDroppedRows ?? 0;
+    const parts: string[] = [];
+    if (dropped > 0) parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
+    if (backend.lastImportUnterminatedQuote) parts.push(t(langRef.current, "importUnbalancedQuotesWarning"));
+    if (parts.length > 0) showToast("error", parts.join(" "));
+  };
+
   const truncationOps: TruncationOps = {
-    reportFor: (backend) => reportLoadTruncation(backend.lastLoadTruncation),
+    reportFor: (backend) => {
+      // ★★ These two CAN still contend for the single toast slot: a truncated
+      // load that also reported import diagnostics raises both, and the import
+      // toast — fired second — is the one that survives. That is the acceptable
+      // direction, because truncation additionally raises the persistent banner
+      // (`truncation` / `loadWasTruncated`), which names its counts for as long
+      // as the user needs them, while import diagnostics have only the toast.
+      reportLoadTruncation(backend.lastLoadTruncation);
+      reportImportDiagnostics(backend);
+    },
     flushCurrent: async () => {
       if (!mayCommitAfterTruncation()) {
         // Leave a forensic trail: the skip is invisible at the call site (every
