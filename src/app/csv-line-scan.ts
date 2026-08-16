@@ -19,6 +19,18 @@
  * on the leaf argument above — do not weaken it on the strength of the
  * retracted one.
  *
+ * ★★★ THIS IS THE FOURTH INDEPENDENT RETRACTION OF THAT ONE CLAIM, and the
+ * others are `document-model.ts`, `document-versions.ts` and
+ * `document-rich-fields.ts` (the last two already cross-reference their
+ * neighbours; this header and `document-model.ts`'s did not, which is how a
+ * fourth came to be derived from scratch). Meanwhile the claim is still
+ * ASSERTED as a live rationale in AGENTS.md at four sites and in
+ * docs/open-followups.md §28, §36(a) and §49 — where in §36(a) it is the stated
+ * REASON a sanitizer boundary cannot be added. Do NOT go delete those on the
+ * strength of this comment: a rule with a false rationale can still be a
+ * correct rule, and each of those sites needs its own probe. The cluster is
+ * indexed as §151 — read it before writing a fifth retraction.
+ *
  * ★★★ WHY THIS EXISTS: `splitCsvSections` used to segment the document with
  * `csv.split(/\r?\n/)`, i.e. on PHYSICAL lines, before any tokenizing. A quoted
  * cell may legally contain newlines, so its continuation lands on its own

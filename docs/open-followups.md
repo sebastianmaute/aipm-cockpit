@@ -175,13 +175,23 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
 | 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
 | 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED 2026-08-12** — (b) closed the a11y-gate reachability gap; (a) built the roving-tabindex keyboard contract in `toolbar-roving.ts` + `rich-text-toolbar.tsx` and flipped `role="group"` to `role="toolbar"`, cutting the row from 15 tab stops to 1. Mutation-proved (portal guard 1 red, `tabIndex` ternary 3 red) and browser-proved (`e2e/rich-text-toolbar-keyboard.spec.ts`). Full closing detail in the entry below |
-| 150 | A BALANCED pair of stray quotes MISLABELS rows across a CSV section boundary instead of losing them | cold review of the branch closing §105, 2026-08-16 | ? | open, **UNDECIDABLE — no fix is proposed**. A severity regression of §105's fix, not a new failure: the same file lost the same rows before it. Measured — one `"` in a task cell and one in a later milestone cell make quote state carry across the `# MILESTONES` marker, so milestones 6 and 7 import as TASKS (`taskName` `M6`/`M7`) and `milestones` comes back EMPTY. Silent on both sides of the fix (`droppedRows` 0, `unterminatedQuote` false). Needs a hand-edited/truncated/foreign file — `csvEscape` doubles every `"`, so a file we wrote cannot exhibit it |
+| 150 | A BALANCED pair of stray quotes MISLABELS rows across a CSV section boundary instead of losing them | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open, **UNDECIDABLE — no fix is proposed**. A severity regression of §105's fix, not a new failure: the same file lost the same rows before it. Measured — one `"` in a task cell and one in a later milestone cell make quote state carry across the `# MILESTONES` marker, so milestones 6 and 7 import as TASKS (`taskName` `M6`/`M7`) and `milestones` comes back EMPTY. Silent on both sides of the fix (`droppedRows` 0, `unterminatedQuote` false). Needs a hand-edited/truncated/foreign file — `csvEscape` doubles every `"`, so a file we wrote cannot exhibit it |
+| 151 | "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted in eight places | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open, DOC-INTEGRITY — the generator installs JSDOM before its dynamic `import`, so the stated rationale for several DOM-free rules is dead. ★★★ **NOT a licence to delete those rules** — a rule with a false rationale can still be correct, and `csv-line-scan.ts` already re-grounded itself on a different argument. The stakes are §36(a) and §49, where the false claim is the reason an allow-list pass is NOT applied to a model-writable field; neither has been probed |
 
-★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
-Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
-The two rows above were added because a new entry with no index row is a new entry nobody finds;
-backfilling the fourteen that are missing is real work and is not done here, so do NOT read a
-present row as evidence an entry is newer or more important than an absent one.
+★★ **The table's CONTIGUOUS run stops at §128 and has done since 2026-08-08.** Past that only §143,
+§144, §150 and §151 carry an index row; §129–§142 and §145–§149 carry none.
+Reproduce: `for n in $(seq 129 151); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`
+— 23 entries, 4 rows, **19 missing**. Those four rows were added because a new entry with no index row
+is a new entry nobody finds; backfilling the nineteen that are missing is real work and is not done
+here, so do NOT read a present row as evidence an entry is newer or more important than an absent one.
+
+★★★ **THIS PARAGRAPH IS FALSIFIED BY EVERY ROW ADDED ABOVE IT, AND HAS ALREADY BEEN SO ONCE.** Its
+counts and its `seq` range are transcribed, not derived, so adding one row silently makes three
+statements wrong at once (the range, the row count, the missing count). §150's row did exactly that —
+it left this paragraph reading "two rows above", "fourteen missing" and a range ending at 144, all
+three false, and the paragraph went unchanged in the commit that broke it. **If you add a row above,
+re-run the command in this paragraph and rewrite every number it prints.** Nothing gates this:
+`docs:claims:check` only checks `path:LINE` citations, of which this paragraph has none.
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
@@ -9761,20 +9771,31 @@ The `"` in `a"b` opens a quote; the `"` in `c"d` closes it. Everything between �
 
 ```
 AFTER  (this branch)      task ids [1, 6, 7]   taskName ["T1","M6","M7"]   milestones []
+                          diag {"droppedRows":0,"unterminatedQuote":false}
 BEFORE (physical split)   task ids [1]         taskName ["T1"]             milestones [5]
-diag, BOTH               {"droppedRows":0,"unterminatedQuote":false}
+                          diag {"droppedRows":0,"unterminatedQuote":true}
 ```
 
 ★★ **The BEFORE half was measured through the branch's OWN fallback, not from an old checkout.** The
 pre-branch routing IS `csv.split(/\r?\n/)`, so appending a third stray quote (`JUNK,"UNCLOSED`) after
 the last section flips `unterminatedQuote` and takes that branch, leaving the physical routing of the
-tasks and milestones text byte-identical. ★ Put the junk somewhere that neither counts nor is
-measured: an appended `# STAKEHOLDERS` row went through `decodeCsvSection` and pushed `droppedRows`
-to 1, which would have been read as a pre-branch diagnostic that does not exist. `droppedRows` is 0
-on BOTH sides once the junk is moved out of a counting decoder.
+tasks and milestones text byte-identical.
 
-★ `unterminatedQuote` did not exist before the branch, so the pre-fix diagnostic was `droppedRows`
-alone — also 0. Both states are fully silent; the fix neither added nor removed a signal here.
+★★★ **SO THE BEFORE ROW'S `unterminatedQuote: true` IS AN ARTEFACT OF THE MEASUREMENT, NOT A
+PRE-BRANCH SIGNAL — and it could not have been anything else.** That flag is what SELECTS the
+physical-split branch, so any run reaching the BEFORE routing has it set by construction. An earlier
+revision of this entry printed one `diag, BOTH {"droppedRows":0,"unterminatedQuote":false}` line, which
+contradicted this very paragraph and sent anyone re-running the recipe looking for the error in the
+wrong half. The conclusion is unchanged: `unterminatedQuote` **did not exist before the branch**, so
+the genuine pre-fix diagnostic was `droppedRows` alone — 0 on both sides. Both states are fully
+silent; the fix neither added nor removed a signal here.
+
+★ Put the junk somewhere that neither counts nor is measured. Measured, all three shapes: a bare
+`JUNK,"UNCLOSED` line → `droppedRows` 0; a `# STAKEHOLDERS` marker followed by that one junk line →
+also **0**, because the lone line is consumed as the section HEADER; the marker + a real header row +
+the junk row → **1**, the junk row having gone through `decodeCsvSection`. Only the third shape moves
+the counter, and it would have been read as a pre-branch diagnostic that does not exist. The bare line
+is what the numbers above were taken with.
 
 ### Why no fix is proposed
 
@@ -9806,3 +9827,82 @@ first ordinary save runs.
 
 ★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
 not an independent defect.
+
+## 151. "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted as a live rationale in eight places — open, needs a probe
+
+Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
+applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
+
+**The claim.** A DOM-free rule on a module is justified by "a DOMPurify call here would throw, because
+`scripts/generate-sample-workspace.ts` runs this under bare node, and `jsonToWorkspace`'s catch-all
+would swallow the throw into a near-empty sample file."
+
+**The claim is false about the generator.** `generate-sample-workspace.ts` constructs a `JSDOM` and
+`Object.assign`s `window`/`document` onto `globalThis` BEFORE its dynamic
+`await import("../src/app/storage")` — its own comment says the install exists so the DOM-bound
+sanitizers downstream work. It is also the only script that imports `src/app` at all; the other
+`scripts/*.mjs` files merely NAME the path inside comments and doc-gate fixtures.
+
+### Measured
+
+```
+$ grep -rln "src/app" scripts/
+scripts/check-followup-claims.mjs      <- comment text only
+scripts/doc-claims-lib.mjs             <- comment text only
+scripts/doc-claims-lib.test.mjs        <- comment text only
+scripts/followup-claims-lib.mjs        <- comment text only
+scripts/followup-claims-lib.test.mjs   <- comment text only
+scripts/generate-sample-workspace.ts   <- the only real importer; installs JSDOM first
+```
+
+Posture of every site, classified BY READING it — the sweep below only produces candidates:
+
+| Where | Posture |
+|---|---|
+| `csv-line-scan.ts` | RETRACTS (added 2026-08-16, this branch) |
+| `document-model.ts` | RETRACTS |
+| `document-versions.ts` | RETRACTS, and cites the other two |
+| `document-rich-fields.ts` | RETRACTS ("obsolete") — ★★ and does NOT contain the phrase, see below |
+| §97 (this file) | RETRACTS, scoped to the DOCUMENT load paths only |
+| AGENTS.md, four separate bullets | ASSERTS |
+| §28 (this file) | ASSERTS — "out of scope by construction" |
+| §36(a) (this file) | ASSERTS — the stated REASON the boundary cannot be added |
+| §49 (this file) | ASSERTS — "the obvious fix is forbidden" |
+
+Candidate sweep, flattening whitespace first — the phrase WRAPS ACROSS LINES in several headers, so a
+plain `grep "bare node"` under-reports, and it is hyphenated in one place:
+
+`node -e 'const fs=require("node:fs");for(const f of process.argv.slice(1))if(/bare[- ]?node/i.test(fs.readFileSync(f,"utf8").replace(/\s+/g," ")))console.log(f)' AGENTS.md docs/open-followups.md src/app/*.ts`
+
+★★★ **RUN IT, THEN READ EVERY HIT — AND DO NOT TREAT ITS OUTPUT AS THE POPULATION IN EITHER
+DIRECTION.** Verified 2026-08-16: it returns 22 paths, of which most mention bare node for unrelated
+reasons, and it **MISSES `document-rich-fields.ts` ENTIRELY** — that header retracts the identical
+rationale phrased as "a DOMPurify call would throw for want of a DOM", never using the words. So the
+phrase is not the concept, a phrase sweep cannot enumerate this cluster, and the table above was built
+by reading rather than by grepping. This is the same trap recorded against the register elsewhere: a
+`grep -c` returning fewer hits than expected is not evidence of absence.
+
+### Why this is NOT "go delete the rule"
+
+★★★ **A RULE WITH A FALSE RATIONALE CAN STILL BE A CORRECT RULE, AND DELETING A LIVE GUARD BECAUSE
+ITS STATED REASON IS WRONG IS HOW GUARDS DIE.** Each asserting site needs its OWN probe before
+anything moves, because the sites do not share a mechanism:
+
+- `csv-line-scan.ts` already re-grounded itself on a different argument entirely (it is the shared
+  zero-import LEAF beneath both CSV scanners, so any dependency is inherited by every decode path).
+  Its DOM-free rule survives the retraction untouched.
+- `document-rich-fields.ts` states the opposite conclusion for its own case — that composing the
+  DOM-bound pass at the caller is "a normal change, not a contract violation".
+- §36(a) and §49 are the ones with real stakes: in both, the false claim is the reason an allow-list
+  pass is NOT applied to a model-writable field. If the rationale is dead there too, those are live
+  security gaps rather than accepted ones. **Neither has been probed.** The fixture flow is a second
+  consumer named alongside the generator in §28 and has not been checked at all.
+
+★★ Note the asymmetry that makes this expensive: the four retractions sit in SOURCE headers a reader
+opens only once they already know to look, while the eight assertions sit in AGENTS.md — the
+always-loaded file — and in the register, which is what someone reads while PLANNING. The false
+version is on the path of least resistance in both directions.
+
+★ Deliberately NOT done here: this branch owns a CSV fix, and rewriting a sanitizer rationale in
+AGENTS.md on the back of it would be an unrelated change to the one always-loaded file. §97 already
+demonstrates the shape a scoped, measured retraction takes — copy that, per site, with a probe.
