@@ -76,6 +76,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     knowledgeItems,
     calendarEvents,
     budgets,
+    activityLog,
     effectiveFilters,
     filteredSortedTasks,
   } = useWorkspace();
@@ -106,6 +107,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const knowledgeItemsRef = useRef(knowledgeItems);
   const calendarEventsRef = useRef(calendarEvents);
   const budgetsRef = useRef(budgets);
+  const activityLogRef = useRef(activityLog);
   const viewDigest = useViewDigest({
     view: args.currentView, tasks, filteredSortedTasks, effectiveFilters,
     resources, budgets, milestones, today: args.today, settings: args.settings,
@@ -157,6 +159,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     budgetsRef.current = budgets;
   }, [budgets]);
+  useEffect(() => {
+    activityLogRef.current = activityLog;
+  }, [activityLog]);
   useEffect(() => {
     viewDigestRef.current = viewDigest;
   }, [viewDigest]);
@@ -733,6 +738,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           viewDigest: viewDigestRef.current,
         };
       },
+
+      getActivityLog: () => activityLogRef.current,
 
       getDashboardSnapshot: () =>
         buildDashboardSnapshot(

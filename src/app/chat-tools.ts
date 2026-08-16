@@ -20,6 +20,7 @@ import { type CalendarEvent, type RecurrenceRule, type EventException } from "./
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
+import type { ActivityEntry } from "./activity-log";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import {
@@ -333,6 +334,10 @@ export type ToolDispatcher = {
      *  the VOLATILE prompt suffix — see buildSystemPrompt. */
     viewDigest?: string;
   };
+  /** The project's activity log. ★★★ Deliberately a METHOD rather than a
+   *  `getSnapshot()` field: `get_app_state` returns the snapshot verbatim, and
+   *  this collection is unbounded. See chat-tools.test.ts's guard test. */
+  getActivityLog(): readonly ActivityEntry[];
   getDashboardSnapshot(): DashboardSnapshot;
   listAllocations(): AllocationsSnapshot;
   listKnowledgeItems(): KnowledgeSummary[];

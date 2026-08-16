@@ -159,6 +159,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       enabledModules: [] as import("./feature-modules").FeatureModuleId[],
       currentView: "chat" as import("./nav-config").AppView,
     })),
+    getActivityLog: vi.fn(() => []),
     getDashboardSnapshot: vi.fn(
       () =>
         ({
@@ -509,6 +510,21 @@ describe("runTool — get_app_state and edge cases", () => {
     const d = makeDispatcher();
     const result = await runTool(d, "get_app_state", {});
     expect(result).toMatchObject({ taskCount: 1, storageKind: "browser" });
+  });
+
+  // ★★★ activityLog must NEVER reach getSnapshot(). runTool's `get_app_state`
+  //     case returns getSnapshot() VERBATIM, and the log is unbounded
+  //     (mergeActivityLogs caps what is STORED, not what is read) — so mirroring
+  //     it beside `insights` would dump thousands of entries, with field diffs,
+  //     into the context window on a single get_app_state call. The tool reads it
+  //     through the dedicated getActivityLog() method instead.
+  //
+  //     This test exists because "completing the pattern" later is a natural,
+  //     plausible edit that every other test in the suite would stay green for.
+  it("keeps activityLog OFF the app-state snapshot", async () => {
+    const d = makeDispatcher();
+    const snapshot = (await runTool(d, "get_app_state", {})) as Record<string, unknown>;
+    expect("activityLog" in snapshot).toBe(false);
   });
 
   it("throws on an unknown tool name", async () => {
