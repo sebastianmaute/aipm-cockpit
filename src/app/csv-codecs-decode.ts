@@ -119,13 +119,19 @@ import {
  */
 export interface ImportDiag extends DocTruncationDiag {
   droppedRows: number;
+  /** True when the document ended INSIDE a quoted cell. Our own encoder always
+   *  balances quotes, so this can only fire on a hand-edited, truncated or
+   *  foreign file — which is the remaining silent-loss vector now that §105's
+   *  mid-row section switch is fixed. Rows there are ABSORBED into one giant
+   *  cell rather than rejected, so `droppedRows` cannot see them. */
+  unterminatedQuote?: boolean;
 }
 
 /**
  * Splits a marker-segmented CSV into its sections. A "marker" is a line whose
  * first cell starts with one of the known "# ..." section constants.
  */
-function splitCsvSections(csv: string): {
+function splitCsvSections(csv: string, diag?: ImportDiag): {
   tasksText: string;
   raidText: string;
   absencesText: string;
@@ -158,7 +164,8 @@ function splitCsvSections(csv: string): {
   // cell across physical lines, and a continuation that begins with a section
   // marker then switched `mode` MID-ROW — silently destroying every later row
   // in the section (open-followups §105). Do not "simplify" this back.
-  const { lines } = splitCsvLines(csv);
+  const { lines, unterminatedQuote } = splitCsvLines(csv);
+  if (diag) diag.unterminatedQuote = unterminatedQuote;
   let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "activityLog" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
@@ -455,7 +462,7 @@ function csvToRaid(csv: string, diag?: ImportDiag): RaidItem[] {
 /** Parses all sections out of a (possibly section-marked) CSV string. Pass an
  *  optional {@link ImportDiag} to count rows rejected as malformed. */
 export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
-  const s = splitCsvSections(csv);
+  const s = splitCsvSections(csv, diag);
   const ws: Workspace = {
     tasks: csvToTasks(s.tasksText, diag),
     raid: s.raidText.trim() ? csvToRaid(s.raidText, diag) : [],

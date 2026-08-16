@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { workspaceToCsv, csvToWorkspace } from "./csv-codecs";
+import type { ImportDiag } from "./csv-codecs";
 import { emptyWorkspace } from "./workspace";
 import type { Task } from "./types";
 
@@ -45,5 +46,19 @@ describe("CSV section splitting is quote-aware", () => {
     const ws = { ...emptyWorkspace(), tasks };
     const back = csvToWorkspace(workspaceToCsv(ws));
     expect(back.tasks.map((t) => t.id)).toEqual([1, 2]);
+  });
+});
+
+describe("unbalanced quoting is reported, not silent", () => {
+  it("flags a document that ends inside a quote", () => {
+    const diag: ImportDiag = { droppedRows: 0 };
+    csvToWorkspace('# TASKS\r\nid,taskName,blockers\r\n1,T1,"never closed', diag);
+    expect(diag.unterminatedQuote).toBe(true);
+  });
+
+  it("leaves the flag false on a well-formed document", () => {
+    const diag: ImportDiag = { droppedRows: 0 };
+    csvToWorkspace(workspaceToCsv({ ...emptyWorkspace(), tasks: [mkTask(1)] }), diag);
+    expect(diag.unterminatedQuote).toBe(false);
   });
 });
