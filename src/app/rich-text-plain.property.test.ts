@@ -302,6 +302,11 @@ describe("rich-text-plain — properties", () => {
     );
     // Guards against a degenerate generator: two single-character words would
     // satisfy the assertion while exercising almost none of the collapse.
+    // ★ Deliberately left at 50 runs when the separateBlockBoundaries counter
+    //   below was raised: measured over 2000 trials this one is mean 38.0,
+    //   sd 3.02, MIN 25, and never once came within 15 of the floor. Two words
+    //   are drawn per run rather than one value, so it saturates far faster
+    //   than the single-value counters — a bigger sample would buy nothing.
     expect(exercised).toBeGreaterThan(10);
   });
 
@@ -380,9 +385,23 @@ describe("rich-text-plain — properties", () => {
           htmlPlainProjection(html),
         );
       }),
-      { numRuns: 50 },
+      // ★★ THE SAME RANDOM-VARIABLE TRAP AS THE astral COUNTER ABOVE, and it
+      // reached CI: this test failed once in a full-suite shard on a branch
+      // touching neither this file nor anything it imports. Measured over 2000
+      // trials at 50 runs, `exercised` came out mean 22.6, sd 3.58, MIN 10 —
+      // and the assertion is `> 10`, so the observed failure rate is 1 in 2000.
+      // ★ It is the FLOOR that was wrong, not the property. A separate hunt
+      //   over 200,000 generated inputs found ZERO cases where pre-separating
+      //   changed the projection, so the equality itself is not seed-dependent
+      //   — only the anti-vacuity guard in front of it was.
+      // ★ The fix is SAMPLE SIZE, matching the astral counter: over 400 trials
+      //   at 250 runs the counter's mean is 116.4, sd 8.03, MIN 91, and NO
+      //   trial came within 70 of the new floor. 50 therefore sits ~8 sd below
+      //   the mean, so it fires when the generator stops emitting block tags
+      //   and never for ordinary variance.
+      { numRuns: 250 },
     );
-    expect(exercised).toBeGreaterThan(10);
+    expect(exercised).toBeGreaterThan(50);
   });
 
   test("preserveBreaks differs from the default only in newline-vs-space", () => {

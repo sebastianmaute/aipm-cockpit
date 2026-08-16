@@ -101,7 +101,32 @@ function resolveLocalBindingName(source: string): string | null {
   return bindingMatch[1] ?? HOOK_EXPORT_NAME;
 }
 
-function callSites(): CallSite[] {
+/**
+ * The scan reads EVERY non-test source file under src/app, which is the whole
+ * cost of this file. Each of the three tests below needs the same result, so
+ * without this memo the tree is walked and re-read three times — measured at
+ * 2.4s of test time in isolation, against a 20s per-test cap that a saturated
+ * full-suite run (16 workers, CPU-bound synchronous fs) can push a single test
+ * up against. One scan, shared.
+ *
+ * ★ Safe to cache for the lifetime of the module: the files are read from disk
+ * and nothing in this suite writes to them, so a second scan is by construction
+ * identical to the first.
+ *
+ * ★★ The return is `readonly` so the shared array cannot be mutated in place by
+ * one test and read corrupted by the next. Every caller today only derives from
+ * it (filter/map), but `.sort()` mutates its receiver — this makes writing that
+ * a typecheck error rather than a test-order-dependent failure the shuffled
+ * suite would surface as a mystery.
+ */
+let cachedCallSites: readonly CallSite[] | null = null;
+
+function callSites(): readonly CallSite[] {
+  if (cachedCallSites === null) cachedCallSites = scanCallSites();
+  return cachedCallSites;
+}
+
+function scanCallSites(): CallSite[] {
   const sites: CallSite[] = [];
   const files = listSourceFiles(__dirname)
     // The hook DEFINES useTasksDedup(deps); it does not call itself.
