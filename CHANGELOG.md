@@ -8,6 +8,42 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.240.0] - 2026-08-16 "Elliott"
+
+### Added
+
+- **The dashboard can now be arranged to suit you.** Every tile carries a drag handle: pick one up and
+  drop it anywhere on the board to reorder it. Each tile can also be resized independently in width and
+  height, so the things you check first can be given the room they deserve and the rest can be shrunk
+  down. Tiles you never look at can be hidden outright; they collect in a shelf below the board and can
+  be brought back at any time. One button returns everything to the default arrangement. Each project
+  remembers its own layout, so a delivery project and a discovery project can look quite different.
+
+### Changed
+
+- **The dashboard board is now a grid rather than a free-flowing column layout.** Tiles line up on a
+  shared four-column rhythm and fill gaps automatically, so resizing one tile no longer leaves an
+  awkward hole beside it. The board still collapses sensibly on narrower screens and in print.
+
+### Fixed
+
+- **Drag-to-reorder did nothing at all in Firefox.** Reordering report sections, budget buckets and
+  the two role lists worked in Chrome and Edge but silently failed in Firefox, which requires a drag to
+  carry data before it will start one. All of these now work in every supported browser.
+- **Reorder handles can now be operated from the keyboard.** They were previously mouse-only, which
+  put the feature out of reach for keyboard and assistive-technology users.
+- **Reorder handles in a list no longer share one name.** Every handle in a list of rows now announces
+  which row it belongs to, so screen-reader users are no longer offered a column of identical controls.
+- **Dashboard tiles no longer overlap each other when printed.** Fixed-height rows on screen were
+  carried onto paper, where the content is not scrollable, so longer tiles spilled over their
+  neighbours. Printed tiles are now sized to their content.
+- **Switching projects no longer overwrites the incoming project's dashboard layout** with the one you
+  were just looking at.
+- **A layout change made immediately before leaving the dashboard is no longer lost.**
+- **Hiding a tile while dragging it no longer leaves the board stuck** in a dragging state.
+- **Moving or hiding a tile now returns keyboard focus** to a sensible place instead of dropping it to
+  the top of the page.
+
 ## [0.239.0] - 2026-08-15 "Rusch"
 
 ### Added
