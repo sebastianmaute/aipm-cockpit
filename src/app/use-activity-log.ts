@@ -56,16 +56,28 @@ export function useActivityLog(): {
    *     plain prop names, so every threading site reads `logActivity:
    *     logActivityUser` and the decision is auditable in one file.
    *
-   *  ★★ The plain variants therefore still exist and still default to an ABSENT
-   *  actor (which is NOT "user" — see the `actor` field doc on `ActivityEntry`),
-   *  but after the actor-stamping slice exactly ONE production call site is left
-   *  on them: `task-manager`'s debounced `settings.updated` logger, which is
-   *  genuinely ambiguous (the AI's `update_settings` tool mutates the same state
-   *  and the same effect fires for it). Reproduce the survivors with
-   *  `grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?As"`
-   *  — ★★ note the THREE call shapes in that pattern: a bare call, an optional
-   *  call (`args.logActivity?.(`) and a ref indirection (`logActivityRef.current(`).
-   *  A grep for only the first reported 27 sites when there were 65. */
+   *  ★★★ DO NOT READ A CALL SITE'S SPELLING AS ITS ACTOR — this is the one thing
+   *  the design costs, and an earlier revision of this comment got it wrong in
+   *  the checkable direction. It claimed "exactly ONE production call site is
+   *  left on the plain variants" and attached a grep; the grep returns **55**,
+   *  and refutes the sentence it was attached to. The count that is ONE is the
+   *  number of sites still receiving the genuinely ACTOR-LESS function:
+   *  `task-manager`'s debounced `settings.updated` logger, which cannot see its
+   *  cause (the AI's `update_settings` mutates the same state and fires the same
+   *  effect). The other 54 spell `logActivity(...)` and receive the pre-stamped
+   *  `"user"` wrapper. Spelling is a property of the LEAF; the actor is a
+   *  property of the WIRING, and only `task-manager` shows it.
+   *
+   *  ★★ Measured on the actor-stamping slice, all excluding tests and comments:
+   *   - plain-name call sites: 65 before → 55 after
+   *     `grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?(As|User)" | grep -vE ":[0-9]+: *(\*|//)" | wc -l`
+   *   - of the 10 that left: 7 now name an actor at the site, 3 became direct
+   *     `logActivityUser(...)` calls in `task-manager`; 2 of the 7 were then
+   *     DELETED outright (`ai.inlineEdit`, redundant with the per-`runTool` rows).
+   *   - so of the ORIGINAL 65: 62 carry an actor, 2 are gone, 1 stays absent.
+   *  ★★ THREE call shapes in that pattern and all three are load-bearing: a bare
+   *  call, an optional call (`args.logActivity?.(`) and a ref indirection
+   *  (`logActivityRef.current(`). A grep for the first alone reported 27. */
   logActivityAs: (
     actor: ActivityActor,
     kind: ActivityKind,

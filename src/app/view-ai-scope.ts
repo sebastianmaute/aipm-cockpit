@@ -231,10 +231,13 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    production call site wrote `actor: "user"` at all, so every human edit
     //    ever made — including one from five minutes ago — had no actor, and the
     //    sentence told the model those were pre-release entries.
-    //    The actor-stamping slice fixed the cause: 64 of the 65 actor-less call
-    //    sites now name an actor. The ONE survivor is `task-manager`'s debounced
-    //    `settings.updated` logger, which is an effect over settings STATE and
-    //    genuinely cannot see its cause. So "absent ⇒ pre-release" is still not
+    //    The actor-stamping slice fixed the cause: of the 65 actor-less call
+    //    sites, 62 now carry an actor and 2 were deleted. The ONE survivor is
+    //    `task-manager`'s debounced `settings.updated` logger, an effect over
+    //    settings STATE that cannot see its cause. (Most of the 62 still SPELL
+    //    `logActivity(...)` and are stamped by the wiring — see the "do not read
+    //    a call site's spelling as its actor" note on `useActivityLog`.)
+    //    So "absent ⇒ pre-release" is still not
     //    exhaustive, and the clause now states the PROPERTY (unattributable)
     //    instead of enumerating a cause. Pinned in view-ai-scope.test.ts.
     reading:
