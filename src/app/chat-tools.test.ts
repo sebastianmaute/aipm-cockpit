@@ -513,11 +513,15 @@ describe("runTool — get_app_state and edge cases", () => {
   });
 
   // ★★★ activityLog must NEVER reach getSnapshot(). runTool's `get_app_state`
-  //     case returns getSnapshot() VERBATIM, and the log is unbounded
-  //     (mergeActivityLogs caps what is STORED, not what is read) — so mirroring
-  //     it beside `insights` would dump thousands of entries, with field diffs,
-  //     into the context window on a single get_app_state call. The tool reads it
-  //     through the dedicated getActivityLog() method instead.
+  //     case returns getSnapshot() VERBATIM, and the model calls that tool
+  //     freely. The log IS bounded — ACTIVITY_MAX_ENTRIES (500), enforced on
+  //     LOAD (sanitizeActivityLog), on WRITE (appendActivityEntry, which
+  //     appendActivity delegates to) and on MERGE (mergeActivityLogs) — so do
+  //     NOT read this guard as resting on an unbounded collection and delete it
+  //     once you notice the cap. 500 audit entries, each carrying up to
+  //     MAX_FIELD_CHANGES (12) field-level before/after diffs, is still far more
+  //     than belongs in the context window on every snapshot read. The one tool
+  //     that wants the log reads it through getActivityLog() instead.
   //
   //     This test exists because "completing the pattern" later is a natural,
   //     plausible edit that every other test in the suite would stay green for.

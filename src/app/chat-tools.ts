@@ -335,8 +335,13 @@ export type ToolDispatcher = {
     viewDigest?: string;
   };
   /** The project's activity log. ★★★ Deliberately a METHOD rather than a
-   *  `getSnapshot()` field: `get_app_state` returns the snapshot verbatim, and
-   *  this collection is unbounded. See chat-tools.test.ts's guard test. */
+   *  `getSnapshot()` field: `get_app_state` returns the snapshot VERBATIM and
+   *  the model calls it freely. The log IS bounded — `ACTIVITY_MAX_ENTRIES`
+   *  (500) — but 500 audit entries, each carrying up to `MAX_FIELD_CHANGES`
+   *  field-level diffs, is still far more than belongs in the context window on
+   *  every call. This keeps the log reachable by the one tool that wants it and
+   *  out of the snapshot everything else reads. See chat-tools.test.ts's guard
+   *  test. */
   getActivityLog(): readonly ActivityEntry[];
   getDashboardSnapshot(): DashboardSnapshot;
   listAllocations(): AllocationsSnapshot;
