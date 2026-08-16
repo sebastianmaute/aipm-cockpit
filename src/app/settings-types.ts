@@ -47,6 +47,8 @@ export type AiConfig = {
   insightRecommendations?: boolean; // Background insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls.
   insightRecommendationIntervalMinutes?: number; // Background recommendation cadence (SP4). Integer minutes 15–1440. Default 60.
   suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
+  historySearch?: boolean; // The search_history tool. Default ON (undefined = on) — it shipped ON in 0.241.0.
+  activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
   tokenMultiplier?: number; // Multiplier applied to counted tokens before caps (>0, decimals ok). Default 5.
 };
@@ -126,6 +128,12 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     insightRecommendations: obj.insightRecommendations === true,
     insightRecommendationIntervalMinutes: clampInsightRecInterval(obj.insightRecommendationIntervalMinutes),
     suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
+    // ★ `=== false`, never `Boolean(...)`: only an explicit false turns these
+    //   off, so any other stored value (a string, a number, a stale null) reads
+    //   as ON. Both features shipped enabled, and a coercion that read a stale
+    //   value as falsy would silently remove a live capability on upgrade.
+    historySearch: obj.historySearch === false ? false : undefined,
+    activityRecap: obj.activityRecap === false ? false : undefined,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
     tokenMultiplier: coerceMultiplier(obj.tokenMultiplier),
   };

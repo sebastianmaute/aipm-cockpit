@@ -186,3 +186,28 @@ describe("aiAssistantOpener", () => {
     expect(opener).toBe(open);
   });
 });
+
+describe("AiConfig recall toggles", () => {
+  const base = { apiKey: "", model: "claude-sonnet-4-6", consentAccepted: false, groundInGuides: false };
+
+  it("defaults BOTH to ON when absent", () => {
+    const ai = sanitizeAiConfig(base);
+    // ★ ON by absence: search_history shipped ON in 0.241.0, so defaulting off
+    //   would silently remove a live capability on upgrade.
+    expect(ai.historySearch).not.toBe(false);
+    expect(ai.activityRecap).not.toBe(false);
+  });
+
+  it("round-trips an explicit false", () => {
+    const ai = sanitizeAiConfig({ ...base, historySearch: false, activityRecap: false });
+    expect(ai.historySearch).toBe(false);
+    expect(ai.activityRecap).toBe(false);
+  });
+
+  it("coerces a non-boolean to the ON default rather than storing garbage", () => {
+    // ★ A stale string / number / null must read as ON, not as "off by accident".
+    const ai = sanitizeAiConfig({ ...base, historySearch: "no", activityRecap: 0 });
+    expect(ai.historySearch).not.toBe(false);
+    expect(ai.activityRecap).not.toBe(false);
+  });
+});

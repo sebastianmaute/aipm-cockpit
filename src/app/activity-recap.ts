@@ -81,13 +81,11 @@ export function buildActivityRecapBlock(
  *   want it. Keeping it here rather than inline in `use-chat-dispatcher.ts`
  *   also makes it testable: that hook is coverage-excluded UI glue.
  *
- * ★★ `activityRecap` IS NOT YET ON `AiConfig` — it is added, with its Settings
- *    toggle, in the task after this one. Until then the field cannot be NAMED
- *    on the type, so it is read through a double assertion. The read is
- *    DEFAULT-ON (`!== false`, matching `groundInGuides`/`actionSuggestions`)
- *    and stays correct VERBATIM once the field lands: adding it to `AiConfig`
- *    requires no edit here. Drop the assertion then if you like — it is
- *    redundant at that point, not wrong.
+ * ★★ The read is DEFAULT-ON (`!== false`, matching `groundInGuides`/
+ *    `actionSuggestions`), and it has to be: `sanitizeAiConfig` stores only an
+ *    explicit `false` and leaves every other value `undefined`, so a truthiness
+ *    test here would switch the recap off for every user who never touched the
+ *    setting.
  *
  * ★ Returns `undefined`, never `null`: the snapshot field is optional, and a
  *   literal `null` would read as "computed, and the answer is nothing" rather
@@ -99,7 +97,6 @@ export function summarizeForRecap(
   today: string,
   tz: string,
 ): ActivitySummary | undefined {
-  const enabled = (ai as unknown as { activityRecap?: boolean }).activityRecap !== false;
-  if (!enabled) return undefined;
+  if (ai.activityRecap === false) return undefined;
   return summarizeRecentActivity(entries, today, tz) ?? undefined;
 }
