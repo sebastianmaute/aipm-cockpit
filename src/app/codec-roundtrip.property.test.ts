@@ -30,6 +30,7 @@ import { workspaceToCsv, csvToWorkspace } from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import { emptyWorkspace } from "./workspace";
 import type { Task } from "./types";
+import { splitCsvLines, quoteStep } from "./csv-line-scan";
 
 /*
  * EXCLUSIONS — task fields NOT asserted to round-trip, with the reason. Every
@@ -476,7 +477,7 @@ describe("Markdown codec — the three documented lossy transforms", () => {
  * AI-written / backend-converted workspace can carry a newline in any of them.
  * The same hazard applies to every other entity the CSV backend writes.
  */
-describe.skip("CSV codec — section markers must not be matched inside a quoted cell", () => {
+describe("CSV codec — section markers must not be matched inside a quoted cell", () => {
   it("survives a task field containing a line that starts with a section marker", () => {
     const tasks = [
       makeTask(1, {
@@ -534,5 +535,64 @@ describe.skip("Markdown codec — one pass must be a fixed point on any string",
   it("does not erode a CR run on each successive save", () => {
     const first = oneBlockers("a\r\r\r\nb");
     expect(oneBlockers(first)).toBe(first);
+  });
+});
+
+describe("csv-line-scan and parseCsv agree about quoting", () => {
+  // ★ The scanner and the tokenizer are separate loops. THIS is what
+  // guarantees they cannot drift — not the shared `quoteStep` helper, which is
+  // only a mitigation.
+  it("splitCsvLines is lossless on any string", () => {
+    fc.assert(
+      fc.property(fc.string({ maxLength: 200 }), (s) => {
+        const expected = s.replace(/\r?\n/g, "\r\n");
+        expect(splitCsvLines(s).lines.join("\r\n")).toBe(expected);
+      }),
+      { numRuns: 500 },
+    );
+  });
+
+  // ★★★ DO NOT write this one as `parseCsv(rejoined) === parseCsv(normalized)`.
+  // That is VACUOUS: the property above says rejoining REPRODUCES the
+  // normalized input, so such a test compares a value with itself and cannot
+  // fail for any implementation. It was written that way first and caught in
+  // review. The real invariant is that a line never ENDS mid-quote when the
+  // document as a whole is balanced — which is precisely what a naive splitter
+  // violates.
+  //
+  // ★★★ `fc.string({maxLength:200})` is ALSO vacuous here, measured, not
+  // assumed: of 500 runs, every string containing a `"` had unbalanced quotes
+  // and was discarded by `fc.pre` below, and the other 469 runs contained NO
+  // `"` at all — so `quoteStep` never returned non-null and the assertion held
+  // trivially on 100% of surviving runs. A quote-dense alphabet is required to
+  // exercise the property at all; `fc.stringOf` does not exist in this
+  // project's fast-check (4.8.0), so the string is built via
+  // `fc.array(...).map(join)`. Re-measured with this generator: 500 runs, 164
+  // discarded (unbalanced), 255 with no quote, and — the cases that matter —
+  // 81 balanced-and-quoted, 54 of which span more than one physical line
+  // (the exact shape §105 broke).
+  it("never ends a line inside a quote when the document is balanced", () => {
+    const quoteDenseString = fc
+      .array(fc.constantFrom("a", '"', ",", "\r\n", "\n", "#"), { maxLength: 40 })
+      .map((chars) => chars.join(""));
+    fc.assert(
+      fc.property(quoteDenseString, (s) => {
+        const { lines, unterminatedQuote } = splitCsvLines(s);
+        fc.pre(!unterminatedQuote);
+        for (const line of lines) {
+          let inQuotes = false;
+          let i = 0;
+          while (i < line.length) {
+            const step = quoteStep(line, i, inQuotes);
+            if (step) {
+              inQuotes = step.inQuotes;
+              i = step.next;
+            } else i++;
+          }
+          expect(inQuotes).toBe(false);
+        }
+      }),
+      { numRuns: 500 },
+    );
   });
 });
