@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import {
   appendActivity,
   appendActivityEntry,
+  type ActivityActor,
   type ActivityEntry,
   type ActivityKind,
   type FieldChange,
@@ -32,6 +33,24 @@ export function useActivityLog(): {
     changes: readonly FieldChange[],
     ...args: (string | number)[]
   ) => void;
+  /** ★★ ACTOR LEADS, and this is a settled precedent rather than a style
+   *  choice: `logActivity` ends in a rest parameter, so nothing can follow it.
+   *  That is the same constraint that forced `logActivityChanges` to exist as
+   *  its own function instead of an options argument. Keeping the plain
+   *  variants unchanged leaves ~150 existing call sites untouched, all
+   *  correctly defaulting to an ABSENT actor (which is not "user" — see the
+   *  `actor` field doc on `ActivityEntry`). */
+  logActivityAs: (
+    actor: ActivityActor,
+    kind: ActivityKind,
+    ...args: (string | number)[]
+  ) => void;
+  logActivityChangesAs: (
+    actor: ActivityActor,
+    kind: ActivityKind,
+    changes: readonly FieldChange[],
+    ...args: (string | number)[]
+  ) => void;
   handleClearActivityLog: () => void;
 } {
   const { activityLog, setActivityLog } = useWorkspace();
@@ -56,6 +75,27 @@ export function useActivityLog(): {
     [setActivityLog],
   );
 
+  // Actor-aware variants. Same functional-setter rule as above — an actor
+  // changes WHO the entry names, never HOW it is written.
+  const logActivityAs = useCallback(
+    (actor: ActivityActor, kind: ActivityKind, ...args: (string | number)[]) => {
+      setActivityLog((prev) => appendActivityEntry(prev, kind, args, undefined, actor));
+    },
+    [setActivityLog],
+  );
+
+  const logActivityChangesAs = useCallback(
+    (
+      actor: ActivityActor,
+      kind: ActivityKind,
+      changes: readonly FieldChange[],
+      ...args: (string | number)[]
+    ) => {
+      setActivityLog((prev) => appendActivityEntry(prev, kind, args, changes, actor));
+    },
+    [setActivityLog],
+  );
+
   const handleClearActivityLog = useCallback(() => {
     // The Clear button (activity-log-panel) is the sole caller; it already
     // gates on entries.length > 0 and shows the branded confirm dialog. This
@@ -65,5 +105,12 @@ export function useActivityLog(): {
     setActivityLog([]);
   }, [setActivityLog]);
 
-  return { activityLog, logActivity, logActivityChanges, handleClearActivityLog };
+  return {
+    activityLog,
+    logActivity,
+    logActivityChanges,
+    logActivityAs,
+    logActivityChangesAs,
+    handleClearActivityLog,
+  };
 }

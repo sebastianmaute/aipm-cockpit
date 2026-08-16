@@ -285,6 +285,34 @@ describe("appendActivityEntry + changes round-trip (#22)", () => {
   // stripped it on the localStorage one.
 });
 
+describe("appendActivityEntry + actor", () => {
+  test("stamps the actor and omits the key when absent", () => {
+    const withActor = appendActivityEntry([], "task.created", [1, "x"], undefined, "ai");
+    expect(withActor[0].actor).toBe("ai");
+
+    // ★ `"actor" in entry` rather than `toBeUndefined()`: the key must be
+    // OMITTED, not present-and-undefined, so an actor-less entry stays
+    // byte-identical through JSON.stringify on all six storage paths. A plain
+    // `actor` property would put `actor: undefined` on every entry — invisible
+    // to a `toBeUndefined()` assertion and visible to the byte-stability
+    // fixtures.
+    const without = appendActivityEntry([], "task.created", [1, "x"]);
+    expect("actor" in without[0]).toBe(false);
+  });
+
+  test("carries both changes and actor when given both", () => {
+    const changes = [{ field: "status", from: "Open", to: "Closed" }];
+    const [e] = appendActivityEntry([], "raid.updated", [5, "R", "Risk"], changes, "ai");
+    expect(e.changes).toEqual(changes);
+    expect(e.actor).toBe("ai");
+  });
+
+  test("appendActivity produces an actor-less entry", () => {
+    const [e] = appendActivity([], "task.created", 1, "T");
+    expect("actor" in e).toBe(false);
+  });
+});
+
 describe("sanitizeActivityEntry — forward compatibility", () => {
   // ★★★ THE STRIP PATH IS A SPREAD-AND-DELETE, NEVER A REBUILD, and only this
   // test can tell the two apart: rebuilding `{id, timestamp, kind, args}` from

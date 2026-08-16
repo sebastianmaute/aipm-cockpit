@@ -454,16 +454,26 @@ export function appendActivity(
 }
 
 /**
- * Like `appendActivity` but with an explicit `args` array and an optional
- * per-field `changes` diff (UPDATE audit detail). An empty/absent `changes`
- * list omits the key entirely, keeping changes-less entries byte-identical to
- * the plain `appendActivity` path.
+ * Like `appendActivity` but with an explicit `args` array, an optional per-field
+ * `changes` diff (UPDATE audit detail) and an optional `actor`.
+ *
+ * ★★ BOTH OPTIONALS ARE CONDITIONAL SPREADS, NOT PLAIN PROPERTIES, and that is
+ * load-bearing rather than tidiness: `{ actor }` with an undefined `actor` puts
+ * an `actor: undefined` key on EVERY entry, which changes the JSON bytes on all
+ * six write paths and breaks the byte-stability fixtures. The tests assert
+ * `"actor" in entry === false` precisely because `toBeUndefined()` cannot tell
+ * an omitted key from a present-and-undefined one.
+ *
+ * ★ `appendActivity` gets no actor parameter: it ends in a rest parameter, so
+ * nothing can follow it. A caller wanting an actor uses this function (or the
+ * `logActivityAs` hook variant, where the actor LEADS for the same reason).
  */
 export function appendActivityEntry(
   current: readonly ActivityEntry[],
   kind: ActivityKind,
   args: (string | number)[],
   changes?: readonly FieldChange[],
+  actor?: ActivityActor,
 ): ActivityEntry[] {
   const entry: ActivityEntry = {
     id: `${getDeviceId()}-${getSessionNonce()}-${++counter}`,
@@ -471,6 +481,7 @@ export function appendActivityEntry(
     kind,
     args,
     ...(changes && changes.length > 0 ? { changes } : {}),
+    ...(actor ? { actor } : {}),
   };
   const next = [...current, entry];
   return next.length > ACTIVITY_MAX_ENTRIES
