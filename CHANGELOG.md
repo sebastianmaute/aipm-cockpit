@@ -8,6 +8,35 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.243.0] - 2026-08-16 "Aaronovitch"
+
+### Added
+
+- **Headings, list structure and paragraph alignment now survive an export to Word, HTML and PDF.**
+  The seven formatted description fields — a task's description, a RAID item's description and
+  mitigation, a change's description, impact assessment and resolution notes, and a milestone's
+  description — could already hold headings, numbered and bulleted lists, checklists and centred or
+  justified text, but every export flattened all of it into one undifferentiated block. A numbered
+  impact assessment now arrives in Word as a numbered list; a nested list keeps its indentation and
+  its own numbering; a heading is a real heading rather than a bold-looking line; a checklist keeps
+  its ticked and unticked boxes; and a centred or justified paragraph stays centred or justified.
+  The printable HTML and the PDF made from it carry the same structure.
+
+### Fixed
+
+- **List structure was being lost for every description anyone had actually typed.** Text written in
+  a description editor is stored with each list item wrapping its text in a paragraph, and the
+  exporter's reader did not recognise that shape — so list numbering and nesting were inert for
+  every real value, not merely for hand-written markup. The reader now sees through that wrapper.
+
+### Notes
+
+- Excel (`.xlsx`) and PowerPoint (`.pptx`) exports deliberately continue to read the plain text of
+  these fields and are byte-for-byte unchanged.
+- CSV and Markdown project files are unaffected. They are the app's own storage format and carry a
+  description exactly as stored, markup included, so that exporting and re-importing a project
+  round-trips without loss.
+
 ## [0.242.0] - 2026-08-16 "Ashby"
 
 ### Fixed
