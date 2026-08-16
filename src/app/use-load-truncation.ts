@@ -276,22 +276,43 @@ export function useLoadTruncation(
     return true;
   };
 
+  /**
+   * ★★★ ONE COMPOSED TOAST, BECAUSE THE SURFACE IS SINGLE-SLOT. `useToast`
+   * (`use-toast.ts`) holds a `useState<Toast | null>` and `showToast` is a bare
+   * `setToast(...)` — it REPLACES, there is no queue and no stacking. So two
+   * `showToast` calls in one synchronous tick leave only the LAST one visible.
+   *
+   * ★★ An earlier revision fired these as two separate toasts and the comment
+   * there asserted that was deliberate, "so both can be shown". The surface
+   * makes that impossible: on a file that both dropped rows AND ended mid-quote,
+   * the dropped-rows toast was created and instantly overwritten, and unlike
+   * truncation it has no persistent banner to fall back on — the row count was
+   * simply lost.
+   *
+   * ★ Both strings are complete sentences in EN and DE (`i18n.ts` /
+   * `i18n.de.ts`), so joining the applicable ones with a single space is the
+   * whole composition and needs no new key. It is a JOIN, never an `else`: the
+   * two are different losses with different remedies, so neither may be dropped
+   * when both hold.
+   */
   const reportImportDiagnostics = (
     backend: Pick<StorageBackend, "lastImportDroppedRows" | "lastImportUnterminatedQuote">,
   ) => {
     const dropped = backend.lastImportDroppedRows ?? 0;
-    if (dropped > 0) {
-      showToast("error", t(langRef.current, "importDroppedRowsWarning", dropped));
-    }
-    // ★ Separate toast, not an `else`: a file can both drop malformed rows AND
-    // end mid-quote, and they are different losses with different remedies.
-    if (backend.lastImportUnterminatedQuote) {
-      showToast("error", t(langRef.current, "importUnbalancedQuotesWarning"));
-    }
+    const parts: string[] = [];
+    if (dropped > 0) parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
+    if (backend.lastImportUnterminatedQuote) parts.push(t(langRef.current, "importUnbalancedQuotesWarning"));
+    if (parts.length > 0) showToast("error", parts.join(" "));
   };
 
   const truncationOps: TruncationOps = {
     reportFor: (backend) => {
+      // ★★ These two CAN still contend for the single toast slot: a truncated
+      // load that also reported import diagnostics raises both, and the import
+      // toast — fired second — is the one that survives. That is the acceptable
+      // direction, because truncation additionally raises the persistent banner
+      // (`truncation` / `loadWasTruncated`), which names its counts for as long
+      // as the user needs them, while import diagnostics have only the toast.
       reportLoadTruncation(backend.lastLoadTruncation);
       reportImportDiagnostics(backend);
     },

@@ -13,7 +13,7 @@ import { readFileSync } from "node:fs";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useLoadTruncation } from "./use-load-truncation";
-import type { Lang } from "./i18n";
+import { type Lang, t } from "./i18n";
 
 const langRef = { current: "en-US" as Lang };
 
@@ -58,6 +58,76 @@ describe("useLoadTruncation — reportFor", () => {
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
     act(() => { result.current.truncationOps.reportFor(backendReporting(undefined)); });
     expect(result.current.loadWasTruncated).toBe(false);
+  });
+});
+
+// ★★★ WRITTEN AGAINST THE ONE SURVIVING TOAST, NOT A CALL COUNT OF TWO. The
+// surface is SINGLE-SLOT: `use-toast.ts` holds a `useState<Toast | null>` and
+// `showToast` is a bare `setToast(...)`, so a second call in the same tick
+// REPLACES the first and nothing queues. The implementation used to fire these
+// two diagnostics as separate toasts, and on a file that hit both, the
+// dropped-rows count was overwritten before it could be read — with no banner
+// to fall back on, unlike truncation. So "did `showToast` get called with it"
+// is NOT the question; "is it in the toast the user is left holding" is.
+describe("useLoadTruncation — import diagnostics", () => {
+  /** A backend stand-in for the import channel. `lastLoadTruncation` is left
+   *  undefined so `reportLoadTruncation` stays silent and every toast observed
+   *  here is an import diagnostic. */
+  const importing = (dropped?: number, unterminated?: boolean) => ({
+    lastLoadTruncation: undefined,
+    lastImportDroppedRows: dropped,
+    lastImportUnterminatedQuote: unterminated,
+  });
+
+  // Built from the SAME keys the hook uses, so these assert composition and
+  // reachability rather than re-pinning the copy (`i18n-encoding` and the DE
+  // key-parity typecheck own the strings themselves).
+  const droppedMsg = (n: number) => t("en-US", "importDroppedRowsWarning", n);
+  const quoteMsg = t("en-US", "importUnbalancedQuotesWarning");
+
+  it("surfaces the DROPPED-ROWS count when only rows were skipped", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportFor(importing(4, false)); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("error", droppedMsg(4));
+  });
+
+  it("surfaces the UNTERMINATED-QUOTE warning when only the quote is unbalanced", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportFor(importing(0, true)); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("error", quoteMsg);
+  });
+
+  it("surfaces BOTH losses when a file drops rows AND ends mid-quote", () => {
+    // ★★★ THE CASE THE SEPARATE-TOAST IMPLEMENTATION LOST. They are different
+    // losses with different remedies — skipped rows are gone from this import,
+    // an unclosed quote means the tail may never have been parsed — so neither
+    // may be dropped. One slot, so they compose.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportFor(importing(3, true)); });
+
+    // Exactly one call: a second would overwrite the first, which is the defect.
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining(droppedMsg(3)));
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining(quoteMsg));
+    // ★ And they are separated — joined bare, two sentences run together.
+    expect(showToast).toHaveBeenCalledWith("error", `${droppedMsg(3)} ${quoteMsg}`);
+  });
+
+  it("says NOTHING when the import was clean — and the fixture can still speak", () => {
+    const { result, showToast } = render();
+    // Absent fields, not zeroes: both are optional on `StorageBackend`, and an
+    // undefined read means "nothing to report", not "unknown".
+    act(() => { result.current.truncationOps.reportFor(importing(undefined, undefined)); });
+    act(() => { result.current.truncationOps.reportFor(importing(0, false)); });
+    expect(showToast).not.toHaveBeenCalled();
+
+    // ★★ Non-vacuity control, in the same test so it cannot rot separately: the
+    // SAME fixture shape with one condition flipped DOES reach the user, so the
+    // silence above is the code's and not the setup's.
+    act(() => { result.current.truncationOps.reportFor(importing(1, false)); });
+    expect(showToast).toHaveBeenCalledTimes(1);
   });
 });
 
