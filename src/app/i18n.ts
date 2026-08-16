@@ -2831,6 +2831,12 @@ const enUS = {
   actionAiErrorNetwork: "Network error. Check your connection and try again.",
   settingsAiActionSuggestions: "Action Center AI suggestions",
   settingsAiActionSuggestionsHelp: "Show an “Analyze with AI” button in the Action Center.",
+  settingsAiHistorySearch: "Let the assistant search project history",
+  settingsAiHistorySearchHelp:
+    "Adds a tool the assistant can call to read the activity log. Costs nothing until it is used.",
+  settingsAiActivityRecap: "Tell the assistant how much changed recently",
+  settingsAiActivityRecapHelp:
+    "Adds one line to every message with a count of the last 7 days' changes, so the assistant knows history exists.",
   aiInsightRecommendations: "Proactive insight recommendations",
   aiInsightRecommendationsDesc: "Let Claude propose fixes for detected insights in the background. Opt-in — uses billed API calls.",
   aiInsightRecInterval: "Check every (minutes)",

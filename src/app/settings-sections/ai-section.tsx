@@ -441,6 +441,53 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "settingsAiActionSuggestionsHelp")}
         </FieldHint>
 
+        {/* search_history tool (B2a). Default ON (undefined = on) — the tool is
+            only billed when the model actually calls it. */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "settingsAiHistorySearch")}
+            checked={settings.ai.historySearch !== false}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: {
+                  ...settings.ai,
+                  historySearch: settings.ai.historySearch === false,
+                },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">
+            {t(lang, "settingsAiHistorySearch")}
+          </span>
+        </label>
+        <FieldHint className="mt-1">
+          {t(lang, "settingsAiHistorySearchHelp")}
+        </FieldHint>
+
+        {/* Ambient activity recap (B2b). Default ON (undefined = on). */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "settingsAiActivityRecap")}
+            checked={settings.ai.activityRecap !== false}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: {
+                  ...settings.ai,
+                  activityRecap: settings.ai.activityRecap === false,
+                },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">
+            {t(lang, "settingsAiActivityRecap")}
+          </span>
+        </label>
+        <FieldHint className="mt-1">
+          {t(lang, "settingsAiActivityRecapHelp")}
+        </FieldHint>
+
         {/* Proactive insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls. */}
         <label className="mt-3 flex items-center gap-2">
           <Checkbox

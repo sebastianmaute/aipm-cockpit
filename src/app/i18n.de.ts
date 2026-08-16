@@ -2716,6 +2716,12 @@ export const de: Record<TranslationKey, string> = {
   actionAiErrorNetwork: "Netzwerkfehler. Verbindung prüfen und erneut versuchen.",
   settingsAiActionSuggestions: "KI-Vorschläge im Action Center",
   settingsAiActionSuggestionsHelp: "Zeigt eine Schaltfläche „Mit KI analysieren“ im Action Center.",
+  settingsAiHistorySearch: "Assistent darf den Projektverlauf durchsuchen",
+  settingsAiHistorySearchHelp:
+    "Stellt dem Assistenten ein Werkzeug bereit, mit dem er das Aktivitätsprotokoll liest. Verursacht erst bei Nutzung Kosten.",
+  settingsAiActivityRecap: "Assistent über den Umfang der letzten Änderungen informieren",
+  settingsAiActivityRecapHelp:
+    "Fügt jeder Nachricht eine Zeile mit der Anzahl der Änderungen der letzten 7 Tage hinzu, damit der Assistent weiß, dass ein Verlauf existiert.",
   aiInsightRecInterval: "Prüfintervall (Minuten)",
   aiInsightRecIntervalHint: "Wie oft bei geöffneter App nach neuen Empfehlungen gesucht wird. Jede Prüfung kann kostenpflichtige API-Aufrufe auslösen. Minimum 15, Maximum 1440.",
   aiInsightRecommendations: "Proaktive Insight-Empfehlungen",
