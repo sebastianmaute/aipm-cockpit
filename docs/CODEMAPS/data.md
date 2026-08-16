@@ -77,8 +77,8 @@ escaped markup or fused text.
 | module | may touch a DOM? | what it is for |
 |---|---|---|
 | `rich-text-plain.ts` | **NO — never calls DOMPurify** | `descriptionHtml` (upgrade) · `htmlPlainProjection` · `htmlTextLength` · `capHtmlText` · `sanitizeRichText` |
-| `rich-text-projection.ts` | yes, browser-only | `descriptionText` (search / AI / previews) · `descriptionTextWithBreaks` (exports) · `appendDictationToHtml` |
-| `rich-text-runs.ts` | yes, browser-only (DOMParser) | `htmlToRichLines` — HTML → styled runs; the SHARED parse behind `doc-render-docx.ts` and `doc-render-pptx.ts`, so the two OOXML renderers cannot drift |
+| `rich-text-projection.ts` | yes, browser-only | `descriptionText` (search / AI / previews) · `descriptionTextWithBreaks` (the FLAT export paths only — XLSX and both PPTX; DOCX and HTML/PDF now render markup, see below) · `appendDictationToHtml` |
+| `rich-text-runs.ts` | yes, browser-only (DOMParser) | `htmlToRichLines` — HTML → styled runs; the SHARED parse behind the DOCX and PPTX renderers, so the two OOXML renderers cannot drift. ★★ Its production callers are `ooxml-docx-primitives.ts` and `doc-render-pptx.ts` — **NOT `doc-render-docx.ts`**, which this row named until the DOCX call moved during §141(b). Enumerate rather than trust: `grep -rn 'htmlToRichLines(' src/app --include=*.ts \| grep -v '\.test\.'`. `RichLine` carries `kind: "heading"` + `level`, `kind: "li"` + `ordered`/`depth`/`index`/`task`, and `align` |
 | `ai-rich-text.ts` | yes, browser-only | `sanitizeAiRichText` / `withAiRichFields` (`sanitizeRichHtml` / `RICH_ALLOWED_TAGS` — guards the seven rich entity fields: `Task.description` plus the six in `AI_RICH_FIELDS`) · `sanitizeAiDocumentRichText` (`sanitizeDocumentHtml` — model-authored document `paragraph.html` only). ★★ Still not interchangeable, but the delta is now **one tag**: `DOCUMENT_ALLOWED_TAGS` is `[...RICH_ALLOWED_TAGS, "img"]`. The BEHAVIOUR delta USED to be three things with exactly ONE widening — §140 (2026-08-13) CLOSED the widening one: `sanitizeRichHtml` now also sets `ALLOW_DATA_ATTR: false` under the same `ATTR_VALUES` value allow-list `sanitizeDocumentHtml` already used, so an unlisted `data-*` is dropped identically by both (measured: `rich('<p data-foo="1">a</p>')` → `<p>a</p>`, `doc(...)` → `<p>a</p>` — the row did not narrow, it is GONE). **TWO differences survive and NEITHER widens** — wiring a document boundary to the rich one (a) drops `img`, NARROWING (VOID, so it vanishes rather than unwrapping — measured: `rich('<p>a</p><img src="x.png"><p>b</p>')` → `"<p>a</p><p>b</p>"`, doc keeps the element); and (b) cuts the cap 20 000 → 5 000, NARROWING DESTRUCTIVELY, because `capHtmlText`'s truncation branch FLATTENS marks to escaped plain text (measured on 6 001 visible chars carrying a `<mark>`: rich → 5 007 chars, mark GONE; doc → 6 021 chars, mark intact). ★ A third, NARROWER `data-*` difference remains and is not a revival of the closed one: `sanitizeDocumentHtml` additionally admits `data-asset-id` (§117b, a future images slice) under its own charset/length predicate; `sanitizeRichHtml` does not carry that name at all (measured: `rich('<p data-asset-id="a1-B2">x</p>')` → `<p>x</p>`, `doc(...)` → keeps it) — one bounded, value-guarded name, not the unconstrained pass-through the closed row described. ★★★ This cell said "drops IMAGES and nothing else", and its first correction then said "two of them WIDEN" — wrong in BOTH directions at once, and self-refuting, since the same sentence enumerated a dropped tag and a cut cap as two of the three. It also claimed "DROPS all nine of `s`/`code`/`pre`/`blockquote`/`hr`/`mark`/`sub`/`sup`/`img`" against the RETIRED `sanitizeTemplateHtml`; re-measured 2026-08-11 on dompurify 3.4.13, eight of those nine are in `RICH_ALLOWED_TAGS` and the old worked example `"<p>a</p><hr><p>b</p>"` is now byte-identical through both sanitizers |
 
 ★★★ The DOM-free rule on `rich-text-plain.ts` is load-bearing for **data integrity, not style**: it
@@ -88,8 +88,14 @@ call throws, `jsonToWorkspace`'s catch-all swallows it into an EMPTY workspace, 
 then "successfully" writes near-empty sample files. A source-scanning test enforces it (importing is
 fine; calling is not).
 
-★★ **Two projections, and exports use the second.** `descriptionText` collapses a block boundary to a
-space; `descriptionTextWithBreaks` keeps it as `"\n"`. The break mode is **opt-in at three points and
+★★ **Two projections, and the FLAT export paths use the second.** `descriptionText` collapses a block
+boundary to a space; `descriptionTextWithBreaks` keeps it as `"\n"`. ★★★ A rich column is no longer
+flattened in `export-sections.ts` at all — `richCell` emits `RichCell = { html; text }`
+(`ExportCell = string | number | RichCell`, guard `isRichCell`, flattener `cellText`), so DOCX and
+the HTML/PDF path render markup while XLSX and both PPTX paths read `.text`. CSV and Markdown are
+outside this entirely: `exportWorkspace` routes them to `workspaceToCsv`/`workspaceToMarkdown` and
+never calls `buildExportSections`, so they emit the STORED html
+(`grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`). The break mode is **opt-in at three points and
 all three are required** — `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:
 true})` and `htmlPlainProjection(html, {preserveBreaks: true})`. The middle one is the easy miss:
 `htmlToText`'s default `\s+` → `" "` collapse flattens the newline the first call just inserted.

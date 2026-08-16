@@ -1081,15 +1081,45 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   by `doc-render-docx.ts` + `doc-render-pptx.ts` so the two OOXML renderers cannot drift. ★ It serves
   DOCUMENTS, not the register fields this bullet is named for; it sits here because the DOM axis
   governs it, and moving it out would put a second copy of that axis in another file.
-  ★★ **TWO projections, and exports use the SECOND one.** `descriptionText` COLLAPSES a block
-  boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an export
-  a human reads, where a three-paragraph description arrived as one run-on line.
-  `descriptionTextWithBreaks` keeps the boundary as `"\n"`, and `export-sections.ts`'s `richCell`
-  routes EVERY rich column through it (`TASK_RICH_COLUMNS` · `RAID_` · `MILESTONE_` · `CHANGE_`);
-  each renderer then maps that newline to its own primitive — `<br>` (HTML/PDF, escape FIRST),
-  `<w:br/>` (DOCX, several `<w:t>` in one `<w:r>`), one `<a:p>` per line (PPTX), and XLSX already
-  preserved it via `xml:space="preserve"` + `wrapText`. A new export column joins a `*_RICH_COLUMNS`
-  set; a new RENDERER must map the newline or it silently ships fused text.
+  ★★ **TWO projections, and the FLAT export paths use the SECOND one.** `descriptionText` COLLAPSES
+  a block boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an
+  export a human reads, where a three-paragraph description arrived as one run-on line.
+  `descriptionTextWithBreaks` keeps the boundary as `"\n"`; each flat renderer then maps that
+  newline to its own primitive — one `<a:p>` per line (PPTX), and XLSX preserves it via
+  `xml:space="preserve"` + `wrapText`. A new RENDERER that consumes the flat text must map the
+  newline or it silently ships fused text.
+  ★★★ **A RICH COLUMN IS NO LONGER FLATTENED IN `export-sections.ts` — it carries BOTH
+  forms, and each renderer picks.** `richCell` emits `RichCell = { html; text }` (`ExportCell =
+  string | number | RichCell`, guard `isRichCell`, flattener `cellText`) for the columns named by
+  `TASK_RICH_COLUMNS` · `RAID_RICH_COLUMNS` · `MILESTONE_RICH_COLUMNS` · `CHANGE_RICH_COLUMNS`. The
+  two structural consumers reach the html by DIFFERENT routes and conflating them sends you to the
+  wrong file: DOCX parses it into styled runs (`ooxml-docx-primitives.ts` → `htmlToRichLines`),
+  while the HTML/PDF path emits markup directly (`download.ts` `exportCellHtml` →
+  `sanitizeRichHtml(descriptionHtml(…))`, no runs parse at all). XLSX (`export-xlsx.ts`) and BOTH
+  PPTX paths (`export-pptx.ts`, `doc-render-pptx.ts`) read `.text` and are byte-identical to
+  before. `RichLine`
+  (`rich-text-runs.ts`) carries the structure that makes this renderable: `kind: "heading"` with
+  `level` (h5/h6 CLAMPED to 4 — nothing declares a `Heading5`, and Word SILENTLY IGNORES a
+  `w:pStyle` it cannot resolve), `kind: "li"` with `ordered`/`depth`/`index`/`task`, and `align` on
+  every kind but `hr`. A new export column joins a `*_RICH_COLUMNS` set; a new RENDERER must decide
+  which half it reads.
+  ★★★ **THE SPLIT IS "CARRY vs PARSE", and it is easy to break by "helpfully" parsing one level
+  up.** `export-sections.ts` CARRIES the html as an opaque string and never parses it — every parse
+  lives in the DOM-bound renderers, which is what lets one section model feed both the structural and
+  the flat consumers. Keep a `DOMParser`/DOMPurify call out of it and add it to the renderer instead.
+  ★ Deliberately NOT justified here by "it would throw under bare node in the sample generator" —
+  that rationale is measured FALSE about the generator (which installs a JSDOM before importing
+  `src/app`) and is tracked as `docs/open-followups.md` §151, which counts the places still asserting
+  it. The carry/parse split stands on the section model being shared, not on that mechanism.
+  ★★ **CSV AND MARKDOWN ARE OUTSIDE ALL OF THE ABOVE, AND NOT FOR THE REASON THE FLAT/RICH SPLIT
+  SUGGESTS.** `exportWorkspace` routes csv/md to `workspaceToCsv`/`workspaceToMarkdown` — the
+  STORAGE serializers — and calls `buildExportSections` only for docx/xlsx/pptx/pdf. So CSV export
+  never consumed the flat projection at ALL; it emits the STORED HTML, which is exactly what
+  `golden-workspace.test.ts` pins. Reproduce:
+  `grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`.
+  ★ PPTX being flat is a STATED gap with a layout cause, not an oversight — `buildPptxRowSlide`
+  renders one slide per ROW and caps the meta lines, so three of the seven rich fields (including
+  `Task.description`) never reach a slide at any markup fidelity. `docs/open-followups.md` §153.
   ★★★ The break mode is OPT-IN at THREE points and all three are required:
   `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:true})` and
   `htmlPlainProjection(html, {preserveBreaks:true})`. The middle one is the easy miss —
@@ -1219,8 +1249,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ **MIGRATION IS READ-TIME, NOT WRITE-TIME.** Storage is not normalised by the decoders — they
   hand-build entities and never call the entity sanitizer (`buildRaidItemFromObj`,
   `buildMilestoneFromObj`). EVERY reader upgrades instead: `descriptionHtml` at a DOM boundary,
-  `descriptionText` for search / AI digests / the inline-AI preview (exports use
-  `descriptionTextWithBreaks` — see above). A project therefore
+  `descriptionText` for search / AI digests / the inline-AI preview (the FLAT export paths use
+  `descriptionTextWithBreaks`; the structural ones upgrade the html instead — see above). A project therefore
   holds BOTH shapes at once, and that is fine — but a new consumer that reads one of the six fields
   raw ships escaped markup or fused text. Grep the six names before adding a reader.
   ★★ The projection is REGEX, and both of its obvious spellings are wrong: `<[^>]*>` deletes a tag
