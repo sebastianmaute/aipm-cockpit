@@ -175,6 +175,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 128 | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | open, UI — the LAST of the three `finally` blocks whose `setBusy(false)` sits outside its guard, so a superseded run reports idle while its successor is still in flight. ★★ NOT the same defect as §127 (that was an unmount leak; this is a disarmed flag) and NOT an AI path, so §121/§127's sweeps do not surface it. First written as a bullet inside CLOSED §127 — a live defect in a closed entry has no index row and stops being read |
 | 143 | The `isHtmlStart` sink ARGUMENT is unpinned at every call site | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open, **HIGH** — the map is pinned, the argument is not. Measured swaps leaving suites fully green: `narrative-html.ts` `"rich"`→`"document"` (34/34) and all SIX `sanitize-records.ts` entity sites (151/151); `doc-render-html.ts` `"render"`→`"document"` is the positive control at **3 red**. Bounded today (`rich` and `document` differ by `img` alone), unbounded in shape |
 | 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED 2026-08-12** — (b) closed the a11y-gate reachability gap; (a) built the roving-tabindex keyboard contract in `toolbar-roving.ts` + `rich-text-toolbar.tsx` and flipped `role="group"` to `role="toolbar"`, cutting the row from 15 tab stops to 1. Mutation-proved (portal guard 1 red, `tabIndex` ternary 3 red) and browser-proved (`e2e/rich-text-toolbar-keyboard.spec.ts`). Full closing detail in the entry below |
+| 150 | A BALANCED pair of stray quotes MISLABELS rows across a CSV section boundary instead of losing them | cold review of the branch closing §105, 2026-08-16 | ? | open, **UNDECIDABLE — no fix is proposed**. A severity regression of §105's fix, not a new failure: the same file lost the same rows before it. Measured — one `"` in a task cell and one in a later milestone cell make quote state carry across the `# MILESTONES` marker, so milestones 6 and 7 import as TASKS (`taskName` `M6`/`M7`) and `milestones` comes back EMPTY. Silent on both sides of the fix (`droppedRows` 0, `unterminatedQuote` false). Needs a hand-edited/truncated/foreign file — `csvEscape` doubles every `"`, so a file we wrote cannot exhibit it |
 
 ★★ **This table stops at §128 and has done since 2026-08-08 — §129–§142 carry NO index row.**
 Reproduce: `for n in $(seq 129 144); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`.
@@ -9716,3 +9717,92 @@ shape is the inverse: find tests that reach the real clock at all (a component c
 internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock in each. ★ Running
 the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
 per-test-file, so this needs a harness-level option rather than a one-off command.
+
+## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured
+
+Opened 2026-08-16 out of the cold review of the branch that closes §105.
+
+★★★ **THIS IS A SEVERITY REGRESSION OF §105's FIX, NOT A NEW FAILURE.** The same file lost the same
+rows before the branch. What changed is that silent LOSS became silent MISLABELLING — rows enter the
+workspace as the wrong entity type. Do not read it as damage the branch introduced from nothing.
+
+**Where:** `splitCsvSections` (`csv-codecs-decode.ts`) now segments the document with the quote-aware
+`splitCsvLines` (`csv-line-scan.ts`). Quote state therefore carries across the WHOLE file, where the
+physical `csv.split(/\r?\n/)` it replaced reset it at every line. The branch already handles the
+UNBALANCED case by falling back to that physical split for routing — an unbalanced quote is proof the
+file is malformed, and one stray `"` in an early section would otherwise swallow every later marker.
+**A BALANCED pair of stray quotes is not covered and cannot be.**
+
+★ **Reachability: a hand-edited, truncated or foreign file only.** `csvEscape` wraps any cell
+containing a `"` and doubles every quote inside it, so a file our own encoder wrote can never carry a
+stray one. This is the same reachability envelope the `unterminatedQuote` doc comment already states
+for its own signal.
+
+### Measured
+
+Fixture built by encoding a one-task / three-milestone workspace with `workspaceToCsv`, then
+TEXTUALLY replacing two plain cell values — `blockers` on the task and `description` on milestone 5 —
+to model a hand edit. Tasks header elided here (28 columns); the milestones section is verbatim:
+
+```
+# TASKS
+id,taskName,…,blockers,…,noteLog
+1,T1,,,,2026-01-01,,,Medium,To Do,a"b,,,,,,,,,,,,,,,,,
+
+# MILESTONES
+id,name,date,description,achievedDate,linkedTaskIds,localModifiedAt,knowledgeLinks,outlookEventId
+5,M5,2026-02-01,c"d,,,,,
+6,M6,2026-03-01,,,,,,
+7,M7,2026-04-01,,,,,,
+```
+
+The `"` in `a"b` opens a quote; the `"` in `c"d` closes it. Everything between — including the
+`# MILESTONES` marker line and the milestones header — is swallowed into one cell.
+
+```
+AFTER  (this branch)      task ids [1, 6, 7]   taskName ["T1","M6","M7"]   milestones []
+BEFORE (physical split)   task ids [1]         taskName ["T1"]             milestones [5]
+diag, BOTH               {"droppedRows":0,"unterminatedQuote":false}
+```
+
+★★ **The BEFORE half was measured through the branch's OWN fallback, not from an old checkout.** The
+pre-branch routing IS `csv.split(/\r?\n/)`, so appending a third stray quote (`JUNK,"UNCLOSED`) after
+the last section flips `unterminatedQuote` and takes that branch, leaving the physical routing of the
+tasks and milestones text byte-identical. ★ Put the junk somewhere that neither counts nor is
+measured: an appended `# STAKEHOLDERS` row went through `decodeCsvSection` and pushed `droppedRows`
+to 1, which would have been read as a pre-branch diagnostic that does not exist. `droppedRows` is 0
+on BOTH sides once the junk is moved out of a counting decoder.
+
+★ `unterminatedQuote` did not exist before the branch, so the pre-fix diagnostic was `droppedRows`
+alone — also 0. Both states are fully silent; the fix neither added nor removed a signal here.
+
+### Why no fix is proposed
+
+**It is undecidable at the byte level.** A legitimately quoted cell containing marker-shaped text and
+a stray quote that swallowed a real marker are BYTE-IDENTICAL. There is nothing for a parser to
+condition on.
+
+★★★ **DO NOT close this with a "the two splits disagree" warning.** A well-formed file legitimately
+carrying a marker-shaped line inside a quoted cell — precisely the §105 shape this branch exists to
+fix — produces exactly that divergence. The warning would therefore fire on the file we just fixed,
+on every correct import, which is worse than the silence it replaces.
+
+★★ **And do not reach for a heuristic** ("a marker line inside a quote is suspicious", "a section
+that came back empty while a neighbour grew"). §105 already recorded two detectors designed and
+discarded for this family — reject-counting and rows-found-vs-entities-produced — both structurally
+blind because the rows are ABSORBED rather than rejected. A heuristic here does not merely fail to
+detect; it mis-detects the legitimate case, and there is no input that separates the two.
+
+★ The honest options are all outside the parser: refuse to import a CSV whose quotes are stray by
+some external check, or accept the class. Neither is scoped here.
+
+### The autosave interaction
+
+Nothing stops the mislabelled workspace being written back over its source. `mayCommitAfterTruncation`
+gates on `loadWasTruncated` only, so import diagnostics never block a save — and here there is no
+diagnostic to block on: `reportImportDiagnostics` fires on `droppedRows` or `unterminatedQuote`, and
+both are falsy. The milestone rows are gone from `milestones` and present as tasks by the time the
+first ordinary save runs.
+
+★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
+not an independent defect.
