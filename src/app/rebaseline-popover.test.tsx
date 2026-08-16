@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 import { loadI18n } from "./i18n";
@@ -6,6 +6,19 @@ import type { SuggestedAction } from "./next-actions/types";
 import type { Milestone, Task } from "./types";
 
 beforeAll(async () => { await loadI18n("de"); });
+
+// `milestoneRebaselineDate` FLOORS the forecast at today (`forecast > today ? forecast :
+// today`), so a fixture due date that ages into the past silently switches the branch under
+// test — the assertion then reads today’s date and the suite goes red on a date change, with
+// no code change behind it. That is exactly what happened on 2026-08-16. Freezing the clock
+// well before the fixture keeps the FORECAST branch live, which is the branch these tests name.
+// Only Date is faked: faking every timer would put RTL and the React scheduler on a stopped
+// clock, which these tests do not need.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
+});
+afterEach(() => { vi.useRealTimers(); });
 
 const milestones: Milestone[] = [{ id: 7, name: "Go-Live", date: "2026-06-01", linkedTaskIds: [1] }];
 const tasks: Task[] = [{ id: 1, title: "T", status: "todo", dueDate: "2026-08-15", linkedTaskIds: [] } as unknown as Task];
