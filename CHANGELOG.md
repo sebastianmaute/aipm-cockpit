@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.241.0] - 2026-08-16 "Tuttle"
+
+### Added
+
+- **The assistant can now search the project's activity history.** Ask when a milestone moved, who
+  picked up a task, or what changed last week, and it searches what was actually recorded rather than
+  inferring from the current state. Searches run in the project's timezone, so a question about
+  "yesterday" uses your day boundaries and not UTC's.
+- **The assistant is told which of its past recommendations worked.** Recommendations that were
+  followed and later measured are summarised for it, so it can favour advice that has already proved
+  out on this project instead of repeating advice that did not.
+
+### Changed
+
+- **The assistant is explicit about the limits of what it can see.** The activity log keeps the most
+  recent 500 entries, and it covers changes made through the app's own screens — so it will say that
+  older activity has aged out rather than reporting it as nothing having happened, and it does not
+  claim to cover what it cannot see.
+
+### Fixed
+
+- **Two tests could fail for reasons unrelated to the code they check.** One property test's guard sat
+  inside its own random variance and could fail roughly once in five thousand runs; another re-read
+  every source file three times over, tripling its cost under a loaded test run. Neither affected the
+  application — both are internal checks — but a test that fails at random erodes trust in the ones
+  that fail for real.
+
 ## [0.240.0] - 2026-08-16 "Elliott"
 
 ### Added
