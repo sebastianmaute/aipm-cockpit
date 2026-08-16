@@ -344,6 +344,12 @@ export type ToolDispatcher = {
    *  out of the snapshot everything else reads. See chat-tools.test.ts's guard
    *  test. */
   getActivityLog(): readonly ActivityEntry[];
+  /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
+   *  so a day bound and the `Today is …` date the model is given cannot disagree.
+   *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
+   *  per-session viewing preference, and honouring it here would move the
+   *  model's day boundaries without moving the date it reasons from. */
+  getTimezone(): string;
   getDashboardSnapshot(): DashboardSnapshot;
   listAllocations(): AllocationsSnapshot;
   listKnowledgeItems(): KnowledgeSummary[];
@@ -683,7 +689,7 @@ export async function runTool(
           ? input.kinds.filter((k): k is string => typeof k === "string")
           : undefined,
         limit: typeof input.limit === "number" ? input.limit : undefined,
-      });
+      }, d.getTimezone());
 
     case "create_raid_item":
       return d.createRaid(input as RaidInput);

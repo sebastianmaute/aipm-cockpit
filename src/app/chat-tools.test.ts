@@ -161,6 +161,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       currentView: "chat" as import("./nav-config").AppView,
     })),
     getActivityLog: vi.fn(() => []),
+    getTimezone: vi.fn(() => "UTC"),
     getDashboardSnapshot: vi.fn(
       () =>
         ({
@@ -1187,6 +1188,30 @@ describe("search_history", () => {
     };
     expect(r.events.map((e) => e.summary)).toEqual(["Task #2 created: Beta"]);
     expect(r.truncated).toBe(true);
+  });
+
+  // ★★ The tool layer's own half of the timezone fix: the engine can filter in
+  //    any zone it is handed, but only this proves the dispatcher's zone is
+  //    what reaches it. A hardcoded "UTC" at the call site passes every engine
+  //    test in history-search.test.ts and fails here.
+  //    22:30Z on the 16th is 00:30 on the 17th in Berlin, so a Berlin project
+  //    must answer the 17th and not the 16th, and must quote the +02:00 clock.
+  it("filters and stamps in the dispatcher's timezone, not UTC", async () => {
+    const log: ActivityEntry[] = [
+      { id: "z", timestamp: "2026-08-16T22:30:00.000Z", kind: "task.created", args: [9, "Late"] },
+    ];
+    const d = makeDispatcher({
+      getActivityLog: () => log,
+      getTimezone: () => "Europe/Berlin",
+    });
+    const on = async (day: string) =>
+      (await runTool(d, "search_history", { since: day, until: day })) as {
+        events: { at: string }[];
+      };
+    expect((await on("2026-08-17")).events.map((e) => e.at)).toEqual([
+      "2026-08-17T00:30:00+02:00",
+    ]);
+    expect((await on("2026-08-16")).events).toHaveLength(0);
   });
 
   // A real kind filter must still WORK — otherwise "garbage becomes undefined"

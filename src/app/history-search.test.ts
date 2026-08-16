@@ -12,7 +12,7 @@ const at = (day: string, over: Partial<ActivityEntry> = {}): ActivityEntry => ({
 
 describe("searchHistory", () => {
   it("returns newest first", () => {
-    const r = searchHistory([at("10"), at("12"), at("11")], {});
+    const r = searchHistory([at("10"), at("12"), at("11")], {}, "UTC");
     expect(r.events.map((e) => e.at.slice(8, 10))).toEqual(["12", "11", "10"]);
   });
 
@@ -21,21 +21,28 @@ describe("searchHistory", () => {
     //   the WIDER `readonly string[]` (the model is untrusted input and may send
     //   any string), and this call site proves the narrow union still assigns.
     const kinds: ActivityKind[] = ["milestone.deleted"];
-    const r = searchHistory([at("10"), at("11", { kind: "milestone.deleted" })], { kinds });
+    const r = searchHistory(
+      [at("10"), at("11", { kind: "milestone.deleted" })],
+      { kinds },
+      "UTC",
+    );
     expect(r.events).toHaveLength(1);
     // ★ The EN template is "Deleted milestone #{0}" — LOWERCASE "milestone".
     //   Asserting the whole interpolated line rather than a substring also pins
     //   that the render layer ran at all, not just that the filter picked a row.
     expect(r.events[0].summary).toBe("Deleted milestone #1");
-    expect(r.events[0].at).toBe("2026-08-11T09:00:00.000Z");
+    // ★ `at` is the instant carrying the PROJECT's offset, not the raw UTC
+    //   stamp — the model quotes this back to a user whose Activity panel shows
+    //   the same wall clock. A UTC project spells the offset `+00:00`.
+    expect(r.events[0].at).toBe("2026-08-11T09:00:00+00:00");
   });
 
   it("filters by since and until inclusively on the date part", () => {
     const entries = [at("10"), at("11"), at("12")];
-    expect(searchHistory(entries, { since: "2026-08-11" }).events).toHaveLength(2);
-    expect(searchHistory(entries, { until: "2026-08-11" }).events).toHaveLength(2);
+    expect(searchHistory(entries, { since: "2026-08-11" }, "UTC").events).toHaveLength(2);
+    expect(searchHistory(entries, { until: "2026-08-11" }, "UTC").events).toHaveLength(2);
     expect(
-      searchHistory(entries, { since: "2026-08-11", until: "2026-08-11" }).events,
+      searchHistory(entries, { since: "2026-08-11", until: "2026-08-11" }, "UTC").events,
     ).toHaveLength(1);
   });
 
@@ -48,10 +55,10 @@ describe("searchHistory", () => {
         changes: [{ field: "status", from: "To Do", to: "Done" }],
       }),
     ];
-    expect(searchHistory(entries, { query: "FIX LOGIN" }).events).toHaveLength(1);
+    expect(searchHistory(entries, { query: "FIX LOGIN" }, "UTC").events).toHaveLength(1);
     // ★ "to do" appears ONLY in the detail line, so this fails if the haystack
     //   is built from the summary alone.
-    const detailHit = searchHistory(entries, { query: "to do" });
+    const detailHit = searchHistory(entries, { query: "to do" }, "UTC");
     expect(detailHit.events).toHaveLength(1);
     expect(detailHit.events[0].detail).toBe("status: To Do → Done");
   });
@@ -60,30 +67,32 @@ describe("searchHistory", () => {
   //   was supplied — the model uses it to decide whether to claim completeness.
   it("sets truncated only when the cap actually cuts", () => {
     const entries = Array.from({ length: 3 }, (_, i) => at(String(10 + i)));
-    expect(searchHistory(entries, { limit: 3 }).truncated).toBe(false);
-    expect(searchHistory(entries, { limit: 2 }).truncated).toBe(true);
-    expect(searchHistory(entries, { limit: 2 }).events).toHaveLength(2);
+    expect(searchHistory(entries, { limit: 3 }, "UTC").truncated).toBe(false);
+    expect(searchHistory(entries, { limit: 2 }, "UTC").truncated).toBe(true);
+    expect(searchHistory(entries, { limit: 2 }, "UTC").events).toHaveLength(2);
   });
 
   // ★ The cap that cuts here is the DEFAULT, not a supplied one: a "truncated
   //   means a limit was passed" implementation reports false for both of these.
   it("sets truncated when an unsupplied default or clamped cap cuts", () => {
     const entries = Array.from({ length: 3 }, (_, i) => at(String(10 + i)));
-    expect(searchHistory(entries, {}).truncated).toBe(false);
-    expect(searchHistory(manyEntries(DEFAULT_HISTORY_LIMIT + 1), {}).truncated).toBe(true);
+    expect(searchHistory(entries, {}, "UTC").truncated).toBe(false);
+    expect(searchHistory(manyEntries(DEFAULT_HISTORY_LIMIT + 1), {}, "UTC").truncated).toBe(true);
     expect(
-      searchHistory(manyEntries(MAX_HISTORY_LIMIT + 1), { limit: 9999 }).truncated,
+      searchHistory(manyEntries(MAX_HISTORY_LIMIT + 1), { limit: 9999 }, "UTC").truncated,
     ).toBe(true);
   });
 
   it("defaults to DEFAULT_HISTORY_LIMIT and clamps to MAX_HISTORY_LIMIT", () => {
     const entries = manyEntries(250);
-    expect(searchHistory(entries, {}).events).toHaveLength(DEFAULT_HISTORY_LIMIT);
-    expect(searchHistory(entries, { limit: 9999 }).events).toHaveLength(MAX_HISTORY_LIMIT);
-    expect(searchHistory(entries, { limit: 0 }).events).toHaveLength(DEFAULT_HISTORY_LIMIT);
+    expect(searchHistory(entries, {}, "UTC").events).toHaveLength(DEFAULT_HISTORY_LIMIT);
+    expect(searchHistory(entries, { limit: 9999 }, "UTC").events).toHaveLength(MAX_HISTORY_LIMIT);
+    expect(searchHistory(entries, { limit: 0 }, "UTC").events).toHaveLength(DEFAULT_HISTORY_LIMIT);
     // ★ The cap slices the NEWEST matches, so the first row must be the last
     //   minted entry — a cap applied before the sort would return the oldest.
-    expect(searchHistory(entries, {}).events[0].at).toBe(entries[249].timestamp);
+    expect(searchHistory(entries, {}, "UTC").events[0].at).toBe(
+      entries[249].timestamp.replace(".000Z", "+00:00"),
+    );
   });
 
   // ★★ `limit` is model-supplied, so a fraction below 1 is reachable. Flooring
@@ -93,7 +102,7 @@ describe("searchHistory", () => {
   it("falls back to the default for a fractional limit that floors to zero", () => {
     const entries = manyEntries(10);
     for (const limit of [0.5, 0.9, 0.0001]) {
-      const r = searchHistory(entries, { limit });
+      const r = searchHistory(entries, { limit }, "UTC");
       expect(r.events).toHaveLength(10);
       expect(r.truncated).toBe(false);
     }
@@ -101,7 +110,7 @@ describe("searchHistory", () => {
 
   it("floors a fractional limit of one or more instead of defaulting", () => {
     const entries = manyEntries(10);
-    const r = searchHistory(entries, { limit: 2.9 });
+    const r = searchHistory(entries, { limit: 2.9 }, "UTC");
     expect(r.events).toHaveLength(2);
     expect(r.truncated).toBe(true);
   });
@@ -111,24 +120,117 @@ describe("searchHistory", () => {
   //   the DEFAULT rather than MAX_HISTORY_LIMIT — pinned so it cannot drift.
   it("falls back to the default for a non-finite limit", () => {
     const entries = manyEntries(DEFAULT_HISTORY_LIMIT + 10);
-    expect(searchHistory(entries, { limit: Infinity }).events).toHaveLength(
+    expect(searchHistory(entries, { limit: Infinity }, "UTC").events).toHaveLength(
       DEFAULT_HISTORY_LIMIT,
     );
-    expect(searchHistory(entries, { limit: NaN }).events).toHaveLength(DEFAULT_HISTORY_LIMIT);
+    expect(searchHistory(entries, { limit: NaN }, "UTC").events).toHaveLength(
+      DEFAULT_HISTORY_LIMIT,
+    );
   });
 
   it("treats an empty kinds list as no kind filter", () => {
     const entries = [at("10"), at("11", { kind: "milestone.deleted" })];
-    expect(searchHistory(entries, { kinds: [] }).events).toHaveLength(2);
+    expect(searchHistory(entries, { kinds: [] }, "UTC").events).toHaveLength(2);
   });
 
   it("treats a whitespace-only query as no query filter", () => {
     const entries = [at("10"), at("11")];
-    expect(searchHistory(entries, { query: "   " }).events).toHaveLength(2);
+    expect(searchHistory(entries, { query: "   " }, "UTC").events).toHaveLength(2);
   });
 
   it("returns an empty result for an empty log", () => {
-    expect(searchHistory([], { query: "anything" })).toEqual({ events: [], truncated: false });
+    expect(searchHistory([], { query: "anything" }, "UTC")).toEqual({
+      events: [],
+      truncated: false,
+    });
+  });
+
+  // ★★★ THE DEFECT THIS SUITE EXISTS FOR. The engine used to file an entry
+  //     under `timestamp.slice(0, 10)` — the UTC day — while the `Today is …`
+  //     date the model is given and the Activity panel a user reads are BOTH in
+  //     the project's zone. Every fixture here straddles a day boundary; one
+  //     sitting mid-day passes identically under both implementations.
+  describe("timezone-aware day bounds", () => {
+    // 00:30 on the 17th in Berlin. Filed under the 16th by a UTC day filter.
+    const BERLIN_LATE: ActivityEntry = {
+      id: "berlin-late",
+      timestamp: "2026-08-16T22:30:00.000Z",
+      kind: "task.created",
+      args: [1, "Late edit"],
+    };
+    // 18:00 on the 16th in Los Angeles. Filed under the 17th by a UTC filter,
+    // i.e. everything after 17:00 local vanishes from "what changed today".
+    const PACIFIC_EVENING: ActivityEntry = {
+      id: "pacific-evening",
+      timestamp: "2026-08-17T01:00:00.000Z",
+      kind: "task.created",
+      args: [2, "Evening edit"],
+    };
+
+    it("files a late-evening Berlin entry under its LOCAL day, not the UTC one", () => {
+      const day = (d: string) =>
+        searchHistory([BERLIN_LATE], { since: d, until: d }, "Europe/Berlin").events;
+      expect(day("2026-08-17")).toHaveLength(1);
+      expect(day("2026-08-16")).toHaveLength(0);
+    });
+
+    it("files an evening Pacific entry under its LOCAL day, not the UTC one", () => {
+      const day = (d: string) =>
+        searchHistory([PACIFIC_EVENING], { since: d, until: d }, "America/Los_Angeles").events;
+      expect(day("2026-08-16")).toHaveLength(1);
+      expect(day("2026-08-17")).toHaveLength(0);
+    });
+
+    // ★ The regression guard: a UTC project must file both of these exactly
+    //   where the old `slice(0, 10)` did.
+    it("is unchanged for a UTC project", () => {
+      const entries = [BERLIN_LATE, PACIFIC_EVENING];
+      const day = (d: string) => searchHistory(entries, { since: d, until: d }, "UTC").events;
+      expect(day("2026-08-16").map((e) => e.summary)).toEqual(["Task #1 created: Late edit"]);
+      expect(day("2026-08-17").map((e) => e.summary)).toEqual(["Task #2 created: Evening edit"]);
+    });
+
+    it("emits `at` with the project's offset so the model quotes the user's clock", () => {
+      const [berlin] = searchHistory([BERLIN_LATE], {}, "Europe/Berlin").events;
+      expect(berlin.at).toBe("2026-08-17T00:30:00+02:00");
+      const [pacific] = searchHistory(
+        [PACIFIC_EVENING],
+        {},
+        "America/Los_Angeles",
+      ).events;
+      expect(pacific.at).toBe("2026-08-16T18:00:00-07:00");
+    });
+
+    // ★★ Sorting must stay on the RAW instant. Across a DST transition the
+    //    offset changes, so lexicographic compare on the OFFSET-BEARING string
+    //    inverts the pair: "02:30+02:00" sorts after "02:00+01:00" while the
+    //    later one is the real-time-earlier of the two. Berlin's 2026 autumn
+    //    change is 03:00 CEST → 02:00 CET on 25 October (01:00 UTC).
+    it("sorts on the real instant across a DST transition", () => {
+      const before: ActivityEntry = {
+        id: "cest", timestamp: "2026-10-25T00:30:00.000Z",
+        kind: "task.created", args: [1, "Before"],
+      };
+      const after: ActivityEntry = {
+        id: "cet", timestamp: "2026-10-25T01:30:00.000Z",
+        kind: "task.created", args: [2, "After"],
+      };
+      const r = searchHistory([before, after], {}, "Europe/Berlin");
+      expect(r.events.map((e) => e.at)).toEqual([
+        "2026-10-25T02:30:00+01:00",
+        "2026-10-25T02:30:00+02:00",
+      ]);
+    });
+
+    it("keeps an entry whose timestamp cannot be parsed out of a bounded search", () => {
+      const broken: ActivityEntry = {
+        id: "broken", timestamp: "whenever", kind: "task.created", args: [1, "Broken"],
+      };
+      expect(searchHistory([broken], {}, "Europe/Berlin").events).toHaveLength(1);
+      expect(
+        searchHistory([broken], { since: "2026-08-01" }, "Europe/Berlin").events,
+      ).toHaveLength(0);
+    });
   });
 });
 

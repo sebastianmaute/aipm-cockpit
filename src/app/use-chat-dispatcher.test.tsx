@@ -141,6 +141,7 @@ function renderRaidProbe() {
       d: useChatDispatcher({
         settings: makeSettings(),
         today: "2026-05-19",
+        timezone: "UTC",
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
         isReadOnly: false,
@@ -178,6 +179,7 @@ function renderDispatcher(
       useChatDispatcher({
         settings,
         today: "2026-05-19",
+        timezone: "UTC",
         setSelectedIds,
         setSettings,
         isReadOnly,
@@ -648,6 +650,7 @@ describe("useChatDispatcher", () => {
         useChatDispatcher({
           settings,
           today: "2026-05-19",
+          timezone: "UTC",
           setSelectedIds,
           setSettings,
           isReadOnly: false,
@@ -707,6 +710,7 @@ describe("useChatDispatcher", () => {
       const dispatcher = useChatDispatcher({
         settings: makeSettings(),
         today: "2026-05-19",
+        timezone: "UTC",
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
         isReadOnly: false,

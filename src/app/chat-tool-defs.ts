@@ -415,7 +415,9 @@ export const TOOL_DEFS = [
       "own UI and its integrations (creates, updates, deletes, status changes, syncs), newest " +
       "first. Use it for questions about what CHANGED and WHEN (\"what happened last week\", \"who " +
       "moved that milestone\", \"what did this field say before\"); use the list_* tools for " +
-      "current state. Each event has an ISO timestamp, an English summary, and an optional detail " +
+      "current state. Each event has an ISO timestamp carrying the project's UTC offset — quote " +
+      "that wall clock, it is the one the user's own Activity view shows — an English summary, " +
+      "and an optional detail " +
       "string carrying the field-level before/after diff. Answer confidently from the events you DO " +
       "get back, but never read an empty result as proof that nothing happened — the log has two " +
       "blind spots. First, your OWN tool calls are not recorded in it (document writes are the sole " +
@@ -432,11 +434,22 @@ export const TOOL_DEFS = [
           type: "string",
           description: "Case-insensitive substring matched against the summary and diff detail.",
         },
+        // ★★ THE FRAME OF REFERENCE IS PART OF THE CONTRACT. These bounds are
+        //    resolved in the project's timezone — the same zone the `Today is`
+        //    date in the system prompt is computed in and the same one the
+        //    Activity panel renders in. Saying so is what lets the model treat
+        //    that date as a usable bound; without it, "today" is ambiguous
+        //    between two calendars that differ for hours of every day.
         since: {
           type: "string",
-          description: "Inclusive lower bound as YYYY-MM-DD. Convert relative phrasing yourself.",
+          description:
+            "Inclusive lower bound as YYYY-MM-DD, in the project's timezone — the same " +
+            "calendar as the `Today is` date you were given. Convert relative phrasing yourself.",
         },
-        until: { type: "string", description: "Inclusive upper bound as YYYY-MM-DD." },
+        until: {
+          type: "string",
+          description: "Inclusive upper bound as YYYY-MM-DD, in the project's timezone.",
+        },
         kinds: {
           type: "array",
           items: { type: "string" },

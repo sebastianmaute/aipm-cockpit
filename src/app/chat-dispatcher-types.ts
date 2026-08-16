@@ -12,6 +12,12 @@ import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 export interface ChatDispatcherArgs {
   settings: Settings;
   today: string;
+  /** The effective IANA zone `today` was computed in (`resolveTimezone` of the
+   *  device override and the project's operating tz). Threaded rather than
+   *  re-derived: `settings.timezone` is only the FIRST candidate, so deriving
+   *  it here would silently ignore a project-level zone and the browser
+   *  fallback and put day bounds back out of step with `today`. */
+  timezone: string;
   setSelectedIds: Dispatch<SetStateAction<Set<number>>>;
   setSettings: Dispatch<SetStateAction<Settings>>;
   /** True in a popout/mirror window — mutating tools are refused so chat edits
