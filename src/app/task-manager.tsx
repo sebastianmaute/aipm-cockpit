@@ -205,7 +205,7 @@ const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
-  const { activityLog, logActivity, logActivityChanges, handleClearActivityLog } =
+  const { activityLog, logActivity, logActivityChanges, logActivityAs, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
@@ -2120,7 +2120,7 @@ function TaskManagerInner() {
     project,
     lang,
     today,
-    logActivity,
+    logActivityAs,
     setSettings,
     milestones,
     setMilestones,
