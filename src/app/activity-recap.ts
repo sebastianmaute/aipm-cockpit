@@ -13,7 +13,7 @@
 import type { ActivityEntry } from "./activity-log";
 import { type ActivitySummary, summarizeRecentActivity } from "./history-search";
 import type { AiConfig } from "./settings-types";
-import { dayInZone } from "./timezone";
+import { dayInZone, type TimeZone } from "./timezone";
 
 /** Bucket → the English noun phrase the model reads. ★ Plain literals, NOT
  *  i18n keys: unlike `renderActivityEntry` this line has no UI counterpart to
@@ -49,7 +49,7 @@ const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" 
  */
 export function buildActivityRecapBlock(
   summary: ActivitySummary | null,
-  tz: string,
+  tz: TimeZone,
 ): string {
   if (!summary) return "";
 
@@ -95,7 +95,7 @@ export function summarizeForRecap(
   ai: AiConfig,
   entries: readonly ActivityEntry[],
   today: string,
-  tz: string,
+  tz: TimeZone,
 ): ActivitySummary | undefined {
   if (ai.activityRecap === false) return undefined;
   return summarizeRecentActivity(entries, today, tz) ?? undefined;

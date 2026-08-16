@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { asTimeZoneForTests } from "./timezone";
 import {
   buildSystemPrompt,
   closeDanglingToolUses,
@@ -21,7 +22,7 @@ const snapshotFixture = (over: Partial<Snapshot> = {}): Snapshot => ({
   mode: "advanced",
   enabledModules: [],
   currentView: "chat",
-  timezone: "UTC",
+  timezone: asTimeZoneForTests("UTC"),
   ...over,
 });
 
@@ -57,7 +58,7 @@ describe("buildSystemPrompt — the activity recap block", () => {
     const blocks = buildSystemPrompt(
       "en-US",
       snapshotFixture({
-        timezone: "Europe/Berlin",
+        timezone: asTimeZoneForTests("Europe/Berlin"),
         activitySummary: { ...summary, latestAt: "2026-08-16T23:30:00.000Z" },
       }),
       [],

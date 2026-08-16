@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { asTimeZoneForTests } from "./timezone";
 import * as chatApi from "./chat-api";
 import { callInlineEdit, type InlineEditArgs } from "./inline-ai-edit-call";
 
@@ -21,7 +22,7 @@ const snapshot: InlineEditArgs["snapshot"] = {
   mode: "advanced",
   enabledModules: [],
   currentView: "open-points",
-  timezone: "UTC",
+  timezone: asTimeZoneForTests("UTC"),
 };
 
 describe("callInlineEdit", () => {

@@ -1,4 +1,5 @@
 import "fake-indexeddb/auto";
+import { asTimeZoneForTests } from "./timezone";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { useState } from "react";
@@ -591,7 +592,7 @@ const snap = {
   mode: "advanced" as const,
   enabledModules: ["raid", "milestones"] as FeatureModuleId[],
   currentView: "milestones" as const,
-  timezone: "UTC",
+  timezone: asTimeZoneForTests("UTC"),
 };
 
 const guide: OperatingGuide = {

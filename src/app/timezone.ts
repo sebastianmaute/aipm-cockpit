@@ -1,6 +1,57 @@
 // src/app/timezone.ts — pure timezone utilities (Intl-based; no deps, no React/Date-in-module).
 // `now`/`iso` are always passed in so the date-math functions stay pure + testable.
 
+declare const TIME_ZONE_BRAND: unique symbol;
+
+/**
+ * An IANA zone that came from `resolveTimezone` — the app's only authoritative
+ * producer. Structurally a `string`, so it flows into any `tz: string` parameter
+ * with no friction; the reverse does not, which is the whole point.
+ *
+ * ★★★ WHY IT EXISTS. The recap path takes `today` and `tz` as two adjacent
+ * parameters and both were `string`, so transposing them COMPILED. Under the
+ * swap `summarizeRecentActivity` computes `new Date("UTCT00:00:00Z")`, hits its
+ * own NaN guard, returns null, and the model's activity recap is silently gone
+ * on every turn — forever. Measured before the fix: `tsc --noEmit` exit 0 and
+ * 337 tests across 5 suites green. Neither the compiler nor the suite could see
+ * a defect that removes the whole feature.
+ *
+ * ★★★ EXPECT THE ERROR ON THE `tz` ARGUMENT, NEVER THE `today` ONE — a reader
+ * who looks at the wrong argument concludes the brand is broken. `TimeZone` is
+ * assignable to `string`, so a transposed tz slides into `today:` silently and
+ * only the raw string arriving at `tz:` fails. The position therefore differs
+ * per function: argument 4 for `summarizeForRecap`, argument 3 for
+ * `summarizeRecentActivity`.
+ *
+ * ★★ WHAT IT DOES **NOT** BUY. It does not catch an INCONSISTENT PAIR — `today`
+ * computed in Berlin handed over beside a `tz` naming America/New_York. That is
+ * well-typed under every branding scheme (measured), because `today` is a pure
+ * function of `tz` (`task-manager.tsx` derives it one line after resolving the
+ * zone) and they travel as two values. Only collapsing them into one
+ * factory-built object removes that class — `docs/open-followups.md` §153.
+ * Do not read the brand as covering more than a transposition.
+ */
+export type TimeZone = string & { readonly [TIME_ZONE_BRAND]: true };
+
+/** The ONLY production mint, deliberately NOT exported. A public `asTimeZone`
+ *  would rebuild the bug one level up: `asTimeZone(today)` type-checks cleanly
+ *  (measured), so a general-purpose brander lets a caller brand the wrong
+ *  string. Binding the guarantee to the PRODUCER rather than to a call site is
+ *  what makes the wrong call unexpressible instead of merely discouraged. */
+const brandZone = (tz: string): TimeZone => tz as TimeZone;
+
+/**
+ * TEST ONLY — do NOT use in production code, and do not remove the suffix to
+ * make a production call site compile. Snapshot/dispatcher fixtures need to
+ * spell a literal zone (`asTimeZoneForTests("UTC")`); production values must
+ * come from `resolveTimezone` so the brand keeps meaning "this came from the
+ * authoritative producer". A production use is a review failure, and the name
+ * is what makes that visible in a diff.
+ */
+export function asTimeZoneForTests(raw: string): TimeZone {
+  return brandZone(raw);
+}
+
 /** True if `tz` is a valid IANA zone. */
 export function isValidTimeZone(tz: string): boolean {
   if (!tz) return false;
@@ -93,9 +144,15 @@ export function isoInZone(iso: string, tz: string): string {
 }
 
 /** Effective zone: per-device override → per-project operating tz → browser. Each
- *  candidate must be a valid IANA zone to be chosen. Always returns a valid zone. */
-export function resolveTimezone(overrideTz: string | undefined, projectTz: string | undefined): string {
-  if (overrideTz && isValidTimeZone(overrideTz)) return overrideTz;
-  if (projectTz && isValidTimeZone(projectTz)) return projectTz;
-  return browserTimeZone();
+ *  candidate must be a valid IANA zone to be chosen. Always returns a valid zone.
+ *
+ *  ★★ THE SOLE PRODUCER OF `TimeZone`, and the brand is minted here rather than
+ *  at any call site precisely because every branch below has already proved the
+ *  value is a real zone (`isValidTimeZone`, or `browserTimeZone`'s own "UTC"
+ *  fallback). Its three production callers — task-manager, workspace-section,
+ *  use-bulk-operations — get branded values for free. */
+export function resolveTimezone(overrideTz: string | undefined, projectTz: string | undefined): TimeZone {
+  if (overrideTz && isValidTimeZone(overrideTz)) return brandZone(overrideTz);
+  if (projectTz && isValidTimeZone(projectTz)) return brandZone(projectTz);
+  return brandZone(browserTimeZone());
 }

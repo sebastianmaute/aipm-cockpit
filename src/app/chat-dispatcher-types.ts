@@ -4,6 +4,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import type { AppView } from "./nav-config";
+import type { TimeZone } from "./timezone";
 import { type Settings } from "./settings-types";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
@@ -16,8 +17,14 @@ export interface ChatDispatcherArgs {
    *  device override and the project's operating tz). Threaded rather than
    *  re-derived: `settings.timezone` is only the FIRST candidate, so deriving
    *  it here would silently ignore a project-level zone and the browser
-   *  fallback and put day bounds back out of step with `today`. */
-  timezone: string;
+   *  fallback and put day bounds back out of step with `today`.
+   *
+   *  ★★ `TimeZone`, not `string`, and widening it back is what re-opens the
+   *  defect: this field and `today` above are the exact pair that transposed
+   *  silently into the recap engine. The brand only holds while every hop from
+   *  `resolveTimezone` to `buildActivityRecapBlock` carries it — a `string`
+   *  here lets a raw value in at precisely the point a future edit would. */
+  timezone: TimeZone;
   setSelectedIds: Dispatch<SetStateAction<Set<number>>>;
   setSettings: Dispatch<SetStateAction<Settings>>;
   /** True in a popout/mirror window — mutating tools are refused so chat edits

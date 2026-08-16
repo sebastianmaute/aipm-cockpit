@@ -16,6 +16,7 @@ import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import type { ActivityEntry } from "./activity-log";
 import { searchHistory, type ActivitySummary } from "./history-search";
+import type { TimeZone } from "./timezone";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import {
@@ -331,8 +332,21 @@ export type ToolDispatcher = {
     /** The project's effective IANA zone — the SAME value `getTimezone()`
      *  returns. On the snapshot because `buildSystemPrompt` gets a snapshot and
      *  nothing else, and it must render `activitySummary.latestAt` in the
-     *  project's day without reaching for a clock. */
-    timezone: string;
+     *  project's day without reaching for a clock.
+     *
+     *  ★★ `TimeZone`, not `string` — this is the LAST hop of the brand thread
+     *  (`resolveTimezone` → `ChatDispatcherArgs.timezone` → here →
+     *  `buildActivityRecapBlock`). Widening it to `string` compiles everywhere
+     *  except that final call and would be "fixed" by widening that too, which
+     *  discards the guarantee at the one hop a future edit would inject a raw
+     *  value into. See the `TimeZone` declaration in `timezone.ts`.
+     *
+     *  ★ NO SEVENTH SITE: `getSnapshot()` is a STRUCTURAL return type, so
+     *  `inline-ai-edit-call.ts`'s `ReturnType<ToolDispatcher["getSnapshot"]>`
+     *  inherits the brand automatically. Nothing there needs branding, and
+     *  "completing the thread" by widening it back to `string` would be a
+     *  regression rather than the tidy-up it looks like. */
+    timezone: TimeZone;
     /** Bounded counts for the ambient recap: four numbers, a window and one
      *  timestamp.
      *  ★★★ NOT the log. `get_app_state` returns the snapshot VERBATIM, which is

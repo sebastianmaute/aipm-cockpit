@@ -24,7 +24,7 @@
 //   vanished from the same question — silently, with `truncated: false`.
 import type { ActivityEntry } from "./activity-log";
 import { type RenderedActivity, renderActivityEntry } from "./activity-prompt";
-import { dayInZone, isoInZone } from "./timezone";
+import { dayInZone, isoInZone, type TimeZone } from "./timezone";
 
 export const DEFAULT_HISTORY_LIMIT = 50;
 export const MAX_HISTORY_LIMIT = 200;
@@ -170,13 +170,20 @@ export interface ActivitySummary {
  *   this is immune to the calendar-rollover class that detonates date-dependent
  *   tests on the morning the fixture date arrives (open-followups §149).
  *
+ * ★★ `tz` IS BRANDED, `today` IS NOT, and one side is enough: `TimeZone` is
+ *   assignable to `string`, so a transposed pair fails on the `tz` argument
+ *   (here, the THIRD) while sliding into `today:` silently. Both were plain
+ *   `string` and the swap compiled, silently returning null forever — see the
+ *   `TimeZone` declaration in `timezone.ts` and open-followups §153, which also
+ *   records the inconsistent-pair class the brand does NOT close.
+ *
  * ★ Returns null rather than a zeroed summary when nothing matched, so the
  *   caller omits the prompt block entirely and a quiet project costs nothing.
  */
 export function summarizeRecentActivity(
   entries: readonly ActivityEntry[],
   today: string,
-  tz: string,
+  tz: TimeZone,
   days: number = RECAP_WINDOW_DAYS,
 ): ActivitySummary | null {
   // ★ `days - 1`: the window INCLUDES today, so 7 days is today plus 6 prior.

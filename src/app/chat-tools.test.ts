@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { asTimeZoneForTests } from "./timezone";
 import {
   runTool,
   TOOL_DEFS,
@@ -160,7 +161,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       mode: "advanced" as const,
       enabledModules: [] as import("./feature-modules").FeatureModuleId[],
       currentView: "chat" as import("./nav-config").AppView,
-      timezone: "UTC",
+      timezone: asTimeZoneForTests("UTC"),
       activitySummary: {
         total: 2,
         byActor: { user: 1, ai: 1, integration: 0, unknown: 0 },

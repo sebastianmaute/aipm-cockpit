@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { asTimeZoneForTests } from "./timezone";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
@@ -141,7 +142,7 @@ function renderRaidProbe() {
       d: useChatDispatcher({
         settings: makeSettings(),
         today: "2026-05-19",
-        timezone: "UTC",
+        timezone: asTimeZoneForTests("UTC"),
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
         isReadOnly: false,
@@ -179,7 +180,7 @@ function renderDispatcher(
       useChatDispatcher({
         settings,
         today: "2026-05-19",
-        timezone: "UTC",
+        timezone: asTimeZoneForTests("UTC"),
         setSelectedIds,
         setSettings,
         isReadOnly,
@@ -690,7 +691,7 @@ describe("useChatDispatcher", () => {
         useChatDispatcher({
           settings,
           today: "2026-05-19",
-          timezone: "UTC",
+          timezone: asTimeZoneForTests("UTC"),
           setSelectedIds,
           setSettings,
           isReadOnly: false,
@@ -750,7 +751,7 @@ describe("useChatDispatcher", () => {
       const dispatcher = useChatDispatcher({
         settings: makeSettings(),
         today: "2026-05-19",
-        timezone: "UTC",
+        timezone: asTimeZoneForTests("UTC"),
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
         isReadOnly: false,
