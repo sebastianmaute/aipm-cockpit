@@ -303,10 +303,16 @@ describe("rich-text-plain — properties", () => {
     // Guards against a degenerate generator: two single-character words would
     // satisfy the assertion while exercising almost none of the collapse.
     // ★ Deliberately left at 50 runs when the separateBlockBoundaries counter
-    //   below was raised: measured over 2000 trials this one is mean 38.0,
-    //   sd 3.02, MIN 25, and never once came within 15 of the floor. Two words
+    //   below was raised: over 20,000 independent trials this one is mean 38.1,
+    //   sd 2.97, and P(exercised <= 10) is ~1e-17 by exact binomial. Two words
     //   are drawn per run rather than one value, so it saturates far faster
     //   than the single-value counters — a bigger sample would buy nothing.
+    // ★★ Quote a PROBABILITY, never a sample minimum. An earlier revision of
+    //   this comment said "MIN 25 ... never once came within 15 of the floor",
+    //   which is self-refuting on its own numbers (25 is EXACTLY 15 above 10)
+    //   and was falsified by the next sample anyway: an independent 20,000-trial
+    //   run saw 26 and a 2,000-trial run saw 24. The minimum of a sample is
+    //   itself a random variable; the distribution is what holds still.
     expect(exercised).toBeGreaterThan(10);
   });
 
@@ -387,21 +393,47 @@ describe("rich-text-plain — properties", () => {
       }),
       // ★★ THE SAME RANDOM-VARIABLE TRAP AS THE astral COUNTER ABOVE, and it
       // reached CI: this test failed once in a full-suite shard on a branch
-      // touching neither this file nor anything it imports. Measured over 2000
-      // trials at 50 runs, `exercised` came out mean 22.6, sd 3.58, MIN 10 —
-      // and the assertion is `> 10`, so the observed failure rate is 1 in 2000.
-      // ★ It is the FLOOR that was wrong, not the property. A separate hunt
-      //   over 200,000 generated inputs found ZERO cases where pre-separating
-      //   changed the projection, so the equality itself is not seed-dependent
-      //   — only the anti-vacuity guard in front of it was.
-      // ★ The fix is SAMPLE SIZE, matching the astral counter: over 400 trials
-      //   at 250 runs the counter's mean is 116.4, sd 8.03, MIN 91, and NO
-      //   trial came within 70 of the new floor. 50 therefore sits ~8 sd below
-      //   the mean, so it fires when the generator stops emitting block tags
-      //   and never for ordinary variance.
+      // touching neither this file nor anything it imports. Over 200,000
+      // independent trials at 50 runs, `exercised` is mean 22.55, sd 3.53, and
+      // P(exercised <= 10) = 2.05e-4 — about 1 run in 4,900, matching the exact
+      // Binomial(50, 0.4513) tail of 1.91e-4. The old assertion was `> 10`.
+      // ★★★ THE PROPERTY IS NOT THE FLAKY PART, AND IT CANNOT BE — it is an
+      //   IDENTITY, which is worth knowing before anyone "strengthens" it.
+      //   `htmlPlainProjection` BEGINS with the same `replace(BLOCK_TAG, " ")`
+      //   that `separateBlockBoundaries` IS, so `proj(sep(x)) === proj(x)`
+      //   reduces to BLOCK_TAG-replacement being idempotent — and it is, because
+      //   the replacement inserts a space and never a "<" or ">", while every
+      //   match spans "<"…">", so no second pass can find a new match. Zero
+      //   counterexamples over 20.2M generated inputs plus an exhaustive sweep
+      //   of every string of length <= 6 over the tag-forming alphabet.
+      // ★★ So the runs do NOT buy the property anything — every mutant this
+      //   property can kill dies within 8 runs. They buy the COUNTER, which is
+      //   the only detector of the mutant the property CANNOT kill: gutting
+      //   `separateBlockBoundaries` to the identity leaves this assertion green
+      //   at 5,000 runs. That is what the numbers below are protecting.
       { numRuns: 250 },
     );
-    expect(exercised).toBeGreaterThan(50);
+    // ★★★ THE FLOOR IS 32% OF RUNS, NOT THE 20% THE OLD ONE WAS, AND THAT IS
+    // THE WHOLE POINT — raising `numRuns` while holding the floor at a constant
+    // FRACTION makes the guard WEAKER in the middle of its range, because the
+    // counter concentrates as n grows. Exact-binomial P(guard fires), healthy
+    // rate 0.4654 at n=250 (fast-check biases by run index, so the rate differs
+    // from the 0.4513 at n=50):
+    //
+    //     true rate | OLD 10/50 | a 50/250 floor |  THIS 80/250
+    //         0.465 |     0.02% |        1.9e-18 |       2.0e-6   <- healthy
+    //         0.350 |     1.60% |         1.5e-7 |       17.69%
+    //         0.300 |     7.89% |          0.02% |       77.72%
+    //         0.250 |    26.22% |          3.74% |       99.49%
+    //         0.200 |    58.36% |         53.78% |      100.00%
+    //
+    // A 50 floor would have been 100x LESS likely to catch a generator degraded
+    // to half its rate than the flaky guard it replaced. 80 instead DOMINATES
+    // the old guard on every row: ~100x less likely to fire spuriously when
+    // healthy AND strictly more likely to fire at every degraded rate.
+    // ★ Reproduce the table rather than trusting it — it is exact binomial, so
+    //   it needs no sampling: P(X <= f) for X ~ Bin(n, q), n=250, f=80.
+    expect(exercised).toBeGreaterThan(80);
   });
 
   test("preserveBreaks differs from the default only in newline-vs-space", () => {
