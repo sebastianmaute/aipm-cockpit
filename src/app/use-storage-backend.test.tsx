@@ -3053,7 +3053,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     //    six others carry the ordering property.
     createBackendMock.mockReturnValue(makeImportBackend());
 
-    renderBackend(makeArgs({ setStorageConfig }));
+    const { unmount } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
 
     expect(importToasts()).toEqual([]);
@@ -3061,6 +3061,28 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     // POSITIVE CONTROL — without it, "no toast" is equally satisfied by a mount
     // whose load never ran at all.
     expect(createBackendMock).toHaveBeenCalled();
+
+    // ★★★ AND THAT CONTROL IS NOT ENOUGH — it proves the FACTORY ran, not that
+    //     the channel this test OBSERVES is live. Measured, not reasoned:
+    //     replacing `importToasts()`'s filter with one that never matches turns
+    //     the other six tests in this describe RED and leaves this one GREEN, so
+    //     a silently dead observation channel reads here as the code being
+    //     correct. Mirror `use-load-truncation.test.ts` ("…and the fixture can
+    //     still speak"): re-drive the SAME path with ONE condition flipped and
+    //     prove the silence above was the code's and not the setup's. In the
+    //     same test so it cannot rot separately.
+    unmount();
+    createBackendMock.mockReturnValue(makeImportBackend({ dropped: 1 }));
+    renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    // ★★ THROUGH BOTH HELPERS, because the silence above rests on both and they
+    //    are independent channels — `survivingToast` never touches
+    //    `importToasts`'s filter. Guarding only one leaves the other free to die
+    //    silently: measured, a control asserting through `survivingToast` ALONE
+    //    still survives the dead-filter mutant that motivated this block.
+    expect(survivingToast()).toContain("1 invalid row(s)");
+    expect(importToasts()).toEqual([expect.stringContaining("1 invalid row(s)")]);
   });
 
   it("reloadCurrentProject tells the user rows were dropped on the RE-read", async () => {
