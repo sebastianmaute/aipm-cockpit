@@ -10,7 +10,7 @@ import {
   type Filters,
 } from "./chat-tools";
 import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
-import { type ActivityEntry } from "./activity-log";
+import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -1109,6 +1109,26 @@ describe("search_history", () => {
 
   it("is registered in TOOL_DEFS", () => {
     expect(TOOL_DEFS.some((d) => d.name === "search_history")).toBe(true);
+  });
+
+  // ★★ The description is the ONLY place the model learns what this log does
+  //    NOT cover, and NEITHER gap is visible in the return value: a task the
+  //    model created through chat and a June that aged out both come back as
+  //    `{events: [], truncated: false}`. `truncated` reports what the capped,
+  //    chat-blind log HELD — never what never entered it or what the cap
+  //    already dropped. A description "tightened" back to the original
+  //    "audit trail of every create, update, delete, status change, AI action
+  //    and integration sync" makes the model deny work it did itself.
+  // ★ The retention figure is derived from ACTIVITY_MAX_ENTRIES, not typed
+  //   here, so a moved cap cannot leave a stale number in the prompt.
+  it("discloses both blind spots to the model, not just `truncated`", () => {
+    const desc = TOOL_DEFS.find((d) => d.name === "search_history")?.description ?? "";
+    expect(desc).toContain(String(ACTIVITY_MAX_ENTRIES));
+    expect(desc).toMatch(/own tool calls are not recorded/i);
+    expect(desc).toMatch(/aged out/i);
+    // The claim that started this: the log does NOT cover chat tool calls, so
+    // the description must not advertise "every ... AI action" again.
+    expect(desc).not.toMatch(/every create, update, delete/i);
   });
 
   it("returns rendered events newest-first from the dispatcher's log", async () => {

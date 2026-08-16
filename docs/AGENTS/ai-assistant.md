@@ -255,6 +255,31 @@
   ★★ **`truncated` means "more matched than you are seeing", NEVER "a limit was applied".** A cap that
   happened to cut nothing must report `false`; the model reads this field to decide whether it may claim a
   complete answer, and the tool description instructs it to say so out loud.
+  ★★★ **`truncated` COVERS ONE OF THREE WAYS AN ANSWER CAN BE INCOMPLETE, so the tool description carries
+  the other two and they are NOT hedging bloat.** It reports what the CAPPED, CHAT-BLIND log held — never
+  what never entered it, nor what the cap already dropped.
+  (a) COVERAGE: `logActivity` is threaded through `ChatDispatcherArgs` into `useChatDispatcher` and handed
+  to `useDocumentTools` ALONE, so every chat entity write — `createTask`, `updateTask`, `deleteTask` and the
+  raid/change/milestone/stakeholder/resource/budget handlers — mutates state and logs NOTHING. Reproduce
+  with `grep -n "logActivity" src/app/use-chat-dispatcher.ts` — **one** hit, the `useDocumentTools` call.
+  So the model can create a task, be asked about it the next day, and read its own work's absence as proof
+  it never happened.
+  ★★ DOCUMENT WRITES ARE THE ONE CHAT PATH THAT DOES LOG (`ai.documentWrite`, from `use-document-tools.ts`),
+  which is why the tool description says "document writes are the sole exception" rather than a flat "your
+  tool calls are not recorded". Of the other five `ai.*` kinds, `ai.inlineEdit` fires from
+  `use-inline-entity-edit.ts` and `ai.allocationPlan` from `use-alloc-plan.tsx` — app AI FEATURES, reached
+  from a panel, never from a chat tool call. Do not read "the log has `ai.*` kinds" as "the log covers the
+  assistant".
+  (b) RETENTION: `ACTIVITY_MAX_ENTRIES` drops the oldest, so an empty result for an OLD range is
+  indistinguishable from a quiet period.
+  ★★ Both are fixed in the DESCRIPTION, not the wiring: logging chat writes is a feature with its own
+  design questions (which kinds, what args, how it interacts with the fact that chat writes take no undo
+  capture), and half-wiring it would produce a log that is wrong in a new way. If that feature lands, the
+  coverage caveat comes back OUT of the description in the same commit.
+  ★ `view-ai-scope.ts`'s `activity` entry told the model "You cannot read this log — there is no tool for
+  it" until this was caught; it now hints at `search_history` and repeats both limits. Same rot the
+  `documents` entry had when `DOCUMENT_TOOL_DEFS` landed, and pinned by the same test shape in
+  `view-ai-scope.test.ts`.
   ★★ **THE `kinds` COERCION IS LOAD-BEARING AND AN EMPTY-LOG TEST CANNOT SEE IT.** A model may send a
   non-array — the string `"nope"`. A bare pass-through reaches the engine's `new Set(q.kinds)`, which
   iterates the STRING into a set of CHARACTERS matching no kind: zero events returned while reporting a
