@@ -1681,7 +1681,7 @@ function TaskManagerInner() {
 
   const dispatcher = useChatDispatcher({
     settings,
-    today,
+    today, timezone: effectiveTz,
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout,

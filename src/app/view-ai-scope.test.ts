@@ -13,8 +13,8 @@ describe("VIEW_AI_SCOPE", () => {
   });
 
   // The dead-hint guard. A hint naming a tool that does not exist tells the
-  // model to call something that will throw — and the deferred timelog and
-  // activity tools are exactly the names a future editor would reach for.
+  // model to call something that will throw — and a plausible-sounding
+  // invention is exactly what a future editor reaches for.
   it("only names tools that actually exist in TOOL_DEFS", () => {
     for (const [view, scope] of Object.entries(VIEW_AI_SCOPE)) {
       for (const hint of scope.toolHints ?? []) {
@@ -23,7 +23,13 @@ describe("VIEW_AI_SCOPE", () => {
     }
   });
 
-  it("does not hint at the deferred timelog or activity tools", () => {
+  // ★ Neither name has ever existed. Timelog has no chat tool at all, and the
+  //   activity log is read by `search_history` — NOT by a `list_activity`,
+  //   which is the name the activity view would attract now that it hints at a
+  //   real tool. This test was called "does not hint at the deferred timelog or
+  //   activity tools" until search_history landed and made half of that name
+  //   false; the assertions were right either way.
+  it("does not hint at tool names that were never built", () => {
     const all = Object.values(VIEW_AI_SCOPE).flatMap((s) => s.toolHints ?? []);
     expect(all).not.toContain("list_timelog_entries");
     expect(all).not.toContain("list_activity");
@@ -66,6 +72,22 @@ describe("VIEW_AI_SCOPE", () => {
     const hints = VIEW_AI_SCOPE.documents.toolHints ?? [];
     expect(hints).toContain("list_documents");
     expect(hints).toContain("create_document");
+  });
+
+  // Activity shipped the SAME disclosure for the same reason — "You cannot read
+  // this log — there is no tool for it" — which stopped being true when
+  // search_history landed. Retiring that line is the point of this test.
+  it("no longer tells the model it cannot read the activity log", () => {
+    const reading = VIEW_AI_SCOPE.activity.reading ?? "";
+    expect(reading).not.toMatch(/no tool/i);
+    expect(reading).not.toMatch(/cannot read/i);
+    // ★ The two lines above are WEAK ON THEIR OWN — a `reading` reworded to
+    // "there are zero tools here", or deleted outright (`?? ""`), passes both.
+    // These pin the POSITIVE content only the replacement text can satisfy:
+    // that the model is pointed at the real read tool, and that the tool is
+    // named where the model will actually look for it.
+    expect(reading).toContain("search_history");
+    expect(VIEW_AI_SCOPE.activity.toolHints ?? []).toContain("search_history");
   });
 
   // ★ Documents is the only entry that hints at write tools at all (the

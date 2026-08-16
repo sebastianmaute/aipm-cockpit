@@ -195,7 +195,14 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
   },
   activity: {
     purpose: "Activity is the audit log of recent changes made in the app.",
-    reading: "You cannot read this log — there is no tool for it. Say so rather than guessing.",
+    // ★★ This entry used to read "You cannot read this log — there is no tool
+    //    for it", which stopped being true when `search_history` landed and
+    //    would now talk the model out of the one tool that answers this view's
+    //    questions. Same failure the documents entry had; pinned the same way
+    //    in view-ai-scope.test.ts.
+    toolHints: ["search_history"],
+    reading:
+      "search_history reads this log. It records changes made in the app and by its integrations — not your own tool calls — and keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
   },
   "open-points": {
     purpose:

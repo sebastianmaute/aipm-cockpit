@@ -76,6 +76,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     knowledgeItems,
     calendarEvents,
     budgets,
+    activityLog,
     effectiveFilters,
     filteredSortedTasks,
   } = useWorkspace();
@@ -95,6 +96,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const tasksRef = useRef(tasks);
   const settingsRef = useRef(args.settings);
   const todayRef = useRef(args.today);
+  const timezoneRef = useRef(args.timezone);
   const viewRef = useRef(args.currentView);
   const editingIdRef = useRef(editingId);
   const raidRef = useRef(raid);
@@ -106,6 +108,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const knowledgeItemsRef = useRef(knowledgeItems);
   const calendarEventsRef = useRef(calendarEvents);
   const budgetsRef = useRef(budgets);
+  const activityLogRef = useRef(activityLog);
   const viewDigest = useViewDigest({
     view: args.currentView, tasks, filteredSortedTasks, effectiveFilters,
     resources, budgets, milestones, today: args.today, settings: args.settings,
@@ -124,6 +127,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     todayRef.current = args.today;
   }, [args.today]);
+  useEffect(() => {
+    timezoneRef.current = args.timezone;
+  }, [args.timezone]);
   useEffect(() => {
     viewRef.current = args.currentView;
   }, [args.currentView]);
@@ -157,6 +163,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     budgetsRef.current = budgets;
   }, [budgets]);
+  useEffect(() => {
+    activityLogRef.current = activityLog;
+  }, [activityLog]);
   useEffect(() => {
     viewDigestRef.current = viewDigest;
   }, [viewDigest]);
@@ -733,6 +742,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           viewDigest: viewDigestRef.current,
         };
       },
+
+      getActivityLog: () => activityLogRef.current,
+
+      getTimezone: () => timezoneRef.current,
 
       getDashboardSnapshot: () =>
         buildDashboardSnapshot(
