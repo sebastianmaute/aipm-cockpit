@@ -183,6 +183,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
   // (Hoisted as useCallback for Tasks 3/5 ergonomics; other stubs stay inline.)
+  // ★ Hoisted to a local const: exhaustive-deps demands the whole `args` object
+  // once a callback reads TWO of its members, so depend on the member itself.
+  const logActivityAs = args.logActivityAs;
   const sendInquiry = useCallback(
     (id: number): { sent: boolean; reason?: string } => {
       if (args.isReadOnly) return { sent: false, reason: "read-only" };
@@ -216,9 +219,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       );
       tasksRef.current = next;
       setTasks(next);
+      // ★ Same kind the USER-side path emits for this operation
+      // (`use-bulk-operations.ts` handleSendInquiries), so the AI row and the
+      // user row describe the same event identically. The EN string's plural
+      // wording reads oddly at a count of 1 — that quirk is inherited from the
+      // shared kind deliberately; a singular-only kind is not worth minting.
+      logActivityAs?.("ai", "bulk.inquiries", 1);
       return { sent: true };
     },
-    [args.isReadOnly, setTasks],
+    [args.isReadOnly, logActivityAs, setTasks],
   );
   const applyFilters = useCallback(
     (f: Filters): void => {
@@ -427,14 +436,22 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // ★★ ONE summarising row, never one per task: the log is a 500-entry
         // ring buffer, so N rows from one chat turn age out a week of the
         // user's own history (`jira.sync` models this shape). ★ Deleting
-        // nothing is not an edit — a "0 task(s)" row is pure noise there.
-        if (count > 0) args.logActivityAs?.("ai", "bulk.edit", count);
+        // nothing is not a delete — a "0 task(s)" row is pure noise there.
+        // ★★ `bulk.delete`, NOT `bulk.edit`: chat tool writes take no undo
+        // capture, so this row is the only account of an irreversible mass
+        // deletion and must not read as an edit.
+        if (count > 0) args.logActivityAs?.("ai", "bulk.delete", count);
         return count;
       },
       sendInquiry,
       setFilters: applyFilters,
-      setLanguage: (l) =>
-        args.setSettings((s) => ({ ...s, language: l })),
+      setLanguage: (l) => {
+        args.setSettings((s) => ({ ...s, language: l }));
+        // A persisted `settings.language` write, so it logs the same kind
+        // `updateSettings` does. NO ARGS — "Settings updated" has no
+        // placeholder.
+        args.logActivityAs?.("ai", "settings.updated");
+      },
 
       updateSettings: (patch: SettingsUpdateInput) => {
         if (args.isReadOnly) throw readOnlyError();

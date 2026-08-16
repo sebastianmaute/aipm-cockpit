@@ -28,6 +28,11 @@ export type ActivityKind =
   | "raid.statusChanged"
   | "raid.autoIssue"
   | "bulk.edit"
+  // ★★ SEPARATE FROM `bulk.edit` ON PURPOSE. A mass delete is irreversible on
+  // the chat path (tool writes take no undo capture), so the log is the ONLY
+  // account of it — describing it as an "edit" understates what happened. Same
+  // `bulk.` prefix, so `activityGroupOf` files it under the same group.
+  | "bulk.delete"
   | "bulk.inquiries"
   | "jira.sync"
   | "absence.created"
@@ -281,6 +286,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "raid.statusChanged": "activityRaidStatusChanged",
   "raid.autoIssue": "activityRaidAutoIssue",
   "bulk.edit": "activityBulkEdit",
+  "bulk.delete": "activityBulkDelete",
   "bulk.inquiries": "activityBulkInquiries",
   "jira.sync": "activityJiraSync",
   "absence.created": "activityAbsenceCreated",

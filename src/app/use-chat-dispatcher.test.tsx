@@ -516,6 +516,46 @@ describe("useChatDispatcher", () => {
     ).toThrow(/managed in Jira/);
   });
 
+  // ★★★ The third arm of assertJiraManagedUnchanged (chat-task-patch.ts), and
+  //     the only one that turns on an `undefined` VALUE at a PRESENT key.
+  //     Simplifying it to a bare `patch.completedDate === undefined` fires on
+  //     every patch that merely omits the key, blocking ALL AI edits to
+  //     Jira-linked tasks; dropping the `"completedDate" in patch` clause the
+  //     other way lets the model locally reopen a Jira-managed task. The
+  //     negative control below is what separates the two — without it the
+  //     guard could pass by rejecting everything.
+  it("updateTask rejects a reopen of a completed jiraKey-linked task", () => {
+    const tasksWithJira = seedTasks().map((t, i) =>
+      i === 0
+        ? { ...t, jiraKey: "LOP-1", status: "Done" as const, completedDate: "2026-05-18" }
+        : t,
+    );
+    const { result } = renderDispatcher(tasksWithJira);
+    expect(() =>
+      result.current.updateTask(1, { completedDate: undefined }),
+    ).toThrow(/Reopening/);
+    // The refused write left the row alone.
+    expect(result.current.getTask(1)?.completedDate).toBe("2026-05-18");
+  });
+
+  it("updateTask allows an unrelated field change on that same completed jiraKey-linked task", () => {
+    const tasksWithJira = seedTasks().map((t, i) =>
+      i === 0
+        ? { ...t, jiraKey: "LOP-1", status: "Done" as const, completedDate: "2026-05-18" }
+        : t,
+    );
+    const { result } = renderDispatcher(tasksWithJira);
+    let updated: Task | null = null;
+    act(() => {
+      updated = result.current.updateTask(1, { taskName: "Alpha renamed" });
+    });
+    expect(updated).not.toBeNull();
+    expect(result.current.getTask(1)?.taskName).toBe("Alpha renamed");
+    // The patch omits `completedDate` entirely — the guard must not read that
+    // absence as a reopen request.
+    expect(result.current.getTask(1)?.completedDate).toBe("2026-05-18");
+  });
+
   it("deleteTask removes the row and cascades dependency cleanup", () => {
     const dependants: Task[] = [
       ...seedTasks(),
@@ -2399,17 +2439,20 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
   // ★★ A bulk op logs ONE summarising row, not N. ACTIVITY_MAX_ENTRIES is 500,
   //    so N rows from one chat turn can age out a week of user history.
   //    jira.sync already models the summarising shape.
-  it("logs delete-all as a single bulk.edit row, not one row per task", () => {
+  // ★★ `bulk.delete`, not `bulk.edit`. Chat tool writes take no undo capture,
+  //    so this row is the only account of an irreversible mass deletion —
+  //    "Bulk edit applied to 3 task(s)" understates what happened.
+  it("logs delete-all as a single bulk.delete row, not one row per task", () => {
     const { result, logActivityAs } = renderWithLog();
     act(() => {
       result.current.deleteAllTasks();
     });
     expect(logActivityAs).toHaveBeenCalledTimes(1);
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "bulk.edit", 3);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "bulk.delete", 3);
   });
 
-  // ★ Deleting nothing is not an edit. A "Bulk edit applied to 0 task(s)" row
-  //   is noise in a 500-entry ring buffer, so the empty case logs nothing.
+  // ★ Deleting nothing is not a delete. A "Bulk delete applied to 0 task(s)"
+  //   row is noise in a 500-entry ring buffer, so the empty case logs nothing.
   it("logs nothing when delete-all runs against an empty task list", () => {
     const { result, logActivityAs } = renderWithLog([]);
     act(() => {
@@ -2563,5 +2606,39 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
       result.current.updateSettings({});
     });
     expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  // ★★ setLanguage writes `settings.language` — a persisted Settings field —
+  //    so it logs the same kind updateSettings does. It is one of the two
+  //    model-exposed writers a `^(create|update|delete)[A-Z]` grep over the
+  //    dispatcher cannot see, and it logged nothing until this fix.
+  it("logs settings.updated for setLanguage, with no args", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.setLanguage("de");
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
+  });
+
+  // ★★ The OTHER grep-invisible writer. It increments `Task.inquiriesSent`, a
+  //    persisted Workspace field. `bulk.inquiries` is the kind the USER-side
+  //    path emits for the same operation (use-bulk-operations.ts), with the
+  //    same single-count arg shape, so the two rows read identically.
+  it("logs bulk.inquiries for sendInquiry, and nothing when it refuses", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      expect(result.current.sendInquiry(1)).toEqual({ sent: true });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "bulk.inquiries", 1);
+    // Positive observable: the write the row claims really happened.
+    expect(result.current.getTask(1)?.inquiriesSent).toBe(1);
+    logActivityAs.mockClear();
+    // A refusal mutates nothing, so it must record nothing.
+    act(() => {
+      expect(result.current.sendInquiry(999).sent).toBe(false);
+    });
+    expect(logActivityAs).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 });

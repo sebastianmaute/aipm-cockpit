@@ -400,7 +400,7 @@ export function useDocumentTools(
         // the title it already has — returns `changed:false` and mutates
         // nothing, so a row here would assert an edit that did not occur.
         if (result.changed) {
-          logActivityAs?.("ai", "ai.documentWrite", id,after?.title ?? before.title);
+          logActivityAs?.("ai", "ai.documentWrite", id, after?.title ?? before.title);
         }
         return {
           id,
@@ -427,7 +427,7 @@ export function useDocumentTools(
         // `changed:false` here means the id did not exist — nothing was
         // deleted, so nothing is logged.
         if (result.changed) {
-          logActivityAs?.("ai", "ai.documentWrite", id,before?.title ?? "");
+          logActivityAs?.("ai", "ai.documentWrite", id, before?.title ?? "");
         }
         const newest = result.versions[result.versions.length - 1];
         return {

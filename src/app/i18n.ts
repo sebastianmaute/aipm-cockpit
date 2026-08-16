@@ -1576,6 +1576,7 @@ const enUS = {
   activityRaidStatusChanged: "RAID #{0} status: {1} → {2}",
   activityRaidAutoIssue: "Risk #{0} realized — auto-created Issue #{1}",
   activityBulkEdit: "Bulk edit applied to {0} task(s)",
+  activityBulkDelete: "Bulk delete applied to {0} task(s)",
   activityBulkInquiries: "Bulk inquiries sent for {0} task(s)",
   activityJiraSync: "Jira sync: {0} pulled, {1} pushed, {2} conflict(s)",
   activityHeaderWhen: "When",

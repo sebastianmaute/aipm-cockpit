@@ -1558,6 +1558,7 @@ export const de: Record<TranslationKey, string> = {
   activityRaidStatusChanged: "RAID #{0} Status: {1} → {2}",
   activityRaidAutoIssue: "Risiko #{0} eingetreten — Issue #{1} automatisch angelegt",
   activityBulkEdit: "Sammelbearbeitung auf {0} Aufgabe(n) angewendet",
+  activityBulkDelete: "Sammellöschung auf {0} Aufgabe(n) angewendet",
   activityBulkInquiries: "Sammelanfragen für {0} Aufgabe(n) versendet",
   activityJiraSync: "Jira-Sync: {0} geladen, {1} hochgeladen, {2} Konflikt(e)",
   activityHeaderWhen: "Wann",
