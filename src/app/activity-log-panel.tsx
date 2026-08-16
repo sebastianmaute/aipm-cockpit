@@ -43,9 +43,32 @@ import { useConfirm } from "./confirm-dialog";
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
   kind: 110,
+  actor: 110,
   message: 320,
 } as const;
 type ActivityLogCol = keyof typeof ACTIVITY_LOG_COL_WIDTHS;
+
+/**
+ * Actor → i18n key. ★★ READ IT WITH AN OWN-PROPERTY GUARD, NEVER A BARE INDEX.
+ * `ActivityActor` is a closed TS union but `sanitizeActivityEntry` admits ANY
+ * string (the same trade `kind: ActivityKind` already makes), so a stored
+ * `actor: "toString"` reaches this map on a FULLY SANITIZED log, from every
+ * backend. A bare lookup resolves `Function.prototype.toString`, `t()` then
+ * misses it in the dictionary and throws on `undefined.replace` — and a throw
+ * in this panel is not a blank table, it is the full-screen ErrorBoundary page
+ * on every Activity visit until the project data is repaired by hand. Same
+ * reasoning as `activityMessageKey`'s own `hasOwnProperty` check.
+ */
+const ACTOR_KEYS = {
+  user: "activityActorUser",
+  ai: "activityActorAi",
+  integration: "activityActorIntegration",
+} as const;
+
+/** An unknown OR absent actor both render this. Absence is genuinely unknown —
+ *  every entry written before the B2b release has no actor — so it must never
+ *  be defaulted to "user" at read time. */
+const ACTOR_UNKNOWN = "—";
 
 interface Props {
   lang: Lang;
@@ -57,6 +80,7 @@ type SortKey = "timestamp" | "kind" | "message";
 type SortDir = "asc" | "desc";
 type SearchMode = "literal" | "wildcard" | "regex";
 type GroupFilter = ActivityGroup | "all";
+type ActorFilter = "all" | "user" | "ai" | "integration";
 
 // Escape regex special characters except `*` and `?` (which we substitute
 // for wildcard semantics). Used only by wildcard mode.
@@ -155,6 +179,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("literal");
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
+  const [actorFilter, setActorFilter] = useState<ActorFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("timestamp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -206,11 +231,18 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         const timestamp = typeof e.timestamp === "string" ? e.timestamp : "";
         const key = activityMessageKey(kind);
         const args = Array.isArray(e.args) ? e.args.map(changeText) : [];
+        // The own-property guard is load-bearing — see ACTOR_KEYS.
+        const actorKey =
+          typeof e.actor === "string" &&
+          Object.prototype.hasOwnProperty.call(ACTOR_KEYS, e.actor)
+            ? ACTOR_KEYS[e.actor as keyof typeof ACTOR_KEYS]
+            : null;
         return {
           entry: e,
           kind,
           timestamp,
           changes: normalizeChanges(e.changes),
+          actorLabel: actorKey ? t(lang, actorKey) : ACTOR_UNKNOWN,
           message: key ? t(lang, key, ...args) : t(lang, "activityUnknownKind", kind),
           group: activityGroupOf(kind as ActivityKind),
         };
@@ -227,6 +259,12 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     let result = enriched;
     if (groupFilter !== "all") {
       result = result.filter((row) => row.group === groupFilter);
+    }
+    // ★ Narrows `result`, never re-reads `enriched` — the two filters COMPOSE.
+    //   Compared against the RAW `entry.actor`, so an unknown-but-string actor
+    //   matches no option and is simply excluded once a filter is picked.
+    if (actorFilter !== "all") {
+      result = result.filter((row) => row.entry.actor === actorFilter);
     }
     if (matcher && !matcher.invalid) {
       result = result.filter(
@@ -246,7 +284,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [enriched, groupFilter, matcher, sortKey, sortDir]);
+  }, [enriched, groupFilter, actorFilter, matcher, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -349,6 +387,23 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           ]}
           onChange={setGroupFilter}
         />
+        {/* ★★ ONE toolbar control, never a per-row one. Per-row controls in a
+            list need row-unique accessible names, and NO axe rule can catch a
+            collision — of axe-core 4.12.1's 105 rules, the 69 carrying one of
+            the four tags e2e/a11y.spec.ts requests include none that flags two
+            controls sharing an accessible name. */}
+        <SegmentedControl<ActorFilter>
+          value={actorFilter}
+          ariaLabel={t(lang, "activityHeaderActor")}
+          title={t(lang, "activityActorFilterHint")}
+          options={[
+            { value: "all", label: t(lang, "activityFilterAll") },
+            { value: "user", label: t(lang, "activityActorUser") },
+            { value: "ai", label: t(lang, "activityActorAi") },
+            { value: "integration", label: t(lang, "activityActorIntegration") },
+          ]}
+          onChange={setActorFilter}
+        />
       </div>
 
       {entries.length === 0 ? (
@@ -396,6 +451,18 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   </button>
                   <ColumnResizeHandle col="kind" onMouseDown={startResize} />
                 </th>
+                {/* ★★ Deliberately NOT sortable. The three headers around it are
+                    raw <th>s with hand-rolled sort buttons and no `aria-sort` —
+                    a known gap. A fourth sort button deepens that debt; a plain
+                    cell does not. Folding this table into `SortResizeTh` (which
+                    carries aria-sort for free) is a separate follow-up. */}
+                <th
+                  className="relative px-3 py-2 font-medium text-xs uppercase tracking-wide"
+                  style={{ width: colWidths.actor, minWidth: colWidths.actor }}
+                >
+                  {t(lang, "activityHeaderActor")}
+                  <ColumnResizeHandle col="actor" onMouseDown={startResize} />
+                </th>
                 <th
                   className="relative px-3 py-2 font-medium"
                   style={{ width: colWidths.message, minWidth: colWidths.message }}
@@ -414,7 +481,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               </tr>
             </>}
           >
-              {visible.map(({ entry, kind, timestamp, message, changes }) => (
+              {visible.map(({ entry, kind, timestamp, actorLabel, message, changes }) => (
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                     {/* The COERCED timestamp, not `entry.timestamp` — same rule
@@ -428,6 +495,11 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     {/* The COERCED kind, not `entry.kind` — a stored object
                         renders as "Objects are not valid as a React child". */}
                     {kind}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-[11px] text-muted-foreground">
+                    {/* An unknown OR absent actor is an em dash — absence is
+                        genuinely unknown, never "user". */}
+                    {actorLabel}
                   </td>
                   <td className="px-3 py-2 text-foreground">
                     {message}

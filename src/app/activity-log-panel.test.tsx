@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActivityLogPanel } from "./activity-log-panel";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -299,6 +299,132 @@ describe("ActivityLogPanel", () => {
     expect(screen.getByText("f0")).toBeInTheDocument();
     expect(screen.getByText("f11")).toBeInTheDocument();
     expect(screen.queryByText("f12")).toBeNull();
+  });
+
+  // --- the actor column + filter (B2b) ---
+  //
+  // `ActivityEntry.actor` is OPTIONAL and its absence is NOT "user": every
+  // entry written before this release has a genuinely unknown actor, so the
+  // cell shows an em dash rather than guessing.
+
+  it("renders the actor for each entry and a dash when it is absent", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "a1", kind: "task.created", args: ["By AI"], actor: "ai" }),
+          entry({ id: "a2", kind: "task.created", args: ["By user"], actor: "user" }),
+          entry({ id: "a3", kind: "task.created", args: ["By Outlook"], actor: "integration" }),
+          entry({ id: "a4", kind: "task.created", args: ["Pre-B2b"] }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    // Each label appears TWICE — once in the filter's radio, once in a cell —
+    // so scope the cell assertion to the row carrying that entry's message.
+    function actorCellOf(message: string): string {
+      const row = screen
+        .getAllByRole("row")
+        .find((r) => (r.textContent ?? "").includes(message));
+      expect(row).toBeDefined();
+      const cells = Array.from(row!.querySelectorAll("td"));
+      // timestamp · kind · actor · message
+      return cells[2]?.textContent ?? "";
+    }
+    expect(actorCellOf("By AI")).toBe(t("en-US", "activityActorAi"));
+    expect(actorCellOf("By user")).toBe(t("en-US", "activityActorUser"));
+    expect(actorCellOf("By Outlook")).toBe(t("en-US", "activityActorIntegration"));
+    // Absence is unknown, never a default.
+    expect(actorCellOf("Pre-B2b")).toBe("—");
+  });
+
+  it("filters rows by actor", async () => {
+    const user = userEvent.setup();
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "f1", kind: "task.created", args: ["Made by AI"], actor: "ai" }),
+          entry({ id: "f2", kind: "task.created", args: ["Made by hand"], actor: "user" }),
+          entry({ id: "f3", kind: "task.created", args: ["Made by Outlook"], actor: "integration" }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    const group = screen.getByRole("radiogroup", { name: t("en-US", "activityHeaderActor") });
+    await user.click(
+      within(group).getByRole("radio", { name: t("en-US", "activityActorAi") }),
+    );
+    expect(screen.getByText(/Made by AI/)).toBeInTheDocument();
+    expect(screen.queryByText(/Made by hand/)).toBeNull();
+    expect(screen.queryByText(/Made by Outlook/)).toBeNull();
+  });
+
+  // ★★ The two filters must COMPOSE, not override — the memo applies them in
+  // sequence. A cut that reassigned `result` from `enriched` in the second
+  // clause would drop the first, and each filter alone would still look right.
+  it("composes the actor filter with the group filter", async () => {
+    const user = userEvent.setup();
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "c1", kind: "task.created", args: ["AI task"], actor: "ai" }),
+          entry({ id: "c2", kind: "raid.created", args: [1, "R", "AI risk"], actor: "ai" }),
+          entry({ id: "c3", kind: "task.created", args: ["Human task"], actor: "user" }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    await user.click(
+      within(
+        screen.getByRole("radiogroup", { name: t("en-US", "activityHeaderActor") }),
+      ).getByRole("radio", { name: t("en-US", "activityActorAi") }),
+    );
+    await user.click(
+      within(
+        screen.getByRole("radiogroup", { name: t("en-US", "activityFilterAll") }),
+      ).getByRole("radio", { name: t("en-US", "activityFilterTasks") }),
+    );
+    // Only the row satisfying BOTH survives.
+    expect(screen.getByText(/AI task/)).toBeInTheDocument();
+    expect(screen.queryByText(/AI risk/)).toBeNull();
+    expect(screen.queryByText(/Human task/)).toBeNull();
+  });
+
+  // ★★★ `sanitizeActivityEntry` KEEPS an unknown-but-string actor (same trade
+  // as `kind`), so `actor: "toString"` reaches the panel on a FULLY sanitized
+  // log. A bare index into the label map resolves Function.prototype.toString,
+  // which React then throws on — and a throw here is not a blank table, it is
+  // the full-screen ErrorBoundary page on every Activity visit until the
+  // project data is repaired by hand.
+  it("renders an unknown-but-string actor without crashing", () => {
+    expect(() =>
+      renderPanel(
+        <ActivityLogPanel
+          lang="en-US"
+          entries={
+            [
+              {
+                id: "u1",
+                timestamp: "2026-05-28T10:00:00.000Z",
+                kind: "task.created",
+                args: ["Odd actor"],
+                actor: "toString",
+              },
+            ] as unknown as ActivityEntry[]
+          }
+          onClear={() => {}}
+        />,
+      ),
+    ).not.toThrow();
+    // Positive observable: the row still renders and the unknown actor falls
+    // back to the same em dash an absent one gets.
+    const row = screen
+      .getAllByRole("row")
+      .find((r) => (r.textContent ?? "").includes("Odd actor"));
+    expect(row).toBeDefined();
+    expect(Array.from(row!.querySelectorAll("td"))[2]?.textContent).toBe("—");
   });
 
   it("renders timestamps in the display timezone (not the raw ISO)", () => {
