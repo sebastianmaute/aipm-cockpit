@@ -390,6 +390,38 @@ describe("buildPdfHtml — rich cells (§141(b))", () => {
     expect(html).not.toContain("b&lt;br&gt;c");
   });
 
+  // ★★★ A STORED ENTITY MUST SURVIVE THE RICH PATH AS AN ENTITY. Since §141(b)
+  // this property runs through `sanitizeRichHtml(descriptionHtml(...))` rather
+  // than through `htmlCellWithBreaks`, so none of the escaping guards on the
+  // NON-rich path cover it, and "DOMPurify preserves entities" is an assumption
+  // about a dependency that nothing else in this repo asserts. A user's literal
+  // "<br>" turning into a real line break in an exported PDF is a
+  // content-integrity bug that every other string assertion would stay green
+  // through.
+  //
+  // ★★ PARTIAL OVERLAP, stated so nobody deletes the wrong one: the "<br>" half
+  // is also pinned by `export-ooxml.test.ts`'s "escapes BEFORE substituting",
+  // which is the historical site of that assertion (see its describe comment).
+  // The "&amp;" half is pinned ONLY here — and the two halves have measurably
+  // different strength, which is the reason this test spells both out. A decode
+  // BEFORE the sanitizer breaks the "<br>" half but NOT the "&amp;" half,
+  // because DOMPurify re-escapes a bare "&" on serialize; only a decode AFTER
+  // the sanitizer breaks "&amp;". Do not fold the two into one assertion.
+  it("keeps a stored entity escaped through the rich path", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<p>R&amp;D &lt;br&gt; done</p>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    // The ampersand stays an entity — a decode here would corrupt "R&D" in
+    // every export, silently and permanently.
+    expect(html).toContain("R&amp;D");
+    expect(html).not.toContain("R&D");
+    // The user's literal "<br>" stays an entity and never becomes a real break.
+    expect(html).toContain("&lt;br&gt;");
+    expect(html).not.toContain("<br> done");
+  });
+
   // ★★★ ORDER. `descriptionHtml` runs BEFORE `sanitizeRichHtml`, and this test
   // is the only thing pinning it. Both wrong orders fail here, for two DIFFERENT
   // reasons, which is why the fixture carries a newline AND a bare "<":
