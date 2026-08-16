@@ -69,6 +69,19 @@ export type ActivityKind =
   | "doc.linkRemoved"
   | "history.restore"
   | "calendar.autoPulled"
+  /** ★★★ NO LONGER WRITTEN — historical only, and it must STAY in this union.
+   *  `use-inline-entity-edit` wrote one of these ON TOP of the per-`runTool`
+   *  row the chat dispatcher already logs for the same entity, with the same
+   *  id, the same title and the same `actor: "ai"`. Dropping the redundant
+   *  summary left the change fully recorded and removed a row that could be
+   *  FALSE: `updateTask` silently `return null`s on an id a concurrent writer
+   *  deleted, while the caller still counted the call as applied, so the
+   *  summary claimed an edit nothing had made.
+   *  ★★ Removing the member would not be a cleanup: the log is shared workspace
+   *  data, entries persist, and `sanitizeActivityEntry` deliberately KEEPS an
+   *  unknown-but-string kind so an older client cannot delete a newer client's
+   *  rows. Delete this and every stored row renders as `activityUnknownKind`.
+   *  Do NOT write it again — the per-entity rows are the audit trail. */
   | "ai.inlineEdit"
   | "ai.taskDedup"
   | "ai.insightRecommendation"

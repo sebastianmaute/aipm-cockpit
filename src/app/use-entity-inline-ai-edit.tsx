@@ -8,7 +8,6 @@ import { type ReactNode } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled } from "./settings-types";
 import { type ToolDispatcher } from "./chat-tools";
-import { type LogActivityAsFn } from "./activity-log-context";
 import { useWorkspace } from "./workspace-context";
 import { useToastContext } from "./toast-context";
 import { useAiUsageContext } from "./ai-usage-context";
@@ -23,9 +22,6 @@ export interface EntityInlineAiEditDeps {
   settings: Settings;
   isPopout: boolean;
   lang: Lang;
-  /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
-   *  names its own actor — see the rule on `useActivityLog`. */
-  logActivityAs?: LogActivityAsFn;
   /** True when this entity's pane is the active view; a left-open edit is
    *  auto-closed when it goes false (stale-popover-on-tab-return guard). */
   active: boolean;
@@ -56,7 +52,6 @@ export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAi
     apiKey: aiKeyIfEnabled(deps.settings.ai),
     isPopout: deps.isPopout,
     lang: deps.lang,
-    logActivityAs: deps.logActivityAs,
     showToast,
     ws,
     guides: [],

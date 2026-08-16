@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { it, expect, vi, afterEach, describe } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as call from "./inline-ai-edit-call";
@@ -19,7 +21,7 @@ function mkDeps(over: Partial<InlineAiEditDeps> = {}): InlineAiEditDeps {
     ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineAiEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
-    logActivityAs: vi.fn(), showToast: vi.fn(), ws, guides: [], recordUsage: vi.fn(),
+    showToast: vi.fn(), ws, guides: [], recordUsage: vi.fn(),
     ...over,
   };
 }
@@ -176,7 +178,6 @@ it("apply routes each block through runTool and logs + toasts, then closes", asy
   await act(async () => { await result.current.submit("mark done"); });
   await act(async () => { await result.current.apply(); });
   expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_task", { id: 42, status: "Done" });
-  expect(deps.logActivityAs).toHaveBeenCalledWith("ai", "ai.inlineEdit", 42, "Fix login bug");
   expect(deps.showToast).toHaveBeenCalledWith("info", expect.stringContaining("Fix login bug"));
   expect(result.current.phase).toBe("idle");
 });
@@ -226,7 +227,6 @@ it("partial apply: a later op fails after the update committed -> partial toast 
   await act(async () => { await result.current.apply(); });
   expect(runToolSpy).toHaveBeenCalledTimes(2);
   expect(deps.showToast).toHaveBeenCalledWith("error", expect.any(String)); // partial notice
-  expect(deps.logActivityAs).toHaveBeenCalledWith("ai", "ai.inlineEdit", 42, "Fix login bug");
   expect(result.current.phase).toBe("idle"); // closed, not stranded in error
 });
 
@@ -268,7 +268,7 @@ describe("useInlineEntityEdit — raid", () => {
       ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
-      logActivityAs: vi.fn(), showToast: vi.fn(), ws: raidWs, guides: [], recordUsage: vi.fn(),
+      showToast: vi.fn(), ws: raidWs, guides: [], recordUsage: vi.fn(),
       ...over,
     };
   }
@@ -293,7 +293,6 @@ describe("useInlineEntityEdit — raid", () => {
     expect(result.current.plan?.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", { id: 7, title: "New" });
-    expect(deps.logActivityAs).toHaveBeenCalledWith("ai", "ai.inlineEdit", 7, "Old");
     expect(result.current.phase).toBe("idle");
   });
 
@@ -376,5 +375,42 @@ describe("useInlineEntityEdit — raid", () => {
     rerender({ active: false });
     expect(result.current.activeItem).toBeNull();
     expect(result.current.phase).toBe("idle");
+  });
+});
+
+// ★★★ THE ONLY GUARD AGAINST THE SUMMARY ROW COMING BACK, and it has to be a
+// SOURCE SCAN rather than a spy: the hook no longer takes a logger at all, so
+// there is nothing to assert `not.toHaveBeenCalled()` on — an absence test
+// against a dep that does not exist is vacuous by construction. Re-adding the
+// row means re-adding the dep, which no pre-written spy can anticipate.
+//
+// WHY IT WAS REMOVED: every `runTool` the apply path fires already logs its own
+// entity row stamped `actor: "ai"` (`use-chat-dispatcher`), carrying the same id
+// and title. The summary was a strict subset of them, in a 500-entry ring
+// buffer, double-counted by the AI recap — and it could be FALSE, since
+// `updateTask` returns null on an id a concurrent writer deleted without
+// throwing, while the caller still counted the call as applied.
+// ★ The comment-stripped shape is the repo idiom (see rich-text-plain.test.ts):
+//   the module may name the retired kind in PROSE, its code may not write it.
+describe("writes no activity summary row of its own", () => {
+  const code = readFileSync(join(import.meta.dirname, "use-inline-entity-edit.ts"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+
+  it("strips comments before scanning", () => {
+    // Anti-vacuity: the file DOES discuss `ai.inlineEdit` in prose, so if the
+    // strip silently failed the ban below would go red rather than pass — and
+    // the positive proves a broken read did not leave `code` empty.
+    expect(code).not.toMatch(/NO ACTIVITY ROW HERE/);
+    expect(code).toMatch(/export function useInlineEntityEdit/);
+  });
+
+  it("never writes ai.inlineEdit", () => {
+    expect(code).not.toMatch(/ai\.inlineEdit/);
+    // The dep is gone too — a re-add would land here first.
+    expect(code).not.toMatch(/logActivity/);
+    // Positive control: the apply path still routes through runTool, which is
+    // what logs the per-entity rows this row was redundant with.
+    expect(code).toMatch(/runTool\(deps\.dispatcher/);
   });
 });

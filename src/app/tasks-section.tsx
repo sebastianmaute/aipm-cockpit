@@ -185,7 +185,7 @@ export interface TasksSectionProps {
   // useInlineAiEdit instance owned here, plus optional activity logging —
   // both threaded from task-manager.
   dispatcher: ToolDispatcher;
-  logActivityAs?: LogActivityAsFn; // ★ ACTOR-AWARE — both consumers write `ai.*` kinds and stamp their own actor.
+  logActivityAs?: LogActivityAsFn; // ★ ACTOR-AWARE — its consumer (dedup) writes an `ai.*` kind and stamps its own actor.
   /** Capture a field-level undo entry for an inline cell edit. */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   /** Capture a single (removed + edited) undo entry for an AI dedup merge. */
@@ -296,7 +296,6 @@ export function TasksSection({
     settings,
     isPopout: isPopout ?? false,
     lang,
-    logActivityAs,
     workspaceCtx,
   });
   // "Deduplicate & unify" (plan-then-apply AI merge) — owns its trigger + modal.
