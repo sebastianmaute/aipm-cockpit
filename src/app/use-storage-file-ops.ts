@@ -236,10 +236,6 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
       deps.showToast("info", t(deps.langRef.current, "projectLoadedToast", entry.name));
-      const droppedRows = targetBackend.lastImportDroppedRows ?? 0;
-      if (droppedRows > 0) {
-        deps.showToast("error", t(deps.langRef.current, "importDroppedRowsWarning", droppedRows));
-      }
       // Cross-mode load (portfolio is currently Turso, but the user is loading a
       // local file from the empty state): persist the mode switch + file storage
       // config SYNCHRONOUSLY and reload so the app re-initialises in FILE mode

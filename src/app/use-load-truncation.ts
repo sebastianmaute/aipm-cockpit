@@ -29,8 +29,19 @@ type ShowToast = (kind: "info" | "error" | "success", text: string) => void;
 export interface TruncationOps {
   /** Record the outcome of a just-finished load. Call after EVERY
    *  `backend.load()` whose workspace is APPLIED to render scope — including
-   *  clean ones, because this both raises AND lowers the flag. */
-  reportFor: (backend: Pick<StorageBackend, "lastLoadTruncation">) => void;
+   *  clean ones, because this both raises AND lowers the flag.
+   *
+   *  ★★ IT ALSO CARRIES IMPORT DIAGNOSTICS. `lastImportDroppedRows` used to be
+   *  read at ONE call site while this channel had five, so four load paths
+   *  reported nothing however many rows vanished. Both signals ride one call so
+   *  they cannot drift apart, and the `reportFor`-per-`load()` census in this
+   *  file's test is what catches a new path that forgets. */
+  reportFor: (
+    backend: Pick<
+      StorageBackend,
+      "lastLoadTruncation" | "lastImportDroppedRows" | "lastImportUnterminatedQuote"
+    >,
+  ) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
    *  while a truncated load is unresolved. Skipping is the safe outcome: the
    *  source still holds the documents that were not loaded, and a flush is by
@@ -265,8 +276,25 @@ export function useLoadTruncation(
     return true;
   };
 
+  const reportImportDiagnostics = (
+    backend: Pick<StorageBackend, "lastImportDroppedRows" | "lastImportUnterminatedQuote">,
+  ) => {
+    const dropped = backend.lastImportDroppedRows ?? 0;
+    if (dropped > 0) {
+      showToast("error", t(langRef.current, "importDroppedRowsWarning", dropped));
+    }
+    // ★ Separate toast, not an `else`: a file can both drop malformed rows AND
+    // end mid-quote, and they are different losses with different remedies.
+    if (backend.lastImportUnterminatedQuote) {
+      showToast("error", t(langRef.current, "importUnbalancedQuotesWarning"));
+    }
+  };
+
   const truncationOps: TruncationOps = {
-    reportFor: (backend) => reportLoadTruncation(backend.lastLoadTruncation),
+    reportFor: (backend) => {
+      reportLoadTruncation(backend.lastLoadTruncation);
+      reportImportDiagnostics(backend);
+    },
     flushCurrent: async () => {
       if (!mayCommitAfterTruncation()) {
         // Leave a forensic trail: the skip is invisible at the call site (every
