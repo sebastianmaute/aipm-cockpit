@@ -164,8 +164,39 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   // cell across physical lines, and a continuation that begins with a section
   // marker then switched `mode` MID-ROW — silently destroying every later row
   // in the section (open-followups §105). Do not "simplify" this back.
-  const { lines, unterminatedQuote } = splitCsvLines(csv);
-  if (diag) diag.unterminatedQuote = unterminatedQuote;
+  const scan = splitCsvLines(csv);
+  if (diag) diag.unterminatedQuote = scan.unterminatedQuote;
+  // ★★★ AND YET: ON AN UNBALANCED QUOTE WE DELIBERATELY FALL BACK TO THE OLD
+  // PHYSICAL SPLIT FOR ROUTING. Quote state in a quote-aware scan carries across
+  // the WHOLE FILE, where the physical split reset it at every line — so ONE
+  // stray unclosed `"` in an EARLY section swallows every later section marker
+  // into a single giant cell, and every following section decodes as absent
+  // (measured: raid and milestones both dropped to 0 rows).
+  //
+  // An unbalanced quote is PROOF the file is malformed: our own encoder always
+  // balances (`csvEscape` doubles every `"`), so this can only fire on a
+  // hand-edited, truncated or foreign file. For such a file the physical split's
+  // CONTAINMENT is strictly better — the damage stays inside the one section
+  // holding the stray quote instead of consuming all later ones.
+  //
+  // ★★ THIS CANNOT REGRESS §105. That defect only affects WELL-FORMED files
+  // (a legal newline inside a properly closed quoted cell), and a well-formed
+  // file has balanced quotes by definition — so it never takes this branch.
+  //
+  // ★ ROUTING ONLY. `diag.unterminatedQuote` is still reported above, before
+  // and regardless of the fallback: the file is still malformed and the caller
+  // still warns. This changes which lines land in which section, not the
+  // diagnostic.
+  //
+  // ★★ DO NOT extend this into a "the two splits disagree" warning. A
+  // well-formed file legitimately carrying a marker-shaped line inside a quoted
+  // cell — precisely the §105 shape this module fixes — produces exactly that
+  // divergence, so such a warning would fire on the file we just fixed.
+  // Likewise, a BALANCED pair of stray quotes is not detectable at all: a
+  // legitimately quoted cell containing marker-shaped text and a stray quote
+  // that swallowed a real marker are BYTE-IDENTICAL, so no parser can tell them
+  // apart. That case stays open and is deliberately not guessed at.
+  const lines = scan.unterminatedQuote ? csv.split(/\r?\n/) : scan.lines;
   let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "activityLog" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
