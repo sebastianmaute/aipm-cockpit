@@ -257,3 +257,127 @@ describe("buildPdfHtml", () => {
     expect(html).toContain("On track");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Rich cells in an HTML/PDF export table (§141(b))
+// ---------------------------------------------------------------------------
+
+/** One task with `description` set — `description` is the task section's only
+ *  member of TASK_RICH_COLUMNS, so this is the shortest route to a RichCell. */
+function wsWithDescription(description: string): Workspace {
+  return { ...makeBaseWorkspace(), tasks: [makeTask(1, { description })], raid: [] };
+}
+
+describe("buildPdfHtml — rich cells (§141(b))", () => {
+  // ★ The section header row emits the raw CSV column KEYS, so asserting the
+  //   <th> is what proves the column under test is real. A fixture aimed at a
+  //   column that does not exist asserts nothing at all, and that has already
+  //   happened once in this slice (a test written against "title", which is
+  //   spelled `taskName`).
+  it("the two columns under test are real columns of the tasks section", () => {
+    const html = buildPdfHtml(wsWithDescription("x"), defaultExportConfig, "en-US");
+    expect(html).toContain("<th>description</th>"); // rich
+    expect(html).toContain("<th>taskName</th>"); // NOT rich
+  });
+
+  it("emits markup for a rich column instead of escaping it", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<h2>Plan</h2>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("<h2>Plan</h2>");
+    expect(html).not.toContain("&lt;h2&gt;");
+  });
+
+  // ★★ THE EDITOR'S REAL LIST SHAPE, not a bare <li>. Tiptap wraps each item's
+  // content in a <p>, and a bare-<li> fixture has already hidden a CRITICAL in
+  // this slice — it exercises a structure the app never actually stores.
+  it("keeps the editor's real list shape, <p> inside <li> included", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<ul><li><p>one</p></li><li><p>two</p></li></ul>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li><p>one</p></li>");
+    expect(html).not.toContain("&lt;ul&gt;");
+  });
+
+  it("keeps an ordered list ordered, so numbering survives the export", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<ol><li><p>first</p></li></ol>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("<ol>");
+    expect(html).not.toContain("<ul>");
+  });
+
+  it("carries data-align through to the printed cell", () => {
+    const html = buildPdfHtml(
+      wsWithDescription('<p data-align="center">middle</p>'),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain('data-align="center"');
+    // The rule that gives the attribute meaning ships in the same document.
+    expect(html).toContain('td [data-align="center"]');
+  });
+
+  // ★★★ The security-relevant one. The rich branch is the ONE unescaped path in
+  // the whole HTML export, and the six write paths behind these fields are not
+  // all allow-listed (the codec load paths are DOM-free and cannot be, §28), so
+  // a hostile value CAN reach storage. Re-sanitizing at the sink is what stops
+  // it becoming markup in a document the user hands to a client.
+  it("re-sanitizes at the sink", () => {
+    const html = buildPdfHtml(
+      wsWithDescription('<p onclick="x()">hi</p><script>bad()</script>'),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("hi");
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain("bad()");
+  });
+
+  it("still escapes a NON-rich cell", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1, { taskName: "<b>not markup</b>" })],
+      raid: [],
+    };
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    expect(html).toContain("&lt;b&gt;");
+    expect(html).not.toContain("<td><b>not markup</b></td>");
+  });
+
+  // ★★★ ORDER. `descriptionHtml` runs BEFORE `sanitizeRichHtml`, and this test
+  // is the only thing pinning it. Both wrong orders fail here, for two DIFFERENT
+  // reasons, which is why the fixture carries a newline AND a bare "<":
+  //   • dropping descriptionHtml — the sanitizer has no reason to invent a <br>
+  //     for a bare "\n", so the break is lost and the line runs on (§118);
+  //   • sanitize-then-upgrade — the sanitizer escapes the "<" to "&lt;", and
+  //     plainToHtml then escapes THAT "&", so the cell prints a visible "&lt;".
+  it("upgrades a legacy plain-text value BEFORE sanitizing it", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("cost < 5k\nremainder"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("cost &lt; 5k<br>remainder");
+    expect(html).not.toContain("&amp;lt;");
+  });
+
+  // ★ These are scoped to a DESCENDANT of a td, so they match nothing in a
+  // column that is not rich. `td p` is load-bearing rather than cosmetic: a
+  // plain legacy value is upgraded to <p>text</p>, and the UA default margin on
+  // a p is 1em top and bottom.
+  it("ships the td-scoped rules that keep the markup inside a table row", () => {
+    const html = buildPdfHtml(wsWithDescription("x"), defaultExportConfig, "en-US");
+    expect(html).toContain("td h1, td h2, td h3, td h4");
+    expect(html).toContain("td p { margin: 0 0 2pt; }");
+    expect(html).toContain("td ul, td ol");
+    expect(html).toContain('td li[data-type="taskItem"]::before');
+  });
+});

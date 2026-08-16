@@ -220,6 +220,78 @@ describe("renderDocumentHtml — data sections", () => {
     expect(html).not.toContain("<table");
     expect(html).toBe("");
   });
+
+  // ★★ A dataSection resolves through the REAL buildExportSections, so since
+  // §141(b) its rich columns arrive as RichCell and must render as markup — a
+  // document embedding the RAID register gets the same fidelity as the
+  // register's own export. This is the reason tableHtml's `rows` widened from
+  // `string | number` to ExportCell; a `table` BLOCK still cannot hold one.
+  it("renders a rich column of a dataSection as markup, not escaped text", () => {
+    const wsWithRaid = {
+      ...ws,
+      raid: [
+        {
+          id: 1,
+          title: "Vendor delay",
+          category: "Risk",
+          status: "Open",
+          description: "<h3>Impact</h3><ul><li><p>slippage</p></li></ul>",
+        },
+      ],
+    } as unknown as Workspace;
+    const html = renderDocumentHtml(
+      doc([{ type: "dataSection", key: "raid" }]),
+      wsWithRaid,
+      "en-US",
+      "preview",
+    );
+    expect(html).toContain("<h3>Impact</h3>");
+    expect(html).toContain("<li><p>slippage</p></li>");
+    expect(html).not.toContain("&lt;h3&gt;");
+  });
+
+  // ★★ MEASURED GAP, not a precaution. Dropping sanitizeRichHtml from
+  // exportCellHtml left this whole file green while export.test.ts went red —
+  // the two surfaces share one helper today, and a document is the artifact
+  // most likely to be handed to a client, so the guard is pinned on both sides.
+  it("re-sanitizes a rich dataSection column at the sink", () => {
+    const wsWithRaid = {
+      ...ws,
+      raid: [
+        {
+          id: 1,
+          title: "Vendor delay",
+          category: "Risk",
+          status: "Open",
+          description: '<p onclick="x()">hi</p><script>bad()</script>',
+        },
+      ],
+    } as unknown as Workspace;
+    const html = renderDocumentHtml(
+      doc([{ type: "dataSection", key: "raid" }]),
+      wsWithRaid,
+      "en-US",
+      "preview",
+    );
+    expect(html).toContain("hi");
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain("bad()");
+  });
+
+  it("still escapes a NON-rich column of the same dataSection", () => {
+    const wsWithRaid = {
+      ...ws,
+      raid: [{ id: 1, title: "<b>Vendor</b>", category: "Risk", status: "Open" }],
+    } as unknown as Workspace;
+    const html = renderDocumentHtml(
+      doc([{ type: "dataSection", key: "raid" }]),
+      wsWithRaid,
+      "en-US",
+      "preview",
+    );
+    expect(html).toContain("&lt;b&gt;Vendor&lt;/b&gt;");
+    expect(html).not.toContain("<td><b>Vendor</b></td>");
+  });
 });
 
 describe("renderDocumentHtml — modes", () => {
