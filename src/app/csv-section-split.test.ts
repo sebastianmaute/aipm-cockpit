@@ -180,6 +180,30 @@ describe("an unbalanced quote falls back to the physical split (containment)", (
     expect(back.tasks[0].blockers).not.toContain("# MILESTONES");
   });
 
+  /**
+   * ★★★ THE FALLBACK'S `\r?\n` IS LOAD-BEARING AND NOTHING ELSE PINS IT.
+   * `splitCsvSections` re-joins each section with `"\r\n"`, so a `/\n/` split
+   * leaves every line carrying a trailing `\r` which then DOUBLES at each break
+   * absorbed into the unclosed cell. Measured against that mutant, the cell came
+   * back as `"never closed,,,…,\r\r\n2,T2,…"` — the live code produces
+   * `"…,\r\n2,T2,…"`.
+   *
+   * ★★ EVERY OTHER ASSERTION IN THIS FILE SURVIVES THAT MUTANT, which is why it
+   * needs its own test rather than a line in the containment case above: that
+   * test's `toContain("never closed")` and `toContain("2,T2")` both still hold
+   * across a `\r\r\n`, and no id moves. A MISSING TEST, not an equivalent
+   * mutant — the distinguishing observable is the doubled CR itself.
+   *
+   * ★ The positive companion is required. `not.toContain("\r\r")` alone would
+   * also pass if the cell were empty, or if the row had been dropped entirely —
+   * so assert the single CRLF that must be there.
+   */
+  it("the fallback split consumes CRLF, not LF alone", () => {
+    const back = csvToWorkspace(brokenCsv());
+    expect(back.tasks[0].blockers).not.toContain("\r\r");
+    expect(back.tasks[0].blockers).toContain("\r\n2,T2");
+  });
+
   it("still reports unterminatedQuote — the fallback changes routing, not the diagnostic", () => {
     const diag: ImportDiag = { droppedRows: 0 };
     csvToWorkspace(brokenCsv(), diag);
@@ -217,5 +241,68 @@ describe("an unbalanced quote falls back to the physical split (containment)", (
     expect(back.raid.map((r) => r.id)).toEqual([5]);
     expect((back.milestones ?? []).map((m) => m.id)).toEqual([9]);
     expect((back.milestones ?? []).map((m) => m.name)).toEqual(["Kickoff"]);
+  });
+});
+
+/**
+ * ★★★ THE OTHER HALF OF THE TRADE, AND THE CLAIM THE CODE COMMENT USED TO DENY.
+ * `splitCsvSections` carried "★★ THIS CANNOT REGRESS §105 … a well-formed file
+ * has balanced quotes by definition — so it never takes this branch". The
+ * premise is true and the conclusion does not follow: §105's damage belongs to a
+ * CELL (a marker-shaped continuation inside a properly CLOSED quoted cell), not
+ * to the FILE, so ONE unrelated stray quote anywhere flips the flag and
+ * re-enables §105 for every such cell in the document.
+ *
+ * ★★ THIS IS A CHARACTERIZATION TEST, NOT A GUARD. It asserts the damage is
+ * STILL THERE. If a later change makes the fallback smarter this test goes red —
+ * that is the point: the code comment states this loss as measured fact, so the
+ * two must move together. Do not "fix" it by relaxing the assertion.
+ *
+ * ★ The paired clean run is what makes it non-vacuous: without it, a fixture
+ * that never produced three tasks in the first place would satisfy the broken
+ * expectations for free.
+ */
+describe("the fallback's cost: an unbalanced quote re-enables §105 (characterization)", () => {
+  function fixture() {
+    return {
+      ...emptyWorkspace(),
+      tasks: [mkTask(1), mkTask(2, { taskName: "T2\n# RAID\nstill T2" }), mkTask(3)],
+      milestones: [mkMilestone(9, { name: "Kickoff" })],
+    };
+  }
+
+  it("parses the marker-shaped cell correctly while the quotes are balanced", () => {
+    const diag: ImportDiag = { droppedRows: 0 };
+    const back = csvToWorkspace(workspaceToCsv(fixture()), diag);
+
+    expect(diag.unterminatedQuote).toBe(false);
+    expect(back.tasks.map((t) => t.id)).toEqual([1, 2, 3]);
+    expect(back.tasks[1].taskName).toBe("T2\r\n# RAID\r\nstill T2");
+  });
+
+  it("loses a whole task once ONE stray quote sends it down the physical split", () => {
+    const clean = workspaceToCsv(fixture());
+    const broken = clean + '"';
+    // Guard the fixture: if the stray were a no-op every assertion below would
+    // duplicate the clean case and pass for free.
+    expect(broken).not.toBe(clean);
+
+    const diag: ImportDiag = { droppedRows: 0 };
+    const back = csvToWorkspace(broken, diag);
+
+    // Task 3 is GONE and task 2's cell is truncated at the embedded marker —
+    // the §105 shape, resurrected by a stray quote in a different row entirely.
+    expect(back.tasks.map((t) => t.id)).toEqual([1, 2]);
+    expect(back.tasks[1].taskName).toBe("T2");
+
+    // ★★★ AND THE LOSS IS UNCOUNTED. This is the silent-loss shape the slice
+    // exists to remove, and it is why the comment refuses to guess a number:
+    // an absorbed row is swallowed into a cell, never REJECTED, so the counter
+    // that only sees rejections stays at zero.
+    expect(diag.droppedRows).toBe(0);
+    expect(diag.unterminatedQuote).toBe(true);
+
+    // What the fallback bought in exchange: the later section still decodes.
+    expect((back.milestones ?? []).map((m) => m.id)).toEqual([9]);
   });
 });

@@ -173,29 +173,89 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   // into a single giant cell, and every following section decodes as absent
   // (measured: raid and milestones both dropped to 0 rows).
   //
-  // An unbalanced quote is PROOF the file is malformed: our own encoder always
-  // balances (`csvEscape` doubles every `"`), so this can only fire on a
-  // hand-edited, truncated or foreign file. For such a file the physical split's
-  // CONTAINMENT is strictly better — the damage stays inside the one section
-  // holding the stray quote instead of consuming all later ones.
+  // An unbalanced quote is PROOF the file is malformed: `csvEscape`
+  // (csv-codecs-core.ts) quotes a cell on `, " \n \r` and DOUBLES every `"`, so
+  // our own encoder cannot emit one. It can only fire on a hand-edited,
+  // truncated or foreign file.
   //
-  // ★★ THIS CANNOT REGRESS §105. That defect only affects WELL-FORMED files
-  // (a legal newline inside a properly closed quoted cell), and a well-formed
-  // file has balanced quotes by definition — so it never takes this branch.
+  // ★★★ MALFORMED DOES NOT IMPLY CONTAINED, AND THIS COMMENT USED TO CLAIM IT
+  // DID. Two sentences stood here — that the physical split's containment is
+  // "strictly better", and that this branch "CANNOT REGRESS §105" because a
+  // well-formed file never reaches it. BOTH ARE FALSE. §105's damage is a
+  // property of a CELL (a marker-shaped continuation inside a properly CLOSED
+  // quoted cell), not of the FILE, so one unrelated stray quote ANYWHERE flips
+  // this flag and re-enables §105 for EVERY such cell in the document. This is a
+  // TRADE-OFF and neither branch dominates.
+  //
+  // Measured on one fixture — 3 tasks where task 2's `taskName` is
+  // `"T2\n# RAID\nstill T2"`, plus 1 milestone — with a stray `"` injected:
+  //
+  //   stray at the END of the file   fallback ON : 2 tasks, names ["T1","T2"]
+  //                                  fallback OFF: 3 tasks, names intact
+  //   stray in the FIRST task row    fallback ON : 1 task, 1 milestone
+  //                                  fallback OFF: 1 task, 0 milestones
+  //
+  // So an EARLY stray is contained BY the fallback (it recovers every later
+  // section), and a LATE stray sitting after a §105-shaped cell is made WORSE by
+  // it (one task destroyed and another truncated). We keep it as a JUDGEMENT,
+  // not because it wins: the loss it prevents is UNBOUNDED (every section after
+  // the stray), the loss it causes is BOUNDED (the §105-shaped cells). Do not
+  // read that as a claim about which case is more common — nothing here measured
+  // that. Note in particular that a genuinely TRUNCATED file carries its
+  // unclosed quote at the very END, so nothing follows for the quote-aware scan
+  // to swallow and this branch can only COST on one (or tie).
   //
   // ★ ROUTING ONLY. `diag.unterminatedQuote` is still reported above, before
   // and regardless of the fallback: the file is still malformed and the caller
   // still warns. This changes which lines land in which section, not the
   // diagnostic.
   //
+  // ★★★ THE ROWS IT LOSES ARE UNCOUNTED, AND THAT IS MEASURED, NOT ASSUMED: in
+  // the late-stray case `diag` came back `{"droppedRows":0,"unterminatedQuote":
+  // true}` — a task VANISHED and nothing counted it, because an absorbed row is
+  // swallowed INTO a cell rather than REJECTED, and `droppedRows` counts only
+  // rejections. DO NOT "fix" that with a row-count delta. Two cheap detectors
+  // were measured over the fixture above and BOTH report a number that is not
+  // the loss (actual rows lost: 1 late, 2 early):
+  //   (1) `csv.split(/\r?\n/).length - scan.lines.length` .......... 2 / 2 / 9
+  //   (2) marker-shaped lines the aware scan places inside a quote .. 1 / 1 / 4
+  //       (readings over: a WELL-FORMED §105 file / late stray / early stray)
+  // Each reads IDENTICALLY on a well-formed file and on a file that really lost
+  // a row, and each PEAKS on the early-stray file — the one where the fallback
+  // cost nothing and in fact recovered a milestone the quote-aware routing
+  // dropped. Feeding either into `droppedRows` was tried as a mutant and reports
+  // 2 on the late file where 1 task was lost, and would report 9 on the early
+  // one this branch handled as well as it can be handled: a fabricated number in
+  // a diagnostic, which is worse than the silence it replaces.
+  //
+  // The only counter that would be CORRECT is (records under the quote-aware
+  // routing − records under this one), and it is deliberately NOT built: it
+  // needs the whole workspace decoded TWICE from inside the splitter, it is
+  // SIGNED (measured +1 late, −1 early — this branch loses a record in the one
+  // case and GAINS one in the other) so it is not a "rows lost" count in both
+  // directions, and it must not land in `droppedRows` anyway — that field
+  // is documented above as rows a decoder actively REJECTS, and a second loss
+  // class travelling under one name is the exact conflation the
+  // {@link DocTruncationDiag} note warns against. It would need its own counter
+  // AND a consumer to surface it. A mere BOOLEAN adds nothing: this branch is
+  // taken IF AND ONLY IF `unterminatedQuote` is true, which is already reported.
+  //
   // ★★ DO NOT extend this into a "the two splits disagree" warning. A
   // well-formed file legitimately carrying a marker-shaped line inside a quoted
   // cell — precisely the §105 shape this module fixes — produces exactly that
-  // divergence, so such a warning would fire on the file we just fixed.
+  // divergence (measured: detector (1) reads 2 on a clean file), so such a
+  // warning would fire on the file we just fixed.
   // Likewise, a BALANCED pair of stray quotes is not detectable at all: a
   // legitimately quoted cell containing marker-shaped text and a stray quote
   // that swallowed a real marker are BYTE-IDENTICAL, so no parser can tell them
   // apart. That case stays open and is deliberately not guessed at.
+  //
+  // ★ THE `\r?\n` IS LOAD-BEARING, not decoration. Sections are re-joined with
+  // `"\r\n"` below, so a `/\n/` split leaves every line carrying a trailing
+  // `\r` that then DOUBLES at each break absorbed into a cell (`\r\r\n`). Pinned
+  // by "the fallback split consumes CRLF, not LF alone" in
+  // csv-section-split.test.ts — the outcome assertions there all survive the
+  // mutation, so only that one closes it.
   const lines = scan.unterminatedQuote ? csv.split(/\r?\n/) : scan.lines;
   let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "activityLog" | null = null;
   const tasksLines: string[] = [];
