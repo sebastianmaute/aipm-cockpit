@@ -86,6 +86,47 @@ describe("searchHistory", () => {
     expect(searchHistory(entries, {}).events[0].at).toBe(entries[249].timestamp);
   });
 
+  // ★★ `limit` is model-supplied, so a fraction below 1 is reachable. Flooring
+  //    BEFORE the non-positive test is what stops it becoming a cap of zero —
+  //    which would answer `{ events: [], truncated: true }`, i.e. show nothing
+  //    while asserting something was withheld.
+  it("falls back to the default for a fractional limit that floors to zero", () => {
+    const entries = manyEntries(10);
+    for (const limit of [0.5, 0.9, 0.0001]) {
+      const r = searchHistory(entries, { limit });
+      expect(r.events).toHaveLength(10);
+      expect(r.truncated).toBe(false);
+    }
+  });
+
+  it("floors a fractional limit of one or more instead of defaulting", () => {
+    const entries = manyEntries(10);
+    const r = searchHistory(entries, { limit: 2.9 });
+    expect(r.events).toHaveLength(2);
+    expect(r.truncated).toBe(true);
+  });
+
+  // ★ `1e999` parses to Infinity, so this arrives from `JSON.parse` on a model
+  //   payload. It fails the finite test before reaching the clamp, so it yields
+  //   the DEFAULT rather than MAX_HISTORY_LIMIT — pinned so it cannot drift.
+  it("falls back to the default for a non-finite limit", () => {
+    const entries = manyEntries(DEFAULT_HISTORY_LIMIT + 10);
+    expect(searchHistory(entries, { limit: Infinity }).events).toHaveLength(
+      DEFAULT_HISTORY_LIMIT,
+    );
+    expect(searchHistory(entries, { limit: NaN }).events).toHaveLength(DEFAULT_HISTORY_LIMIT);
+  });
+
+  it("treats an empty kinds list as no kind filter", () => {
+    const entries = [at("10"), at("11", { kind: "milestone.deleted" })];
+    expect(searchHistory(entries, { kinds: [] }).events).toHaveLength(2);
+  });
+
+  it("treats a whitespace-only query as no query filter", () => {
+    const entries = [at("10"), at("11")];
+    expect(searchHistory(entries, { query: "   " }).events).toHaveLength(2);
+  });
+
   it("returns an empty result for an empty log", () => {
     expect(searchHistory([], { query: "anything" })).toEqual({ events: [], truncated: false });
   });

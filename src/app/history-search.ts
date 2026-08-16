@@ -1,7 +1,11 @@
 // PURE ENGINE over the activity log: filter → sort → cap.
 //
-// ★★ i18n-FREE BY CONTRACT. It receives already-rendered lines from
-//    `activity-prompt.ts` (the render layer) and must never import `t` itself.
+// ★★ i18n-FREE BY CONTRACT — but NOT render-free: it takes raw entries and
+//    calls `renderActivityEntry` itself, because the substring search has to
+//    run over the rendered `summary` + `detail`. What it must never do is
+//    import `t`; all translation happens inside the render layer it calls.
+//    Do NOT "restore the split" by making the caller pass rendered lines —
+//    the engine would then be unable to filter on message text at all.
 //
 // ★ No clock. `since`/`until` are absolute ISO dates supplied by the caller;
 //   converting "last week" into a date is the model's job. Comparison is a
@@ -34,11 +38,33 @@ export interface HistoryResult {
   truncated: boolean;
 }
 
-/** Absent / non-finite / non-positive → the default; anything larger than the
- *  hard maximum is clamped. Fractional limits floor, so `2.9` caps at 2. */
+/**
+ * Absent / non-numeric / non-finite → the default; anything above the hard
+ * maximum is clamped down to it. Fractional limits FLOOR, so `2.9` caps at 2.
+ *
+ * ★★★ THE FLOOR HAPPENS BEFORE THE NON-POSITIVE TEST, NOT AFTER, and the order
+ * is the whole point. `limit` is model-supplied untrusted input, so `0.5` is
+ * reachable — and testing `raw <= 0` first lets it through, after which the
+ * floor yields a cap of ZERO. The result is `{ events: [], truncated: true }`:
+ * no rows, while asserting that rows were withheld. That is the one output
+ * combination that actively misleads the caller, since `truncated` is the field
+ * the model reads to decide whether it may claim a complete answer.
+ *
+ * ★ Falling back to the DEFAULT rather than clamping up to 1: a limit that
+ * floors to nothing is a nonsense request, and every other nonsense value here
+ * (absent, NaN, -1, 0) already answers with the default. Returning a
+ * single-event page instead would make `0.5` the only input whose garbage-ness
+ * is silently reinterpreted as a real, very specific instruction.
+ *
+ * ★ `Infinity` therefore yields the DEFAULT, not MAX_HISTORY_LIMIT — it fails
+ * the finite test before it can reach the clamp. Defensible (it is not a
+ * number the caller meant) and pinned by a test so it cannot change silently.
+ */
 function resolveLimit(raw: number | undefined): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) return DEFAULT_HISTORY_LIMIT;
-  return Math.min(Math.floor(raw), MAX_HISTORY_LIMIT);
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return DEFAULT_HISTORY_LIMIT;
+  const whole = Math.floor(raw);
+  if (whole <= 0) return DEFAULT_HISTORY_LIMIT;
+  return Math.min(whole, MAX_HISTORY_LIMIT);
 }
 
 export function searchHistory(
