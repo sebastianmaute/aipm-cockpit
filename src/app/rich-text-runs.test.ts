@@ -145,16 +145,22 @@ describe("htmlToRichLines", () => {
   });
 
   it("keeps each heading on its own line rather than fusing them", () => {
+    // The BREAK is what this pins — two adjacent headings must not append to
+    // one line. The kinds carry a level since §141(b); before that both read
+    // `{ kind: "p" }`, which is what made "<h1>a</h1><h2>b</h2>" worth pinning
+    // in the first place.
     expect(htmlToRichLines("<h1>a</h1><h2>b</h2>")).toEqual([
-      { kind: "p", runs: [{ text: "a", marks: [] }] },
-      { kind: "p", runs: [{ text: "b", marks: [] }] },
+      { kind: "heading", level: 1, runs: [{ text: "a", marks: [] }] },
+      { kind: "heading", level: 2, runs: [{ text: "b", marks: [] }] },
     ]);
   });
 
-  it("renders a list item as a plain paragraph line", () => {
-    expect(htmlToRichLines("<ul><li>a</li><li>b</li></ul>")).toEqual([
-      { kind: "p", runs: [{ text: "a", marks: [] }] },
-      { kind: "p", runs: [{ text: "b", marks: [] }] },
+  it("treats an <li> with no enclosing list as an unordered item at depth 0", () => {
+    // Stray markup, but reachable — the parser is handed values that never went
+    // through a sanitizer. There is no counter to read, so `depth` clamps at 0
+    // and nothing is incremented.
+    expect(htmlToRichLines("<li>a</li>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
     ]);
   });
 
@@ -214,5 +220,86 @@ describe("htmlToRichLines", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("heading, list, alignment and task structure (open-followups §141(b))", () => {
+  it("carries the heading level", () => {
+    const lines = htmlToRichLines("<h2>Title</h2>");
+    expect(lines).toEqual([
+      { kind: "heading", level: 2, runs: [{ text: "Title", marks: [] }] },
+    ]);
+  });
+
+  it("clamps h5 and h6 to level 4", () => {
+    // The editor emits h1-h4 (StarterKit levels: [1,2,3,4]), but stored legacy
+    // markup can carry h5/h6. DOCX declares no Heading5, and Word SILENTLY
+    // ignores an undeclared style, so the level is clamped rather than widened.
+    expect(htmlToRichLines("<h5>a</h5>")[0]).toMatchObject({ kind: "heading", level: 4 });
+    expect(htmlToRichLines("<h6>b</h6>")[0]).toMatchObject({ kind: "heading", level: 4 });
+  });
+
+  it("carries bullet list items at depth 0", () => {
+    const lines = htmlToRichLines("<ul><li>one</li><li>two</li></ul>");
+    expect(lines).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "one", marks: [] }] },
+      { kind: "li", ordered: false, depth: 0, index: 1, runs: [{ text: "two", marks: [] }] },
+    ]);
+  });
+
+  it("numbers an ordered list from zero", () => {
+    const lines = htmlToRichLines("<ol><li>a</li><li>b</li><li>c</li></ol>");
+    expect(lines.map((l) => (l.kind === "li" ? l.index : null))).toEqual([0, 1, 2]);
+    expect(lines.every((l) => l.kind === "li" && l.ordered)).toBe(true);
+  });
+
+  it("restarts the counter for an ol nested in an ol", () => {
+    // The renderer must never count: a nested list restarting at 1 is the
+    // property, and a single flat counter gets it wrong at exactly this shape.
+    const lines = htmlToRichLines(
+      "<ol><li>a</li><li>b<ol><li>b1</li><li>b2</li></ol></li><li>c</li></ol>",
+    );
+    const li = lines.filter((l) => l.kind === "li");
+    expect(li.map((l) => [l.depth, l.index])).toEqual([
+      [0, 0], // a
+      [0, 1], // b
+      [1, 0], // b1  <- restarts
+      [1, 1], // b2
+      [0, 2], // c   <- outer counter resumes
+    ]);
+  });
+
+  it("marks task items in both states", () => {
+    const lines = htmlToRichLines(
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="true">done</li>' +
+        '<li data-type="taskItem" data-checked="false">open</li>' +
+        "</ul>",
+    );
+    expect(lines.map((l) => (l.kind === "li" ? l.task : null))).toEqual([
+      "checked",
+      "unchecked",
+    ]);
+  });
+
+  it("reads alignment on EVERY kind, not just paragraphs", () => {
+    // align is ORTHOGONAL to kind — that is why it is a shared base field and
+    // not a kind. One assertion on a paragraph does not cover the property.
+    expect(htmlToRichLines('<p data-align="center">p</p>')[0].align).toBe("center");
+    expect(htmlToRichLines('<h3 data-align="right">h</h3>')[0].align).toBe("right");
+    expect(
+      htmlToRichLines('<ul><li data-align="justify">l</li></ul>')[0].align,
+    ).toBe("justify");
+  });
+
+  it("leaves align undefined when the attribute is absent", () => {
+    expect(htmlToRichLines("<p>plain</p>")[0].align).toBeUndefined();
+  });
+
+  it("ignores an out-of-domain align value", () => {
+    // sanitizeRichHtml's ATTR_VALUES predicate already admits only the four,
+    // but htmlToRichLines is also called on values that did not come through
+    // it, so the parser does not trust the attribute.
+    expect(htmlToRichLines('<p data-align="middle">x</p>')[0].align).toBeUndefined();
   });
 });
