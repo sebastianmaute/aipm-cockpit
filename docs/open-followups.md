@@ -3215,8 +3215,15 @@ and reserve a number for the heading, where one is unavoidable. When you must ch
 ★★ `snapshot.ts:211` (`pctComplete`) IS IN BOTH BUCKETS AND AN EARLIER REVISION FILED IT ONLY UNDER
 THIS ONE. The same assignment feeds the persisted snapshot AND the LIVE current-snapshot that
 `computeVariance` diffs against the baseline, so it reaches two rendered surfaces:
-`dashboard-panel.tsx:378` `VarianceSummary` (the Turso-gated Trends card in the dashboard masonry,
-which sits DIRECTLY AFTER the Progress `<Section>`) and the Trends view (`trends-panel.tsx`).
+`VarianceSummary` (declared in `variance-summary.tsx`, rendered by `dashboard-tile-bodies.tsx` as
+the body of the Turso-gated `trends` TILE) and the Trends view (`trends-panel.tsx`). ★ It used to be
+cited here as `dashboard-panel.tsx` line 378 (deliberately NOT written in `path:LINE` form — the
+ratchet would parse a citation this very sentence exists to retract), described as "the Turso-gated
+Trends card in the dashboard masonry, which sits DIRECTLY AFTER the Progress `<Section>`" — all
+three halves went stale in 0.240.0 when the
+arrangeable grid replaced the masonry (`git log -S VarianceSummary -- src/app/dashboard-panel.tsx`
+names the commit). The position claim cannot be repaired, only dropped: the grid is user-ordered, so
+the tile sits wherever that project's stored layout puts it.
 `computeVariance` (`snapshot.ts`) builds that row with `worseIfLower`, so a project baselined at 40%
 whose remaining work is then all cancelled rendered **"Percent complete −40%"** beside an AMBER dot,
 one card below a tile reading "No active scope" — delivery announced as having gone backwards on a

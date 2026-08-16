@@ -23,7 +23,7 @@ before your first edit — the rest is reference, reachable from here.
 
 | | |
 |---|---|
-| [dashboard](docs/AGENTS/dashboard.md) | delta strip · KPI trends · masonry · coaching · density · digest |
+| [dashboard](docs/AGENTS/dashboard.md) | delta strip · KPI trends · arrangeable tile grid · coaching · density · digest |
 | [ui-shell](docs/AGENTS/ui-shell.md) | Help · nav · focus/keyboard · surfaces · ★ **dismissal owns the Escape/Tab protocol — read it before touching any modal, popover or panel** |
 | [theming](docs/AGENTS/theming.md) | colour schemes · `--ui-*` tokens · AA derivation · branding · print · DS primitives |
 | [insights](docs/AGENTS/insights.md) | detect · reconcile · recommend · outcome · digest |
@@ -1677,7 +1677,7 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 
 | File | Owns |
 |---|---|
-| [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — masonry layout · delta strip · KPI trends · sparkline · coaching · density · digest |
+| [dashboard.md](docs/AGENTS/dashboard.md) | the landing cockpit — the arrangeable tile grid · delta strip · KPI trends · sparkline · coaching · density · digest |
 | [ui-shell.md](docs/AGENTS/ui-shell.md) | Help system · navigation & landing · focus/keyboard · surfaces & controls · ★ **dismissal (the Escape/Tab protocol — read before touching any modal, popover or panel)** |
 | [theming.md](docs/AGENTS/theming.md) | colour schemes · the `--ui-*` token families · AA derivation · the dark-mode hover trap · branding · print · design-system primitives |
 | [insights.md](docs/AGENTS/insights.md) | detect → reconcile → recommend → outcome → digest |
