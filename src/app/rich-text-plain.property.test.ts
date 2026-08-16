@@ -304,7 +304,7 @@ describe("rich-text-plain — properties", () => {
     // satisfy the assertion while exercising almost none of the collapse.
     // ★ Deliberately left at 50 runs when the separateBlockBoundaries counter
     //   below was raised: over 20,000 independent trials this one is mean 38.1,
-    //   sd 2.97, and P(exercised <= 10) is ~1e-17 by exact binomial. Two words
+    //   sd 2.97, and P(exercised <= 10) is 8e-17 by exact binomial. Two words
     //   are drawn per run rather than one value, so it saturates far faster
     //   than the single-value counters — a bigger sample would buy nothing.
     // ★★ Quote a PROBABILITY, never a sample minimum. An earlier revision of
@@ -395,8 +395,9 @@ describe("rich-text-plain — properties", () => {
       // reached CI: this test failed once in a full-suite shard on a branch
       // touching neither this file nor anything it imports. Over 200,000
       // independent trials at 50 runs, `exercised` is mean 22.55, sd 3.53, and
-      // P(exercised <= 10) = 2.05e-4 — about 1 run in 4,900, matching the exact
-      // Binomial(50, 0.4513) tail of 1.91e-4. The old assertion was `> 10`.
+      // P(exercised <= 10) = 2.05e-4 — about 1 run in 4,900. The exact
+      // Binomial(50, 0.4513) tail is 1.88e-4 (1 in 5,300), i.e. the empirical
+      // and exact figures agree to within ~10%. The old assertion was `> 10`.
       // ★★★ THE PROPERTY IS NOT THE FLAKY PART, AND IT CANNOT BE — it is an
       //   IDENTITY, which is worth knowing before anyone "strengthens" it.
       //   `htmlPlainProjection` BEGINS with the same `replace(BLOCK_TAG, " ")`
