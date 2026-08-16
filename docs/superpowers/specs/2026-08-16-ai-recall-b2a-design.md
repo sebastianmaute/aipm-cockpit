@@ -247,7 +247,8 @@ goes in the two new pure modules; `chat-tools.ts` gets routing only.
 Both edited files must be re-measured after the change: 6 lines into 765 and one case into 763 are
 comfortable, but "comfortable" is a prediction until `npm run size:check` says otherwise.
 
-Both new modules are pure logic, so they stay **coverage-gated** — not added to `coverage.exclude`.
+Both new modules are logic rather than UI glue, so they stay **coverage-gated** — not added to
+`coverage.exclude`.
 That is the "exclude glue, not logic" rule, and these are logic.
 
 ## Testing
