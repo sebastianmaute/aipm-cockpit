@@ -76,6 +76,8 @@ import { descriptionHtml } from "./rich-text-plain";
 // forbids it; the plan's `from "./doc-render-html"` is wrong for the same
 // reason (and that module never exported it — it kept a private copy).
 import { resolveDataSection } from "./doc-data-section";
+import type { ExportCell } from "./export-sections";
+import { cellText } from "./export-sections";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 
@@ -168,8 +170,12 @@ export function segmentIntoSlides(blocks: readonly DocBlock[]): DocSlide[] {
  * real DrawingML `<a:tbl>` primitive exists (the follow-up slice). Paragraph
  * blocks are unaffected and still keep every boundary.
  */
-function flattenCell(cell: string | number): string {
-  return String(cell).replace(/\s*[\r\n]+\s*/g, " ");
+function flattenCell(cell: ExportCell): string {
+  // ★ A rich cell is read through its flat text projection FIRST — this
+  // renderer lays out a row as one line of text and has no cell to put a
+  // second paragraph inside. Without it `String(cell)` yields "[object
+  // Object]" for every rich column a dataSection carries.
+  return String(cellText(cell)).replace(/\s*[\r\n]+\s*/g, " ");
 }
 
 /** ONE table layout for both the `table` block and a resolved dataSection —
@@ -177,7 +183,7 @@ function flattenCell(cell: string | number): string {
  *  jscpd gate flags and how the two drift apart on a later fix. */
 function tableLines(
   columns: readonly string[],
-  rows: readonly (readonly (string | number)[])[],
+  rows: readonly (readonly ExportCell[])[],
   caption?: string,
 ): string[] {
   const lines: string[] = [];

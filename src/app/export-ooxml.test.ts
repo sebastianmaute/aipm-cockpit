@@ -11,6 +11,8 @@ import { describe, it, expect } from "vitest";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
 import { buildPdfHtml } from "./export";
 import { buildExportSections } from "./export-sections";
+import type { ExportSection } from "./export-sections";
+import { descriptionTextWithBreaks } from "./rich-text-projection";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
@@ -72,6 +74,22 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 async function unzipBlob(blob: Blob): Promise<Map<string, string>> {
   const buf = await blobToArrayBuffer(blob);
   return unzip(buf);
+}
+
+/**
+ * Every part of an OOXML package as ONE deterministic string.
+ *
+ * ★★ Do NOT byte-compare the Blob itself: `zip.ts` stamps `new Date()` into
+ * each local file header, so two packages built either side of a DOS-time tick
+ * (2-second resolution) differ in bytes while every rendered part is identical.
+ * The parts ARE the output; the container stamp is not.
+ */
+async function packageText(blob: Blob): Promise<string> {
+  const parts = await unzipBlob(blob);
+  return [...parts.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([name, xml]) => `=== ${name} ===\n${xml}`)
+    .join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -701,6 +719,46 @@ describe("PPTX export text", () => {
     expect(xml).toMatch(/<a:t>description: one<\/a:t>[\s\S]*?<\/a:p>\s*<a:p>[\s\S]*?<a:t>two<\/a:t>/);
   });
 
+  it("emits the same package parts for a rich cell as for its flat projection (§141(b))", async () => {
+    // PPTX row slides cannot lay out paragraphs, so they read the rich cell's
+    // `text` — output must not move by one byte from the flat era.
+    //
+    // ★ ALL THREE cells are rich on purpose: buildPptxRowSlide reads row[0]
+    // (RowMeta), row[1] (RowTitle) and row[2..] (meta lines) through three
+    // SEPARATE expressions, so a fix applied to only one of them still passes
+    // a fixture whose rich column sits in the other.
+    // ★ The description uses the editor's REAL list shape (<li><p>…</p></li>),
+    // not the bare <li> form, so a projection defect that hides behind bare
+    // <li> cannot hide here either.
+    const cells = [
+      "<p>1</p>",
+      "<p>Task <strong>one</strong></p>",
+      "<h2>Plan</h2><ul><li><p>one</p></li></ul>",
+    ];
+    const columns = ["id", "taskName", "description"];
+    const rich: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [cells.map((html) => ({ html, text: descriptionTextWithBreaks(html) }))],
+    };
+    const flat: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [cells.map((html) => descriptionTextWithBreaks(html))],
+    };
+
+    const richText = await packageText(buildPptx([rich], "en-US"));
+    expect(richText).toBe(await packageText(buildPptx([flat], "en-US")));
+    // Positive observable — two identical EMPTY packages would satisfy the
+    // equality above while proving nothing about the projection.
+    expect(richText).toContain("<a:t>description: Plan</a:t>");
+    expect(richText).toContain("<a:t>one</a:t>");
+    expect(richText).toContain("<a:t>Task one</a:t>");
+    expect(richText).not.toContain("object Object");
+  });
+
   it("leaves a break-free paragraph as exactly one <a:p>", async () => {
     const blob = buildPptx([
       { key: "tasks", title: "Tasks", columns: ["id", "taskName"], rows: [[1, "Task one"]] },
@@ -743,5 +801,33 @@ describe("XLSX carries a projected paragraph break", () => {
     expect(styles).toContain(
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
     );
+  });
+
+  it("emits the same package parts for a rich cell as for its flat projection (§141(b))", async () => {
+    // A worksheet cell cannot lay out paragraphs, so the XLSX builder reads the
+    // rich cell's `text` — output must not move by one byte from the flat era.
+    // ★ The editor's REAL list shape (<li><p>…</p></li>), not the bare <li>
+    // form: a projection defect that hides behind bare <li> must not hide here.
+    const html = "<h2>Plan</h2><ul><li><p>one</p></li></ul>";
+    const columns = ["description"];
+    const rich: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [[{ html, text: descriptionTextWithBreaks(html) }]],
+    };
+    const flat: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [[descriptionTextWithBreaks(html)]],
+    };
+
+    const richText = await packageText(buildXlsx([rich]));
+    expect(richText).toBe(await packageText(buildXlsx([flat])));
+    // Positive observable — two identical EMPTY packages would satisfy the
+    // equality above while proving nothing about the projection.
+    expect(richText).toContain('<t xml:space="preserve">Plan\none</t>');
+    expect(richText).not.toContain("object Object");
   });
 });

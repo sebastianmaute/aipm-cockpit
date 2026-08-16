@@ -78,6 +78,19 @@ export function isRichCell(cell: ExportCell): cell is RichCell {
   return typeof cell === "object" && cell !== null && "html" in cell;
 }
 
+/** The flat projection of any cell — the ONLY thing a renderer that cannot lay
+ *  out paragraphs should call.
+ *
+ *  ★★ Its parameter is `ExportCell`, which does NOT include `undefined`, and
+ *  `noUncheckedIndexedAccess` is off — so `row[i]` typechecks here while a
+ *  short row hands it `undefined` at RUNTIME. That is survivable rather than
+ *  accidental: `isRichCell(undefined)` is false, so the value passes through
+ *  unchanged to the caller's own `?? ""` / `String(… ?? "")` guard, exactly as
+ *  the raw cell did before this indirection existed. Keep those guards. */
+export function cellText(cell: ExportCell): string | number {
+  return isRichCell(cell) ? cell.text : cell;
+}
+
 export type ExportSection = {
   key: ExportSectionKey;
   title: string;       // localized section heading

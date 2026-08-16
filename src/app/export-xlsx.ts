@@ -1,6 +1,7 @@
 // Hand-rolled XLSX (OOXML) builder. Shared helpers in export-ooxml-shared.ts.
 import { type ZipEntry, buildZip } from "./zip";
-import type { ExportSection } from "./export-sections";
+import type { ExportCell, ExportSection } from "./export-sections";
+import { cellText } from "./export-sections";
 import {
   COLOR_DARK_BLUE,
   COLOR_LIGHT_GREY,
@@ -72,7 +73,7 @@ export function buildXlsx(sections: ExportSection[]): Blob {
   }
 
   /** Build one worksheet XML. Captures the shared `s()` / `colLetter()` closures. */
-  function buildSheetXml(columns: string[], rows: (string | number)[][]): string {
+  function buildSheetXml(columns: string[], rows: ExportCell[][]): string {
     const lastCol = colLetter(columns.length - 1);
     const lastRow = rows.length + 1;
 
@@ -90,7 +91,10 @@ export function buildXlsx(sections: ExportSection[]): Blob {
         const cells = columns
           .map((_, ci) => {
             const ref = `${colLetter(ci)}${rowNum}`;
-            return `<c r="${ref}" t="s" s="${styleId}"><v>${s(row[ci])}</v></c>`;
+            // A worksheet cell cannot lay out paragraphs, so a rich cell is
+            // read through its flat text projection. `s()` already normalises
+            // a missing cell via `?? ""`, which is what a short row relies on.
+            return `<c r="${ref}" t="s" s="${styleId}"><v>${s(cellText(row[ci]))}</v></c>`;
           })
           .join("");
         return `<row r="${rowNum}">${cells}</row>`;
