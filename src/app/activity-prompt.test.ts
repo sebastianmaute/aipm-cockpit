@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   ACTIVITY_KIND_TO_KEY,
   type ActivityEntry,
   type ActivityKind,
 } from "./activity-log";
 import { renderActivityEntry } from "./activity-prompt";
+import { loadI18n } from "./i18n";
 
 const entry = (over: Partial<ActivityEntry> = {}): ActivityEntry => ({
   id: "dev-1-1",
@@ -73,5 +74,25 @@ describe("renderActivityEntry", () => {
       expect(r.summary, kind).not.toBe("");
       expect(r.summary, kind).not.toMatch(/\{\d\}/);
     }
+  });
+});
+
+// ★★ The DE dict is LAZY (`activeDeDict` stays null until `loadI18n("de")`
+//    resolves), so without this beforeAll a `"de"` mutation is UNDETECTABLE —
+//    `t()` silently falls through to the EN dict and every assertion still
+//    passes. Loading it is what gives this suite the power to see the mutation.
+//    ★ Order-independent, so it is safe under `test:shuffle`: every other test
+//    renders through `renderActivityEntry`, which pins "en-US", and `t()` reads
+//    `activeDeDict` only when the caller asks for "de".
+describe("renderActivityEntry locale pinning", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("renders in English even when the German dictionary is loaded", () => {
+    // The DE string is "Aufgabe #{0} erstellt: {1}" — genuinely different
+    // bytes, which is what makes this assertion able to fail at all.
+    const r = renderActivityEntry(entry());
+    expect(r.summary).toBe("Task #7 created: Fix login");
   });
 });

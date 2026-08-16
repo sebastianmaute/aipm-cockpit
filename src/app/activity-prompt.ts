@@ -8,12 +8,15 @@
 //
 // ★★ THE SUMMARY MATCHES THE PANEL'S WORDING; THE DETAIL DELIBERATELY DOES NOT.
 //    `activity-log-panel.tsx` labels a diff row with `humanizeFieldName(field)`
-//    ("dueDate" → "Due date") because a human reads it. This layer emits the
-//    RAW entity field key, because the model WRITES with those exact names —
-//    they are the field names in the tool schemas, so "dueDate" is actionable
-//    to it and "Due date" is a string it would have to map back. Importing the
-//    panel's humanizer would also drag a UI concern into a layer
-//    `history-search.ts` depends on. Do NOT "align" the two renderers.
+//    because a human reads it. This layer emits the RAW entity field key,
+//    because the model WRITES with those exact names — they are the field
+//    names in the tool schemas, so `dueDate` is actionable to it.
+//    ★★ `humanizeFieldName` is LOSSY and would have to be reversed by the
+//    model: it splits camelCase AND lowercases, so `dueDate` renders as
+//    "due date" (lowercase — `activity-log.ts`, pinned by a test in
+//    `activity-log.test.ts`). That destroys the casing a tool call needs and
+//    is not uniquely invertible — "due date" could be `dueDate` or `due_date`.
+//    Do NOT "align" the two renderers.
 //
 // ★★ Always "en-US", never the user's language: the model-facing view must not
 //    change when the UI switches to German. The EN dict is static (only DE is
