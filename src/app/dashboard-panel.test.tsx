@@ -11,6 +11,25 @@ import * as dashboardModule from "./dashboard";
 import type { ActivityEntry } from "./activity-log";
 import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 
+/**
+ * The `scrollRef` every render hands `useListReorderDnd`, captured through a
+ * PASS-THROUGH spy so the real hook still runs and every other test in this
+ * file is unaffected. There is no other seam: the ref is created and consumed
+ * entirely inside `DashboardPanel`, and jsdom has no layout, so nothing can
+ * observe the resulting scroll.
+ */
+const reorderScrollRefs: (React.RefObject<HTMLElement | null> | undefined)[] = [];
+vi.mock("./use-list-reorder-dnd", async (orig) => {
+  const actual = await orig<typeof import("./use-list-reorder-dnd")>();
+  return {
+    ...actual,
+    useListReorderDnd: (opts: Parameters<typeof actual.useListReorderDnd>[0]) => {
+      reorderScrollRefs.push(opts.scrollRef);
+      return actual.useListReorderDnd(opts);
+    },
+  };
+});
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <FiltersProvider>
@@ -40,6 +59,54 @@ describe("DashboardPanel", () => {
       { wrapper },
     );
     expect(container).toBeTruthy();
+  });
+
+  it("autoscrolls the CARD's scroller during a drag, with no nested scroller under it", () => {
+    // ★★★ THE REF MUST REACH THE ONE ELEMENT THAT CAN ACTUALLY SCROLL.
+    // `ReportCard` is `flex h-full min-h-0 flex-col overflow-hidden`, so its
+    // `contentRef` child (`min-h-0 flex-1 overflow-y-auto`) has a BOUNDED height
+    // and a real `scrollTop`. `DashboardGrid` used to wrap itself in its own
+    // `overflow-y-auto` div and hand THAT to the hook — a block-level child of a
+    // plain block, which sizes to its content, so `scrollHeight === clientHeight`
+    // and `useDragAutoscroll`'s `scrollTop +=` could never move it. Dragging a
+    // tile toward the bottom of a long board did nothing.
+    //
+    // ★★ jsdom HAS NO LAYOUT, so no assertion anywhere can watch the scroll
+    // happen. Identity is the whole of what is checkable: the ref the hook
+    // autoscrolls is the same node `ReportCard` scrolls. The second half is a
+    // separate defect — a re-added wrapper would be a NESTED scroller, which
+    // swallows the wheel and takes the drag back to a dead element.
+    reorderScrollRefs.length = 0;
+    render(
+      <DashboardPanel
+        lang="en-US"
+        tasks={[]}
+        raid={[]}
+        budgets={[]}
+        plan={plan}
+        roles={[]}
+        resources={[]}
+        absences={[]}
+        holidaySet={new Set<string>()}
+        workdayHours={8}
+        today="2026-06-02"
+      />,
+      { wrapper },
+    );
+    // `hideToolbar` is set, so the card's content div is its only child.
+    const card = document.querySelector(".print-root")!;
+    const content = card.firstElementChild as HTMLElement;
+    expect(content.className).toMatch(/overflow-y-auto/);
+
+    const captured = reorderScrollRefs.at(-1);
+    expect(captured, "the panel passes no scrollRef at all").toBeDefined();
+    expect(captured!.current).toBe(content);
+
+    const grid = screen.getByTestId("dashboard-grid");
+    expect(content.contains(grid)).toBe(true);
+    for (let el: HTMLElement | null = grid; el && el !== content; el = el.parentElement) {
+      expect(String(el.className), `${el.tagName} nests a second scroller`).not.toMatch(/overflow-/);
+    }
   });
 
   it("renders lettered RAG badges on the status pills", () => {
@@ -201,8 +268,14 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
       />,
       { wrapper },
     );
+    // The boxed card is now the arrangeable TILE CHROME (a <section>), not a
+    // <div> the body drew itself — the body no longer boxes or titles itself at
+    // all, or the tile would stack two identical "Progress" headings inside two
+    // nested borders.
     const heading = screen.getByText("Progress");
-    expect(heading.closest("div.rounded-lg")).not.toBeNull();
+    const tile = heading.closest("section.rounded-lg");
+    expect(tile).not.toBeNull();
+    expect(tile!.getAttribute("data-testid")).toBe("tile-progress");
   });
 });
 
@@ -727,33 +800,232 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
 
 });
 
-describe("DashboardPanel masonry cockpit", () => {
-  it("renders the cards inside one lg:columns-2 multicolumn flow", () => {
-    render(<DashboardPanel {...fullProps} />, { wrapper });
-    const progress = screen.getByText("Progress");
-    // Walk up to the masonry container. (jsdom's selector engine rejects the
-    // escaped-colon Tailwind class as a CSS selector, so match via className.)
-    let masonry: HTMLElement | null = progress.parentElement;
-    while (masonry && !masonry.className.includes("lg:columns-2")) {
-      masonry = masonry.parentElement;
-    }
-    expect(masonry).not.toBeNull();
-    expect(masonry!.className).toContain("columns-1");
-    // Progress, Milestones + Changes all live in the SAME masonry flow.
-    expect(masonry!.textContent).toContain("Milestones");
-    expect(masonry!.textContent).toContain("Changes");
+// ★★ EVERY TEST HERE NEEDS ITS OWN `projectId`. `useDashboardLayout` keys its
+// stored arrangement on it, so a shared id would let one test's hide leak into
+// the next. (The 400ms debounce means nothing is actually written inside a
+// synchronous test — the effect's cleanup clears the timer on unmount — but the
+// isolation must not rest on that timing.)
+const EN = "en-US" as const;
+const grip = (title: string) => `${t(EN, "reorderHandle")} – ${title}`;
+const kebab = (title: string) => `${t(EN, "actionMoreActions")} – ${title}`;
+
+describe("DashboardPanel arrangeable tile grid", () => {
+  it("renders the cards as tiles inside one dense grid", () => {
+    const { container } = render(<DashboardPanel {...fullProps} projectId="p-grid-flow" />, { wrapper });
+    const grid = container.querySelector('[data-testid="dashboard-grid"]');
+    expect(grid).not.toBeNull();
+    // Order is the whole placement model — `grid-auto-flow: row dense` resolves
+    // the ordered list into cells, which is why nothing stores coordinates.
+    expect(grid!.className).toContain("grid-flow-row-dense");
+    expect(grid!.querySelectorAll('[data-testid^="tile-"]').length).toBeGreaterThan(0);
+    // Progress, Milestones + Changes all live in the SAME grid.
+    expect(grid!.textContent).toContain("Milestones");
+    expect(grid!.textContent).toContain("Changes");
   });
 
-  it("wraps masonry cards in break-inside-avoid containers", () => {
-    const { container } = render(<DashboardPanel {...fullProps} />, { wrapper });
-    const wrappers = Array.from(container.querySelectorAll("div")).filter((el) =>
-      el.className.includes("break-inside-avoid"),
+  it("gives each tile the span classes its catalogue entry declares", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-grid-span" />, { wrapper });
+    // `progress` is w:2 h:2 in DASHBOARD_TILES, and the classes must be WHOLE
+    // literals — an interpolated `col-span-${w}` emits no CSS at all, and jsdom
+    // has no layout to notice.
+    const tile = screen.getByTestId("tile-progress");
+    expect(tile.className).toContain("lg:col-span-2");
+    expect(tile.className).toContain("row-span-2");
+  });
+
+  it("qualifies every per-tile control with that tile's title", () => {
+    // WCAG 2.4.6, and the axe gate cannot see a duplicate accessible name in any
+    // view at any seed size — a multi-tile render is the only possible detector.
+    render(<DashboardPanel {...fullProps} projectId="p-grid-names" />, { wrapper });
+    expect(screen.getByRole("button", { name: grip("Progress") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: grip("Milestones") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: kebab("Progress") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: kebab("Milestones") })).toBeInTheDocument();
+  });
+
+  it("renders no grip, menu, shelf or reset in a popout (read-only)", () => {
+    render(<DashboardPanel {...fullProps} projectId="p-grid-popout" isPopout />, { wrapper });
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: grip("Progress") })).toBeNull();
+    expect(screen.queryByRole("button", { name: kebab("Progress") })).toBeNull();
+    expect(screen.queryByText(t(EN, "dashboardResetLayout"))).toBeNull();
+    expect(screen.queryByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeNull();
+  });
+
+  it("hides a tile from the ⋮ menu onto the shelf, announces it, and restores it", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-hide" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    // PopoverPanel owns the dismissal protocol and portals the panel to <body>.
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+
+    expect(screen.queryByTestId("tile-progress")).toBeNull();
+    const announced = screen.getAllByRole("status").map((el) => el.textContent);
+    expect(announced).toContain(t(EN, "dashboardTileHidden", "Progress"));
+
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "dashboardTileRestore")} – Progress` }));
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+  });
+
+  it("lands focus on the shelf disclosure after hiding, instead of dropping it on <body>", async () => {
+    // ★★★ HIDING DESTROYS THE CONTROL THAT WAS PRESSED. Hide lives inside the ⋮
+    // popover, which is anchored to the tile's own ⋮ trigger — hiding unmounts
+    // BOTH, and `PopoverPanel` restores focus to nothing on close (it focuses
+    // the first control on OPEN only). Focus therefore fell to `<body>` and a
+    // keyboard user who had just navigated the menu was stranded at the top of
+    // the document, with no route back to the tile they had put on the shelf.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-hide-focus" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+
+    expect(screen.queryByTestId("tile-progress")).toBeNull();      // the trigger really did unmount
+    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) });
+    expect(document.activeElement).toBe(shelf);
+  });
+
+  it("lands focus back on the shelf disclosure after restoring a tile", async () => {
+    // ★★ THE MIRROR CASE, and the chip is the wrong destination for it: the
+    // Restore button the user pressed is removed by that very click, and the
+    // remaining chips shift underneath them. The disclosure is the one node in
+    // the shelf that survives both directions.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-restore-focus" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
+    await user.click(screen.getByRole("button", { name: `${t(EN, "dashboardTileRestore")} – Progress` }));
+    expect(screen.getByTestId("tile-progress")).toBeInTheDocument();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) }),
     );
-    expect(wrappers.length).toBeGreaterThan(0);
+  });
+
+  it("moves a tile earlier from the ⋮ menu and announces its new position", async () => {
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-move" />, { wrapper });
+    const before = Array.from(document.querySelectorAll('[data-testid^="tile-"]'))
+      .map((el) => el.getAttribute("data-testid"));
+    const target = before[2]!;                       // never index 0 — Move earlier is disabled there
+    const title = screen.getByTestId(target).getAttribute("aria-label")!;
+
+    await user.click(screen.getByRole("button", { name: kebab(title) }));
+    const menu = screen.getByRole("dialog", { name: kebab(title) });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileMoveEarlier") }));
+
+    const after = Array.from(document.querySelectorAll('[data-testid^="tile-"]'))
+      .map((el) => el.getAttribute("data-testid"));
+    expect(after.indexOf(target)).toBe(1);
+    expect(after).toHaveLength(before.length);
+    const announced = screen.getAllByRole("status").map((el) => el.textContent);
+    expect(announced).toContain(t(EN, "dashboardTileMoved", title, "2", String(before.length)));
+  });
+
+  it("returns focus to the moved tile's own ⋮ trigger, so the next move needs no re-navigation", async () => {
+    // ★★★ THE ⋮ MENU IS THIS SURFACE'S ENTIRE KEYBOARD REORDER PATH (the drag
+    // primitive's arrow-key option is deliberately off here), so where focus
+    // lands after a move IS the feature. The popover closes on every move
+    // command and `PopoverPanel` restores focus to nothing on close, so focus
+    // fell to `<body>` and a keyboard user had to navigate back to the tile
+    // between every single press.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-move-focus" />, { wrapper });
+    const before = Array.from(document.querySelectorAll('[data-testid^="tile-"]'))
+      .map((el) => el.getAttribute("data-testid"));
+    const target = before[2]!;                       // never index 0 — Move earlier is disabled there
+    const title = screen.getByTestId(target).getAttribute("aria-label")!;
+
+    await user.click(screen.getByRole("button", { name: kebab(title) }));
+    const menu = screen.getByRole("dialog", { name: kebab(title) });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileMoveEarlier") }));
+
+    // The tile survives a move — only the popover goes — so the destination is
+    // the trigger the user opened, found by TILE IDENTITY rather than by a node
+    // captured before the reorder.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: kebab(title) }));
+  });
+
+  it("keeps focus on the size control through a resize, WITHOUT any focus machinery", async () => {
+    // ★★ RESIZE IS NOT THE MOVE CASE AND MUST NOT BE "FIXED" LIKE ONE. The size
+    // radios do NOT close the popover (`TileAxisGroup`'s onPick calls onResize
+    // and nothing else), so the control the user pressed is still mounted and
+    // keeps focus by itself — and the popover is portaled, so the tile
+    // re-rendering at its new span cannot disturb it. Measured before writing
+    // the move fix, precisely so no machinery was added for a defect that is
+    // not there. This test is the pin: if a future change makes resize close the
+    // menu, it goes red and the decision gets made deliberately.
+    const user = userEvent.setup();
+    render(<DashboardPanel {...fullProps} projectId="p-grid-resize-focus" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Progress") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Progress") });
+    const taller = within(menu).getByRole("radio", { name: /height 3/i });
+    await user.click(taller);
+
+    expect(screen.getByRole("dialog", { name: kebab("Progress") })).toBeInTheDocument();  // still open
+    expect(document.activeElement).toBe(taller);
+  });
+
+  it("ends the drag when a tile is dropped onto the shelf", () => {
+    // ★★★ Hiding UNMOUNTS the tile whose grip owns `onDragEnd`, and a detached
+    // node's events never reach React's root container — so nothing would reset
+    // the hook's `dragId`. The observable is the shelf's own `isDragging` guard:
+    // with the drag stuck true, a stray `dragEnter` pops the tray open, which is
+    // exactly what `dashboard-grid.test.tsx`'s "leaves the tray shut when a
+    // pointer wanders in with nothing being dragged" test pins at the component.
+    render(<DashboardPanel {...fullProps} projectId="p-grid-shelfdrop" />, { wrapper });
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    fireEvent.drop(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) }));
+    expect(screen.queryByTestId("tile-progress")).toBeNull();     // the grip really did unmount
+
+    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) });
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+    fireEvent.dragEnter(shelf);
+    expect(shelf).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("leaves the tray open to a REAL drag, so the test above is not vacuous", () => {
+    // ★ The positive observable: the same dragEnter DOES open the tray while a
+    // drag is genuinely in flight. Without this, the assertion above would pass
+    // against a shelf whose guard was broken shut.
+    render(<DashboardPanel {...fullProps} projectId="p-grid-shelfopen" />, { wrapper });
+    fireEvent.dragStart(screen.getByRole("button", { name: grip("Progress") }));
+    const shelf = screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) });
+    fireEvent.dragEnter(shelf);
+    expect(shelf).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("drops a hidden tile from the shelf once its module gate goes off", async () => {
+    // ★★ The shelf offered tiles that could not be restored: it tested only that
+    // the id was a known tile, so hiding Budget burn and then switching Budget
+    // off left a chip whose Restore made the chip vanish with nothing appearing
+    // (the board's own gate filter dropped it again), and the "N hidden" count
+    // included it. Storage stays gate-free — the chip must come BACK when the
+    // module is switched on again, which the last two assertions pin.
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <DashboardPanel {...fullProps} projectId="p-grid-gate" />, { wrapper });
+    await user.click(screen.getByRole("button", { name: kebab("Budget burn") }));
+    const menu = screen.getByRole("dialog", { name: kebab("Budget burn") });
+    await user.click(within(menu).getByRole("button", { name: t(EN, "dashboardTileHide") }));
+    await user.click(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 1) }));
+    const chip = `${t(EN, "dashboardTileRestore")} – Budget burn`;
+    expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
+
+    rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" showBudget={false} />);
+    expect(screen.queryByRole("button", { name: chip })).toBeNull();
+    expect(screen.getByRole("button", { name: t(EN, "dashboardShelfCount", 0) })).toBeInTheDocument();
+
+    rerender(<DashboardPanel {...fullProps} projectId="p-grid-gate" />);
+    expect(screen.getByRole("button", { name: chip })).toBeInTheDocument();
   });
 
   it("renders the RAID register (Top open RAID) BEFORE the Progress card in DOM order", () => {
-    render(<DashboardPanel {...fullProps} />, { wrapper });
+    render(<DashboardPanel {...fullProps} projectId="p-grid-order" />, { wrapper });
     const registers = screen.getByText("Top open RAID");
     const progress = screen.getByText("Progress");
     expect(registers.compareDocumentPosition(progress) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

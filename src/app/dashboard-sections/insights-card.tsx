@@ -1,7 +1,6 @@
 "use client";
 
 import { type Lang, t, type TranslationKey } from "../i18n";
-import { Card } from "../card";
 import { RagDot } from "../rag-dot";
 import { Button } from "../button";
 import { insightTitle, insightDetail } from "../insights/insight-text";
@@ -16,7 +15,9 @@ import { InsightRecommendationControls } from "../insight-recommendation-control
 import type { Health } from "../health";
 import type { DensityClasses } from "../dashboard-density";
 
-/** Cap the card so a noisy project never floods the masonry flow. */
+/** Cap the card so a noisy project never floods its tile. (It said "the masonry
+ *  flow" until the arrangeable grid replaced the multicolumn masonry; the tile
+ *  now scrolls its own body, so the cap bounds the scroll rather than the page.) */
 const MAX_INSIGHTS_CARD = 5;
 
 // Severity → RAG token: colour rides the DOT (non-text, AA-exempt), never tinted
@@ -46,7 +47,21 @@ export interface InsightsCardProps {
 }
 
 /** Dashboard Insights card (#6B SP1): active insights + their lifecycle CTAs.
- *  Presentational — self-hides (returns null) when no insight is active. */
+ *  Presentational — self-hides (returns null) when no insight is active.
+ *
+ *  ★★ UNBOXED AND UN-TITLED, like every other arrangeable tile body: the tile
+ *  chrome (`dashboard-tile.tsx`) draws the bordered surface and renders the
+ *  `<h3>`, and the catalogue's label key for this tile (`dashboardInsights`) is
+ *  byte-identical to what this card used to head itself with — "Insights" /
+ *  "Erkenntnisse" in both dictionaries. Re-adding a `Card` here stacks two
+ *  borders and two identical headings. (Contrast `RaidRegisterCard`, which keeps
+ *  its `Section` heading BECAUSE its text differs from its chrome title.)
+ *
+ *  ★ There is no `chromeless`/`heading` opt-out prop and there must not be one
+ *  until a second consumer exists: `buildTileBodies` is the only call site —
+ *  `grep -rn "InsightsCard" src --include="*.tsx" | grep -v "\.test\."`.
+ *  `insights-panel.tsx` renders its OWN list and merely shares the
+ *  `insightsCardTitle` string, so it is unaffected by this shape. */
 export function InsightsCard({
   insights,
   lang,
@@ -67,86 +82,81 @@ export function InsightsCard({
   if (active.length === 0) return null;
 
   return (
-    <Card boxed className={dc.cardPad}>
-      <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-        {t(lang, "insightsCardTitle")}
-      </h3>
-      <ul className={`flex flex-col ${dc.kpiGap}`}>
-        {active.map((insight) => {
-          const title = insightTitle(insight, lang);
-          const detail = insightDetail(insight, lang);
-          return (
-            <li
-              key={insight.id}
-              className="flex items-start gap-2 rounded-md border border-line bg-surface px-2 py-1.5"
-            >
-              <RagDot
-                level={SEVERITY_HEALTH[insight.severity]}
-                size="md"
-                className="mt-1"
-                label={t(lang, SEVERITY_LABEL_KEY[insight.severity])}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">{title}</p>
-                <p className="text-xs text-muted-foreground">{detail}</p>
-                <div className="mt-1 flex flex-wrap items-center gap-1">
-                  {insight.entityRef && onOpen ? (
+    <ul className={`flex flex-col ${dc.kpiGap}`}>
+      {active.map((insight) => {
+        const title = insightTitle(insight, lang);
+        const detail = insightDetail(insight, lang);
+        return (
+          <li
+            key={insight.id}
+            className="flex items-start gap-2 rounded-md border border-line bg-surface px-2 py-1.5"
+          >
+            <RagDot
+              level={SEVERITY_HEALTH[insight.severity]}
+              size="md"
+              className="mt-1"
+              label={t(lang, SEVERITY_LABEL_KEY[insight.severity])}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">{title}</p>
+              <p className="text-xs text-muted-foreground">{detail}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                {insight.entityRef && onOpen ? (
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    aria-label={`${t(lang, "insightOpen")} – ${title}`}
+                    onClick={() => onOpen(insight.entityRef!)}
+                  >
+                    {t(lang, "insightOpen")}
+                  </Button>
+                ) : null}
+                {!isPopout && actions ? (
+                  <>
+                    {insight.status === "active" ? (
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
+                        title={t(lang, "insightAcknowledgeHint")}
+                        onClick={() => actions.onAcknowledge(insight.id)}
+                      >
+                        {t(lang, "insightAcknowledge")}
+                      </Button>
+                    ) : null}
                     <Button
                       variant="secondary"
                       size="xs"
-                      aria-label={`${t(lang, "insightOpen")} – ${title}`}
-                      onClick={() => onOpen(insight.entityRef!)}
+                      aria-label={`${t(lang, "insightAct")} – ${title}`}
+                      title={t(lang, "insightActHint")}
+                      onClick={() => actions.onAct(insight.id)}
                     >
-                      {t(lang, "insightOpen")}
+                      {t(lang, "insightAct")}
                     </Button>
-                  ) : null}
-                  {!isPopout && actions ? (
-                    <>
-                      {insight.status === "active" ? (
-                        <Button
-                          variant="secondary"
-                          size="xs"
-                          aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
-                          title={t(lang, "insightAcknowledgeHint")}
-                          onClick={() => actions.onAcknowledge(insight.id)}
-                        >
-                          {t(lang, "insightAcknowledge")}
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        aria-label={`${t(lang, "insightAct")} – ${title}`}
-                        title={t(lang, "insightActHint")}
-                        onClick={() => actions.onAct(insight.id)}
-                      >
-                        {t(lang, "insightAct")}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        aria-label={`${t(lang, "insightDismiss")} – ${title}`}
-                        onClick={() => actions.onDismiss(insight.id)}
-                      >
-                        {t(lang, "insightDismiss")}
-                      </Button>
-                      <InsightRecommendationControls
-                        insight={insight}
-                        title={title}
-                        lang={lang}
-                        actions={actions}
-                        generatingId={generatingId}
-                        onCancelGenerate={onCancelGenerate}
-                        aiEnabled={aiEnabled}
-                      />
-                    </>
-                  ) : null}
-                </div>
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      aria-label={`${t(lang, "insightDismiss")} – ${title}`}
+                      onClick={() => actions.onDismiss(insight.id)}
+                    >
+                      {t(lang, "insightDismiss")}
+                    </Button>
+                    <InsightRecommendationControls
+                      insight={insight}
+                      title={title}
+                      lang={lang}
+                      actions={actions}
+                      generatingId={generatingId}
+                      onCancelGenerate={onCancelGenerate}
+                      aiEnabled={aiEnabled}
+                    />
+                  </>
+                ) : null}
               </div>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

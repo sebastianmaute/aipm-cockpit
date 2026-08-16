@@ -219,6 +219,24 @@ li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
     max-height: none !important;
   }
 
+  /* ★★★ A FIXED GRID ROW TRACK IS THE OTHER CLIPPER THE RULE ABOVE CANNOT
+     REACH, and freeing the overflow WITHOUT freeing the track is worse than
+     leaving both alone. The Dashboard tile grid sizes its rows with
+     `auto-rows-[80px]` (comfortable) / `auto-rows-[72px]` (compact) — a class
+     name containing neither "overflow-" nor "max-h-" — so every tile box stays
+     `span x 80px` on paper while its content is now free to spill out of it,
+     painting straight over the tiles below. The stripped card border (see the
+     rule further down) removes the only remaining delimiter.
+     Measured in Chromium under `emulateMedia({media:"print"})` on the seeded
+     Dashboard, not reasoned: SIX of the nine default tiles overflowed their box
+     and SEVEN pairs painted into one another — `insights` covered the whole of
+     `raid` (763x176), `burn` the whole of `changes`. Sizing the rows to content
+     keeps the arrangement the user made (columns, relative widths, order) and
+     lets a tall tile grow instead. `e2e/print.spec.ts` measures it. */
+  .print-root [class*="auto-rows-"] {
+    grid-auto-rows: auto !important;
+  }
+
   /* ★★ `truncate` is the one clipper the substring selectors above CANNOT
      reach: its class name contains neither "overflow-" nor "max-h-", yet it
      expands to `overflow:hidden; text-overflow:ellipsis; white-space:nowrap`.

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { RolesEditor } from "./roles-editor";
 import { t } from "./i18n";
@@ -35,6 +35,29 @@ function renderEditor(currency = "EUR") {
   );
 }
 
+// ★ TWO rows minimum. A row-unique-name test cannot render a collision on a
+// one-row fixture, so it would pass on broken code.
+function renderTwoRoles(onReorderRoles: (ids: number[]) => void = noop) {
+  return render(
+    <RolesEditor
+      lang="en-US" currency="EUR" workdayHours={8}
+      roles={[
+        { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
+        { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
+      ]}
+      disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
+      grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
+      onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={onReorderRoles}
+      onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+      onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+    />,
+  );
+}
+
+/** The `≡` handle inside a given rate-card row — the ONLY drag source and the
+ *  only keyboard reorder entry point (see the H1 test below). */
+const handleIn = (row: HTMLElement) => within(row).getByRole("button", { name: /reorder/i });
+
 describe("RolesEditor rate-card table", () => {
   it("renders rate-card rows in the manual `order` sequence when unsorted, and fires onReorderRoles on drop", () => {
     const orderedRoles: Role[] = [
@@ -60,11 +83,17 @@ describe("RolesEditor rate-card table", () => {
     expect(bodyRows[0].textContent).toContain("Eng"); // role 2: Eng/Junior
     expect(bodyRows[1].textContent).toContain("Ops"); // role 3: Ops/Senior
     // Drag role id 1 (last) onto the first row → onReorderRoles gets a new id order.
+    // The drag starts on the row's `≡` handle (the row itself is the DROP
+    // target only — see the arrow-key test at the bottom of this file).
     const dt = { effectAllowed: "", getData: () => "", setData: () => {} };
-    fireEvent.dragStart(bodyRows[2], { dataTransfer: dt });
+    fireEvent.dragStart(handleIn(bodyRows[2]), { dataTransfer: dt });
     fireEvent.drop(bodyRows[0], { dataTransfer: dt });
     expect(onReorderRoles).toHaveBeenCalledTimes(1);
-    expect(onReorderRoles.mock.calls[0][0][0]).toBe(1); // dropped id lands first
+    // Ids in view order are [2,3,1]; dragging id 1 UPWARD onto id 2 lands it in
+    // id 2's slot → [1,2,3]. Upward drags are unaffected by the move to the
+    // shared `reorderIds` splice; a DOWNWARD drag now lands the item in the
+    // target's slot instead of before it (see list-reorder.ts).
+    expect(onReorderRoles.mock.calls[0][0]).toEqual([1, 2, 3]);
   });
 
   it("shows the project currency symbol next to the rate fields, not a hard-coded €", () => {
@@ -222,40 +251,14 @@ describe("RolesEditor rate-card table", () => {
   });
 
   it("gives each row's basis radios a row-unique accessible name (WCAG 2.4.6)", () => {
-    render(
-      <RolesEditor
-        lang="en-US" currency="EUR" workdayHours={8}
-        roles={[
-          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
-          { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
-        ]}
-        disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
-        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
-        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
-        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
-        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
-      />,
-    );
+    renderTwoRoles();
     // Two rows → two distinct "Hours" radios, each qualified by its row context.
     expect(screen.getByRole("radio", { name: "Engineering / Senior — Hours" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Design / Junior — Hours" })).toBeInTheDocument();
   });
 
   it("gives each row's delete button a row-unique accessible name (WCAG 2.4.6)", () => {
-    render(
-      <RolesEditor
-        lang="en-US" currency="EUR" workdayHours={8}
-        roles={[
-          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
-          { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
-        ]}
-        disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
-        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
-        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
-        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
-        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
-      />,
-    );
+    renderTwoRoles();
     // A bare "Delete" repeated per row is a WCAG 2.4.6 fail; each is now qualified
     // by its discipline / grade row context.
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior` })).toBeInTheDocument();
@@ -269,5 +272,120 @@ describe("RolesEditor rate-card table", () => {
     renderEditor();
     const expected = `${t("en-US", "delete")} – Engineering / Senior`;
     expect(screen.getByRole("button", { name: expected })).toHaveAttribute("title", expected);
+  });
+
+  it("sets drag transfer data on dragstart — Firefox will not start a drag without it", () => {
+    // ★ Was missing at BOTH drag sites in this file: the old handlers set only
+    // `effectAllowed`. jsdom dispatches the whole drag sequence regardless, so
+    // a setData spy is the only thing that can catch the omission.
+    renderTwoRoles();
+    const rows = screen.getAllByRole("row").slice(1); // drop the header row
+    const setData = vi.fn();
+    fireEvent.dragStart(handleIn(rows[0]), { dataTransfer: { setData, effectAllowed: "" } });
+    expect(setData).toHaveBeenCalled();
+  });
+
+  // ★★★ REGRESSION (H1). `handleProps` carries the hook's `onKeyDown`, which
+  // `preventDefault()`s ArrowUp/ArrowDown and reorders. React synthetic keydown
+  // bubbles from EVERY descendant, so spreading that bag on the <tr> (as this
+  // file first did) hijacked the arrow keys of every control inside the row —
+  // the four number-input rate spinners, the Hours/Days SegmentedControl (an
+  // APG radiogroup that handles the same keys and does NOT stopPropagation, so
+  // one ArrowDown produced TWO persisted writes) and the RefList rename caret.
+  // The bag now sits on the `≡` button alone.
+  it("does not reorder when an arrow key is pressed on a rate input inside the row", () => {
+    const onReorderRoles = vi.fn();
+    renderTwoRoles(onReorderRoles);
+    const rows = screen.getAllByRole("row").slice(1); // drop the header row
+
+    // POSITIVE observable first: without it a handle that reorders nothing at
+    // all would satisfy the negative assertions below for the wrong reason.
+    fireEvent.keyDown(handleIn(rows[0]), { key: "ArrowDown" });
+    expect(onReorderRoles).toHaveBeenCalledTimes(1);
+    onReorderRoles.mockClear();
+
+    // Arrow keys on the rate cells are the native number-input spinner.
+    const rateInputs = within(rows[0]).getAllByRole("spinbutton");
+    expect(rateInputs.length).toBeGreaterThan(0);
+    for (const input of rateInputs) {
+      fireEvent.keyDown(input, { key: "ArrowUp" });
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+    }
+    expect(onReorderRoles).not.toHaveBeenCalled();
+
+    // Same for the Hours/Days basis control, which owns these keys itself.
+    const basis = within(rows[0]).getByRole("radiogroup");
+    fireEvent.keyDown(basis, { key: "ArrowDown" });
+    expect(onReorderRoles).not.toHaveBeenCalled();
+  });
+
+  it("does not reorder a reference list when an arrow key is pressed in its rename input", () => {
+    const onReorderDisciplines = vi.fn();
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={roles} disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
+        grades={grades}
+        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop}
+        onReorderDisciplines={onReorderDisciplines}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    const item = screen.getByDisplayValue("Engineering").closest("li")!;
+    fireEvent.keyDown(handleIn(item), { key: "ArrowDown" });
+    expect(onReorderDisciplines).toHaveBeenCalledTimes(1); // positive observable
+    onReorderDisciplines.mockClear();
+    fireEvent.keyDown(screen.getByDisplayValue("Engineering"), { key: "ArrowDown" });
+    expect(onReorderDisciplines).not.toHaveBeenCalled();
+  });
+
+  it("gives every reorder handle a row-unique accessible name (WCAG 2.4.6)", () => {
+    // ★ Needs ≥2 rows per list, or the collision cannot render and this passes
+    // on broken code. axe cannot detect duplicate accessible names at ANY seed
+    // size, in any view — this test is the only possible detector.
+    renderTwoRoles();
+    const names = screen
+      .getAllByRole("button", { name: /reorder/i })
+      .map((el) => el.getAttribute("aria-label"));
+    expect(names.length).toBeGreaterThan(1);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("does not reorder on a drop while a column sort is active", () => {
+    // ★★ The product rule behind `disabled: !!sort` — a drag must not fight the
+    // sort, because the drop would rewrite `order` against positions the user
+    // is not looking at.
+    // ★★★ THE DRAG MUST BE STARTED BEFORE THE SORT and that is not a contrived
+    // sequence, it is the only one that can TEST the flag: a sorted rate card
+    // renders no `≡` at all (`reorderable = !sort` gates the button), so a test
+    // that merely renders sorted and fires a drop passes with `disabled` flipped
+    // to false — there is no live `dragId` for the drop to commit. Starting the
+    // drag first leaves one in hook state across the re-render, so the ONLY
+    // thing standing between it and a reorder is `disabled`.
+    const onReorderRoles = vi.fn();
+    renderTwoRoles(onReorderRoles);
+    const dt = { effectAllowed: "", getData: () => "", setData: () => {} };
+    const dataRows = () => screen.getAllByRole("row").slice(1, 3);
+
+    // POSITIVE observable: the identical sequence reorders while unsorted.
+    fireEvent.dragStart(handleIn(dataRows()[1]), { dataTransfer: dt });
+    fireEvent.drop(dataRows()[0], { dataTransfer: dt });
+    expect(onReorderRoles).toHaveBeenCalledTimes(1);
+    onReorderRoles.mockClear();
+
+    fireEvent.dragStart(handleIn(dataRows()[1]), { dataTransfer: dt });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "rolesDiscipline") }));
+    // Sorted by discipline: "Design" (id 2) now leads, so row 1 is a DIFFERENT
+    // id from the dragged one — a same-id drop is a no-op in the hook and would
+    // make this pass for the wrong reason.
+    fireEvent.drop(dataRows()[1], { dataTransfer: dt });
+    expect(onReorderRoles).not.toHaveBeenCalled();
+    // …and no handle survives the sort in the RATE CARD, so the keyboard path is
+    // gone too. Scoped per row: the discipline/grade reference lists below carry
+    // their own handles, which stay live and would mask this.
+    for (const row of dataRows()) {
+      expect(within(row).queryByRole("button", { name: /reorder/i })).toBeNull();
+    }
   });
 });

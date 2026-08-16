@@ -307,17 +307,47 @@
   **Firefox never begins the drag at all**. The reports handle drove its reorder purely off React state
   and called no `setData`, so reorder was inert there — and jsdom dispatches the whole sequence happily,
   so no test could see it. Any new `draggable` calls `e.dataTransfer?.setData(...)` even when the payload
-  is unused. ★★ THIS IS NOT A COMPLETED SWEEP and an earlier revision read like one by naming only the
-  already-correct `task-kanban-board.tsx`. Three live `dragstart` handlers still set nothing and are
-  therefore still inert in Firefox for the identical reason — the `budget-panel.tsx` bucket handle (whose
-  handler takes no event argument at all) and both `roles-editor.tsx` sites (which set `effectAllowed`
-  only; that does NOT satisfy Firefox). Re-derive rather than trust this list:
+  is unused. ★★ THE SWEEP IS NOW COMPLETE FOR THE REORDER FAMILY, and an earlier revision of this line
+  named three live offenders that no longer exist — the `budget-panel.tsx` bucket handle and both
+  `roles-editor.tsx` sites. All FIVE reorder surfaces (the Reports cards, the budget buckets, the rate
+  card plus the reference lists in `roles-editor.tsx`, and the Dashboard tile grid) take their drag
+  props from `useListReorderDnd`, and the HOOK owns the `setData` call. That is the point of the
+  extraction: remembering it stopped being a per-site decision, so a sixth call site cannot get it
+  wrong. ★ The Dashboard was the first ADOPTER rather than one of the four the extraction lifted, and
+  it is why the hook grew `onMove` (a pair, not a resulting list) and `endDrag`.
+  ★★ RE-DERIVE RATHER THAN TRUST THIS PARAGRAPH — AND KNOW WHAT THE COMMANDS CANNOT SEE:
   `grep -rn "onDragStart" src/app --include=*.tsx | grep -v '\.test\.'` against
   `grep -rn "setData" src/app --include=*.tsx`.
+  The first returns 15 lines (measured 2026-08-15 — this said 13, from before the Dashboard adopted the
+  hook) and NOT ONE of the five hook-driven surfaces is among them: the hook is a `.ts` file, which
+  `--include=*.tsx` never reaches, and its consumers spread `handleProps(id)` instead of writing a
+  handler. So a surface's ABSENCE from that grep now carries two opposite meanings the greps cannot
+  separate — routed through the hook (correct), or carrying no drag at all. What it still enumerates is
+  the INLINE handlers — EIGHT of the 15 — and each of those does pair with a `setData` in the second
+  grep. ★★ THAT SECOND GREP NEEDS THE TEST FILTER THIS LINE USED TO OMIT — as quoted above it returns
+  **35**; with `| grep -v '\.test\.'` appended it returns eight (measured 2026-08-15). The enumeration
+  was right and the command was not, which is the worse way round: a reader runs it, gets 35, and
+  distrusts a correct list. Eight non-test hits: gantt rows (1), the resource-calendar band (1) and
+  its rows (3), the stakeholder map (1), and both kanban surfaces (1 each). The remaining SEVEN hits are
+  not handlers at all: FOUR are a component merely FORWARDING an `onDragStart` prop on behalf of its
+  callers (`drag-handle.tsx`'s type, destructure and JSX, plus `dashboard-tile.tsx`'s `TileHandleProps`
+  type), and THREE are comments — one in each gantt file and one in `dashboard-tile.tsx`.
+  ★ ALL FIVE CALL SITES ARE `.tsx`, and an earlier revision of this line said the opposite — "add
+  `--include=*.ts` before concluding anything about the hook itself: that is where its five call sites
+  live", refuted by the command in its own parenthetical.
+  `grep -rn "useListReorderDnd<" src/app --include=*.tsx | grep -v '\.test\.'` returns all five
+  (`budget-panel.tsx`, `reports.tsx`, `roles-editor.tsx` twice, `dashboard-panel.tsx`); the same grep at
+  `--include=*.ts` returns ONE line, the hook's own `export function` in `use-list-reorder-dnd.ts`. So
+  `--include=*.ts` is what you add to reach the DEFINITION — never the call sites (measured 2026-08-15).
   ★★ A per-row drag handle needs a row-UNIQUE accessible name. Reports gave every handle the same
-  `reportReorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
+  `reorderHandle` string; axe cannot see that at any seed size, in a view it scans. The unit test
   asserting the names are DISTINCT is the only detector — and note every other test in that file finds its
   handles by the shared prefix and indexes `[0]`/`[1]`, so they all stay green when the qualifier is lost.
+  ★ That key is deliberately FEATURE-NEUTRAL and is shared by Reports and both Settings reference lists.
+  It was named after Reports until the roles-editor adopted it, which made "tighten the Reports wording"
+  a silent rewrite of two unrelated Settings surfaces; the old Reports-specific spelling was renamed away
+  and must not come back. Its German says *verschieben*, never *sortieren* — the rate-card grip sits
+  beside four genuinely sortable column headers, so "sort" is the one word it may not use.
   ★★ A drop indicator drawn as a border must render in BOTH states, swapping only the COLOUR. Adding the
   border on hover grows the box and shifts every card below it, during a drag — exactly when the hit
   target must hold still.

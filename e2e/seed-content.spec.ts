@@ -135,3 +135,53 @@ test("seeded timelog project links reach the app, not just IndexedDB", async ({ 
   await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Clear link – 702", exact: true })).toBeVisible();
 });
+
+// ★★ The Dashboard's board is the newest instance of this file's whole premise.
+// It is in A11Y_VIEWS, but its tiles are GATED — `dashboard-panel.tsx` drops any
+// placed tile whose own `spec.gate(gate)` is off (an inline filter, no shared
+// helper), and several gates read seeded workspace data. A board that renders
+// ONE tile, or none, still scans green: there would be no per-tile controls left
+// for axe to look at, and the six Dashboard scans would report an improvement.
+//
+// ★ Asserts a FLOOR, not the exact tile count. Nine tiles render today
+// (kpi · topActions · insights · raid · upcoming · progress · burn · milestones ·
+// changes; `trends` is Turso-gated off and `completionTrend` needs trend data),
+// but that number moves with the seed and with the catalogue. Two is the number
+// that matters — one tile cannot exercise a per-tile control's row-uniqueness at
+// all. Re-measure rather than trusting this parenthesis:
+//   page.locator('[data-testid^="tile-"]').count()
+//
+// ★★ The exact names below are the row-QUALIFIED ones. axe cannot see two
+// controls sharing an accessible name at any seed size (see the insights test
+// above), so this does not gate the collision — `dashboard-tile.test.tsx` does.
+// What it gates is that the controls exist AND carry their tile's title, which is
+// what makes the axe pass mean anything.
+test("the seeded dashboard renders a populated board, not an empty one", async ({ page }) => {
+  await gotoApp(page);
+  await openView(page, "Dashboard");
+
+  const grid = page.getByTestId("dashboard-grid");
+  const tiles = grid.locator('[data-testid^="tile-"]');
+  const tileCount = await tiles.count();
+  expect(tileCount, "the seeded Dashboard board must render at least two tiles").toBeGreaterThanOrEqual(2);
+
+  // Every rendered tile carries its own grip — so the count above is a count of
+  // ARRANGEABLE tiles, not of sections that merely look like them.
+  // ★ Scoped to the grid on purpose: `reorderHandle` also labels grips in
+  // reports.tsx and roles-editor.tsx, neither of which is on this view today.
+  await expect(
+    grid.getByRole("button", { name: "Drag or use arrow keys to reorder" }),
+  ).toHaveCount(tileCount);
+
+  // Three UNGATED catalogue tiles — these render for every project, so naming
+  // them cannot go stale with the seed's data.
+  for (const title of ["At a glance", "Progress", "Upcoming & overdue"]) {
+    await expect(page.getByRole("region", { name: title, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `Drag or use arrow keys to reorder – ${title}`, exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: `More actions – ${title}`, exact: true }),
+    ).toBeVisible();
+  }
+});

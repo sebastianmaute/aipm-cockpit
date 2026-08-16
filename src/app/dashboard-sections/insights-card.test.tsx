@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { InsightsCard } from "./insights-card";
 import { densityClasses } from "../dashboard-density";
+import { loadI18n, t } from "../i18n";
 import { insightTitle } from "../insights/insight-text";
 import { expectSecondaryButton } from "../../test/button-variant";
 import type { Insight, InsightStatus } from "../insights/insight";
@@ -378,5 +379,44 @@ describe("InsightsCard", () => {
     // Ghost's defining trait. Redundant with the helper's positives, but names
     // the failure mode explicitly.
     expect(screen.getByRole("button", { name: `Act – ${title}` }).className).not.toContain("bg-transparent");
+  });
+
+  // ★★ The card is UNBOXED and UN-TITLED because the arrangeable tile chrome
+  //    (`dashboard-tile.tsx`) draws the border and renders the `<h3>`. It used
+  //    to render `<Card boxed><h3>Insights</h3>`, which stacked two borders and
+  //    two identical headings inside the tile.
+  // ★ There is deliberately no `chromeless`/`heading` opt-out prop, so there is
+  //   no second branch to cover: `buildTileBodies` is the component's ONLY call
+  //   site. Reproduce with
+  //   `grep -rn "InsightsCard" src --include="*.tsx" | grep -v "\.test\."`.
+  //   `insights-panel.tsx` renders its own list and merely shares the
+  //   `insightsCardTitle` string.
+  // Killing mutation: wrap the returned `<ul>` in `<Card boxed>` (root becomes a
+  //   bordered DIV) or re-add the `<h3>` (the heading query finds one).
+  describe("tile-chrome contract", () => {
+    it("renders the list as its own root — no card box of its own", () => {
+      const { container } = render(<InsightsCard insights={[makeInsight()]} lang="en-US" dc={dc} />);
+      const root = container.firstElementChild!;
+      expect(root.tagName).toBe("UL");
+      expect(root.className).not.toContain("rounded-lg");
+      expect(root.className).not.toContain("border-line");
+    });
+
+    it("renders no heading of its own", () => {
+      render(<InsightsCard insights={[makeInsight()]} lang="en-US" dc={dc} />);
+      expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    });
+
+    // ★★ The REASON the heading could go is that its text DUPLICATED the chrome
+    //    title — not that bodies never have headings (`RaidRegisterCard` keeps
+    //    "Top open RAID" precisely because it differs from "RAID register").
+    //    So pin the duplication: if `dashboardInsights` is ever reworded, this
+    //    goes red and the removal has to be reconsidered rather than silently
+    //    leaving the tile's list unlabelled.
+    it("dropped a heading that duplicated the tile's own title, in BOTH dictionaries", async () => {
+      expect(t("en-US", "dashboardInsights")).toBe(t("en-US", "insightsCardTitle"));
+      await loadI18n("de");
+      expect(t("de", "dashboardInsights")).toBe(t("de", "insightsCardTitle"));
+    });
   });
 });

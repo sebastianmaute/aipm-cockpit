@@ -44,8 +44,13 @@ export function RaidRegisterCard({
   showRaid?: boolean;
 }) {
   if (!showRaid) return null;
+  // ★ Section, NOT `Section boxed`: the arrangeable tile chrome
+  // (`dashboard-tile.tsx`) already draws the bordered surface. The heading STAYS
+  // — unlike every other tile body, this one's text ("Top open RAID") differs
+  // from the chrome title ("RAID register"), so it disambiguates rather than
+  // duplicating.
   return (
-    <Section title={t(lang, "dashboardTopRaid")} boxed>
+    <Section title={t(lang, "dashboardTopRaid")}>
       {topRaid.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "dashboardEmpty")}</p>
       ) : (
@@ -74,8 +79,12 @@ export function UpcomingCard({
   dueSoon: Task[];
   onOpenTask?: (id: number) => void;
 }) {
+  // ★★ NO BOX AND NO HEADING: the arrangeable tile chrome draws the border and
+  // renders the title from `dashboardUpcoming` — the very key this card used to
+  // render itself, so keeping it would stack two identical "Upcoming & overdue"
+  // headings inside two nested borders.
   return (
-    <Section title={t(lang, "dashboardUpcoming")} boxed>
+    <>
       <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
         {t(lang, "dashboardOverdue")}
       </p>
@@ -106,6 +115,6 @@ export function UpcomingCard({
           <li className="text-muted-foreground">—</li>
         ) : null}
       </ul>
-    </Section>
+    </>
   );
 }

@@ -74,3 +74,81 @@ test("print media: no clipping scrollers, no pinned height, no rounded boxes", a
     "print-root box must contain full content (not clipped to one page)",
   ).toBeGreaterThanOrEqual(evidence.rootScrollHeight - 2);
 });
+
+/**
+ * The Dashboard is the one print-root whose layout is a GRID WITH A FIXED ROW
+ * TRACK, and that interacts badly with the overflow reset the test above pins.
+ *
+ * ★★★ THE TWO RULES ARE ONLY SAFE TOGETHER. `.print-root [class*="overflow-"]`
+ * frees every tile's content, but `auto-rows-[80px]` matches neither that
+ * selector nor `[class*="max-h-"]`, so before `.print-root [class*="auto-rows-"]`
+ * existed a tile box stayed `span x 80px` while its content spilled straight over
+ * the tiles below — and the border-strip rule removes the only delimiter. On the
+ * seeded board this was the NORMAL case, not an edge one: six of nine tiles
+ * overflowed and seven pairs painted into one another, `insights` covering the
+ * whole of `raid`.
+ *
+ * ★★ BOX RECTS CANNOT SEE IT — grid never overlaps its own items, so every
+ * `getBoundingClientRect` pair was disjoint while the printout was unreadable
+ * (measured: the first cut of this probe reported zero overlaps against the
+ * broken CSS). What overlaps is the PAINTED extent, which is the box unioned
+ * with every descendant's rect. That distinction is the whole test.
+ *
+ * ★ Screen geometry is `e2e/dashboard-grid.spec.ts`'s job; this only ever runs
+ * under emulated print media.
+ */
+test("print media: no dashboard tile paints over another", async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await gotoApp(page);
+  await openView(page, "Dashboard");
+  await waitForViewSettled(page);
+
+  await page.emulateMedia({ media: "print" });
+
+  const evidence = await page.evaluate(() => {
+    const tiles = [...document.querySelectorAll<HTMLElement>('[data-testid^="tile-"]')];
+    const rows = tiles.map((el) => {
+      const r = el.getBoundingClientRect();
+      let top = r.top, bottom = r.bottom, left = r.left, right = r.right;
+      el.querySelectorAll<HTMLElement>("*").forEach((c) => {
+        const cr = c.getBoundingClientRect();
+        if (cr.width === 0 && cr.height === 0) return;   // display:none / print:hidden
+        top = Math.min(top, cr.top); bottom = Math.max(bottom, cr.bottom);
+        left = Math.min(left, cr.left); right = Math.max(right, cr.right);
+      });
+      return {
+        id: el.getAttribute("data-testid")!,
+        box: { top: r.top, bottom: r.bottom, left: r.left, right: r.right },
+        painted: { top, bottom, left, right },
+        overflow: Math.round(bottom - r.bottom),
+      };
+    });
+
+    const collisions: string[] = [];
+    for (const a of rows) {
+      for (const b of rows) {
+        if (a === b) continue;
+        const vx = Math.min(a.painted.right, b.box.right) - Math.max(a.painted.left, b.box.left);
+        const vy = Math.min(a.painted.bottom, b.box.bottom) - Math.max(a.painted.top, b.box.top);
+        if (vx > 1 && vy > 1) {
+          collisions.push(`${a.id} paints ${Math.round(vx)}x${Math.round(vy)} into ${b.id}`);
+        }
+      }
+    }
+    const grid = document.querySelector<HTMLElement>('[data-testid="dashboard-grid"]');
+    return {
+      autoRows: grid ? getComputedStyle(grid).gridAutoRows : "NO GRID",
+      tileCount: rows.length,
+      spilling: rows.filter((r) => r.overflow > 1).map((r) => `${r.id} +${r.overflow}px`),
+      collisions,
+    };
+  });
+
+  console.log("DASHBOARD PRINT EVIDENCE:", JSON.stringify(evidence, null, 2));
+
+  // Guard: with no tiles on the board every assertion below is vacuous.
+  expect(evidence.tileCount, "the seeded dashboard rendered no tiles").toBeGreaterThan(4);
+  expect(evidence.autoRows, "the row track must be content-sized on paper").toBe("auto");
+  expect(evidence.spilling, "tiles whose content escapes their own box").toEqual([]);
+  expect(evidence.collisions, "tiles painting over one another").toEqual([]);
+});

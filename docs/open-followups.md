@@ -9640,3 +9640,43 @@ on project switch, which `retryLoad` must not do.
 
 ★ A test for this needs the failed-initial-fetch precondition set up explicitly; a fixture whose
 `pendingRetryRef` is non-empty never reaches the branch and passes whichever way it is written.
+
+## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them
+
+**Status:** two instances FIXED (`rebaseline-popover.test.tsx`, 0.240.0). The CLASS is open — nothing
+sweeps for the rest, and the only detector is a red pipeline on the morning it happens.
+
+`rebaseline-popover.test.tsx` asserted the literal `"2026-08-15"` against a fixture task whose
+`dueDate` was that same date. `milestoneRebaselineDate` FLOORS its result at today
+(`forecast > today ? forecast : today`), so the assertion held only while the fixture date was still
+in the future. At midnight on 2026-08-16 both tests went red on `main` and on every open branch at
+once. The engine is pure and takes `today` as a parameter — it was never wrong. **The test was.**
+
+★★ **It had ALSO stopped testing what it claimed before it went red.** Its own comment reads
+`// forecast from linked task`, but once the fixture date reached today the function took the
+today-floor branch instead — the assertion still passed, against the wrong branch, for as long as
+the two dates coincided. So the failure was the SECOND symptom; the first was silent.
+
+★★★ **A red pipeline here names a file the branch never touched, which reads as a merge defect.**
+It cost a release cycle on 0.240.0: the branch was byte-identical to main at that file
+(`git diff --quiet origin/main HEAD -- <file>` → 0) and every other gate was green, including e2e
+and prod-smoke. Check that diff FIRST before investigating your own changes.
+
+### The fix that was applied
+
+`vi.useFakeTimers({ toFake: ["Date"] })` + `vi.setSystemTime` in `beforeEach`, `vi.useRealTimers()`
+in `afterEach`, frozen well before the fixture date so the FORECAST branch stays live.
+★ `toFake: ["Date"]` deliberately, not full fake timers: faking every timer puts RTL and the React
+scheduler on a stopped clock, which these tests have no need for. (`api/jira/_rate-limit.test.ts`
+uses full fake timers because it genuinely drives a sliding window — different requirement.)
+★ Mutation-proved: moving the frozen date PAST the fixture turns the same 2 tests red
+(`expected '2026-09-01' to be '2026-08-15'`), so the freeze is load-bearing rather than decorative.
+
+### Closing it
+
+A sweep for the rest of the class. There is no cheap grep for it — a hardcoded date is only a bomb
+when some code path compares it against the real clock, which no pattern can see. The tractable
+shape is the inverse: find tests that reach the real clock at all (a component calling `new Date()`
+internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock in each. ★ Running
+the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
+per-test-file, so this needs a harness-level option rather than a one-off command.
