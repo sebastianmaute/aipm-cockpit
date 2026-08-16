@@ -627,12 +627,31 @@ describe("buildPptx", () => {
 // HTML/PDF renderer — the export projection's newline becomes a <br>
 // ---------------------------------------------------------------------------
 
+// ★★★ THESE TWO WERE RE-POINTED FROM `description` TO `blockers` BY §141(b),
+// AND THE COLUMN CHOICE IS THE WHOLE POINT — do not "restore" them to a rich
+// column. They arrived in 8c16c20f ("render a projected paragraph break as <br>
+// in HTML/PDF", §17 part 4b), when EVERY export cell was the flat text
+// projection and `htmlCellWithBreaks` mapped its "\n" to a <br>. They asserted
+// that mapping on `description`.
+//
+// §141(b) made a rich column emit MARKUP instead, so on `description` the same
+// fixtures now render "<p>one</p><p>two</p>" — two real paragraphs, which is
+// strictly better output and the point of that slice. The <br> substring is
+// simply gone, and re-pointing at a rich column would make these assert a
+// representation the app no longer produces.
+//
+// The escape-then-substitute ORDER they exist to pin is NOT obsolete: it is
+// still the live path for every cell that is not rich, which is most of them.
+// `blockers` is free text, is in no *_RICH_COLUMNS set, and was MEASURED to
+// carry a "\n" through `fieldToString` into the cell — so the substitution
+// actually runs here. A column that dropped the newline would leave these
+// passing for free on a dead path, which is the failure mode a re-point risks.
 describe("HTML export cells", () => {
-  it("renders a projected newline as a <br>", () => {
+  it("renders a newline in a NON-rich cell as a <br>", () => {
     const base = makeBaseWorkspace();
     const ws: Workspace = {
       ...base,
-      tasks: [{ ...makeTask(1), description: "<p>one</p><p>two</p>" }],
+      tasks: [{ ...makeTask(1), blockers: "one\ntwo" }],
     };
     expect(buildPdfHtml(ws, defaultExportConfig, "en-US")).toContain("one<br>two");
   });
@@ -642,22 +661,23 @@ describe("HTML export cells", () => {
     // into a visible "&lt;br&gt;"; escape-then-substitute leaves a user's
     // literal "<br>" escaped, which is what escaping is for.
     //
-    // ★★★ THE FIXTURE MUST CARRY BOTH, and an earlier version did not: with a
-    // value that has no newline, BOTH orderings emit "a&lt;br&gt;b" and the
+    // ★★★ THE FIXTURE MUST CARRY BOTH, and the original did not at first: with
+    // a value that has no newline, BOTH orderings emit "a&lt;br&gt;b" and the
     // test passes either way — it named the ordering while proving only the
-    // escaping. This description projects to a literal "<br>" (the user's, from
-    // an escaped entity) AND a real block boundary (ours), so only
-    // escape-then-substitute yields the user's escaped and ours live.
+    // escaping. This value carries a literal "<br>" (the user's) AND a real
+    // newline (ours), so only escape-then-substitute yields the user's escaped
+    // and ours live. Each of the three assertions kills a different wrong
+    // order, which is why all three survived the re-point unchanged.
     const base = makeBaseWorkspace();
     const ws: Workspace = {
       ...base,
-      tasks: [{ ...makeTask(1), description: "<p>a&lt;br&gt;b</p><p>c</p>" }],
+      tasks: [{ ...makeTask(1), blockers: "a<br>b\nc" }],
     };
     const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
     expect(html).toContain("a&lt;br&gt;b<br>c");
-    // Substitute-first would produce this instead — the user's markup live and
-    // our own boundary escaped away.
+    // Substitute-only (no escape) would produce this — the user's markup live.
     expect(html).not.toContain("a<br>b");
+    // Substitute-then-escape would produce this — our own boundary escaped away.
     expect(html).not.toContain("b&lt;br&gt;c");
   });
 });
