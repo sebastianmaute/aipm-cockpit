@@ -27,10 +27,11 @@ export interface InlineEditArgs {
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>;
   guides: readonly OperatingGuide[];
   groundInGuides: boolean;
-  /** `settings.ai.historySearch`. Optional so the field is absent-means-on here
-   *  too — inline edit never CALLS `search_history`, but it is billed for the
-   *  schema like every other request, so the kill switch has to reach it. */
-  historySearch?: boolean;
+  // ★★ NO `historySearch` FIELD, deliberately. It was here so the kill switch
+  //    could reach a path billed for the tool schema like any other — but this
+  //    path is single-shot, so `search_history` can only ever produce a failed
+  //    edit and is now dropped unconditionally. See `callInlineEdit`. Do not
+  //    re-add it: a caller passing `true` would be asking for the trap back.
   signal?: AbortSignal;
 }
 
@@ -65,18 +66,42 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   //   2. Inline edit PLANS MUTATIONS. Opened from Open Points, the digest lists
   //      up to 15 NEIGHBOURING task rows, ids and all, directly contradicting
   //      the scope block's "Do NOT update or delete any OTHER item".
+  // ★★★ STRIP THE ACTIVITY SUMMARY FOR THE SAME REASON, ONE STEP FURTHER. The
+  // spread above carries every OTHER snapshot field, so `activitySummary`
+  // survived it and `buildActivityRecapBlock` rendered "…Use search_history to
+  // read them." into every single-shot edit prompt. That is not merely surplus:
+  // this path has NO agentic loop, so a `search_history` tool_use can never be
+  // answered, and `use-inline-entity-edit.ts` matches only the update/create/
+  // delete tools — a searching model therefore yields an EMPTY plan, i.e. an
+  // edit that silently does nothing. An instruction to call it is an
+  // instruction to fail.
+  // ★★★ AND THE TOOL ITSELF IS DROPPED, unconditionally — `false`, not
+  // `args.historySearch`. Suppressing the sentence while still OFFERING the
+  // tool leaves the trap armed for any instruction that invites a look
+  // backwards ("put this back the way it was last week"). The kill switch is
+  // honoured a fortiori: off stays off, and on is off HERE too. ★ The cost is
+  // real and accepted — this path now always sends `CACHED_TOOLS_NO_HISTORY`,
+  // so it no longer shares a prompt-cache prefix with the chat panel, costing
+  // one extra cache write per 5-minute window in an interleaved chat/inline-edit
+  // session. A silent no-op edit is worse than a cache miss. ★ There is
+  // deliberately no `historySearch` field on `InlineEditArgs` any more: a
+  // parameter that is read nowhere is one a future editor re-wires.
   // ★★ VIEW SCOPE IS DELIBERATELY KEPT — this is a decision, not an oversight,
   // and the test's control assertion depends on it. It carries no entity ids,
   // and orienting the model on what the surface is makes its edit better. Its
   // `toolHints` do name broad tools the scope block then forbids acting on
   // beyond this item; that tension is accepted because the scope block is
   // adjacent and explicit, where a list of real neighbouring ids is not.
+  // ★ Passing the same `false` to `buildSystemPrompt` is what keeps that block
+  // honest: it filters its hints against the tools this request carries, so
+  // Activity's `search_history` hint disappears with the tool.
   const system: SystemBlock[] = [
     ...buildSystemPrompt(
       args.lang,
-      { ...args.snapshot, viewDigest: undefined },
+      { ...args.snapshot, viewDigest: undefined, activitySummary: undefined },
       args.guides,
       args.groundInGuides,
+      false,
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
@@ -85,7 +110,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     args.model,
     system,
     [{ role: "user", content: args.instruction }],
-    args.historySearch,
+    false,
     args.signal,
   );
   const blocks = res.content.filter(

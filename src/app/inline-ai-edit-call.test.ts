@@ -90,4 +90,81 @@ describe("callInlineEdit", () => {
     expect(systemText).toContain("VIEW SCOPE");
     expect(systemText).toContain("Today is 2026-07-03");
   });
+
+  // ★★★ THE SNAPSHOT SPREAD CARRIES EVERY FIELD IT IS NOT ASKED ABOUT. The
+  // digest strip above was written as `{ ...snapshot, viewDigest: undefined }`,
+  // so `activitySummary` — added to the snapshot by a much later slice — rode
+  // straight through it, and every single-shot edit prompt ended with "Use
+  // search_history to read them." Same shape as the digest defect and a strictly
+  // worse consequence: inline edit has NO agentic loop, so a `search_history`
+  // tool_use can never be answered, and `use-inline-entity-edit.ts` matches only
+  // update/create/delete blocks — a searching model therefore yields an EMPTY
+  // plan, i.e. an edit that silently does nothing.
+  describe("search_history cannot be reached from this single-shot path", () => {
+    const emptyResponse: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+      content: [],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 0, output_tokens: 0 },
+    };
+    const withActivity = {
+      ...snapshot,
+      currentView: "activity" as const,
+      activitySummary: {
+        total: 4,
+        byActor: { user: 4, ai: 0, integration: 0, unknown: 0 },
+        latestAt: "2026-07-03T09:00:00.000Z",
+        days: 7,
+      },
+    };
+    async function callWith(snap: InlineEditArgs["snapshot"]) {
+      const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(emptyResponse);
+      await callInlineEdit({
+        apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", lang: "en-US",
+        entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
+        snapshot: snap, guides: [], groundInGuides: false,
+      });
+      return spy;
+    }
+
+    // ★★ THE CONTROL FOR THE TWO NEGATIVES BELOW, and it has to be built the
+    //    hard way: assert that this very fixture DOES produce a recap through
+    //    the chat path. Without it, both negatives pass against a fixture whose
+    //    `activitySummary` was never renderable in the first place — the exact
+    //    vacuity a "nothing happened" assertion invites.
+    it("CONTROL: the same snapshot does produce a recap on the chat path", () => {
+      const chatText = chatApi
+        .buildSystemPrompt("en-US", withActivity, [], false, undefined)
+        .map((b) => b.text)
+        .join("\n");
+      expect(chatText).toContain("Recent project activity: 4 changes");
+      expect(chatText).toContain("Use search_history to read them.");
+    });
+
+    it("strips the activity recap, so nothing instructs the model to search", async () => {
+      const spy = await callWith(withActivity);
+      const systemText = spy.mock.calls[0][2].map((b) => b.text).join("\n");
+      expect(systemText).not.toContain("Recent project activity");
+      expect(systemText).not.toContain("search_history");
+      // Same control as the digest test: prove buildSystemPrompt still ran.
+      expect(systemText).toContain("VIEW SCOPE");
+      expect(systemText).toContain("Today is 2026-07-03");
+    });
+
+    // ★★★ AND THE TOOL ITSELF IS GONE, unconditionally. Suppressing the
+    // sentence while still OFFERING the tool leaves the trap armed for any
+    // instruction that invites a look backwards ("put this back the way it was
+    // last week"). `false` is passed literally — this must NOT track
+    // `settings.ai.historySearch`, so there is no argument to vary here.
+    it("passes historySearch=false to callClaude", async () => {
+      const spy = await callWith(withActivity);
+      expect(spy.mock.calls[0][4]).toBe(false);
+    });
+
+    // ★ The unconditional claim, from the other end: a snapshot with NO activity
+    //   at all must reach the wire the same way.
+    it("passes false even when the snapshot carries no activity", async () => {
+      const spy = await callWith(snapshot);
+      expect(spy.mock.calls[0][4]).toBe(false);
+    });
+  });
 });

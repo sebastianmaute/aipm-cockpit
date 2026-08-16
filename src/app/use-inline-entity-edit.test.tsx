@@ -38,22 +38,27 @@ it("goes thinking -> preview and builds a diff", async () => {
   expect(result.current.plan?.updates).toEqual([{ field: "status", before: "To Do", after: "Done", raw: "Done" }]);
 });
 
-// ★★★ THE KILL SWITCH HAS TO REACH THE REQUEST, and nothing observed that it
-//   did. `use-inline-entity-edit.ts` passes `historySearch: deps.ai.historySearch`
-//   into `callInlineEdit`, which forwards it to `callClaude` so `toolsFor` can
-//   drop the `search_history` schema. Measured before this test: replacing that
-//   argument with a hardcoded `undefined` left 91 tests across 4 suites green —
-//   the user's "off" switch was inert on every inline-edit request and no test
-//   could tell. `toolsFor` itself is well covered; the DELIVERY was not.
+// ★★★ THIS USED TO PIN THE OPPOSITE, AND THE REVERSAL IS THE POINT — a reader
+//   who remembers the old rule will try to restore the forwarding. The hook DID
+//   pass `historySearch: deps.ai.historySearch` into `callInlineEdit` so the
+//   kill switch could reach `toolsFor` (measured at the time: hardcoding that
+//   argument left 91 tests across 4 suites green, so the delivery was genuinely
+//   unobserved). It no longer forwards anything, because `callInlineEdit` now
+//   drops `search_history` UNCONDITIONALLY: this path is single-shot, so a
+//   `search_history` tool_use can never be answered and `describeEntityCalls`
+//   matches only update/create/delete blocks — a searching model yields an empty
+//   plan, i.e. a silently failed edit. Offering it is worse than the schema cost
+//   that motivated threading it in the first place.
 //
-// ★ Both directions, because only one of them can regress silently: an
-//   explicit `false` must arrive as `false`, and the default must arrive as
-//   `undefined` rather than being coerced to `false` on the way.
-describe("the historySearch kill switch reaches callInlineEdit", () => {
-  async function captureHistorySearch(ai: Partial<InlineAiEditDeps["ai"]>) {
-    let captured: { historySearch?: boolean } | undefined;
+// ★★ THE REAL GUARD MOVED, it was not deleted: `inline-ai-edit-call.test.ts`
+//   asserts `callClaude` receives a literal `false`. What is left to check HERE
+//   is the seam this file owns — that the hook contributes no setting at all, in
+//   either position of the toggle, so nothing can re-arm the tool from above.
+describe("the hook forwards no historySearch, whatever the toggle says", () => {
+  async function captureArgs(ai: Partial<InlineAiEditDeps["ai"]>) {
+    let captured: Record<string, unknown> | undefined;
     vi.spyOn(call, "callInlineEdit").mockImplementation(
-      ((args: { historySearch?: boolean }) => {
+      ((args: Record<string, unknown>) => {
         captured = args;
         return Promise.resolve({
           blocks: [], text: "", usage: { input_tokens: 1, output_tokens: 1 },
@@ -67,22 +72,25 @@ describe("the historySearch kill switch reaches callInlineEdit", () => {
     act(() => result.current.openFor(task));
     await act(async () => { await result.current.submit("mark done"); });
     // Positive observable: the call really happened, so an assertion about its
-    // argument cannot pass because the spy was never invoked.
+    // arguments cannot pass because the spy was never invoked.
     expect(captured, "callInlineEdit was never called").toBeDefined();
     return captured!;
   }
 
-  it("forwards an explicit false", async () => {
-    expect((await captureHistorySearch({ historySearch: false })).historySearch).toBe(false);
+  // ★ `in`, not the VALUE. `historySearch: undefined` and an absent key read
+  //   identically through `args.historySearch`, so a value assertion would stay
+  //   green after someone re-added the forwarding with a defaulted read.
+  it("omits the key entirely when the toggle is off", async () => {
+    const args = await captureArgs({ historySearch: false });
+    expect("historySearch" in args).toBe(false);
+    // Positive control: the args object really is the call's, not an empty {}.
+    expect(args.instruction).toBe("mark done");
   });
 
-  it("forwards an unset toggle as undefined, never coerced to false", async () => {
-    const args = await captureHistorySearch({});
-    expect(args.historySearch).toBeUndefined();
-    // ★ `in` as well as the value: `toolsFor` reads `=== false`, so a key that
-    //   arrives present-and-false would silently drop the tool for a user who
-    //   never touched the setting.
-    expect(args.historySearch).not.toBe(false);
+  it("omits it when the toggle is unset (the default-on case)", async () => {
+    const args = await captureArgs({});
+    expect("historySearch" in args).toBe(false);
+    expect(args.instruction).toBe("mark done");
   });
 });
 
