@@ -9680,3 +9680,120 @@ shape is the inverse: find tests that reach the real clock at all (a component c
 internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock in each. ★ Running
 the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
 per-test-file, so this needs a harness-level option rather than a one-off command.
+
+## 153. `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks — narrowed by a brand, not closed
+
+Opened 2026-08-16 out of the AI Recall B2b test-validity review. **Partially closed in the same
+slice** by branding `TimeZone`; this entry records the half the brand does not reach.
+
+`use-chat-dispatcher.ts` builds the model-facing recap with
+`summarizeForRecap(settingsRef.current.ai, activityLogRef.current, todayRef.current, timezoneRef.current)`.
+Parameters 3 and 4 were both `string`, so swapping them compiled. Under the swap
+`summarizeRecentActivity` computes `new Date("UTCT00:00:00Z")`, hits its own
+`if (Number.isNaN(start.getTime())) return null` guard, and the recap is `undefined` on every turn
+of every conversation, permanently and silently.
+
+★★★ **Measured, not reasoned:** with the swap in the tree, `npx tsc --noEmit` exited **0** and
+**337 tests across 5 suites passed** (`use-chat-dispatcher` · `chat-tools` · `chat-api` ·
+`activity-recap` · `chat-panel`). Neither the type system nor the suite could see a defect that
+removes the whole feature. `use-chat-dispatcher.test.tsx` had **zero** `activitySummary`
+assertions at the time.
+
+### What the brand bought, and what it did not
+
+Branding `TimeZone` (produced solely by `resolveTimezone`, cast kept non-exported inside
+`timezone.ts`) makes the transposition unrepresentable. It does **not** close the larger class.
+
+★★ **`today` is a pure function of `tz`** — `task-manager.tsx` derives `const today =
+effectiveToday(effectiveTz)` one line after resolving the zone, and passes both. So the two can
+still be handed over as an **inconsistent pair** (`today` computed in Berlin, `tz` naming
+`America/New_York`), which is well-typed under **every** branding scheme. Measured: no error.
+They are not two independent inputs; they are one derived pair travelling as two values, and only
+collapsing them removes the class.
+
+### Closing it
+
+Replace the two parameters with one opaque `ProjectClock` built by a single factory.
+
+★★★ **The factory must derive `today` INSIDE from `tz`.** A factory taking both rebuilds the swap
+one level up and buys nothing.
+
+★★ **Therefore the factory belongs at `task-manager.tsx`'s `resolveTimezone`/`effectiveToday`
+pair, NOT in the engine module.** `summarizeRecentActivity` is deliberately clock-free (its own
+`★ NO CLOCK` note ties it to the calendar-rollover class in §149), so the `new Date()` must stay
+where it already is.
+
+★★★ **A plain `{ today, tz }` options object DOES NOT WORK, and this is the trap** — it is the
+first fix anyone reaches for. Measured: `f({ today: tz, tz: today })` typechecks silently, because
+both fields are `string`. It buys call-site legibility, never a guarantee. The bag must carry a
+brand the caller cannot forge.
+
+★ Sizing, if it is picked up: the brand thread is `resolveTimezone → ChatDispatcherArgs.timezone →
+Snapshot["timezone"] → buildActivityRecapBlock`; a bag replaces the tail of that thread rather than
+extending it. `days` is a `number` and collides with neither string — leave it alone.
+
+★ Note the error POSITION when working on this, or the brand reads as broken: a swap fails on the
+**tz parameter's own position** — argument 4 for `summarizeForRecap`, argument 3 for
+`summarizeRecentActivity` — never on the `today` argument, because `TimeZone` is assignable to
+`string` and slides into `today:` silently. Only the raw string arriving at `tz:` errors.
+
+## 154. An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it
+
+Opened 2026-08-16 out of the AI Recall B2b actor-stamping slice. Found while stamping actors and
+**deliberately not fixed** — the cheap fixes are all worse than the defect. Not a regression: the
+second row predates the branch. What the branch changed is that the two rows are now visibly
+*different*, because one carries an actor and the other does not.
+
+An AI settings write produces:
+
+1. the dispatcher's own row — `use-chat-dispatcher.ts` calls `logActivityAs?.("ai",
+   "settings.updated")` from both `updateSettings` (inside its `applied` guard) and `setLanguage`;
+2. `task-manager`'s debounced row, written `SETTINGS_LOG_DEBOUNCE_MS` later by
+   `createSettingsLogger(() => logActivity("settings.updated"), …)` — **actor-less on purpose**.
+
+Both kinds carry NO args, so they render as two textually identical "Settings updated" lines.
+
+★★ **The actor-less row is correct and its comment says so** — do NOT "finish the sweep" by
+stamping it `"user"`. It is an effect over settings STATE, not a handler behind a gesture, so it
+cannot see its cause: the AI's write mutates the same state and fires it too. A `"user"` stamp
+would sit directly contradicting the `"ai"` row beside it, which is worse than saying nothing.
+Absence is the honest answer to a question that code genuinely cannot answer.
+
+★★★ **Same shape as the `ai.inlineEdit` double-log this slice DID fix, one layer further out — and
+the layer is exactly why it is not fixable the same way.** There, the redundant row was written by
+code that knew it was the AI, so deleting it was a local edit. Here the redundant row is written by
+an effect that structurally cannot know, so there is nothing local to delete. ★ Note the criterion
+that carried the inlineEdit fix was REDUNDANCY, not row count (`ai.insightRecommendation` was kept
+at up to five rows because it says something no other row says). By that criterion this pair is
+redundant: the two rows report one event and the second adds nothing the first does not already say.
+
+★ A user-initiated settings change writes only ONE row, so the doubling is AI-specific.
+
+### Why it is worth closing
+
+Not cosmetics. `summarizeRecentActivity` counts rows into `byActor`, so one AI settings change
+reports as **1 `ai` + 1 `unknown`** in the recap the model reads every turn — it inflates the
+`unknown` bucket, and it makes the "never attribute an entry whose actor is absent" caution
+(`VIEW_AI_SCOPE.activity`) fire on a row whose cause is in fact known and sitting next to it. It
+also double-counts against `ACTIVITY_MAX_ENTRIES` in a ring buffer.
+
+### Closing it, and the three fixes that do not work
+
+★★★ **Do not drop the dispatcher's `"ai"` row and let the debounced one stand.** It is the
+tempting one-line fix and it destroys the only true fact in the pair: that the AI did it. Strictly
+worse than the status quo.
+
+★★ **Do not route the dispatcher's write through the debounced logger with an actor.** The logger
+would then report whoever wrote last, which is the same cause-tracking problem moved one file over
+and made harder to see.
+
+★★ **A suppression flag is the plausible one and it has a real trap.** Setting a "this burst came
+from the AI" ref before `setSettings` and clearing it after the debounce works only if no HUMAN
+change lands inside the same `SETTINGS_LOG_DEBOUNCE_MS` window — and if one does, it is swallowed
+entirely, turning a duplicate row into a MISSING row. That is a worse failure: a log that
+over-reports is annoying, one that under-reports is untrustworthy. Any attempt needs the window
+collision handled explicitly, not assumed away.
+
+★ The tractable shape is probably to give the debounced logger a cause channel that records the
+LAST writer per burst and emits nothing when that writer already logged — but that is a design
+slice, not a patch, which is why this is an entry rather than a commit.
