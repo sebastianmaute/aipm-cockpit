@@ -627,58 +627,68 @@ describe("buildPptx", () => {
 // HTML/PDF renderer — the export projection's newline becomes a <br>
 // ---------------------------------------------------------------------------
 
-// ★★★ THESE TWO WERE RE-POINTED FROM `description` TO `blockers` BY §141(b),
-// AND THE COLUMN CHOICE IS THE WHOLE POINT — do not "restore" them to a rich
-// column. They arrived in 8c16c20f ("render a projected paragraph break as <br>
-// in HTML/PDF", §17 part 4b), when EVERY export cell was the flat text
-// projection and `htmlCellWithBreaks` mapped its "\n" to a <br>. They asserted
-// that mapping on `description`.
+// ★★★ WHAT THESE TWO USED TO ASSERT, AND WHY THEY NOW ASSERT SOMETHING ELSE.
+// They arrived in 8c16c20f ("render a projected paragraph break as <br> in
+// HTML/PDF", §17 part 4b), when EVERY export cell was the flat text projection
+// and `htmlCellWithBreaks` mapped its "\n" to a <br>. On these same
+// `description` fixtures they asserted "one<br>two" and "a&lt;br&gt;b<br>c".
 //
-// §141(b) made a rich column emit MARKUP instead, so on `description` the same
-// fixtures now render "<p>one</p><p>two</p>" — two real paragraphs, which is
-// strictly better output and the point of that slice. The <br> substring is
-// simply gone, and re-pointing at a rich column would make these assert a
-// representation the app no longer produces.
+// §141(b) superseded that REPRESENTATION — for rich columns ONLY. `description`
+// is in TASK_RICH_COLUMNS, so its cell now emits sanitized MARKUP: two real
+// paragraphs instead of one <br>-joined line. That is the designed, specified
+// output of this slice, so the site that pinned the old representation is the
+// honest place to pin the new one.
 //
-// The escape-then-substitute ORDER they exist to pin is NOT obsolete: it is
-// still the live path for every cell that is not rich, which is most of them.
-// `blockers` is free text, is in no *_RICH_COLUMNS set, and was MEASURED to
-// carry a "\n" through `fieldToString` into the cell — so the substitution
-// actually runs here. A column that dropped the newline would leave these
-// passing for free on a dead path, which is the failure mode a re-point risks.
+// ★★★ THIS IS NOT "editing a test to match the output" — what makes it
+// legitimate is that the INVARIANT is re-asserted rather than dropped, and that
+// the guard the representation superseded is demonstrably still alive:
+//   • the escape-then-substitute ORDER on a NON-rich cell of this very
+//     `buildPdfHtml` path — export.test.ts, "escapes a NON-rich cell BEFORE
+//     substituting its newline";
+//   • the same ordering on `renderDocumentHtml`'s table block —
+//     doc-render-html.test.ts, "maps a newline in a table cell to <br> but
+//     escapes a literal <br>".
+// Both are green and both go red if the ordering is inverted. If you are here
+// because you want to delete or weaken one of these, check those two first.
 describe("HTML export cells", () => {
-  it("renders a newline in a NON-rich cell as a <br>", () => {
+  it("renders a rich cell's paragraph break as real paragraphs", () => {
     const base = makeBaseWorkspace();
     const ws: Workspace = {
       ...base,
-      tasks: [{ ...makeTask(1), blockers: "one\ntwo" }],
+      tasks: [{ ...makeTask(1), description: "<p>one</p><p>two</p>" }],
     };
-    expect(buildPdfHtml(ws, defaultExportConfig, "en-US")).toContain("one<br>two");
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    // The §141(b) representation. Pre-§141(b) this cell was "one<br>two"; the
+    // block boundary is still there, it is just carried by the markup now.
+    expect(html).toContain("<p>one</p><p>two</p>");
+    expect(html).not.toContain("&lt;p&gt;one&lt;/p&gt;");
   });
 
   it("escapes BEFORE substituting, so user markup cannot inject a break", () => {
-    // ★★ Order is the whole point. Substitute-then-escape turns our own <br>
-    // into a visible "&lt;br&gt;"; escape-then-substitute leaves a user's
-    // literal "<br>" escaped, which is what escaping is for.
+    // ★★★ THE SECURITY ASSERTION IS UNCHANGED FROM 8c16c20f AND MUST STAY THAT
+    // WAY. Only OUR block boundary changed representation (<br> → </p><p>); the
+    // USER's literal "<br>" — stored as the entity "&lt;br&gt;" — must still
+    // come out escaped and must still never become a real break. Both
+    // directions are asserted, exactly as they were before, and this test must
+    // fail if that ever stops being true.
     //
-    // ★★★ THE FIXTURE MUST CARRY BOTH, and the original did not at first: with
-    // a value that has no newline, BOTH orderings emit "a&lt;br&gt;b" and the
-    // test passes either way — it named the ordering while proving only the
-    // escaping. This value carries a literal "<br>" (the user's) AND a real
-    // newline (ours), so only escape-then-substitute yields the user's escaped
-    // and ours live. Each of the three assertions kills a different wrong
-    // order, which is why all three survived the re-point unchanged.
+    // ★★ THE FIXTURE MUST CARRY BOTH, and the original did not at first: with a
+    // value that has no block boundary, escaping alone satisfies it and the
+    // test passes whatever happens to the boundary — it named the ordering
+    // while proving only the escaping. This value carries the user's escaped
+    // "<br>" AND a real boundary of ours.
     const base = makeBaseWorkspace();
     const ws: Workspace = {
       ...base,
-      tasks: [{ ...makeTask(1), blockers: "a<br>b\nc" }],
+      tasks: [{ ...makeTask(1), description: "<p>a&lt;br&gt;b</p><p>c</p>" }],
     };
     const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
-    expect(html).toContain("a&lt;br&gt;b<br>c");
-    // Substitute-only (no escape) would produce this — the user's markup live.
+    // VERBATIM from 8c16c20f: the user's markup stays escaped.
+    expect(html).toContain("a&lt;br&gt;b");
+    // VERBATIM from 8c16c20f: it must never become a real break.
     expect(html).not.toContain("a<br>b");
-    // Substitute-then-escape would produce this — our own boundary escaped away.
-    expect(html).not.toContain("b&lt;br&gt;c");
+    // Our own boundary, in its §141(b) representation.
+    expect(html).toContain("<p>a&lt;br&gt;b</p><p>c</p>");
   });
 });
 

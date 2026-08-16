@@ -1,7 +1,14 @@
 // src/app/export.test.ts
 //
 // Tests for buildPdfHtml — the pure HTML-building helper extracted from
-// exportPdf. Tests run in Node (no DOM); window.print() is never called here.
+// exportPdf. window.print() is never called here.
+//
+// ★ These run under jsdom, not bare node — vitest.config.ts sets
+// `environment: "jsdom"` globally. That is load-bearing since §141(b): a rich
+// cell goes through sanitizeRichHtml, which is DOMPurify-backed and binds
+// `window` at module eval. This header claimed "no DOM" until the rich-cell
+// tests below were added, which would have been a confusing thing to read
+// while debugging a DOMPurify failure.
 
 import { describe, it, expect } from "vitest";
 import { buildPdfHtml } from "./export";
@@ -350,6 +357,37 @@ describe("buildPdfHtml — rich cells (§141(b))", () => {
     const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
     expect(html).toContain("&lt;b&gt;");
     expect(html).not.toContain("<td><b>not markup</b></td>");
+  });
+
+  // ★★★ THE ESCAPE-THEN-SUBSTITUTE ORDER, on the boundary where it is still
+  // live. §141(b) moved rich columns onto the markup path, which retired the
+  // two `export-ooxml.test.ts` fixtures that used to pin this ordering on
+  // `description` (see the comment on `HTML export cells` there). Every NON-rich
+  // cell still goes escape-then-substitute through `htmlCellWithBreaks`, and
+  // that is most of them — so the guard needs a home on THIS path, not only on
+  // `renderDocumentHtml`'s table block in doc-render-html.test.ts.
+  //
+  // ★★ `blockers` was chosen by measurement: it is free text, sits in no
+  // *_RICH_COLUMNS set, and was probed to carry a "\n" through `fieldToString`
+  // all the way into the emitted cell. A column that DROPPED the newline would
+  // leave this passing for free with the substitution never running — the
+  // failure mode that makes an ordering test look alive while it is dead.
+  // (`status.value` is exactly such a column: `statusSection` splits on
+  // /\r?\n/, so a newline there becomes two rows and never reaches a cell.)
+  //
+  // ★ Each assertion kills a different wrong order: substitute-only leaves the
+  // user's "<br>" live; substitute-then-escape turns OUR boundary into a
+  // visible "&lt;br&gt;".
+  it("escapes a NON-rich cell BEFORE substituting its newline", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1, { blockers: "a<br>b\nc" })],
+      raid: [],
+    };
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    expect(html).toContain("a&lt;br&gt;b<br>c");
+    expect(html).not.toContain("a<br>b");
+    expect(html).not.toContain("b&lt;br&gt;c");
   });
 
   // ★★★ ORDER. `descriptionHtml` runs BEFORE `sanitizeRichHtml`, and this test
