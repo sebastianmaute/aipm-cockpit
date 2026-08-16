@@ -536,10 +536,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     await promise;
     try {
       const loaded = await backend.load(); // ★ NO reportFor: this path applies tasks+raid ONLY, never the loaded documents — raising the flag would warn about documents the user still has, lowering it would clear a warning that is still true of the live ones.
-      // ★★ THAT NOW ALSO SUPPRESSES IMPORT DIAGNOSTICS (dropped rows, unbalanced
-      // quotes), because both ride `reportFor`. Deliberate and unchanged in intent:
-      // this path applies tasks+raid ONLY, so it is not the load whose losses the
-      // user is being asked about.
+      // ★★ THAT NOW ALSO SUPPRESSES IMPORT DIAGNOSTICS (dropped rows, unbalanced quotes), because both ride `reportFor`. Deliberate, and for the same reason as above: this is not the load whose losses the user is being asked about. (Folded onto one line — this file sits at the 800-line ratchet.)
       if (
         tasks.length > 0 &&
         !window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))
