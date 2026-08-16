@@ -75,21 +75,43 @@ and the rewiring lands in the slice that is already restructuring thread state f
 
 ## Architecture
 
-Two new pure modules plus one thin tool registration. Nothing async is added to the tool despite
-`runTool` being async — every source is already in memory by the time the tool runs.
+Two new modules plus one thin tool registration: `activity-prompt.ts` is a **render layer** (may
+import `t`), `history-search.ts` is a **pure engine** (may not). That split is the whole reason the
+i18n-free rule survives this design. Nothing async is added to the tool despite `runTool` being
+async — every source is already in memory by the time the tool runs.
 
 ### `activity-prompt.ts` — the activity renderer
 
-Pure, i18n-free, English-only regardless of UI language, deterministic (no clock). Modelled directly
-on `insight-prompt.ts`, which established every one of those properties and states them in its own
-header.
+A **render layer**, not an engine — the same classification `insight-text.ts` carries, and for the
+same reason: it may import `t`. English-only regardless of UI language, deterministic (no clock).
 
-It must **not** use `t(lang, …)`. Two reasons: the model-facing view must not change when a user
-switches to German, and the module is pure-engine territory where `t` does not belong.
+```ts
+const key = activityMessageKey(entry.kind);
+const summary = key
+  ? t("en-US", key, ...entry.args)
+  : t("en-US", "activityUnknownKind", entry.kind);
+```
 
-That means an English template per `ActivityKind` — **55 of them**, as an exhaustive
-`Record<ActivityKind, string>`. Exhaustiveness is the guard: a 56th kind added without a template is
-a typecheck error, the same mechanism `ACTION_SOURCE_LABEL` uses for `ActionSource`.
+**★★ This replaces a hand-written 55-template map, and the reason is worth recording.** The first
+draft specified an exhaustive `Record<ActivityKind, string>` of English templates, on the grounds
+that a pure module must stay i18n-free. That would have meant transcribing 55 argument contracts by
+hand — `ActivityEntry.args` is positional `(string | number)[]` with no per-kind schema, so what
+`args[0]` means is defined *only* by the i18n string it feeds. A misread there produces a
+grammatical, confident, **false** line the model asserts as fact and no gate can detect. It was the
+slice's dominant risk.
+
+Rendering through `t("en-US", …)` removes that risk rather than mitigating it: nothing is
+transcribed, so nothing can be mistranscribed. `ACTIVITY_KIND_TO_KEY` is already exhaustive over
+`ActivityKind`, so a 56th kind is still a typecheck error at the map, and its English line appears
+with no work here. `t`'s signature — `(lang, key, ...args: (string | number)[])` — matches
+`ActivityEntry.args` exactly, so the spread needs no adaptation. The EN dictionary is static (only DE
+is lazily loaded), so no `loadI18n` call is required.
+
+`AGENTS.md`'s "keep engines i18n-free" rule is preserved: `history-search.ts` remains a pure engine
+and receives already-rendered lines. Only this render layer touches `t`.
+
+The accepted cost is that rewording a UI string also rewords what the model sees. That is a feature
+more than a defect — the two can no longer disagree about what an event means.
 
 **Two behaviours the insights precedent does not cover:**
 
@@ -97,11 +119,13 @@ a typecheck error, the same mechanism `ACTION_SOURCE_LABEL` uses for `ActionSour
 bounded by `MAX_FIELD_CHANGES` (12), exported from `activity-log.ts` during the Rusch slice.
 
 *Unknown kinds must survive.* `sanitizeActivityEntry` deliberately **keeps** an unrecognised string
-`kind`, so an older client cannot delete entries a newer release wrote. The renderer therefore needs
-the same `hasOwnProperty` discipline `activityMessageKey` already carries: a bare index lookup on
-`kind: "toString"` resolves a `Function.prototype` method, and `t()` then throws on `undefined.replace`,
-crashing the app through the top-level `ErrorBoundary`. That exact bug is already documented in
-`AGENTS.md`; it must not be reintroduced one file over.
+`kind`, so an older client cannot delete entries a newer release wrote. The renderer must go through
+`activityMessageKey`, which already carries the required `hasOwnProperty` check and returns `null`
+for an unknown kind — **never** a bare `ACTIVITY_KIND_TO_KEY[kind]` index, which resolves
+`kind: "toString"` to a `Function.prototype` method, after which `t()` throws on
+`undefined.replace` and crashes the app through the top-level `ErrorBoundary`. That exact bug is
+documented in `AGENTS.md` and already has a regression test in `activity-log-panel.test.tsx`; it must
+not be reintroduced one file over.
 
 ### `history-search.ts` — filter, merge, cap
 
@@ -230,10 +254,10 @@ That is the "exclude glue, not logic" rule, and these are logic.
 
 In order of what actually catches something:
 
-1. **All 55 kinds render** — table-driven over `ActivityKind`. A missing template fails the
-   typecheck; a wrong one fails a readable assertion. Fixtures are built from each i18n string's
-   placeholder order, **not** from a reading of it (see risk 1). This is now the test the slice most
-   needs.
+1. **Every `ActivityKind` renders non-empty and interpolates its args** — table-driven over
+   `ACTIVITY_KIND_TO_KEY`, asserting no `{0}` placeholder survives in the output for an entry whose
+   args are supplied. This no longer needs to check *wording* (the i18n string is the wording), only
+   that the render path resolves for all 55 and leaves no unfilled placeholder.
 2. **`get_app_state` does not return `activityLog`** — a guard test over the snapshot's keys. Without
    it, a future contributor "completing the pattern" by mirroring `activityLog` beside `insights`
    reintroduces the unbounded dump, and every other test stays green.
@@ -253,14 +277,16 @@ oversight.
 
 ## Risks
 
-**1 — The 55 argument contracts (dominant).** `ActivityEntry.args` is `(string | number)[]`,
-positionally interpolated, with no per-kind schema anywhere in the types. What `args[0]` *means* for
-`raid.statusChanged` is defined only by the EN i18n string it feeds. Writing 55 templates means
-recovering 55 argument contracts by reading 55 i18n strings, and a misread produces a grammatical,
-confident, **false** line that the model will assert as fact and that no gate can detect.
+**1 — ELIMINATED, not mitigated.** The dominant risk was transcribing 55 positional argument
+contracts by hand, where a misread ships a confident false line no gate can detect. Rendering through
+`t("en-US", ACTIVITY_KIND_TO_KEY[kind], ...args)` removes the transcription step, so the failure mode
+no longer exists. Recorded rather than deleted because the *reasoning* that produced it — "a pure
+module must not import `t`, therefore hand-write the English" — is sound-sounding and will recur; the
+answer is that this is a render layer, not an engine.
 
-Mitigation: derive each test fixture from the i18n string's own placeholder order rather than from
-the template author's reading of it, so the test and the template cannot share one misreading.
+The residual is far smaller: the model's view now moves when a UI string is reworded. Acceptable, and
+arguably correct, since the panel and the assistant can no longer describe the same event
+differently.
 
 **2 — RESOLVED before planning, and the resolution is the lesson.** The first draft carried an
 unverified claim that `chat-panel.tsx` could absorb the snapshot wiring at net-zero lines. Measuring
