@@ -10,7 +10,9 @@
 // textContent, so they fail on both malformed output AND on double-escaping.
 
 import { describe, it, expect } from "vitest";
-import { renderDocumentDocx, DOC_STYLES } from "./doc-render-docx";
+import { renderDocumentDocx } from "./doc-render-docx";
+import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
+import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
@@ -84,6 +86,14 @@ function pStyles(xml: string): (string | null)[] {
   return Array.from(parseXml(xml).getElementsByTagName("w:pStyle")).map((n) =>
     n.getAttribute("w:val"),
   );
+}
+
+/** `buildDocxTable` returns a bare `<w:tbl>` FRAGMENT, whose `w:` prefix is
+ *  unbound — `parseXml` reports that as a parse error rather than parsing it.
+ *  Wrapping it in a namespace-declaring root is what lets every helper above
+ *  be reused against a table built in isolation. */
+function wrapWordXml(fragment: string): string {
+  return `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${fragment}</w:document>`;
 }
 
 describe("renderDocumentDocx — package integrity", () => {
@@ -482,8 +492,18 @@ describe("renderDocumentDocx — rich paragraph marks", () => {
     // Same contract as the block-level test above: a w:pStyle naming a style
     // that styles.xml does not declare is SILENTLY IGNORED by Word, so the
     // blockquote would render as body text while every assertion still passed.
+    //
+    // ★★ THE h4 AND THE <li> ARE LOAD-BEARING, not padding. §141(b) taught the
+    // rich paragraph path to emit `Heading1`-`Heading4` and `ListParagraph`,
+    // and `Heading4` had to be DECLARED for the first time. Every other
+    // assertion in this file about h4 passes on the emitted `w:pStyle` string
+    // alone, so THIS is the only test that goes red if the declaration is
+    // dropped — the pStyle is still emitted, it just resolves to nothing.
     const blocks: DocBlock[] = [
-      { type: "paragraph", html: "<blockquote>q</blockquote><pre>c</pre><p>p</p>" },
+      {
+        type: "paragraph",
+        html: "<blockquote>q</blockquote><pre>c</pre><p>p</p><h4>h</h4><ul><li><p>i</p></li></ul>",
+      },
     ];
     const declared = new Set(
       Array.from(
@@ -493,6 +513,8 @@ describe("renderDocumentDocx — rich paragraph marks", () => {
     const used = pStyles(await documentXml(doc(blocks)));
     expect(used).toContain("Quote");
     expect(used).toContain("CodeBlock");
+    expect(used).toContain("Heading4");
+    expect(used).toContain("ListParagraph");
     for (const id of used) expect(declared).toContain(id);
   });
 
@@ -609,5 +631,171 @@ describe("renderDocumentDocx — dataSection blocks", () => {
     const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), both);
     expect(textNodes(xml)).toContain("Vendor delay");
     expect(textNodes(xml).join(" ")).not.toContain("A task");
+  });
+});
+
+// Rich entity cells in a table — open-followups §141(b). The seven rich entity
+// fields (Task.description, RAID description+mitigation, Change description+
+// impactDescription+resolutionNotes, Milestone description) reach a .docx as
+// TABLE CELLS, where there is no block model to carry heading level, list
+// numbering or alignment. These tests drive `buildDocxTable` directly, because
+// that is the boundary both the workspace exporter and a document's own
+// `table`/`dataSection` blocks go through.
+describe("rich entity cells in a DOCX table (§141(b))", () => {
+  const cellXml = (html: string): string =>
+    wrapWordXml(buildDocxTable(["description"], [[{ html, text: "ignored" }]]));
+
+  /** The BODY cell's paragraphs. The single header column contributes exactly
+   *  one paragraph, so dropping the first entry leaves the cell's own.
+   *
+   *  ★★ PARAGRAPH-SCOPED, and that is not a stylistic choice. The list marker
+   *  is its OWN `<w:r>` — it has to be, because it carries no marks while the
+   *  text after it may carry several — so the emitted XML reads
+   *  `…<w:t>1. </w:t></w:r><w:r><w:t>first</w:t>…` and a `toContain("1. first")`
+   *  over the raw string can NEVER pass. Concatenating the `<w:t>`s within one
+   *  `<w:p>` is what asserts the reader actually sees "1. first" on one line. */
+  const cellParas = (html: string): string[] => paraTexts(cellXml(html)).slice(1);
+
+  /** Every `<w:ind w:left>` in the fragment, in document order. */
+  const indents = (html: string): (string | null)[] =>
+    Array.from(parseXml(cellXml(html)).getElementsByTagName("w:ind")).map((n) =>
+      n.getAttribute("w:left"),
+    );
+
+  it("renders a heading with its level's style", () => {
+    expect(pStyles(cellXml("<h2>Plan</h2>"))).toContain("Heading2");
+    expect(cellParas("<h2>Plan</h2>")).toEqual(["Plan"]);
+  });
+
+  it("renders h4, whose style this slice had to declare", () => {
+    expect(pStyles(cellXml("<h4>Deep</h4>"))).toContain("Heading4");
+    expect(cellParas("<h4>Deep</h4>")).toEqual(["Deep"]);
+  });
+
+  it("numbers an ordered list as literal marker text", () => {
+    // ★★ THE EDITOR'S REAL SHAPE. Tiptap stores `<li><p>text</p></li>`; a
+    // fixture using a bare `<li>` cannot see a defect in the transparency arm,
+    // which is how a CRITICAL already hid in this slice.
+    expect(cellParas("<ol><li><p>first</p></li><li><p>second</p></li></ol>")).toEqual([
+      "1. first",
+      "2. second",
+    ]);
+  });
+
+  it("numbers a bare <li> the same way the editor's nested <p> is numbered", () => {
+    // The golden fixtures and legacy stored values carry this flatter form, so
+    // both shapes must reach the same bytes.
+    expect(cellParas("<ol><li>first</li><li>second</li></ol>")).toEqual([
+      "1. first",
+      "2. second",
+    ]);
+  });
+
+  it("bullets an unordered list instead of numbering it", () => {
+    expect(cellParas("<ul><li><p>one</p></li></ul>")).toEqual(["• one"]);
+  });
+
+  it("indents a nested list item one further step", () => {
+    const nested = "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>";
+    expect(cellParas(nested)).toEqual(["• a", "• b"]);
+    expect(indents(nested)).toEqual(["720", "1440"]);
+  });
+
+  it("marks a task item with the flat projection's own constant", () => {
+    const xml = '<ul data-type="taskList"><li data-checked="true"><p>done</p></li></ul>';
+    expect(cellParas(xml)).toEqual([`${TASK_MARK_CHECKED.trim()} done`]);
+  });
+
+  it("maps justify to OOXML's `both`", () => {
+    // ST_Jc spells justified as "both". Passing "justify" through is a value
+    // Word does not recognise and silently drops.
+    expect(cellXml('<p data-align="justify">x</p>')).toContain(`<w:jc w:val="both"/>`);
+    expect(cellXml('<p data-align="center">x</p>')).toContain(`<w:jc w:val="center"/>`);
+  });
+
+  it("orders <w:pPr>'s children by the schema, not by the order they are added", () => {
+    // ★★★ CT_PPr's children are an xsd:sequence, exactly like the `<w:rPr>`
+    // ordering `DOCX_MARK_RPR`'s `rank` exists for: pStyle -> ind -> jc. Every
+    // string assertion in this describe passes whatever the order, so this is
+    // the only thing pinning it.
+    const li = '<ol><li><p data-align="center">x</p></li></ol>';
+    const pPr = Array.from(parseXml(cellXml(li)).getElementsByTagName("w:pPr")).find(
+      (n) => n.getElementsByTagName("w:jc").length > 0,
+    );
+    expect(pPr).toBeDefined();
+    expect(Array.from(pPr!.children).map((el) => el.tagName)).toEqual([
+      "w:pStyle",
+      "w:ind",
+      "w:jc",
+    ]);
+  });
+
+  it("emits several paragraphs in ONE table cell", () => {
+    const parsed = parseXml(cellXml("<p>one</p><p>two</p>"));
+    const cells = Array.from(parsed.getElementsByTagName("w:tc"));
+    expect(cells).toHaveLength(2); // header cell + body cell
+    expect(cells[1].getElementsByTagName("w:p")).toHaveLength(2);
+    expect(cellParas("<p>one</p><p>two</p>")).toEqual(["one", "two"]);
+  });
+
+  it("keeps an empty rich cell structurally valid", () => {
+    // A `<w:tc>` with no block-level child is INVALID and Word refuses the
+    // file. An empty rich value must still emit one paragraph.
+    const cells = Array.from(parseXml(cellXml("")).getElementsByTagName("w:tc"));
+    expect(cells[1].getElementsByTagName("w:p")).toHaveLength(1);
+    // ★ And it must be EMPTY. Without this the test passes on the pre-§141(b)
+    // code, which stringified the RichCell object into the cell as
+    // "[object Object]" — one paragraph, entirely wrong content.
+    expect(cellParas("")).toEqual([""]);
+  });
+
+  it("leaves a plain string cell byte-identical to what it always emitted", () => {
+    // The rich branch must not disturb the path every non-rich column takes —
+    // the workspace exporter's bytes ride on it.
+    expect(buildDocxTable(["a"], [["x"]])).toContain(
+      `<w:p>\n              <w:r><w:t xml:space="preserve">x</w:t></w:r>\n            </w:p>`,
+    );
+  });
+
+  it("carries marks through a rich cell", () => {
+    expect(cellXml("<p><strong>b</strong></p>")).toContain(
+      `<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">b</w:t></w:r>`,
+    );
+  });
+
+  it("escapes rich cell text", () => {
+    const xml = cellXml("<p>A &amp; B &lt; C</p>");
+    expect(() => parseXml(xml)).not.toThrow();
+    expect(cellParas("<p>A &amp; B &lt; C</p>")).toEqual(["A & B < C"]);
+  });
+});
+
+// The MIRROR of the describe above, one level up. A `paragraph` DocBlock and a
+// rich table cell go through the SAME line builder now; before §141(b) the
+// block path had no `heading`/`li` style at all, so a list item inside a
+// document paragraph rendered with NO MARKER while the same document's .pptx
+// showed one.
+describe("renderDocumentDocx — headings and lists inside a paragraph block", () => {
+  it("marks and indents a list item in a document paragraph block", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<ol><li><p>first</p></li><li><p>second</p></li></ol>" }]),
+    );
+    expect(paraTexts(xml)).toEqual(["Report", "1. first", "2. second"]);
+    expect(pStyles(xml)).toEqual(["Title", "ListParagraph", "ListParagraph"]);
+  });
+
+  it("styles a heading inside a document paragraph block", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<h2>Plan</h2><p>body</p>" }]),
+    );
+    expect(pStyles(xml)).toEqual(["Title", "Heading2"]);
+    expect(paraTexts(xml)).toEqual(["Report", "Plan", "body"]);
+  });
+
+  it("aligns a paragraph inside a document paragraph block", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: '<p data-align="right">r</p>' }]),
+    );
+    expect(xml).toContain(`<w:jc w:val="right"/>`);
   });
 });

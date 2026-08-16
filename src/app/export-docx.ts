@@ -9,7 +9,7 @@ import {
   todayHuman,
   xmlEscape,
 } from "./export-ooxml-shared";
-import { buildDocxPackage, buildDocxTable } from "./ooxml-docx-primitives";
+import { DOC_STYLES, buildDocxPackage, buildDocxTable } from "./ooxml-docx-primitives";
 
 // ============================================================================
 // DOCX
@@ -60,5 +60,15 @@ export function buildDocx(sections: ExportSection[]): Blob {
     <w:p/>
     ${sectionsXml}`;
 
-  return buildDocxPackage(body);
+  // ★★★ `DOC_STYLES` IS NOT OPTIONAL HERE as of §141(b), and the failure it
+  // prevents is silent. The seven rich entity fields reach this export as table
+  // cells, and a rich cell emits `w:pStyle` naming `Heading1`-`Heading4`,
+  // `ListParagraph`, `Quote` or `CodeBlock`. A `w:pStyle` naming a style
+  // styles.xml does not declare is SILENTLY IGNORED by Word — the heading would
+  // render as body text with every assertion about the emitted XML still green,
+  // which is exactly the fidelity this slice exists to add.
+  // ★ It changes only `word/styles.xml` (declarations the previous export never
+  // used); `word/document.xml` is byte-identical for a workspace whose rich
+  // fields are empty or plain.
+  return buildDocxPackage(body, DOC_STYLES);
 }
