@@ -48,7 +48,13 @@ export type HeadingLevel = 1 | 2 | 3 | 4;
 
 export type RichLine =
   | (LineBase & { kind: "p" | "blockquote" | "pre" })
-  | (LineBase & { kind: "hr" })
+  /** ★ DELIBERATELY NOT `LineBase`. A rule holds no text, so there is nothing to
+   *  align, and it is CONSTRUCTED as `{ kind: "hr", runs: [] }` at the one site
+   *  that makes one — an `align` in scope here could never be anything but
+   *  `undefined`, while reading to a consumer as a field that is sometimes set.
+   *  `runs` stays so every member has one and a consumer can reach `line.runs`
+   *  without narrowing first. */
+  | { kind: "hr"; runs: TextRun[] }
   | (LineBase & { kind: "heading"; level: HeadingLevel })
   | (LineBase & {
       kind: "li";
@@ -137,6 +143,18 @@ const TRAILING_WS = /\s+$/;
 const addMark = (marks: readonly RunMark[], mark: RunMark): RunMark[] =>
   marks.includes(mark) ? [...marks] : [...marks, mark];
 
+/** Whether a line carries anything a reader would see.
+ *
+ *  ★ This is the SURVIVAL predicate — `flush` keeps a line exactly when it holds
+ *  visible text — and the LI-transparency guard asks the same question of a line
+ *  still in progress ("would this be dropped if flushed right now?"). One helper
+ *  so the two cannot drift.
+ *  ★ Trimming does not change the answer: `trimLineEdges` only removes
+ *  whitespace, so it can never turn a visible run invisible. That is why the
+ *  guard may ask it of UNtrimmed runs. */
+const hasVisibleText = (runs: readonly TextRun[]): boolean =>
+  runs.some((r) => r.text.trim() !== "");
+
 /** Strip the whitespace at the two ENDS of a line, walking inwards past runs that
  *  are whitespace-only, and drop whatever that empties.
  *
@@ -206,6 +224,19 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  makes a nested list restart and the outer one resume. */
   const listCounters: { ordered: boolean }[] = [];
   const listIndex: number[] = [];
+  /** The line objects `flush` actually KEPT, by identity.
+   *
+   *  ★★ It exists so the LI arm can spend its list index only on an item that
+   *  reached the output. The increment used to happen at startLine, i.e. before
+   *  the item was known to survive, so an `<li>` that emitted nothing still
+   *  consumed a number and every later sibling rendered one too high
+   *  ("<ol><li></li><li>a</li></ol>" numbered a as 2).
+   *  ★ Identity, not a counter or a `lines.length` delta: the li line is not
+   *  always closed by the LI arm's own `flush` — a nested <ul> flushes it on the
+   *  way in — so "did the output grow across my walk" would credit this item
+   *  with its CHILDREN's lines. `flush` pushes a COPY, so the ORIGINAL is what
+   *  is recorded and what the arm holds. */
+  const emitted = new Set<RichLine>();
 
   /** Finish the line in progress, keeping it only if it carries visible text.
    *
@@ -222,12 +253,16 @@ export function htmlToRichLines(html: string): RichLine[] {
     if (!line) return;
     if (line.kind === "hr") {
       lines.push(line);
+      emitted.add(line);
       return;
     }
     // A <pre> line keeps its own indentation — trimming it would defeat the one
     // property that makes preformatted text worth a kind of its own.
     const runs = line.kind === "pre" ? line.runs : trimLineEdges(line.runs);
-    if (runs.some((r) => r.text.trim() !== "")) lines.push({ ...line, runs });
+    if (hasVisibleText(runs)) {
+      lines.push({ ...line, runs });
+      emitted.add(line);
+    }
   }
 
   function startLine(line: RichLine): void {
@@ -252,7 +287,15 @@ export function htmlToRichLines(html: string): RichLine[] {
     }
   }
 
-  function walk(node: Node, marks: readonly RunMark[], kind: BlockKind): void {
+  /** `inListItem` says the children being iterated are the DIRECT content of an
+   *  `<li>`, which is what turns on the transparency arm below. Everywhere else
+   *  it is false, including inside a transparent element — see that arm. */
+  function walk(
+    node: Node,
+    marks: readonly RunMark[],
+    kind: BlockKind,
+    inListItem = false,
+  ): void {
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === TEXT_NODE) {
         const raw = (child as Text).data;
@@ -296,9 +339,8 @@ export function htmlToRichLines(html: string): RichLine[] {
         const depth = Math.max(0, listCounters.length - 1);
         const ordered = listCounters[depth]?.ordered ?? false;
         const index = listIndex[depth] ?? 0;
-        if (listIndex.length > 0) listIndex[depth] = index + 1;
         const checked = el.getAttribute("data-checked");
-        startLine({
+        const item: RichLine = {
           kind: "li",
           runs: [],
           align: alignOf(el),
@@ -310,9 +352,14 @@ export function htmlToRichLines(html: string): RichLine[] {
             : checked === "false"
               ? { task: "unchecked" as const }
               : {}),
-        });
-        walk(el, marks, kind);
+        };
+        startLine(item);
+        walk(el, marks, kind, true);
         flush();
+        // ★★ AFTER the walk, and only for an item that reached the output — see
+        // `emitted`. The `listIndex.length` guard keeps a stray <li> with no
+        // enclosing list from writing a counter that does not exist.
+        if (listIndex.length > 0 && emitted.has(item)) listIndex[depth] = index + 1;
         continue;
       }
 
@@ -323,6 +370,54 @@ export function htmlToRichLines(html: string): RichLine[] {
         startLine({ kind: "heading", runs: [], align: alignOf(el), level });
         walk(el, marks, kind);
         flush();
+        continue;
+      }
+
+      // ★★★ TRANSPARENT: the paragraph that IS the list item's text.
+      //
+      // Tiptap's listItem content spec is `paragraph block*`, so the editor
+      // stores "<ul><li><p>a</p></li></ul>" and NEVER "<ul><li>a</li></ul>".
+      // Without this arm the <p> took the LINE_TAGS arm below, whose startLine
+      // flushed the still-empty `li` line — which `flush` then dropped for
+      // holding no visible text — and the text arrived as a plain `p`. Every
+      // list a real user typed lost its marker, its ordinal, its depth and its
+      // task state, while the whole existing suite stayed green because its
+      // fixtures (and the golden workspace's) carry the bare "<li>a</li>" form
+      // that no editor produces.
+      //
+      // ★ Only P and DIV — i.e. exactly LINE_TAGS, the tags that carry no kind
+      // of their own and merely INHERIT one. Nothing is lost by folding one into
+      // the item. A <blockquote>, <pre> or <hN> each carries a kind (and a
+      // level) that merging WOULD destroy, so those keep their own line; the
+      // empty li line is then dropped as before, and since 0.243 that no longer
+      // skews its siblings' numbering either.
+      //
+      // ★ `hasVisibleText` and not `runs.length === 0`: pretty-printed markup
+      // puts a whitespace-only run between the <li> and its <p>, and that must
+      // not count as the item already having text.
+      //
+      // ★ A SECOND <p> in one <li> finds the item non-empty, falls through to
+      // LINE_TAGS below and becomes a plain continuation line — the same shape
+      // "<li>a<br>b</li>" has always produced.
+      //
+      // ★ `inListItem` is NOT threaded into the transparent element: this is
+      // one level deep, matching "the direct content of an <li>".
+      const host = current;
+      if (
+        inListItem &&
+        LINE_TAGS.has(tag) &&
+        host !== null &&
+        host.kind === "li" &&
+        !hasVisibleText(host.runs)
+      ) {
+        // The editor puts alignment on the PARAGRAPH, never on the <li>:
+        // TextAlign is configured `types: ["heading", "paragraph"]`
+        // (rich-text-editor.tsx). So the item's own align is almost always
+        // absent and the transparent paragraph's is the real one — but the li's
+        // wins where both are present, since it is the outer declaration.
+        const align = alignOf(el);
+        if (align !== undefined && host.align === undefined) host.align = align;
+        walk(el, marks, kind);
         continue;
       }
 

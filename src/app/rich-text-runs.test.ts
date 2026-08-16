@@ -2,7 +2,17 @@
 // is what supplies the DOMParser the module under test uses. A `node` environment
 // here would fail every case for an environment reason, not a logic one.
 import { describe, expect, it } from "vitest";
-import { htmlToRichLines } from "./rich-text-runs";
+import { htmlToRichLines, type Align, type RichLine } from "./rich-text-runs";
+
+/** Read `align` off a line whose kind is not yet known.
+ *
+ *  ★ The `hr` member of `RichLine` deliberately carries NO `align` — a rule has
+ *  no text to align, so the field could only ever be `undefined` there. That
+ *  makes a bare `line.align` on the union a TYPE ERROR, which is the point: a
+ *  consumer has to say what it means for a rule. Every such consumer already
+ *  branches on `hr` first; these assertions do not, so they narrow here. */
+const alignOfLine = (line: RichLine): Align | undefined =>
+  line.kind === "hr" ? undefined : line.align;
 
 describe("htmlToRichLines", () => {
   it("splits block boundaries into lines and carries no marks on plain text", () => {
@@ -285,21 +295,253 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
   it("reads alignment on EVERY kind, not just paragraphs", () => {
     // align is ORTHOGONAL to kind — that is why it is a shared base field and
     // not a kind. One assertion on a paragraph does not cover the property.
-    expect(htmlToRichLines('<p data-align="center">p</p>')[0].align).toBe("center");
-    expect(htmlToRichLines('<h3 data-align="right">h</h3>')[0].align).toBe("right");
+    expect(alignOfLine(htmlToRichLines('<p data-align="center">p</p>')[0])).toBe("center");
+    expect(alignOfLine(htmlToRichLines('<h3 data-align="right">h</h3>')[0])).toBe("right");
     expect(
-      htmlToRichLines('<ul><li data-align="justify">l</li></ul>')[0].align,
+      alignOfLine(htmlToRichLines('<ul><li data-align="justify">l</li></ul>')[0]),
     ).toBe("justify");
   });
 
   it("leaves align undefined when the attribute is absent", () => {
-    expect(htmlToRichLines("<p>plain</p>")[0].align).toBeUndefined();
+    expect(alignOfLine(htmlToRichLines("<p>plain</p>")[0])).toBeUndefined();
   });
 
   it("ignores an out-of-domain align value", () => {
     // sanitizeRichHtml's ATTR_VALUES predicate already admits only the four,
     // but htmlToRichLines is also called on values that did not come through
     // it, so the parser does not trust the attribute.
-    expect(htmlToRichLines('<p data-align="middle">x</p>')[0].align).toBeUndefined();
+    expect(alignOfLine(htmlToRichLines('<p data-align="middle">x</p>')[0])).toBeUndefined();
+  });
+
+  it("keeps `align` out of scope on an hr, where it could only be undefined", () => {
+    // A rule holds no text, so there is nothing to align. The real guard is the
+    // TYPE (a bare `line.align` on the union no longer compiles — see
+    // `alignOfLine`); this pins the runtime half, that nothing puts the key on.
+    const [rule] = htmlToRichLines("<hr>");
+    expect(rule).toEqual({ kind: "hr", runs: [] });
+    expect(Object.hasOwn(rule, "align")).toBe(false);
+  });
+});
+
+// ── the shape the EDITOR actually produces ───────────────────────────────────
+//
+// ★★★ EVERY INPUT IN THIS BLOCK WRAPS THE ITEM TEXT IN A <p>, AND THAT IS THE
+// WHOLE POINT. Tiptap's listItem content spec is `paragraph block*`, so a list
+// a user typed is stored as "<ul><li><p>a</p></li></ul>". The bare
+// "<li>a</li>" form every OTHER test here uses — and that the golden fixtures
+// carry — is hand-authored data no editor emits.
+//
+// That gap hid a CRITICAL defect through nine green tests: the <p> started a
+// line of its own, which flushed the still-empty `li` line, which `flush` then
+// dropped, and the text arrived as a plain `p`. `ordered`, `depth`, `index`,
+// `task` and alignment were discarded for every list a real user had typed,
+// while `bulletMarker` rendered nothing.
+//
+// ★ A test whose input is "<li>text</li>" CANNOT detect that. Keep every case
+// below in the <p>-wrapped form.
+describe("list items in the form the editor stores (listItem = `paragraph block*`)", () => {
+  it("carries a bullet list wrapped in paragraphs", () => {
+    expect(htmlToRichLines("<ul><li><p>one</p></li><li><p>two</p></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "one", marks: [] }] },
+      { kind: "li", ordered: false, depth: 0, index: 1, runs: [{ text: "two", marks: [] }] },
+    ]);
+  });
+
+  it("carries an ordered list wrapped in paragraphs, numbering it from zero", () => {
+    expect(
+      htmlToRichLines("<ol><li><p>a</p></li><li><p>b</p></li><li><p>c</p></li></ol>"),
+    ).toEqual([
+      { kind: "li", ordered: true, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "li", ordered: true, depth: 0, index: 1, runs: [{ text: "b", marks: [] }] },
+      { kind: "li", ordered: true, depth: 0, index: 2, runs: [{ text: "c", marks: [] }] },
+    ]);
+  });
+
+  it("keeps the marks inside the transparent paragraph", () => {
+    // The <p> contributes its RUNS to the item, not just its text.
+    // ★ Asserting the WHOLE line, not just `[0].runs`: the broken parser emitted
+    // the identical run array on a `p` line, so a runs-only assertion passes
+    // with the fix reverted (measured — it was one of two vacuous cases in the
+    // first cut of this block).
+    expect(htmlToRichLines("<ul><li><p>a<strong>b</strong></p></li></ul>")).toEqual([
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        runs: [
+          { text: "a", marks: [] },
+          { text: "b", marks: ["bold"] },
+        ],
+      },
+    ]);
+  });
+
+  it("carries task state in the real stored form", () => {
+    const lines = htmlToRichLines(
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="true"><p>done</p></li>' +
+        '<li data-type="taskItem" data-checked="false"><p>open</p></li>' +
+        "</ul>",
+    );
+    expect(lines).toEqual([
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        task: "checked",
+        runs: [{ text: "done", marks: [] }],
+      },
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 1,
+        task: "unchecked",
+        runs: [{ text: "open", marks: [] }],
+      },
+    ]);
+  });
+
+  it("nests a list in the real stored form, restarting and resuming the counters", () => {
+    const lines = htmlToRichLines(
+      "<ol>" +
+        "<li><p>a</p></li>" +
+        "<li><p>b</p><ol><li><p>b1</p></li><li><p>b2</p></li></ol></li>" +
+        "<li><p>c</p></li>" +
+        "</ol>",
+    );
+    expect(lines.map((l) => (l.kind === "li" ? [l.depth, l.index] : l.kind))).toEqual([
+      [0, 0], // a
+      [0, 1], // b
+      [1, 0], // b1 <- nested counter restarts
+      [1, 1], // b2
+      [0, 2], // c  <- outer counter resumes
+    ]);
+  });
+
+  it("takes alignment from the transparent paragraph, where the editor puts it", () => {
+    // TextAlign is configured `types: ["heading", "paragraph"]`
+    // (rich-text-editor.tsx), so a centred list item stores `data-align` on the
+    // INNER <p> and never on the <li>. Reading only the <li> finds nothing.
+    // ★ Again the WHOLE line: the broken parser emitted `p` with align "center",
+    // so an `[0].align` assertion passes with the fix reverted.
+    expect(htmlToRichLines('<ul><li><p data-align="center">a</p></li></ul>')).toEqual([
+      {
+        kind: "li",
+        align: "center",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        runs: [{ text: "a", marks: [] }],
+      },
+    ]);
+  });
+
+  it("lets the item's own alignment win over the transparent paragraph's", () => {
+    expect(
+      alignOfLine(
+        htmlToRichLines(
+          '<ul><li data-align="right"><p data-align="center">a</p></li></ul>',
+        )[0],
+      ),
+    ).toBe("right");
+  });
+
+  it("does not let a whitespace-only run count as the item already having text", () => {
+    // Pretty-printed markup puts a whitespace text node between the <li> and its
+    // <p>. A `runs.length === 0` guard would see the item as non-empty and lose
+    // the whole list again.
+    expect(htmlToRichLines("<ul>\n  <li>\n    <p>a</p>\n  </li>\n</ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+    ]);
+  });
+
+  // ── the decisions this made, each pinned so none of them is accidental ─────
+  it("ends the item at a SECOND paragraph, continuing on a plain line", () => {
+    // Only the paragraph that IS the item's text is transparent. A second one is
+    // a genuine second paragraph, so it takes the ordinary LINE_TAGS path — the
+    // same two-line shape "<li>a<br>b</li>" has always produced.
+    expect(htmlToRichLines("<ul><li><p>a</p><p>b</p></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "p", runs: [{ text: "b", marks: [] }] },
+    ]);
+  });
+
+  it("matches the <br> continuation shape it was modelled on", () => {
+    expect(htmlToRichLines("<ul><li>a<br>b</li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "p", runs: [{ text: "b", marks: [] }] },
+    ]);
+  });
+
+  it("keeps a blockquote inside an item as a blockquote, not as item text", () => {
+    // NOT transparent, and deliberately: P and DIV carry no kind of their own,
+    // so folding one into the item loses nothing. A blockquote carries a kind
+    // that merging would destroy — and it can only reach here from markup the
+    // editor cannot produce (`paragraph block*` puts a <p> first).
+    expect(htmlToRichLines("<ul><li><blockquote>q</blockquote></li></ul>")).toEqual([
+      { kind: "blockquote", runs: [{ text: "q", marks: [] }] },
+    ]);
+  });
+
+  it("keeps a heading inside an item as a heading, level intact", () => {
+    expect(htmlToRichLines("<ul><li><h2>h</h2></li></ul>")).toEqual([
+      { kind: "heading", level: 2, runs: [{ text: "h", marks: [] }] },
+    ]);
+  });
+
+  it("still folds a paragraph that FOLLOWS a nested list into no item", () => {
+    // The nested <ul> closes the item on the way in, so `current` is no longer
+    // the item and the trailing <p> is an ordinary line.
+    expect(htmlToRichLines("<ul><li><p>a</p><ul><li><p>a1</p></li></ul><p>t</p></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "li", ordered: false, depth: 1, index: 0, runs: [{ text: "a1", marks: [] }] },
+      { kind: "p", runs: [{ text: "t", marks: [] }] },
+    ]);
+  });
+});
+
+describe("a list index is spent only on an item that reaches the output", () => {
+  it("does not skip a number for an item holding nothing", () => {
+    // The increment used to happen at startLine, before the item was known to
+    // survive, so an empty <li> still consumed its number and `bulletMarker`
+    // rendered the rest of the list one too high ("2." for the first item).
+    const lines = htmlToRichLines("<ol><li></li><li>a</li><li>b</li></ol>");
+    expect(lines.map((l) => (l.kind === "li" ? [l.index, l.runs[0].text] : l.kind))).toEqual([
+      [0, "a"],
+      [1, "b"],
+    ]);
+  });
+
+  it("does not skip a number for an item holding only whitespace", () => {
+    const lines = htmlToRichLines("<ol><li>   </li><li>a</li></ol>");
+    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual([0]);
+  });
+
+  it("does not skip a number for an item whose only child keeps its own kind", () => {
+    const lines = htmlToRichLines("<ol><li><h2>h</h2></li><li>a</li></ol>");
+    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual(["heading", 0]);
+  });
+
+  it("numbers a run of mixed bare and paragraph-wrapped items consecutively", () => {
+    // Before the transparency fix the middle item vanished as a plain `p` AND
+    // spent its number, so this rendered "1. a / b / 3. c".
+    const lines = htmlToRichLines("<ol><li>a</li><li><p>b</p></li><li>c</li></ol>");
+    expect(lines.map((l) => (l.kind === "li" ? [l.index, l.runs[0].text] : l.kind))).toEqual([
+      [0, "a"],
+      [1, "b"],
+      [2, "c"],
+    ]);
+  });
+
+  it("keeps a dropped item from skewing a SIBLING list's counter only", () => {
+    // Two lists side by side: the first item of the second list is still 0.
+    const lines = htmlToRichLines("<ol><li></li><li>a</li></ol><ol><li>b</li></ol>");
+    expect(lines.map((l) => (l.kind === "li" ? [l.depth, l.index] : l.kind))).toEqual([
+      [0, 0],
+      [0, 0],
+    ]);
   });
 });
