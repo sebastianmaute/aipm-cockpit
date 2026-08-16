@@ -13,6 +13,8 @@
 // per block boundary, adjacent boundaries never producing a blank line. What it
 // adds is the marks that projection throws away.
 
+import { TASK_MARK_CHECKED, TASK_MARK_UNCHECKED } from "./rich-text-plain";
+
 export type RunMark =
   | "bold"
   | "italic"
@@ -167,6 +169,34 @@ function trimLineEdges(runs: readonly TextRun[]): TextRun[] {
  *  That rule is uniform, so a blank line inside a <pre> collapses too — accepted:
  *  the alternative is a kind-specific exception that every consumer then has to
  *  know about. */
+/** Marker text for a list item. Neither OOXML renderer carries a numbering
+ *  definition — DOCX has no numbering.xml part and PPTX gets no bullet
+ *  properties from this path — so the marker is literal TEXT, and `ordered`
+ *  still has to be honoured or the author's choice is silently discarded.
+ *  Native numbering is open-followups §153 (PPTX) and §154 (DOCX).
+ *
+ *  ★★ It lives HERE, beside the model it serves, because BOTH renderers need
+ *  it: it used to be declared identically in each of them, which is the shape
+ *  that drifts on the next fix (and the one the BLOCKING jscpd gate flags).
+ *
+ *  ★ `ordered` is `boolean | undefined`, not `boolean`: a `RichLine` of kind
+ *  "li" always carries one, but the `bullets` DocBlock's own `ordered` is
+ *  OPTIONAL and both renderers feed that through here too.
+ *
+ *  ★ TASK ITEMS REUSE THE FLAT PROJECTION'S CONSTANTS rather than spelling
+ *  "[x] " again, so the OOXML and plain-text projections cannot drift on the
+ *  marker itself. `.trim()` drops their trailing space because every caller
+ *  adds its own separator — see the callers, which append " " unconditionally
+ *  so an ordered marker and a task marker are spaced alike. */
+export function bulletMarker(
+  ordered: boolean | undefined,
+  index: number,
+  task?: "checked" | "unchecked",
+): string {
+  if (task) return task === "checked" ? TASK_MARK_CHECKED.trim() : TASK_MARK_UNCHECKED.trim();
+  return ordered ? `${index + 1}.` : "•";
+}
+
 export function htmlToRichLines(html: string): RichLine[] {
   if (!html) return [];
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");

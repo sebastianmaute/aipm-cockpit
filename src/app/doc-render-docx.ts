@@ -24,6 +24,7 @@ import {
   type RichLineKind,
   type RunMark,
   type TextRun,
+  bulletMarker,
   htmlToRichLines,
 } from "./rich-text-runs";
 import { descriptionHtml } from "./rich-text-plain";
@@ -251,14 +252,6 @@ function richParas(html: string): string {
       return `<w:p>${pPr}${line.runs.map(markedRun).join("")}</w:p>`;
     })
     .join("");
-}
-
-/** Marker text for a list item. Word renders a real bullet only from a
- *  numbering definition in numbering.xml, which this package does not carry —
- *  so the marker is literal text, and `ordered` still has to be honoured or the
- *  author's choice is silently discarded. */
-function bulletMarker(ordered: boolean | undefined, index: number): string {
-  return ordered ? `${index + 1}.` : "•";
 }
 
 function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {

@@ -1007,3 +1007,58 @@ describe("renderDocumentPptx — palette", () => {
     expect(hexes).toContain(COLOR_GREEN);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The RichLine kinds a rich paragraph block gained in §141(b)
+// ---------------------------------------------------------------------------
+
+describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
+  // ★★ Asserted through `paraInfos`, NOT `toContain("1. first")` over the raw
+  // part. The marker is its OWN <a:r> (it must inherit no marks), so the two
+  // strings are never contiguous in the XML and a substring assertion could
+  // only ever be weakened to "the digit appears somewhere" — which passes on a
+  // marker emitted into the WRONG paragraph. `paraInfos` joins the <a:t>s of
+  // ONE <a:p>, so it pins the pairing as well as the text.
+  it("prefixes a list item with its marker and indents it", async () => {
+    const xml = await onlyContentSlide("<ol><li>first</li><li>second</li></ol>");
+    expect(paraInfos(xml)).toEqual([
+      { text: "1. first", marL: "228600", indent: "0" },
+      { text: "2. second", marL: "228600", indent: "0" },
+    ]);
+  });
+
+  it("uses a bullet for an unordered list and indents deeper for nesting", async () => {
+    const xml = await onlyContentSlide("<ul><li>top<ul><li>nested</li></ul></li></ul>");
+    expect(paraInfos(xml)).toEqual([
+      { text: "• top", marL: "228600", indent: "0" },
+      { text: "• nested", marL: "457200", indent: "0" },
+    ]);
+  });
+
+  it("marks a task item with its checked state rather than a bullet", async () => {
+    const xml = await onlyContentSlide(
+      '<ul><li data-checked="true">done</li><li data-checked="false">todo</li></ul>',
+    );
+    expect(paraInfos(xml).map((p) => p.text)).toEqual(["[x] done", "[ ] todo"]);
+  });
+
+  it("does not indent a heading line", async () => {
+    // ★★★ THE DEFECT THIS BLOCK EXISTS FOR. Before the kinds widened, an <h2>
+    // inside a paragraph block parsed as `kind: "p"` and took no indent; it now
+    // parses as "heading", so a `kind === "p" ? undefined : RICH_INDENT_EMU`
+    // test silently starts indenting every section title to the blockquote
+    // depth. Nothing else in this suite can see that.
+    expect(paraInfos(await onlyContentSlide("<h2>Section</h2>"))).toEqual([
+      { text: "Section", marL: null, indent: null },
+    ]);
+  });
+
+  it("leaves a list item's own runs unstyled by the marker", async () => {
+    // The marker is a run, so it must not pick up the item's marks — and the
+    // item's text must keep them.
+    const xml = await onlyContentSlide("<ul><li><strong>bold item</strong></li></ul>");
+    const by = runsByText(xml);
+    expect(by.get("bold item")!.attrs.b).toBe("1");
+    expect(by.get("• ")!.attrs.b).toBeUndefined();
+  });
+});

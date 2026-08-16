@@ -65,6 +65,7 @@ import {
   type RichLineKind,
   type RunMark,
   type TextRun,
+  bulletMarker,
   htmlToRichLines,
 } from "./rich-text-runs";
 import { descriptionHtml } from "./rich-text-plain";
@@ -146,13 +147,6 @@ export function segmentIntoSlides(blocks: readonly DocBlock[]): DocSlide[] {
   }
 
   return slides.filter((s) => s.title !== "" || s.body.length > 0);
-}
-
-/** Marker text for a list item. A slide carries no numbering definition, so
- *  the marker is literal text — and `ordered` still has to be honoured, or the
- *  author's choice is silently discarded (the DOCX renderer honours it too). */
-function bulletMarker(ordered: boolean | undefined, index: number): string {
-  return ordered ? `${index + 1}.` : "•";
 }
 
 /**
@@ -368,9 +362,10 @@ const SUBSCRIPT_PCT = -25000;
  *  was the alternative, and it loses to a gate that is actually enforced. */
 const HIGHLIGHT_RGB = COLOR_GREEN;
 
-/** Left indent for the two non-`p` line kinds, in EMUs. 228600 EMU = 0.25" =
- *  the 360 twips the DOCX `Quote` and `CodeBlock` styles indent by, so the same
- *  document is indented identically in both formats. */
+/** Left indent for one step of indentation, in EMUs. 228600 EMU = 0.25" = the
+ *  360 twips the DOCX `Quote` and `CodeBlock` styles indent by, so the same
+ *  document is indented identically in both formats. A nested list item takes a
+ *  MULTIPLE of it — see `pptxIndentFor`. */
 const RICH_INDENT_EMU = 228600;
 
 /** A horizontal rule, drawn as text.
@@ -423,11 +418,39 @@ function pptxRun(run: TextRun, kind: RichLineKind): PptxRun {
 function bodyParagraph(line: SlideLine): PptxParagraph {
   if (typeof line === "string") return { text: line, sizeHundredths: BODY_SIZE };
   if (line.kind === "hr") return { runs: [{ text: HR_TEXT }], sizeHundredths: BODY_SIZE };
+  const runs = line.runs.map((run) => pptxRun(run, line.kind));
+  // ★★ The marker is a RUN, not a paragraph property: this path emits no
+  // bullet properties at all (see `bulletMarker`), so the ordinal has to be
+  // text or it is lost outright. It is its OWN run so it inherits none of the
+  // item's marks — a bold list item must not get a bold "1.".
+  const marked =
+    line.kind === "li"
+      ? [{ text: `${bulletMarker(line.ordered, line.index, line.task)} ` }, ...runs]
+      : runs;
   return {
-    runs: line.runs.map((run) => pptxRun(run, line.kind)),
+    runs: marked,
     sizeHundredths: BODY_SIZE,
-    indentEmu: line.kind === "p" ? undefined : RICH_INDENT_EMU,
+    indentEmu: pptxIndentFor(line),
   };
+}
+
+/**
+ * The left indent one line kind takes.
+ *
+ * ★★★ THE `heading` ARM IS A FIX, NOT A STYLE CHOICE. This was
+ * `kind === "p" ? undefined : RICH_INDENT_EMU`, written when the parser could
+ * only ever hand back p/blockquote/pre/hr. Widening `RichLine` to carry
+ * `heading` and `li` made that ternary silently indent every section title to
+ * the blockquote depth, with tsc, lint and the whole suite green — a heading is
+ * a structural marker, not an aside, and lining it up with a block quote is
+ * wrong. Pinned by "does not indent a heading line".
+ *
+ * ★ A list item indents PER DEPTH so nesting is visible; `p` stays flush.
+ */
+function pptxIndentFor(line: Exclude<SlideLine, string>): number | undefined {
+  if (line.kind === "p" || line.kind === "heading") return undefined;
+  if (line.kind === "li") return RICH_INDENT_EMU * (line.depth + 1);
+  return RICH_INDENT_EMU;
 }
 
 function buildContentSlide(title: string, lines: SlideLine[], lang: Lang): string {
