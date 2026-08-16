@@ -142,3 +142,67 @@ export function searchHistory(
   const page = matched.slice(0, limit).map((e) => ({ ...e, at: isoInZone(e.at, tz) }));
   return { events: page, truncated: matched.length > limit };
 }
+
+export const RECAP_WINDOW_DAYS = 7;
+
+export interface ActivitySummary {
+  total: number;
+  byActor: { user: number; ai: number; integration: number; unknown: number };
+  /** The newest matching entry's RAW UTC timestamp. ★ Never the offset-bearing
+   *  form — the renderer converts. Comparing offset strings across a DST
+   *  transition orders them wrongly, which is the trap `searchHistory`
+   *  documents at length. */
+  latestAt: string;
+}
+
+/**
+ * Counts activity in the trailing `days`-day window ending on `today`,
+ * inclusive of today, split by actor.
+ *
+ * ★ NO CLOCK. `today` and `tz` are parameters, matching `searchHistory` — so
+ *   this is immune to the calendar-rollover class that detonates date-dependent
+ *   tests on the morning the fixture date arrives (open-followups §149).
+ *
+ * ★ Returns null rather than a zeroed summary when nothing matched, so the
+ *   caller omits the prompt block entirely and a quiet project costs nothing.
+ */
+export function summarizeRecentActivity(
+  entries: readonly ActivityEntry[],
+  today: string,
+  tz: string,
+  days: number = RECAP_WINDOW_DAYS,
+): ActivitySummary | null {
+  // ★ `days - 1`: the window INCLUDES today, so 7 days is today plus 6 prior.
+  const start = new Date(`${today}T00:00:00Z`);
+  if (Number.isNaN(start.getTime())) return null;
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  const since = start.toISOString().slice(0, 10);
+
+  const byActor = { user: 0, ai: 0, integration: 0, unknown: 0 };
+  let total = 0;
+  let latestAt = "";
+
+  for (const entry of entries) {
+    // ★★ The entry's day IN THE PROJECT ZONE, not UTC's. In Berlin an edit at
+    //    00:30 local is stamped 22:30Z the previous day; filing it under UTC's
+    //    day disagrees with both the Activity panel and the `Today is …` date
+    //    the model is given.
+    const day = dayInZone(entry.timestamp, tz);
+    if (day === null || day < since || day > today) continue;
+    total += 1;
+    // ★ Own-property guard, never a bare index: the sanitizer KEEPS an
+    //   unknown-but-string actor, so `actor: "toString"` reaches here and a
+    //   bare `byActor[actor]` would resolve a Function.prototype method.
+    const actor = entry.actor;
+    if (actor !== undefined && Object.prototype.hasOwnProperty.call(byActor, actor)) {
+      byActor[actor as keyof typeof byActor] += 1;
+    } else {
+      byActor.unknown += 1;
+    }
+    // ★ Seeded `""`, which every real `toISOString()` stamp sorts above — so a
+    //   positive `total` can never carry an empty `latestAt`.
+    if (entry.timestamp > latestAt) latestAt = entry.timestamp;
+  }
+
+  return total === 0 ? null : { total, byActor, latestAt };
+}
