@@ -6328,7 +6328,7 @@ one-door-of-two shape this slice hit six times.
 
 ---
 
-## 105. CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row — open, silent data loss
+## 105. CSV section markers are matched on RAW LINES, so a newline inside a quoted cell can switch the parser's section mid-row — CLOSED 2026-08-16
 
 **Where:** `csv-codecs-decode.ts` `splitCsvSections`.
 
@@ -6341,19 +6341,33 @@ for (const line of lines) {
   // …25 more markers
 ```
 
-★ Count reproduce: `grep -c "trimmed.startsWith(CSV_SECTION" src/app/csv-codecs-decode.ts` → **26**,
-so 25 follow the one shown. (An earlier revision of this entry said "24 more", derived by eye.)
+★ Count reproduce: `grep -c "trimmed.startsWith(CSV_SECTION" src/app/csv-codecs-decode.ts` → **27**,
+so 26 follow the one shown. (An earlier revision of this entry said "24 more", derived by eye.)
 
 The section splitter runs over **physical text lines**, before the CSV tokenizer. A quoted cell
 legitimately contains newlines, so its continuation lands on its own physical line — and if that
 continuation begins with a section marker, `startsWith` fires and the parser switches section
 **mid-row**. The remainder of the row is appended to the wrong buffer and decodes as absent.
 
-**Measured, not reasoned** (found by `codec-roundtrip.property.test.ts`):
+**Measured, not reasoned** (four tasks, one carrying the hostile value):
 
 ```
-blockers: "step one\n# RAID\nstep two"   →   "step one"
+tasks in  : 4      tasks out : 1      ids out : [1]
+blockers  : "step one"              droppedRows : 0
 ```
+
+★★ THE ORIGINAL ENTRY'S FIXTURE HAD ONE TASK AND THAT HID THE REAL DAMAGE. It
+reported only `blockers` truncating. Tasks 2–4 are destroyed outright, and a
+one-task fixture passes against a fix that still misroutes the rest.
+
+★★★ THE ROWS ARE ABSORBED, NOT REJECTED, which is why `droppedRows` was 0
+despite `decodeCsvSection` counting every reject. The split leaves an orphan `"`
+at the head of the next buffer; `parseCsv` reads it as an opening quote and
+swallows the entire rest of the section into ONE cell, which `decodeCsvSection`
+then takes as its header row — so `build` is never called and nothing is ever
+rejected. Any detector built on reject-counting, or on "rows found vs entities
+produced", is structurally blind to this class. Two such detectors were designed
+and discarded before the unterminated-quote signal was measured.
 
 Silent: no throw, no `ImportDiag` entry, nothing in the UI. `trimStart()` means leading whitespace
 does not protect the value either.
@@ -6373,9 +6387,23 @@ and any imported / AI-written / backend-converted workspace can carry a newline 
 mechanism is proven; the claim that a UI writer actually puts a newline in `blockers` is argued, not
 traced — settle that before pricing a fix.
 
-**Pinned:** `codec-roundtrip.property.test.ts` holds the property this SHOULD satisfy, `describe.skip`ped
-with the measurement in the comment. Confirmed to fail by unskipping before the claim was made.
-Unskip it when fixing.
+**Fixed** by `splitCsvLines` (`csv-line-scan.ts`), which splits on a break only
+when outside a quoted cell. ★★ Its `text.replace(/\r?\n/g, "\r\n")` first step
+is LOAD-BEARING: the old raw-split/rejoin turned a newline inside a quoted cell
+into CRLF by accident, and the live round-trip property pins that
+(`taskName: csvNewlines(v.taskName)`), so a splitter that keeps the cell intact
+without normalizing first turns those tests red. ★ A bare `\r` is deliberately
+untouched — `split(/\r?\n/)` did not break on one either, and normalizing it
+would collide with §106.
+
+**Reachability, now traced** (the entry previously flagged this as argued):
+`blockers` is a `<textarea>` in `task-form-fields.tsx`, an inline textarea in
+`task-row.tsx` (`renderInlineTextarea`), and an AI-writable field via
+`use-chat-dispatcher.ts`. Pressing Enter is sufficient.
+
+**Pinned:** `codec-roundtrip.property.test.ts` holds the property this satisfies, live and
+unskipped since `3de672bb`, alongside a losslessness property and a no-line-ends-mid-quote
+property.
 
 ---
 
