@@ -53,7 +53,7 @@ import * as jiraApi from "./jira-api";
 
 // ── Shared fixtures ──────────────────────────────────────────────────────────
 const showToast = vi.fn();
-const logActivity = vi.fn();
+const logActivityAs = vi.fn();
 
 const baseSettings = {
   jira: {
@@ -97,7 +97,7 @@ function makeProbe(
       today: overrides.today ?? "2026-05-20",
       lang: "en-US",
       showToast,
-      logActivity,
+      logActivityAs,
       onJiraAuthResult: overrides.onJiraAuthResult,
     });
     const { tasks } = useWorkspace();
@@ -184,7 +184,11 @@ describe("useJiraSync — handleJiraSync", () => {
     await act(async () => { await result.current.handleJiraSync(); });
 
     expect(result.current.currentTasks[0].taskName).toBe("Remote name");
-    expect(logActivity).toHaveBeenCalled();
+    // The sync summary is stamped with the "integration" actor: `actor` names the
+    // subsystem that AUTHORED the data, not whether a gesture started the run.
+    // Args are exact for this fixture — one remote issue pulled onto one local
+    // task, so `added + pulled` = 1, nothing pushed, no conflicts.
+    expect(logActivityAs).toHaveBeenCalledWith("integration", "jira.sync", 1, 0, 0);
     expect(result.current.currentTasks[0].lastSyncedAt).toBeDefined();
     expect(result.current.currentTasks[0].lastSyncedAt).not.toBe("2026-01-01T00:00:00");
   });

@@ -583,7 +583,7 @@ function TaskManagerInner() {
     today,
     lang,
     showToast,
-    logActivity,
+    logActivityAs,
     onJiraAuthResult: (ok: boolean) =>
       setSettings((s) => ({ ...s, jira: { ...s.jira, tokenInvalidAt: ok ? undefined : new Date().toISOString() } })),
   });
