@@ -415,6 +415,7 @@ const enUS = {
   projectCreatedToast: "Created project {0}.",
   projectLoadedToast: "Loaded project {0}.",
   importDroppedRowsWarning: "{0} invalid row(s) in the file were skipped during import.",
+  importUnbalancedQuotesWarning: "The file has an unclosed quotation mark, so some rows may be missing. Check the file before saving over it.",
   projectSwitchNotFound: "That project is no longer in your portfolio.",
   projectSwitchHandleMissing:
     "Couldn't find the file for that project — re-open it from a file.",
