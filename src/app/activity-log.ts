@@ -83,6 +83,17 @@ export interface FieldChange {
   to: string;
 }
 
+/** Who caused an entry.
+ *
+ *  ★★★ There is deliberately no "system" member. No writer could produce one
+ *  today, and a value nothing emits is a value nothing tests — the same
+ *  objection that makes a decorative field worse than no field.
+ *
+ *  ★★ The TS type is a closed union while `sanitizeActivityEntry` admits ANY
+ *  string, exactly as `kind: ActivityKind` already does. Any lookup keyed on
+ *  actor therefore needs an own-property guard, never a bare index. */
+export type ActivityActor = "user" | "ai" | "integration";
+
 export interface ActivityEntry {
   /** Globally unique: `"<deviceId>-<sessionNonce>-<counter>"`. Was a number,
    *  monotonic only within ONE device's log — which is exactly why two
@@ -102,6 +113,10 @@ export interface ActivityEntry {
   kind: ActivityKind;
   /** Positional args interpolated into the i18n message at render time. */
   args: (string | number)[];
+  /** Who caused this entry. ABSENT on every entry written before the B2b
+   *  release, and absence is NOT "user" — those entries have a genuinely
+   *  unknown actor. Never default it at read time. */
+  actor?: ActivityActor;
   /** Optional per-field diff for UPDATE events (audit detail). Omitted when the
    *  update produced no field changes. */
   changes?: readonly FieldChange[];
@@ -374,6 +389,8 @@ export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
  * IS dropped — `activityGroupOf` calls `kind.startsWith`, and there is nothing
  * honest to display. A malformed `changes` payload is stripped while the entry
  * itself is kept: the audit record is still real, only its diff detail is not.
+ * A non-string `actor` makes the same trade for the same reason, while a string
+ * one this release does not know is KEPT, exactly as an unknown `kind` is.
  *
  * ★ An untouched entry is returned BY REFERENCE and a repaired one is built by
  * SPREAD, never from a known-field list — a field a newer release adds to
@@ -382,17 +399,30 @@ export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
  */
 export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   if (!v || typeof v !== "object") return null;
-  const e = v as { id?: unknown; timestamp?: unknown; kind?: unknown; args?: unknown; changes?: unknown };
+  const e = v as {
+    id?: unknown; timestamp?: unknown; kind?: unknown; args?: unknown;
+    changes?: unknown; actor?: unknown;
+  };
   if (typeof e.id !== "string" || e.id.length === 0) return null;
   if (typeof e.timestamp !== "string") return null;
   if (typeof e.kind !== "string") return null;
   if (!Array.isArray(e.args)) return null;
-  if (e.changes === undefined) return v as ActivityEntry;
-  const changes = sanitizeChanges(e.changes);
-  if (changes) return { ...(v as ActivityEntry), changes };
-  const stripped: Record<string, unknown> = { ...(v as object) };
-  delete stripped.changes;
-  return stripped as unknown as ActivityEntry;
+
+  // ★★ The early return guards on BOTH repairs. Keeping it at `changes ===
+  // undefined` alone would return a hostile actor untouched whenever `changes`
+  // happened to be absent — the COMMON case, so the bug would be invisible in
+  // most fixtures.
+  const actorBad = e.actor !== undefined && typeof e.actor !== "string";
+  if (e.changes === undefined && !actorBad) return v as ActivityEntry;
+
+  const repaired: Record<string, unknown> = { ...(v as object) };
+  if (actorBad) delete repaired.actor;
+  if (e.changes !== undefined) {
+    const changes = sanitizeChanges(e.changes);
+    if (changes) repaired.changes = changes;
+    else delete repaired.changes;
+  }
+  return repaired as unknown as ActivityEntry;
 }
 
 /**

@@ -290,30 +290,76 @@ describe("sanitizeActivityEntry — forward compatibility", () => {
   // test can tell the two apart: rebuilding `{id, timestamp, kind, args}` from
   // the known-field list passes every other assertion in the suite while
   // silently DROPPING any field a newer release added. Concretely — release N+1
-  // adds `ActivityEntry.actor`; an N client loads a shared project whose entry
-  // carries `actor` AND a malformed `changes`; the rebuild drops `actor` and
-  // the next autosave writes the truncated entry back over everyone's copy.
-  // Same reasoning as the unknown-`kind` rule on the same function: an older
-  // client must never delete what it does not understand.
+  // adds a field; an N client loads a shared project whose entry carries it AND
+  // a malformed `changes`; the rebuild drops the field and the next autosave
+  // writes the truncated entry back over everyone's copy. That is not
+  // hypothetical: `actor` shipped exactly this way, and this test is what made
+  // an older client keep it. Same reasoning as the unknown-`kind` rule on the
+  // same function: an older client must never delete what it does not
+  // understand.
+  //
+  // ★★ The probe field must be one NO release knows. It used to be `actor`,
+  // which stopped proving anything the moment `actor` joined `ActivityEntry`:
+  // a rebuild-from-field-list would then have listed it, and the test would
+  // have passed against the very mutant it exists to kill.
   test("keeps an unknown field while stripping a malformed `changes`", () => {
     const stored = {
       id: "e1",
       timestamp: "2026-06-02T00:00:00.000Z",
       kind: "task.updated",
       args: ["T"],
-      actor: "a-future-field",
+      futureField: "a-future-field",
       changes: "not-an-array",
     };
-    const out = sanitizeActivityEntry(stored) as ActivityEntry & { actor?: string };
+    const out = sanitizeActivityEntry(stored) as ActivityEntry & { futureField?: string };
     expect(out).not.toBeNull();
     // The forward-compat half: the unknown field survives the repair.
-    expect(out.actor).toBe("a-future-field");
+    expect(out.futureField).toBe("a-future-field");
     // The repair half: the malformed payload is gone, not merely falsy.
     expect("changes" in out).toBe(false);
     // The known fields are untouched by the spread.
     expect(out.id).toBe("e1");
     expect(out.kind).toBe("task.updated");
     expect(out.args).toEqual(["T"]);
+  });
+});
+
+describe("sanitizeActivityEntry — actor", () => {
+  const base = { id: "d-1-1", timestamp: "2026-08-16T10:00:00.000Z", kind: "task.created", args: [1, "x"] };
+
+  test("round-trips a known actor", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: "ai" });
+    expect(out?.actor).toBe("ai");
+  });
+
+  // ★ The forward-compat rule: the log is SHARED workspace data and autosave
+  //   writes loaded state straight back, so an older client that dropped an
+  //   actor a newer release wrote would strip it from the shared project.
+  test("KEEPS an unknown-but-string actor", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: "reviewer" });
+    expect((out as { actor?: string } | null)?.actor).toBe("reviewer");
+  });
+
+  test("strips a non-string actor but keeps the entry", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: { evil: true } });
+    expect(out).not.toBeNull();
+    expect(out?.actor).toBeUndefined();
+    expect(out?.kind).toBe("task.created");
+  });
+
+  // ★★ Absence is NOT "user". Pre-field entries have a genuinely unknown
+  //    actor; defaulting them would assert the AI's past writes were the
+  //    user's, in the one record the model is told to trust.
+  test("leaves an absent actor absent, never defaulting it to user", () => {
+    const out = sanitizeActivityEntry(base);
+    expect(out?.actor).toBeUndefined();
+  });
+
+  test("strips a malformed actor while ALSO stripping malformed changes", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: 7, changes: "nope" });
+    expect(out).not.toBeNull();
+    expect(out?.actor).toBeUndefined();
+    expect(out?.changes).toBeUndefined();
   });
 });
 
