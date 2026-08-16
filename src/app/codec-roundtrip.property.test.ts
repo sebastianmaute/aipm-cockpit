@@ -26,11 +26,15 @@
 
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
-import { workspaceToCsv, csvToWorkspace } from "./csv-codecs";
+import { workspaceToCsv, csvToWorkspace, parseCsv } from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import { emptyWorkspace } from "./workspace";
 import type { Task } from "./types";
-import { splitCsvLines, quoteStep } from "./csv-line-scan";
+// ★★★ `quoteStep` is DELIBERATELY NOT IMPORTED. It is the helper BOTH scanners
+// under test are built on, so an oracle written with it cannot disagree with
+// them — see the tautology note in the last describe block. Do not add it back
+// to make an assertion "simpler".
+import { splitCsvLines } from "./csv-line-scan";
 
 /*
  * EXCLUSIONS — task fields NOT asserted to round-trip, with the reason. Every
@@ -541,29 +545,53 @@ describe.skip("Markdown codec — one pass must be a fixed point on any string",
 describe("csv-line-scan and parseCsv agree about quoting", () => {
   // ★★★ THE ALPHABET IS THE PROPERTY. `fc.string()` in this project's
   // fast-check (4.8.0) emits PRINTABLE ASCII ONLY. Measured by counting inside
-  // the property, not assumed: over 500 runs, 36 strings contained a `"` and
-  // NOT ONE contained `\n` or `\r`, so `splitCsvLines` returned a single line
-  // every time. Both properties below are about what happens at a line break
-  // inside a quoted cell, so on `fc.string()` the first degenerated to `s === s`
-  // and the second held trivially. Every generator here therefore builds its
-  // string from an explicit hostile alphabet; `fc.stringOf` does not exist in
-  // 4.8.0, so it is `fc.array(...).map(join)`.
+  // the property, not assumed: NOT ONE generated string contained `\n` or `\r`
+  // (0 of 2000), so `splitCsvLines` returned a single line every time. Both
+  // properties below are about what happens at a line break inside a quoted
+  // cell, so on `fc.string()` the first degenerated to `s === s` and the second
+  // held trivially. Every generator here therefore builds its string from an
+  // explicit hostile alphabet; `fc.stringOf` does not exist in 4.8.0, so it is
+  // `fc.array(...).map(join)`.
+  //
+  // ★★ THAT `0 of 2000` IS THE ONLY COUNT THIS BLOCK MAY QUOTE, and the reason
+  // is a difference in KIND, not in size: it is a zero, and it falls out of the
+  // generator's character range rather than out of a seed. Every code point
+  // `fc.string({maxLength:200})` produced over those 2000 runs lay in 32..126 —
+  // reproduce with this ONE line (it prints `4.8.0 32 126 0`):
+  // node -e "const fc=require('fast-check');let lo=1e6,hi=0,nl=0;fc.assert(fc.property(fc.string({maxLength:200}),s=>{if(/[\r\n]/.test(s))nl++;for(const c of s){const p=c.codePointAt(0);if(p<lo)lo=p;if(p>hi)hi=p}return true}),{numRuns:2000});console.log(fc.__version,lo,hi,nl)"
+  // Every OTHER census figure that has stood in this block was a nonzero count
+  // over a seed `fc.assert` was never given, so it was unreachable on the next
+  // run — and each was eventually retracted. ★★ TWO OF THEM WERE INTRODUCED BY
+  // THE VERY COMMIT THAT RETRACTED THEIR PREDECESSOR, which is why this warning
+  // is phrased as a prohibition rather than a correction: `3de672bb` wrote a
+  // "500 runs, 164 discarded" census, and `1306ea4a` retracted it AND added two
+  // fresh unreproducible figures in the same change — a count of strings
+  // containing a quote, and a headroom multiple on the floor below. Both were
+  // re-measured by a later reviewer and both were wrong. Reproduce the overlap
+  // with `git log --oneline -S"164 were discarded" -- src/app/codec-roundtrip.property.test.ts`
+  // and the same for `-S"5× headroom"`; they name the same commit.
+  // ★ No replacement figure is quoted here on purpose — writing "the real number
+  // is N" is the identical mistake one round later. Assert a floor instead.
   const csvHostileString = fc
     .array(fc.constantFrom("a", '"', ",", "\r\n", "\n", "\r", "#"), { maxLength: 40 })
     .map((chars) => chars.join(""));
 
-  // ★ The scanner and the tokenizer are separate loops. THIS is what
-  // guarantees they cannot drift — not the shared `quoteStep` helper, which is
-  // only a mitigation.
-  //
+  /** The oracle for "is the scan closed here", written as ARITHMETIC so it can
+   *  share no code with either scanner. It is EXACT, not an approximation:
+   *  quote-state changes only at a `"`, a doubled quote consumes two characters
+   *  without changing state and a lone quote consumes one and toggles, so the
+   *  state after any prefix is `start XOR (the number of '"' seen is odd)`.
+   *  Hence closed ⟺ an even number of quotes. */
+  const evenQuotes = (s: string) => (s.match(/"/g)?.length ?? 0) % 2 === 0;
+
   // ★★★ THE TRAILING `expect`s ARE NOT INSTRUMENTATION — they are the guard
   // that keeps this property honest, and they replace a prose census that
   // nothing could reproduce. A comment claiming "N runs split" rots silently the
-  // moment the alphabet is edited; a floor goes RED. No seed is pinned (see the
-  // note on the sibling property), so the floors sit far below what is actually
-  // observed — the tightest has ~5× headroom — and cannot flake on an unlucky
-  // seed. Re-measure by counting into a `console.log` if you change the
-  // alphabet; do not tighten a floor to the number you happen to see.
+  // moment the alphabet is edited; a floor goes RED. No seed is pinned, so every
+  // floor sits far below the observed rate and cannot flake on an unlucky seed.
+  // Re-measure by counting into a `console.log` if you change the alphabet; do
+  // not tighten a floor to the number you happen to see, and do not write the
+  // number you saw into this comment.
   it("splitCsvLines is lossless on any string", () => {
     let multiLine = 0;
     let quoted = 0;
@@ -585,55 +613,161 @@ describe("csv-line-scan and parseCsv agree about quoting", () => {
   // That is VACUOUS: the property above says rejoining REPRODUCES the
   // normalized input, so such a test compares a value with itself and cannot
   // fail for any implementation. It was written that way first and caught in
-  // review. The real invariant is that a line never ENDS mid-quote when the
-  // document as a whole is balanced — which is precisely what a naive splitter
-  // violates.
+  // review. The real invariant is that a line never ENDS mid-quote — which is
+  // precisely what a naive splitter violates.
   //
   // ★★★ `fc.string({maxLength:200})` is ALSO vacuous here: every surviving run
-  // contained no `"` at all, so `quoteStep` never returned non-null and the
+  // contained no `"` at all, so no quote state was ever entered and the
   // assertion held trivially. Hence `csvHostileString` above.
   //
-  // ★★★ THE CENSUS THAT USED TO SIT HERE WAS UNREPRODUCIBLE, AND ITS FRAMING
-  // WAS WRONG TWICE OVER. It read "of 500 runs, 164 were discarded". First,
-  // `fc.assert` is passed no `seed`, so fast-check picks a fresh one per run and
-  // those figures were never reachable again — two later instrumented runs
-  // measured 272/755 and 255/500. Second, `numRuns` counts SURVIVING runs;
-  // fast-check keeps generating past a `fc.pre` rejection, so the shape is "500
-  // survivors PLUS some number discarded", never "164 of 500".
-  // ★★ THE FIX IS THE FLOORS BELOW, NOT A PINNED SEED. A seed would make the
-  // prose reproducible while leaving it prose — and it would freeze this
-  // property on one 500-case sample forever, which this file's header warns
-  // against (every property here was stress-run at numRuns 1500 while being
-  // written, and that is how the second defect was found). An asserted floor
-  // holds under EVERY seed and goes red if the alphabet is ever edited back
-  // into vacuity. Do not reintroduce a number in prose here.
-  it("never ends a line inside a quote when the document is balanced", () => {
-    let balancedAndQuoted = 0;
+  // ★★★ AND SO WAS THE ORACLE, WHICH IS THE HARDER TRAP OF THE TWO — the
+  // alphabet was fixed first and this property stayed unkillable afterwards. It
+  // re-walked each line with the SAME `quoteStep` that `splitCsvLines` had used
+  // to choose the break points, restarting at `inQuotes = false` per line. But
+  // `splitCsvLines` only ever breaks while its OWN `inQuotes` is false, so a
+  // per-line restart replays the implementation's exact state trajectory: the
+  // walk ended `false` on every non-final line for ANY `quoteStep` whatsoever,
+  // and `fc.pre(!unterminatedQuote)` discarded the one line that could have
+  // differed. Three planted `quoteStep` mutants each left it green.
+  //
+  // ★★★ THE ORACLE IS NOW ARITHMETIC (`evenQuotes`, defined above) and shares no
+  // code with either scanner. ★★ It is not a weaker approximation of the walk —
+  // it is exactly equivalent to it, for the reason given on `evenQuotes`. ★ The
+  // one thing it is structurally blind to is a change that preserves quote
+  // PARITY, which is why the doubled-quote rule is pinned separately below.
+  //
+  // ★★ `fc.pre` IS GONE ON PURPOSE. Discarding unbalanced documents threw away
+  // the only line whose end-state could differ from the implementation's, and it
+  // made the census figures unreadable ("500 survivors PLUS an unknown number
+  // discarded", never "N of 500" — an earlier comment here got that backwards).
+  // Asserting the LAST line's parity against `unterminatedQuote` keeps all 500
+  // runs, pins the returned flag, and makes a mutant that mis-splits an
+  // unbalanced document fail without needing a lucky balanced counterexample.
+  it("never ends a line inside a quote, and reports an unbalanced document", () => {
+    let quoted = 0;
     let multiLine = 0;
+    let unterminated = 0;
     fc.assert(
       fc.property(csvHostileString, (s) => {
         const { lines, unterminatedQuote } = splitCsvLines(s);
-        fc.pre(!unterminatedQuote);
-        if (s.includes('"')) balancedAndQuoted++;
+        if (s.includes('"')) quoted++;
         if (lines.length > 1) multiLine++;
-        for (const line of lines) {
-          let inQuotes = false;
-          let i = 0;
-          while (i < line.length) {
-            const step = quoteStep(line, i, inQuotes);
-            if (step) {
-              inQuotes = step.inQuotes;
-              i = step.next;
-            } else i++;
-          }
-          expect(inQuotes).toBe(false);
+        if (unterminatedQuote) unterminated++;
+        for (let i = 0; i < lines.length - 1; i++) {
+          expect(evenQuotes(lines[i]), `line ${i} of ${JSON.stringify(s)}`).toBe(true);
         }
+        // The final line has no terminator, so it is the one line allowed to end
+        // open — and it must do so EXACTLY when the scanner said so.
+        expect(
+          evenQuotes(lines[lines.length - 1]),
+          `final line of ${JSON.stringify(s)}`,
+        ).toBe(!unterminatedQuote);
       }),
       { numRuns: 500 },
     );
-    // The cases that matter: a balanced quoted cell that spans physical lines is
-    // the exact shape §105 broke. Floors, not equalities — see above.
-    expect(balancedAndQuoted).toBeGreaterThan(10);
-    expect(multiLine).toBeGreaterThan(50);
+    // The cases that matter: a quoted cell spanning physical lines is the exact
+    // shape §105 broke. Floors, not equalities — see above.
+    expect(quoted, "runs whose input contained a quote").toBeGreaterThan(50);
+    expect(multiLine, "runs that produced more than one line").toBeGreaterThan(50);
+    expect(unterminated, "runs whose document ended mid-quote").toBeGreaterThan(20);
+  });
+
+  // ★★★ THE BLOCK IS NAMED FOR AN AGREEMENT AND UNTIL NOW NOTHING TESTED IT —
+  // `parseCsv` was not imported, so the drift the header comment warns about was
+  // pinned by nothing at all. These two properties are that cross-check.
+  //
+  // ★ This is NOT the vacuous shape warned against above. That one compared
+  // `parseCsv(x)` with `parseCsv(x)` for one x; this compares `parseCsv` of the
+  // WHOLE document with the CONCATENATION of `parseCsv` over the individual
+  // lines — a claim about WHERE `parseCsv` ends a row, which can and does fail.
+  // Measured against the §105 regression, planted as a mutant that drops the
+  // `!inQuotes` guard from the break site so every physical CRLF ends a line: a
+  // quoted cell spanning two physical lines then yields ONE row on the left and
+  // TWO on the right, and this property goes red.
+  //
+  // ★★★ IT IS ONE-DIRECTIONAL, AND CALLING IT "the two cannot drift" WOULD BE
+  // THE OVERCLAIM THIS BLOCK KEEPS MAKING. Both sides call `parseCsv`, so a
+  // change to the TOKENIZER moves them together and cancels. Measured, not
+  // reasoned: a mutant letting a CRLF end a row INSIDE a quoted cell — the
+  // textbook scanner/tokenizer disagreement — leaves this property GREEN, and so
+  // does one that stops treating a bare CR as a row terminator. It sees the
+  // `splitCsvLines` side only. The escaper property below is what catches the
+  // first of those two; nothing here catches the second.
+  //
+  // ★★ It compares against the NORMALIZED document, not `s`. `splitCsvLines`
+  // rewrites `\r?\n` to `\r\n` before scanning (that step is load-bearing — see
+  // its own header), so the lines it returns describe the normalized text; the
+  // property above already pins that rejoining them reproduces it exactly.
+  it("parseCsv ends a row exactly where splitCsvLines ends a line", () => {
+    fc.assert(
+      fc.property(csvHostileString, (s) => {
+        const normalized = s.replace(/\r?\n/g, "\r\n");
+        const { lines } = splitCsvLines(s);
+        // ★ Every line but the last is followed by a terminator IN THE DOCUMENT,
+        // and a terminator always closes a row, while `parseCsv` drops a
+        // trailing empty row (`buf.length > 0 || row.length > 0`). Re-terminate
+        // the non-final lines or the two sides disagree on every input whose
+        // line ends empty — which is not a defect, just a different question.
+        const perLine = lines.flatMap((line, i) =>
+          i < lines.length - 1 ? parseCsv(line + "\r\n") : parseCsv(line),
+        );
+        expect(parseCsv(normalized)).toStrictEqual(perLine);
+      }),
+      { numRuns: 500 },
+    );
+  });
+
+  // ★★★ NO TEST OF `splitCsvLines` CAN EVER SEE THE DOUBLED-QUOTE RULE, and
+  // that is a theorem, not a gap in the assertions above. Deleting the branch
+  // makes a doubled quote TWO toggles instead of one skip — same end state, same
+  // index — and every position inside a run of quotes is consumed by `quoteStep`
+  // itself, so the CRLF check is never reached there and no break point can
+  // move. Measured against the real module, not only argued: a sha256 over
+  // `{lines, unterminatedQuote}` for every string of length ≤ 6 built from this
+  // alphabet (7 symbols, so sum(7^d) for d in 0..6 = 137257 cases) is BYTE-
+  // IDENTICAL with the branch deleted, while the same fingerprint moves for
+  // every other mutant tried. Re-derive it rather than trusting this line — a
+  // fingerprint over an exhaustive corpus is the only thing that separates
+  // "equivalent mutant" from "missing test", which look identical from the
+  // harness, and it is a dozen lines of throwaway script. The
+  // parity oracle above is blind to it for the same reason, and the boundary
+  // property compares `parseCsv` with `parseCsv`, so a change to the rule moves
+  // both sides together.
+  //
+  // ★★ So the rule is only observable through what a CELL ends up containing,
+  // and the missing oracle is an ESCAPER — written from scratch here, sharing no
+  // code with the codec — saying what the cells were before they were encoded.
+  // Without it, deleting the branch is killed in this file only by the
+  // whole-workspace round-trip at the top, which reports a task field that no
+  // longer matches rather than a quoting rule that changed.
+  //
+  // ★★ It is also the ONLY property here that sees a TOKENIZER-side change: it
+  // is the sole killer of a mutant letting a CRLF end a row inside a quoted
+  // cell, which every other property in this block passes.
+  const csvCell = fc.constantFrom("", "a", '"', 'x"y', '""', ",", "\r\n", "\n", "\r", "a,b", "#");
+  /** RFC 4180: wrap every cell, double every quote inside it. */
+  const escapeCell = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+  it("parseCsv recovers every cell an RFC-4180 escaper produced", () => {
+    let quotedCells = 0;
+    fc.assert(
+      fc.property(
+        fc.array(fc.array(csvCell, { minLength: 1, maxLength: 3 }), {
+          minLength: 1,
+          maxLength: 3,
+        }),
+        (rows) => {
+          // ★ `parseCsv` DROPS a trailing row whose only cell is empty, because
+          // its tail guard is `buf.length > 0 || row.length > 0` and an empty
+          // quoted cell contributes neither. Real, and not what this pins — so
+          // the document always ends on a non-empty sentinel row.
+          const all = [...rows, ["z"]];
+          for (const row of all) for (const c of row) if (c.includes('"')) quotedCells++;
+          const doc = all.map((r) => r.map(escapeCell).join(",")).join("\r\n");
+          expect(parseCsv(doc)).toStrictEqual(all);
+        },
+      ),
+      { numRuns: 300 },
+    );
+    expect(quotedCells, "generated cells containing a quote").toBeGreaterThan(50);
   });
 });
