@@ -360,6 +360,89 @@ describe("ActivityLogPanel", () => {
     expect(screen.queryByText(/Made by Outlook/)).toBeNull();
   });
 
+  // ★★★ THE "USER" OPTION AGAINST REAL DATA, and it is a different claim from
+  // the AI case above. That option was DEAD until the actor-stamping slice: no
+  // production call site wrote `actor: "user"` at all, so selecting it emptied
+  // the table for every project ever created. What made it live was a data-layer
+  // change, and it was proved at the data layer only — nothing had rendered this
+  // panel against a log containing a `"user"` row.
+  //
+  // ★★★ THE ACTOR-LESS ROW IS THE POINT, not decoration. `actor` is optional and
+  // its absence is NOT "user": a pre-release entry, or one written by a path
+  // that cannot see its cause (`task-manager`'s debounced settings logger), has
+  // a genuinely unknown origin. A filter written as `e.actor !== "ai"`, or one
+  // defaulting an absent actor to "user", passes every AI-filter assertion above
+  // and silently attributes anonymous history to the person reading it — which
+  // is worse than showing nothing, because it reads as a fact.
+  it("filters to user-initiated rows, excluding the actor-less ones", async () => {
+    const user = userEvent.setup();
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "u1", kind: "task.created", args: ["Typed by hand"], actor: "user" }),
+          entry({ id: "u2", kind: "task.created", args: ["Written by the AI"], actor: "ai" }),
+          entry({ id: "u3", kind: "task.created", args: ["Pulled from Outlook"], actor: "integration" }),
+          entry({ id: "u4", kind: "task.created", args: ["Origin unknown"] }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    // ★ CONTROL: unfiltered, all four are on screen — so the exclusions below
+    //   cannot pass because a row never rendered in the first place.
+    for (const msg of [/Typed by hand/, /Written by the AI/, /Pulled from Outlook/, /Origin unknown/]) {
+      expect(screen.getByText(msg)).toBeInTheDocument();
+    }
+
+    const group = screen.getByRole("radiogroup", { name: t("en-US", "activityHeaderActor") });
+    await user.click(
+      within(group).getByRole("radio", { name: t("en-US", "activityActorUser") }),
+    );
+
+    expect(screen.getByText(/Typed by hand/)).toBeInTheDocument();
+    expect(screen.queryByText(/Written by the AI/)).toBeNull();
+    expect(screen.queryByText(/Pulled from Outlook/)).toBeNull();
+    expect(screen.queryByText(/Origin unknown/)).toBeNull();
+  });
+
+  // ★★ The surviving row must still render as a USER row — a filter that kept
+  //    the right row while the cell rendered a dash would mean the column and
+  //    the filter disagree about the same entry, and only one of them can be
+  //    right. Asserts the CELL, scoped to the row, since the label also appears
+  //    in the filter's own radio.
+  it("shows the actor cell, not a dash, on the row the User filter keeps", async () => {
+    const user = userEvent.setup();
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "u5", kind: "task.created", args: ["Typed by hand"], actor: "user" }),
+          entry({ id: "u6", kind: "task.created", args: ["Origin unknown"] }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    const cellOf = (message: string) => {
+      const row = screen
+        .getAllByRole("row")
+        .find((r) => (r.textContent ?? "").includes(message));
+      expect(row, `no row for ${message}`).toBeDefined();
+      // timestamp · kind · actor · message
+      return Array.from(row!.querySelectorAll("td"))[2]?.textContent ?? "";
+    };
+    // Before filtering: the pair the filter has to tell apart.
+    expect(cellOf("Typed by hand")).toBe(t("en-US", "activityActorUser"));
+    expect(cellOf("Origin unknown")).toBe("—");
+
+    await user.click(
+      within(
+        screen.getByRole("radiogroup", { name: t("en-US", "activityHeaderActor") }),
+      ).getByRole("radio", { name: t("en-US", "activityActorUser") }),
+    );
+    expect(cellOf("Typed by hand")).toBe(t("en-US", "activityActorUser"));
+    expect(screen.queryByText(/Origin unknown/)).toBeNull();
+  });
+
   // ★★ The two filters must COMPOSE, not override — the memo applies them in
   // sequence. A cut that reassigned `result` from `enriched` in the second
   // clause would drop the first, and each filter alone would still look right.
