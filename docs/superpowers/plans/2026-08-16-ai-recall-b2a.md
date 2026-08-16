@@ -825,3 +825,64 @@ Report the actual numbers — tests passed, coverage percentages, the final line
 - An ambient recent-activity recap (B2b).
 - A `source` discriminator on events — one source, so YAGNI.
 - Any version bump, changelog entry, push, MR or merge. Those happen only on an explicit instruction.
+
+---
+
+## Corrections discovered during implementation
+
+The tasks above are left as written — this plan is a record of what was PLANNED, not of what shipped.
+These are the claims implementation disproved. Each was re-verified against the tree at `7f13bf77`
+before being listed here; where a claim admits a command, the command is given. Every line below is a
+NEW claim and inherits none of the verification of the thing it corrects — re-run the command rather
+than trusting the sentence.
+
+1. **`activityLog` is NOT unbounded.** The plan justified keeping it off `getSnapshot()` by calling the
+   log unbounded. It is capped at `ACTIVITY_MAX_ENTRIES` (500), enforced in three places —
+   `sanitizeActivityLog` on load, `appendActivityEntry` on write (which `appendActivity` delegates to)
+   and `mergeActivityLogs` on merge. The DESIGN DECISION is unchanged and the guard stays; only the
+   justification was wrong, and it now reads "500 entries × up to `MAX_FIELD_CHANGES` diffs is too much
+   for every snapshot read". A false justification is worse than none: the next reader discovers the cap
+   and deletes the guard as cargo-cult.
+   `grep -rn "ACTIVITY_MAX_ENTRIES" src/app --include="*.ts" | grep -v "\.test\."`
+
+2. **Task 2's kind-filter test would have FAILED as written.** It asserted
+   `expect(r.events[0].summary).toContain("Milestone")`, but the EN string behind `milestone.deleted` is
+   `activityMilestoneDeleted` = `"Deleted milestone #{0}"` — **lowercase** m, and `toContain` is
+   case-sensitive.
+   `grep -n "activityMilestoneDeleted" src/app/i18n.ts src/app/activity-log.ts`
+
+3. **Task 2's 250-entry fixture collapses to 60 distinct timestamps.** `String(i % 60)` in the seconds
+   field repeats every 60 entries, so the fixture carries ~4 entries per timestamp. The three assertions
+   in that specific test are length-only, so it would have PASSED — the defect is latent, not a failure:
+   any order-sensitive assertion added to that fixture later would rest on the JS engine's sort
+   STABILITY rather than on `searchHistory`'s comparator, and would go on passing with the comparator
+   broken.
+
+4. **Task 4's malformed-args test was VACUOUS for `kinds`.** It ran against
+   `makeDispatcher({ getActivityLog: () => [] })`, and on an empty log `{events: [], truncated: false}` is
+   the correct result whether the coercion works or not. The `kinds` guard is the one that matters —
+   without it a string reaches `new Set(q.kinds)` and iterates into a set of characters — and only a
+   POPULATED log can observe it. Caught by mutation; the shipped suite covers it on a real log.
+
+5. **Task 5's `acted()` fixture encodes the delta convention BACKWARDS.** It paired
+   `direction: "improved"` with `baseline: 9, current: 3, delta: -6`. `InsightOutcome.delta` is
+   `baseline − current`, so the arithmetic gives **`+6`**, and positive means BETTER (all insight metrics
+   are lower-is-better). Wrong twice over — the sign contradicts both the formula and the direction. It
+   typechecks, so it would have shipped as the reference example teaching the inverse convention. (The
+   field doc uses a Unicode minus, so grep for the word instead:
+   `grep -n "Positive" src/app/insights/insight.ts`.)
+
+6. **Task 5's Step 4 claim about `chat-api.system-prompt.test.ts` was FALSE.** Step 4 said that test
+   "must still show the block in the **uncached** section — if it fails, the block was moved, not grown".
+   That file asserted nothing about the insights block: it pinned the cache breakpoint for the tools,
+   view-scope and digest blocks only, so it could not have failed for that reason. A
+   `"puts both insight sections in the UNCACHED block, never the cached one"` test was added to close the
+   gap — the file's own header comment now records that it had been "repeatedly cited as covering the
+   insights block too".
+
+7. **Task 3's Step 5 line-count prediction was low.** It predicted `chat-tools.ts` "near 776 of 800"; it
+   landed at **791** (9 lines of headroom), and `chat-tool-defs.ts` at **631**, not "near 630". Measured
+   with the gate's own counter, which is `wc -l` **+ 1**:
+   `node -e "console.log(require('fs').readFileSync('src/app/chat-tools.ts','utf8').split('\n').length)"`
+   The stale 763/596 figures in `docs/AGENTS/ai-assistant.md` were corrected in the same commit as this
+   section.

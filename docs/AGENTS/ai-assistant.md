@@ -106,8 +106,12 @@
   `ai-dashboard-snapshot.ts`) and read-only `list_allocations` (planner grid) — both zero-arg, NO `isReadOnly`
   guard (reads) — plus the write tool `set_task_dependencies`. Derived data reaches the dispatcher as
   un-memoized GETTERS on `ChatDispatcherArgs` (`getDashboardModel`/`getBudgetRollup`/`getAllocationsSnapshot`),
-  each read through its own ref so the dispatcher `useMemo` dep array stays `[args.isReadOnly]` and an unused
-  read tool costs nothing per render. Build the getter in `task-manager.tsx` beside the others.
+  each read through its own ref so an unused read tool costs nothing per render. Build the getter in
+  `task-manager.tsx` beside the others. ★ This used to say the dep array "stays `[args.isReadOnly]`", which
+  is no longer true — it is `[args.isReadOnly, documentTools]`, because `documentTools` is a REAL dep rather
+  than a ref-routed value (a `useMemo`'d object captured by the spread, whose identity must change when a
+  popout toggles read-only). The RULE — route reactive values through refs, do not add them as deps — is
+  what survives; verify the literal array in `use-chat-dispatcher.ts` rather than trusting a quoted one.
   ★★ **REPLACE-SEMANTICS TOOLS: OMISSION MEANS DELETION.** `set_task_dependencies` replaces a task's whole
   predecessor list, so it is the ONLY tool in `runTool` where what the model LEAVES OUT is destroyed
   (`update_task` is a patch — a sloppy model can only overwrite what it names). Chat tool writes have **NO undo
@@ -125,12 +129,16 @@
   from `chat-tools.ts`'s `runTool`); the implementation is the `useDocumentTools` hook, wired in
   `use-chat-dispatcher.ts`.
   ★★ **The "both files were split for the 800-line ratchet" reason is only HALF true**, and
-  `chat-tools-documents.ts`'s own header states it for both. Measured 2026-08-07 with the gate's own
-  counter (`split("\n").length`): `chat-tools.ts` is **763** — 37 lines of headroom against ~139 lines of
-  routing, so that split is genuinely forced. `chat-tool-defs.ts` is **596** — **204** lines of headroom
-  against ~74 lines of schema, so the defs split was NOT ratchet-forced and would have fit comfortably
-  inline. Do not cite the ratchet as the reason for the defs file; check the real number with
-  `npm run size:check` before assuming either is tight. The version model these writes snapshot into lives in
+  `chat-tools-documents.ts`'s own header states it for both. Re-measured 2026-08-16 with the gate's own
+  counter (`split("\n").length`, i.e. `wc -l` + 1): `chat-tools.ts` is **791** — **9** lines of headroom
+  against ~139 lines of routing, so that split is genuinely forced and the file is now nearly full.
+  `chat-tool-defs.ts` is **631** — **169** lines of headroom against ~74 lines of schema, so the defs split
+  was NOT ratchet-forced and would have fit comfortably inline. ★★ Those two numbers were **763** and
+  **596** when measured on 2026-08-07 and both had drifted by the next feature — B2a's `search_history`
+  work spent **28** of `chat-tools.ts`'s remaining 37 lines between them, leaving 9. Do not cite the
+  ratchet as the reason for the defs file, and do not trust EITHER number here; re-derive with
+  `node -e "console.log(require('fs').readFileSync('src/app/chat-tools.ts','utf8').split('\n').length)"`
+  or `npm run size:check` before assuming either is tight. The version model these writes snapshot into lives in
   [`documents.md`](documents.md); this bullet covers only the AI surface.
   ★★★ **`chat-tools-documents.ts` IS THE VALIDATION BOUNDARY, and the only one.** Everything downstream is
   deliberately permissive — `applyDocMutation` is pure and treats its input as already-shaped, and the entity
@@ -210,6 +218,60 @@
   ★ `DocumentUpdateResult.title` is REQUIRED, not optional, so the chat file card's obligation is a compile
   error rather than a rendering disappointment. The routing layer deliberately does NOT runtime-guard it —
   failing an applied write over a cosmetic card would be the worse trade.
+- **Project recall — `search_history` over the activity log (B2a):** a READ-ONLY tool answering "what
+  CHANGED and WHEN"; the `list_*` tools answer "what is TRUE NOW". Schema in `chat-tool-defs.ts`, routed in
+  `chat-tools.ts`'s `runTool`, fed by `getActivityLog()` on `ToolDispatcher` — implemented in
+  `use-chat-dispatcher.ts` as a `useRef` mirrored in an effect, exactly like every other workspace slice in
+  that hook, so the dispatcher `useMemo` stays ref-routed and an unused read tool costs nothing per render.
+  The log ITSELF — persistence, the six write paths, `logMode`, entry-id minting, the
+  `isWorkspaceEmpty` exclusion — is owned by AGENTS.md's Activity log bullet; this bullet covers only the AI
+  surface.
+  ★★★ **`activityLog` MUST NEVER JOIN `getSnapshot()`.** `runTool`'s `get_app_state` case returns the
+  snapshot VERBATIM and the model calls it freely, so a field added there rides EVERY snapshot read.
+  ★★★ **The reason is NOT that the log is unbounded — it is capped at `ACTIVITY_MAX_ENTRIES` (500)**,
+  enforced in three places: `sanitizeActivityLog` on LOAD, `appendActivityEntry` on WRITE (which
+  `appendActivity` delegates to) and `mergeActivityLogs` on MERGE. Reproduce:
+  `grep -rn "ACTIVITY_MAX_ENTRIES" src/app --include="*.ts" | grep -v "\.test\."`. The B2a plan and an
+  earlier revision of the code comment BOTH justified the guard by calling the log unbounded, and a false
+  justification is worse than none: the next reader discovers the cap, concludes the guard was cargo-cult,
+  and deletes it. The real argument is SIZE — 500 audit entries, each carrying up to `MAX_FIELD_CHANGES`
+  (12) field-level before/after diffs, is far more than belongs in the context window on every call.
+  `chat-tools.test.ts`'s "keeps activityLog OFF the app-state snapshot" is the only test that would go red
+  for that edit; the rest of the suite stays green, which is exactly why it exists.
+  ★★ **THE LAYER SPLIT — `activity-prompt.ts` MAY import `t`; `history-search.ts` MAY NOT.**
+  `renderActivityEntry(entry)` → `{at, summary, detail?}` is the RENDER layer and pins the locale to
+  `"en-US"`: the model-facing view must not change when the UI switches to German (the EN dict is static —
+  only DE is lazily loaded — so no `loadI18n` call is needed). `searchHistory(entries, query)` is the pure
+  engine, i18n-free by contract.
+  ★★ **The engine is i18n-free but NOT render-free.** It takes RAW entries and calls `renderActivityEntry`
+  ITSELF, because the substring filter has to run over the rendered `summary` + `detail`. Do NOT "restore
+  the split" by making the caller pass rendered lines — the engine would then be unable to filter on message
+  text at all, which is the tool's primary query mode. (It renders AFTER the cheap kind/date filters, so the
+  per-entry interpolation is paid only on structural survivors.)
+  ★ The `detail` line emits the RAW entity field key (`dueDate`), NOT the Activity panel's
+  `humanizeFieldName` output ("due date"): the model WRITES with those exact names, and the humanized form
+  both lowercases and splits camelCase, so it is lossy and not uniquely invertible. Do not "align" the two
+  renderers — `activity-prompt.ts`'s header carries the full reasoning.
+  ★★ **`truncated` means "more matched than you are seeing", NEVER "a limit was applied".** A cap that
+  happened to cut nothing must report `false`; the model reads this field to decide whether it may claim a
+  complete answer, and the tool description instructs it to say so out loud.
+  ★★ **THE `kinds` COERCION IS LOAD-BEARING AND AN EMPTY-LOG TEST CANNOT SEE IT.** A model may send a
+  non-array — the string `"nope"`. A bare pass-through reaches the engine's `new Set(q.kinds)`, which
+  iterates the STRING into a set of CHARACTERS matching no kind: zero events returned while reporting a
+  filter that never existed. `runTool` coerces-or-drops every field instead (a non-array `kinds` becomes
+  `undefined` = no filter, the honest reading of garbage from a caller that cannot be asked to retry).
+  ★★ The B2a plan's malformed-args test ran against an EMPTY log, where `{events: [], truncated: false}` is
+  the correct result whether the guard works or not — VACUOUS for `kinds`, and caught only by mutating
+  against a POPULATED log. Any test of this guard needs entries the broken path would wrongly exclude.
+  ★ `resolveLimit` FLOORS before the non-positive test, not after: `limit: 0.5` is reachable model input,
+  and testing `raw <= 0` first lets it through to a cap of ZERO — `{events: [], truncated: true}`, the one
+  output combination that actively lies (no rows, while asserting rows were withheld). `Infinity` therefore
+  yields the DEFAULT rather than `MAX_HISTORY_LIMIT`, failing the finite test before it can reach the clamp.
+  Its own docstring carries the reasoning and a test pins each branch.
+  ★ **Chat-thread search is deliberately NOT here — deferred to B2c.** `useChatThreads` is called in
+  `chat-panel.tsx`, which mounts BELOW `useChatDispatcher` (called in `task-manager.tsx`), so thread state
+  cannot reach the dispatcher without restructuring that ownership. Recorded so nobody "completes" B2a by
+  lifting thread state for the sake of one read tool.
 - **AI allocation planning ("Plan with AI", Resources → Planning toolbar):** plan-then-apply over the EXISTING
   `Resource.utilization` map — ZERO new persisted fields, backend write paths or golden regen. Pure engine
   `alloc-plan/alloc-plan.ts` (prompt digest · forced `propose_allocations` tool · parse · **ground** · apply ·
