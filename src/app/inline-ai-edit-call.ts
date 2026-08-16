@@ -27,6 +27,10 @@ export interface InlineEditArgs {
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>;
   guides: readonly OperatingGuide[];
   groundInGuides: boolean;
+  /** `settings.ai.historySearch`. Optional so the field is absent-means-on here
+   *  too — inline edit never CALLS `search_history`, but it is billed for the
+   *  schema like every other request, so the kill switch has to reach it. */
+  historySearch?: boolean;
   signal?: AbortSignal;
 }
 
@@ -81,6 +85,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     args.model,
     system,
     [{ role: "user", content: args.instruction }],
+    args.historySearch,
     args.signal,
   );
   const blocks = res.content.filter(

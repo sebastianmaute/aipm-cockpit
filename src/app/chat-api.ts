@@ -254,17 +254,50 @@ export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
  *  end of `tools` so the guide swap re-caches only the smaller system slice.
  *  ★ Marking the LAST tool is how a tools-block breakpoint is expressed — the
  *  segment covers everything up to and including the marked element. */
-export const CACHED_TOOLS = TOOL_DEFS.map((def, i) =>
-  i === TOOL_DEFS.length - 1
-    ? { ...def, cache_control: { type: "ephemeral" as const } }
-    : def,
+function withCacheBreakpoint(defs: typeof TOOL_DEFS) {
+  return defs.map((def, i) =>
+    i === defs.length - 1
+      ? { ...def, cache_control: { type: "ephemeral" as const } }
+      : def,
+  );
+}
+
+export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
+
+const CACHED_TOOLS_NO_HISTORY = withCacheBreakpoint(
+  TOOL_DEFS.filter((d) => d.name !== "search_history"),
 );
+
+/**
+ * The tool list for this user's settings.
+ *
+ * ★★ TWO FROZEN MODULE-LEVEL VARIANTS, never a filter at the call site. The
+ *    list is passed to every request, so rebuilding it per call would destroy
+ *    referential stability for no benefit — the setting is constant for the
+ *    whole conversation.
+ *
+ * ★ The breakpoint is RECOMPUTED per variant rather than assumed. Measured
+ *   2026-08-16: `search_history` is index 21 of 44 and the last tool is
+ *   `delete_document`, so removing it happens not to move the marker today —
+ *   but a tool appended after it later would make that assumption silently
+ *   wrong, and a lost breakpoint is invisible except as a bill.
+ *
+ * ★ `=== false`, matching `sanitizeAiConfig`: only an explicit false removes
+ *   the tool, so an absent/garbage setting keeps the shipped behaviour. It is
+ *   also what makes the two live settings (`undefined` and `true`) share ONE
+ *   array identity.
+ */
+export function toolsFor(historySearch: boolean | undefined) {
+  return historySearch === false ? CACHED_TOOLS_NO_HISTORY : CACHED_TOOLS;
+}
 
 export async function callClaude(
   apiKey: string,
   model: string,
   system: SystemBlock[],
   messages: ApiMessage[],
+  /** `settings.ai.historySearch` — only an explicit false drops the tool. */
+  historySearch: boolean | undefined,
   signal?: AbortSignal,
 ): Promise<{
   content: ContentBlock[];
@@ -284,7 +317,7 @@ export async function callClaude(
       max_tokens: maxOutputTokensFor(model),
       system: system,
       messages,
-      tools: CACHED_TOOLS,
+      tools: toolsFor(historySearch),
     }),
     signal,
   });

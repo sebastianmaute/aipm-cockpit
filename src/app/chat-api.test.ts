@@ -3,6 +3,7 @@ import {
   buildSystemPrompt,
   closeDanglingToolUses,
   maxOutputTokensFor,
+  toolsFor,
   type ApiMessage,
   type ToolResultBlock,
 } from "./chat-api";
@@ -155,5 +156,46 @@ describe("closeDanglingToolUses", () => {
       { role: "assistant", content: [{ type: "text", text: "hello" }] },
     ];
     expect(closeDanglingToolUses(input)).toEqual(input);
+  });
+});
+
+describe("tool list gating", () => {
+  it("includes search_history by default", () => {
+    expect(toolsFor(undefined).map((t) => t.name)).toContain("search_history");
+  });
+
+  it("removes search_history when the toggle is off", () => {
+    // ★ REMOVED, not refused: a refused tool still costs its schema on every
+    //   turn, which is most of what the toggle is for.
+    expect(toolsFor(false).map((t) => t.name)).not.toContain("search_history");
+  });
+
+  it("drops exactly one tool and keeps every other name", () => {
+    // ★ CONTROL for the test above: `not.toContain` also passes on an empty
+    //   array, so pin that the filter removed one entry rather than gutting the
+    //   list.
+    const on = toolsFor(undefined).map((t) => t.name);
+    const off = toolsFor(false).map((t) => t.name);
+    expect(off).toHaveLength(on.length - 1);
+    expect(off).toEqual(on.filter((n) => n !== "search_history"));
+  });
+
+  // ★★ The cache breakpoint rides the LAST element. Removing a tool must not
+  //    leave the marker on an element that is no longer last, or the tools
+  //    segment stops caching.
+  it("keeps the cache breakpoint on the last element of BOTH variants", () => {
+    for (const variant of [toolsFor(undefined), toolsFor(false)]) {
+      expect(variant[variant.length - 1]).toHaveProperty("cache_control", { type: "ephemeral" });
+      // `in` rather than `t.cache_control === undefined`: the unmarked entries
+      // have no such key on their type at all, so the property read is a tsc
+      // error even though vitest would run it.
+      expect(variant.slice(0, -1).every((t) => !("cache_control" in t))).toBe(true);
+    }
+  });
+
+  // ★ Referential stability: the arrays are module-level, not rebuilt per call.
+  it("returns a STABLE reference for the same setting", () => {
+    expect(toolsFor(undefined)).toBe(toolsFor(true));
+    expect(toolsFor(false)).toBe(toolsFor(false));
   });
 });

@@ -380,7 +380,7 @@ function ChatPanelInner({
           ai.model,
           system,
           messages,
-          controller.signal,
+          ai.historySearch, controller.signal,
         );
         // A cancel or a project switch may have landed while awaiting — bail
         // before writing this turn onto (possibly) another project's state.

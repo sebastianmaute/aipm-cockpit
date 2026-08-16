@@ -157,6 +157,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides,
+        historySearch: deps.ai.historySearch,
         signal: controller.signal,
       });
       if (reqId !== reqIdRef.current) return; // superseded — discard
