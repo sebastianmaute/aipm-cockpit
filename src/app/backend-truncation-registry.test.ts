@@ -29,12 +29,32 @@ import { readFileSync } from "node:fs";
 //
 // ★★ A source scan was chosen for CHEAPNESS, not because instantiation is hard.
 // An earlier header claimed it "needs live IndexedDB, a Turso client and a
-// SharePoint token" -- that is false, and three sibling files in this directory
+// SharePoint token" -- that is false, and four sibling files in this directory
 // disprove it: `browser-backend.documents.test.ts` (fake-indexeddb),
-// `turso-backend.test.ts` (stubbed fetch) and `sharepoint-backend.test.ts`
-// (a vi.fn token) all construct their backends today. Only LocalFileBackend
-// genuinely resists (a File System Access handle). A behavioural test per
-// backend would be strictly stronger and is the upgrade path.
+// `turso-backend.test.ts` (stubbed fetch), `sharepoint-backend.test.ts`
+// (a vi.fn token) and `local-file-backend.test.ts` (one `vi.mock("./idb")`)
+// all construct their backends today.
+//
+// ★★ THAT HEADER THEN RETREATED TO A SECOND FALSE CLAIM -- "Only
+// LocalFileBackend genuinely resists (a File System Access handle)" -- and it
+// is the one worth naming, because it reads as a reason not to try. `idbGet`
+// is the SINGLE seam: `local-file-backend.test.ts` mocks `./idb` alone
+// (spreading `...actual`) and hands the backend a plain object handle, so
+// fs-access, the CSV codec and the sanitizers all run for real. Verified by
+// reading that file, not inferred. So NO backend of the four resists, and a
+// behavioural test per backend is the upgrade path for ALL of them.
+//
+// ★ The handle cannot go through the REAL store: IDB structure-clones its
+// values and an FsHandle is an object of METHODS, so a round-trip throws
+// DataCloneError. That is why the mock is an in-memory Map -- a genuine
+// constraint on HOW the seam is stubbed, never a reason the backend is
+// untestable, and the sibling's own header states it.
+//
+// ★★ SCOPE, so this does not become a third overstatement: that sibling is
+// behavioural about the IMPORT diagnostics (`lastImportUnterminatedQuote` /
+// `lastImportDroppedRows`), NOT about `lastLoadTruncation`, which no
+// behavioural per-backend test covers yet. It proves the backend is reachable;
+// it does not retire this file's own subject.
 const BACKENDS = [
   "src/app/local-file-backend.ts",
   "src/app/sharepoint-backend.ts",
