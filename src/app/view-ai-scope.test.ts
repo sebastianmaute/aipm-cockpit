@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { VIEW_AI_SCOPE } from "./view-ai-scope";
 import { TURSO_ONLY_VIEWS } from "./nav-config";
 import { TOOL_DEFS } from "./chat-tool-defs";
+import { renderActivityEntry } from "./activity-prompt";
 
 const TOOL_NAMES = new Set(TOOL_DEFS.map((d) => d.name));
 
@@ -88,6 +89,48 @@ describe("VIEW_AI_SCOPE", () => {
     // named where the model will actually look for it.
     expect(reading).toContain("search_history");
     expect(VIEW_AI_SCOPE.activity.toolHints ?? []).toContain("search_history");
+  });
+
+  // ★★ SECOND false claim in the SAME entry. After the "cannot read this log"
+  // line was retired the replacement said the log records changes made in the
+  // app and by its integrations — "not your own tool calls". True until the
+  // chat dispatcher started logging its own entity writes; false now.
+  it("tells the model the activity log includes its OWN writes", () => {
+    const reading = VIEW_AI_SCOPE.activity.reading;
+    // ★ Assert the field EXISTS before the negation below — `reading` is
+    // optional on ViewScope, and `expect(undefined).not.toContain(...)` passes
+    // vacuously, so a deleted entry would read as a fixed one.
+    expect(typeof reading).toBe("string");
+    expect(reading).toContain("and by you");
+    // ★ The pre-B2b prose claimed the opposite and was true until the dispatcher
+    //   started logging. Pin the negation so it cannot silently return.
+    expect(reading).not.toContain("not your own tool calls");
+  });
+
+  // ★★★ THE THIRD CLAIM IN THIS ENTRY, PINNED AGAINST THE CODE RATHER THAN
+  // AGAINST ITSELF. Saying the log now covers the model's own writes invites
+  // the follow-on "each entry says which" — and that one is FALSE: the actor
+  // lives on ActivityEntry but search_history hands the model
+  // renderActivityEntry's output, which is {at, summary, detail?} and carries
+  // no actor at all. Two claims in this entry have already outlived the
+  // limitation they described because nothing tied the prose to the code, so
+  // this test ties it: a slice that starts surfacing the actor goes red HERE
+  // and forces the sentence to move with it.
+  it("does not promise attribution that search_history cannot deliver", () => {
+    const reading = VIEW_AI_SCOPE.activity.reading;
+    expect(typeof reading).toBe("string");
+    expect(reading).toContain("does not say which");
+    const rendered = renderActivityEntry({
+      id: "device-nonce-1",
+      timestamp: "2026-08-16T10:00:00.000Z",
+      kind: "task.updated",
+      args: ["Draft the plan"],
+      actor: "ai",
+    });
+    // ★ The truthy summary is ANTI-VACUITY, not decoration: a render that threw
+    //   its way to `{}` would satisfy the key check for the wrong reason.
+    expect(rendered.summary).toBeTruthy();
+    expect(Object.keys(rendered)).not.toContain("actor");
   });
 
   // ★ Documents is the only entry that hints at write tools at all (the

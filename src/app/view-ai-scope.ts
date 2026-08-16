@@ -200,9 +200,18 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    would now talk the model out of the one tool that answers this view's
     //    questions. Same failure the documents entry had; pinned the same way
     //    in view-ai-scope.test.ts.
+    // ★★★ SECOND false claim in this SAME entry, so treat the pattern as the
+    //    hazard rather than either sentence. Its replacement said the log
+    //    records changes made in the app and by its integrations — "not your
+    //    own tool calls" — which was true until the chat dispatcher started
+    //    logging its own entity writes, and false from that commit on. Both
+    //    claims described a CAPABILITY GAP that a later slice closed, and
+    //    nothing in the build can see prose going stale: every sentence here
+    //    asserting what the model or its tools CANNOT do needs a pinned test,
+    //    in both directions, or it will outlive the limitation it describes.
     toolHints: ["search_history"],
     reading:
-      "search_history reads this log. It records changes made in the app and by its integrations — not your own tool calls — and keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
+      "search_history reads this log. It records changes made in the app, by its integrations, and by you — but a result does not say which, so never attribute an entry to anyone. It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
   },
   "open-points": {
     purpose:
