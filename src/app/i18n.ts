@@ -415,6 +415,7 @@ const enUS = {
   projectCreatedToast: "Created project {0}.",
   projectLoadedToast: "Loaded project {0}.",
   importDroppedRowsWarning: "{0} invalid row(s) in the file were skipped during import.",
+  importUnbalancedQuotesWarning: "The file has an unclosed quotation mark, so some rows may be missing. Check the file before saving over it.",
   projectSwitchNotFound: "That project is no longer in your portfolio.",
   projectSwitchHandleMissing:
     "Couldn't find the file for that project — re-open it from a file.",
@@ -3892,6 +3893,7 @@ const enUS = {
   versionHighlightActivityWorkspace: "The activity log is now part of the project instead of the browser it was recorded in: it moves with the project across devices and storage backends, survives an app reset, and merges entries recorded on several devices. It is never included in an export or a generated document. Activity recorded before this version is not carried over — the old log had no project attribution, so on a device that had opened more than one project its entries could not be assigned correctly.",
   versionHighlightHistorySearch: "The assistant can now look things up in the project's activity history. Ask it when a milestone moved, who was assigned a task, or what changed last week, and it searches the recorded activity rather than guessing from the current state. It reads the history in your project's timezone, so \"yesterday\" means what you mean by it. The assistant is also told which of its own past recommendations were followed and how they measured afterwards, so it can favour advice that worked on this project before. The activity log holds the most recent 500 entries; anything older has aged out and the assistant will say so rather than report it as nothing having happened.",
   versionHighlightDashboardArrange: "The dashboard is now arrangeable. Drag a tile by its handle to move it, resize it in either direction, or hide it — hidden tiles collect in a shelf you can restore from at any time, and one button resets the board to its default. Each project keeps its own arrangement. Separately, drag-to-reorder now works in Firefox everywhere it is offered — report sections, budget buckets and the two role lists — where it previously did nothing at all, and every reorder handle can now be operated from the keyboard as well as the mouse.",
+  versionHighlightCsvQuoting: "Importing a CSV or Markdown project file is more robust. A cell containing a line break — a multi-line description or note — no longer causes the rest of the file to be misread: previously such a break could make the importer switch to the next section mid-row and discard every remaining row of the section it was reading, with nothing shown to say so. Files that end mid-quote are now reported instead of silently losing rows.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

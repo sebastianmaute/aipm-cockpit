@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.242.0] - 2026-08-16 "Ashby"
+
+### Fixed
+
+- **A line break inside a CSV or Markdown cell no longer corrupts the rest of the import.** Project
+  files are split into sections by marker lines, and that split used to run over raw physical lines
+  without regard for quoting. A multi-line description or note therefore put its continuation on its
+  own line, and if that line happened to start with a section marker the importer switched sections
+  mid-row and discarded every remaining row of the section it was reading — silently, with no error
+  and nothing in the log. Section splitting is now quote-aware.
+- **A file that ends mid-quote is reported instead of quietly losing rows.** An unbalanced quote is
+  proof the file is malformed, since the exporter doubles every quote it writes. Import falls back to
+  the old physical split for such a file — which cannot lose anything the old behaviour did not
+  already lose — and now says so.
+- **Import warnings actually reach you.** Dropped-row and unbalanced-quote warnings were raised on
+  four of the five load paths but never seen: they were composed correctly and then immediately
+  overwritten by each path's own "project loaded" confirmation, because the toast surface shows one
+  message at a time. The warning now survives, and both losses are reported together when a file has
+  both.
+
+### Notes
+
+- One known gap is recorded rather than closed: opening a file through Settings → Storage applies its
+  tasks and RAID without reporting an import loss, because that path deliberately does not touch the
+  document-truncation flag and the two signals currently share one channel. See §152 in
+  `docs/open-followups.md`.
+
 ## [0.241.0] - 2026-08-16 "Tuttle"
 
 ### Added

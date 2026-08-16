@@ -31,6 +31,19 @@ export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /**
+   * Whether the most recent load() hit an unterminated quote.
+   *
+   * ★ CSV ONLY, despite `lastImportDroppedRows` above covering CSV *and* MD.
+   * `splitCsvSections` (csv-codecs-decode.ts) is the sole writer of
+   * `diag.unterminatedQuote`; `markdownToWorkspace` routes through
+   * `splitMarkdownSections` and never touches it. So this stays `false` on an
+   * MD load and on a JSON load alike — a `false` here is NOT evidence that an
+   * MD file is well quoted.
+   * Verify the sole-writer claim with the ASSIGNMENT form, which this comment
+   * does not itself match: `grep -rn "diag\.unterminatedQuote =" src/app`.
+   */
+  lastImportUnterminatedQuote = false;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private readonly idbKey: string;
@@ -112,14 +125,40 @@ export class LocalFileBackend implements StorageBackend {
   }
 
   async load(): Promise<Workspace> {
-    // ★★ ONE accumulator, ONE publish point (mirrors turso-backend.load()).
-    // load() has five exits — two StorageNotReadyError throws, the empty-file
-    // short-circuit, the JSON return and the CSV/MD return — and an exit that
-    // returned without publishing would leave a STALE count from the PREVIOUS
-    // load, worse than zero because it would raise a data-loss warning about a
-    // file that is fine. The `finally` covers every one of them, including the
-    // throwing paths (which correctly publish zeros: nothing was decoded).
+    // ★★ ONE accumulator, and every diagnostic field written on every exit.
+    // An exit that left a field unwritten would keep a STALE value from the
+    // PREVIOUS load, worse than zero because it would raise a data-loss warning
+    // about a file that is fine. The exits are the two StorageNotReadyError
+    // throws, a rejecting `readHandle` (getFile() on a file the user has since
+    // deleted, moved or made unreadable), the empty-file short-circuit, a
+    // throwing codec, the JSON return and the CSV/MD return.
+    //
+    // ★★★ TWO MECHANISMS, NOT ONE, AND THE `finally` IS NOT THE GENERAL ONE.
+    // It publishes `lastLoadTruncation` ONLY. The two import flags are reset
+    // HERE instead, BEFORE the first exit can be taken, because that is the one
+    // placement no exit can skip: they used to sit below BOTH throws and below
+    // `readHandle`, so a CSV load that hit an unterminated quote, followed by a
+    // load of a file that had since been DELETED or un-picked, left the stale
+    // `true` standing and would have said a file that no longer exists has an
+    // unclosed quotation mark. Same defect, same placement, same fix as
+    // `sharepoint-backend.load()`; anything added here that can return or throw
+    // must leave both mechanisms intact — a new early return is the exact shape
+    // that broke the sibling.
+    //
+    // ★ THE STALE FLAGS WERE NOT OBSERVABLE, AND THAT IS A PROPERTY OF THE
+    // CALLERS, NOT OF THIS METHOD. Every consumer reads them through
+    // `truncationOps.reportFor`, and each of those calls sits after an
+    // `await …load()` that RESOLVED, inside the same `try` — so a throwing load
+    // is never reported on, and any later resolving load rewrote both fields
+    // below. Re-check that before relying on it, since it is what makes the
+    // difference between a latent defect and a user-visible one:
+    //   grep -rn "reportFor(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+    // Move one into a `catch`, or read these public fields from anywhere else,
+    // and the stale value goes live. The reset placement is what makes that
+    // safe to do rather than a second bug.
     const diag: ImportDiag = { droppedRows: 0 };
+    this.lastImportDroppedRows = 0;
+    this.lastImportUnterminatedQuote = false;
     try {
       const handle = await this.getHandle();
       if (!handle) throw new StorageNotReadyError("local-file-not-picked");
@@ -127,12 +166,12 @@ export class LocalFileBackend implements StorageBackend {
         throw new StorageNotReadyError("local-file-permission-needed");
       }
       const text = await readHandle(handle);
-      this.lastImportDroppedRows = 0;
       if (!text.trim()) return emptyWorkspace();
       if (this.format === "json") return jsonToWorkspace(text, { strict: true, diag });
       const ws =
         this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
       this.lastImportDroppedRows = diag.droppedRows;
+      this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
       return ws;
     } finally {
       this.lastLoadTruncation = {

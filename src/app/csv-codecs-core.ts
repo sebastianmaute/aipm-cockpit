@@ -15,6 +15,7 @@ import { riskSeverityFromMatrix } from "./raid";
 // `export *` does not bind names locally, so the two markers this module USES
 // are imported explicitly as well.
 import { CSV_SECTION_FXRATES, CSV_SECTION_PLAN } from "./csv-codecs-sections";
+import { quoteStep } from "./csv-line-scan";
 
 export * from "./csv-codecs-sections";
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
@@ -722,50 +723,44 @@ export function parseCsv(text: string): string[][] {
   let i = 0;
   while (i < text.length) {
     const c = text[i];
-    if (inQuotes) {
-      if (c === '"' && text[i + 1] === '"') {
-        buf += '"';
-        i += 2;
-        continue;
-      }
-      if (c === '"') {
-        inQuotes = false;
-        i++;
-        continue;
-      }
-      buf += c;
-      i++;
-    } else {
-      if (c === '"') {
-        inQuotes = true;
-        i++;
-        continue;
-      }
-      if (c === ",") {
-        row.push(buf);
-        buf = "";
-        i++;
-        continue;
-      }
-      if (c === "\r" && text[i + 1] === "\n") {
-        row.push(buf);
-        rows.push(row);
-        row = [];
-        buf = "";
-        i += 2;
-        continue;
-      }
-      if (c === "\n" || c === "\r") {
-        row.push(buf);
-        rows.push(row);
-        row = [];
-        buf = "";
-        i++;
-        continue;
-      }
-      buf += c;
-      i++;
+    const step = quoteStep(text, i, inQuotes);
+    if (step) {
+      // A doubled quote inside quotes is the only case that CONTRIBUTES a
+      // character; opening and closing contribute nothing to the cell.
+      if (inQuotes && step.inQuotes) buf += '"';
+      inQuotes = step.inQuotes;
+      i = step.next;
+      continue;
     }
+    if (inQuotes) {
+      buf += c;
+      i++;
+      continue;
+    }
+    if (c === ",") {
+      row.push(buf);
+      buf = "";
+      i++;
+      continue;
+    }
+    if (c === "\r" && text[i + 1] === "\n") {
+      row.push(buf);
+      rows.push(row);
+      row = [];
+      buf = "";
+      i += 2;
+      continue;
+    }
+    if (c === "\n" || c === "\r") {
+      row.push(buf);
+      rows.push(row);
+      row = [];
+      buf = "";
+      i++;
+      continue;
+    }
+    buf += c;
+    i++;
   }
   if (buf.length > 0 || row.length > 0) {
     row.push(buf);

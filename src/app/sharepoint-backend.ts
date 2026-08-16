@@ -39,6 +39,8 @@ export class SharePointBackend implements StorageBackend {
   readonly kind: "sp-json" | "sp-csv";
   /** Malformed rows dropped by the most recent CSV load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** Whether the most recent CSV load() hit an unterminated quote (false for JSON). */
+  lastImportUnterminatedQuote = false;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private location: SpFileLocation;
@@ -87,14 +89,25 @@ export class SharePointBackend implements StorageBackend {
   }
 
   async load(): Promise<Workspace> {
-    // ★★ ONE accumulator, ONE publish point (mirrors turso-backend.load()).
+    // ★★ ONE accumulator, and every diagnostic field written on every exit.
     // load() has six exits — the 404 empty short-circuit, three HTTP error
-    // throws, the CSV return and the JSON return — and an exit that returned
-    // without publishing would leave a STALE count from the PREVIOUS load,
-    // worse than zero because it would raise a data-loss warning about a file
-    // that is fine. The `finally` covers every one of them, including the
-    // throwing paths (which correctly publish zeros: nothing was decoded).
+    // throws, the CSV return and the JSON return — and an exit that left a
+    // field unwritten would keep a STALE value from the PREVIOUS load, worse
+    // than zero because it would raise a data-loss warning about a file that
+    // is fine.
+    //
+    // ★★★ TWO MECHANISMS, NOT ONE, AND THE `finally` IS NOT THE GENERAL ONE.
+    // It publishes `lastLoadTruncation` only. The two import flags are reset
+    // HERE instead, BEFORE the first exit can be taken, because that is the
+    // one placement the 404 short-circuit cannot skip: they used to sit below
+    // it, so a CSV load that hit an unterminated quote, followed by a load of
+    // a file that had since been DELETED, re-published the stale `true` and
+    // told the user a file that no longer exists has an unclosed quotation
+    // mark. Anything added here that can return or throw must leave both
+    // mechanisms intact — a new early return is the exact shape that broke it.
     const diag: ImportDiag = { droppedRows: 0 };
+    this.lastImportDroppedRows = 0;
+    this.lastImportUnterminatedQuote = false;
     try {
       const token = await this.getToken();
       const res = await fetch(graphUrlFor(this.location), {
@@ -115,11 +128,11 @@ export class SharePointBackend implements StorageBackend {
       if (!res.ok) {
         throw new Error(`SharePoint returned ${res.status}. Try again later.`);
       }
-      this.lastImportDroppedRows = 0;
       if (this.kind === "sp-csv") {
         const csv = await res.text();
         const ws = csvToWorkspace(csv, diag);
         this.lastImportDroppedRows = diag.droppedRows;
+        this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
         return ws;
       }
       // Validate + migrate like every other JSON backend (was a raw cast that
