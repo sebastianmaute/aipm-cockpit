@@ -209,6 +209,28 @@ describe("SharePointBackend", () => {
     expect(ws.raid).toEqual([]);
   });
 
+  // ★★ THE 404 SHORT-CIRCUIT USED TO SKIP THE IMPORT-FLAG RESET, so a load of
+  // a file that had since been DELETED re-published the PREVIOUS load's
+  // `unterminatedQuote: true` and warned about an unclosed quotation mark in a
+  // file that no longer exists. The first assertion is the positive observable
+  // — without it the test passes against a backend that never sets the flag at
+  // all, which is the vacuous shape this is guarding against.
+  it("load 404 clears the import flags a previous CSV load set", async () => {
+    server.use(
+      http.get(CONTENT_RE, () =>
+        HttpResponse.text('# TASKS\r\nid,taskName,blockers\r\n1,T1,"never closed'),
+      ),
+    );
+    const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
+    await be.load();
+    expect(be.lastImportUnterminatedQuote).toBe(true);
+
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    await be.load();
+    expect(be.lastImportUnterminatedQuote).toBe(false);
+    expect(be.lastImportDroppedRows).toBe(0);
+  });
+
   it("load 401 throws StorageNotReadyError with reauthenticate hint", async () => {
     server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 401 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);

@@ -1,7 +1,23 @@
 /**
- * Quote-aware CSV line scanning. Pure, DOM-free, ZERO imports — it sits under
- * the entity sanitizers' half of the codec and must stay runnable under bare
- * node (the sample generator imports that path).
+ * Quote-aware CSV line scanning.
+ *
+ * ★ THE RULE: pure, DOM-free, ZERO imports. This module is the shared LEAF
+ * beneath BOTH CSV scanners — `quoteStep` is consumed by `parseCsv`
+ * (csv-codecs-core.ts) and `splitCsvLines` by `splitCsvSections`
+ * (csv-codecs-decode.ts, which itself imports csv-codecs-core) — so a
+ * dependency added here is inherited by every CSV decode path, and one
+ * reaching back into either sibling closes a cycle. Check the rule still
+ * holds: `grep -nE "^\s*(import|require)" src/app/csv-line-scan.ts` must
+ * print nothing.
+ *
+ * ★★ DO NOT RE-JUSTIFY IT WITH "the sample generator runs this under bare
+ * node" — that justification stood here and is FALSE.
+ * `scripts/generate-sample-workspace.ts` installs a jsdom `window`/`document`
+ * as globals BEFORE its dynamic `await import("../src/app/storage")`, exactly
+ * so the DOM-bound sanitizers downstream work; its own header explains that at
+ * length. There is no bare-node consumer of this path today. The rule stands
+ * on the leaf argument above — do not weaken it on the strength of the
+ * retracted one.
  *
  * ★★★ WHY THIS EXISTS: `splitCsvSections` used to segment the document with
  * `csv.split(/\r?\n/)`, i.e. on PHYSICAL lines, before any tokenizing. A quoted

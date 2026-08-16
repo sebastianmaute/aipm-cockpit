@@ -31,7 +31,18 @@ export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
   lastImportDroppedRows = 0;
-  /** Whether the most recent CSV/MD load() hit an unterminated quote (0/false for JSON). */
+  /**
+   * Whether the most recent load() hit an unterminated quote.
+   *
+   * ★ CSV ONLY, despite `lastImportDroppedRows` above covering CSV *and* MD.
+   * `splitCsvSections` (csv-codecs-decode.ts) is the sole writer of
+   * `diag.unterminatedQuote`; `markdownToWorkspace` routes through
+   * `splitMarkdownSections` and never touches it. So this stays `false` on an
+   * MD load and on a JSON load alike — a `false` here is NOT evidence that an
+   * MD file is well quoted.
+   * Verify the sole-writer claim with the ASSIGNMENT form, which this comment
+   * does not itself match: `grep -rn "diag\.unterminatedQuote =" src/app`.
+   */
   lastImportUnterminatedQuote = false;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
