@@ -6,6 +6,7 @@
 // build*FromObj) and ./csv-codecs-config (config/project decoders).
 // Re-exported via the ./csv-codecs barrel.
 
+import { splitCsvLines } from "./csv-line-scan";
 import { decodeKnowledgeLinks } from "./document-link";
 import type { DocTruncationDiag } from "./document-model";
 import { decodeNoteLog } from "./note-log";
@@ -153,7 +154,11 @@ function splitCsvSections(csv: string): {
   documentVersionsText: string;
   activityLogText: string;
 } {
-  const lines = csv.split(/\r?\n/);
+  // ★★★ QUOTE-AWARE, NOT `csv.split(/\r?\n/)`. A raw split breaks a quoted
+  // cell across physical lines, and a continuation that begins with a section
+  // marker then switched `mode` MID-ROW — silently destroying every later row
+  // in the section (open-followups §105). Do not "simplify" this back.
+  const { lines } = splitCsvLines(csv);
   let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "activityLog" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
