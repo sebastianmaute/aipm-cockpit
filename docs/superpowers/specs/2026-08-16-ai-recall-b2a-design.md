@@ -16,15 +16,18 @@ The assistant can read the project's **current state** through 38 existing tools
 project's **history**. It cannot answer "what changed last week", "who moved that milestone", "what
 did the budget line say before", or "did the action we took actually work".
 
-Three data sources now hold that history per-project, and none of them reaches the model:
+Three data sources now hold that history per-project, and none of them reaches the model. **Two are
+in scope here**; the third moved to B2c for the reason recorded below.
 
 - **`activityLog`** — the audit trail, promoted to workspace data in 0.239.0. Available on all six
-  write paths, so every storage backend has it.
-- **Chat threads** — past conversations, persisted in 0.239.0. Turso-only by construction.
+  write paths, so every storage backend has it. **In scope.**
 - **Insight outcomes** — `resolved`/`acted` insights carrying
   `outcome: {direction, baseline, current, delta, measuredAt}`. Workspace data, all backends.
+  **In scope.**
+- **Chat threads** — past conversations, persisted in 0.239.0. Turso-only by construction.
+  **Deferred to B2c.**
 
-The third is the sharpest gap. `buildInsightsPromptBlock` already runs on every turn and already
+The second is the sharpest gap. `buildInsightsPromptBlock` already runs on every turn and already
 feeds insights into the prompt — but it filters to `active`/`acknowledged` only. The model therefore
 sees every open problem and has **never once** seen that an action was taken and improved or worsened
 the metric. That is not a missing subsystem; it is an excluded filter branch.
@@ -35,19 +38,37 @@ the metric. That is not a missing subsystem; it is an excluded filter branch.
 
 | Piece | Mechanism | Storage reach | Cost shape |
 |---|---|---|---|
-| **B2a** (this doc) | `search_history` tool + ambient outcomes | activity/insights: all backends; chats: Turso-only | Pay-per-use, plus ~5 ambient lines |
+| **B2a** (this doc) | `search_history` tool over `activityLog` + ambient outcomes | All backends | Pay-per-use, plus ~5 ambient lines |
 | **B2b** | Ambient recent-activity recap in the prompt | All backends | Every turn, every conversation |
-| **B2c** | Cross-thread continuity via generated summaries | Turso-only | New durable write path + staleness policy |
+| **B2c** | Chat-thread search + cross-thread continuity | Turso-only | New durable write path + staleness policy |
 
 B2a is first because it delivers a complete user-visible capability alone, works in every storage
 mode, and builds the renderer B2b consumes. B2c is deliberately last: it is the only piece that needs
 the model to *write* something durable, which brings a new write path, an invalidation rule and a
 cost-per-summary decision with it.
 
+### ★★ Chat-thread search moved to B2c — a design correction, measured
+
+The first draft of this document put chat threads in B2a, with a `coverage` field disclaiming their
+absence in file mode. **That is not implementable as described**, and the correction is worth
+recording because the original claim was confident and wrong.
+
+`useChatDispatcher` is called in `task-manager.tsx`; `useChatThreads` is called in `chat-panel.tsx`,
+which *receives* the dispatcher as a prop. Data flows down that chain
+(`task-manager` → `workspace-section` → `ChatPanel`), so threads sit **below** the point where the
+snapshot is assembled and cannot be mirrored into it. Lifting them, or passing a mutable ref back
+down, means touching all three files in the chain — and every one of them is baselined at exactly
+its cap.
+
+Deferring chat search to B2c costs one source and buys three things: the `coverage` split
+disappears (with one all-backends source there is nothing to disclaim), no baselined file is touched,
+and the rewiring lands in the slice that is already restructuring thread state for summaries.
+
 ## Non-goals
 
 - Any ambient recap of raw activity (B2b).
-- Cross-thread summaries or continuity (B2c).
+- **Searching past chat threads, and the coverage disclaimer that needs (B2c)** — see the
+  decomposition correction above.
 - Ranking, fuzzy matching, or embeddings over any source. Substring only.
 - Any new UI. This slice ships no component and no i18n key.
 - Changing what the existing 38 tools do.
@@ -84,10 +105,10 @@ crashing the app through the top-level `ErrorBoundary`. That exact bug is alread
 
 ### `history-search.ts` — filter, merge, cap
 
-Pure and deterministic. Takes rendered activity lines, the in-memory threads, and the query
-parameters; returns the merged, time-ordered result plus the coverage report. No clock: `since`/
-`until` resolve against a `today` passed in, matching `gantt-status-buckets.ts` and
-`insight-prompt.ts`. Converting "last week" into a date is the model's job.
+Pure and deterministic. Takes the activity entries and the query parameters; returns the filtered,
+time-ordered, capped result. No clock: `since`/`until` resolve against a `today` passed in, matching
+`gantt-status-buckets.ts` and `insight-prompt.ts`. Converting "last week" into a date is the model's
+job.
 
 ### Tool contract
 
@@ -100,57 +121,57 @@ a case-insensitive substring match over rendered line text.
 **Output:**
 
 ```
-{
-  events: [{ at, source, summary, detail? }],
-  coverage: {
-    activityLog: "searched",
-    chatThreads: "searched" | "unavailable-file-mode",
-    truncated: boolean
-  }
-}
+{ events: [{ at, summary, detail? }], truncated: boolean }
 ```
 
-`source` is `"activity" | "chat"`. `detail?` carries the field-diff suffix for an activity event and
-the matched excerpt plus thread name for a chat event; it is omitted when there is nothing extra to
-say. `at` is the entry's ISO timestamp for activity, the thread's `updatedAt` for chat.
+`at` is the entry's ISO timestamp. `summary` is the rendered English line. `detail?` carries the
+field-diff suffix and is omitted when the entry has no `changes`. `truncated` reports that `limit`
+cut the result, so the model can say "showing the most recent 50" instead of implying completeness.
+
+There is no `source` field: `activityLog` is the only source in B2a, and YAGNI says don't ship a
+discriminator for one case. B2c adds it when chat events join.
 
 **Insight outcomes are deliberately absent from `events`.** They reach the model ambiently (see
 below), so the tool never returns them and its description must not imply otherwise — a model told a
 history tool covers outcomes would call it to answer a question the prompt already answered.
 
+### ★★★ `activityLog` must NOT go on `getSnapshot()`
+
+The obvious wiring — mirror it into the snapshot beside `insights` — is wrong, and silently so.
+`runTool`'s `get_app_state` case returns `d.getSnapshot()` **verbatim**, so any field added there is
+returned wholesale by that tool. `activityLog` is unbounded (`mergeActivityLogs` caps the stored log,
+not a read), so a single `get_app_state` call would dump thousands of entries — with field diffs —
+into the context window, defeating every cap this design specifies.
+
+Instead the dispatcher gains a dedicated `getActivityLog(): readonly ActivityEntry[]` method that
+only the `search_history` case calls. `get_app_state` is unaffected.
+
+`insights` is already on the snapshot and stays there: it is bounded and small, and that is existing
+shipped behaviour.
+
+### Wiring
+
+Entirely inside `use-chat-dispatcher.ts` (765 lines, 35 to the cap). It reads entity state from
+`useWorkspace()`, not from `ChatDispatcherArgs`, and **`activityLog` is already on that context** —
+so the change is a destructure, a ref, a refresh effect and the new dispatcher method. **No baselined
+file is touched, and `task-manager.tsx` needs no change at all.**
+
 `limit` defaults to 50 and is hard-capped at 200. `activityLog` has no query cap of its own —
 `mergeActivityLogs` caps the stored log, not a read — so an unbounded call on a busy project would
 push thousands of lines into the context window.
 
-### Chat thread search
+### Notes carried forward to B2c
 
-The dispatcher reaches threads exactly as it reaches insights: a ref mirrored into `getSnapshot()`,
-alongside `insightsRef`. `useChatThreads` already holds each thread's **full** history and display in
-memory, capped at 50 per project and fetched once on mount — so this is an in-memory filter with no
-second Turso round-trip and no new SQL.
+Recorded here so the analysis is not redone: `useChatThreads` already holds each thread's **full**
+history and display in memory, capped at 50 per project and fetched once on mount, so chat search is
+an in-memory filter needing no second Turso round-trip and no new SQL. Searched text will be the
+**stored** history, already attachment-stripped by `stripAttachmentsForPersistence`. The active
+thread should be skipped — it is already verbatim in the model's context.
 
-Searched text is the **stored** history, already attachment-stripped by
-`stripAttachmentsForPersistence`, so an image reads as a `[attachment: report.pdf]` placeholder. That
-is the honest thing to search; the bytes are not there to search.
-
-The **active thread is skipped** — it is already verbatim in the model's context, and re-injecting it
-spends tokens telling the model what it just read.
-
-### ★★ The coverage field must derive from `tursoMode`, never from `threads.length`
-
-Two different facts look identical from the result end:
-
-| Situation | `threads` | Correct coverage |
-|---|---|---|
-| Turso, no chats yet | `[]` | `"searched"` — genuinely nothing to find |
-| File mode | `[]` | `"unavailable-file-mode"` — could not look |
-
-Collapsing them makes the model report "I searched your past conversations and found nothing" to
-every file-mode user, permanently, with nothing to signal the error. The tool's description instructs
-the model to surface an `"unavailable-file-mode"` coverage value to the user rather than reporting an
-empty result as a negative finding.
-
-This is the single line in the slice most likely to be written the convenient way.
+B2c will also need the coverage disclaimer this slice no longer carries, and it must derive from
+`tursoMode`, **never** from `threads.length`: "Turso with no chats yet" and "file mode, cannot look"
+both present as an empty array, and collapsing them makes the model report "I searched your past
+conversations and found nothing" to every file-mode user, permanently.
 
 ### Ambient insight outcomes
 
@@ -181,24 +202,26 @@ exactly that way about the view-scope block and being wrong twice over.
 
 Dictated by the size ratchet, not merely constrained by it. Measured on `main` at `5a87026a`:
 
-| File | Lines | Status |
-|---|---|---|
-| `chat-panel.tsx` | 996 | **baselined at 996 — zero headroom** |
-| `task-manager.tsx` | 3007 | baselined at 3007 — zero headroom |
-| `tasks-section.tsx` | 1082 | baselined at 1082 — zero headroom |
-| `workspace-section.tsx` | 1000 | baselined at 1000 — zero headroom |
-| `chat-tools.ts` | 763 | 37 lines to the 800 cap |
-| `use-chat-dispatcher.ts` | 765 | 35 lines to the 800 cap |
-| `chat-tool-defs.ts` | 596 | comfortable |
+| File | Lines | Status | Touched? |
+|---|---|---|---|
+| `chat-panel.tsx` | 996 | baselined, zero headroom | **no** |
+| `task-manager.tsx` | 3007 | baselined, zero headroom | **no** |
+| `tasks-section.tsx` | 1082 | baselined, zero headroom | no |
+| `workspace-section.tsx` | 1000 | baselined, zero headroom | no |
+| `use-chat-dispatcher.ts` | 765 | 35 lines to the 800 cap | yes — ~6 lines |
+| `chat-tools.ts` | 763 | 37 lines to the 800 cap | yes — one `case` |
+| `chat-tool-defs.ts` | 596 | comfortable | yes — one tool def |
+| `insights/insight-prompt.ts` | 62 | comfortable | yes — outcomes section |
 
 (The ratchet measures `split("\n").length`, which is `wc -l` + 1. Budgeting from `wc -l` overstates
 headroom by exactly one line.)
 
-So: **all logic goes in the two new pure modules.** `chat-tools.ts` gets thin routing only,
-`chat-tool-defs.ts` gets a tool definition, `use-chat-dispatcher.ts` gets one ref and one snapshot
-field. `chat-panel.tsx` must come out **net-zero or negative** — the `threads` value already exists
-there, so passing it down should be an edit to an existing props object rather than added lines. If
-it cannot be, the plan condenses something adjacent. It does **not** re-baseline.
+**No baselined file is touched.** That is the result of dropping chat search — the two files with
+real headroom are the only ones that change, and both stay well inside the 800 cap. All logic still
+goes in the two new pure modules; `chat-tools.ts` gets routing only.
+
+Both edited files must be re-measured after the change: 6 lines into 765 and one case into 763 are
+comfortable, but "comfortable" is a prediction until `npm run size:check` says otherwise.
 
 Both new modules are pure logic, so they stay **coverage-gated** — not added to `coverage.exclude`.
 That is the "exclude glue, not logic" rule, and these are logic.
@@ -207,19 +230,20 @@ That is the "exclude glue, not logic" rule, and these are logic.
 
 In order of what actually catches something:
 
-1. **The coverage disclaimer** — two fixtures: Turso mode with zero threads (`"searched"`) and file
-   mode (`"unavailable-file-mode"`). Only this pair separates the two cases; a file-mode-only fixture
-   passes whichever way the line is written. This is the test the slice most needs.
-2. **All 55 kinds render** — table-driven over `ActivityKind`. A missing template fails the
+1. **All 55 kinds render** — table-driven over `ActivityKind`. A missing template fails the
    typecheck; a wrong one fails a readable assertion. Fixtures are built from each i18n string's
-   placeholder order, **not** from a reading of it (see risk 1).
+   placeholder order, **not** from a reading of it (see risk 1). This is now the test the slice most
+   needs.
+2. **`get_app_state` does not return `activityLog`** — a guard test over the snapshot's keys. Without
+   it, a future contributor "completing the pattern" by mirroring `activityLog` beside `insights`
+   reintroduces the unbounded dump, and every other test stays green.
 3. **Unknown kind survives** — including a `kind: "toString"` fixture specifically, since the
    prototype-lookup crash is already documented for the sibling function.
 4. **Outcomes section** — cap at 5, sort by `measuredAt`, `unchanged` included, empty string when no
    outcomes exist.
 5. **`chat-api.system-prompt.test.ts` still passes** — the block stays uncached.
 6. **Search mechanics** — `since`/`until`/`kinds`/`query` filters, `limit` default 50 and hard cap
-   200, diff suffix bounded at 12, active thread excluded.
+   200, `truncated` set only when the cap actually cut, diff suffix bounded at 12.
 7. **Tool wiring** — the definition is registered and `runTool` routes it.
 
 **No axe work, no e2e, no eye-verify.** This slice ships no UI and no i18n key, which removes the two
@@ -238,11 +262,21 @@ confident, **false** line that the model will assert as fact and that no gate ca
 Mitigation: derive each test fixture from the i18n string's own placeholder order rather than from
 the template author's reading of it, so the test and the template cannot share one misreading.
 
-**2 — The unverified `chat-panel.tsx` net-zero claim.** This design asserts the file can absorb the
-change without growing, and that assertion has not been tested against the code. A confident,
-unmeasured claim about code structure in a brief is the exact class that produced both CRITICALs on
-the 0.239.0 slice. **The plan measures it before committing to the approach**, and if it fails, the
-plan chooses between condensing adjacent lines and moving the snapshot wiring elsewhere.
+**2 — RESOLVED before planning, and the resolution is the lesson.** The first draft carried an
+unverified claim that `chat-panel.tsx` could absorb the snapshot wiring at net-zero lines. Measuring
+it refuted three separate structural assumptions in this document:
+
+- `useChatDispatcher` is called in `task-manager.tsx`, not `chat-panel.tsx`, so the "mirror threads
+  into `getSnapshot()`" wiring was not implementable at all (→ chat search deferred to B2c).
+- The dispatcher reads entity state from `useWorkspace()`, not `ChatDispatcherArgs`, and `activityLog`
+  is **already on that context** — so no baselined file needs touching and `task-manager.tsx` needs no
+  change.
+- `get_app_state` returns `getSnapshot()` verbatim, so the obvious snapshot wiring would have shipped
+  an unbounded audit-log dump (→ dedicated `getActivityLog()` method).
+
+None of the three was visible from reading the design; each took one grep. **A confident, unmeasured
+claim about code structure in a brief is the class that produced both CRITICALs in 0.239.0** — the
+mitigation is to grep it before writing it down, not to write it more carefully.
 
 **3 — Field diffs leave the device.** Including `changes` sends prior values of edited fields to the
 Anthropic API. They are not a new *class* of data — `list_tasks` already ships task content there —
@@ -257,7 +291,8 @@ to warn about.
 
 ## Out of scope
 
-- B2b (ambient activity recap) and B2c (cross-thread continuity).
+- B2b (ambient activity recap) and B2c (chat-thread search + cross-thread continuity).
 - Attachment content in search results.
 - Any ranking or relevance scoring.
 - Widening `search_history` to entities the existing `list_*` tools already cover.
+- A `source` discriminator on `events` — one source, so YAGNI. B2c adds it.
