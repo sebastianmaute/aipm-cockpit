@@ -108,29 +108,43 @@ describe("VIEW_AI_SCOPE", () => {
   });
 
   // ★★★ THE THIRD CLAIM IN THIS ENTRY, PINNED AGAINST THE CODE RATHER THAN
-  // AGAINST ITSELF. Saying the log now covers the model's own writes invites
-  // the follow-on "each entry says which" — and that one is FALSE: the actor
-  // lives on ActivityEntry but search_history hands the model
-  // renderActivityEntry's output, which is {at, summary, detail?} and carries
-  // no actor at all. Two claims in this entry have already outlived the
-  // limitation they described because nothing tied the prose to the code, so
-  // this test ties it: a slice that starts surfacing the actor goes red HERE
-  // and forces the sentence to move with it.
-  it("does not promise attribution that search_history cannot deliver", () => {
+  // AGAINST ITSELF — AND THE PIN FIRED. This test used to assert the OPPOSITE:
+  // that `reading` said a result "does not say which", and that
+  // renderActivityEntry's output carried NO actor key. Both were true while
+  // `RenderedActivity` was {at, summary, detail?}. Task 7 put `actor` on it and
+  // this test went RED on that commit — which is the whole mechanism working:
+  // the two earlier claims in this entry outlived their limitations for weeks
+  // because nothing tied the prose to the code. The direction is inverted; the
+  // tie is not weakened, and it still fails in BOTH directions — dropping the
+  // actor from the render path fails the third assertion, and reinstating the
+  // retired sentence fails the second.
+  it("promises exactly the attribution search_history delivers", () => {
     const reading = VIEW_AI_SCOPE.activity.reading;
+    // ★ Assert the field EXISTS before the negation — `reading` is optional, and
+    //   `expect(undefined).not.toContain(...)` passes vacuously.
     expect(typeof reading).toBe("string");
-    expect(reading).toContain("does not say which");
-    const rendered = renderActivityEntry({
+    expect(reading).toContain("actor");
+    // ★ Pin the RETIRED claim so it cannot silently return once the code that
+    //   falsified it is a year old.
+    expect(reading).not.toContain("does not say which");
+
+    const base = {
       id: "device-nonce-1",
       timestamp: "2026-08-16T10:00:00.000Z",
-      kind: "task.updated",
+      kind: "task.updated" as const,
       args: ["Draft the plan"],
-      actor: "ai",
-    });
+    };
+    const rendered = renderActivityEntry({ ...base, actor: "ai" });
     // ★ The truthy summary is ANTI-VACUITY, not decoration: a render that threw
     //   its way to `{}` would satisfy the key check for the wrong reason.
     expect(rendered.summary).toBeTruthy();
-    expect(Object.keys(rendered)).not.toContain("actor");
+    expect(rendered.actor).toBe("ai");
+
+    // ★ The other half of the shipped sentence — "entries written before this
+    //   release have none". An actor-less entry must OMIT the key rather than
+    //   default it, or the disclosure is false in the direction that invites a
+    //   wrong attribution.
+    expect(Object.keys(renderActivityEntry(base))).not.toContain("actor");
   });
 
   // ★ Documents is the only entry that hints at write tools at all (the

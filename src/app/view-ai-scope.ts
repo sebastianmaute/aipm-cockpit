@@ -209,9 +209,21 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    nothing in the build can see prose going stale: every sentence here
     //    asserting what the model or its tools CANNOT do needs a pinned test,
     //    in both directions, or it will outlive the limitation it describes.
+    // ★★★ THIRD false claim, and THIS ONE THE PINNED TEST CAUGHT — which is the
+    //    only reason it is a footnote rather than a fourth incident. The
+    //    replacement for the second said a result "does not say which, so never
+    //    attribute an entry to anyone", true of `RenderedActivity` while it was
+    //    `{at, summary, detail?}`. Task 7 put `actor` on it, the guard in
+    //    view-ai-scope.test.ts went red on the SAME commit, and the sentence
+    //    moved with the code instead of six weeks later. The caution survives in
+    //    NARROWED form — an entry whose actor is absent is still unattributable,
+    //    and pre-B2b entries all are. Note the shape of all three: each stated a
+    //    LIMITATION, and each was retired by a slice that closed it. A sentence
+    //    here describing something the model or its tools cannot do is a
+    //    liability with a fuse; pin it, in both directions, or do not write it.
     toolHints: ["search_history"],
     reading:
-      "search_history reads this log. It records changes made in the app, by its integrations, and by you — but a result does not say which, so never attribute an entry to anyone. It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
+      "search_history reads this log. It records changes made in the app, by its integrations, and by you — and each result carries an actor saying which, so never attribute an entry whose actor is absent (entries written before this release have none). It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
   },
   "open-points": {
     purpose:
