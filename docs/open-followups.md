@@ -177,6 +177,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED 2026-08-12** — (b) closed the a11y-gate reachability gap; (a) built the roving-tabindex keyboard contract in `toolbar-roving.ts` + `rich-text-toolbar.tsx` and flipped `role="group"` to `role="toolbar"`, cutting the row from 15 tab stops to 1. Mutation-proved (portal guard 1 red, `tabIndex` ternary 3 red) and browser-proved (`e2e/rich-text-toolbar-keyboard.spec.ts`). Full closing detail in the entry below |
 | 150 | A BALANCED pair of stray quotes MISLABELS rows across a CSV section boundary instead of losing them | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open, **UNDECIDABLE — no fix is proposed**. A severity regression of §105's fix, not a new failure: the same file lost the same rows before it. Measured — one `"` in a task cell and one in a later milestone cell make quote state carry across the `# MILESTONES` marker, so milestones 6 and 7 import as TASKS (`taskName` `M6`/`M7`) and `milestones` comes back EMPTY. Silent on both sides of the fix (`droppedRows` 0, `unterminatedQuote` false). Needs a hand-edited/truncated/foreign file — `csvEscape` doubles every `"`, so a file we wrote cannot exhibit it |
 | 151 | "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted in eight places | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open, DOC-INTEGRITY — the generator installs JSDOM before its dynamic `import`, so the stated rationale for several DOM-free rules is dead. ★★★ **NOT a licence to delete those rules** — a rule with a false rationale can still be correct, and `csv-line-scan.ts` already re-grounded itself on a different argument. The stakes are §36(a) and §49, where the false claim is the reason an allow-list pass is NOT applied to a model-writable field; neither has been probed |
+| 152 | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports NO import loss, because the import signal and the §103 documents flag ride ONE call | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | open — the one load path of six with no `reportFor`, and its stated reason (documents-only, so neither raising nor lowering the flag would be true) is CORRECT for truncation and does NOT carry over to import diagnostics. Fix is to split the two signals. ★★ Even split, `droppedRows` is WORKSPACE-WIDE (3 increment sites, no section attribution), so the count cannot say whether the lost rows were the tasks/RAID this path APPLIES or a section it DISCARDS |
 
 ★★ **The table's CONTIGUOUS run stops at §128 and has done since 2026-08-08.** Past that only §143,
 §144, §150 and §151 carry an index row; §129–§142 and §145–§149 carry none.
@@ -9906,3 +9907,70 @@ version is on the path of least resistance in both directions.
 ★ Deliberately NOT done here: this branch owns a CSV fix, and rewriting a sanitizer rationale in
 AGENTS.md on the back of it would be an unrelated change to the one always-loaded file. §97 already
 demonstrates the shape a scoped, measured retraction takes — copy that, per site, with a probe.
+
+## 152. `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — open, the two signals need splitting
+
+Found by the cold review of the branch closing §105, 2026-08-16. **Not introduced by that branch** —
+it is the residue of the fix that took `lastImportDroppedRows` from one reporting call site to five.
+
+`TruncationOps.reportFor` (`use-load-truncation.ts`) carries **two independent signals on one call**:
+the §103 documents-truncation flag, and the CSV/Markdown import diagnostics (`lastImportDroppedRows`,
+`lastImportUnterminatedQuote`). Bundling them is what stopped the import signal drifting away from the
+load paths — the census test in that file's suite asserts a `reportFor` per `backend.load()`. But it
+also means a path that must NOT touch the truncation flag cannot report an import loss either.
+
+`onOpenStorageFile` (`use-storage-backend.ts`) is that path, and the only one of six with no
+`reportFor`. Enumerate the callers rather than trusting a count here:
+
+```
+grep -rn "reportFor(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+★ That returns **6** lines and they are NOT the six paths — one is a comment in `local-file-backend.ts`
+quoting this very command, so it is 5 reporting call sites, and the sixth path is the one that does not
+appear at all. A grep that matches its own documentation is a recurring trap in this repo; read the
+hits, do not count them.
+
+**Its stated reason is correct, and correct only for truncation.** The handler applies `loaded.tasks`
+and `loaded.raid` and nothing else — absences and shifts are deliberately not restored, and documents
+never are — so raising the flag would warn about documents the user still holds, and lowering it would
+clear a warning that is still true of the live ones. Neither describes the workspace that is live.
+★★★ That argument does **not** carry over to import diagnostics, and reading the suppression as
+justified for both is the trap: the rows this path drops are precisely the ones it is about to apply.
+
+**Measured.** `droppedRows` is incremented by the decoders at three sites
+(`grep -c "diag.droppedRows++" src/app/csv-codecs-decode.ts` → 3), each inside a per-entity row loop,
+into **one workspace-wide counter with no section attribution**. So a malformed CSV opened through this
+handler can silently lose task or RAID rows with nothing shown at all.
+
+### The fix, and the part of it that is not a fix
+
+Split the two signals: report the import loss without touching the §103 documents flag. That is small
+and mechanical.
+
+★★ **It does not close the whole finding.** Because the counter is workspace-wide, even a split report
+says "N rows were dropped" without saying whether those rows were the tasks/RAID this path APPLIES or
+a section it DISCARDS — and the two are different losses with different remedies. Per-section
+attribution is a separate, larger change to `ImportDiag` and every decoder that writes it. Do not
+record §152 as closed on the strength of the split alone.
+
+★★★ **Whoever does it must fire `storageOpenedToast` BEFORE the report, never after.** The toast
+surface is single-slot (`useToast` holds a `useState<Toast | null>`; `showToast` is a bare
+`setToast(...)`), so of two calls in one stretch only the LAST is seen. Putting a diagnostic in front
+of a confirmation is exactly the defect the §105 branch's own fix round shipped and had to undo — the
+warning was raised, overwritten, and lost, with the suite green because the test asserted `showToast`
+had been CALLED rather than reading the surviving toast. Assert on the LAST call.
+
+★ `use-storage-backend.ts` stands at **799** lines against the hard 800 cap (it is not in
+`docs/baselines/file-sizes.json`, so the cap applies rather than a baseline, and `size:check` counts
+`wc -l` plus one). That is one line of headroom — which is why the gap is recorded there as a single
+long comment line and why any real fix has to extract rather than inline. Re-read the number, do not
+trust this line:
+
+```
+node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+```
+
+★ Deliberately NOT done on the branch that found it: that branch owns a CSV quoting fix, and the
+review round that surfaced this was a toast-ORDERING fix. Splitting a signal channel on the back of an
+ordering change is how an ordering change acquires a behavioural regression.
