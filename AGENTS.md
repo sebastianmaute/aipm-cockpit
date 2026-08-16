@@ -1622,6 +1622,38 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   method, `t()` then misses it in the dict and throws on `undefined.replace`, crashing the app through
   the top-level `ErrorBoundary`. ★ A non-string or absent `kind` IS dropped: `activityGroupOf` calls
   `kind.startsWith` and there is nothing honest to display.
+  ★★ **An entry also carries an OPTIONAL `actor` (`"user"` | `"ai"` | `"integration"`), and ABSENCE IS
+  NOT `"user"`.** Every entry written before 0.243.0 has a genuinely unknown author, so defaulting the
+  missing case would attribute the entire pre-release trail to whoever happens to be reading it.
+  `ActivityEntry` keeps the field optional for exactly that reason — render the gap as unattributed,
+  never as a person, and never filter as though absence meant anything.
+  ★ **It rides all SIX write paths for free, and that is not a violation of the six-write-paths rule
+  above.** Every path serialises the whole entry as JSON wholesale (CSV as one `config,<json>` cell,
+  Markdown as a fenced json block), so a new FIELD on a meta-blob entry costs no per-path work at all.
+  The landmine is about a new SLICE. ★★ Do NOT generalise that to an `ENTITY_SPECS` entity, where a new
+  column really does cost every one of the six — the exemption is a property of the blob, not of the
+  activity log.
+  ★★★ **`sanitizeActivityEntry` KEEPS an unknown-but-string `actor`** — the same forward-compat reason
+  it keeps an unknown `kind` directly above, and a non-string one is stripped the same way. **So every
+  actor lookup needs an own-property guard, never a bare index:** `actor: "toString"` otherwise resolves
+  a `Function` prototype method, which is the crash shape the `activityMessageKey` `hasOwnProperty`
+  check already exists to prevent. Nothing gates this and a green suite will not find it — the fixture
+  has to carry the hostile string.
+  ★★★ **THE AI DISPATCHER'S ENTITY WRITERS NOW LOG** (`actor: "ai"`, reusing the EXISTING kinds). They
+  logged NOTHING before 0.243.0, so the trail was blind to every AI-made change and any older reasoning
+  that read the log as "what happened to this project" was wrong by omission. ONE kind was added —
+  `bulk.delete` — because recording an irreversible mass delete as `bulk.edit` misdescribed it.
+  ★★ **The actor is stamped at the WIRING, not the leaf.** `useActivityLog` returns pre-stamped
+  `logActivityUser`/`logActivityChangesUser`, because a leaf logging a generic kind cannot know whether
+  a user, the assistant or a background pull reached it. **A call site's spelling is therefore NOT its
+  actor** — never infer one by grepping for the kind; find which wrapper the site was handed.
+  Integrations (Jira sync + the four calendar background auto-pulls) stamp `"integration"`.
+  ★ **`completion-trend.ts` counts `task.created`/`task.deleted`** (its `COUNT_KINDS` set), so tasks the
+  AI creates now move that trend. Intended, but it is a change to an EXISTING derived metric — the
+  trend can shift with no user action behind it.
+  ★ `bulk.delete` is deliberately NOT in `COUNT_KINDS`: that set's members each move the metric by ±1
+  per entry, while one `bulk.delete` entry carries a count of N — adding it would under-count by N−1.
+  Closing that needs the count read out of the entry, not another member in the set.
   ★ **`mergeActivityLogs` NARROWS the loss window, it does not close it.** An entry appended on device A
   between B's load and B's save is still lost; closing it needs append-level writes the meta-blob shape
   cannot express. Do not record as solved.
