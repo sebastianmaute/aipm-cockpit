@@ -177,12 +177,12 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 144 | The rich-text toolbar's 15 controls are invisible to every gate, and cost 15 tab stops per editor | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED 2026-08-12** — (b) closed the a11y-gate reachability gap; (a) built the roving-tabindex keyboard contract in `toolbar-roving.ts` + `rich-text-toolbar.tsx` and flipped `role="group"` to `role="toolbar"`, cutting the row from 15 tab stops to 1. Mutation-proved (portal guard 1 red, `tabIndex` ternary 3 red) and browser-proved (`e2e/rich-text-toolbar-keyboard.spec.ts`). Full closing detail in the entry below |
 | 150 | A BALANCED pair of stray quotes MISLABELS rows across a CSV section boundary instead of losing them | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open, **UNDECIDABLE — no fix is proposed**. A severity regression of §105's fix, not a new failure: the same file lost the same rows before it. Measured — one `"` in a task cell and one in a later milestone cell make quote state carry across the `# MILESTONES` marker, so milestones 6 and 7 import as TASKS (`taskName` `M6`/`M7`) and `milestones` comes back EMPTY. Silent on both sides of the fix (`droppedRows` 0, `unterminatedQuote` false). Needs a hand-edited/truncated/foreign file — `csvEscape` doubles every `"`, so a file we wrote cannot exhibit it |
 | 151 | "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted in eight places | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open, DOC-INTEGRITY — the generator installs JSDOM before its dynamic `import`, so the stated rationale for several DOM-free rules is dead. ★★★ **NOT a licence to delete those rules** — a rule with a false rationale can still be correct, and `csv-line-scan.ts` already re-grounded itself on a different argument. The stakes are §36(a) and §49, where the false claim is the reason an allow-list pass is NOT applied to a model-writable field; neither has been probed |
-| 152 | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports NO import loss, because the import signal and the §103 documents flag ride ONE call | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | open — the one load path of six with no `reportFor`, and its stated reason (documents-only, so neither raising nor lowering the flag would be true) is CORRECT for truncation and does NOT carry over to import diagnostics. Fix is to split the two signals. ★★ Even split, `droppedRows` is WORKSPACE-WIDE (3 increment sites, no section attribution), so the count cannot say whether the lost rows were the tasks/RAID this path APPLIES or a section it DISCARDS |
+| 152 | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports NO import loss, because the import signal and the §103 documents flag ride ONE call | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | open — the one load path of six with no `reportFor`, and its stated reason (documents-only, so neither raising nor lowering the flag would be true) is CORRECT for truncation and does NOT carry over to import diagnostics. Fix is to split the two signals. ★★ Even split, `droppedRows` is WORKSPACE-WIDE (FIVE increment sites — 3 CSV + 2 Markdown — no section attribution), so the count cannot say whether the lost rows were the tasks/RAID this path APPLIES or a section it DISCARDS. ★ Not in conflict with §103's "two loads deliberately do NOT report": that counts non-reporting EXITS, this counts load SITES |
 
 ★★ **The table's CONTIGUOUS run stops at §128 and has done since 2026-08-08.** Past that only §143,
-§144, §150 and §151 carry an index row; §129–§142 and §145–§149 carry none.
-Reproduce: `for n in $(seq 129 151); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`
-— 23 entries, 4 rows, **19 missing**. Those four rows were added because a new entry with no index row
+§144, §150, §151 and §152 carry an index row; §129–§142 and §145–§149 carry none.
+Reproduce: `for n in $(seq 129 152); do printf "%s %s\n" "$n" "$(grep -c "^| $n |" docs/open-followups.md)"; done`
+— 24 entries, 5 rows, **19 missing**. Those four rows were added because a new entry with no index row
 is a new entry nobody finds; backfilling the nineteen that are missing is real work and is not done
 here, so do NOT read a present row as evidence an entry is newer or more important than an absent one.
 
@@ -190,7 +190,12 @@ here, so do NOT read a present row as evidence an entry is newer or more importa
 counts and its `seq` range are transcribed, not derived, so adding one row silently makes three
 statements wrong at once (the range, the row count, the missing count). §150's row did exactly that —
 it left this paragraph reading "two rows above", "fourteen missing" and a range ending at 144, all
-three false, and the paragraph went unchanged in the commit that broke it. **If you add a row above,
+three false, and the paragraph went unchanged in the commit that broke it. ★★★ **§152's row then did
+it AGAIN, in a commit whose author had read this paragraph** — the range stayed at 151 and the count
+at "23 entries, 4 rows", both false the moment the row landed, and it was a cold REVIEW that caught it
+rather than the instruction sitting directly beneath the row. Three instances now. An instruction a
+reader must remember to obey is not a guard; treat this paragraph as the standing candidate for a real
+gate. **If you add a row above,
 re-run the command in this paragraph and rewrite every number it prints.** Nothing gates this:
 `docs:claims:check` only checks `path:LINE` citations, of which this paragraph has none.
 
@@ -9916,32 +9921,100 @@ it is the residue of the fix that took `lastImportDroppedRows` from one reportin
 `TruncationOps.reportFor` (`use-load-truncation.ts`) carries **two independent signals on one call**:
 the §103 documents-truncation flag, and the CSV/Markdown import diagnostics (`lastImportDroppedRows`,
 `lastImportUnterminatedQuote`). Bundling them is what stopped the import signal drifting away from the
-load paths — the census test in that file's suite asserts a `reportFor` per `backend.load()`. But it
-also means a path that must NOT touch the truncation flag cannot report an import loss either.
+load paths. But it also means a path that must NOT touch the truncation flag cannot report an import
+loss either.
 
-`onOpenStorageFile` (`use-storage-backend.ts`) is that path, and the only one of six with no
-`reportFor`. Enumerate the callers rather than trusting a count here:
+★★★ **DO NOT RELY ON THE `reportFor`-PER-`load()` CENSUS TO CATCH A NEW PATH — IT CANNOT SEE THE FILE
+THIS ENTRY IS ABOUT.** The census (`use-load-truncation.test.ts`) source-scans a hardcoded `OPS_FILES`
+list holding `use-storage-file-ops.ts` and `use-storage-turso-ops.ts` ONLY, so `use-storage-backend.ts`
+— which holds THREE of the six load sites, including `onOpenStorageFile` — is never read, and it sits
+at 3 loads / 2 reports green today. Reproduce both halves:
 
 ```
+grep -n "OPS_FILES *=" src/app/use-load-truncation.test.ts
+for f in src/app/use-storage-backend.ts src/app/use-storage-file-ops.ts src/app/use-storage-turso-ops.ts; do
+  echo "$f loads=$(grep -o '\.load()' $f | wc -l) reports=$(grep -o 'reportFor(' $f | wc -l)"; done
+```
+
+★★ It is also a TOKEN count, not a reachability proof, so it says nothing about whether a `reportFor`
+present in the source is reached at runtime. What actually pins the five reporting paths is
+behavioural: `24687cd7` "test(storage): pin import-diagnostic reachability on all five reportFor
+paths", whose mutation result `use-storage-backend.test.tsx` records beside the same warning about
+this census. An earlier revision of THIS entry credited the census with the protection — a claim the
+branch's own test comment already refuted, one file away.
+
+`onOpenStorageFile` (`use-storage-backend.ts`) is that path, and the only one of the six load sites
+that APPLY a workspace to render scope with no `reportFor`. Enumerate the SITES — a `reportFor` grep
+structurally cannot, since the path in question is the one that does not appear in it:
+
+```
+grep -rnE "await (backend|target|targetBackend)\.load\(\)" src/app --include=*.ts | grep -v "\.test\."
 grep -rn "reportFor(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
 ```
 
-★ That returns **6** lines and they are NOT the six paths — one is a comment in `local-file-backend.ts`
-quoting this very command, so it is 5 reporting call sites, and the sixth path is the one that does not
-appear at all. A grep that matches its own documentation is a recurring trap in this repo; read the
-hits, do not count them.
+★★ **A BARE `grep "\.load()"` IS THE WRONG COMMAND AND AN EARLIER REVISION HERE SHIPPED IT** — it
+returns **15**, because `store.load()`, the action-learning store and several comments all match, and
+it was quoted under a sentence claiming seven. Anchoring on `await` and on the three receiver names
+returns exactly the 7 real call sites with no comment noise. Re-run it rather than trusting the number.
+
+★ The second returns **6** lines and they are NOT the six paths — one is a comment in
+`local-file-backend.ts` quoting that very command, so it is 5 reporting call sites plus a self-match.
+A grep matching its own documentation is a recurring trap in this repo; read the hits, do not count
+them.
+
+★★ THE FIRST RETURNS **7**, and the extra one is correctly out of scope: `use-portfolio-health.ts`
+loads other projects' workspaces to compute portfolio health and never applies one to render scope,
+which is exactly the qualifier `TruncationOps.reportFor`'s own docstring uses ("every `backend.load()`
+whose workspace is APPLIED to render scope"). Six is the count of APPLYING sites, not of `.load()`
+calls.
+
+★★★ **§103 SAYS "TWO LOADS DELIBERATELY DO NOT REPORT" AND IS NOT IN CONFLICT WITH THE "ONE OF SIX"
+HERE — the two entries count different things, and a reader who spots the mismatch without this note
+concludes one of them is wrong.** §152 counts load SITES; §103 counts non-reporting EXITS. The mount
+effect's empty-load REFUSAL branch returns before the `reportFor` further down the same site, so that
+one site has both a reporting and a non-reporting exit.
+
+★★ That refusal is therefore a SECOND place import diagnostics are suppressed, and this entry did not
+mention it. It matters on its own terms: a file malformed enough that every row is dropped decodes to
+an EMPTY workspace, the refusal fires to protect the live project, the user is told "kept current
+data", and nothing anywhere says rows were dropped. Whoever splits the signals should decide that case
+deliberately rather than inherit it.
 
 **Its stated reason is correct, and correct only for truncation.** The handler applies `loaded.tasks`
 and `loaded.raid` and nothing else — absences and shifts are deliberately not restored, and documents
 never are — so raising the flag would warn about documents the user still holds, and lowering it would
 clear a warning that is still true of the live ones. Neither describes the workspace that is live.
 ★★★ That argument does **not** carry over to import diagnostics, and reading the suppression as
-justified for both is the trap: the rows this path drops are precisely the ones it is about to apply.
+justified for both is the trap: the rows this path drops MAY INCLUDE the tasks and RAID it is about to
+apply. ★ "May include", not "are precisely" — the counter is bumped for every section, so a drop
+confined to milestones raises it too, and this path discards milestones. That is weaker than the
+overclaim an earlier revision made here and is still more than enough to defeat a truncation-only
+justification.
 
-**Measured.** `droppedRows` is incremented by the decoders at three sites
-(`grep -c "diag.droppedRows++" src/app/csv-codecs-decode.ts` → 3), each inside a per-entity row loop,
-into **one workspace-wide counter with no section attribution**. So a malformed CSV opened through this
-handler can silently lose task or RAID rows with nothing shown at all.
+**Measured — FIVE increment sites, not three, and the two that are easiest to miss are the Markdown
+ones.** `droppedRows` is bumped into **one workspace-wide counter with no section attribution**:
+
+```
+grep -rn "droppedRows[+][+]" src/app --include=*.ts | grep -v "\.test\."
+```
+
+→ `csv-codecs-decode.ts` ×3, `markdown-codecs-core.ts` ×1, `markdown-codecs-decode.ts` ×1. All five sit
+in row loops, though only `csvToTasks` is per-ENTITY — the other two CSV sites are generic collectors
+shared across entities, and both Markdown sites iterate rows of whatever table they were handed.
+
+★★★ **A CSV-ONLY GREP IS THE TRAP, AND THIS ENTRY FELL INTO IT.** The first revision cited
+`grep -c "diag.droppedRows++" src/app/csv-codecs-decode.ts` → 3 under a sentence saying "the decoders",
+and the command was honest about its own scope while the sentence was not. `onOpenStorageFile` reaches
+Markdown as readily as CSV (`local-file-backend.ts` branches
+`this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag)`), and the repo
+already warns about this scope split in two places — `local-file-backend.ts` and `workspace.ts` both
+carry a "CSV ONLY, despite `lastImportDroppedRows` above covering CSV *and* MD" note about the sibling
+`lastImportUnterminatedQuote` field. Undercounting here understates the per-section-attribution work
+below and would ship Markdown unattributed.
+
+So a malformed CSV **or Markdown** file opened through this handler can silently lose task or RAID rows
+with nothing shown at all — `reportImportDiagnostics` is the sole reader of both import fields and its
+only output is a toast, so a suppressed call leaves no banner and no `logDiag` trail either.
 
 ### The fix, and the part of it that is not a fix
 
@@ -9951,12 +10024,13 @@ and mechanical.
 ★★ **It does not close the whole finding.** Because the counter is workspace-wide, even a split report
 says "N rows were dropped" without saying whether those rows were the tasks/RAID this path APPLIES or
 a section it DISCARDS — and the two are different losses with different remedies. Per-section
-attribution is a separate, larger change to `ImportDiag` and every decoder that writes it. Do not
-record §152 as closed on the strength of the split alone.
+attribution is a separate, larger change to `ImportDiag` and **all five** decoder sites that write it,
+across BOTH codec families. Do not record §152 as closed on the strength of the split alone.
 
 ★★★ **Whoever does it must fire `storageOpenedToast` BEFORE the report, never after.** The toast
-surface is single-slot (`useToast` holds a `useState<Toast | null>`; `showToast` is a bare
-`setToast(...)`), so of two calls in one stretch only the LAST is seen. Putting a diagnostic in front
+surface is single-slot (`useToast` holds a `useState<Toast | null>`; `showToast` REPLACES it, with no
+queue and no stacking — it clears the pause ref and calls `setToast(...)`), so of two calls in one
+stretch only the LAST is seen. Putting a diagnostic in front
 of a confirmation is exactly the defect the §105 branch's own fix round shipped and had to undo — the
 warning was raised, overwritten, and lost, with the suite green because the test asserted `showToast`
 had been CALLED rather than reading the surviving toast. Assert on the LAST call.
