@@ -2,11 +2,14 @@
 import { describe, it, expect } from "vitest";
 import {
   buildExportSections,
+  isRichCell,
   TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
   MILESTONE_RICH_COLUMNS,
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
+import type { ExportCell, RichCell } from "./export-sections";
+import { descriptionTextWithBreaks } from "./rich-text-projection";
 import {
   CSV_COLUMNS,
   RAID_CSV_COLUMNS,
@@ -26,6 +29,17 @@ import { nearestOccurrence } from "./recurrence";
 // ---------------------------------------------------------------------------
 // Minimal fixture helpers
 // ---------------------------------------------------------------------------
+
+/** What a FLAT renderer (CSV/XLSX/PPTX text) sees in a cell.
+ *
+ *  ★ A rich column now carries `{ html, text }`; every assertion written
+ *  against the pre-RichCell flat projection compares against `.text`, so the
+ *  guarantee those assertions encode ("the flat value is unchanged") is
+ *  preserved rather than relaxed — the byte-identity test below pins `.text`
+ *  against `descriptionTextWithBreaks` directly. */
+function flatCell(cell: ExportCell): string | number {
+  return isRichCell(cell) ? cell.text : cell;
+}
 
 function makeTask(id: number): Task {
   return {
@@ -167,7 +181,7 @@ describe("buildExportSections", () => {
     const milSec = sections[2];
     expect(milSec.columns).toEqual(MILESTONES_CSV_COLUMNS);
     expect(milSec.rows).toHaveLength(2);
-    expect(milSec.rows[0]).toEqual(
+    expect(milSec.rows[0].map(flatCell)).toEqual(
       MILESTONES_CSV_COLUMNS.map((c) => milestoneFieldToString(ms[0], c))
     );
   });
@@ -219,7 +233,7 @@ describe("buildExportSections", () => {
     // Each row must equal what fieldToString produces for the same task
     tasks.forEach((task, idx) => {
       const expectedRow = CSV_COLUMNS.map((c) => fieldToString(task, c));
-      expect(taskSec.rows[idx]).toEqual(expectedRow);
+      expect(taskSec.rows[idx].map(flatCell)).toEqual(expectedRow);
     });
   });
 
@@ -237,7 +251,7 @@ describe("buildExportSections", () => {
     expect(raidSec.columns).toEqual(RAID_CSV_COLUMNS);
     raidItems.forEach((r, idx) => {
       const expectedRow = RAID_CSV_COLUMNS.map((c) => raidFieldToString(r, c));
-      expect(raidSec.rows[idx]).toEqual(expectedRow);
+      expect(raidSec.rows[idx].map(flatCell)).toEqual(expectedRow);
     });
   });
 
@@ -477,7 +491,7 @@ describe("rich descriptions export as text (slice B)", () => {
     const sections = buildExportSections(richWorkspace(), richConfig, "en-US");
     const section = sections.find((s) => s.key === key);
     expect(section).toBeDefined();
-    return (section?.rows ?? []).flat().join(" ");
+    return (section?.rows ?? []).flat().map(flatCell).join(" ");
   }
 
   it("emits no markup in raid, milestone or change rows", () => {
@@ -514,7 +528,10 @@ describe("rich descriptions export as text (slice B)", () => {
       ],
     };
     const sections = buildExportSections(ws, richConfig, "en-US");
-    const raid = (sections.find((s) => s.key === "raid")?.rows ?? []).flat().join(" ");
+    const raid = (sections.find((s) => s.key === "raid")?.rows ?? [])
+      .flat()
+      .map(flatCell)
+      .join(" ");
     // ★ The separator is a NEWLINE, not a space: exports now carry
     // descriptionTextWithBreaks, so a renderer can lay the boundary out as a
     // real paragraph break. Fusing (the bug this test was written for) is still
@@ -588,7 +605,7 @@ describe("task descriptions are projected like every other rich field", () => {
     const tasks = sections.find((s) => s.key === "tasks");
     const col = tasks!.columns.indexOf("description");
     expect(col).toBeGreaterThanOrEqual(0);
-    const cell = String(tasks!.rows[0][col]);
+    const cell = String(flatCell(tasks!.rows[0][col]));
     expect(cell).not.toContain("<p>");
     expect(cell).toBe("Vendor delay\nMitigation plan");
   });
@@ -610,6 +627,72 @@ describe("task descriptions are projected like every other rich field", () => {
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const raid = sections.find((s) => s.key === "raid");
     const col = raid!.columns.indexOf("description");
-    expect(String(raid!.rows[0][col])).toBe("one\ntwo");
+    expect(String(flatCell(raid!.rows[0][col]))).toBe("one\ntwo");
+  });
+});
+
+describe("rich cells carry both representations (§141(b))", () => {
+  const html = "<h2>Plan</h2><ol><li>first</li><li>second</li></ol>";
+
+  function wsWithTask(overrides: Partial<Task>): Workspace {
+    return { ...makeBaseWorkspace(), tasks: [{ ...makeTask(1), ...overrides }] };
+  }
+
+  function tasksSectionOf(ws: Workspace) {
+    const section = buildExportSections(ws, defaultExportConfig, "en-US").find(
+      (s) => s.key === "tasks"
+    );
+    expect(section).toBeDefined();
+    return section!;
+  }
+
+  it("emits a RichCell for a rich column", () => {
+    const section = tasksSectionOf(wsWithTask({ description: html }));
+    const col = section.columns.indexOf("description");
+    expect(col).toBeGreaterThanOrEqual(0);
+    const cell = section.rows[0][col];
+    expect(isRichCell(cell)).toBe(true);
+    expect((cell as RichCell).html).toBe(html);
+  });
+
+  it("keeps .text byte-identical to the previous flat projection", () => {
+    // This is the regression that proves the FLAT consumers did not move.
+    const section = tasksSectionOf(wsWithTask({ description: html }));
+    const col = section.columns.indexOf("description");
+    expect(col).toBeGreaterThanOrEqual(0);
+    const cell = section.rows[0][col] as RichCell;
+    expect(cell.text).toBe(descriptionTextWithBreaks(html));
+  });
+
+  it("leaves a NON-rich column a plain string", () => {
+    // ★ The plan quoted "title"; the real task column key is `taskName`
+    // (CSV_COLUMNS), and indexOf("title") would be -1 — a cell that reads
+    // `undefined` and passes `isRichCell(...) === false` for the wrong reason.
+    const section = tasksSectionOf(wsWithTask({ description: html, taskName: "T" }));
+    const col = section.columns.indexOf("taskName");
+    expect(col).toBeGreaterThanOrEqual(0);
+    expect(isRichCell(section.rows[0][col])).toBe(false);
+    expect(section.rows[0][col]).toBe("T");
+  });
+
+  it("carries a RichCell in EVERY rich register column, not only tasks", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      raid: [{ ...makeRaidItem(1), description: html, mitigation: html }],
+      milestones: [{ ...makeMilestone(1), description: html }],
+    };
+    const cfg: ExportConfig = { ...defaultExportConfig, milestones: true };
+    const sections = buildExportSections(ws, cfg, "en-US");
+    for (const [key, rich] of [
+      ["raid", RAID_RICH_COLUMNS],
+      ["milestones", MILESTONE_RICH_COLUMNS],
+    ] as const) {
+      const section = sections.find((s) => s.key === key)!;
+      for (const name of rich) {
+        const col = section.columns.indexOf(name);
+        expect(col).toBeGreaterThanOrEqual(0);
+        expect(isRichCell(section.rows[0][col])).toBe(true);
+      }
+    }
   });
 });

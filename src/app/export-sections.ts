@@ -55,11 +55,34 @@ import type {
 } from "./types";
 import type { KnowledgeLink } from "./document-link";
 
+/** A cell whose stored value is rich HTML.
+ *
+ *  ★★ IT CARRIES BOTH REPRESENTATIONS, ALWAYS. A renderer that can lay out
+ *  paragraphs parses `html`; every other one reads `text`. That redundancy is
+ *  the whole guarantee — a flat consumer can never accidentally receive markup,
+ *  which is what a mode flag or a side-channel would have risked.
+ *
+ *  ★★ THIS MODULE STAYS DOM-FREE. The cell CARRIES html and never parses it —
+ *  `htmlToRichLines` is DOMParser-bound, so every parse belongs in the
+ *  DOM-bound renderers. Importing it here would put a DOM dependency in the
+ *  pure section model. */
+export type RichCell = { html: string; text: string };
+
+export type ExportCell = string | number | RichCell;
+
+/** ★ Sound only because every NON-rich cell this module emits is a `string` or
+ *  a `number` — each one comes from a `*FieldToString` helper, an explicit
+ *  `String(...)`, or a string field. No section builder emits any other object,
+ *  so "is an object with an `html` key" cannot collide with a plain cell. */
+export function isRichCell(cell: ExportCell): cell is RichCell {
+  return typeof cell === "object" && cell !== null && "html" in cell;
+}
+
 export type ExportSection = {
   key: ExportSectionKey;
   title: string;       // localized section heading
   columns: string[];   // header row (display labels)
-  rows: (string | number)[][];  // body rows, one entry per entity
+  rows: ExportCell[][];  // body rows, one entry per entity
 };
 
 // ---------------------------------------------------------------------------
@@ -93,8 +116,9 @@ export const CHANGE_RICH_COLUMNS: ReadonlySet<string> = new Set([
   "resolutionNotes",
 ]);
 
-function richCell(value: string, column: string, rich: ReadonlySet<string>): string {
-  return rich.has(column) ? descriptionTextWithBreaks(value) : value;
+function richCell(value: string, column: string, rich: ReadonlySet<string>): ExportCell {
+  if (!rich.has(column)) return value;
+  return { html: value, text: descriptionTextWithBreaks(value) };
 }
 
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {

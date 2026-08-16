@@ -37,8 +37,18 @@ export function htmlEscape(s: unknown): string {
  *  ★★ Both orderings are wrong in a different direction. Substituting first
  *  means htmlEscape then turns the <br> we inserted into a visible "&lt;br&gt;";
  *  skipping the escape to avoid that would let a literal "<br>" in user content
- *  through unescaped. Escape, then substitute — nothing else. */
-export function htmlCellWithBreaks(cell: unknown): string {
+ *  through unescaped. Escape, then substitute — nothing else.
+ *
+ *  ★★★ `string | number`, NOT `unknown`. This is the ONE consumer of an export
+ *  cell that tsc would not name when the cell type widened — `unknown` accepts
+ *  a RichCell silently and emits "[object Object]" into an HTML table. The
+ *  narrow signature is what makes the widening safe; do not loosen it.
+ *
+ *  ★ `htmlEscape` below is still `unknown`-typed and is a second hole of the
+ *  same shape, but not on this path: every export-cell call site goes through
+ *  THIS function, and `htmlEscape`'s own callers pass titles, column names and
+ *  lang codes — all `string` by construction. */
+export function htmlCellWithBreaks(cell: string | number): string {
   return htmlEscape(cell).replace(/\n/g, "<br>");
 }
 
