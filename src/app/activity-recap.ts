@@ -2,15 +2,17 @@
 //
 // ★★ ITS OWN MODULE, NOT PART OF `activity-prompt.ts`, and the reason is a
 //    RUNTIME CYCLE rather than tidiness. `history-search.ts` imports the VALUE
-//    `renderActivityEntry` from `activity-prompt.ts`; this renderer needs the
-//    VALUE `RECAP_WINDOW_DAYS` from `history-search.ts`. Putting it in
+//    `renderActivityEntry` from `activity-prompt.ts`; this module needs the
+//    VALUE `summarizeRecentActivity` from `history-search.ts`. Putting it in
 //    `activity-prompt.ts` would close that loop with values on both arcs (a
-//    type-only import is erased and would have been harmless — the constant is
-//    not). A third module importing from both has no cycle, needs no constant
+//    type-only import is erased and would have been harmless — the function is
+//    not). A third module importing from both has no cycle, needs nothing
 //    relocated, and leaves `activity-prompt.ts` doing one thing.
 //
 // ★ i18n-free on purpose — see ACTOR_PHRASE.
-import { type ActivitySummary, RECAP_WINDOW_DAYS } from "./history-search";
+import type { ActivityEntry } from "./activity-log";
+import { type ActivitySummary, summarizeRecentActivity } from "./history-search";
+import type { AiConfig } from "./settings-types";
 import { dayInZone } from "./timezone";
 
 /** Bucket → the English noun phrase the model reads. ★ Plain literals, NOT
@@ -23,6 +25,11 @@ const ACTOR_PHRASE: Record<keyof ActivitySummary["byActor"], string> = {
   integration: "by an integration",
   unknown: "of unknown origin",
 };
+
+/** ★ "1 changes" reads as sloppy to a human and is noise to the model. The
+ *  WINDOW needs it too now that the summary carries its own `days`: a one-day
+ *  window is legal and would otherwise render "in the last 1 days". */
+const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 /**
  * One sentence telling the model that history exists and is searchable.
@@ -57,8 +64,42 @@ export function buildActivityRecapBlock(
   const latestDay = dayInZone(summary.latestAt, tz) ?? summary.latestAt;
 
   return [
-    `Recent project activity: ${summary.total} changes in the last ${RECAP_WINDOW_DAYS} days`,
+    // ★★ THE WINDOW COMES FROM THE SUMMARY, never from `RECAP_WINDOW_DAYS`.
+    //    `summarizeRecentActivity` takes an overridable `days`, so restating
+    //    the constant here would misstate the window to the model.
+    `Recent project activity: ${plural(summary.total, "change")} in the last ${plural(summary.days, "day")}`,
     `(${breakdown}latest ${latestDay}).`,
     "Use search_history to read them.",
   ].join(" ");
+}
+
+/**
+ * The dispatcher's entry point: the recap toggle plus the scan behind it.
+ *
+ * ★ Gate and scan live together so a switched-off recap SKIPS the work rather
+ *   than hiding its result — the feature costs nothing for a user who does not
+ *   want it. Keeping it here rather than inline in `use-chat-dispatcher.ts`
+ *   also makes it testable: that hook is coverage-excluded UI glue.
+ *
+ * ★★ `activityRecap` IS NOT YET ON `AiConfig` — it is added, with its Settings
+ *    toggle, in the task after this one. Until then the field cannot be NAMED
+ *    on the type, so it is read through a double assertion. The read is
+ *    DEFAULT-ON (`!== false`, matching `groundInGuides`/`actionSuggestions`)
+ *    and stays correct VERBATIM once the field lands: adding it to `AiConfig`
+ *    requires no edit here. Drop the assertion then if you like — it is
+ *    redundant at that point, not wrong.
+ *
+ * ★ Returns `undefined`, never `null`: the snapshot field is optional, and a
+ *   literal `null` would read as "computed, and the answer is nothing" rather
+ *   than "absent".
+ */
+export function summarizeForRecap(
+  ai: AiConfig,
+  entries: readonly ActivityEntry[],
+  today: string,
+  tz: string,
+): ActivitySummary | undefined {
+  const enabled = (ai as unknown as { activityRecap?: boolean }).activityRecap !== false;
+  if (!enabled) return undefined;
+  return summarizeRecentActivity(entries, today, tz) ?? undefined;
 }

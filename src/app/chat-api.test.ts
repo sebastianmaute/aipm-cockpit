@@ -1,10 +1,70 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildSystemPrompt,
   closeDanglingToolUses,
   maxOutputTokensFor,
   type ApiMessage,
   type ToolResultBlock,
 } from "./chat-api";
+import type { ToolDispatcher } from "./chat-tools";
+import { RECAP_WINDOW_DAYS } from "./history-search";
+
+type Snapshot = ReturnType<ToolDispatcher["getSnapshot"]>;
+
+const snapshotFixture = (over: Partial<Snapshot> = {}): Snapshot => ({
+  today: "2026-08-16",
+  language: "en-US",
+  holidayCountries: [],
+  storageKind: "browser",
+  taskCount: 3,
+  mode: "advanced",
+  enabledModules: [],
+  currentView: "chat",
+  timezone: "UTC",
+  ...over,
+});
+
+describe("buildSystemPrompt — the activity recap block", () => {
+  const summary: NonNullable<Snapshot["activitySummary"]> = {
+    total: 3,
+    byActor: { user: 3, ai: 0, integration: 0, unknown: 0 },
+    latestAt: "2026-08-16T09:00:00.000Z",
+    days: RECAP_WINDOW_DAYS,
+  };
+
+  // ★★★ THE PLACEMENT TEST. Asserting the text appears "somewhere in the
+  //    prompt" PASSES with the block in the CACHED prefix — which is the
+  //    defect, since activity changes every turn and would invalidate the
+  //    prompt cache on every message. Assert the BLOCK INDEX.
+  it("puts the activity recap in the VOLATILE block, never the cached prefix", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: summary }), [], false);
+    expect(blocks[0].text).not.toContain("Recent project activity");
+    expect(blocks[1].text).toContain("Recent project activity");
+    expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(blocks[1].cache_control).toBeUndefined();
+  });
+
+  it("omits the recap entirely when there is no summary", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: undefined }), [], false);
+    expect(blocks[1].text).not.toContain("Recent project activity");
+  });
+
+  // ★ ANTI-VACUITY for the zone hand-off: 23:30Z on the 16th is 01:30 on the
+  //   17th in Berlin, so a wiring that passed a hardcoded "UTC" — or reached
+  //   for a clock — would still say 2026-08-16 here.
+  it("renders latestAt in the SNAPSHOT's zone", () => {
+    const blocks = buildSystemPrompt(
+      "en-US",
+      snapshotFixture({
+        timezone: "Europe/Berlin",
+        activitySummary: { ...summary, latestAt: "2026-08-16T23:30:00.000Z" },
+      }),
+      [],
+      false,
+    );
+    expect(blocks[1].text).toContain("2026-08-17");
+  });
+});
 
 describe("maxOutputTokensFor", () => {
   it("floors the legacy Claude 3.0 trio at 4096 (their hard cap)", () => {

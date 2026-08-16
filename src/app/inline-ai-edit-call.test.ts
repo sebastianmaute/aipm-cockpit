@@ -21,6 +21,7 @@ const snapshot: InlineEditArgs["snapshot"] = {
   mode: "advanced",
   enabledModules: [],
   currentView: "open-points",
+  timezone: "UTC",
 };
 
 describe("callInlineEdit", () => {

@@ -153,6 +153,13 @@ export interface ActivitySummary {
    *  transition orders them wrongly, which is the trap `searchHistory`
    *  documents at length. */
   latestAt: string;
+  /** The window this summary actually counted, in days.
+   *  ★★ CARRIED, NOT RE-DERIVED BY THE RENDERER. `days` below is overridable,
+   *  so a renderer importing `RECAP_WINDOW_DAYS` would tell the model "in the
+   *  last 7 days" about a 30-day count the moment any caller passed something
+   *  else. One value, one source — the drift is impossible rather than merely
+   *  unlikely (no caller passes a non-default window today). */
+  days: number;
 }
 
 /**
@@ -204,5 +211,5 @@ export function summarizeRecentActivity(
     if (entry.timestamp > latestAt) latestAt = entry.timestamp;
   }
 
-  return total === 0 ? null : { total, byActor, latestAt };
+  return total === 0 ? null : { total, byActor, latestAt, days };
 }

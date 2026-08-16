@@ -3,6 +3,7 @@ import type { ActivityEntry, ActivityKind } from "./activity-log";
 import {
   DEFAULT_HISTORY_LIMIT,
   MAX_HISTORY_LIMIT,
+  RECAP_WINDOW_DAYS,
   searchHistory,
   summarizeRecentActivity,
 } from "./history-search";
@@ -259,6 +260,7 @@ describe("summarizeRecentActivity", () => {
       total: 4,
       byActor: { user: 1, ai: 1, integration: 1, unknown: 1 },
       latestAt: "2026-08-16T10:00:00.000Z",
+      days: RECAP_WINDOW_DAYS,
     });
   });
 
@@ -276,7 +278,19 @@ describe("summarizeRecentActivity", () => {
       total: 1,
       byActor: { user: 0, ai: 0, integration: 0, unknown: 1 },
       latestAt: "2026-08-16T10:00:00.000Z",
+      days: RECAP_WINDOW_DAYS,
     });
+  });
+
+  // ★★ THE SUMMARY CARRIES ITS OWN WINDOW. `days` is overridable, so a renderer
+  //    that re-stated `RECAP_WINDOW_DAYS` would misstate the window to the model
+  //    the moment any caller passed something else — one value, one source.
+  //    ★ The 30 case is the one a constant-importing renderer cannot pass.
+  it("reports the window it actually counted, default and overridden", () => {
+    const e = [at("2026-08-16T10:00:00.000Z", "user")];
+    expect(summarizeRecentActivity(e, "2026-08-16", "UTC")?.days).toBe(RECAP_WINDOW_DAYS);
+    expect(summarizeRecentActivity(e, "2026-08-16", "UTC", 30)?.days).toBe(30);
+    expect(summarizeRecentActivity(e, "2026-08-16", "UTC", 1)?.days).toBe(1);
   });
 
   // ★★★ THE ZONE TEST. A UTC-only fixture CANNOT fail this — the entry sits on

@@ -15,7 +15,7 @@ import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import type { ActivityEntry } from "./activity-log";
-import { searchHistory } from "./history-search";
+import { searchHistory, type ActivitySummary } from "./history-search";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import {
@@ -328,6 +328,20 @@ export type ToolDispatcher = {
      *  user's filters. Only 4 views contribute one; absent elsewhere. Lands in
      *  the VOLATILE prompt suffix — see buildSystemPrompt. */
     viewDigest?: string;
+    /** The project's effective IANA zone — the SAME value `getTimezone()`
+     *  returns. On the snapshot because `buildSystemPrompt` gets a snapshot and
+     *  nothing else, and it must render `activitySummary.latestAt` in the
+     *  project's day without reaching for a clock. */
+    timezone: string;
+    /** Bounded counts for the ambient recap: four numbers, a window and one
+     *  timestamp.
+     *  ★★★ NOT the log. `get_app_state` returns the snapshot VERBATIM, which is
+     *  precisely why `getActivityLog()` is a separate method — see its comment.
+     *  A summary is safe here for the same reason `insights` and `viewDigest`
+     *  are: bounded and small, whatever the log's size. Do NOT "complete the
+     *  pattern" by hanging the matching entries off it.
+     *  ★ Absent when the recap toggle is off or the window is empty. */
+    activitySummary?: ActivitySummary;
   };
   /** The project's activity log. ★★★ Deliberately a METHOD rather than a
    *  `getSnapshot()` field: `get_app_state` returns the snapshot VERBATIM and

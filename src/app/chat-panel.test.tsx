@@ -591,6 +591,7 @@ const snap = {
   mode: "advanced" as const,
   enabledModules: ["raid", "milestones"] as FeatureModuleId[],
   currentView: "milestones" as const,
+  timezone: "UTC",
 };
 
 const guide: OperatingGuide = {

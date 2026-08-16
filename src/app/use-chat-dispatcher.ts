@@ -16,6 +16,7 @@ import {
   toBudgetBucketSummary,
 } from "./chat-tools";
 import { resourceLogName } from "./chat-tool-summaries";
+import { summarizeForRecap } from "./activity-recap";
 import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
@@ -746,6 +747,13 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // digest that predates that write. Not worth a synchronous mirror:
           // the digest describes the SCREEN, which has not repainted yet either.
           viewDigest: viewDigestRef.current,
+          timezone: timezoneRef.current,
+          // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns
+          // the not-yet-existing settings field it reads), so a switched-off
+          // recap SKIPS the scan rather than hiding its result.
+          activitySummary: summarizeForRecap(
+            settingsRef.current.ai, activityLogRef.current, todayRef.current, timezoneRef.current,
+          ),
         };
       },
 

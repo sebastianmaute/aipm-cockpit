@@ -10,6 +10,7 @@ import type { AttachmentBlock } from "./chat-attachments";
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
+import { buildActivityRecapBlock } from "./activity-recap";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
@@ -145,6 +146,15 @@ export function buildSystemPrompt(
   // against a baseline that did not exist, and retracted). Sits before VIEW
   // STATE so the model reads "what this surface is" before "what is on it".
   const viewScopeBlock = buildViewScopeBlock(snapshot.currentView);
+  // Activity changes on EVERY turn, so this block MUST stay in the uncached
+  // suffix — in the cached prefix it would invalidate the prompt cache on every
+  // message, which costs far more than the ~20 tokens it saves.
+  // ★ The zone comes off the SNAPSHOT: this file is i18n- and clock-free, and
+  // the recap's day must agree with the `Today is …` line built beside it.
+  const activityBlock = buildActivityRecapBlock(
+    snapshot.activitySummary ?? null,
+    snapshot.timezone,
+  );
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
@@ -152,6 +162,7 @@ export function buildSystemPrompt(
     viewScopeBlock,
     viewStateBlock,
     insightsBlock,
+    activityBlock,
   ]
     .filter(Boolean)
     .join("\n");

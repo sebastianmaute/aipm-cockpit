@@ -11,6 +11,7 @@ import {
 } from "./chat-tools";
 import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
 import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
+import type { ActivitySummary } from "./history-search";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -159,6 +160,13 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       mode: "advanced" as const,
       enabledModules: [] as import("./feature-modules").FeatureModuleId[],
       currentView: "chat" as import("./nav-config").AppView,
+      timezone: "UTC",
+      activitySummary: {
+        total: 2,
+        byActor: { user: 1, ai: 1, integration: 0, unknown: 0 },
+        latestAt: "2026-06-02T08:00:00.000Z",
+        days: 7,
+      },
     })),
     getActivityLog: vi.fn(() => []),
     getTimezone: vi.fn(() => "UTC"),
@@ -531,6 +539,18 @@ describe("runTool — get_app_state and edge cases", () => {
     const d = makeDispatcher();
     const snapshot = (await runTool(d, "get_app_state", {})) as Record<string, unknown>;
     expect("activityLog" in snapshot).toBe(false);
+  });
+
+  // ★ The BOUNDED summary is allowed where the log is not, and the bound is the
+  //   whole argument — four counts, a window and one timestamp. Pinned as an
+  //   exact key set so "while we're here, carry the matching entries too" fails
+  //   rather than quietly widening what every get_app_state call ships.
+  it("carries the bounded activity summary through get_app_state verbatim", async () => {
+    const d = makeDispatcher();
+    const snapshot = (await runTool(d, "get_app_state", {})) as Record<string, unknown>;
+    const summary = snapshot.activitySummary as ActivitySummary | undefined;
+    expect(Object.keys(summary ?? {}).sort()).toEqual(["byActor", "days", "latestAt", "total"]);
+    expect(Object.keys(summary?.byActor ?? {})).toHaveLength(4);
   });
 
   it("throws on an unknown tool name", async () => {
