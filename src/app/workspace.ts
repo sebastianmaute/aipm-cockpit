@@ -476,6 +476,14 @@ export interface StorageBackend {
    */
   lastImportDroppedRows?: number;
   /**
+   * Optional: whether the LAST {@link load} hit an unterminated quote while
+   * decoding a CSV/Markdown import. Distinct from
+   * {@link StorageBackend.lastImportDroppedRows} — a dropped row was malformed
+   * and rejected, whereas unbalanced quoting ABSORBS rows into one cell so they
+   * are never counted at all.
+   */
+  lastImportUnterminatedQuote?: boolean;
+  /**
    * Optional: what the LAST {@link load} silently discarded to stay inside the
    * document caps. `entries` counts raw array entries past MAX_DOCUMENTS (an
    * upper bound — see DocTruncationDiag); `blocks` counts blocks past

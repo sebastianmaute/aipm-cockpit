@@ -39,6 +39,8 @@ export class SharePointBackend implements StorageBackend {
   readonly kind: "sp-json" | "sp-csv";
   /** Malformed rows dropped by the most recent CSV load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** Whether the most recent CSV load() hit an unterminated quote (0/false for JSON). */
+  lastImportUnterminatedQuote = false;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private location: SpFileLocation;
@@ -116,10 +118,12 @@ export class SharePointBackend implements StorageBackend {
         throw new Error(`SharePoint returned ${res.status}. Try again later.`);
       }
       this.lastImportDroppedRows = 0;
+      this.lastImportUnterminatedQuote = false;
       if (this.kind === "sp-csv") {
         const csv = await res.text();
         const ws = csvToWorkspace(csv, diag);
         this.lastImportDroppedRows = diag.droppedRows;
+        this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
         return ws;
       }
       // Validate + migrate like every other JSON backend (was a raw cast that

@@ -31,6 +31,8 @@ export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** Whether the most recent CSV/MD load() hit an unterminated quote (0/false for JSON). */
+  lastImportUnterminatedQuote = false;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private readonly idbKey: string;
@@ -128,11 +130,13 @@ export class LocalFileBackend implements StorageBackend {
       }
       const text = await readHandle(handle);
       this.lastImportDroppedRows = 0;
+      this.lastImportUnterminatedQuote = false;
       if (!text.trim()) return emptyWorkspace();
       if (this.format === "json") return jsonToWorkspace(text, { strict: true, diag });
       const ws =
         this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
       this.lastImportDroppedRows = diag.droppedRows;
+      this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
       return ws;
     } finally {
       this.lastLoadTruncation = {
